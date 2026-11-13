@@ -11,6 +11,7 @@ use archkeel_facts::pyminor::PyMinor;
 use ruff_python_ast::{Expr, Stmt};
 
 use super::output::Output;
+use crate::module::Module;
 use crate::parse::work::Work;
 use crate::pyast::{child_nodes, walk, Node};
 
@@ -21,6 +22,22 @@ pub(super) type Result<T> = std::result::Result<T, String>;
 pub struct Table {
     pub data: Result<serde_json::Value>,
     pub work: usize,
+}
+
+pub(super) fn table(
+    module: &Module,
+    minor: PyMinor,
+    collect: impl FnOnce(&Module, &mut Scan) -> Result<serde_json::Value>,
+) -> Table {
+    let mut scan = Scan::new(minor);
+    let data = collect(module, &mut scan).and_then(|data| {
+        super::output::check(&data)?;
+        Ok(data)
+    });
+    Table {
+        data,
+        work: scan.work.used(),
+    }
 }
 
 pub(super) fn counts(scan: &mut Scan, values: Vec<String>) -> Result<HashMap<String, usize>> {
@@ -47,6 +64,16 @@ impl Scan {
             output: Output::new(),
             aliases: HashMap::new(),
         }
+    }
+
+    pub fn keep(
+        &mut self,
+        rows: &mut Vec<serde_json::Value>,
+        row: serde_json::Value,
+    ) -> Result<()> {
+        self.output.value(&row)?;
+        rows.push(row);
+        Ok(())
     }
 
     pub fn owner(&mut self, parent: &str, name: &str) -> Result<Rc<str>> {

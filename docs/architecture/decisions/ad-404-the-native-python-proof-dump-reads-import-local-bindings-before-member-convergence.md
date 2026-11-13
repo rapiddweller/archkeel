@@ -22,6 +22,7 @@ from deletion eligibility. No partly assembled runtime function earns deletion c
    `py-tree`, `py-unparse` and the work counter in `py-parse`. No upward edge is added.
    Keep shared lookup inputs in `bindings.environment` and literal admission in `bindings.values`.
    Keep the result carrier and counted-name helper in `bindings.scan`, below both dump adapters.
+   Share the bounded table adapter and row retention. Read method and class definitions in one pass.
 4. Reuse the binding scan, namespace checks and statement admission. Resolve aliases only when
    the new dump populates them. The pre-import dump keeps its empty map and exact work counts.
 5. Keep the 64,000,000-unit work budget and the 33,554,432-byte output bound of AD-396.
@@ -40,7 +41,7 @@ prove those states. The PR lists measured spans, partial historical coverage and
 No Python deletion or general speed improvement is claimed.
 
 **Tests.** `test_collector_native_python_proofs.py` compares the unchanged Python functions,
-fixtures, corpora and 264 generated probes. Exact work counts hold all 78 new loop charges.
+fixtures, corpora and 264 generated probes. Exact work counts hold all new loop charges.
 It checks hostile input, time and peak memory scaling, and an empty corpus failure.
 The PR records the four-minor matrix, isolated fault injections and the final gates.
 The native self-check keeps 0 PASS, 1 FAIL, 42 UNKNOWN, 39 pinned gaps and 7 violations.

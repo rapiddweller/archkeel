@@ -137,6 +137,16 @@ fn test_minor(number: u32) -> archkeel_facts::pyminor::PyMinor {
     archkeel_facts::pyminor::PyMinor::decode(&number.to_string()).expect("supported test minor")
 }
 
+#[cfg(test)]
+fn test_module(text: &str, minor: u32) -> module::Module {
+    module::Module::new(
+        "app/probe.py".into(),
+        "app.probe".into(),
+        text.into(),
+        test_tree(text, minor).expect("fixture parses"),
+    )
+}
+
 /// Isolated tree-reader tests also use compiler-invalid ASTs. The request path never calls this.
 #[cfg(test)]
 fn test_tree(text: &str, minor: u32) -> Result<ruff_python_ast::ModModule, String> {

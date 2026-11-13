@@ -11,7 +11,6 @@ use ruff_python_ast::{Expr, ExprContext, Stmt};
 use serde_json::{json, Value};
 
 use super::environment::Env;
-use super::output::check as check_output;
 use super::scan::{counts, name, Result, Scan, Table};
 use super::{closure, names, namespace, scopes};
 use crate::module::Module;
@@ -22,15 +21,7 @@ mod methods;
 mod types;
 
 pub fn table(module: &Module, minor: PyMinor) -> Table {
-    let mut scan = Scan::new(minor);
-    let data = collect(module, &mut scan).and_then(|data| {
-        check_output(&data)?;
-        Ok(data)
-    });
-    Table {
-        data,
-        work: scan.work.used(),
-    }
+    super::scan::table(module, minor, collect)
 }
 
 fn collect(module: &Module, scan: &mut Scan) -> Result<Value> {
@@ -73,13 +64,33 @@ fn collect(module: &Module, scan: &mut Scan) -> Result<Value> {
         bound: bound_counts.into_keys().collect(),
         opaque,
     };
-    let methods = methods::table(scan, &env, &nodes)?;
-    let classes = classes::table(scan, &env, &nodes)?;
+    let (methods, classes) = definitions(scan, &env, &nodes)?;
     let types = types::table(scan, &env, &nodes)?;
     Ok(
         json!({"stable": env.stable, "stable_without_imports":stable_without_imports,
         "unique": env.unique, "methods": methods, "classes": classes, "types": types}),
     )
+}
+
+fn definitions(
+    scan: &mut Scan,
+    env: &Env<'_>,
+    nodes: &[Node<'_>],
+) -> Result<(Vec<Value>, Vec<Value>)> {
+    let mut methods = Vec::new();
+    let mut classes = Vec::new();
+    for node in nodes {
+        scan.tick(1)?;
+        let Node::Stmt(stmt) = node else {
+            continue;
+        };
+        methods::append(scan, env, stmt, &mut methods)?;
+        if let Stmt::ClassDef(class) = stmt {
+            let row = self::classes::row(scan, env, stmt, class)?;
+            scan.keep(&mut classes, row)?;
+        }
+    }
+    Ok((methods, classes))
 }
 
 fn aliases(scan: &mut Scan, module: &Module, scope: &[Node<'_>]) -> Result<()> {
@@ -307,12 +318,7 @@ mod tests {
     #[test]
     fn an_exhausted_scan_keeps_no_partial_proof_table() {
         let text = "class C:\n    @staticmethod\n    def f(): pass\n";
-        let module = crate::module::Module::new(
-            "probe.py".into(),
-            "probe".into(),
-            text.into(),
-            crate::test_tree(text, 11).expect("fixture"),
-        );
+        let module = crate::test_module(text, 11);
         let mut scan = super::Scan::new(crate::test_minor(11));
         scan.work = crate::parse::work::Work::with_limit(1);
         assert_eq!(

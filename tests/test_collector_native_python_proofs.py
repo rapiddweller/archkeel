@@ -269,7 +269,7 @@ def test_proof_output_limit_keeps_no_partial_table(
         "file": "probe.py",
         "full_scope": False,
         "gap": "binding output limit exceeded (33554432 bytes)",
-        "work": 461949,
+        "work": 458304,
     }
 
 

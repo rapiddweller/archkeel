@@ -8,7 +8,7 @@ use ruff_python_ast::{Expr, Stmt, StmtFunctionDef};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-use super::super::environment::{resolve, Env};
+use super::super::environment::{resolve, root, Env};
 use super::super::scan::{Result, Scan};
 use super::super::{class, statements};
 use crate::pyast::Node;
@@ -48,15 +48,7 @@ pub(super) fn proven(
     if !targets.contains(&resolved.as_str()) {
         return Ok(false);
     }
-    let root = match target {
-        Expr::Name(n) => Some(n.id.as_str()),
-        Expr::Attribute(n) => match &*n.value {
-            Expr::Name(n) => Some(n.id.as_str()),
-            _ => None,
-        },
-        _ => None,
-    };
-    let Some(root) = root else {
+    let Some(root) = root(target) else {
         return Ok(false);
     };
     let class_body = match parent {
@@ -310,33 +302,29 @@ pub(super) fn descriptor(
     Ok(data)
 }
 
-pub(super) fn table(scan: &mut Scan, env: &Env<'_>, nodes: &[Node<'_>]) -> Result<Vec<Value>> {
-    let mut out = Vec::new();
-    for node in nodes {
-        scan.tick(1)?;
-        let Node::Stmt(stmt) = node else {
-            continue;
-        };
-        if let Stmt::FunctionDef(n) = stmt {
-            let data = descriptor(scan, env, stmt, None, &HashMap::new())?;
-            let row = json!([line(env, n), data]);
-            scan.output.value(&row)?;
-            out.push(row);
-        }
-        let Stmt::ClassDef(n) = stmt else {
-            continue;
-        };
-        let properties = properties(scan, env, stmt)?;
-        for child in &n.body {
-            scan.tick(1)?;
-            let Stmt::FunctionDef(method) = child else {
-                continue;
-            };
-            let data = descriptor(scan, env, child, Some(stmt), &properties)?;
-            let row = json!([line(env, method), data]);
-            scan.output.value(&row)?;
-            out.push(row);
-        }
+pub(super) fn append(
+    scan: &mut Scan,
+    env: &Env<'_>,
+    stmt: &Stmt,
+    out: &mut Vec<Value>,
+) -> Result<()> {
+    if let Stmt::FunctionDef(n) = stmt {
+        let data = descriptor(scan, env, stmt, None, &HashMap::new())?;
+        let row = json!([line(env, n), data]);
+        scan.keep(out, row)?;
     }
-    Ok(out)
+    let Stmt::ClassDef(n) = stmt else {
+        return Ok(());
+    };
+    let properties = properties(scan, env, stmt)?;
+    for child in &n.body {
+        scan.tick(1)?;
+        let Stmt::FunctionDef(method) = child else {
+            continue;
+        };
+        let data = descriptor(scan, env, child, Some(stmt), &properties)?;
+        let row = json!([line(env, method), data]);
+        scan.keep(out, row)?;
+    }
+    Ok(())
 }

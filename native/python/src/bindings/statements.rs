@@ -22,12 +22,7 @@ pub(super) fn binding_with(
     inert: bool,
     members: bool,
 ) -> Result<Value> {
-    let (targets, value) = match node {
-        Node::Stmt(Stmt::Assign(n)) => (n.targets.iter().collect::<Vec<_>>(), Some(&*n.value)),
-        Node::Stmt(Stmt::AnnAssign(n)) => (vec![&*n.target], n.value.as_deref()),
-        Node::Expr(Expr::Named(n)) => (vec![&*n.target], Some(&*n.value)),
-        _ => (Vec::new(), None),
-    };
+    let (targets, value) = assignment(node);
     scan.tick(targets.len())?;
     if let Some(value) = value {
         let admitted = constant(value)
@@ -47,6 +42,24 @@ pub(super) fn binding_with(
             }
         }
     }
+    admitted_binding(scan, node, source, targets)
+}
+
+pub(super) fn assignment<'a>(node: &Node<'a>) -> (Vec<&'a Expr>, Option<&'a Expr>) {
+    match node {
+        Node::Stmt(Stmt::Assign(n)) => (n.targets.iter().collect::<Vec<_>>(), Some(&*n.value)),
+        Node::Stmt(Stmt::AnnAssign(n)) => (vec![&*n.target], n.value.as_deref()),
+        Node::Expr(Expr::Named(n)) => (vec![&*n.target], Some(&*n.value)),
+        _ => (Vec::new(), None),
+    }
+}
+
+fn admitted_binding(
+    scan: &mut Scan,
+    node: &Node<'_>,
+    source: &str,
+    targets: Vec<&Expr>,
+) -> Result<Value> {
     match node {
         Node::Stmt(Stmt::FunctionDef(n)) => {
             let mut overloaded = false;

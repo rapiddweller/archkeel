@@ -18,6 +18,17 @@ pub(super) struct Env<'a> {
     pub opaque: bool,
 }
 
+pub(super) fn root(expr: &Expr) -> Option<&str> {
+    match expr {
+        Expr::Name(n) => Some(n.id.as_str()),
+        Expr::Attribute(n) => match &*n.value {
+            Expr::Name(n) => Some(n.id.as_str()),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 impl Env<'_> {
     pub fn may_exist(
         &self,

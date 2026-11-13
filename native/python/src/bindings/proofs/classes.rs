@@ -139,12 +139,7 @@ fn named_effect(scan: &mut Scan, child: &Stmt, inert: bool) -> Result<bool> {
 }
 
 fn assignment_receives(scan: &mut Scan, env: &Env<'_>, node: &Node<'_>) -> Result<bool> {
-    let (targets, value) = match node {
-        Node::Stmt(Stmt::Assign(n)) => (n.targets.iter().collect::<Vec<_>>(), Some(&*n.value)),
-        Node::Stmt(Stmt::AnnAssign(n)) => (vec![&*n.target], n.value.as_deref()),
-        Node::Expr(Expr::Named(n)) => (vec![&*n.target], Some(&*n.value)),
-        _ => (Vec::new(), None),
-    };
+    let (targets, value) = statements::assignment(node);
     let Some(value) = value else {
         return Ok(matches!(node, Node::Stmt(_))
             && statements::binding(scan, node, env.module.text())?.is_null());
@@ -333,24 +328,14 @@ fn native_body(scan: &mut Scan, env: &Env<'_>, stmt: &Stmt) -> Result<bool> {
     Ok(true)
 }
 
-pub(super) fn table(scan: &mut Scan, env: &Env<'_>, nodes: &[Node<'_>]) -> Result<Vec<Value>> {
-    let mut out = Vec::new();
-    for node in nodes {
-        scan.tick(1)?;
-        let Node::Stmt(stmt @ Stmt::ClassDef(n)) = node else {
-            continue;
-        };
-        let at = env
-            .module
-            .location(&crate::module::definition::Def::Class(n).range(env.module.text()));
-        let row = json!([at.line, {
-            "header": n.decorator_list.is_empty() && n.arguments.as_ref().is_none_or(|a| a.keywords.is_empty()),
-            "exposed": exposed(scan, n)?, "unproven": [unproven(scan, env, stmt, false)?, unproven(scan, env, stmt, true)?],
-            "receives": receives(scan, env, stmt)?, "namespace": namespace_static(scan, env, stmt)?,
-            "native_body": native_body(scan, env, stmt)?,
-        }]);
-        scan.output.value(&row)?;
-        out.push(row);
-    }
-    Ok(out)
+pub(super) fn row(scan: &mut Scan, env: &Env<'_>, stmt: &Stmt, n: &StmtClassDef) -> Result<Value> {
+    let at = env
+        .module
+        .location(&crate::module::definition::Def::Class(n).range(env.module.text()));
+    Ok(json!([at.line, {
+        "header": n.decorator_list.is_empty() && n.arguments.as_ref().is_none_or(|a| a.keywords.is_empty()),
+        "exposed": exposed(scan, n)?, "unproven": [unproven(scan, env, stmt, false)?, unproven(scan, env, stmt, true)?],
+        "receives": receives(scan, env, stmt)?, "namespace": namespace_static(scan, env, stmt)?,
+        "native_body": native_body(scan, env, stmt)?,
+    }]))
 }

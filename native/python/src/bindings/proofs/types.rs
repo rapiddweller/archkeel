@@ -4,7 +4,7 @@
 
 //! Type-alias seeds and explicit Generic parameters for import proofs.
 
-use super::super::environment::{resolve, Env};
+use super::super::environment::{resolve, root, Env};
 use super::super::scan::{Result, Scan};
 use super::super::{class, names, scopes};
 use super::methods;
@@ -103,17 +103,6 @@ fn nullable(scan: &mut Scan, env: &Env<'_>, nodes: &[Node<'_>]) -> Result<BTreeS
         }
     }
     Ok(out)
-}
-
-fn root(expr: &Expr) -> Option<&str> {
-    match expr {
-        Expr::Name(n) => Some(n.id.as_str()),
-        Expr::Attribute(n) => match &*n.value {
-            Expr::Name(n) => Some(n.id.as_str()),
-            _ => None,
-        },
-        _ => None,
-    }
 }
 
 fn generic(
@@ -306,8 +295,7 @@ pub(super) fn table(scan: &mut Scan, env: &Env<'_>, nodes: &[Node<'_>]) -> Resul
                     resolve(scan, env.module, expr)?,
                     static_alias(scan, env, expr)?
                 ]);
-                scan.output.value(&row)?;
-                expressions.push(row);
+                scan.keep(&mut expressions, row)?;
             }
             Node::Stmt(stmt) => {
                 if let Some(value) = admitted(scan, env, stmt)? {
@@ -315,16 +303,14 @@ pub(super) fn table(scan: &mut Scan, env: &Env<'_>, nodes: &[Node<'_>]) -> Resul
                         env.module.location(*stmt).line,
                         class::text(scan, value, env.module.text())?
                     ]);
-                    scan.output.value(&row)?;
-                    aliases.push(row);
+                    scan.keep(&mut aliases, row)?;
                 }
                 if let Stmt::ClassDef(class) = stmt {
                     let at = env.module.location(
                         &crate::module::definition::Def::Class(class).range(env.module.text()),
                     );
                     let row = json!([at.line, generic(scan, env, stmt, class)?]);
-                    scan.output.value(&row)?;
-                    generics.push(row);
+                    scan.keep(&mut generics, row)?;
                 }
             }
             _ => {}
