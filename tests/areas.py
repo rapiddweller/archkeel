@@ -51,6 +51,7 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_native_violation_filter.py",
     ),
     "CLI and Studio": (
+        "test_cli_native_profile_limits.py",
         "test_cli_native_core_scan_rust.py",
         "test_cli*.py",
         "test_onboarding*.py",

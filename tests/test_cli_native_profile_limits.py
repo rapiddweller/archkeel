@@ -1,0 +1,93 @@
+# Archkeel
+# Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+# SPDX-License-Identifier: MIT
+"""Profile statements release no actual source gap and make no PASS proof."""
+
+from __future__ import annotations
+
+import json
+import subprocess
+from pathlib import Path
+from typing import Any
+
+import pytest
+from test_cli_native_core_scan import SUFFIX, built
+
+from tools.dual_run_corpus import corpus_cases, materialized
+
+__all__ = ["built"]
+
+CASES = (
+    "s4/a-symbol-selector-is-a-limit-of-some-profiles",
+    "s4/an-interface-boundary-is-a-limit-of-some-profiles",
+    "s5/requires-symbol-port-is-judged-with-the-symbol-feature",
+    "probe/full-test-a-changed-reply-gives-no-pass-for-each-rule-family-inte",
+)
+
+
+def scan(built: Path, root: Path) -> dict[str, Any]:
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+    request = {
+        "protocol": "archkeel-core-scan-1",
+        "root": str(root.resolve()),
+        "config": "archkeel.toml",
+        "git_head": head,
+        "dirty": True,
+    }
+    done = subprocess.run(
+        [str(built / f"archkeel-core{SUFFIX}"), "scan"],
+        input=json.dumps(request),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    assert done.returncode in (0, 3), done.stderr
+    frame: dict[str, Any] = json.loads(done.stdout)
+    assert "refused" not in frame["self_test"]["collect"], frame
+    frame["rules"] = {key: value[1] for key, value in frame["rules"].items()}
+    return frame
+
+
+@pytest.mark.parametrize("case_id", CASES)
+def test_a_known_profile_limit_does_not_hold_an_unrelated_rule(
+    built: Path, case_id: str
+) -> None:
+    case = next(case for case in corpus_cases() if case.id == case_id)
+    with materialized(case) as root:
+        frame = scan(built, root)
+    assert frame["rules"].get("ASSIGNMENT") == "PASS", frame["unsupported"]
+    assert frame["rules"].get("DOMAIN-NO-DATA") == "PASS", frame["unsupported"]
+    assert frame["rules"].get("LAYOUT") == "PASS", frame["unsupported"]
+    assert "limit of some profiles" not in json.dumps(frame["unsupported"])
+    if case_id.startswith("s4/a-symbol"):
+        assert frame["rules"]["SYMBOL"] == "PASS"
+    if "interface" in case_id or case_id.startswith("probe/"):
+        rule = "PROBE" if case_id.startswith("probe/") else "BOUNDARY"
+        assert rule not in frame["rules"]
+        assert "InterfaceBoundary" in frame["unsupported"]["rules"][rule]
+
+
+@pytest.mark.parametrize("case_id", CASES)
+def test_a_profile_statement_cannot_hide_a_dynamic_forbidden_edge(
+    built: Path, case_id: str
+) -> None:
+    case = next(case for case in corpus_cases() if case.id == case_id)
+    with materialized(case) as root:
+        before = scan(built, root)
+        assert before["rules"].get("DOMAIN-NO-DATA") == "PASS", before["unsupported"]
+        source = root / "src/domain/order.ts"
+        source.write_text(source.read_text() + '\nimport(globalThis["forbiddenModule"]);\n')
+        planted = scan(built, root)
+    assert planted["rules"].get("DOMAIN-NO-DATA") in {"UNKNOWN", "FAIL"}, planted
+    assert planted["status"] != "PASS"
+
+
+def test_an_unread_symbol_position_stays_unknown(built: Path) -> None:
+    case_id = "s5/forbidden-symbol-rule-leaves-a-position-undecided"
+    case = next(case for case in corpus_cases() if case.id == case_id)
+    with materialized(case) as root:
+        frame = scan(built, root)
+    assert frame["rules"].get("ASSIGNMENT") == "PASS", frame["unsupported"]
+    assert frame["rules"].get("SYMBOL") == "UNKNOWN", frame
+    assert "undecided" in frame["explained"]["SYMBOL"], frame
