@@ -23,6 +23,7 @@ mod decode;
 mod inventory;
 mod pyjson;
 mod pyrepr;
+mod record_identity;
 mod records;
 mod registered;
 mod seam;
@@ -36,6 +37,9 @@ mod view;
 
 #[cfg(test)]
 mod construct_tests;
+
+#[cfg(test)]
+mod construct_consistency_tests;
 
 use archkeel_facts::Section;
 use serde::Deserialize;

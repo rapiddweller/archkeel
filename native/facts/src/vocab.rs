@@ -337,7 +337,23 @@ closed! {
 impl Signal {
     /// The contract construct observed by this signal, if it observes one.
     pub fn construct(self) -> Option<&'static str> {
+        Kind::parse(self.as_str()).and_then(Kind::construct)
+    }
+}
+
+impl Kind {
+    /// The construct named by the record kind, never by a redundant payload field.
+    pub fn construct(self) -> Option<&'static str> {
         match self {
+            Self::AssertStatement => Some("assert"),
+            Self::PlaceholderBody => Some("placeholder_body"),
+            Self::BroadExcept => Some("broad_except"),
+            Self::SetattrCall => Some("setattr"),
+            Self::DelattrCall => Some("delattr"),
+            Self::VarsCall => Some("vars"),
+            Self::DunderDict => Some("dunder_dict"),
+            Self::StringLiteralCompare => Some("string_literal_compare"),
+            Self::ConstructSelector => Some("selector"),
             Self::AnyAnnotation => Some("any_annotation"),
             Self::CastCall => Some("cast"),
             Self::GetattrCall => Some("getattr"),
@@ -346,10 +362,7 @@ impl Signal {
             Self::ExecCall => Some("exec"),
             Self::DynamicImport => Some("dynamic_import"),
             Self::TypeIgnore => Some("type_ignore"),
-            Self::DictAnyAnnotation
-            | Self::CallableAnyAnnotation
-            | Self::ObjectAnnotation
-            | Self::MissingCrossPackageAnnotation => None,
+            _ => None,
         }
     }
 }

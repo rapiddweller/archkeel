@@ -107,6 +107,45 @@ fn complete_absence_passes_only_through_the_scope_proof() -> Result<(), Box<dyn 
 }
 
 #[test]
+fn a_signal_payload_cannot_change_the_record_kind_or_borrow_its_allowance(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let allowance =
+        json!({"qualified_name": OWNER, "line": 17, "statement": "x = call()", "tag": "arg-type"});
+    for (kind, signal, construct) in [
+        ("type_ignore", "cast_call", "type_ignore"),
+        ("cast_call", "type_ignore", "cast"),
+    ] {
+        let model = model(
+            json!({"constructs": [construct], "allowed_type_ignores": [allowance]}),
+            |v| {
+                v["facts"]["capabilities"]["constructs"] =
+                    json!([{"name": construct, "status": "decided"}]);
+                let evidence = v["facts"]["files"][0]["evidence_id"].clone();
+                let mut data = if kind == "cast_call" {
+                    allowance.clone()
+                } else {
+                    json!({})
+                };
+                data["signal"] = json!(signal);
+                data["owner"] = json!(OWNER);
+                let record = json!({"id": "SIGNAL-mismatch", "evidence_class": "FACT", "area": "type_architecture",
+                "kind": kind, "title": "mismatched signal", "subjects": [OWNER], "evidence_ids": [evidence],
+                "fact_ids": [], "rule_ids": [], "provenance": [], "data": data});
+                if let Some(sections) = v["facts"]["sections"].as_array_mut() {
+                    sections.push(json!({"name": "typing_signals", "records": [record]}));
+                }
+            },
+        )?;
+        let decision = decide(&model)?;
+        assert!(
+            matches!(decision.verdict(), Verdict::Fail),
+            "{kind}/{signal}: {decision:?}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn exact_and_prefix_exemptions_have_pass_fail_and_unknown_cases(
 ) -> Result<(), Box<dyn std::error::Error>> {
     for key in ["allowed_sources", "exact_sources"] {

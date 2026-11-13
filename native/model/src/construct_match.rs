@@ -198,7 +198,7 @@ fn allowed_ignore(rule: &ForbiddenConstruct, site: &ConstructSite) -> bool {
     let Some(data) = &site.signal else {
         return false;
     };
-    if data.signal != archkeel_facts::vocab::Signal::TypeIgnore {
+    if site.construct != "type_ignore" {
         return false;
     }
     rule.allowed_type_ignores().iter().any(|a| {

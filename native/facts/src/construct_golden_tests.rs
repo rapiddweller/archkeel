@@ -93,3 +93,61 @@ fn corrected_constructs_reject_missing_and_unknown_fields() {
         );
     }
 }
+
+#[test]
+fn a_section_cannot_decode_a_kind_from_the_other_construct_family() {
+    use crate::vocab::Signal;
+    for signal in Signal::ALL
+        .iter()
+        .filter(|s| !matches!(s.as_str(), "getattr_call" | "hasattr_call"))
+    {
+        let value = json!({"name": "constructs", "records": [{"id": "FACT-x", "evidence_class": "FACT",
+            "area": "constructs", "kind": signal.as_str(), "title": "x", "subjects": [], "evidence_ids": [],
+            "rule_ids": [], "fact_ids": [], "provenance": [], "data": {"owner": "app", "signal": signal}}]});
+        let error = serde_json::from_value::<crate::Section>(value)
+            .expect_err("kind is outside the section");
+        assert!(
+            error.to_string().contains("not a kind of ConstructFact"),
+            "{signal:?}: {error}"
+        );
+    }
+    for kind in [
+        "string_literal_compare",
+        "broad_except",
+        "setattr_call",
+        "delattr_call",
+        "vars_call",
+        "construct_selector",
+        "numeric_operand",
+        "assert_statement",
+        "placeholder_body",
+        "dunder_dict",
+    ] {
+        let value = json!({"name": "typing_signals", "records": [{"id": "FACT-x", "evidence_class": "FACT",
+            "area": "type_architecture", "kind": kind, "title": "x", "subjects": [], "evidence_ids": [],
+            "rule_ids": [], "fact_ids": [], "provenance": [], "data": {"owner": "app", "construct": "assert"}}]});
+        let error = serde_json::from_value::<crate::Section>(value)
+            .expect_err("kind is outside the section");
+        assert!(
+            error.to_string().contains("not a kind of SignalFact"),
+            "{kind}: {error}"
+        );
+    }
+    for kind in ["getattr_call", "hasattr_call"] {
+        for (name, data) in [
+            ("constructs", json!({"owner": "app", "signal": kind})),
+            (
+                "typing_signals",
+                json!({"owner": "app", "construct": "getattr"}),
+            ),
+        ] {
+            let value = json!({"name": name, "records": [{"id": "FACT-x", "evidence_class": "FACT",
+                "area": "constructs", "kind": kind, "title": "x", "subjects": [], "evidence_ids": [],
+                "rule_ids": [], "fact_ids": [], "provenance": [], "data": data}]});
+            assert!(
+                serde_json::from_value::<crate::Section>(value).is_err(),
+                "{name}/{kind}"
+            );
+        }
+    }
+}

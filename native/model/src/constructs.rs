@@ -102,7 +102,7 @@ fn collect(found: &mut Constructs, section: &Section, work: &mut Work) -> Result
                 let data = record.data.data();
                 work.charge(record.evidence_ids.len().saturating_add(1))?;
                 work.charge(data.positions.as_ref().map_or(0, Vec::len))?;
-                if let Some(name) = data.signal.construct() {
+                if let Some(name) = record.kind().construct() {
                     found
                         .sites
                         .push(site(record, name, &data.owner, Some(data.clone()), None));
@@ -158,7 +158,7 @@ fn construct(record: &Record<ConstructFact>) -> Option<ConstructSite> {
     let fields = record.data.fields();
     Some(site(
         record,
-        fields.construct?,
+        record.kind().construct()?,
         fields.owner?,
         None,
         selector,

@@ -24,6 +24,9 @@ No collector or wire format changes. No fourth record kind was missing.
 The generated facts schema is corrected from these types; the protocol and every emitted reply stay unchanged.
 Three existing vocabulary-table clone fingerprints change; two other pins disappear. Production clones decrease from 87 to 85; no executable clone remains.
 The store retains its generic evidence and owner checks (`store/src/records.rs:181`, `bindings.rs:103`).
+Review B1: derive construct identity from the record kind, including type-ignore allowance eligibility.
+Record validation refuses conflicting kinds, payloads, areas, forms, selector operations and qualified owners/names with named reasons.
+The full kind/payload cross-product has 308 disagreement pairs; model probes cover both allowance directions without a false PASS.
 
 **Reason.** The root contract tree has 72 rules of this kind.
 All combinations are in the evaluator: three need the corrected decoder variants.
@@ -63,3 +66,4 @@ Those fields are `reexport_candidates` and `annotation_binding_uncertainties`; n
 `model/src/construct_tests.rs` checks the scope proof, exemptions and selector roles without opening a production input path.
 `eval/src/construct_tests.rs` checks partial evidence, FAIL before a gap and the absence of vacuous PASS.
 `tests/test_native_forbidden_construct.py` checks 48 frozen matching cases and 21 byte-equal violation rows against Python.
+Review B2: separate layout citation unit tests; include repository hygiene in `native-check`, not only in the broader PR test list.

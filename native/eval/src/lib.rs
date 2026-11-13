@@ -61,6 +61,9 @@ mod violation;
 #[cfg(test)]
 mod construct_tests;
 
+#[cfg(test)]
+mod layout_citation_tests;
+
 use archkeel_contract::{head_of, kind_of, Rule, RuleKind};
 use archkeel_model::{Decision, Model, ModelTree, Part, Reason, Unsupported, Verdict};
 

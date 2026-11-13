@@ -691,6 +691,7 @@
     "fn sections::len(&self)->usize",
     "fn sections::name(&self)->&'static str",
     "fn vocab::construct(self)->Option<&'static str>",
+    "fn vocab::construct(self)->Option<&'static str>",
     "mod data",
     "mod envelope",
     "mod fields",
