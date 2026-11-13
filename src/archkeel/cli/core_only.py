@@ -1,40 +1,101 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""L-121: dispatch to the scan frame without importing the Python engine."""
+"""The command shell: the Rust core decides each run and the shell prints its frame (AD-430).
+
+The shell parses the arguments, finds the core binary, sends the scan identity, reads one frame
+with `read_frame`, prints it as text or JSON, and maps the status to the exit code. It holds no
+rule, fact or contract logic. A command that the core does not serve stays registered and gives a
+typed refusal with exit 2; it never falls back and never reports success.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 import traceback
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Final, NoReturn
 
-from .core_binary import locate_core
+from .core_binary import CoreBinaryNotFound, locate_core
 from .core_frame import (
-    STAGE_ONE_VARIABLE,
     CheckKind,
     CoreError,
     CoreFrame,
     GapKind,
     RefusalKind,
     Status,
-    Switch,
     read_frame,
 )
 from .core_frame import CoreCommand as Command
 from .core_json import RequestMismatch
-from .native_scan import SCAN_PROTOCOL, exchange
+from .native_scan import SCAN_PROTOCOL, exchange, identity
 
+# Accepted and ignored: the core is the only path, so the switch selects nothing.
 VARIABLE: Final = "ARCHKEEL_CORE_ONLY"
-
-
+RELEASE: Final = "4.0.1"
+_LINE: Final = f"not available on this development line; use release {RELEASE}"
 # The process exit of the core is not a command verdict (0 and 3 describe frame completeness).
 EXIT_CODES: Final[Mapping[Status, int]] = {Status.PASS: 0, Status.FAIL: 1, Status.UNKNOWN: 2}
+SERVED: Final = frozenset({Command.VALIDATE, Command.REPORT})
+# Each option of release 4.0.1 that this line does not serve. The shell refuses it by name.
+REMOVED_OPTIONS: Final = frozenset(
+    {
+        "--accept-new",
+        "--against",
+        "--amendment",
+        "--baseline",
+        "--collector-argv",
+        "--collector-output-limit-bytes",
+        "--collector-timeout-seconds",
+        "--compact-open-decisions",
+        "--component",
+        "--decided-by",
+        "--full",
+        "--html",
+        "--input",
+        "--language",
+        "--namespace",
+        "--native-core",
+        "--only",
+        "--output",
+        "--rationale",
+        "--rule",
+        "--strict",
+        "--timings",
+        "--tsconfig",
+        "--write-amendment",
+        "--write-baseline",
+        "--write-graph",
+    }
+)
+HELP: Final = f"""\
+usage: archkeel <command> [--root PATH] [--config PATH] [--json | --text]
+
+The Rust core (archkeel-core) decides each run. This shell prints its frame.
+
+commands:
+  validate   Check the contract. PASS exits 0, FAIL exits 1, UNKNOWN and a refusal exit 2.
+  report     Print the same frame of the core as a report. The exit codes are the same.
+  skill      Install the agent skill: archkeel skill install {{claude,codex}} [--root PATH]
+
+{_LINE} (#880), exit 2:
+  check, explore, init, guide, story, view, studio
+
+options:
+  --root PATH     Repository root. Default: the Git work tree of the current directory.
+  --config PATH   Configuration file below the root. Default: archkeel.toml.
+  --json          Print JSON also in a terminal.
+  --text          Print text also without a terminal.
+  --core-only     Accepted and ignored: the core is the only path.
+  --version       Print the version.
+"""
+
+
+class NotOnThisLine(CoreError):
+    """A command or option of the release line that this development line does not serve."""
 
 
 class Options(argparse.Namespace):
@@ -43,43 +104,17 @@ class Options(argparse.Namespace):
     config: str = "archkeel.toml"
     json: bool = False
     text: bool = False
-    native_core: bool = False
     core_only: bool = False
-    output: Path | None = None
-    input: Path | None = None
-    only: str | None = None
-    full: bool = False
-    html: bool = False
+    action: str = ""
+    agent: str = ""
 
 
 class Parser(argparse.ArgumentParser):
     def error(self, message: str) -> NoReturn:
-        raise CoreError(message)
+        raise ValueError(message)
 
 
-def requested(argv: Sequence[str], environ: Mapping[str, str]) -> bool:
-    selector = Parser(add_help=False)
-    add_switch(selector)
-    try:
-        selection, _ = selector.parse_known_args(argv, Options())
-    except CoreError:
-        return True
-    return selection.core_only or environ.get(VARIABLE, Switch.UNSET) not in {
-        Switch.UNSET,
-        Switch.OFF,
-    }
-
-
-def add_switch(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--core-only",
-        action="store_true",
-        help=f"Render only the core scan verdict, without the Python engine. Also {VARIABLE}=1. "
-        "PASS exits 0, FAIL exits 1, UNKNOWN and refused forms exit 2 (AD-422).",
-    )
-
-
-def active_checks(_options: Options) -> tuple[CheckKind, ...]:
+def active_checks() -> tuple[CheckKind, ...]:
     """Every existing check authenticates a lock and evaluates an expectation (AD-399, #1103).
 
     Ratchets and selected changes are inside authenticated bytes, not command-line choices.
@@ -88,106 +123,143 @@ def active_checks(_options: Options) -> tuple[CheckKind, ...]:
     return tuple(CheckKind)
 
 
+def _command(argv: Sequence[str]) -> Command:
+    """The registered command, or the refusal of a command that this line does not serve."""
+    try:
+        command = Command(argv[0])
+    except ValueError as error:
+        raise ValueError(f"unknown command {argv[0]!r}; run archkeel --help") from error
+    if command is Command.CHECK:
+        names = "; ".join(active_checks())
+        raise NotOnThisLine(f"check is {_LINE} (#880); not ported: {names} (#1103)")
+    if command not in SERVED and command is not Command.SKILL:
+        raise NotOnThisLine(f"{command} is {_LINE} (#880)")
+    return command
+
+
 def parse(argv: Sequence[str]) -> Options:
-    parser = Parser(prog="archkeel --core-only", description=__doc__)
-    parser.add_argument("command", type=Command, choices=list(Command))
-    add_switch(parser)
-    parser.add_argument("--native-core", action="store_true")
+    """The options of a served command. Each other argument is refused by name."""
+    command = _command(argv)
+    parser = Parser(prog=f"archkeel {command}", add_help=False, allow_abbrev=False)
     parser.add_argument("--root", type=Path)
-    parser.add_argument("--config", default="archkeel.toml")
     form = parser.add_mutually_exclusive_group()
     for flag in ("json", "text"):
         form.add_argument(f"--{flag}", action="store_true")
-    for flag in ("full", "html"):
-        parser.add_argument(f"--{flag}", action="store_true")
-    for flag in ("output", "input"):
-        parser.add_argument(f"--{flag}", type=Path)
-    parser.add_argument("--only")
-    options, extra = parser.parse_known_args(argv, Options())
-    try:
-        Switch(os.environ.get(VARIABLE, ""))
-    except ValueError as error:
-        raise CoreError(f"{VARIABLE} must be 0 or 1") from error
-    if options.native_core or Switch(os.environ.get(STAGE_ONE_VARIABLE, "")) is Switch.ON:
-        raise CoreError("--core-only and the stage-1 --native-core switch cannot be combined")
-    if options.command is Command.CHECK:
-        names = "; ".join(active_checks(options))
-        raise CoreError(f"check requires {names}; not ported (#1103); run without --core-only")
+    if command is Command.SKILL:
+        parser.add_argument("action", choices=["install"])
+        parser.add_argument("agent", choices=["claude", "codex"])
+    else:
+        parser.add_argument("--core-only", action="store_true")
+        parser.add_argument("--config", default="archkeel.toml")
+    options, extra = parser.parse_known_args(argv[1:], Options(command=command))
+    for argument in extra:
+        if (name := argument.split("=", 1)[0]) in REMOVED_OPTIONS:
+            raise NotOnThisLine(f"{command} {name} is {_LINE} (#880)")
     if extra:
-        raise CoreError(
-            f"unsupported core-only arguments: {' '.join(extra)}; run without --core-only"
-        )
-    if options.command is Command.EXPLORE:
-        raise CoreError("explore needs the full report payload; run without --core-only")
-    if options.output is not None or options.html:
-        raise CoreError(
-            "the full HTML report and architecture.json are not carried; run without --core-only"
-        )
-    if options.input is not None or options.only is not None or options.full:
-        raise CoreError(
-            "saved reports and report projections are not carried; run without --core-only"
-        )
+        raise ValueError(f"unknown arguments: {' '.join(extra)}; run archkeel --help")
     return options
 
 
+def _wants_json(argv: Sequence[str]) -> bool:
+    return "--json" in argv or (not sys.stdout.isatty() and "--text" not in argv)
+
+
 def run(argv: Sequence[str]) -> int:
-    as_json = not sys.stdout.isatty()
+    as_json = _wants_json(argv)
     try:
-        output = Parser(add_help=False)
-        output.add_argument("--json", action="store_true")
-        output.add_argument("--text", action="store_true")
-        selection, _ = output.parse_known_args(argv, Options())
-        as_json = selection.json or (not sys.stdout.isatty() and not selection.text)
+        if not argv or argv[0] in {"-h", "--help"}:
+            print(HELP, end="")
+            return 0
+        if argv[0] == "--version":
+            print(f"archkeel {_version()}")
+            return 0
+        _command(argv)
+        if {"-h", "--help"} & set(argv):
+            print(HELP, end="")
+            return 0
         options = parse(argv)
-        request = {
-            "protocol": SCAN_PROTOCOL,
-            "root": str((options.root or Path.cwd()).resolve()),
-            "config": options.config,
-            "root_only": True,
-            "discover_root": options.root is None,
-        }
-        binary = locate_core()
-        stdout, code = exchange(str(binary), "scan", json.dumps(request).encode())
-        frame = read_frame(stdout, code, scan=True, require_protocol=True, request=request)
-        result: dict[str, object] = {
-            "command": options.command,
-            "status": frame.status,
-            "exit_code": EXIT_CODES[frame.status],
-            "frame": json.loads(stdout),
-            "core": {"path": str(binary), "engine": frame.engine, "code_digest": frame.code_digest},
-            "gaps": [
-                {"kind": gap.kind, "subject": gap.subject, "reason": gap.reason}
-                for gap in frame.gaps
-            ],
-        }
-        collected = next((gap for gap in frame.gaps if gap.kind is GapKind.COLLECT), None)
-        if collected is not None:
-            result["refusal"] = {
-                "kind": RefusalKind.COLLECTION_REFUSED,
-                "message": collected.reason,
-            }
-        if as_json:
-            print(json.dumps(result))
-        else:
-            if collected is None:
-                render_text(options.command, frame)
-            else:
-                _refused(RefusalKind.COLLECTION_REFUSED, collected.reason, False)
-            print(f"Core: {binary}; engine: {frame.engine}; code digest: {frame.code_digest}")
-        return EXIT_CODES[frame.status]
+        if options.command is Command.SKILL:
+            return _install_skill(options, as_json)
+        return _decide(options, as_json)
     except (CoreError, OSError, ValueError) as error:
-        if isinstance(error, RequestMismatch):
-            kind = RefusalKind.REQUEST_MISMATCH
-        elif isinstance(error, CoreError):
-            kind = RefusalKind.CORE_ERROR
-        elif isinstance(error, OSError):
-            kind = RefusalKind.IO_ERROR
-        else:
-            kind = RefusalKind.INVALID_INPUT
-        return _refused(kind, str(error), as_json)
+        return _refused(_refusal_kind(error), str(error), as_json)
     except Exception as error:
         traceback.print_exc()
         return _refused(RefusalKind.INTERNAL_ERROR, f"{type(error).__name__}: {error}", as_json)
+
+
+def _refusal_kind(error: Exception) -> RefusalKind:
+    kinds: tuple[tuple[type[Exception], RefusalKind], ...] = (
+        (RequestMismatch, RefusalKind.REQUEST_MISMATCH),
+        (NotOnThisLine, RefusalKind.NOT_ON_THIS_LINE),
+        (CoreBinaryNotFound, RefusalKind.CORE_BINARY_NOT_FOUND),
+        (CoreError, RefusalKind.CORE_ERROR),
+        (OSError, RefusalKind.IO_ERROR),
+    )
+    return next(
+        (kind for form, kind in kinds if isinstance(error, form)), RefusalKind.INVALID_INPUT
+    )
+
+
+def _version() -> str:
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        return version("archkeel")
+    except PackageNotFoundError:
+        return "unknown"
+
+
+def _install_skill(options: Options, as_json: bool) -> int:
+    from .skill import InstallationAgent, install_skill
+
+    path = install_skill((options.root or Path.cwd()).resolve(), options.agent)
+    if as_json:
+        print(json.dumps({"command": Command.SKILL, "exit_code": 0, "path": str(path)}))
+    else:
+        name = "$archkeel" if options.agent == InstallationAgent.CODEX else "/archkeel"
+        print(f"Installed Archkeel instructions: {path}")
+        print(f"Use {name} in your agent session; start a new session if needed.")
+    return 0
+
+
+def _decide(options: Options, as_json: bool) -> int:
+    """Send the scan identity to the core and print the one frame that it gives."""
+    root = (options.root or Path.cwd()).resolve()
+    request: dict[str, object] = {
+        "protocol": SCAN_PROTOCOL,
+        "root": str(root),
+        "config": options.config,
+        "root_only": True,
+        "discover_root": options.root is None,
+    }
+    if (claim := identity(root)) is not None:
+        request["git_head"], request["dirty"] = claim
+    binary = locate_core()
+    stdout, code = exchange(str(binary), "scan", json.dumps(request).encode())
+    frame = read_frame(stdout, code, scan=True, require_protocol=True, request=request)
+    result: dict[str, object] = {
+        "command": options.command,
+        "status": frame.status,
+        "exit_code": EXIT_CODES[frame.status],
+        "frame": json.loads(stdout),
+        "core": {"path": str(binary), "engine": frame.engine, "code_digest": frame.code_digest},
+        "gaps": [
+            {"kind": gap.kind, "subject": gap.subject, "reason": gap.reason} for gap in frame.gaps
+        ],
+    }
+    collected = next((gap for gap in frame.gaps if gap.kind is GapKind.COLLECT), None)
+    if collected is not None:
+        result["refusal"] = {"kind": RefusalKind.COLLECTION_REFUSED, "message": collected.reason}
+    if as_json:
+        print(json.dumps(result))
+    else:
+        if collected is None:
+            render_text(options.command, frame)
+        else:
+            _refused(RefusalKind.COLLECTION_REFUSED, collected.reason, False)
+        print(f"Core: {binary}; engine: {frame.engine}; code digest: {frame.code_digest}")
+    return EXIT_CODES[frame.status]
 
 
 def _refused(kind: RefusalKind, message: str, as_json: bool) -> int:
@@ -200,34 +272,30 @@ def _refused(kind: RefusalKind, message: str, as_json: bool) -> int:
     return 2
 
 
+def _places(frame: CoreFrame, evidence: Sequence[str]) -> str:
+    places = [
+        f"{location.path}:{location.line}" if location.line else location.path
+        for key in evidence
+        if (location := frame.locations.get(key))
+    ]
+    return f" ({', '.join(places)})" if places else ""
+
+
 def render_text(command: Command, frame: CoreFrame) -> None:
     print(f"{command}: {frame.status}")
     if not frame.complete_scope:
         print(f"Scope: {frame.scope}")
         print("Action: Resolve the named scope gap and run again.")
     for source_gap in frame.collection_gaps:
-        places = [
-            f"{location.path}:{location.line}" if location.line else location.path
-            for key in source_gap.evidence
-            if (location := frame.locations.get(key))
-        ]
-        where = f" ({', '.join(places)})" if places else ""
         print(
             f"Source gap: {source_gap.kind}: {', '.join(source_gap.subjects)}: "
-            f"{source_gap.reason}{where}"
+            f"{source_gap.reason}{_places(frame, source_gap.evidence)}"
         )
         print("Action: Resolve the collector cause and run again.")
     for rule, rows in frame.details.items():
         for row in rows:
             edge = row.source if row.target is None else f"{row.source} -> {row.target}"
-            places = []
-            for key in row.evidence:
-                if location := frame.locations.get(key):
-                    places.append(
-                        f"{location.path}:{location.line}" if location.line else location.path
-                    )
-            where = f" ({', '.join(places)})" if places else ""
-            print(f"{rule}: FAIL: {row.cause}: {edge}{where}")
+            print(f"{rule}: FAIL: {row.cause}: {edge}{_places(frame, row.evidence)}")
             print("Action: Remove the violation or review the declared restriction.")
     for rule, reason in frame.explained.items():
         print(f"{rule}: UNKNOWN: {frame.unknown_kinds[rule]}: {reason}")
@@ -235,7 +303,7 @@ def render_text(command: Command, frame: CoreFrame) -> None:
     for gap in frame.gaps:
         if gap.kind is GapKind.RULE_KIND_NOT_PORTED:
             print(f"{gap.subject}: UNKNOWN: rule kind not decided by the core: {gap.reason}")
-            print("Action: Run without --core-only for this rule kind.")
+            print(f"Action: Use release {RELEASE} for this rule kind (#880).")
         else:
             print(f"{gap.subject}: UNKNOWN: {gap.kind}: {gap.reason}")
-            print("Action: Run without --core-only for this part.")
+            print(f"Action: Resolve the named part, or use release {RELEASE} for it (#880).")

@@ -45,15 +45,26 @@ class RefusalKind(StrEnum):
     COLLECTION_REFUSED = "collection_refused"
     REQUEST_MISMATCH = "request_mismatch"
     INVALID_INPUT = "invalid_input"
+    # AD-430: the command or option exists only on the release line; nothing ran.
+    NOT_ON_THIS_LINE = "not_on_this_development_line"
+    CORE_BINARY_NOT_FOUND = "core_binary_not_found"
     IO_ERROR = "io_error"
     INTERNAL_ERROR = "internal_error"
 
 
 class CoreCommand(StrEnum):
+    """Each registered command. Only `validate`, `report` and `skill` run (AD-430)."""
+
     VALIDATE = "validate"
     REPORT = "report"
+    SKILL = "skill"
     CHECK = "check"
     EXPLORE = "explore"
+    INIT = "init"
+    GUIDE = "guide"
+    STORY = "story"
+    VIEW = "view"
+    STUDIO = "studio"
 
 
 class CheckKind(StrEnum):
@@ -88,14 +99,6 @@ class _ScopeWord(StrEnum):
 
 class FrameProtocol(StrEnum):
     FRAME = "archkeel-core-frame-1"
-
-
-class Switch(StrEnum):
-    """The values of the switch variable: unset, off and on."""
-
-    UNSET = ""
-    OFF = "0"
-    ON = "1"
 
 
 class _ContractRead(StrEnum):
@@ -139,7 +142,6 @@ _FIELDS: Final = frozenset(
     }
 )
 FRAME_PROTOCOL: Final = FrameProtocol.FRAME
-STAGE_ONE_VARIABLE: Final = "ARCHKEEL_NATIVE_CORE"
 _EVIDENCE_FIELDS: Final = frozenset(
     {"protocol", "details", "locations", "unknown_kinds", "collection_gaps", "contract_digest"}
 )
@@ -355,7 +357,10 @@ def _explained(
 
 
 def _bind_request(frame: Mapping[str, object], request: Mapping[str, object], derived: str) -> None:
-    """Bind the response to the requested root and exact contract bytes, not a second verdict."""
+    """Bind the response to the requested root, Git identity and exact contract bytes.
+
+    This is not a second verdict: the rule rows are trusted to the located core binary (AD-430).
+    """
     root = Path(_text(request["root"], "request.root")).resolve()
     if request.get("discover_root") is True:
         root = next((path for path in (root, *root.parents) if (path / ".git").exists()), root)
@@ -363,6 +368,12 @@ def _bind_request(frame: Mapping[str, object], request: Mapping[str, object], de
     snapshot = _object(collected.get("snapshot"), "collect.request.snapshot")
     if _text(snapshot.get("root"), "snapshot.root") != str(root):
         raise RequestMismatch("the core frame answers another root")
+    # AD-430: the shell states the commit and the dirty state; the frame must name the same.
+    head, dirty = request.get("git_head"), request.get("dirty")
+    if not isinstance(head, str) or snapshot.get("git_head") != head:
+        raise RequestMismatch("the core frame answers another commit than the shell read")
+    if not isinstance(dirty, bool) or snapshot.get("dirty") is not dirty:
+        raise RequestMismatch("the core frame answers another work tree state than the shell read")
     config = (root / _text(request["config"], "request.config")).resolve(strict=True)
     if not config.is_relative_to(root):
         raise RequestMismatch("the configuration leaves the requested root")
