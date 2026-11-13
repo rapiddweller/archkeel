@@ -20,8 +20,6 @@ from test_collector_native_python_parse import _minor, _native, _write
 from test_collector_native_python_survey import _native as survey
 from test_collector_native_python_survey import _request
 
-pytestmark = pytest.mark.requires_python(11)
-
 ROOT = Path(__file__).parents[1]
 PINS = json.loads((ROOT / "tests/python_compile_messages.json").read_text())
 TABLE = json.loads((ROOT / "tests/python_compile_sites.json").read_text())

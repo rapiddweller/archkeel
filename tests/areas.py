@@ -230,6 +230,7 @@ SELECTIONS: dict[str, tuple[str, ...]] = {
     # of the running interpreter, and these files cover what differs between versions (#724).
     PYTHON_COMPAT: (
         "test_collector_native_python_bindings.py",
+        "test_collector_native_python_completeness.py",
         "test_analyzer.py",
         "test_architecture_projection.py",
         "test_boundary_types_contextmanager.py",
