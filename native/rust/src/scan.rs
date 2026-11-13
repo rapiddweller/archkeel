@@ -15,8 +15,8 @@ use syn::visit::{self, Visit};
 use syn::{Attribute, Item, ItemExternCrate, ItemMacro, ItemMod, ItemUse, Macro};
 
 use crate::attrs::{
-    hidden_by, impl_item_attributes, is_test_attributes, item_attributes, path_literal,
-    statement_attributes, trait_item_attributes,
+    impl_item_attributes, is_test_attributes, item_attributes, path_literal, statement_attributes,
+    trait_item_attributes,
 };
 use crate::definitions::{Definition, Holder, ImplBlock, MethodCall, OnSelf};
 use crate::net;
@@ -147,6 +147,7 @@ pub(crate) fn scan(
         holder: Holder::default(),
         selves: Selves::default(),
         helpers: Vec::new(),
+        tools: !crate::attrs::kinds::no_tools(&file.attrs),
         derives: Vec::new(),
         out: Scan {
             tally: Tally::of(&file, exclude_tests),
@@ -155,7 +156,7 @@ pub(crate) fn scan(
     };
     walker.out.gated_file = !receivers::module_inert(&file.attrs);
     walker.visit_file(&file);
-    walker.finish_attributes();
+    attributes::finish(&mut walker);
     Ok(walker.out)
 }
 
@@ -181,6 +182,7 @@ struct Walker<'a> {
     /// What a plain `self` is at the walk (AD-383).
     selves: Selves,
     helpers: Vec<String>,
+    tools: bool,
     derives: Vec<(syn::Path, Concern)>,
     out: Scan,
 }
@@ -255,12 +257,6 @@ impl Walker<'_> {
         }
         self.out.tally.unseen += self.out.references.len() - before;
     }
-
-    fn gate(&mut self, attrs: &[Attribute], what: &str, span: Span) {
-        if let Some(reason) = hidden_by(attrs, what, self.features) {
-            self.concern(reason, span);
-        }
-    }
 }
 
 fn to_i64(value: usize) -> i64 {
@@ -301,10 +297,13 @@ impl<'ast> Visit<'ast> for Walker<'_> {
         };
         let helpers = std::mem::replace(
             &mut self.helpers,
-            crate::attribute_kinds::helpers(item_attributes(item)),
+            crate::attrs::kinds::helpers(item_attributes(item)),
         );
+        let tools = self.tools;
+        self.tools &= !crate::attrs::kinds::no_tools(item_attributes(item));
         visit::visit_item(self, item);
         self.helpers = helpers;
+        self.tools = tools;
         if let Some(holder) = outer {
             self.holder = holder;
         }
@@ -417,7 +416,7 @@ impl<'ast> Visit<'ast> for Walker<'_> {
 
     fn visit_item_use(&mut self, node: &'ast ItemUse) {
         let span = node.use_token.span;
-        self.gate(&node.attrs, "use", span);
+        attributes::gate(self, &node.attrs, "use", span);
         for attr in &node.attrs {
             self.attribute(attr);
         }
@@ -426,7 +425,7 @@ impl<'ast> Visit<'ast> for Walker<'_> {
 
     fn visit_item_mod(&mut self, node: &'ast ItemMod) {
         let span = node.mod_token.span;
-        self.gate(&node.attrs, "module", span);
+        attributes::gate(self, &node.attrs, "module", span);
         let name = plain(&node.ident);
         if node.content.is_none() {
             match path_literal(&node.attrs) {

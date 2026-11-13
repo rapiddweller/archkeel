@@ -16,6 +16,9 @@ use syn::{Attribute, Expr, ExprLit, ImplItem, Item, Lit, Meta, TraitItem};
 
 use crate::tokens::{first_name, split_commas};
 
+#[path = "attribute_kinds.rs"]
+pub(crate) mod kinds;
+
 /// The first reason that an attribute list hides something, or `None`.
 pub(crate) fn hidden_by(
     attrs: &[Attribute],

@@ -1270,7 +1270,7 @@
       "packages": [
         "native.archkeel_rust_collector.tokens",
         "native.archkeel_rust_collector.attrs",
-        "native.archkeel_rust_collector.attribute_kinds",
+        "native.archkeel_rust_collector.attrs.kinds",
         "native.archkeel_rust_collector.net",
         "native.archkeel_rust_collector.nesting",
         "native.archkeel_rust_collector.scan",

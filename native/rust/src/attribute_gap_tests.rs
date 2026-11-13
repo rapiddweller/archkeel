@@ -26,6 +26,10 @@ fn an_attribute_on_every_syntax_position_names_its_unseen_expansion() {
         "#[mac::hide] mod m {}",
         "#[mac::hide] use x::y;",
         "#[cfg_attr(unix, mac::hide)] fn f() {}",
+        "fn f(#[mac::hide] x: u8) {}",
+        "fn f() { match 0 { #[mac::hide] _ => () } }",
+        "struct S<#[mac::hide] T>(T);",
+        "fn f() { #![mac::hide] }",
     ] {
         let found = scan(item, &BTreeSet::new(), false).unwrap();
         assert!(
@@ -69,7 +73,8 @@ fn excluded_items_do_not_leave_deferred_derive_gaps() {
 #[test]
 fn builtins_tools_and_helpers_do_not_add_attribute_gaps() {
     let text = r#"
-        #[derive(Clone, Debug, Default)] #[repr(C)] #[must_use] struct Plain;
+        #[derive(Clone, Debug, Default)] #[repr(C)] #[must_use] #[non_exhaustive] struct Plain;
+        #[derive(Default)] enum E { #[default] A }
         #[rustfmt::skip] #[clippy::has_significant_drop] #[diagnostic::on_unimplemented(message = "x")]
         #[allow(dead_code)] fn f() {}
         #[derive(serde::Serialize, schemars::JsonSchema)] #[serde(rename = "S")]
@@ -89,6 +94,24 @@ fn builtins_tools_and_helpers_do_not_add_attribute_gaps() {
             .concerns
             .is_empty()
     );
+}
+
+#[test]
+fn a_tool_name_without_the_tool_prelude_is_not_a_proof() {
+    for text in [
+        "#![no_implicit_prelude] #[clippy::hide] fn f() {}",
+        "mod m { #![no_implicit_prelude] #[rustfmt::hide] fn f() {} }",
+        "#![cfg_attr(unix, no_implicit_prelude)] #[diagnostic::hide] fn f() {}",
+    ] {
+        let found = scan(text, &BTreeSet::new(), false).unwrap();
+        assert!(
+            found
+                .concerns
+                .iter()
+                .any(|c| c.reason.contains("attribute macro")),
+            "{text}"
+        );
+    }
 }
 
 #[test]

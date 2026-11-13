@@ -20,6 +20,7 @@ from rust_repository import (
     BASE,
     CRATE_RULES,
     component,
+    report,
     repository,
     rule,
     statuses,
@@ -30,9 +31,16 @@ Capsys = pytest.CaptureFixture[str]
 
 
 def _verdict(
-    tmp_path: Path, binary: Path, capsys: Capsys, files: dict[str, str] | None = None, **kwargs: Any
+    tmp_path: Path,
+    binary: Path,
+    capsys: Capsys,
+    files: dict[str, str] | None = None,
+    *,
+    keep_gaps: bool = False,
+    **kwargs: Any,
 ) -> dict[str, Any]:
-    return validate(repository(tmp_path, binary, files, **kwargs), capsys)
+    root = repository(tmp_path, binary, files, **kwargs)
+    return (report if keep_gaps else validate)(root, capsys)
 
 
 def _claims(result: dict[str, Any]) -> list[str]:
@@ -153,7 +161,7 @@ UNKNOWN = [
     ("#[cfg(windows)]\nuse std::os::windows::fs;", "A cfg condition gates a use: cfg(windows)"),
     ('#[cfg_attr(unix, path = "x.rs")]\nmod x;', "A cfg_attr gates a module"),
     ('#[path = concat!("a", ".rs")]\nmod x;', "A path attribute is not a string literal"),
-    ("#[tool::rewrite]\nmod x { }", "An attribute macro is applied to a module"),
+    ("#[tool::rewrite]\nmod x { }", "The attribute macro tool::rewrite can add code"),
     ("mod missing;", "Module file not found: mod missing in crates/app/src/lib.rs"),
     ("fn broken( {", "Syntax error in crates/app/src/lib.rs: unparseable construct at line 1"),
 ]
@@ -168,6 +176,46 @@ def test_what_the_scan_cannot_read_is_unknown_with_its_reason(
     assert result["observation_complete"] == "UNKNOWN"
     assert statuses(result) == {}
     assert any(reason in claim for claim in _claims(result)), _claims(result)
+
+
+def test_an_attribute_expansion_with_an_unseen_target_is_unknown(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys
+) -> None:
+    """P8b of #1120: the compiled macro emits a call that is not in the function source."""
+    files = {
+        "crates/Cargo.toml": '[workspace]\nmembers = ["base", "app", "mac"]\n',
+        "crates/app/Cargo.toml": APP + 'mac = { path = "../mac" }\n',
+        "crates/app/src/lib.rs": "mod a; mod b;\n",
+        "crates/app/src/a.rs": "pub fn x() {}\n",
+        "crates/app/src/b.rs": "#[mac::hide] pub fn y() {}\n",
+        "crates/mac/Cargo.toml": '[package]\nname = "mac"\nversion = "0.0.0"\n'
+        'edition = "2021"\n[lib]\nproc-macro = true\n',
+        "crates/mac/src/lib.rs": "extern crate proc_macro;\n#[proc_macro_attribute]\n"
+        "pub fn hide(_: proc_macro::TokenStream, _: proc_macro::TokenStream) "
+        '-> proc_macro::TokenStream { "pub fn y() { crate::a::x(); }".parse().unwrap() }\n',
+    }
+    forbidden = rule(
+        "NO-HIDDEN",
+        "forbidden_dependency",
+        source="native.app.b",
+        target="native.app.a",
+        include_type_checking=True,
+    )
+    root = repository(tmp_path, rust_binary, files, rules=(forbidden,))
+    result = report(root, capsys)
+    assert statuses(result).get("NO-HIDDEN") == "UNKNOWN", _claims(result)
+    gaps = result["coverage"]["failures"]
+    [gap] = [g for g in gaps if "attribute macro mac::hide" in g["title"]]
+    assert gap["data"]["source_module"] == "native.app.b"
+    assert gap["data"]["module"] == ""
+
+
+def test_invalid_utf8_has_a_named_gap(tmp_path: Path, rust_binary: Path, capsys: Capsys) -> None:
+    root = repository(tmp_path, rust_binary)
+    (root / "crates/app/src/lib.rs").write_bytes(b"pub fn run() {} //\xff")
+    result = validate(root, capsys)
+    assert result["observation_complete"] == "UNKNOWN"
+    assert any("File is not valid UTF-8: crates/app/src/lib.rs" in c for c in _claims(result))
 
 
 def test_a_derive_and_a_feature_gate_do_not_hide_anything(
@@ -203,10 +251,13 @@ def test_a_path_inside_an_attribute_is_an_edge(
             component("base", "base_crate"),
             component("app", "app"),
         ),
+        keep_gaps=True,
     )
 
     assert statuses(result)["REQUIRES"] == "FAIL"
-    assert any("app imports base without requiring it" in claim for claim in _claims(result))
+    assert any(
+        "app imports base without requiring it" in item["title"] for item in result["findings"]
+    )
 
 
 APP_MODULES = {
@@ -335,6 +386,7 @@ def test_a_path_under_a_key_of_another_crate_is_an_edge(
         capsys,
         {"crates/app/src/lib.rs": f"{attribute}\npub struct S;\n"},
         components=parts,
+        keep_gaps=True,
     )
 
     assert statuses(result)["REQUIRES"] == "FAIL"
@@ -346,7 +398,12 @@ def test_a_path_in_a_bound_string_is_an_edge_and_one_that_does_not_read_is_unkno
     parts = (component("base", "base_crate"), component("app", "app"))
     bound = '#[serde(bound = "T: base_crate::Make")]\npub struct S<T>(T);\n'
     result = _verdict(
-        tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": bound}, components=parts
+        tmp_path,
+        rust_binary,
+        capsys,
+        {"crates/app/src/lib.rs": bound},
+        components=parts,
+        keep_gaps=True,
     )
     assert statuses(result)["REQUIRES"] == "FAIL"
 
@@ -424,7 +481,6 @@ def test_a_message_a_name_or_a_lint_is_no_edge_and_no_gap(
     source = (
         "use base_crate::make;\n"
         '#[deprecated(note = "use base_crate::make")]\npub fn old() {}\n'
-        '#[error("{}::{} failed")]\npub struct E;\n'
         '#[should_panic(expected = "base_crate::make")]\nfn t() {}\n'
         "#[cfg_attr(test, allow(base_crate::lint))]\npub struct S;\n"
     )

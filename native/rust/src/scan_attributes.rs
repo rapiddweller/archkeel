@@ -12,7 +12,7 @@ use syn::{Attribute, Expr, ExprLit, Lit, Meta};
 
 use super::Concern;
 use super::Walker;
-use crate::attribute_kinds::{self, Kind};
+use crate::attrs::kinds::{self as attribute_kinds, Kind};
 use crate::net;
 use crate::tokens::{attribute_chains, plain, read_value, string_paths, LINTS, MESSAGE_KEYS};
 
@@ -109,7 +109,11 @@ impl Walker<'_> {
                         }
                     }
                 }
-                None if attribute_kinds::tool(path) || self.helpers.contains(&name) => return,
+                None if (self.tools && attribute_kinds::tool(path))
+                    || self.helpers.contains(&name) =>
+                {
+                    return
+                }
                 None => (),
             }
         }
@@ -127,21 +131,6 @@ impl Walker<'_> {
             reason,
             site: self.site(span),
             source: Some(self.inline.clone()),
-        }
-    }
-
-    pub(super) fn finish_attributes(&mut self) {
-        let glob = self
-            .out
-            .references
-            .iter()
-            .any(|r| matches!(r.via, super::Via::Glob { .. }));
-        for (path, concern) in std::mem::take(&mut self.derives) {
-            if (glob && path.segments.len() == 1)
-                || !attribute_kinds::builtin_derive(&path, &self.out.names)
-            {
-                self.out.concerns.push(concern);
-            }
         }
     }
 
@@ -175,5 +164,29 @@ impl Walker<'_> {
             self.concern(reason.to_owned(), list.delimiter.span().join());
         }
         self.refer_chains(found);
+    }
+}
+
+pub(super) fn finish(walker: &mut Walker<'_>) {
+    for (path, concern) in std::mem::take(&mut walker.derives) {
+        let ambiguous = !walker.out.extern_crates.is_empty()
+            || walker.out.references.iter().any(|r| {
+                matches!(r.via, super::Via::Glob { .. })
+                    && concern
+                        .source
+                        .as_ref()
+                        .is_some_and(|scope| scope.starts_with(&r.scope))
+            });
+        if (ambiguous && path.segments.len() == 1)
+            || !attribute_kinds::builtin_derive(&path, &walker.out.names)
+        {
+            walker.out.concerns.push(concern);
+        }
+    }
+}
+
+pub(super) fn gate(walker: &mut Walker<'_>, attrs: &[Attribute], what: &str, span: Span) {
+    if let Some(reason) = crate::attrs::hidden_by(attrs, what, walker.features) {
+        walker.concern(reason, span);
     }
 }

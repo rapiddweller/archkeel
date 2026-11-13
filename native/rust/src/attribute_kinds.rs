@@ -68,6 +68,8 @@ const BUILTINS: &[(&str, Kind)] = &[
     ("windows_subsystem", Kind::Builtin),
     ("debugger_visualizer", Kind::Builtin),
     ("collapse_debuginfo", Kind::Builtin),
+    ("feature", Kind::Builtin),
+    ("non_exhaustive", Kind::Builtin),
     ("unsafe", Kind::Unsafe),
 ];
 
@@ -85,6 +87,23 @@ pub(crate) fn tool(path: &Path) -> bool {
             ["clippy", "rustfmt", "diagnostic", "miri", "rust_analyzer"]
                 .contains(&s.ident.to_string().as_str())
         })
+}
+
+pub(crate) fn no_tools(attrs: &[Attribute]) -> bool {
+    attrs.iter().any(|attr| {
+        if attr.path().is_ident("no_implicit_prelude") {
+            return true;
+        }
+        let Meta::List(list) = &attr.meta else {
+            return false;
+        };
+        if !attr.path().is_ident("cfg_attr") {
+            return false;
+        }
+        let mut names = BTreeSet::new();
+        crate::net::walk(list.tokens.clone(), &mut names);
+        names.contains("no_implicit_prelude")
+    })
 }
 
 pub(crate) fn paths(meta: &Meta) -> Option<Vec<Path>> {
@@ -131,11 +150,14 @@ pub(crate) fn helpers(attrs: &[Attribute]) -> Vec<String> {
         .filter_map(|p| {
             let name = p.segments.last()?.ident.to_string();
             match name.as_str() {
-                "Serialize" | "Deserialize" => Some("serde".to_owned()),
-                "JsonSchema" => Some("schemars".to_owned()),
-                "Default" => Some("default".to_owned()),
+                "Serialize" | "Deserialize" => Some(&["serde"][..]),
+                "JsonSchema" => Some(&["schemars", "serde", "validate", "garde"][..]),
+                "JsonSchema_repr" => Some(&["schemars", "serde"][..]),
+                "Default" => Some(&["default"][..]),
                 _ => None,
             }
         })
+        .flatten()
+        .map(|name| (*name).to_owned())
         .collect()
 }
