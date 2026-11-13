@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: MIT
 """AD-317, AD-335: a platform wheel carries the native TypeScript and Rust collectors.
 
-Consumer: the release build, which sets `ARCHKEEL_BUNDLE_NATIVE`. The host uses the bundled Rust
-binary as its default collector (`cli/observe.py`); the TypeScript binary is not wired
-yet, so the test finds it with `importlib.resources` itself. The test marked
+Consumer: the release build, which sets `ARCHKEEL_BUNDLE_NATIVE`. The wheel does not carry the
+core yet (AD-432), so the installed shell refuses each run. The test finds the two collector
+binaries with `importlib.resources` itself and runs them directly. The test marked
 `native_wheel` needs a Rust toolchain: `make native-wheel` runs it on each target of the wheel
 matrix in Full verification.
 """
@@ -19,7 +19,6 @@ import shutil
 import stat
 import subprocess
 import sys
-import sysconfig
 import tomllib
 import zipfile
 import zlib
@@ -396,24 +395,17 @@ def test_a_bundled_wheel_installs_and_its_binary_replies(tmp_path: Path) -> None
         result = subprocess.run(command, capture_output=True, text=True, check=False)
         assert result.returncode == 0, result.stderr
     python = venv / ("Scripts/python.exe" if windows else "bin/python")
-    # The wheel is installed without its dependencies; this environment supplies them.
+    # The package has no dependencies, so the new environment needs only the wheel.
     lookup = subprocess.run(
-        [str(python), "-c", LOOKUP],
-        env={**os.environ, "PYTHONPATH": sysconfig.get_paths()["purelib"]},
-        capture_output=True,
-        text=True,
-        check=False,
+        [str(python), "-c", LOOKUP], capture_output=True, text=True, check=False
     )
     assert lookup.returncode == 0, lookup.stderr
-    package, installed, executable, host_lookup = json.loads(lookup.stdout)
+    package, installed, executable, rust, rust_executable = json.loads(lookup.stdout)
     assert Path(package).is_relative_to(venv)
     assert Path(installed) == Path(package) / member.removeprefix("archkeel/")
-    assert executable
-    # The host finds the bundled Rust binary, and the installed host runs it as its collector.
-    assert Path(host_lookup) == Path(package) / (
-        "_native/" + RUST_BINARY + (".exe" if windows else "")
-    )
-    check_rust_binary(tmp_path, python, host_lookup, version)
+    assert executable and rust_executable
+    # The Rust binary replies, and the installed shell refuses without the core.
+    check_rust_binary(tmp_path, python, rust, version)
 
     reply = subprocess.run(
         [str(installed)], input=json.dumps(_request(tmp_path)).encode(), capture_output=True
@@ -432,20 +424,19 @@ def test_a_bundled_wheel_installs_and_its_binary_replies(tmp_path: Path) -> None
     assert b"dump request is not JSON" not in Path(installed).read_bytes()
 
 
-# The host uses the bundled Rust binary (AD-335). The TypeScript binary is wired in PR 4.4.
+# The two collector binaries of the installed package (AD-317, AD-335).
 LOOKUP = """
 import json
 import os
 import sysconfig
 from importlib.resources import files
 
-from archkeel.cli.observe import RUST_COLLECTOR, bundled_collector
-
 package = files("archkeel")
-name = "archkeel-typescript-collector" + (sysconfig.get_config_var("EXE") or "")
-binary = package / "_native" / name
-executable = binary.is_file() and os.access(binary, os.X_OK)
-print(json.dumps([str(package), str(binary), executable, bundled_collector(RUST_COLLECTOR)]))
+suffix = sysconfig.get_config_var("EXE") or ""
+binary = package / "_native" / ("archkeel-typescript-collector" + suffix)
+rust = package / "_native" / ("archkeel-rust-collector" + suffix)
+executable = [item.is_file() and os.access(item, os.X_OK) for item in (binary, rust)]
+print(json.dumps([str(package), str(binary), executable[0], str(rust), executable[1]]))
 """
 
 
