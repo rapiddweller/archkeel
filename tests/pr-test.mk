@@ -5,6 +5,7 @@ PR_TEST_FILES := \
 	tests/test_cli_unsupported_projects.py \
 	tests/test_dependency_runtime_identity.py \
 	tests/test_dual_run_supported_profiles.py \
+	tests/test_collector_native_catalog.py \
 	tests/test_make_gate.py \
 	tests/test_ci_budget.py \
 	tests/test_native_ci.py \

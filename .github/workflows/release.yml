@@ -15,9 +15,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # AD-317: a release publishes the platform wheels with the native collector only when this is
-  # "true". It stays "false" until PR 4.4 of issue #880 makes the host use the binary.
-  PUBLISH_NATIVE_WHEELS: "false"
+  # AD-422: native-only collection requires platform wheels at the next owner release.
+  PUBLISH_NATIVE_WHEELS: "true"
 
 jobs:
   verify:
@@ -57,8 +56,22 @@ jobs:
       - name: Add the platform wheels only when PUBLISH_NATIVE_WHEELS is true
         run: |
           set -euo pipefail
-          ls native-wheels/*.whl
-          if [[ "$PUBLISH_NATIVE_WHEELS" == true ]]; then cp native-wheels/*.whl dist/; fi
+          [[ "$PUBLISH_NATIVE_WHEELS" == true ]] || exit 2
+          shopt -s nullglob
+          wheels=(native-wheels/*.whl)
+          sdists=(dist/*.tar.gz)
+          [[ ${#wheels[@]} -eq 6 && ${#sdists[@]} -eq 1 ]] || {
+            echo "Release requires six platform wheels and one sdist" >&2
+            exit 2
+          }
+          for wheel in "${wheels[@]}"; do [[ "$wheel" != *-none-any.whl ]] || exit 2; done
+          pure=(dist/*-py3-none-any.whl)
+          [[ ${#pure[@]} -eq 1 ]] || exit 2
+          rm -- "${pure[@]}"
+          cp -- "${wheels[@]}" dist/
+          published=(dist/*.whl)
+          distributions=(dist/*)
+          [[ ${#published[@]} -eq 6 && ${#distributions[@]} -eq 7 ]] || exit 2
 
       - name: Build and verify the plugin archive separately
         env:

@@ -33,6 +33,8 @@ Use the released 4.0.1 as the later comparison oracle, not deleted source or new
 Restore the Python self-check only after that end-to-end path works.
 TypeScript collection requires a native platform wheel or a local native build.
 No Python fallback exists on platforms without a shipped native binary.
+The next owner release must publish six platform wheels and one sdist, never a pure wheel.
+The release step refuses false publication flags and incomplete artifact counts.
 The colocated digest detects a changed binary, not an attacker with install-write access.
 
 ## Checks
@@ -42,4 +44,5 @@ The typed exception retains a `missing_tool` diagnostic, exit 2 and the released
 Studio refuses an unsupported profile before it can start or reuse a server.
 Historical Python and Dart configurations refuse before a supported candidate is collected.
 `tests/test_dependency_runtime_identity.py` checks the analyzer identity before Python runtime trust.
+`tests/test_native_ci.py` runs the release shell step with complete and incomplete artifact sets.
 The native self-check and Rust/TypeScript dual run check the retained paths.
