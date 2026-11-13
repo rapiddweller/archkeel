@@ -55,7 +55,9 @@ impl WhyUnknown {
 
 fn unsupported(part: &Unsupported) -> WhyUnknown {
     match part {
-        Unsupported::Rule(_) | Unsupported::InsideRule => WhyUnknown::NoReceipt,
+        Unsupported::Rule(_) | Unsupported::InsideRule | Unsupported::NoRules => {
+            WhyUnknown::NoReceipt
+        }
         Unsupported::ScopeProof(_)
         | Unsupported::Section(_)
         | Unsupported::Report

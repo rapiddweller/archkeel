@@ -144,9 +144,20 @@ HOSTILE = [
 
 
 def test_a_contract_without_rules_is_refused_by_name() -> None:
-    """Both engines give PASS; #1096 decides one policy, and until then the reader refuses."""
+    """A hostile PASS is refused even though Python keeps its shipped zero-rule result."""
     with pytest.raises(CoreError, match="PASS with zero rules"):
         read(raw({}))
+
+
+def test_a_named_zero_rule_outcome_falls_back_to_the_shipped_python_result() -> None:
+    value = raw(
+        {},
+        "UNKNOWN",
+        unsupported={"rules": "unsupported: contract has no rules", "sections": {}, "report": None},
+    )
+    outcome = stage_one(read(value, 3), [], Status.PASS)
+    assert isinstance(outcome, FellBack)
+    assert outcome.gaps[0].reason == "unsupported: contract has no rules"
 
 
 @pytest.mark.parametrize(("name", "value", "exit_code"), HOSTILE, ids=[h[0] for h in HOSTILE])

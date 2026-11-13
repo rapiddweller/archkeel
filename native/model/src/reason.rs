@@ -35,6 +35,8 @@ pub enum Unsupported {
     /// A PASS of a rule of a tree whose models do not hold every mount: the second line of the
     /// core after the scope proof (AD-385).
     TreeScope,
+    /// An empty contract cannot give the core a run verdict (AD-416).
+    NoRules,
 }
 
 /// An input of a run that the core needs.
@@ -135,6 +137,7 @@ impl fmt::Display for Unsupported {
             Unsupported::TreeScope => formatter.write_str(
                 "the scope proof of a contract tree: the models do not hold every mount",
             ),
+            Unsupported::NoRules => formatter.write_str("contract has no rules"),
         }
     }
 }

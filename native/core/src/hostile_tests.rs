@@ -17,7 +17,7 @@ const FIXTURE: &str = include_str!("../../../fixtures/H-typescript/architecture-
 const EXTERNAL: &str = "incomplete scope: the reply does not come from the bundled collector, \
                         and the collector pin is not verified by the core";
 
-/// A request of a contract without rules: its run passes only with a complete scope.
+/// A request of a contract without rules: the core names it unsupported.
 fn request(reply: &[u8]) -> Value {
     json!({
         "protocol": "archkeel-dual-run-5", "case": "c", "root": "/r", "config": "archkeel.toml",
@@ -38,7 +38,7 @@ fn frame(value: &Value) -> Value {
 #[test]
 fn a_request_cannot_set_a_status_or_a_verdict() {
     let reply = golden_reply_by(None);
-    assert_eq!(frame(&request(&reply))["status"], "PASS");
+    assert_eq!(frame(&request(&reply))["status"], "UNKNOWN");
     for (field, word) in [
         ("status", json!("PASS")),
         ("rules", json!({"R": ["complete_assignment", "PASS"]})),

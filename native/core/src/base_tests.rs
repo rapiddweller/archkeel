@@ -64,12 +64,12 @@ fn a_base_of_this_build_keeps_the_frame_of_the_candidate() {
     let (alone, gap, _) = frame(&request(None));
     assert_eq!(
         (alone["status"].clone(), gap),
-        (json!("PASS"), false),
+        (json!("UNKNOWN"), true),
         "{alone}"
     );
     let (with_base, gap, _) = frame(&request(Some(&reply(|_| {}))));
     assert_eq!(with_base, alone);
-    assert!(!gap);
+    assert!(gap);
 }
 
 #[test]

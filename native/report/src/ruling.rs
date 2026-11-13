@@ -19,10 +19,10 @@
     clippy::match_wildcard_for_single_variants
 )]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_eval::{evaluate, Outcome};
-use archkeel_model::{Decision, Model, ModelTree, Reason, Verdict as ModelVerdict};
+use archkeel_model::{Decision, Model, ModelTree, Reason, Unsupported, Verdict as ModelVerdict};
 use serde::Serialize;
 
 use crate::build_error::BuildError;
@@ -107,7 +107,7 @@ impl Ruling {
 /// The ruling of a run: the outcomes of each model of the tree (the root, then each mount,
 /// AD-385), the gaps of the core, the status and its proof. A frame that breaks the explaining
 /// rows of AD-361 point 5 is an error, never a ruling.
-pub fn rule(models: Result<&ModelTree, &Reason>, named: Named) -> Result<Ruling, BuildError> {
+pub fn rule(models: Result<&ModelTree, &Reason>, mut named: Named) -> Result<Ruling, BuildError> {
     let scope = match models {
         Ok(models) => models
             .models()
@@ -131,6 +131,10 @@ pub fn rule(models: Result<&ModelTree, &Reason>, named: Named) -> Result<Ruling,
         gaps.into_iter()
             .map(|(id, reason)| (id, reason.to_string())),
     );
+    // AD-416: no rule outcome means no core verdict, not an empty PASS proof.
+    if models.is_ok() && rows.seen.is_empty() && reasons.is_empty() && named.contract.is_none() {
+        named.contract = Some(Reason::Unsupported(Unsupported::NoRules).to_string());
+    }
     let open = named.contract.is_some()
         || !reasons.is_empty()
         || rows.rules.values().any(|(_, v)| *v == RuleVerdict::Unknown);
@@ -169,6 +173,7 @@ pub fn rule(models: Result<&ModelTree, &Reason>, named: Named) -> Result<Ruling,
 /// The rows of the decided rules.
 #[derive(Default)]
 struct Rows {
+    seen: BTreeSet<String>,
     rules: BTreeMap<String, (String, RuleVerdict)>,
     explained: BTreeMap<String, String>,
     violations: BTreeMap<String, usize>,
@@ -188,6 +193,9 @@ impl Rows {
         gaps: &mut BTreeMap<String, Reason>,
     ) -> Result<(), BuildError> {
         let id = outcome.rule().to_owned();
+        if !self.seen.insert(id.clone()) {
+            return Err(BuildError::DuplicateRule { rule: id });
+        }
         let count = outcome.violations().len();
         let verdict = match outcome.decision() {
             None if model.declares(&id) => RuleVerdict::Declaration,
