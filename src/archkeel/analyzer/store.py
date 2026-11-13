@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import subprocess
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import IO
 
 from archkeel.analyzer.memory_limit import limit_memory
@@ -25,7 +25,9 @@ from archkeel.ir.facts import SourceFacts
 from archkeel.ir.facts_codec import ProtocolError
 from archkeel.ir.protocol import CollectionRequest, CollectionResponse, ProtocolVersion
 from archkeel.ir.readset_codec import decode_read_set
+from archkeel.ir.state_facts import VerifiedBinary
 from archkeel.ir.store_seam import StoreEntry, close_store, open_store
+from archkeel.ir.validated_facts import with_verified_binary
 
 # The factor of `facts_codec.decode_response`: a reply may inflate to 16 times its bytes.
 _INFLATE_FACTOR = 16
@@ -97,8 +99,14 @@ class StoreSession:
             self.close()
             raise _StoreError(refused)
 
-    def ingest(self, reply: bytes) -> CollectionResponse:
+    def ingest(
+        self, reply: bytes, verified_binary: VerifiedBinary | None = None
+    ) -> CollectionResponse:
         response = decode_read_set(self._ask(b"R", reply))
+        if verified_binary is not None:
+            response = replace(
+                response, facts=with_verified_binary(response.facts, verified_binary)
+            )
         facts: SourceFacts = response.facts
         records = [record for section in facts.sections for record in section.records]
         self._records = frozenset(record.id for record in (*records, *facts.coverage.gaps))
@@ -175,6 +183,7 @@ def store_response(
     *,
     protocol_version: ProtocolVersion | None,
     adapter_version: str | None,
+    verified_binary: VerifiedBinary | None = None,
 ) -> CollectionResponse:
     """Open a store session for `reply` and return its read-set facts (`ProcessCollector`)."""
     try:
@@ -183,7 +192,7 @@ def store_response(
         session = StoreSession(limits.binary, inflate, limits.memory_limit_bytes)
         opened = False
         try:
-            response = session.ingest(reply)
+            response = session.ingest(reply, verified_binary)
             open_store(session, response.facts)
             opened = True
         finally:

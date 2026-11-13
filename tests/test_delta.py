@@ -447,43 +447,6 @@ def test_delta_ratchets_retain_supported_observation_history(schema_version: str
     assert delta.ratchets.status.value == "SUPPORTED"
 
 
-def test_one_module_with_one_intra_component_import_is_one_semantic_change(
-    tmp_path: Path,
-) -> None:
-    """AD-43: a labels.py-shaped edit declares 1 entry, not 7 (roadmap item 6).
-
-    Both modules live three levels deep, ``sample.pkg.base`` and ``sample.pkg.labels``, the
-    same shape as ``archkeel.ir.digest``/``archkeel.ir.labels`` the roadmap measured: sharing
-    a package by its first two dotted segments is what makes the import unconstrained.
-    """
-    (tmp_path / "sample/pkg").mkdir(parents=True)
-    (tmp_path / "sample/pkg/__init__.py").write_text("")
-    (tmp_path / "sample/pkg/base.py").write_text(
-        "from __future__ import annotations\n\n\ndef helper() -> str:\n    return 'value'\n"
-    )
-    before_result = _observe_sample(tmp_path)
-    assert before_result.observation is not None, before_result.diagnostics
-
-    (tmp_path / "sample/pkg/labels.py").write_text(
-        "from __future__ import annotations\n\nfrom .base import helper\n\n\n"
-        "def label() -> str:\n    return helper()\n"
-    )
-    after_result = _observe_sample(tmp_path)
-    assert after_result.observation is not None, after_result.diagnostics
-
-    delta = build_architecture_delta(
-        before_result.observation,
-        after_result.observation,
-        baseline_digest="a" * 64,
-        head_digest="b" * 64,
-        checker_digest=package_digest(),
-    )
-
-    assert len(delta.semantic_changes) == 1
-    change = delta.semantic_changes[0]
-    assert (change.dimension, change.change) == ("dependency_edges", "added")
-
-
 def test_typescript_delta_requires_same_explicit_runtime_and_producer() -> None:
     before = _model(git_head="1" * 40)
     after = _model(git_head="2" * 40)

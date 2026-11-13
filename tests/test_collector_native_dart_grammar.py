@@ -1,6 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+# ruff: noqa: E402
 """AD-342: the vendored Rust Dart grammar gives the same tree as the Python grammar.
 
 Consumer: the native Dart collector, which must read the same syntax as the Python collector.
@@ -18,6 +19,9 @@ import sys
 from pathlib import Path
 
 import pytest
+from oracle_support import ORACLE_UNAVAILABLE
+
+pytest.skip(ORACLE_UNAVAILABLE, allow_module_level=True)
 from conftest import install_rust_toolchain
 
 ROOT = Path(__file__).parents[1]

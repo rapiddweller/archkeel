@@ -17,7 +17,6 @@ from archkeel.check.declarations import _requires_entries
 from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_canonical_model, parse_delta, parse_observation
-from archkeel.ir.decisions import agent_decisions
 from archkeel.ir.facts import EvidenceClass
 from archkeel.ir.graph_codec import parse_report
 from archkeel.ir.measurements import Measurements, RatchetScalars
@@ -33,13 +32,11 @@ from archkeel.ir.model import (
 )
 from archkeel.render.html import (
     _module_tree_html,
-    render_architecture_html,
     render_check_html,
     render_html,
 )
 from archkeel.render.summary import badge, check_decision_sentence, check_summary, report_summary
 from fixtures.architecture_demo import CATALOG
-from fixtures.demo_catalog_support import contract_rule_field, contract_without_rule
 
 FAILED_CHECK = RunResult(
     "check", 1, "PASS", "PASS", "FAIL", git_predicate="PASS", host_order="PASS"
@@ -389,42 +386,6 @@ def test_html_report_reports_no_cross_component_imports() -> None:
     assert "No cross-component imports were observed." in page
 
 
-def test_native_html_audit_keeps_agent_decisions_in_the_recorded_packet(
-    tmp_path: Path,
-) -> None:
-    """AD-16: the count comes from architecture.json bytes, never a `RunResult` field, and
-    the terminal summary agrees because both derive it from the same observation."""
-    root = _prepare_repo(
-        tmp_path,
-        {
-            "architecture-contract.json": contract_rule_field(
-                "DEP-MODEL-NO-STORE", decided_by="agent"
-            )
-        },
-    )
-    result, architecture = run_report(root, config=CONFIG, analyzer=observe)
-    assert architecture is not None
-    # 48 rules (AD-11, issue #47), 8 declared public lists and the inside's 3 requires entries
-    # (AD-50).
-    assert result.agent_decisions == (1, 59)
-    assert "1 of 59 decisions made by the agent" in report_summary(result).sentence
-
-    stripped = replace(result, agent_decisions=None)
-    page = render_architecture_html(
-        stripped, architecture, repository="shop", architecture_href="architecture.json"
-    ).decode()
-
-    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
-    assert agent_decisions(observation) == (1, 59)
-    decision = next(
-        item
-        for item in observation.records("declarations") or ()
-        if item.id == "DEP-MODEL-NO-STORE"
-    )
-    assert decision.data.get("decided_by") == "agent"
-    _native_audit(page, observation, "architecture.json")
-
-
 def _shop_sample_report(tmp_path: Path, variant_id: str) -> str:
     variant = next(item for item in CATALOG if item.id == variant_id)
     root = _prepare_repo(tmp_path, dict(variant.files))
@@ -462,142 +423,12 @@ _TOUR_FLOW_RULE_IDS = (
 )
 
 
-def test_html_report_flow_view_marks_every_violated_edge_with_its_rule_id(tmp_path: Path) -> None:
-    page = _shop_sample_report(tmp_path, "tour")
-    report = _standard_report(page)
-    assert report.observed is not None
-    finding_rules = {
-        rule for item in report.findings if item.status == "FAIL" for rule in item.rule_ids
-    }
-    assert set(_TOUR_FLOW_RULE_IDS) <= finding_rules
-    sites = {item.id for item in report.observed.relationships}
-    marked_rules = {
-        rule
-        for item in report.findings
-        if sites.intersection(item.graph_subject_ids)
-        for rule in item.rule_ids
-    }
-    assert set(_TOUR_FLOW_RULE_IDS) <= marked_rules
-    control = next(
-        attrs for attrs in _start_tags(page, "label") if attrs.get("for") == "flow-violations-only"
-    )
-    assert "flow-graph-filter" in page
-    assert "hidden" in control
-
-
-def test_html_report_explorer_uses_one_observation_for_three_views(tmp_path: Path) -> None:
-    page = _shop_sample_report(tmp_path, "tour")
-    assert page.count('id="flow-data"') == 1
-    assert '<nav class="flow-views" aria-label="Architecture views" hidden>' in page
-    for view in ("diagram", "target", "diff", "structure", "review"):
-        assert f'data-flow-view="{view}"' in page
-    report = _standard_report(page)
-    assert report.observed is not None and report.target is not None
-    assert "Recorded findings" in page
-    assert "Observed modules" in page
-    assert "Cross-component imports" in page
-
-
-def test_html_report_can_focus_an_open_report_on_violations(tmp_path: Path) -> None:
-    page = _shop_sample_report(tmp_path, "tour")
-    assert "data-violation-focus hidden" in page
-    assert "data-report-violations-only" in page
-    assert 'id="component-communication-detail" data-secondary-detail' in page
-    assert 'id="report-secondary-detail" data-secondary-detail' in page
-    assert 'classList.toggle("violations-only", control.checked)' in page
-    assert "flowControl.checked = control.checked" in page
-    assert 'flowControl.dispatchEvent(new Event("change"))' in page
-    assert "DEP-STORE-NO-MONEY" in page
-    assert "Cross-component imports" in page
-    assert "Known unknowns" in page
-    assert "Complete scan inventory" in page
-    assert "violationsOnly.checked" in page
-    assert "Recorded findings" in page
-
-
-def test_html_report_locates_a_cited_file_without_a_line(tmp_path: Path) -> None:
-    """AD-107: an empty initializer is cited as its file, never as a line 0 that does not exist."""
-    page = _shop_sample_report(tmp_path, "class-a-root-layout-empty-package")
-
-    assert "<td><code>shop/extra/__init__.py</code>" in page
-    assert "shop/extra/__init__.py:0" not in page
-
-
-def test_html_report_flow_view_marks_an_undecided_edge(tmp_path: Path) -> None:
-    variant = next(item for item in CATALOG if item.id == "tour")
-    root = _prepare_repo(
-        tmp_path,
-        {
-            **dict(variant.files),
-            "architecture-contract.json": contract_without_rule("DEP-APP-ALLOWS-MODEL"),
-        },
-    )
-    result, encoded = run_report(root, config=CONFIG, analyzer=observe)
-    assert encoded is not None
-    model = parse_observation(decode_canonical_model(json.loads(encoded)))
-    page = render_html(
-        result, model, repository="shop", architecture_href="architecture.json"
-    ).decode()
-    report = _standard_report(page)
-    labels = {item.component_id: item.label for item in report.target.component_intents}
-    gap = next(
-        item
-        for item in report.decision_gaps
-        if labels[item.source_id] == "app" and labels[item.target_id] == "model"
-    )
-    assert gap.relationship_ids
-    assert "Open dependency decisions" in page
-    assert "This is not a Core UNKNOWN verdict" in page
-
-
-def test_html_report_flow_view_clean_sample_has_no_violated_edges(tmp_path: Path) -> None:
-    report = _standard_report(_shop_sample_report(tmp_path, "clean"))
-    assert report.observed.relationships
-    assert not any(item.status == "FAIL" for item in report.findings)
-    assert report.comparison is None
-
-
-def test_flow_report_keeps_interface_decisions_and_import_sites(tmp_path: Path) -> None:
-    page = _shop_sample_report(tmp_path, "class-a-complete-requires")
-    report = _standard_report(page)
-    assert "How to read this report" in page
-    breadcrumb = next(
-        attrs
-        for attrs in _start_tags(page, "nav")
-        if attrs.get("aria-label") == "Diagram breadcrumb"
-    )
-    assert {"flow-breadcrumb", "flow-navigation-control"} <= set(
-        (breadcrumb.get("class") or "").split()
-    )
-    permissions = [item for item in report.target.relationships if item.kind == "requires"]
-    assert permissions and all(item.reason and item.decided_by for item in permissions)
-    imports = [item for item in report.observed.relationships if item.kind == "imports"]
-    assert imports and all(item.evidence_ids for item in imports)
-    proof = {item.id: item for item in report.observed.evidence}
-    assert all(
-        proof[id].file and proof[id].line > 0 for item in imports for id in item.evidence_ids
-    )
-
-
 def test_static_module_inventory_is_nested_without_duplicate_package_card() -> None:
     tree = _module_tree_html(["pkg", "pkg.api", "pkg.api.users", "pkg.util"])
     assert "<summary><code>pkg</code>" in tree
     assert "<summary><code>api</code>" in tree
     assert "<li><code>users</code></li>" in tree
     assert "<li><code>pkg.api.users</code></li>" not in tree
-
-
-def test_interactive_flow_controls_start_hidden_without_javascript(tmp_path: Path) -> None:
-    page = _shop_sample_report(tmp_path, "class-a-complete-requires")
-
-    assert '<div class="flow-toolbar" hidden>' in page
-    assert '<nav class="flow-views" aria-label="Architecture views" hidden>' in page
-    assert "Observed module tree" in page
-    assert 'id="flow-threshold-input"' not in page
-    assert 'id="flow-responsibility-search"' not in page
-    assert (
-        'role="region"\n               aria-label="Pannable component dependencies diagram"' in page
-    )
 
 
 def test_required_interface_projection_keeps_narrowing_and_decider() -> None:
@@ -621,20 +452,6 @@ def test_required_interface_projection_keeps_narrowing_and_decider() -> None:
         "rationale": "Only use the facade",
         "decided_by": "agent",
     }
-
-
-def test_external_scope_keeps_independent_permission_and_recorded_failure(tmp_path: Path) -> None:
-    page = _shop_sample_report(tmp_path, "class-a-external-dependency-scope")
-    report = _standard_report(page)
-    scope = next(item for item in report.target.external_scopes if item.dependency == "json")
-    assert scope.id == "EXTERNAL-JSON-STORE"
-    assert scope.allowed_sources == ("shop.store",)
-    assert scope.rationale and scope.provenance and scope.decided_by
-    failures = [
-        item for item in report.findings if scope.id in item.rule_ids and item.status == "FAIL"
-    ]
-    assert failures and all(item.graph_subject_ids for item in failures)
-    assert "External dependency permissions" in page
 
 
 def test_html_report_never_styles_missing_evidence_as_pass() -> None:

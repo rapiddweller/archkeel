@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from tools.dual_run_python import pin_receipt_runtime
+
 ORACLE_DIR = Path(__file__).resolve().parent.parent / "tests" / "dual_run"
 SCHEMA = json.loads((Path(__file__).resolve().parent / "dual_run_schema.json").read_text())
 SECTIONS: tuple[str, ...] = tuple(SCHEMA["sections"])
@@ -127,6 +129,7 @@ def decode_sections(architecture: Mapping[str, Any]) -> dict[str, list[dict[str,
                 for key, value in zip(data_fields, data, strict=True)
                 if value != "$m"
             }
+            pin_receipt_runtime(architecture, name, row)
             rows.append(row)
         sections[name] = rows
     return sections
@@ -268,8 +271,7 @@ def first_difference(
 # AD-384 point 4: the one allowed direction change. The reference engine gives a rule UNKNOWN for
 # any kept pair gap; the core passes a rule that it proves no kept gap can change.
 BEYOND = "core decides, Python does not: "
-# AD-388, L-35c: the one allowed stricter change of the producer. Python trusts a pinned external
-# collector; the core cannot verify a pin, so the rule is UNKNOWN and names the pin.
+# AD-388: the core cannot verify the external collector pin that the Python host trusts.
 PIN = "the collector pin is not verified by the core"
 STRICTER = "core stricter than Python: "
 
@@ -277,14 +279,16 @@ STRICTER = "core stricter than Python: "
 def _rule_difference(
     case: str, rule: str, expected: Any, actual: Any, frame: Mapping[str, Any]
 ) -> Difference:
-    """A named difference for a PASS that the frame lists in `beyond` over a Python UNKNOWN of
-    the same kind, and for an UNKNOWN whose reason is the unverified pin over a Python PASS; any
-    other difference shows both verdicts."""
+    """Name only recorded verdict differences; keep every other mismatch explicit."""
     beyond = (frame.get("beyond") or {}).get(rule)
     if beyond and expected and actual and expected[0] == actual[0]:
         if (expected[1], actual[1]) == ("UNKNOWN", "PASS"):
             return Difference(case, "rules", rule, BEYOND + beyond)
     why = str((frame.get("explained") or {}).get(rule) or "")
+    if expected == ["complete_requires", "PASS"] and actual == ["complete_requires", "UNKNOWN"]:
+        scope = SCHEMA["stricter_native_scope"]
+        if why == scope["core_reason"] and rule in scope["cases"].get(case, ()):
+            return Difference(case, "rules", rule, scope["reason"])
     if PIN in why and expected and actual and expected[0] == actual[0]:
         if (expected[1], actual[1]) == ("PASS", "UNKNOWN"):
             return Difference(case, "rules", rule, STRICTER + why)

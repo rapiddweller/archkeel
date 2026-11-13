@@ -8,15 +8,12 @@ import subprocess
 from pathlib import Path
 
 from test_architecture_demo import CONFIG, _prepare_repo
-from test_baseline import REFUSED
 
 from archkeel.check.validation import run_validate
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import (
     baseline_bytes,
-    decode_json,
     parse_contract,
-    parse_validation_baseline,
 )
 from archkeel.ir.measurements import MeasurementBudget, compare_budgets
 from archkeel.ir.model import ArchitectureContract
@@ -45,77 +42,6 @@ def _baseline(root: Path, *budgets: MeasurementBudget) -> Path:
     path = root / "architecture-baseline.json"
     path.write_bytes(baseline_bytes((), budgets))
     return path
-
-
-def test_cycle_edge_budget_passes_then_blocks_a_rise(tmp_path: Path) -> None:
-    root = _repo(tmp_path, "cycle_edges")
-    baseline = _baseline(root, MeasurementBudget("cycle_edges", 0))
-
-    assert run_validate(root, CONFIG, observe, baseline=baseline)[0].exit_code == 0
-
-    (root / "shop/model/alpha.py").write_text("from shop.model import beta\nVALUE = beta.VALUE\n")
-    (root / "shop/model/beta.py").write_text("from shop.model import alpha\nVALUE = 1\n")
-    result, files = run_validate(root, CONFIG, observe, baseline=baseline, write_baseline=True)
-
-    assert result.exit_code == 1
-    assert result.failures == ("measurement budget exceeded in cycle_edges: 0->2", REFUSED)
-    assert dict(files.entries) == {}
-
-    accepted, files = run_validate(
-        root,
-        CONFIG,
-        observe,
-        baseline=baseline,
-        write_baseline=True,
-        accept_new=True,
-    )
-    assert accepted.exit_code == 0
-    written = parse_validation_baseline(decode_json(dict(files.entries)[str(baseline)]))
-    assert written.budgets == (MeasurementBudget("cycle_edges", 2),)
-
-
-def test_unknown_position_budget_blocks_a_new_undecided_promise(tmp_path: Path) -> None:
-    """AD-92: `check` already failed a new `unknowns` record; `validate --baseline` kept exit 0
-    until the count became a budget. A `public_api` name the sample never defines, in a module
-    without `__all__`, is one position the scan cannot decide (AD-72). Recursive DTO inspection
-    resolves the sample's former `nested_type` limit, leaving the initial unknown count at zero."""
-    root = _repo(tmp_path, "unknown_positions")
-    baseline = _baseline(root, MeasurementBudget("unknown_positions", 0))
-
-    assert run_validate(root, CONFIG, observe, baseline=baseline)[0].exit_code == 0
-
-    contract_path = root / "architecture-contract.json"
-    contract = json.loads(contract_path.read_text())
-    contract["declarations"]["public_api"].append("shop.app.orders:TypoThatIsNotReal")
-    contract_path.write_text(json.dumps(contract, indent=2) + "\n")
-    result, files = run_validate(root, CONFIG, observe, baseline=baseline, write_baseline=True)
-
-    assert result.exit_code == 1
-    assert result.failures == ("measurement budget exceeded in unknown_positions: 0->1", REFUSED)
-    assert dict(files.entries) == {}
-
-    accepted, files = run_validate(
-        root, CONFIG, observe, baseline=baseline, write_baseline=True, accept_new=True
-    )
-    assert accepted.exit_code == 0
-    written = parse_validation_baseline(decode_json(dict(files.entries)[str(baseline)]))
-    assert written.budgets == (MeasurementBudget("unknown_positions", 1),)
-
-
-def test_reduced_budget_must_be_written_back(tmp_path: Path) -> None:
-    root = _repo(tmp_path, "cycle_edges")
-    baseline = _baseline(root, MeasurementBudget("cycle_edges", 2))
-
-    stale, _ = run_validate(root, CONFIG, observe, baseline=baseline)
-    updated, files = run_validate(root, CONFIG, observe, baseline=baseline, write_baseline=True)
-
-    assert stale.failures == (
-        "measurement budget reduced in cycle_edges: 2->0; rewrite the baseline with "
-        "--write-baseline",
-    )
-    assert updated.exit_code == 0
-    written = parse_validation_baseline(decode_json(dict(files.entries)[str(baseline)]))
-    assert written.budgets == (MeasurementBudget("cycle_edges", 0),)
 
 
 def test_a_refused_write_advises_no_rewrite_of_a_budget() -> None:
@@ -173,27 +99,6 @@ def test_raising_or_dropping_an_accepted_budget_is_a_widening() -> None:
     assert measurement_budget_widenings(before, ()) == (
         "measurement budget baseline lost cycle_edges",
     )
-
-
-def test_against_rejects_a_raised_budget(tmp_path: Path) -> None:
-    root = _repo(tmp_path, "cycle_edges")
-    baseline = _baseline(root, MeasurementBudget("cycle_edges", 0))
-    subprocess.run(
-        ["git", "-c", "commit.gpgsign=false", "add", "architecture-baseline.json"],
-        cwd=root,
-        check=True,
-    )
-    subprocess.run(
-        ["git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "budget"],
-        cwd=root,
-        check=True,
-    )
-    base = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
-    baseline.write_bytes(baseline_bytes((), (MeasurementBudget("cycle_edges", 1),)))
-
-    result, _ = run_validate(root, CONFIG, observe, baseline=baseline, against=base)
-
-    assert "measurement budget widened: cycle_edges (1 now, 0 before)" in result.failures
 
 
 def test_removing_a_budget_declaration_widens_but_adding_one_does_not() -> None:

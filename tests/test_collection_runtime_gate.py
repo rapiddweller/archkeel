@@ -14,7 +14,7 @@ from test_source_namespace_acceptance import _GIT_HEAD, _response
 from archkeel.analyzer.process import ProcessCollector
 
 
-@pytest.mark.parametrize("language", ["python", "dart", "typescript"])
+@pytest.mark.parametrize("language", ["typescript"])
 @pytest.mark.parametrize("version", ["20.0.0", "22.23.3", "24.1.0", "26.0.0"])
 def test_required_runtime_is_checked_for_every_collector(
     tmp_path: Path, language: str, version: str

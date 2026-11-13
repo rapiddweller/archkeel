@@ -5,6 +5,7 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 
 | Decision | Title |
 |---|---|
+| AD-430 | [Delete the Python language collectors](ad-430-delete-the-python-language-collectors.md) |
 | AD-420 | [Bound parse work before an in-process collector reads bytes](ad-420-bound-parse-work-before-an-in-process-collector-reads-bytes.md) |
 | AD-1 | [Flat analyzer modules](ad-01-analyzer-modules-are-flat-and-singlepurpose.md) |
 | AD-2 | [One JSON type](ad-02-json-has-one-type.md) |

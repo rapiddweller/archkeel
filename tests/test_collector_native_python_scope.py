@@ -1,6 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+# ruff: noqa: E402
 """The native scope of a Python scan equals the scope of the Python collector (AD-334, 1c-1).
 
 The oracle is the unmodified Python code: `selected_paths`, `module_for`, `package_for`, the
@@ -18,11 +19,15 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from oracle_support import ORACLE_UNAVAILABLE
 
-from archkeel.analyzer.interpreter import interpreter, python_request
+pytest.skip(ORACLE_UNAVAILABLE, allow_module_level=True)
+
 from archkeel.analyzer.python.collect import _inputs
 from archkeel.analyzer.python.explore_scope import parse_unshadowed, selected_paths
 from archkeel.analyzer.python.source import module_for, package_for
+
+from archkeel.analyzer.interpreter import interpreter, python_request
 from archkeel.analyzer.runtime import python_requirement
 from archkeel.cli.config import load_config
 from archkeel.ir.protocol import (

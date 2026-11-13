@@ -11,130 +11,9 @@ from collector_pin import trusted
 from test_typescript_inner import _collected
 from test_typescript_partial_uml import _project, _TypeScriptCollector
 
-from archkeel.analyzer.typescript.parse import parse
-from archkeel.analyzer.typescript.syntax import DefinitionKind, Visibility
 from archkeel.check.report import run_report, run_saved_report
 from archkeel.ir.codec import decode_canonical_model, parse_observation
 from archkeel.ir.report_graph import architecture_report
-
-
-@pytest.mark.parametrize(
-    "modifier,visibility",
-    [
-        ("public", Visibility.PUBLIC),
-        ("private", Visibility.PRIVATE),
-        ("protected", Visibility.PROTECTED),
-        ("readonly", None),
-        ("private readonly", Visibility.PRIVATE),
-    ],
-)
-def test_named_parameter_properties_preserve_parameter_and_member(modifier, visibility):
-    source = f"export class Store {{ constructor({modifier} repo: string, ordinary: number) {{}} }}"
-    syntax = parse("src/main.ts", source.encode())
-    owner = next(d for d in syntax.definitions if d.kind is DefinitionKind.CLASS)
-    constructor = next(d for d in syntax.definitions if d.name == "constructor")
-    assert [(m.name, m.annotation, m.visibility, m.static) for m in owner.members] == [
-        ("repo", "string", visibility, False)
-    ]
-    assert owner.members_complete
-    assert [(p.name, p.annotation) for p in constructor.parameters] == [
-        ("repo", "string"),
-        ("ordinary", "number"),
-    ]
-    assert constructor.signature_complete
-    assert owner.members[0].span.column == source.index("repo") + 1
-
-
-def test_default_literal_belongs_to_parameter_not_constant_property():
-    syntax = parse("main.ts", b"class Store { constructor(readonly count: number = 7) {} }")
-    owner = next(d for d in syntax.definitions if d.kind is DefinitionKind.CLASS)
-    constructor = next(d for d in syntax.definitions if d.name == "constructor")
-    assert [m.name for m in owner.members] == ["count"]
-    assert owner.members[0].literal is None
-    assert constructor.parameters[0].default == "7"
-    assert constructor.signature_complete is False
-
-
-@pytest.mark.parametrize(
-    "body",
-    [
-        "constructor(private {repo}: object) {}",
-        "constructor(private ...repo: string[]) {}",
-        "constructor(private repo: string, private repo: string) {}",
-        "repo: string; constructor(private repo: string) {}",
-        "constructor(private repo: string); constructor(repo: string) {}",
-        "constructor(repo: string); constructor(private repo: string) {}",
-        "constructor(private repo: ) {}",
-    ],
-)
-def test_ambiguous_or_malformed_parameter_properties_keep_inventory_partial(body):
-    syntax = parse("main.ts", f"class Store {{ {body} }}".encode())
-    owners = [d for d in syntax.definitions if d.kind is DefinitionKind.CLASS]
-    if syntax.first_error is not None:
-        assert all(owner.members_complete is False for owner in owners)
-        return
-    owner = owners[0]
-    assert owner.members_complete is False
-    assert len({m.name for m in owner.members}) == len(owner.members)
-
-
-@pytest.mark.parametrize("extra", ["[key](): void {}", "static { initialize(); }"])
-def test_other_unsupported_members_do_not_become_complete(extra):
-    syntax = parse(
-        "main.ts", f"class Store {{ constructor(private repo: string) {{}} {extra} }}".encode()
-    )
-    owner = next(d for d in syntax.definitions if d.kind is DefinitionKind.CLASS)
-    assert [m.name for m in owner.members] == ["repo"]
-    assert owner.members_complete is False
-
-
-def test_static_constructor_name_is_not_an_instance_constructor():
-    syntax = parse(
-        "main.ts",
-        b"class Store { constructor(private repo: string) {} "
-        b"static constructor(ordinary: number) {} }",
-    )
-    owner = next(d for d in syntax.definitions if d.kind is DefinitionKind.CLASS)
-    assert [m.name for m in owner.members] == ["repo"]
-    assert owner.members_complete
-
-
-@pytest.mark.parametrize("method", ["static constructor", "read"])
-def test_parameter_property_modifiers_on_ordinary_methods_stay_unsupported(method):
-    syntax = parse("main.ts", f"class Store {{ {method}(readonly repo: string) {{}} }}".encode())
-    owner = next(d for d in syntax.definitions if d.kind is DefinitionKind.CLASS)
-    assert not owner.members
-    assert owner.members_complete is False
-
-
-@pytest.mark.parametrize("spelling", ["'constructor'", '"constructor"'])
-def test_quoted_instance_constructor_collects_named_properties(spelling):
-    syntax = parse("main.ts", f"class Store {{ {spelling}(private repo: string) {{}} }}".encode())
-    owner = next(d for d in syntax.definitions if d.kind is DefinitionKind.CLASS)
-    method = next(d for d in syntax.definitions if d.kind is DefinitionKind.METHOD)
-    assert [m.name for m in owner.members] == ["repo"]
-    assert owner.members_complete
-    assert method.name == "constructor"
-    assert method.parameters[0].name == "repo"
-
-
-@pytest.mark.parametrize(
-    "body",
-    [
-        r'"repo": string; constructor(private repo: string) {}',
-        r'"r\u0065po": string; constructor(private repo: string) {}',
-        r"r\u0065po: string; constructor(private repo: string) {}",
-        r"constructor(private repo: string, private r\u0065po: string) {}",
-        r"constructor(private r\u{65}po: string, private repo: string) {}",
-        r'"constr\u0075ctor"(readonly repo: string) {}',
-        r"constr\u0075ctor(readonly repo: string) {}",
-    ],
-)
-def test_escaped_or_colliding_static_names_never_claim_complete_inventory(body):
-    syntax = parse("main.ts", f"class Store {{ {body} }}".encode())
-    owner = next(d for d in syntax.definitions if d.kind is DefinitionKind.CLASS)
-    assert owner.members_complete is False
-    assert not any(m.name == "repo" for m in owner.members)
 
 
 def test_parameter_properties_use_existing_bound_source_attribute_facts(tmp_path: Path):
@@ -284,18 +163,6 @@ export class Store {
   @MethodTag() run(): void {}
 }
 """
-    syntax = parse("src/main.ts", source.encode())
-    owner = next(d for d in syntax.definitions if d.kind is DefinitionKind.CLASS)
-    constructor = next(d for d in syntax.definitions if d.name == "constructor")
-    method = next(d for d in syntax.definitions if d.name == "run")
-    assert owner.members_complete and constructor.signature_complete
-    assert [value for value, _ in owner.decorator_sources] == ["@ClassTag()"]
-    assert [value for value, _ in method.decorator_sources] == ["@MethodTag()"]
-    assert constructor.decorator_sources == ()
-    fields = {member.name: member for member in owner.members}
-    assert [value for value, _ in fields["declared"].decorator_sources] == ["@FieldTag()"]
-    assert fields["repo"].decorator_sources == ()
-    assert fields["repo"].span.line == 4 and fields["repo"].literal is None
     facts = _collected(tmp_path, source)
     symbols = next(s.records for s in facts.sections if s.name == "symbols")
     record = next(r for r in symbols if r.kind == "class")
@@ -308,72 +175,6 @@ export class Store {
         evidence[identity].excerpt
         for identity in declarations["declared"].get("decorator_evidence_ids")
     ] == ["@FieldTag()"]
-
-
-@pytest.mark.parametrize("spelling", ["constructor", "'constructor'"])
-@pytest.mark.parametrize("signature_first", [True, False])
-def test_decorated_methods_do_not_hide_constructor_overload_ambiguity(spelling, signature_first):
-    signature, implementation = f"{spelling}(repo: string);", f"{spelling}(repo: string) {{}}"
-    constructors = (signature, implementation) if signature_first else (implementation, signature)
-    source = f"class Store {{ {' '.join(constructors)} @Get() run(): void {{}} }}"
-    syntax = parse("main.ts", source.encode())
-    owner = next(d for d in syntax.definitions if d.kind is DefinitionKind.CLASS)
-    assert syntax.first_error is None
-    assert owner.members_complete is False
-
-
-@pytest.mark.parametrize(
-    "member",
-    [
-        r'@Get() static "constr\u0075ctor"(): void {}',
-        r'@Get() "constr\u{20}uctor"(): void {}',
-    ],
-)
-def test_property_support_preserves_supported_decorated_quoted_method_names(member):
-    source = f"class Store {{ constructor(readonly repo: string) {{}} {member} }}"
-    syntax = parse("main.ts", source.encode())
-    owner = next(d for d in syntax.definitions if d.kind is DefinitionKind.CLASS)
-    assert syntax.first_error is None
-    assert [m.name for m in owner.members] == ["repo"]
-    assert owner.members_complete
-    method = syntax.definitions[-1]
-    assert [value for value, _ in method.decorator_sources] == ["@Get()"]
-
-
-@pytest.mark.parametrize(
-    "constructor",
-    [
-        "@Get() 'constructor'(readonly repo: string) {}",
-        r'"constr\u0075ctor"(readonly repo: string) {}',
-        "@Get() static constructor(readonly repo: string) {}",
-        "@Get() read(readonly repo: string) {}",
-    ],
-)
-def test_decorator_composition_cannot_authorize_unsupported_property_owners(constructor):
-    syntax = parse("main.ts", f"class Store {{ {constructor} }}".encode())
-    owner = next(d for d in syntax.definitions if d.kind is DefinitionKind.CLASS)
-    assert syntax.first_error is None
-    assert owner.members_complete is False and not owner.members
-    if constructor.startswith("@Get() '"):
-        assert syntax.definitions[-1].name == "'constructor'"
-
-
-@pytest.mark.parametrize("name", [r'"bad\u{110000}name"', r"bad\u0020name"])
-def test_named_properties_do_not_bypass_decorator_unicode_guards(name):
-    source = f"class Store {{ constructor(readonly repo: string) {{}} @Get() {name}() {{}} }}"
-    syntax = parse("main.ts", source.encode())
-    owner = next(d for d in syntax.definitions if d.kind is DefinitionKind.CLASS)
-    assert [m.name for m in owner.members] == ["repo"]
-    assert owner.members_complete is False
-
-
-def test_decorated_field_alias_still_blocks_parameter_property_closure():
-    source = 'class Store { @Field() "repo": string; constructor(private repo: string) {} }'
-    syntax = parse("main.ts", source.encode())
-    owner = next(d for d in syntax.definitions if d.kind is DefinitionKind.CLASS)
-    assert owner.members_complete is False
-    assert [member.name for member in owner.members] == ['"repo"']
-    assert [value for value, _ in owner.members[0].decorator_sources] == ["@Field()"]
 
 
 @pytest.mark.parametrize("spelling", ["constructor", "'constructor'"])
@@ -430,12 +231,6 @@ def test_undecorated_method_unicode_guard_preserves_private_attribute_target(
         "export class Store { constructor(private repo: string, ordinary: number) {} "
         f"{name}(): void {{}} }}\n"
     )
-    syntax = parse("src/main.ts", source.encode())
-    owner = next(d for d in syntax.definitions if d.kind is DefinitionKind.CLASS)
-    assert syntax.first_error is None
-    assert [member.name for member in owner.members] == ["repo"]
-    assert owner.members[0].visibility is Visibility.PRIVATE
-    assert owner.members_complete is (status == "PASS")
     root, config = _target(tmp_path / "project", "repo")
     (root / "src/main.ts").write_text(source)
     result, encoded = run_report(root, config=config, analyzer=trusted(_TypeScriptCollector()))

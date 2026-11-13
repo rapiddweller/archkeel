@@ -6,22 +6,24 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: demos demo-studio against amendment-refresh gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test merge-check pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety python-compat typescript-native typescript-compiler-check dart-test lint typecheck self-validate self-observation demo demo-onboarding demo-dart demo-typescript demo-architecture demo-uml demo-screenshots browser-install report-browser-tests report-pages plugin plugin-release build smoke release-check architecture-graph-schema report-timing flutter-demo-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check native-check native-corpus self-validate-native native-report native-tools cargo-deny-install native-wheel golden-record dual-run dual-run-record dual-run-collector
+.PHONY: demos demo-studio against amendment-refresh gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test merge-check pr-report-test ci-typescript ci-artifacts-clean mermaid check test collector-safety typescript-native typescript-compiler-check lint typecheck self-validate self-observation demo demo-onboarding demo-dart demo-typescript demo-architecture demo-uml demo-screenshots browser-install report-browser-tests report-pages plugin plugin-release build smoke release-check architecture-graph-schema flutter-demo-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check native-check native-corpus self-validate-native native-report native-tools cargo-deny-install native-wheel golden-record dual-run dual-run-record dual-run-collector
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check
 
 ci: ci-check mermaid
 
-ci-check: ci-artifacts-clean ci-core-check report-timing
+ci-check: ci-artifacts-clean ci-core-check self-validate-native
 
 ci-pr-check: ci-pr-static pr-test
 
-ci-pr-static: $(if $(strip $(BASE)),against,self-validate) lint typecheck browser-architecture-check
+# AD-430: no Python self-check until the native Python collector and store support its replies.
+PYTHON_SELF_CHECK :=
+ci-pr-static: $(PYTHON_SELF_CHECK) lint typecheck browser-architecture-check
 
 ci-pr-report-check: browser-runtime-check browser-graph-check pr-report-test
 
-pr-test: browser-runtime-install
+pr-test: browser-runtime-install typescript-collector
 	$(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
 		-q --durations=10 --junitxml=test-artifacts/pytest/pr-core.xml $(if $(AREA),--area="$(AREA)",) \
 		$(PR_TEST_FILES)
@@ -140,6 +142,15 @@ native-report:
 	done
 
 # Build the pinned tools from crates.io with their own Cargo.lock; cargo skips an installed tool.
+.PHONY: typescript-collector
+typescript-collector:
+	cd native && ARCHKEEL_VERSION="$$($(UV) run --locked python -c 'from archkeel.analyzer.runtime import package_version; print(package_version())')" \
+		cargo build --locked --bin archkeel-typescript-collector --target-dir target/bundled
+	@mkdir -p src/archkeel/_native
+	$(UV) run --locked python -c 'import hashlib, pathlib, shutil, sysconfig; n="archkeel-typescript-collector"+(sysconfig.get_config_var("EXE") or ""); p=pathlib.Path("src/archkeel/_native")/n; shutil.copy2(pathlib.Path("native/target/bundled/debug")/n,p); pathlib.Path(str(p)+".sha256").write_text(hashlib.sha256(p.read_bytes()).hexdigest(), encoding="ascii")'
+
+test full-test demos dual-run native-check native-corpus browser-architecture-check: typescript-collector
+
 native-tools:
 	cargo install --locked cargo-deny@$(CARGO_DENY_VERSION) cargo-auditable@$(CARGO_AUDITABLE_VERSION)
 
@@ -160,8 +171,8 @@ LINT_PATHS := src tests tools/mermaid_blocks.py \
 	fixtures/reproduce_dart.py fixtures/reproduce_snapshot_check.py fixtures/consume_result.py \
 	fixtures/reproduce_typescript.py \
 	fixtures/architecture_demo.py fixtures/demo_catalog_*.py \
-	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/dart_grammar_parity.py tools/dart_discovery_parity.py tools/dart_syntax_parity.py tools/dart_unicode_tables.py \
-	tools/dart_sdk_parity.py tools/dart_declarations_parity.py tools/dart_collection_parity.py tools/dual_run.py tools/dual_run_corpus.py tools/dual_run_oracle.py tools/dual_run_python.py \
+	tools/architecture_graph_schema.py tools/report_timing.py tools/browser_runtime.py tools/browser_graph_protocol.py tools/browser_architecture.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py \
+	tools/dual_run.py tools/dual_run_corpus.py tools/dual_run_oracle.py tools/dual_run_python.py \
 	tools/dual_run_capture.py tools/dual_run_tree.py \
 	native/hatch_build.py
 
@@ -174,9 +185,9 @@ demos:
 demo-studio:
 	$(UV) run --locked python -m fixtures.demo_catalog_studio
 
-report-pages: report-timing demos
-	cp test-artifacts/report-timing/architecture.json test-artifacts/report-timing/architecture.report.html \
-		test-artifacts/report-timing/architecture.detail*.html test-artifacts/pages/
+report-pages: self-validate-native demos
+	cp test-artifacts/validation-native/architecture.json test-artifacts/validation-native/architecture.report.html \
+		test-artifacts/validation-native/architecture.detail*.html test-artifacts/pages/
 
 architecture-graph-schema:
 	$(UV) run --locked python -m tools.architecture_graph_schema schema/architecture-graph.schema.json --contract schema/architecture-contract.schema.json --contract schema/architecture-contract-3.0.schema.json --contract schema/architecture-contract-3.1.schema.json --contract schema/architecture-contract-3.2.schema.json --contract schema/architecture-contract-3.3.schema.json --contract schema/architecture-contract-3.4.schema.json --contract schema/architecture-contract-3.5.schema.json --contract schema/architecture-contract-3.6.schema.json --contract schema/architecture-contract-3.7.schema.json --contract schema/architecture-contract-3.8.schema.json --contract schema/architecture-contract-3.9.schema.json --contract schema/architecture-contract-3.10.schema.json --contract schema/architecture-contract-3.11.schema.json --contract schema/architecture-contract-3.12.schema.json --contract schema/architecture-contract-3.13.schema.json --contract schema/architecture-contract-3.14.schema.json --comparison schema/architecture-comparison.schema.json --report schema/architecture-report.schema.json --source-inventory schema/source-member-inventory.schema.json --source-profile schema/architecture-ir-python-decoded.schema.json --projection schema/architecture-projection.schema.json --command schema/architecture-command-2.0.schema.json --view-spec schema/view-spec.schema.json --view-check schema/view-check.schema.json --story-trace schema/story-trace.schema.json
@@ -189,7 +200,7 @@ lint:
 HATCHLING_VERSION := 1.33.0
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/browser_architecture.py tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/dart_grammar_parity.py tools/dart_discovery_parity.py tools/dart_syntax_parity.py tools/dart_sdk_parity.py tools/dart_declarations_parity.py tools/dart_collection_parity.py tools/dart_unicode_tables.py tools/dual_run.py
+	$(UV) run --locked mypy src/archkeel tools/against.py tools/architecture_graph_schema.py tools/report_timing.py tools/browser_architecture.py tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/dual_run.py
 	$(UV) run --locked --with hatchling==$(HATCHLING_VERSION) mypy --strict native/hatch_build.py
 
 self-observation:

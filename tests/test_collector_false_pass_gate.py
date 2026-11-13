@@ -47,13 +47,6 @@ def test_a_changed_typescript_reply_gives_no_pass(
     support.assert_not_pass(typescript_root, "typescript", tamper, argument)
 
 
-@pytest.mark.parametrize(("tamper", "argument"), support.probe_params(support.PYTHON))
-def test_a_changed_python_reply_gives_no_pass(
-    python_root: Path, tamper: str, argument: str
-) -> None:
-    support.assert_not_pass(python_root, "python", tamper, argument)
-
-
 @pytest.mark.parametrize("section", support.UNREAD_SECTIONS)
 def test_emptying_a_section_that_no_typescript_rule_reads_changes_no_verdict(
     typescript_root: Path, section: str

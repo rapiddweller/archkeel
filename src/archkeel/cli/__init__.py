@@ -19,7 +19,6 @@ from typing import Final, NoReturn
 
 from rich_argparse import RawDescriptionRichHelpFormatter
 
-from ..check.git import read_blob
 from ..check.onboarding import run_init
 from ..check.ports import Language
 from ..check.report import (
@@ -66,10 +65,12 @@ from .config import (
     ADOPTED_BASELINE_PATH,
     CONFIG_PATH,
     ConfigFileMissingError,
+    UnsupportedProjectError,
+    load_against_config,
     load_check_config,
     load_config,
-    parse_config,
-    project_name,
+    require_supported_project,
+    require_supported_saved_input,
 )
 from .guide import GUIDE_PATH, run_guide
 from .native_core import NativeCore, add_switch
@@ -286,8 +287,8 @@ def build_parser() -> _Parser:
         choices=list(Language),
         type=source_language,
         default=Language.PYTHON,
-        help="Source language of --source. Dart needs --source and --namespace (the pubspec "
-        "name). TypeScript also needs --tsconfig. Default: python.",
+        help="Source language of --source. Use rust or typescript. The default remains python, "
+        "which requires archkeel 4.0.1, as does dart. TypeScript also needs --tsconfig.",
     )
 
     report = commands.add_parser(
@@ -383,19 +384,17 @@ def build_parser() -> _Parser:
         help="See the code as it is: an observed overview that needs no contract.",
         formatter_class=RawDescriptionRichHelpFormatter,
         description=(
-            "Observes the one top-level Python package, or the --source and --namespace you pass,\n"
-            "and groups its modules by layout. It needs no archkeel.toml and no contract, and it\n"
-            "writes nothing into the repository. No rule is declared, so the result says target:\n"
-            "unavailable and gives no rule verdict. TypeScript and Dart need the scope options\n"
-            "because they are not detected (AD-285).\n\n"
+            "Observes the Rust or TypeScript --source and --namespace you pass and groups its\n"
+            "modules by layout. It needs no archkeel.toml and no contract. It writes nothing into\n"
+            "the repository. No rule is declared, so the result says target: unavailable and\n"
+            "gives no rule verdict. Python and Dart projects require archkeel 4.0.1.\n\n"
             "Examples:\n"
-            "  archkeel explore\n"
-            "  archkeel explore --root ../service --output ../service-explore\n"
-            "  archkeel explore --language dart --source lib --namespace my_app\n\n"
+            "  archkeel explore --language typescript --source src --namespace app \\\n"
+            "    --tsconfig tsconfig.json --output ../app-explore\n\n"
             "Exit codes:\n"
             "  0  the observation is complete\n"
-            "  2  not checked: no single Python package, no Git commit, an output inside the\n"
-            "     repository, or incomplete coverage\n\n"
+            "  2  not checked: unsupported project, no Git commit, an output inside the\n"
+            "     repository, invalid scope, or incomplete coverage\n\n"
             f"Start here: {_DOCS}/getting-started.md"
         ),
     )
@@ -555,14 +554,11 @@ def build_parser() -> _Parser:
         formatter_class=RawDescriptionRichHelpFormatter,
         description=(
             "Observes the configured source roots and proposes components from their layout.\n"
-            "Python can detect its top-level package from pyproject.toml or package markers.\n"
             "It writes no dependency rule: every undecided ordered component pair remains open.\n"
             "The default JSON lists observed crossings and reports the exact total; --full\n"
             "includes unobserved pairs too.\n\n"
             "Examples:\n"
-            "  archkeel init\n"
-            "  archkeel init --source lib/shop --namespace shop --json\n"
-            "  archkeel init --language dart --source lib --namespace my_app\n"
+            "  archkeel init --language rust --source src --namespace shop --json\n"
             "  archkeel init --language typescript --source src --namespace app "
             "--tsconfig tsconfig.json\n\n"
             "Exit codes:\n"
@@ -865,6 +861,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if command is Command.STUDIO:
             subject = str(args.root)
+            if not args.stop:
+                require_supported_project(args.language)
             from .studio import serve_studio
 
             return serve_studio(args)
@@ -875,6 +873,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return run_guide(args.root.resolve(), args.config, args.output, args.check)
         if command is Command.STORY:
             subject = str(args.snapshot)
+            require_supported_saved_input(args.snapshot)
             trace_result = trace_flow(
                 read_saved_snapshot(args.snapshot),
                 args.source,
@@ -891,6 +890,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             spec_bytes = Path.read_bytes(args.spec)
             spec = parse_view_spec(decode_json(spec_bytes))
             subject = str(args.snapshot)
+            require_supported_saved_input(args.snapshot)
             view = check_view(spec, read_saved_snapshot(args.snapshot), strict=args.strict)
             text = view_check_json(view)
             # Exit 2: the check did not run, so there is no picture to write.
@@ -991,6 +991,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 if conflicts:
                     parser.error(f"--input cannot be combined with {', '.join(conflicts)}")
+                require_supported_saved_input(args.input)
                 result = run_saved_report(
                     args.input,
                     only_violations=args.only is ReportMode.VIOLATIONS,
@@ -1042,7 +1043,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         pages = render_architecture_pages(
                             result,
                             architecture,
-                            repository=project_name(root, config),
+                            repository=config.namespace,
                             architecture_href=artifact.name,
                             observation=observation,
                         )
@@ -1077,13 +1078,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         # Keep the existing `against.invalid` diagnostic for an unknown ref.
                         pass
                     else:
-                        try:
-                            against_config = parse_config(
-                                read_blob(root, against, args.config), args.config
-                            )
-                        except ValueError:
-                            # Missing or invalid historical config cannot authorize a rename.
-                            against_config = None
+                        against_config = load_against_config(root, against, args.config)
                 observer = configured_observer(config, observer_for)
                 result, requested_files = run_validate(
                     root,
@@ -1136,7 +1131,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     check_html.write_bytes(
                         render_check_html(
                             result,
-                            repository=project_name(root, config),
+                            repository=config.namespace,
                             result_href=args.output.name,
                         )
                     )
@@ -1166,6 +1161,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if guide_code != 0:
                     raise RuntimeError(f"archkeel guide failed with exit code {guide_code}")
                 artifacts.append(root / GUIDE_PATH)
+    except UnsupportedProjectError as error:
+        result = unknown_result(command, subject, error)
     except ConfigFileMissingError as error:
         result = (
             invalid_result(subject, error)

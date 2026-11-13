@@ -11,7 +11,17 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from fixtures.demo_catalog_studio import _cleanup_group, _fixture, _run_cli
+from fixtures.demo_catalog_studio import CATALOG, _cleanup_group, _fixture, _run_cli
+
+
+def test_studio_demo_uses_only_supported_profiles(tmp_path):
+    root = tmp_path / "project"
+    root.mkdir()
+    _fixture(root)
+    assert (root / "src/demo/service.ts").is_file()
+    assert (root / "tsconfig.json").is_file()
+    assert not list(root.rglob("*.py"))
+    assert all({v.active_language, v.requested_language} <= {"rust", "typescript"} for v in CATALOG)
 
 
 def test_demo_cli_ignores_inherited_git_repository_redirection(

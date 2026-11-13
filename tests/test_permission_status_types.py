@@ -11,19 +11,9 @@ from pathlib import Path
 
 import pytest
 from test_architecture_demo import _prepare_repo
-from test_architecture_projection import _repository as _projection_repository
-from test_uml_evaluation import _model
 
 from archkeel.check.ports import ScanConfig
-from archkeel.check.report import run_report
-from archkeel.cli.observe import observe
 from archkeel.ir.architecture_projection import PermissionProjection, PermissionStatus
-from archkeel.ir.codec import decode_canonical_model, parse_observation, result_bytes
-from archkeel.ir.command_view import architecture_command_envelope
-from archkeel.ir.decisions import rule_assessments
-from archkeel.ir.report_graph import architecture_report
-from archkeel.ir.trace import trace_valid_violations
-from archkeel.render.atlas import atlas_payload
 
 ROOT = Path(__file__).parents[1]
 OWNER = "archkeel.ir.architecture_projection"
@@ -60,50 +50,6 @@ def test_permission_vocabulary_has_exact_existing_wire_values():
         ("FORBIDDEN", "forbidden"),
         ("UNDECIDED", "undecided"),
     ]
-
-
-@pytest.mark.parametrize("closed", [False, True])
-def test_real_permission_producer_preserves_states_wire_and_atlas_balance(tmp_path, closed):
-    root, config = _projection_repository(tmp_path, closed=closed)
-    result, architecture = run_report(root, config=config, analyzer=observe, only_architecture=True)
-    assert architecture is not None and result.architecture_projection is not None
-    view = result.architecture_projection
-    core = next(row for row in view.components if row.id == "CORE")
-    assert all(type(row.status) is PermissionStatus for row in core.permissions)
-    expected = {
-        "IDLE": "forbidden" if closed else "undecided",
-        "OTHER": "forbidden",
-        "STORE": "allowed",
-    }
-    assert {row.target_id: row.status.value for row in core.permissions} == expected
-    envelope = architecture_command_envelope(result)
-    grouped = next(row for row in envelope.architecture_projection.components if row.id == "CORE")
-    assert all(type(row.status) is PermissionStatus for row in grouped.permissions)
-    encoded = json.loads(result_bytes(result))
-    wire_core = next(
-        row for row in encoded["architecture_projection"]["components"] if row["id"] == "CORE"
-    )
-    assert {
-        target: row["status"] for row in wire_core["permissions"] for target in row["target_ids"]
-    } == expected
-    assert all(type(row["status"]) is str for row in wire_core["permissions"])
-    model = parse_observation(decode_canonical_model(json.loads(architecture)))
-    payload = atlas_payload(
-        model,
-        architecture_report(model),
-        view,
-        result,
-        repository="same fixture",
-        architecture_href="architecture.json",
-    )
-    top = next(row for row in view.levels if row.parent_id is None)
-    assert payload["balance"] == {
-        "declared": top.declared,
-        "used": top.used,
-        "allowed_unused": top.unused,
-        "undeclared": top.undeclared,
-    }
-    assert core.status == ("FAIL" if closed else "UNKNOWN")
 
 
 def _native_repository(tmp_path):
@@ -148,58 +94,3 @@ def _native_repository(tmp_path):
         },
     )
     return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
-
-
-def test_actual_permission_owner_fulfills_independent_native_intent(tmp_path):
-    root, config = _native_repository(tmp_path)
-    model = _model(root, config)
-    comparison = architecture_report(model).comparison
-    assert comparison is not None and comparison.status == "PASS", comparison
-    assert not trace_valid_violations(model)
-
-
-def test_whole_permission_value_owner_has_native_control_receipt(tmp_path):
-    root, config = _native_repository(tmp_path)
-    model = _model(root, config)
-    guard = next(row for row in rule_assessments(model, undecided_by_rule={}) if row.id == GUARD)
-    assert guard.status == "PASS" and guard.evaluation_proven, guard
-
-
-def test_actual_permission_field_widening_fails_fixed_native_intent(tmp_path):
-    root, config = _native_repository(tmp_path)
-    assert architecture_report(_model(root, config)).comparison.status == "PASS"
-    intent = (root / "contract.json").read_bytes()
-    path = root / "archkeel/ir/architecture_projection.py"
-    source = path.read_text()
-    assert source.count("status: PermissionStatus") == 1
-    path.write_text(source.replace("status: PermissionStatus", "status: str", 1))
-    model = _model(root, config)
-    comparison = architecture_report(model).comparison
-    assert comparison is not None and any(row.status == "FAIL" for row in comparison.assessments)
-    assert trace_valid_violations(model)
-    assert (root / "contract.json").read_bytes() == intent
-
-
-@pytest.mark.parametrize(
-    "control",
-    [
-        '        if self.status == "allowed":\n            pass\n',
-        '        if self.status in ("allowed", "forbidden"):\n            pass\n',
-        '        marker = "allowed"\n        if self.status == marker:\n            pass\n',
-        '        match self.status:\n            case "allowed":\n                pass\n',
-    ],
-    ids=["equality", "membership", "local-alias", "match"],
-)
-def test_real_permission_constructor_raw_control_fails_native_guard(tmp_path, control):
-    root, config = _native_repository(tmp_path)
-    intent = (root / "contract.json").read_bytes()
-    path = root / "archkeel/ir/architecture_projection.py"
-    source = path.read_text()
-    marker = "    def __post_init__(self) -> None:\n"
-    assert source.count(marker) == 1
-    path.write_text(source.replace(marker, marker + control, 1))
-    model = _model(root, config)
-    guard = next(row for row in rule_assessments(model, undecided_by_rule={}) if row.id == GUARD)
-    assert guard.status == "FAIL"
-    assert any(GUARD in row.rule_ids for row in trace_valid_violations(model))
-    assert (root / "contract.json").read_bytes() == intent

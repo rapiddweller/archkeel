@@ -16,7 +16,10 @@ from typing import Final
 
 from archkeel.check.git import read_blob
 from archkeel.check.ports import Language, ScanConfig
+from archkeel.ir.codec import decode_json
+from archkeel.ir.diagnostics import Diagnostic, DiagnosticError, DiagnosticKind
 from archkeel.ir.facts_codec import MAX_RESPONSE_LIMIT_BYTES
+from archkeel.ir.languages import SourceProfile
 
 CONFIG_PATH: Final = "archkeel.toml"
 # AD-266: the baseline `init --adopt` writes; `validate --baseline` reads the same name.
@@ -48,6 +51,33 @@ def _fields_match(fields: set[str], required: set[str], optional: set[str]) -> b
 
 class ConfigError(ValueError):
     """Raised when a scan configuration is invalid or unsafe for a repository."""
+
+
+class UnsupportedProjectError(DiagnosticError):
+    """The shell refuses a project without a supported collector and store path (AD-430)."""
+
+
+def require_supported_project(language: Language | SourceProfile) -> None:
+    if language in {Language.PYTHON, SourceProfile.PYTHON, Language.DART, SourceProfile.DART}:
+        name = "Python" if language in {Language.PYTHON, SourceProfile.PYTHON} else "Dart"
+        raise UnsupportedProjectError(
+            Diagnostic(
+                DiagnosticKind.MISSING_TOOL,
+                str(language),
+                f"{name} projects are not supported in this version; use archkeel 4.0.1",
+                "Use archkeel 4.0.1 for Python and Dart projects.",
+            )
+        )
+
+
+def require_supported_saved_input(path: Path) -> None:
+    raw = decode_json(path.read_bytes())
+    analyzer = raw.get("analyzer") if isinstance(raw, dict) else None
+    if isinstance(analyzer, dict) and analyzer.get("name") in {
+        SourceProfile.PYTHON,
+        SourceProfile.DART,
+    }:
+        require_supported_project(SourceProfile(analyzer["name"]))
 
 
 _NAMESPACE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
@@ -85,24 +115,6 @@ def _path(value: object, *, field: str, allow_dot: bool = True) -> str:
     ):
         raise ConfigError(f"{field} must be a safe POSIX relative path")
     return value
-
-
-def project_name(root: Path, config: ScanConfig) -> str:
-    """Use valid Python project metadata for display, otherwise the configured namespace."""
-    if config.language == Language.PYTHON:
-        try:
-            path = _contained(root, "pyproject.toml", field="project metadata")
-            with open(path, "rb") as stream:
-                metadata = tomllib.load(stream)
-        except (ConfigError, OSError, RuntimeError, UnicodeDecodeError, tomllib.TOMLDecodeError):
-            return config.namespace
-        project = metadata.get("project")
-        name = project.get("name") if isinstance(project, dict) else None
-        if isinstance(name, str) and re.fullmatch(
-            r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?", name
-        ):
-            return name
-    return config.namespace
 
 
 def _collector_timeout(raw: object) -> int | None:
@@ -145,6 +157,7 @@ def _language_settings(scan: Mapping[str, object]) -> tuple[Language, str | None
         raise ConfigError(
             'scan.language must be "python", "dart", "typescript", or "rust"'
         ) from error
+    require_supported_project(language)
     tsconfig_raw = scan.get("tsconfig")
     if tsconfig_raw is not None and language != Language.TYPESCRIPT:
         raise ConfigError("scan.tsconfig is only valid when scan.language is typescript")
@@ -306,3 +319,13 @@ def load_check_config(root: Path, baseline: str, head: str) -> ScanConfig:
     if payload != read_blob(root, head, CONFIG_PATH):
         raise ConfigError(f"candidate changed accepted policy input: {CONFIG_PATH}")
     return parse_config(payload)
+
+
+def load_against_config(root: Path, commit: str, path: str) -> ScanConfig | None:
+    try:
+        return parse_config(read_blob(root, commit, path), path)
+    except UnsupportedProjectError:
+        raise
+    except ValueError:
+        # Missing or invalid historical config cannot authorize a rename.
+        return None

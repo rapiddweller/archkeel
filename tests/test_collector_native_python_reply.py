@@ -1,6 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+# ruff: noqa: E402
 """The 10.0.0 reply of the native Python collector is the Python import survey, and no PASS.
 
 Consumers: the host codec (`facts_codec.decode_response`), the Rust store (`archkeel-store`) and
@@ -23,6 +24,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from oracle_support import ORACLE_UNAVAILABLE
+
+pytest.skip(ORACLE_UNAVAILABLE, allow_module_level=True)
+from archkeel.analyzer.python.collect import PythonProviderCollector, collect
 from collector_pin import pin_of
 from conftest import build_native_copy, by_python
 from false_pass_support import copy_repository
@@ -39,7 +44,6 @@ from test_collector_native_python_survey import (
 )
 
 from archkeel.analyzer.interpreter import interpreter, python_request
-from archkeel.analyzer.python.collect import PythonProviderCollector, collect
 from archkeel.analyzer.store import StoreSession, _StoreError
 from archkeel.check.report import run_report
 from archkeel.cli.config import load_config

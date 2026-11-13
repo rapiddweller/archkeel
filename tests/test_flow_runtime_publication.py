@@ -6,18 +6,9 @@
 import json
 import shutil
 import subprocess
-from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from test_atlas_report import _page, _sample
-
-
-def test_report_identifies_the_current_flow_source_derivative(tmp_path):
-    source = Path(__file__).parents[1] / "src/archkeel/render/assets/flow.js"
-    expected = f"// Generated from flow.js; source-sha256={sha256(source.read_bytes()).hexdigest()}"
-    page = _page(_sample(tmp_path))
-    assert expected in page
 
 
 @pytest.fixture

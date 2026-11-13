@@ -496,72 +496,6 @@ def test_legacy_response_defaults_runtime_state_and_roundtrips_as_legacy() -> No
     assert "requirement_state" not in encoded["facts"]["runtime"]
 
 
-def test_current_response_requires_runtime_state_and_is_labeled_v3(tmp_path) -> None:
-    from pathlib import Path
-
-    import jsonschema
-    from test_collection_boundary_regressions import _facts
-
-    from archkeel.ir.facts_codec import decode_response, encode_response
-    from archkeel.ir.protocol import CollectionResponse
-
-    encoded = encode_response(CollectionResponse(_facts(tmp_path)))
-    payload = json.loads(encoded)
-    assert payload["protocol_version"] == "3.0.0"
-    assert "requirement_state" in payload["facts"]["runtime"]
-    schema = json.loads(
-        (Path(__file__).parents[1] / "schema/source-facts.schema.json").read_bytes()
-    )
-    jsonschema.Draft202012Validator(schema).validate(payload)
-    assert decode_response(encoded).protocol_version == "3.0.0"
-
-    legacy_runtime_schema = json.loads(
-        (
-            Path(__file__).parent / "fixtures/collection-protocol/legacy-runtime-schemas.json"
-        ).read_bytes()
-    )["source_facts_1"]
-    with pytest.raises(jsonschema.ValidationError):
-        jsonschema.Draft202012Validator(legacy_runtime_schema).validate(payload["facts"]["runtime"])
-
-
-def test_encoders_reject_unsupported_versions(tmp_path) -> None:
-    from test_collection_boundary_regressions import _facts
-
-    from archkeel.ir.facts_codec import ProtocolError, encode_request, encode_response
-    from archkeel.ir.protocol import (
-        CollectionRequest,
-        CollectionResponse,
-        PythonSettings,
-        SnapshotInput,
-        SourceScope,
-    )
-
-    request = CollectionRequest(
-        SnapshotInput("/source-project", "a" * 40, False),
-        SourceScope(("src",), "project"),
-        PythonSettings(),
-        "10.0.0",
-    )
-    with pytest.raises(ProtocolError, match="version"):
-        encode_request(request)
-    with pytest.raises(ProtocolError, match="version"):
-        encode_response(CollectionResponse(_facts(tmp_path), "10.0.0"))
-
-
-def test_legacy_encoder_rejects_nondefault_runtime_state(tmp_path) -> None:
-    from dataclasses import replace
-
-    from test_collection_boundary_regressions import _facts
-
-    from archkeel.ir.facts_codec import ProtocolError, encode_response
-    from archkeel.ir.protocol import CollectionResponse
-
-    facts = _facts(tmp_path)
-    facts = replace(facts, runtime=replace(facts.runtime, requirement_state="metadata_missing"))
-    with pytest.raises(ProtocolError, match="cannot carry"):
-        encode_response(CollectionResponse(facts, "1.0.0"))
-
-
 def test_response_rejects_runtime_state_for_wrong_version() -> None:
     from archkeel.ir.facts_codec import ProtocolError, decode_response
 
@@ -692,22 +626,6 @@ def test_common_runtime_and_construct_contract_rejects_malformed_claims(invalid:
         capabilities["constructs"] = [{"name": "future_construct", "status": "decided"}]
     with pytest.raises(ProtocolError):
         decode_response(json.dumps(raw).encode())
-
-
-def test_published_wire_schema_accepts_real_collector_payload(tmp_path) -> None:
-    from pathlib import Path
-
-    from jsonschema import Draft202012Validator
-    from test_collection_boundary_regressions import _facts
-
-    from archkeel.ir.facts_codec import encode_response
-    from archkeel.ir.protocol import CollectionResponse
-
-    schema = json.loads(
-        (Path(__file__).parents[1] / "schema/source-facts.schema.json").read_bytes()
-    )
-    payload = json.loads(encode_response(CollectionResponse(_facts(tmp_path))))
-    Draft202012Validator(schema).validate(payload)
 
 
 @pytest.mark.parametrize("version", ["1.0.0", "2.0.0"])

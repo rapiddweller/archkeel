@@ -23,13 +23,11 @@ from archkeel.ir.baseline import (
     violation_drift_counts,
 )
 from archkeel.ir.codec import contract_bytes, parse_contract
-from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.facts_codec import RawRecord, classified
 from archkeel.ir.model import EvidenceClass, NoComponentCyclesRule, Observation, Record
-from archkeel.ir.trace import trace_valid_violations
 from archkeel.ir.widening import baseline_widenings
 from fixtures.demo_catalog_dependencies import MODEL_MODULE_CYCLE, module_cycle_rule
-from fixtures.demo_catalog_support import apply_overlay, contract_with_rule
+from fixtures.demo_catalog_support import contract_with_rule
 
 _CORE_CYCLE = {
     "core/a.py": "from sample.core import b\n",
@@ -95,94 +93,6 @@ def _observe(
     return result.observation
 
 
-@pytest.mark.parametrize(
-    ("planned", "cycle", "scoped", "expected"),
-    [
-        (False, False, False, "PASS"),
-        (False, False, True, "PASS"),
-        (True, False, False, "UNKNOWN"),
-        (True, False, True, "UNKNOWN"),
-        (True, True, False, "FAIL"),
-        (True, True, True, "FAIL"),
-    ],
-    ids=[
-        "active-only",
-        "active-scoped",
-        "planned-owner",
-        "planned-scoped",
-        "observed-cycle",
-        "scoped-cycle",
-    ],
-)
-@pytest.mark.parametrize("level", [None, "module"], ids=["component-level", "module-level"])
-def test_unscanned_planned_owner_does_not_prove_cycle_scan_complete(
-    tmp_path: Path,
-    planned: bool,
-    cycle: bool,
-    scoped: bool,
-    expected: str,
-    level: str | None,
-) -> None:
-    components = [_component("core"), _component("cli")]
-    if planned:
-        components.append(
-            {
-                "id": "COMP-FUTURE",
-                "label": "future",
-                "role": "component",
-                "lifecycle": "planned",
-                "packages": [],
-                "planned": ["sample.future:build"],
-                "responsibilities": [],
-                "forbidden_responsibilities": [],
-                "provenance": ["docs/architecture/sample.md"],
-            }
-        )
-    sources = (
-        {"core/a.py": "from sample.cli import main\n", "cli/main.py": "from sample.core import a\n"}
-        if cycle
-        else {"core/a.py": "VALUE = 1\n", "cli/main.py": "VALUE = 1\n"}
-    )
-    tmp_path.mkdir(parents=True, exist_ok=True)
-    (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
-    (tmp_path / "contract.json").write_text(
-        json.dumps(
-            {
-                "schema_version": "2.4.0" if planned else "2.1.0",
-                "components": components,
-                "rules": [
-                    {
-                        "id": "RULE",
-                        "kind": "no_component_cycles",
-                        **({"level": level} if level is not None else {}),
-                        "rationale": "Probe.",
-                        "provenance": ["docs/architecture/sample.md"],
-                        "decided_by": "architect",
-                        **({"components": ["core"]} if scoped else {}),
-                    }
-                ],
-            }
-        )
-    )
-    for relative, source in sources.items():
-        path = tmp_path / "sample" / relative
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(source)
-
-    result = observe(
-        tmp_path,
-        roots=(".",),
-        namespace="sample",
-        contract="contract.json",
-        git_head="a" * 40,
-        dirty=False,
-        contract_root=tmp_path,
-    )
-    assert result.observation is not None, result.diagnostics
-    (assessment,) = rule_assessments(result.observation, undecided_by_rule={})
-    assert assessment.status == expected
-
-
 def _violations(observation: Observation) -> list[tuple[str, tuple[str, ...]]]:
     return [(item.kind, item.subjects) for item in observation.records("violations") or ()]
 
@@ -196,191 +106,6 @@ def _module_sccs(observation: Observation) -> list[tuple[str, ...]]:
 def _locations(observation: Observation, violation: Record) -> list[str]:
     evidence = {item.id: item for item in observation.evidence}
     return sorted(f"{evidence[key].file}:{evidence[key].line}" for key in violation.evidence_ids)
-
-
-def test_the_component_rule_passes_while_a_module_cycle_exists(tmp_path: Path) -> None:
-    """The issue's hidden risk: the declared level is acyclic, the module level is not."""
-    observation = _observe(tmp_path, _CORE_CYCLE)
-
-    assert _violations(observation) == []
-    assert _module_sccs(observation) == [("sample.core.a", "sample.core.b")]
-
-
-@pytest.mark.parametrize("close_cycle", [False, True], ids=["native", "negative-control"])
-def test_projection_types_do_not_close_a_model_module_cycle(
-    tmp_path: Path, close_cycle: bool
-) -> None:
-    source_root = Path(__file__).resolve().parents[1] / "src/archkeel/ir"
-    sources = {
-        f"core/{name}.py": (source_root / f"{name}.py").read_text()
-        for name in ("model", "architecture_projection")
-    }
-    if close_cycle:
-        sources["core/architecture_projection.py"] += "\nfrom . import model\n"
-    observation = _observe(tmp_path, sources, labels=("core",), level="module")
-    (assessment,) = rule_assessments(observation, undecided_by_rule={})
-
-    assert assessment.status == ("FAIL" if close_cycle else "PASS")
-    assert assessment.evaluation_proven
-    assert assessment.count == int(close_cycle)
-    assert _module_sccs(observation) == (
-        [("sample.core.architecture_projection", "sample.core.model")] if close_cycle else []
-    )
-
-
-@pytest.mark.parametrize("reverse_roots", [False, True], ids=["forward", "reversed"])
-@pytest.mark.parametrize(
-    ("roots", "status"),
-    [
-        (("first/sample", "second/sample/core/b"), "UNKNOWN"),
-        (("first/sample", "second/sample"), "PASS"),
-    ],
-    ids=["partial", "full"],
-)
-def test_cycle_receipts_require_every_physical_package_domain(
-    tmp_path: Path, roots: tuple[str, ...], status: str, reverse_roots: bool
-) -> None:
-    (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
-    (tmp_path / "contract.json").write_text(
-        json.dumps(
-            {
-                "schema_version": "2.1.0",
-                "components": [_component("core")],
-                "rules": [
-                    {
-                        "id": rule_id,
-                        "kind": "no_component_cycles",
-                        "rationale": "Check the complete cycle domain.",
-                        "provenance": ["docs/architecture/sample.md"],
-                        "decided_by": "architect",
-                        **options,
-                    }
-                    for rule_id, options in (("COMPONENT", {}), ("MODULE", {"level": "module"}))
-                ],
-            }
-        )
-    )
-    for relative in (
-        "first/sample/core/api.py",
-        "second/sample/core/b/api.py",
-        "second/sample/core/hidden.py",
-    ):
-        path = tmp_path / relative
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("VALUE = 1\n")
-    result = observe(
-        tmp_path,
-        roots=tuple(reversed(roots)) if reverse_roots else roots,
-        namespace="sample",
-        contract="contract.json",
-        git_head="a" * 40,
-        dirty=False,
-        contract_root=tmp_path,
-    )
-    assert result.observation is not None, result.diagnostics
-    assert {
-        item.id: (item.status, item.evaluation_proven)
-        for item in rule_assessments(result.observation, undecided_by_rule={})
-    } == {
-        "COMPONENT": (status, status == "PASS"),
-        "MODULE": (status, status == "PASS"),
-    }
-
-
-def test_the_module_level_names_members_and_the_imports_that_close_the_cycle(
-    tmp_path: Path,
-) -> None:
-    observation = _observe(tmp_path, _CORE_CYCLE, level="module")
-
-    (violation,) = trace_valid_violations(observation)
-    assert (violation.kind, violation.subjects, violation.rule_ids) == (
-        "module_cycle",
-        ("sample.core.a", "sample.core.b"),
-        ("RULE",),
-    )
-    assert violation.title == "Module cycle: sample.core.a ↔ sample.core.b"
-    assert violation.data.get("members") == ("sample.core.a", "sample.core.b")
-    assert violation.data.get("edges") == (
-        ("sample.core.a", "sample.core.b"),
-        ("sample.core.b", "sample.core.a"),
-    )
-    assert _locations(observation, violation) == ["sample/core/a.py:1", "sample/core/b.py:1"]
-    # One graph: the rule judges exactly the SCC the report measures.
-    assert [violation.subjects] == _module_sccs(observation)
-    declaration = next(
-        item for item in observation.records("declarations") or () if item.id == "RULE"
-    )
-    assert declaration.data.get("level") == "module"
-
-
-@pytest.mark.parametrize(
-    ("components", "expected"),
-    [
-        (None, [("sample.cli.x", "sample.cli.y"), ("sample.core.a", "sample.core.b")]),
-        (["core"], [("sample.core.a", "sample.core.b")]),
-        (["cli"], [("sample.cli.x", "sample.cli.y")]),
-    ],
-)
-def test_module_level_scope_reports_the_cycles_that_touch_a_listed_component(
-    tmp_path: Path, components: list[str] | None, expected: list[tuple[str, ...]]
-) -> None:
-    scope = {} if components is None else {"components": components}
-    observation = _observe(tmp_path, {**_CORE_CYCLE, **_CLI_CYCLE}, level="module", **scope)
-
-    assert sorted(subjects for _, subjects in _violations(observation)) == expected
-
-
-def test_a_scoped_module_cycle_through_an_unowned_module_is_reported_whole(
-    tmp_path: Path,
-) -> None:
-    """Scope selects which cycles matter; it never cuts a cycle short at the scope's edge."""
-    sources = {"core/a.py": "from sample import extra\n", "extra.py": "from sample.core import a\n"}
-    observation = _observe(tmp_path, sources, level="module", components=["core"])
-
-    assert _violations(observation) == [("module_cycle", ("sample.core.a", "sample.extra"))]
-
-
-def test_component_level_scope_reports_the_cycles_that_touch_a_listed_component(
-    tmp_path: Path,
-) -> None:
-    sources = {
-        "core/a.py": "from sample.cli import main\n",
-        "cli/main.py": "from sample.core import a\n",
-        "api/a.py": "from sample.db import b\n",
-        "db/b.py": "from sample.api import a\n",
-    }
-    labels = ("core", "cli", "api", "db")
-
-    unscoped = _observe(tmp_path / "all", sources, labels=labels)
-    scoped = _observe(tmp_path / "core", sources, labels=labels, components=["core"])
-
-    assert sorted(_violations(unscoped)) == [
-        ("no_component_cycles", ("api", "db")),
-        ("no_component_cycles", ("cli", "core")),
-    ]
-    assert _violations(scoped) == [("no_component_cycles", ("cli", "core"))]
-
-
-def test_the_default_rule_keeps_its_records_and_its_canonical_contract(tmp_path: Path) -> None:
-    """No `level` and no `components` is exactly the rule every existing contract declares."""
-    sources = {
-        "core/a.py": "from sample.cli import main\n",
-        "cli/main.py": "import sample.core.a\n",
-    }
-    observation = _observe(tmp_path, sources)
-
-    (violation,) = observation.records("violations") or ()
-    assert (violation.kind, violation.title, violation.data.entries) == (
-        "no_component_cycles",
-        "Component cycle: cli ↔ core",
-        (("members", ("cli", "core")),),
-    )
-    declaration = next(
-        item for item in observation.records("declarations") or () if item.id == "RULE"
-    )
-    assert (declaration.title, declaration.subjects) == ("Component dependencies form no cycle", ())
-    raw = json.loads((tmp_path / "contract.json").read_bytes())
-    assert json.loads(contract_bytes(parse_contract(raw)))["rules"] == raw["rules"]
 
 
 def test_the_contract_names_the_level_and_declared_components() -> None:
@@ -434,50 +159,6 @@ def _package_sccs(observation: Observation) -> list[tuple[tuple[str, ...], str, 
 def _metric(observation: Observation, kind: str) -> tuple[object, tuple[str, ...]]:
     (metric,) = (item for item in observation.records("metrics") or () if item.kind == kind)
     return metric.data.get("value"), metric.fact_ids
-
-
-def test_a_package_cycle_no_module_cycle_crosses_is_roll_up_only(tmp_path: Path) -> None:
-    """a.x -> b.y and b.z -> a.w close a package cycle; no module path closes it (#129)."""
-    sources = {
-        "a/x.py": "from sample.b import y\n",
-        "a/w.py": "VALUE = 1\n",
-        "b/y.py": "VALUE = 1\n",
-        "b/z.py": "from sample.a import w\n",
-    }
-    observation = _observe(tmp_path, sources, labels=())
-
-    assert _module_sccs(observation) == []
-    ((members, title, backed_by),) = _package_sccs(observation)
-    assert (members, title, backed_by) == (
-        ("sample.a", "sample.b"),
-        "Package cycle with 2 members, roll-up only: no module cycle crosses them",
-        (),
-    )
-    package_cycle = next(
-        item.id for item in observation.records("cycles") or () if item.kind == "package_scc"
-    )
-    assert _metric(observation, "rollup_only_package_cycles") == (1, (package_cycle,))
-
-
-def test_a_module_cycle_across_two_packages_backs_the_package_cycle(tmp_path: Path) -> None:
-    sources = {
-        "a/x.py": "from sample.b import y\n",
-        "b/y.py": "from sample.a import x\n",
-        # A module cycle inside one package backs no package cycle.
-        "a/p.py": "from sample.a import q\n",
-        "a/q.py": "from sample.a import p\n",
-    }
-    observation = _observe(tmp_path, sources, labels=())
-
-    crossing = next(
-        item.id
-        for item in observation.records("cycles") or ()
-        if item.kind == "module_scc" and item.subjects == ("sample.a.x", "sample.b.y")
-    )
-    assert _package_sccs(observation) == [
-        (("sample.a", "sample.b"), "Package cycle with 2 members", (crossing,))
-    ]
-    assert _metric(observation, "rollup_only_package_cycles") == (0, ())
 
 
 def _edge(level: str, source: str, target: str) -> RawRecord:
@@ -558,47 +239,6 @@ def _baselined_cycle(
     return root, baseline, _git(root, "rev-parse", "HEAD")
 
 
-def test_a_baselined_module_cycle_passes_and_a_new_one_fails(tmp_path: Path) -> None:
-    root, baseline, _ = _baselined_cycle(tmp_path)
-
-    known, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline)
-    apply_overlay(root, _GAMMA_DELTA)
-    grown, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline)
-
-    assert (known.exit_code, known.failures) == (0, ())
-    assert (grown.exit_code, grown.failures) == (
-        1,
-        (
-            "new violation: MODEL-MODULES-ACYCLIC | shop.model.delta shop.model.gamma "
-            "(1 observed, 0 in the baseline)",
-        ),
-    )
-
-
-def test_against_lets_the_cycle_count_fall_but_not_rise(tmp_path: Path) -> None:
-    root, baseline, base = _baselined_cycle(tmp_path)
-
-    apply_overlay(root, _GAMMA_DELTA)
-    _, accepted = run_validate(
-        root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True, accept_new=True
-    )
-    baseline.write_bytes(dict(accepted.entries)[str(baseline)])
-    risen, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, against=base)
-
-    apply_overlay(root, {"shop/model/gamma.py": None, "shop/model/delta.py": None})
-    apply_overlay(root, {"shop/model/beta.py": "VALUE = 1\n"})
-    _, resolved = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True)
-    baseline.write_bytes(dict(resolved.entries)[str(baseline)])
-    fallen, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, against=base)
-
-    assert risen.exit_code == 1
-    assert risen.failures == (
-        "baseline entry widened: MODEL-MODULES-ACYCLIC | shop.model.delta shop.model.gamma "
-        "(1 now, 0 before)",
-    )
-    assert (fallen.exit_code, fallen.failures) == (0, ())
-
-
 # --- A cycle that shrinks inside a baselined one is that cycle contracting, not new (#129). ---
 
 _CYCLE_RULES = frozenset({"CYCLES"})
@@ -651,30 +291,3 @@ _THREE_MODULE_CYCLE = {
     "shop/model/beta.py": "from shop.model import alpha, gamma\nVALUE = 1\n",
     "shop/model/gamma.py": "from shop.model import beta\nVALUE = beta.VALUE\n",
 }
-
-
-def test_breaking_part_of_a_baselined_cycle_is_written_without_accepting_new_debt(
-    tmp_path: Path,
-) -> None:
-    root, baseline, base = _baselined_cycle(tmp_path, _THREE_MODULE_CYCLE)
-
-    apply_overlay(root, {"shop/model/gamma.py": "VALUE = 1\n"})
-    drifted, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline)
-    written, files = run_validate(
-        root, SHOP_CONFIG, observe, baseline=baseline, write_baseline=True
-    )
-    baseline.write_bytes(dict(files.entries)[str(baseline)])
-    against, _ = run_validate(root, SHOP_CONFIG, observe, baseline=baseline, against=base)
-
-    # The file still states the old cycle, so it must be rewritten, but nothing in it is new.
-    assert (drifted.exit_code, drifted.baseline_new, drifted.baseline_resolved) == (1, 0, 1)
-    assert drifted.failures == (
-        "contracted violation: MODEL-MODULES-ACYCLIC | shop.model.alpha shop.model.beta "
-        "(1 observed, 0 in the baseline) inside a baselined cycle; rewrite the baseline with "
-        "--write-baseline",
-        "resolved violation: MODEL-MODULES-ACYCLIC | shop.model.alpha shop.model.beta "
-        "shop.model.gamma (0 observed, 1 in the baseline); rewrite the baseline with "
-        "--write-baseline",
-    )
-    assert (written.exit_code, written.failures) == (0, ())
-    assert (against.exit_code, against.failures) == (0, ())

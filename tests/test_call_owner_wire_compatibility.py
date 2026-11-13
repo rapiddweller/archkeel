@@ -4,14 +4,11 @@
 """New call evidence cannot change the meaning of published wire resources."""
 
 import copy
-import json
 
 import pytest
-from test_call_owner_policy import _observe
 from test_delta import _model, _record
 from test_result_schema import _validator
 
-from archkeel.check.report import run_saved_report
 from archkeel.ir.codec import (
     decode_canonical_model,
     encode_canonical_model,
@@ -236,25 +233,3 @@ def test_current_non_python_calls_do_not_require_python_binding_evidence(analyze
         schema={"$ref": "urn:archkeel:architecture-ir:decoded:2.1.0"}
     )
     assert validator.is_valid(raw)
-
-
-@pytest.mark.parametrize("columnar", [False, True])
-def test_saved_call_owner_pass_requires_every_call_consideration(tmp_path, columnar):
-    result, row = _observe(
-        tmp_path,
-        "def run(unknown):\n    unknown()\n",
-        allowed=("sample.caller.run",),
-    )
-    assert row.status == "PASS" and row.evaluation_proven
-    raw = observation_payload(result.observation)
-    call = next(item for item in raw["calls"] if item["data"]["expression"] == "unknown")
-    assert call["data"]["call_binding"] is None
-    path = tmp_path / "architecture.json"
-    path.write_text(json.dumps(encode_canonical_model(raw) if columnar else raw))
-    [replayed] = run_saved_report(path).rule_assessments
-    assert replayed == row
-    del call["data"]["call_binding"]
-    path.write_text(json.dumps(encode_canonical_model(raw) if columnar else raw))
-    replay = run_saved_report(path)
-    assert replay.exit_code == 2 and replay.observation is None
-    assert replay.declared_rules == "UNKNOWN"

@@ -260,31 +260,6 @@ def test_missing_collector_does_not_install_or_write_a_draft(tmp_path: Path) -> 
     assert not (root / "node_modules").exists()
 
 
-@pytest.mark.parametrize("language", ["python", "dart"])
-def test_existing_explicit_language_init_still_works(tmp_path: Path, language: str) -> None:
-    root = _repository(tmp_path / "project")
-    source_arg = "src/shop" if language == "python" else "src"
-    source = root / source_arg
-    source.mkdir(parents=True)
-    if language == "python":
-        (root / "pyproject.toml").write_text(
-            '[project]\nname = "shop"\nrequires-python = ">=3.11"\n'
-        )
-        (source / "__init__.py").write_text("")
-        (source / "model.py").write_text("VALUE = 1\n")
-    else:
-        (source / "model.dart").write_text("const value = 1;\n")
-        (root / "pubspec.yaml").write_text("name: shop\nenvironment:\n  sdk: '>=2.19.0 <4.0.0'\n")
-    result = _invoke(
-        root, "init", "--language", language, "--source", source_arg, "--namespace", "shop"
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
-    scan = tomllib.loads((root / "archkeel.toml").read_text())["scan"]
-    assert scan.get("language", "python") == language
-    assert "tsconfig" not in scan
-    assert "collector_argv" not in scan
-
-
 def test_repeated_source_roots_preserve_distinct_physical_owners(tmp_path: Path) -> None:
     root = _repository(tmp_path / "project")
     _typescript(root)

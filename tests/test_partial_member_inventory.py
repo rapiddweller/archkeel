@@ -7,33 +7,20 @@ from __future__ import annotations
 
 import json
 import subprocess
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from collector_pin import trusted
-from dart_native_helpers import collect_native_dart
 
-from archkeel.analyzer.typescript.collect import collect as collect_typescript
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report, run_saved_report
+from archkeel.cli.observe import observer_for
 from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation
-from archkeel.ir.facts import RecordData, ResolutionInput, SourceFacts
+from archkeel.ir.facts import RecordData, ResolutionInput
 from archkeel.ir.member_inventory import MEMBER_INVENTORY_PROOF, member_inventory_proof
 from archkeel.ir.model import TARGET_GRAPH_RECORD_KINDS, Observation
-from archkeel.ir.protocol import CollectionError, CollectionRequest
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.source_graph import observed_graph
-
-
-@dataclass(frozen=True)
-class _Collector:
-    language: str
-
-    def collect(self, request: CollectionRequest) -> SourceFacts | CollectionError:
-        return (
-            collect_native_dart(request) if self.language == "dart" else collect_typescript(request)
-        )
 
 
 def _entity(identity, kind, name, language, parent=None, **details):
@@ -182,12 +169,12 @@ def _project(root: Path, language: str) -> ScanConfig:
 
 def _live(root: Path, language: str):
     config = _project(root, language)
-    result, encoded = run_report(root, config=config, analyzer=trusted(_Collector(language)))
+    result, encoded = run_report(root, config=config, analyzer=observer_for(language))
     assert encoded is not None
     return result, encoded, parse_observation(decode_canonical_model(json.loads(encoded)))
 
 
-@pytest.mark.parametrize("language", ["dart", "typescript"])
+@pytest.mark.parametrize("language", ["typescript"])
 def test_unrelated_resolution_gap_keeps_direct_member_inventory_proven(tmp_path, language):
     result, encoded, model = _live(tmp_path, language)
     report = architecture_report(model)
@@ -215,7 +202,7 @@ def test_unrelated_resolution_gap_keeps_direct_member_inventory_proven(tmp_path,
     assert saved.rule_assessments == result.rule_assessments
 
 
-@pytest.fixture(scope="module", params=["dart", "typescript"])
+@pytest.fixture(scope="module", params=["typescript"])
 def certified(request, tmp_path_factory):
     _, _, model = _live(tmp_path_factory.mktemp(request.param), request.param)
     proof = next(
@@ -483,11 +470,11 @@ def test_partial_closed_inventory_cannot_replay_unbound_cached_pass(certified, a
     assert architecture_report(changed).comparison is None
 
 
-@pytest.mark.parametrize("language", ["dart", "typescript"])
+@pytest.mark.parametrize("language", ["typescript"])
 def test_stripped_legacy_all_pass_inventory_is_withheld_on_saved_replay(tmp_path, language):
     config = _project(tmp_path, language)
     _target_without_gap_detail(tmp_path)
-    _, encoded = run_report(tmp_path, config=config, analyzer=trusted(_Collector(language)))
+    _, encoded = run_report(tmp_path, config=config, analyzer=observer_for(language))
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     assert architecture_report(model).comparison.status == "PASS"
     changed = _unbound_inventory_snapshot(model, "proof_and_binding")
@@ -500,14 +487,14 @@ def test_stripped_legacy_all_pass_inventory_is_withheld_on_saved_replay(tmp_path
     assert saved.exit_code == 2 and saved.coverage.status == "FAIL"
 
 
-@pytest.mark.parametrize("language", ["dart", "typescript"])
+@pytest.mark.parametrize("language", ["typescript"])
 def test_legacy_partial_open_scope_keeps_known_comparison(tmp_path, language):
     config = _project(tmp_path, language)
     path = tmp_path / "architecture-contract.json"
     contract = json.loads(path.read_text())
     contract["declarations"]["uml"]["scopes"][0]["mode"] = "open"
     path.write_text(json.dumps(contract))
-    _, encoded = run_report(tmp_path, config=config, analyzer=trusted(_Collector(language)))
+    _, encoded = run_report(tmp_path, config=config, analyzer=observer_for(language))
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     comparison = architecture_report(model).comparison
     assert comparison is not None and comparison.status in {"FAIL", "UNKNOWN"}
@@ -531,9 +518,7 @@ def test_partial_owner_with_closed_attributes_and_open_methods_keeps_known_compa
     source = tmp_path / "src/model.ts"
     if local_gap:
         source.write_text(source.read_text() + "const id = './gap'; import(id);\n")
-    result, encoded = run_report(
-        tmp_path, config=config, analyzer=trusted(_Collector("typescript"))
-    )
+    result, encoded = run_report(tmp_path, config=config, analyzer=observer_for("typescript"))
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     assert _inventory_is_complete(model) is not local_gap
     comparison = architecture_report(model).comparison
@@ -584,7 +569,7 @@ def test_malformed_inventory_proof_cannot_replay_comparison(certified, alter):
     assert architecture_report(changed).comparison is None
 
 
-@pytest.mark.parametrize("language", ["dart", "typescript"])
+@pytest.mark.parametrize("language", ["typescript"])
 def test_local_resolver_gap_keeps_direct_inventory_unknown(tmp_path, language):
     config = _project(tmp_path, language)
     relative = "lib/model.dart" if language == "dart" else "src/model.ts"
@@ -597,7 +582,7 @@ def test_local_resolver_gap_keeps_direct_inventory_unknown(tmp_path, language):
             else "const id = './gap'; import(id);\n"
         )
     )
-    _, encoded = run_report(tmp_path, config=config, analyzer=trusted(_Collector(language)))
+    _, encoded = run_report(tmp_path, config=config, analyzer=observer_for(language))
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     assert not _inventory_is_complete(model)
     assert not any(
@@ -605,29 +590,12 @@ def test_local_resolver_gap_keeps_direct_inventory_unknown(tmp_path, language):
     )
 
 
-@pytest.mark.parametrize("part_state", ["complete", "gap", "missing", "broken"])
-def test_dart_owned_part_closure_is_required_for_inventory(tmp_path, part_state):
-    config = _project(tmp_path, "dart")
-    source = (tmp_path / "lib/model.dart").read_text()
-    (tmp_path / "lib/model.dart").write_text("part 'data.part.dart';\n")
-    content = "part of 'model.dart';\n" + source
-    if part_state == "gap":
-        content += "class Other extends External { Other({super.key}); }\n"
-    if part_state == "broken":
-        content += "class Broken { ???\n"
-    if part_state != "missing":
-        (tmp_path / "lib/data.part.dart").write_text(content)
-    _, encoded = run_report(tmp_path, config=config, analyzer=trusted(_Collector("dart")))
-    model = parse_observation(decode_canonical_model(json.loads(encoded)))
-    assert _inventory_is_complete(model) is (part_state == "complete")
-
-
 @pytest.mark.parametrize("diagnostic", ["runtime_mismatch", "contract_invalid"])
 def test_late_diagnostic_revokes_inventory_before_serialization(tmp_path, monkeypatch, diagnostic):
     import archkeel.check.report as report_module
     from archkeel.ir.model import Diagnostic
 
-    config = _project(tmp_path, "dart")
+    config = _project(tmp_path, "typescript")
     original = report_module.observe_repository
 
     def late_failure(*args, **kwargs):
@@ -648,7 +616,7 @@ def test_late_diagnostic_revokes_inventory_before_serialization(tmp_path, monkey
         )
 
     monkeypatch.setattr(report_module, "observe_repository", late_failure)
-    fresh, encoded = run_report(tmp_path, config=config, analyzer=trusted(_Collector("dart")))
+    fresh, encoded = run_report(tmp_path, config=config, analyzer=observer_for("typescript"))
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     assert not _inventory_is_complete(model)
     assert architecture_report(model).comparison is None
@@ -658,12 +626,12 @@ def test_late_diagnostic_revokes_inventory_before_serialization(tmp_path, monkey
     assert saved.rule_assessments == fresh.rule_assessments
 
 
-@pytest.mark.parametrize("language", ["dart", "typescript"])
+@pytest.mark.parametrize("language", ["typescript"])
 def test_repeat_native_collection_has_identical_inventory_proof(tmp_path, language):
     config = _project(tmp_path, language)
     models = []
     for _ in range(2):
-        _, encoded = run_report(tmp_path, config=config, analyzer=trusted(_Collector(language)))
+        _, encoded = run_report(tmp_path, config=config, analyzer=observer_for(language))
         models.append(parse_observation(decode_canonical_model(json.loads(encoded))))
     proofs = [
         next(r for r in m.records("scope_observations") or () if r.kind == MEMBER_INVENTORY_PROOF)
@@ -673,7 +641,7 @@ def test_repeat_native_collection_has_identical_inventory_proof(tmp_path, langua
     assert architecture_report(models[0]).comparison == architecture_report(models[1]).comparison
 
 
-@pytest.mark.parametrize("language", ["dart", "typescript"])
+@pytest.mark.parametrize("language", ["typescript"])
 @pytest.mark.parametrize("change", ["missing", "extra"])
 def test_certified_inventory_retains_missing_and_extra_member_fail(tmp_path, language, change):
     config = _project(tmp_path, language)
@@ -689,7 +657,7 @@ def test_certified_inventory_retains_missing_and_extra_member_fail(tmp_path, lan
             "String extra = 'extra'; void run()" if language == "dart" else "extra: string; run()",
         )
     path.write_text(source)
-    result, encoded = run_report(tmp_path, config=config, analyzer=trusted(_Collector(language)))
+    result, encoded = run_report(tmp_path, config=config, analyzer=observer_for(language))
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     assert _inventory_is_complete(model)
     comparison = architecture_report(model).comparison
@@ -715,11 +683,11 @@ def _target_without_gap_detail(root: Path, *, signature_only: bool = False) -> N
     path.write_text(json.dumps(target))
 
 
-@pytest.mark.parametrize("language", ["dart", "typescript"])
+@pytest.mark.parametrize("language", ["typescript"])
 def test_only_certified_closed_inventory_target_retains_partial_pass_comparison(tmp_path, language):
     config = _project(tmp_path, language)
     _target_without_gap_detail(tmp_path)
-    result, encoded = run_report(tmp_path, config=config, analyzer=trusted(_Collector(language)))
+    result, encoded = run_report(tmp_path, config=config, analyzer=observer_for(language))
     model = parse_observation(decode_canonical_model(json.loads(encoded)))
     comparison = architecture_report(model).comparison
     assert comparison is not None and comparison.status == "PASS"
@@ -734,7 +702,7 @@ def test_only_certified_closed_inventory_target_retains_partial_pass_comparison(
 def test_unrelated_inventory_does_not_retain_signature_only_partial_pass(tmp_path):
     config = _project(tmp_path, "typescript")
     _target_without_gap_detail(tmp_path, signature_only=True)
-    observer = trusted(_Collector("typescript"))
+    observer = observer_for("typescript")
     candidate = observer(
         tmp_path,
         roots=config.roots,

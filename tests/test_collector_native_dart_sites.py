@@ -1,6 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+# ruff: noqa: E402
 """#880 PR 8 slice 3b: the native Dart sites of each file equal the sites of Python `parse`.
 
 Consumer: the Dart resolver, which reads the references, calls, creations, bindings and scopes
@@ -20,6 +21,9 @@ import sys
 from pathlib import Path
 
 import pytest
+from oracle_support import ORACLE_UNAVAILABLE
+
+pytest.skip(ORACLE_UNAVAILABLE, allow_module_level=True)
 from conftest import install_rust_toolchain
 
 ROOT = Path(__file__).parents[1]

@@ -21,10 +21,10 @@ from unittest import mock
 
 import pytest
 from collector_pin import pin_of
+from native_typescript import collect
 
 from archkeel.analyzer import process as process_owner
 from archkeel.analyzer.runtime import package_version
-from archkeel.analyzer.typescript.collect import collect
 from archkeel.check.report import run_report
 from archkeel.cli import observe as bundled
 from archkeel.cli.config import load_config
@@ -151,6 +151,8 @@ INNER_SECTIONS = ("symbols", "calls", "references", "bindings", "constructs", "i
 
 
 def _replayed(root: Path, inner: str, *mode: str) -> dict[str, object]:
+    if inner == "bundled":
+        inner = bundled.bundled_collector(bundled.TYPESCRIPT_COLLECTOR)
     return _verdict(root, (sys.executable, "-I", "-B", REPLAY, inner, *mode))
 
 
@@ -158,7 +160,7 @@ def _passing_variant(tmp_path: Path) -> tuple[str, Path]:
     """A case that the default collector passes: the host judges a damaged reply against it."""
     for index, variant in enumerate(VARIANTS):
         root = repository(tmp_path / str(index), variant)
-        verdict = _replayed(root, "python", "plain")
+        verdict = _replayed(root, "bundled", "plain")
         if verdict["complete"] == "PASS" and verdict["exit"] == 0:
             return variant.id, root
     raise AssertionError("no catalog variant passes with the default collector")
@@ -182,18 +184,18 @@ def test_a_reply_that_lacks_a_declared_section_is_never_a_pass(tmp_path: Path) -
     filled = _filled_sections(root)
     assert filled, name
     for section in INNER_SECTIONS:
-        damaged = _replayed(root, "python", "drop", section)
+        damaged = _replayed(root, "bundled", "drop", section)
         assert damaged["complete"] != "PASS", (name, section)
         assert damaged["exit"] != 0, (name, section)
     for section in filled:
-        emptied = _replayed(root, "python", "empty", section)
+        emptied = _replayed(root, "bundled", "empty", section)
         if section in UNCHECKED_WHEN_EMPTY:
             # The host accepts these sections present and empty as a complete scan. This pins what
             # it does today; the next test says what it must do (AD-340).
             assert emptied["complete"] == "PASS" and emptied["exit"] == 0, (name, section)
         else:
             assert emptied["complete"] != "PASS", (name, section)
-    claimed = _replayed(root, "python", "claim", "symbols")
+    claimed = _replayed(root, "bundled", "claim", "symbols")
     assert claimed["complete"] != "PASS", name
 
 
@@ -207,7 +209,7 @@ def test_a_reply_that_lacks_a_declared_section_is_never_a_pass(tmp_path: Path) -
 def test_a_section_that_is_emptied_is_never_a_pass(tmp_path: Path) -> None:
     name, root = _passing_variant(tmp_path)
     for section in _filled_sections(root):
-        emptied = _replayed(root, "python", "empty", section)
+        emptied = _replayed(root, "bundled", "empty", section)
         assert emptied["complete"] != "PASS", (name, section)
 
 
@@ -219,7 +221,7 @@ def test_the_host_notices_a_damaged_native_reply(
     name, root = _passing_variant(tmp_path)
     plain = _replayed(root, str(native_binary), "plain")
     assert plain["diagnostics"] == _verdict(root, None, bundled_directory)["diagnostics"], name
-    assert _short(plain) == _short(_replayed(root, "python", "plain")), name
+    assert _short(plain) == _short(_replayed(root, "bundled", "plain")), name
     for section in ("symbols", "calls", "references", "bindings", "constructs"):
         damaged = _replayed(root, str(native_binary), "drop", section)
         assert damaged["complete"] != "PASS" and damaged["exit"] != 0, section
@@ -231,4 +233,4 @@ def test_the_host_notices_a_damaged_native_reply(
     # keeps a lost node from being silent in the native collector.
     for section in ("symbols", "calls", "references", "bindings", "constructs"):
         emptied = _replayed(root, str(native_binary), "empty", section)
-        assert _short(emptied) == _short(_replayed(root, "python", "empty", section)), section
+        assert _short(emptied) == _short(_replayed(root, "bundled", "empty", section)), section

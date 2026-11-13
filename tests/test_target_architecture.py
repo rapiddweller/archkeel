@@ -11,8 +11,6 @@ import pytest
 from test_architecture_demo import _prepare_repo
 
 from archkeel.check.ports import ScanConfig
-from archkeel.check.report import run_report
-from archkeel.cli.observe import observe
 from archkeel.ir.codec import contract_bytes, parse_contract
 from archkeel.ir.model import requires_covers
 
@@ -52,58 +50,6 @@ def test_report_reader_permission_is_symbol_specific(module, symbol, allowed):
     assert requires_covers(api, "ir", module, symbol) is allowed
 
 
-@pytest.mark.parametrize(
-    "case,expected",
-    [
-        ("allowed", "PASS"),
-        ("forbidden", "FAIL"),
-        ("missing_target", "UNKNOWN"),
-        ("missing_source", "UNKNOWN"),
-    ],
-)
-def test_onboarding_dependency_uses_exact_modules_and_real_source_evidence(
-    tmp_path, case, expected
-):
-    raw = json.loads((ROOT / "docs/architecture/contracts/check.json").read_bytes())
-    rule = next(
-        rule for rule in raw["rules"] if rule["id"] == "CHECK-ONBOARDING-NO-REPORT-IMPLEMENTATION"
-    )
-    files = {
-        "archkeel/__init__.py": "",
-        "archkeel/check/__init__.py": "",
-        "archkeel/check/onboarding.py": (
-            "from archkeel.check.report import observe_repository\n"
-            if case == "forbidden"
-            else "from archkeel.check.ports import ScanConfig\n"
-        ),
-        "archkeel/check/ports.py": "class ScanConfig: pass\n",
-        "archkeel/check/report.py": "def observe_repository(): pass\n",
-        # Another command must not be captured by expansion to the whole owner pair.
-        "archkeel/check/run.py": "from archkeel.check.report import observe_repository\n",
-        "docs/architecture/target/design.md": "Independent command responsibilities.\n",
-        "intent.json": json.dumps(
-            {
-                "schema_version": raw["schema_version"],
-                "components": raw["components"],
-                "rules": [rule],
-            }
-        ),
-    }
-    if case == "missing_target":
-        del files["archkeel/check/report.py"]
-    if case == "missing_source":
-        del files["archkeel/check/onboarding.py"]
-    root = _prepare_repo(tmp_path, files)
-    result, artifact = run_report(
-        root,
-        config=ScanConfig(("archkeel",), "archkeel", "intent.json", "0" * 64),
-        analyzer=observe,
-    )
-    assert artifact is not None, result.diagnostics
-    row = next(row for row in result.rule_assessments if row.id == rule["id"])
-    assert row.status == expected
-
-
 PORTS = (
     "archkeel.api.load_violations",
     "archkeel.analyzer.python.collect.PythonProviderCollector.collect",
@@ -129,12 +75,6 @@ PORTS = (
     "archkeel.render.summary.init_summary",
     "archkeel.render.terminal.print_result",
 )
-
-
-def test_declared_module_responsibilities_name_existing_implementations():
-    for path in CONTRACTS:
-        for module in json.loads(path.read_bytes()).get("declarations", {}).get("modules", []):
-            assert (ROOT / module["path"]).is_file(), (path, module)
 
 
 def _port_repository(tmp_path):
@@ -209,53 +149,3 @@ def _port_comparison(root, config):
     comparison = architecture_report(_model(root, config)).comparison
     assert comparison is not None
     return comparison
-
-
-def test_real_core_and_render_ports_fulfil_independent_authored_signatures(tmp_path):
-    root, config = _port_repository(tmp_path)
-    comparison = _port_comparison(root, config)
-    assert comparison.status == "PASS", [
-        row for row in comparison.assessments if row.status != "PASS"
-    ]
-    assert sum(row.aspect == "signature" for row in comparison.assessments) == len(PORTS)
-
-
-@pytest.mark.parametrize(
-    "path,before,after",
-    [
-        ("api.py", "-> tuple[ViolationRow, ...]:", "-> str:"),
-        ("check/ports.py", "roots: tuple[str, ...],", "roots: list[str],"),
-        (
-            "check/ports.py",
-            "entries: tuple[tuple[str, bytes], ...]",
-            "entries: tuple[tuple[str, str], ...]",
-        ),
-        ("check/observe.py", 'tsconfig: str = "tsconfig.json"', "tsconfig: int = 1"),
-        (
-            "render/summary.py",
-            "def report_summary(result: RunResult)",
-            "def report_summary(result: str)",
-        ),
-    ],
-)
-def test_real_port_drift_fails_without_changing_authored_intent(tmp_path, path, before, after):
-    root, config = _port_repository(tmp_path)
-    intent = (root / "contract.json").read_bytes()
-    source = root / "archkeel" / path
-    assert before in source.read_text()
-    source.write_text(source.read_text().replace(before, after, 1))
-    comparison = _port_comparison(root, config)
-    assert comparison.status == "FAIL"
-    assert any(row.status == "FAIL" for row in comparison.assessments)
-    assert (root / "contract.json").read_bytes() == intent
-
-
-@pytest.mark.parametrize("path", ["api.py", "check/ports.py", "check/observe.py", "render/html.py"])
-def test_missing_port_source_cannot_prove_conformance(tmp_path, path):
-    root, config = _port_repository(tmp_path)
-    intent = (root / "contract.json").read_bytes()
-    (root / "archkeel" / path).unlink()
-    comparison = _port_comparison(root, config)
-    assert comparison.status == "UNKNOWN"
-    assert any(row.status == "UNKNOWN" for row in comparison.assessments)
-    assert (root / "contract.json").read_bytes() == intent

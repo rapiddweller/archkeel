@@ -238,6 +238,13 @@ def native_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture(scope="session")
+def dump_binary(native_binary: Path, tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The native TypeScript collector with its test-only syntax dump."""
+    assert native_binary.is_file()
+    return build_native_copy(tmp_path_factory, "native-dump", ("dump",))
+
+
+@pytest.fixture(scope="session")
 def python_dump_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """The native Python collector with the test-only `dump` feature (AD-334)."""
     return build_native_copy(

@@ -1,126 +1,14 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Source-derived provenance for language collectors."""
+"""The installed shell version that bundled collectors must report."""
 
-import hashlib
 import importlib.metadata
-import platform
-import re
-import tomllib
-from enum import StrEnum
-from pathlib import Path
-
-from archkeel.ir.facts import AnalyzerInfo, RuntimeInfo, RuntimeRequirementState, SourceProfile
-from archkeel.ir.facts import Language as Language
-
-
-class _MetadataField(StrEnum):
-    REQUIRES_PYTHON = "requires-python"
-    PYTHON = "python"
-
-
-_ANALYZERS: dict[Language, SourceProfile] = {
-    Language.PYTHON: SourceProfile.PYTHON,
-    Language.DART: SourceProfile.DART,
-    Language.TYPESCRIPT: SourceProfile.TYPESCRIPT,
-}
-# A parser change can change facts without changing a line of this package.
-_PARSERS: dict[Language, tuple[str, ...]] = {
-    Language.TYPESCRIPT: ("tree-sitter", "tree-sitter-typescript"),
-    Language.DART: ("tree-sitter", "tree-sitter-dart"),
-}
-
-
-def collector_provenance(
-    language: Language,
-    *,
-    required: str | None = ">=3.11",
-    requirement_state: RuntimeRequirementState = RuntimeRequirementState.DECLARED,
-) -> tuple[AnalyzerInfo, RuntimeInfo]:
-    """Identify the collector from its installed version and its actual source files."""
-    package = Path(__file__).parent
-    repository = package.parent
-    shared = repository / "ir"
-    sources = [
-        package / "runtime.py",
-        package / "bootstrap.py",
-        *sorted((package / language).rglob("*.py")),
-        *(
-            shared / name
-            for name in (
-                "facts.py",
-                "identity.py",
-                "facts_codec.py",
-                "facts_validation.py",
-                "protocol.py",
-                "state_codec.py",
-                "state_facts.py",
-                "type_shapes.py",
-                "reexports.py",
-                "source_records.py",
-            )
-        ),
-    ]
-    digest = hashlib.sha256()
-    for path in sources:
-        digest.update(path.relative_to(repository).as_posix().encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(path.read_bytes())
-        digest.update(b"\0")
-    for parser in _PARSERS.get(language, ()):
-        digest.update(f"{parser}=={importlib.metadata.version(parser)}".encode())
-        digest.update(b"\0")
-    return (
-        AnalyzerInfo(_ANALYZERS[language].value, package_version(), digest.hexdigest()),
-        RuntimeInfo("python", platform.python_version(), required, requirement_state),
-    )
 
 
 def package_version() -> str:
-    """The installed Archkeel version; a checkout without package metadata gives `0+unknown`."""
+    """The installed Archkeel version; a checkout without metadata gives `0+unknown`."""
     try:
         return importlib.metadata.version("archkeel")
     except importlib.metadata.PackageNotFoundError:
         return "0+unknown"
-
-
-def python_requirement(root: Path) -> tuple[str | None, RuntimeRequirementState]:
-    path = root / "pyproject.toml"
-    try:
-        if not path.resolve().is_relative_to(root.resolve()):
-            return None, RuntimeRequirementState.METADATA_INVALID
-        metadata = tomllib.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        return None, RuntimeRequirementState.METADATA_MISSING
-    except (OSError, ValueError):
-        return None, RuntimeRequirementState.METADATA_INVALID
-    project = metadata.get("project")
-    if isinstance(project, dict) and _MetadataField.REQUIRES_PYTHON in project:
-        required = project["requires-python"]
-    else:
-        tool = metadata.get("tool")
-        poetry = tool.get("poetry") if isinstance(tool, dict) else None
-        dependencies = poetry.get("dependencies") if isinstance(poetry, dict) else None
-        if not isinstance(dependencies, dict) or _MetadataField.PYTHON not in dependencies:
-            return None, RuntimeRequirementState.REQUIREMENT_MISSING
-        required = dependencies["python"]
-        if not isinstance(required, str) or not required.strip():
-            return None, RuntimeRequirementState.REQUIREMENT_INVALID
-        required = _normalize_poetry_caret(required)
-    if not isinstance(required, str) or not required.strip():
-        return None, RuntimeRequirementState.REQUIREMENT_INVALID
-    return required, RuntimeRequirementState.DECLARED
-
-
-def _normalize_poetry_caret(required: str) -> str:
-    match = re.fullmatch(r"\^([1-9][0-9]*(?:\.[0-9]+){0,2})", required.strip())
-    if match is None:
-        return required
-    version = match.group(1)
-    try:
-        numbers = [int(part) for part in version.split(".")]
-        upper_bound = f"{numbers[0] + 1}.0"
-    except ValueError:
-        return required
-    return f">={version},<{upper_bound}"

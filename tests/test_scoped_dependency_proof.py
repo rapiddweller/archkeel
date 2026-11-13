@@ -16,7 +16,8 @@ from test_result_schema import current_validator as current_validator
 from test_typescript_partial_uml import _TypeScriptCollector
 
 from archkeel.check.ports import ScanConfig
-from archkeel.check.report import run_report, run_saved_report
+from archkeel.check.report import run_report, run_report_with_observation, run_saved_report
+from archkeel.cli.observe import observer_for
 from archkeel.ir.codec import decode_canonical_model, parse_observation, result_payload
 from archkeel.ir.decisions import rule_assessments, rule_uncertainty_evidence
 from archkeel.ir.facts_validation import validate_source_bindings
@@ -211,9 +212,12 @@ def _project(root: Path, *, dynamic_a: bool = False, forbidden: bool = False):
 
 def _report(root: Path, **options):
     config = _project(root, **options)
-    result, encoded = run_report(root, config=config, analyzer=trusted(_TypeScriptCollector()))
+    result, encoded, model = run_report_with_observation(
+        root, config=config, analyzer=observer_for("typescript")
+    )
     assert encoded is not None
-    return result, encoded, parse_observation(decode_canonical_model(json.loads(encoded)))
+    assert model is not None
+    return result, encoded, model
 
 
 def _rows(model):
@@ -379,14 +383,17 @@ def test_unaffected_nested_requires_passes_with_partial_global_coverage(tmp_path
     saved_path.write_bytes(encoded)
     saved = run_saved_report(saved_path)
     assert {row.id: row.status for row in saved.rule_assessments or ()} == {
-        key: row.status for key, row in rows.items()
+        key: "UNKNOWN" for key in rows
     }
+    assert next(row for row in saved.rule_assessments if row.id == "a:requires").reason == (
+        "dependency_scope_runtime_unverified"
+    )
     _, repeated = run_report(
         tmp_path / "project",
         config=ScanConfig(
             ("src",), "demo", "architecture-contract.json", "unused", language="typescript"
         ),
-        analyzer=trusted(_TypeScriptCollector()),
+        analyzer=observer_for("typescript"),
     )
     assert repeated == encoded
 
@@ -397,7 +404,7 @@ def test_target_authentication_failure_revokes_scoped_proof(tmp_path: Path):
     root = tmp_path / "project"
     config = _project(root)
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
-    result = trusted(_TypeScriptCollector())(
+    result = observer_for("typescript")(
         root,
         roots=config.roots,
         namespace=config.namespace,
@@ -433,7 +440,7 @@ def test_real_nest_dynamic_import_blocks_account_but_not_sibling_rules():
         },
     )
     with materialized_fixture(changed) as root:
-        result, encoded = run_report(
+        result, encoded, model = run_report_with_observation(
             root,
             config=ScanConfig(
                 ("src",),
@@ -443,10 +450,10 @@ def test_real_nest_dynamic_import_blocks_account_but_not_sibling_rules():
                 language="typescript",
                 tsconfig="tsconfig.build.json",
             ),
-            analyzer=trusted(_TypeScriptCollector(), tsconfig="tsconfig.build.json"),
+            analyzer=observer_for("typescript", tsconfig="tsconfig.build.json"),
         )
     assert encoded is not None and result.exit_code == 2
-    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    assert model is not None
     rows = _rows(model)
     assert rows["Account and authentication:REQUIRES-COMPLETE"].status == "UNKNOWN"
     assert rows["REQUIRES-COMPLETE"].status == "UNKNOWN"
@@ -454,6 +461,14 @@ def test_real_nest_dynamic_import_blocks_account_but_not_sibling_rules():
     assert rows["Article and comment publishing:REQUIRES-COMPLETE"].status == "PASS"
     assert model.coverage.files_read == model.coverage.files_parsed == 41
     assert len(model.coverage.failures) == 2
+    replayed = parse_observation(decode_canonical_model(json.loads(encoded)))
+    for identifier in (
+        "API composition:REQUIRES-COMPLETE",
+        "Article and comment publishing:REQUIRES-COMPLETE",
+    ):
+        row = _rows(replayed)[identifier]
+        assert row.status == "UNKNOWN"
+        assert row.reason == "dependency_scope_runtime_unverified"
 
 
 def test_dynamic_import_blocks_its_nested_scope_and_ancestors(tmp_path: Path):
@@ -473,7 +488,7 @@ def test_static_violation_wins_over_unrelated_source_gap(tmp_path: Path, current
         config=ScanConfig(
             ("src",), "demo", "architecture-contract.json", "unused", language="typescript"
         ),
-        analyzer=trusted(_TypeScriptCollector()),
+        analyzer=observer_for("typescript"),
     )
     path.write_bytes(encoded)
     for facet in (
@@ -485,7 +500,7 @@ def test_static_violation_wins_over_unrelated_source_gap(tmp_path: Path, current
             config=ScanConfig(
                 ("src",), "demo", "architecture-contract.json", "unused", language="typescript"
             ),
-            analyzer=trusted(_TypeScriptCollector()),
+            analyzer=observer_for("typescript"),
             **facet,
         )
         saved = run_saved_report(path, **facet)
@@ -669,7 +684,7 @@ def test_invalid_matching_runtime_proof_and_late_diagnostic_are_blocked(tmp_path
     )
 
     def late(*args, **kwargs):
-        result = trusted(_TypeScriptCollector())(*args, **kwargs)
+        result = observer_for("typescript")(*args, **kwargs)
         return replace(result, diagnostics=(*result.diagnostics, _runtime_blocker()))
 
     result, encoded = run_report(
@@ -723,7 +738,7 @@ def test_known_violation_lenses_survive_when_every_scope_is_uncertain(
         {"component": "b"},
     ):
         fresh, _ = run_report(
-            tmp_path / "project", config=config, analyzer=trusted(_TypeScriptCollector()), **facet
+            tmp_path / "project", config=config, analyzer=observer_for("typescript"), **facet
         )
         saved = run_saved_report(path, **facet)
         assert fresh.declared_rules == saved.declared_rules == "FAIL"
@@ -731,29 +746,6 @@ def test_known_violation_lenses_survive_when_every_scope_is_uncertain(
             assert fresh.filtered_violations and saved.filtered_violations
         assert current_validator.is_valid(result_payload(fresh))
         assert current_validator.is_valid(result_payload(saved))
-
-
-def test_unresolved_dart_super_signature_does_not_block_dependencies(tmp_path: Path):
-    from test_dart_partial_uml import _DartCollector
-    from test_dart_partial_uml import _project as dart_project
-
-    root, config = dart_project(
-        tmp_path / "dart", "class Child extends MissingParent { Child({super.key}); }\n"
-    )
-    path = root / "architecture-contract.json"
-    contract = json.loads(path.read_bytes())
-    contract["rules"] = [RULE]
-    path.write_text(json.dumps(contract))
-    result, encoded = run_report(root, config=config, analyzer=trusted(_DartCollector()))
-    assert encoded is not None
-    model = parse_observation(decode_canonical_model(json.loads(encoded)))
-    assert _rows(model)["requires"].status == "PASS"
-    assert model.coverage.status == "FAIL" and result.exit_code == 2
-    gap = model.coverage.failures[0]
-    assert gap.data.get("resolution_dimension") == "signature"
-    assert gap.fact_ids
-    method = next(r for r in model.records("symbols") if r.id in gap.fact_ids)
-    assert method.data.get("signature_complete") is False
 
 
 @pytest.mark.parametrize(
@@ -856,7 +848,7 @@ def test_open_record_strings_are_canonical_primitives_before_json(wire, dependen
 def _dependency_model_from_core(root):
     config = _project(root)
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
-    result = trusted(_TypeScriptCollector())(
+    result = observer_for("typescript")(
         root,
         roots=config.roots,
         namespace=config.namespace,

@@ -24,7 +24,6 @@ from test_collector_native_scaling import (
     _peak_memory,
     assert_time_grows_linearly,
     collector,  # noqa: F401
-    dump_binary,  # noqa: F401
 )
 
 

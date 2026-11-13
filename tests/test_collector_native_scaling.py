@@ -42,7 +42,6 @@ from pathlib import Path
 
 import pytest
 from collector_timing import Taken, interleaved_least, least_of, timed_run
-from scaling_script_shapes import SCRIPT_FIELD_COVERAGE, SCRIPT_SHAPES
 from scaling_shapes import (
     COVERAGE,
     FIELD_COVERAGE,
@@ -53,9 +52,8 @@ from scaling_shapes import (
     Shape,
 )
 from scaling_walk_only import WALK_ONLY
-from test_collector_native_syntax import FIELDS, _native, compare, dump_binary  # noqa: F401
+from test_collector_native_syntax import _native
 
-from archkeel.analyzer.typescript.syntax import Definition
 from archkeel.ir.facts_codec import encode_request
 from archkeel.ir.protocol import (
     CollectionRequest,
@@ -402,24 +400,6 @@ def test_a_hung_child_fails_at_the_timeout(monkeypatch: pytest.MonkeyPatch) -> N
     assert time.perf_counter() - begin < 10
 
 
-@pytest.mark.parametrize("name", sorted(SHAPES))
-def test_each_shape_equals_the_python_parser_at_small_sizes(
-    tmp_path: Path,
-    dump_binary: Path,  # noqa: F811
-    name: str,
-) -> None:
-    shape = SHAPES[name]
-    files = []
-    for count in (1, 3, 12):
-        path = tmp_path / f"s{count}{shape.suffix}"
-        path.write_bytes(shape.make(count))
-        files.append((f"src/{path.name}", path))
-    result = compare(dump_binary, files)
-    assert result.native_failed == []
-    assert result.differences == [], "\n".join(result.differences[:10])
-    assert result.python_failed == 0
-
-
 def _kinds() -> list[str]:
     source = (Path(__file__).parents[1] / "native/typescript/src/kinds.rs").read_text()
     # AD-406: the library target narrows the enum to `pub(crate)`; either visibility is the one
@@ -447,15 +427,6 @@ def test_every_kind_of_the_port_is_in_one_construct_class_with_shapes() -> None:
     assert len(placed) == len(set(placed)), "a kind is in two classes"
     assert KIND_CLASSES.keys() <= COVERAGE.keys()
     assert all(COVERAGE[name] for name in KIND_CLASSES)
-
-
-def test_every_fact_and_every_definition_field_has_shapes() -> None:
-    fields = {field.name for field in dataclasses.fields(Definition)}
-    covered = FIELD_COVERAGE.keys() | SCRIPT_FIELD_COVERAGE.keys()
-    assert sorted((set(FIELDS) | fields) - covered) == []
-    assert sorted(covered - (set(FIELDS) | fields)) == []
-    named = {name for names in SCRIPT_FIELD_COVERAGE.values() for name in names}
-    assert sorted(named - SCRIPT_SHAPES.keys()) == []
 
 
 def test_a_shape_holds_the_kinds_that_its_class_claims(

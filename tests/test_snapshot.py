@@ -194,27 +194,6 @@ def test_snapshot_preserves_selected_git_blobs_despite_export_attributes(
         assert (snapshot.root / metadata).read_bytes() == payload
 
 
-def test_export_ignore_cannot_hide_an_unresolved_dart_import(tmp_path: Path) -> None:
-    from archkeel.check.run import observe_revision
-    from archkeel.cli.observe import observe
-
-    root, _ = _committed_repository(tmp_path)
-    _write(root / "lib/main.dart", "void main() {}\n")
-    _write(root / "lib/hidden.dart", "import 'missing.dart';\n")
-    _write(root / "pubspec.yaml", "name: example\n")
-    _write(root / ".gitattributes", "lib/hidden.dart export-ignore\n")
-    _write(root / "contract.json", '{"schema_version":"2.1.0","components":[],"rules":[]}')
-    _git(root, "add", ".")
-    _git(root, "commit", "-qm", "hidden unresolved import")
-    revision = _git(root, "rev-parse", "HEAD")
-    config = ScanConfig(("lib",), "example", "contract.json", "0" * 64, language="dart")
-
-    result = observe_revision(observe, root, revision, config, declared_at=revision)
-
-    assert result.exit_code == 2
-    assert result.coverage.status == "FAIL"
-
-
 @pytest.mark.parametrize(
     ("language", "suffix"), [("python", ".py"), ("dart", ".dart"), ("typescript", ".ts")]
 )

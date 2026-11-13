@@ -18,13 +18,11 @@ from archkeel.ir.baseline import KnownViolation, ViolationFingerprint
 from archkeel.ir.codec import (
     amendment_bytes,
     baseline_bytes,
-    decode_canonical_model,
     parse_amendment,
     parse_baseline,
     parse_contract,
     parse_observation,
 )
-from archkeel.ir.model import SCHEMA_VERSION
 from archkeel.ir.profiles import PROFILES
 from archkeel.ir.view_spec import parse_view_spec
 from archkeel.ir.widening import Amendment
@@ -338,15 +336,7 @@ def test_source_role_schema_accepts_unresolved_transfers_only_for_roles(version)
     assert not validator.is_valid(record)
 
 
-def test_config_schema_accepts_the_parsed_repository_config() -> None:
-    payload = (ROOT / "archkeel.toml").read_bytes()
-    schema = _schema("archkeel.schema.json")
-    Draft202012Validator.check_schema(schema)
-    parse_config(payload)
-    assert not list(Draft202012Validator(schema).iter_errors(tomllib.loads(payload.decode())))
-
-
-@pytest.mark.parametrize("language", ["python", "dart", "typescript"])
+@pytest.mark.parametrize("language", ["typescript", "rust"])
 def test_config_schema_accepts_supported_language_options(language: str) -> None:
     payload = (
         f'[scan]\nlanguage="{language}"\nroots=["src"]\nnamespace="sample"\n'
@@ -468,11 +458,13 @@ def test_typescript_config_defaults_its_tsconfig_in_parser_and_schema() -> None:
         "collector_argv = []\n",
         'collector_argv = ["node", ""]\n',
         'collector_argv = ["node", "\\u0000"]\n',
-        'language = "dart"\ntsconfig = "tsconfig.json"\n',
+        'language = "rust"\ntsconfig = "tsconfig.json"\n',
         'language = "typescript"\ntsconfig = "."\n',
     ],
 )
 def test_config_schema_and_parser_reject_invalid_typescript_options(options: str) -> None:
+    if "language =" not in options:
+        options += 'language = "typescript"\n'
     payload = (
         '[scan]\nroots = ["src"]\nnamespace = "app"\n'
         'contract = "architecture-contract.json"\n' + options
@@ -548,26 +540,6 @@ def test_amendment_schema_and_parser_reject_malformed_digests(field: str, digest
     with pytest.raises(ValueError, match="lowercase SHA-256 digest"):
         parse_amendment(record)
     assert not Draft202012Validator(_schema("contract-amendment.schema.json")).is_valid(record)
-
-
-def test_ir_schemas_accept_the_parsed_self_observation(self_artifact_bytes: bytes) -> None:
-    common = _schema("architecture-ir-common.schema.json")
-    profile = _schema(
-        f"architecture-ir-python-decoded-{SCHEMA_VERSION.removesuffix('.0')}.schema.json"
-    )
-    Draft202012Validator.check_schema(common)
-    Draft202012Validator.check_schema(profile)
-    registry = Registry().with_resources(
-        (schema["$id"], Resource.from_contents(schema))
-        for schema in (_schema(path.name) for path in (ROOT / "schema").glob("*.json"))
-    )
-    observation = decode_canonical_model(json.loads(self_artifact_bytes))
-    parse_observation(observation)
-    assert not list(Draft202012Validator(profile, registry=registry).iter_errors(observation))
-    for imported in observation["imports"]:
-        imported["data"].pop("source_member_binding_static", None)
-        imported["data"].pop("reexport_candidates", None)
-    assert not list(Draft202012Validator(profile, registry=registry).iter_errors(observation))
 
 
 def test_requirement_state_schema_is_versioned_and_legacy_report_remains_valid() -> None:
@@ -683,50 +655,6 @@ def test_shared_observation_schema_rejects_unknown_provenance(field, value, vers
             parse_observation(observation)
         assert not validator.is_valid(observation), key
         observation[field][key] = original
-
-
-@pytest.mark.parametrize(
-    ("field", "value", "accepted"),
-    [
-        ("source_member_binding_static", True, True),
-        ("source_member_binding_static", False, True),
-        ("source_member_binding_static", None, False),
-        ("source_member_binding_static", 0, False),
-        ("source_member_binding_static", 1, False),
-        ("source_member_binding_static", "false", False),
-        ("reexport_candidates", [], True),
-        ("reexport_candidates", ["archkeel.ir.model.Record"], True),
-        ("reexport_candidates", None, False),
-        ("reexport_candidates", [None], False),
-        ("reexport_candidates", [0], False),
-        ("reexport_candidates", [True], False),
-        ("reexport_candidates", [""], False),
-        ("reexport_candidates", "archkeel.ir.model.Record", False),
-    ],
-)
-def test_import_proof_metadata_schema(
-    field: str, value: object, accepted: bool, self_artifact_bytes: bytes
-) -> None:
-    profile = _schema("architecture-ir-python-decoded.schema.json")
-    registry = Registry().with_resources(
-        (schema["$id"], Resource.from_contents(schema))
-        for schema in (_schema(path.name) for path in (ROOT / "schema").glob("*.json"))
-    )
-    observation = decode_canonical_model(json.loads(self_artifact_bytes))
-    imported = next(
-        item for item in observation["imports"] if "source_member_binding_static" in item["data"]
-    )
-    imported["data"][field] = value
-    # The full IR has its own test; these cases vary one import record.
-    errors = list(
-        Draft202012Validator(profile, registry=registry).descend(
-            imported, profile["properties"]["imports"]["items"]
-        )
-    )
-    assert (not errors) == accepted
-    if not accepted:
-        assert len(errors) == 1
-        assert field in errors[0].absolute_path
 
 
 @pytest.mark.parametrize("version", ["3.0.0", "3.1.0"])

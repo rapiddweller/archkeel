@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path, PurePosixPath
 from typing import Literal
 
@@ -29,6 +29,7 @@ from archkeel.ir.decisions import (
     rule_result_digest,
     selector_inventory_binding_id,
 )
+from archkeel.ir.dependency_binding import dependency_runtime_identity
 from archkeel.ir.digest import package_digest
 from archkeel.ir.facts import ResolutionRole as _ResolutionRole
 from archkeel.ir.facts import (
@@ -153,7 +154,6 @@ def _metrics(scan: ScanResult, contract: ArchitectureContract, profile: Profile)
             item["data"]["symbol"],
             item["data"]["source_package"],
             item["data"]["target_package"],
-            item["data"]["target_module"],
             private=True,
         )
     ]
@@ -1040,12 +1040,7 @@ def _certify_dependency_scopes(
         "gap_ids": sorted(gap.id for gap in gaps),
         "module_ids": sorted(item["id"] for item in scan.modules),
         "import_ids": sorted(item["id"] for item in scan.imports),
-        "runtime": {
-            "name": facts.runtime.name,
-            "version": facts.runtime.version,
-            "required": facts.runtime.required,
-            "requirement_state": facts.runtime.requirement_state,
-        },
+        "runtime": dict(dependency_runtime_identity(facts.runtime, facts.verified_binary).entries),
     }
     for receipt in receipts:
         if not any(
@@ -1165,7 +1160,9 @@ def assemble_observation(
     for section in profile.absent_sections:
         model[section] = None
     model.update({s: None for s in profile.optional_sections if s not in scan.observed_sections})
-    observation = parse_observation(json_arrays(model))
+    observation = replace(
+        parse_observation(json_arrays(model)), verified_binary=facts.verified_binary
+    )
     return observation, 0 if observation_complete(observation.coverage) else 2
 
 

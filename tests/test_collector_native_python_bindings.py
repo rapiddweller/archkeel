@@ -1,6 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+# ruff: noqa: E402
 """Compare the definition binding inputs before import convergence (AD-396)."""
 
 from __future__ import annotations
@@ -19,18 +20,21 @@ from time import perf_counter
 from typing import Any
 
 import pytest
-from first_difference import same
-from python_binding_costs import COSTS
-from test_collector_native_python_parse import _minor
-from test_collector_native_python_scope import _FIXTURES
+from oracle_support import ORACLE_UNAVAILABLE
 
-from archkeel.analyzer.python import source as s
+pytest.skip(ORACLE_UNAVAILABLE, allow_module_level=True)
 from archkeel.analyzer.python.bindings import collect_bindings
 from archkeel.analyzer.python.symbols import (
     _class_is_frozen,
     _default_constructor_body,
     _static_enum_members,
 )
+from first_difference import same
+from python_binding_costs import COSTS
+from test_collector_native_python_parse import _minor
+from test_collector_native_python_scope import _FIXTURES
+
+from archkeel.analyzer.python import source as s
 
 
 def _same(found: Any, expected: Any, label: object) -> None:

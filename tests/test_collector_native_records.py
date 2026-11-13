@@ -16,7 +16,6 @@ from __future__ import annotations
 import dataclasses
 import json
 import os
-import random
 import shutil
 import subprocess
 from pathlib import Path
@@ -31,9 +30,7 @@ from test_collector_native_imports import (
     _imports_of,
     _write,
 )
-from test_collector_native_syntax import FIXTURES, STUDIO_UI, SYNTAX_PIECES, _mutants, _sources
 
-from archkeel.analyzer.typescript import collect as python_collector
 from archkeel.ir.facts import Record
 from archkeel.ir.facts_codec import encode_request
 from archkeel.ir.protocol import (
@@ -166,57 +163,6 @@ def _evidence_of(value: object) -> list[str]:
     return found
 
 
-def python_records(request: CollectionRequest) -> dict[str, object]:
-    """The records of the Python collector, built in the order of `_Collection.facts()`."""
-    settings = request.resolver
-    assert isinstance(settings, TypeScriptSettings)
-    collection = python_collector._Collection(request, settings)
-    index = 0
-    while index < len(collection.queue):
-        collection._file(collection.queue[index])
-        index += 1
-    collection._named_imports()
-    # The citations of the script analysis count as the citations of this phase.
-    script_cited: set[str] = set()
-    original = collection._cite
-
-    def recording(rel: str, span: object) -> str:
-        identity: str = original(rel, span)  # type: ignore[arg-type]
-        script_cited.add(identity)
-        return identity
-
-    collection._cite = recording  # type: ignore[method-assign]
-    collection._script_dependencies()
-    collection._cite = original  # type: ignore[method-assign]
-    symbols, calls, references, bindings = collection._inner_facts()
-    collection._cite = recording  # type: ignore[method-assign]
-    for rel, span in dict.fromkeys(collection.script_pending_effects):
-        collection._script_runtime_effect(rel, span)
-    collection._cite = original  # type: ignore[method-assign]
-    references += collection.script_effects
-    constructs = [_plain_record(record) for record in collection._constructs()]
-    witnesses = list(collection.import_binding_facts.values())
-    publications = list(collection.script_publications.values())
-    imports = sorted(collection.imports, key=lambda item: item["id"])
-    cited = script_cited | {
-        evidence
-        for record in [*witnesses, *constructs, *symbols, *calls, *references, *bindings]
-        for evidence in _evidence_of(record)
-    }
-    return {
-        "imports": imports,
-        "targets": [_target(target) for target in collection.targets],
-        "witnesses": witnesses,
-        "constructs": constructs,
-        "symbols": symbols,
-        "calls": calls,
-        "references": references,
-        # The witnesses come first in the bindings of Python; the native dump lists them apart.
-        "site_bindings": publications + bindings[len(publications) + len(witnesses) :],
-        "evidence": [collection.evidence[key] for key in sorted(cited)],
-    }
-
-
 @pytest.fixture(scope="session")
 def records_binary(
     native_binary: Path, tmp_path_factory: pytest.TempPathFactory
@@ -257,86 +203,12 @@ def _differences(native: dict[str, object], python: dict[str, object]) -> list[s
     return found
 
 
-def _compare(binary: Path, request: CollectionRequest) -> dict[str, int]:
-    first = _dump(binary, request)
-    python = python_records(request)
-    counts = {key: len(value) for key, value in python.items()}  # type: ignore[arg-type]
-    assert _differences(json.loads(first), python) == []
-    # Two runs give identical bytes.
-    assert _dump(binary, request) == first
-    return counts
-
-
-@pytest.mark.parametrize("path", [*FIXTURES, STUDIO_UI])
-def test_fixture_records_equal_the_python_collector(records_binary: Path, path: str) -> None:
-    root = ROOT / path
-    if (root / "tsconfig.json").is_file() and path == STUDIO_UI:
-        request = _request(root, ".", "ui")
-    else:
-        from test_collector_native_typescript import _request as fixture_request
-
-        request = fixture_request(root)
-    counts = _compare(records_binary, request)
-    assert counts["imports"] > 0
-
-
 def _tree(tmp_path: Path, extra: dict[str, str] | None = None) -> Path:
     files = {"tsconfig.json": CONFIGS["node10"], **EXPORTERS, **IMPORTERS, **PACKAGES, **SOURCES}
     files["src/importer.ts"] = _imports_of(list(SPECIFIERS))
     files.update(extra or {})
     _write(tmp_path, files)
     return tmp_path
-
-
-def test_named_imports_constructs_and_the_resolution_grid_equal_python(
-    tmp_path: Path, records_binary: Path
-) -> None:
-    counts = _compare(records_binary, _request(_tree(tmp_path)))
-    # The comparison is not empty: bound names that are proven, and comparisons.
-    assert counts["witnesses"] >= 4
-    assert counts["constructs"] >= 8
-    assert counts["calls"] > 20
-    assert counts["references"] > 40
-    assert counts["site_bindings"] >= 2
-    assert counts["imports"] > len(SPECIFIERS)
-
-
-def test_syntax_pieces_in_a_project_equal_python(tmp_path: Path, records_binary: Path) -> None:
-    rng = random.Random(4331)
-    extra: dict[str, str] = {}
-    for index in range(60):
-        body = "\n".join(rng.choice(SYNTAX_PIECES) for _ in range(rng.randint(2, 8)))
-        suffix = rng.choice([".ts", ".tsx", ".mts"])
-        extra[f"src/piece{index}{suffix}"] = (
-            "import { one, two as t } from './a';\n" + body + "\nif (t === 'p') {}\n"
-        )
-    counts = _compare(records_binary, _request(_tree(tmp_path, extra)))
-    assert counts["constructs"] > 40
-
-
-def test_mutated_projects_equal_python(tmp_path: Path, records_binary: Path) -> None:
-    source = _tree(tmp_path / "seed")
-    seeds = _sources(source, "src")
-    for round_index in range(3):
-        project = tmp_path / f"m{round_index}"
-        shutil.copytree(source, project)
-        mutated = _mutants([(rel, project / rel) for rel, _ in seeds], 25 + round_index)
-        for rel, data in mutated:
-            target = project / rel.split("/", 1)[1]
-            if target.suffix in (".ts", ".js"):
-                target.write_bytes(data)
-        _compare(records_binary, _request(project))
-
-
-def test_private_corpora_equal_python(records_binary: Path) -> None:
-    value = os.environ.get(CORPORA)
-    if not value:
-        pytest.skip(f"{CORPORA} names no corpus")
-    for entry in value.split(";"):
-        path, scope, namespace = entry.split(":")
-        counts = _compare(records_binary, _request(Path(path), scope, namespace))
-        # Totals only: a private corpus must not leak a name into a report.
-        print("corpus:", ", ".join(f"{key} {count}" for key, count in sorted(counts.items())))
 
 
 # The records pass must be linear in time and in memory. Python scans the bindings of the file for
@@ -468,24 +340,3 @@ def test_the_records_pass_is_linear_in_time_and_memory(
     assert first_cpu > 0.05, f"{name}: n={n} is too small to measure"
     assert second_cpu / first_cpu < RATIO
     assert second_peak <= GROWTH * first_peak
-
-
-def test_a_call_of_a_script_global_resolves_as_in_python(
-    tmp_path: Path, records_binary: Path
-) -> None:
-    """`Scene.create()` in `mod.ts` resolves to `legacy_x2e_js.create` in Python, with a
-    `SCRIPTPUBLICATION` fact. The native collector gives the same record (PR 4.3a-5)."""
-    _write(
-        tmp_path,
-        {
-            "tsconfig.json": '{"compilerOptions":{"allowJs":true},"include":["src"]}',
-            "src/legacy.js": (
-                "var Scene = (function () { function create() {} return { create }; })();\n"
-            ),
-            "src/mod.ts": "export function run() { return Scene.create(); }\n",
-        },
-    )
-    request = _request(tmp_path)
-    native = native_records(records_binary, request)["calls"]
-    assert native == python_records(request)["calls"]
-    assert any(call["data"]["status"] == "resolved" for call in native)

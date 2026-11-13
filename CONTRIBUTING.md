@@ -16,11 +16,10 @@ The runtime test in `make check` also starts `python3.12`, so 3.12 must be on yo
 Browser publication, Mermaid rendering and the UML TypeScript compiler check require
 Node.js 22 and npm; CI installs them. `make typescript-compiler-check` runs pinned
 TypeScript 5.9.3 against `fixtures/H-uml-typescript/tsconfig.json` with `--noEmit`.
-This development check is separate from the Python-hosted `make typescript-native`
-collector tests and the installed CLI, which do not require Node.
-Dart analysis runs in Python. `make dart-test` checks it without installing a Dart SDK.
-`make test` also checks the TypeScript collector's Python architecture and browser module boundaries.
-Only `make flutter-demo-check`, which builds and runs the demo app, needs Flutter and Dart.
+This development check is separate from the native collector tests and the installed CLI.
+Main supports Rust and TypeScript projects only (AD-430). Use archkeel 4.0.1 for Python and Dart.
+Run `make typescript-collector` to install the local TypeScript binary and its digest.
+Native Python and Dart unit tests stay under `native/`. Their released-oracle checks remain skipped.
 
 ## Before you push
 
@@ -48,21 +47,14 @@ renderer output. The selected Python tests include unit, integration and CLI tes
 runs one area. Saved-report tests run in the area test jobs, not again in the report job.
 The `PR_TEST_FILES` list in `tests/pr-test.mk` names this fixed set file by file and test by test;
 there is no rule that selects it. `make report-browser-tests` runs the local Chromium tests; Full also runs them. Samples do not
-replace testing the behavior you change. The core set runs eight whole Dart test files, one Dart
-CLI smoke, one UNKNOWN safety case and five Flutter Target guards; complete Dart and Flutter
-variant coverage stays in the full checks.
+replace testing the behavior you change. Python and Dart project tests do not run on main until
+the native collectors and the store support their replies. No new recordings replace those tests.
 
 The scheduled **Full verification** workflow runs `make ci-core-check SKIP_TESTS=1`, which
-includes the UML TypeScript compiler check. It also runs `make report-timing`, `make mermaid`,
-`make report-browser-tests` and `make demos`. It runs the full suite in area jobs on Linux/Python 3.11, collector compatibility on Linux/Python 3.12, the Python compatibility
-test set (`make python-compat`) on Python 3.12, 3.13 and 3.14, and one Windows/Python 3.11
-safety check for process and path behavior. The compatibility set is `--selection=python-compat`
-in `tests/areas.py`: each test marked `requires_python` and the listed files. A test must not read
-`sys.version_info`. Mark it `@pytest.mark.requires_python(<minor>)` or `requires_python(below=<minor>)`.
-If it expects one result before a version and another from that version, parametrize it with
-`by_python(<minor>)` from `tests/conftest.py`. `<minor>` must be a version that Full tests.
-TypeScript's Python architecture and browser module
-boundaries stay in the full suite. Manual dispatch uses the same checks.
+includes the UML TypeScript compiler check. It also runs `make self-validate-native`, `make mermaid`,
+`make report-browser-tests` and `make demos`. It runs the retained suite in area jobs on Linux/Python 3.11,
+TypeScript collector compatibility on Linux/Python 3.12, and Windows process and path safety checks.
+Browser module boundaries stay in the full suite. Manual dispatch uses the same checks.
 Release tags call that workflow before package build and
 publication. Use `make ci BASE=origin/main` locally for the complete gate.
 Jobs run on pinned images (`ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `macos-15`,
@@ -91,9 +83,8 @@ aggregate would count as passed.
 | Full: Architecture, build and report checks | nightly, dispatch, release | `make ci SKIP_TESTS=1`, then `make report-browser-tests` |
 | Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |
 | Full: Demos | same as above | `make demos` |
-| Full: Python 3.12.10 / 3.13.15 / 3.14.7 compatibility | same as above | `make python-compat` |
 | Full: Windows: collector safety | same as above | `make collector-safety` on Windows |
-| Full: Linux: source collectors | same as above | `make typescript-native dart-test build smoke` |
+| Full: Linux: source collectors | same as above | `make typescript-native build smoke` |
 | Full: Native wheel: `<target>` (six targets) | same as above | `make native-wheel NATIVE_TAG=<tag>` on the target |
 | Full: All Full checks passed | same as above | none: it needs every Full job |
 | Pages: Publish the verified report gallery | after each Full run on `main` | `make report-pages` |
@@ -111,7 +102,7 @@ still gives each area its files, matches the Full job matrix and keeps a valid `
 selection. A change to a `Makefile` variable (`UV`, `TEST_WORKERS`) does not start Full: the
 nightly run covers it. Full on `main` checks it after the merge. Name a new test file
 so that an area pattern matches it. Pages publishes only a passed Full run of the current
-`main`. It uses the `make demos` and `make report-timing` output of that run, so it builds nothing
+`main`. It uses the supported demo and native self-check output of that run, so it builds nothing
 again.
 
 The [published architecture report](https://rapiddweller.github.io/archkeel/) updates after a
@@ -140,19 +131,16 @@ source ports. Keep the nine browser source owners and exact contract restriction
 A verified copy of the locked ELK package supports native import resolution; a
 different existing root installation is preserved and rejected.
 
-## Inspect the self-observation
+## Inspect the native self-observation
 
-Tests generate one fresh report per session and share it across workers. They check
-coverage, architecture rules, interfaces and declared budgets against the current code.
-No generated result or provenance snapshot needs to be committed.
-
-To inspect the same repository locally:
+The Rust self-check retains the pinned gaps and violations in `native/expected-gaps.json`.
+The Make variable `PYTHON_SELF_CHECK` owns the suspended Python gate and its restore condition.
 
 ```bash
-make self-observation
+make self-validate-native
 ```
 
-This prints the result and writes JSON/HTML to ignored `test-artifacts/self-observation/`.
+This prints the result and writes JSON/HTML to ignored `test-artifacts/validation-native/`.
 Architecture contracts, baselines and amendments remain reviewed source files.
 
 ## A behaviour change carries its decision
@@ -179,7 +167,7 @@ Architecture contracts, baselines and amendments remain reviewed source files.
   the binary and its SBOM, then installs it and runs the binary
   ([AD-317](docs/architecture/decisions/ad-317-a-platform-wheel-carries-the-native-typescript-collector.md)).
 - **A performance change earns at least 10 %.** Compare the median of three interleaved runs,
-  before and after, on the run the change targets (`make report-timing`, or a large repository).
+   before and after, on the supported project that the change targets.
   Below 10 % the change is discarded; record the measurement on the issue instead.
 - **Commit messages** start with an imperative sentence and explain why in the body.
 - **Rust code follows measured rules** ([AD-327](docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md)).

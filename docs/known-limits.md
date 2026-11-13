@@ -1,5 +1,17 @@
 # Known limits
 
+## Supported projects on main
+
+Main supports Rust and TypeScript projects only during the native-core change (AD-430).
+Python and Dart projects are not supported in this version; use archkeel 4.0.1.
+Unsupported profiles give exit 2 before collection, including saved facts and baseline operations.
+The Rust Python and Dart collectors remain in development. Their replies must pass the store before support returns.
+TypeScript needs a native binary. There is no Python fallback.
+Saved results do not carry host verification; dependency scope proofs replay as UNKNOWN with `dependency_scope_runtime_unverified`.
+Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD have no shipped binary.
+The colocated digest detects file changes. It does not protect against an attacker with install-write access.
+Python and Dart descriptions below apply to 4.0.1, not main.
+
 Archkeel observes one static snapshot, not runtime behavior, data flow, performance
 or responsibility fulfillment. A rationale proves recorded intent, not truth.
 Determinism is measured for a machine/runtime, not across every platform.

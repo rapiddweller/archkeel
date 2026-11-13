@@ -1,6 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+# ruff: noqa: E402
 """AD-392: compare the real Python declaration boundary, not a copy."""
 
 from __future__ import annotations
@@ -15,6 +16,9 @@ import time
 from pathlib import Path
 
 import pytest
+from oracle_support import ORACLE_UNAVAILABLE
+
+pytest.skip(ORACLE_UNAVAILABLE, allow_module_level=True)
 from conftest import install_rust_toolchain
 
 ROOT = Path(__file__).parents[1]

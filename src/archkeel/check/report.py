@@ -866,11 +866,7 @@ def run_saved_report(
     try:
         model = read_saved_snapshot(path)
         runtime = runtime_diagnostic(model.runtime) if model.runtime is not None else None
-        language = next(
-            language
-            for language, profile in PROFILES.items()
-            if profile.analyzer == model.analyzer.name
-        )
+        language = next(lang for lang, p in PROFILES.items() if p.analyzer == model.analyzer.name)
 
         diagnostics = observation_diagnostics(model, runtime, language)
         return _report_result(
@@ -933,7 +929,6 @@ def _validate_saved_sources(model: Observation) -> None:
         {item.id: item for item in model.evidence},
         import_ids={item.id for item in model.records("imports") or ()},
         selected_inputs={item.file for item in model.evidence},
-        allow_part_evidence=model.analyzer.name == "archkeel-dart-analyzer",
     )
     _validate_saved_selector_receivers(model)
 

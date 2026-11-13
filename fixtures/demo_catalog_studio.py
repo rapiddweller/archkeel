@@ -34,8 +34,8 @@ class StudioDemoVariant:
 CATALOG: tuple[StudioDemoVariant, ...] = (
     StudioDemoVariant(
         id="studio-scope-mismatch-stop",
-        active_language="python",
-        requested_language="typescript",
+        active_language="typescript",
+        requested_language="rust",
         source="src",
         mismatch_exit=2,
         stop_exit=0,
@@ -55,14 +55,15 @@ def _child_environment(cache: Path | None = None) -> dict[str, str]:
 
 
 def _fixture(root: Path) -> None:
-    """Create a small committed Python project with no external or private inputs."""
+    """Create a small committed TypeScript project with no external inputs."""
     hooks = root.parent / "empty-hooks"
     hooks.mkdir()
     git_environment = _child_environment()
     (root / "src/demo").mkdir(parents=True)
-    (root / "src/demo/__init__.py").write_text("", encoding="utf-8")
-    (root / "src/demo/service.py").write_text(
-        "def price(quantity: int, unit_price: int) -> int:\n    return quantity * unit_price\n",
+    (root / "tsconfig.json").write_text('{"include":["src"]}', encoding="utf-8")
+    (root / "src/demo/service.ts").write_text(
+        "export function price(quantity: number, unitPrice: number): number {\n"
+        "  return quantity * unitPrice;\n}\n",
         encoding="utf-8",
     )
     for arguments in (
@@ -207,6 +208,10 @@ def run(variant: StudioDemoVariant) -> str:
                     "--no-open",
                     "--language",
                     variant.active_language,
+                    "--namespace",
+                    "demo",
+                    "--tsconfig",
+                    "tsconfig.json",
                     "--source",
                     variant.source,
                 ],

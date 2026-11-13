@@ -219,57 +219,6 @@ def test_switching_to_exact_is_widening_and_back_to_prefix_is_narrowing(field):
     assert contract_widening_changes(after, before) == ()
 
 
-@pytest.mark.parametrize("mounted", (False, True))
-def test_native_exact_policy_preserves_nested_receipts_and_saved_reports(tmp_path, mounted):
-    from test_exact_module_ownership import _observe_tree
-
-    from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, parse_observation
-    from archkeel.ir.decisions import rule_assessments
-    from archkeel.ir.trace import trace_valid_violations
-
-    contract = _contract(source_match="exact", target_match="exact")
-    for component in contract["components"]:
-        component["packages"] = component["packages"][:1]
-    files = {
-        "sample/__init__.py": "",
-        "sample/caller/__init__.py": "import sample.errors\nimport sample.errors.base\n",
-        "sample/caller/child.py": "import sample.errors\nimport sample.errors.base\n",
-        "sample/errors/__init__.py": "",
-        "sample/errors/base.py": "",
-    }
-    if mounted:
-        files["inside.json"] = json.dumps(contract)
-        outer = _contract()
-        outer["components"] = [
-            {
-                **outer["components"][0],
-                "id": "all",
-                "label": "all",
-                "packages": ["sample"],
-                "inside": "inside.json",
-            }
-        ]
-        outer["rules"] = []
-        contract = outer
-    result = _observe_tree(tmp_path, files, contract)
-    assert result.observation is not None, result.diagnostics
-    observation = result.observation
-    assert observation.coverage.status == "PASS", observation.coverage.failures
-    findings = trace_valid_violations(observation)
-    assert len(findings) == 1
-    assert findings[0].data.get("source_module") == "sample.caller"
-    assert findings[0].data.get("target_module") == "sample.errors"
-    identity = "all:NO-AGGREGATE" if mounted else "NO-AGGREGATE"
-    [row] = [r for r in rule_assessments(observation, undecided_by_rule={}) if r.id == identity]
-    assert row.status == "FAIL" and row.evaluation_proven
-    saved = parse_observation(
-        decode_canonical_model(json.loads(canonical_report_bytes(observation)))
-    )
-    assert rule_assessments(saved, undecided_by_rule={}) == rule_assessments(
-        observation, undecided_by_rule={}
-    )
-
-
 def test_exact_parent_ban_does_not_prohibit_an_entire_child_component_pair():
     from archkeel.check.validation.inside import _forbidden_targets
 

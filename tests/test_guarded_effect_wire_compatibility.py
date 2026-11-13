@@ -5,65 +5,10 @@
 from dataclasses import replace
 
 import pytest
-from test_analyzer import _parsed_module
 from test_delta import _model, _record
 from test_result_schema import _validator
 
-from archkeel.analyzer.python.calls import collect_calls_with_resolvers
-from archkeel.analyzer.python.resolve import build_symbol_index
 from archkeel.ir.codec import observation_payload, parse_observation
-
-
-def test_collector_attaches_typed_condition_and_path_evidence_to_call():
-    module = _parsed_module(
-        """def target(seeded: bool):
-    if seeded:
-        forbidden()
-"""
-    )
-    evidence = {}
-    calls = collect_calls_with_resolvers([module], build_symbol_index([]), evidence)[0]
-
-    proof = calls[0]["data"].get("guarded_effect")
-    assert proof[0]["condition"] == {
-        "kind": "parameter",
-        "owner": "sample.mod.target",
-        "name": "seeded",
-    }
-    assert proof[0]["condition_value"] is True
-    assert proof[0]["condition_evidence_ids"]
-    assert proof[0]["path_evidence_ids"]
-    assert proof[0]["complete"] is False
-
-
-def test_unannotated_parameter_does_not_become_a_boolean_condition():
-    module = _parsed_module("def target(seeded):\n    if seeded:\n        forbidden()\n")
-
-    calls = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
-
-    assert calls[0]["data"].get("guarded_effect") is None
-
-
-def test_collector_binds_boolean_member_to_its_class_declaration():
-    module = _parsed_module(
-        """class Generator:
-    def __init__(self):
-        self.seeded: bool = False
-    def target(self):
-        if self.seeded:
-            forbidden()
-"""
-    )
-
-    calls = collect_calls_with_resolvers([module], build_symbol_index([]), {})[0]
-
-    proof = calls[0]["data"].get("guarded_effect")
-    assert proof[0]["condition"] == {
-        "kind": "member",
-        "owner": "sample.mod.Generator",
-        "name": "seeded",
-    }
-    assert proof[0]["condition_value"] is True
 
 
 def test_guarded_effect_facts_require_observation_2_8():

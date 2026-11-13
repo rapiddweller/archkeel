@@ -19,7 +19,6 @@ from test_module_explore import _sample
 
 from archkeel.check.evaluation.rules import source_domains_complete
 from archkeel.ir.architecture_graph import (
-    CoverageStatus,
     EntityKind,
     PresenceKind,
     RelationshipKind,
@@ -28,7 +27,6 @@ from archkeel.ir.coverage import observation_covers_rule
 from archkeel.ir.decisions import rule_uncertainty_evidence
 from archkeel.ir.facts import SourceInfo
 from archkeel.ir.model import EvidenceClass, Observation, Record, RecordData, Section, Verdict
-from archkeel.ir.module_explore import module_exploration
 from archkeel.ir.profiles import profile_for
 from archkeel.ir.report_projection import _import_coverage
 from archkeel.ir.source_graph import observed_graph
@@ -88,30 +86,6 @@ def inheriting_sample(tmp_path_factory: pytest.TempPathFactory) -> Observation:
 
 
 @pytest.mark.parametrize("state", list(_STATES))
-def test_source_graph_coverage_reads_the_status_and_the_failures(
-    state: str, inheriting_sample: Observation
-) -> None:
-    """Records the behaviour of source_graph.observed_graph coverage.
-    AD-322 merged the copies of this check.
-
-    The inheritance, ownership and import rows are complete only for a PASS without failures."""
-    graph = observed_graph(_in_state(inheriting_sample, state))
-    kinds = {item.id: item.kind for item in graph.entities}
-    expected = CoverageStatus.COMPLETE if COMPLETE[state] else CoverageStatus.PARTIAL
-    for entity_kind, relationship in (
-        (EntityKind.CLASS, RelationshipKind.INHERITS),
-        (EntityKind.PACKAGE, RelationshipKind.OWNS),
-        (EntityKind.MODULE, RelationshipKind.IMPORTS),
-    ):
-        found = {
-            item.status
-            for item in graph.coverage
-            if kinds[item.scope_id] == entity_kind and relationship in item.relationship_kinds
-        }
-        assert found == {expected}, relationship
-
-
-@pytest.mark.parametrize("state", list(_STATES))
 def test_report_projection_import_coverage_reads_the_status_and_the_failures(state: str) -> None:
     """Records the behaviour of report_projection._import_coverage.
     AD-322 merged the copies of this check."""
@@ -125,21 +99,6 @@ def test_report_projection_import_coverage_reads_the_status_and_the_failures(sta
     complete, unknowns = _import_coverage(model, observed, modules)
     assert complete is COMPLETE[state]
     assert bool(unknowns) is (not COMPLETE[state])
-
-
-@pytest.mark.parametrize("state", list(_STATES))
-def test_module_explore_import_status_reads_the_status_and_the_failures(
-    state: str, sample: Observation
-) -> None:
-    """Records the behaviour of module_explore.module_exploration.
-    AD-322 merged the copies of this check.
-
-    The import status and the absence hints are PASS only for a PASS without failures."""
-    model = _in_state(sample, state)
-    level = next(item for item in module_exploration(model) if item.parent_id is None)
-    assert (level.import_status == "PASS") is COMPLETE[state]
-    hints = {item.kind for item in level.hint_candidates}
-    assert ("no_owner" in hints) is COMPLETE[state]
 
 
 @pytest.mark.parametrize("state", list(_STATES))
