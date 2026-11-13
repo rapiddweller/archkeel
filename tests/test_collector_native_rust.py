@@ -235,7 +235,8 @@ def test_a_proven_serde_helper_edge_fails_the_forbidden_rule(
             "crates/app/Cargo.toml": APP + 'serde = { version = "1.0", features = ["derive"] }\n',
             "crates/Cargo.lock": Path(__file__).with_name("rust_known_derives.lock").read_text(),
             "crates/app/src/lib.rs": "mod a; mod b;",
-            "crates/app/src/a.rs": 'use serde::Serialize; #[derive(Serialize)] struct S { #[serde(with = "crate::b::helper")] x: u8 }',
+            "crates/app/src/a.rs": "use serde::Serialize; #[derive(Serialize)] struct S { "
+            '#[serde(with = "crate::b::helper")] x: u8 }',
             "crates/app/src/b.rs": "pub mod helper {}",
         },
         rules=(forbidden,),
