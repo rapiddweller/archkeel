@@ -41,7 +41,7 @@ FAKE = """#!{python}
 import json, pathlib, sys
 here = pathlib.Path(__file__).resolve().parent
 (here / "request.json").write_bytes(sys.stdin.buffer.read())
-plan = json.loads((here / "plan.json").read_text())
+plan = json.loads((here / "plan.json").read_text())[sys.argv[1]]
 sys.stdout.write(plan["stdout"])
 sys.exit(plan["exit"])
 """
@@ -93,13 +93,22 @@ def install(built: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Pat
     return directory
 
 
-def fake_core(install: Path, frame: dict[str, Any] | str, exit_code: int = 0) -> Path:
-    """Replace the core of the install with a script that writes `frame` and exits."""
+def fake_core(install: Path, planned: dict[str, Any] | str, exit_code: int = 0) -> Path:
+    """Refuse the scan by name, then give the planned check frame (AD-390)."""
     core = install / f"archkeel-core{SUFFIX}"
     core.write_text(FAKE.format(python=sys.executable))
     core.chmod(0o755)
-    stdout = frame if isinstance(frame, str) else json.dumps(frame)
-    (install / "plan.json").write_text(json.dumps({"stdout": stdout, "exit": exit_code}))
+    stdout = planned if isinstance(planned, str) else json.dumps(planned)
+    refusal = frame({}, "UNKNOWN", unsupported="the fake does not collect")
+    refusal["self_test"]["collect"] = {"refused": "collect: unsupported: collector: fake core"}
+    (install / "plan.json").write_text(
+        json.dumps(
+            {
+                "scan": {"stdout": json.dumps(refusal), "exit": 3},
+                "check": {"stdout": stdout, "exit": exit_code},
+            }
+        )
+    )
     _record(install, "archkeel-core")
     return install / "request.json"
 
