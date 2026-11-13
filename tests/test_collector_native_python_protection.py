@@ -8,12 +8,14 @@ from __future__ import annotations
 import ast
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 from time import perf_counter
 from typing import Any
 
 import pytest
+from filelock import FileLock
 from python_protection_costs import COSTS
 from python_protection_probes import PROBES
 from test_collector_native_python_parse import _minor
@@ -22,6 +24,40 @@ from test_collector_native_python_scope import _FIXTURES
 
 from archkeel.analyzer.python import source as s
 from archkeel.analyzer.python.imports import collect_imports
+
+
+@pytest.fixture(scope="session")
+def python_dump_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    cargo = shutil.which("cargo")
+    if cargo is None:
+        pytest.skip("the protection dump needs cargo")
+    native = Path(__file__).parents[1] / "native"
+    target = native / "target" / "dump"
+    target.mkdir(parents=True, exist_ok=True)
+    suffix = ".exe" if os.name == "nt" else ""
+    name = "archkeel-python-collector" + suffix
+    copy = tmp_path_factory.mktemp("protection-binary") / name
+    with FileLock(str(native / "target" / ".pytest-native-build.lock")):
+        built = subprocess.run(
+            [
+                cargo,
+                "build",
+                "--locked",
+                "-p",
+                "archkeel-python-collector",
+                "--features",
+                "dump",
+                "--target-dir",
+                str(target),
+            ],
+            cwd=native,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert built.returncode == 0, built.stderr
+        shutil.copy2(target / "debug" / name, copy)
+    return copy
 
 
 def _python(root: Path, rel: str) -> dict[str, Any] | None:
