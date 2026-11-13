@@ -132,22 +132,26 @@ def repository(
     return root
 
 
-def validate(root: Path, capsys: pytest.CaptureFixture[str]) -> dict[str, Any]:
+def validate(root: Path, capsys: pytest.CaptureFixture[str] | None = None) -> dict[str, Any]:
     """Run `archkeel validate --json` on the fixture and return the result document."""
     return _run(root, "validate")
 
 
-def report(root: Path, capsys: pytest.CaptureFixture[str]) -> dict[str, Any]:
+def report(root: Path, capsys: pytest.CaptureFixture[str] | None = None) -> dict[str, Any]:
     """Run `archkeel report --json` on the fixture and return the result document."""
     return _run(root, "report")
 
 
 def _run(root: Path, command: str) -> dict[str, Any]:
+    return outcome(root, command)[1]
+
+
+def outcome(root: Path, command: str = "validate") -> tuple[int, dict[str, Any]]:
+    """The exit code and the result document of `archkeel <command> --json` on the fixture."""
     binary = _CORES[root.resolve()]
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(core_only, "locate_core", lambda: binary)
-        _, document = run(command, "--root", str(root))
-    return document
+        return run(command, "--root", str(root))
 
 
 def statuses(result: dict[str, Any]) -> dict[str, str]:
