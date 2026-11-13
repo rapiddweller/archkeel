@@ -101,6 +101,9 @@ def parse(argv: Sequence[str]) -> Options:
         parser.add_argument(f"--{flag}", type=Path)
     parser.add_argument("--only")
     options, extra = parser.parse_known_args(argv, Options())
+    if options.command is Command.CHECK:
+        names = "; ".join(active_checks(options))
+        raise CoreError(f"check requires {names}; not ported (#1103); run without --core-only")
     if extra:
         raise CoreError(
             f"unsupported core-only arguments: {' '.join(extra)}; run without --core-only"
@@ -123,9 +126,6 @@ def run(argv: Sequence[str]) -> int:
         options = parse(argv)
         if options.native_core or Switch(os.environ.get(STAGE_ONE_VARIABLE, "")) is Switch.ON:
             raise CoreError("--core-only and the stage-1 --native-core switch cannot be combined")
-        if options.command is Command.CHECK:
-            names = "; ".join(active_checks(options))
-            raise CoreError(f"check requires {names}; not ported (#1103); run without --core-only")
         if options.command is Command.EXPLORE:
             raise CoreError("explore needs the full report payload; run without --core-only")
         if options.output is not None or options.html:
