@@ -15,6 +15,8 @@ use crate::tree::cx::Cx;
 use crate::walk::{Syntax, Walk};
 
 pub(crate) struct Parsed {
+    /// The composition must discard the run when the requested bracket-nesting limit was hit.
+    pub depth_limited: bool,
     pub references: Vec<Reference>,
     /// The number of import-bearing nodes of the tree, to check that each has an outcome.
     pub places: usize,
@@ -36,17 +38,29 @@ pub(crate) fn parse(parsers: &mut Parsers, rel: &str, data: &[u8]) -> Parsed {
         aliased: false,
         type_roots: false,
     };
-    parse_for(parsers, rel, data, reach)
+    parse_for(parsers, rel, data, reach, None)
 }
 
 /// Parse one file of a project; `reach` says which options can map a name to a project file.
-pub(crate) fn parse_for(parsers: &mut Parsers, rel: &str, data: &[u8], reach: Reach) -> Parsed {
+pub(crate) fn parse_for(
+    parsers: &mut Parsers,
+    rel: &str,
+    data: &[u8],
+    reach: Reach,
+    max_bracket_depth: Option<usize>,
+) -> Parsed {
     // The filename test of the Python collector ignores one final newline.
     let suffix = classify_file(rel.strip_suffix('\n').unwrap_or(rel));
     // JSX and JavaScript need the TSX grammar; `<T>x` assertions exist only without it.
     let typescript = suffix.is_some_and(|suffix| suffix.parser_typescript());
-    let Some((tree, grammar)) = parsers.parse(typescript, data) else {
+    let parsed = parsers.parse(typescript, data);
+    let depth_limited = parsed.as_ref().is_some_and(|(tree, _)| {
+        max_bracket_depth.is_some_and(|limit| brackets_too_deep(tree.root_node(), limit))
+    });
+    let parsed = parsed.filter(|_| !depth_limited);
+    let Some((tree, grammar)) = parsed else {
         return Parsed {
+            depth_limited,
             references: Vec::new(),
             places: 0,
             concerns: Vec::new(),
@@ -90,6 +104,7 @@ pub(crate) fn parse_for(parsers: &mut Parsers, rel: &str, data: &[u8], reach: Re
         .min_by_key(|node| node.start_byte())
         .map(|node| source.span(*node, None).line);
     Parsed {
+        depth_limited: false,
         references,
         places: grammar.places.count(&source, root),
         concerns: found.list,
@@ -97,6 +112,52 @@ pub(crate) fn parse_for(parsers: &mut Parsers, rel: &str, data: &[u8], reach: Re
         first_error,
         syntax,
     }
+}
+
+fn brackets_too_deep(root: tree_sitter::Node<'_>, limit: usize) -> bool {
+    let (mut cursor, mut depth) = (root.walk(), 0);
+    loop {
+        depth += usize::from(bracketed(cursor.node()));
+        if depth > limit {
+            return true;
+        }
+        if cursor.goto_first_child() {
+            continue;
+        }
+        loop {
+            depth -= usize::from(bracketed(cursor.node()));
+            if cursor.goto_next_sibling() {
+                break;
+            }
+            if !cursor.goto_parent() {
+                return false;
+            }
+        }
+    }
+}
+
+fn bracketed(node: tree_sitter::Node<'_>) -> bool {
+    // Expression/statement chains deepen the AST without nesting source delimiters.
+    matches!(
+        node.kind(),
+        "arguments"
+            | "formal_parameters"
+            | "parenthesized_expression"
+            | "parenthesized_type"
+            | "statement_block"
+            | "class_body"
+            | "object"
+            | "object_pattern"
+            | "object_type"
+            | "array"
+            | "array_pattern"
+            | "tuple_type"
+            | "type_arguments"
+            | "type_parameters"
+            | "jsx_element"
+            | "jsx_fragment"
+            | "jsx_expression"
+    )
 }
 
 #[cfg(test)]

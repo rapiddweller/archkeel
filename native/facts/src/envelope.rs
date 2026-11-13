@@ -121,6 +121,14 @@ closed! {
         Supported = "supported",
         Partial = "partial",
         Unsupported = "unsupported",
+        Decided = "decided",
+    }
+}
+
+impl Profile {
+    /// Whether the collector of this profile emits nominal construct selectors.
+    pub fn construct_selectors(self) -> bool {
+        matches!(self, Self::Python)
     }
 }
 
@@ -175,6 +183,9 @@ object! {
 object! {
     pub struct Facts {
         pub profile: Profile,
+        /// The linked collector's scope statements. Wire replies carry no live authority.
+        #[serde(skip)]
+        pub profile_limits: Option<ProfileLimits>,
         pub adapter: Adapter,
         pub runtime: Runtime,
         pub source: Source,
@@ -191,6 +202,21 @@ object! {
         pub candidate_evidence: NoEntries,
         pub provider_bindings: NoEntries,
     }
+}
+
+/// Whether a documented profile limit applies to this collection.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LimitSupport {
+    Supported,
+    Unsupported,
+}
+
+/// The profile differences that the linked collector can state for its own reply.
+/// These statements never replace coverage gaps or a rule's scope proof.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ProfileLimits {
+    pub dependency_symbols: LimitSupport,
+    pub interface_boundary: LimitSupport,
 }
 
 // The keys of the objects below are in sorted order, as the Python reply has them (`sort_keys`).

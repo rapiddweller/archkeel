@@ -8,9 +8,8 @@
 //! `ir/profiles.py`, `check/evaluation/crate_scope.py` `root_limits`, and `_layer_metadata_failures`
 //! with `_layer_order_components`. Each limit is a coverage failure: no rule of the run passes.
 //!
-//! The core reads no profile table and names no language. It takes the limits that hold for
-//! every profile whose reply the store accepts, and for the profiles that the store refuses
-//! today. Where the profiles differ, the limit is not read and the run gives no PASS:
+//! The core reads no profile table and names no language. The linked collector states the
+//! profile differences as typed data. Without those statements the run stays conservative:
 //!
 //! - `interface_boundary` is a limit of one profile only;
 //! - a symbol-level selector is a limit unless the reply has the feature after which one profile
@@ -21,6 +20,7 @@
 use std::collections::HashSet;
 
 use archkeel_contract::{BudgetName, Component, Contract, LayerOrder, Rule, RuleKind};
+use archkeel_facts::envelope::LimitSupport;
 
 use crate::observed::Observed;
 
@@ -79,7 +79,7 @@ pub(crate) fn limits(contract: &Contract, observed: &Observed) -> Vec<Limit> {
             .chain(through)
             .any(|entry| entry.as_text().contains(':'))
         {
-            found.push(symbols(id));
+            found.extend(symbols(id));
         }
     }
     if let Some(declarations) = contract.declarations() {
@@ -120,11 +120,15 @@ pub(crate) fn limits(contract: &Contract, observed: &Observed) -> Vec<Limit> {
 }
 
 /// A limit of a store-accepted profile for one rule.
-fn symbol_limit(observed: &Observed, subject: &str) -> Limit {
-    if observed.symbol_feature {
-        Limit::Unread(subject.to_owned())
-    } else {
-        Limit::Certain(subject.to_owned())
+fn symbol_limit(observed: &Observed, subject: &str) -> Option<Limit> {
+    match observed
+        .profile_limits
+        .map(|limits| limits.dependency_symbols)
+    {
+        Some(LimitSupport::Supported) => None,
+        Some(LimitSupport::Unsupported) => Some(Limit::Certain(subject.to_owned())),
+        None if observed.symbol_feature => Some(Limit::Unread(subject.to_owned())),
+        None => Some(Limit::Certain(subject.to_owned())),
     }
 }
 
@@ -143,7 +147,14 @@ fn rule_limits(rule: &Rule, observed: &Observed, found: &mut Vec<Limit>) {
             {
                 found.push(Limit::Certain(id.to_owned()));
             }
-            found.push(Limit::Unread(id.to_owned()));
+            match observed
+                .profile_limits
+                .map(|limits| limits.interface_boundary)
+            {
+                Some(LimitSupport::Supported) => {}
+                Some(LimitSupport::Unsupported) => found.push(Limit::Certain(id.to_owned())),
+                None => found.push(Limit::Unread(id.to_owned())),
+            }
         }
         Rule::ForbiddenConstruct(rule) => {
             let examined: HashSet<&str> = observed.constructs.iter().map(String::as_str).collect();
@@ -151,12 +162,12 @@ fn rule_limits(rule: &Rule, observed: &Observed, found: &mut Vec<Limit>) {
                 .constructs()
                 .iter()
                 .any(|kind| !examined.contains(word(kind).as_str()));
-            if unexamined || rule.selector().is_some() {
+            if unexamined || (rule.selector().is_some() && !observed.construct_selectors) {
                 found.push(Limit::Certain(id.to_owned()));
             }
         }
         Rule::ForbiddenDependency(rule) if rule.target_symbol().is_some() => {
-            found.push(symbols(id));
+            found.extend(symbols(id));
         }
         Rule::CallOwner(_)
         | Rule::ForbiddenCallArgument(_)
@@ -195,7 +206,7 @@ pub(crate) fn layer_gaps<'a>(contract: &'a Contract, rule: &LayerOrder) -> Vec<&
 }
 
 /// The word of a closed contract value (`string_literal_compare`).
-fn word<T: serde::Serialize>(value: &T) -> String {
+pub(crate) fn word<T: serde::Serialize>(value: &T) -> String {
     serde_json::to_value(value)
         .ok()
         .and_then(|value| value.as_str().map(str::to_owned))

@@ -388,7 +388,7 @@ fn the_settings_name_an_external_producer_until_the_shell_names_another() {
 }
 
 #[test]
-fn a_construct_rule_without_a_module_subject_is_a_named_gap() {
+fn a_construct_rule_without_a_module_or_symbol_subject_is_unknown() {
     let found = decided(
         construct_rule("shop.absent", json!(["string_literal_compare"])),
         unchanged,
@@ -396,7 +396,7 @@ fn a_construct_rule_without_a_module_subject_is_a_named_gap() {
     );
     all_unknown(
         found,
-        &unread(Part::ConstructSubjects("CONSTRUCT".to_owned())),
+        &not_complete(Cause::NoRuleSubjects("CONSTRUCT".to_owned())),
     );
 }
 

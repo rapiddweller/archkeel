@@ -6,6 +6,7 @@ PR_TEST_FILES := \
 	tests/test_ci_budget.py \
 	tests/test_native_ci.py \
 	tests/test_native_contract_rules.py \
+	tests/test_cli_native_profile_limits.py \
 	tests/test_pr_test_node_ids.py \
 	tests/test_native_versions.py \
 	tests/test_collector_native_python_interpreter.py \
@@ -90,7 +91,7 @@ PR_TEST_FILES := \
 	tests/test_collector_native_rust_test_scope.py \
 	tests/test_collector_native_rust_oracle.py \
 	tests/test_collector_native_rust_language.py \
-	'tests/test_collector_native_rust_scaling.py::test_every_shape_builds_a_crate_that_the_collector_reads_without_a_gap' \
+	'tests/test_collector_native_rust_scaling.py::test_every_shape_builds_a_crate_with_only_the_expected_expansion_gaps' \
 	'tests/test_collector_native_rust_scaling.py::test_a_chain_past_the_depth_limit_is_cut_and_its_reply_stays_small' \
 	tests/test_collector_native_digest.py \
 	tests/test_collector_native_imports.py \

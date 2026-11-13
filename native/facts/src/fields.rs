@@ -11,8 +11,8 @@
 
 use crate::data::{
     BindingData, CallData, CallableData, ClassData, ConstructData, GapData, ImportData,
-    NumericOperandData, ReferenceData, SelectorData, SignalData, SourceRoleData, UnusedBindingData,
-    ValueData,
+    NumericOperandData, PlaceholderData, PlainConstructData, ReferenceData, SelectorData,
+    SignalData, SourceRoleData, UnusedBindingData, ValueData,
 };
 use crate::ids::{FactId, ModuleName, PackageName};
 use crate::nested::{AttributeDeclaration, BaseDeclaration, MemberInventory};
@@ -164,6 +164,8 @@ macro_rules! project {
 
 project! {
     ConstructData { construct, owner }
+    PlainConstructData { construct, owner }
+    PlaceholderData { construct, owner }
     SelectorData { construct, owner, status, receiver_binding }
     NumericOperandData { module, owner }
     SignalData { expression, owner, qualified_name }

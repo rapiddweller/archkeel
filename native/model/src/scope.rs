@@ -246,6 +246,10 @@ fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
             observed().any(|(_, module)| in_scope(module.name(), rule.root().as_text()))
         }
         Rule::ExternalDependencyScope(_) => observed().next().is_some(),
+        Rule::ForbiddenConstruct(rule) => {
+            crate::construct_match::receipt(model, rule)?;
+            true
+        }
         // Slice S5 (AD-380), `_rule_evaluation_facts_for_rule`.
         // An undecided position (`symbol_limits`) withholds the receipt as well.
         Rule::ForbiddenDependency(rule) => {
@@ -290,7 +294,6 @@ fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
         | Rule::CatalogUse(_)
         | Rule::ForbiddenEffectUnderCondition(_)
         | Rule::AllowedDependency(_)
-        | Rule::ForbiddenConstruct(_)
         | Rule::SourceOwnership(_)
         | Rule::NoComponentCycles(_)
         | Rule::InterfaceBoundary(_)
@@ -366,6 +369,7 @@ fn dynamic_import(model: &Model, rule: &Rule) -> bool {
         | Rule::RootLayout(_)
         | Rule::LayerOrder(_)
         | Rule::AllowedDependency(_) => false,
+        Rule::ForbiddenConstruct(_) => false,
         // A kind that no slice decides has no receipt; its slice states its limits here. Until
         // then a dynamic import reaches it (fail closed).
         Rule::CallOwner(_)
@@ -373,7 +377,6 @@ fn dynamic_import(model: &Model, rule: &Rule) -> bool {
         | Rule::CatalogArgument(_)
         | Rule::CatalogUse(_)
         | Rule::ForbiddenEffectUnderCondition(_)
-        | Rule::ForbiddenConstruct(_)
         | Rule::SourceOwnership(_)
         | Rule::InterfaceBoundary(_)
         | Rule::SymbolPlacement(_)

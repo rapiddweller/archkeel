@@ -298,7 +298,40 @@ call of a method of a trait that a glob brings in (`use b::T;` in the parent, `u
 contract lets `a` use `b` and the edge closes no cycle that the edges and the other pair gaps may
 close (AD-357). Open false PASS, not accepted (#1004): a trait `impl` in another module than its
 trait and its type, and a trait of a crate outside the workspace that a glob brings in. Open false
-PASS, not accepted (#1020): an item that a macro generates. Not seen, and the verdict can be PASS:
+PASS, not accepted (#1020): an item that a function-like macro generates without a recorded path.
+The independent token inventory remains open (#1026); it must detect tokens that a macro reader loses.
+Attribute macros and unproved derives have named expansion gaps on every scanned syntax position.
+Each gap names the source module and leaves the target unseen. It blocks affected rules through
+the existing pair-gap scope proof. Inert built-ins and `cfg`/`cfg_attr` cannot be shadowed by a `use`.
+Prelude attribute macros, including `test`, `global_allocator` and `derive`, need a namespace proof.
+An explicit binding, an unproved glob or an enclosing `extern crate` withholds that proof.
+A shadowed `derive` proves neither its listed derives nor their helper registrations.
+Tool attributes need their tool prelude. Unknown attributes and unproved prelude macros keep a gap.
+Built-in derives need a macro-namespace proof. Block-local and enum-variant globs cannot shadow
+a module-level derive. Workspace-module globs need a closed export proof; unseen macro output
+and external globs keep the gap. The native workspace has no proc-macro crate.
+A glob that can reach macro output withholds built-in derive identity; use explicit imports.
+One typed table models `serde::Serialize`, `serde::Deserialize` (1.0.229), and
+`schemars::JsonSchema` (1.2.3). File use records must prove the identity without a glob or shadow.
+The library and its derive implementation need unique crates.io registry identities in `Cargo.lock`.
+Path/git sources, workspace members, patches, replacements, stale locks and source configuration
+files withhold this proof. Renamed registry dependencies are followed through the manifest.
+Any `.cargo/config` or `.cargo/config.toml` below a scan root or on its repository ancestor path
+withholds the model, including files in nested non-crate directories. The search follows no symlink.
+It withholds the model beyond directory depth 128 or one million entries, and at unreadable directories or directory links.
+Open false PASS, not accepted (#1020): build settings outside the repository can replace registry code.
+The snapshot cannot see `$CARGO_HOME` configuration, `CARGO_*` source settings or the build invocation environment.
+Such an override can make an unseen expansion pass silently. This is a limit, not a proof of that build.
+These derives generate impl code using their own crate, written types, and documented helper paths.
+Every helper path, type and bound is read as a path use of the item's module, including bare names.
+Unknown helper keys, unsupported conditional metadata, macro values and invalid syntax keep a gap.
+The model covers written dependencies, not trait dispatch (#1004). Other versions keep a gap.
+See [AD-424](architecture/decisions/ad-424-known-registry-derives-need-identity-and-helper-proofs.md),
+the [Serde container](https://serde.rs/container-attrs.html), [field](https://serde.rs/field-attrs.html)
+and [variant](https://serde.rs/variant-attrs.html) docs, and the
+[Schemars helper docs](https://graham.cool/schemars/deriving/attributes/).
+An unclassified attribute or helper has a gap. A file with invalid UTF-8 has a named read gap.
+Not seen, and the verdict can be PASS:
 a path into another crate that goes through a `pub use` of its root. A rule on a module pair
 forbids a direct use; a use through a re-export is seen by the layer and cycle rules (AD-357). For
 `pub use crate::b::make;` in `c` and `use crate::c::make;` in `a`, the edge of `a` goes to `c` and
@@ -306,7 +339,7 @@ the edge of `c` to `b` (a `reexport` record); a module cycle through such a `pub
 (`tests/test_collector_false_pass_rust_impls.py`). The same holds for `pub use crate::b::*;` in `c`
 and `use crate::c::*;` in `a`. A macro call with a path in its body, an exported `macro_rules!`, `include!`, a `cfg` that gates a `mod` or
 `use` (except `cfg(test)` and a declared feature), a `path` attribute that is not a literal, an
-attribute macro on a module, brackets nested deeper than 256 and a module deeper than 64 levels
+unmodeled attribute macro on any item, brackets nested deeper than 256 and a module deeper than 64 levels
 make the scan UNKNOWN, and so does a path whose first segment is a crate name that the file also
 declares or imports (`::` makes it the crate). A reachable crate name that appears in a macro body, an attribute stream or a string, with no edge to that crate in the file, is UNKNOWN too. A local variable or a field with that name is not. A dependency that a Cargo.toml declares (normal, dev, build, also the underscore forms and
 `[target.*]`) is a crate edge even when no source uses it: a crate cannot use a crate that it does
@@ -417,6 +450,23 @@ The core decides one rule kind set where Python does not ([AD-384](architecture/
 - A PASS beyond Python is only as strong as the edge model of the collector. The open false-PASS classes #1004 (a trait `impl` in a third module) and #1020 (an item that a macro makes) give no edge and no gap. Where Python gives UNKNOWN only for a kept gap, the Python UNKNOWN hid them; the core PASS does not ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
 
 The dual-run request is a test protocol. Its `collector_argv`, `pinned` and `standard_library` fields are the word of the caller, not evidence: a wrong producer or an extra standard library name can give a PASS that Python does not give. The request of M1 must not take them from a caller: the shell starts the pinned collector, checks its digest and fills the producer and the standard library from its own profile table.
+
+## Scan work bounds are not process-memory bounds
+
+[AD-420](architecture/decisions/ad-420-bound-parse-work-before-an-in-process-collector-reads-bytes.md)
+bounds per-file work, bracket nesting and distinct input, not process memory.
+The limits are 4 MiB per file, 8,388,608 byte/token units, 512 bracket levels and 64 MiB distinct scan input.
+Flat statement and expression chains do not count as bracket nesting.
+
+The review measured an accepted TypeScript scan of 15 files of 4 MiB, about 63 MiB input, at about 10 GiB RSS.
+Main is within 3 %. The collector retains about 160 RSS bytes per input byte across files.
+The syntax tree or source of each file must be released when its facts are taken.
+Single-file peaks reached about 1.0 GiB for 4 MiB of TypeScript and 1.2 GiB for a 4 MiB Rust array.
+
+A 4 MiB Rust long expression aborts the core process with SIGABRT, on main too.
+That run produces no verdict. It must become a typed refusal instead of an abort.
+These remain open in #1111. The target is a 300 MiB peak RSS line plus a stated RSS/input factor.
+The selected 300 MiB regression probes do not prove this target for every accepted input.
 
 ## The native Python collector
 

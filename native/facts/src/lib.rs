@@ -23,6 +23,9 @@
 // AD-327: a public item that no other crate can reach is a lie in a library.
 #![deny(unreachable_pub)]
 
+#[cfg(test)]
+mod construct_golden_tests;
+
 #[macro_use]
 mod macros;
 

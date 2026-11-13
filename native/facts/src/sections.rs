@@ -15,8 +15,8 @@ use serde_json::{json, Value};
 
 use crate::data::{
     BindingData, CallData, CallableData, ClassData, ConstructData, GapData, ImportData,
-    NumericOperandData, ReferenceData, SelectorData, SignalData, SourceRoleData, UnusedBindingData,
-    ValueData,
+    NumericOperandData, PlaceholderData, PlainConstructData, ReferenceData, SelectorData,
+    SignalData, SourceRoleData, UnusedBindingData, ValueData,
 };
 use crate::readset::{self, ReadFields, ReadSet, Reads};
 use crate::record::{FactData, Record};
@@ -143,23 +143,26 @@ section_facts! {
         VarsCall(ConstructData),
         ConstructSelector(SelectorData),
         NumericOperand(NumericOperandData),
+        AssertStatement(PlainConstructData),
+        PlaceholderBody(PlaceholderData),
+        DunderDict(PlainConstructData),
     }
 }
 
 section_facts! {
-    pub enum SignalFact in TypingSignals {
-        AnyAnnotation(SignalData),
-        DictAnyAnnotation(SignalData),
-        CallableAnyAnnotation(SignalData),
-        ObjectAnnotation(SignalData),
-        CastCall(SignalData),
-        GetattrCall(SignalData),
-        HasattrCall(SignalData),
-        EvalCall(SignalData),
-        ExecCall(SignalData),
-        DynamicImport(SignalData),
-        TypeIgnore(SignalData),
-        MissingCrossPackageAnnotation(SignalData),
+    pub enum SignalFact in TypingSignals with SignalData {
+        AnyAnnotation,
+        DictAnyAnnotation,
+        CallableAnyAnnotation,
+        ObjectAnnotation,
+        CastCall,
+        GetattrCall,
+        HasattrCall,
+        EvalCall,
+        ExecCall,
+        DynamicImport,
+        TypeIgnore,
+        MissingCrossPackageAnnotation,
     }
 }
 

@@ -102,7 +102,7 @@ fn an_exported_macro_rules_and_include_are_unknown() {
 }
 
 #[test]
-fn a_path_in_an_attribute_is_a_reference_and_a_derive_is_not_unknown() {
+fn an_attribute_path_is_a_reference_but_a_custom_derive_keeps_its_gap() {
     let text = "#[derive(Debug, serde::Serialize)]\n\
                 #[serde(with = \"codec::wire\")]\n\
                 #[tool::wrap]\n\
@@ -112,7 +112,17 @@ fn a_path_in_an_attribute_is_a_reference_and_a_derive_is_not_unknown() {
         paths(text),
         ["serde::Serialize", "codec::wire", "tool::wrap"]
     );
-    assert_eq!(reasons(text), Vec::<String>::new());
+    assert_eq!(
+        reasons(text),
+        [
+            "The attribute macro derive can add code that the scan does not read",
+            "The attribute macro serde can add code that the scan does not read",
+            "The attribute macro tool::wrap can add code that the scan does not read",
+            "The attribute macro serde can add code that the scan does not read",
+            "The derive macro Debug can add code that the scan does not read",
+            "The derive macro serde::Serialize can add code that the scan does not read",
+        ]
+    );
 }
 
 #[test]
@@ -237,7 +247,10 @@ fn a_message_key_and_a_lint_hold_no_path_and_any_other_key_does() {
     );
     assert_eq!(
         reasons("#[serde(bound = \"T: (b::X\")]\nstruct S<T>(T);"),
-        ["A string in an attribute holds a path that the scan cannot read"]
+        [
+            "The attribute macro serde can add code that the scan does not read",
+            "A string in an attribute holds a path that the scan cannot read"
+        ]
     );
     // The reason of a lint is text, and a lint list holds lint names.
     assert_eq!(
@@ -252,11 +265,14 @@ fn a_message_key_and_a_lint_hold_no_path_and_any_other_key_does() {
         paths("#[cfg_attr(test, derive(c::D))]\nstruct S;"),
         ["c::D"]
     );
-    // A message, a name or a pattern is no path, and it is no gap either.
+    // A message is no path. An unregistered helper still has an expansion gap.
     let texts = "#[deprecated(note = \"use b::make\")]\n#[error(\"{}::{} failed\")]\n\
                  #[should_panic(expected = \"a::b\")]\nfn f() {}";
     assert_eq!(paths(texts), nothing);
-    assert_eq!(reasons(texts), nothing);
+    assert_eq!(
+        reasons(texts),
+        ["The attribute macro error can add code that the scan does not read"]
+    );
 }
 
 #[test]

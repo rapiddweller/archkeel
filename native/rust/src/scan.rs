@@ -15,8 +15,8 @@ use syn::visit::{self, Visit};
 use syn::{Attribute, Item, ItemExternCrate, ItemMacro, ItemMod, ItemUse, Macro};
 
 use crate::attrs::{
-    hidden_by, impl_item_attributes, is_test_attributes, item_attributes, path_literal,
-    statement_attributes, trait_item_attributes,
+    impl_item_attributes, is_test_attributes, item_attributes, path_literal, statement_attributes,
+    trait_item_attributes,
 };
 use crate::definitions::{Definition, Holder, ImplBlock, MethodCall, OnSelf};
 use crate::net;
@@ -51,6 +51,8 @@ pub(crate) enum Via {
     /// A path in code, in an attribute or in the body of a macro call.
     #[default]
     Path,
+    /// A validated derive-helper path, including a bare child-module name.
+    Helper,
     /// A leaf of a `use` item: the local name that it binds.
     Use {
         binding: Option<String>,
@@ -66,6 +68,9 @@ pub(crate) enum Via {
 pub(crate) struct Concern {
     pub reason: String,
     pub site: Site,
+    /// Known source module, relative to the file. The expansion target is unseen.
+    pub source: Option<Vec<String>>,
+    pub proof: Option<crate::attrs::model::Proof>,
 }
 
 /// A `mod name;` declaration: its file is not in this file.
@@ -144,6 +149,9 @@ pub(crate) fn scan(
         via: Via::Path,
         holder: Holder::default(),
         selves: Selves::default(),
+        helpers: crate::attrs::model::Context::default(),
+        tools: !crate::attrs::kinds::no_tools(&file.attrs),
+        derives: Vec::new(),
         out: Scan {
             tally: Tally::of(&file, exclude_tests),
             ..Scan::default()
@@ -151,6 +159,7 @@ pub(crate) fn scan(
     };
     walker.out.gated_file = !receivers::module_inert(&file.attrs);
     walker.visit_file(&file);
+    attributes::finish(&mut walker);
     Ok(walker.out)
 }
 
@@ -175,6 +184,9 @@ struct Walker<'a> {
     holder: Holder,
     /// What a plain `self` is at the walk (AD-383).
     selves: Selves,
+    helpers: crate::attrs::model::Context,
+    tools: bool,
+    derives: Vec<Concern>,
     out: Scan,
 }
 
@@ -189,11 +201,6 @@ impl Walker<'_> {
             column: to_i64(start.column),
             excerpt,
         }
-    }
-
-    fn concern(&mut self, reason: String, span: Span) {
-        let site = self.site(span);
-        self.out.concerns.push(Concern { reason, site });
     }
 
     /// A call `x.m(..)` (`path` false), or a path call that the scan cannot resolve (`path` true).
@@ -253,12 +260,6 @@ impl Walker<'_> {
         }
         self.out.tally.unseen += self.out.references.len() - before;
     }
-
-    fn gate(&mut self, attrs: &[Attribute], what: &str, span: Span) {
-        if let Some(reason) = hidden_by(attrs, what, self.features) {
-            self.concern(reason, span);
-        }
-    }
 }
 
 fn to_i64(value: usize) -> i64 {
@@ -270,7 +271,9 @@ impl<'ast> Visit<'ast> for Walker<'_> {
         if self.exclude_tests && is_test_attributes(item_attributes(item)) {
             // Keep only the files of `mod x;` below: the tree must claim them as test scope.
             let kept = std::mem::take(&mut self.out);
+            let derives = self.derives.len();
             visit::visit_item(self, item);
+            self.derives.truncate(derives);
             let found = std::mem::replace(&mut self.out, kept).children;
             let tests = found.into_iter().map(|child| Child {
                 test: true,
@@ -295,7 +298,15 @@ impl<'ast> Visit<'ast> for Walker<'_> {
             Item::Trait(item) if self.blocks == 0 => Some(self.enter_trait(item)),
             _ => None,
         };
+        let tools = self.tools;
+        self.tools &= !crate::attrs::kinds::no_tools(item_attributes(item));
+        let helpers = std::mem::replace(
+            &mut self.helpers,
+            crate::attrs::model::Context::of(item, self.blocks > 0, self.tools),
+        );
         visit::visit_item(self, item);
+        self.helpers = helpers;
+        self.tools = tools;
         if let Some(holder) = outer {
             self.holder = holder;
         }
@@ -408,7 +419,7 @@ impl<'ast> Visit<'ast> for Walker<'_> {
 
     fn visit_item_use(&mut self, node: &'ast ItemUse) {
         let span = node.use_token.span;
-        self.gate(&node.attrs, "use", span);
+        attributes::gate(self, &node.attrs, "use", span);
         for attr in &node.attrs {
             self.attribute(attr);
         }
@@ -417,7 +428,7 @@ impl<'ast> Visit<'ast> for Walker<'_> {
 
     fn visit_item_mod(&mut self, node: &'ast ItemMod) {
         let span = node.mod_token.span;
-        self.gate(&node.attrs, "module", span);
+        attributes::gate(self, &node.attrs, "module", span);
         let name = plain(&node.ident);
         if node.content.is_none() {
             match path_literal(&node.attrs) {
@@ -440,10 +451,17 @@ impl<'ast> Visit<'ast> for Walker<'_> {
             }
             return;
         }
+        for attr in &node.attrs {
+            self.attribute(attr);
+        }
         self.inline.push(name);
         self.out.inlines.push(self.inline.clone());
         self.selves.enter_module(&node.attrs);
-        visit::visit_item_mod(self, node);
+        if let Some((_, items)) = &node.content {
+            for item in items {
+                self.visit_item(item);
+            }
+        }
         self.selves.leave_module();
         self.inline.pop();
     }

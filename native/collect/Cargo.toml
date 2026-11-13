@@ -17,6 +17,7 @@ publish.workspace = true
 # name.
 [dependencies]
 archkeel-facts.workspace = true
+archkeel-snapshot.workspace = true
 archkeel-store = { path = "../store" }
 archkeel-typescript-collector = { path = "../typescript" }
 archkeel-rust-collector = { path = "../rust" }
@@ -25,6 +26,7 @@ serde_json.workspace = true
 toml.workspace = true
 
 [dev-dependencies]
+archkeel-snapshot = { workspace = true, features = ["test-tree"] }
 flate2.workspace = true
 
 [lints]

@@ -125,9 +125,7 @@ impl<'a, 'p> Run<'a, 'p> {
         let Some(site) = sites.next().filter(|_| sites.next().is_none()) else {
             return Step::Stop;
         };
-        let names = site
-            .path
-            .map(|at| file.sites.paths.names(at, file.text.as_bytes()));
+        let names = site.path.map(|at| file.sites.paths.names(at, &file.text));
         let Some(last) = names.as_ref().and_then(|names| names.last()) else {
             return Step::Stop;
         };

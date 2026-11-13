@@ -21,18 +21,18 @@
 
 mod config;
 mod git;
+mod refusal;
 mod repository;
 mod run;
 
 use archkeel_store::Ingested;
 use serde_json::{json, Value};
 
+use crate::refusal::refused;
+pub use crate::refusal::{Refusal, RefusalKind, REFUSED};
 pub use crate::repository::Over;
 pub use crate::run::reply_of;
 pub use archkeel_facts::envelope::Profile;
-
-/// The first words of each refusal; the shell counts them.
-pub const REFUSED: &str = "collect";
 
 /// What the caller gives: the scan identity, never facts.
 pub struct Identity<'a> {
@@ -46,30 +46,6 @@ pub struct Identity<'a> {
     pub git_head: Option<&'a str>,
     /// An optional claim about the work tree; the core reads it and refuses a difference.
     pub dirty: Option<bool>,
-}
-
-/// A part that the in-process path cannot run, by name. The shell keeps its stage 1 path.
-#[derive(Debug, PartialEq, Eq)]
-pub struct Refusal {
-    pub part: &'static str,
-    pub reason: String,
-}
-
-impl std::fmt::Display for Refusal {
-    fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            out,
-            "{REFUSED}: unsupported: {}: {}",
-            self.part, self.reason
-        )
-    }
-}
-
-fn refused(part: &'static str, reason: impl Into<String>) -> Refusal {
-    Refusal {
-        part,
-        reason: reason.into(),
-    }
 }
 
 /// The result of one scan: what the core needs to decide the run.
@@ -151,7 +127,7 @@ pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Re
     let request = request(&derived, &config);
     let bytes =
         serde_json::to_vec(&request).map_err(|error| refused("request", error.to_string()))?;
-    let reply = run::collect(config.profile, &bytes).map_err(|why| refused("collector", why))?;
+    let reply = run::collect(config.profile, &bytes)?;
     let contract = match root.read(&config.contract, contract_budget) {
         Ok(Some((_, bytes))) => bytes,
         Ok(None) => return Err(refused("contract", "the core cannot read the contract")),
@@ -257,3 +233,7 @@ mod tests;
 
 #[cfg(test)]
 mod rust_tests;
+
+#[cfg(test)]
+#[path = "work_tests.rs"]
+mod work_tests;

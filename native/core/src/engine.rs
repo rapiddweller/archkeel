@@ -153,7 +153,7 @@ impl Engine {
         let derivations = &mut self.derivations;
         let derived = self.derived.get_or_insert_with(|| {
             *derivations += 1;
-            derive(contract, tree, reply.as_ref(), settings.as_ref())
+            derive_model(contract, tree, reply.as_ref(), settings.as_ref())
         });
         (contract, derived)
     }
@@ -167,7 +167,7 @@ impl Engine {
 
 /// Derive the reply part, then the models when the run has a contract: one model for each
 /// contract of a tree (AD-385).
-fn derive(
+fn derive_model(
     contract: Option<&Contract>,
     tree: Option<&ContractTree>,
     reply: Option<&Ingested>,

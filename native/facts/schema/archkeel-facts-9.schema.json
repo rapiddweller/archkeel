@@ -3380,6 +3380,48 @@
             "kind",
             "data"
           ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "assert_statement"
+            },
+            "data": {
+              "$ref": "#/$defs/PlainConstructData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "placeholder_body"
+            },
+            "data": {
+              "$ref": "#/$defs/PlaceholderData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "dunder_dict"
+            },
+            "data": {
+              "$ref": "#/$defs/PlainConstructData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
         }
       ]
     },
@@ -3426,7 +3468,8 @@
         "compare",
         "endswith",
         "membership",
-        "startswith"
+        "startswith",
+        "match"
       ],
       "description": "The written form of a construct or of a numeric operand (Python)."
     },
@@ -3557,7 +3600,9 @@
         "read",
         "startswith",
         "type_probe",
-        "write"
+        "write",
+        "match",
+        "reflect"
       ]
     },
     "NumericOperandData": {
@@ -3639,6 +3684,52 @@
         "unknown"
       ],
       "description": "Whether a numeric operand is proven."
+    },
+    "PlainConstructData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "construct": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "construct",
+        "owner"
+      ],
+      "description": "A written construct with no additional fields."
+    },
+    "PlaceholderData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "construct": {
+          "type": "string"
+        },
+        "form": {
+          "$ref": "#/$defs/PlaceholderForm"
+        },
+        "owner": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "construct",
+        "form",
+        "owner"
+      ],
+      "description": "A function body that declares no implementation."
+    },
+    "PlaceholderForm": {
+      "type": "string",
+      "enum": [
+        "empty",
+        "not_implemented"
+      ],
+      "description": "The two function bodies that the collector identifies as placeholders."
     },
     "Record_SignalFact": {
       "type": "object",
@@ -4286,7 +4377,10 @@
         "source_resolution_gap",
         "dynamic_import_limit",
         "private_attribute_access_limit",
-        "exception_gap"
+        "exception_gap",
+        "assert_statement",
+        "placeholder_body",
+        "dunder_dict"
       ],
       "description": "The kind of a record. The section of the record decides its data type (`sections`).\n`ExceptionGap` replaces the open kind of protocol 9: there, the kind of an analyzer failure\nis the name of the exception class (`SyntaxError`). The name is a field of the record."
     },

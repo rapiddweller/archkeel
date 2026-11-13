@@ -26,6 +26,7 @@ fn krate() -> Crate {
         unknown: Vec::new(),
         features: BTreeSet::new(),
         edition: Some("2021".to_owned()),
+        proc_macro: false,
     };
     Crate {
         ident: "my_app".to_owned(),
@@ -35,6 +36,7 @@ fn krate() -> Crate {
         lines: crate::manifest_lines::LineIndex::new(""),
         roots: Vec::new(),
         primary: None,
+        registry: crate::registry::Registry::default(),
     }
 }
 

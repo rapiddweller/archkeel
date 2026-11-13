@@ -15,6 +15,7 @@ use archkeel_facts::record::FactData;
 use archkeel_facts::sections::Section;
 use archkeel_store::Ingested;
 
+use crate::constructs::Constructs;
 use crate::coverage::{self, Incomplete};
 use crate::cycles::{self, Cycle};
 use crate::edges::{self, Edge, Level};
@@ -42,12 +43,17 @@ pub struct Graph {
     cycles: Vec<Cycle>,
     observed: Observed,
     builtins: Vec<String>,
+    constructs: Constructs,
 }
 
 impl Graph {
     /// Derive the reply part of a model from a validated reply and the settings of the shell.
     pub fn derive(reply: &Ingested, settings: Settings) -> Result<Graph, Reason> {
         let facts = admitted(reply, &settings)?;
+        Self::from_facts(facts, settings)
+    }
+
+    fn from_facts(facts: &Facts, settings: Settings) -> Result<Graph, Reason> {
         let settings = settings.bound(&facts.adapter.name, facts.profile.as_str());
         let (modules, packages) = modules::tables(&facts.files)?;
         let split = imports::split(facts);
@@ -75,7 +81,14 @@ impl Graph {
             cycles,
             observed: observed::observed(facts),
             builtins: builtins(facts),
+            constructs: Constructs::derive(facts)?,
         })
+    }
+
+    /// Recorded inputs for unit tests only; no production caller can bypass the store.
+    #[cfg(test)]
+    pub(crate) fn recorded(facts: &Facts, settings: Settings) -> Result<Graph, Reason> {
+        Self::from_facts(facts, settings)
     }
 
     /// The modules of the reply, in the order of the reply.
@@ -130,6 +143,11 @@ impl Graph {
     /// The module and package cycles, sorted by id.
     pub fn cycles(&self) -> &[Cycle] {
         &self.cycles
+    }
+
+    /// The original construct inventory and actual named owners of the reply.
+    pub(crate) fn constructs(&self) -> &Constructs {
+        &self.constructs
     }
 
     /// What the reply says about its own scope (slice S4).

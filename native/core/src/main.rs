@@ -26,6 +26,7 @@ mod contract;
 mod dual_run;
 mod engine;
 mod ingest;
+mod refusal;
 mod report;
 mod request;
 mod rules;
@@ -45,8 +46,8 @@ fn main() -> ExitCode {
     // request of the shell (AD-390) and the scan request, for which the core runs the collector in
     // its own process (AD-406).
     let answer: Answer = match arguments.as_slice() {
-        [kind] if kind == "dual-run" => dual_run::answer,
-        [kind] if kind == "check" => check::answer,
+        [kind] if kind == "dual-run" => |input| dual_run::answer(input).map_err(Into::into),
+        [kind] if kind == "check" => |input| check::answer(input).map_err(Into::into),
         [kind] if kind == "scan" => scan::answer,
         _ => {
             eprintln!(
@@ -63,14 +64,14 @@ fn main() -> ExitCode {
     }
     let (code, message) = respond_with(answer, &input, &mut io::stdout().lock());
     if let Some(message) = message {
-        eprintln!("archkeel-core: {message}");
+        eprintln!("{message}");
     }
     ExitCode::from(code)
 }
 
 /// The answer of one request kind: the frame and whether it names a gap, or why the core cannot
 /// read the request.
-type Answer = fn(&[u8]) -> Result<dual_run::Answered, String>;
+type Answer = fn(&[u8]) -> Result<dual_run::Answered, refusal::Error>;
 
 /// Answer one dual-run request (the tests of the frame bytes call this).
 #[cfg(test)]
@@ -80,12 +81,16 @@ fn respond(input: &[u8], out: &mut impl Write) -> (u8, Option<String>) {
 
 /// Answer one request: the frame is written one time to `out`, or no frame and a message. The
 /// first value is the exit code.
-fn respond_with(answer: Answer, input: &[u8], out: &mut impl Write) -> (u8, Option<String>) {
+fn respond_with<E: From<String>>(
+    answer: impl FnOnce(&[u8]) -> Result<dual_run::Answered, E>,
+    input: &[u8],
+    out: &mut impl Write,
+) -> (u8, Option<E>) {
     match answer(input) {
         Ok(answered) => match out.write_all(&answered.frame) {
             Ok(()) if answered.names_a_gap => (NAMES_A_GAP, None),
             Ok(()) => (0, None),
-            Err(error) => (1, Some(error.to_string())),
+            Err(error) => (1, Some(error.to_string().into())),
         },
         Err(message) => (2, Some(message)),
     }

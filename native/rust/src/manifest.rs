@@ -116,6 +116,7 @@ pub(crate) struct Manifest {
     pub features: BTreeSet<String>,
     /// `package.edition`; `None` for `edition.workspace = true` until the workspace gives it.
     pub edition: Option<String>,
+    pub proc_macro: bool,
 }
 
 impl Manifest {
@@ -196,13 +197,14 @@ pub(crate) fn read(table: &Table, workspace: &Table) -> Option<Manifest> {
         unknown,
         features,
         edition: text(table, &["package", "edition"]).map(str::to_owned),
+        proc_macro: get(table, &["lib", "proc-macro"]) == Some(&Value::Boolean(true)),
     })
 }
 
 fn build(table: &Table) -> Option<Option<String>> {
     match get(table, &["package", "build"]) {
         Some(Value::Text(path)) => Some(Some(path.clone())),
-        Some(Value::Other) => None,
+        Some(Value::Boolean(false)) => None,
         _ => Some(None),
     }
 }
@@ -259,7 +261,7 @@ fn extra_targets(table: &Table) -> Vec<Target> {
 }
 
 /// Each entry of each dependency section, also below `[target.<name>.<section>]`.
-fn dependency_entries(table: &Table) -> Vec<(&String, &Value, Kind)> {
+pub(crate) fn dependency_entries(table: &Table) -> Vec<(&String, &Value, Kind)> {
     let mut tables: Vec<&Table> = vec![table];
     if let Some(targets) = table.get("target").and_then(Value::table) {
         tables.extend(targets.values().filter_map(Value::table));

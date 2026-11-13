@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from rust_repository import component, repository, statuses, validate
+from rust_repository import APP, component, report, repository, rule, statuses, validate
 
 Capsys = pytest.CaptureFixture[str]
 
@@ -28,6 +28,34 @@ def _verdict(
 
 def _claims(result: dict[str, Any]) -> list[str]:
     return [item["unknown_claim"] for item in result["diagnostics"]]
+
+
+def test_a_proven_serde_helper_edge_fails_the_forbidden_rule(
+    tmp_path: Path, rust_binary: Path, capsys: Capsys
+) -> None:
+    forbidden = rule(
+        "NO-HELPER",
+        "forbidden_dependency",
+        source="native.app.a",
+        target="native.app.b",
+        include_type_checking=True,
+    )
+    root = repository(
+        tmp_path,
+        rust_binary,
+        {
+            "crates/app/Cargo.toml": APP + 'serde = { version = "1.0", features = ["derive"] }\n',
+            "crates/Cargo.lock": Path(__file__).with_name("rust_known_derives.lock").read_text(),
+            "crates/app/src/lib.rs": "mod a; mod b;",
+            "crates/app/src/a.rs": "use serde::Serialize; #[derive(Serialize)] struct S { "
+            '#[serde(with = "crate::b::helper")] x: u8 }',
+            "crates/app/src/b.rs": "pub mod helper {}",
+        },
+        rules=(forbidden,),
+    )
+    result = report(root, capsys)
+    assert statuses(result)["NO-HELPER"] == "FAIL", _claims(result)
+    assert result["coverage"]["failures"] == []
 
 
 OWN_IMPORT = [

@@ -17,7 +17,10 @@ use archkeel_facts::vocab::ExceptionName;
 use archkeel_facts::Record;
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
-use types::*;
+use types::{
+    Category, Constructor, Data, Detail, File, Input, Kind, Location, Parameter, ParameterKind,
+    Scope, Symbol, VisibilityDetail,
+};
 use work::{Stop, Work};
 
 #[derive(Default, Serialize)]

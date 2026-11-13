@@ -5,6 +5,7 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 
 | Decision | Title |
 |---|---|
+| AD-420 | [Bound parse work before an in-process collector reads bytes](ad-420-bound-parse-work-before-an-in-process-collector-reads-bytes.md) |
 | AD-1 | [Flat analyzer modules](ad-01-analyzer-modules-are-flat-and-singlepurpose.md) |
 | AD-2 | [One JSON type](ad-02-json-has-one-type.md) |
 | AD-3 | [Analyzer comparability](ad-03-the-analyzer-digest-decides-comparability-the-version-names.md) |
@@ -394,6 +395,9 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-402 | [The Python raise-site inventory keeps unproved paths open](ad-402-the-python-raise-site-inventory-keeps-unproved-paths-open.md) |
 | AD-404 | [The native Python proof dump reads import-local bindings before member convergence](ad-404-the-native-python-proof-dump-reads-import-local-bindings-before-member-convergence.md) |
 | AD-406 | [The core runs the TypeScript collector in its own process](ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md) |
+| AD-408 | [The core decides forbidden constructs from the original facts](ad-408-the-core-decides-forbidden-constructs-from-the-original-facts.md) |
 | AD-416 | [The core names a run without decisions and the product keeps its result](ad-416-the-core-names-an-empty-contract-and-the-product-keeps-its-result.md) |
 | AD-418 | [A dropped pair gap holds the rules it can change, and a scoped requires needs its runtime](ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md) |
 | AD-422 | [Core-only validation](ad-422-core-only-validation-renders-the-scan-frame.md) |
+| AD-424 | [Known registry derives need identity and helper proofs](ad-424-known-registry-derives-need-identity-and-helper-proofs.md) |
+| AD-426 | [The linked collector states profile limits before the scope proof](ad-426-the-linked-collector-states-profile-limits-before-the-scope-proof.md) |
