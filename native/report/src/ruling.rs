@@ -107,7 +107,7 @@ impl Ruling {
 /// The ruling of a run: the outcomes of each model of the tree (the root, then each mount,
 /// AD-385), the gaps of the core, the status and its proof. A frame that breaks the explaining
 /// rows of AD-361 point 5 is an error, never a ruling.
-pub fn rule(models: Result<&ModelTree, &Reason>, mut named: Named) -> Result<Ruling, BuildError> {
+pub fn rule(models: Result<&ModelTree, &Reason>, named: Named) -> Result<Ruling, BuildError> {
     let scope = match models {
         Ok(models) => models
             .models()
@@ -132,10 +132,11 @@ pub fn rule(models: Result<&ModelTree, &Reason>, mut named: Named) -> Result<Rul
             .map(|(id, reason)| (id, reason.to_string())),
     );
     // AD-416: no rule outcome means no core verdict, not an empty PASS proof.
-    if models.is_ok() && rows.seen.is_empty() && reasons.is_empty() && named.contract.is_none() {
-        named.contract = Some(Reason::Unsupported(Unsupported::NoRules).to_string());
-    }
-    let open = named.contract.is_some()
+    let contract = named.contract.or_else(|| {
+        (models.is_ok() && rows.seen.is_empty() && reasons.is_empty())
+            .then(|| Reason::Unsupported(Unsupported::NoRules).to_string())
+    });
+    let open = contract.is_some()
         || !reasons.is_empty()
         || rows.rules.values().any(|(_, v)| *v == RuleVerdict::Unknown);
     let failed = rows.rules.values().any(|(_, v)| *v == RuleVerdict::Fail);
@@ -149,7 +150,7 @@ pub fn rule(models: Result<&ModelTree, &Reason>, mut named: Named) -> Result<Rul
     } else {
         Status::Unknown
     };
-    let unsupported = match named.contract {
+    let unsupported = match contract {
         Some(reason) => RuleReasons::All(reason),
         None => RuleReasons::Each(reasons),
     };
