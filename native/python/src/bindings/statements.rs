@@ -12,12 +12,17 @@ use super::{class, names};
 use crate::pyast::Node;
 
 pub(super) fn binding(scan: &mut Scan, node: &Node<'_>, source: &str) -> Result<Value> {
-    let (targets, value) = match node {
-        Node::Stmt(Stmt::Assign(n)) => (n.targets.iter().collect::<Vec<_>>(), Some(&*n.value)),
-        Node::Stmt(Stmt::AnnAssign(n)) => (vec![&*n.target], n.value.as_deref()),
-        Node::Expr(Expr::Named(n)) => (vec![&*n.target], Some(&*n.value)),
-        _ => (Vec::new(), None),
-    };
+    binding_with(scan, node, source, false, true)
+}
+
+pub(super) fn binding_with(
+    scan: &mut Scan,
+    node: &Node<'_>,
+    source: &str,
+    inert: bool,
+    members: bool,
+) -> Result<Value> {
+    let (targets, value) = assignment(node);
     scan.tick(targets.len())?;
     if let Some(value) = value {
         let admitted = constant(value)
@@ -25,18 +30,36 @@ pub(super) fn binding(scan: &mut Scan, node: &Node<'_>, source: &str) -> Result<
                 value,
                 Expr::List(_) | Expr::Tuple(_) | Expr::Set(_) | Expr::Dict(_)
             );
-        if !admitted {
+        if !admitted && !(inert && super::values::inert(scan, value, 0)?) {
             let lambda = matches!(value, Expr::Lambda(_));
             let stored = names::stored_names(scan, targets.clone())?;
             scan.tick(stored.len())?;
             let public = stored
                 .iter()
                 .any(|n| !n.starts_with('_') || n.starts_with("__") && n.ends_with("__"));
-            if !lambda || public {
+            if !lambda || members && public {
                 return Ok(Value::Null);
             }
         }
     }
+    admitted_binding(scan, node, source, targets)
+}
+
+pub(super) fn assignment<'a>(node: &Node<'a>) -> (Vec<&'a Expr>, Option<&'a Expr>) {
+    match node {
+        Node::Stmt(Stmt::Assign(n)) => (n.targets.iter().collect::<Vec<_>>(), Some(&*n.value)),
+        Node::Stmt(Stmt::AnnAssign(n)) => (vec![&*n.target], n.value.as_deref()),
+        Node::Expr(Expr::Named(n)) => (vec![&*n.target], Some(&*n.value)),
+        _ => (Vec::new(), None),
+    }
+}
+
+fn admitted_binding(
+    scan: &mut Scan,
+    node: &Node<'_>,
+    source: &str,
+    targets: Vec<&Expr>,
+) -> Result<Value> {
     match node {
         Node::Stmt(Stmt::FunctionDef(n)) => {
             let mut overloaded = false;

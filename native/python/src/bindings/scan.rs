@@ -4,13 +4,14 @@
 
 //! The shared bounded walk, below each binding consumer.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::rc::Rc;
 
 use archkeel_facts::pyminor::PyMinor;
 use ruff_python_ast::{Expr, Stmt};
 
 use super::output::Output;
+use crate::module::Module;
 use crate::parse::work::Work;
 use crate::pyast::{child_nodes, walk, Node};
 
@@ -18,10 +19,41 @@ pub(super) const MAX_BINDING_WORK: usize = 64_000_000;
 
 pub(super) type Result<T> = std::result::Result<T, String>;
 
+pub struct Table {
+    pub data: Result<serde_json::Value>,
+    pub work: usize,
+}
+
+pub(super) fn table(
+    module: &Module,
+    minor: PyMinor,
+    collect: impl FnOnce(&Module, &mut Scan) -> Result<serde_json::Value>,
+) -> Table {
+    let mut scan = Scan::new(minor);
+    let data = collect(module, &mut scan).and_then(|data| {
+        super::output::check(&data)?;
+        Ok(data)
+    });
+    Table {
+        data,
+        work: scan.work.used(),
+    }
+}
+
+pub(super) fn counts(scan: &mut Scan, values: Vec<String>) -> Result<HashMap<String, usize>> {
+    let mut out = HashMap::new();
+    for value in values {
+        scan.tick(1)?;
+        *out.entry(value).or_default() += 1;
+    }
+    Ok(out)
+}
+
 pub(super) struct Scan {
     pub minor: PyMinor,
     pub work: Work,
     pub output: Output,
+    pub aliases: HashMap<String, (String, bool)>,
 }
 
 impl Scan {
@@ -30,7 +62,18 @@ impl Scan {
             minor,
             work: Work::with_limit(MAX_BINDING_WORK),
             output: Output::new(),
+            aliases: HashMap::new(),
         }
+    }
+
+    pub fn keep(
+        &mut self,
+        rows: &mut Vec<serde_json::Value>,
+        row: serde_json::Value,
+    ) -> Result<()> {
+        self.output.value(&row)?;
+        rows.push(row);
+        Ok(())
     }
 
     pub fn owner(&mut self, parent: &str, name: &str) -> Result<Rc<str>> {

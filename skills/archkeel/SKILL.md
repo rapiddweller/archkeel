@@ -12,6 +12,9 @@ contracts; nothing is enforced by convention alone.
 
 ## First run on a codebase
 
+For native Python parity work, use `--dump-proofs` for the import-local proof boundary (AD-404).
+Its empty provider proof sets do not prove member convergence or enable the production reply.
+
 If `explore` reports `runtime_mismatch`, do not use its result as a complete scan. Read the
 reported current Python version and full `requires-python` range. Select a Python version that
 satisfies that range, then retry with `uvx --python <compatible-version> archkeel explore --json`.

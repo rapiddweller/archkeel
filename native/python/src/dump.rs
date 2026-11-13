@@ -68,7 +68,7 @@ pub fn run(minor: &str, root: &str) -> Result<(), String> {
 }
 
 /// The binding inputs of a file before import convergence, or a named incomplete-file gap.
-pub fn bindings(minor: &str, root: &str) -> Result<(), String> {
+pub fn bindings(minor: &str, root: &str, proofs: bool) -> Result<(), String> {
     each_file(minor, root, |raw, rel, minor| {
         let found = (|| {
             let text = raw.as_deref().and_then(decode).ok_or("source unreadable")?;
@@ -80,6 +80,7 @@ pub fn bindings(minor: &str, root: &str) -> Result<(), String> {
             Ok::<_, String>(crate::module::Module::new(rel.to_owned(), name, text, tree))
         })();
         let crate::bindings::Table { data, work } = match found {
+            Ok(module) if proofs => crate::bindings::proof_table(&module, minor),
             Ok(module) => crate::bindings::table(&module, minor),
             Err(reason) => crate::bindings::Table {
                 data: Err(reason),

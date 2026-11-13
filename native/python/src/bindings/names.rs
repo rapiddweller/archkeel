@@ -153,11 +153,7 @@ fn statement_events(scan: &mut Scan, module: &Module, stmt: &Stmt) -> Result<Vec
         }),
         Stmt::FunctionDef(_) | Stmt::ClassDef(_) => {
             // Direct membership is constant-time from the statement's source range.
-            let direct = module
-                .tree
-                .body
-                .binary_search_by_key(&stmt.start(), Ranged::start)
-                .is_ok();
+            let direct = crate::module::direct(module, stmt);
             Ok(if direct {
                 Vec::new()
             } else {

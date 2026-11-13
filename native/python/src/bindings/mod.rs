@@ -15,32 +15,26 @@ use crate::pyast::Node;
 
 mod class;
 mod closure;
+mod environment;
 mod names;
 mod namespace;
 mod output;
+mod proofs;
 mod records;
 mod scan;
 mod scopes;
 mod statements;
+mod values;
 
+#[cfg(feature = "dump")]
 pub use output::check as check_output;
+#[cfg(feature = "dump")]
+pub use proofs::table as proof_table;
+pub use scan::Table;
 use scan::{Result, Scan};
 
-pub struct Table {
-    pub data: Result<Value>,
-    pub work: usize,
-}
-
 pub fn table(module: &Module, minor: PyMinor) -> Table {
-    let mut scan = Scan::new(minor);
-    let data = collect(module, &mut scan).and_then(|data| {
-        check_output(&data)?;
-        Ok(data)
-    });
-    Table {
-        data,
-        work: scan.work.used(),
-    }
+    scan::table(module, minor, collect)
 }
 
 fn collect(module: &Module, scan: &mut Scan) -> Result<Value> {
@@ -122,12 +116,7 @@ mod tests {
     #[test]
     fn the_binding_table_keeps_complete_records_and_its_work_count() {
         let text = "def f(x):\n    local = 1\n    return 2\n";
-        let module = crate::module::Module::new(
-            "app/probe.py".into(),
-            "app.probe".into(),
-            text.into(),
-            crate::test_tree(text, 11).expect("fixture parses"),
-        );
+        let module = crate::test_module(text, 11);
         let result = super::table(&module, crate::test_minor(11));
         let table = result.data.expect("fixture is in scope");
         assert_eq!(table["bound"], serde_json::json!(["local", "x", "f"]));
