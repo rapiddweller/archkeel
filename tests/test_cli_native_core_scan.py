@@ -31,6 +31,7 @@ from typing import Any
 import pytest
 from filelock import FileLock
 
+from archkeel.analyzer.process import ProcessCollector
 from archkeel.analyzer.runtime import package_version
 from archkeel.check.report import observe_repository
 from archkeel.cli import main, native_core, native_scan, observe
@@ -159,7 +160,11 @@ def _shell_request(root: Path, case: Case) -> bytes:
     sent: list[bytes] = []
     factory = partial(observe.observer_for, request_sink=sent.append, verify_bundled=True)
     observer = observe.configured_observer(config, factory)
-    failing = replace(observer.collector, argv=(str(root / "no-collector"),), bundled=False)
+    failing = ProcessCollector(
+        (str(root / "no-collector"),),
+        request_sink=sent.append,
+        protocol_version=observer.collector.protocol_version,
+    )
     observe_repository(root, config, replace(observer, collector=failing))
     [payload] = sent
     return payload

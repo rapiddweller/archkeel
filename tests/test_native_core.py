@@ -191,15 +191,12 @@ def test_the_scope_proof_gives_the_verdict_of_python_or_an_exact_name_on_every_c
     left = [line for line in differences if line not in named and not tree.search(line)]
     assert left == [], left
     assert code == (1 if differences else 0)
-    # The s4 cases: each gap that the reply of a store-accepted profile can hold gives the
-    # verdict of Python. The reply of the honest external collector is not compressed, so the
-    # store refuses it; the Rust tests check the producer.
+    # The native external reply is compressed. Both engines now refuse its unverified identity.
     s4 = [line for line in differences if line.startswith("s4/")]
     assert {line.split(":")[0] for line in s4} == {
         "s4/a-symbol-selector-is-a-limit-of-some-profiles",
         "s4/an-interface-boundary-is-a-limit-of-some-profiles",
         "s4/an-external-collector-with-a-pin-passes",
-        "s4/an-external-collector-without-a-pin-is-unknown",
     }
 
 
@@ -276,7 +273,7 @@ def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accept
     arguments = ["compare", "--sections", "dependency_edges,modules,packages,cycles"]
     code, lines = _run([*arguments, "--families", "none", "--engine-command", core], capsys)
     differences = [
-        line for line in lines if ": " in line and not line.startswith(("engine", "dual"))
+        line for line in lines if ": " in line and not line.startswith(("engine", "dual", "SKIP "))
     ]
     assert all(
         line.endswith(": -: missing input: no valid collector reply") for line in differences
@@ -286,23 +283,20 @@ def test_the_s3_sections_equal_python_on_every_case_whose_reply_the_store_accept
         case for case in refused if case.startswith(("s3/", "s2/", "s1/", "rust/", "tree/"))
     ]
     assert code == (1 if differences else 0)
-    assert lines[-1].startswith("dual run: family none; 4 sections; 655 projects; 0 rules;")
+    assert lines[-1].startswith("dual run: family none; 4 sections; 324 projects; 0 rules;")
+    assert "; 331 skipped;" in lines[-1]
 
 
-def test_a_part_without_its_input_names_the_missing_input(
+def test_an_unsupported_project_is_a_counted_named_skip(
     core: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """AD-379, AD-385: the contract of J-compass mounts inside contracts. The harness sends them,
-    so the core assembles the tree; each rule of the tree and each section names the reply that
-    the store refuses, not the contract."""
+    """AD-422: a Dart case cannot become a partial native-core comparison."""
     code, lines = _run(["compare", "--case", "fixture/J-compass", "--engine-command", core], capsys)
-    assert code == 1
-    differences = [line for line in lines if line.startswith("fixture/J-compass: ")]
-    assert differences[0].endswith("missing input: no valid collector reply")
-    assert all(
-        line.endswith(": -: missing input: no valid collector reply") for line in differences[1:]
-    )
-    assert len(differences) == 1 + 20
+    assert code == 2
+    assert lines == [
+        "SKIP fixture/J-compass: dart projects are not supported; use archkeel 4.0.1",
+        "dual run: 0 supported projects; 1 skipped; no comparison",
+    ]
 
 
 # The reasons that a tree case may name: a file that the shell did not send, or a refused tree
