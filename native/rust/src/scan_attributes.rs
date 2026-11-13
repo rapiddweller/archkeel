@@ -6,17 +6,20 @@
 //! of `key = value`. The walker of `scan.rs` owns the facts; this file only fills them.
 
 use proc_macro2::Span;
+use syn::parse::Parser;
 use syn::visit::Visit;
 use syn::{Attribute, Expr, ExprLit, Lit, Meta};
 
+use super::Concern;
 use super::Walker;
+use crate::attribute_kinds::{self, Kind};
 use crate::net;
 use crate::tokens::{attribute_chains, plain, read_value, string_paths, LINTS, MESSAGE_KEYS};
 
 impl Walker<'_> {
-    /// An attribute holds paths in its name, its tokens and its strings. `derive` is read like
-    /// any other: it adds impls, so a path in it is an edge and it never hides one.
+    /// An attribute holds paths in its name, its tokens and its strings.
     pub(super) fn attribute(&mut self, attr: &Attribute) {
+        self.expansion(&attr.meta, 0);
         let path = attr.path();
         // The text of a doc comment is no code. A `doc` with an expression is read below.
         let text =
@@ -51,6 +54,78 @@ impl Walker<'_> {
         }
         if let (Meta::NameValue(pair), false) = (&attr.meta, lint) {
             self.name_value(&names, &pair.value);
+        }
+    }
+
+    fn expansion(&mut self, meta: &Meta, depth: usize) {
+        let path = meta.path();
+        let name = path
+            .segments
+            .iter()
+            .map(|s| plain(&s.ident))
+            .collect::<Vec<_>>()
+            .join("::");
+        if depth < 16 {
+            match attribute_kinds::kind(path) {
+                Some(Kind::Builtin) => return,
+                Some(Kind::Derive) => {
+                    if let Some(paths) = attribute_kinds::paths(meta) {
+                        for path in paths {
+                            let name = path
+                                .segments
+                                .iter()
+                                .map(|s| plain(&s.ident))
+                                .collect::<Vec<_>>()
+                                .join("::");
+                            let span = path
+                                .segments
+                                .first()
+                                .map_or(Span::call_site(), |s| s.ident.span());
+                            let concern = self.expansion_concern(format!("The derive macro {name} can add code that the scan does not read"), span);
+                            self.derives.push((path, concern));
+                        }
+                        return;
+                    }
+                }
+                Some(Kind::Conditional | Kind::Unsafe) => {
+                    if let Meta::List(list) = meta {
+                        let parser =
+                            syn::punctuated::Punctuated::<Meta, syn::Token![,]>::parse_terminated;
+                        if let Ok(nested) = parser.parse2(list.tokens.clone()) {
+                            let skip = usize::from(path.is_ident("cfg_attr"));
+                            for nested in nested.iter().skip(skip) {
+                                self.expansion(nested, depth + 1);
+                            }
+                            return;
+                        }
+                    }
+                }
+                None if attribute_kinds::tool(path) || self.helpers.contains(&name) => return,
+                None => (),
+            }
+        }
+        let concern = self.expansion_concern(
+            format!("The attribute macro {name} can add code that the scan does not read"),
+            path.segments
+                .first()
+                .map_or(Span::call_site(), |s| s.ident.span()),
+        );
+        self.out.concerns.push(concern);
+    }
+
+    fn expansion_concern(&self, reason: String, span: Span) -> Concern {
+        Concern {
+            reason,
+            site: self.site(span),
+            source: Some(self.inline.clone()),
+        }
+    }
+
+    pub(super) fn finish_attributes(&mut self) {
+        for (path, concern) in std::mem::take(&mut self.derives) {
+            if !attribute_kinds::builtin_derive(&path, &self.out.names) {
+                self.out.concerns.push(concern);
+            }
         }
     }
 

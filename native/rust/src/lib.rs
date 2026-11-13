@@ -7,6 +7,9 @@
 #![forbid(unsafe_code)]
 #![deny(unreachable_pub)]
 
+#[cfg(test)]
+mod attribute_gap_tests;
+mod attribute_kinds;
 mod attrs;
 mod builder;
 mod collect;

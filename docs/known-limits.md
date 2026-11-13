@@ -298,7 +298,14 @@ call of a method of a trait that a glob brings in (`use b::T;` in the parent, `u
 contract lets `a` use `b` and the edge closes no cycle that the edges and the other pair gaps may
 close (AD-357). Open false PASS, not accepted (#1004): a trait `impl` in another module than its
 trait and its type, and a trait of a crate outside the workspace that a glob brings in. Open false
-PASS, not accepted (#1020): an item that a macro generates. Not seen, and the verdict can be PASS:
+PASS, not accepted (#1020): an item that a function-like macro generates without a recorded path.
+Attribute macros and custom derives have named expansion gaps on every scanned syntax position.
+Each gap names the source module and leaves the target unseen. It blocks affected rules through
+the existing pair-gap scope proof. Built-in attributes and tool attributes add no expansion gap.
+Built-in derives add no gap unless a local name can shadow them. Known `serde` and `schemars`
+helpers add no gap under their derive; the custom derive itself always has a gap.
+An unclassified attribute or helper has a gap. A file with invalid UTF-8 has a named read gap.
+Not seen, and the verdict can be PASS:
 a path into another crate that goes through a `pub use` of its root. A rule on a module pair
 forbids a direct use; a use through a re-export is seen by the layer and cycle rules (AD-357). For
 `pub use crate::b::make;` in `c` and `use crate::c::make;` in `a`, the edge of `a` goes to `c` and
@@ -306,7 +313,7 @@ the edge of `c` to `b` (a `reexport` record); a module cycle through such a `pub
 (`tests/test_collector_false_pass_rust_impls.py`). The same holds for `pub use crate::b::*;` in `c`
 and `use crate::c::*;` in `a`. A macro call with a path in its body, an exported `macro_rules!`, `include!`, a `cfg` that gates a `mod` or
 `use` (except `cfg(test)` and a declared feature), a `path` attribute that is not a literal, an
-attribute macro on a module, brackets nested deeper than 256 and a module deeper than 64 levels
+attribute macro on any item, brackets nested deeper than 256 and a module deeper than 64 levels
 make the scan UNKNOWN, and so does a path whose first segment is a crate name that the file also
 declares or imports (`::` makes it the crate). A reachable crate name that appears in a macro body, an attribute stream or a string, with no edge to that crate in the file, is UNKNOWN too. A local variable or a field with that name is not. A dependency that a Cargo.toml declares (normal, dev, build, also the underscore forms and
 `[target.*]`) is a crate edge even when no source uses it: a crate cannot use a crate that it does

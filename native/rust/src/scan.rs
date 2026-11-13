@@ -66,6 +66,8 @@ pub(crate) enum Via {
 pub(crate) struct Concern {
     pub reason: String,
     pub site: Site,
+    /// Known source module, relative to the file. The expansion target is unseen.
+    pub source: Option<Vec<String>>,
 }
 
 /// A `mod name;` declaration: its file is not in this file.
@@ -144,6 +146,8 @@ pub(crate) fn scan(
         via: Via::Path,
         holder: Holder::default(),
         selves: Selves::default(),
+        helpers: Vec::new(),
+        derives: Vec::new(),
         out: Scan {
             tally: Tally::of(&file, exclude_tests),
             ..Scan::default()
@@ -151,6 +155,7 @@ pub(crate) fn scan(
     };
     walker.out.gated_file = !receivers::module_inert(&file.attrs);
     walker.visit_file(&file);
+    walker.finish_attributes();
     Ok(walker.out)
 }
 
@@ -175,6 +180,8 @@ struct Walker<'a> {
     holder: Holder,
     /// What a plain `self` is at the walk (AD-383).
     selves: Selves,
+    helpers: Vec<String>,
+    derives: Vec<(syn::Path, Concern)>,
     out: Scan,
 }
 
@@ -193,7 +200,11 @@ impl Walker<'_> {
 
     fn concern(&mut self, reason: String, span: Span) {
         let site = self.site(span);
-        self.out.concerns.push(Concern { reason, site });
+        self.out.concerns.push(Concern {
+            reason,
+            site,
+            source: None,
+        });
     }
 
     /// A call `x.m(..)` (`path` false), or a path call that the scan cannot resolve (`path` true).
@@ -295,7 +306,12 @@ impl<'ast> Visit<'ast> for Walker<'_> {
             Item::Trait(item) if self.blocks == 0 => Some(self.enter_trait(item)),
             _ => None,
         };
+        let helpers = std::mem::replace(
+            &mut self.helpers,
+            crate::attribute_kinds::helpers(item_attributes(item)),
+        );
         visit::visit_item(self, item);
+        self.helpers = helpers;
         if let Some(holder) = outer {
             self.holder = holder;
         }

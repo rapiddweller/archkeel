@@ -32,7 +32,15 @@ impl Builder {
         self.symbols(module);
         for concern in &module.scan.concerns {
             let evidence = self.cite(&module.rel, &concern.site);
-            self.gap(&concern.reason, Some(&evidence), &module.module);
+            if let Some(scope) = &concern.source {
+                let source = std::iter::once(module.module.as_str())
+                    .chain(scope.iter().map(String::as_str))
+                    .collect::<Vec<_>>()
+                    .join(".");
+                self.pair_gap(&concern.reason, &evidence, (&source, ""));
+            } else {
+                self.gap(&concern.reason, Some(&evidence), &module.module);
+            }
         }
     }
 

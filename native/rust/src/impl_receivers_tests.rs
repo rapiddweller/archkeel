@@ -196,10 +196,16 @@ fn a_generic_type_or_an_attribute_that_can_rewrite_the_item_keeps_the_gaps() {
         kept()
     );
     let on_caller = format!("#[rewrite]\n{}", caller("&self", "self.m();"));
-    assert_eq!(outcome(&m, &on_caller, &[]), kept());
+    assert_eq!(
+        outcome(&m, &on_caller, &[]),
+        (Vec::new(), names(&["", "b", "e"]))
+    );
     let on_method =
         caller("&self", "self.m();").replace("    pub fn f", "    #[rewrite]\n    pub fn f");
-    assert_eq!(outcome(&m, &on_method, &[]), kept());
+    assert_eq!(
+        outcome(&m, &on_method, &[]),
+        (Vec::new(), names(&["", "b", "e"]))
+    );
     let gates = [
         "#[cfg_attr(test, rewrite)]",
         "#[cfg_attr(test, allow::x)]",
