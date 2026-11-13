@@ -58,7 +58,7 @@ the collector. No core starts without the switch.
 
 **Needed before stage 2.** (1) Zero rules must give UNKNOWN: `report::rule` writes a PASS frame
 with zero rules (`native/report/src/ruling.rs`); today the shell refuses that frame. (2) A memory
-bound on the scan path: AD-420 resolves #1111 with a conservative per-file work charge.
+bound on the scan path: AD-420 resolves #1111 with linear input, depth and distinct-input bounds.
 The release tests hold both deep-input cases below 128 MiB and require a typed refusal.
 **Stage 2 also needs.** A lead decision to stop the Python run. Work budgets inside the
 collector. `dirty` from the core. `check` with the base reply and the contract from Git in the

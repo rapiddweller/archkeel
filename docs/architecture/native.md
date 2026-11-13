@@ -25,7 +25,7 @@ the public API of each library by name and signature. #1075 lists what the scan 
 | Crate | Role | Uses |
 |---|---|---|
 | `archkeel-wire` | The collector wire: requests, replies and source identities. | `archkeel-facts` |
-| `archkeel-snapshot` | The one owner of snapshot reads: POSIX paths, contained reads, the symlink rule, the size limit, the per-file work charge and the 64 MiB whole-scan input bound (AD-420). | `archkeel-facts` |
+| `archkeel-snapshot` | The one owner of snapshot reads: POSIX paths, contained reads, the symlink rule, the size limit, linear input and depth checks, and the 64 MiB distinct-input bound (AD-420). | `archkeel-facts` |
 | `archkeel-facts` | The one typed definition of each collector fact (AD-345). | no crate of the workspace |
 | `archkeel-store` | Validates a reply once, keeps the facts and writes `architecture.json` (AD-346). | `archkeel-facts` |
 | `archkeel-contract` | Parses contract, amendment and baseline bytes into typed values, as Python does (AD-359, AD-375, AD-386). It reads no file. | no crate of the workspace |

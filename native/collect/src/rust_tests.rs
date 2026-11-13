@@ -143,8 +143,8 @@ fn a_huge_rust_file_gives_a_named_size_gap() {
 fn deeply_nested_rust_gives_a_named_nesting_gap() {
     let text = format!(
         "fn hostile() {{ {}0{}; }}",
-        "(".repeat(2000),
-        ")".repeat(2000)
+        "(".repeat(300),
+        ")".repeat(300)
     );
     hostile_gap(&text, "Brackets nest deeper than 256");
 }

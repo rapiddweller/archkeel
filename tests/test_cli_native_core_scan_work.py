@@ -39,6 +39,33 @@ PEAK_BOUND = 128 * 1024 * 1024
 HEAD = "0123456789abcdef0123456789abcdef01234567"
 
 
+def test_the_printed_core_error_uses_its_typed_gap() -> None:
+    from archkeel.cli.core_frame import Gap
+
+    error = CoreError("untyped message", gap=Gap(GapKind.PARSE_WORK_LIMIT, "source", "too deep"))
+    assert "parse_work_limit" in str(error)
+    assert "source" in str(error)
+    assert "too deep" in str(error)
+
+
+@pytest.mark.usefixtures("install")
+def test_the_shell_diagnostic_maps_the_typed_gap_not_the_opaque_message(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from archkeel.cli.core_frame import Gap
+
+    def refused(*args: object, **kwargs: object) -> None:
+        raise CoreError("opaque message", gap=Gap(GapKind.PARSE_WORK_LIMIT, "source", "too deep"))
+
+    monkeypatch.setattr(native_core.NativeCore, "decide", refused)
+    with case_root(HONEST) as root:
+        code, result = report(root, "--native-core")
+        assert code == 2
+        assert "parse_work_limit" in diagnostics(result)
+        assert "source: too deep" in diagnostics(result)
+        assert not (root.parent / "out/architecture.json").exists()
+
+
 def canonical(root: Path) -> Path:
     text = str(root.resolve())
     # Rust canonicalize keeps the Windows verbatim prefix in a scan identity.
@@ -139,7 +166,7 @@ def test_release_scans_refuse_without_a_frame_under_the_rss_bound(
     assert peak is None or peak < bound
 
 
-def charged_input(root: Path, manifest: Path) -> int:
+def input_measurement(root: Path, manifest: Path) -> dict:
     manifest.write_text(json.dumps([("at-bound", str(canonical(root)), "archkeel.toml")]))
     done = subprocess.run(
         [
@@ -167,7 +194,7 @@ def charged_input(root: Path, manifest: Path) -> int:
         if line.startswith("SCAN_INPUT ")
     ]
     assert row["bound"] == 64 << 20
-    return int(row["charged"])
+    return row
 
 
 @pytest.mark.parametrize("language", ["typescript", "rust"])
@@ -177,18 +204,118 @@ def test_release_scan_at_64_mib_keeps_a_full_frame_under_300_mib(
     root = tmp_path / "project"
     request = project(root, 64, 0, language)
     manifest = tmp_path / "roots.json"
-    padding = (64 << 20) - charged_input(root, manifest)
+    padding = (64 << 20) - input_measurement(root, manifest)["charged"]
     suffix = "rs" if language == "rust" else "ts"
     path = root / f"src/deep0.{suffix}"
     text = path.read_text()
     text = text[:2] + "x" * padding + text[2:]
     assert 0 < padding and len(text) <= 4 << 20
     path.write_text(text)
-    assert charged_input(root, manifest) == 64 << 20
+    assert input_measurement(root, manifest)["charged"] == 64 << 20
     done, peak = measured_scan(release_core, request)
     assert done.returncode in (0, 3), done.stderr
     assert "request" in json.loads(done.stdout)["self_test"]["collect"]
     print(f"{language}: exactly 64 MiB input; peak {peak} bytes")
+    assert peak is None or peak < 300 << 20
+
+
+@pytest.mark.parametrize(
+    ("language", "scope"), [("typescript", "file"), ("rust", "file"), ("rust", "scan")]
+)
+def test_a_forbidden_edge_after_the_cut_cannot_leave_a_rule_pass(
+    release_core: Path, tmp_path: Path, language: str, scope: str
+) -> None:
+    root = tmp_path / "project"
+    request = project(root, 0, 0, language)
+    contract_path = root / "architecture-contract.json"
+    contract = json.loads(contract_path.read_text())
+    contract.pop("declarations", None)
+    owner = contract["components"][0]
+    owner.update(packages=["shop"], public=["shop"], requires=[])
+    contract["components"] = [owner]
+    later = (
+        "shop.src.zz_x5f_later_x2e_ts" if language == "typescript" else "shop.budget_probe.zz_later"
+    )
+    target = (
+        "shop.src.zz_x5f_target_x2e_ts"
+        if language == "typescript"
+        else "shop.budget_probe.zz_target"
+    )
+    contract["rules"] = [
+        {
+            "id": "LATER-FORBIDDEN",
+            "kind": "forbidden_dependency",
+            "source": later,
+            "target": target,
+            "include_type_checking": True,
+            "rationale": "The later edge must not escape the refusal.",
+            "provenance": ["test"],
+            "decided_by": "architect",
+        }
+    ]
+    contract_path.write_text(json.dumps(contract))
+    suffix = "ts" if language == "typescript" else "rs"
+    count = 70 if scope == "scan" else 1
+    for index in range(count):
+        (root / f"src/a_pad{index:03}.{suffix}").write_text("")
+    if language == "rust":
+        (root / "src/lib.rs").write_text(
+            "".join(f"mod a_pad{index:03};\n" for index in range(count))
+            + "mod zz_later;\nmod zz_target;\n"
+        )
+        (root / "src/zz_later.rs").write_text("pub fn bad() {}\n")
+        (root / "src/zz_target.rs").write_text("pub fn target() {}\n")
+    else:
+        (root / "src/zz_later.ts").write_text("export const bad = 1;\n")
+        (root / "src/zz_target.ts").write_text("export function target() { return 1; }\n")
+    stdout, _ = native_scan.exchange(str(release_core), "scan", json.dumps(request).encode())
+    assert json.loads(stdout)["rules"]["LATER-FORBIDDEN"][1] == "PASS"
+    if language == "rust":
+        (root / "src/zz_later.rs").write_text("pub fn bad() { crate::zz_target::target(); }\n")
+    else:
+        (root / "src/zz_later.ts").write_text(
+            "import { target } from './zz_target';\nexport const bad = target();\n"
+        )
+    stdout, _ = native_scan.exchange(str(release_core), "scan", json.dumps(request).encode())
+    assert json.loads(stdout)["rules"]["LATER-FORBIDDEN"][1] == "FAIL"
+    for index in range(count):
+        text = (
+            "/*" + "x" * 1_000_000 + "*/\n"
+            if scope == "scan"
+            else "(" * 1000 + "0" + ")" * 1000 + ";\n"
+        )
+        (root / f"src/a_pad{index:03}.{suffix}").write_text(text)
+    done = subprocess.run(
+        [str(release_core), "scan"],
+        input=json.dumps(request).encode(),
+        capture_output=True,
+        timeout=120,
+        check=False,
+    )
+    assert done.returncode == 2, done.stdout[:2000]
+    assert done.stdout == b"" and b"PASS" not in done.stdout
+    assert b"parse_work_limit" in done.stderr
+    assert "a_pad" in json.loads(done.stderr)["reason"]
+
+
+@pytest.mark.parametrize("shape", ["template", "jsx", "type"])
+def test_nested_grammar_constructs_stay_under_300_mib(
+    release_core: Path, tmp_path: Path, shape: str
+) -> None:
+    root = tmp_path / "project"
+    request = project(root, 0, 0)
+    depth = 60_000
+    text = {
+        "template": "const value = `text ${" + "(" * depth + "0" + ")" * depth + "}`;\n",
+        "jsx": "const value = " + "<div>" * depth + "text" + "</div>" * depth + ";\n",
+        "type": "type Value = " + "Array<" * depth + "number" + ">" * depth + ";\n",
+    }[shape]
+    suffix = "tsx" if shape == "jsx" else "ts"
+    (root / f"src/nested.{suffix}").write_text(text)
+    (root / "tsconfig.json").write_text(json.dumps({"include": ["src/**/*.ts", "src/**/*.tsx"]}))
+    done, peak = measured_scan(release_core, request)
+    assert done.returncode == 2 and done.stdout == b"", done.stderr
+    assert b"parse_work_limit" in done.stderr
     assert peak is None or peak < 300 << 20
 
 

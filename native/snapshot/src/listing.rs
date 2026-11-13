@@ -183,7 +183,7 @@ impl Snapshot {
             self.oversized.insert(rel.to_owned());
             return None;
         }
-        if !crate::work::permits(rel, &raw) {
+        if !crate::work::permits(&self.root, rel, &raw) {
             return None;
         }
         self.inputs

@@ -143,6 +143,11 @@ class CoreError(Exception):
         Exception.__init__(self, message)
         self.gap = gap
 
+    def __str__(self) -> str:
+        if self.gap is not None:
+            return f"core refusal [{self.gap.kind}]: {self.gap.subject}: {self.gap.reason}"
+        return Exception.__str__(self)
+
 
 @dataclass(frozen=True, slots=True)
 class RuleVerdict:

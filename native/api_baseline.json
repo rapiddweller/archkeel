@@ -1980,6 +1980,7 @@
   ],
   "archkeel-snapshot": [
     "const snapshot::MAX_FILE_BYTES",
+    "const work::MAX_NESTING",
     "const work::MAX_PARSE_WORK",
     "const work::MAX_SCAN_BYTES",
     "enum listing::Entry",
@@ -2013,6 +2014,8 @@
     "fn snapshot::select(&mut self,rel:&str)",
     "fn snapshot::size_gap(&self,rel:&str)->Option<String>",
     "fn work::bounded<T>(work:impl FnOnce()->T)->Result<T,WorkLimit>",
+    "fn work::depth_limit()->Option<usize>",
+    "fn work::refuse_depth(path:&str)",
     "mod paths",
     "mod work",
     "struct snapshot::Snapshot",

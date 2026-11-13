@@ -19,8 +19,7 @@ use crate::paths::{is_outside, join, normpath};
 
 const OUTSIDE: &str = "Resolver input outside snapshot";
 const SYMLINK: &str = "Resolver symlink outside snapshot";
-/// The largest file that the collector reads (AD-319). The largest TypeScript source of the React
-/// UI corpus has 92 KB, so a larger file is generated or hostile, and its gap names it.
+/// The largest file that the collector reads, including generated source (AD-319, AD-420).
 pub const MAX_FILE_BYTES: u64 = 4 * 1024 * 1024;
 
 /// A directory entry that a collector cannot read soundly (`Snapshot::hidden_entries`).
@@ -138,7 +137,7 @@ impl Snapshot {
                 None
             }
             Ok(_) => {
-                if !crate::work::permits(rel, &raw) {
+                if !crate::work::permits(&self.root, rel, &raw) {
                     return None;
                 }
                 let role = self

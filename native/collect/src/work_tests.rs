@@ -5,19 +5,6 @@
 use super::*;
 use crate::tests::{identity, repository};
 
-fn charge(bytes: &[u8]) -> u64 {
-    let (mut tokens, mut total, mut word) = (0, 0, false);
-    for &byte in bytes {
-        let next = byte.is_ascii_alphanumeric() || byte == b'_';
-        if !(byte.is_ascii_whitespace() || word && next) {
-            tokens += 1;
-        }
-        word = next;
-        total += 1 + tokens;
-    }
-    total
-}
-
 #[test]
 fn a_typescript_corpus_project_below_both_bounds_keeps_byte_equal_reply() {
     let root = repository("H-typescript");
@@ -30,18 +17,14 @@ fn a_typescript_corpus_project_below_both_bounds_keeps_byte_equal_reply() {
 }
 
 #[test]
-fn a_file_just_below_the_charge_keeps_every_fact() {
+fn a_file_just_below_the_byte_cap_keeps_every_fact() {
     let root = repository("H-typescript");
-    let prefix = format!("/*{}", "*".repeat(1020));
+    let prefix = "/*";
     let suffix = "*/\nexport const value = 1;\n";
-    let limit = archkeel_snapshot::work::MAX_PARSE_WORK;
-    let mut count = 1_000_000;
+    let count = archkeel_snapshot::MAX_FILE_BYTES as usize - prefix.len() - suffix.len() - 1;
     let source = format!("{prefix}{}{suffix}", "a".repeat(count));
-    count += ((limit - charge(source.as_bytes())) / 1024) as usize;
-    let source = format!("{prefix}{}{suffix}", "a".repeat(count));
-    assert!(charge(source.as_bytes()) <= limit);
-    let above = format!("{prefix}{}{suffix}", "a".repeat(count + 1));
-    assert!(charge(above.as_bytes()) > limit);
+    assert_eq!(source.len(), archkeel_snapshot::MAX_FILE_BYTES as usize - 1);
+    let above = "(".repeat(archkeel_snapshot::work::MAX_NESTING + 1);
     let path = root.join("src/work.ts");
     std::fs::write(&path, &source).unwrap();
     let scanned = scan(&identity(root.to_str().unwrap()), 1 << 26).unwrap();
@@ -76,11 +59,12 @@ fn measure_scan_input_from_public_corpus_roots() {
         };
         let request = serde_json::to_vec(&request(&identity, &config)).unwrap();
         let profile = config.profile;
-        let (reply, charged) = run::isolated(move || {
+        let (reply, charged, reads) = run::isolated(move || {
             let reply = reply_of(profile, &request).unwrap();
             (
                 reply,
                 archkeel_snapshot::test_tree::charged_bytes().unwrap(),
+                archkeel_snapshot::test_tree::read_bytes().unwrap(),
             )
         })
         .unwrap();
@@ -97,7 +81,7 @@ fn measure_scan_input_from_public_corpus_roots() {
         println!(
             "SCAN_INPUT {}",
             json!({
-                "case": name, "charged": charged, "distinct": distinct,
+                "case": name, "charged": charged, "distinct": distinct, "reads": reads,
                 "files": reply.facts.files.len(), "inputs": reply.facts.inputs.len(),
                 "bound": archkeel_snapshot::work::MAX_SCAN_BYTES,
             })
@@ -121,15 +105,11 @@ fn guarded_rust(request: &[u8]) -> (archkeel_facts::envelope::Reply, u64) {
 fn a_rust_project_just_below_both_bounds_keeps_every_fact() {
     use std::fs;
     let root = crate::rust_tests::repository();
-    let prefix = format!("/*{}", "*".repeat(1020));
+    let prefix = "/*";
     let suffix = "*/\npub const VALUE: u8 = 1;\n";
-    let limit = archkeel_snapshot::work::MAX_PARSE_WORK;
-    let mut count = 1_000_000;
+    let count = archkeel_snapshot::MAX_FILE_BYTES as usize - prefix.len() - suffix.len() - 1;
     let source = format!("{prefix}{}{suffix}", "a".repeat(count));
-    count += ((limit - charge(source.as_bytes())) / 1024) as usize;
-    let source = format!("{prefix}{}{suffix}", "a".repeat(count));
-    assert!(charge(source.as_bytes()) <= limit);
-    assert!(charge(format!("{prefix}a{}{suffix}", "a".repeat(count)).as_bytes()) > limit);
+    assert_eq!(source.len(), archkeel_snapshot::MAX_FILE_BYTES as usize - 1);
     fs::write(root.join("src/work.rs"), source).unwrap();
     let mut modules = "mod work;\n".to_owned();
     for number in 0..20 {

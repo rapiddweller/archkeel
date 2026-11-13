@@ -5,6 +5,58 @@
 use super::*;
 use crate::{test_tree::Tree, Snapshot};
 
+fn permits(path: &str, bytes: &[u8]) -> bool {
+    super::permits(std::path::Path::new(""), path, bytes)
+}
+
+#[test]
+fn repeated_reads_of_one_path_do_not_spend_the_retained_input_budget_again() {
+    let text = "x".repeat(1 << 20);
+    let tree = Tree::new(&[("source", &text)]);
+    let result = bounded(|| {
+        let mut snapshot = Snapshot::new(&tree.path());
+        for _ in 0..65 {
+            assert!(snapshot.read("source").is_some());
+        }
+        assert_eq!(charged_bytes(), Some(text.len() as u64));
+        assert_eq!(read_bytes(), Some(65 * text.len() as u64));
+    });
+    assert_eq!(result, Ok(()));
+}
+
+#[test]
+fn normalized_paths_count_once_but_other_roots_and_growth_still_spend_bytes() {
+    assert_eq!(
+        bounded(|| {
+            let a = std::path::Path::new("a");
+            let b = std::path::Path::new("b");
+            assert!(super::permits(a, "./source", b"123"));
+            assert!(super::permits(a, "source", b"123"));
+            assert_eq!(charged_bytes(), Some(3));
+            assert!(super::permits(b, "source", b"123"));
+            assert!(super::permits(a, "source", b"12345"));
+            assert_eq!(charged_bytes(), Some(8));
+        }),
+        Ok(())
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn distinct_source_aliases_keep_their_own_retained_input_charge() {
+    let tree = Tree::new(&[("source", "fact")]);
+    std::os::unix::fs::symlink("source", std::path::Path::new(&tree.path()).join("alias")).unwrap();
+    assert_eq!(
+        bounded(|| {
+            let mut snapshot = Snapshot::new(&tree.path());
+            assert!(snapshot.read("source").is_some());
+            assert!(snapshot.read("alias").is_some());
+            assert_eq!(charged_bytes(), Some(8));
+        }),
+        Ok(())
+    );
+}
+
 #[test]
 fn every_snapshot_read_is_checked_and_a_hit_discards_the_result() {
     let deep = "(".repeat(50_000);
@@ -27,11 +79,38 @@ fn every_snapshot_read_is_checked_and_a_hit_discards_the_result() {
 }
 
 #[test]
-fn charge_cannot_be_reset_by_quotes_comments_closers_or_word_runs() {
+fn every_byte_and_token_counts_once_not_once_per_later_byte() {
     for text in ["(", ")", "!", ".", "x ", "/* ", "\" ", "\u{e9}"] {
-        assert!(over(text.repeat(50_000).as_bytes()), "{text}");
+        let text = text.repeat((crate::MAX_FILE_BYTES as usize) / text.len());
+        assert!(!over(text.as_bytes()));
     }
     assert!(!over(&vec![b'a'; 4 << 20]));
+}
+
+#[test]
+fn actual_nesting_is_separate_from_file_width_and_literal_text() {
+    let deep = "(".repeat(MAX_NESTING + 1);
+    for wrapped in [
+        deep.clone(),
+        format!("`text ${{{deep}0}}`"),
+        format!("[{{{deep}"),
+    ] {
+        assert!(crate::nesting::over(wrapped.as_bytes(), MAX_NESTING));
+    }
+    for literal in [
+        format!("/*{deep}*/"),
+        format!("\"{deep}\""),
+        format!("'{deep}'"),
+        format!("`{deep}`"),
+        format!("r##\"text \"{deep}\"##"),
+        format!("br##\"text \"{deep}\"##"),
+    ] {
+        assert!(!crate::nesting::over(literal.as_bytes(), MAX_NESTING));
+    }
+    assert!(crate::nesting::over(
+        format!("fn f<'a>() {{ {deep}").as_bytes(),
+        MAX_NESTING
+    ));
 }
 
 #[test]
@@ -60,8 +139,8 @@ fn individually_accepted_reads_share_one_scan_budget() {
     let text = vec![b'a'; 1 << 20];
     assert!(!over(&text));
     let result = bounded(|| {
-        for _ in 0..MAX_SCAN_BYTES / text.len() as u64 {
-            assert!(bounded(|| permits("source", &text)).unwrap());
+        for index in 0..MAX_SCAN_BYTES / text.len() as u64 {
+            assert!(bounded(|| permits(&format!("source{index}"), &text)).unwrap());
         }
         assert!(!permits("next", b"a"));
     });
@@ -89,7 +168,7 @@ fn concurrent_threads_do_not_share_or_reset_each_others_budget() {
 
 #[test]
 fn the_exact_boundary_accepts_full_bytes_and_the_next_unit_refuses() {
-    assert!(!exceeds(b"(x)", 9));
-    assert!(exceeds(b"(x) ", 9));
+    assert!(!exceeds(b"(x)", 6));
+    assert!(exceeds(b"(x) ", 6));
     assert!(!over(b"import { x } from './other';"));
 }

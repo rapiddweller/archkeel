@@ -5,12 +5,15 @@
 //! A conservative parse-work charge before any in-process collector sees bytes (AD-420).
 
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex, MutexGuard};
 use std::thread::{self, ThreadId};
 
-/// The most charged work in one file. Each byte costs one plus all possible tokens before it.
-pub const MAX_PARSE_WORK: u64 = 1 << 30;
-/// The most bytes returned by all snapshot reads in one in-process collection.
+/// One unit per byte plus one per possible token, counted once: at most twice the file byte cap.
+pub const MAX_PARSE_WORK: u64 = 8 << 20;
+/// A separate depth bound for the non-linear parser and nested-fact paths.
+pub const MAX_NESTING: usize = 512;
+/// The most distinct input bytes in one in-process collection.
 pub const MAX_SCAN_BYTES: u64 = 64 << 20;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -37,7 +40,7 @@ impl std::fmt::Display for WorkLimit {
         }
         write!(
             out,
-            "parse_work_limit: {} exceeds {MAX_PARSE_WORK} charged units",
+            "parse_work_limit: {} exceeds {MAX_PARSE_WORK} byte/token units or {MAX_NESTING} nesting levels",
             self.path
         )
     }
@@ -55,6 +58,9 @@ fn limits() -> MutexGuard<'static, HashMap<ThreadId, Budget>> {
 
 struct Budget {
     remaining: u64,
+    seen: HashMap<PathBuf, u64>,
+    #[cfg(any(test, feature = "test-tree"))]
+    reads: u64,
     hit: Option<WorkLimit>,
 }
 
@@ -63,6 +69,13 @@ pub(crate) fn charged_bytes() -> Option<u64> {
     limits()
         .get(&thread::current().id())
         .map(|budget| MAX_SCAN_BYTES - budget.remaining)
+}
+
+#[cfg(any(test, feature = "test-tree"))]
+pub(crate) fn read_bytes() -> Option<u64> {
+    limits()
+        .get(&thread::current().id())
+        .map(|budget| budget.reads)
 }
 
 /// Bound every snapshot read on this thread. A hit discards the whole result, including facts
@@ -82,6 +95,9 @@ pub fn bounded<T>(work: impl FnOnce() -> T) -> Result<T, WorkLimit> {
         let owned = matches!(entry, std::collections::hash_map::Entry::Vacant(_));
         entry.or_insert(Budget {
             remaining: MAX_SCAN_BYTES,
+            seen: HashMap::new(),
+            #[cfg(any(test, feature = "test-tree"))]
+            reads: 0,
             hit: None,
         });
         owned
@@ -97,7 +113,7 @@ pub fn bounded<T>(work: impl FnOnce() -> T) -> Result<T, WorkLimit> {
     }
 }
 
-pub(crate) fn permits(path: &str, bytes: &[u8]) -> bool {
+pub(crate) fn permits(root: &Path, path: &str, bytes: &[u8]) -> bool {
     let mut limits = limits();
     let Some(budget) = limits.get_mut(&thread::current().id()) else {
         return true;
@@ -105,9 +121,16 @@ pub(crate) fn permits(path: &str, bytes: &[u8]) -> bool {
     if budget.hit.is_some() {
         return false;
     }
-    let scope = if over(bytes) {
+    #[cfg(any(test, feature = "test-tree"))]
+    {
+        budget.reads += bytes.len() as u64;
+    }
+    let key = root.join(crate::paths::normpath(path));
+    let previous = budget.seen.get(&key).copied().unwrap_or(0);
+    let extra = (bytes.len() as u64).saturating_sub(previous);
+    let scope = if over(bytes) || crate::nesting::over(bytes, MAX_NESTING) {
         Some(WorkScope::File)
-    } else if bytes.len() as u64 > budget.remaining {
+    } else if extra > budget.remaining {
         Some(WorkScope::Scan)
     } else {
         None
@@ -119,12 +142,31 @@ pub(crate) fn permits(path: &str, bytes: &[u8]) -> bool {
         });
         return false;
     }
-    budget.remaining -= bytes.len() as u64;
+    budget.remaining -= extra;
+    budget.seen.insert(key, previous + extra);
     true
 }
 
-/// Word runs count once; punctuation and non-ASCII bytes count individually. Quotes, comments
-/// and closing brackets never reduce the charge. No language lexer can hide nesting from it.
+/// A parser's actual tree depth also covers grammar constructs without paired byte delimiters.
+pub fn refuse_depth(path: &str) {
+    let mut limits = limits();
+    let Some(budget) = limits.get_mut(&thread::current().id()) else {
+        return;
+    };
+    budget.hit.get_or_insert_with(|| WorkLimit {
+        path: path.to_owned(),
+        scope: WorkScope::File,
+    });
+}
+
+/// The active in-process depth bound; standalone collectors keep their existing host bounds.
+pub fn depth_limit() -> Option<usize> {
+    limits()
+        .contains_key(&thread::current().id())
+        .then_some(MAX_NESTING)
+}
+
+/// Bytes and possible tokens each count once; a word run is one token.
 fn over(bytes: &[u8]) -> bool {
     exceeds(bytes, MAX_PARSE_WORK)
 }
@@ -137,8 +179,8 @@ fn exceeds(bytes: &[u8], budget: u64) -> bool {
             tokens += 1;
         }
         word = next_word;
-        charge += 1 + tokens;
-        if charge > budget {
+        charge += 1;
+        if charge + tokens > budget {
             return true;
         }
     }

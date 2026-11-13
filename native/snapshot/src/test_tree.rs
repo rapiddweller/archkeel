@@ -15,6 +15,11 @@ pub fn charged_bytes() -> Option<u64> {
     crate::work::charged_bytes()
 }
 
+/// Bytes checked at the read boundary, including repeats, for the distinct-input measurement.
+pub fn read_bytes() -> Option<u64> {
+    crate::work::read_bytes()
+}
+
 pub struct Tree {
     pub root: PathBuf,
 }

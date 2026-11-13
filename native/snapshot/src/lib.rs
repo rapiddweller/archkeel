@@ -12,6 +12,7 @@
 // A public item that no other crate can reach is a lie in a library.
 #![deny(unreachable_pub)]
 
+mod nesting;
 pub mod paths;
 mod snapshot;
 pub mod work;
