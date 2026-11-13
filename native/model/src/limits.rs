@@ -137,16 +137,7 @@ fn rule_limits(rule: &Rule, observed: &Observed, found: &mut Vec<Limit>) {
     let symbols = |subject: &str| symbol_limit(observed, subject);
     let id = archkeel_contract::head_of(rule).id().as_text();
     match rule {
-        Rule::InterfaceBoundary(rule) => {
-            if rule
-                .module_object_grants()
-                .iter()
-                .flatten()
-                .next()
-                .is_some()
-            {
-                found.push(Limit::Certain(id.to_owned()));
-            }
+        Rule::InterfaceBoundary(_) => {
             match observed
                 .profile_limits
                 .map(|limits| limits.interface_boundary)

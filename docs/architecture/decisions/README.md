@@ -8,6 +8,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | Decision | Title |
 |---|---|
 | AD-430 | [Delete the Python language collectors](ad-430-delete-the-python-language-collectors.md) |
+| AD-428 | [The interface import verdict needs a known binding and publication proof](ad-428-the-interface-import-verdict-needs-a-known-binding-and-publication-proof.md) |
 | AD-420 | [Bound parse work before an in-process collector reads bytes](ad-420-bound-parse-work-before-an-in-process-collector-reads-bytes.md) |
 | AD-1 | [Flat analyzer modules](ad-01-analyzer-modules-are-flat-and-singlepurpose.md) |
 | AD-2 | [One JSON type](ad-02-json-has-one-type.md) |

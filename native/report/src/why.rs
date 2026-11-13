@@ -47,6 +47,7 @@ impl WhyUnknown {
         match reason {
             Reason::Unsupported(part) => unsupported(part),
             Reason::NotComplete(cause) => not_complete(cause),
+            Reason::Interface(_) => WhyUnknown::Undecided,
             Reason::NoSubjects | Reason::UncitedChild(_) => WhyUnknown::NoReceipt,
             Reason::TooManyRows(_)
             | Reason::MissingInput(_)

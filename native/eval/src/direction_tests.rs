@@ -72,7 +72,8 @@ fn describe(violation: &Violation) -> String {
     match violation {
         Violation::Forbidden { cited, .. }
         | Violation::Peer { cited, .. }
-        | Violation::Unrequired { cited, .. } => {
+        | Violation::Unrequired { cited, .. }
+        | Violation::PrivateImport { cited, .. } => {
             format!("{} -> {}", cited.source_module, cited.target_module)
         }
         Violation::OuterLayer(layered) => {

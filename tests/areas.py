@@ -13,6 +13,7 @@ AREAS: dict[str, tuple[str, ...]] = {
     "CLI and core": (
         "test_cli*.py",
         "test_native_core.py",
+        "test_native_interface_boundary.py",
         "test_native_expected_gaps.py",
         "test_native_self_rules.py",
         "test_native_self_contract.py",

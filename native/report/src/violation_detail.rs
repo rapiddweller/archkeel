@@ -71,6 +71,48 @@ impl ViolationDetail {
                 cause: "forbidden construct",
                 evidence: row.evidence.clone(),
             },
+            // AD-428: the target names the imported symbol in the selector form `module:name`.
+            Violation::PrivateImport { cited, symbol, .. } => Self {
+                source: cited.source_module.clone(),
+                target: Some(match symbol {
+                    Some(name) => format!("{}:{name}", cited.target_module),
+                    None => cited.target_module.clone(),
+                }),
+                cause: "import outside the public interface",
+                evidence: cited.evidence.clone(),
+            },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn private_import(symbol: Option<&str>) -> Violation {
+        Violation::PrivateImport {
+            id: "VIO-1".to_owned(),
+            rule: "INTERFACE".to_owned(),
+            cited: Cited {
+                import: "IMP-1".to_owned(),
+                source_module: "app.client".to_owned(),
+                target_module: "app.impl".to_owned(),
+                evidence: vec!["EVD-1".to_owned()],
+            },
+            symbol: symbol.map(str::to_owned),
+            source_component: "COMP-CLIENT".to_owned(),
+            target_component: "COMP-SERVICE".to_owned(),
+        }
+    }
+
+    #[test]
+    fn a_private_import_names_its_source_target_symbol_and_evidence() {
+        let named = ViolationDetail::of(&private_import(Some("Secret")));
+        assert_eq!(named.source, "app.client");
+        assert_eq!(named.target.as_deref(), Some("app.impl:Secret"));
+        assert_eq!(named.cause, "import outside the public interface");
+        assert_eq!(named.evidence, ["EVD-1"]);
+        let module = ViolationDetail::of(&private_import(None));
+        assert_eq!(module.target.as_deref(), Some("app.impl"));
     }
 }

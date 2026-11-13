@@ -124,7 +124,8 @@ pub(crate) fn rows(outcomes: &[Outcome], rule: &str) -> Vec<String> {
         | Violation::Undeclared { cited, .. }
         | Violation::Forbidden { cited, .. }
         | Violation::Peer { cited, .. }
-        | Violation::Unrequired { cited, .. } => {
+        | Violation::Unrequired { cited, .. }
+        | Violation::PrivateImport { cited, .. } => {
             format!(
                 "{} -> {}",
                 short(&cited.source_module),

@@ -16,6 +16,10 @@ use archkeel_eval::{Cited, Cyclic, Layered, Outcome, Violation};
 use archkeel_model::{Graph, Model, Reason, Section};
 use serde_json::{json, Value};
 
+#[cfg(test)]
+#[path = "interface_row_tests.rs"]
+mod interface_row_tests;
+
 /// One requested section and its rows or the reason that it has none.
 pub(crate) type SectionAnswer = (Section, Result<Vec<Value>, Reason>);
 
@@ -149,9 +153,10 @@ fn row(violation: &Violation) -> Value {
             json!({"source": source, "source_module": cited.source_module,
                    "target_module": cited.target_module, "dependency": dependency}),
         ),
-        Violation::Forbidden { .. } | Violation::Peer { .. } | Violation::Unrequired { .. } => {
-            direction_record(violation)
-        }
+        Violation::PrivateImport { .. }
+        | Violation::Forbidden { .. }
+        | Violation::Peer { .. }
+        | Violation::Unrequired { .. } => direction_record(violation),
         Violation::OuterLayer(layered) => layer_record(layered),
         Violation::Cycle(cyclic) => cycle_record(cyclic),
         Violation::Construct(row) => archkeel_report::construct_row(row),
@@ -206,6 +211,19 @@ fn cycle_record(cyclic: &Cyclic) -> Value {
 /// The record of a direction violation that cites one import (slice S5, AD-380).
 fn direction_record(violation: &Violation) -> Value {
     match violation {
+        Violation::PrivateImport {
+            id,
+            rule,
+            cited,
+            symbol,
+            source_component,
+            target_component,
+        } => interface_record(
+            [id, rule],
+            cited,
+            symbol.as_deref(),
+            [source_component, target_component],
+        ),
         Violation::Forbidden {
             id,
             rule,
@@ -213,23 +231,14 @@ fn direction_record(violation: &Violation) -> Value {
             symbol,
             under_type_checking,
         } => {
-            // `".".join(filter(None, (target_module, symbol)))`
-            let target = [
-                cited.target_module.as_str(),
-                symbol.as_deref().unwrap_or(""),
-            ]
-            .into_iter()
-            .filter(|part| !part.is_empty())
-            .collect::<Vec<_>>()
-            .join(".");
-            record(
-                [id, rule, &cited.import],
-                &cited.evidence,
+            let target = target_name(cited, symbol.as_deref());
+            named_record(
+                [id, rule],
+                cited,
                 ["dependency_violations", "forbidden_dependency"],
-                &[&cited.source_module, &target],
+                &target,
                 format!("{} imports forbidden {target}", cited.source_module),
-                json!({"source_module": cited.source_module, "target_module": cited.target_module,
-                       "symbol": symbol, "under_type_checking": under_type_checking}),
+                json!({"symbol": symbol, "under_type_checking": under_type_checking}),
             )
         }
         Violation::Peer {
@@ -305,6 +314,60 @@ fn layer_record(layered: &Layered) -> Value {
                  "source_layer": source_layer, "target_layer": target_layer,
                  "rationale": rationale},
     })
+}
+
+/// The target name of an import, with an optional nonempty symbol.
+fn target_name(cited: &Cited, symbol: Option<&str>) -> String {
+    [cited.target_module.as_str(), symbol.unwrap_or("")]
+        .into_iter()
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join(".")
+}
+
+/// An interface violation retains the named target and both components.
+fn interface_record(
+    ids: [&str; 2],
+    cited: &Cited,
+    symbol: Option<&str>,
+    components: [&str; 2],
+) -> Value {
+    let [id, rule] = ids;
+    let [source_component, target_component] = components;
+    let target = target_name(cited, symbol);
+    named_record(
+        [id, rule],
+        cited,
+        ["api_surface", "interface_boundary"],
+        &target,
+        format!(
+            "{} reaches {target} outside its declared interface",
+            cited.source_module
+        ),
+        json!({"symbol": symbol, "source_component": source_component, "target_component": target_component}),
+    )
+}
+
+/// The common import fields of a violation that names a symbol.
+fn named_record(
+    ids: [&str; 2],
+    cited: &Cited,
+    names: [&str; 2],
+    target: &String,
+    title: String,
+    mut data: Value,
+) -> Value {
+    data["source_module"] = json!(cited.source_module);
+    data["target_module"] = json!(cited.target_module);
+    let [id, rule] = ids;
+    record(
+        [id, rule, &cited.import],
+        &cited.evidence,
+        names,
+        &[&cited.source_module, target],
+        title,
+        data,
+    )
 }
 
 /// A violation record that cites one import: its subjects are the two modules of the import.
