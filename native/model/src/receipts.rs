@@ -179,6 +179,11 @@ pub(crate) fn requires(
     if !roots.covers(&packages, &exact) {
         return Err(Cause::Receipt("a component domain lies outside the scan roots").into());
     }
+    ownership(model)
+}
+
+/// The one ownership-completeness proof shared by dependency and interface receipts.
+pub(crate) fn ownership(model: &Model) -> Result<(), Reason> {
     let modules = model.graph().modules();
     if modules.is_empty() {
         return Err(Reason::NoSubjects);

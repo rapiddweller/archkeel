@@ -23,3 +23,4 @@
 | 2026-11-12 | 1 | 44749e5c7 | AD-388: a pinned external collector that Python trusts and the core does not |
 | 2026-11-13 | 6 | 19bbc4282 | Name unseen attribute and custom derive expansions (#1020); eight rule verdicts change only from PASS to UNKNOWN. |
 | 2026-11-13 | 1 | 522bdc7ab | AD-424: model proven registry derives and helpers; remove 253 native expansion gaps without changing a verdict. |
+| 2026-11-13 | 1 | 48d736ff2 | AD-428: golden/typescript-synthetic-esm-forms imports IMP-b86070d06c297152 changes only data.symbols_known from false to true because the static side-effect import binds no name; all other row bytes and rule verdicts stay equal |

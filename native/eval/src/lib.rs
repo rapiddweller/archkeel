@@ -55,6 +55,7 @@ mod cycles;
 mod decide;
 mod direction;
 mod external;
+mod interface;
 mod layout;
 mod violation;
 
@@ -125,6 +126,7 @@ fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
     let found = match rule {
         Rule::CompleteAssignment(rule) => Ok(assignment::check(id, rule, model)),
         Rule::RootLayout(rule) => layout::check(id, rule, model),
+        Rule::InterfaceBoundary(rule) => Ok(interface::check(id, rule, model)),
         Rule::ExternalDependencyScope(rule) => Ok(external::dependency_scope(id, rule, model)),
         Rule::CompleteExternalScope(rule) => Ok(external::complete_scope(id, rule, rules, model)),
         Rule::ForbiddenDependency(rule) => Ok(direction::forbidden(id, rule, model)),
@@ -134,7 +136,6 @@ fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
         Rule::AllowedDependency(_) => return outcome_of(id, kind, None, Vec::new()),
         // Each kind that no slice decides names its kind; a new kind needs an arm here.
         Rule::NoComponentCycles(rule) => Ok(cycles::check(id, rule, model)),
-        Rule::InterfaceBoundary(_) => unported(kind), // S8
         Rule::ForbiddenConstruct(rule) => constructs::check(id, rule, model),
         Rule::SymbolPlacement(_) => unported(kind), // S12, Cut B
         Rule::SourceOwnership(_) => unported(kind),

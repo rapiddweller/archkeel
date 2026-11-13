@@ -37,7 +37,9 @@ pub(crate) fn expand(facts: &Facts, pending: &Pending, cited: &mut Cited, record
             Some((kept, own))
         });
         let Some((kept, own)) = bindings else {
-            records.imports.push((*item).clone());
+            let mut record = (*item).clone();
+            record.data.data_mut().symbols_known |= module_object(pending, item, target);
+            records.imports.push(record);
             records.targets.push(target.clone());
             continue;
         };
@@ -56,6 +58,27 @@ pub(crate) fn expand(facts: &Facts, pending: &Pending, cited: &mut Cited, record
             records.targets.push(target.with_import_id(&bound_id));
         }
     }
+}
+
+/// Only a static import without bindings proves a whole-module import.
+fn module_object(pending: &Pending, item: &ImportRecord, target: &Target) -> bool {
+    let Target::Local {
+        file,
+        runtime_file: Some(_),
+        ..
+    } = target
+    else {
+        return false;
+    };
+    let source = pending
+        .sites
+        .get(item.id.as_str())
+        .and_then(|s| pending.kept.get(&s.rel));
+    matches!(item.data, archkeel_facts::ImportFact::Import(_))
+        && !item.data.data().under_type_checking
+        && !pending.partial
+        && source.is_some_and(|s| !s.has_error)
+        && pending.kept.get(file).is_some_and(|d| !d.has_error)
 }
 
 /// Record the witness of a proven name once and give its id.

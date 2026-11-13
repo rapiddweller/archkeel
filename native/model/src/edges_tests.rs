@@ -19,6 +19,7 @@ use crate::imports::{split, Import, Resolved};
 
 fn import(id: &str, from: (&str, &str), to: (&str, &str), type_checking: bool) -> Import {
     Import {
+        reexport_chain: Vec::new(),
         id: id.to_owned(),
         source_module: from.0.to_owned(),
         target_module: to.0.to_owned(),

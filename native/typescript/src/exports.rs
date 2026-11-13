@@ -130,6 +130,9 @@ pub(crate) fn export_bindings(
         return Vec::new();
     }
     let mut declarations: HashMap<String, Vec<Span>> = HashMap::new();
+    let mut unproved = HashSet::new();
+    let mut types = HashSet::new();
+    let mut classes = HashSet::new();
     let mut exports: Vec<(String, Span)> = Vec::new();
     for statement in top.iter().copied() {
         let exported = cx.k(statement) == K::ExportStatement;
@@ -142,29 +145,29 @@ pub(crate) fn export_bindings(
             && !children(statement)
                 .iter()
                 .any(|child| matches!(cx.k(*child), K::Default | K::Type));
-        let candidates: Vec<Node> = match declaration {
-            Some(declaration)
-                if matches!(
-                    cx.k(declaration),
-                    K::LexicalDeclaration | K::VariableDeclaration
-                ) =>
-            {
-                named_children(declaration)
-            }
-            Some(declaration) => vec![declaration],
-            None => Vec::new(),
-        };
-        for node in candidates {
+        for node in declaration_nodes(cx, declaration) {
             let name = cx.field(node, F::Name);
-            let Some(name) = name.filter(|name| {
-                matches!(
-                    cx.k(node),
-                    K::VariableDeclarator | K::FunctionDeclaration | K::ClassDeclaration
-                ) && cx.valid_unicode_member_name(*name)
-            }) else {
+            let Some(name) = name.filter(|name| cx.valid_unicode_member_name(*name)) else {
                 continue;
             };
             let text = cx.text(name);
+            if !matches!(
+                cx.k(node),
+                K::VariableDeclarator | K::FunctionDeclaration | K::ClassDeclaration
+            ) {
+                if matches!(
+                    cx.k(node),
+                    K::TypeAliasDeclaration | K::InterfaceDeclaration | K::FunctionSignature
+                ) {
+                    types.insert(text);
+                } else {
+                    unproved.insert(text);
+                }
+                continue;
+            }
+            if cx.k(node) == K::ClassDeclaration {
+                classes.insert(text.clone());
+            }
             declarations
                 .entry(text.clone())
                 .or_default()
@@ -207,6 +210,8 @@ pub(crate) fn export_bindings(
         .iter()
         .filter(|(name, _)| {
             counts.get(name.as_str()) == Some(&1)
+                && !unproved.contains(name)
+                && !(types.contains(name) && classes.contains(name))
                 && declarations.get(name).map(Vec::len) == Some(1)
                 && frames.count(ROOT, name) == 1
         })
@@ -216,6 +221,17 @@ pub(crate) fn export_bindings(
             export: span.clone(),
         })
         .collect()
+}
+
+/// Variable declarations hold several declarators; other declarations name one binding.
+fn declaration_nodes<'tree>(cx: &Cx, declaration: Option<Node<'tree>>) -> Vec<Node<'tree>> {
+    match declaration {
+        Some(node) if matches!(cx.k(node), K::LexicalDeclaration | K::VariableDeclaration) => {
+            named_children(node)
+        }
+        Some(node) => vec![node],
+        None => Vec::new(),
+    }
 }
 
 /// `_declared_names`: the value names that one declaration publishes.

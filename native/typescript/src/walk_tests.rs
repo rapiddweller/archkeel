@@ -19,6 +19,31 @@ fn visibility_names_are_stable() {
     assert_eq!(Visibility::Private.as_str(), "private");
 }
 
+#[test]
+fn a_type_alias_does_not_remove_a_distinct_value_export_witness() {
+    for value in ["const Published = 1;", "function Published() {}"] {
+        let source = format!("export type Published = number;\nexport {value}");
+        let mut parsers = Parsers::new();
+        let parsed = parse(&mut parsers, "module.ts", source.as_bytes());
+        let exports = &parsed.syntax.module_exports;
+        assert_eq!(exports.len(), 1);
+        assert_eq!(exports[0].name, "Published");
+        assert_eq!(exports[0].declaration.line, 2);
+        assert_eq!(exports[0].export.line, 2);
+    }
+}
+
+#[test]
+fn overload_signatures_keep_the_implementation_export_witness() {
+    let source = "export function Published(x: number): number;\nexport function Published(x: number) { return x; }";
+    let mut parsers = Parsers::new();
+    let parsed = parse(&mut parsers, "module.ts", source.as_bytes());
+    let exports = &parsed.syntax.module_exports;
+    assert_eq!(exports.len(), 1);
+    assert_eq!(exports[0].name, "Published");
+    assert_eq!(exports[0].declaration.line, 2);
+}
+
 fn word<T: std::fmt::Display>(value: Option<T>) -> String {
     value.map_or_else(|| "None".to_owned(), |item| item.to_string())
 }

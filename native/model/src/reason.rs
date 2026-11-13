@@ -8,7 +8,7 @@ use std::fmt;
 
 use archkeel_contract::RuleKind;
 
-use crate::causes::{Cause, Part};
+use crate::causes::{Cause, InterfaceGap, Part};
 use crate::coverage::Incomplete;
 use crate::section::{Porting, Section};
 
@@ -69,6 +69,8 @@ pub enum Reason {
     Refused(Refusal),
     /// A cause that makes the scope incomplete in the reference engine (slice S4, AD-378).
     NotComplete(Cause),
+    /// A fact needed to decide an interface crossing is absent.
+    Interface(InterfaceGap),
 }
 
 /// Why the core refuses the settings that the shell sends with a reply (AD-372).
@@ -171,6 +173,7 @@ impl fmt::Display for Reason {
                 .write_str("the rule selects no module of the reply: no evaluator receipt exists"),
             Reason::Refused(refusal) => write!(formatter, "refused settings: {refusal}"),
             Reason::NotComplete(cause) => write!(formatter, "incomplete scope: {cause}"),
+            Reason::Interface(gap) => write!(formatter, "incomplete scope: {gap}"),
             Reason::UncitedChild(child) => write!(
                 formatter,
                 "the layout child {child} has no module record to cite"

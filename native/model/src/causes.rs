@@ -8,6 +8,24 @@
 
 use std::fmt;
 
+/// A missing fact of the interface import verdict, not a lifecycle diagnosis.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InterfaceGap {
+    UnreadBinding,
+    PublicationRoute,
+    PublicationSurface,
+}
+
+impl fmt::Display for InterfaceGap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::UnreadBinding => "interface_boundary: unread import binding",
+            Self::PublicationRoute => "interface_boundary: unproven publication route",
+            Self::PublicationSurface => "interface_boundary: incomplete publication surface",
+        })
+    }
+}
+
 /// A cause that makes the scope of a run incomplete in the reference engine for every profile.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Cause {
