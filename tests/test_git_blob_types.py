@@ -13,13 +13,9 @@ import pytest
 from test_architecture_demo import _prepare_repo
 from test_dependency_api_target import _source_members
 from test_snapshot import _committed_repository, _git, _write
-from test_uml_evaluation import _model
 
 from archkeel.check import git, snapshot
 from archkeel.check.ports import ScanConfig
-from archkeel.ir.decisions import rule_assessments
-from archkeel.ir.report_graph import architecture_report
-from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
 LEGACY = 'mode not in {b"100644", b"100755"} or kind != b"blob"'
@@ -133,109 +129,6 @@ def _native_repository(tmp_path, *, raw_owner=None, weakening=None, placement=Fa
         files["archkeel/check/" + filename] = source
     root = _prepare_repo(tmp_path, files)
     return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
-
-
-def test_actual_git_blob_target_and_scoped_guards_pass(tmp_path):
-    root, config = _native_repository(tmp_path)
-    model = _model(root, config)
-    comparison = architecture_report(model).comparison
-    assert comparison is not None and comparison.status == "PASS", comparison
-    guards = [
-        r
-        for r in rule_assessments(model, undecided_by_rule={})
-        if r.id.startswith("GIT-BLOB-TYPED-")
-    ]
-    assert len(guards) == 3
-    assert all(r.status == "PASS" and r.evaluation_proven for r in guards), guards
-    assert not trace_valid_violations(model)
-
-
-@pytest.mark.parametrize("guard", OWNERS)
-def test_actual_byte_comparisons_fail_the_unchanged_native_guard(tmp_path, guard):
-    root, config = _native_repository(tmp_path, raw_owner=guard)
-    intent = (root / "contract.json").read_bytes()
-    model = _model(root, config)
-    assessment = next(r for r in rule_assessments(model, undecided_by_rule={}) if r.id == guard)
-    assert assessment.status == "FAIL" and assessment.evaluation_proven, assessment
-    violations = [r for r in trace_valid_violations(model) if guard in r.rule_ids]
-    assert violations
-    assert all(
-        r.data.get("source")
-        == "archkeel.check." + ".".join((OWNERS[guard][0][:-3], OWNERS[guard][1]))
-        for r in violations
-    ), violations
-    assert (root / "contract.json").read_bytes() == intent
-
-
-def test_native_ingress_guard_rejects_raw_byte_dispatch_at_the_actual_port(tmp_path):
-    root, config = _native_repository(tmp_path)
-    path = root / "archkeel/check/snapshot.py"
-    source = path.read_text()
-    nominal = "return RegularGitBlobKind((mode, kind))"
-    assert nominal in source
-    path.write_text(
-        source.replace(
-            nominal,
-            'return RegularGitBlobKind.REGULAR if mode == b"100644"'
-            " else RegularGitBlobKind((mode, kind))",
-            1,
-        )
-    )
-    intent = (root / "contract.json").read_bytes()
-    model = _model(root, config)
-    guard = "GIT-BLOB-TYPED-INGRESS"
-    assessment = next(r for r in rule_assessments(model, undecided_by_rule={}) if r.id == guard)
-    assert assessment.status == "FAIL" and assessment.evaluation_proven
-    assert any(guard in r.rule_ids for r in trace_valid_violations(model))
-    assert (root / "contract.json").read_bytes() == intent
-
-
-@pytest.mark.parametrize(
-    "weakening",
-    [
-        ("mode: bytes, kind: bytes", "mode: object, kind: bytes"),
-        ("mode: bytes, kind: bytes", "mode: bytes, kind: object"),
-        (") -> RegularGitBlobKind | None:", ") -> str | None:"),
-    ],
-)
-def test_git_blob_target_rejects_actual_input_and_return_weakening(tmp_path, weakening):
-    root, config = _native_repository(tmp_path, weakening=weakening)
-    intent = (root / "contract.json").read_bytes()
-    comparison = architecture_report(_model(root, config)).comparison
-    assert comparison is not None
-    assert any(
-        r.subject_id == "GIT-BLOB-PARSER" and r.aspect == "signature" and r.status == "FAIL"
-        for r in comparison.assessments
-    ), comparison
-    assert (root / "contract.json").read_bytes() == intent
-
-
-@pytest.mark.parametrize("consumer_copy", [False, True])
-def test_git_blob_enum_placement_authorizes_only_its_existing_owner(tmp_path, consumer_copy):
-    root, config = _native_repository(tmp_path, placement=True)
-    intent = (root / "contract.json").read_bytes()
-    if consumer_copy:
-        path = root / "archkeel/check/git.py"
-        path.write_text(
-            "from enum import Enum\n"
-            + path.read_text()
-            + "\n\n"
-            + _source_members("src/archkeel/check/snapshot.py", {"RegularGitBlobKind"})
-            + "\n"
-        )
-    model = _model(root, config)
-    assessment = next(
-        r for r in rule_assessments(model, undecided_by_rule={}) if r.id == "TYPES-ENUM-IN-MODEL"
-    )
-    assert assessment.status == ("FAIL" if consumer_copy else "PASS")
-    assert assessment.evaluation_proven
-    if consumer_copy:
-        assert any(
-            "TYPES-ENUM-IN-MODEL" in r.rule_ids
-            and "archkeel.check.git.RegularGitBlobKind" in r.subjects
-            for r in trace_valid_violations(model)
-        )
-    assert (root / "contract.json").read_bytes() == intent
 
 
 @pytest.mark.parametrize("executable", [False, True])

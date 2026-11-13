@@ -12,8 +12,8 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from collector_pin import trusted
+from native_typescript import collect
 
-from archkeel.analyzer.typescript.collect import collect
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report, run_saved_report
 from archkeel.check.uml import assemble_uml

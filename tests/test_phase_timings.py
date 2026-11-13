@@ -2,15 +2,12 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 import json
-import math
 import subprocess
-import time
 from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from test_architecture_demo import _prepare_repo
 
 import tools.report_timing as report_timing
 from archkeel.check import uml
@@ -69,53 +66,6 @@ def _report(root: Path, output: Path, *extra: str) -> int:
 
 def _written_bytes(output: Path) -> dict[str, bytes]:
     return {path.name: path.read_bytes() for path in sorted(output.parent.iterdir())}
-
-
-def test_timings_file_has_six_phases_within_the_wall_time(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    root = _prepare_repo(tmp_path, {})
-    output = tmp_path / "out" / "architecture.json"
-    timings = tmp_path / "timings" / "timings.json"
-    started = time.perf_counter()
-    assert _report(root, output, "--timings", str(timings)) == 0
-    wall = time.perf_counter() - started
-    capsys.readouterr()
-    written = json.loads(timings.read_text())
-    assert set(written["phases"]) == {phase.value for phase in Phase}
-    assert all(math.isfinite(seconds) and seconds >= 0 for seconds in written["phases"].values())
-    assert sum(written["phases"].values()) <= wall
-
-
-def test_timings_do_not_change_architecture_pages_or_json_result(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    root = _prepare_repo(tmp_path, {})
-    output = tmp_path / "out" / "architecture.json"
-    assert _report(root, output) == 0
-    plain_stdout = capsys.readouterr().out
-    plain_files = _written_bytes(output)
-    timings = tmp_path / "timings" / "timings.json"
-    assert _report(root, output, "--timings", str(timings)) == 0
-    assert capsys.readouterr().out == plain_stdout
-    assert _written_bytes(output) == plain_files
-    assert timings.is_file()
-
-
-def test_counters_are_equal_for_two_runs_on_the_same_input(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    root = _prepare_repo(tmp_path, {})
-    output = tmp_path / "out" / "architecture.json"
-    first = tmp_path / "timings" / "first.json"
-    second = tmp_path / "timings" / "second.json"
-    assert _report(root, output, "--timings", str(first)) == 0
-    assert _report(root, output, "--timings", str(second)) == 0
-    capsys.readouterr()
-    counters = json.loads(first.read_text())["counters"]
-    assert counters == json.loads(second.read_text())["counters"]
-    assert counters["files_parsed"] > 0
-    assert counters["records"] > 0
 
 
 def test_failed_run_writes_no_timings_file(

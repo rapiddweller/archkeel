@@ -17,7 +17,7 @@ from test_architecture_demo import _prepare_repo
 from archkeel.check.validation import run_validate
 from archkeel.cli.observe import observe
 from archkeel.ir.baseline import KnownViolation, ViolationFingerprint
-from archkeel.ir.codec import amendment_bytes, baseline_bytes, contract_digest, parse_amendment
+from archkeel.ir.codec import amendment_bytes, contract_digest, parse_amendment
 from archkeel.ir.model import (
     RULE_KINDS,
     AllowedDependencyRule,
@@ -64,7 +64,7 @@ from archkeel.ir.widening import (
     verify_amendment,
 )
 from archkeel.ir.widening_rules import PERMISSION_RULE_KINDS, RESTRICTION_RULE_KINDS
-from fixtures.demo_catalog_support import FIXTURE_DIR, apply_overlay, contract_rule_field
+from fixtures.demo_catalog_support import FIXTURE_DIR, contract_rule_field
 
 _PROVENANCE = ("docs/architecture/shop.md",)
 
@@ -902,142 +902,6 @@ _WIDEN_ALLOWED_SOURCES = {
 }
 
 
-def test_validate_without_against_is_unchanged(tmp_path: Path) -> None:
-    """AD-61 (#11): passing no --against must not change a single existing behaviour."""
-    root, _base = _repo_at_two_revisions(tmp_path, {})
-    with_default, files_with_default = run_validate(root, SHOP_CONFIG, observe)
-    explicit_none, files_explicit_none = run_validate(root, SHOP_CONFIG, observe, against=None)
-    assert with_default == explicit_none
-    assert dict(files_with_default.entries) == dict(files_explicit_none.entries) == {}
-
-
-def test_a_widening_fails_and_names_the_field(tmp_path: Path) -> None:
-    root, base = _repo_at_two_revisions(tmp_path, {})
-    apply_overlay(root, dict(_WIDEN_ALLOWED_SOURCES))
-
-    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
-
-    assert result.exit_code == 1, result.diagnostics
-    assert result.diagnostics == ()
-    assert result.failures == (
-        "rule DEP-APP-NO-STORE-SQLITE.allowed_sources gained 'shop.app.orders'",
-    )
-
-
-def test_adding_an_exact_boundary_allowance_widens_against(tmp_path: Path) -> None:
-    root, base = _repo_at_two_revisions(tmp_path, {})
-    allowance = {
-        "qualified_name": "shop.app.orders.place_order",
-        "position": "return",
-        "field_path": "payload",
-        "annotation": "dict[str, JsonValue]",
-    }
-    entities_path = root / "shop/model/entities.py"
-    entities = entities_path.read_text()
-    entities = entities.replace(
-        "class Order:\n    order_id: str",
-        "class Order:\n    payload: dict[str, JsonValue]\n    order_id: str",
-    )
-    apply_overlay(
-        root,
-        {
-            "architecture-contract.json": contract_rule_field(
-                "APP-TYPES-NOT-DICT", allowed_positions=[allowance]
-            ),
-            "shop/model/entities.py": entities,
-        },
-    )
-
-    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
-
-    assert result.exit_code == 1, result.diagnostics
-    assert any(
-        "APP-TYPES-NOT-DICT.allowed_positions gained" in failure for failure in result.failures
-    )
-
-
-def test_a_widening_with_a_valid_amendment_passes(tmp_path: Path) -> None:
-    root, base = _repo_at_two_revisions(tmp_path, {})
-    apply_overlay(root, dict(_WIDEN_ALLOWED_SOURCES))
-    amendment_path = root / "widening-amendment.json"
-
-    write_result, write_files = run_validate(
-        root,
-        SHOP_CONFIG,
-        observe,
-        against=base,
-        amendment=amendment_path,
-        write_amendment=True,
-        decided_by="Jordan (architect)",
-        rationale="Orders needs the sqlite exemption during the migration.",
-    )
-    assert write_result.exit_code == 0, write_result.diagnostics
-    amendment_path.write_bytes(dict(write_files.entries)[str(amendment_path)])
-
-    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base, amendment=amendment_path)
-    assert (result.exit_code, result.failures) == (0, ())
-
-
-def test_amendment_write_without_a_path_preserves_widenings(tmp_path: Path) -> None:
-    root, base = _repo_at_two_revisions(tmp_path, {})
-    apply_overlay(root, dict(_WIDEN_ALLOWED_SOURCES))
-
-    result, files = run_validate(
-        root,
-        SHOP_CONFIG,
-        observe,
-        against=base,
-        write_amendment=True,
-        decided_by="Jordan (architect)",
-        rationale="Orders needs the sqlite exemption during the migration.",
-    )
-
-    assert result.exit_code == 1
-    assert result.failures == (
-        "rule DEP-APP-NO-STORE-SQLITE.allowed_sources gained 'shop.app.orders'",
-    )
-    assert result.widenings
-    assert result.amendment_status is None
-    assert result.artifact is None
-    assert not files.entries
-
-
-def test_the_same_amendment_against_a_different_change_fails(tmp_path: Path) -> None:
-    root, base = _repo_at_two_revisions(tmp_path, {})
-    apply_overlay(root, dict(_WIDEN_ALLOWED_SOURCES))
-    amendment_path = root / "widening-amendment.json"
-    _, write_files = run_validate(
-        root,
-        SHOP_CONFIG,
-        observe,
-        against=base,
-        amendment=amendment_path,
-        write_amendment=True,
-        decided_by="Jordan (architect)",
-        rationale="Orders needs the sqlite exemption during the migration.",
-    )
-    amendment_path.write_bytes(dict(write_files.entries)[str(amendment_path)])
-
-    # A second, larger widening: the amendment was written for the smaller change above.
-    apply_overlay(
-        root,
-        {
-            "architecture-contract.json": contract_rule_field(
-                "DEP-APP-NO-STORE-SQLITE",
-                allowed_sources=["shop.app.maintenance", "shop.app.orders", "shop.model.entities"],
-            )
-        },
-    )
-
-    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base, amendment=amendment_path)
-
-    assert result.exit_code == 1
-    assert result.failures == (
-        "rule DEP-APP-NO-STORE-SQLITE.allowed_sources gained 'shop.app.orders'",
-        "rule DEP-APP-NO-STORE-SQLITE.allowed_sources gained 'shop.model.entities'",
-    )
-
-
 def test_an_unresolvable_against_revision_is_exit_two(tmp_path: Path) -> None:
     root, _base = _repo_at_two_revisions(tmp_path, {})
 
@@ -1069,79 +933,6 @@ def test_a_malformed_amendment_file_is_exit_two(tmp_path: Path) -> None:
     assert [item.code for item in result.diagnostics] == ["amendment.invalid"]
 
 
-def test_a_padded_baseline_entry_widens_the_contract(tmp_path: Path) -> None:
-    """AD-61 (#11): the baseline is part of the contract's surface, checked the same way."""
-    root, _base = _repo_at_two_revisions(tmp_path, {})
-    baseline_path = root / "known-violations.json"
-    baseline_path.write_bytes(baseline_bytes(()))
-    _git(root, "add", "-A")
-    _git(root, "commit", "-q", "-m", "empty baseline")
-    base_with_baseline = _git(root, "rev-parse", "HEAD")
-
-    fingerprint = ViolationFingerprint(("CONSTRUCT-NO-DYNAMIC",), ("shop.model.probe.read",))
-    baseline_path.write_bytes(baseline_bytes((KnownViolation(fingerprint, 1),)))
-
-    result, _ = run_validate(
-        root, SHOP_CONFIG, observe, against=base_with_baseline, baseline=baseline_path
-    )
-
-    assert result.exit_code == 1
-    assert "baseline entry widened: CONSTRUCT-NO-DYNAMIC | shop.model.probe.read" in " ".join(
-        result.failures
-    )
-
-
-def test_role_only_baseline_drift_fails_against_with_the_same_fingerprint_and_count(
-    tmp_path: Path,
-) -> None:
-    fingerprint = ViolationFingerprint(
-        ("DEP-IMPORT",), ("shop.app.orders.summarize", "shop.cli.main")
-    )
-    root, _base = _repo_at_two_revisions(tmp_path, {})
-    baseline_path = root / "known-violations.json"
-    baseline_path.write_bytes(
-        baseline_bytes((KnownViolation(fingerprint, 1, (("shop.cli.main", "shop.app.orders"),)),))
-    )
-    _git(root, "add", "-A")
-    _git(root, "commit", "-q", "-m", "baseline role")
-    base_with_baseline = _git(root, "rev-parse", "HEAD")
-    baseline_path.write_bytes(
-        baseline_bytes(
-            (KnownViolation(fingerprint, 1, (("shop.cli.main", "shop.app.orders.extra"),)),)
-        )
-    )
-
-    result, _ = run_validate(
-        root, SHOP_CONFIG, observe, against=base_with_baseline, baseline=baseline_path
-    )
-
-    assert result.exit_code == 1
-    assert (
-        "baseline entry roles changed: DEP-IMPORT | "
-        "shop.app.orders.summarize shop.cli.main "
-        "(shop.cli.main -> shop.app.orders before; "
-        "shop.cli.main -> shop.app.orders.extra now)" in result.failures
-    )
-
-
-def test_a_shrunk_baseline_entry_is_narrowing_and_passes(tmp_path: Path) -> None:
-    fingerprint = ViolationFingerprint(("CONSTRUCT-NO-DYNAMIC",), ("shop.model.probe.read",))
-    root, _base = _repo_at_two_revisions(tmp_path, {})
-    baseline_path = root / "known-violations.json"
-    baseline_path.write_bytes(baseline_bytes((KnownViolation(fingerprint, 1),)))
-    _git(root, "add", "-A")
-    _git(root, "commit", "-q", "-m", "padded baseline")
-    base_with_baseline = _git(root, "rev-parse", "HEAD")
-
-    baseline_path.write_bytes(baseline_bytes(()))
-
-    result, _ = run_validate(
-        root, SHOP_CONFIG, observe, against=base_with_baseline, baseline=baseline_path
-    )
-
-    assert (result.exit_code, result.failures) == (0, ())
-
-
 _BOUNDARY_ALLOWANCE = {
     "qualified_name": "shop.app.orders.summarize",
     "position": "return",
@@ -1158,87 +949,6 @@ def _boundary_allowance_contract(allowed_positions: list[dict[str, str]]) -> str
     else:
         rule.pop("allowed_positions", None)
     return json.dumps(raw, indent=2) + "\n"
-
-
-@pytest.mark.parametrize(
-    "allowance",
-    [
-        _BOUNDARY_ALLOWANCE,
-        {
-            "qualified_name": "shop.app.orders.summarize",
-            "position": "return",
-            "annotation": "dict[str, str]",
-        },
-        {
-            "qualified_name": "shop.app.orders.summarize",
-            "position": "payload",
-            "annotation": "object",
-        },
-        {
-            "qualified_name": "shop.app.orders.summarize",
-            "position": "return",
-            "annotation": "object | None",
-        },
-    ],
-    ids=["nested", "omitted-root", "opaque-native-payload", "nullable-native-payload"],
-)
-def test_boundary_type_allowance_addition_needs_amendment(
-    tmp_path: Path, allowance: dict[str, str]
-) -> None:
-    root, base = _repo_at_two_revisions(tmp_path, {})
-    apply_overlay(root, {"architecture-contract.json": _boundary_allowance_contract([allowance])})
-
-    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
-
-    assert result.exit_code == 1
-    assert result.failures
-
-
-def test_omitting_an_existing_empty_boundary_path_is_not_a_widening(tmp_path: Path) -> None:
-    allowance = {**_BOUNDARY_ALLOWANCE, "field_path": ""}
-    root, base = _repo_at_two_revisions(
-        tmp_path,
-        {"architecture-contract.json": _boundary_allowance_contract([allowance])},
-    )
-    del allowance["field_path"]
-    apply_overlay(root, {"architecture-contract.json": _boundary_allowance_contract([allowance])})
-
-    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
-
-    assert (result.exit_code, result.failures) == (0, ())
-
-
-def test_boundary_type_allowance_broadening_needs_amendment(tmp_path: Path) -> None:
-    broader = {**_BOUNDARY_ALLOWANCE, "annotation": "dict[str, Any]"}
-    root, base = _repo_at_two_revisions(
-        tmp_path,
-        {"architecture-contract.json": _boundary_allowance_contract([_BOUNDARY_ALLOWANCE])},
-    )
-    apply_overlay(
-        root,
-        {
-            "architecture-contract.json": _boundary_allowance_contract(
-                [_BOUNDARY_ALLOWANCE, broader]
-            )
-        },
-    )
-
-    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
-
-    assert result.exit_code == 1
-    assert result.failures
-
-
-def test_boundary_type_allowance_removal_is_narrowing(tmp_path: Path) -> None:
-    root, base = _repo_at_two_revisions(
-        tmp_path,
-        {"architecture-contract.json": _boundary_allowance_contract([_BOUNDARY_ALLOWANCE])},
-    )
-    apply_overlay(root, {"architecture-contract.json": _boundary_allowance_contract([])})
-
-    result, _ = run_validate(root, SHOP_CONFIG, observe, against=base)
-
-    assert (result.exit_code, result.failures) == (0, ())
 
 
 def test_string_field_text_preserves_characters_when_str_is_decorated() -> None:

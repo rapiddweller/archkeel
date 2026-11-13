@@ -3,18 +3,13 @@
 # SPDX-License-Identifier: MIT
 """AD-15: open_decisions derives undecided component pairs from one observation alone."""
 
-import json
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from test_architecture_demo import _prepare_repo
 
 from archkeel.check.ports import ScanConfig
-from archkeel.check.report import run_report
-from archkeel.check.validation.closed_world import closed_world_diagnostics
-from archkeel.cli.observe import observe
-from archkeel.ir.codec import decode_canonical_model, decode_json, parse_contract, parse_observation
+from archkeel.ir.codec import decode_json, parse_contract
 from archkeel.ir.decisions import (
     RuleUncertaintyCause,
     agent_decisions,
@@ -22,7 +17,6 @@ from archkeel.ir.decisions import (
     open_decision_summary,
     open_decisions,
     rule_uncertainty_evidence,
-    violation_counts,
 )
 from archkeel.ir.model import (
     AllowedDependencyRule,
@@ -37,8 +31,6 @@ from archkeel.ir.model import (
     Section,
     SourceInfo,
 )
-from fixtures.architecture_demo import CATALOG
-from fixtures.demo_catalog_support import contract_rule_field, contract_without_rule
 
 CONFIG = ScanConfig(("shop",), "shop", "architecture-contract.json", "0" * 64)
 ROOT = Path(__file__).parents[1]
@@ -340,24 +332,6 @@ def test_component_level_dependency_rule_ids_match_dependency_rule_ids(
         assert rule.id == expected
 
 
-def test_open_decisions_reports_the_pair_left_undecided_by_a_removed_allowed_rule(
-    tmp_path: Path,
-) -> None:
-    root = _prepare_repo(
-        tmp_path, {"architecture-contract.json": contract_without_rule("DEP-STORE-ALLOWS-MODEL")}
-    )
-    _, architecture = run_report(root, config=CONFIG, analyzer=observe)
-    assert architecture is not None
-    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
-
-    decisions = open_decisions(observation)
-
-    assert [(item.source, item.target) for item in decisions] == [("store", "model")]
-    assert decisions[0].observed is True
-    # repository imports Order; codec imports Order and OrderPayload.
-    assert decisions[0].import_sites == 3
-
-
 def test_open_decision_summary_counts_all_pairs_but_materializes_observed_only() -> None:
     components = tuple((f"module_{index}", (f"sample.module_{index}",)) for index in range(100))
     observation = _observation((_module_edge("sample.module_0.a", "sample.module_1.b", 2),))
@@ -374,46 +348,6 @@ def test_open_decision_summary_counts_all_pairs_but_materializes_observed_only()
     summary, total = open_decision_summary(observation, small_components)
     assert total == len(full)
     assert summary == tuple(item for item in full if item.observed)
-
-
-def test_validation_and_open_decisions_agree_on_undecided_pairs(tmp_path: Path) -> None:
-    root = _prepare_repo(
-        tmp_path, {"architecture-contract.json": contract_without_rule("DEP-STORE-ALLOWS-MODEL")}
-    )
-    _, architecture = run_report(root, config=CONFIG, analyzer=observe)
-    assert architecture is not None
-    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
-    contract = parse_contract(decode_json((root / "architecture-contract.json").read_bytes()))
-
-    decisions = open_decisions(observation)
-    diagnostics = closed_world_diagnostics(contract, observation)
-    open_diagnostics = [item for item in diagnostics if item.code == "decision.open"]
-    assert [(item.source, item.target) for item in decisions] == [("store", "model")]
-    assert len(open_diagnostics) == 1
-    assert open_diagnostics[0].subject == "1 open dependency decision"
-    assert open_diagnostics[0].pointer == "/components"
-    assert "requires" in open_diagnostics[0].remedy
-    assert "complete_requires" in open_diagnostics[0].remedy
-
-
-def test_agent_decisions_counts_one_flipped_rule_from_the_observation(tmp_path: Path) -> None:
-    """AD-16: a mixed contract's count comes from the observation, not a second contract read."""
-    root = _prepare_repo(
-        tmp_path,
-        {
-            "architecture-contract.json": contract_rule_field(
-                "DEP-MODEL-NO-STORE", decided_by="agent"
-            )
-        },
-    )
-    _, architecture = run_report(root, config=CONFIG, analyzer=observe)
-    assert architecture is not None
-    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
-
-    # 47 rules above the level (AD-11, issue #47) plus the one store's inside declares
-    # (AD-36); 8 declared public lists and the inside's 3 requires entries are decisions too
-    # (AD-50).
-    assert agent_decisions(observation) == (1, 59)
 
 
 def test_agent_decisions_counts_requires_entries_and_public_lists() -> None:
@@ -477,60 +411,3 @@ def test_open_decisions_counts_import_sites_for_components_with_split_or_nested_
         ("alpha", "beta", 1),
     ]
     assert all(item.observed for item in decisions)
-
-
-def test_violation_counts_group_the_report_by_rule_and_by_crossing_pair(tmp_path: Path) -> None:
-    """AD-51: both breakdowns come from the violation records the report already carries."""
-    tour = next(variant for variant in CATALOG if variant.id == "tour")
-    root = _prepare_repo(tmp_path, dict(tour.files))
-    result, architecture = run_report(root, config=CONFIG, analyzer=observe)
-    assert architecture is not None
-    observation = parse_observation(decode_canonical_model(json.loads(architecture)))
-
-    counts = violation_counts(observation)
-
-    violations = observation.records("violations") or ()
-    assert sum(count for _, count in counts.by_rule) == len(violations)
-    assert counts.by_rule == (
-        ("CONSTRUCT-NO-DYNAMIC", 2),
-        ("APP-NO-LITERAL-ORDER-ID", 1),
-        ("APP-OPTION-KEY", 1),
-        ("APP-OPTION-KEY-USED", 1),
-        ("APP-TYPES-NOT-DICT", 1),
-        ("ASSIGNMENT-COMPLETE", 1),
-        ("CALL-DESCRIBE-NO-MAINTENANCE", 1),
-        ("COMPONENT-NO-CYCLES", 1),
-        ("CONSTRUCT-NO-ANY", 1),
-        ("CONSTRUCT-NO-ASSERT", 1),
-        ("CONSTRUCT-NO-BROAD-EXCEPT", 1),
-        ("DEP-APP-NO-STORE-BACKEND", 1),
-        ("DEP-APP-NO-STORE-SQLITE", 1),
-        ("DEP-MODEL-NO-RENDER", 1),
-        ("DEP-RENDER-NO-STORE", 1),
-        ("DEP-STORE-NO-MONEY", 1),
-        ("EFFECT-NO-TOKEN-WHEN-SEEDED", 1),
-        ("EXTERNAL-COMPLETE", 1),
-        ("EXTERNAL-JSON-STORE", 1),
-        ("INTERFACE-BOUNDARY", 1),
-        ("LAYERS-MODEL", 1),
-        ("MODEL-NONCE-OWNER", 1),
-        ("MODEL-NONCE-WIDTH", 1),
-        ("MODEL-TYPES-IN-ENTITIES", 1),
-        ("ROOT-LAYOUT", 1),
-        ("STORE-PEERS-ISOLATED", 1),
-        ("STORE-READER-DECLARATION", 1),
-        ("store:STORE-REQUIRES-COMPLETE", 1),
-    )
-    # Direction comes from each record's source_module/target_module: `subjects` is sorted,
-    # so DEP-STORE-NO-MONEY would otherwise read as model -> store.
-    assert counts.by_component_pair == (
-        ("app", "store", 2),
-        ("cli", "render", 1),
-        ("model", "render", 1),
-        ("render", "store", 1),
-        ("store", "model", 1),
-    )
-    assert (result.violations_by_rule, result.violations_by_component_pair) == (
-        counts.by_rule,
-        counts.by_component_pair,
-    )

@@ -78,17 +78,3 @@ def test_provenance_paths_are_the_locations_paths() -> None:
     assert contract_provenance_paths(contract) == tuple(
         sorted({path for _, paths in contract_provenance_locations(contract) for path in paths})
     )
-
-
-@pytest.mark.parametrize("contract_file", ["architecture-contract.json", "contracts/checkout.json"])
-def test_a_placeholder_rationale_fails_in_root_and_mounted_contracts(
-    tmp_path: Path, contract_file: str
-) -> None:
-    # #630: a mounted contract is decided the way the top level is.
-    document = json.loads((REVIEW_FIXTURE / contract_file).read_text())
-    document["rules"][0]["rationale"] = "TODO: explain."
-    root = _prepare_repo(tmp_path, {contract_file: json.dumps(document)}, fixture=REVIEW_FIXTURE)
-
-    result, _ = run_validate(root, REVIEW_CONFIG, observe)
-
-    assert [item.code for item in result.diagnostics] == ["rationale.placeholder"]

@@ -17,25 +17,17 @@ from pathlib import Path
 
 import jsonschema
 import pytest
+from report_payload_support import CASES, EXPLORE, EXPLORE_ARGS
 
 from archkeel.cli import main
-from archkeel.report.payload import Evaluation, PayloadTooLarge, build_payload, codes, evaluation
-from archkeel.report.payload.__main__ import default_output
-from archkeel.report.payload.__main__ import main as payload_main
+from archkeel.report.payload import Evaluation, build_payload, codes, evaluation
 from archkeel.report.payload.canonical import encode
-from archkeel.report.payload.codes import GAP, MEASURE, MEASURE_STATE
+from archkeel.report.payload.codes import GAP, MEASURE
 from archkeel.report.payload.records import SECTIONS
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = json.loads((ROOT / "schema" / "report-2.0.schema.json").read_text(encoding="utf-8"))
 VALIDATOR = jsonschema.Draft202012Validator(SCHEMA)
-CONFIGS = sorted(
-    str(path.relative_to(ROOT))
-    for pattern in ("fixtures/*/archkeel*.toml", "fixtures/*/*/archkeel*.toml")
-    for path in ROOT.glob(pattern)
-)
-EXPLORE = "explore:fixtures/N-explore"
-CASES = (*CONFIGS, EXPLORE)
 
 
 @cache
@@ -43,7 +35,7 @@ def _run(case: str, workdir: str) -> tuple[bytes, str]:
     """Run the current report once per case and return architecture.json and its result line."""
     output = Path(workdir) / case.replace("/", "_").replace(":", "_") / "architecture.json"
     if case == EXPLORE:
-        argv = ["explore", "--root", str(ROOT / case.split(":", 1)[1])]
+        argv = [*EXPLORE_ARGS, "--root", str(ROOT / case.split(":", 1)[1])]
     else:
         config = ROOT / case
         argv = ["report", "--root", str(config.parent), "--config", config.name]
@@ -120,85 +112,6 @@ def test_payload_is_valid_canonical_and_equals_the_printed_summary(case: str, wo
     }
     assert summary["counts"]["modules"] == len(document["modules"])
     assert (payload["run"]["contract"] is None) == (case == EXPLORE)
-
-
-def test_a_run_without_contract_marks_every_declaration_measure_undeclared(workdir: str) -> None:
-    raw, line = _run(EXPLORE, workdir)
-    payload = json.loads(build_payload(json.loads(raw), evaluation(json.loads(line))))
-    measures = payload["measures"]
-    rows = {
-        MEASURE[d]: (MEASURE_STATE[s], GAP[g])
-        for n, d, s, g in zip(
-            measures["node"], measures["def"], measures["state"], measures["gap"], strict=True
-        )
-        if n == 0 and g >= 0
-    }
-
-    assert payload["summary"]["status"] == "UNKNOWN"
-    assert rows["R.owned"] == rows["I.api"] == rows["D.declared"] == ("undeclared", "G-NO-CONTRACT")
-    assert all(not item["does"] and not item["never"] for item in payload["components"])
-    assert set(payload["edges"]["target"]) == {0}
-
-
-def test_the_producer_never_reads_transitive_paths_calls_or_references(workdir: str) -> None:
-    raw, line = _run("fixtures/K-python-realworld/archkeel.toml", workdir)
-    document = json.loads(raw)
-    verdicts = evaluation(json.loads(line))
-    poisoned = dict(document)
-    for name in (
-        "transitive_paths",
-        "calls",
-        "references",
-        "bindings",
-        "typing_signals",
-        "path_observations",
-    ):
-        poisoned[name] = "not a section"
-
-    assert build_payload(poisoned, verdicts) == build_payload(document, verdicts)
-
-
-def test_an_unevaluated_budget_rule_gives_no_verdict(workdir: str) -> None:
-    raw, line = _run("fixtures/K-python-realworld/archkeel.toml", workdir)
-    document = json.loads(raw)
-    verdicts = evaluation(json.loads(line))
-    unproven = replace(
-        verdicts,
-        rules=tuple(
-            replace(rule, verdict="UNKNOWN", evaluated=False, violations=0, reason="no_receipt")
-            for rule in verdicts.rules
-        ),
-    )
-
-    proven = json.loads(build_payload(document, verdicts))["measures"]
-    blind = json.loads(build_payload(document, unproven))["measures"]
-
-    assert any(v > 0 for v in proven["verdict"])
-    assert set(blind["verdict"]) == {0} and set(blind["budget_source"]) == {-1}
-
-
-def test_the_payload_fails_above_its_budget_and_never_truncates(workdir: str) -> None:
-    raw, line = _run("fixtures/H-uml/archkeel.toml", workdir)
-
-    with pytest.raises(PayloadTooLarge, match="above the budget of 100"):
-        build_payload(json.loads(raw), evaluation(json.loads(line)), max_bytes=100)
-
-
-def test_the_module_entry_writes_next_to_the_report_and_leaves_it_unchanged(
-    workdir: str, tmp_path: Path
-) -> None:
-    raw, line = _run("fixtures/H-uml/archkeel.toml", workdir)
-    architecture = tmp_path / "architecture.json"
-    architecture.write_bytes(raw)
-    result = tmp_path / "result.json"
-    result.write_text(line, encoding="utf-8")
-
-    assert payload_main([str(architecture), "--result", str(result)]) == 0
-    assert default_output(architecture) == tmp_path / "architecture.report-v2.json"
-    assert default_output(architecture).read_bytes() == build_payload(
-        json.loads(raw), evaluation(json.loads(line))
-    )
-    assert architecture.read_bytes() == raw
 
 
 def test_the_schema_code_lists_and_catalogues_equal_the_producer() -> None:

@@ -245,8 +245,6 @@ def test_the_system_node_names_each_gap_that_blocks_a_measure(case: str, workdir
     ("case", "language"),
     [
         ("fixtures/H-typescript/archkeel.toml", "typescript"),
-        ("fixtures/G-dart/archkeel.toml", "dart"),
-        ("fixtures/K-python-realworld/archkeel.toml", "python"),
     ],
 )
 def test_the_run_names_the_collected_language(case: str, language: str, workdir: str) -> None:

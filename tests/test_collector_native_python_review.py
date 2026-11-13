@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from native_python import _minor, _native, _write
 from python_refusal_probes import compiler_refuses
-from test_collector_native_python_parse import _minor, _native, _write
 
 ROOT = Path(__file__).parents[1]
 CASES = json.loads((ROOT / "tests/python_compile_refusals.json").read_text())["sources"]

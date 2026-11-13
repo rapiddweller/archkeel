@@ -1,6 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+# ruff: noqa: E402
 """#880 PR 8 slices 1 and 3a: the native Dart discovery and parse sections equal Python.
 
 Consumer: the host, which reads the inputs, the file facts and the gaps of a Dart reply. The
@@ -20,6 +21,9 @@ import sys
 from pathlib import Path
 
 import pytest
+from oracle_support import ORACLE_UNAVAILABLE
+
+pytest.skip(ORACLE_UNAVAILABLE, allow_module_level=True)
 from conftest import install_rust_toolchain
 
 from archkeel.check.ports import Language, ProducerKind

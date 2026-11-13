@@ -1,5 +1,12 @@
 # Archkeel reference
 
+## Support during the native-core change
+
+Main supports Rust and TypeScript projects. Python and Dart projects are not supported in this version; use archkeel 4.0.1.
+Unsupported profiles give exit 2 before collection. This applies to check, report, validate, explore, init, baseline operations and saved facts.
+There is no partial PASS for mixed configurations. Native Python and Dart support returns only after the store accepts their replies.
+See AD-430. Historical Python and Dart examples below apply to 4.0.1, not main.
+
 Use `archkeel <command> --help` for exact options. [Onboarding](onboarding.md)
 sets up policy; [target-first](target-first.md) maintains it.
 

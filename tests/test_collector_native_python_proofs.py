@@ -1,6 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+# ruff: noqa: E402
 """Compare the import-local proofs needed by member convergence (AD-404)."""
 
 from __future__ import annotations
@@ -17,13 +18,16 @@ from time import perf_counter
 from typing import Any
 
 import pytest
+from oracle_support import ORACLE_UNAVAILABLE
+
+pytest.skip(ORACLE_UNAVAILABLE, allow_module_level=True)
+from archkeel.analyzer.python.imports import collect_imports
 from first_difference import same
 from python_proof_costs import COSTS, EXTRA_COSTS
 from test_collector_native_python_parse import _minor
 from test_collector_native_python_scope import _FIXTURES
 
 from archkeel.analyzer.python import source as s
-from archkeel.analyzer.python.imports import collect_imports
 
 
 def _python(root: Path, rel: str) -> dict[str, Any] | None:

@@ -1,32 +1,13 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-import hashlib
-from dataclasses import FrozenInstanceError
 from pathlib import Path
 
 import pytest
 from test_snapshot import _committed_repository, _git
 
 from archkeel.check.git import GitError
-from archkeel.check.ports import ScanConfig
 from archkeel.cli.config import ConfigError, load_check_config, load_config, parse_config
-
-
-def test_parse_config_returns_frozen_scan_config() -> None:
-    payload = (
-        b'[scan]\nroots = ["backend", "shared"]\nnamespace = "backend"\n'
-        b'contract = "docs/architecture/contract.json"\n'
-    )
-    config = parse_config(payload)
-    assert config == ScanConfig(
-        ("backend", "shared"),
-        "backend",
-        "docs/architecture/contract.json",
-        hashlib.sha256(payload).hexdigest(),
-    )
-    with pytest.raises(FrozenInstanceError):
-        config.namespace = "changed"
 
 
 @pytest.mark.parametrize(
@@ -44,21 +25,9 @@ def test_parse_config_returns_frozen_scan_config() -> None:
     ],
 )
 def test_parse_rejects_invalid_shape_or_paths(payload: bytes) -> None:
+    payload = payload.replace(b"[scan]\n", b'[scan]\nlanguage = "typescript"\n')
     with pytest.raises(ConfigError):
         parse_config(payload)
-
-
-def test_load_rejects_missing_contract_and_symlink_escape(tmp_path: Path) -> None:
-    (tmp_path / "backend").mkdir()
-    outside = tmp_path.parent / f"{tmp_path.name}-outside"
-    outside.mkdir()
-    (tmp_path / "escape").symlink_to(outside, target_is_directory=True)
-    (outside / "contract.json").write_text("{}", encoding="utf-8")
-    (tmp_path / "archkeel.toml").write_bytes(
-        b'[scan]\nroots = ["escape"]\nnamespace = "backend"\ncontract = "escape/contract.json"\n'
-    )
-    with pytest.raises(ConfigError):
-        load_config(tmp_path)
 
 
 def test_load_rejects_config_symlink_escape(tmp_path: Path) -> None:
@@ -70,39 +39,6 @@ def test_load_rejects_config_symlink_escape(tmp_path: Path) -> None:
     (tmp_path / "archkeel.toml").symlink_to(outside / "archkeel.toml")
     with pytest.raises(ConfigError):
         load_config(tmp_path)
-
-
-def test_load_accepts_existing_contained_paths(tmp_path: Path) -> None:
-    (tmp_path / "backend").mkdir()
-    (tmp_path / "docs" / "architecture").mkdir(parents=True)
-    contract = tmp_path / "docs" / "architecture" / "contract.json"
-    contract.write_text("{}", encoding="utf-8")
-    (tmp_path / "archkeel.toml").write_bytes(
-        b'[scan]\nroots = ["backend"]\nnamespace = "backend"\n'
-        b'contract = "docs/architecture/contract.json"\n'
-    )
-    assert load_config(tmp_path).namespace == "backend"
-
-
-def test_load_reads_a_second_configuration_at_the_same_root(tmp_path: Path) -> None:
-    """AD-101: a second file beside archkeel.toml scans its own namespace against its own
-    contract, so a test tree is governed without widening the product scan."""
-    for name in ("shop", "tests"):
-        (tmp_path / name).mkdir()
-        (tmp_path / name / "contract.json").write_text("{}", encoding="utf-8")
-    (tmp_path / "archkeel.toml").write_bytes(
-        b'[scan]\nroots = ["shop"]\nnamespace = "shop"\ncontract = "shop/contract.json"\n'
-    )
-    (tmp_path / "archkeel-tests.toml").write_bytes(
-        b'[scan]\nroots = ["tests"]\nnamespace = "tests"\ncontract = "tests/contract.json"\n'
-    )
-    assert load_config(tmp_path).roots == ("shop",)
-    tests = load_config(tmp_path, "archkeel-tests.toml")
-    assert (tests.roots, tests.namespace, tests.contract) == (
-        ("tests",),
-        "tests",
-        "tests/contract.json",
-    )
 
 
 @pytest.mark.parametrize(
@@ -140,12 +76,6 @@ def _config_commits(tmp_path: Path) -> tuple[Path, str, str, bytes]:
     return root, baseline, _git(root, "rev-parse", "HEAD"), payload
 
 
-def test_check_config_uses_git_blobs_despite_modified_worktree(tmp_path: Path) -> None:
-    root, baseline, head, payload = _config_commits(tmp_path)
-    (root / "archkeel.toml").write_text("invalid local config")
-    assert load_check_config(root, baseline, head) == parse_config(payload)
-
-
 @pytest.mark.parametrize("symlink", [False, True])
 def test_check_config_rejects_changed_or_symlink_candidate(tmp_path: Path, symlink: bool) -> None:
     root, baseline, _, payload = _config_commits(tmp_path)
@@ -174,26 +104,6 @@ def test_typescript_config_defaults_to_tsconfig_and_keeps_argv_optional() -> Non
     assert config.language == "typescript"
     assert config.tsconfig == "tsconfig.json"
     assert config.collector_argv is None
-
-
-def test_scan_collector_argv_is_an_argument_tuple_for_every_language() -> None:
-    payload = (
-        b'[scan]\nroots = ["src"]\nnamespace = "sample"\n'
-        b'contract = "architecture-contract.json"\n'
-        b'collector_argv = ["node", "adapter.js", "--flag", "one value"]\n'
-    )
-
-    assert parse_config(payload).collector_argv == ("node", "adapter.js", "--flag", "one value")
-
-
-def test_non_typescript_config_rejects_tsconfig() -> None:
-    payload = (
-        b'[scan]\nroots = ["src"]\nnamespace = "sample"\n'
-        b'contract = "architecture-contract.json"\ntsconfig = "tsconfig.json"\n'
-    )
-
-    with pytest.raises(ConfigError, match="typescript"):
-        parse_config(payload)
 
 
 @pytest.mark.parametrize(
@@ -231,7 +141,7 @@ def test_load_typescript_config_requires_contained_tsconfig(tmp_path: Path) -> N
         load_config(tmp_path)
 
 
-@pytest.mark.parametrize("language", ["python", "dart", "typescript"])
+@pytest.mark.parametrize("language", ["typescript", "rust"])
 def test_scan_language_is_narrowed_to_a_supported_profile(language: str) -> None:
     payload = (
         f'[scan]\nroots = ["src"]\nnamespace = "sample"\n'
@@ -271,14 +181,6 @@ def test_typescript_bundler_key_rejects_non_booleans(value: bytes) -> None:
     payload = _BUNDLER_BASE + b'language = "typescript"\nbundler = ' + value + b"\n"
     with pytest.raises(ConfigError, match="scan.bundler must be a boolean"):
         parse_config(payload)
-
-
-@pytest.mark.parametrize("language", [None, b"python", b"dart"])
-@pytest.mark.parametrize("value", [b"true", b"false"])
-def test_bundler_key_is_only_valid_for_typescript(language: bytes | None, value: bytes) -> None:
-    payload = _BUNDLER_BASE + (b'language = "' + language + b'"\n' if language else b"")
-    with pytest.raises(ConfigError, match="scan.bundler is only valid when scan.language"):
-        parse_config(payload + b"bundler = " + value + b"\n")
 
 
 def test_bundler_key_is_in_the_published_schema() -> None:

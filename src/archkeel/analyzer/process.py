@@ -40,7 +40,9 @@ from archkeel.ir.protocol import (
     CollectionResponse,
     ProtocolVersion,
 )
+from archkeel.ir.state_facts import VerifiedBinary
 from archkeel.ir.store_seam import store_enabled
+from archkeel.ir.validated_facts import with_verified_binary
 
 
 class _OutputLimitError(ValueError):
@@ -108,6 +110,7 @@ class ProcessCollector:
     reply_sink: Callable[[bytes], None] | None = None
     # AD-406: gets each request payload, so the shell compares it with the request of the core.
     request_sink: Callable[[bytes], None] | None = None
+    verified_binary: VerifiedBinary | None = None
 
     def __post_init__(self) -> None:
         if self.pinned_digest is not None and not is_pin(self.pinned_digest):
@@ -243,9 +246,14 @@ class ProcessCollector:
                     StoreLimits(self.store, self.output_limit_bytes, self.memory_limit_bytes),
                     protocol_version=self.protocol_version,
                     adapter_version=adapter_version,
+                    verified_binary=self.verified_binary,
                 )
         with measured(self.clock, Phase.DECODE):
             response = decode_response(stdout, output_limit=self.output_limit_bytes)
+            if self.verified_binary is not None:
+                response = replace(
+                    response, facts=with_verified_binary(response.facts, self.verified_binary)
+                )
             check_reply(
                 response,
                 request,

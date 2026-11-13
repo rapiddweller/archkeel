@@ -6,8 +6,8 @@
 import json
 
 import pytest
+from native_typescript import collect
 
-from archkeel.analyzer.typescript.collect import collect
 from archkeel.ir.facts_validation import validate_source_facts
 from archkeel.ir.protocol import CollectionRequest, SnapshotInput, SourceScope, TypeScriptSettings
 

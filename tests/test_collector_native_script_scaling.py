@@ -30,7 +30,6 @@ from test_collector_native_scaling import (
     measure,
     timing_for_profile,
 )
-from test_collector_native_syntax import _assert_equal, compare, dump_binary  # noqa: F401
 
 MEMORY_GROWTH = 2.5
 # The peak of the real collector at 2n (debug build) is at most 105 MiB for the largest shape
@@ -45,21 +44,6 @@ SCRIPT_RATIO = 2.4
 # The size at which a quadratic term shows over the fixed cost of the process (3 000 writes took
 # 0.6 s, and 48 000 took 25 s while the loop was quadratic and 10 s after the fix).
 LARGE_WRITES = 12_000
-
-
-@pytest.mark.parametrize("name", sorted(SCRIPT_SHAPES))
-def test_the_facts_equal_the_python_parser_at_small_sizes(
-    tmp_path: Path,
-    dump_binary: Path,  # noqa: F811
-    name: str,
-) -> None:
-    shape = SCRIPT_SHAPES[name]
-    files = []
-    for count in (1, 2, 5, 40):
-        path = tmp_path / f"{name}-{count}{shape.suffix}"
-        path.write_bytes(shape.make(count))
-        files.append((f"src/{path.name}", path))
-    _assert_equal(compare(dump_binary, files), len(files))
 
 
 @pytest.mark.parametrize("name", sorted(SCRIPT_SHAPES))

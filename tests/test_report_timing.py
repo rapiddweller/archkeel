@@ -6,23 +6,8 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from test_architecture_demo import _prepare_repo
 
 from tools.report_timing import main
-
-
-@pytest.mark.parametrize("budget", ["1000", "0.000000001"])
-def test_report_time_and_size_are_recorded_and_enforced(tmp_path: Path, budget: str):
-    root = _prepare_repo(tmp_path, {})
-    output = root / "artifacts/architecture.json"
-    assert main(["--root", str(root), "--output", str(output), "--max-seconds", budget]) == 1
-    receipt = json.loads(output.with_suffix(".timing.json").read_text())
-    assert receipt["report_exit"] == 0
-    assert receipt["output_budget_passed"] is False
-    assert receipt["output_bytes"] > receipt["max_output_bytes"]
-    assert receipt["budget_passed"] is False
-    assert receipt["wall_seconds"] > 0
-    assert output.exists()
 
 
 def test_report_failure_cannot_pass_timing_budget(tmp_path: Path):

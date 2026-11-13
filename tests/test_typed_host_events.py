@@ -12,16 +12,12 @@ from typing import get_type_hints
 
 import pytest
 from test_architecture_demo import _prepare_repo
-from test_uml_evaluation import _model
 
 from archkeel.check.ordering import check_order
 from archkeel.check.ports import ScanConfig
 from archkeel.host.gitlab import load_gitlab_records
 from archkeel.ir import host_records
-from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.host_records import HostRecord, OrderingError, parse_records
-from archkeel.ir.report_graph import architecture_report
-from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
 E, H = "e" * 40, "c" * 40
@@ -186,69 +182,3 @@ def _repository(tmp_path, *, old=None, new=None, probe="", guard_source="archkee
         files["archkeel/" + path] = source
     root = _prepare_repo(tmp_path, files)
     return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
-
-
-def test_native_actual_host_port_meets_fixed_authored_target_and_order_guard(tmp_path):
-    _event_type()
-    root, config = _repository(tmp_path)
-    model = _model(root, config)
-    comparison = architecture_report(model).comparison
-    assert comparison is not None and comparison.status == "PASS", comparison
-    guard = next(row for row in rule_assessments(model, undecided_by_rule={}) if row.id == GUARD)
-    assert guard.status == "PASS" and guard.evaluation_proven
-    assert not trace_valid_violations(model)
-
-
-def test_native_host_port_return_weakening_fails_unchanged_authored_target(tmp_path):
-    _event_type()
-    root, config = _repository(
-        tmp_path,
-        old="def parse_event(value: str) -> HostEvent:",
-        new="def parse_event(value: str) -> str:",
-    )
-    before = (root / "contract.json").read_bytes()
-    model = _model(root, config)
-    comparison = architecture_report(model).comparison
-    assert comparison is not None
-    assert any(row.aspect == "signature" and row.status == "FAIL" for row in comparison.assessments)
-    assert trace_valid_violations(model)
-    assert (root / "contract.json").read_bytes() == before
-
-
-@pytest.mark.parametrize(
-    "probe",
-    [
-        'def _probe(value):\n    return value == "expectation_published"\n',
-        "def _probe(value):\n"
-        '    return value in ("expectation_published", "candidate_submitted")\n',
-    ],
-)
-def test_native_order_guard_rejects_raw_event_dispatch_mutations(tmp_path, probe):
-    _event_type()
-    root, config = _repository(tmp_path, probe=probe)
-    before = (root / "contract.json").read_bytes()
-    model = _model(root, config)
-    assert any(GUARD in row.rule_ids for row in trace_valid_violations(model))
-    assert (root / "contract.json").read_bytes() == before
-
-
-def test_native_local_host_event_value_mutation_has_its_own_trace(tmp_path):
-    _event_type()
-    root, config = _repository(
-        tmp_path,
-        old="return HostEvent(value)",
-        new=(
-            "return HostEvent.EXPECTATION_PUBLISHED "
-            "if value == HostEvent.EXPECTATION_PUBLISHED.value else HostEvent(value)"
-        ),
-        guard_source="archkeel.ir.host_records",
-    )
-    before = (root / "contract.json").read_bytes()
-    model = _model(root, config)
-    # The owner retains timestamp/key controls. Require this exact mutation's trace;
-    # imported Enum.value evidence is outside the collector's documented local scope.
-    assert any(
-        GUARD in row.rule_ids and "archkeel.ir.host_records.parse_event" in row.subjects
-        for row in trace_valid_violations(model)
-    )
-    assert (root / "contract.json").read_bytes() == before

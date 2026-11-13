@@ -8,10 +8,40 @@ from __future__ import annotations
 from collections.abc import Iterable as _Iterable
 
 from .identity_memo import IdentityMemo
-from .model import Evidence, Observation, Record, Section, stable_id
+from .model import Evidence, Observation, Record, RecordData, RuntimeInfo, Section, stable_id
+from .state_facts import ProducerKind, VerifiedBinary, native_runtime_valid
 from .store_seam import active_store
 
 _REPLAYED: IdentityMemo[Observation, str] = IdentityMemo()
+
+
+def dependency_runtime_identity(runtime: RuntimeInfo, binary: VerifiedBinary | None) -> RecordData:
+    fields = (
+        ("name", runtime.name),
+        ("required", runtime.required),
+        ("requirement_state", runtime.requirement_state),
+        ("version", runtime.version),
+    )
+    return RecordData(((("code_digest", binary.digest),) if binary is not None else ()) + fields)
+
+
+def dependency_runtime_rejection(observation: Observation, proof: RecordData) -> str | None:
+    verified = observation.verified_binary
+    if (
+        verified is None
+        or observation.producer_kind != ProducerKind.BUNDLED
+        or observation.analyzer.name != verified.analyzer
+        or verified.runtime is None
+    ):
+        return "dependency_scope_runtime_unverified"
+    actual = observation.runtime
+    if actual is None or not native_runtime_valid(actual) or actual != verified.runtime:
+        return "dependency_scope_runtime_claim_invalid"
+    runtime = proof.get("runtime")
+    digest = runtime.get("code_digest") if isinstance(runtime, RecordData) else None
+    if not digest:
+        return "dependency_scope_runtime_digest_missing"
+    return "dependency_scope_runtime_digest_mismatch" if digest != verified.digest else None
 
 
 def dependency_binding_id(

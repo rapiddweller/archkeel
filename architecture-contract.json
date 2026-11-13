@@ -1028,27 +1028,6 @@
       "decided_by": "agent"
     },
     {
-      "id": "COLLECTORS-ISOLATED",
-      "kind": "sibling_isolation",
-      "members": [
-        "archkeel.analyzer.python.bindings",
-        "archkeel.analyzer.python.calls",
-        "archkeel.analyzer.python.constructs",
-        "archkeel.analyzer.python.imports",
-        "archkeel.analyzer.python.private_attributes",
-        "archkeel.analyzer.python.references",
-        "archkeel.analyzer.python.state",
-        "archkeel.analyzer.python.symbols",
-        "archkeel.analyzer.python.type_shapes",
-        "archkeel.analyzer.python.typing_signals"
-      ],
-      "rationale": "Independent Python collectors read the shared parsed/resolved project and emit facts; peer imports would make collection order implicit.",
-      "provenance": [
-        "docs/architecture/archkeel.md"
-      ],
-      "decided_by": "architect"
-    },
-    {
       "id": "INTERFACE-BOUNDARY",
       "kind": "interface_boundary",
       "rationale": "Components communicate only through declared interfaces, so reaching into another component's internals requires a visible contract change.",

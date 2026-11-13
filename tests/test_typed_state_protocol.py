@@ -13,15 +13,12 @@ from typing import get_type_hints
 import pytest
 from test_architecture_demo import _prepare_repo
 from test_dependency_api_target import _source_members
-from test_uml_evaluation import _model
 
 from archkeel.check.ports import ScanConfig
 from archkeel.ir import state_facts
-from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.facts_codec import freeze_data, thaw_data
 from archkeel.ir.report_graph import architecture_report
 from archkeel.ir.state_codec import parse_state_data, state_data
-from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
 GUARDS = ("STATE-FACTS-TYPED-CONTROL", "STATE-CODEC-TYPED-CONTROL")
@@ -195,57 +192,3 @@ def _comparison(model):
     comparison = architecture_report(model).comparison
     assert comparison is not None
     return comparison
-
-
-def test_native_state_api_and_parser_match_owned_target_and_guards(tmp_path):
-    root, config = _state_repository(tmp_path)
-    assert _state_contract()["declarations"]["uml"]["entities"]
-    model = _model(root, config)
-    assert _comparison(model).status == "PASS", _comparison(model)
-    guards = {row.id: row for row in rule_assessments(model, undecided_by_rule={})}
-    for identifier in GUARDS:
-        assert guards[identifier].status == "PASS" and guards[identifier].evaluation_proven
-    assert not trace_valid_violations(model)
-
-
-def test_native_state_control_widening_fails_with_unchanged_target(tmp_path):
-    root, config = _state_repository(tmp_path)
-    path = root / "archkeel/ir/state_facts.py"
-    source = path.read_text()
-    assert "binding: BindingState" in source
-    path.write_text(source.replace("binding: BindingState", "binding: str", 1))
-    contract = (root / "contract.json").read_bytes()
-    model = _model(root, config)
-    comparison = _comparison(model)
-    assert any(
-        row.aspect == "annotation" and row.status == "FAIL" for row in comparison.assessments
-    )
-    assert trace_valid_violations(model)
-    assert (root / "contract.json").read_bytes() == contract
-
-
-@pytest.mark.parametrize(
-    "probe",
-    [
-        'def _probe(value):\n    return value == "assignment"\n',
-        'def _probe(value):\n    return value in ("assignment", "attribute")\n',
-        (
-            'def _probe(value):\n    match value:\n        case "assignment":\n'
-            "            return True\n        case _:\n            return False\n"
-        ),
-        (
-            'from typing import Final\nASSIGNMENT: Final[str] = "assignment"\n'
-            "\ndef _probe(value):\n    return value == ASSIGNMENT\n"
-        ),
-    ],
-    ids=["equality", "membership", "match", "final-string"],
-)
-def test_native_state_parser_rejects_string_dispatch_without_parser_exemption(tmp_path, probe):
-    root, config = _state_repository(tmp_path)
-    path = root / "archkeel/ir/state_codec.py"
-    path.write_text(path.read_text() + "\n" + probe)
-    model = _model(root, config)
-    violations = [row for row in trace_valid_violations(model) if GUARDS[1] in row.rule_ids]
-    assert violations and all(
-        row.data.get("construct") == "string_literal_compare" for row in violations
-    )

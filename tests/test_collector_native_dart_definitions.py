@@ -1,6 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+# ruff: noqa: E402
 """#1079 (#880): the native Dart definitions use time and memory that grow with the size.
 
 Consumer: the Dart collector, which reads the definitions of each file of a scan. The members,
@@ -21,6 +22,9 @@ import sys
 from pathlib import Path
 
 import pytest
+from oracle_support import ORACLE_UNAVAILABLE
+
+pytest.skip(ORACLE_UNAVAILABLE, allow_module_level=True)
 from conftest import install_rust_toolchain
 
 ROOT = Path(__file__).parents[1]

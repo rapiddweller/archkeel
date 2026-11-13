@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 from jsonschema import Draft202012Validator
-from test_analyzer import _observe_one_rule
 from test_architecture_demo import _prepare_repo
 from test_html_report import _native_audit
 
@@ -46,50 +45,6 @@ RULE = {
     "constructs": ["type_ignore", "cast", "any_annotation", "getattr"],
     "allowed_type_ignores": [ALLOWANCE],
 }
-
-
-def test_one_allowance_leaves_second_ignore_and_other_constructs_forbidden(tmp_path: Path) -> None:
-    result = _observe_one_rule(tmp_path, RULE, {"operations.py": SOURCE})
-    assert result.exit_code == 0
-    assert result.observation is not None
-    violations = result.observation.records("violations") or ()
-    assert sorted(dict(item.data.entries)["construct"] for item in violations) == [
-        "any_annotation",
-        "cast",
-        "getattr",
-        "type_ignore",
-        "type_ignore",
-    ]
-    matches = [
-        item
-        for item in result.observation.records("typing_signals") or ()
-        if item.kind == "type_ignore_allowance"
-    ]
-    assert len(matches) == 1
-    match = matches[0]
-    assert match.rule_ids == ("RULE",)
-    assert match.provenance == ("docs/architecture/sample.md",)
-    assert dict(match.data.entries)["qualified_name"] == ALLOWANCE["qualified_name"]
-    evidence = {item.id: item for item in result.observation.evidence}
-    assert [evidence[item].line for item in match.evidence_ids] == [4]
-
-
-@pytest.mark.parametrize(
-    "change",
-    [
-        {"qualified_name": "sample.operations.neighboring_function"},
-        {"line": 5},
-        {"statement": "client.other(query)"},
-        {"tag": "[assignment]"},
-        {"tag": "[attr-defined, assignment]"},
-    ],
-)
-def test_changed_occurrence_does_not_match(tmp_path: Path, change: dict[str, object]) -> None:
-    rule = {**RULE, "allowed_type_ignores": [{**ALLOWANCE, **change}]}
-    result = _observe_one_rule(tmp_path, rule, {"operations.py": SOURCE})
-    assert result.observation is not None
-    violations = result.observation.records("violations") or ()
-    assert sum(dict(item.data.entries)["construct"] == "type_ignore" for item in violations) == 3
 
 
 def _contract(allowances: list[dict[str, object]]) -> dict[str, object]:
@@ -152,45 +107,7 @@ def test_empty_allowance_preserves_legacy_contract_encoding() -> None:
     assert "allowed_type_ignores" not in encoded["rules"][0]
 
 
-def test_comment_without_statement_cannot_match(tmp_path: Path) -> None:
-    source = "def execute_sql_script(client, query):\n    pass\n    # type: ignore[attr-defined]\n"
-    result = _observe_one_rule(
-        tmp_path,
-        {**RULE, "allowed_type_ignores": [{**ALLOWANCE, "line": 3, "statement": "pass"}]},
-        {"operations.py": source},
-    )
-    assert result.observation is not None
-    assert len(result.observation.records("violations") or ()) == 1
-
-
 _LINES = SOURCE.split("\n")[:-1]
-
-
-@pytest.mark.parametrize(
-    "source",
-    [
-        SOURCE,
-        SOURCE.replace("\n", "\r\n"),
-        SOURCE.replace("\n", "\r"),
-        SOURCE.replace("\n", "\r").removesuffix("\r"),
-        "".join(line + ("\r\n", "\r", "\n")[index % 3] for index, line in enumerate(_LINES)),
-        # Unicode and control separators in data or whitespace are not physical line breaks.
-        SOURCE.replace("\n\n", '\nMARK = "\x0b\x0c\x1c\x85  "  # \x0c\x85 \n', 1)
-        .replace("\n\n", "\n\x0c\n")
-        .replace("\n", "\r"),
-    ],
-    ids=["lf", "crlf", "cr", "cr-no-eof-newline", "mixed", "separators-in-data"],
-)
-def test_type_ignore_lines_follow_physical_lines(tmp_path: Path, source: str) -> None:
-    result = _observe_one_rule(tmp_path, RULE, {"operations.py": source})
-    assert result.exit_code == 0, result.diagnostics
-    assert result.observation is not None
-    signals = result.observation.records("typing_signals") or ()
-    lines = [dict(item.data.entries)["line"] for item in signals if item.kind == "type_ignore"]
-    assert sorted(lines) == [4, 7, 10]
-    [match] = [item for item in signals if item.kind == "type_ignore_allowance"]
-    evidence = {item.id: item for item in result.observation.evidence}
-    assert [evidence[item].line for item in match.evidence_ids] == [4]
 
 
 @pytest.mark.parametrize(
@@ -220,117 +137,6 @@ def test_real_git_demo_cli_reports_matched_exception(
     _native_audit(html, observation, output.name)
     assert matches[0].data.get("tag") == "[attr-defined]"
     assert matches[0].provenance == ("docs/architecture/shop.md",)
-
-
-@pytest.mark.parametrize(
-    ("source", "allowance"),
-    [
-        (
-            "class Client:\n    async def run(self):\n        self.execute_sql_script(\n"
-            "            'select 1'\n        )  # type: ignore[attr-defined]\n",
-            {
-                "qualified_name": "sample.operations.Client.run",
-                "line": 5,
-                "statement": "self.execute_sql_script('select 1')",
-                "tag": "[attr-defined]",
-            },
-        ),
-        (
-            "def outer():\n    def inner(client, query):\n"
-            "        client.execute_sql_script(query)  # type: ignore[attr-defined]\n",
-            {**ALLOWANCE, "qualified_name": "sample.operations.outer.inner", "line": 3},
-        ),
-    ],
-)
-def test_nested_and_multiline_statement_owners_are_exact(
-    tmp_path: Path, source: str, allowance: dict[str, object]
-) -> None:
-    result = _observe_one_rule(
-        tmp_path, {**RULE, "allowed_type_ignores": [allowance]}, {"operations.py": source}
-    )
-    assert result.observation is not None
-    assert not result.observation.records("violations")
-    assert any(
-        item.kind == "type_ignore_allowance"
-        for item in result.observation.records("typing_signals") or ()
-    )
-
-
-@pytest.mark.parametrize(
-    ("body", "line", "violations"),
-    [
-        (
-            "    client.other(query); client.execute_sql_script(query)"
-            "  # type: ignore[attr-defined]\n",
-            2,
-            1,
-        ),
-        (
-            "    client.execute_sql_script(query); client.other(query)"
-            "  # type: ignore[attr-defined]\n",
-            2,
-            1,
-        ),
-        (
-            "    if client.other(query): client.execute_sql_script(query)"
-            "  # type: ignore[attr-defined]\n",
-            2,
-            1,
-        ),
-        (
-            "    with client.other(query): client.execute_sql_script(query)"
-            "  # type: ignore[attr-defined]\n",
-            2,
-            1,
-        ),
-        (
-            "    client.other(query); client.execute_sql_script(\n"
-            "        query\n    )  # type: ignore[attr-defined]\n",
-            4,
-            1,
-        ),
-        (
-            "    if client.other(query): client.execute_sql_script(\n"
-            "        query\n    )  # type: ignore[attr-defined]\n",
-            4,
-            1,
-        ),
-        (
-            "    client.execute_sql_script(\n"
-            "        query\n    ); client.other(query)  # type: ignore[attr-defined]\n",
-            4,
-            1,
-        ),
-        (
-            "    if client.other(query):\n        client.execute_sql_script(\n"
-            "            query\n        )  # type: ignore[attr-defined]\n",
-            5,
-            0,
-        ),
-        (
-            "    client.execute_sql_script(\n        query\n    )  # type: ignore[attr-defined]\n",
-            4,
-            0,
-        ),
-    ],
-)
-def test_allowance_requires_a_unique_containing_statement(
-    tmp_path: Path, body: str, line: int, violations: int
-) -> None:
-    source = "def execute_sql_script(client, query):\n" + body
-    result = _observe_one_rule(
-        tmp_path,
-        {**RULE, "allowed_type_ignores": [{**ALLOWANCE, "line": line}]},
-        {"operations.py": source},
-    )
-    assert result.observation is not None
-    assert len(result.observation.records("violations") or ()) == violations
-    matches = [
-        item
-        for item in result.observation.records("typing_signals") or ()
-        if item.kind == "type_ignore_allowance"
-    ]
-    assert len(matches) == (0 if violations else 1)
 
 
 @pytest.mark.parametrize("broad", ["second_occurrence", "changed_tag", "module", "prefix"])

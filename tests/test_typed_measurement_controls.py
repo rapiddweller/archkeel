@@ -12,7 +12,6 @@ from typing import get_type_hints
 import pytest
 from test_architecture_demo import _prepare_repo
 from test_dependency_api_target import _source_members
-from test_uml_evaluation import _model
 
 from archkeel.check.ports import ScanConfig
 from archkeel.ir import measurements as m
@@ -255,68 +254,6 @@ def _valid(value):
     assert not trace_valid_violations(value)
 
 
-def test_native_actual_source_matches_fourteen_independent_targets_and_existing_anchor(tmp_path):
-    assert len(_contract()["declarations"]["uml"]["entities"]) == 15
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-
-
-@pytest.mark.parametrize(
-    ("path", "old", "new"),
-    [
-        ("measurements.py", "name: MeasurementBudgetName | NameBudgetKind", "name: str"),
-        ("measurements.py", "resolution: MeasurementResolution", "resolution: str"),
-        ("model.py", "name: MeasurementBudgetName", "name: str"),
-        ("model.py", "budget: NameBudgetKind", "budget: str"),
-        (
-            "measurements.py",
-            ") -> tuple[tuple[str, str, str, MetricComparisonStatus], ...]:",
-            ") -> tuple[tuple[str, str, str, str], ...]:",
-        ),
-        *[
-            ("measurements.py", "class " + name + "(StrEnum):", "class " + name + "(str):")
-            for name in DOMAINS
-        ],
-    ],
-)
-def test_native_type_widening_and_enum_substitution_fail_fixed_intent(tmp_path, path, old, new):
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-    source = root / "archkeel/ir" / path
-    content = source.read_text()
-    assert old in content
-    intent = (root / "contract.json").read_bytes()
-    source.write_text(content.replace(old, new, 1))
-    changed = _model(root, config)
-    assert trace_valid_violations(changed)
-    assert any(row.status == "FAIL" for row in architecture_report(changed).comparison.assessments)
-    assert (root / "contract.json").read_bytes() == intent
-
-
-@pytest.mark.parametrize(
-    "probe",
-    [
-        'def _probe(value):\n    return value == "measured"\n',
-        'def _probe(value):\n    return value in ("PASS", "FAIL", "n/a")\n',
-        'def _probe(value):\n    match value:\n        case "facade_names":\n'
-        "            return True\n        case _:\n            return False\n",
-        'from typing import Final\nTAG: Final[str] = "coupling_names"\n'
-        "def _probe(value):\n    return value == TAG\n",
-    ],
-)
-@pytest.mark.parametrize("path", ["measurements.py", "codec_governance.py"])
-def test_native_owner_and_actual_migrated_codec_helpers_reject_raw_dispatch(tmp_path, probe, path):
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-    source = root / "archkeel/ir" / path
-    source.write_text(source.read_text() + "\n" + probe)
-    value = _model(root, config)
-    assert any(
-        set(row.rule_ids) & {"MEASURE-CONTROL", "MEASURE-CODEC-CONTROL"}
-        for row in trace_valid_violations(value)
-    )
-
-
 def test_existing_profile_capability_domain_maps_to_eligible_budget_selectors():
     from archkeel.ir.profiles import UnmeasurableScalar
 
@@ -330,35 +267,3 @@ def test_existing_profile_capability_domain_maps_to_eligible_budget_selectors():
         type(m.MeasurementBudgetName(item)) is m.MeasurementBudgetName
         for item in UnmeasurableScalar
     )
-
-
-@pytest.mark.parametrize(
-    ("path", "old", "new"),
-    [
-        (
-            "measurements.py",
-            "if after[label].name is MeasurementBudgetName.CALLS_UNRESOLVED and not against:",
-            'if label == "calls_unresolved" and not against:',
-        ),
-        (
-            "codec_governance.py",
-            "if resolution is not expected:",
-            'if raw != "measured":',
-        ),
-    ],
-)
-def test_native_real_budget_and_codec_decision_reversions_fail_fixed_guard(
-    tmp_path, path, old, new
-):
-    root, config = _repository(tmp_path)
-    _valid(_model(root, config))
-    source = root / "archkeel/ir" / path
-    content = source.read_text()
-    assert old in content
-    intent = (root / "contract.json").read_bytes()
-    source.write_text(content.replace(old, new, 1))
-    assert any(
-        set(row.rule_ids) & {"MEASURE-CONTROL", "MEASURE-CODEC-CONTROL"}
-        for row in trace_valid_violations(_model(root, config))
-    )
-    assert (root / "contract.json").read_bytes() == intent

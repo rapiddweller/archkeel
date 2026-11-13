@@ -6,10 +6,7 @@
 from dataclasses import replace
 
 import pytest
-from jsonschema import Draft202012Validator
-from test_member_inventory import _observation
 
-from archkeel.check.uml_compare import compare_graphs
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     Coverage,
@@ -19,8 +16,6 @@ from archkeel.ir.architecture_graph import (
 )
 from archkeel.ir.codec import decode_json
 from archkeel.ir.graph_codec import graph_bytes, parse_graph, parse_target
-from archkeel.ir.source_graph import observed_graph
-from tools.architecture_graph_schema import graph_schema
 
 
 def _target():
@@ -39,67 +34,6 @@ def _target():
                 "enum", "closed", "All intended literals.", ("target.md",), ("enum_literal",)
             ),
         ),
-    )
-
-
-def test_literal_enum_members_keep_the_field_site_without_static_attribute_notation(tmp_path):
-    observed = observed_graph(
-        _observation(
-            tmp_path,
-            "from enum import StrEnum\nclass State(StrEnum):\n READY = 'ready'\n OTHER = 'other'\n",
-        )
-    )
-    literals = [e for e in observed.entities if e.kind == "enum_literal"]
-    assert {e.qualified_name.rsplit(".", 1)[-1] for e in literals} == {"READY", "OTHER"}
-    assert all(
-        e.parent_id and e.evidence_ids and e.record_ids and not e.modifiers for e in literals
-    )
-    assert not any(e.kind == "attribute" for e in observed.entities)
-    assert parse_graph(decode_json(graph_bytes(observed))) == observed
-    Draft202012Validator(graph_schema()).validate(decode_json(graph_bytes(observed)))
-    comparison = compare_graphs(observed, _target())
-    assert any(
-        a.subject_id == "ready" and a.aspect == "existence" and a.status == "PASS"
-        for a in comparison.assessments
-    )
-    assert any(
-        a.subject_id == "enum" and a.aspect == "completeness" and a.status == "FAIL"
-        for a in comparison.assessments
-    )
-
-
-@pytest.mark.parametrize(
-    "body",
-    [
-        " READY = auto()\n",
-        " _ignore_ = 'READY'\n READY = 'ready'\n",
-        " READY = 'ready'\n READY = 'replaced'\n",
-    ],
-)
-def test_unproven_enum_members_remain_unknown_instead_of_a_wrong_kind_failure(tmp_path, body):
-    observed = observed_graph(
-        _observation(tmp_path, "from enum import Enum, auto\nclass State(Enum):\n" + body)
-    )
-    assert not any(e.kind == "enum_literal" for e in observed.entities)
-    comparison = compare_graphs(observed, _target())
-    assert {a.status for a in comparison.assessments if a.subject_id == "ready"} == {"UNKNOWN"}
-    assert {
-        a.status
-        for a in comparison.assessments
-        if a.subject_id == "enum" and a.aspect == "completeness"
-    } == {"UNKNOWN"}
-
-
-def test_an_actual_operation_cannot_pass_as_an_enum_literal(tmp_path):
-    observed = observed_graph(
-        _observation(
-            tmp_path, "from enum import Enum\nclass State(Enum):\n def READY(self): pass\n"
-        )
-    )
-    comparison = compare_graphs(observed, _target())
-    assert any(
-        a.subject_id == "ready" and a.aspect == "kind" and a.status == "FAIL"
-        for a in comparison.assessments
     )
 
 

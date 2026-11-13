@@ -21,13 +21,6 @@ import random
 from pathlib import Path
 
 import pytest
-from script_fields import SCRIPT_FIELDS
-from test_collector_native_syntax import (
-    ROOT,
-    _assert_equal,
-    compare,
-    dump_binary,  # noqa: F401
-)
 
 GRID: dict[str, str] = {
     "return-publication": (
@@ -181,23 +174,6 @@ def _files(
     return found
 
 
-def test_the_grid_equals_the_python_parser_as_script_and_as_module(
-    tmp_path: Path,
-    dump_binary: Path,  # noqa: F811
-) -> None:
-    files = _files(tmp_path, GRID, (".js", ".ts"))
-    result = compare(dump_binary, files)
-    _assert_equal(result, len(files))
-    # Every producer is exercised: no field of the grid is empty on both sides.
-    for field in SCRIPT_FIELDS[1:]:
-        assert result.counts[field] > 0, field
-
-
-def test_module_files_equal_the_python_parser(tmp_path: Path, dump_binary: Path) -> None:  # noqa: F811
-    files = _files(tmp_path, MODULE_ONLY, (".js", ".mjs", ".ts"))
-    _assert_equal(compare(dump_binary, files), len(files))
-
-
 def _mutate(rng: random.Random, text: str) -> str:
     """One edit of a source: cut a piece, repeat a piece, or swap a word for another of the file."""
     if len(text) < 4:
@@ -218,39 +194,11 @@ def _mutate(rng: random.Random, text: str) -> str:
             )
 
 
-def test_mutated_grid_equals_the_python_parser(tmp_path: Path, dump_binary: Path) -> None:  # noqa: F811
-    rng = random.Random(4_3_4)
-    sources = {
-        f"m{index}": _mutate(rng, text)
-        for index, text in enumerate(text for _ in range(6) for text in GRID.values() if text)
-    }
-    files = _files(tmp_path, sources, (".js",))
-    _assert_equal(compare(dump_binary, files), len(files))
-
-
 SCRIPTS_OF_THE_REPOSITORY = (
     "src/archkeel/studio/ui",
     "tests/golden/typescript/sources",
     "fixtures",
 )
-
-
-def test_the_scripts_of_the_repository_equal_the_python_parser(
-    dump_binary: Path,  # noqa: F811
-) -> None:
-    files = []
-    for under in SCRIPTS_OF_THE_REPOSITORY:
-        base = ROOT / under
-        files += [
-            (path.relative_to(ROOT).as_posix(), path)
-            for path in sorted(base.rglob("*"))
-            if path.is_file()
-            and path.suffix in {".js", ".cjs", ".mjs", ".jsx"}
-            and "node_modules" not in path.parts
-        ]
-    assert files
-    result = compare(dump_binary, files)
-    _assert_equal(result, len(files))
 
 
 @pytest.mark.parametrize("name", sorted(MODULE_ONLY))

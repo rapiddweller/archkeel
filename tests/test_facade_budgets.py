@@ -4,26 +4,22 @@
 """AD-99: facade and coupling budgets: a contract target and a baseline ratchet on names."""
 
 import json
-import subprocess
 from pathlib import Path
 
 import pytest
 from test_architecture_demo import CONFIG, _prepare_repo
-from test_baseline import REFUSED
 
 from archkeel.check.validation import run_validate
 from archkeel.cli.observe import observe
 from archkeel.ir.codec import (
     baseline_bytes,
     contract_bytes,
-    decode_json,
     parse_contract,
     parse_validation_baseline,
 )
 from archkeel.ir.measurements import MeasurementBudget
-from archkeel.ir.model import Diagnostic, InterfaceBudgetResult, RunResult
+from archkeel.ir.model import Diagnostic, RunResult
 from archkeel.ir.widening import contract_widenings, measurement_budget_widenings
-from archkeel.render.summary import report_summary
 from fixtures.demo_catalog_support import (
     FIXTURE_DIR,
     HEADER,
@@ -85,134 +81,6 @@ def _model_accepted(*names: str) -> MeasurementBudget:
     return MeasurementBudget("facade_names", len(names), "model", tuple(sorted(names)))
 
 
-def test_budgets_at_their_measured_values_pass(tmp_path: Path) -> None:
-    assert _validate(tmp_path, (("model", 5),), (("app", "model", 3), ("app", "store", 3))) == ()
-
-
-def test_a_facade_over_its_target_names_every_export_without_a_baseline(tmp_path: Path) -> None:
-    result = _run(tmp_path, (("model", 4),))
-
-    assert result.diagnostics == (
-        Diagnostic(
-            "contract_invalid",
-            "model",
-            f"The model facade counts 5 names, 1 over max_names 4: {', '.join(_MODEL)}.",
-            _EXCEEDED_REMEDY,
-            "/declarations/facade_budgets/0",
-            "budget.exceeded",
-        ),
-    )
-    assert result.interface_budgets == (
-        InterfaceBudgetResult(
-            "facade_names", "model", "/declarations/facade_budgets/0", 4, 5, 1, _MODEL, (), None
-        ),
-    )
-
-
-def test_a_pair_counts_the_facade_name_a_reexport_reaches(tmp_path: Path) -> None:
-    """`from shop.store import OrderRepository` reaches the declared repository entry."""
-    assert _validate(tmp_path, pairs=(("app", "store", 2),)) == (
-        Diagnostic(
-            "contract_invalid",
-            "app -> store",
-            "The app -> store pair counts 3 names, 1 over max_names 2: "
-            "shop.store.repository:OrderRepository, shop.store.sqlite:Connection, "
-            "shop.store.sqlite:vacuum.",
-            _EXCEEDED_REMEDY,
-            "/declarations/coupling_budgets/0",
-            "budget.exceeded",
-        ),
-    )
-
-
-def test_a_baseline_holds_a_known_gap_below_the_target(tmp_path: Path) -> None:
-    """Target-first: the contract states 4 and 2, the baseline freezes today's 5 and 3."""
-    contract = contract_interface_budgets((("model", 4),), (("app", "model", 2),))
-    root = _prepare_repo(tmp_path, {"architecture-contract.json": contract})
-    baseline = root / "architecture-baseline.json"
-
-    written, files = run_validate(root, CONFIG, observe, baseline=baseline, write_baseline=True)
-    baseline.write_bytes(dict(files.entries)[str(baseline)])
-    held = run_validate(root, CONFIG, observe, baseline=baseline)[0]
-
-    assert (written.exit_code, written.diagnostics) == (0, ())
-    assert parse_validation_baseline(decode_json(baseline.read_bytes())).budgets == (
-        MeasurementBudget("coupling_names", 3, "app -> model", _APP_MODEL),
-        _model_accepted(*_MODEL),
-    )
-    assert (held.exit_code, held.diagnostics, held.failures) == (0, (), ())
-    assert held.interface_budgets == (
-        InterfaceBudgetResult(
-            "facade_names", "model", "/declarations/facade_budgets/0", 4, 5, 1, _MODEL, (), (), ()
-        ),
-        InterfaceBudgetResult(
-            "coupling_names",
-            "app -> model",
-            "/declarations/coupling_budgets/0",
-            2,
-            3,
-            1,
-            _APP_MODEL,
-            (),
-            (),
-            (),
-        ),
-    )
-    assert report_summary(held).sentence.endswith(
-        "Budgets not at their target: model 1 over, app -> model 1 over."
-    )
-
-
-def test_a_new_name_is_a_rise_that_names_it(tmp_path: Path) -> None:
-    root = _prepare_repo(
-        tmp_path,
-        {
-            "architecture-contract.json": contract_interface_budgets((("model", 9),)),
-            "shop/model/entities.py": entities_with("Discount"),
-        },
-    )
-    baseline = _accepted(root, _model_accepted(*_MODEL))
-
-    risen, refused = run_validate(root, CONFIG, observe, baseline=baseline, write_baseline=True)
-    accepted, files = run_validate(
-        root, CONFIG, observe, baseline=baseline, write_baseline=True, accept_new=True
-    )
-
-    assert risen.exit_code == 1
-    assert risen.failures == (
-        "measurement budget exceeded in facade_names model: new shop.model.entities:Discount",
-        REFUSED,
-    )
-    assert risen.interface_budgets is not None
-    assert risen.interface_budgets[0].new_names == ("shop.model.entities:Discount",)
-    assert dict(refused.entries) == {}
-    assert accepted.exit_code == 0
-    assert parse_validation_baseline(decode_json(dict(files.entries)[str(baseline)])).budgets == (
-        _model_accepted(*_MODEL, "shop.model.entities:Discount"),
-    )
-
-
-def test_a_removed_name_fails_until_the_baseline_records_it(tmp_path: Path) -> None:
-    """Freed room is not silently reusable: the fall must be written back, as AD-89 requires."""
-    root = _prepare_repo(
-        tmp_path, {"architecture-contract.json": contract_interface_budgets((("model", 9),))}
-    )
-    baseline = _accepted(root, _model_accepted(*_MODEL, "shop.model.entities:Gone"))
-
-    stale = run_validate(root, CONFIG, observe, baseline=baseline)[0]
-    updated, files = run_validate(root, CONFIG, observe, baseline=baseline, write_baseline=True)
-
-    assert stale.exit_code == 1
-    assert stale.failures == (
-        "measurement budget reduced in facade_names model: removed shop.model.entities:Gone; "
-        "rewrite the baseline with --write-baseline",
-    )
-    assert updated.exit_code == 0
-    assert parse_validation_baseline(decode_json(dict(files.entries)[str(baseline)])).budgets == (
-        _model_accepted(*_MODEL),
-    )
-
-
 def test_a_budget_the_baseline_does_not_hold_is_invalid(tmp_path: Path) -> None:
     root = _prepare_repo(
         tmp_path, {"architecture-contract.json": contract_interface_budgets((("model", 5),))}
@@ -225,106 +93,11 @@ def test_a_budget_the_baseline_does_not_hold_is_invalid(tmp_path: Path) -> None:
     assert [item.code for item in result.diagnostics] == ["baseline.invalid"]
 
 
-def test_a_facade_without_literal_all_is_unknown_with_or_without_a_baseline(
-    tmp_path: Path,
-) -> None:
-    unknown = Diagnostic(
-        "contract_invalid",
-        "render",
-        "The render facade counts at least 1 name against max_names 1; not enumerated: "
-        "shop.render.text.",
-        _UNKNOWN_REMEDY,
-        "/declarations/facade_budgets/0",
-        "budget.unknown",
-    )
-    root = _prepare_repo(
-        tmp_path, {"architecture-contract.json": contract_interface_budgets((("render", 1),))}
-    )
-    baseline = root / "architecture-baseline.json"
-
-    assert run_validate(root, CONFIG, observe)[0].diagnostics == (unknown,)
-    held, files = run_validate(root, CONFIG, observe, baseline=baseline, write_baseline=True)
-    assert (held.exit_code, held.diagnostics, dict(files.entries)) == (2, (unknown,), {})
-
-
 _STARRED_ALL = (
     entities_with("Discount")
     .replace('"LinePayload", "Discount"]', '"LinePayload", *_EXTRA]')
     .replace("__all__ = [", '_EXTRA = ["Discount"]\n__all__ = [')
 )
-
-
-@pytest.mark.parametrize(
-    ("entities", "counted"),
-    [
-        (entities_with("Discount", '__all__ += ["Discount"]'), 5),
-        (entities_with("Discount", '__all__.append("Discount")'), 5),
-        (entities_with("Discount", '__all__.extend(["Discount"])'), 5),
-        (entities_with("Discount", '__all__ = [*__all__, "Discount"]'), 6),
-        (_STARRED_ALL, 5),
-    ],
-    ids=["augmented", "append", "extend", "reassigned", "starred"],
-)
-def test_an_all_that_is_not_one_literal_is_unknown_not_pass(
-    tmp_path: Path, entities: str, counted: int
-) -> None:
-    """QA #1: the literal part lists five names; the sixth, Discount, is added another way."""
-    diagnostics = _validate(tmp_path, (("model", 6),), files={"shop/model/entities.py": entities})
-
-    assert [(item.code, item.unknown_claim) for item in diagnostics] == [
-        (
-            "budget.unknown",
-            f"The model facade counts at least {counted} names against max_names 6; not "
-            "enumerated: shop.model.entities.",
-        )
-    ]
-
-
-def test_an_empty_all_is_a_facade_of_no_names(tmp_path: Path) -> None:
-    """AD-244: `__all__ = []` states an empty surface, so the facade counts no names and cli's
-    import of render_order through it is an interface violation, not budget headroom."""
-    text = (FIXTURE_DIR / "shop/render/text.py").read_text()
-    files: dict[str, str | None] = {
-        "shop/render/text.py": text.replace(
-            "from shop.model.entities import Order\n",
-            "from shop.model.entities import Order\n\n__all__: list[str] = []\n",
-        )
-        + "\n\ndef render_total(order: Order) -> str:\n    return str(order.total())\n"
-    }
-
-    for budget in (0, 5):
-        result = _run(tmp_path / str(budget), (("render", budget),), files=files)
-        assert [(item.code, item.unknown_claim) for item in result.diagnostics] == [
-            (
-                "rule.violated",
-                "The observed code violates the declared rule: shop.cli.main reaches "
-                "shop.render.text.render_order outside its declared interface",
-            )
-        ]
-
-
-def test_a_whole_module_import_makes_a_pair_unknown_until_it_is_over(tmp_path: Path) -> None:
-    files: dict[str, str | None] = {"shop/app/report.py": _WHOLE_MODULE_IMPORT}
-
-    assert _validate(tmp_path / "at", pairs=(("app", "model", 3),), files=files) == (
-        Diagnostic(
-            "contract_invalid",
-            "app -> model",
-            "The app -> model pair counts at least 3 names against max_names 3; not "
-            "enumerated: shop.model.entities.",
-            _UNKNOWN_REMEDY,
-            "/declarations/coupling_budgets/0",
-            "budget.unknown",
-        ),
-    )
-    over = _validate(tmp_path / "over", pairs=(("app", "model", 2),), files=files)
-    assert [(item.code, item.unknown_claim) for item in over] == [
-        (
-            "budget.exceeded",
-            f"The app -> model pair counts at least 3 names, 1 over max_names 2: "
-            f"{', '.join(_APP_MODEL)}.",
-        )
-    ]
 
 
 def _without_interface_boundary() -> dict[str, object]:
@@ -444,28 +217,6 @@ def test_a_first_accepted_set_over_the_old_target_widens() -> None:
     assert measurement_budget_widenings((), after) == ()
 
 
-def test_moving_a_budget_into_the_baseline_cannot_accept_names_past_its_target(
-    tmp_path: Path,
-) -> None:
-    """Review round 2: base holds model at 5 with no baseline; the branch adds Discount and
-    creates the baseline, which --write-baseline accepts without --accept-new."""
-    root = _prepare_repo(
-        tmp_path, {"architecture-contract.json": contract_interface_budgets((("model", 5),))}
-    )
-    base = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
-    (root / "shop/model/entities.py").write_text(entities_with("Discount"))
-    baseline = root / "architecture-baseline.json"
-    _, files = run_validate(root, CONFIG, observe, baseline=baseline, write_baseline=True)
-    baseline.write_bytes(dict(files.entries)[str(baseline)])
-
-    result = run_validate(root, CONFIG, observe, baseline=baseline, against=base)[0]
-
-    assert result.exit_code == 1
-    assert result.failures == (
-        "measurement budget widened: facade_names model (6 accepted, target 5 before)",
-    )
-
-
 def test_a_grown_accepted_name_set_widens_the_baseline() -> None:
     before = (MeasurementBudget("facade_names", 2, "model", ("m:A", "m:B")),)
 
@@ -506,37 +257,3 @@ def test_a_contract_without_budgets_keeps_its_canonical_bytes() -> None:
 
     assert "facade_budgets" not in declared
     assert "coupling_budgets" not in declared
-
-
-def test_an_inside_contract_cannot_hold_a_budget_nobody_measures(tmp_path: Path) -> None:
-    inside = json.loads((FIXTURE_DIR / "shop/store/architecture-contract.json").read_text())
-    inside["declarations"] = {
-        "facade_budgets": [
-            {"component": "api", "max_names": 9, "provenance": ["docs/architecture/shop.md"]}
-        ]
-    }
-    diagnostics = _validate(
-        tmp_path, files={"shop/store/architecture-contract.json": json.dumps(inside, indent=2)}
-    )
-
-    assert diagnostics == (
-        Diagnostic(
-            "incomplete_scan",
-            "shop/store/architecture-contract.json, store",
-            "Scan completeness cannot be established: store inside contract cannot be evaluated: "
-            "unsupported non-empty declarations: facade_budgets",
-            "Read the reported gap; the scan stays incomplete until the collector can prove this "
-            "fact.",
-            "",
-            None,
-        ),
-        Diagnostic(
-            "contract_invalid",
-            "shop/store/architecture-contract.json",
-            "The contract describing this inside cannot be loaded: unsupported non-empty "
-            "declarations: facade_budgets",
-            "Repair the repository-relative contract reference.",
-            "/components/1/inside",
-            "contract.invalid",
-        ),
-    )

@@ -1,5 +1,8 @@
 # Architecture demos
 
+Main runs the TypeScript demos only (AD-430). Python and Dart examples below require archkeel 4.0.1.
+The catalog retains their historical expected results; main does not collect those projects.
+
 ## Full-project journeys
 
 The [published gallery](https://rapiddweller.github.io/archkeel/demos/) groups each pinned
@@ -10,19 +13,10 @@ rules and UML comparison are shown separately.
 - **Python RealWorld** — [nsidnev/fastapi-realworld-example-app@029eb7781c60d5f563ee8990a0cbfb79b244538c](https://github.com/nsidnev/fastapi-realworld-example-app/tree/029eb7781c60d5f563ee8990a0cbfb79b244538c), 72 Python modules from the complete selected application. Authentication, users, profiles, articles, comments, favorites and feeds through routes, asyncpg SQL repositories and persistence. Target: Five responsibility areas with closed principal class and method scopes. Evidence limit: All files have AST coverage; 33 closed declaration inventories pass; the AppEnvTypes enum inventory and 13 inheritance relationships remain UNKNOWN.
 - **Nest RealWorld** — [mikro-orm/nestjs-realworld-example-app@a6818d84b6a019cf2df4ef391dc87cea7d02c6a9](https://github.com/mikro-orm/nestjs-realworld-example-app/tree/a6818d84b6a019cf2df4ef391dc87cea7d02c6a9), 41 prepared TypeScript build inputs, including two README-prescribed config copies. Account/authentication, article and comment publishing, profile/follow, tags, composition and persistence. Target: Seven root responsibilities, nested feature components, and 266 Target entities with closed principal member scopes. Evidence limit: A computed dynamic import leaves source coverage incomplete; a known complete-requires FAIL remains visible in its forbidden-edge variant.
 
-Create a report with several deliberate violations:
-
-The default tour also shows `forbidden_call_argument`: a literal order ID at the store lookup,
-`catalog_argument`: an undeclared store option, `catalog_use`: an unused declared key,
-`source_ownership`: a model-owned helper read from the app layer, and
-`forbidden_effect_under_condition`: `secrets.token_hex` on a seeded run.
-
-The clean shop sample returns a fixed token for seeded runs and calls `secrets.token_hex` only
-for unseeded runs. `class-a-forbidden-effect-under-condition` and the default tour move the effect
-under the declared `seeded` condition and produce `EFFECT-NO-TOKEN-WHEN-SEEDED`.
+Create a supported TypeScript report with a deliberate dependency violation:
 
 ```sh
-make demo-architecture VARIANT=tour OUTPUT=build/demo.json
+make demo-architecture VARIANT=nest-realworld-forbidden-edge OUTPUT=build/demo.json
 ```
 
 Use a new output path. The command validates, then writes report JSON and HTML.

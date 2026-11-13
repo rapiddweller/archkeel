@@ -39,6 +39,7 @@ from tools.dual_run_corpus import (
     ensure_commits,
     materialized,
     oracle_path,
+    supported_cases,
 )
 from tools.dual_run_oracle import (
     ORACLE_DIR,
@@ -401,7 +402,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--engine-timeout", type=float, default=ENGINE_TIMEOUT_SECONDS)
     parser.add_argument("--reason", default="", help="record: why the Python result changes.")
     parser.add_argument("--allow-dirty", action="store_true", help="record: log +dirty.")
-    parser.add_argument("--jobs", type=int, default=os.cpu_count() or 4)
+    parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument(
         "--self-test", action="store_true", help="Compare what the engine read (AD-363)."
     )
@@ -427,6 +428,11 @@ def main(argv: list[str]) -> int:
     if args.action == "list":
         print("\n".join(case.id for case in cases))
         return 0
+    ensure_commits(cases)
+    cases, skipped = supported_cases(cases)
+    if not cases:
+        print(f"dual run: 0 supported projects; {skipped} skipped; no comparison")
+        return 2
     if args.action == "record":
         return record(cases, args.reason, args.jobs, args.allow_dirty)
     if missing := [case.id for case in cases if not oracle_path(case).is_file()]:
@@ -439,7 +445,7 @@ def main(argv: list[str]) -> int:
     jobs = [(case, args.engine_command, selection, args.engine_timeout) for case in cases]
     with ProcessPoolExecutor(max_workers=args.jobs) as pool:
         results = list(pool.map(compare_one, jobs))
-    return report(results, selection, args.engine_command, time.perf_counter() - started)
+    return report(results, selection, args.engine_command, time.perf_counter() - started, skipped)
 
 
 def report(
@@ -447,6 +453,7 @@ def report(
     selection: Selection,
     command: str | None,
     seconds: float,
+    skipped: int = 0,
 ) -> int:
     """One line per difference; a bench case shows only counts (a private project)."""
     differences = [d for case, _, found in results if not case.bench for d in found]
@@ -462,7 +469,7 @@ def report(
     print(f"engine: {command or 'the Python engine in process'}")
     print(
         f"dual run: {scope}; {len(selection.sections)} sections; {len(results)} projects; "
-        f"{rules} rules; {total} differences; {seconds:.1f} s"
+        f"{rules} rules; {total} differences; {skipped} skipped; {seconds:.1f} s"
     )
     if not selection.sections and rules == 0 and not selection.self_test:
         print("the run compares nothing: 0 owned rules and 0 sections")

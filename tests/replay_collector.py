@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 """A collector process that replays another collector and damages its reply (AD-340).
 
-Usage: `replay_collector.py INNER MODE [SECTION]`. `INNER` is `python` (the unmodified Python
-collector) or the path of the native collector. `MODE` is `plain` (no change), `drop` (remove the
+Usage: `replay_collector.py INNER MODE [SECTION]`. `INNER` is the path of the native collector.
+`MODE` is `plain` (no change), `drop` (remove the
 records section `SECTION` and keep the capability that declares it), `claim` (declare a section
 that the reply does not hold), `empty` (keep the section and remove its records) or `version` (give
 the reply a protocol version that the request did not ask for). The host must fail closed on every
@@ -17,16 +17,12 @@ import dataclasses
 import subprocess
 import sys
 
-from archkeel.analyzer.typescript.collect import collect
 from archkeel.ir.facts import FactSection, SourceSectionName
-from archkeel.ir.facts_codec import decode_request, decode_response, encode_response
+from archkeel.ir.facts_codec import decode_response, encode_response
 from archkeel.ir.protocol import CollectionResponse, ProtocolVersion
 
 
 def _reply(inner: str, payload: bytes) -> bytes:
-    request = decode_request(payload)
-    if inner == "python":
-        return encode_response(CollectionResponse(collect(request), request.protocol_version))
     return subprocess.run([inner], input=payload, capture_output=True, check=True).stdout
 
 

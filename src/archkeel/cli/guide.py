@@ -9,7 +9,7 @@ from typing import Final
 
 from archkeel.render.guide import render_guide
 
-from .config import parse_config, project_name
+from .config import parse_config
 
 GUIDE_PATH: Final = "docs/architecture/contract-guide.md"
 
@@ -38,7 +38,7 @@ def run_guide(root: Path, config_path: str, output: Path | None, check: bool) ->
     try:
         text: str = render_guide(
             contract_file.read_bytes(),
-            repository=project_name(root, config),
+            repository=config.namespace,
             contract_path=config.contract,
         )
     except (OSError, ValueError) as error:

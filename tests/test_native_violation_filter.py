@@ -18,7 +18,6 @@ from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report, run_saved_report
 from archkeel.check.uml import assemble_uml
 from archkeel.check.uml_evaluation import evaluate_uml
-from archkeel.cli import main
 from archkeel.ir.baseline import observed_violations
 from archkeel.ir.codec import (
     baseline_bytes,
@@ -378,33 +377,6 @@ def test_malformed_saved_violation_query_fails_closed(recorded_native):
     result = run_saved_report(packet, only_violations=True, component="app:UNIT", rule="LAYOUT")
     assert result.exit_code == 2 and result.diagnostics[0].kind == "parse_error"
     assert result.filtered_violations is None and result.observation_complete == "UNKNOWN"
-
-
-def test_saved_cli_uses_the_native_component_and_existing_rule_intersection(
-    recorded_native, capsys
-):
-    _, _, packet = recorded_native()
-    expected = run_saved_report(packet, only_violations=True, component="app:app", rule="LAYOUT")
-    arguments = [
-        "report",
-        "--input",
-        str(packet),
-        "--only",
-        "violations",
-        "--component",
-        "app:app",
-        "--rule",
-        "LAYOUT",
-        "--json",
-    ]
-    outputs = []
-    for _ in range(2):
-        assert main(arguments) == 0
-        outputs.append(capsys.readouterr().out.encode())
-    assert outputs == [result_bytes(expected), result_bytes(expected)]
-    payload = json.loads(outputs[0])
-    assert [item["kind"] for item in payload["filtered_violations"]] == ["root_layout"]
-    assert payload["filtered_violations"][0]["locations"]
 
 
 @pytest.mark.parametrize("missing", ["target", "source"])

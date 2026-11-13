@@ -7,11 +7,9 @@ import json
 from pathlib import Path
 
 import pytest
+from native_typescript import collect
 from test_source_graph import _graph_from_source_facts
 
-from archkeel.analyzer.typescript.collect import collect
-from archkeel.analyzer.typescript.parse import parse
-from archkeel.analyzer.typescript.syntax import DefinitionKind, SiteKind
 from archkeel.check.uml_compare import compare_graphs
 from archkeel.ir.architecture_graph import ArchitectureGraph, Entity
 from archkeel.ir.facts_validation import validate_source_facts
@@ -45,56 +43,6 @@ def _collected_files(tmp_path: Path, files: dict[str, str]):
     )
     validate_source_facts(facts)
     return facts
-
-
-def test_parser_records_declarations_members_signatures_and_source_sites() -> None:
-    syntax = parse(
-        "src/core.ts",
-        b"""export interface Port { run(value: number): string; }
-export class Client extends Base implements Port {
-  private token: string = '';
-  static limit = 10;
-  static reset(): void {}
-  run(value: number): string { return helper(value); }
-}
-export enum State { READY = 'ready' }
-export type Text = string;
-export const VERSION = 1;
-export function build(): Client { const client = new Client(); return client; }
-""",
-    )
-    assert [(item.kind.value, item.name, item.parent) for item in syntax.definitions] == [
-        ("interface", "Port", None),
-        ("method", "run", "Port"),
-        ("class", "Client", None),
-        ("method", "reset", "Client"),
-        ("method", "run", "Client"),
-        ("enum", "State", None),
-        ("type_alias", "Text", None),
-        ("constant", "VERSION", None),
-        ("function", "build", None),
-    ]
-    client = next(item for item in syntax.definitions if item.name == "Client")
-    assert [(base.name, base.relationship.value) for base in client.bases] == [
-        ("Base", "inherits"),
-        ("Port", "realizes"),
-    ]
-    assert [(field.name, field.static, field.literal) for field in client.members] == [
-        ("token", False, "''"),
-        ("limit", True, "10"),
-    ]
-    state = next(item for item in syntax.definitions if item.name == "State")
-    assert [(field.name, field.literal) for field in state.members] == [("READY", "'ready'")]
-    assert [
-        (site.kind.value, site.expression, site.scope, site.assigned_name)
-        for site in syntax.sites
-        if site.kind is not SiteKind.REFERENCE
-    ] == [
-        ("call", "helper", "Client.run", None),
-        ("new", "Client", "build", "client"),
-    ]
-    assert syntax.definitions[-1].parameters == ()
-    assert syntax.definitions[-1].returns == "Client"
 
 
 def test_typescript_visibility_uses_module_exports_without_inheriting_member_visibility(
@@ -266,42 +214,6 @@ def test_identifier_const_alias_does_not_prove_call_or_constructor_dispatch(tmp_
     assert direct_call.data.get("status") == "resolved"
 
 
-def test_parser_preserves_only_lexical_async_modifiers() -> None:
-    syntax = parse(
-        "main.ts",
-        b"class Service { async run(): Promise<void> {} namedAsync(): Promise<void> {} "
-        b"async(): void {} }\n"
-        b"export async function load(): Promise<void> {}\n"
-        b"export function promiseOnly(): Promise<void> {}\n",
-    )
-    by_name = {item.name: item.is_async for item in syntax.definitions}
-    assert by_name == {
-        "Service": False,
-        "run": True,
-        "namedAsync": False,
-        "async": False,
-        "load": True,
-        "promiseOnly": False,
-    }
-
-
-def test_parser_type_only_export_clauses_do_not_prove_runtime_exports() -> None:
-    syntax = parse(
-        "main.ts",
-        b"class ClassType {}\ninterface InterfaceType {}\n"
-        b"type AliasType = string;\n"
-        b"export { type ClassType, type InterfaceType as PublicInterface };\n"
-        b"export type { AliasType as PublicAlias };\n",
-    )
-    definitions = {item.name: item for item in syntax.definitions}
-    assert definitions["ClassType"].exported is False
-    assert definitions["InterfaceType"].exported is False
-    assert definitions["AliasType"].exported is False
-    assert {
-        definitions[name].visibility.value for name in ("ClassType", "InterfaceType", "AliasType")
-    } == {"public"}
-
-
 def test_type_only_export_forms_do_not_resolve_value_import_calls(tmp_path: Path) -> None:
     facts = _collected_files(
         tmp_path,
@@ -408,146 +320,6 @@ export {
     ]
     assert {record.data.get("expression") for record in calls} == {"original", "renamed"}
     assert all(record.data.get("status") == "unresolved" for record in calls)
-
-
-def test_overloads_and_computed_construction_remain_separate_syntax_sites() -> None:
-    syntax = parse(
-        "main.ts",
-        b"function make(value: string): Port;\nfunction make(value: number): Port;\n"
-        b"function make(value: unknown): Port { return new (pick())(); }\n",
-    )
-    assert [(item.name, item.span.line) for item in syntax.definitions] == [
-        ("make", 1),
-        ("make", 2),
-        ("make", 3),
-    ]
-    assert [
-        (site.kind.value, site.expression)
-        for site in syntax.sites
-        if site.kind is not SiteKind.REFERENCE
-    ] == [
-        ("new", "(pick())"),
-        ("call", "pick"),
-    ]
-
-
-def test_import_binding_and_local_shadow_names_are_separate_from_module_edges() -> None:
-    syntax = parse(
-        "main.ts",
-        b"import Default, { helper as run } from './helper';\n"
-        b"import * as model from './model';\n"
-        b"function work(helper: () => void) { run(); helper(); model.Unit; }\n",
-    )
-    assert [(item.imported, item.local, item.namespace) for item in syntax.import_bindings] == [
-        ("default", "Default", False),
-        ("helper", "run", False),
-        ("*", "model", True),
-    ]
-    calls = [site for site in syntax.sites if site.kind is SiteKind.CALL]
-    assert [(site.name, site.shadowed_names) for site in calls] == [
-        ("run", ("helper",)),
-        ("helper", ("helper",)),
-    ]
-    assert any(
-        site.kind is SiteKind.REFERENCE and site.name == "Unit" and site.receiver == "model"
-        for site in syntax.sites
-    )
-
-
-def test_type_only_specifiers_are_retained_per_import_binding() -> None:
-    syntax = parse(
-        "main.ts",
-        b'import type { TypeOnly } from "./model";\n'
-        b'import { type MixedType, runtimeValue } from "./model";\n',
-    )
-    assert [(item.local, item.type_only) for item in syntax.import_bindings] == [
-        ("TypeOnly", True),
-        ("MixedType", True),
-        ("runtimeValue", False),
-    ]
-
-
-def test_computed_members_and_parameter_properties_keep_member_inventory_partial() -> None:
-    syntax = parse(
-        "main.ts",
-        b"class C { [key](): void {} constructor(private token: string) {} }",
-    )
-    classifier = next(item for item in syntax.definitions if item.name == "C")
-    assert classifier.members_complete is False
-
-
-def test_nested_class_bases_are_not_attributed_to_the_outer_class() -> None:
-    syntax = parse(
-        "main.ts",
-        b"class Outer { method() { class Inner extends Base {} } }",
-    )
-    outer = next(item for item in syntax.definitions if item.name == "Outer")
-    inner = next(item for item in syntax.definitions if item.name == "Inner")
-    assert outer.bases == ()
-    assert [(item.name, item.relationship.value) for item in inner.bases] == [("Base", "inherits")]
-
-
-def test_anonymous_callbacks_and_object_methods_are_not_named_scopes() -> None:
-    syntax = parse(
-        "main.ts",
-        b"function work() { const callback = (helper: () => void) => helper(); "
-        b"const object = { run(helper: () => void) { helper(); } }; }",
-    )
-    assert not any(
-        item.name == "run" and item.kind is DefinitionKind.METHOD for item in syntax.definitions
-    )
-    calls = [item for item in syntax.sites if item.kind is SiteKind.CALL and item.name == "helper"]
-    assert len(calls) == 2
-    assert all(item.scope_ambiguous for item in calls)
-    assert all("helper" in item.shadowed_names for item in calls)
-
-
-def test_parser_error_regions_do_not_create_inner_declarations_or_sites() -> None:
-    syntax = parse(
-        "main.ts",
-        b"export class Good {}\nexport class = ;\nfunction bad() { return new Missing(); }\n",
-    )
-    assert syntax.first_error is not None
-    assert [(item.kind.value, item.name) for item in syntax.definitions] == [
-        ("class", "Good"),
-        ("function", "bad"),
-    ]
-    assert [
-        (site.kind.value, site.expression)
-        for site in syntax.sites
-        if site.kind is not SiteKind.REFERENCE
-    ] == [("new", "Missing")]
-
-
-def test_interface_heritage_private_names_bare_enum_members_and_partial_signatures() -> None:
-    syntax = parse(
-        "main.ts",
-        b"interface Child extends First, Second { run(value?: string): void; }\n"
-        b"enum State { READY, STOPPED }\nclass Token { #token: string; }\n",
-    )
-    child = next(item for item in syntax.definitions if item.name == "Child")
-    method = next(item for item in syntax.definitions if item.name == "run")
-    state = next(item for item in syntax.definitions if item.name == "State")
-    token = next(item for item in syntax.definitions if item.name == "Token")
-    assert [(base.name, base.relationship.value) for base in child.bases] == [
-        ("First", "inherits"),
-        ("Second", "inherits"),
-    ]
-    assert method.signature_complete is False
-    assert [member.name for member in state.members] == ["READY", "STOPPED"]
-    assert [(member.name, member.visibility.value) for member in token.members] == [
-        ("#token", "private")
-    ]
-
-
-def test_namespace_and_class_expression_members_are_not_assigned_false_owners() -> None:
-    syntax = parse(
-        "main.ts",
-        b"namespace N { export class C { method() { helper(); } } }\n"
-        b"function outer() { const value = class { run() { helper(); } }; }\n",
-    )
-    assert not any(item.name in {"N", "C", "method", "run"} for item in syntax.definitions)
-    assert all(site.scope_ambiguous for site in syntax.sites if site.name == "helper")
 
 
 def test_overloads_merged_interfaces_and_shadowed_construction_validate(tmp_path) -> None:

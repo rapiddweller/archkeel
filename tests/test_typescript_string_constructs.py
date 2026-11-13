@@ -11,7 +11,6 @@ import pytest
 from collector_pin import assembled
 from test_typescript_collect import _facts
 
-from archkeel.analyzer.typescript import parse as parser
 from archkeel.ir.decisions import rule_assessments, unknown_positions_by_rule
 from archkeel.ir.facts import (
     ConstructSupport,
@@ -179,31 +178,12 @@ def test_nested_equality_occurrences_have_distinct_source_bound_identities(tmp_p
 
 
 def test_unknown_parent_grammar_preserves_observation_of_known_children(tmp_path):
-    assert "ternary_expression" not in parser._NODE_KINDS
     facts, model = _model(
         tmp_path,
         'export function decide(value, enabled) { return enabled ? value === "active" : false; }',
     )
     assert len(_constructs(facts)) == 1
     assert _assessment(model).status == "FAIL"
-
-
-def test_unknown_comparison_grammar_cannot_become_proven_absence(tmp_path, monkeypatch):
-    monkeypatch.delitem(parser._NODE_KINDS, "binary_expression", raising=False)
-    facts, model = _model(tmp_path, 'export function decide(value) { return value === "active"; }')
-    assert not _constructs(facts)
-    assert not trace_valid_violations(model)
-    assert _assessment(model).status == "UNKNOWN"
-
-
-def test_unknown_template_child_is_not_promoted_to_a_plain_literal(tmp_path, monkeypatch):
-    monkeypatch.delitem(parser._NODE_KINDS, "template_substitution", raising=False)
-    facts, model = _model(
-        tmp_path, "export function decide(value, left) { return value === `active-${left}`; }"
-    )
-    assert not _constructs(facts)
-    assert not trace_valid_violations(model)
-    assert _assessment(model).status == "UNKNOWN"
 
 
 def test_parse_error_cannot_become_a_clean_construct_rule(tmp_path):
@@ -383,22 +363,3 @@ def test_ts_literal_wrappers_do_not_turn_types_names_or_dynamic_values_into_proo
     assert not trace_valid_violations(model)
     assert _assessment(model).status == "UNKNOWN"
     assert facts.capabilities.constructs[0].status is ConstructSupport.PARTIAL
-
-
-@pytest.mark.parametrize("expression", ['("active" as const)', '(left as "active")'])
-def test_unknown_ts_literal_wrapper_kind_cannot_promote_its_type_literal(
-    tmp_path, monkeypatch, expression
-):
-    original = parser._NODE_KINDS
-    monkeypatch.setattr(
-        parser,
-        "_NODE_KINDS",
-        {key: value for key, value in original.items() if key != "as_expression"},
-    )
-    facts, model = _model(
-        tmp_path,
-        "export function decide(value: any, left: any) { return value === " + expression + "; }",
-    )
-    assert not _constructs(facts)
-    assert not trace_valid_violations(model)
-    assert _assessment(model).status == "UNKNOWN"

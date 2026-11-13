@@ -16,6 +16,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import tomllib
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -111,6 +112,41 @@ def bench_case(value: str) -> Case:
 
 def oracle_path(case: Case) -> Path:
     return oracle_file(BENCH_DIR if case.bench else ORACLE_DIR, case.id)
+
+
+def case_language(case: Case) -> str:
+    """Read the effective profile before collection, including a case's configuration overlays."""
+    if case.config in case.files:
+        text = case.files[case.config]
+    elif case.config in case.base_files:
+        text = case.base_files[case.config]
+    elif case.commit is not None:
+        text = subprocess.check_output(
+            ["git", "show", f"{case.commit}:{case.config}"],
+            cwd=REPOSITORY,
+            text=True,
+        )
+    else:
+        text = (REPOSITORY / case.fixture / case.config).read_text()
+    if text is None:
+        raise ValueError(f"case {case.id} deletes its configuration")
+    language: str = tomllib.loads(text)["scan"].get("language", "python")
+    if language not in {"python", "dart", "typescript", "rust"}:
+        raise ValueError(f"case {case.id} has an invalid language")
+    return language
+
+
+def supported_cases(cases: list[Case]) -> tuple[list[Case], int]:
+    kept = []
+    skipped = 0
+    for case in cases:
+        language = case_language(case)
+        if language in {"python", "dart"}:
+            print(f"SKIP {case.id}: {language} projects are not supported; use archkeel 4.0.1")
+            skipped += 1
+        else:
+            kept.append(case)
+    return kept, skipped
 
 
 def _apply(root: Path, files: Mapping[str, str | None]) -> None:

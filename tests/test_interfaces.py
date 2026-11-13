@@ -4,7 +4,6 @@
 """Unit tests for the AD-9 component communication derivation."""
 
 import json
-import shutil
 from pathlib import Path
 from typing import Any
 
@@ -351,67 +350,6 @@ def test_interface_profile_measures_a_declared_barrel() -> None:
         ("consumer", "provider", 2),
         ("other", "provider", 1),
     }
-
-
-def test_interface_profile_measures_a_real_barrel(tmp_path: Path) -> None:
-    """The shop fixture's __init__.py barrel is observed, not hand-modelled."""
-    source = tmp_path / "repo"
-    shutil.copytree(ROOT / "fixtures/F-architecture", source)
-    contract = source / "architecture-contract.json"
-    contract.write_text(
-        contract.read_text().replace(
-            '"shop.store.repository:OrderRepository"', '"shop.store:OrderRepository"'
-        )
-    )
-    result = observe(
-        source,
-        roots=("shop",),
-        namespace="shop",
-        contract="architecture-contract.json",
-        git_head="0" * 40,
-        dirty=False,
-        contract_root=source,
-    )
-    assert result.diagnostics == ()
-    assert result.observation is not None
-
-    profile = interface_profile(result.observation)
-    store = next(item for item in profile.facades if item.module == "shop.store")
-    assert store.exported_names == ("OrderRepository",)
-    assert store.reexported_names == ("OrderRepository",)
-    assert store.unused_reexports == ()
-    repository = next(item for item in profile.exports if item.module == "shop.store")
-    assert repository.consumers == ("app",)
-    coupling = next(
-        item for item in profile.coupling if item.source == "app" and item.target == "store"
-    )
-    assert "shop.store:OrderRepository" in coupling.names
-
-
-def test_interface_profile_measures_a_real_non_package_barrel(tmp_path: Path) -> None:
-    profile = _real_barrel_profile(tmp_path, "from sample.model.api import Widget\n")
-
-    barrel = next(item for item in profile.facades if item.module == "sample.model.api")
-    assert barrel.exported_names == ("Widget",)
-    assert barrel.reexported_names == ("Widget",)
-    usage = next(item for item in profile.exports if item.module == "sample.model.api")
-    assert usage.consumers == ("consumer",)
-    assert ("consumer", "model", ("sample.model.api:Widget",)) in {
-        (item.source, item.target, item.names) for item in profile.coupling
-    }
-
-
-def test_interface_profile_counts_no_name_for_a_module_alias(tmp_path: Path) -> None:
-    """A whole-module import proves no name use; AD-99 records it as uncounted instead."""
-    profile = _real_barrel_profile(tmp_path, "import sample.model.api as api\n")
-
-    usage = next(item for item in profile.exports if item.module == "sample.model.api")
-    assert usage.consumers == ()
-    assert [
-        (item.names, item.uncounted)
-        for item in profile.coupling
-        if item.source == "consumer" and item.target == "model"
-    ] == [((), ("sample.model.api",))]
 
 
 def test_interface_profile_follows_a_reexport_to_the_declared_facade_name() -> None:

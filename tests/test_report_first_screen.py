@@ -17,8 +17,6 @@ from test_architecture_demo import _prepare_repo
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
-from archkeel.ir.codec import decode_canonical_model, parse_observation
-from archkeel.ir.decisions import agent_decisions
 from archkeel.render.html import render_architecture_html
 from fixtures.architecture_demo import replay
 
@@ -202,32 +200,6 @@ def test_explorer_top_edge_stays_on_the_first_screen_with_five_findings(tmp_path
     finally:
         browser.close()
         playwright.stop()
-
-
-def test_all_agent_decisions_are_worded_as_a_draft_awaiting_the_architect(tmp_path):
-    result, encoded = _report(
-        tmp_path, [("alpha", 1), ("beta", 1)], rule_deciders=("agent", "agent")
-    )
-    observation = parse_observation(decode_canonical_model(json.loads(encoded)))
-    agent, total = agent_decisions(observation)
-    assert agent == total > 0
-    text = _verdict(_html(result, encoded))
-    assert (
-        f" · Draft contract: all {total} decisions are by the agent, awaiting the architect" in text
-    )
-    assert "Agent decisions" not in text
-
-
-def test_mixed_decisions_keep_the_agent_fraction(tmp_path):
-    result, encoded = _report(
-        tmp_path, [("alpha", 1), ("beta", 1)], rule_deciders=("agent", "architect")
-    )
-    observation = parse_observation(decode_canonical_model(json.loads(encoded)))
-    agent, total = agent_decisions(observation)
-    assert 0 < agent < total
-    text = _verdict(_html(result, encoded))
-    assert f" · Agent decisions {agent}/{total}" in text
-    assert "Draft contract" not in text
 
 
 @pytest.mark.browser

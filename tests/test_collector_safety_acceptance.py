@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import signal
 import subprocess
 import sys
@@ -17,16 +16,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from test_architecture_demo import _prepare_repo
 from test_collection_protocol import _request, _response
 
 from archkeel.analyzer.process import ProcessCollector
-from archkeel.cli import main
 from archkeel.cli.config import load_config
-from archkeel.cli.observe import observer_for
 from archkeel.ir.facts_codec import decode_request
 from archkeel.ir.protocol import CollectionError, CollectionRequest, DartSettings, SourceScope
-from fixtures.demo_catalog_dart import DART_FIXTURE_DIR
 
 
 def _request_for(root: Path, language: str = "python") -> CollectionRequest:
@@ -189,77 +184,3 @@ def _git_init(root: Path) -> None:
         cwd=root,
         check=True,
     )
-
-
-@pytest.mark.parametrize("language", ["python", "dart"])
-@pytest.mark.parametrize("with_shadow", [False, True], ids=["no-shadow", "shadow"])
-def test_default_builtin_collection_does_not_import_project_package(
-    tmp_path: Path, language: str, with_shadow: bool
-) -> None:
-    root = _prepare_repo(tmp_path, {}) if language == "python" else tmp_path / "dart"
-    if language == "dart":
-        shutil.copytree(DART_FIXTURE_DIR, root)
-    marker = root / "project-imported"
-    if with_shadow:
-        shadow = root / "archkeel"
-        shadow.mkdir()
-        (shadow / "__init__.py").write_text(
-            f"from pathlib import Path\nPath({str(marker)!r}).write_text('executed')\n"
-        )
-    if language == "dart":
-        _git_init(root)
-
-    collector = observer_for(language).collector
-    result = collector.collect(_request_for(root, language))
-    assert not marker.exists(), (
-        f"default built-in command executed the repository package: {result}"
-    )
-    assert not isinstance(result, CollectionError), f"collection failed: {result}"
-    assert result.files
-
-
-@pytest.mark.parametrize("language", ["python", "dart"])
-@pytest.mark.parametrize("command", ["report", "validate"])
-@pytest.mark.parametrize("with_shadow", [False, True], ids=["no-shadow", "shadow"])
-def test_public_cli_does_not_execute_repository_package(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-    language: str,
-    command: str,
-    with_shadow: bool,
-) -> None:
-    root = _prepare_repo(tmp_path, {}) if language == "python" else tmp_path / "dart"
-    if language == "dart":
-        shutil.copytree(DART_FIXTURE_DIR, root)
-    marker = root / "project-imported"
-    if with_shadow:
-        shadow = root / "archkeel"
-        shadow.mkdir()
-        (shadow / "__init__.py").write_text(
-            f"from pathlib import Path\nPath({str(marker)!r}).write_text('executed')\n"
-        )
-    if language == "dart":
-        _git_init(root)
-    monkeypatch.chdir(root)
-
-    exit_code = main([command, "--root", str(root), "--json"])
-    output = json.loads(capsys.readouterr().out)
-    assert not marker.exists(), (
-        f"public CLI executed the repository package: {output['diagnostics']}"
-    )
-    assert exit_code in (0, 1)
-    assert output["observation_complete"] == "PASS"
-
-
-def test_default_python_collection_does_not_import_project_stdlib_shadow(tmp_path: Path) -> None:
-    root = _prepare_repo(tmp_path, {})
-    marker = root / "stdlib-shadow-imported"
-    (root / "json.py").write_text(
-        f"from pathlib import Path\nPath({str(marker)!r}).write_text('executed')\n"
-    )
-
-    result = observer_for("python").collector.collect(_request_for(root))
-    assert not marker.exists(), f"default collector imported project json.py: {result}"
-    assert not isinstance(result, CollectionError), f"collection failed: {result}"
-    assert result.files

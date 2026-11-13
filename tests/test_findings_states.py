@@ -17,16 +17,12 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 import pytest
-from test_cycle_levels import _CORE_CYCLE, _observe
-from test_findings import HUB_FILES, REMEDY, Run, _page, _run
-from test_findings_path_render import _component_run
+from test_findings import HUB_FILES, Run, _run
 from test_module_explore import _sample
 
-from archkeel.check.report import _proofs_hold, _ranked_findings, run_saved_report
+from archkeel.check.report import _ranked_findings, run_saved_report
 from archkeel.ir.architecture_graph import AssessmentStatus
-from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model, result_payload
-from archkeel.ir.diagnostics import Diagnostic, DiagnosticCode, DiagnosticKind
-from archkeel.ir.findings import findings, findings_note, findings_state
+from archkeel.ir.codec import canonical_report_bytes, decode_canonical_model
 from archkeel.ir.model import (
     Finding,
     FindingKind,
@@ -35,9 +31,7 @@ from archkeel.ir.model import (
     ReportFilter,
     RunResult,
 )
-from archkeel.ir.module_explore import module_exploration
 from archkeel.ir.report_graph import architecture_report
-from archkeel.render.summary import report_summary
 
 PASS, UNKNOWN = AssessmentStatus.PASS, AssessmentStatus.UNKNOWN
 V, MC, FAN_IN, FAN_OUT = (
@@ -177,123 +171,9 @@ def runs(full: Run, plain: Run) -> dict[str, Run]:
     return {"full": full, "plain": plain}
 
 
-@pytest.mark.parametrize("case", CLASSES, ids=lambda case: case.id)
-def test_the_ranking_of_each_class(case: Case, runs: dict[str, Run]) -> None:
-    _, _, result = _ranked(case, runs)
-    assert findings_state(result) is case.state
-    if case.kinds is None:
-        assert result.findings is None
-    else:
-        assert result.findings is not None
-        assert tuple(item.kind for item in result.findings) == case.kinds
-
-
-@pytest.mark.parametrize("case", CLASSES, ids=lambda case: case.id)
-def test_an_incomplete_run_never_ranks_a_hub_or_an_empty_list(
-    case: Case, runs: dict[str, Run]
-) -> None:
-    _, _, result = _ranked(case, runs)
-    if not case.complete:
-        assert result.findings != ()
-        assert all(item.kind not in {FAN_IN, FAN_OUT} for item in result.findings or ())
-
-
-@pytest.mark.parametrize("case", CLASSES, ids=lambda case: case.id)
-def test_the_terminal_says_what_the_state_says(case: Case, runs: dict[str, Run]) -> None:
-    _, _, result = _ranked(case, runs)
-    claims = report_summary(result).claims
-    note = findings_note(result)
-    if case.state is FindingsState.COMPLETE and case.kinds:
-        assert claims.startswith("Findings, ranked (")
-        assert note is None
-    elif case.state is FindingsState.COMPLETE:
-        assert claims == "No ranked findings: no violation, dependency cycle or hub."
-    elif case.state is FindingsState.PARTIAL:
-        assert claims.startswith("Findings, ranked (")
-        assert claims.endswith(note or "?")
-    else:
-        assert claims == note
-    if not case.complete:
-        assert "No ranked findings:" not in claims
-
-
-@pytest.mark.parametrize("case", CLASSES, ids=lambda case: case.id)
-def test_the_html_says_what_the_state_says(case: Case, runs: dict[str, Run]) -> None:
-    run, _, result = _ranked(case, runs)
-    page = _page(Run(result, run.observation, run.architecture))
-    markup = re.sub(r"<(style|script)\b.*?</\1>", "", page, flags=re.S)
-    note = findings_note(result)
-    listed = markup.count("data-finding-identity=")
-    assert listed == len(result.findings or ())
-    if note is not None:
-        assert f'<p class="findings-note">{note}</p>' in markup
-    else:
-        assert 'class="findings-note"' not in markup
-    if case.complete and not case.kinds:
-        assert "No violation, dependency cycle or hub." in markup
-    else:
-        assert "No violation, dependency cycle or hub." not in markup
-
-
-@pytest.mark.parametrize("case", CLASSES, ids=lambda case: case.id)
-def test_the_three_renders_name_the_same_findings(case: Case, runs: dict[str, Run]) -> None:
-    run, _, result = _ranked(case, runs)
-    payload = result_payload(result)
-    expected = [item.title for item in result.findings or ()]
-    assert ("findings" in payload) is (result.findings is not None)
-    assert [item["title"] for item in payload.get("findings", [])] == expected
-    page = _page(Run(result, run.observation, run.architecture))
-    titles = re.findall(r'<strong class="finding-title">(?:<a [^>]*>)?([^<]*)', page)
-    assert [title.replace("&amp;", "&") for title in titles][: len(expected)] == expected[
-        : len(titles)
-    ]
-    numbered = [
-        line for line in report_summary(result).claims.splitlines() if re.match(r"^\s*\d+\. ", line)
-    ]
-    assert len(numbered) == min(len(expected), 5)
-
-
-def test_the_proven_violation_keeps_its_size_and_sentence_on_an_incomplete_run(
-    runs: dict[str, Run],
-) -> None:
-    case = next(item for item in CLASSES if item.id == "C5")
-    _, _, result = _ranked(case, runs)
-    assert result.findings is not None
-    [violation] = result.findings
-    # Twice at one pair is one finding of size 2, as on a complete run (the reverse direction
-    # is pinned in test_findings.py).
-    assert violation.size == 2
-    assert violation.sentence == f"dependencies is broken 2 times. {REMEDY}"
-
-
 def _rank(observation: Observation, complete: bool) -> tuple[FindingKind, ...] | None:
     ranked = _ranked_for(observation, complete)
     return None if ranked is None else tuple(item.kind for item in ranked)
-
-
-def test_a_module_cycle_rule_and_its_cycle_are_listed_once_on_every_run(tmp_path: Path) -> None:
-    """C17: the violation hides its own cycle only while the violation is proven."""
-    observation = _observe(tmp_path, _CORE_CYCLE, level="module")
-    assert _rank(observation, True) == (V,)
-    assert _rank(observation, False) == (V,)
-    # Without a complete trace the violation is not ranked, and it must not hide the cycle.
-    assert _rank(_untraced(observation), False) == (MC,)
-
-
-def test_a_component_cycle_violation_keeps_its_path_on_an_incomplete_run(
-    tmp_path_factory: pytest.TempPathFactory,
-) -> None:
-    """C16: the path of a component-cycle violation is the same on a partial run."""
-    run = _component_run(tmp_path_factory.mktemp("states-component") / "repo")
-    kinds = {}
-    for complete in (True, False):
-        ranked = _ranked_for(run.observation, complete)
-        assert ranked is not None
-        [violation] = [item for item in ranked if item.kind is V]
-        assert violation.path is not None
-        kinds[complete] = [(step.source, step.target) for step in violation.path.steps]
-    assert kinds[True] == kinds[False]
-    assert len(kinds[True]) == 3
 
 
 def _saved(full: Run, tmp_path: Path, runtime_required: str | None) -> RunResult:
@@ -303,85 +183,6 @@ def _saved(full: Run, tmp_path: Path, runtime_required: str | None) -> RunResult
     path = tmp_path / "saved.json"
     path.write_bytes(canonical_report_bytes(raw))
     return run_saved_report(path)
-
-
-def test_a_run_that_cannot_fail_a_rule_does_not_rank_its_violations(
-    full: Run, tmp_path: Path
-) -> None:
-    """C18: the gates that keep `declared_rules` UNKNOWN also keep the violation out of the list."""
-    ok = _saved(full, tmp_path, None)
-    assert ok.declared_rules == "FAIL"
-    assert findings_state(ok) is FindingsState.COMPLETE
-    blocked = _saved(full, tmp_path, ">=9.0")
-    assert blocked.observation_complete is UNKNOWN
-    assert blocked.declared_rules == "UNKNOWN"
-    assert blocked.findings is None
-    assert findings_state(blocked) is FindingsState.NOT_RANKED
-
-
-@pytest.mark.parametrize("kind", list(DiagnosticKind))
-def test_only_the_three_revoking_diagnostics_close_the_proof_gate(
-    kind: DiagnosticKind, full: Run
-) -> None:
-    revoking = {
-        DiagnosticKind.CONTRACT_INVALID,
-        DiagnosticKind.RUNTIME_MISMATCH,
-        DiagnosticKind.INCOMPARABLE_RUNTIME,
-    }
-    # Only a contract_invalid diagnostic carries a code, and it must carry one.
-    code = DiagnosticCode.DECISION_OPEN if kind is DiagnosticKind.CONTRACT_INVALID else None
-    diagnostic = Diagnostic(kind, "subject", "claim", "remedy", code=code)
-    assert _proofs_hold(full.observation, (diagnostic,)) is (kind not in revoking)
-
-
-def test_the_proof_gate_needs_a_model_and_a_runtime(full: Run) -> None:
-    assert _proofs_hold(full.observation, ()) is True
-    assert _proofs_hold(None, ()) is False
-    assert _proofs_hold(replace(full.observation, runtime=None), ()) is False
-
-
-def test_a_complete_run_ranks_exactly_what_it_ranked_before(full: Run) -> None:
-    again = findings(
-        full.observation,
-        module_exploration(full.observation),
-        violation_remedy=REMEDY,
-    )
-    assert full.result.findings == again
-
-
-def test_a_run_with_no_observation_has_no_findings_and_says_so(full: Run) -> None:
-    result = replace(
-        full.result, observation_complete=UNKNOWN, coverage=None, findings=None, claims=None
-    )
-    assert findings_state(result) is FindingsState.NO_OBSERVATION
-    assert findings_note(result) == "Findings are not ranked: no observation was produced."
-    assert report_summary(result).claims == ""
-    assert "findings" not in result_payload(result)
-
-
-@pytest.mark.parametrize("report_filter", FILTERS, ids=FILTER_NAMES)
-def test_every_filter_ranks_nothing_whatever_the_observation(
-    report_filter: ReportFilter, full: Run
-) -> None:
-    for complete in (True, False):
-        assert _ranked_for(full.observation, complete, report_filter) is None
-        result = replace(
-            full.result,
-            report_filter=report_filter,
-            observation_complete=PASS if complete else UNKNOWN,
-            findings=None,
-        )
-        assert findings_state(result) is FindingsState.FILTERED
-        assert findings_note(result) == (
-            "A filtered result lists no findings. Run report without a filter."
-        )
-        assert "findings" not in result_payload(result)
-
-
-def test_a_complete_result_without_findings_is_an_older_result(full: Run) -> None:
-    result = replace(full.result, findings=None)
-    assert findings_state(result) is FindingsState.NONE_RECORDED
-    assert findings_note(result) == "This result carries no ranked findings."
 
 
 # The truth table of `findings_state`: every combination of the four fields it reads.
@@ -408,19 +209,6 @@ TRUTH = {
 }
 
 
-@pytest.mark.parametrize("combination", TRUTH, ids=lambda item: "-".join(item))
-def test_the_truth_table_of_the_state(combination: tuple[str, str, str, str], full: Run) -> None:
-    observation, coverage, found, filtered = combination
-    result = replace(
-        full.result,
-        observation_complete=PASS if observation == "PASS" else UNKNOWN,
-        coverage=full.result.coverage if coverage == "cov" else None,
-        findings={"list": full.result.findings, "empty": (), "absent": None}[found],
-        report_filter=FILTERS[0] if filtered == "set" else None,
-    )
-    assert findings_state(result) is TRUTH[combination]
-
-
 def test_the_truth_table_covers_every_combination() -> None:
     every = set(
         itertools.product(
@@ -431,18 +219,6 @@ def test_the_truth_table_covers_every_combination() -> None:
         )
     )
     assert set(TRUTH) == every
-
-
-def test_a_note_counts_the_coverage_failures_it_names(full: Run) -> None:
-    class _Coverage:
-        failures = tuple(range(30))
-
-    partial = replace(full.result, observation_complete=UNKNOWN, coverage=_Coverage())  # type: ignore[arg-type]
-    assert findings_note(partial) == (
-        "Hubs are not ranked: the observation is incomplete (30 coverage failures)."
-    )
-    one = replace(partial, coverage=type("C", (), {"failures": (1,)})(), findings=None)  # type: ignore[arg-type]
-    assert "(1 coverage failure)" in (findings_note(one) or "")
 
 
 # ----- the page and the tests must name the same classes ---------------------------------------
@@ -474,25 +250,3 @@ def test_the_page_and_the_tests_name_the_same_classes() -> None:
         # Grouping and path are pinned in test_findings.py and test_findings_path_render.py.
         assert number in classes
     assert {key: value for key, value in classes.items() if key in expected} == expected
-
-
-def test_the_page_and_the_code_use_the_same_sentences(full: Run) -> None:
-    _, sentences = _page_rows()
-
-    class _Coverage:
-        failures = tuple(range(30))
-
-    base = replace(full.result, coverage=_Coverage())  # type: ignore[arg-type]
-    results = {
-        FindingsState.PARTIAL: replace(base, observation_complete=UNKNOWN),
-        FindingsState.NOT_RANKED: replace(base, observation_complete=UNKNOWN, findings=None),
-        FindingsState.NO_OBSERVATION: replace(
-            base, observation_complete=UNKNOWN, findings=None, coverage=None
-        ),
-        FindingsState.FILTERED: replace(base, report_filter=FILTERS[0], findings=None),
-        FindingsState.NONE_RECORDED: replace(base, findings=None),
-    }
-    assert set(sentences) == {state.name for state in results}
-    for state, result in results.items():
-        assert findings_state(result) is state
-        assert _normal(findings_note(result) or "") == _normal(sentences[state.name])

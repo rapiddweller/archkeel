@@ -13,33 +13,15 @@ from jsonschema import Draft202012Validator
 from test_onboarding import _repository
 
 from archkeel import cli
-from archkeel.analyzer.process import ProcessCollector
-from archkeel.analyzer.python.collect import PythonProviderCollector
 from archkeel.cli import main
 from archkeel.cli.config import ConfigError, parse_config
-from archkeel.cli.observe import observer_for
 
 ROOT = Path(__file__).parents[1]
-CONFIG = '[scan]\nroots = ["src/sample"]\nnamespace = "sample"\ncontract = "contract.json"\n'
+CONFIG = (
+    '[scan]\nlanguage = "typescript"\nroots = ["src/sample"]\n'
+    'namespace = "sample"\ncontract = "contract.json"\n'
+)
 OVER_LIMIT = str(int(TIMEOUT_MAX) + 1)
-
-
-@pytest.mark.parametrize("language", ["python", "dart", "typescript"])
-@pytest.mark.parametrize("seconds", [None, 600])
-def test_configured_timeout_keeps_a_300_second_default(language: str, seconds: int | None) -> None:
-    payload = CONFIG + f'language = "{language}"\n'
-    if seconds is not None:
-        payload += f"collector_timeout_seconds = {seconds}\n"
-    config = parse_config(payload.encode())
-    selected = observer_for(config.language, timeout_seconds=config.collector_timeout_seconds)
-    collector = selected.collector
-    if isinstance(collector, PythonProviderCollector):
-        collector = collector.collector
-
-    assert isinstance(collector, ProcessCollector)
-    assert collector.timeout_seconds == (300 if seconds is None else seconds)
-    schema = json.loads((ROOT / "schema/archkeel.schema.json").read_bytes())
-    Draft202012Validator(schema).validate(tomllib.loads(payload))
 
 
 @pytest.mark.parametrize("value", ["0", "-1", "true", "false", "1.5", '"600"', "[]"])
@@ -59,7 +41,22 @@ def test_timeout_rejects_values_beyond_the_thread_deadline() -> None:
 
 def test_init_persists_the_configured_timeout(tmp_path: Path, capsys) -> None:
     root = _repository(tmp_path, packages=("sample",))
-    args = ["init", "--root", str(root), "--json", "--collector-timeout-seconds", "600"]
+    args = [
+        "init",
+        "--language",
+        "typescript",
+        "--source",
+        "src",
+        "--namespace",
+        "sample",
+        "--tsconfig",
+        "tsconfig.json",
+        "--root",
+        str(root),
+        "--json",
+        "--collector-timeout-seconds",
+        "600",
+    ]
 
     assert main(args) == 0
     initialized = json.loads(capsys.readouterr().out)
@@ -73,7 +70,27 @@ def test_configured_timeout_reaches_the_collector(
     tmp_path: Path, monkeypatch, capsys, command: str
 ) -> None:
     root = _repository(tmp_path, packages=("sample",))
-    assert main(["init", "--root", str(root), "--json", "--collector-timeout-seconds", "600"]) == 0
+    assert (
+        main(
+            [
+                "init",
+                "--language",
+                "typescript",
+                "--source",
+                "src",
+                "--namespace",
+                "sample",
+                "--tsconfig",
+                "tsconfig.json",
+                "--root",
+                str(root),
+                "--json",
+                "--collector-timeout-seconds",
+                "600",
+            ]
+        )
+        == 0
+    )
     capsys.readouterr()
     requested: list[object] = []
     build_observer = cli.observer_for

@@ -163,25 +163,20 @@ TAMPERS: dict[str, Tamper] = {
 
 def _reply(language: str) -> tuple[Reply, bool]:
     """The reply of the real collector, and whether its protocol compresses it (8.0.0, 9.0.0)."""
-    from archkeel.ir.facts_codec import decode_request, encode_response
-    from archkeel.ir.protocol import CollectionResponse
-
     payload = sys.stdin.buffer.read()
-    if language == "rust":
-        # The Rust collector is a binary: the test names its path (`RUST_COLLECTOR`).
-        answer = subprocess.run(
-            [os.environ[RUST_COLLECTOR]], input=payload, capture_output=True, check=True
-        ).stdout
-        compressed = answer[:1] == ZLIB_HEADER
-        return json.loads(zlib.decompress(answer) if compressed else answer), compressed
-    request = decode_request(payload)
-    if language == "typescript":
-        from archkeel.analyzer.typescript.collect import collect
-    else:
-        from archkeel.analyzer.python.collect import collect
-    payload = encode_response(CollectionResponse(collect(request), request.protocol_version))
-    compressed = payload[:1] == ZLIB_HEADER
-    return json.loads(zlib.decompress(payload) if compressed else payload), compressed
+    from archkeel.cli.config import require_supported_project
+    from archkeel.cli.observe import TYPESCRIPT_COLLECTOR, verified_binary
+    from archkeel.ir.languages import Language
+
+    require_supported_project(Language(language))
+    binary = (
+        os.environ[RUST_COLLECTOR]
+        if language == "rust"
+        else verified_binary(TYPESCRIPT_COLLECTOR).path
+    )
+    answer = subprocess.run([binary], input=payload, capture_output=True, check=True).stdout
+    compressed = answer[:1] == ZLIB_HEADER
+    return json.loads(zlib.decompress(answer) if compressed else answer), compressed
 
 
 def send(reply: Reply, compressed: bool) -> None:

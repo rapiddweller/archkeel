@@ -11,8 +11,6 @@ from test_source_graph import _graph_from_source_facts
 from test_typescript_inner import _collected, _collected_files
 from test_typescript_partial_uml import _live, _project
 
-from archkeel.analyzer.typescript.parse import parse
-from archkeel.analyzer.typescript.syntax import DefinitionKind
 from archkeel.check.report import run_saved_report
 from archkeel.check.uml_compare import compare_graphs
 from archkeel.ir.architecture_graph import ArchitectureGraph, Entity, TargetScope
@@ -74,15 +72,6 @@ def _target(
 def test_decorated_members_keep_source_metadata_ownership_and_complete_inventory(
     tmp_path: Path,
 ) -> None:
-    syntax = parse("src/main.ts", SOURCE.encode())
-    owner, run, plain = syntax.definitions
-    assert syntax.first_error is None
-    assert owner.members_complete is True
-    assert owner.decorators is True and run.decorators is True and plain.decorators is False
-    assert (run.parent, run.parent_line, run.parent_column) == ("Endpoint", 2, 8)
-    assert (run.span.line, run.span.column, run.returns, run.static) == (7, 3, "string", True)
-    assert [(item.name, item.annotation) for item in run.parameters] == [("value", "string")]
-
     facts = _collected(tmp_path, SOURCE + DECORATORS)
     assert facts.coverage.full_scope and not facts.coverage.gaps
     symbols = {
@@ -135,40 +124,6 @@ def test_plain_top_level_and_nested_functions_publish_signature_identity(tmp_pat
 
 
 @pytest.mark.parametrize(
-    "member",
-    [
-        "@Get() run(): string { return ''; }",
-        "@One @Two() /* attached */ private run(): void {}",
-        "@Field() value: string;",
-        "@Get() get value(): string { return ''; }",
-        "@Set() set value(input: string) {}",
-    ],
-)
-def test_supported_decorated_lexical_members_are_complete(member: str) -> None:
-    syntax = parse("main.ts", f"class Endpoint {{ {member} }}".encode())
-    assert syntax.first_error is None
-    assert syntax.definitions[0].members_complete is True
-
-
-@pytest.mark.parametrize(
-    "member",
-    [
-        "@Get() [key](): void {}",
-        "@Field() [key]: string;",
-        "@Get() run() {} static { initialize(); }",
-        "@Get()",
-        "@Get(); run() {}",
-        "@Get( run() {}",
-        "@Get() constructor() {}",
-    ],
-)
-def test_uncertain_or_unsupported_decorated_bodies_are_not_closed(member: str) -> None:
-    syntax = parse("main.ts", f"class Endpoint {{ {member} }}".encode())
-    owners = [item for item in syntax.definitions if item.kind is DefinitionKind.CLASS]
-    assert not owners or all(item.members_complete is False for item in owners)
-
-
-@pytest.mark.parametrize(
     "spelling",
     [
         "constructor",
@@ -190,10 +145,6 @@ def test_decorated_instance_constructor_spellings_keep_closed_methods_unknown(
     spelling: str,
 ) -> None:
     source = f"class Endpoint {{ @Get() {spelling}() {{}} }}"
-    syntax = parse("src/main.ts", source.encode())
-    assert syntax.first_error is None
-    assert syntax.definitions[0].members_complete is False
-    assert syntax.definitions[1].name == spelling
     graph = _graph_from_source_facts(_collected(tmp_path, source + DECORATORS), ("src",))
     comparison = compare_graphs(graph, _target((spelling,)))
     assert comparison.status == "UNKNOWN"
@@ -218,12 +169,6 @@ def test_decorated_static_constructor_named_methods_keep_metadata_and_complete_i
     spelling: str,
 ) -> None:
     source = f"class Endpoint {{ @Get() {member} }}"
-    syntax = parse("src/main.ts", source.encode())
-    assert syntax.first_error is None
-    assert syntax.definitions[0].members_complete is True
-    method = syntax.definitions[1]
-    assert method.name == spelling and method.decorators is True and method.static is True
-    assert method.parent == "Endpoint"
     facts = _collected(tmp_path, source + DECORATORS)
     method_record = next(
         record
@@ -246,10 +191,6 @@ def test_constructor_escape_recognition_does_not_reinterpret_other_member_names(
     spelling: str,
 ) -> None:
     source = f"class Endpoint {{ @Get() {spelling}(): void {{}} }}"
-    syntax = parse("src/main.ts", source.encode())
-    assert syntax.first_error is None
-    assert syntax.definitions[0].members_complete is True
-    assert syntax.definitions[1].name == spelling and syntax.definitions[1].decorators is True
     graph = _graph_from_source_facts(_collected(tmp_path, source + DECORATORS), ("src",))
     assert compare_graphs(graph, _target((spelling,))).status == "PASS"
 
@@ -270,8 +211,6 @@ def test_invalid_unicode_member_names_cannot_close_a_decorated_inventory(
     spelling: str,
 ) -> None:
     source = f"class Endpoint {{ @Get() {spelling}() {{}} }}"
-    syntax = parse("src/main.ts", source.encode())
-    assert syntax.first_error is not None or syntax.definitions[0].members_complete is False
     name = spelling.removeprefix("static ")
     graph = _graph_from_source_facts(_collected(tmp_path, source + DECORATORS), ("src",))
     assert compare_graphs(graph, _target((name,))).status == "UNKNOWN"
@@ -292,9 +231,6 @@ def test_unvalidated_escaped_identifiers_keep_decorated_inventory_unknown(
     spelling: str,
 ) -> None:
     source = f"class Endpoint {{ @Get() {spelling}() {{}} }}"
-    syntax = parse("src/main.ts", source.encode())
-    assert syntax.first_error is None
-    assert syntax.definitions[0].members_complete is False
     graph = _graph_from_source_facts(_collected(tmp_path, source + DECORATORS), ("src",))
     assert compare_graphs(graph, _target((spelling,))).status == "UNKNOWN"
 
@@ -314,10 +250,6 @@ def test_quoted_string_names_retain_their_distinct_unicode_character_rules(
     spelling: str,
 ) -> None:
     source = f"class Endpoint {{ @Get() {spelling}() {{}} }}"
-    syntax = parse("src/main.ts", source.encode())
-    assert syntax.first_error is None
-    assert syntax.definitions[0].members_complete is True
-    assert syntax.definitions[1].decorators is True
     graph = _graph_from_source_facts(_collected(tmp_path, source + DECORATORS), ("src",))
     assert compare_graphs(graph, _target((spelling,))).status == "PASS"
 
@@ -337,10 +269,6 @@ def test_decorated_class_cannot_close_an_invalid_undecorated_method_name(
     spelling: str,
 ) -> None:
     source = f"class Endpoint {{ @Get() run() {{}} {spelling}() {{}} }}"
-    syntax = parse("src/main.ts", source.encode())
-    assert syntax.first_error is None
-    assert syntax.definitions[0].members_complete is False
-    assert syntax.definitions[1].decorators is True
     graph = _graph_from_source_facts(_collected(tmp_path, source + DECORATORS), ("src",))
     comparison = compare_graphs(graph, _target(("run", spelling, "missing")))
     assert comparison.status == "UNKNOWN"
@@ -353,9 +281,6 @@ def test_decorated_class_retains_valid_undecorated_quoted_method_names(
     spelling: str,
 ) -> None:
     source = f"class Endpoint {{ @Get() run() {{}} {spelling}() {{}} }}"
-    syntax = parse("src/main.ts", source.encode())
-    assert syntax.first_error is None
-    assert syntax.definitions[0].members_complete is True
     graph = _graph_from_source_facts(_collected(tmp_path, source + DECORATORS), ("src",))
     assert compare_graphs(graph, _target(("run", spelling))).status == "PASS"
 
@@ -376,9 +301,6 @@ def test_mixed_decorator_closed_target_detects_supported_constructor_properties(
     status: str,
 ) -> None:
     source = f"class Endpoint {{ {constructor} {{}} @Get() run() {{}} }}"
-    syntax = parse("src/main.ts", source.encode())
-    assert syntax.first_error is None
-    assert syntax.definitions[0].members_complete is (status == "FAIL")
     facts = _collected(tmp_path, source + DECORATORS)
     graph = _graph_from_source_facts(facts, ("src",))
     comparison = compare_graphs(graph, _target((), kind="attribute"))
@@ -391,8 +313,6 @@ def test_mixed_decorator_static_constructor_named_method_has_no_instance_propert
     spelling: str,
 ) -> None:
     source = f"class Endpoint {{ static {spelling}(repo: string) {{}} @Get() run() {{}} }}"
-    syntax = parse("src/main.ts", source.encode())
-    assert syntax.first_error is None and syntax.definitions[0].members_complete is True
     graph = _graph_from_source_facts(_collected(tmp_path, source + DECORATORS), ("src",))
     assert compare_graphs(graph, _target((), kind="attribute")).status == "PASS"
 
@@ -411,9 +331,6 @@ def test_mixed_decorator_cannot_certify_unsupported_instance_constructor_shapes(
     constructor: str,
 ) -> None:
     source = f"class Endpoint {{ {constructor} @Get() run() {{}} }}"
-    syntax = parse("src/main.ts", source.encode())
-    assert syntax.first_error is None
-    assert syntax.definitions[0].members_complete is False
     graph = _graph_from_source_facts(_collected(tmp_path, source + DECORATORS), ("src",))
     assert compare_graphs(graph, _target((), kind="attribute")).status == "UNKNOWN"
 
@@ -432,10 +349,6 @@ def test_constructor_signatures_keep_uncollected_property_inventory_partial(
     constructor: str,
 ) -> None:
     source = f"class Endpoint {{ {constructor}; @Get() run() {{}} }}"
-    syntax = parse("src/main.ts", source.encode())
-    assert syntax.first_error is None
-    assert syntax.definitions[0].members_complete is False
-    assert syntax.definitions[1].overload_signature is True
     graph = _graph_from_source_facts(_collected(tmp_path, source + DECORATORS), ("src",))
     assert compare_graphs(graph, _target((), kind="attribute")).status == "UNKNOWN"
 

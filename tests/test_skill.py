@@ -598,7 +598,7 @@ def test_flow_section_teaches_the_whole_loop() -> None:
 
 @pytest.mark.parametrize(
     "argv",
-    _commands(_flow_section() + _section("First run on a codebase"), language="python"),
+    _commands(_flow_section() + _section("First run on a codebase"), language="typescript"),
     ids=" ".join,
 )
 def test_skill_command_parses_with_the_real_cli(argv: list[str]) -> None:
@@ -724,43 +724,6 @@ def _shop_without_contract(tmp_path: Path) -> Path:
     return _prepare_repo(tmp_path, dict.fromkeys(contract_files))
 
 
-def test_agent_flow_without_a_contract_uses_explore(
-    tmp_path: Path, capsys: pytest.CaptureFixture
-) -> None:
-    """Step 2 without `archkeel.toml`: explore, then the same check; no rule means no PASS."""
-    root = _shop_without_contract(tmp_path)
-    # `shop` is a namespace package; a regular `tests` package must not win autodetection.
-    assert main(["explore", "--root", str(root), "--output", str(tmp_path / "x"), "--json"]) == 0
-    assert json.loads(capsys.readouterr().out)["scan_roots"] == ["shop"]
-    scope = ["--source", "shop", "--namespace", "shop", "--output", str(tmp_path / "explore")]
-    assert main(["explore", "--root", str(root), *scope, "--json"]) == 0
-    result = json.loads(capsys.readouterr().out)
-    assert result["declared_rules"] == "UNKNOWN"
-    snapshot = Path(result["artifact"])
-    spec = _agent_spec(snapshot, ["shop.cli.main", "shop.app.orders"], [])
-    spec["nodes"].append("COMP-APP")
-    code, checked = _view("check", tmp_path, snapshot, spec, capsys)
-    assert code == 0 and checked["steps"][1]["status"] == "proven"
-    # A layout group declares nothing (AD-285), so the section says to use module nodes.
-    assert {node["id"]: node["status"] for node in checked["nodes"]}["COMP-APP"] == "unknown"
-    assert "`scan_roots`" in _flow_section()
-    # The section gives a kind to each later step only: the first step has none before it.
-    spec["steps"][0]["kind"] = "imports"
-    assert _view("check", tmp_path, snapshot, spec, capsys)[0] == 2
-
-
-def test_explore_without_a_production_package_does_not_choose_tests(
-    tmp_path: Path, capsys: pytest.CaptureFixture
-) -> None:
-    root = _shop_without_contract(tmp_path)
-    shutil.rmtree(root / "shop")
-
-    assert main(["explore", "--root", str(root), "--output", str(tmp_path / "x"), "--json"]) == 2
-    result = json.loads(capsys.readouterr().out)
-    assert result["observation_complete"] == "UNKNOWN"
-    assert "Expected one top-level Python package" in result["diagnostics"][0]["unknown_claim"]
-
-
 _SCOPE = ("--source", "--namespace", "--language", "--tsconfig")
 _NAMES = {name: f"<{name}>" for name in ("dir", "package", "language", "file")}
 
@@ -781,68 +744,3 @@ def test_first_run_init_takes_the_scope_options_of_the_scoped_explore() -> None:
     scoped = [options for options in explore if options]
     assert len(init) == len(scoped) == 1 and "--language" in init[0]
     assert init[0] == scoped[0]
-
-
-def test_first_run_init_drafts_the_scope_that_explore_showed(
-    tmp_path: Path, capsys: pytest.CaptureFixture
-) -> None:
-    """A yes to the shop overview must draft shop, not the `tests` package that detection finds."""
-    root = _shop_without_contract(tmp_path)
-    scoped = [
-        argv
-        for step in _FIRST_RUN_STEPS
-        for argv in _commands(step, dir="shop", package="shop", language="python")
-        if argv[0] == "init"
-    ]
-    assert len(scoped) == 1
-    assert main([*scoped[0], "--root", str(root)]) == 0
-    capsys.readouterr()
-    contract = json.loads((root / "architecture-contract.json").read_text())
-    packages = [
-        package for component in contract["components"] for package in component["packages"]
-    ]
-    assert packages and all(package.split(".")[0] == "shop" for package in packages)
-
-
-def test_flow_section_module_prefix_rule_gives_the_nested_child_modules(
-    tmp_path: Path, capsys: pytest.CaptureFixture
-) -> None:
-    """Step 3: a short module key gets `selector_prefix`, else the component's own `namespace`."""
-    from test_architecture_projection import _repository
-
-    root, config = _repository(tmp_path)
-    contract = json.loads((root / config.contract).read_bytes())
-    contract["components"][0]["inside"] = "core.json"
-    (root / "sample/core.py").unlink()
-    (root / "sample/core").mkdir()
-    for name in ("__init__", "left", "right"):
-        (root / f"sample/core/{name}.py").write_text("")
-    children = []
-    for label in ("left", "right"):
-        child = {**contract["components"][0], "id": label.upper(), "label": label}
-        child.update(packages=[f"sample.core.{label}"], public=[f"sample.core.{label}"])
-        child.update(namespace=f"sample.core.{label}", requires=[])
-        child.pop("inside")
-        children.append(child)
-    del children[1]["namespace"]  # its keys then take the parent's namespace as selector_prefix
-    rules = [contract["rules"][-1]]
-    (root / "core.json").write_text(
-        json.dumps({"schema_version": "2.1.0", "components": children, "rules": rules})
-    )
-    (root / config.contract).write_text(json.dumps(contract))
-    snapshot = tmp_path / "snapshot" / "architecture.json"
-    assert main(["report", "--root", str(root), "--output", str(snapshot), "--json"]) == 0
-    expected = {"core:LEFT": {"sample.core.left"}, "core:RIGHT": {"sample.core.right"}}
-    for identity, modules in expected.items():
-        query = ["--only", "architecture", "--component", identity, "--full", "--json"]
-        capsys.readouterr()
-        assert main(["report", "--input", str(snapshot), *query]) == 0
-        projection = json.loads(capsys.readouterr().out)["architecture_projection"]
-        component = next(item for item in projection["components"] if item["id"] == identity)
-        prefix = component.get("selector_prefix", component.get("namespace"))
-        names = {
-            prefix + key if key == "" or key.startswith(".") else key
-            for key in component["modules"]
-        }
-        assert names == modules, component
-    assert "`selector_prefix`" in _flow_section()

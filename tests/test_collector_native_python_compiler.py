@@ -8,8 +8,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from native_python import _native, _write
 from python_refusal_probes import compiler_refuses
-from test_collector_native_python_parse import _native, _write
 
 SOURCES = {
     "unpack-before-star": "(" + "x," * 256 + "*rest) = values",

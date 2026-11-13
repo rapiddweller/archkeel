@@ -3,16 +3,13 @@
 # SPDX-License-Identifier: MIT
 """Shared context kinds and the real Source frame are independently typed ports."""
 
-import ast
 import json
 from enum import StrEnum
 from pathlib import Path
-from typing import get_type_hints
 
 import pytest
 from test_architecture_demo import _prepare_repo
 
-from archkeel.analyzer.python import source
 from archkeel.check.ports import ScanConfig
 from archkeel.check.report import run_report
 from archkeel.cli.observe import observe
@@ -42,84 +39,6 @@ def _owned(name):
 )
 def test_graph_reexports_the_one_facts_vocabulary_without_changing_members(name, spellings):
     assert tuple(str(item) for item in _owned(name)) == spellings
-
-
-def _frame():
-    frame = getattr(source, "DefinitionFrame", None)
-    assert frame is not None, "Source must own its AST frame independently of Graph evidence"
-    return frame
-
-
-def test_frame_fields_and_branch_producer_expose_the_real_nominal_port():
-    frame = _frame()
-    assert get_type_hints(frame) == {
-        "node": ast.AST,
-        "kind": _owned("DefinitionContextKind"),
-        "branch": _owned("DefinitionBranchKind"),
-    }
-    assert get_type_hints(source._branch_context)["return"] is frame
-    assert frame is not graph.DefinitionContext
-
-
-def test_generated_frame_keeps_the_immutable_tuple_protocol():
-    tree = ast.parse("if flag:\n def run(): pass\n")
-    [(_, _, (frame,))] = list(source.definition_sites(tree))
-    assert isinstance(frame, _frame())
-    assert frame == (tree.body[0], "if", "body")
-    assert tuple(frame) == (tree.body[0], "if", "body")
-    assert frame[0] is frame.node
-    assert hash(frame) == hash(tuple(frame))
-    assert not hasattr(frame, "__dict__")
-    with pytest.raises(AttributeError):
-        frame.kind = "for"
-
-
-@pytest.mark.parametrize("as_keyword", [False, True])
-def test_public_definition_entry_accepts_valid_old_tuple_string_prefix_once(as_keyword):
-    prefix = ast.parse("if prefix: pass").body[0]
-    tree = ast.parse("try:\n def run(): pass\nfinally: pass\n")
-    legacy = ((prefix, "if", "body"),)
-    actual = (
-        list(source.definition_sites(tree, contexts=legacy))
-        if as_keyword
-        else list(source.definition_sites(tree, None, legacy))
-    )
-    [(_, _, frames)] = actual
-    assert len(frames) == 2
-    assert all(isinstance(frame, _frame()) for frame in frames)
-    assert frames[0].node is prefix
-    assert frames[0].kind is _owned("DefinitionContextKind").IF
-    assert frames[0].branch is _owned("DefinitionBranchKind").BODY
-    assert frames[1].kind is _owned("DefinitionContextKind").TRY
-
-
-@pytest.mark.parametrize(
-    "written,kind,branch",
-    [
-        ("if flag: pass\nelse:\n def run(): pass\n", "if", "else"),
-        ("try: pass\nexcept Exception:\n def run(): pass\n", "try", "handler"),
-        ("try: pass\nfinally:\n def run(): pass\n", "try", "finally"),
-        ("match value:\n case 1:\n  def run(): pass\n", "match", "case"),
-        ("for item in items:\n def run(): pass\n", "for", "body"),
-    ],
-)
-def test_both_ast_entry_points_produce_the_same_nominal_frame(written, kind, branch):
-    tree = ast.parse(written)
-    [(definition, _, (frame,))] = list(source.definition_sites(tree))
-    parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
-    assert source.control_flow_contexts(definition, parents) == (frame,)
-    assert isinstance(frame, _frame())
-    assert frame.kind is _owned("DefinitionContextKind")(kind)
-    assert frame.branch is _owned("DefinitionBranchKind")(branch)
-
-
-def test_unknown_future_ast_field_does_not_invent_a_known_branch():
-    class Future(ast.AST):
-        _fields = ("future_body",)
-
-    tree = Future()
-    tree.future_body = [ast.parse("def hidden(): pass").body[0]]
-    assert list(source.definition_sites(tree)) == []
 
 
 def _entities(kind_annotation="DefinitionContextKind"):

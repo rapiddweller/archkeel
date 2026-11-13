@@ -1,5 +1,10 @@
 # ArchKeel
 
+> Main supports **Rust and TypeScript projects only** during the native-core change.
+> Python and Dart projects are not supported in this version; use archkeel 4.0.1.
+> These profiles give exit 2, including saved facts and baseline commands. No partial scan gives PASS.
+> TypeScript needs the native binary. There is no Python fallback.
+
 **See what your code really does. Check it against what you decided.**
 
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-5EEAD4?labelColor=141414)
@@ -56,7 +61,7 @@ their facts in different ways.
 | | **ArchKeel** | **[Floorplan](https://github.com/haydenschmitty/floorplan)** | **[Understand Anything](https://github.com/Egonex-AI/Understand-Anything)** |
 |---|---|---|---|
 | **Question** | How does our code work, which architecture do we want, and does the code keep to it? | How does the app I built work, and what should I worry about? | How does this large codebase work, down to the functions? |
-| **Where the facts come from** | Static analysis of Python, TypeScript and Dart: resolved imports and calls, each with an evidence record and a source line | Scripts scan files, imports and web requests by pattern matching ("not a compiler", in its docs); the AI names and describes the parts | Deterministic scripts plus a multi-agent LLM pipeline that builds the knowledge graph |
+| **Where the facts come from** | Native static analysis of Rust and TypeScript, with evidence records and source lines | Scripts scan files, imports and web requests by pattern matching ("not a compiler", in its docs); the AI names and describes the parts | Deterministic scripts plus a multi-agent LLM pipeline that builds the knowledge graph |
 | **What is unknown** | Counted and shown as `UNKNOWN` | Missed links can be added by asking the AI | Relationships can come from LLM judgment |
 | **Role of the LLM** | Explains and proposes. No part of a check or verdict uses it | Writes the architecture description and the names | Summarizes, finds relationships, writes tours |
 | **What you end with** | A declared contract with rules, verdicts, Target and Diff views, a baseline, a CI gate | A map, a health check, recent work | A knowledge graph, layers, guided tours |
@@ -351,15 +356,14 @@ the folder when it stops. Only `init` writes a contract, and only when you ask f
 **Does a clean graph mean a good design?** No. `PASS` means the required rules have complete evidence
 and no decided violation. It does not prove runtime behavior or the quality of a design decision.
 
-**Which languages?** Python, TypeScript and Dart. Ambiguous bindings and unsupported constructs stay `UNKNOWN`.
+**Which languages?** Rust and TypeScript on main. Use archkeel 4.0.1 for Python and Dart projects.
 
 
 ## Scope and limits
 
-ArchKeel observes static source in configured roots. Python support covers imports, calls, and declared boundaries.
-Dart records declarations, members, signatures and bounded source relationships through a
-Python-hosted Tree-sitter parser. Dart analysis needs no Dart SDK or setup command.
-TypeScript also records lexical UML declarations and statically bound relationships;
+ArchKeel observes static Rust and TypeScript source in configured roots through native collectors.
+Python and Dart profiles give exit 2 before collection. They do not produce a partial result.
+TypeScript records lexical UML declarations and statically bound relationships;
 ambiguous bindings and unsupported constructs remain UNKNOWN. TypeScript roots may name files or directories.
 ArchKeel does not prove runtime behavior, performance, or the quality of every design decision.
 Separate test trees need their own scan and contract.
@@ -370,12 +374,15 @@ Read the [docs](docs/README.md).
 
 ## Development
 
-Python, TypeScript and Dart analysis use the Python installation. Building or running the
-Flutter demo itself still requires Flutter; report generation does not.
+The shell needs Python. The Rust and TypeScript collectors need the shipped native binaries.
+In a source checkout, build TypeScript with `make typescript-collector`.
+Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD have no shipped TypeScript binary.
+Without a native binary, scanning fails closed with exit 2. There is no Python fallback.
 
 ```bash
 make check              # lint, types, logic tests
-make gate               # also build, isolated installs and self-validation
+make gate               # also build and isolated installs
+make self-validate-native # Rust self-check with pinned gaps
 make report-browser-tests # Chromium tests of the rendered report
 ```
 
@@ -384,7 +391,8 @@ the Chromium tests: findings, keyboard navigation, unsafe-content escaping, the 
 reaching a component.
 Use the Nightly gallery for manual visual review.
 
-ArchKeel checks its own [architecture contract](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json) using fresh
-observations on every test run. See [CONTRIBUTING.md](https://github.com/rapiddweller/archkeel/blob/main/CONTRIBUTING.md).
+ArchKeel checks its Rust source with `make self-validate-native`.
+The Python self-check stops until the native Python collector and store support its replies (AD-430).
+See [CONTRIBUTING.md](https://github.com/rapiddweller/archkeel/blob/main/CONTRIBUTING.md).
 
 MIT © 2026 Rapiddweller Asia Co., Ltd. Maintained by [Alexander Kell](https://github.com/ake2l).

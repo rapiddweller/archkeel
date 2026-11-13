@@ -11,11 +11,9 @@ from pathlib import Path
 import pytest
 from test_architecture_demo import _prepare_repo
 from test_dependency_api_target import _source_members
-from test_uml_evaluation import _model
 
 from archkeel.check.ports import ScanConfig
 from archkeel.ir import architecture_graph as graph
-from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.graph_codec import (
     graph_bytes,
     parse_comparison,
@@ -25,7 +23,6 @@ from archkeel.ir.graph_codec import (
 )
 from archkeel.ir.model import RuleVerdict, Verdict
 from archkeel.ir.report_graph import architecture_report
-from archkeel.ir.trace import trace_valid_violations
 from tools.architecture_graph_schema import comparison_schema, graph_schema, report_schema
 
 ROOT = Path(__file__).parents[1]
@@ -241,86 +238,6 @@ def _comparison(value):
     comparison = architecture_report(value).comparison
     assert comparison is not None
     return comparison
-
-
-def test_native_graph_api_matches_independent_intent_and_all_migrated_module_guards(tmp_path):
-    root, config = _repository(tmp_path)
-    assert _contract()["declarations"]["uml"]["entities"]
-    value = _model(root, config)
-    assert _comparison(value).status == "PASS", _comparison(value)
-    assessments = {row.id: row for row in rule_assessments(value, undecided_by_rule={})}
-    for module in MODULES:
-        guard = next(item for item in _contract()["rules"] if item["source"] == module)
-        assert assessments[guard["id"]].status == "PASS", (guard, trace_valid_violations(value))
-        assert assessments[guard["id"]].evaluation_proven
-    assert not trace_valid_violations(value)
-
-
-@pytest.mark.parametrize(
-    "old,new",
-    [
-        ("status: AssessmentStatus", "status: str"),
-        (") -> GraphComparison:", ") -> str:"),
-    ],
-)
-def test_native_graph_enum_field_and_return_widening_fail_with_fixed_target(tmp_path, old, new):
-    root, config = _repository(tmp_path)
-    path = root / "archkeel/ir/architecture_graph.py"
-    assert old in path.read_text()
-    contract = (root / "contract.json").read_bytes()
-    path.write_text(path.read_text().replace(old, new, 1))
-    value = _model(root, config)
-    assert any(
-        row.status == "FAIL"
-        for row in _comparison(value).assessments
-        if row.aspect in {"annotation", "signature"}
-    )
-    assert trace_valid_violations(value)
-    assert (root / "contract.json").read_bytes() == contract
-
-
-def test_native_run_result_exposes_canonical_assessment_type_with_fixed_target(tmp_path):
-    root, config = _repository(tmp_path)
-    path = root / "archkeel/ir/model.py"
-    source = path.read_text()
-    assert "declared_rules: AssessmentStatus" in source
-    contract = (root / "contract.json").read_bytes()
-    path.write_text(source.replace("declared_rules: AssessmentStatus", "declared_rules: str", 1))
-    value = _model(root, config)
-    assert any(
-        row.status == "FAIL" and row.subject_id == "IR-GRAPH-RunResult.declared_rules"
-        for row in _comparison(value).assessments
-    )
-    assert trace_valid_violations(value)
-    assert (root / "contract.json").read_bytes() == contract
-
-
-@pytest.mark.parametrize(
-    "probe",
-    [
-        'def _probe(value):\n    return value == "declared"\n',
-        'def _probe(value):\n    return value in ("declared", "observed")\n',
-        'def _probe(value):\n    return "status" in value\n',
-        (
-            'def _probe(value):\n    match value:\n        case "declared":\n'
-            "            return True\n        case _:\n            return False\n"
-        ),
-        (
-            'from typing import Final\nDECLARED: Final[str] = "declared"\n'
-            "\ndef _probe(value):\n    return value == DECLARED\n"
-        ),
-    ],
-    ids=["equality", "membership", "protocol-key-membership", "match", "final-string"],
-)
-def test_native_graph_parser_has_no_string_control_exception(tmp_path, probe):
-    root, config = _repository(tmp_path)
-    path = root / "archkeel/ir/graph_codec.py"
-    path.write_text(path.read_text() + "\n" + probe)
-    value = _model(root, config)
-    guard = next(
-        item for item in _contract()["rules"] if item["source"] == "archkeel.ir.graph_codec"
-    )
-    assert any(guard["id"] in row.rule_ids for row in trace_valid_violations(value))
 
 
 @pytest.mark.parametrize("version", ["1.0.0", "1.1.0", "1.2.0", "1.3.0"])

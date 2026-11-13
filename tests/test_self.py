@@ -8,8 +8,6 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from conftest import SelfRun
-from graph_report_support import member_modules, unassigned_modules
 
 from archkeel.check.onboarding import (
     _crossing_targets,
@@ -18,24 +16,15 @@ from archkeel.check.onboarding import (
     module_all_exports,
 )
 from archkeel.check.validation import COMPONENT_GRAPH_MARKER
-from archkeel.check.validation.closed_world import closed_world_diagnostics
-from archkeel.check.validation.graphs import TARGET_GRAPH_MARKER, graph_diagnostics
-from archkeel.check.validation.public_api import public_api_diagnostics
+from archkeel.check.validation.graphs import TARGET_GRAPH_MARKER
 from archkeel.check.validation.rationale import rationale_diagnostics
 from archkeel.ir.codec import decode_json, parse_contract
-from archkeel.ir.interfaces import interface_profile
 from archkeel.ir.model import (
-    AllowedDependencyRule,
     ArchitectureContract,
-    BoundaryTypesRule,
     ForbiddenDependencyRule,
     Observation,
-    in_scope,
     module_in_ownership,
-    text_value,
 )
-from archkeel.ir.report_graph import architecture_report
-from archkeel.ir.structure import oversized_insides
 
 # Adapters share source facts, record builders, protocol and language-specific fact values.
 # Governance models, metrics and rule policy stay behind the Core boundary.
@@ -119,96 +108,9 @@ def test_cli_resolver_guard_rejects_missing_active_inside_publication() -> None:
         _assert_cli_resolver_publication(changed)
 
 
-def test_cli_check_measure_counts_named_shared_type_reexports(
-    self_observation: Observation,
-) -> None:
-    """AD-148: shared types stay named members of the Core seam, not an open module grant."""
-    profile = interface_profile(self_observation)
-    width = next(
-        item for item in profile.coupling if item.source == "cli" and item.target == "check"
-    )
-    check = next(item for item in _contract().components if item.label == "check")
-
-    assert {
-        "archkeel.check.ports:Language",
-        "archkeel.check.ports:ObservationResult",
-    } <= set(width.names)
-    assert width.uncounted == ()
-    assert "archkeel.check.ports" not in (check.public or ())
-    assert "archkeel.check.observe" not in (check.public or ())
-
-
 def _architecture_documents() -> tuple[tuple[str, str], ...]:
     paths = (ROOT / "docs/architecture/archkeel.md", ROOT / "README.md")
     return tuple((str(path.relative_to(ROOT)), path.read_text()) for path in paths)
-
-
-def test_self_result_matches_fresh_observation(self_run: SelfRun) -> None:
-    result = json.loads(self_run.result)
-    coverage = self_run.observation.coverage
-    assert result["coverage"]["files_discovered"] == coverage.files_discovered
-    assert result["coverage"]["files_read"] == coverage.files_read
-    assert result["coverage"]["files_parsed"] == coverage.files_parsed
-    assert result["coverage"]["calls_unresolved"] == coverage.calls_unresolved
-    assert result["measurements"]["scalars"]["violations"] == len(
-        self_run.observation.records("violations") or ()
-    )
-
-
-def test_self_report_is_complete(self_observation: Observation) -> None:
-    assert self_observation.records("violations") == ()
-    assert all(
-        record.kind != "rule-without-subjects" for record in self_observation.records("unknowns")
-    )
-    coverage = self_observation.coverage
-    assert coverage.status == coverage.rules == "PASS"
-    assert coverage.files_discovered == coverage.files_read == coverage.files_parsed > 0
-    assert coverage.failures == ()
-
-
-def test_self_contract_covers_modules_and_analyzer_interface(
-    self_observation: Observation,
-) -> None:
-    """AD-4 lives in the contract (AD-42): the analyzer's `requires` entry for `ir` goes
-    through exactly the named modules, and the observed imports stay inside them."""
-    contract = _contract()
-    analyzer = next(item for item in contract.components if item.label == "analyzer")
-    entry = next(item for item in analyzer.requires or () if item.component == "ir")
-    assert frozenset(entry.through) == ANALYZER_PUBLIC_IR
-    public_modules = {name.partition(":")[0] for name in ANALYZER_PUBLIC_IR}
-    for record in self_observation.records("imports") or ():
-        source = record.data.get("source_module")
-        target = record.data.get("target_module")
-        assert isinstance(source, str) and isinstance(target, str)
-        if in_scope(source, "archkeel.analyzer") and in_scope(target, "archkeel.ir"):
-            assert target in public_modules, (source, target)
-
-
-def test_self_facades_record_the_declared_types_they_expose(self_observation: Observation) -> None:
-    """AD-65 on this repository: the facade positions measured in `check` and `render` are
-    recorded as reached, so declaring them no longer collides with `interface.unused`
-    (issue #57), and AD-68 declares all three types and scopes the rule to both components."""
-    exposed: dict[str, tuple[str, ...]] = {}
-    for record in self_observation.records("symbols") or ():
-        name = text_value(record.data.get("qualified_name"))
-        types = record.data.get("facade_types")
-        if name and isinstance(types, tuple):
-            exposed[name] = tuple(item for item in types if isinstance(item, str))
-    assert "archkeel.check.ports.Analyzer" in exposed["archkeel.check.report.run_report"]
-    assert "archkeel.check.ports.Host" in exposed["archkeel.check.run.run_check"]
-    for name in ("check_summary", "init_summary", "report_summary"):
-        assert "archkeel.render.summary.Summary" in exposed[f"archkeel.render.summary.{name}"]
-    contract = _contract()
-    declared = {entry for item in contract.components for entry in item.public or ()}
-    assert {
-        "archkeel.check.ports:Analyzer",
-        "archkeel.check.ports:Host",
-        "archkeel.render.summary_badges:Badge",
-        "archkeel.render.summary:Summary",
-        "archkeel.render.summary:VerdictRow",
-    } <= declared
-    scoped = {rule.source for rule in contract.rules if isinstance(rule, BoundaryTypesRule)}
-    assert scoped == {"archkeel.analyzer", "archkeel.check", "archkeel.render"}
 
 
 def _assert_public_surface(contract: ArchitectureContract, observation: Observation) -> None:
@@ -240,51 +142,6 @@ def _assert_public_surface(contract: ArchitectureContract, observation: Observat
         assert {item.replace(":", ".") for item in extra} <= exposed, (component.label, extra)
 
 
-def test_self_contract_public_matches_drafted_proposal(self_observation: Observation) -> None:
-    """Named exports may narrow the draft's half-use heuristic without dropping actual uses."""
-    _assert_public_surface(_contract(), self_observation)
-
-
-@pytest.mark.parametrize(
-    ("remove_used", "extra_public"),
-    [(True, ""), (False, "archkeel.ir.identity:_segments"), (False, "archkeel.ir.unused")],
-    ids=["missing-used", "unexposed-extra", "unused-module"],
-)
-def test_self_public_guard_rejects_unsupported_surface(
-    self_observation: Observation, remove_used: bool, extra_public: str
-) -> None:
-    contract = _contract()
-    public = "archkeel.ir.identity:module_identity"
-    modified = replace(
-        contract,
-        components=tuple(
-            replace(
-                component,
-                public=tuple(entry for entry in component.public or () if entry != public)
-                if remove_used
-                else (*(component.public or ()), extra_public),
-            )
-            if component.label == "ir"
-            else component
-            for component in contract.components
-        ),
-    )
-    with pytest.raises(AssertionError):
-        _assert_public_surface(modified, self_observation)
-
-
-def test_self_analyzer_inside_covers_its_modules(self_observation: Observation) -> None:
-    """AD-148: each declared inside owns every module it observes, in one sub-component."""
-    report = architecture_report(self_observation)
-    unassigned = unassigned_modules(report)
-    assert unassigned
-    assert {parent: modules for parent, modules in unassigned.items() if modules} == {}
-    members = member_modules(report)
-    children = [key for key in members if key.startswith("check:") and key.count(":") == 1]
-    assert "archkeel.check" in members["check:inputs"]
-    assert sum("archkeel.check" in members[key] for key in children) == 1
-
-
 def test_process_public_interface_names_the_collector_class_only() -> None:
     contract = _contract()
     analyzer = next(item for item in contract.components if item.label == "analyzer")
@@ -297,42 +154,8 @@ def test_process_public_interface_names_the_collector_class_only() -> None:
     assert "archkeel.analyzer.process" not in process["public"]
 
 
-def test_self_oversized_components_claim_still_counts_analyzer(
-    self_observation: Observation,
-) -> None:
-    """AD-45's limit: `oversized_insides` (AD-33) compares a component's raw module and edge
-    count against the top level's own, not against whether it has a declared inside, so
-    `analyzer` joins `check` on this claim instead of leaving it once its inside is declared."""
-    sizes = oversized_insides(self_observation)
-    # AD-290: studio adds a top-level component and an edge, so render no longer outgrows them;
-    # studio itself outgrows them once the story, chat and graph components exist. AD-358: the
-    # Studio command moves to its own module, so cli has one more module and outgrows them too.
-    # AD-361: the report payload producer has 11 modules and no inside contract yet.
-    assert {item.scope for item in sizes.candidates} == {
-        "analyzer",
-        "check",
-        "cli",
-        "ir",
-        "report",
-        "studio",
-    }
-
-
-def test_self_contract_closes_every_component_pair(self_observation: Observation) -> None:
-    assert closed_world_diagnostics(_contract(), self_observation) == ()
-
-
-def test_self_public_api_declares_every_type_it_hands_out(self_observation: Observation) -> None:
-    """AD-70: the self contract must declare every type its public API hands out."""
-    assert public_api_diagnostics(_contract(), self_observation) == ()
-
-
 def test_contract_rationales_explain_more_than_the_rule() -> None:
     assert rationale_diagnostics(_contract()) == ()
-
-
-def test_component_graph_matches_observed_edges(self_observation: Observation) -> None:
-    assert graph_diagnostics(_contract(), self_observation, _architecture_documents()) == ()
 
 
 def test_self_architecture_page_draws_both_the_observed_and_target_graph() -> None:
@@ -354,37 +177,6 @@ def test_self_architecture_page_draws_both_the_observed_and_target_graph() -> No
     )
 
 
-def test_closed_world_check_detects_a_conflicting_rule(self_observation: Observation) -> None:
-    """closed_world_diagnostics reads decisions from the live contract, not just observation."""
-    contract = _contract()
-    # AD-32 moved every component pair into `requires`, so no rule in the live contract decides
-    # one any more. The probe states both decisions itself, for a pair that really exists.
-    provenance = contract.components[0].provenance
-    forbidden = ForbiddenDependencyRule(
-        "DEP-IR-NO-CHECK-PROBE",
-        "forbidden_dependency",
-        "archkeel.ir",
-        "archkeel.check",
-        True,
-        "Conflict probe.",
-        provenance,
-        "architect",
-    )
-    conflict = AllowedDependencyRule(
-        "DEP-IR-ALLOWS-CHECK-PROBE",
-        "allowed_dependency",
-        "archkeel.ir",
-        "archkeel.check",
-        "Conflict probe.",
-        provenance,
-        "architect",
-    )
-    broken = replace(contract, rules=(*contract.rules, forbidden, conflict))
-    diagnostics = closed_world_diagnostics(broken, self_observation)
-    assert diagnostics and diagnostics[0].code == "decision.conflict"
-    assert diagnostics[0].pointer == "/rules"
-
-
 def test_rationale_check_detects_a_repeated_rule() -> None:
     contract = _contract()
     # AD-42 left no forbidden rule in the live contract, so the probe brings its own.
@@ -401,22 +193,3 @@ def test_rationale_check_detects_a_repeated_rule() -> None:
     index = len(contract.rules)
     broken = replace(contract, rules=(*contract.rules, repeated))
     assert rationale_diagnostics(broken)[0].pointer == f"/rules/{index}/rationale"
-
-
-def test_graph_check_detects_a_missing_edge(self_observation: Observation) -> None:
-    documents = tuple(
-        (path, content.replace("    cli --> render\n", ""))
-        for path, content in _architecture_documents()
-    )
-    diagnostic = graph_diagnostics(_contract(), self_observation, documents)[0]
-    assert diagnostic.pointer == "/components"
-    assert "cli->render" in diagnostic.unknown_claim
-    assert COMPONENT_GRAPH_MARKER in _architecture_documents()[0][1]
-
-
-def test_self_facade_profile_measures_archkeel_interfaces(self_observation: Observation) -> None:
-    """AD-88 is exercised against the repository's own declared facades."""
-    profile = interface_profile(self_observation)
-    interfaces = next(item for item in profile.facades if item.module == "archkeel.ir.interfaces")
-    assert interfaces.exported_name_count > 0
-    assert any(item.source == "analyzer" and item.target == "ir" for item in profile.coupling)

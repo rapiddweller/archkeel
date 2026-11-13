@@ -6,11 +6,19 @@
 import builtins as _builtins
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Literal
 
 
 class AmendmentVersion(StrEnum):
     V1 = "1.0.0"
     V2 = "2.0.0"
+
+
+@dataclass(frozen=True, slots=True)
+class WideningFinding:
+    code: Literal["ir.widening"]
+    subject: str
+    field: str
 
 
 class AmendmentStatus(StrEnum):
