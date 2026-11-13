@@ -101,8 +101,8 @@ def test_the_core_decides_each_rule_of_the_self_contract(
 ) -> None:
     frame, result = _self_check(built, tmp_path, monkeypatch)
     python = {row["id"]: row["status"] for row in result["rule_assessments"]}
-    pinned = json.loads((NATIVE / "expected-gaps.json").read_text())["rules"]
-    assert python == pinned
+    expected = json.loads((NATIVE / "expected-gaps.json").read_text())
+    assert python == expected["rules"]
     core = {rule: row["status"] for rule, row in frame["rules"].items()}
     assert set(core) == set(python), set(core) ^ set(python)
     assert len(core) == 43
@@ -118,6 +118,7 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     assert Counter(python.values()) == {"UNKNOWN": 42, "FAIL": 1}
     assert Counter(core.values()) == {"PASS": 23, "UNKNOWN": 19, "FAIL": 1}
     assert beyond == {rule for rule, status in core.items() if status == "PASS"}
-    # The run keeps the kept gaps; it never passes.
+    # The run names each pinned gap; it never passes.
     assert frame["status"] == "FAIL"
-    assert frame["scope"].startswith("incomplete scope: 39 gaps between two modules")
+    kept = f"incomplete scope: {len(expected['gaps'])} gaps between two modules that the contract"
+    assert frame["scope"].startswith(kept), frame["scope"]

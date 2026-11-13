@@ -20,7 +20,7 @@
 
 **Direction.** For a dropped gap the core is equal to Python or stricter. Where a dropped gap holds a rule, Python forgets the gap and can give PASS; the core gives UNKNOWN. No corpus case has this today. Where no gap holds a rule, the core gives the verdict of AD-384 point 5. Over a Python UNKNOWN for a kept gap, that is a PASS that the frame lists in `beyond`.
 
-**Self-check (`native/`, this tree).** Before: 19 rules decided (18 UNKNOWN, 1 FAIL), 24 refused. After: 43 decided, 0 refused: 1 FAIL, 19 UNKNOWN, 23 PASS beyond Python (22 `forbidden_dependency` rules and `complete_assignment`). No kept gap can change these 23. The run stays FAIL and names the 39 kept gaps.
+**Self-check (`native/`, this tree).** Before: 19 rules decided (18 UNKNOWN, 1 FAIL), 24 refused. After: 43 decided, 0 refused: 1 FAIL, 19 UNKNOWN, 23 PASS beyond Python (22 `forbidden_dependency` rules and `complete_assignment`). No kept gap can change these 23. The run stays FAIL and names each kept gap (39 at the measurement, 54 after the Dart collection of #1101).
 
 **Corpus (655 cases).** 16 rules change from a refusal to a decision: 15 `complete_requires` UNKNOWN, equal to Python, and the `complete_assignment` rule of `rust/native`, PASS beyond Python. 64 `ScopedRequires` refusals stay. Each is a reply of the runtime that can carry the proof, and Python passes 15 of them. No decided verdict changes.
 
