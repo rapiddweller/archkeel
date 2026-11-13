@@ -14,8 +14,9 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from archkeel.analyzer.dart.collect import _Collection
 from archkeel.analyzer.dart.parse import parse
@@ -320,11 +321,15 @@ def checked_corpus(binary: Path, corpus: Corpus, output: Path | None) -> list[in
                 if (row := json.loads(line))["run"] == run
             }
     totals = [0, 0, 0, 0]
-    for c in references(c, corpus.name in FIXTURES or corpus.name == "demo variants"):
-        rel = c.snapshot.sources[0].rel_path if len(c.snapshot.sources) == 1 else "<project>"
+    for reference in references(c, corpus.name in FIXTURES or corpus.name == "demo variants"):
+        rel = (
+            reference.snapshot.sources[0].rel_path
+            if len(reference.snapshot.sources) == 1
+            else "<project>"
+        )
         row = done.get(rel)
         if row is None:
-            row = {"run": run, **timed_compare(binary, c)}
+            row = {"run": run, **timed_compare(binary, reference)}
             if path is not None:
                 with path.open("a") as stream:
                     stream.write(canonical(row) + "\n")

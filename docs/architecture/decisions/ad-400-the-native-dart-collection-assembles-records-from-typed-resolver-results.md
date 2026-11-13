@@ -62,4 +62,7 @@ Emit partial facts after a stop: that could give a false PASS.
 
 **Tests.** Compare fixtures and all three Dart corpora with real Python collection functions.
 Keep 120 original edge probes. Fourteen isolated injected faults fail tests in a removed worktree.
+**Measured.** Equal: fixtures 150, demo variants 289, private 28, dart-http 344, Flutter 6 622; zero differences.
+Flutter has one `CollectionWorkLimit`: 713 748 bytes, 16 definitions, 17 members, 35 677 sites; no partial records.
+The whole private project also matches as one 28-file input. Slice 4d reviews the remaining work limit.
 Run the native self-contract and final-head gate. Report LOCAL VERIFIED and CI-ONLY separately.

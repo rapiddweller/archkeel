@@ -271,6 +271,9 @@ discards all partial records after `min(2^34, 2^20 + 128 * N)` work units for N 
 `LanguageVersionOrderGap` names inconsistent parts without an overriding main library.
 `LanguageVersionDigitLimit` names a version component above 4 300 digits. Each gap revokes full scope.
 Slice 4d must port the resolver, remove its repeated whole-site scans and review whole-project work limits.
+The measured Flutter `test/material/text_field_test.dart` shape hits `CollectionWorkLimit`:
+713 748 source bytes, 16 definitions, 17 members and 35 677 sites. It emits no partial records.
+The other 6 622 Flutter inputs, 28 private inputs and 344 dart-http inputs match Python byte for byte.
 The parity tool records per-file size, shape and timings outside the repository and resumes completed inputs.
 Run each corpus command with `timeout 900`; do not treat an unfinished run as equal.
 
