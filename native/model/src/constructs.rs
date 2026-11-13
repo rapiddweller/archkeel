@@ -7,9 +7,9 @@
 use archkeel_facts::data::{SelectorData, SignalData};
 use archkeel_facts::envelope::{ConstructSupport, Facts};
 use archkeel_facts::vocab::Kind;
-use archkeel_facts::{ConstructFact, FactData, Record, Section, SignalFact};
+use archkeel_facts::{ConstructFact, FactData, Record, Section};
 
-use crate::Reason;
+use crate::reason::Reason;
 
 /// One original observation. No rule result or completeness claim is stored here.
 #[derive(Clone, Debug, PartialEq)]
@@ -24,7 +24,7 @@ pub struct ConstructSite {
 
 /// The construct and symbol inventory of the reply, before contract selection.
 #[derive(Debug)]
-pub struct Constructs {
+pub(crate) struct Constructs {
     pub(crate) sites: Vec<ConstructSite>,
     pub(crate) symbols: Vec<(String, String)>,
     pub(crate) capabilities: Vec<(String, ConstructSupport)>,
@@ -99,7 +99,7 @@ fn collect(found: &mut Constructs, section: &Section, work: &mut Work) -> Result
         Section::TypingSignals(records) => {
             found.signals_measured = true;
             for record in records {
-                let data = signal(&record.data);
+                let data = record.data.data();
                 work.charge(record.evidence_ids.len().saturating_add(1))?;
                 work.charge(data.positions.as_ref().map_or(0, Vec::len))?;
                 if let Some(name) = data.signal.construct() {
@@ -163,21 +163,4 @@ fn construct(record: &Record<ConstructFact>) -> Option<ConstructSite> {
         None,
         selector,
     ))
-}
-
-fn signal(record: &SignalFact) -> &SignalData {
-    match record {
-        SignalFact::AnyAnnotation(d)
-        | SignalFact::DictAnyAnnotation(d)
-        | SignalFact::CallableAnyAnnotation(d)
-        | SignalFact::ObjectAnnotation(d)
-        | SignalFact::CastCall(d)
-        | SignalFact::GetattrCall(d)
-        | SignalFact::HasattrCall(d)
-        | SignalFact::EvalCall(d)
-        | SignalFact::ExecCall(d)
-        | SignalFact::DynamicImport(d)
-        | SignalFact::TypeIgnore(d)
-        | SignalFact::MissingCrossPackageAnnotation(d) => d,
-    }
 }

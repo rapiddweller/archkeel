@@ -118,10 +118,10 @@ closed! {
 closed! {
     /// How completely the collector examines one construct kind.
     pub enum ConstructSupport {
-        Decided = "decided",
         Supported = "supported",
         Partial = "partial",
         Unsupported = "unsupported",
+        Decided = "decided",
     }
 }
 

@@ -66,11 +66,7 @@ fn decide(model: &Model) -> Result<Decision, String> {
     let Rule::ForbiddenConstruct(construct) = rule else {
         return Err("wrong rule".to_owned());
     };
-    let matched = model
-        .graph()
-        .constructs()
-        .matches(model, construct)
-        .map_err(|r| r.to_string())?;
+    let matched = crate::construct_matches(model, construct).map_err(|r| r.to_string())?;
     if matched.iter().any(|m| m.known) {
         return Ok(Decision::fail());
     }

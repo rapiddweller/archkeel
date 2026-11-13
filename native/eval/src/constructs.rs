@@ -10,14 +10,14 @@ use archkeel_contract::ForbiddenConstruct;
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_model::{Model, Reason};
 
-use crate::{ConstructViolation, Violation};
+use crate::violation::{ConstructViolation, Violation};
 
 pub(crate) fn check(
     id: &str,
     rule: &ForbiddenConstruct,
     model: &Model,
 ) -> Result<Vec<Violation>, Reason> {
-    let matches = model.graph().constructs().matches(model, rule)?;
+    let matches = archkeel_model::construct_matches(model, rule)?;
     let mut found: BTreeMap<(String, Vec<String>, String), ConstructViolation> = BTreeMap::new();
     let mut work = 4_000_000usize;
     for matched in matches {

@@ -149,13 +149,13 @@
     "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
     "tokens": 75
   },
-  "facts/src/envelope.rs|facts/src/vocab.rs|527aaa4332": {
+  "facts/src/envelope.rs|facts/src/vocab.rs|f7b9dc8f30": {
     "files": [
       "facts/src/envelope.rs",
       "facts/src/vocab.rs"
     ],
-    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
-    "tokens": 95
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data. AD-408: correct the decoder vocabulary to include records already on the wire. This replaces existing data-table fingerprints; no executable logic is copied.",
+    "tokens": 70
   },
   "facts/src/nested.rs|facts/src/nested.rs|6715bd1b22": {
     "files": [
@@ -317,14 +317,6 @@
     "reason": "Two lists of names (read-set fields and Node builtin modules) have one shape. They are data.",
     "tokens": 70
   },
-  "facts/src/sections.rs|facts/src/sections.rs|593c2ce4a9": {
-    "files": [
-      "facts/src/sections.rs",
-      "facts/src/sections.rs"
-    ],
-    "reason": "Two section_facts! calls list the variants of a section enum in one shape. They are data.",
-    "tokens": 81
-  },
   "facts/src/sections.rs|python/src/pyast/node.rs|5d42269720": {
     "files": [
       "facts/src/sections.rs",
@@ -349,13 +341,13 @@
     "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
     "tokens": 82
   },
-  "facts/src/vocab.rs|facts/src/vocab.rs|35c237e4c6": {
+  "facts/src/vocab.rs|facts/src/vocab.rs|4b7e340333": {
     "files": [
       "facts/src/vocab.rs",
       "facts/src/vocab.rs"
     ],
-    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
-    "tokens": 73
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data. AD-408: correct the decoder vocabulary to include records already on the wire. This replaces existing data-table fingerprints; no executable logic is copied.",
+    "tokens": 98
   },
   "facts/src/vocab.rs|facts/src/vocab.rs|68074d063e": {
     "files": [
@@ -373,13 +365,13 @@
     "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
     "tokens": 73
   },
-  "facts/src/vocab.rs|facts/src/vocab.rs|91f62064ba": {
+  "facts/src/vocab.rs|facts/src/vocab.rs|96f22961bc": {
     "files": [
       "facts/src/vocab.rs",
       "facts/src/vocab.rs"
     ],
-    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
-    "tokens": 77
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data. AD-408: correct the decoder vocabulary to include records already on the wire. This replaces existing data-table fingerprints; no executable logic is copied.",
+    "tokens": 81
   },
   "facts/src/vocab.rs|facts/src/vocab.rs|a2f488ff6f": {
     "files": [
@@ -388,14 +380,6 @@
     ],
     "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
     "tokens": 85
-  },
-  "facts/src/vocab.rs|facts/src/vocab.rs|a521145e05": {
-    "files": [
-      "facts/src/vocab.rs",
-      "facts/src/vocab.rs"
-    ],
-    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
-    "tokens": 74
   },
   "facts/src/vocab.rs|facts/src/vocab.rs|d702bb6ff4": {
     "files": [

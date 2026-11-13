@@ -15,6 +15,7 @@ use archkeel_facts::record::FactData;
 use archkeel_facts::sections::Section;
 use archkeel_store::Ingested;
 
+use crate::constructs::Constructs;
 use crate::coverage::{self, Incomplete};
 use crate::cycles::{self, Cycle};
 use crate::edges::{self, Edge, Level};
@@ -42,7 +43,7 @@ pub struct Graph {
     cycles: Vec<Cycle>,
     observed: Observed,
     builtins: Vec<String>,
-    constructs: crate::Constructs,
+    constructs: Constructs,
 }
 
 impl Graph {
@@ -80,7 +81,7 @@ impl Graph {
             cycles,
             observed: observed::observed(facts),
             builtins: builtins(facts),
-            constructs: crate::Constructs::derive(facts)?,
+            constructs: Constructs::derive(facts)?,
         })
     }
 
@@ -145,7 +146,7 @@ impl Graph {
     }
 
     /// The original construct inventory and actual named owners of the reply.
-    pub fn constructs(&self) -> &crate::Constructs {
+    pub(crate) fn constructs(&self) -> &Constructs {
         &self.constructs
     }
 

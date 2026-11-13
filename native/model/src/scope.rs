@@ -247,7 +247,7 @@ fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
         }
         Rule::ExternalDependencyScope(_) => observed().next().is_some(),
         Rule::ForbiddenConstruct(rule) => {
-            model.graph().constructs().receipt(model, rule)?;
+            crate::construct_match::receipt(model, rule)?;
             true
         }
         // Slice S5 (AD-380), `_rule_evaluation_facts_for_rule`.

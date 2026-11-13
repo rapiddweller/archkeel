@@ -134,9 +134,6 @@ section_facts! {
 
 section_facts! {
     pub enum ConstructFact in Constructs {
-        AssertStatement(PlainConstructData),
-        PlaceholderBody(PlaceholderData),
-        DunderDict(PlainConstructData),
         StringLiteralCompare(ConstructData),
         BroadExcept(ConstructData),
         GetattrCall(ConstructData),
@@ -146,23 +143,26 @@ section_facts! {
         VarsCall(ConstructData),
         ConstructSelector(SelectorData),
         NumericOperand(NumericOperandData),
+        AssertStatement(PlainConstructData),
+        PlaceholderBody(PlaceholderData),
+        DunderDict(PlainConstructData),
     }
 }
 
 section_facts! {
-    pub enum SignalFact in TypingSignals {
-        AnyAnnotation(SignalData),
-        DictAnyAnnotation(SignalData),
-        CallableAnyAnnotation(SignalData),
-        ObjectAnnotation(SignalData),
-        CastCall(SignalData),
-        GetattrCall(SignalData),
-        HasattrCall(SignalData),
-        EvalCall(SignalData),
-        ExecCall(SignalData),
-        DynamicImport(SignalData),
-        TypeIgnore(SignalData),
-        MissingCrossPackageAnnotation(SignalData),
+    pub enum SignalFact in TypingSignals with SignalData {
+        AnyAnnotation,
+        DictAnyAnnotation,
+        CallableAnyAnnotation,
+        ObjectAnnotation,
+        CastCall,
+        GetattrCall,
+        HasattrCall,
+        EvalCall,
+        ExecCall,
+        DynamicImport,
+        TypeIgnore,
+        MissingCrossPackageAnnotation,
     }
 }
 

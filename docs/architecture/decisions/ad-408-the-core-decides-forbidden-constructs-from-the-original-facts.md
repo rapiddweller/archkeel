@@ -22,6 +22,7 @@ The golden test also found the missing selector role `reflect`; the decoder now 
 Recorded replies also require capability status `decided` and construct form `match`; both now decode by their original words.
 No collector or wire format changes. No fourth record kind was missing.
 The generated facts schema is corrected from these types; the protocol and every emitted reply stay unchanged.
+Three existing vocabulary-table clone fingerprints change; two other pins disappear. Production clones decrease from 87 to 85; no executable clone remains.
 The store retains its generic evidence and owner checks (`store/src/records.rs:181`, `bindings.rs:103`).
 
 **Reason.** The root contract tree has 72 rules of this kind.
@@ -51,6 +52,8 @@ Give the core another trust entry: the shell trust and `Ruling::frame` stay unch
 **Limit.** Python replies still fall back, even when this evaluator can decide their rule combinations.
 The PR separates end-to-end parity from recorded-input and synthetic proof tests.
 The matcher has a bounded work count; exhaustion is a named UNKNOWN, never PASS.
+The existing facts, model, eval and report components own the new modules. No self-contract rule is widened.
+The self-check stays at 0 PASS, 1 FAIL, 42 UNKNOWN, 39 pinned gaps and 7 violations; no count changes.
 The replay leaves 36 rules unproved: two unrelated import/callable fields and four refused contract trees.
 Those fields are `reexport_candidates` and `annotation_binding_uncertainties`; neither is read by this construct matcher.
 

@@ -37,11 +37,7 @@ fn replay_frozen_construct_matching() -> Result<(), Box<dyn std::error::Error>> 
         let Rule::ForbiddenConstruct(rule) = rule else {
             return Err("wrong rule".into());
         };
-        let matches = model
-            .graph()
-            .constructs()
-            .matches(&model, rule)
-            .map_err(|r| r.to_string())?;
+        let matches = crate::construct_matches(&model, rule).map_err(|r| r.to_string())?;
         let actual: BTreeSet<&str> = matches
             .iter()
             .filter(|m| m.known)
@@ -108,11 +104,7 @@ fn corpus_case(
             let Some(expected) = expected_rules.get(id).and_then(Value::as_str) else {
                 continue;
             };
-            let matches = model
-                .graph()
-                .constructs()
-                .matches(model, construct)
-                .map_err(|r| r.to_string())?;
+            let matches = crate::construct_matches(model, construct).map_err(|r| r.to_string())?;
             let actual: BTreeSet<&str> = matches
                 .iter()
                 .filter(|m| m.known)

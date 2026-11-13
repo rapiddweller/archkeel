@@ -6,7 +6,9 @@
 
 use crate::ids::ModuleName;
 use crate::nested::{BindingScope, ReceiverBinding};
-use crate::vocab::{ConstructForm, Operation, Proof, SelectorRole, Signal, Status};
+use crate::vocab::{
+    ConstructForm, Operation, PlaceholderForm, Proof, SelectorRole, Signal, Status,
+};
 
 facts_data! {
     /// A written construct with no additional fields.
@@ -20,7 +22,7 @@ facts_data! {
     /// A function body that declares no implementation.
     pub struct PlaceholderData {
         [read] construct: String,
-        [wire] form: crate::vocab::PlaceholderForm,
+        [wire] form: PlaceholderForm,
         [read] owner: String,
     }
 }

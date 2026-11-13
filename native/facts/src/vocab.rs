@@ -67,9 +67,6 @@ closed! {
         UnusedParameter = "unused_parameter",
         UnusedLocal = "unused_local",
         StringLiteralCompare = "string_literal_compare",
-        AssertStatement = "assert_statement",
-        PlaceholderBody = "placeholder_body",
-        DunderDict = "dunder_dict",
         BroadExcept = "broad_except",
         GetattrCall = "getattr_call",
         HasattrCall = "hasattr_call",
@@ -92,6 +89,9 @@ closed! {
         DynamicImportLimit = "dynamic_import_limit",
         PrivateAttributeAccessLimit = "private_attribute_access_limit",
         ExceptionGap = "exception_gap",
+        AssertStatement = "assert_statement",
+        PlaceholderBody = "placeholder_body",
+        DunderDict = "dunder_dict",
     }
 }
 
@@ -224,12 +224,12 @@ closed! {
         Endswith = "endswith",
         Equality = "equality",
         Membership = "membership",
-        Match = "match",
         Read = "read",
-        Reflect = "reflect",
         Startswith = "startswith",
         TypeProbe = "type_probe",
         Write = "write",
+        Match = "match",
+        Reflect = "reflect",
     }
 }
 
@@ -295,8 +295,8 @@ closed! {
         Compare = "compare",
         Endswith = "endswith",
         Membership = "membership",
-        Match = "match",
         Startswith = "startswith",
+        Match = "match",
     }
 }
 

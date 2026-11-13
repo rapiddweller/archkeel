@@ -128,6 +128,15 @@ macro_rules! facts_data {
 
 /// The data enum of a section: one variant for each kind, and the data type of that kind.
 macro_rules! section_facts {
+    (pub enum $name:ident in $section:ident with $data:ty { $($variant:ident,)* }) => {
+        section_facts! { pub enum $name in $section { $($variant($data),)* } }
+        impl $name {
+            /// The common typed payload of each kind of this section.
+            pub fn data(&self) -> &$data {
+                match self { $(Self::$variant(data) => data,)* }
+            }
+        }
+    };
     (
         $(#[$doc:meta])*
         pub enum $name:ident in $section:ident { $($variant:ident($data:ty),)* }
