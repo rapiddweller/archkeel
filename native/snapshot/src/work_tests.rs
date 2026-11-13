@@ -106,11 +106,16 @@ fn actual_nesting_is_separate_from_file_width_and_literal_text() {
         deep.clone(),
         format!("`text ${{{deep}0}}`"),
         format!("[{{{deep}"),
+        format!("/* outer /* () */ tail */ {deep}"),
     ] {
         assert!(crate::nesting::over(wrapped.as_bytes(), MAX_NESTING));
     }
     for literal in [
         format!("/*{deep}*/"),
+        format!("/* outer /*{deep}*/ {deep}*/"),
+        format!("/*{deep}"),
+        format!("/*{deep}/"),
+        format!("/*{deep}*"),
         format!("\"{deep}\""),
         format!("'{deep}'"),
         format!("`{deep}`"),
