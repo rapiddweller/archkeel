@@ -1,0 +1,44 @@
+{
+  "decision": "AD-414",
+  "issue": 1072,
+  "complete": false,
+  "initial_unproved": 1077,
+  "unreachable": 150,
+  "family_refused": 433,
+  "unproved": 494,
+  "membership_sha256": "499f02584fcaea29702402b4ed565aa0e76bad7ca48012fe1521da35ccd2915c",
+  "source_proofs": {
+    "ast-structure": 120,
+    "type-comments-disabled": 8,
+    "parser-other-mode": 6,
+    "instruction-api": 5,
+    "parser-old-feature-version": 4,
+    "tokenizer-other-entry": 4,
+    "declaration-not-call": 3
+  },
+  "remaining": {
+    "resource-allocation": [139, "Allocation failure depends on the process memory. No source-only proof is claimed."],
+    "Parser/lexer/lexer.c": [74, "Lexical conditions need their own generated families."],
+    "Parser/pegen_errors.c": [54, "Diagnostic forwarding and construction need caller and setting analysis."],
+    "Python/compile.c": [48, "Dynamic pattern diagnostics, warning policy, limits and internal invariants need separate proofs."],
+    "Python/symtable.c": [43, "Scope conditions need generated binding and declaration families."],
+    "Parser/action_helpers.c": [30, "Action preconditions and dynamic target diagnostics need separate families."],
+    "Parser/string_parser.c": [29, "Escape, f-string and warning conditions need separate families."],
+    "Python/codegen.c": [14, "Dynamic pattern diagnostics and compiler forwarding need separate proofs."],
+    "ast-validation": [13, "Nine recursion checks and four identifier checks remain open, including debug-build behavior."],
+    "Parser/pegen.c": [11, "Diagnostic helpers and identifier/UTF-8 conditions remain open."],
+    "Parser/tokenizer.c": [11, "Legacy tokenizer conditions need separate families."],
+    "Python/flowgraph.c": [10, "Internal stack/constant invariants and constant-count limits remain open."],
+    "Parser/tokenizer/helpers.c": [8, "Encoding and warning conditions need caller and setting analysis."],
+    "Python/ast_opt.c": [6, "Optimizer recursion checks need depth and limit families."],
+    "grammar": [4, "The generic invalid_block fallback needs a reachability proof distinct from specialized suite errors."]
+  },
+  "family_cases": 9564,
+  "compiler_outcomes_sha256": {
+    "3.11": "11a03b15a570c1a33741111423b2689b746c379a5e23fa6b8cd43e7905b19a83",
+    "3.12": "7b075669d040ed646b983e39961c3e272eeac51ba4f1a4de57dff3ccd9b053f5",
+    "3.13": "ca0aa07f6c2eb60db393c1d2884a1cfa4dfc667c197ec33c3e4eea9c90828787",
+    "3.14": "4c4b90130e692fda7c482d2992a9dc42bf37450ca8ac31d0d71d32ebed70da25"
+  },
+  "recording_sources": "Generated probes from public CPython grammar conditions. No corpus recording."
+}

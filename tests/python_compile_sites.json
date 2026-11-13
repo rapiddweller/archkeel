@@ -6,7 +6,10 @@
   "oracle": "compile(source, \"p.py\", \"exec\", dont_inherit=True)",
   "inventory_limit": "The scanner lists explicit error calls and recursion/UTF-8 conversion calls in the pinned files. It does not prove indirect error propagation, source reachability, warning policy, or resource exhaustion.",
   "witness_limit": "A trigger witnesses a matching message, not every control-flow path to its raise site. No source witness means UNPROVED, not REFUSED.",
-  "unproved": 1077,
+  "condition_proofs": "python_compile_completeness.json",
+  "row_status_scope": "Rows retain the AD-402 message-witness status. AD-414 classifies unwitnessed rows by source condition without inventing witnesses.",
+  "unwitnessed": 1077,
+  "unproved": 494,
   "rows": [
     {
       "site": "3.11:Grammar/python.gram:958:13",

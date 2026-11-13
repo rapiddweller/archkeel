@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from python_compile_classes import classification
 from python_compile_sites import TAGS, inventory
 from test_collector_native_python_parse import _minor, _native, _write
 from test_collector_native_python_survey import _native as survey
@@ -133,5 +134,9 @@ def test_each_raise_site_witness_is_still_a_compiler_refusal(
 def test_unproved_sites_keep_the_entry_condition_closed() -> None:
     # A witness for one message does not prove every path to that raise site.
     assert TABLE["complete"] is False
-    assert TABLE["unproved"] == sum(row["status"] == "UNPROVED" for row in TABLE["rows"])
+    sites = {site["id"]: site for pin in PINS.values() for site in pin["sites"]}
+    assert TABLE["unproved"] == sum(
+        row["status"] == "UNPROVED" and classification(sites[row["site"]])[0] == "D"
+        for row in TABLE["rows"]
+    )
     assert TABLE["unproved"] > 0

@@ -32,7 +32,8 @@ Passing generated probes does not prove that the compiler checks are complete.
    The current wire vocabulary writes a named syntax-family gap, not that exception class.
 
 **Limits.** The inventory has 1,334 calls: 285 / 304 / 361 / 384 by minor.
-It has 257 message witnesses and 1,077 unproved rows. These are not 1,077 known unsafe acceptances.
+At adoption it has 257 message witnesses and 1,077 unproved rows, not 1,077 known unsafe acceptances.
+AD-414 adds source-condition proofs and families. It retains the witness rows and leaves 494 conditions unproved.
 The scanner does not prove indirect error propagation, dynamic message selection or source reachability.
 Many AST-validator failures need a caller-built AST, not source text. Their reachability stays unproved.
 Allocation failure depends on the process memory, not only on source text.
