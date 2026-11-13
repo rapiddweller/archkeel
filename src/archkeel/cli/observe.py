@@ -17,9 +17,16 @@ from archkeel.check.observation import analyze_source_snapshot
 from archkeel.check.observe import Observer
 from archkeel.check.ports import Language, ObservationResult, ProducerKind, ScanConfig
 from archkeel.ir.codec import RawJson, observation_payload
+from archkeel.ir.facts import SourceFacts
 from archkeel.ir.languages import require_supported_project
 from archkeel.ir.phases import PhaseClock
-from archkeel.ir.protocol import ProtocolVersion
+from archkeel.ir.protocol import (
+    CollectionError,
+    CollectionErrorKind,
+    CollectionRequest,
+    ProtocolVersion,
+)
+from archkeel.ir.state_facts import VerifiedBinary
 
 _CONFIGURED_LIMIT_REMEDY: Final = "Raise collector_output_limit_bytes in [scan]."
 RUST_COLLECTOR = "archkeel-rust-collector"
@@ -57,6 +64,28 @@ class Bundled:
 
     path: str
     digest: str
+
+
+class _VerifiedCollector(ProcessCollector):
+    def collect(self, request: CollectionRequest) -> SourceFacts | CollectionError:
+        binary = Path(self.argv[0])
+        try:
+            verified = verified_binary(binary.name.removesuffix(_EXECUTABLE_SUFFIX), binary.parent)
+        except (OSError, LookupError, ValueError) as error:
+            return CollectionError(
+                CollectionErrorKind.MISSING_TOOL,
+                self.argv[0],
+                f"Native collector is not verified: {error}. Install a native platform wheel "
+                "or run make typescript-collector in a source checkout. "
+                "There is no Python fallback.",
+            )
+        if verified.digest != self.pinned_digest:
+            return CollectionError(
+                CollectionErrorKind.MISSING_TOOL, self.argv[0], "The binary changed."
+            )
+        return ProcessCollector.collect(
+            replace(self, verified_binary=VerifiedBinary(verified.digest)), request
+        )
 
 
 def _is_digest(text: str) -> bool:
@@ -144,7 +173,7 @@ def observer_for(
     launched = locate(TYPESCRIPT_COLLECTOR, native_directory) if native_typescript else None
     producer = (
         ProducerKind.BUNDLED
-        if launched is not None
+        if native_typescript
         else ProducerKind.PYTHON
         if bundled
         else ProducerKind.EXTERNAL
@@ -164,7 +193,7 @@ def observer_for(
     if collector_argv is None:
         collector_argv = (str(executable(TYPESCRIPT_COLLECTOR, native_directory)),)
     store = os.environ.get(NATIVE_STORE) if language in STORE_LANGUAGES else None
-    collector = ProcessCollector(
+    collector = (_VerifiedCollector if native_typescript else ProcessCollector)(
         collector_argv,
         clock=clock,
         # The store reads the compressed reply of protocol 8 from any collector (AD-346).
@@ -173,7 +202,7 @@ def observer_for(
         pin_adapter_version=bundled,
         store=store or None,
         pinned_digest=pinned_digest if launched is not None or not bundled else None,
-        bundled=launched is not None,
+        bundled=native_typescript,
         reply_sink=reply_sink,
         request_sink=request_sink,
     )

@@ -1,6 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+# ruff: noqa: E402
 """The native parse of a Python file equals the parse of the Python collector (AD-334).
 
 The oracle is the unmodified `source.parse_sources` of the running interpreter; the native parse
@@ -29,9 +30,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from oracle_support import ORACLE_UNAVAILABLE
+
+pytest.skip(ORACLE_UNAVAILABLE, allow_module_level=True)
+
+from archkeel.analyzer.python.source import RECURSION_LIMIT, parse_sources
 
 from archkeel.analyzer.interpreter import interpreter
-from archkeel.analyzer.python.source import RECURSION_LIMIT, parse_sources
 from archkeel.ir.protocol import CollectionError
 
 # The messages that the native parse copies from CPython: line and message must be equal.

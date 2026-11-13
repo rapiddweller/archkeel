@@ -1,6 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+# ruff: noqa: E402
 """The native definition table equals the symbols of the Python collector (AD-377, slice 2a).
 
 The oracle is the unmodified `collect.collect` in the phase `collect`, encoded as the facts of
@@ -20,13 +21,16 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from oracle_support import ORACLE_UNAVAILABLE
+
+pytest.skip(ORACLE_UNAVAILABLE, allow_module_level=True)
+from archkeel.analyzer.python.collect import collect
 from conftest import by_python
 from first_difference import same
 from test_collector_native_python_parse import _minor
 from test_collector_native_python_scope import _FIXTURES
 
 from archkeel.analyzer.interpreter import interpreter, python_request
-from archkeel.analyzer.python.collect import collect
 from archkeel.cli.config import load_config
 from archkeel.ir import facts_codec
 from archkeel.ir.facts import EXTENDED_CALL_BINDINGS_FEATURE

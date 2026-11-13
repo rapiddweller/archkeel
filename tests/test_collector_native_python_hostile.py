@@ -1,6 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+# ruff: noqa: E402
 """Hostile sources: the native parse accepts or refuses each one as the running CPython does.
 
 A deterministic generator writes each class of source that a review found or that the parse
@@ -13,12 +14,18 @@ in `STRICTER`, the closed list of AD-334 point 6.
 
 from __future__ import annotations
 
+import pytest
+from oracle_support import ORACLE_UNAVAILABLE
+
+pytest.skip(ORACLE_UNAVAILABLE, allow_module_level=True)
+
 import sys
 import threading
 from collections.abc import Iterator
 from pathlib import Path
 
 from archkeel.analyzer.python.source import RECURSION_LIMIT, parse_sources
+
 from tests.test_collector_native_python_parse import _minor, _native, _write
 
 # Case prefix -> why native may refuse a file that CPython accepts (AD-334 point 6).

@@ -2,6 +2,9 @@
 # (`make full-test`) and never this list, so Full does not watch this file. Add a test here
 # without a change to the Makefile.
 PR_TEST_FILES := \
+	tests/test_cli_unsupported_projects.py \
+	tests/test_dependency_runtime_identity.py \
+	tests/test_dual_run_supported_profiles.py \
 	tests/test_make_gate.py \
 	tests/test_ci_budget.py \
 	tests/test_native_ci.py \
@@ -45,9 +48,6 @@ PR_TEST_FILES := \
 	tests/test_module_object_grants.py \
 	tests/test_dependency_typed_control.py \
 	tests/test_typed_state_protocol.py \
-	tests/test_typed_python_bindings.py \
-	tests/test_typed_python_receivers.py \
-	tests/test_typed_method_descriptors.py \
 	tests/test_typed_graph_vocabulary.py \
 	tests/test_typed_diagnostic_owner.py \
 	tests/test_state_facts.py \
@@ -55,20 +55,16 @@ PR_TEST_FILES := \
 	tests/test_typed_dict_bound_aliases.py \
 	tests/test_decisions.py \
 	tests/test_gap_diagnostics.py \
-	tests/test_typed_python_properties.py \
 	tests/test_typed_contract_rule_grammar.py \
 	tests/test_typed_contract_rule_native.py \
 	tests/test_core_command_result.py \
 	tests/test_typed_measurement_controls.py \
-	tests/test_typed_parameter_kinds.py \
 	tests/test_atlas_deviation_target.py \
 	tests/test_definition_context_types.py \
 	tests/test_permission_status_types.py \
 	tests/test_snapshot_language_types.py \
 	tests/test_source_resolution_types.py \
 	tests/test_known_delta_action_types.py \
-	tests/test_typed_symbol_class_kinds.py \
-	tests/test_source_name_visibility.py \
 	tests/test_git_blob_types.py \
 	tests/test_typed_structure_levels.py \
 	tests/test_classifier_projections.py \
@@ -174,12 +170,9 @@ PR_TEST_FILES := \
 	tests/test_collector_golden_python.py \
 	tests/test_source_trust_boundary.py \
 	tests/test_source_validate_once.py \
-	tests/test_shared_runtime_bootstrap.py \
-	tests/test_python_class_value_proofs.py \
 	tests/test_local_inherited_methods.py \
 	tests/test_inherited_generic_facade_negative.py \
 	tests/test_python_provider_sources.py \
-	tests/test_python_contextmanager_signatures.py \
 	tests/test_boundary_types_contextmanager.py \
 	'tests/test_architecture_demo.py::test_variant_produces_the_catalogued_findings[class-a-inherited-generic-return]' \
 	'tests/test_architecture_demo.py::test_variant_produces_the_catalogued_findings[class-a-inherited-generic-undeclared-return]' \
@@ -191,17 +184,10 @@ PR_TEST_FILES := \
 	tests/test_report_rule_evidence_oracle.py::test_unknown_position_is_associated_with_its_rule_not_every_boundary_rule \
 	tests/test_typescript_script_globals.py \
 	tests/test_typescript_standard_globals.py \
-	tests/test_typescript_umd_providers.py \
 	tests/test_browser_architecture.py \
 	tests/test_source_graph.py \
-	tests/test_binding_proof_reuse.py \
-	tests/test_shared_lexical_index.py \
-	tests/test_namespace_scan_cost.py \
-	tests/test_member_escape_prefix_index.py \
 	tests/test_collection_boundary_regressions.py \
 	tests/test_recursive_boundary_index_work.py \
-	tests/test_lexical_resolution.py \
-	tests/test_static_instances.py \
 	tests/test_module_explore.py \
 	tests/test_architecture_owner_characterization.py \
 	tests/test_architecture_coverage_characterization.py \
@@ -213,7 +199,6 @@ PR_TEST_FILES := \
 	tests/test_boundary_types_chain_proof.py \
 	tests/test_boundary_types_reexport_proofs.py \
 	tests/test_boundary_types_facades.py \
-	tests/test_boundary_types_aliases.py \
 	tests/test_boundary_type_recursive_aliases.py \
 	tests/test_callable_boundaries.py \
 	tests/test_boundary_type_literal_mapping_arms.py \
@@ -227,21 +212,11 @@ PR_TEST_FILES := \
 	tests/test_boundary_type_bound_aliases.py::test_literal_outer_and_sibling_survive_uncertain_alias \
 	tests/test_boundary_type_bound_aliases.py::test_uncertain_inner_alias_does_not_erase_exact_literal_outer_map_permission \
 	tests/test_boundary_type_bound_aliases.py::test_uncertain_alias_ordinary_permission_is_independent_of_union_order \
-	tests/test_typescript_owned_types.py \
-	tests/test_typescript_syntax_types.py \
-	tests/test_typescript_syntax_compatibility.py \
-	tests/test_typescript_json_fields.py \
 	tests/test_typescript_control_target.py \
 	tests/test_typescript_source_input.py \
 	tests/test_typescript_string_constructs.py \
-	tests/test_python_source_evidence_lines.py \
-	tests/test_definition_source_owners.py \
 	tests/test_analyzer.py \
-	tests/test_typescript_config.py \
-	tests/test_typescript_resolve.py \
 	tests/test_typescript_bundler.py \
-	tests/test_type_shapes.py \
-	tests/test_typescript_array_constants.py \
 	tests/test_typescript_decorated_inventory.py \
 	tests/test_typescript_parameter_properties.py \
 	tests/test_uml_comparison.py \
@@ -275,12 +250,10 @@ PR_TEST_FILES := \
 	tests/test_call_argument_binding.py \
 	tests/test_call_owner_native_proof_regressions.py \
 	tests/test_numeric_operand_rule.py \
-	tests/test_numeric_operand_observation.py \
 	tests/test_protocol_declarations.py \
 	tests/test_source_ownership_policy.py \
 	tests/test_catalog_policy_native.py \
 	tests/test_catalog_policy_scan_completeness.py \
-	tests/test_guard_paths.py \
 	tests/test_guarded_effect_contract.py \
 	tests/test_guarded_effect_evaluation.py \
 	tests/test_guarded_effect_facts.py \
@@ -296,11 +269,6 @@ PR_TEST_FILES := \
 	tests/test_construct_selectors.py \
 	tests/test_source_facts_columnar.py \
 	tests/test_selector_validation_performance.py \
-	tests/test_dart_parse.py \
-	tests/test_dart_snapshot.py \
-	tests/test_dart_resolve.py \
-	tests/test_dart_typed_controls.py \
-	tests/test_dart_local_callable_shadowing.py \
 	tests/test_dart_sdk_free.py \
 	tests/test_dart_inner_collect.py \
 	tests/test_dart_target.py \
@@ -350,10 +318,8 @@ PR_TEST_FILES := \
 	tests/test_inside_rule_parity.py \
 	tests/test_report_rule_evidence.py \
 	tests/test_target_navigation_graph.py \
-	tests/test_annotation_carriers.py \
 	tests/test_absent_import_namespace.py \
 	tests/test_dynamic_dependency_policy.py \
-	tests/test_string_comparison_observation.py \
 	tests/test_local_string_comparisons.py \
 	tests/test_string_predicate_observation.py \
 	tests/test_python_string_predicate_target.py \

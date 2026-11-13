@@ -7,11 +7,11 @@ import json
 from pathlib import Path
 
 import pytest
-from test_source_graph import _graph_from_source_facts
-
-from archkeel.analyzer.typescript.collect import collect
 from archkeel.analyzer.typescript.parse import parse
 from archkeel.analyzer.typescript.syntax import DefinitionKind, SiteKind
+from native_typescript import collect
+from test_source_graph import _graph_from_source_facts
+
 from archkeel.check.uml_compare import compare_graphs
 from archkeel.ir.architecture_graph import ArchitectureGraph, Entity
 from archkeel.ir.facts_validation import validate_source_facts

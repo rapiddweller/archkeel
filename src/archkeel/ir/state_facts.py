@@ -10,6 +10,20 @@ from enum import StrEnum
 from typing import TypeAlias
 
 
+@dataclass(frozen=True, slots=True)
+class AnalyzerInfo:
+    name: str
+    version: str
+    code_digest: str
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedBinary:
+    """Host-only evidence of a bundled executable checked in this run; never read from wire."""
+
+    digest: str
+
+
 class BindingState(StrEnum):
     UNKNOWN = "UNKNOWN"
     NON_REASSIGNABLE = "non_reassignable"

@@ -17,11 +17,13 @@ ci-check: ci-artifacts-clean ci-core-check report-timing
 
 ci-pr-check: ci-pr-static pr-test
 
-ci-pr-static: $(if $(strip $(BASE)),against,self-validate) lint typecheck browser-architecture-check
+# AD-422: no Python self-check until the native Python collector and store support its replies.
+PYTHON_SELF_CHECK :=
+ci-pr-static: $(PYTHON_SELF_CHECK) lint typecheck browser-architecture-check
 
 ci-pr-report-check: browser-runtime-check browser-graph-check pr-report-test
 
-pr-test: browser-runtime-install
+pr-test: browser-runtime-install typescript-collector
 	$(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
 		-q --durations=10 --junitxml=test-artifacts/pytest/pr-core.xml $(if $(AREA),--area="$(AREA)",) \
 		$(PR_TEST_FILES)
@@ -140,6 +142,15 @@ native-report:
 	done
 
 # Build the pinned tools from crates.io with their own Cargo.lock; cargo skips an installed tool.
+.PHONY: typescript-collector
+typescript-collector:
+	cd native && ARCHKEEL_VERSION="$$($(UV) run --locked python -c 'from archkeel.analyzer.runtime import package_version; print(package_version())')" \
+		cargo build --locked --bin archkeel-typescript-collector --target-dir target/bundled
+	@mkdir -p src/archkeel/_native
+	$(UV) run --locked python -c 'import hashlib, pathlib, shutil, sysconfig; n="archkeel-typescript-collector"+(sysconfig.get_config_var("EXE") or ""); p=pathlib.Path("src/archkeel/_native")/n; shutil.copy2(pathlib.Path("native/target/bundled/debug")/n,p); pathlib.Path(str(p)+".sha256").write_text(hashlib.sha256(p.read_bytes()).hexdigest(), encoding="ascii")'
+
+test full-test demos dual-run native-check native-corpus browser-architecture-check: typescript-collector
+
 native-tools:
 	cargo install --locked cargo-deny@$(CARGO_DENY_VERSION) cargo-auditable@$(CARGO_AUDITABLE_VERSION)
 

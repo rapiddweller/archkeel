@@ -180,37 +180,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 1
 
-  python-compat:
-    name: Python ${{ matrix.python }} compatibility
-    runs-on: ubuntu-24.04
-    # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
-    timeout-minutes: 40
-    # The analyzer reads source with the `ast` of the running interpreter (#724). The full suite
-    # runs on 3.11; `make python-compat` runs each test that needs a newer version (tests/areas.py).
-    strategy:
-      fail-fast: false
-      matrix:
-        python: ["3.12.10", "3.13.15", "3.14.7"]
-    env:
-      UV_PYTHON: ${{ matrix.python }}
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install uv and Python
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          python-version: ${{ matrix.python }}
-          version: "0.12.13"
-
-      - name: Install locked package
-        run: uv sync --locked --python ${{ matrix.python }}
-
-      - name: Run the Python compatibility tests
-        run: make python-compat TEST_WORKERS=4
-
   collector-safety-windows:
     name: "Windows: collector safety"
     runs-on: windows-2025
@@ -271,10 +240,6 @@ jobs:
       - name: Verify TypeScript collector compatibility
         shell: bash
         run: make typescript-native TEST_WORKERS=4 SHELL=bash
-
-      - name: Verify Dart collector compatibility
-        shell: bash
-        run: make dart-test TEST_WORKERS=4 SHELL=bash
 
       - name: Verify package build and installed CLI
         shell: bash
@@ -424,7 +389,6 @@ jobs:
       - full-suite-and-reports
       - tests
       - demos
-      - python-compat
       - collector-safety-windows
       - language-collectors
       - native-wheel-linux

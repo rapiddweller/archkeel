@@ -5,7 +5,7 @@
 # SKIP_TESTS=1: skip the test suite here; Full verification runs it in area jobs (make full-test).
 check: lint typecheck browser-architecture-check $(if $(strip $(SKIP_TESTS)),,test)
 
-gate: $(if $(strip $(BASE)),against,self-validate) release-check
+gate: $(PYTHON_SELF_CHECK) release-check
 
 release-check: check build smoke
 
@@ -23,11 +23,6 @@ test:
 	$(UV) run --locked $(PYTEST_EXTRA) python -m pytest -n $(TEST_WORKERS) --dist=loadgroup --max-worker-restart=0 \
 		-q $(PYTEST_STOP) --durations=20 --junitxml=test-artifacts/pytest/results.xml \
 		$(if $(AREA),--area="$(AREA)",)
-
-# Each test that needs Python 3.12 or later, and the files that cover version differences (#724).
-python-compat:
-	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=loadfile --max-worker-restart=0 \
-		-q --durations=10 --selection=python-compat
 
 # AD-317: build the platform wheel of this host with the binary and its SBOM, check the tag, then
 # install the wheel and run the binary. Full verification runs it on each target of the matrix.
@@ -52,25 +47,17 @@ collector-safety:
 typescript-compiler-check:
 	npx --yes --package typescript@5.9.3 tsc --noEmit --project fixtures/H-uml-typescript/tsconfig.json
 
-# Python implementation architecture is covered by make test, once on Linux in CI.
-typescript-native: browser-runtime-install
+# TypeScript uses only the native collector (AD-422).
+typescript-native: browser-runtime-install typescript-collector
 	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=loadfile --max-worker-restart=0 \
-		-q --durations=10 tests/test_typescript_parse.py \
+		-q --durations=10 \
 		tests/test_typescript_inner.py tests/test_typescript_uml_acceptance.py \
 		tests/test_typescript_namespace_identities.py \
-		tests/test_typescript_collect.py tests/test_typescript_owned_types.py tests/test_typescript_syntax_types.py tests/test_typescript_syntax_compatibility.py tests/test_typescript_source_input.py \
-		tests/test_typescript_script_globals.py tests/test_typescript_standard_globals.py tests/test_typescript_umd_providers.py \
+		tests/test_typescript_collect.py tests/test_typescript_source_input.py \
+		tests/test_typescript_script_globals.py tests/test_typescript_standard_globals.py \
 		tests/test_browser_architecture.py::test_browser_runner_serializes_windows_config_as_a_posix_port \
-		tests/test_typescript_json_fields.py tests/test_typescript_config.py tests/test_typescript_string_constructs.py \
-		tests/test_typescript_config_reference.py \
-		tests/test_typescript_resolve.py tests/test_typescript_bundler.py tests/test_typescript_provenance.py \
+		tests/test_typescript_string_constructs.py tests/test_typescript_bundler.py \
 		tests/test_typescript_init_acceptance.py tests/test_typescript_demo.py
-
-dart-test:
-	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=worksteal --max-worker-restart=0 \
-		-q --durations=10 tests/test_dart_*.py \
-		tests/test_uml_source_facts.py tests/test_language_collectors.py \
-		tests/test_flutter_demo.py::test_flutter_variant_reports_keep_pass_fail_unknown_and_coverage_distinct
 
 # The same commit measured 80-96s on hosted runners; allow for runner noise.
 REPORT_MAX_SECONDS ?= 190

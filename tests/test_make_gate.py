@@ -20,7 +20,7 @@ import pytest
 from areas import AREAS, area_of
 
 ROOT = Path(__file__).parents[1]
-GATE_STEPS = ["self-validate", "browser-architecture-check", "check", "build", "smoke"]
+GATE_STEPS = ["browser-architecture-check", "check", "build", "smoke"]
 CI_CHECK_STEPS = [
     "ci-artifacts-clean",
     *GATE_STEPS,
@@ -58,7 +58,7 @@ def _run_gate(
         ("" if separate_override else f"include {ROOT / 'Makefile'}\n")
         + ".PHONY: "
         + " ".join([*names, "lint", "typecheck", "test"])
-        + "\nlint typecheck test browser-runtime-install:\n\t@:\n"
+        + "\nlint typecheck test browser-runtime-install typescript-collector:\n\t@:\n"
         + "".join(recipes)
     )
     args = ["make", f"-j{jobs}"]
@@ -89,12 +89,12 @@ def test_gate_validates_first_and_stops_after_each_failure(
 
 
 @pytest.mark.parametrize("jobs", [1, 2])
-@pytest.mark.parametrize("failed", [None, "against", "check"])
-def test_gate_uses_pinned_base_instead_of_duplicate_self_validation(
+@pytest.mark.parametrize("failed", [None, "check"])
+def test_gate_keeps_supported_checks_without_the_python_self_check(
     tmp_path: Path, jobs: int, failed: str | None
 ) -> None:
     result, steps = _run_gate(tmp_path, "gate", failed, jobs, True, base="a" * 40)
-    expected = ["against", "browser-architecture-check", "check", "build", "smoke"]
+    expected = GATE_STEPS
     if failed is not None:
         expected = expected[: expected.index(failed) + 1]
     assert steps == expected, result.stderr
@@ -106,7 +106,6 @@ def test_gate_uses_pinned_base_instead_of_duplicate_self_validation(
     "failed",
     [
         None,
-        "self-validate",
         "ci-artifacts-clean",
         "report-timing",
         "typescript-compiler-check",
@@ -157,32 +156,23 @@ def test_uml_demo_checks_typescript_before_generating_reports(tmp_path: Path, co
     assert result.returncode == (0 if compiler_exit == 0 else 2), result.stderr
 
 
-def test_against_receives_the_exact_ci_base_and_stops_before_tests(tmp_path: Path) -> None:
-    steps = tmp_path / "steps"
-    runner = tmp_path / "uv"
-    runner.write_text(
-        f'#!/bin/sh\nprintf "%s\\n" "$*" >> "{steps}"\n'
-        'case "$*" in *tools.against*) exit 1;; esac\n'
+def test_python_self_check_has_one_named_restore_condition() -> None:
+    makefile = (ROOT / "Makefile").read_text()
+    assert "PYTHON_SELF_CHECK :=\n" in makefile
+    assert (
+        "no Python self-check until the native Python collector and store support its replies"
+        in makefile
     )
-    runner.chmod(0o755)
-    result = subprocess.run(
-        ["make", "-j2", "ci", f"BASE={'a' * 40}"],
-        cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": "", "UV": str(runner)},
-        capture_output=True,
-        text=True,
-        timeout=15,
+    assert (
+        "ci-pr-static: $(PYTHON_SELF_CHECK) lint typecheck browser-architecture-check" in makefile
     )
-    assert result.returncode != 0
-    assert steps.read_text().splitlines() == [
-        f"run --locked python -m tools.against --base {'a' * 40}",
-    ]
+    assert "gate: $(PYTHON_SELF_CHECK) release-check" in (ROOT / "tools/full.mk").read_text()
 
 
-@pytest.mark.parametrize("failed", [None, "against", "browser-architecture-check", "pr-test"])
+@pytest.mark.parametrize("failed", [None, "browser-architecture-check", "pr-test"])
 def test_pr_gate_keeps_policy_and_stops_before_later_checks(tmp_path, failed):
     result, steps = _run_gate(tmp_path, "ci-pr-check", failed, 2, False, base="a" * 40)
-    expected = ["against", "browser-architecture-check", "pr-test"]
+    expected = ["browser-architecture-check", "pr-test"]
     if failed is not None:
         expected = expected[: expected.index(failed) + 1]
     assert steps == expected

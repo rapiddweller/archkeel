@@ -813,7 +813,7 @@ def observation_payload(observation: Observation) -> dict[str, RawJson]:
         del result["producer"]
     if observation.producer_kind is None:
         del result["producer_kind"]
-    del result["sections"]
+    del result["sections"], result["verified_binary"]
     result["coverage"] = _coverage_payload(observation.coverage)
     profile = profile_for(observation.analyzer.name)
     for name in profile.absent_sections:

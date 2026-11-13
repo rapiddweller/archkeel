@@ -11,8 +11,8 @@ import json
 from pathlib import Path
 
 import pytest
+from native_typescript import collect
 
-from archkeel.analyzer.typescript.collect import collect
 from archkeel.ir.facts import (
     ExternalPackageTarget,
     ImportTarget,

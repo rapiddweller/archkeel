@@ -15,7 +15,8 @@ from typing import Final, Literal, TypeAlias, TypeVar
 
 from .languages import Language as Language
 from .languages import SourceProfile as SourceProfile
-from .state_facts import StateFacts
+from .state_facts import AnalyzerInfo as AnalyzerInfo
+from .state_facts import StateFacts, VerifiedBinary
 from .type_shapes import TypeShape
 
 MAX_STATIC_INTEGER = (1 << 4096) - 1
@@ -1039,13 +1040,6 @@ class Evidence:
 
 
 @dataclass(frozen=True, slots=True)
-class AnalyzerInfo:
-    name: str
-    version: str
-    code_digest: str
-
-
-@dataclass(frozen=True, slots=True)
 class SourceInfo:
     git_head: str
     dirty: bool | Literal["unknown"]
@@ -1340,6 +1334,7 @@ class SourceFacts:
     state: StateFacts = StateFacts((), ())
     candidate_evidence: tuple[Evidence, ...] = ()
     provider_bindings: tuple[ProviderBinding, ...] = ()
+    verified_binary: VerifiedBinary | None = field(default=None, compare=False)
 
 
 def in_scope(name: str, scope: str) -> bool:
