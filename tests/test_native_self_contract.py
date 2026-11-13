@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 """AD-382: each rule of the self-contract fails on a violation planted in a copy of native/.
 
-Consumer: `make native-check`. Two self-checks run with the Rust collector, each on its own copy
-of `native/` without `target/`. The first copy holds each chain rule in two code forms (a `use`,
+Consumer: `make native-check`. Two self-checks run through `archkeel validate`, each on its own
+copy of `native/` without `target/`. The first copy holds each chain rule in two code forms (a `use`,
 and a qualified path without `use`), each in a file of its own, and the external and assignment
 plants. The second copy adds a matching `requires` entry for each chain rule. A rule that does
 not fail at its planted file fails here.
@@ -12,21 +12,18 @@ not fail at its planted file fails here.
 
 from __future__ import annotations
 
-import io
 import json
 import shutil
-from contextlib import redirect_stdout
-from functools import partial
 from pathlib import Path
 from typing import Any
-from unittest import mock
 
 import pytest
-from collector_pin import pin_of
-from graph_report_support import commit_tree
+from core_support import core_binary, run
+from corpus_support import commit_tree
 
-from archkeel.cli import legacy_bindings as cli
-from archkeel.cli import main
+from archkeel.cli import core_only
+
+__all__ = ["core_binary"]
 
 ROOT = Path(__file__).parents[1]
 DEPENDENCY = "[dependencies]\n"
@@ -209,42 +206,38 @@ def _with_requires(native: Path) -> list[Plant]:
 
 
 def _run(root: Path, binary: Path) -> dict[str, Any]:
-    config = (root / "native/archkeel.toml").read_text()
-    (root / "archkeel.toml").write_text(f"{config}collector_argv = {json.dumps([str(binary)])}\n")
     commit_tree(root)
-    build, out = cli.observer_for, io.StringIO()
-    # A config has no pin (AD-344): the test pins the binary that it configured.
-    pinned = partial(build, pinned_digest=pin_of(str(binary)))
-    with mock.patch.object(cli, "observer_for", pinned), redirect_stdout(out):
-        main(["report", "--root", str(root), "--output", str(root / "out/a.json"), "--json"])
-    return json.loads(out.getvalue())  # type: ignore[no-any-return]
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(core_only, "locate_core", lambda: binary)
+        _, document = run("validate", "--root", str(root), "--config", "native/archkeel.toml")
+    frame: dict[str, Any] = document["frame"]
+    return frame
 
 
-def _found(result: dict[str, Any]) -> set[Plant]:
+def _found(frame: dict[str, Any]) -> set[Plant]:
     return {
-        (rule, at["path"])
-        for item in result["findings"]
-        if item["kind"] == "violation"
-        for rule in item["rules"]
-        for at in item.get("locations") or ()
+        (rule, frame["locations"][evidence]["path"])
+        for rule, rows in frame["details"].items()
+        for row in rows
+        for evidence in row["evidence"]
     }
 
 
 @pytest.fixture(scope="module")
-def runs(rust_binary: Path, tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
+def runs(core_binary: Path, tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
     found: dict[str, Any] = {}
     for name, plant in (("code", _code_forms), ("requires", _with_requires)):
         root = tmp_path_factory.mktemp(name)
         shutil.copytree(ROOT / "native", root / "native", ignore=shutil.ignore_patterns("target"))
         plants = plant(root / "native")
-        found[name] = (plants, _run(root, rust_binary))
+        found[name] = (plants, _run(root, core_binary))
     return found
 
 
 @pytest.mark.parametrize("name", ["code", "requires"])
 def test_each_rule_fails_at_each_planted_file(runs: dict[str, Any], name: str) -> None:
     plants, result = runs[name]
-    statuses = {item["id"]: item["status"] for item in result["rule_assessments"]}
+    statuses = {rule: row[1] for rule, row in result["rules"].items()}
     assert [plant for plant in plants if plant not in _found(result)] == []
     assert {statuses[rule] for rule, _ in plants} == {"FAIL"}
 

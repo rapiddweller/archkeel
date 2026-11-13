@@ -11,9 +11,9 @@ import sys
 from pathlib import Path
 
 import pytest
+from core_support import HONEST, SUFFIX, built, case_root
 from test_cli_core_only import GUARD, ROOT
-from test_cli_core_only_boundary import frame
-from test_cli_native_core_scan import HONEST, SUFFIX, built, case_root
+from test_cli_core_only_boundary import HEAD, frame
 
 from archkeel.cli import core_only
 from archkeel.cli.native_scan import exchange
@@ -24,7 +24,6 @@ __all__ = ["built"]
 @pytest.fixture(autouse=True)
 def environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv(core_only.VARIABLE, raising=False)
-    monkeypatch.delenv(core_only.STAGE_ONE_VARIABLE, raising=False)
     monkeypatch.chdir(tmp_path)
     (tmp_path / "archkeel.toml").write_text('[scan]\ncontract = "contract.json"\n')
     (tmp_path / "contract.json").write_text('{"rules": [{"id": "R1"}]}')
@@ -38,19 +37,19 @@ def test_an_unbound_other_projects_pass_is_a_refusal(
     tmp_path: Path,
 ) -> None:
     document = json.loads(frame())
-    document["self_test"]["collect"]["request"] = {
-        "snapshot": {
-            "root": str(tmp_path / "other" if fault == "foreign-root" else tmp_path),
-        }
-    }
+    snapshot = document["self_test"]["collect"]["request"]["snapshot"]
+    snapshot["root"] = str(tmp_path / "other" if fault == "foreign-root" else tmp_path)
     if fault == "foreign-rule":
         document.pop("contract_digest", None)
         document["rules"] = {"OTHER": ["complete_assignment", "PASS"]}
         document["self_test"]["contract"]["rules"] = {"OTHER": "complete_assignment"}
+    monkeypatch.setattr(core_only, "identity", lambda _: (HEAD, False))
     monkeypatch.setattr(core_only, "locate_core", lambda: Path("core"))
     monkeypatch.setattr(core_only, "exchange", lambda *_: (json.dumps(document).encode(), 0))
-    assert core_only.run(["validate", "--core-only", "--root", str(tmp_path), "--json"]) == 2
-    assert json.loads(capsys.readouterr().out)["refusal"]["kind"] == "request_mismatch"
+    assert core_only.run(["validate", "--root", str(tmp_path), "--json"]) == 2
+    refusal = json.loads(capsys.readouterr().out)["refusal"]
+    assert refusal["kind"] == "request_mismatch"
+    assert ("another root" if fault == "foreign-root" else "contract digest") in refusal["message"]
 
 
 def test_a_contract_changed_after_the_real_scan_is_refused(
@@ -69,7 +68,7 @@ def test_a_contract_changed_after_the_real_scan_is_refused(
 
         monkeypatch.setattr(core_only, "locate_core", lambda: binary)
         monkeypatch.setattr(core_only, "exchange", changed)
-        assert core_only.run(["validate", "--core-only", "--root", str(root), "--json"]) == 2
+        assert core_only.run(["validate", "--root", str(root), "--json"]) == 2
     refusal = json.loads(capsys.readouterr().out)["refusal"]
     assert refusal["kind"] == "request_mismatch" and "contract digest" in refusal["message"]
 
@@ -84,7 +83,7 @@ def test_unexpected_exception_is_not_an_architecture_failure(
         raise RuntimeError("planted internal fault")
 
     monkeypatch.setattr(core_only, "locate_core", broken)
-    assert core_only.run(["validate", "--core-only", form]) == 2
+    assert core_only.run(["validate", form]) == 2
     captured = capsys.readouterr()
     assert "Traceback" in captured.err and "planted internal fault" in captured.err
     if form == "--json":
@@ -98,11 +97,11 @@ def test_a_refusal_is_not_presented_as_an_unknown_rule(
     form: str,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    assert core_only.run(["check", "--core-only", form]) == 2
+    assert core_only.run(["check", form]) == 2
     text = capsys.readouterr().out
     if form == "--json":
         refusal = json.loads(text)["refusal"]
-        assert refusal["kind"] == "core_error" and "#1103" in refusal["message"]
+        assert refusal["kind"] == "not_on_this_development_line" and "#1103" in refusal["message"]
     else:
         assert text.startswith("REFUSED:")
 
@@ -118,7 +117,7 @@ def test_a_native_collection_refusal_is_also_typed(
     with case_root(HONEST) as root:
         config = root / "archkeel.toml"
         config.write_text(config.read_text().replace('"typescript"', '"python"'))
-        assert core_only.run(["validate", "--core-only", "--root", str(root), form]) == 2
+        assert core_only.run(["validate", "--root", str(root), form]) == 2
     text = capsys.readouterr().out
     if form == "--json":
         assert json.loads(text)["refusal"]["kind"] == "collection_refused"
@@ -136,7 +135,7 @@ def test_the_real_core_path_and_code_digest_are_visible(
     binary = built / f"archkeel-core{SUFFIX}"
     monkeypatch.setattr(core_only, "locate_core", lambda: binary)
     with case_root(HONEST) as root:
-        assert core_only.run(["validate", "--core-only", "--root", str(root), form]) == 0
+        assert core_only.run(["validate", "--root", str(root), form]) == 0
         result = capsys.readouterr().out
         if form == "--json":
             payload = json.loads(result)
@@ -169,7 +168,6 @@ def test_the_post_scan_guard_catches_a_module_planted_without_an_import(built: P
                 "-c",
                 script,
                 "validate",
-                "--core-only",
                 "--root",
                 str(root),
                 "--json",

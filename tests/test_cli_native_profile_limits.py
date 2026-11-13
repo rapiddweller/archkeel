@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from test_cli_native_core_scan import SUFFIX, built
-
-from tools.dual_run_corpus import corpus_cases, materialized
+from core_support import SUFFIX, built
+from corpus_support import case as corpus_case
+from corpus_support import materialized
 
 __all__ = ["built"]
 
@@ -51,7 +51,7 @@ def scan(built: Path, root: Path) -> dict[str, Any]:
 
 @pytest.mark.parametrize("case_id", CASES)
 def test_a_known_profile_limit_does_not_hold_an_unrelated_rule(built: Path, case_id: str) -> None:
-    case = next(case for case in corpus_cases() if case.id == case_id)
+    case = corpus_case(case_id)
     with materialized(case) as root:
         frame = scan(built, root)
     assert frame["rules"].get("ASSIGNMENT") == "PASS", frame["unsupported"]
@@ -70,7 +70,7 @@ def test_a_known_profile_limit_does_not_hold_an_unrelated_rule(built: Path, case
 def test_a_profile_statement_cannot_hide_a_dynamic_forbidden_edge(
     built: Path, case_id: str
 ) -> None:
-    case = next(case for case in corpus_cases() if case.id == case_id)
+    case = corpus_case(case_id)
     with materialized(case) as root:
         before = scan(built, root)
         assert before["rules"].get("DOMAIN-NO-DATA") == "PASS", before["unsupported"]
@@ -83,7 +83,7 @@ def test_a_profile_statement_cannot_hide_a_dynamic_forbidden_edge(
 
 def test_an_unread_symbol_position_stays_unknown(built: Path) -> None:
     case_id = "s5/forbidden-symbol-rule-leaves-a-position-undecided"
-    case = next(case for case in corpus_cases() if case.id == case_id)
+    case = corpus_case(case_id)
     with materialized(case) as root:
         frame = scan(built, root)
     assert frame["rules"].get("ASSIGNMENT") == "PASS", frame["unsupported"]
@@ -93,7 +93,7 @@ def test_an_unread_symbol_position_stays_unknown(built: Path) -> None:
 
 def test_a_namespace_import_has_a_named_unknown_row_not_a_profile_refusal(built: Path) -> None:
     case_id = "s4/a-symbol-selector-is-a-limit-of-some-profiles"
-    case = next(case for case in corpus_cases() if case.id == case_id)
+    case = corpus_case(case_id)
     with materialized(case) as root:
         source = root / "src/presentation/page.ts"
         source.write_text(source.read_text() + '\nimport * as domain from "../domain";\n')
@@ -105,7 +105,7 @@ def test_a_namespace_import_has_a_named_unknown_row_not_a_profile_refusal(built:
 
 
 def test_a_symbol_public_interface_releases_no_actual_gap(built: Path) -> None:
-    case = next(case for case in corpus_cases() if case.id == "fixture/H-typescript")
+    case = corpus_case("fixture/H-typescript")
     with materialized(case) as root:
         path = root / "architecture-contract.json"
         contract = json.loads(path.read_text())

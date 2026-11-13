@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Real scan requests through the product entry, with both Python decision packages blocked."""
+"""Real scan requests through the product entry, with the Python decision packages blocked."""
 
 import json
 import os
@@ -11,8 +11,9 @@ import sys
 from pathlib import Path
 
 import pytest
+from core_support import HONEST, SUFFIX, built, case_root
+from rust_repository import repository
 from test_cli_core_only import GUARD, ROOT
-from test_cli_native_core_scan import HONEST, SUFFIX, _rust_repository, built, case_root
 
 __all__ = ["built"]
 
@@ -35,7 +36,6 @@ def command(
             "-c",
             guard,
             verb,
-            "--core-only",
             *([] if root is None else ["--root", str(root)]),
             *flags,
         ],
@@ -55,6 +55,8 @@ def command(
         ("validate", "--json"),
         ("report", "--text"),
         ("report", "--json"),
+        ("validate", "--core-only"),
+        ("report", "--core-only"),
         ("check", "--json"),
     ],
 )
@@ -69,8 +71,9 @@ def test_a_real_pass_has_no_python_collector_ir_or_checker(
 
 
 def test_a_real_rust_pass_also_blocks_python_decision_imports(built: Path, tmp_path: Path) -> None:
-    root = _rust_repository(built, tmp_path)
-    done = command(built / f"archkeel-core{SUFFIX}", root, "--json")
+    binary = built / f"archkeel-core{SUFFIX}"
+    root = repository(tmp_path / "project", binary)
+    done = command(binary, root, "--json")
     assert done.returncode == 0, done.stdout + done.stderr
     assert json.loads(done.stdout)["status"] == "PASS"
 

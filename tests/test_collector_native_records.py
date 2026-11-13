@@ -1,166 +1,27 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-340 (PR 4.3a-3a): the native records of the expanded imports and the constructs equal Python.
+"""AD-340 (PR 4.3a-3a): the records pass of the native TypeScript collector is linear.
 
-Consumer: PR 4.3a-3d, which puts the records on the wire. The reply of the native collector does
-not carry them yet, and its capability stays legacy, so the host never reads them. The `dump`
-feature prints them (`--dump-records`), and this test compares them with the records of the
-unmodified Python collector: the import records with one record for each bound name, their
-targets, the `ESM_EXPORT` witnesses, the `TSCONSTRUCT` records and the evidence that they cite.
-The Python methods run in the order of `_Collection.facts()` up to `_constructs()`.
+Consumer: the native TypeScript collector. The `dump` feature prints the records of the expanded
+imports and the constructs (`--dump-records`). Each shape is measured at two sizes: the time and
+the peak memory must not grow faster than the size.
 """
 
 from __future__ import annotations
 
-import dataclasses
-import json
 import os
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
+from collector_wire import request_bytes
 from conftest import build_native_copy
 from test_collector_native_imports import (
     CONFIGS,
-    PACKAGES,
-    SOURCES,
-    SPECIFIERS,
-    _imports_of,
     _write,
 )
-
-from archkeel.ir.facts import Record
-from archkeel.ir.facts_codec import encode_request
-from archkeel.ir.protocol import (
-    CollectionRequest,
-    ProtocolVersion,
-    SnapshotInput,
-    SourceScope,
-    TypeScriptSettings,
-)
-
-ROOT = Path(__file__).parents[1]
-# Folders of further corpora (the x35 tree, a measured corpus project (aggregate counts only)):
-# `path:scope:namespace`, separated by `;`. Only totals are printed.
-CORPORA = "ARCHKEEL_RECORDS_CORPORA"
-
-# Statements that bind names across files: named, default, namespace and type-only imports, a
-# re-export, a name that is exported twice, a file with a syntax error, and string comparisons.
-EXPORTERS = {
-    "src/a.ts": (
-        "function hidden() {}\nexport const one = 1;\nexport function two() {}\n"
-        "export class Three {}\n"
-        "export default 4;\nexport type Four = number;\nexport { one as uno };\n"
-        "const dup = 1;\nexport { dup };\nexport { dup as dup2 };\n"
-        "export function twice() {}\nexport const twice2 = 1;\nexport { twice2 as twice };\n"
-    ),
-    "src/b.ts": "export * from './a';\nexport { two as deux } from './a';\nexport const b = 1;\n",
-    "src/broken.ts": "export const ok = 1;\nexport const = ;\n",
-    "src/c.js": "export const cj = 1;\n",
-    "src/d.d.ts": "export declare const decl: number;\n",
-    # A base name that an interface and a class share, and a base that is no classifier.
-    "src/k.ts": (
-        "interface K {}\nclass K {}\nclass D extends K {}\nenum E {}\nclass F extends E {}\n"
-    ),
-}
-IMPORTERS = {
-    "src/i1.ts": (
-        "import { one, two as t2, Three } from './a';\nimport def, * as ns from './a';\n"
-        "import type { Four } from './a';\nimport { type one as o2, two } from './a';\n"
-        "import { deux, b } from './b';\nimport { ok } from './broken';\nimport { cj } "
-        "from './c';\n"
-        "import { decl } from './d';\nimport { one } from './missing';\nimport { dup, "
-        "dup2 } from './a';\n"
-        "import { twice } from './a';\nimport { uno } from './a';\n"
-        "if (one === 'x' || 'y' != t2 || ns === (`z` as string)) {}\n"
-        "function f(kind: string) { switch (kind) { case 'a': return 1; } return kind == 'b'; }\n"
-        "class K { m(k) { return k === 'c'; } }\n"
-    ),
-    "src/i2.ts": "import { one } from './a';\nvar one = 2;\nimport { two } from './a';\ntwo = 3;\n",
-    "src/i3.ts": (
-        "import { one } from './a'\nimport { one as again } from './a'\nconsole.log(again);\n"
-    ),
-    "src/i4.ts": (
-        "import {\n  one,\n  two,\n} from './a'; const s = 'q'; if (s === 'q') {}\nimport 'x';\n"
-    ),
-    "src/i5.js": "import { one } from './a';\nwindow.foo = one;\n",
-    "src/i7.ts": (
-        "import { one, two as t2, Three, hidden } from './a';\nimport type { Four } from './a';\n"
-        "hidden();\nimport * as ns from './a';\nimport { deux } from './b';\n"
-        "function local() {}\nfunction local() {}\n"
-        "class K { f = 1; g(p) { return this.f + this.zz; } }\n"
-        "class K { h = 2; }\nlet rebound = 1; rebound = 2; function rebound2() {}\n"
-        "function use(one) { one(); t2(); new Three(); }\n"
-        "one(); t2(); new Three(); new K(); local(); ns.two(); deux(); rebound(); other.thing();\n"
-        "const a1 = new Three(1), a2: Four = new K<string>(), a3 = f(new Three());\n"
-        "const o = { m() { return one(); } }; const arrow = () => { one(); };\n"
-        "this.q(); obj['k'](); (one)(); one?.(); let z: Four; z = one; one = 3;\n"
-        "export function ex() {} ex(); const x1 = ex, x2 = [ex];\n"
-        # A name that a function calls and the module assigns later: it is rebound in the module.
-        "function late() { early(); }early = 1;\n"
-    ),
-    "src/i6.ts": "import { one } from './a'; export { one }; export default one === 'e';\n",
-}
-
-
-def _request(root: Path, scope: str = "src", namespace: str = "app") -> CollectionRequest:
-    return CollectionRequest(
-        SnapshotInput(str(root), "a" * 40, False),
-        SourceScope((scope,), namespace),
-        TypeScriptSettings("tsconfig.json", False),
-        ProtocolVersion.V8,
-    )
-
-
-def _plain_record(record: Record) -> dict[str, object]:
-    data = {key: _plain_value(value) for key, value in record.data.entries}
-    return {
-        "id": record.id,
-        "evidence_class": record.evidence_class.value,
-        "area": record.area,
-        "kind": record.kind,
-        "title": record.title,
-        "subjects": list(record.subjects),
-        "evidence_ids": list(record.evidence_ids),
-        "rule_ids": list(record.rule_ids),
-        "fact_ids": list(record.fact_ids),
-        "provenance": list(record.provenance),
-        "data": data,
-    }
-
-
-def _plain_value(value: object) -> object:
-    if isinstance(value, tuple):
-        return [_plain_value(item) for item in value]
-    return value
-
-
-def _target(target: object) -> dict[str, object]:
-    assert dataclasses.is_dataclass(target)
-    kind = {
-        "LocalTarget": "local",
-        "ExternalPackageTarget": "external",
-        "BuiltinTarget": "builtin",
-        "UnresolvedTarget": "unresolved",
-    }[type(target).__name__]
-    return {"kind": kind, **dataclasses.asdict(target)}
-
-
-def _evidence_of(value: object) -> list[str]:
-    """Every evidence id that a record or its data holds."""
-    found: list[str] = []
-    if isinstance(value, dict):
-        for key, item in value.items():
-            if key in ("evidence_ids", "decorator_evidence_ids"):
-                found += item
-            else:
-                found += _evidence_of(item)
-    elif isinstance(value, list):
-        for item in value:
-            found += _evidence_of(item)
-    return found
 
 
 @pytest.fixture(scope="session")
@@ -169,46 +30,6 @@ def records_binary(
 ) -> Path:  # pragma: no cover - build
     assert native_binary.is_file()
     return build_native_copy(tmp_path_factory, "native-dump", ("dump",))
-
-
-def _dump(binary: Path, request: CollectionRequest) -> bytes:
-    done = subprocess.run(
-        [str(binary), "--dump-records"],
-        input=encode_request(request),
-        capture_output=True,
-        check=False,
-        cwd=ROOT,
-    )
-    assert done.returncode == 0, done.stderr.decode(errors="replace")[:2000]
-    return done.stdout
-
-
-def native_records(binary: Path, request: CollectionRequest) -> dict[str, object]:
-    return json.loads(_dump(binary, request))  # type: ignore[no-any-return]
-
-
-def _differences(native: dict[str, object], python: dict[str, object]) -> list[str]:
-    found: list[str] = []
-    for key in python:
-        mine, theirs = native[key], python[key]
-        if mine == theirs:
-            continue
-        assert isinstance(mine, list) and isinstance(theirs, list)
-        if len(mine) != len(theirs):
-            found.append(f"{key}: {len(mine)} native, {len(theirs)} python")
-        for one, two in zip(mine, theirs, strict=False):
-            if one != two:
-                found.append(f"{key}: {str(one)[:300]} native, {str(two)[:300]} python")
-                break
-    return found
-
-
-def _tree(tmp_path: Path, extra: dict[str, str] | None = None) -> Path:
-    files = {"tsconfig.json": CONFIGS["node10"], **EXPORTERS, **IMPORTERS, **PACKAGES, **SOURCES}
-    files["src/importer.ts"] = _imports_of(list(SPECIFIERS))
-    files.update(extra or {})
-    _write(tmp_path, files)
-    return tmp_path
 
 
 # The records pass must be linear in time and in memory. Python scans the bindings of the file for
@@ -311,7 +132,7 @@ def _measure(binary: Path, root: Path, name: str, n: int) -> tuple[float, float]
     """The least CPU seconds of two runs, and the largest peak memory in MiB."""
     shutil.rmtree(root, ignore_errors=True)
     _write(root, _records_shape(name, n))
-    runs = [_run(binary, encode_request(_request(root))) for _ in range(2)]
+    runs = [_run(binary, request_bytes(root, "app", "tsconfig.json")) for _ in range(2)]
     return min(cpu for cpu, _ in runs), max(peak for _, peak in runs)
 
 

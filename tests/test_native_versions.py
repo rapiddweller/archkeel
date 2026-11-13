@@ -2,10 +2,9 @@
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
 
-"""The request versions of the host equal the one Rust list (`archkeel-facts` protocol).
+"""The committed request schema refuses each request that the collector refuses.
 
-The Python list is compared with the committed schema; a Rust test ties that schema to
-`Version::ALL`. The schema must also refuse each request that the collector refuses.
+A Rust test ties that schema to `Version::ALL` of the `archkeel-facts` protocol.
 """
 
 import json
@@ -15,40 +14,7 @@ from typing import Any
 import pytest
 from jsonschema import Draft202012Validator
 
-from archkeel.analyzer.interpreter import NATIVE_PYTHON_PROTOCOL
-from archkeel.ir.protocol import (
-    ProtocolVersion,
-    SnapshotInput,
-    SourceScope,
-    TypeScriptSettings,
-    collection_request,
-)
-
 SCHEMA = Path(__file__).parents[1] / "native/facts/schema/archkeel-request.schema.json"
-# The request versions that a native collector reads: the same list as `Version::ALL` in
-# `native/facts/src/protocol.rs`. Only this test reads the list, so it lives here (#1009).
-NATIVE_REQUEST_PROTOCOLS = (
-    ProtocolVersion.V3,
-    ProtocolVersion.V8,
-    ProtocolVersion.V9,
-    NATIVE_PYTHON_PROTOCOL,
-)
-
-
-def test_the_python_list_equals_the_versions_of_the_generated_request_schema() -> None:
-    schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
-    rust = schema["$defs"]["Version"]["enum"]
-    assert [str(version) for version in NATIVE_REQUEST_PROTOCOLS] == rust
-
-
-def test_the_builder_sends_a_version_of_the_list() -> None:
-    snapshot = SnapshotInput("/repository", "a" * 40, False)
-    plain = collection_request(snapshot, SourceScope(("src",), "shop"), TypeScriptSettings())
-    scoped = collection_request(snapshot, SourceScope(("src",), "shop", True), TypeScriptSettings())
-    assert {plain.protocol_version, scoped.protocol_version} <= set(NATIVE_REQUEST_PROTOCOLS)
-    assert plain.protocol_version != scoped.protocol_version
-    # 10.0.0 is only the request of the native Python collector (AD-334).
-    assert NATIVE_PYTHON_PROTOCOL not in {plain.protocol_version, scoped.protocol_version}
 
 
 def _request(version: str = "8.0.0") -> dict[str, Any]:

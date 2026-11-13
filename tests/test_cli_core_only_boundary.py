@@ -12,7 +12,10 @@ from pathlib import Path
 import pytest
 
 from archkeel.cli import core_binary, core_only, native_scan
-from archkeel.cli.core_frame import CoreError, Status
+from archkeel.cli.core_frame import CoreError, RefusalKind, Status
+
+HEAD = "a" * 40
+OLD_STAGE_ONE_VARIABLE = "ARCHKEEL_NATIVE_CORE"
 
 
 @pytest.mark.parametrize(
@@ -73,7 +76,11 @@ def frame(status: Status = Status.PASS) -> bytes:
             "self_test": {
                 "contract": {"rules": {"R1": "forbidden_dependency"}},
                 "reply": {"files": 2},
-                "collect": {"request": {"snapshot": {"root": str(Path.cwd())}}},
+                "collect": {
+                    "request": {
+                        "snapshot": {"root": str(Path.cwd()), "git_head": HEAD, "dirty": False}
+                    }
+                },
             },
         }
     ).encode()
@@ -82,30 +89,59 @@ def frame(status: Status = Status.PASS) -> bytes:
 @pytest.fixture(autouse=True)
 def no_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv(core_only.VARIABLE, raising=False)
-    monkeypatch.delenv(core_only.STAGE_ONE_VARIABLE, raising=False)
+    monkeypatch.delenv(OLD_STAGE_ONE_VARIABLE, raising=False)
+    monkeypatch.setattr(core_only, "identity", lambda _: (HEAD, False))
     monkeypatch.chdir(tmp_path)
     (tmp_path / "archkeel.toml").write_text('[scan]\ncontract = "contract.json"\n')
     (tmp_path / "contract.json").write_bytes(b"contract")
 
 
-@pytest.mark.parametrize("value", ["1", "wrong"])
-def test_environment_selects_the_new_path_without_enabling_stage_one(
+@pytest.mark.parametrize("variable", [core_only.VARIABLE, OLD_STAGE_ONE_VARIABLE])
+@pytest.mark.parametrize("value", ["1", "0", "wrong"])
+def test_an_old_engine_variable_selects_nothing(
+    variable: str,
     value: str,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    monkeypatch.setenv(core_only.VARIABLE, value)
-    assert core_only.requested(["check"], os.environ)
+    monkeypatch.setenv(variable, value)
+    monkeypatch.setattr(core_only, "locate_core", lambda: Path("core"))
+    monkeypatch.setattr(core_only, "exchange", lambda *_: (frame(), 0))
+    assert core_only.run(["validate", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == Status.PASS
     assert core_only.run(["check", "--json"]) == 2
-    assert json.loads(capsys.readouterr().out)["status"] == Status.UNKNOWN
+    refusal = json.loads(capsys.readouterr().out)["refusal"]
+    assert refusal["kind"] == RefusalKind.NOT_ON_THIS_LINE
 
 
-def test_two_engine_switches_refuse(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+@pytest.mark.parametrize("command", ["validate", "report"])
+def test_the_stage_one_switch_is_refused_by_name(
+    command: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setenv(core_only.STAGE_ONE_VARIABLE, "1")
-    assert core_only.run(["validate", "--core-only", "--json"]) == 2
-    assert "cannot be combined" in capsys.readouterr().out
+    def no_binary() -> Path:
+        pytest.fail("a refused option must not start the core")
+
+    monkeypatch.setattr(core_only, "locate_core", no_binary)
+    assert core_only.run([command, "--native-core", "--json"]) == 2
+    refusal = json.loads(capsys.readouterr().out)["refusal"]
+    assert refusal["kind"] == RefusalKind.NOT_ON_THIS_LINE
+    assert "--native-core" in refusal["message"] and "4.0.1" in refusal["message"]
+
+
+@pytest.mark.parametrize("fault", ["git_head", "dirty", "no-claim"])
+def test_a_frame_of_another_commit_or_work_tree_state_is_refused(
+    fault: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """AD-430: the shell states the commit and the dirty state that it read. A frame that names
+    another one answers another tree, so it is no verdict of this request."""
+    claims = {"git_head": ("b" * 40, False), "dirty": (HEAD, True), "no-claim": None}
+    monkeypatch.setattr(core_only, "identity", lambda _: claims[fault])
+    monkeypatch.setattr(core_only, "locate_core", lambda: Path("core"))
+    monkeypatch.setattr(core_only, "exchange", lambda *_: (frame(), 0))
+    assert core_only.run(["validate", "--json"]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == Status.UNKNOWN
+    assert result["refusal"]["kind"] == RefusalKind.REQUEST_MISMATCH
 
 
 @pytest.mark.parametrize(
@@ -119,7 +155,7 @@ def test_frame_status_not_core_exit_selects_command_exit(
 ) -> None:
     monkeypatch.setattr(core_only, "locate_core", lambda: Path("core"))
     monkeypatch.setattr(core_only, "exchange", lambda *_: (frame(status), 0))
-    assert core_only.run(["validate", "--core-only", "--json"]) == expected
+    assert core_only.run(["validate", "--json"]) == expected
     assert json.loads(capsys.readouterr().out)["status"] == status
 
 
@@ -129,7 +165,7 @@ def test_text_names_each_failure_cause_edge_location_and_action(
 ) -> None:
     monkeypatch.setattr(core_only, "locate_core", lambda: Path("core"))
     monkeypatch.setattr(core_only, "exchange", lambda *_: (frame(Status.FAIL), 0))
-    assert core_only.run(["validate", "--core-only", "--text"]) == 1
+    assert core_only.run(["validate", "--text"]) == 1
     text = capsys.readouterr().out
     for word in ("R1", "forbidden dependency", "app.a -> app.b", "src/a.ts:4", "Action:"):
         assert word in text
@@ -141,7 +177,7 @@ def test_text_names_each_unknown_kind_cause_location_and_action(
 ) -> None:
     monkeypatch.setattr(core_only, "locate_core", lambda: Path("core"))
     monkeypatch.setattr(core_only, "exchange", lambda *_: (frame(Status.UNKNOWN), 0))
-    assert core_only.run(["validate", "--core-only", "--text"]) == 2
+    assert core_only.run(["validate", "--text"]) == 2
     text = capsys.readouterr().out
     for word in ("R1", "scope_incomplete", "pair gap", "src/a.ts:4", "Action:"):
         assert word in text
@@ -156,7 +192,7 @@ def test_an_unported_rule_names_its_missing_kind(
     document["unsupported"]["rules"] = {"R2": "unsupported: rule kind symbol_placement"}
     monkeypatch.setattr(core_only, "locate_core", lambda: Path("core"))
     monkeypatch.setattr(core_only, "exchange", lambda *_: (json.dumps(document).encode(), 3))
-    assert core_only.run(["validate", "--core-only", "--text"]) == 2
+    assert core_only.run(["validate", "--text"]) == 2
     text = capsys.readouterr().out
     assert "R2: UNKNOWN: rule kind not decided by the core" in text
     assert "symbol_placement" in text and "Action:" in text
@@ -185,7 +221,7 @@ def test_a_failed_exchange_never_falls_back_or_passes(
         }[fault]
 
     monkeypatch.setattr(core_only, "exchange", exchange)
-    assert core_only.run(["validate", "--core-only", "--json"]) == 2
+    assert core_only.run(["validate", "--json"]) == 2
     assert json.loads(capsys.readouterr().out)["status"] == Status.UNKNOWN
 
 
@@ -214,7 +250,7 @@ def test_real_process_faults_are_typed_refusals(
     monkeypatch.setattr(core_only, "locate_core", lambda: binary)
     if action == "timeout":
         monkeypatch.setattr(native_scan, "TIMEOUT_SECONDS", 0.05)
-    assert core_only.run(["validate", "--core-only", "--json"]) == 2
+    assert core_only.run(["validate", "--json"]) == 2
     assert json.loads(capsys.readouterr().out)["status"] == Status.UNKNOWN
 
 
@@ -253,32 +289,46 @@ def test_each_mandatory_merge_check_is_named_without_a_scan(
         pytest.fail("a refused check must not start the core")
 
     monkeypatch.setattr(core_only, "locate_core", no_binary)
-    assert core_only.run(["check", "--core-only", "--json", *flags]) == 2
+    assert core_only.run(["check", "--json", *flags]) == 2
     result = json.loads(capsys.readouterr().out)
     assert kind in result["refusal"]["message"] and "#1103" in result["refusal"]["message"]
 
 
-@pytest.mark.parametrize(
-    "flags,reason",
-    [
-        (["--output", "a.json"], "HTML"),
-        (["--html"], "HTML"),
-        (["--input", "a.json"], "saved"),
-        (["--only", "calls"], "projections"),
-        (["--full"], "projections"),
-        (["--baseline", "a.json"], "baseline"),
-        (["--against", "main"], "against"),
-        (["--write-graph"], "write-graph"),
-    ],
-)
-def test_uncarried_forms_refuse_by_name(
-    flags: list[str],
-    reason: str,
+@pytest.mark.parametrize("command", ["validate", "report"])
+@pytest.mark.parametrize("option", sorted(core_only.REMOVED_OPTIONS))
+def test_each_option_of_the_release_line_refuses_by_name(
+    command: str,
+    option: str,
     capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    assert core_only.run(["report", "--core-only", "--json", *flags]) == 2
-    refusal = json.loads(capsys.readouterr().out)["refusal"]["message"]
-    assert reason in refusal and "run without --core-only" in refusal
+    def no_binary() -> Path:
+        pytest.fail("a refused option must not start the core")
+
+    monkeypatch.setattr(core_only, "locate_core", no_binary)
+    for flags in ([option], [option, "value"], [f"{option}=value"]):
+        assert core_only.run([command, "--json", *flags]) == 2
+        refusal = json.loads(capsys.readouterr().out)["refusal"]
+        assert refusal["kind"] == RefusalKind.NOT_ON_THIS_LINE
+        assert f"{command} {option} is not available" in refusal["message"]
+        assert "use release 4.0.1" in refusal["message"] and "#880" in refusal["message"]
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [["nothing"], ["validate", "--unknown"], ["validate", "extra"], ["--json", "validate"]],
+)
+def test_an_unknown_command_or_argument_is_invalid_input(
+    arguments: list[str], capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def no_binary() -> Path:
+        pytest.fail("an invalid command line must not start the core")
+
+    monkeypatch.setattr(core_only, "locate_core", no_binary)
+    assert core_only.run([*arguments, "--json"]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == Status.UNKNOWN
+    assert result["refusal"]["kind"] == RefusalKind.INVALID_INPUT
 
 
 def test_lookup_uses_checkout_or_verified_installed_layout(tmp_path: Path) -> None:

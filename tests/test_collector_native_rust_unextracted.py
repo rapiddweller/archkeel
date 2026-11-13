@@ -6,22 +6,27 @@
 Consumer: `edges_extracted.rs` (`check_extracted`). A second count of the tree must equal what the
 scan and the edges ended. A bug that drops a record would otherwise leave no trace, and the scan
 would read as complete (FP-13). The test plants that bug (`plant.rs`, only in the test binary) and
-checks that the host reports a run failure named `unextracted`, and that no rule passes.
+checks that the reply of the collector names an `unextracted` gap and is not a full scope.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
+from collector_wire import collect, request_bytes
 from conftest import build_native_copy
-from rust_repository import repository, statuses, validate
+from rust_repository import repository
 
-Capsys = pytest.CaptureFixture[str]
 # `app` has one `use` leaf, one qualified path, one macro call and one method call.
 APP = (
     "use base_crate::make;\n"
     'pub fn run() { base_crate::make(); println!("x"); make(); "a".len(); }\n'
+)
+LOST = (
+    "unextracted: 1 use, path or macro call node(s) of crates/app/src/lib.rs "
+    "have no record and no gap"
 )
 
 
@@ -33,33 +38,31 @@ def dump_rust_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
     )
 
 
-def _unextracted(result: dict[str, object]) -> list[str]:
-    return [
-        str(item["unknown_claim"])
-        for item in result["diagnostics"]  # type: ignore[attr-defined]
-        if "unextracted" in str(item["unknown_claim"])
-    ]
+def _facts(root: Path, binary: Path, lib: str) -> dict[str, Any]:
+    repository(root, binary, {"crates/app/src/lib.rs": lib})
+    request = request_bytes(root, "native", roots=("crates",), language="rust", version="9.0.0")
+    return collect(binary, request)
+
+
+def _unextracted(facts: dict[str, Any]) -> list[str]:
+    return [gap["title"] for gap in facts["coverage"]["gaps"] if "unextracted" in gap["title"]]
 
 
 def test_a_doc_attribute_that_calls_a_macro_is_no_false_failure(
-    tmp_path: Path, dump_rust_binary: Path, capsys: Capsys
+    tmp_path: Path, dump_rust_binary: Path
 ) -> None:
     # The macro call of `doc = include_str!(..)` is code that the scan reads: the count sees it.
     lib = '#![doc = include_str!("../README.md")]\n#[doc = concat!("a", "b")]\n' + APP
-    root = repository(tmp_path, dump_rust_binary, {"crates/app/src/lib.rs": lib})
-    result = validate(root, capsys)
-    assert _unextracted(result) == []
-    assert result["exit_code"] == 0
+    facts = _facts(tmp_path, dump_rust_binary, lib)
+    assert _unextracted(facts) == []
 
 
 def test_an_extraction_that_loses_nothing_has_no_unextracted_gap(
-    tmp_path: Path, dump_rust_binary: Path, capsys: Capsys
+    tmp_path: Path, dump_rust_binary: Path
 ) -> None:
-    root = repository(tmp_path, dump_rust_binary, {"crates/app/src/lib.rs": APP})
-    result = validate(root, capsys)
-    assert _unextracted(result) == []
-    assert statuses(result)["REQUIRES"] == "PASS"
-    assert result["exit_code"] == 0
+    facts = _facts(tmp_path, dump_rust_binary, APP)
+    assert facts["coverage"]["gaps"] == []
+    assert facts["coverage"]["full_scope"]
 
 
 @pytest.mark.parametrize(
@@ -75,16 +78,14 @@ def test_an_extraction_that_loses_nothing_has_no_unextracted_gap(
         ("ARCHKEEL_PLANT_METHOD", "crates/app/src/lib.rs:0"),
     ],
 )
-def test_a_node_that_the_collector_loses_is_a_run_failure_not_a_pass(
+def test_a_node_that_the_collector_loses_is_a_gap_and_not_a_full_scope(
     tmp_path: Path,
     dump_rust_binary: Path,
-    capsys: Capsys,
     monkeypatch: pytest.MonkeyPatch,
     plant: str,
     value: str,
 ) -> None:
-    root = repository(tmp_path, dump_rust_binary, {"crates/app/src/lib.rs": APP})
     monkeypatch.setenv(plant, value)
-    result = validate(root, capsys)
-    assert len(_unextracted(result)) == 1
-    assert result["exit_code"] != 0
+    facts = _facts(tmp_path, dump_rust_binary, APP)
+    assert _unextracted(facts) == [LOST]
+    assert not facts["coverage"]["full_scope"]
