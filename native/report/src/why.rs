@@ -12,6 +12,7 @@
 //!   no module, a dynamic import reaches it, or a cited child has no module record.
 //! - `scope_incomplete`: each other reason. The scope of the run is not complete or not read.
 //! - `ownership_blocker`: no reason of the model maps to it yet.
+//! - `no_decided_rule`: a run-only cause; it cannot name a report rule row.
 //!
 //! The reference engine checks an incomplete observation before the receipt
 //! (`ir/decisions.py:770-779`). So `Cause::NoRuleSubjects` (a rule side without subjects is a
@@ -36,6 +37,7 @@ pub enum WhyUnknown {
     NoReceipt,
     Undecided,
     OwnershipBlocker,
+    NoDecidedRule,
 }
 
 impl WhyUnknown {
@@ -55,6 +57,7 @@ impl WhyUnknown {
 
 fn unsupported(part: &Unsupported) -> WhyUnknown {
     match part {
+        Unsupported::NoRules => WhyUnknown::NoDecidedRule,
         Unsupported::Rule(_) | Unsupported::InsideRule => WhyUnknown::NoReceipt,
         Unsupported::ScopeProof(_)
         | Unsupported::Section(_)

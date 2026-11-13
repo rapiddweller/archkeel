@@ -104,9 +104,7 @@ fn a_collector_argv_above_its_limit_is_refused_by_name() {
 }
 
 #[test]
-fn a_frame_without_rules_passes_only_with_a_complete_scope() {
-    // L-35b: zero decided rules give PASS only for a contract without rules and a complete
-    // scope, as `inspect_observation` gives (`check/run.py:76`).
+fn a_frame_without_rules_is_unknown_even_with_a_complete_scope() {
     let reply = golden_reply();
     let mut empty = request(Some(&reply), &[]);
     let contract = r#"{"schema_version": "2.2.0", "components": [], "rules": []}"#;
@@ -114,7 +112,11 @@ fn a_frame_without_rules_passes_only_with_a_complete_scope() {
     let got = frame(&empty);
     assert_eq!(
         (got["status"].clone(), got["scope"].clone()),
-        (json!("PASS"), json!("complete"))
+        (json!("UNKNOWN"), json!("complete"))
+    );
+    assert_eq!(
+        got["unsupported"]["rules"],
+        "unsupported: contract has no decided rule"
     );
     empty["collector_argv"] = json!(["collector"]);
     let got = frame(&empty);

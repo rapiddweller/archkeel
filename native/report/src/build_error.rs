@@ -39,6 +39,8 @@ pub enum BuildError {
     TooLarge { bytes: u64 },
     /// The bytes cannot be written.
     Encode(String),
+    /// Two outcomes name the same rule; no map entry can replace another outcome.
+    DuplicateRule { rule: String },
 }
 
 impl fmt::Display for BuildError {
@@ -83,6 +85,7 @@ impl fmt::Display for BuildError {
                 )
             }
             BuildError::Encode(error) => formatter.write_str(error),
+            BuildError::DuplicateRule { rule } => write!(formatter, "rule {rule} occurs twice"),
         }
     }
 }

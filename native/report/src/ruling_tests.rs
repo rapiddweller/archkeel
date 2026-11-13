@@ -14,6 +14,55 @@ use crate::{BuildError, FrameError, RuleVerdict, Status, Unexplained};
 
 const BOTH: [&str; 2] = ["ASSIGNMENT", "LAYOUT"];
 
+#[test]
+fn a_frame_without_rules_is_unknown_and_names_the_contract() {
+    for trusted in [true, false] {
+        let model = model(&contract(&[]), trusted);
+        let ruling = rule(Ok(&model), Named::default()).unwrap();
+        let bytes = ruling.frame(&json!({})).unwrap().into_bytes();
+        let value: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(value["status"], "UNKNOWN");
+        assert_eq!(value["rules"], json!({}));
+        assert_eq!(
+            value["unsupported"]["rules"],
+            "unsupported: contract has no decided rule"
+        );
+        assert!(!ruling.unsupported().is_empty());
+        assert!(ruling.decided().pass().is_none());
+    }
+}
+
+#[test]
+fn a_declaration_only_frame_has_no_decision_and_no_run_pass() {
+    for trusted in [true, false] {
+        let tree = model(&parsed(&[], vec![allow()]).unwrap(), trusted);
+        let ruling = rule(Ok(&tree), Named::default()).unwrap();
+        let bytes = ruling.frame(&json!({})).unwrap().into_bytes();
+        let value: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(value["status"], "UNKNOWN");
+        assert_eq!(value["rules"]["ALLOW"][1], "DECLARATION");
+        assert!(!ruling.unsupported().is_empty());
+        assert!(ruling.decided().pass().is_none());
+    }
+}
+
+#[test]
+fn a_repeated_outcome_is_refused_before_a_frame_can_be_made() {
+    let tree = model(&contract(&["ASSIGNMENT", "COMPONENT-CYCLES"]), true);
+    let model = tree.root();
+    for outcome in archkeel_eval::evaluate(model) {
+        let mut rows = super::Rows::default();
+        let mut gaps = Default::default();
+        rows.add(&outcome, model, None, &mut gaps).unwrap();
+        assert_eq!(
+            rows.add(&outcome, model, None, &mut gaps),
+            Err(BuildError::DuplicateRule {
+                rule: outcome.rule().to_owned()
+            })
+        );
+    }
+}
+
 fn frame(ruling: &super::Ruling) -> Value {
     serde_json::to_value(ruling).unwrap_or(Value::Null)
 }

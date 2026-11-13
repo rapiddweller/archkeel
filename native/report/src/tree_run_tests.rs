@@ -40,8 +40,16 @@ fn assign(id: &str, source: &str) -> Value {
 /// The H-typescript contract with only `ASSIGNMENT`, and `domain` and `data` each mounting a
 /// contract with the given rules.
 fn tree(domain: Vec<Value>, data: Vec<Value>) -> Option<ContractTree> {
+    tree_with_root(vec![assign("ASSIGNMENT", "shop")], domain, data)
+}
+
+fn tree_with_root(
+    root_rules: Vec<Value>,
+    domain: Vec<Value>,
+    data: Vec<Value>,
+) -> Option<ContractTree> {
     let mut root = read_json("fixtures/H-typescript/architecture-contract.json");
-    root["rules"] = json!([assign("ASSIGNMENT", "shop")]);
+    root["rules"] = json!(root_rules);
     for item in root["components"].as_array_mut()? {
         match item["label"].as_str() {
             Some("domain") => item["inside"] = json!("a.json"),
@@ -78,6 +86,50 @@ fn models(tree: &ContractTree) -> Option<ModelTree> {
     let settings =
         Settings::new("shop".to_owned(), profile, Vec::new()).with_producer(Producer::Trusted);
     ModelTree::tree(tree, Graph::derive(&reply, settings).ok()?).ok()
+}
+
+#[test]
+fn a_tree_needs_a_decision_not_just_declarations_for_a_frame_pass() {
+    let permission = |source: &str| {
+        rule(
+            "ALLOW",
+            "allowed_dependency",
+            json!({"source": source, "target": source}),
+        )
+    };
+    for (deciding_root, deciding_child) in [(false, false), (false, true), (true, false)] {
+        let data = if deciding_child {
+            vec![assign("ASSIGN", "shop.src.data")]
+        } else {
+            vec![permission("shop.src.data")]
+        };
+        let root = if deciding_root {
+            vec![assign("ASSIGNMENT", "shop")]
+        } else {
+            vec![]
+        };
+        let tree = tree_with_root(root, vec![permission("shop.src.domain")], data).unwrap();
+        let models = models(&tree).unwrap();
+        let ruling = crate::rule(Ok(&models), crate::Named::default()).unwrap();
+        let value: Value =
+            serde_json::from_slice(&ruling.frame(&json!({})).unwrap().into_bytes()).unwrap();
+        assert_eq!(value["rules"]["domain:ALLOW"][1], "DECLARATION");
+        if deciding_root || deciding_child {
+            assert_eq!(value["status"], "PASS");
+            let decided = if deciding_child {
+                "data:ASSIGN"
+            } else {
+                "ASSIGNMENT"
+            };
+            assert_eq!(value["rules"][decided][1], "PASS");
+            assert!(ruling.decided().pass().is_some());
+            assert!(ruling.unsupported().is_empty());
+        } else {
+            assert_eq!(value["status"], "UNKNOWN");
+            assert!(ruling.decided().pass().is_none());
+            assert!(!ruling.unsupported().is_empty());
+        }
+    }
 }
 
 /// The models and the outcomes of a tree with these mount rules.

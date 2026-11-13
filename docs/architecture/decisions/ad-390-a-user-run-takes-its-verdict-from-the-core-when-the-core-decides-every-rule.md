@@ -33,8 +33,8 @@
 5. Frame reader (`cli/core_frame.py`). Typed values and enums. It refuses a missing or unknown
    field, an unknown word, a status without its row, trailing text, a second frame, an exit code
    that does not fit the frame, a run PASS with a row that is not PASS or a declaration, and a run
-   PASS with zero rules. Both engines give PASS for a contract without rules; #1096 decides one
-   policy, and the reader keeps the refusal until then.
+   PASS with zero rules. AD-416 resolves #1096: the core names an empty contract unsupported.
+   The reader keeps the hostile-PASS refusal; a named UNKNOWN uses the existing Python fallback.
 
 **Stages.**
 - Stage 2: for a run that the core decides, `run_report` no longer computes the verdict. Entry,

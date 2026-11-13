@@ -391,6 +391,13 @@ def test_a_frame_that_names_a_rule_is_never_shown_as_the_verdict(
         ("a truncated frame", json.dumps(frame(PASSING, "PASS"))[:-9], 0),
         ("a second frame", json.dumps(frame(PASSING, "PASS")) * 2, 0),
         ("PASS with zero rules", frame({}, "PASS"), 0),
+        (
+            "a duplicate rule id",
+            json.dumps(frame(PASSING, "PASS")).replace(
+                '"ASSIGNED": [', '"ASSIGNED": ["complete_assignment", "UNKNOWN"], "ASSIGNED": [', 1
+            ),
+            0,
+        ),
         ("an unknown status", frame(PASSING, "MAYBE"), 0),
         ("a trust field in the frame", {**frame(PASSING, "PASS"), "pinned": True}, 0),
     ],

@@ -10,7 +10,7 @@
    declaration; each given decision must be such a PASS (`RunGap::Scope`, `Rule`, `NotPass`).
    `Scope::pass_run` uses it up and gives `RunPass`, which names the model serial (`RunPass::of`).
 2. Zero rules. The reference engine gives PASS for a complete observation without rules
-   (`src/archkeel/check/run.py:76-95`). The run proof is the same. An incomplete scope never is.
+   (`src/archkeel/check/run.py:76-95`). AD-416 keeps that proof but forbids an empty core PASS.
 3. `Scope::run` keeps `Result<(), Reason>`, because the core reads it; `scope.rs` is unchanged.
 4. One contract (review B1). `eval::evaluate(model)` has no contract parameter: the rules and
    the sibling rules of `complete_external_scope` come from `model.contract()`. Before, a caller
