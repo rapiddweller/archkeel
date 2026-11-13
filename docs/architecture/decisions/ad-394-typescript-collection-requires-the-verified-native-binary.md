@@ -46,6 +46,10 @@ The 15 Nest mounted-rule regressions are ordinary tests, not expected failures.
 The dual-run harness pins verified bundled adapter metadata, including the inventory runtime identity.
 Comparison maps only the receipt runtime metadata to the old oracle identity; every verdict still compares.
 
+**Full-gate cleanup.** macOS returns `EPERM` for an exited, unreaped Studio agent group leader.
+Reap the child and retry the same group signal. Keep a second permission error as a failure.
+Do not ignore signal failures or stop killing descendants. `test_studio_agent_cleanup.py` checks both paths and the real macOS race.
+
 **Rejected.** Runtime-name exceptions, configured-collector trust, wire attestation fields,
 changed verdict oracles, a silent empty scan and a retained Python fallback.
 **Ratchet exception.** D1 uses the lead's named allowance: `ir` plus `check` grow by 28 lines.

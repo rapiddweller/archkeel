@@ -246,6 +246,7 @@ PR_TEST_FILES := \
 	tests/test_cli_story.py \
 	tests/test_studio.py \
 	tests/test_studio_chat.py \
+	tests/test_studio_agent_cleanup.py \
 	tests/test_studio_launcher.py \
 	tests/test_cli_typed_inputs.py \
 	tests/test_cli_input_target.py \
