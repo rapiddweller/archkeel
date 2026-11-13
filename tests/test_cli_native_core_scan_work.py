@@ -36,7 +36,6 @@ from archkeel.cli.core_frame import CoreError, GapKind
 __all__ = ["built", "install"]
 
 PEAK_BOUND = 128 * 1024 * 1024
-HEAD = "0123456789abcdef0123456789abcdef01234567"
 
 
 def test_the_printed_core_error_uses_its_typed_gap() -> None:
@@ -95,8 +94,20 @@ def release_core() -> Path:
 
 def project(root: Path, files: int, depth: int, language: str = "typescript") -> dict[str, object]:
     shutil.copytree(ROOT / "fixtures/H-typescript", root)
-    (root / ".git").mkdir()
-    (root / ".git/HEAD").write_text(HEAD + "\n")
+    for args in [
+        ["init", "-q"],
+        ["add", "."],
+        [
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-qm",
+            "fixture",
+        ],
+    ]:
+        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
     suffix = "ts"
     if language == "rust":
         suffix = "rs"
@@ -122,8 +133,6 @@ def project(root: Path, files: int, depth: int, language: str = "typescript") ->
         "protocol": "archkeel-core-scan-1",
         "root": str(canonical(root)),
         "config": "archkeel.toml",
-        "git_head": HEAD,
-        "dirty": False,
     }
 
 

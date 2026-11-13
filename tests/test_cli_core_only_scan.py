@@ -95,6 +95,29 @@ def test_an_unknown_source_gap_names_its_collector_cause_and_file(built: Path) -
     assert "Source gap" in done.stdout and "Action:" in done.stdout
 
 
+def test_a_construct_failure_from_main_keeps_its_cause_and_location(built: Path) -> None:
+    with case_root(HONEST) as root:
+        (root / "src/a/a.ts").write_text('export function a(x: string) { return x === "a"; }\n')
+        path = root / "architecture-contract.json"
+        contract = json.loads(path.read_text())
+        contract["rules"].append(
+            {
+                "id": "NO-RAW-CONTROL",
+                "kind": "forbidden_construct",
+                "source": "app",
+                "constructs": ["string_literal_compare"],
+                "rationale": "Use typed control.",
+                "provenance": ["README.md"],
+                "decided_by": "architect",
+            }
+        )
+        path.write_text(json.dumps(contract))
+        done = command(built / f"archkeel-core{SUFFIX}", root, "--text")
+    assert done.returncode == 1, done.stdout + done.stderr
+    for text in ("NO-RAW-CONTROL", "forbidden construct", "string_literal_compare", "src/a/a.ts:1"):
+        assert text in done.stdout
+
+
 @pytest.mark.parametrize("language", ["python", "dart"])
 def test_an_unsupported_profile_refuses_by_name(built: Path, language: str) -> None:
     with case_root(HONEST) as root:

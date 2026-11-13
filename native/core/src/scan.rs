@@ -78,7 +78,8 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
                     return dual_run::refused_scan(&format!(
                         "collect: unsupported: inside contracts: {}",
                         paths.join(", ")
-                    )).map_err(Into::into);
+                    ))
+                    .map_err(Into::into);
                 }
             }
             decide(scanned).map_err(Into::into)
