@@ -218,10 +218,18 @@ def test_the_core_decides_a_typescript_run_through_the_scan_request(install: Pat
     assert result["rule_assessments"] == off[1]["rule_assessments"]
 
 
+@pytest.mark.parametrize("language", ["typescript", "rust"])
 def test_a_declaration_only_scan_names_no_decided_rule_and_keeps_product_parity(
     install: Path,
+    tmp_path: Path,
+    language: str,
 ) -> None:
-    with case_root(HONEST) as root:
+    with contextlib.ExitStack() as stack:
+        root = (
+            _rust_repository(install, tmp_path)
+            if language == "rust"
+            else stack.enter_context(case_root(HONEST))
+        )
         config = load_config(root)
         path = root / config.contract
         contract = json.loads(path.read_text())
@@ -255,9 +263,7 @@ def test_a_declaration_only_scan_names_no_decided_rule_and_keeps_product_parity(
     assert "contract has no decided rule" in core_notes(result)[0]
 
 
-def test_the_core_decides_a_rust_run_through_the_scan_request(
-    install: Path, tmp_path: Path
-) -> None:
+def _rust_repository(install: Path, tmp_path: Path) -> Path:
     from rust_repository import repository
 
     root = repository(tmp_path / "project", install / f"archkeel-rust-collector{SUFFIX}")
@@ -270,6 +276,13 @@ def test_the_core_decides_a_rust_run_through_the_scan_request(
         )
         + "\n"
     )
+    return root
+
+
+def test_the_core_decides_a_rust_run_through_the_scan_request(
+    install: Path, tmp_path: Path
+) -> None:
+    root = _rust_repository(install, tmp_path)
     off = report(root)
     code, result = report(root, "--native-core")
     assert (code, result["declared_rules"]) == (off[0], "PASS")

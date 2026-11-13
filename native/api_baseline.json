@@ -18,7 +18,7 @@
     "field Scanned.roots: Vec<String>",
     "field repository::Over.0: String",
     "fn read_inside(&self,reference:&str,budget:u64,)->Result<Option<(String,Vec<u8>)>,Over>",
-    "fn run::reply_of(request:&[u8])->Result<Reply,String>",
+    "fn run::reply_of(profile:Profile,request:&[u8])->Result<Reply,String>",
     "fn scan(identity:&Identity<'_>,contract_budget:u64)->Result<Scanned,Refusal>",
     "fn test_features()->&'static[&'static str]",
     "struct Identity",

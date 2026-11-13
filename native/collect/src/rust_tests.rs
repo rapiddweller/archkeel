@@ -42,7 +42,7 @@ fn equal(request: &[u8]) {
     .unwrap()
     .unwrap();
     let binary = archkeel_store::ingest_reply(&wire, 1 << 30).unwrap();
-    let linked = run::collect(request).unwrap();
+    let linked = run::collect(Profile::Rust, request).unwrap();
     assert_eq!(
         serde_json::to_vec(linked.reply()).unwrap(),
         serde_json::to_vec(binary.reply()).unwrap(),
@@ -124,7 +124,7 @@ fn hostile_gap(text: &str, reason: &str) {
     let source = root.join("src/lib.rs");
     fs::write(&source, text).unwrap();
     equal(&payload);
-    let collected = run::collect(&payload).unwrap();
+    let collected = run::collect(Profile::Rust, &payload).unwrap();
     let coverage = &collected.reply().facts.coverage;
     assert!(!coverage.full_scope);
     assert!(coverage.gaps.iter().any(|gap| gap.title.contains(reason)));

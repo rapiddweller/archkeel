@@ -11,7 +11,7 @@
 //! release build `panic = "abort"` ends the whole core process, as a stack overflow does; the
 //! shell then sees a dead core and the run has no verdict (exit 2), never a PASS.
 
-use archkeel_facts::envelope::Reply;
+use archkeel_facts::envelope::{Profile, Reply};
 use archkeel_store::Ingested;
 use archkeel_wire::protocol::reply_version;
 
@@ -19,9 +19,9 @@ use archkeel_wire::protocol::reply_version;
 const STACK_BYTES: usize = 256 << 20;
 
 /// The typed reply of the request bytes, validated by the store, or why there is none.
-pub(crate) fn collect(request: &[u8]) -> Result<Ingested, String> {
+pub(crate) fn collect(profile: Profile, request: &[u8]) -> Result<Ingested, String> {
     let request = request.to_vec();
-    let reply = isolated(move || reply_of(&request))??;
+    let reply = isolated(move || reply_of(profile, &request))??;
     archkeel_store::ingest_typed(reply)
         .map_err(|reason| format!("the store refuses the reply of the collector: {reason}"))
 }
@@ -47,22 +47,27 @@ pub(crate) fn isolated<T: Send + 'static>(
 }
 
 /// The typed reply without the store, for the comparison with the bytes of the binary.
-pub fn reply_of(request: &[u8]) -> Result<Reply, String> {
-    let language =
-        serde_json::from_slice::<serde_json::Value>(request).map_err(|error| error.to_string())?;
-    if language["resolver"]["language"] == "rust" {
-        let request = archkeel_wire::request::decode_rust(request)?;
-        return archkeel_rust_collector::typed_reply(
-            &request,
-            archkeel_rust_collector::provenance(),
-            reply_version(request.protocol_version),
-        );
+pub fn reply_of(profile: Profile, request: &[u8]) -> Result<Reply, String> {
+    match profile {
+        Profile::Rust => {
+            let request = archkeel_wire::request::decode_rust(request)?;
+            archkeel_rust_collector::typed_reply(
+                &request,
+                archkeel_rust_collector::provenance(),
+                reply_version(request.protocol_version),
+            )
+        }
+        Profile::TypeScript => {
+            let request = archkeel_wire::request::decode(request)?;
+            archkeel_typescript_collector::typed_reply(
+                &request,
+                archkeel_typescript_collector::provenance(),
+                reply_version(request.protocol_version),
+            )
+        }
+        Profile::Python | Profile::Dart => Err(format!(
+            "the profile {} has no collector in the core process yet",
+            profile.as_str()
+        )),
     }
-    let request = archkeel_wire::request::decode(request)?;
-    let version = reply_version(request.protocol_version);
-    archkeel_typescript_collector::typed_reply(
-        &request,
-        archkeel_typescript_collector::provenance(),
-        version,
-    )
 }

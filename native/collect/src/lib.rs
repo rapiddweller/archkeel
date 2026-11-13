@@ -126,7 +126,7 @@ pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Re
     repository::survey(&root).map_err(|why| refused("work budget", why))?;
     let bytes =
         serde_json::to_vec(&request).map_err(|error| refused("request", error.to_string()))?;
-    let reply = run::collect(&bytes).map_err(|why| refused("collector", why))?;
+    let reply = run::collect(config.profile, &bytes).map_err(|why| refused("collector", why))?;
     let contract = match root.read(&config.contract, contract_budget) {
         Ok(Some((_, bytes))) => bytes,
         Ok(None) => return Err(refused("contract", "the core cannot read the contract")),
