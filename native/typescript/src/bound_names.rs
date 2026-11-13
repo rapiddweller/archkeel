@@ -38,7 +38,7 @@ pub(crate) fn expand(facts: &Facts, pending: &Pending, cited: &mut Cited, record
         });
         let Some((kept, own)) = bindings else {
             let mut record = (*item).clone();
-            record.data.data_mut().symbols_known = module_object(pending, item, target);
+            record.data.data_mut().symbols_known |= module_object(pending, item, target);
             records.imports.push(record);
             records.targets.push(target.clone());
             continue;

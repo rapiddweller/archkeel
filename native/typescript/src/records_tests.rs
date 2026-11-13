@@ -48,6 +48,32 @@ fn provenance() -> Provenance {
 const CONFIG: &str = r#"{"compilerOptions":{"module":"commonjs"},"include":["src"]}"#;
 
 #[test]
+fn expanding_imports_keeps_a_proven_script_global_name() {
+    let tree = Tree::new(&[
+        ("tsconfig.json", r#"{"compilerOptions":{"allowJs":true},"include":["src"]}"#),
+        ("src/a.js", "var Shapes; (function (Shapes) { Shapes.circle = function (r) { return r; }; Shapes.unit = 1; })(Shapes || (Shapes = {}));"),
+        ("src/b.js", "var area = Shapes.circle(Shapes.unit); var missing = Shapes.absent;"),
+    ]);
+    let (plain, _) = crate::collect::gather(&request(&tree), provenance());
+    let before: Vec<_> = import_section(&plain)
+        .iter()
+        .filter(|r| matches!(r.data, archkeel_facts::ImportFact::ScriptGlobal(_)))
+        .collect();
+    assert!(before.iter().any(|r| r.data.data().symbols_known));
+    let (_, found) = records(&request(&tree), provenance()).unwrap();
+    let globals: Vec<_> = found
+        .imports
+        .iter()
+        .filter(|r| matches!(r.data, archkeel_facts::ImportFact::ScriptGlobal(_)))
+        .collect();
+    assert!(!globals.is_empty());
+    assert_eq!(
+        serde_json::to_value(globals).unwrap(),
+        serde_json::to_value(before).unwrap()
+    );
+}
+
+#[test]
 fn the_linked_reply_states_its_profile_limits_but_wire_bytes_cannot_carry_them() {
     use archkeel_facts::envelope::{LimitSupport, Reply};
     for source in ["export const one = 1;", "const one = 1;"] {
