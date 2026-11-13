@@ -265,7 +265,10 @@ fn a_message_key_and_a_lint_hold_no_path_and_any_other_key_does() {
     let texts = "#[deprecated(note = \"use b::make\")]\n#[error(\"{}::{} failed\")]\n\
                  #[should_panic(expected = \"a::b\")]\nfn f() {}";
     assert_eq!(paths(texts), nothing);
-    assert_eq!(reasons(texts), ["The attribute macro error can add code that the scan does not read"]);
+    assert_eq!(
+        reasons(texts),
+        ["The attribute macro error can add code that the scan does not read"]
+    );
 }
 
 #[test]

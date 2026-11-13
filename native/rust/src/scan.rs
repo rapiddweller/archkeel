@@ -198,15 +198,6 @@ impl Walker<'_> {
         }
     }
 
-    fn concern(&mut self, reason: String, span: Span) {
-        let site = self.site(span);
-        self.out.concerns.push(Concern {
-            reason,
-            site,
-            source: None,
-        });
-    }
-
     /// A call `x.m(..)` (`path` false), or a path call that the scan cannot resolve (`path` true).
     fn method_call(&mut self, name: String, span: Span, (path, arity): (bool, Option<usize>)) {
         self.method_call_on(name, span, (path, arity), None);
@@ -281,7 +272,9 @@ impl<'ast> Visit<'ast> for Walker<'_> {
         if self.exclude_tests && is_test_attributes(item_attributes(item)) {
             // Keep only the files of `mod x;` below: the tree must claim them as test scope.
             let kept = std::mem::take(&mut self.out);
+            let derives = self.derives.len();
             visit::visit_item(self, item);
+            self.derives.truncate(derives);
             let found = std::mem::replace(&mut self.out, kept).children;
             let tests = found.into_iter().map(|child| Child {
                 test: true,
@@ -456,10 +449,17 @@ impl<'ast> Visit<'ast> for Walker<'_> {
             }
             return;
         }
+        for attr in &node.attrs {
+            self.attribute(attr);
+        }
         self.inline.push(name);
         self.out.inlines.push(self.inline.clone());
         self.selves.enter_module(&node.attrs);
-        visit::visit_item_mod(self, node);
+        if let Some((_, items)) = &node.content {
+            for item in items {
+                self.visit_item(item);
+            }
+        }
         self.selves.leave_module();
         self.inline.pop();
     }

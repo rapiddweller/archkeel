@@ -38,7 +38,6 @@ const BUILTINS: &[(&str, Kind)] = &[
     ("forbid", Kind::Builtin),
     ("deprecated", Kind::Builtin),
     ("must_use", Kind::Builtin),
-    ("diagnostic", Kind::Builtin),
     ("link", Kind::Builtin),
     ("link_name", Kind::Builtin),
     ("link_ordinal", Kind::Builtin),
@@ -69,7 +68,6 @@ const BUILTINS: &[(&str, Kind)] = &[
     ("windows_subsystem", Kind::Builtin),
     ("debugger_visualizer", Kind::Builtin),
     ("collapse_debuginfo", Kind::Builtin),
-    ("default", Kind::Builtin),
     ("unsafe", Kind::Unsafe),
 ];
 
@@ -84,15 +82,8 @@ pub(crate) fn kind(path: &Path) -> Option<Kind> {
 pub(crate) fn tool(path: &Path) -> bool {
     path.segments.len() > 1
         && path.segments.first().is_some_and(|s| {
-            [
-                "clippy",
-                "rustfmt",
-                "diagnostic",
-                "miri",
-                "rust_analyzer",
-                "rustdoc",
-            ]
-            .contains(&s.ident.to_string().as_str())
+            ["clippy", "rustfmt", "diagnostic", "miri", "rust_analyzer"]
+                .contains(&s.ident.to_string().as_str())
         })
 }
 
@@ -142,6 +133,7 @@ pub(crate) fn helpers(attrs: &[Attribute]) -> Vec<String> {
             match name.as_str() {
                 "Serialize" | "Deserialize" => Some("serde".to_owned()),
                 "JsonSchema" => Some("schemars".to_owned()),
+                "Default" => Some("default".to_owned()),
                 _ => None,
             }
         })

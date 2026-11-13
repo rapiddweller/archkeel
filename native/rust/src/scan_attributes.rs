@@ -17,6 +17,15 @@ use crate::net;
 use crate::tokens::{attribute_chains, plain, read_value, string_paths, LINTS, MESSAGE_KEYS};
 
 impl Walker<'_> {
+    pub(super) fn concern(&mut self, reason: String, span: Span) {
+        let site = self.site(span);
+        self.out.concerns.push(Concern {
+            reason,
+            site,
+            source: None,
+        });
+    }
+
     /// An attribute holds paths in its name, its tokens and its strings.
     pub(super) fn attribute(&mut self, attr: &Attribute) {
         self.expansion(&attr.meta, 0);
@@ -122,8 +131,15 @@ impl Walker<'_> {
     }
 
     pub(super) fn finish_attributes(&mut self) {
+        let glob = self
+            .out
+            .references
+            .iter()
+            .any(|r| matches!(r.via, super::Via::Glob { .. }));
         for (path, concern) in std::mem::take(&mut self.derives) {
-            if !attribute_kinds::builtin_derive(&path, &self.out.names) {
+            if (glob && path.segments.len() == 1)
+                || !attribute_kinds::builtin_derive(&path, &self.out.names)
+            {
                 self.out.concerns.push(concern);
             }
         }

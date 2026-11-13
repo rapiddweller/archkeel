@@ -44,6 +44,7 @@ fn a_custom_derive_can_add_items_and_calls() {
     for item in [
         "#[derive(mac::Hide)] struct S;",
         "use mac::Clone; #[derive(Clone)] struct S;",
+        "use mac::*; #[derive(Clone)] struct S;",
     ] {
         let found = scan(item, &BTreeSet::new(), false).unwrap();
         assert!(
@@ -54,6 +55,15 @@ fn a_custom_derive_can_add_items_and_calls() {
             "{item}"
         );
     }
+}
+
+#[test]
+fn excluded_items_do_not_leave_deferred_derive_gaps() {
+    let text = "#[cfg(test)] mod tests { #[derive(mac::Hide)] struct S; }";
+    assert!(scan(text, &BTreeSet::new(), true)
+        .unwrap()
+        .concerns
+        .is_empty());
 }
 
 #[test]

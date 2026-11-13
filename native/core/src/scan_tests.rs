@@ -82,6 +82,84 @@ fn the_core_runs_the_collector_and_derives_the_request() {
     assert!(!named.contains(PRODUCER_NOT_VERIFIED), "{named}");
 }
 
+fn attribute_repository(name: &str) -> PathBuf {
+    let root = repository(name);
+    fs::write(root.join("archkeel.toml"), "[scan]\nlanguage = \"rust\"\nroots = [\"crates\"]\nnamespace = \"app\"\ncontract = \"architecture-contract.json\"\n").unwrap();
+    let files = [
+        ("crates/Cargo.toml", "[workspace]\nmembers = [\"example\", \"mac\"]\nresolver = \"2\"\n"),
+        ("crates/example/Cargo.toml", "[package]\nname = \"example\"\nversion = \"0.0.0\"\nedition = \"2021\"\n[dependencies]\nmac = { path = \"../mac\" }\n"),
+        ("crates/example/src/lib.rs", "pub mod a; pub mod b;\n"),
+        ("crates/example/src/a.rs", "pub fn x() {}\n"),
+        ("crates/example/src/b.rs", "#[mac::hide] pub fn y() {}\n"),
+        ("crates/mac/Cargo.toml", "[package]\nname = \"mac\"\nversion = \"0.0.0\"\nedition = \"2021\"\n[lib]\nproc-macro = true\n"),
+        ("crates/mac/src/lib.rs", "extern crate proc_macro;\n#[proc_macro_attribute]\npub fn hide(_: proc_macro::TokenStream, _: proc_macro::TokenStream) -> proc_macro::TokenStream { \"pub fn y() { crate::a::x(); }\".parse().unwrap() }\n#[proc_macro_derive(Hide)]\npub fn derive(_: proc_macro::TokenStream) -> proc_macro::TokenStream { \"pub fn generated() { crate::a::x(); }\".parse().unwrap() }\n"),
+    ];
+    for (name, text) in files {
+        let path = root.join(name);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, text).unwrap();
+    }
+    let component = json!({"id": "C-APP", "label": "app", "role": "component",
+        "packages": ["app"], "responsibilities": ["Own the fixture."],
+        "forbidden_responsibilities": [], "provenance": ["docs/a.md"]});
+    let rule = json!({"id": "NO-HIDDEN", "kind": "forbidden_dependency",
+        "source": "app.example.b", "target": "app.example.a",
+        "include_type_checking": true,
+        "rationale": "The hidden edge must not pass.", "provenance": ["docs/a.md"], "decided_by": "architect"});
+    fs::write(
+        root.join("architecture-contract.json"),
+        json!({"schema_version": "2.1.0", "components": [component], "rules": [rule]}).to_string(),
+    )
+    .unwrap();
+    root
+}
+
+#[test]
+fn an_attribute_expansion_with_an_unseen_edge_cannot_pass() {
+    let root = attribute_repository("attribute-expansion");
+    for text in [
+        "#[mac::hide] pub fn y() {}",
+        "#[derive(mac::Hide)] pub struct S;",
+    ] {
+        fs::write(root.join("crates/example/src/b.rs"), text).unwrap();
+        let (gap, _) = frame(&request(&root));
+        assert_eq!(gap["rules"]["NO-HIDDEN"][1], "UNKNOWN", "{gap}");
+        assert_eq!(gap["status"], "UNKNOWN");
+        // No external dependencies: check each probe against the compiler without a registry.
+        let checked = std::process::Command::new("cargo")
+            .args(["check", "--offline", "--quiet"])
+            .current_dir(root.join("crates"))
+            .output()
+            .unwrap();
+        assert!(
+            checked.status.success(),
+            "{}",
+            String::from_utf8_lossy(&checked.stderr)
+        );
+    }
+    // A control with the written edge still fails; the gap must not erase evidence.
+    fs::write(
+        root.join("crates/example/src/b.rs"),
+        "pub fn y() { crate::a::x(); }\n",
+    )
+    .unwrap();
+    let (visible, _) = frame(&request(&root));
+    assert_eq!(visible["rules"]["NO-HIDDEN"][1], "FAIL", "{visible}");
+}
+
+#[test]
+fn invalid_utf8_cannot_make_a_complete_scan() {
+    let root = attribute_repository("invalid-utf8");
+    fs::write(
+        root.join("crates/example/src/b.rs"),
+        b"pub fn y() {} //\xff",
+    )
+    .unwrap();
+    let (gap, _) = frame(&request(&root));
+    assert_eq!(gap["rules"]["NO-HIDDEN"][1], "UNKNOWN", "{gap}");
+    assert_eq!(gap["status"], "UNKNOWN");
+}
+
 #[test]
 fn a_scan_request_with_a_reply_or_a_trust_field_is_refused() {
     let root = repository("forged");
