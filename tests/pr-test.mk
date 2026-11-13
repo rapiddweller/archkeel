@@ -226,7 +226,7 @@ PR_TEST_FILES := \
 	tests/test_boundary_type_bound_aliases.py::test_literal_outer_and_sibling_survive_uncertain_alias \
 	tests/test_boundary_type_bound_aliases.py::test_uncertain_inner_alias_does_not_erase_exact_literal_outer_map_permission \
 	tests/test_boundary_type_bound_aliases.py::test_uncertain_alias_ordinary_permission_is_independent_of_union_order \
-	tests/test_collector_native_legacy.py \
+	tests/test_collector_native_legacy_parser.py \
 	tests/test_typescript_source_input.py \
 	tests/test_typescript_string_constructs.py \
 	tests/test_python_source_evidence_lines.py \

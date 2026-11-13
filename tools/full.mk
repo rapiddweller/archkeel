@@ -55,7 +55,7 @@ typescript-compiler-check:
 # Python implementation architecture is covered by make test, once on Linux in CI.
 typescript-native: browser-runtime-install typescript-collector
 	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=loadfile --max-worker-restart=0 \
-		-q --durations=10 tests/test_collector_native_legacy.py \
+		-q --durations=10 tests/test_collector_native_legacy_parser.py \
 		tests/test_typescript_inner.py tests/test_typescript_uml_acceptance.py \
 		tests/test_typescript_namespace_identities.py \
 		tests/test_typescript_collect.py tests/test_typescript_source_input.py \
