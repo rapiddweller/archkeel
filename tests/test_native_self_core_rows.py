@@ -77,7 +77,7 @@ def _self_check(
     monkeypatch.delenv(observe.NATIVE_STORE, raising=False)
     frames: list[Any] = []
 
-    def decide(self: native_core.NativeCore, result: Any, root: Path, config: Any) -> Any:
+    def decide(self: native_core.NativeCore, result: Any, root: Path, config: Any, *_: Any) -> Any:
         assert self.binary is not None
         read = partial(native_core.read_inside, root)
         frames.append(self.run(self.binary, config, read, self.replies[0], None))
@@ -105,7 +105,7 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     assert python == expected["rules"]
     core = {rule: row["status"] for rule, row in frame["rules"].items()}
     assert set(core) == set(python), set(core) ^ set(python)
-    assert len(core) == 43
+    assert len(core) == 79
     # No rule names a part of the scope proof: each one has a decision.
     assert [gap for gap in frame["gaps"] if gap["kind"] == "scope_proof"] == []
     assert list(frame["gaps"]) == []
@@ -115,8 +115,8 @@ def test_the_core_decides_each_rule_of_the_self_contract(
             assert (status, python[rule]) == ("PASS", "UNKNOWN"), rule
         else:
             assert status == python[rule], rule
-    assert Counter(python.values()) == {"UNKNOWN": 42, "FAIL": 1}
-    assert Counter(core.values()) == {"PASS": 23, "UNKNOWN": 19, "FAIL": 1}
+    assert Counter(python.values()) == {"UNKNOWN": 78, "FAIL": 1}
+    assert Counter(core.values()) == {"PASS": 59, "UNKNOWN": 19, "FAIL": 1}
     assert beyond == {rule for rule, status in core.items() if status == "PASS"}
     # The run names each pinned gap; it never passes.
     assert frame["status"] == "FAIL"
