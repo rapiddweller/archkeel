@@ -18,6 +18,7 @@ fn a_parse_work_refusal_is_exit_two_without_frame_bytes() {
         &mut out,
     );
     assert_eq!(code, 2, "{reason:?}");
-    assert!(reason.unwrap().contains("parse_work_limit"));
+    let reason: serde_json::Value = serde_json::from_str(&reason.unwrap().to_string()).unwrap();
+    assert_eq!(reason["kind"], "parse_work_limit");
     assert!(out.is_empty());
 }

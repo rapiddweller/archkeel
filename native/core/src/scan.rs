@@ -51,7 +51,7 @@ struct ScanRequest {
 }
 
 /// The frame of one scan request. An error is a request that the core cannot read.
-pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
+pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
     let request: ScanRequest = dual_run::decode(input, PROTOCOL)?;
     let identity = Identity {
         root: &request.root,
@@ -60,9 +60,11 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         dirty: request.dirty,
     };
     match archkeel_collect::scan(&identity, MAX_BYTES) {
-        Ok(scanned) => decide(scanned),
-        Err(refusal) if refusal.kind == RefusalKind::ParseWork => Err(refusal.to_string()),
-        Err(refusal) => refused(&refusal),
+        Ok(scanned) => decide(scanned).map_err(Into::into),
+        Err(refusal) if refusal.kind == RefusalKind::ParseWork => {
+            Err(crate::refusal::Error::Refused(refusal))
+        }
+        Err(refusal) => refused(&refusal).map_err(Into::into),
     }
 }
 

@@ -28,7 +28,7 @@ from typing import Final
 
 from archkeel.ir.codec import RawJson
 
-from .core_frame import CoreError, CoreFrame, Gap, GapKind, read_frame
+from .core_frame import CoreError, CoreFrame, Gap, GapKind, read_frame, read_refusal
 
 SCAN_PROTOCOL: Final = "archkeel-core-scan-1"
 TIMEOUT_SECONDS: Final = 600
@@ -115,6 +115,9 @@ def exchange(binary: str, kind: str, request: bytes) -> tuple[bytes, int]:
     except OSError as error:
         raise CoreError(f"the core could not execute: {error}") from error
     if done.returncode == _REFUSED_EXIT:
-        message = done.stderr.decode("utf-8", errors="replace").strip()[-2000:]
-        raise CoreError(f"the core refused the request (exit 2): {message}")
+        if done.stdout:
+            raise CoreError("the core wrote frame bytes with exit 2")
+        gap = read_refusal(done.stderr)
+        message = gap.reason if gap else done.stderr.decode("utf-8", errors="replace").strip()[-2000:]
+        raise CoreError(f"the core refused the request (exit 2): {message}", gap=gap)
     return done.stdout, done.returncode

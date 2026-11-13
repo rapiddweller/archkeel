@@ -729,10 +729,11 @@
         "native.archkeel_typescript_collector.site_names",
         "native.archkeel_typescript_collector.site_paths",
         "native.archkeel_typescript_collector.site_syntax",
+        "native.archkeel_typescript_collector.site_text",
         "native.archkeel_typescript_collector.site_types"
       ],
       "responsibilities": [
-        "Read the use sites of a file: the names, the paths and the syntax of each site."
+        "Read the use sites of a file: the names, the paths and the syntax of each site. The site_text module keeps only the referenced source bytes and releases per-file parse state (AD-420)."
       ],
       "forbidden_responsibilities": [
         "Resolving a site to a target and building facts."

@@ -242,13 +242,16 @@ fn a_scan_request_with_a_reply_or_a_trust_field_is_refused() {
             unreachable_frame(field);
             continue;
         };
-        assert!(error.contains("unknown field"), "{field}: {error}");
+        assert!(
+            error.to_string().contains("unknown field"),
+            "{field}: {error}"
+        );
     }
     let mut old = request(&root);
     old["protocol"] = json!("archkeel-core-check-2");
     assert!(answer(old.to_string().as_bytes())
         .err()
-        .is_some_and(|error| error.contains("unknown protocol")));
+        .is_some_and(|error| error.to_string().contains("unknown protocol")));
 }
 
 fn unreachable_frame(field: &str) {

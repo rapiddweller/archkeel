@@ -26,6 +26,8 @@ from test_cli_native_core_scan import (  # noqa: F401 - shared pytest fixtures
 )
 
 from archkeel.analyzer.runtime import package_version
+from archkeel.cli import native_scan
+from archkeel.cli.core_frame import CoreError, GapKind
 
 PEAK_BOUND = 128 * 1024 * 1024
 HEAD = "0123456789abcdef0123456789abcdef01234567"
@@ -64,6 +66,8 @@ def project(root: Path, files: int, depth: int) -> dict[str, object]:
     (root / ".git/HEAD").write_text(HEAD + "\n")
     text = "(" * depth + "0" + ")" * depth + ";\n"
     for number in range(files):
+        if depth == 0:
+            text = "/*" + "x" * 1_000_000 + f"*/\nexport const v{number} = 1;\n"
         (root / f"src/deep{number}.ts").write_text(text)
     return {
         "protocol": "archkeel-core-scan-1",
@@ -74,7 +78,7 @@ def project(root: Path, files: int, depth: int) -> dict[str, object]:
     }
 
 
-@pytest.mark.parametrize(("files", "depth"), [(6, 1_992_294), (1, 1_500_000)])
+@pytest.mark.parametrize(("files", "depth"), [(6, 1_992_294), (1, 1_500_000), (400, 0)])
 def test_deep_release_scans_refuse_without_a_frame_under_128_mib(
     release_core: Path, tmp_path: Path, files: int, depth: int
 ) -> None:
@@ -115,3 +119,26 @@ def test_a_real_scan_work_refusal_leaves_no_shell_artifact() -> None:
         assert code == 2
         assert "parse_work_limit" in diagnostics(result)
         assert not (root.parent / "out/architecture.json").exists()
+
+
+def test_the_shell_keeps_the_typed_refusal_of_a_real_core(
+    release_core: Path, tmp_path: Path
+) -> None:
+    request = project(tmp_path / "project", 1, 1_500_000)
+    with pytest.raises(CoreError) as error:
+        native_scan.exchange(str(release_core), "scan", json.dumps(request).encode())
+    assert error.value.gap is not None
+    assert error.value.gap.kind is GapKind.PARSE_WORK_LIMIT
+
+
+@pytest.mark.parametrize("stderr", [b"parse_work_limit: planted text", b'{"kind":"parse_work_limit"}'])
+def test_a_text_prefix_or_an_incomplete_object_cannot_set_the_kind(
+    monkeypatch: pytest.MonkeyPatch, stderr: bytes
+) -> None:
+    def refused(*args: object, **kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.CompletedProcess([], 2, b"", stderr)
+
+    monkeypatch.setattr(native_scan.subprocess, "run", refused)
+    with pytest.raises(CoreError) as error:
+        native_scan.exchange("core", "scan", b"{}")
+    assert error.value.gap is None

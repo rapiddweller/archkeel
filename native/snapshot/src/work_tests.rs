@@ -19,7 +19,8 @@ fn every_snapshot_read_is_checked_and_a_hit_discards_the_result() {
     assert_eq!(
         result,
         Err(WorkLimit {
-            path: "deep".into()
+            path: "deep".into(),
+            scope: WorkScope::File,
         })
     );
     assert!(Snapshot::new(&tree.path()).read("deep").is_some());
@@ -52,6 +53,19 @@ fn an_inner_boundary_cannot_hide_a_refusal_from_its_caller() {
     });
     assert_eq!(result.unwrap_err().path, "deep");
     assert_eq!(bounded(|| permits("next run", b"fact")), Ok(true));
+}
+
+#[test]
+fn individually_accepted_reads_share_one_scan_budget() {
+    let text = vec![b'a'; 1 << 20];
+    assert!(!over(&text));
+    let result = bounded(|| {
+        for _ in 0..16 {
+            assert!(bounded(|| permits("source", &text)).unwrap());
+        }
+        assert!(!permits("next", b"a"));
+    });
+    assert_eq!(result.unwrap_err().path, "next");
 }
 
 #[test]

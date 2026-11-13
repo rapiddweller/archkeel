@@ -36,7 +36,7 @@ pub(crate) struct Kept {
     /// The names that the module assigns outside every function (`rebound_names`).
     pub rebound: HashSet<String>,
     /// The text that the byte ranges of the sites point into.
-    pub text: String,
+    pub text: Vec<u8>,
     /// The question "does a scope hide this name" for the sites of the file.
     pub shadow: NameIndex,
     /// The script facts and the flags that the script analysis reads.
@@ -78,7 +78,7 @@ impl Kept {
         kept.sites = std::mem::take(&mut syntax.sites);
         kept.scopes = std::mem::take(&mut syntax.scopes);
         kept.shadow = kept.sites.names.index(text.as_bytes());
-        kept.text = text.to_owned();
+        kept.text = kept.sites.retain_text(text.as_bytes());
         kept.script = script;
         kept
     }
@@ -118,7 +118,7 @@ impl Kept {
             sites: Sites::default(),
             scopes: Scopes::default(),
             rebound: HashSet::new(),
-            text: String::new(),
+            text: Vec::new(),
             shadow: NameIndex::default(),
             script: ScriptFile::default(),
         }

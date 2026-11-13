@@ -147,7 +147,7 @@ impl Resolver<'_> {
         site: &Site,
         script: Option<&[String]>,
     ) -> Resolved {
-        let name = site.name.map(|text| text.decode(kept.text.as_bytes()));
+        let name = site.name.map(|text| text.decode(&kept.text));
         let shadowed = name
             .as_deref()
             .is_some_and(|name| kept.shadow.shadows(site.shadow.chain, name));

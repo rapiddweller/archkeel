@@ -124,9 +124,7 @@ fn prove<D>(
 
 /// The key of a site in the maps of the script analysis.
 fn site_key(kept: &Kept, site: &Site) -> SiteKey {
-    let path = site
-        .path
-        .map(|at| kept.sites.paths.names(at, kept.text.as_bytes()));
+    let path = site.path.map(|at| kept.sites.paths.names(at, &kept.text));
     SiteKey::new(site.kind, &site.span, &path.unwrap_or_default())
 }
 
@@ -182,7 +180,7 @@ impl<'a> Place<'a> {
 }
 
 fn expression(kept: &Kept, site: &Site) -> String {
-    let data = kept.text.as_bytes();
+    let data = &kept.text;
     match site.expression {
         Expression::Node(node) => node.decode(data),
         Expression::Member(receiver, name) => {
@@ -350,7 +348,7 @@ fn result_binding(
     site: &Site,
     call_id: &str,
 ) -> Vec<ResultBinding> {
-    let data = kept.text.as_bytes();
+    let data = &kept.text;
     let name = site.assigned_name.map(|text| text.decode(data));
     let initializer = site.initializer.filter(|text| !Text::is_empty(*text));
     let (Some(name), Some(span), Some(initializer)) = (
