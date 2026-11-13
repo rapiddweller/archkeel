@@ -125,7 +125,8 @@
         "archkeel.cli.launcher",
         "archkeel.cli.studio",
         "archkeel.cli.core_frame",
-        "archkeel.cli.native_core"
+        "archkeel.cli.native_core",
+        "archkeel.cli.native_scan"
       ],
       "packages": []
     }

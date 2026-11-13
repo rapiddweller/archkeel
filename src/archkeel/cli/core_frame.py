@@ -160,8 +160,8 @@ class CoreFrame:
     gaps: tuple[Gap, ...]
     # The inside contracts that the core asks the shell to send (AD-379).
     missing: tuple[str, ...]
-    # AD-406: the collection request that the core derived for a scan request, else `None`.
-    derived: Mapping[str, object] | None = None
+    # AD-406: the JSON text of the collection request that the core derived for a scan request.
+    derived: str | None = None
 
     @property
     def decided(self) -> bool:
@@ -281,17 +281,9 @@ def _reply_gaps(value: object) -> list[Gap]:
     return [Gap(kind, "reply", _text(found, f"self_test.reply.{tag}"))]
 
 
-def _collect(value: object) -> tuple[list[Gap], Mapping[str, object] | None]:
-    """The `collect` part of a scan frame: the derived request, or the refusal (AD-406)."""
-    tag, found = _one(value, "self_test.collect", _CollectRead)
-    if tag is _CollectRead.REQUEST:
-        return [], _object(found, "self_test.collect.request")
-    return [Gap(GapKind.COLLECT, "collect", _text(found, "self_test.collect.refused"))], None
-
-
 def _gaps(
     frame: Mapping[str, object], scan: bool
-) -> tuple[tuple[Gap, ...], tuple[str, ...], Mapping[str, object] | None]:
+) -> tuple[tuple[Gap, ...], tuple[str, ...], str | None]:
     unsupported = _fields(frame["unsupported"], "unsupported", _UNSUPPORTED)
     gaps: list[Gap] = []
     named = unsupported["rules"]
@@ -307,7 +299,16 @@ def _gaps(
         gaps.append(Gap(GapKind.REPORT, "report", report))
     test = _fields(frame["self_test"], "self_test", _SELF_TEST | _SCAN if scan else _SELF_TEST)
     contract, missing = _contract_gaps(test["contract"])
-    collected, derived = _collect(test["collect"]) if scan else ([], None)
+    # AD-406: the `collect` part of a scan frame: the derived request, or the refusal.
+    collected: list[Gap] = []
+    derived: str | None = None
+    if scan:
+        tag, found = _one(test["collect"], "self_test.collect", _CollectRead)
+        if tag is _CollectRead.REQUEST:
+            derived = json.dumps(_object(found, "self_test.collect.request"))
+        else:
+            reason = _text(found, "self_test.collect.refused")
+            collected = [Gap(GapKind.COLLECT, "collect", reason)]
     return (*collected, *gaps, *contract, *_reply_gaps(test["reply"])), missing, derived
 
 

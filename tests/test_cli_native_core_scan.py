@@ -186,7 +186,7 @@ def test_the_derived_request_equals_the_request_of_the_shell_on_every_typescript
                 continue
             request = native_scan.scan_request(payload, case.config)
             assert isinstance(request, dict)
-            stdout, _ = native_scan.exchange(binary, "scan", request)
+            stdout, _ = native_scan.exchange(binary, "scan", json.dumps(request).encode())
             # The raw part: a frame that the reader refuses for another reason still shows the
             # request that the core derived.
             collect = json.loads(stdout)["self_test"]["collect"]
@@ -331,3 +331,49 @@ def test_a_configured_collector_sends_no_scan_request(install: Path) -> None:
         toml.write_text(toml.read_text() + f"collector_argv = {json.dumps([str(collector)])}\n")
         report(root, "--native-core")
     assert not (install / "request-scan.json").exists()
+
+
+# --- The build and the check command ----------------------------------------------------------
+
+
+def test_the_release_build_links_the_collector_without_its_test_feature() -> None:
+    """#1099 (a): the wheel builds the whole workspace without a feature (`hatch_build.py`). In
+    that resolution the core links the TypeScript collector without `dump`, whose planted faults
+    read the environment. A build with `dump` gives no accepted reply: `archkeel-collect` refuses
+    it by name (`built`, its unit test)."""
+    cargo = shutil.which("cargo")
+    if cargo is None:
+        pytest.skip("cargo is not installed")
+    tree = subprocess.run(
+        [cargo, "tree", "--locked", "--workspace", "-e", "features", "-i"]
+        + ["archkeel-typescript-collector"],
+        cwd=NATIVE,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert "archkeel-core" in tree
+    assert 'feature "dump"' not in tree
+    hook = (NATIVE / "hatch_build.py").read_text()
+    assert '"auditable", "build", "--release", "--locked", "--target-dir"' in hook
+    assert "--features" not in hook
+
+
+def test_check_never_sends_the_scan_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    """AD-399: `check` reads the contract at the baseline commit from Git and the base reply of
+    the accepted commit. The scan request has neither, so `check` stays on the check request."""
+    from archkeel.check.ports import Language, ScanConfig
+    from archkeel.cli.core_frame import CoreFrame, Status
+    from archkeel.ir.model import Command, RunResult
+
+    def no_scan(*_: object) -> None:
+        raise AssertionError("check sent a scan request")
+
+    undecided = CoreFrame("fake", Status.UNKNOWN, "complete", {}, {}, {}, {}, (), ("x.json",))
+    monkeypatch.setattr(native_core, "scan", no_scan)
+    monkeypatch.setattr(native_core.NativeCore, "run", lambda *_: undecided)
+    core = native_core.NativeCore("archkeel-core", [b"base", b"candidate"], [b"{}", b"{}"])
+    config = ScanConfig(("src",), "shop", "c.json", "", language=Language.TYPESCRIPT)
+    result = RunResult(Command.CHECK, 0, rule_assessments=())
+    shown = core.decide_check(result, Path("."), config, "HEAD")
+    assert any("did not decide this run" in note.unknown_claim for note in shown.notes)

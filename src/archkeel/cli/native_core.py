@@ -24,6 +24,7 @@ no rule rows: the command result schema of `check` has none, so the rows are onl
 from __future__ import annotations
 
 import argparse
+import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from functools import partial
@@ -354,7 +355,7 @@ def _python_rows(result: RunResult) -> tuple[PythonRule, ...]:
 
 
 def _send(binary: str, request: Mapping[str, object]) -> CoreFrame:
-    return read_frame(*exchange(binary, "check", request))
+    return read_frame(*exchange(binary, "check", bytes(json.dumps(request), "utf-8")))
 
 
 def _note(claim: str, remedy: str) -> Diagnostic:

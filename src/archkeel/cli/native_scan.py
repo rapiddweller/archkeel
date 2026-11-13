@@ -14,8 +14,9 @@ Stage 1 stays on: the Python engine still decides the same run, and `native_core
 compares the two (a difference is exit 2). A frame that names a part (a refusal of the scan, a
 rule that the core does not decide) sends the run back to the check request of stage 1.
 
-A dead core (an abort, a stack overflow, the memory limit) has an exit code that `read_frame`
-refuses, so the run has no verdict (exit 2), never a PASS.
+A dead core (an abort, a stack overflow, an allocation failure) has an exit code that
+`read_frame` refuses, so the run has no verdict (exit 2), never a PASS. The shell stops the core
+after `TIMEOUT_SECONDS`.
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ import subprocess
 from dataclasses import dataclass
 from typing import Final
 
-from archkeel.analyzer.memory_limit import COLLECTOR_MEMORY_LIMIT_BYTES, limit_memory
+from archkeel.ir.codec import RawJson
 
 from .core_frame import CoreError, CoreFrame, Gap, GapKind, read_frame
 
@@ -42,30 +43,34 @@ class Scanned:
     frame: CoreFrame
 
 
-def scan_request(shell_request: bytes, config_path: str) -> dict[str, object] | Gap:
+def scan_request(shell_request: bytes, config_path: str) -> dict[str, RawJson] | Gap:
     """The scan request of the identity in the request that the shell sent to its collector."""
-    sent = json.loads(shell_request)
-    snapshot = sent.get("snapshot") if isinstance(sent, dict) else None
-    if not isinstance(snapshot, dict) or not isinstance(snapshot.get("dirty"), bool):
+    try:
+        snapshot = json.loads(shell_request)["snapshot"]
+        root, head, dirty = snapshot["root"], snapshot["git_head"], snapshot["dirty"]
+    except (KeyError, TypeError) as error:
+        reason = f"the request of the shell has no snapshot field {error}"
+        return Gap(GapKind.REQUEST_DIFFERS, "collect", reason)
+    if not isinstance(dirty, bool):
         reason = "the request of the shell has no Boolean dirty state"
         return Gap(GapKind.REQUEST_DIFFERS, "collect", reason)
     return {
         "protocol": SCAN_PROTOCOL,
-        "root": snapshot.get("root"),
+        "root": root,
         "config": config_path,
-        "git_head": snapshot.get("git_head"),
-        "dirty": snapshot["dirty"],
+        "git_head": head,
+        "dirty": dirty,
     }
 
 
-def differences(derived: object, sent: object, path: str = "") -> list[str]:
+def differences(derived: RawJson, sent: RawJson, path: str = "") -> list[str]:
     """Each field where the request of the core and the request of the shell differ."""
     if isinstance(derived, dict) and isinstance(sent, dict):
         found: list[str] = []
-        for key in sorted(derived.keys() | sent.keys()):
+        for key in sorted(set(derived) | set(sent)):
             where = f"{path}.{key}" if path else key
             if key not in derived or key not in sent:
-                found.append(f"{where} is in one request only")
+                found += [f"{where} is in one request only"]
             else:
                 found += differences(derived[key], sent[key], where)
         return found
@@ -79,9 +84,13 @@ def scan(binary: str, shell_request: bytes, config_path: str) -> Scanned | tuple
     request = scan_request(shell_request, config_path)
     if isinstance(request, Gap):
         return (request,)
-    stdout, exit_code = exchange(binary, "scan", request)
+    stdout, exit_code = exchange(binary, "scan", bytes(json.dumps(request), "utf-8"))
     frame = read_frame(stdout, exit_code, scan=True)
-    found = differences(frame.derived, json.loads(shell_request)) if frame.derived else []
+    found = (
+        differences(json.loads(frame.derived), json.loads(shell_request))
+        if frame.derived is not None
+        else []
+    )
     if found:
         reason = "the core derived another collection request: " + "; ".join(found)
         return (Gap(GapKind.REQUEST_DIFFERS, "collect", reason),)
@@ -90,30 +99,22 @@ def scan(binary: str, shell_request: bytes, config_path: str) -> Scanned | tuple
     return Scanned(frame)
 
 
-def exchange(binary: str, kind: str, request: object) -> tuple[bytes, int]:
-    """Run the core with one request under the memory limit of a collector and a time limit,
-    and give its standard output and exit code. Exit 2 (no frame) is a `CoreError`."""
+def exchange(binary: str, kind: str, request: bytes) -> tuple[bytes, int]:
+    """Run the core with one encoded request and a time limit, and give its standard output and exit
+    code. Exit 2 (no frame) is a `CoreError`."""
     try:
-        with subprocess.Popen(
+        done = subprocess.run(
             [binary, kind],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        ) as process:
-            if refused := limit_memory(process.pid, COLLECTOR_MEMORY_LIMIT_BYTES):
-                process.kill()
-                raise CoreError(refused)
-            try:
-                stdout, stderr = process.communicate(
-                    json.dumps(request).encode(), timeout=TIMEOUT_SECONDS
-                )
-            except subprocess.TimeoutExpired as error:
-                process.kill()
-                process.communicate()
-                raise CoreError(f"the core did not answer in {TIMEOUT_SECONDS} s") from error
+            input=request,
+            capture_output=True,
+            check=False,
+            timeout=TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise CoreError(f"the core did not answer in {TIMEOUT_SECONDS} s") from error
     except OSError as error:
         raise CoreError(f"the core could not execute: {error}") from error
-    if process.returncode == _REFUSED_EXIT:
-        message = stderr.decode("utf-8", errors="replace").strip()[-2000:]
+    if done.returncode == _REFUSED_EXIT:
+        message = done.stderr.decode("utf-8", errors="replace").strip()[-2000:]
         raise CoreError(f"the core refused the request (exit 2): {message}")
-    return stdout, process.returncode
+    return done.stdout, done.returncode

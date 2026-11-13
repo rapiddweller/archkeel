@@ -137,11 +137,7 @@ class ProcessCollector:
     def collect_response(self, request: CollectionRequest) -> CollectionResponse | CollectionError:
         subject = self.argv[0]
         try:
-            wire_request = (
-                replace(request, protocol_version=self.protocol_version)
-                if self.protocol_version is not None and not request.scope.exclude_test_sources
-                else request
-            )
+            wire_request = _wire_request(request, self.protocol_version)
             payload = encode_request(wire_request)
             if self.request_sink is not None:
                 self.request_sink(payload)
@@ -467,3 +463,10 @@ def is_process_alive(pid: int) -> bool:
         return True  # WAIT_FAILED and unexpected values are UNKNOWN.
     except (AttributeError, OSError, TypeError, ValueError, ctypes.ArgumentError):
         return True
+
+
+def _wire_request(request: CollectionRequest, version: ProtocolVersion | None) -> CollectionRequest:
+    """The request on the wire: the pinned version, except for a test-scoped request."""
+    if version is not None and not request.scope.exclude_test_sources:
+        return replace(request, protocol_version=version)
+    return request

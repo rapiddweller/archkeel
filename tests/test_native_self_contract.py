@@ -73,6 +73,8 @@ CHAIN_RULES = [
     ("model", "collect"),
     ("report", "collect"),
 ]
+# The component label of a planted target crate whose label is not its crate name.
+LABEL = {"typescript": "ts-entry"}
 # (crate, Cargo key, file text, rule): plants of the external and requires rules.
 OTHER = [
     ("eval", "toml", "pub use toml::Table;\n", "NATIVE-EXTERNAL-TOML"),
@@ -181,7 +183,8 @@ def _with_requires(native: Path) -> list[Plant]:
     parts = {part["label"]: part for part in contract["components"]}
     plants = []
     for number, (source, target) in enumerate(CHAIN_RULES):
-        parts[source].setdefault("requires", []).append({"component": target, "rationale": "x"})
+        label = LABEL.get(target, target)
+        parts[source].setdefault("requires", []).append({"component": label, "rationale": "x"})
         text = f"pub use {ITEM[target]} as planted;\n"
         plants.append((_rule(source, target), _plant(native, source, target, f"p_{number}", text)))
     path.write_text(json.dumps(contract, indent=2))
