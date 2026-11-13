@@ -145,19 +145,7 @@ pub(crate) fn export_bindings(
             && !children(statement)
                 .iter()
                 .any(|child| matches!(cx.k(*child), K::Default | K::Type));
-        let candidates: Vec<Node> = match declaration {
-            Some(declaration)
-                if matches!(
-                    cx.k(declaration),
-                    K::LexicalDeclaration | K::VariableDeclaration
-                ) =>
-            {
-                named_children(declaration)
-            }
-            Some(declaration) => vec![declaration],
-            None => Vec::new(),
-        };
-        for node in candidates {
+        for node in declaration_nodes(cx, declaration) {
             let name = cx.field(node, F::Name);
             let Some(name) = name.filter(|name| cx.valid_unicode_member_name(*name)) else {
                 continue;
@@ -233,6 +221,17 @@ pub(crate) fn export_bindings(
             export: span.clone(),
         })
         .collect()
+}
+
+/// Variable declarations hold several declarators; other declarations name one binding.
+fn declaration_nodes<'tree>(cx: &Cx, declaration: Option<Node<'tree>>) -> Vec<Node<'tree>> {
+    match declaration {
+        Some(node) if matches!(cx.k(node), K::LexicalDeclaration | K::VariableDeclaration) => {
+            named_children(node)
+        }
+        Some(node) => vec![node],
+        None => Vec::new(),
+    }
 }
 
 /// `_declared_names`: the value names that one declaration publishes.
