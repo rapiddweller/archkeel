@@ -184,7 +184,10 @@ def _write_sbom(native: Path, binary: Path, version: str, name: str) -> Path:
 
 
 def _run(command: list[str], cwd: Path) -> str:
-    return subprocess.run(command, cwd=cwd, capture_output=True, text=True, check=True).stdout
+    # Cargo prints UTF-8; the Windows locale code page (cp1252) cannot decode every byte of it.
+    return subprocess.run(
+        command, cwd=cwd, capture_output=True, text=True, encoding="utf-8", check=True
+    ).stdout
 
 
 def cyclonedx(

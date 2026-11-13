@@ -459,3 +459,26 @@ def _request(root: Path) -> dict[str, Any]:
         "scope": {"roots": ["src"], "namespace": "shop", "exclude_test_sources": False},
         "resolver": {"language": "typescript", "tsconfig": "tsconfig.json"},
     }
+
+
+def test_the_build_hook_reads_cargo_output_as_utf8_on_any_locale() -> None:
+    # Windows decodes a pipe with cp1252, which has no byte 0x8f; cargo prints UTF-8.
+    probe = (
+        "import sys\n"
+        "from importlib.util import module_from_spec, spec_from_file_location\n"
+        "from pathlib import Path\n"
+        "spec = spec_from_file_location('hook', sys.argv[1])\n"
+        "module = module_from_spec(spec)\n"
+        "spec.loader.exec_module(module)\n"
+        "child = 'import sys; sys.stdout.buffer.write(bytes([0xc3, 0xa9, 0xe2, 0x80, 0x8f]))'\n"
+        "print(ascii(module._run([sys.executable, '-c', child], Path('.'))))\n"
+    )
+    done = subprocess.run(
+        [sys.executable, "-c", probe, str(ROOT / "native/hatch_build.py")],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "LC_ALL": "C", "PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0"},
+    )
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.strip() == ascii("é‏")
