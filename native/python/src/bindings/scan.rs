@@ -4,7 +4,7 @@
 
 //! The shared bounded walk, below each binding consumer.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, VecDeque};
 use std::rc::Rc;
 
 use archkeel_facts::pyminor::PyMinor;
@@ -18,6 +18,19 @@ use crate::pyast::{child_nodes, walk, Node};
 pub(super) const MAX_BINDING_WORK: usize = 64_000_000;
 
 pub(super) type Result<T> = std::result::Result<T, String>;
+
+pub(super) fn input_array<'a>(
+    input: &'a serde_json::Value,
+    key: &str,
+) -> Result<&'a [serde_json::Value]> {
+    match input.get(key) {
+        None => Ok(&[]),
+        Some(value) => value
+            .as_array()
+            .map(Vec::as_slice)
+            .ok_or_else(|| format!("invalid {key} array")),
+    }
+}
 
 pub struct Table {
     pub data: Result<serde_json::Value>,
@@ -104,6 +117,56 @@ impl Scan {
         self.tick(children.len())?;
         Ok(children)
     }
+
+    pub fn module_nodes<'a>(&mut self, module: &'a Module) -> Result<Vec<Node<'a>>> {
+        self.tick(module.tree.body.len())?;
+        let mut pending: VecDeque<_> = module.tree.body.iter().map(Node::Stmt).collect();
+        let mut nodes = Vec::new();
+        while let Some(node) = pending.pop_front() {
+            self.tick(1)?;
+            pending.extend(self.children(&node)?);
+            nodes.push(node);
+        }
+        Ok(nodes)
+    }
+}
+
+pub(super) fn parents<'a>(
+    scan: &mut Scan,
+    nodes: &[Node<'a>],
+) -> Result<HashMap<*const Expr, Node<'a>>> {
+    let mut parents = HashMap::new();
+    for node in nodes {
+        scan.tick(1)?;
+        for child in scan.children(node)? {
+            scan.tick(1)?;
+            let Node::Expr(expr) = child else { continue };
+            parents.insert(std::ptr::from_ref(expr), node.clone());
+        }
+    }
+    Ok(parents)
+}
+pub(super) fn future_annotations(scan: &mut Scan, module: &Module) -> Result<bool> {
+    for stmt in &module.tree.body {
+        scan.tick(1)?;
+        let Stmt::ImportFrom(import) = stmt else {
+            continue;
+        };
+        if !import
+            .module
+            .as_ref()
+            .is_some_and(|n| n.as_str() == "__future__")
+        {
+            continue;
+        }
+        for alias in &import.names {
+            scan.tick(1)?;
+            if alias.name.as_str() == "annotations" {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
 }
 
 pub(super) fn sorted(values: impl IntoIterator<Item = String>) -> Vec<String> {

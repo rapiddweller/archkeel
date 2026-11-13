@@ -24,52 +24,23 @@ use crate::{discover, inputs, names, requirement};
 
 /// The explicit inputs of a source-only function; no resolver or reply assembly runs here.
 pub fn facts(flag: &str, minor: &str, root: &str) -> Result<(), String> {
-    let minor = PyMinor::decode(minor)?;
-    let mut snapshot = Snapshot::new(root);
-    let mut out = std::io::stdout().lock();
-    for line in std::io::stdin().lock().lines() {
-        let line = line.map_err(|error| error.to_string())?;
-        let input: Value = serde_json::from_str(&line).map_err(|error| error.to_string())?;
+    each_line(minor, root, |snapshot, line, minor| {
+        let input: Value = serde_json::from_str(line).map_err(|error| error.to_string())?;
         let rel = input
             .get("file")
             .and_then(Value::as_str)
             .ok_or("missing file")?;
-        let found = (|| {
-            let raw = snapshot.read(rel).ok_or("source unreadable")?;
-            let text = decode(&raw).ok_or("source unreadable")?;
-            let text = crate::source::newlines(text).into_owned();
-            let tree = parse(&text, minor).map_err(|failure| failure.message)?;
-            let first = rel.split('/').next().unwrap_or(rel);
-            let namespace = first.strip_suffix(".py").unwrap_or(first);
-            let name = names::module_for(rel, namespace, minor).ok_or("module name unseen")?;
-            Ok::<_, String>(crate::module::Module::new(rel.to_owned(), name, text, tree))
-        })();
-        let crate::bindings::Table { data, work } = match found {
-            Ok(module) => {
-                use crate::bindings::FactBoundary;
-                let boundary = match flag {
-                    "--dump-typing-signals" => FactBoundary::Typing,
-                    "--dump-state" => FactBoundary::State,
-                    _ => FactBoundary::Lexical,
-                };
-                crate::bindings::source_fact_table(&module, minor, boundary, &input)
-            }
-            Err(reason) => crate::bindings::Table {
-                data: Err(reason),
-                work: 0,
-            },
-        };
-        let row = match data {
-            Ok(data) => json!({"file": rel, "full_scope": true, "data": data, "work": work}),
-            Err(reason) => json!({"file": rel, "full_scope": false, "gap": reason, "work": work}),
-        };
-        let row = match crate::bindings::check_output(&row) {
-            Ok(()) => row,
-            Err(reason) => json!({"file": rel, "full_scope": false, "gap": reason, "work": work}),
-        };
-        writeln!(out, "{row}").map_err(|error| error.to_string())?;
-    }
-    Ok(())
+        let table = module_table(snapshot.read(rel), rel, minor, |module| {
+            use crate::bindings::FactBoundary;
+            let boundary = match flag {
+                "--dump-typing-signals" => FactBoundary::Typing,
+                "--dump-state" => FactBoundary::State,
+                _ => FactBoundary::Lexical,
+            };
+            crate::bindings::source_fact_table(module, minor, boundary, &input)
+        });
+        Ok(Some(table_row(rel, table)))
+    })
 }
 
 /// The outcome of one file: `null` for a tree, else the exception, the line and the message.
@@ -96,12 +67,22 @@ fn each_file(
     root: &str,
     mut row: impl FnMut(Option<Vec<u8>>, &str, PyMinor) -> Option<Value>,
 ) -> Result<(), String> {
+    each_line(minor, root, |snapshot, rel, minor| {
+        Ok(row(snapshot.read(rel), rel, minor))
+    })
+}
+
+fn each_line(
+    minor: &str,
+    root: &str,
+    mut row: impl FnMut(&mut Snapshot, &str, PyMinor) -> Result<Option<Value>, String>,
+) -> Result<(), String> {
     let minor = PyMinor::decode(minor)?;
     let mut snapshot = Snapshot::new(root);
     let mut out = std::io::stdout().lock();
     for line in std::io::stdin().lock().lines() {
         let rel = line.map_err(|error| format!("cannot read stdin: {error}"))?;
-        if let Some(found) = row(snapshot.read(&rel), &rel, minor) {
+        if let Some(found) = row(&mut snapshot, &rel, minor)? {
             writeln!(out, "{found}").map_err(|error| format!("cannot write: {error}"))?;
         }
     }
@@ -120,39 +101,63 @@ pub fn run(minor: &str, root: &str) -> Result<(), String> {
 /// The binding inputs of a file before import convergence, or a named incomplete-file gap.
 pub fn bindings(minor: &str, root: &str, proofs: bool) -> Result<(), String> {
     each_file(minor, root, |raw, rel, minor| {
-        let found = (|| {
-            let text = raw.as_deref().and_then(decode).ok_or("source unreadable")?;
-            let text = crate::source::newlines(text).into_owned();
-            let tree = parse(&text, minor).map_err(|failure| failure.message)?;
-            let first = rel.split('/').next().unwrap_or(rel);
-            let namespace = first.strip_suffix(".py").unwrap_or(first);
-            let name = names::module_for(rel, namespace, minor).ok_or("module name unseen")?;
-            Ok::<_, String>(crate::module::Module::new(rel.to_owned(), name, text, tree))
-        })();
-        let crate::bindings::Table { data, work } = match found {
-            Ok(module) if proofs => crate::bindings::proof_table(&module, minor),
-            Ok(module) => crate::bindings::table(&module, minor),
-            Err(reason) => crate::bindings::Table {
-                data: Err(reason),
-                work: 0,
-            },
-        };
-        let row = match data {
-            Ok(data) => json!({"file": rel, "full_scope": true, "data": data, "work": work}),
-            Err(reason) => json!({"file": rel, "full_scope": false, "gap": reason, "work": work}),
-        };
-        Some(match crate::bindings::check_output(&row) {
-            Ok(()) => row,
-            Err(reason) => {
-                let gap = json!({"file": rel, "full_scope": false, "gap": reason, "work": work});
-                if crate::bindings::check_output(&gap).is_ok() {
-                    gap
-                } else {
-                    json!({"file": null, "full_scope": false, "gap": reason, "work": work})
-                }
+        let table = module_table(raw, rel, minor, |module| {
+            if proofs {
+                crate::bindings::proof_table(module, minor)
+            } else {
+                crate::bindings::table(module, minor)
             }
-        })
+        });
+        Some(table_row(rel, table))
     })
+}
+
+fn module_table(
+    raw: Option<Vec<u8>>,
+    rel: &str,
+    minor: PyMinor,
+    collect: impl FnOnce(&crate::module::Module) -> crate::bindings::Table,
+) -> crate::bindings::Table {
+    let found = (|| {
+        let text = raw.as_deref().and_then(decode).ok_or("source unreadable")?;
+        let text = crate::source::newlines(text).into_owned();
+        let tree = parse(&text, minor).map_err(|failure| failure.message)?;
+        let first = rel.split('/').next().unwrap_or(rel);
+        let namespace = first.strip_suffix(".py").unwrap_or(first);
+        let name = names::module_for(rel, namespace, minor).ok_or("module name unseen")?;
+        Ok::<_, String>(crate::module::Module::new(rel.to_owned(), name, text, tree))
+    })();
+    match found {
+        Ok(module) => collect(&module),
+        Err(reason) => crate::bindings::Table {
+            data: Err(reason),
+            work: 0,
+        },
+    }
+}
+
+fn table_row(rel: &str, table: crate::bindings::Table) -> Value {
+    let crate::bindings::Table { data, work } = table;
+    let row = match data {
+        Ok(data) => Value::Object(serde_json::Map::from_iter([
+            ("file".into(), json!(rel)),
+            ("full_scope".into(), Value::Bool(true)),
+            ("work".into(), json!(work)),
+            ("data".into(), data),
+        ])),
+        Err(reason) => json!({"file": rel, "full_scope": false, "gap": reason, "work": work}),
+    };
+    match crate::bindings::check_output(&row) {
+        Ok(()) => row,
+        Err(reason) => {
+            let gap = json!({"file": rel, "full_scope": false, "gap": reason, "work": work});
+            if crate::bindings::check_output(&gap).is_ok() {
+                gap
+            } else {
+                json!({"file": null, "full_scope": false, "gap": reason, "work": work})
+            }
+        }
+    }
 }
 
 /// `--dump-texts <minor> <root>`: for each file on stdin, the class names of `ast.walk` of each

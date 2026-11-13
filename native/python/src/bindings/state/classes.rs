@@ -4,7 +4,15 @@
 
 //! Fields retain insertion order; methods contribute property and mutation facts.
 
-use super::*;
+use std::collections::{BTreeSet, HashMap};
+
+use ruff_python_ast::{Expr, ExprContext, Stmt, StmtClassDef};
+use serde_json::{json, Value};
+
+use super::paths::{mutating, text};
+use crate::bindings::scan::{Result, Scan};
+use crate::module::{EvidenceMap, Module};
+use crate::pyast::Node;
 
 struct Field {
     name: String,
@@ -87,7 +95,7 @@ pub(super) fn collect(
         protocol,
         fields: Vec::new(),
         positions: HashMap::new(),
-        methods: Vec::new(),
+        methods: Vec::with_capacity(node.body.len()),
         properties: Vec::new(),
         property_positions: HashMap::new(),
         mutable: BTreeSet::new(),

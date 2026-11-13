@@ -4,7 +4,13 @@
 
 //! Function events retain ast.walk order, including nested definitions.
 
-use super::*;
+use ruff_python_ast::{Expr, ExprContext, Stmt};
+use serde_json::{json, Value};
+
+use super::paths::{attribute_path, mutating, text};
+use crate::bindings::scan::{Result, Scan};
+use crate::module::{EvidenceMap, Module};
+use crate::pyast::Node;
 
 pub(super) fn collect(
     scan: &mut Scan,
@@ -13,16 +19,7 @@ pub(super) fn collect(
     evidence: &mut EvidenceMap,
 ) -> Result<Vec<Value>> {
     let nodes = scan.walk(Node::Stmt(stmt))?;
-    let mut parents = HashMap::new();
-    for node in &nodes {
-        scan.tick(1)?;
-        for child in scan.children(node)? {
-            scan.tick(1)?;
-            if let Node::Expr(n) = child {
-                parents.insert(std::ptr::from_ref(n), node.clone());
-            }
-        }
-    }
+    let parents = super::super::scan::parents(scan, &nodes)?;
     let mut events = Vec::new();
     for node in nodes {
         scan.tick(1)?;

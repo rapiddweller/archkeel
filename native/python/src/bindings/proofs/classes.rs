@@ -261,26 +261,7 @@ fn deferred(scan: &mut Scan, env: &Env<'_>, node: &Expr) -> Result<bool> {
     if matches!(node, Expr::StringLiteral(_)) {
         return Ok(true);
     }
-    for stmt in &env.module.tree.body {
-        scan.tick(1)?;
-        let Stmt::ImportFrom(n) = stmt else {
-            continue;
-        };
-        if !n
-            .module
-            .as_ref()
-            .is_some_and(|n| n.as_str() == "__future__")
-        {
-            continue;
-        }
-        for alias in &n.names {
-            scan.tick(1)?;
-            if alias.name.as_str() == "annotations" {
-                return Ok(true);
-            }
-        }
-    }
-    Ok(false)
+    super::super::scan::future_annotations(scan, env.module)
 }
 
 fn native_body(scan: &mut Scan, env: &Env<'_>, stmt: &Stmt) -> Result<bool> {

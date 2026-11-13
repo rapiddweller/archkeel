@@ -23,8 +23,9 @@ mod nested;
 mod summary;
 mod visit;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Default, PartialEq)]
 enum Kind {
+    #[default]
     Module,
     Function,
     Class,
@@ -33,6 +34,9 @@ enum Kind {
     Alias,
 }
 
+type Names = BTreeSet<String>;
+
+#[derive(Default)]
 struct Scope<'a> {
     node: Option<Node<'a>>,
     kind: Kind,
@@ -42,14 +46,14 @@ struct Scope<'a> {
     table: bool,
     private_context: bool,
     inlined: bool,
-    locals: BTreeSet<String>,
-    compiler_locals: BTreeSet<String>,
+    locals: Names,
+    compiler_locals: Names,
     compiler_parent: Option<usize>,
-    globals: BTreeSet<String>,
-    nonlocals: BTreeSet<String>,
-    free_names: BTreeSet<String>,
-    seen: BTreeSet<String>,
-    blocked: BTreeSet<String>,
+    globals: Names,
+    nonlocals: Names,
+    free_names: Names,
+    seen: Names,
+    blocked: Names,
     bindings: BTreeMap<String, Vec<Site<'a>>>,
     summaries: BTreeMap<String, Summary>,
 }
@@ -100,7 +104,7 @@ pub(super) fn collect(module: &Module, scan: &mut Scan, input: &Value) -> Result
         sites: Vec::new(),
         aliases: HashMap::new(),
         numeric: BTreeSet::new(),
-        future: false,
+        future: super::scan::future_annotations(scan, module)?,
         children: HashMap::new(),
         touched: BTreeSet::new(),
         generator_ranges: HashMap::new(),
@@ -110,23 +114,6 @@ pub(super) fn collect(module: &Module, scan: &mut Scan, input: &Value) -> Result
         by_site: HashMap::new(),
         inline_scopes: Vec::new(),
     };
-    for n in &module.tree.body {
-        scan.tick(1)?;
-        let Stmt::ImportFrom(n) = n else {
-            continue;
-        };
-        if !n
-            .module
-            .as_ref()
-            .is_some_and(|n| n.as_str() == "__future__")
-        {
-            continue;
-        }
-        for a in &n.names {
-            scan.tick(1)?;
-            index.future |= a.name.as_str() == "annotations";
-        }
-    }
     if let Some(aliases) = input.get("aliases") {
         let aliases = aliases.as_array().ok_or("invalid lexical aliases")?;
         for alias in aliases {
@@ -152,28 +139,14 @@ pub(super) fn collect(module: &Module, scan: &mut Scan, input: &Value) -> Result
         }
     }
     index.scopes.push(Scope {
-        node: None,
-        kind: Kind::Module,
         qualified: Rc::from(module.name.as_str()),
         identity: Some(stable_id("MOD", &[Part::Text(&module.name)])),
-        parent: None,
         table: true,
-        private_context: false,
-        inlined: false,
-        locals: BTreeSet::new(),
-        compiler_locals: BTreeSet::new(),
-        compiler_parent: None,
-        globals: BTreeSet::new(),
-        nonlocals: BTreeSet::new(),
-        free_names: BTreeSet::new(),
-        seen: BTreeSet::new(),
-        blocked: BTreeSet::new(),
-        bindings: BTreeMap::new(),
-        summaries: BTreeMap::new(),
+        ..Scope::default()
     });
     index.by_site.insert(("Module", 1, 0), 0);
     index.body(scan, &module.tree.body, 0, false, 0)?;
-    index.bind(scan)?;
+    index.index_bindings(scan)?;
     index.dump(scan, input)
 }
 
@@ -338,16 +311,8 @@ impl<'a> Index<'a> {
             table,
             private_context,
             inlined,
-            locals: BTreeSet::new(),
-            compiler_locals: BTreeSet::new(),
             compiler_parent,
-            globals: BTreeSet::new(),
-            nonlocals: BTreeSet::new(),
-            free_names: BTreeSet::new(),
-            seen: BTreeSet::new(),
-            blocked: BTreeSet::new(),
-            bindings: BTreeMap::new(),
-            summaries: BTreeMap::new(),
+            ..Scope::default()
         });
         Ok(id)
     }

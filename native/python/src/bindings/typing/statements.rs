@@ -4,7 +4,10 @@
 
 //! Simple statement text for attached type-ignore comments. Other statements refuse the file.
 
-use super::*;
+use ruff_python_ast::{Expr, Stmt};
+
+use crate::bindings::scan::{Result, Scan};
+use crate::module::Module;
 
 fn expr(scan: &mut Scan, module: &Module, node: &Expr) -> Result<String> {
     super::super::class::text(scan, node, module.text())?
@@ -37,11 +40,8 @@ pub(super) fn text(scan: &mut Scan, module: &Module, node: &Stmt) -> Result<Stri
             } else {
                 target
             };
-            let mut text = format!("{target}: {}", expr(scan, module, &n.annotation)?);
-            if let Some(value) = &n.value {
-                text.push_str(&format!(" = {}", expr(scan, module, value)?));
-            }
-            text
+            let text = format!("{target}: {}", expr(scan, module, &n.annotation)?);
+            suffix(scan, module, text, " = ", n.value.as_deref())?
         }
         Stmt::AugAssign(n) => format!(
             "{} {}= {}",
@@ -58,21 +58,12 @@ pub(super) fn text(scan: &mut Scan, module: &Module, node: &Stmt) -> Result<Stri
             format!("del {}", parts.join(", "))
         }
         Stmt::Raise(n) => {
-            let mut text = "raise".to_owned();
-            if let Some(e) = &n.exc {
-                text.push_str(&format!(" {}", expr(scan, module, e)?));
-            }
-            if let Some(cause) = &n.cause {
-                text.push_str(&format!(" from {}", expr(scan, module, cause)?));
-            }
-            text
+            let text = suffix(scan, module, "raise".into(), " ", n.exc.as_deref())?;
+            suffix(scan, module, text, " from ", n.cause.as_deref())?
         }
         Stmt::Assert(n) => {
-            let mut text = format!("assert {}", expr(scan, module, &n.test)?);
-            if let Some(msg) = &n.msg {
-                text.push_str(&format!(", {}", expr(scan, module, msg)?));
-            }
-            text
+            let text = format!("assert {}", expr(scan, module, &n.test)?);
+            suffix(scan, module, text, ", ", n.msg.as_deref())?
         }
         Stmt::Import(n) => format!("import {}", aliases(scan, &n.names)?),
         Stmt::ImportFrom(n) => {
@@ -108,6 +99,20 @@ pub(super) fn text(scan: &mut Scan, module: &Module, node: &Stmt) -> Result<Stri
         }
         _ => return Err("typing attached compound statement text not ported".into()),
     })
+}
+
+fn suffix(
+    scan: &mut Scan,
+    module: &Module,
+    mut text: String,
+    separator: &str,
+    value: Option<&Expr>,
+) -> Result<String> {
+    if let Some(value) = value {
+        text.push_str(separator);
+        text.push_str(&expr(scan, module, value)?);
+    }
+    Ok(text)
 }
 
 fn aliases(scan: &mut Scan, aliases: &[ruff_python_ast::Alias]) -> Result<String> {

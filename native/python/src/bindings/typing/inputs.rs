@@ -4,17 +4,17 @@
 
 //! Signals whose inputs are already collected records. This module does not collect calls.
 
-use super::*;
+use std::collections::{BTreeMap, BTreeSet};
 
-pub(super) fn array<'a>(value: &'a Value, key: &str) -> Result<&'a [Value]> {
-    match value.get(key) {
-        None => Ok(&[]),
-        Some(value) => value
-            .as_array()
-            .map(Vec::as_slice)
-            .ok_or_else(|| format!("invalid {key} array")),
-    }
-}
+use archkeel_facts::identity::{stable_id, Part};
+use archkeel_facts::ids::{EvidenceId, FactId};
+use archkeel_facts::vocab::{Area, EvidenceClass, Signal};
+use archkeel_facts::Record;
+use serde_json::Value;
+
+use super::{data, fact, Collector};
+use crate::bindings::scan::{input_array as array, Result, Scan};
+use crate::module::EvidenceMap;
 
 fn text<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
     value

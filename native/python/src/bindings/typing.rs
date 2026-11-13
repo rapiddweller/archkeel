@@ -16,7 +16,7 @@ use ruff_python_ast::{Expr, Parameter, Stmt};
 use ruff_text_size::{Ranged, TextRange};
 use serde_json::{json, Value};
 
-use super::scan::{Result, Scan};
+use super::scan::{input_array as array, Result, Scan};
 use crate::module::{definition::Def, EvidenceMap, Module};
 use crate::pyast::Node;
 
@@ -25,7 +25,7 @@ mod statements;
 
 pub(super) fn collect(module: &Module, scan: &mut Scan, input: &Value) -> Result<Value> {
     let mut evidence = EvidenceMap::new();
-    for item in inputs::array(input, "evidence")? {
+    for item in array(input, "evidence")? {
         scan.tick(1)?;
         scan.output.value(item)?;
         let item: Evidence = serde_json::from_value(item.clone()).map_err(|e| e.to_string())?;
@@ -80,20 +80,25 @@ fn data(owner: &str, signal: Signal) -> SignalData {
 }
 
 fn fact(data: SignalData) -> SignalFact {
-    match data.signal {
-        Signal::AnyAnnotation => SignalFact::AnyAnnotation(data),
-        Signal::DictAnyAnnotation => SignalFact::DictAnyAnnotation(data),
-        Signal::CallableAnyAnnotation => SignalFact::CallableAnyAnnotation(data),
-        Signal::ObjectAnnotation => SignalFact::ObjectAnnotation(data),
-        Signal::CastCall => SignalFact::CastCall(data),
-        Signal::GetattrCall => SignalFact::GetattrCall(data),
-        Signal::HasattrCall => SignalFact::HasattrCall(data),
-        Signal::EvalCall => SignalFact::EvalCall(data),
-        Signal::ExecCall => SignalFact::ExecCall(data),
-        Signal::DynamicImport => SignalFact::DynamicImport(data),
-        Signal::TypeIgnore => SignalFact::TypeIgnore(data),
-        Signal::MissingCrossPackageAnnotation => SignalFact::MissingCrossPackageAnnotation(data),
+    macro_rules! wrap {
+        ($($kind:ident),+ $(,)?) => {
+            match data.signal { $(Signal::$kind => SignalFact::$kind(data)),+ }
+        };
     }
+    wrap!(
+        AnyAnnotation,
+        DictAnyAnnotation,
+        CallableAnyAnnotation,
+        ObjectAnnotation,
+        CastCall,
+        GetattrCall,
+        HasattrCall,
+        EvalCall,
+        ExecCall,
+        DynamicImport,
+        TypeIgnore,
+        MissingCrossPackageAnnotation
+    )
 }
 
 impl<'a> Collector<'a> {
@@ -270,11 +275,7 @@ impl<'a> Collector<'a> {
                 continue;
             };
             let loc = self.module.location(&range);
-            let source = self
-                .module
-                .excerpt(loc.line, loc.line)
-                .ok_or("comment line unseen")?;
-            scan.tick(source.len())?;
+            let source = self.source_line(scan, loc.line)?;
             let prefix = source
                 .get(..usize::try_from(loc.column).map_err(|_| "comment column unseen")?)
                 .ok_or("comment prefix unseen")?;
@@ -283,11 +284,7 @@ impl<'a> Collector<'a> {
             let context = self.statements.get(&loc.line);
             let attached = if let Some((_, stmt)) = context {
                 let start = self.module.location(*stmt);
-                let line = self
-                    .module
-                    .excerpt(start.line, start.line)
-                    .ok_or("statement line unseen")?;
-                scan.tick(line.len())?;
+                let line = self.source_line(scan, start.line)?;
                 let prefix = line
                     .get(..usize::try_from(start.column).map_err(|_| "statement column unseen")?)
                     .ok_or("statement prefix unseen")?;
@@ -359,5 +356,14 @@ impl<'a> Collector<'a> {
             self.statements.insert(line, (scope.into(), stmt));
         }
         Ok(())
+    }
+
+    fn source_line(&self, scan: &mut Scan, line: i64) -> Result<String> {
+        let source = self
+            .module
+            .excerpt(line, line)
+            .ok_or("typing source line unseen")?;
+        scan.tick(source.len())?;
+        Ok(source)
     }
 }

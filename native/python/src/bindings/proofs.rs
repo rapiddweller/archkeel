@@ -4,7 +4,7 @@
 
 //! Import-local proofs, before cross-module member convergence (AD-404).
 
-use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use archkeel_facts::pyminor::PyMinor;
 use ruff_python_ast::{Expr, ExprContext, Stmt};
@@ -25,14 +25,7 @@ pub fn table(module: &Module, minor: PyMinor) -> Table {
 }
 
 fn collect(module: &Module, scan: &mut Scan) -> Result<Value> {
-    scan.tick(module.tree.body.len())?;
-    let mut pending: VecDeque<_> = module.tree.body.iter().map(Node::Stmt).collect();
-    let mut nodes = Vec::new();
-    while let Some(node) = pending.pop_front() {
-        scan.tick(1)?;
-        pending.extend(scan.children(&node)?);
-        nodes.push(node);
-    }
+    let nodes = scan.module_nodes(module)?;
     let scope = scopes::module_scope(scan, &module.tree.body)?;
     aliases(scan, module, &scope)?;
     let stable_without_imports = stable(scan, module, &nodes, &scope, false)?;

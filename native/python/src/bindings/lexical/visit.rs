@@ -63,8 +63,8 @@ impl<'a> Index<'a> {
             Node::Stmt(stmt @ Stmt::TypeAlias(_)) => {
                 self.type_alias(scan, stmt, scope, conditional, compiled, depth)?
             }
-            Node::Expr(expr @ Expr::Lambda(_)) => {
-                self.lambda(scan, expr, scope, conditional, compiled, depth)?
+            Node::Expr(Expr::Lambda(_)) => {
+                self.lambda(scan, node.clone(), scope, conditional, compiled, depth)?
             }
             Node::Expr(Expr::ListComp(n)) => self.comprehension(
                 scan,
@@ -117,13 +117,13 @@ impl<'a> Index<'a> {
     fn lambda(
         &mut self,
         scan: &mut Scan,
-        expr: &'a Expr,
+        node: Node<'a>,
         scope: usize,
         conditional: bool,
         compiled: bool,
         depth: usize,
     ) -> Result<()> {
-        let Expr::Lambda(n) = expr else {
+        let Node::Expr(expr @ Expr::Lambda(n)) = node else {
             return Err("lambda expression unseen".into());
         };
         self.visit(

@@ -7,7 +7,7 @@
 use super::*;
 
 impl<'a> Index<'a> {
-    pub(super) fn bind(&mut self, scan: &mut Scan) -> Result<()> {
+    pub(super) fn index_bindings(&mut self, scan: &mut Scan) -> Result<()> {
         for scope in &mut self.scopes {
             scan.tick(1)?;
             for name in scope.globals.iter().chain(&scope.nonlocals) {
@@ -352,9 +352,13 @@ impl<'a> Index<'a> {
             scan.keep(&mut by_node, json!([node, scope]))?;
         }
         let queries = self.extra_queries(scan, input, &references)?;
-        Ok(
-            json!({"scopes":scopes,"names":names,"by_node":by_node,"queries":queries,"generic_header_numeric_lines":self.numeric}),
-        )
+        Ok(Value::Object(serde_json::Map::from_iter([
+            ("scopes".into(), Value::Array(scopes)),
+            ("names".into(), Value::Array(names)),
+            ("by_node".into(), Value::Array(by_node)),
+            ("queries".into(), Value::Array(queries)),
+            ("generic_header_numeric_lines".into(), json!(self.numeric)),
+        ])))
     }
 
     fn extra_queries(

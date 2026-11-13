@@ -71,6 +71,61 @@
       "A method call may reach the method check of an impl block in native.archkeel_facts.request_rules"
     ],
     [
+      "native.archkeel_python_collector.bindings.lexical",
+      "native.archkeel_python_collector.bindings.lexical.lookup",
+      "A method call may reach the method index_bindings of an impl block in native.archkeel_python_collector.bindings.lexical.lookup"
+    ],
+    [
+      "native.archkeel_python_collector.bindings.lexical",
+      "native.archkeel_python_collector.bindings.lexical.visit",
+      "A method call may reach the method visit of an impl block in native.archkeel_python_collector.bindings.lexical.visit"
+    ],
+    [
+      "native.archkeel_python_collector.bindings.lexical.headers",
+      "native.archkeel_python_collector.bindings.lexical.nested",
+      "A method call may reach the method type_parameters of an impl block in native.archkeel_python_collector.bindings.lexical.nested"
+    ],
+    [
+      "native.archkeel_python_collector.bindings.lexical.headers",
+      "native.archkeel_python_collector.bindings.lexical.visit",
+      "A method call may reach the method visit of an impl block in native.archkeel_python_collector.bindings.lexical.visit"
+    ],
+    [
+      "native.archkeel_python_collector.bindings.lexical.lookup",
+      "native.archkeel_python_collector.bindings.lexical.summary",
+      "A method call may reach the method summarize of an impl block in native.archkeel_python_collector.bindings.lexical.summary"
+    ],
+    [
+      "native.archkeel_python_collector.bindings.lexical.nested",
+      "native.archkeel_python_collector.bindings.lexical.visit",
+      "A method call may reach the method visit of an impl block in native.archkeel_python_collector.bindings.lexical.visit"
+    ],
+    [
+      "native.archkeel_python_collector.bindings.lexical.summary",
+      "native.archkeel_python_collector.bindings.lexical.lookup",
+      "A method call may reach the method located_site of an impl block in native.archkeel_python_collector.bindings.lexical.lookup"
+    ],
+    [
+      "native.archkeel_python_collector.bindings.lexical.visit",
+      "native.archkeel_python_collector.bindings.lexical.headers",
+      "A method call may reach the method definition of an impl block in native.archkeel_python_collector.bindings.lexical.headers"
+    ],
+    [
+      "native.archkeel_python_collector.bindings.lexical.visit",
+      "native.archkeel_python_collector.bindings.lexical.lookup",
+      "A method call may reach the method located_site of an impl block in native.archkeel_python_collector.bindings.lexical.lookup"
+    ],
+    [
+      "native.archkeel_python_collector.bindings.lexical.visit",
+      "native.archkeel_python_collector.bindings.lexical.nested",
+      "A method call may reach the method comprehension of an impl block in native.archkeel_python_collector.bindings.lexical.nested"
+    ],
+    [
+      "native.archkeel_python_collector.bindings.typing",
+      "native.archkeel_python_collector.bindings.typing.inputs",
+      "A method call may reach the method dynamic of an impl block in native.archkeel_python_collector.bindings.typing.inputs"
+    ],
+    [
       "native.archkeel_python_collector.module",
       "native.archkeel_facts.envelope.build",
       "A method call may reach the method at of an impl block in native.archkeel_facts.envelope.build"

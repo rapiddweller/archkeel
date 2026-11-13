@@ -4,8 +4,6 @@
 
 //! Definition binding inputs before import convergence. No incomplete section enters a reply.
 
-use std::collections::HashMap;
-
 use archkeel_facts::pyminor::PyMinor;
 use ruff_python_ast::Expr;
 use serde_json::{json, Value};
@@ -69,29 +67,11 @@ pub fn table(module: &Module, minor: PyMinor) -> Table {
 }
 
 fn collect(module: &Module, scan: &mut Scan) -> Result<Value> {
-    let mut nodes = Vec::new();
-    // A Module walk first yields all direct statements, then their children breadth first.
-    let mut pending = std::collections::VecDeque::new();
-    scan.tick(module.tree.body.len())?;
-    pending.extend(module.tree.body.iter().map(Node::Stmt));
-    while let Some(node) = pending.pop_front() {
-        scan.tick(1)?;
-        pending.extend(scan.children(&node)?);
-        nodes.push(node);
-    }
+    let nodes = scan.module_nodes(module)?;
     let scope = scopes::module_scope(scan, &module.tree.body)?;
     let bound = names::bound(scan, &nodes)?;
     let scope_bound = names::bound(scan, &scope)?;
-    let mut parents = HashMap::new();
-    for node in &nodes {
-        scan.tick(1)?;
-        for child in scan.children(node)? {
-            scan.tick(1)?;
-            if let Node::Expr(expr) = child {
-                parents.insert(std::ptr::from_ref(expr), node.clone());
-            }
-        }
-    }
+    let parents = scan::parents(scan, &nodes)?;
     scan.tick(bound.len().saturating_add(nodes.len()))?;
     let env = namespace::Env {
         blocked: bound.iter().map(String::as_str).collect(),

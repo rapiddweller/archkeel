@@ -4,66 +4,30 @@
 
 //! Class state and ordered function traces. Symbol flags and node selections are explicit inputs.
 
-use std::collections::{BTreeSet, HashMap, VecDeque};
+use std::collections::HashMap;
 
-use ruff_python_ast::{Expr, ExprContext, Stmt, StmtClassDef};
+use ruff_python_ast::Stmt;
 use serde_json::{json, Value};
 
-use super::scan::{Result, Scan};
+use super::scan::{input_array as array, Result, Scan};
 use crate::module::{definition::Def, EvidenceMap, Module};
 use crate::pyast::Node;
 
 mod classes;
 mod events;
+mod paths;
 
-fn mutating(name: &str) -> bool {
-    matches!(
-        name,
-        "add"
-            | "append"
-            | "clear"
-            | "discard"
-            | "extend"
-            | "insert"
-            | "pop"
-            | "popitem"
-            | "remove"
-            | "reverse"
-            | "setdefault"
-            | "sort"
-            | "update"
-    )
-}
-
-fn text(scan: &mut Scan, module: &Module, node: Option<&Expr>) -> Result<Option<String>> {
-    node.map(|n| super::class::text(scan, n, module.text()))
-        .transpose()
-        .map(Option::flatten)
-}
-
-fn array<'a>(input: &'a Value, key: &str) -> Result<&'a [Value]> {
-    match input.get(key) {
-        None => Ok(&[]),
-        Some(v) => v
-            .as_array()
-            .map(Vec::as_slice)
-            .ok_or_else(|| format!("invalid state {key}")),
-    }
-}
+use paths::text;
 
 pub(super) fn collect(module: &Module, scan: &mut Scan, input: &Value) -> Result<Value> {
-    let mut nodes = Vec::new();
-    scan.tick(module.tree.body.len())?;
-    let mut pending: VecDeque<_> = module.tree.body.iter().map(Node::Stmt).collect();
+    let nodes = scan.module_nodes(module)?;
     let mut class_nodes = HashMap::new();
-    while let Some(node) = pending.pop_front() {
+    for node in &nodes {
         scan.tick(1)?;
-        pending.extend(scan.children(&node)?);
-        if let Node::Stmt(Stmt::ClassDef(n)) = &node {
+        if let Node::Stmt(Stmt::ClassDef(n)) = node {
             let loc = module.location(&Def::Class(n).range(module.text()));
             class_nodes.insert((loc.line, loc.column), n);
         }
-        nodes.push(node);
     }
     let mut symbols = HashMap::new();
     for symbol in array(input, "symbols")? {
@@ -135,20 +99,4 @@ pub(super) fn collect(module: &Module, scan: &mut Scan, input: &Value) -> Result
     Ok(
         json!({"state": {"classes": classes, "functions": functions}, "evidence": evidence.into_values().collect::<Vec<_>>()}),
     )
-}
-
-fn attribute_path<'a>(scan: &mut Scan, expr: &'a Expr) -> Result<Option<(&'a str, Vec<&'a str>)>> {
-    let mut expr = expr;
-    let mut parts = Vec::new();
-    while let Expr::Attribute(n) = expr {
-        scan.tick(1)?;
-        parts.push(n.attr.as_str());
-        expr = &n.value;
-    }
-    let Expr::Name(n) = expr else {
-        return Ok(None);
-    };
-    scan.tick(parts.len())?;
-    parts.reverse();
-    Ok(Some((n.id.as_str(), parts)))
 }
