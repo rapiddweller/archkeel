@@ -284,6 +284,10 @@
           "rationale": "Validate the collector reply once before the model reads it (AD-346)."
         },
         {
+          "component": "facts",
+          "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422)."
+        },
+        {
           "component": "build",
           "rationale": "Record the code digest of the binary when it is built (AD-335)."
         },

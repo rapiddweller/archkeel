@@ -15,7 +15,7 @@ from test_explore import _repository
 
 import archkeel.analyzer.process as process_module
 import archkeel.cli as cli
-from archkeel.cli import launcher, studio
+from archkeel.cli import arguments, launcher, studio
 from archkeel.cli.launcher import StudioScope
 from archkeel.ir.facts_codec import DEFAULT_RESPONSE_LIMIT_BYTES
 from archkeel.studio.api import AgentKind
@@ -155,7 +155,7 @@ def test_windows_pid_liveness_treats_open_errors_conservatively(
     assert process_module.is_process_alive(12345) is expected
 
 
-def _args(root: Path, *options: str) -> cli.CLIArguments:
+def _args(root: Path, *options: str) -> arguments.CLIArguments:
     return cli.build_parser().parse_cli_args(["studio", "--root", str(root), "--no-open", *options])
 
 
@@ -442,7 +442,7 @@ def test_a_timed_out_start_does_not_scan_and_reports_retry(
     root = _repository(tmp_path / "shop")
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     monkeypatch.setattr(launcher, "STUDIO_LOCK_WAIT_SECONDS", 0.01)
-    cache = cli.cache_folder(cli.Command.EXPLORE, cli.root_digest(root.resolve()))
+    cache = cli.cache_folder(arguments.Command.EXPLORE, cli.root_digest(root.resolve()))
     monkeypatch.setattr(
         studio, "studio_workspace", lambda *_args: pytest.fail("a timed-out start must not scan")
     )
@@ -480,7 +480,7 @@ def test_the_start_lock_is_held_until_http_service_is_ready(
     root = _repository(tmp_path / "shop")
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     monkeypatch.setattr(launcher, "STUDIO_LOCK_WAIT_SECONDS", 0.01)
-    cache = cli.cache_folder(cli.Command.EXPLORE, cli.root_digest(root.resolve()))
+    cache = cli.cache_folder(arguments.Command.EXPLORE, cli.root_digest(root.resolve()))
     observed: list[str] = []
 
     def run_studio_stub(_workspace: object, *, ready, serving=None, **_kwargs: object) -> int:
@@ -569,7 +569,7 @@ def test_stop_keeps_the_lock_until_workspace_cleanup_finishes(
     root = _repository(tmp_path / "shop")
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
     monkeypatch.setattr(launcher, "STUDIO_LOCK_WAIT_SECONDS", 0.01)
-    cache = cli.cache_folder(cli.Command.EXPLORE, cli.root_digest(root.resolve()))
+    cache = cli.cache_folder(arguments.Command.EXPLORE, cli.root_digest(root.resolve()))
     cache.mkdir(parents=True)
     active = launcher.StudioProcess(
         os.getpid(),
@@ -617,7 +617,7 @@ def test_a_timed_out_cleanup_keeps_state_and_denies_a_second_scan(
     monkeypatch.setattr(launcher, "_STOP_SECONDS", 0.01)
     monkeypatch.setattr(launcher, "is_studio", lambda _url: False)
     monkeypatch.setattr(launcher, "is_process_alive", lambda _pid: True)
-    cache = cli.cache_folder(cli.Command.EXPLORE, cli.root_digest(root.resolve()))
+    cache = cli.cache_folder(arguments.Command.EXPLORE, cli.root_digest(root.resolve()))
     cache.mkdir(parents=True)
     active = launcher.StudioProcess(
         os.getpid(),

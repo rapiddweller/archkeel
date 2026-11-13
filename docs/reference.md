@@ -544,6 +544,29 @@ retrieves every pair on the initial draft.
 imports or Target permissions. Exactly one observed marker is required; Target
 is optional. Subgraphs, labels and styles require manual editing.
 
+## Core-only architecture gate
+
+`archkeel validate --core-only` or `ARCHKEEL_CORE_ONLY=1` uses `archkeel-core scan` only (AD-422).
+The switch is off by default. The shell imports no Python IR or decision package.
+The core reads the configuration and Git state, collects the source and decides the architecture rules.
+The shell renders the frame. PASS exits 0, FAIL exits 1, and UNKNOWN or a refusal exits 2.
+Exit 2 means UNKNOWN or refusal; JSON distinguishes a refusal by its typed `refusal` field, and text starts with `REFUSED:`.
+This is an architecture gate, not the legacy contract policy validator.
+Baseline, amendment, provenance graph and policy-edit operations refuse rather than disappear.
+
+`report --core-only --json` gives the verdict frame as JSON. Use `--text` for the text summary.
+Neither form is a complete `architecture.json` or HTML report.
+Full reports, saved reports, report projections and `explore` refuse with a named cause and exit 2.
+Core-only `check` always refuses: its mandatory expectation, lock, Git and host checks need #1103.
+Run without `--core-only` for these forms. Existing `--native-core` stage 1 remains available.
+Do not combine the two switches. No core-only failure falls back to Python.
+
+The installed binary lives in `archkeel/_native` with its SHA-256 file.
+A source checkout uses `native/target/release/archkeel-core`, or its debug build.
+Build it with `cargo build --release -p archkeel-core` from `native/`.
+The existing 1 GiB repository survey includes build output; a large built checkout can refuse.
+The scan reads Git through the fixed system executable, not PATH. Missing Git is a named refusal.
+
 ## Phase timings
 
 `archkeel report --native-core` (or `ARCHKEEL_NATIVE_CORE=1`) also runs the Rust core

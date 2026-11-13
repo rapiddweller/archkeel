@@ -16,6 +16,13 @@ Archkeel observes one static snapshot, not runtime behavior, data flow, performa
 or responsibility fulfillment. A rationale proves recorded intent, not truth.
 Determinism is measured for a machine/runtime, not across every platform.
 
+## Core-only Git execution (F4; slice 5)
+
+Core-only uses fixed system Git, but `git status` still reads the scanned repository's `.git/config`.
+A configured `filter.<x>.clean` can execute a command during status. Do not scan untrusted Git configuration.
+Disabling repository-configured execution is deferred to slice 5; the fixed executable does not prevent it.
+See [AD-422](architecture/decisions/ad-422-core-only-validation-renders-the-scan-frame.md).
+
 ## Explore without a contract
 
 `archkeel explore` detects one top-level Python package only. TypeScript and Dart need

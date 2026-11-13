@@ -111,7 +111,8 @@
 //! ```compile_fail,E0451
 //! use archkeel_report::{Decided, RuleReasons, Ruling, Status};
 //! fn ruling(decided: Decided) -> Ruling {
-//!     Ruling { decided, status: Status::Pass, rules: Default::default(),
+//!     Ruling { decided, protocol: "archkeel-core-frame-1", status: Status::Pass,
+//!         rules: Default::default(), details: Default::default(), unknown_kinds: Default::default(),
 //!         explained: Default::default(), violations: Default::default(),
 //!         beyond: Default::default(), scope: "complete".into(),
 //!         unsupported: RuleReasons::All(String::new()) }
@@ -185,6 +186,7 @@ mod problem;
 mod report;
 mod ruling;
 mod status;
+mod violation_detail;
 mod why;
 
 pub use build_error::BuildError;

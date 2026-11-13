@@ -78,7 +78,8 @@ fn a_complete_run_whose_rules_pass_writes_pass_with_the_run_proof() {
         .is_some_and(|pass| pass.of(model.root())));
     assert_eq!(
         frame(&ruling),
-        json!({"status": "PASS", "scope": "complete", "explained": {}, "violations": {},
+        json!({"protocol": "archkeel-core-frame-1", "status": "PASS", "scope": "complete", "explained": {}, "violations": {},
+               "details": {}, "unknown_kinds": {},
                "beyond": {},
                "rules": {"ASSIGNMENT": ["complete_assignment", "PASS"],
                          "LAYOUT": ["root_layout", "PASS"]}})

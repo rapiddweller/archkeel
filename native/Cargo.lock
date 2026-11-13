@@ -57,6 +57,7 @@ dependencies = [
  "archkeel-collect",
  "archkeel-contract",
  "archkeel-eval",
+ "archkeel-facts",
  "archkeel-model",
  "archkeel-report",
  "archkeel-store",

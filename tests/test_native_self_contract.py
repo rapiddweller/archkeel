@@ -25,7 +25,7 @@ import pytest
 from collector_pin import pin_of
 from graph_report_support import commit_tree
 
-from archkeel import cli
+from archkeel.cli import legacy_bindings as cli
 from archkeel.cli import main
 
 ROOT = Path(__file__).parents[1]

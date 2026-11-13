@@ -31,7 +31,8 @@ use archkeel_model::{Cause, Reason, Unsupported};
 
 /// Why the evaluator left a rule UNKNOWN. The builder derives the reason of every other verdict
 /// from the `Decision`: PASS is `evaluated`, FAIL `violations`, a declaration `declaration`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum WhyUnknown {
     ScopeIncomplete,
     NoReceipt,

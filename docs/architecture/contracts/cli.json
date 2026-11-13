@@ -126,7 +126,19 @@
         "archkeel.cli.studio",
         "archkeel.cli.core_frame",
         "archkeel.cli.native_core",
-        "archkeel.cli.native_scan"
+        "archkeel.cli.native_scan",
+        "archkeel.cli.core_only",
+        "archkeel.cli.core_json",
+        "archkeel.cli.core_evidence",
+        "archkeel.cli.core_binary",
+        "archkeel.cli.legacy_bindings",
+        "archkeel.cli.legacy_output",
+        "archkeel.cli.output_path",
+        "archkeel.cli.legacy_parser",
+        "archkeel.cli.legacy_parser_base",
+        "archkeel.cli.legacy_policy_options",
+        "archkeel.cli.legacy_reports_options",
+        "archkeel.cli.legacy_tools_options"
       ],
       "packages": []
     }
@@ -325,9 +337,9 @@
         {
           "id": "CLI-INPUT-Parser",
           "kind": "class",
-          "qualified_name": "archkeel.cli._Parser",
+          "qualified_name": "archkeel.cli.legacy_parser_base._Parser",
           "language": "python",
-          "parent_id": "CLI-INPUT-composition",
+          "parent_id": "CLI-INPUT-parser-base",
           "presence": "planned",
           "responsibilities": [
             "Own the typed CLI parsing entry point and preserve argparse's ordinary Namespace API."
@@ -337,9 +349,19 @@
           ]
         },
         {
+          "id": "CLI-INPUT-parser-base",
+          "kind": "module",
+          "qualified_name": "archkeel.cli.legacy_parser_base",
+          "language": "python",
+          "parent_id": "CLI-COMPOSITION",
+          "presence": "planned",
+          "responsibilities": ["Own the legacy typed parser entry without loading an engine."],
+          "provenance": ["docs/architecture/decisions/ad-422-core-only-validation-renders-the-scan-frame.md"]
+        },
+        {
           "id": "CLI-INPUT-Parser.parse_cli_args",
           "kind": "method",
-          "qualified_name": "archkeel.cli._Parser.parse_cli_args",
+          "qualified_name": "archkeel.cli.legacy_parser_base._Parser.parse_cli_args",
           "language": "python",
           "parent_id": "CLI-INPUT-Parser",
           "presence": "planned",

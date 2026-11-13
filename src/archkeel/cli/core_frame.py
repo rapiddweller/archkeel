@@ -1,22 +1,35 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-390: read the frame of `archkeel-core check` into typed values, and fail closed.
+"""Read one core frame into typed values and fail closed (AD-390, AD-422).
 
-The reader accepts exactly one JSON object with each field of the frame and no other field. It
-refuses a missing field, an unknown field, an unknown status word, a status PASS with zero rules,
-a rule status without its explaining row, a second document after the frame, and an exit code
-that does not fit the frame (0 only without a named part, 3 only with one). A refused frame is a
-`CoreError`: the run then has no verdict, never a verdict of one side.
+Reject unknown fields or words, inconsistent rows, repeated keys, extra frames and wrong exits.
+A PASS needs a complete scope and a deciding rule. Refuse a frame with `CoreError`, never fallback.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
+import tomllib
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
+from pathlib import Path
 from typing import Final, TypeVar
+
+from .core_evidence import (
+    CollectionGap,
+    Location,
+    ViolationDetail,
+    _collection_gaps,
+    _details,
+    _locations,
+)
+from .core_json import CoreError as CoreError
+from .core_json import Gap as Gap
+from .core_json import GapKind as GapKind
+from .core_json import RequestMismatch, _count, _fields, _object, _text, _texts
 
 
 class Status(StrEnum):
@@ -25,6 +38,31 @@ class Status(StrEnum):
     PASS = "PASS"
     FAIL = "FAIL"
     UNKNOWN = "UNKNOWN"
+
+
+class RefusalKind(StrEnum):
+    CORE_ERROR = "core_error"
+    COLLECTION_REFUSED = "collection_refused"
+    REQUEST_MISMATCH = "request_mismatch"
+    INVALID_INPUT = "invalid_input"
+    IO_ERROR = "io_error"
+    INTERNAL_ERROR = "internal_error"
+
+
+class CoreCommand(StrEnum):
+    VALIDATE = "validate"
+    REPORT = "report"
+    CHECK = "check"
+    EXPLORE = "explore"
+
+
+class CheckKind(StrEnum):
+    LOCK = "accepted lock authentication"
+    RATCHETS = "measurement ratchets"
+    GUARDRAILS = "architecture guardrails"
+    SELECTED_CHANGES = "selected changes and empty declaration"
+    GIT = "Git order and accepted policy checks"
+    HOST = "host publication order"
 
 
 class RuleStatus(StrEnum):
@@ -36,33 +74,20 @@ class RuleStatus(StrEnum):
     DECLARATION = "DECLARATION"
 
 
-class GapKind(StrEnum):
-    """Why a part of a run has no decision of the core."""
-
-    PRODUCER_NOT_VERIFIED = "producer_not_verified"
-    REPLY_REFUSED = "reply_refused"
-    REPLY_ABSENT = "reply_absent"
-    RULE_KIND_NOT_PORTED = "rule_kind_not_ported"
-    BASE = "base"
-    INSIDE_CONTRACT_MISSING = "inside_contract_missing"
-    INSIDE_RULE = "inside_rule"
-    TREE_SCOPE = "tree_scope"
-    UML_TARGET = "uml_target"
-    SCOPE_PROOF = "scope_proof"
-    CONTRACT_REFUSED = "contract_refused"
-    SECTION = "section"
-    REPORT = "report"
-    OTHER = "other"
-    # The reasons of the shell: the core did not run on this run.
-    PYTHON_INCOMPLETE = "python_incomplete"
-    REPLIES = "replies"
-    EXTERNAL_COLLECTOR = "external_collector"
+class UnknownKind(StrEnum):
+    SCOPE_INCOMPLETE = "scope_incomplete"
+    NO_RECEIPT = "no_receipt"
+    UNDECIDED = "undecided"
+    OWNERSHIP_BLOCKER = "ownership_blocker"
     NO_DECIDED_RULE = "no_decided_rule"
-    # AD-406: the scan request: the core did not run the collector, or it derived another
-    # request than the shell sent to its collector.
-    COLLECT = "collect"
-    REQUEST_DIFFERS = "request_differs"
-    PARSE_WORK_LIMIT = "parse_work_limit"
+
+
+class _ScopeWord(StrEnum):
+    COMPLETE = "complete"
+
+
+class FrameProtocol(StrEnum):
+    FRAME = "archkeel-core-frame-1"
 
 
 class Switch(StrEnum):
@@ -77,6 +102,7 @@ class _ContractRead(StrEnum):
     RULES = "rules"
     MISSING = "missing"
     REFUSED = "refused"
+    NOT_READ = "not_read"
 
 
 class _ReplyRead(StrEnum):
@@ -112,6 +138,11 @@ _FIELDS: Final = frozenset(
         "self_test",
     }
 )
+FRAME_PROTOCOL: Final = FrameProtocol.FRAME
+STAGE_ONE_VARIABLE: Final = "ARCHKEEL_NATIVE_CORE"
+_EVIDENCE_FIELDS: Final = frozenset(
+    {"protocol", "details", "locations", "unknown_kinds", "collection_gaps", "contract_digest"}
+)
 _UNSUPPORTED: Final = frozenset({"rules", "sections", "report"})
 _SELF_TEST: Final = frozenset({"contract", "reply"})
 # AD-406: the self-test of a scan frame has the `collect` part too.
@@ -135,33 +166,10 @@ _GAP_PREFIXES: Final[tuple[tuple[str, GapKind], ...]] = (
 )
 
 
-class CoreError(Exception):
-    """The core binary is missing or not verified, failed, or wrote a frame that the shell
-    refuses, or the two engines differ. The run then gives no verdict (exit 2)."""
-
-    def __init__(self, message: str, *, gap: Gap | None = None) -> None:
-        Exception.__init__(self, message)
-        self.gap = gap
-
-    def __str__(self) -> str:
-        if self.gap is not None:
-            return f"core refusal [{self.gap.kind}]: {self.gap.subject}: {self.gap.reason}"
-        return Exception.__str__(self)
-
-
 @dataclass(frozen=True, slots=True)
 class RuleVerdict:
     kind: str
     status: RuleStatus
-
-
-@dataclass(frozen=True, slots=True)
-class Gap:
-    """One part that the core names and does not decide."""
-
-    kind: GapKind
-    subject: str
-    reason: str
 
 
 def read_refusal(stderr: bytes) -> Gap | None:
@@ -192,11 +200,23 @@ class CoreFrame:
     missing: tuple[str, ...]
     # AD-406: the JSON text of the collection request that the core derived for a scan request.
     derived: str | None = None
+    details: Mapping[str, tuple[ViolationDetail, ...]] = field(default_factory=dict)
+    locations: Mapping[str, Location] = field(default_factory=dict)
+    unknown_kinds: Mapping[str, UnknownKind] = field(default_factory=dict)
+    collection_gaps: tuple[CollectionGap, ...] = ()
 
     @property
     def decided(self) -> bool:
         """True when the frame names no part: the core decides every rule of the run."""
         return not self.gaps and not self.missing
+
+    @property
+    def complete_scope(self) -> bool:
+        return self.scope == _ScopeWord.COMPLETE
+
+    @property
+    def code_digest(self) -> str:
+        return self.engine.removeprefix("archkeel-core ")
 
 
 def gap_kind(reason: str) -> GapKind:
@@ -204,28 +224,6 @@ def gap_kind(reason: str) -> GapKind:
         if reason.startswith(prefix):
             return kind
     return GapKind.OTHER
-
-
-def _object(value: object, where: str) -> dict[str, object]:
-    if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
-        raise CoreError(f"the core frame field {where} is not an object")
-    return {str(key): item for key, item in value.items()}
-
-
-def _text(value: object, where: str) -> str:
-    if not isinstance(value, str):
-        raise CoreError(f"the core frame field {where} is not a text")
-    return value
-
-
-def _texts(value: object, where: str) -> dict[str, str]:
-    return {key: _text(item, f"{where}.{key}") for key, item in _object(value, where).items()}
-
-
-def _count(value: object, where: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-        raise CoreError(f"the core frame field {where} is not a count")
-    return value
 
 
 def _word(kind: type[_Word], value: object, where: str) -> _Word:
@@ -245,16 +243,6 @@ def _one(value: object, where: str, tags: type[_Word]) -> tuple[_Word, object]:
     return _word(tags, tag, where), item
 
 
-def _fields(value: object, where: str, names: frozenset[str]) -> dict[str, object]:
-    """An object with exactly these fields."""
-    found = _object(value, where)
-    if missing := sorted(names - found.keys()):
-        raise CoreError(f"the core frame field {where} has no field {', '.join(missing)}")
-    if extra := sorted(found.keys() - names):
-        raise CoreError(f"the core frame field {where} has an unknown field {', '.join(extra)}")
-    return found
-
-
 def _unique(pairs: list[tuple[str, object]]) -> dict[str, object]:
     """One JSON object without a repeated key (#1099): a repeated rule id must not let the last
     status win, so the frame is hostile."""
@@ -272,11 +260,12 @@ def _document(stdout: bytes) -> dict[str, object]:
     try:
         text = stdout.decode("utf-8").strip()
         value, end = json.JSONDecoder(object_pairs_hook=_unique).raw_decode(text)
-    except (UnicodeDecodeError, ValueError) as error:
+    except (UnicodeDecodeError, ValueError, RecursionError) as error:
         raise CoreError(f"the core frame is not JSON: {error}") from error
     if text[end:].strip():
         raise CoreError("the core wrote more than one frame")
-    return _fields(value, "frame", _FIELDS)
+    found = _object(value, "frame")
+    return _fields(found, "frame", _FIELDS | (_EVIDENCE_FIELDS & found.keys()))
 
 
 def _rules(frame: Mapping[str, object]) -> dict[str, RuleVerdict]:
@@ -291,6 +280,9 @@ def _rules(frame: Mapping[str, object]) -> dict[str, RuleVerdict]:
 
 def _contract_gaps(value: object) -> tuple[list[Gap], tuple[str, ...]]:
     tag, found = _one(value, "self_test.contract", _ContractRead)
+    if tag is _ContractRead.NOT_READ:
+        _text(found, "self_test.contract.not_read")
+        return [], ()
     if tag is _ContractRead.MISSING:
         if not isinstance(found, list) or not found:
             raise CoreError("the core frame field self_test.contract.missing is not a path list")
@@ -362,20 +354,77 @@ def _explained(
             raise CoreError(f"the core frame rule {rule} is {verdict.status} without its row")
 
 
-def read_frame(stdout: bytes, exit_code: int, *, scan: bool = False) -> CoreFrame:
+def _bind_request(frame: Mapping[str, object], request: Mapping[str, object], derived: str) -> None:
+    """Bind the response to the requested root and exact contract bytes, not a second verdict."""
+    root = Path(_text(request["root"], "request.root")).resolve()
+    if request.get("discover_root") is True:
+        root = next((path for path in (root, *root.parents) if (path / ".git").exists()), root)
+    collected = _object(json.loads(derived), "collect.request")
+    snapshot = _object(collected.get("snapshot"), "collect.request.snapshot")
+    if _text(snapshot.get("root"), "snapshot.root") != str(root):
+        raise RequestMismatch("the core frame answers another root")
+    config = (root / _text(request["config"], "request.config")).resolve(strict=True)
+    if not config.is_relative_to(root):
+        raise RequestMismatch("the configuration leaves the requested root")
+    with config.open("rb") as stream:
+        raw = stream.read((1 << 20) + 1)
+    if len(raw) > 1 << 20:
+        raise RequestMismatch("the configuration exceeds the core byte limit")
+    scan = _object(tomllib.loads(raw.decode("utf-8")).get("scan"), "scan")
+    contract = (root / _text(scan.get("contract"), "scan.contract")).resolve(strict=True)
+    if not contract.is_relative_to(root):
+        raise RequestMismatch("the contract leaves the requested root")
+    with contract.open("rb") as stream:
+        payload = stream.read((64 << 20) + 1)
+    if len(payload) > 64 << 20:
+        raise RequestMismatch("the contract exceeds the core byte limit")
+    if frame.get("contract_digest") != hashlib.sha256(payload).hexdigest():
+        raise RequestMismatch("the core frame contract digest differs from the requested contract")
+
+
+def read_frame(
+    stdout: bytes,
+    exit_code: int,
+    *,
+    scan: bool = False,
+    require_protocol: bool = False,
+    request: Mapping[str, object] | None = None,
+) -> CoreFrame:
     """The typed frame of one run of the core, or `CoreError`. `scan` reads the frame of a scan
     request, whose self-test has the `collect` part (AD-406)."""
     if exit_code not in (DECIDED_EXIT, NAMES_A_GAP_EXIT):
-        raise CoreError(f"the core exits with {exit_code}")
+        signal = f" (signal {-exit_code})" if exit_code < 0 else ""
+        raise CoreError(f"the core exits with {exit_code}{signal}")
     frame = _document(stdout)
+    _word(
+        FrameProtocol,
+        frame.get("protocol", None if require_protocol else FRAME_PROTOCOL),
+        "protocol",
+    )
     status = _word(Status, frame["status"], "status")
     rules = _rules(frame)
     counts = _object(frame["violations"], "violations")
     violations = {rule: _count(count, f"violations.{rule}") for rule, count in counts.items()}
     explained = _texts(frame["explained"], "explained")
     _explained(rules, violations, explained)
+    details = _details(frame.get("details", {}))
+    locations = _locations(frame.get("locations", {}))
+    unknown_kinds = {
+        rule: _word(UnknownKind, kind, "unknown_kinds")
+        for rule, kind in _object(frame.get("unknown_kinds", {}), "unknown_kinds").items()
+    }
+    if require_protocol:
+        if unknown_kinds.keys() != explained.keys():
+            raise CoreError("the core frame UNKNOWN rules lack their typed cause kinds")
+        for rule, count in violations.items():
+            if len(details.get(rule, ())) != count:
+                raise CoreError(f"the core frame FAIL rule {rule} lacks its violation details")
+    if not details.keys() <= violations.keys():
+        raise CoreError("the core frame gives violation details to a rule without violations")
     _object(frame["sections"], "sections")
     gaps, missing, derived = _gaps(frame, scan)
+    if request is not None and derived is not None:
+        _bind_request(frame, request, derived)
     beyond = _texts(frame["beyond"], "beyond")
     passing = {rule for rule, verdict in rules.items() if verdict.status is RuleStatus.PASS}
     if not passing.issuperset(beyond):
@@ -383,6 +432,8 @@ def read_frame(stdout: bytes, exit_code: int, *, scan: bool = False) -> CoreFram
     engine = _text(frame["engine"], "engine")
     if status is Status.PASS and not rules:
         raise CoreError("the core frame is PASS with zero rules")
+    if status is Status.PASS and frame["scope"] != _ScopeWord.COMPLETE:
+        raise CoreError("the core frame is PASS without a complete scope")
     # A run PASS needs each row PASS or a declaration, and one PASS row (AD-390, review S1).
     verdicts = {verdict.status for verdict in rules.values()}
     if status is Status.PASS and not verdicts <= {RuleStatus.PASS, RuleStatus.DECLARATION}:
@@ -405,4 +456,8 @@ def read_frame(stdout: bytes, exit_code: int, *, scan: bool = False) -> CoreFram
         gaps=gaps,
         missing=missing,
         derived=derived,
+        details=details,
+        locations=locations,
+        unknown_kinds=unknown_kinds,
+        collection_gaps=_collection_gaps(frame.get("collection_gaps", [])),
     )

@@ -8,17 +8,11 @@ use std::fs;
 use std::path::Path;
 
 use super::*;
-use crate::tests::{copy, identity};
+use crate::tests::{commit, copy, identity};
 
 pub(super) fn repository() -> std::path::PathBuf {
     let root = crate::repository::tests::scratch("rust");
     fs::create_dir_all(root.join("src")).unwrap();
-    fs::create_dir_all(root.join(".git")).unwrap();
-    fs::write(
-        root.join(".git/HEAD"),
-        "0123456789abcdef0123456789abcdef01234567",
-    )
-    .unwrap();
     fs::write(
         root.join("Cargo.toml"),
         "[package]\nname = \"example\"\nversion = \"0.0.0\"\n",
@@ -27,6 +21,7 @@ pub(super) fn repository() -> std::path::PathBuf {
     fs::write(root.join("src/lib.rs"), "pub fn example() {}\n").unwrap();
     fs::write(root.join("archkeel.toml"), "[scan]\nlanguage = \"rust\"\nroots = [\".\"]\nnamespace = \"app\"\ncontract = \"contract.json\"\n").unwrap();
     fs::write(root.join("contract.json"), "{}").unwrap();
+    commit(&root);
     root
 }
 
@@ -87,9 +82,7 @@ fn the_native_workspace_collects_without_a_shell_reply() {
             fs::copy(entry.path(), target).unwrap();
         }
     }
-    fs::create_dir_all(root.join(".git")).unwrap();
-    let head = "0123456789abcdef0123456789abcdef01234567";
-    fs::write(root.join(".git/HEAD"), head).unwrap();
+    commit(&root);
     let identity = Identity {
         config: "native/archkeel.toml",
         ..identity(root.to_str().unwrap())

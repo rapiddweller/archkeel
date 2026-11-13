@@ -24,10 +24,11 @@ const LIMIT: u64 = 1 << 30;
 /// The frame of the ruling of the engine, and the reason of each rule without a decision (`*`
 /// for one reason of the whole contract).
 pub(crate) fn ruled(engine: &mut Engine, named: Named) -> (Value, BTreeMap<String, String>) {
-    let Answer::Rules(Ok(ruling)) = engine.answer(Request::Rules(named)) else {
+    let Answer::Rules(ruling) = engine.answer(Request::Rules(named)) else {
         assert_eq!("no ruling", "a ruling");
         return (Value::Null, BTreeMap::new());
     };
+    let ruling = ruling.expect("a consistent ruling");
     let reasons = match ruling.unsupported() {
         RuleReasons::Each(each) => each.clone(),
         RuleReasons::All(all) => BTreeMap::from([("*".to_owned(), all.clone())]),

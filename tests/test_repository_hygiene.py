@@ -139,12 +139,11 @@ ALLOWED_LONG_FUNCTIONS = {
         "Sequences baseline, contract, observation and artifact decisions; the "
         "branches are the validation protocol."
     ),
-    ("src/archkeel/cli/__init__.py::build_parser"): (
-        "Declarative argparse setup, one subparser per command; help text is the length."
-    ),
-    ("src/archkeel/cli/__init__.py::main"): (
-        "Composition root; one error boundary maps every command to a result."
-    ),
+    **{
+        f"src/archkeel/cli/legacy_{name}_options.py::add_{name}": "Argparse help declarations."
+        for name in ("reports", "policy", "tools")
+    },
+    "src/archkeel/cli/__init__.py::_legacy_main": "The existing command error boundary.",
     ("src/archkeel/ir/codec_contract.py::parse_contract"): (
         "Field lists plus one parser per kind; the duplicate-id check spans all groups."
     ),

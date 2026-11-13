@@ -37,6 +37,7 @@ from archkeel.ir.diagnostics import Diagnostic, DiagnosticKind
 from archkeel.ir.model import RunResult
 
 from .core_frame import (
+    STAGE_ONE_VARIABLE,
     CoreError,
     CoreFrame,
     Gap,
@@ -50,7 +51,7 @@ from .native_scan import Scanned, exchange, scan
 from .observe import NATIVE_STORE, verified_binary
 
 CORE_BINARY: Final = "archkeel-core"
-SWITCH_VARIABLE: Final = "ARCHKEEL_NATIVE_CORE"
+SWITCH_VARIABLE: Final = STAGE_ONE_VARIABLE
 PROTOCOL: Final = "archkeel-core-check-2"
 # AD-379: the bounds of the inside contracts that the shell reads for the core
 # (`native/core/src/contract.rs`). A chain of 900 mounts needs 900 rounds and a last one.
