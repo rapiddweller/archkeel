@@ -40,7 +40,7 @@ def site(node: ast.AST) -> list[Any]:
     return [type(node).__name__, *s.location(node)]
 
 
-def lexical(module: s.ParsedModule) -> dict[str, Any]:
+def lexical(module: s.ParsedModule, inputs: dict[str, Any] | None = None) -> dict[str, Any]:
     index = LexicalScopes.for_module(module)
     scopes = {id(scope): scope for scope in index.by_node.values()}
     scopes[id(index.root)] = index.root
@@ -48,14 +48,16 @@ def lexical(module: s.ParsedModule) -> dict[str, Any]:
         while scope.parent is not None:
             scope = scope.parent
             scopes[id(scope)] = scope
+    ordered=sorted(scopes.values(),key=lambda scope:(scope.qualified_name,s.location(scope.node)[0],s.location(scope.node)[2]))
+    references={id(scope):position for position,scope in enumerate(ordered)}
     rows = [
         {"qualified_name": scope.qualified_name, "definition_id": scope.definition_id,
-         "parent": scope.parent.qualified_name if scope.parent else None,
+         "parent": references[id(scope.parent)] if scope.parent else None,
          "table": scope.table is not None, "inlined": scope.inlined,
          "local_names": sorted(scope.local_names), "blocked_names": sorted(scope.blocked_names),
          "node": site(scope.node),
          "bindings": {name: [site(n) for n in nodes] for name, nodes in scope.bindings.items()}}
-        for scope in scopes.values()
+        for scope in ordered
     ]
     names = []
     for node in ast.walk(module.tree):
@@ -64,15 +66,53 @@ def lexical(module: s.ParsedModule) -> dict[str, Any]:
         binding = index.lookup(node, node.id)
         names.append({
             "line": node.lineno, "column": node.col_offset, "name": node.id,
-            "scope": index.by_node[node].qualified_name,
-            "binding": {"owner": binding.owner.qualified_name if binding.owner else None,
+            "scope": references[id(index.by_node[node])],
+            "binding": {"owner": references[id(binding.owner)] if binding.owner else None,
                         "targets": list(binding.targets), "kind": binding.kind.value,
                         "uncertain": binding.uncertain},
             "receiver": index.receiver_class(binding, node.id),
         })
-    return {"scopes": sorted(rows, key=lambda row: (row["qualified_name"], row["node"][1], row["node"][3])),
+    by_node = []
+    by_site = {}
+    for node,scope in index.by_node.items():
+        if not source_node(node,index.parents):
+            continue
+        by_node.append([site(node),references[id(scope)]])
+        by_site[(type(node).__name__,*s.location(node)[::2])] = node
+    queries = []
+    for query in (inputs or {}).get("queries",[]):
+        node=by_site[(query["kind"],query["line"],query["column"])]
+        binding=index.lookup(node,query["name"])
+        queries.append({**query,"binding":{"owner":references[id(binding.owner)] if binding.owner else None,
+                         "targets":list(binding.targets),"kind":binding.kind.value,"uncertain":binding.uncertain},
+                        "receiver":index.receiver_class(binding,query["name"])})
+    return {"scopes": rows,
             "names": sorted(names, key=lambda row: (row["line"], row["column"])),
+            "by_node":sorted(by_node,key=lambda row:row[0]),"queries":queries,
             "generic_header_numeric_lines": sorted(index.generic_header_numeric_lines)}
+
+
+def source_node(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> bool:
+    parent=parents.get(node)
+    kind=type(node).__name__
+    if kind in {"FormattedValue","Interpolation"}:
+        return False
+    if kind=="Constant" and type(parent).__name__ in {"JoinedStr","TemplateStr"}:
+        return False
+    if kind=="JoinedStr" and type(parent).__name__ in {"FormattedValue","Interpolation"}:
+        return False
+    return isinstance(node,(ast.Module,ast.stmt,ast.expr,ast.excepthandler,ast.arg,ast.keyword,ast.pattern))
+
+
+def query_inputs(module: s.ParsedModule) -> dict[str, Any]:
+    index=LexicalScopes.for_module(module)
+    queries=[]
+    for node in index.by_node:
+        if source_node(node,index.parents):
+            line,_,column=s.location(node)
+            queries.extend({"kind":type(node).__name__,"line":line,"column":column,"name":name}
+                           for name in ("x","str","bytes","self","T","absent"))
+    return {"file":module.rel_path,"queries":queries}
 
 
 def typing_signals(module: s.ParsedModule, inputs: dict[str, Any]) -> dict[str, Any]:

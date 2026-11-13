@@ -17,8 +17,10 @@ use super::scan::{Result, Scan};
 use crate::module::{definition::Def, Module};
 use crate::pyast::Node;
 
+mod headers;
 mod lookup;
 mod nested;
+mod summary;
 mod visit;
 
 #[derive(Clone, Copy, PartialEq)]
@@ -41,11 +43,21 @@ struct Scope<'a> {
     private_context: bool,
     inlined: bool,
     locals: BTreeSet<String>,
+    compiler_locals: BTreeSet<String>,
+    compiler_parent: Option<usize>,
     globals: BTreeSet<String>,
     nonlocals: BTreeSet<String>,
     seen: BTreeSet<String>,
     blocked: BTreeSet<String>,
     bindings: BTreeMap<String, Vec<Site<'a>>>,
+    summaries: BTreeMap<String, Summary>,
+}
+
+struct Summary {
+    targets: Vec<String>,
+    kind: String,
+    uncertain: bool,
+    earliest: Option<(i64, i64)>,
 }
 
 #[derive(Clone)]
@@ -58,6 +70,8 @@ struct Query<'a> {
     node: &'a Expr,
     scope: usize,
 }
+
+type SiteKey = (&'static str, i64, i64, i64);
 
 struct Index<'a> {
     module: &'a Module,
@@ -72,6 +86,9 @@ struct Index<'a> {
     generator_ranges: HashMap<*const Expr, TextRange>,
     tokens: crate::parse::fact_tokens::Tokens,
     hidden_tables: usize,
+    nodes: Vec<(SiteKey, usize)>,
+    by_site: HashMap<(&'static str, i64, i64), usize>,
+    inline_scopes: Vec<usize>,
 }
 
 pub(super) fn collect(module: &Module, scan: &mut Scan, input: &Value) -> Result<Value> {
@@ -88,19 +105,25 @@ pub(super) fn collect(module: &Module, scan: &mut Scan, input: &Value) -> Result
         generator_ranges: HashMap::new(),
         tokens: crate::parse::fact_tokens::tokens(module.text(), &mut scan.work)?,
         hidden_tables: 0,
+        nodes: Vec::new(),
+        by_site: HashMap::new(),
+        inline_scopes: Vec::new(),
     };
     for n in &module.tree.body {
         scan.tick(1)?;
-        if let Stmt::ImportFrom(n) = n {
-            if n.module
-                .as_ref()
-                .is_some_and(|n| n.as_str() == "__future__")
-            {
-                for a in &n.names {
-                    scan.tick(1)?;
-                    index.future |= a.name.as_str() == "annotations";
-                }
-            }
+        let Stmt::ImportFrom(n) = n else {
+            continue;
+        };
+        if !n
+            .module
+            .as_ref()
+            .is_some_and(|n| n.as_str() == "__future__")
+        {
+            continue;
+        }
+        for a in &n.names {
+            scan.tick(1)?;
+            index.future |= a.name.as_str() == "annotations";
         }
     }
     if let Some(aliases) = input.get("aliases") {
@@ -137,15 +160,19 @@ pub(super) fn collect(module: &Module, scan: &mut Scan, input: &Value) -> Result
         private_context: false,
         inlined: false,
         locals: BTreeSet::new(),
+        compiler_locals: BTreeSet::new(),
+        compiler_parent: None,
         globals: BTreeSet::new(),
         nonlocals: BTreeSet::new(),
         seen: BTreeSet::new(),
         blocked: BTreeSet::new(),
         bindings: BTreeMap::new(),
+        summaries: BTreeMap::new(),
     });
+    index.by_site.insert(("Module", 1, 0), 0);
     index.body(scan, &module.tree.body, 0, false, 0)?;
     index.bind(scan)?;
-    index.dump(scan)
+    index.dump(scan, input)
 }
 
 fn text<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
@@ -164,6 +191,9 @@ impl<'a> Index<'a> {
     }
 
     fn generator_range(&mut self, scan: &mut Scan, expr: &'a Expr) -> Result<TextRange> {
+        if let Some(range) = self.generator_ranges.get(&std::ptr::from_ref(expr)) {
+            return Ok(*range);
+        }
         let range = expr.range();
         if !matches!(expr, Expr::Generator(_)) {
             return Ok(range);
@@ -290,6 +320,10 @@ impl<'a> Index<'a> {
             _ => self.scope(parent)?.private_context,
         };
         let id = self.scopes.len();
+        let compiler_parent = (inlined && self.hidden_tables == 0).then_some(compiler_parent);
+        if compiler_parent.is_some() {
+            self.inline_scopes.push(id);
+        }
         self.scopes.push(Scope {
             node: Some(node),
             kind,
@@ -300,11 +334,14 @@ impl<'a> Index<'a> {
             private_context,
             inlined,
             locals: BTreeSet::new(),
+            compiler_locals: BTreeSet::new(),
+            compiler_parent,
             globals: BTreeSet::new(),
             nonlocals: BTreeSet::new(),
             seen: BTreeSet::new(),
             blocked: BTreeSet::new(),
             bindings: BTreeMap::new(),
+            summaries: BTreeMap::new(),
         });
         Ok(id)
     }

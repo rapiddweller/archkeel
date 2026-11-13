@@ -1,0 +1,39 @@
+{
+  "empty": {"count": 0, "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"},
+  "lexical": {
+    "11": {
+      "src:direct": {"count": 11, "sha256": "50618c86ea68578de8f9d132fae4a71ea2a710028cf0b9dff39c40340ca7c967"},
+      "fastapi:repo": {"count": 4, "sha256": "f0acb8c854c2e5a03f616481dd850ff9affa89504d59b857b946ee7ece67cd24"},
+      "pydantic:repo": {"count": 12, "sha256": "f5b98fbaeca1cddd5789c37d58fd2e88c4395e2d077a80e13caa6356848cde26"},
+      "fastapi:direct": {"count": 4, "sha256": "21aeee3c1aaa5bcbbc886e8fa09b2df46dac43bbc28c9f70c2efb9908bd50d74"},
+      "pydantic:direct": {"count": 12, "sha256": "5a64c4fe53b39e0172f523961ea60c6831e3cc059a4be1753eba4b66bfc33f1c"},
+      "private aggregate": {"count": 1, "sha256": "d4454e57aca0e67b34b0693646dc9adf648a78b0c21405e1c7f18b9f40778901"}
+    },
+    "12": {
+      "src:direct": {"count": 6, "sha256": "0ce17825fe00140cabf6d862c6d6438675a2b177af7026dbcc098ef1221ebbd7"},
+      "pydantic:repo": {"count": 9, "sha256": "ce21b6c3898e224098bc346c80f8ac773744eedb810cfbb298aaa7217cdc31bf"},
+      "pydantic:direct": {"count": 9, "sha256": "b59f6b7f4460e9b7871c8980f5606fbff2db7f7265bf142c9629980631baa526"}
+    },
+    "13": {
+      "src:direct": {"count": 6, "sha256": "0ce17825fe00140cabf6d862c6d6438675a2b177af7026dbcc098ef1221ebbd7"},
+      "pydantic:repo": {"count": 9, "sha256": "ce21b6c3898e224098bc346c80f8ac773744eedb810cfbb298aaa7217cdc31bf"},
+      "pydantic:direct": {"count": 9, "sha256": "b59f6b7f4460e9b7871c8980f5606fbff2db7f7265bf142c9629980631baa526"}
+    },
+    "14": {
+      "src:direct": {"count": 6, "sha256": "0ce17825fe00140cabf6d862c6d6438675a2b177af7026dbcc098ef1221ebbd7"},
+      "pydantic:repo": {"count": 9, "sha256": "ce21b6c3898e224098bc346c80f8ac773744eedb810cfbb298aaa7217cdc31bf"},
+      "pydantic:direct": {"count": 9, "sha256": "b59f6b7f4460e9b7871c8980f5606fbff2db7f7265bf142c9629980631baa526"}
+    }
+  },
+  "typing-signals": {
+    "fixtures:direct": {"count": 1, "sha256": "0fc0e4b8bba518e47ec2e0456a92cba0552fc0aa19918fc20d4217e643aaa91e"},
+    "fastapi:repo": {"count": 3, "sha256": "9bdde9854c1c1d2ee2a9b51b6e684074de7aa083a86401fc397c7e51c6a045af"},
+    "pydantic:repo": {"count": 7, "sha256": "c0e91b3d0ed919345795a703e36e39d7b5bf848ffedfc4f328f49bbb935c01eb"},
+    "fastapi:direct": {"count": 3, "sha256": "1fab666e526776c0f9e1bc6f866e4646f022a1a38fe4f284721ea4ee2dd5404d"},
+    "pydantic:direct": {"count": 7, "sha256": "e064a737ceada8260290371d2d2fe6a5150134f9f9e48e85a9ac87de06f52f59"}
+  },
+  "state": {
+    "pydantic:repo": {"count": 1, "sha256": "10491f59a8ebdef05b7492e93851ebc948e86a8f08a820e353d45245be89d814"},
+    "pydantic:direct": {"count": 1, "sha256": "e57e800637b4a068df75fbe13c043b95522bff3101e521e2dc55b538c74d1b87"}
+  }
+}

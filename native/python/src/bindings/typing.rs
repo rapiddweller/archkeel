@@ -207,15 +207,7 @@ impl<'a> Collector<'a> {
         if depth > 100 {
             return Err("typing signal depth limit exceeded (100 levels)".into());
         }
-        if let Node::Stmt(stmt) = &node {
-            if !matches!(stmt, Stmt::FunctionDef(_) | Stmt::ClassDef(_)) {
-                let loc = self.module.location(stmt);
-                for line in loc.line..=loc.end_line {
-                    scan.tick(1usize.saturating_add(scope.len()))?;
-                    self.statements.insert(line, (scope.into(), stmt));
-                }
-            }
-        }
+        self.statement_lines(scan, &node, scope)?;
         let mut owner = None;
         match &node {
             Node::Stmt(Stmt::AnnAssign(n)) => {
@@ -350,6 +342,21 @@ impl<'a> Collector<'a> {
                     data: fact(data),
                 },
             )?;
+        }
+        Ok(())
+    }
+
+    fn statement_lines(&mut self, scan: &mut Scan, node: &Node<'a>, scope: &str) -> Result<()> {
+        let Node::Stmt(stmt) = node else {
+            return Ok(());
+        };
+        if matches!(stmt, Stmt::FunctionDef(_) | Stmt::ClassDef(_)) {
+            return Ok(());
+        }
+        let loc = self.module.location(*stmt);
+        for line in loc.line..=loc.end_line {
+            scan.tick(1usize.saturating_add(scope.len()))?;
+            self.statements.insert(line, (scope.into(), stmt));
         }
         Ok(())
     }

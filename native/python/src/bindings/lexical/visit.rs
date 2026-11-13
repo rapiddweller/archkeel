@@ -2,11 +2,10 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Lexical visitor order, distinct from the compiler's binding ownership.
-
-use ruff_python_ast::{ExceptHandler, Pattern};
+//! Lexical visitation is separate from compiler name ownership.
 
 use super::*;
+use ruff_python_ast::{ExceptHandler, Pattern};
 
 impl<'a> Index<'a> {
     pub(super) fn visit(
@@ -23,80 +22,83 @@ impl<'a> Index<'a> {
             return Err("lexical depth limit exceeded (100 levels)".into());
         }
         self.touched.insert(scope);
-        match &node {
+        self.record_node(scan, &node, scope)?;
+        if self.scope_node(scan, &node, scope, conditional, compiled, depth)? {
+            return Ok(());
+        }
+        if let Node::Expr(Expr::Named(n)) = &node {
+            return self.named(scan, n, scope, conditional, compiled, depth);
+        }
+        self.binding_node(scan, &node, scope, conditional, compiled)?;
+        self.visit_children(scan, &node, scope, conditional, compiled, depth)
+    }
+
+    fn record_node(&mut self, scan: &mut Scan, node: &Node<'a>, scope: usize) -> Result<()> {
+        if let Node::Expr(expr @ Expr::Generator(_)) = node {
+            self.generator_range(scan, expr)?;
+        }
+        if let Some(site) = self.located_site(node) {
+            self.nodes.push((site, scope));
+            self.by_site.insert((site.0, site.1, site.3), scope);
+        }
+        Ok(())
+    }
+
+    fn scope_node(
+        &mut self,
+        scan: &mut Scan,
+        node: &Node<'a>,
+        scope: usize,
+        conditional: bool,
+        compiled: bool,
+        depth: usize,
+    ) -> Result<bool> {
+        match node {
             Node::Stmt(stmt @ Stmt::FunctionDef(n)) => {
-                return self.definition(scan, stmt, Def::Function(n), scope, conditional, depth)
+                self.definition(scan, stmt, Def::Function(n), scope, conditional, depth)?
             }
             Node::Stmt(stmt @ Stmt::ClassDef(n)) => {
-                return self.definition(scan, stmt, Def::Class(n), scope, conditional, depth)
+                self.definition(scan, stmt, Def::Class(n), scope, conditional, depth)?
             }
-            Node::Expr(Expr::Lambda(n)) => {
-                self.visit(
-                    scan,
-                    Node::Arguments(n.parameters.as_deref()),
-                    scope,
-                    conditional,
-                    compiled,
-                    depth + 1,
-                )?;
-                let child =
-                    self.enter(scan, node.clone(), scope, Kind::Function, "lambda", n.range)?;
-                // Lambda has no symbol identity and uses a location-qualified scope name.
-                let loc = self.module.location(n);
-                self.scope_mut(child)?.qualified = scan.owner(
-                    &self.scope(scope)?.qualified,
-                    &format!("<lambda:{}:{}>", loc.line, loc.column),
-                )?;
-                self.scope_mut(child)?.identity = None;
-                self.parameters(scan, n.parameters.as_deref(), child, conditional)?;
-                return self.visit(
-                    scan,
-                    Node::Expr(&n.body),
-                    child,
-                    conditional,
-                    compiled,
-                    depth + 1,
-                );
+            Node::Stmt(stmt @ Stmt::TypeAlias(_)) => {
+                self.type_alias(scan, stmt, scope, conditional, compiled, depth)?
             }
-            Node::Expr(Expr::ListComp(n)) => {
-                return self.comprehension(
-                    scan,
-                    node.clone(),
-                    &n.generators,
-                    &[&n.elt],
-                    scope,
-                    conditional,
-                    depth,
-                    "listcomp",
-                )
+            Node::Expr(expr @ Expr::Lambda(_)) => {
+                self.lambda(scan, expr, scope, conditional, compiled, depth)?
             }
-            Node::Expr(Expr::SetComp(n)) => {
-                return self.comprehension(
-                    scan,
-                    node.clone(),
-                    &n.generators,
-                    &[&n.elt],
-                    scope,
-                    conditional,
-                    depth,
-                    "setcomp",
-                )
-            }
-            Node::Expr(Expr::Generator(n)) => {
-                return self.comprehension(
-                    scan,
-                    node.clone(),
-                    &n.generators,
-                    &[&n.elt],
-                    scope,
-                    conditional,
-                    depth,
-                    "genexpr",
-                )
-            }
+            Node::Expr(Expr::ListComp(n)) => self.comprehension(
+                scan,
+                node.clone(),
+                &n.generators,
+                &[&n.elt],
+                scope,
+                conditional,
+                depth,
+                "listcomp",
+            )?,
+            Node::Expr(Expr::SetComp(n)) => self.comprehension(
+                scan,
+                node.clone(),
+                &n.generators,
+                &[&n.elt],
+                scope,
+                conditional,
+                depth,
+                "setcomp",
+            )?,
+            Node::Expr(Expr::Generator(n)) => self.comprehension(
+                scan,
+                node.clone(),
+                &n.generators,
+                &[&n.elt],
+                scope,
+                conditional,
+                depth,
+                "genexpr",
+            )?,
             Node::Expr(Expr::DictComp(n)) => {
                 let key = n.key.as_deref().ok_or("dict comprehension key unseen")?;
-                return self.comprehension(
+                self.comprehension(
                     scan,
                     node.clone(),
                     &n.generators,
@@ -105,80 +107,188 @@ impl<'a> Index<'a> {
                     conditional,
                     depth,
                     "dictcomp",
-                );
+                )?;
             }
-            Node::Stmt(Stmt::TypeAlias(n)) => {
-                self.visit(
-                    scan,
-                    Node::Expr(&n.name),
-                    scope,
-                    conditional,
-                    compiled,
-                    depth + 1,
-                )?;
-                if n.type_params.is_none() {
-                    self.hidden_tables += 1;
-                    let found = self.visit(
-                        scan,
-                        Node::Expr(&n.value),
-                        scope,
-                        conditional,
-                        compiled,
-                        depth + 1,
-                    );
-                    self.hidden_tables -= 1;
-                    return found;
-                }
-                let Expr::Name(name) = &*n.name else {
-                    return Err("type alias name unseen".into());
-                };
-                let param = self.type_parameters(
-                    scan,
-                    node.clone(),
-                    n.type_params.as_deref(),
-                    name.id.as_str(),
-                    scope,
-                    n.range,
-                )?;
-                if let Some(params) = &n.type_params {
-                    for p in &params.type_params {
-                        scan.tick(1)?;
-                        self.visit(
-                            scan,
-                            Node::TypeParam(p),
-                            param,
-                            conditional,
-                            false,
-                            depth + 1,
-                        )?;
-                    }
-                }
-                let alias = self.enter(
-                    scan,
-                    node.clone(),
-                    scope,
-                    Kind::Alias,
-                    name.id.as_str(),
-                    n.range,
-                )?;
-                let loc = self.module.location(n);
-                self.scope_mut(alias)?.qualified = scan.owner(
-                    &self.scope(scope)?.qualified,
-                    &format!("<type-alias:{}:{}:{}>", name.id, loc.line, loc.column),
-                )?;
-                self.scope_mut(alias)?.blocked = self.scope(param)?.blocked.clone();
-                if self.scope(scope)?.kind == Kind::Class {
-                    self.scope_mut(alias)?.table = false;
-                }
-                return self.visit(
-                    scan,
-                    Node::Expr(&n.value),
-                    alias,
-                    conditional,
-                    true,
-                    depth + 1,
-                );
+            _ => return Ok(false),
+        }
+        Ok(true)
+    }
+
+    fn lambda(
+        &mut self,
+        scan: &mut Scan,
+        expr: &'a Expr,
+        scope: usize,
+        conditional: bool,
+        compiled: bool,
+        depth: usize,
+    ) -> Result<()> {
+        let Expr::Lambda(n) = expr else {
+            return Err("lambda expression unseen".into());
+        };
+        self.visit(
+            scan,
+            Node::Arguments(n.parameters.as_deref()),
+            scope,
+            conditional,
+            compiled,
+            depth + 1,
+        )?;
+        let child = self.enter(
+            scan,
+            Node::Expr(expr),
+            scope,
+            Kind::Function,
+            "lambda",
+            n.range,
+        )?;
+        let loc = self.module.location(n);
+        self.scope_mut(child)?.qualified = scan.owner(
+            &self.scope(scope)?.qualified,
+            &format!("<lambda:{}:{}>", loc.line, loc.column),
+        )?;
+        self.scope_mut(child)?.identity = None;
+        self.parameters(scan, n.parameters.as_deref(), child, conditional)?;
+        self.visit(
+            scan,
+            Node::Expr(&n.body),
+            child,
+            conditional,
+            compiled,
+            depth + 1,
+        )
+    }
+
+    fn type_alias(
+        &mut self,
+        scan: &mut Scan,
+        stmt: &'a Stmt,
+        scope: usize,
+        conditional: bool,
+        compiled: bool,
+        depth: usize,
+    ) -> Result<()> {
+        let Stmt::TypeAlias(n) = stmt else {
+            return Err("type alias statement unseen".into());
+        };
+        let node = Node::Stmt(stmt);
+        self.visit(
+            scan,
+            Node::Expr(&n.name),
+            scope,
+            conditional,
+            compiled,
+            depth + 1,
+        )?;
+        let Some(params) = n.type_params.as_deref() else {
+            self.hidden_tables += 1;
+            let found = self.visit(
+                scan,
+                Node::Expr(&n.value),
+                scope,
+                conditional,
+                compiled,
+                depth + 1,
+            );
+            self.hidden_tables -= 1;
+            return found;
+        };
+        let Expr::Name(name) = &*n.name else {
+            return Err("type alias name unseen".into());
+        };
+        let param = self.type_parameters(
+            scan,
+            node.clone(),
+            Some(params),
+            name.id.as_str(),
+            scope,
+            n.range,
+        )?;
+        for p in &params.type_params {
+            scan.tick(1)?;
+            self.visit(
+                scan,
+                Node::TypeParam(p),
+                param,
+                conditional,
+                false,
+                depth + 1,
+            )?;
+        }
+        let alias = self.enter(scan, node, scope, Kind::Alias, name.id.as_str(), n.range)?;
+        let loc = self.module.location(n);
+        self.scope_mut(alias)?.qualified = scan.owner(
+            &self.scope(scope)?.qualified,
+            &format!("<type-alias:{}:{}:{}>", name.id, loc.line, loc.column),
+        )?;
+        self.scope_mut(alias)?.blocked = self.scope(param)?.blocked.clone();
+        if self.scope(scope)?.kind == Kind::Class {
+            self.scope_mut(alias)?.table = false;
+        }
+        self.visit(
+            scan,
+            Node::Expr(&n.value),
+            alias,
+            conditional,
+            true,
+            depth + 1,
+        )
+    }
+
+    fn named(
+        &mut self,
+        scan: &mut Scan,
+        n: &'a ruff_python_ast::ExprNamed,
+        scope: usize,
+        conditional: bool,
+        compiled: bool,
+        depth: usize,
+    ) -> Result<()> {
+        let mut owner = scope;
+        while self.scope(owner)?.kind == Kind::Comprehension {
+            scan.tick(1)?;
+            owner = self
+                .scope(owner)?
+                .parent
+                .ok_or("comprehension parent unseen")?;
+        }
+        if let Expr::Name(n) = &*n.target {
+            scan.tick(n.id.len())?;
+            self.scope_mut(owner)?.locals.insert(n.id.to_string());
+            self.scope_mut(owner)?.seen.insert(n.id.to_string());
+        }
+        self.visit(
+            scan,
+            Node::Expr(&n.target),
+            scope,
+            conditional,
+            compiled,
+            depth + 1,
+        )?;
+        if let Expr::Name(target) = &*n.target {
+            if owner != scope {
+                self.scope_mut(scope)?.locals.remove(target.id.as_str());
             }
+        }
+        self.visit(
+            scan,
+            Node::Expr(&n.value),
+            scope,
+            conditional,
+            compiled,
+            depth + 1,
+        )
+    }
+
+    fn binding_node(
+        &mut self,
+        scan: &mut Scan,
+        node: &Node<'a>,
+        scope: usize,
+        conditional: bool,
+        compiled: bool,
+    ) -> Result<()> {
+        match node {
             Node::Expr(expr @ Expr::Name(n)) => {
                 self.queries.push(Query { node: expr, scope });
                 if compiled {
@@ -187,43 +297,6 @@ impl<'a> Index<'a> {
                 if n.ctx != ExprContext::Load {
                     self.add(scan, scope, n.id.as_str(), node.clone(), conditional)?;
                 }
-            }
-            Node::Expr(Expr::Named(n)) => {
-                let mut owner = scope;
-                while self.scope(owner)?.kind == Kind::Comprehension {
-                    scan.tick(1)?;
-                    owner = self
-                        .scope(owner)?
-                        .parent
-                        .ok_or("comprehension parent unseen")?;
-                }
-                if let Expr::Name(n) = &*n.target {
-                    scan.tick(n.id.len())?;
-                    self.scope_mut(owner)?.locals.insert(n.id.to_string());
-                    self.scope_mut(owner)?.seen.insert(n.id.to_string());
-                }
-                self.visit(
-                    scan,
-                    Node::Expr(&n.target),
-                    scope,
-                    conditional,
-                    compiled,
-                    depth + 1,
-                )?;
-                // A walrus binds outside every comprehension, not to a synthetic local.
-                if owner != scope {
-                    if let Expr::Name(n) = &*n.target {
-                        self.scope_mut(scope)?.locals.remove(n.id.as_str());
-                    }
-                }
-                return self.visit(
-                    scan,
-                    Node::Expr(&n.value),
-                    scope,
-                    conditional,
-                    compiled,
-                    depth + 1,
-                );
             }
             Node::Stmt(Stmt::Global(n)) => {
                 for name in &n.names {
@@ -246,7 +319,6 @@ impl<'a> Index<'a> {
                     );
                     self.add(scan, scope, name, node.clone(), conditional)?;
                 }
-                return Ok(());
             }
             Node::Stmt(Stmt::ImportFrom(n)) => {
                 for alias in &n.names {
@@ -259,7 +331,6 @@ impl<'a> Index<'a> {
                         conditional,
                     )?;
                 }
-                return Ok(());
             }
             Node::Handler(ExceptHandler::ExceptHandler(n)) => {
                 if let Some(name) = &n.name {
@@ -279,7 +350,22 @@ impl<'a> Index<'a> {
             }
             _ => {}
         }
-        for child in scan.children(&node)? {
+        Ok(())
+    }
+
+    fn visit_children(
+        &mut self,
+        scan: &mut Scan,
+        node: &Node<'a>,
+        scope: usize,
+        conditional: bool,
+        compiled: bool,
+        depth: usize,
+    ) -> Result<()> {
+        if matches!(node, Node::Stmt(Stmt::Import(_) | Stmt::ImportFrom(_))) {
+            return Ok(());
+        }
+        for child in scan.children(node)? {
             scan.tick(1)?;
             let branch = matches!(
                 node,
@@ -295,10 +381,9 @@ impl<'a> Index<'a> {
                 child,
                 Node::Stmt(_) | Node::Elif(_) | Node::Handler(_) | Node::MatchCase(_)
             );
-            let local_annotation = matches!((&node, &child), (Node::Stmt(Stmt::AnnAssign(n)), Node::Expr(e)) if std::ptr::eq(&*n.annotation, *e));
+            let local_annotation = matches!((node,&child),(Node::Stmt(Stmt::AnnAssign(n)),Node::Expr(e)) if std::ptr::eq(&*n.annotation,*e));
             let skipped = (local_annotation || matches!(node, Node::Arg(_))) && self.future
                 || local_annotation && self.scope(scope)?.kind == Kind::Function;
-            let compiled = compiled && !skipped;
             let hidden = (local_annotation || matches!(node, Node::Arg(_)))
                 && (skipped || scan.minor == PyMinor::Py314);
             self.hidden_tables += usize::from(hidden);
@@ -307,185 +392,12 @@ impl<'a> Index<'a> {
                 child,
                 scope,
                 conditional || branch,
-                compiled,
+                compiled && !skipped,
                 depth + 1,
             );
             self.hidden_tables -= usize::from(hidden);
             found?;
         }
         Ok(())
-    }
-
-    fn definition(
-        &mut self,
-        scan: &mut Scan,
-        stmt: &'a Stmt,
-        def: Def<'a>,
-        scope: usize,
-        conditional: bool,
-        depth: usize,
-    ) -> Result<()> {
-        let (node, params) = match def {
-            Def::Function(n) => (Node::Stmt(stmt), n.type_params.as_deref()),
-            Def::Class(n) => (Node::Stmt(stmt), n.type_params.as_deref()),
-        };
-        self.add(scan, scope, def.name(), node.clone(), conditional)?;
-        let generic = params.is_some();
-        if generic {
-            let header = self.type_parameters(
-                scan,
-                node.clone(),
-                params,
-                def.name(),
-                scope,
-                def.range(self.module.text()),
-            )?;
-            match def {
-                Def::Function(n) => {
-                    for d in &n.decorator_list {
-                        scan.tick(1)?;
-                        self.visit(
-                            scan,
-                            Node::Expr(&d.expression),
-                            scope,
-                            conditional,
-                            true,
-                            depth + 1,
-                        )?;
-                    }
-                    for p in n.parameters.iter() {
-                        scan.tick(1)?;
-                        if let Some(default) = p.default() {
-                            for item in scan.walk(Node::Expr(default))? {
-                                scan.tick(1)?;
-                                if let Node::Expr(Expr::BinOp(n)) = item {
-                                    if n.op == ruff_python_ast::Operator::Mod {
-                                        self.numeric.insert(self.module.location(n).line);
-                                    }
-                                }
-                            }
-                            self.visit(
-                                scan,
-                                Node::Expr(default),
-                                scope,
-                                conditional,
-                                true,
-                                depth + 1,
-                            )?;
-                        }
-                        if let Some(annotation) = p.annotation() {
-                            self.visit(
-                                scan,
-                                Node::Expr(annotation),
-                                header,
-                                conditional,
-                                false,
-                                depth + 1,
-                            )?;
-                        }
-                    }
-                    if let Some(r) = &n.returns {
-                        self.visit(scan, Node::Expr(r), header, conditional, false, depth + 1)?;
-                    }
-                }
-                Def::Class(n) => {
-                    for d in &n.decorator_list {
-                        scan.tick(1)?;
-                        self.visit(
-                            scan,
-                            Node::Expr(&d.expression),
-                            scope,
-                            conditional,
-                            true,
-                            depth + 1,
-                        )?;
-                    }
-                    if let Some(args) = &n.arguments {
-                        for arg in &args.args {
-                            scan.tick(1)?;
-                            self.visit(
-                                scan,
-                                Node::Expr(arg),
-                                header,
-                                conditional,
-                                false,
-                                depth + 1,
-                            )?;
-                        }
-                        for k in &args.keywords {
-                            scan.tick(1)?;
-                            self.visit(
-                                scan,
-                                Node::Expr(&k.value),
-                                header,
-                                conditional,
-                                false,
-                                depth + 1,
-                            )?;
-                        }
-                    }
-                }
-            }
-            if let Some(params) = params {
-                for p in &params.type_params {
-                    scan.tick(1)?;
-                    self.visit(
-                        scan,
-                        Node::TypeParam(p),
-                        header,
-                        conditional,
-                        false,
-                        depth + 1,
-                    )?;
-                }
-            }
-        } else {
-            for child in scan.children(&node)? {
-                scan.tick(1)?;
-                if matches!(child, Node::Stmt(_)) {
-                    continue;
-                }
-                let compiled = !(matches!(child, Node::Expr(_))
-                    && match def {
-                        Def::Function(n) => {
-                            n.returns.as_ref().is_some_and(
-                                |r| matches!(&child, Node::Expr(e) if std::ptr::eq(&**r, *e)),
-                            ) && self.future
-                        }
-                        Def::Class(_) => false,
-                    });
-                let annotation = matches!(child, Node::Expr(_))
-                    && match def {
-                        Def::Function(n) => n.returns.as_ref().is_some_and(
-                            |r| matches!(&child, Node::Expr(e) if std::ptr::eq(&**r, *e)),
-                        ),
-                        Def::Class(_) => false,
-                    };
-                let hidden = annotation && (self.future || scan.minor == PyMinor::Py314);
-                self.hidden_tables += usize::from(hidden);
-                let found = self.visit(scan, child, scope, conditional, compiled, depth + 1);
-                self.hidden_tables -= usize::from(hidden);
-                found?;
-            }
-        }
-        let kind = match def {
-            Def::Function(_) => Kind::Function,
-            Def::Class(_) => Kind::Class,
-        };
-        let child = self.enter(
-            scan,
-            node,
-            scope,
-            kind,
-            def.name(),
-            def.range(self.module.text()),
-        )?;
-        if generic {
-            self.scope_mut(child)?.table = false;
-        }
-        if let Def::Function(n) = def {
-            self.parameters(scan, Some(&n.parameters), child, conditional)?;
-        }
-        self.body(scan, def.body(), child, conditional, depth + 1)
     }
 }

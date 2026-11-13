@@ -40,38 +40,12 @@ impl Collector<'_> {
             scan.tick(1)?;
             let call_data = call.get("data").ok_or("call data unseen")?;
             let expression = text(call_data, "expression")?;
-            let mut signal = None;
-            for target in array(call_data, "targets")? {
-                scan.tick(1)?;
-                signal = match target.as_str().ok_or("call target unseen")? {
-                    "typing.cast" | "typing_extensions.cast" => Some(Signal::CastCall),
-                    "builtins.getattr" => Some(Signal::GetattrCall),
-                    "builtins.hasattr" => Some(Signal::HasattrCall),
-                    "builtins.eval" => Some(Signal::EvalCall),
-                    "builtins.exec" => Some(Signal::ExecCall),
-                    "builtins.__import__" | "importlib.import_module" => {
-                        Some(Signal::DynamicImport)
-                    }
-                    _ => None,
-                };
-                if signal.is_some() {
-                    break;
-                }
-            }
-            let Some(signal) = signal else {
+            let Some(signal) = dynamic_target(scan, call_data)? else {
                 continue;
             };
             let owner = text(call_data, "source_scope")?;
             let id = text(call, "id")?;
-            let mut evidence_ids = Vec::new();
-            for id in strings(scan, call, "evidence_ids")? {
-                scan.tick(1)?;
-                if self.evidence.contains_key(&id) {
-                    evidence_ids.push(EvidenceId::new(id));
-                }
-            }
-            evidence_ids.sort_by(|a, b| a.as_str().cmp(b.as_str()));
-            evidence_ids.dedup();
+            let evidence_ids = retained_evidence(scan, call, &self.evidence)?;
             scan.tick(owner.len().saturating_add(expression.len()))?;
             let mut data = data(owner, signal);
             data.expression = Some(expression.into());
@@ -129,20 +103,7 @@ impl Collector<'_> {
             ) {
                 continue;
             }
-            let mut missing = Vec::new();
-            for parameter in array(signature, "parameters")? {
-                scan.tick(1)?;
-                if parameter
-                    .get("annotation")
-                    .ok_or("parameter annotation unseen")?
-                    .is_null()
-                {
-                    missing.push(text(parameter, "name")?.to_owned());
-                }
-            }
-            if signature.get("returns").is_none_or(Value::is_null) {
-                missing.push("return".into());
-            }
+            let mut missing = missing_positions(scan, signature)?;
             if missing.is_empty() {
                 continue;
             }
@@ -175,4 +136,58 @@ impl Collector<'_> {
         }
         Ok(())
     }
+}
+
+fn dynamic_target(scan: &mut Scan, call: &Value) -> Result<Option<Signal>> {
+    for target in array(call, "targets")? {
+        scan.tick(1)?;
+        let signal = match target.as_str().ok_or("call target unseen")? {
+            "typing.cast" | "typing_extensions.cast" => Some(Signal::CastCall),
+            "builtins.getattr" => Some(Signal::GetattrCall),
+            "builtins.hasattr" => Some(Signal::HasattrCall),
+            "builtins.eval" => Some(Signal::EvalCall),
+            "builtins.exec" => Some(Signal::ExecCall),
+            "builtins.__import__" | "importlib.import_module" => Some(Signal::DynamicImport),
+            _ => None,
+        };
+        if signal.is_some() {
+            return Ok(signal);
+        }
+    }
+    Ok(None)
+}
+
+fn retained_evidence(
+    scan: &mut Scan,
+    call: &Value,
+    evidence: &EvidenceMap,
+) -> Result<Vec<EvidenceId>> {
+    let mut ids = Vec::new();
+    for id in strings(scan, call, "evidence_ids")? {
+        scan.tick(1)?;
+        if evidence.contains_key(&id) {
+            ids.push(EvidenceId::new(id));
+        }
+    }
+    ids.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+    ids.dedup();
+    Ok(ids)
+}
+
+fn missing_positions(scan: &mut Scan, signature: &Value) -> Result<Vec<String>> {
+    let mut missing = Vec::new();
+    for parameter in array(signature, "parameters")? {
+        scan.tick(1)?;
+        if parameter
+            .get("annotation")
+            .ok_or("parameter annotation unseen")?
+            .is_null()
+        {
+            missing.push(text(parameter, "name")?.into());
+        }
+    }
+    if signature.get("returns").is_none_or(Value::is_null) {
+        missing.push("return".into());
+    }
+    Ok(missing)
 }

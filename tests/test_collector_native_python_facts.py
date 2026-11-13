@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import subprocess
 from pathlib import Path
@@ -14,7 +15,7 @@ from typing import Any
 
 import pytest
 from first_difference import same
-from python_source_facts import aliases, lexical, parsed, state, state_inputs, typing_signals
+from python_source_facts import aliases, lexical, parsed, query_inputs, state, state_inputs, typing_signals
 from archkeel.analyzer.python.source import add_evidence
 from test_collector_native_python_parse import _minor
 
@@ -57,7 +58,10 @@ def compare(found: object, expected: object, label: object) -> None:
 
 def exact_cost(row: dict[str, Any], group: str, index: int) -> None:
     costs = json.loads(Path(__file__).with_name("python_fact_costs.json").read_text())
-    assert row["work"] == costs[group][index], (group,index)
+    values=costs[group]
+    if isinstance(values,dict):
+        values=values["11" if _minor()==11 else "12-14"]
+    assert row["work"] == values[index], (group,index)
 
 
 LEXICAL = (
@@ -103,7 +107,21 @@ def test_lexical_probe(index: int, with_aliases: bool, tmp_path: Path,
     exact_cost(row,"lexical",index*2+int(with_aliases))
 
 
+@pytest.mark.parametrize("index", range(len(LEXICAL)))
+def test_lexical_node_queries(index: int, tmp_path: Path, facts_binary: Path) -> None:
+    (tmp_path / "probe.py").write_text(LEXICAL[index])
+    module=parsed(tmp_path,"probe.py")
+    assert module is not None
+    inputs=query_inputs(module)
+    row=native(facts_binary,tmp_path,"--dump-lexical",inputs)
+    assert row["full_scope"],row
+    compare(row["data"],lexical(module,inputs),"non-name lookup sites")
+    exact_cost(row,"queries",index)
+
+
 GENERIC = (
+    "@decorate\ndef f[T: Bound, *Ts, **P](x: T=7%2, *args: int, y: Other=9%2, **kw: str) -> T:\n return x\n",
+    "@decorate\nclass C[T: Bound, *Ts, **P](Base[T], flag=T):\n pass\n",
     "T=1\ndef f[T](x: T=7%2) -> T:\n return x\n",
     "T=1\nclass C[T](Base[T], flag=T):\n def f(self, x:T): return T,x\n",
     "T=1\ntype A[T] = list[T] | Other\n",
@@ -122,6 +140,24 @@ def test_generic_lexical(text: str, tmp_path: Path, facts_binary: Path) -> None:
     assert row["full_scope"], row
     compare(row["data"], lexical(module), "generic scope")
     exact_cost(row,"generic",GENERIC.index(text))
+
+
+GENERIC_DEFAULTS = (
+    "type A[T: Bound = int, *Ts = *tuple[int, str], **P = [int, str]] = tuple[T, *Ts]\n",
+    "def f[T = int](x: T) -> T:\n return x\n",
+)
+
+
+@pytest.mark.requires_python(13)
+@pytest.mark.parametrize("text", GENERIC_DEFAULTS)
+def test_generic_default_scopes(text: str, tmp_path: Path, facts_binary: Path) -> None:
+    (tmp_path / "probe.py").write_text(text)
+    module = parsed(tmp_path,"probe.py")
+    assert module is not None
+    row = native(facts_binary,tmp_path,"--dump-lexical",{"file":"probe.py"})
+    assert row["full_scope"], row
+    compare(row["data"],lexical(module),"generic defaults")
+    exact_cost(row,"generic_defaults",GENERIC_DEFAULTS.index(text))
 
 
 TYPING = (
@@ -247,7 +283,7 @@ def test_source_fact_budget(boundary: str, tmp_path: Path, facts_binary: Path) -
     b"x=1\n" * 100_000,
     b"x=1\x00\n",
     b"x='\xff'\n",
-))
+), ids=("deep","long-line","flat","null","utf8"))
 def test_hostile_source_fact(boundary: str, raw: bytes, tmp_path: Path, facts_binary: Path) -> None:
     (tmp_path / "probe.py").write_bytes(raw)
     start = perf_counter()
@@ -276,8 +312,21 @@ def test_source_fact_work_scaling(boundary: str, tmp_path: Path, facts_binary: P
     assert 2.8 < work[1]/work[0] < 3.2
 
 
+@pytest.mark.parametrize("boundary", ("lexical", "typing-signals", "state"))
+def test_source_fact_output_bound(boundary: str, tmp_path: Path, facts_binary: Path) -> None:
+    header = "".join(" "*depth + f"class C{depth}{'a'*1000}:\n" for depth in range(40))
+    body = ("Target\n" if boundary == "lexical" else "x: Any\n" if boundary == "typing-signals"
+            else "def f(a): return a\n")
+    declaration=" "*40+"class Target: pass\n" if boundary=="lexical" else ""
+    (tmp_path / "probe.py").write_text(header + declaration + (" "*40+body)*1000)
+    row = native(facts_binary,tmp_path,f"--dump-{boundary}",{"file":"probe.py"})
+    assert not row["full_scope"] and "data" not in row
+    assert row["gap"] == "binding output limit exceeded (33554432 bytes)"
+
+
 @pytest.mark.skipif(not os.environ.get("ARCHKEEL_FACT_CORPORA"), reason="no corpus is named")
 @pytest.mark.parametrize("boundary", ("lexical", "typing-signals", "state"))
+@pytest.mark.filterwarnings("ignore")
 def test_source_fact_corpus(boundary: str, facts_binary: Path) -> None:
     public = os.environ["ARCHKEEL_FACT_CORPORA"].split(os.pathsep)
     private_roots = os.environ.get("ARCHKEEL_FACT_PRIVATE_CORPORA", "").split(os.pathsep)
@@ -326,12 +375,21 @@ def test_source_fact_corpus(boundary: str, facts_binary: Path) -> None:
             process.stdin.close()
             assert process.wait(timeout=30) == 0
         print("source fact corpus", _minor(), boundary, number, counts, different, "maximum work", maximum_work, flush=True)
-        observations[label] = {"counts": counts, "gaps": sorted(gaps), "maximum_work": maximum_work}
+        previous = observations.get(label, {"counts": {}, "gaps": [], "maximum_work": 0})
+        for key,value in previous["counts"].items():
+            counts[key] = counts.get(key,0) + value
+        observations[label] = {"counts": counts, "gaps": sorted([*previous["gaps"],*gaps]),
+                               "maximum_work": max(maximum_work,previous["maximum_work"])}
         if report := os.environ.get("ARCHKEEL_FACT_REPORT"):
             with Path(report).open("a") as stream:
                 stream.write(json.dumps({"minor": _minor(), "boundary": boundary, "label": label,
                                          **observations[label]}) + "\n")
         assert not any(key.startswith("different") for key in counts), different
+    pinned = json.loads(Path(__file__).with_name("python_fact_gaps.json").read_text())
+    expected = pinned[boundary][str(_minor())] if boundary == "lexical" else pinned[boundary]
+    for label, result in observations.items():
+        found = {"count":len(result["gaps"]), "sha256":hashlib.sha256(canonical(result["gaps"])).hexdigest()}
+        assert found == expected.get(label,pinned["empty"]), label
 
 
 def canonical(value: object) -> bytes:
