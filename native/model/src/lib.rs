@@ -61,7 +61,7 @@ mod graph;
 mod ids;
 mod imports;
 mod interface;
-pub use interface::{interface_crossings, InterfaceGap};
+pub use interface::interface_crossings;
 mod model;
 mod modules;
 mod ownership;
@@ -95,7 +95,7 @@ mod observed;
 mod proof;
 mod subjects;
 
-pub use causes::{Cause, Part};
+pub use causes::{Cause, InterfaceGap, Part};
 
 // Slice S5: the import matchers of the direction kinds and the sides they share (AD-380).
 mod direction;

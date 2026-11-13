@@ -6,31 +6,16 @@
 //! Each selected crossing needs a known binding and a witnessed publication route.
 
 use std::collections::HashSet;
-use std::fmt;
 
 use archkeel_contract::{Component, InterfaceBoundary, Rule};
 use archkeel_facts::envelope::LimitSupport;
 
+use crate::causes::InterfaceGap;
+use crate::direction::{Crossing, Judged};
+use crate::imports::Import;
+use crate::model::Model;
 use crate::ownership::owner_of;
-use crate::{Crossing, Import, Judged, Model, Reason};
-
-/// A missing fact of the import verdict, not a lifecycle diagnosis.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum InterfaceGap {
-    UnreadBinding,
-    PublicationRoute,
-    PublicationSurface,
-}
-
-impl fmt::Display for InterfaceGap {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Self::UnreadBinding => "interface_boundary: unread import binding",
-            Self::PublicationRoute => "interface_boundary: unproven publication route",
-            Self::PublicationSurface => "interface_boundary: incomplete publication surface",
-        })
-    }
-}
+use crate::reason::Reason;
 
 /// One judgement serves both violations and the existing scope proof.
 pub fn interface_crossings<'m>(model: &'m Model, rule: &InterfaceBoundary) -> Vec<Crossing<'m>> {
@@ -39,7 +24,7 @@ pub fn interface_crossings<'m>(model: &'m Model, rule: &InterfaceBoundary) -> Ve
         .rules()
         .iter()
         .filter_map(|r| match r {
-            Rule::ForbiddenDependency(r) => Some(crate::forbidden(model, r)),
+            Rule::ForbiddenDependency(r) => Some(crate::direction::forbidden(model, r)),
             _ => None,
         })
         .flatten()

@@ -4,7 +4,7 @@
 
 //! Import violations of the public interface (AD-428).
 
-use crate::Violation;
+use crate::violation::Violation;
 use archkeel_contract::InterfaceBoundary;
 use archkeel_model::{Judged, Model};
 

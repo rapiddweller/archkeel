@@ -8,7 +8,7 @@ use std::fmt;
 
 use archkeel_contract::RuleKind;
 
-use crate::causes::{Cause, Part};
+use crate::causes::{Cause, InterfaceGap, Part};
 use crate::coverage::Incomplete;
 use crate::section::{Porting, Section};
 
@@ -70,7 +70,7 @@ pub enum Reason {
     /// A cause that makes the scope incomplete in the reference engine (slice S4, AD-378).
     NotComplete(Cause),
     /// A fact needed to decide an interface crossing is absent.
-    Interface(crate::InterfaceGap),
+    Interface(InterfaceGap),
 }
 
 /// Why the core refuses the settings that the shell sends with a reply (AD-372).
