@@ -420,7 +420,7 @@ work or depth bounds. Each refusal names the file and gives incomplete scope
 **Python reply acceptance — entry condition:** the store must not accept the native Python reply
 before #1072 is closed. [AD-402](architecture/decisions/ad-402-the-python-raise-site-inventory-keeps-unproved-paths-open.md)
 refuses the 100 reviewed sources and checks the H1–H5 scope/name families.
-The source inventory has 252 message witnesses and 1,082 unproved
+The source inventory has 257 message witnesses and 1,077 unproved
 rows. A matching message does not prove every compiler path. Indirect errors, dynamic messages,
 AST-only failure reachability, memory exhaustion and interpreter settings still need proof.
 Issue #1072 stays open. The oracle uses the default recursion limit of 1,000, not the host's 20,000.

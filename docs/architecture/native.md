@@ -57,7 +57,7 @@ file gap with incomplete scope. The host codec and store still refuse the native
 before #1072 is closed. [AD-402](decisions/ad-402-the-python-raise-site-inventory-keeps-unproved-paths-open.md)
 refuses the 100 reviewed sources and checks the H1–H5 scope/name families, but keeps #1072 open.
 The pinned CPython inventory has 1,334 calls,
-252 message witnesses and 1,082 unproved rows. All current witnesses get native gaps; this is not
+257 message witnesses and 1,077 unproved rows. All current witnesses get native gaps; this is not
 a completeness proof. The compile oracle uses the default recursion limit of 1,000.
 The `py-symbols` component also owns the pre-import binding inventory and complete unused-binding
 records (AD-396). `--dump-bindings` compares them with the unchanged Python functions. It keeps
