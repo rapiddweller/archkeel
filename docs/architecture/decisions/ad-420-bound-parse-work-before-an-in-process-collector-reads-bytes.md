@@ -35,9 +35,17 @@ It conservatively charges wide files and text in comments too.
 It does not enable parallel parsing. A future collector thread must enter the same boundary.
 The repository survey still bounds entries, directory depth and total file bytes.
 Stage 1 retains the Python decision for accepted files. A refused file has no verdict.
+The current self-collector names `thread_local!` as one additional macro path gap (#1075).
+The expected-gap pin records it. No rule or violation allowance changes.
 
 **Tests.** The snapshot tests check charge edges, hidden delimiters and result discard.
 The composition test compares every fact just below the bound with the unbounded producer.
 The core test checks exit 2 and no frame after a work refusal.
 The release integration tests check six deep files, one file 1.5 million levels deep,
 the named refusal, no artifact, and the measured peak memory bound.
+
+**Measured.** Release build on macOS ARM64; medians of three interleaved runs.
+Six 3.8 MiB deep files: 3 772.5 MiB before, 19.9 MiB after.
+One file with 1.5 million levels: 1 361.9 MiB before, 19.0 MiB after.
+Both tests require less than 128 MiB. All guarded runs give exit 2 with no frame.
+The 655-project scan sweep has 223 linked scans and zero parse-work refusals.

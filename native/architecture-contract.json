@@ -302,7 +302,7 @@
         "native.archkeel_collect"
       ],
       "responsibilities": [
-        "The composition between the core and the collectors: read the repository configuration, derive the collection request, run the linked collector of the profile in the process of the core and give the store its typed reply; name each other profile and a configured collector as unsupported (AD-406)."
+        "The composition between the core and the collectors: read the repository configuration, derive the collection request, run the linked collector of the profile in the process of the core and give the store its typed reply; name each other profile and a configured collector as unsupported (AD-406). The refusal module owns typed failures. The collector thread enables the shared snapshot parse-work bound (AD-420)."
       ],
       "forbidden_responsibilities": [
         "Deciding a rule, writing a frame, and trusting a reply or a digest that a caller gives."

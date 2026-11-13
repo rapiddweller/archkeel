@@ -65,7 +65,7 @@ fn refusal(root: &Path) -> Refusal {
 }
 
 /// The reply of the producer of the binary (`reply`), decoded, as JSON bytes.
-fn binary_bytes(request: &[u8]) -> Vec<u8> {
+pub(super) fn binary_bytes(request: &[u8]) -> Vec<u8> {
     let request = archkeel_wire::request::decode(request).unwrap();
     let mut wire = Vec::new();
     archkeel_typescript_collector::reply(

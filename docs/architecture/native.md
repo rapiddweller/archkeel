@@ -25,7 +25,7 @@ the public API of each library by name and signature. #1075 lists what the scan 
 | Crate | Role | Uses |
 |---|---|---|
 | `archkeel-wire` | The collector wire: requests, replies and source identities. | `archkeel-facts` |
-| `archkeel-snapshot` | The one owner of snapshot reads: POSIX paths, contained reads, the symlink rule and the size limit. | `archkeel-facts` |
+| `archkeel-snapshot` | The one owner of snapshot reads: POSIX paths, contained reads, the symlink rule, the size limit and the in-process parse-work charge (AD-420). | `archkeel-facts` |
 | `archkeel-facts` | The one typed definition of each collector fact (AD-345). | no crate of the workspace |
 | `archkeel-store` | Validates a reply once, keeps the facts and writes `architecture.json` (AD-346). | `archkeel-facts` |
 | `archkeel-contract` | Parses contract, amendment and baseline bytes into typed values, as Python does (AD-359, AD-375, AD-386). It reads no file. | no crate of the workspace |
@@ -34,7 +34,7 @@ the public API of each library by name and signature. #1075 lists what the scan 
 | `archkeel-eval` | Decides each rule over the model: an outcome with a decision and its violations. Slice S1 decides `complete_assignment` and `root_layout`, slice S2 `external_dependency_scope` and `complete_external_scope`, slice S5 the direction kinds (`forbidden_dependency`, `allowed_dependency` as a declaration, `sibling_isolation`, `layer_order`, `complete_requires`), slice S7 `no_component_cycles`; each other kind names its slice (AD-370, AD-372, AD-380, AD-384). | `archkeel-model`, `archkeel-contract`, `archkeel-facts` |
 | `archkeel-report` | The report v2 payload: the typed `Report` frame, its canonical bytes, the status rule and the check. A frame whose status has no explaining row cannot be built (AD-361, AD-371). A rule row comes from an outcome of the evaluator; a PASS row, a PASS observation and a PASS status each need the model (AD-381). The core writes its status and rule verdicts only through its `Ruling` (AD-388). | `archkeel-eval`, `archkeel-model`, `archkeel-contract` |
 | `archkeel-core` | The one process after the collector and the only binary of WP6. It speaks the engine command of the dual run (AD-363), the check request of the shell and the scan request; `archkeel report --native-core` and `archkeel check --native-core` take their rule verdicts when it decides every rule (AD-390, AD-399). For the scan request it runs the collector in its own process (AD-406). It takes the status of a frame from the report (AD-388). | `archkeel-collect`, `archkeel-report`, `archkeel-eval`, `archkeel-model`, `archkeel-contract`, `archkeel-store`, `archkeel-build-support` |
-| `archkeel-collect` | The composition between the core and the collectors and the only crate that names a language: it reads the repository configuration, derives the collection request, runs the linked TypeScript or Rust collector and gives the store its typed reply; each other profile and a configured collector are refused by name (AD-406). | `archkeel-typescript-collector`, `archkeel-rust-collector`, `archkeel-store`, `archkeel-wire`, `archkeel-facts` |
+| `archkeel-collect` | The composition between the core and the collectors and the only crate that names a language: it reads the repository configuration, derives the collection request, runs the linked TypeScript or Rust collector and gives the store its typed reply; each other profile and a configured collector are refused by name (AD-406). It enables the snapshot work charge before any linked collector runs (AD-420). | `archkeel-typescript-collector`, `archkeel-rust-collector`, `archkeel-store`, `archkeel-wire`, `archkeel-facts`, `archkeel-snapshot` |
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
 | `archkeel-pytext` | The text rules of Python `str` that more than one collector repeats, such as `str.splitlines` (AD-327). | no crate of the workspace |
 | `archkeel-dart-grammar` | Gives the Dart grammar: the vendored C parser of tree-sitter-dart 0.1.0, the grammar of the Python collector (AD-342). It does not parse; only the Dart collector uses it (`deny.toml`). | no crate of the workspace |
@@ -45,7 +45,7 @@ the public API of each library by name and signature. #1075 lists what the scan 
 
 A collector crate never uses another collector crate. Only a collector crate uses a parser crate.
 Only `archkeel-collect` uses a collector crate, and only `archkeel-core` uses `archkeel-collect`.
-`archkeel-collect` uses only `facts`, `store`, `wire` and the collectors, and a collector uses no
+`archkeel-collect` uses only `facts`, `store`, `wire`, `snapshot` and the collectors, and a collector uses no
 `store` and no crate of the core side (`NATIVE-NO-*-TO-TYPESCRIPT`, `NATIVE-NO-*-TO-COLLECT`,
 `NATIVE-NO-COLLECT-TO-*`, `NATIVE-NO-<collector>-TO-*`, and the crate order of
 `tests/native_rules_support.py`, AD-406).

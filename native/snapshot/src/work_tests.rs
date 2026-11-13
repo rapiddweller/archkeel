@@ -45,6 +45,16 @@ fn the_walked_read_cannot_bypass_the_charge() {
 }
 
 #[test]
+fn an_inner_boundary_cannot_hide_a_refusal_from_its_caller() {
+    let result = bounded(|| {
+        let _ = bounded(|| permits("deep", &vec![b'('; 50_000]));
+        assert!(!permits("later", b"fact"));
+    });
+    assert_eq!(result.unwrap_err().path, "deep");
+    assert_eq!(bounded(|| permits("next run", b"fact")), Ok(true));
+}
+
+#[test]
 fn the_exact_boundary_accepts_full_bytes_and_the_next_unit_refuses() {
     assert!(!exceeds(b"(x)", 9));
     assert!(exceeds(b"(x) ", 9));

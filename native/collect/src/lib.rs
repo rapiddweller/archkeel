@@ -21,18 +21,18 @@
 
 mod config;
 mod git;
+mod refusal;
 mod repository;
 mod run;
 
 use archkeel_store::Ingested;
 use serde_json::{json, Value};
 
+use crate::refusal::refused;
+pub use crate::refusal::{Refusal, RefusalKind, REFUSED};
 pub use crate::repository::Over;
 pub use crate::run::reply_of;
 pub use archkeel_facts::envelope::Profile;
-
-/// The first words of each refusal; the shell counts them.
-pub const REFUSED: &str = "collect";
 
 /// What the caller gives: the scan identity, never facts.
 pub struct Identity<'a> {
@@ -44,39 +44,6 @@ pub struct Identity<'a> {
     pub git_head: &'a str,
     /// The dirty state of the work tree as the shell read it (provenance, AD-406).
     pub dirty: bool,
-}
-
-/// A part that the in-process path cannot run, by name. The shell keeps its stage 1 path.
-#[derive(Debug, PartialEq, Eq)]
-pub struct Refusal {
-    pub part: &'static str,
-    pub reason: String,
-    pub kind: RefusalKind,
-}
-
-/// Whether the shell can use its stage 1 path, or must stop without an artifact.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RefusalKind {
-    Unsupported,
-    ParseWork,
-}
-
-impl std::fmt::Display for Refusal {
-    fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            out,
-            "{REFUSED}: unsupported: {}: {}",
-            self.part, self.reason
-        )
-    }
-}
-
-fn refused(part: &'static str, reason: impl Into<String>) -> Refusal {
-    Refusal {
-        part,
-        reason: reason.into(),
-        kind: RefusalKind::Unsupported,
-    }
 }
 
 /// The result of one scan: what the core needs to decide the run.

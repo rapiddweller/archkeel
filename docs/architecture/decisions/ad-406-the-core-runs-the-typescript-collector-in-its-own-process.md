@@ -32,7 +32,7 @@ AD-399. It closes the entry conditions (a) and (b) of #1099 for the in-process T
    request. `check` stays on the check request: its contract comes from Git (AD-399).
 7. Configured collectors and the Python and Dart profiles are refused by name (`collector`,
    `profile`); the shell does not send them a scan request. Self-contract: only `core` uses
-   `collect`; `collect` uses only facts, store, wire and the collectors; a collector uses no store
+    `collect`; `collect` uses facts, store, wire, snapshot (AD-420) and the collectors; a collector uses no store
    and no core-side crate. Each direction is a `NATIVE-NO-*` rule that fails also with a
    matching `requires` entry.
 8. #1099 (a): the wheel builds the whole workspace without a feature, and `cargo tree` shows the
@@ -53,13 +53,13 @@ a buffer. A trust field in the scan request. The core runs `git` (`PATH` would c
 
 **Limit.** The shell still gives `root`, `config` and `dirty`. The core reads `HEAD` and refuses
 another `git_head`, but it takes `dirty` as provenance; only an unknown state changes a verdict,
-and the request cannot carry one. The survey bounds the repository, not the work inside the
-collector. No byte of output changes and no core starts without the switch.
+and the request cannot carry one. The survey bounds the repository; AD-420 bounds work inside
+the collector. No core starts without the switch.
 
 **Needed before stage 2.** (1) Zero rules must give UNKNOWN: `report::rule` writes a PASS frame
 with zero rules (`native/report/src/ruling.rs`); today the shell refuses that frame. (2) A memory
-bound on the scan path: one 3 MB file of nested parentheses takes 1.36 GiB, six such files
-3.69 GiB (release, review of #1107); the survey bounds entries and bytes, not this work.
+bound on the scan path: AD-420 resolves #1111 with a conservative per-file work charge.
+The release tests hold both deep-input cases below 128 MiB and require a typed refusal.
 **Stage 2 also needs.** A lead decision to stop the Python run. Work budgets inside the
 collector. `dirty` from the core. `check` with the base reply and the contract from Git in the
 core. The native evidence rendering. The other two profiles.

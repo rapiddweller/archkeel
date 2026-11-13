@@ -14,8 +14,7 @@ import sys
 from pathlib import Path
 
 import pytest
-
-from archkeel.analyzer.runtime import package_version
+from filelock import FileLock
 from test_cli_native_core_scan import (  # noqa: F401 - shared pytest fixtures
     HONEST,
     ROOT,
@@ -26,6 +25,8 @@ from test_cli_native_core_scan import (  # noqa: F401 - shared pytest fixtures
     report,
 )
 
+from archkeel.analyzer.runtime import package_version
+
 PEAK_BOUND = 128 * 1024 * 1024
 HEAD = "0123456789abcdef0123456789abcdef01234567"
 
@@ -34,14 +35,17 @@ HEAD = "0123456789abcdef0123456789abcdef01234567"
 def release_core() -> Path:
     if shutil.which("cargo") is None:
         pytest.skip("cargo is not installed")
-    subprocess.run(
-        ["cargo", "build", "--release", "--locked", "-p", "archkeel-core"],
-        cwd=ROOT / "native",
-        env={**os.environ, "ARCHKEEL_VERSION": package_version()},
-        capture_output=True,
-        check=True,
-        timeout=600,
-    )
+    target = ROOT / "native/target"
+    target.mkdir(exist_ok=True)
+    with FileLock(str(target / ".pytest-native-build.lock")):
+        subprocess.run(
+            ["cargo", "build", "--release", "--locked", "-p", "archkeel-core"],
+            cwd=ROOT / "native",
+            env={**os.environ, "ARCHKEEL_VERSION": package_version()},
+            capture_output=True,
+            check=True,
+            timeout=600,
+        )
     suffix = ".exe" if os.name == "nt" else ""
     return ROOT / "native/target/release" / f"archkeel-core{suffix}"
 
@@ -92,9 +96,12 @@ def test_deep_release_scans_refuse_without_a_frame_under_128_mib(
     assert peak < PEAK_BOUND
 
 
-def test_a_real_scan_work_refusal_leaves_no_shell_artifact(install: Path) -> None:
+@pytest.mark.usefixtures("install")
+def test_a_real_scan_work_refusal_leaves_no_shell_artifact() -> None:
     with case_root(HONEST) as root:
         (root / "src/deep.ts").write_text("(" * 50_000 + "0" + ")" * 50_000 + ";\n")
+        python_code, _ = report(root)
+        assert python_code == 0
         code, result = report(root, "--native-core")
         assert code == 2
         assert "parse_work_limit" in diagnostics(result)

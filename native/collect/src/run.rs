@@ -12,7 +12,7 @@
 //! shell then sees a dead core and the run has no verdict (exit 2), never a PASS.
 
 use archkeel_facts::envelope::{Profile, Reply};
-use crate::{refused, Refusal};
+use crate::refusal::{refused, Refusal, RefusalKind};
 use archkeel_store::Ingested;
 use archkeel_wire::protocol::reply_version;
 
@@ -63,13 +63,13 @@ pub(crate) fn isolated<T: Send + 'static>(
         .map_err(|limit| Refusal {
             part: "parse work",
             reason: limit.to_string(),
-            kind: crate::RefusalKind::ParseWork,
+            kind: RefusalKind::ParseWork,
         })
 }
 
 /// The typed reply without the store, for the comparison with the bytes of the binary.
 pub fn reply_of(profile: Profile, request: &[u8]) -> Result<Reply, String> {
-    match profile {
+    archkeel_snapshot::work::bounded(|| match profile {
         Profile::Rust => {
             let request = archkeel_wire::request::decode_rust(request)?;
             archkeel_rust_collector::typed_reply(
@@ -90,5 +90,6 @@ pub fn reply_of(profile: Profile, request: &[u8]) -> Result<Reply, String> {
             "the profile {} has no collector in the core process yet",
             profile.as_str()
         )),
-    }
+    })
+    .map_err(|limit| limit.to_string())?
 }

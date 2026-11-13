@@ -25,6 +25,7 @@ impl std::fmt::Display for WorkLimit {
     }
 }
 
+// The thread boundary covers every linked collector without changing its wire request.
 thread_local! {
     static LIMIT: RefCell<Option<Option<WorkLimit>>> = const { RefCell::new(None) };
 }
@@ -38,9 +39,12 @@ pub fn bounded<T>(work: impl FnOnce() -> T) -> Result<T, WorkLimit> {
             LIMIT.with(|limit| *limit.borrow_mut() = self.0.take());
         }
     }
-    let restore = Restore(LIMIT.with(|limit| limit.replace(Some(None))));
+    let mut restore = Restore(LIMIT.with(|limit| limit.replace(Some(None))));
     let result = work();
     let hit = LIMIT.with(|limit| limit.borrow().as_ref().and_then(Clone::clone));
+    if let (Some(None), Some(hit)) = (&restore.0, &hit) {
+        restore.0 = Some(Some(hit.clone()));
+    }
     drop(restore);
     match hit {
         Some(hit) => Err(hit),
@@ -77,7 +81,7 @@ fn exceeds(bytes: &[u8], budget: u64) -> bool {
     let (mut tokens, mut charge, mut word) = (0_u64, 0_u64, false);
     for &byte in bytes {
         let next_word = byte.is_ascii_alphanumeric() || byte == b'_';
-        if !byte.is_ascii_whitespace() && !(word && next_word) {
+        if !(byte.is_ascii_whitespace() || word && next_word) {
             tokens += 1;
         }
         word = next_word;

@@ -169,8 +169,8 @@ def allowed(source: str, target: str) -> bool:
     nothing. A crate of the core chain requires a base crate or a lower crate of the chain;
     nothing requires the core. A collector requires only base crates. No crate requires a
     collector of another crate. AD-406: only `collect` requires a collector; it requires only
-    facts, store, wire and the collectors, and only the core requires it. A collector does not
-    require the store.
+    facts, store, wire, snapshot and the collectors, and only the core requires it.
+    A collector does not require the store.
     """
     if source == target:
         return True

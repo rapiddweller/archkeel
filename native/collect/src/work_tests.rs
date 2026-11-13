@@ -9,7 +9,7 @@ fn charge(bytes: &[u8]) -> u64 {
     let (mut tokens, mut total, mut word) = (0, 0, false);
     for &byte in bytes {
         let next = byte.is_ascii_alphanumeric() || byte == b'_';
-        if !byte.is_ascii_whitespace() && !(word && next) {
+        if !(byte.is_ascii_whitespace() || word && next) {
             tokens += 1;
         }
         word = next;
@@ -35,11 +35,12 @@ fn a_file_just_below_the_charge_keeps_every_fact() {
     std::fs::write(&path, &source).unwrap();
     let scanned = scan(&identity(root.to_str().unwrap()), 1 << 26).unwrap();
     let request = serde_json::to_vec(&scanned.request).unwrap();
-    let before = reply_of(&request).unwrap();
-    assert_eq!(&before, scanned.reply.reply());
+    let before = crate::tests::binary_bytes(&request);
+    assert_eq!(before, serde_json::to_vec(scanned.reply.reply()).unwrap());
     std::fs::write(path, above).unwrap();
     let refusal = scan(&identity(root.to_str().unwrap()), 1 << 26)
         .err()
         .unwrap();
     assert_eq!(refusal.kind, RefusalKind::ParseWork);
+    assert!(reply_of(&request).unwrap_err().contains("parse_work_limit"));
 }
