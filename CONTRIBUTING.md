@@ -17,7 +17,7 @@ Browser publication, Mermaid rendering and the UML TypeScript compiler check req
 Node.js 22 and npm; CI installs them. `make typescript-compiler-check` runs pinned
 TypeScript 5.9.3 against `fixtures/H-uml-typescript/tsconfig.json` with `--noEmit`.
 This development check is separate from the native collector tests and the installed CLI.
-Main supports Rust and TypeScript projects only (AD-422). Use archkeel 4.0.1 for Python and Dart.
+Main supports Rust and TypeScript projects only (AD-430). Use archkeel 4.0.1 for Python and Dart.
 Run `make typescript-collector` to install the local TypeScript binary and its digest.
 Native Python and Dart unit tests stay under `native/`. Their released-oracle checks remain skipped.
 
