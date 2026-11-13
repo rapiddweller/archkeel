@@ -282,6 +282,17 @@ impl State<'_> {
     /// The checks of a name and a number: the identifier characters, the digit limit and
     /// `from __future__ import barry_as_FLUFL`.
     fn words(&mut self, kind: T, start: usize, text: &str) {
+        if self.minor == PyMinor::Py311
+            && kind == T::Identifier
+            && self.previous == T::Exclamation
+            && matches!(self.contexts.last(), Some(Context::Field { .. }))
+            && self
+                .text
+                .get(start.saturating_add(text.len())..)
+                .is_some_and(|tail| tail.starts_with(char::is_whitespace))
+        {
+            self.parser_error(start, "f-string: expecting '}'");
+        }
         match kind {
             T::Identifier if !text.is_ascii() => {
                 let mut chars = text.chars();

@@ -201,16 +201,20 @@ fn an_f_string_has_the_limits_of_its_python() {
     for minor in [11, 12] {
         assert_eq!(failure(&fields(200), minor).0, ExceptionName::SyntaxError);
     }
-    for refused in ["x = f'{a:{b:{c}}}'\n", "x = f'{*a}'\n"] {
-        assert_eq!(
-            failure(refused, 11).0,
-            ExceptionName::SyntaxError,
-            "{refused}"
-        );
-        assert!(outcome(refused, 12).is_ok(), "{refused}");
-    }
+    assert_eq!(
+        failure("x = f'{a:{b:{c}}}'\n", 11).0,
+        ExceptionName::SyntaxError
+    );
+    assert!(outcome("x = f'{a:{b:{c}}}'\n", 12).is_ok());
     for allowed in ["x = f'{a:{b}}'\n", "x = f'{*a,}'\n", "x = f'{a, *b}'\n"] {
         assert!(outcome(allowed, 11).is_ok(), "{allowed}");
+    }
+}
+
+#[test]
+fn a_lone_starred_fstring_field_is_invalid_on_every_minor() {
+    for minor in [11, 12, 13, 14] {
+        assert!(outcome("x = f'{*a}'\n", minor).is_err());
     }
 }
 

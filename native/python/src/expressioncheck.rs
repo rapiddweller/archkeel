@@ -102,11 +102,14 @@ pub fn assignment(items: &[Expr], work: &mut Work) -> Option<&'static str> {
 
 fn targets(items: &[Expr], work: &mut Work, depth: usize) -> Option<&'static str> {
     let mut stars = 0;
-    for item in items {
+    for (index, item) in items.iter().enumerate() {
         if !work.charge(1) {
             return Some("CPython validation work limit exceeded");
         }
         stars += usize::from(matches!(item, Expr::Starred(_)));
+        if matches!(item, Expr::Starred(_)) && index >= 256 {
+            return Some("too many expressions before a starred assignment target");
+        }
         if let Some(reason) = target(item, true, work, depth) {
             return Some(reason);
         }
@@ -132,6 +135,9 @@ fn comprehension(
     for generator in generators {
         if !check.work.charge(1) {
             return Some("CPython validation work limit exceeded");
+        }
+        if let Some(reason) = target(&generator.target, false, check.work, 0) {
+            return Some(reason);
         }
         let mut pending = vec![&generator.target];
         while let Some(target) = pending.pop() {
@@ -209,7 +215,7 @@ impl<'a> Visitor<'a> for ComprehensionCheck<'_> {
             Expr::Name(node) if node.id == "__debug__" && node.ctx != ExprContext::Load => {
                 self.reason = Some("cannot bind __debug__")
             }
-            Expr::Lambda(_) => {}
+            Expr::Lambda(_) if !self.iteration => {}
             _ => visitor::walk_expr(self, expr),
         }
         self.depth -= 1;

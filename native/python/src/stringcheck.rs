@@ -54,14 +54,24 @@ fn unassigned(c: char, minor: PyMinor) -> bool {
         .is_ok()
 }
 
-fn literal(value: &str, source: &str, minor: PyMinor, work: &mut Work) -> Option<&'static str> {
+fn literal(
+    value: &str,
+    source: &str,
+    minor: PyMinor,
+    work: &mut Work,
+    docstring: bool,
+) -> Option<&'static str> {
     if !work.charge(source.len().saturating_add(value.len())) {
         return Some("CPython validation work limit exceeded");
     }
-    if !source.contains("\\N{") {
+    let surrogates = match minor {
+        PyMinor::Py311 | PyMinor::Py312 => false,
+        PyMinor::Py313 | PyMinor::Py314 => docstring,
+    };
+    if !source.contains("\\N{") && !surrogates {
         return None;
     }
-    if value.chars().any(|c| unassigned(c, minor)) {
+    if source.contains("\\N{") && value.chars().any(|c| unassigned(c, minor)) {
         return Some("named Unicode escape is not assigned in this CPython version");
     }
     let legacy = match minor {
@@ -76,7 +86,15 @@ fn literal(value: &str, source: &str, minor: PyMinor, work: &mut Work) -> Option
         if c != '\\' {
             continue;
         }
-        if chars.next() != Some('N') || chars.next() != Some('{') {
+        let escape = chars.next();
+        if surrogates && matches!(escape, Some('u' | 'U')) {
+            let code = escape_code(&mut chars, if escape == Some('u') { 4 } else { 8 }, work)?;
+            if (0xd800..=0xdfff).contains(&code) {
+                return Some("CPython cannot encode a surrogate string constant");
+            }
+            continue;
+        }
+        if escape != Some('N') || chars.next() != Some('{') {
             continue;
         }
         let mut name = String::new();
@@ -89,12 +107,41 @@ fn literal(value: &str, source: &str, minor: PyMinor, work: &mut Work) -> Option
             }
             name.push(c);
         }
-        if legacy
-            && name.to_ascii_uppercase().starts_with("HANGUL SYLLABLE ")
-            && name.bytes().any(|c| c.is_ascii_lowercase())
-        {
-            return Some("lowercase Hangul syllable name is not accepted by this CPython version");
+        if let Some(reason) = named_escape(&name, legacy) {
+            return Some(reason);
         }
+    }
+    None
+}
+
+fn escape_code(chars: &mut std::str::Chars<'_>, digits: usize, work: &mut Work) -> Option<u32> {
+    let mut code = 0u32;
+    for _ in 0..digits {
+        if !work.charge(1) {
+            return None;
+        }
+        code = code
+            .saturating_mul(16)
+            .saturating_add(chars.next()?.to_digit(16)?);
+    }
+    Some(code)
+}
+
+fn named_escape(name: &str, legacy: bool) -> Option<&'static str> {
+    let upper = name.to_ascii_uppercase();
+    if legacy && upper.starts_with("HANGUL SYLLABLE ") && name != upper {
+        return Some("lowercase Hangul syllable name is not accepted by this CPython version");
+    }
+    let hex = upper.strip_prefix("CJK UNIFIED IDEOGRAPH-")?;
+    if legacy && name != upper {
+        return Some("lowercase CJK name is not accepted by this CPython version");
+    }
+    if !legacy
+        && u32::from_str_radix(hex, 16)
+            .ok()
+            .is_none_or(|code| format!("{code:04X}") != hex)
+    {
+        return Some("non-canonical CJK named Unicode escape");
     }
     None
 }
@@ -103,6 +150,7 @@ struct Check<'a> {
     source: &'a str,
     minor: PyMinor,
     work: &'a mut Work,
+    docstring: bool,
 }
 impl Check<'_> {
     fn text(&self, node: &impl Ranged) -> &str {
@@ -138,7 +186,7 @@ impl Check<'_> {
         let node = match element {
             InterpolatedStringElement::Literal(node) if !raw => {
                 let text = self.text(node).to_owned();
-                return literal(&node.value, &text, self.minor, self.work);
+                return literal(&node.value, &text, self.minor, self.work, false);
             }
             InterpolatedStringElement::Literal(_) => return None,
             InterpolatedStringElement::Interpolation(node) => node,
@@ -166,7 +214,7 @@ impl Check<'_> {
             return None;
         }
         let text = self.text(part).to_owned();
-        literal(&part.value, &text, self.minor, self.work)
+        literal(&part.value, &text, self.minor, self.work, self.docstring)
     }
 
     fn fstring_part(&mut self, part: FStringPartRef<'_>) -> Option<&'static str> {
@@ -219,6 +267,7 @@ pub fn check(expr: &Expr, source: &str, minor: PyMinor, work: &mut Work) -> Opti
         source,
         minor,
         work,
+        docstring: false,
     };
     match expr {
         Expr::StringLiteral(node) => node.value.iter().find_map(|part| check.literal_part(part)),
@@ -238,4 +287,25 @@ pub fn check(expr: &Expr, source: &str, minor: PyMinor, work: &mut Work) -> Opti
         }
         _ => None,
     }
+}
+
+pub fn docstring(
+    body: &[ruff_python_ast::Stmt],
+    source: &str,
+    minor: PyMinor,
+    work: &mut Work,
+) -> Option<&'static str> {
+    let ruff_python_ast::Stmt::Expr(stmt) = body.first()? else {
+        return None;
+    };
+    let Expr::StringLiteral(node) = &*stmt.value else {
+        return None;
+    };
+    let mut check = Check {
+        source,
+        minor,
+        work,
+        docstring: true,
+    };
+    node.value.iter().find_map(|part| check.literal_part(part))
 }

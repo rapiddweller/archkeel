@@ -201,7 +201,10 @@ def test_the_ci_install_of_cargo_deny_checks_the_hash_and_creates_the_target_dir
 
 def test_a_test_that_needs_a_rust_toolchain_runs_only_in_the_wheel_matrix() -> None:
     pyproject = (ROOT / "pyproject.toml").read_text()
-    assert """addopts = "-p no:cacheprovider -m 'not browser and not native_wheel'\"""" in pyproject
+    assert (
+        """addopts = "-rs -p no:cacheprovider -m 'not browser and not native_wheel'\""""
+        in pyproject
+    )
     dry_run = subprocess.run(
         [
             "make",

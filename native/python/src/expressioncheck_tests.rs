@@ -37,3 +37,17 @@ fn a_long_boolean_star_charges_each_lexer_step() {
         Some("CPython validation work limit exceeded")
     );
 }
+
+#[test]
+fn target_and_lexer_work_are_pinned_to_fixed_inputs() {
+    let tree = crate::test_tree("a, b, *c = values", 14).unwrap();
+    let ruff_python_ast::Stmt::Assign(assignment) = &tree.body[0] else {
+        return;
+    };
+    let mut work = Work::new();
+    assert_eq!(super::assignment(&assignment.targets, &mut work), None);
+    assert_eq!(work.used(), 9);
+    let mut work = Work::new();
+    assert!(grouped_star("*(a or b)", &mut work));
+    assert_eq!(work.used(), 8);
+}

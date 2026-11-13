@@ -107,7 +107,7 @@ dev = [
 testpaths = ["tests"]
 # Tests import repository tools such as tools/against.py.
 pythonpath = ["."]
-addopts = "-p no:cacheprovider -m 'not browser and not native_wheel'"
+addopts = "-rs -p no:cacheprovider -m 'not browser and not native_wheel'"
 markers = [
     "browser: runs the rendered report in Chromium",
     "native_wheel: builds or installs the platform wheel; make native-wheel runs it",

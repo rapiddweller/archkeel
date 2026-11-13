@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: MIT
 
 //! Partial CPython checks after the grammar. Known unchecked classes keep #1072 open.
-
 use super::work::Work;
 use ruff_python_ast::{
     visitor::{self, Visitor},
@@ -13,9 +12,7 @@ use ruff_text_size::Ranged;
 use std::collections::HashSet;
 
 const MAX_DEPTH: usize = 1000;
-
 use super::scopecheck::LexicalScope as Scope;
-
 struct Check {
     work: Work,
     depth: usize,
@@ -142,6 +139,9 @@ impl Check {
             if !self.work.charge(1) {
                 break;
             }
+            if generator.is_async && self.scope != Scope::Async {
+                self.fail("asynchronous comprehension outside an async function");
+            }
             self.visit_expr(&generator.target);
             if index > 0 {
                 self.visit_expr(&generator.iter);
@@ -224,7 +224,9 @@ impl Check {
             if !self.work.charge(1) {
                 break;
             }
-            if self.seen.contains(name.as_str()) && !self.globals.contains(name.as_str()) {
+            if self.nonlocals.contains(name.as_str())
+                || (self.seen.contains(name.as_str()) && !self.globals.contains(name.as_str()))
+            {
                 self.fail("name used or assigned before global declaration");
             }
             self.globals.insert(name.to_string());
@@ -250,6 +252,7 @@ impl Check {
             self.fail(reason);
         }
         self.visit_expr(&node.iter);
+        self.visit_expr(&node.target);
         self.loops += 1;
         self.visit_body(&node.body);
         self.loops -= 1;
@@ -295,11 +298,7 @@ impl Check {
         if !self.work.charge(node.names.len()) {
             return;
         }
-        let future = node.level == 0
-            && node
-                .module
-                .as_ref()
-                .is_some_and(|name| name == "__future__");
+        let future = super::scopecheck::is_future(node, self.minor);
         if future && (self.scope != Scope::Module || self.depth != 1) {
             self.fail("future import is not at the start of the module");
         }
@@ -450,7 +449,7 @@ impl<'a> Visitor<'a> for Check {
         if !self.work.charge(1) {
             return;
         }
-        let name = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
+        let name = super::scopecheck::imported_name(alias);
         if name == "__debug__" {
             self.fail("cannot bind __debug__");
         }
