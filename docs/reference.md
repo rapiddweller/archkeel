@@ -543,6 +543,7 @@ is optional. Subgraphs, labels and styles require manual editing.
 The switch is off by default. The shell imports no Python IR or decision package.
 The core reads the configuration and Git state, collects the source and decides the architecture rules.
 The shell renders the frame. PASS exits 0, FAIL exits 1, and UNKNOWN or a refusal exits 2.
+Exit 2 means UNKNOWN or refusal; JSON distinguishes a refusal by its typed `refusal` field, and text starts with `REFUSED:`.
 This is an architecture gate, not the legacy contract policy validator.
 Baseline, amendment, provenance graph and policy-edit operations refuse rather than disappear.
 

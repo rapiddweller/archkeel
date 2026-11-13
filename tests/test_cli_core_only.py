@@ -23,7 +23,12 @@ class Guard(importlib.abc.MetaPathFinder):
             raise AssertionError("Python collector imported: " + fullname)
 sys.meta_path.insert(0, Guard())
 from archkeel.cli import main
-raise SystemExit(main(sys.argv[1:]))
+code = main(sys.argv[1:])
+for name in sys.modules:
+    assert not any(name == package or name.startswith(package + ".")
+                   for package in ("archkeel.ir", "archkeel.check", "archkeel.analyzer")), (
+        "forbidden module after command: " + name)
+raise SystemExit(code)
 """
 
 

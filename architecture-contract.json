@@ -854,7 +854,8 @@
         "broad_except"
       ],
       "exact_sources": [
-        "archkeel.cli._legacy_main"
+        "archkeel.cli._legacy_main",
+        "archkeel.cli.core_only.run"
       ],
       "rationale": "Failures stay typed and visible; only the CLI error boundary turns any failure into an exit-2 result.",
       "provenance": [

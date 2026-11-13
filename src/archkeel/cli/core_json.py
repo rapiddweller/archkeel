@@ -55,6 +55,10 @@ class CoreError(Exception):
         return Exception.__str__(self)
 
 
+class RequestMismatch(CoreError):
+    """The frame does not bind to the request or its current contract bytes."""
+
+
 def _object(value: object, where: str) -> dict[str, object]:
     if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
         raise CoreError(f"the core frame field {where} is not an object")

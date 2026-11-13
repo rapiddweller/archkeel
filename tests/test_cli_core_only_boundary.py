@@ -44,7 +44,8 @@ def frame(status: Status = Status.PASS) -> bytes:
     return json.dumps(
         {
             "protocol": "archkeel-core-frame-1",
-            "engine": "test",
+            "engine": "archkeel-core " + "a" * 64,
+            "contract_digest": hashlib.sha256(b"contract").hexdigest(),
             "status": status,
             "rules": {"R1": ["forbidden_dependency", status]},
             "explained": {"R1": "pair gap at app.a -> app.b (src/a.ts:4)"}
@@ -72,16 +73,19 @@ def frame(status: Status = Status.PASS) -> bytes:
             "self_test": {
                 "contract": {"rules": {"R1": "forbidden_dependency"}},
                 "reply": {"files": 2},
-                "collect": {"request": {}},
+                "collect": {"request": {"snapshot": {"root": str(Path.cwd())}}},
             },
         }
     ).encode()
 
 
 @pytest.fixture(autouse=True)
-def no_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+def no_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv(core_only.VARIABLE, raising=False)
     monkeypatch.delenv(core_only.STAGE_ONE_VARIABLE, raising=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "archkeel.toml").write_text('[scan]\ncontract = "contract.json"\n')
+    (tmp_path / "contract.json").write_bytes(b"contract")
 
 
 @pytest.mark.parametrize("value", ["1", "wrong"])
@@ -251,7 +255,7 @@ def test_each_mandatory_merge_check_is_named_without_a_scan(
     monkeypatch.setattr(core_only, "locate_core", no_binary)
     assert core_only.run(["check", "--core-only", "--json", *flags]) == 2
     result = json.loads(capsys.readouterr().out)
-    assert kind in result["refusal"] and "#1103" in result["refusal"]
+    assert kind in result["refusal"]["message"] and "#1103" in result["refusal"]["message"]
 
 
 @pytest.mark.parametrize(
@@ -273,7 +277,7 @@ def test_uncarried_forms_refuse_by_name(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     assert core_only.run(["report", "--core-only", "--json", *flags]) == 2
-    refusal = json.loads(capsys.readouterr().out)["refusal"]
+    refusal = json.loads(capsys.readouterr().out)["refusal"]["message"]
     assert reason in refusal and "run without --core-only" in refusal
 
 

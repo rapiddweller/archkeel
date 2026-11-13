@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 import sys
+import traceback
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Final, NoReturn
@@ -20,11 +21,13 @@ from .core_frame import (
     CoreError,
     CoreFrame,
     GapKind,
+    RefusalKind,
     Status,
     Switch,
     read_frame,
 )
 from .core_frame import CoreCommand as Command
+from .core_json import RequestMismatch
 from .native_scan import SCAN_PROTOCOL, exchange
 
 VARIABLE: Final = "ARCHKEEL_CORE_ONLY"
@@ -101,12 +104,28 @@ def parse(argv: Sequence[str]) -> Options:
         parser.add_argument(f"--{flag}", type=Path)
     parser.add_argument("--only")
     options, extra = parser.parse_known_args(argv, Options())
+    try:
+        Switch(os.environ.get(VARIABLE, ""))
+    except ValueError as error:
+        raise CoreError(f"{VARIABLE} must be 0 or 1") from error
+    if options.native_core or Switch(os.environ.get(STAGE_ONE_VARIABLE, "")) is Switch.ON:
+        raise CoreError("--core-only and the stage-1 --native-core switch cannot be combined")
     if options.command is Command.CHECK:
         names = "; ".join(active_checks(options))
         raise CoreError(f"check requires {names}; not ported (#1103); run without --core-only")
     if extra:
         raise CoreError(
             f"unsupported core-only arguments: {' '.join(extra)}; run without --core-only"
+        )
+    if options.command is Command.EXPLORE:
+        raise CoreError("explore needs the full report payload; run without --core-only")
+    if options.output is not None or options.html:
+        raise CoreError(
+            "the full HTML report and architecture.json are not carried; run without --core-only"
+        )
+    if options.input is not None or options.only is not None or options.full:
+        raise CoreError(
+            "saved reports and report projections are not carried; run without --core-only"
         )
     return options
 
@@ -119,24 +138,7 @@ def run(argv: Sequence[str]) -> int:
         output.add_argument("--text", action="store_true")
         selection, _ = output.parse_known_args(argv, Options())
         as_json = selection.json or (not sys.stdout.isatty() and not selection.text)
-        try:
-            Switch(os.environ.get(VARIABLE, ""))
-        except ValueError as error:
-            raise CoreError(f"{VARIABLE} must be 0 or 1") from error
         options = parse(argv)
-        if options.native_core or Switch(os.environ.get(STAGE_ONE_VARIABLE, "")) is Switch.ON:
-            raise CoreError("--core-only and the stage-1 --native-core switch cannot be combined")
-        if options.command is Command.EXPLORE:
-            raise CoreError("explore needs the full report payload; run without --core-only")
-        if options.output is not None or options.html:
-            raise CoreError(
-                "the full HTML report and architecture.json are not carried; "
-                "run without --core-only"
-            )
-        if options.input is not None or options.only is not None or options.full:
-            raise CoreError(
-                "saved reports and report projections are not carried; run without --core-only"
-            )
         request = {
             "protocol": SCAN_PROTOCOL,
             "root": str((options.root or Path.cwd()).resolve()),
@@ -144,31 +146,58 @@ def run(argv: Sequence[str]) -> int:
             "root_only": True,
             "discover_root": options.root is None,
         }
-        stdout, code = exchange(str(locate_core()), "scan", json.dumps(request).encode())
-        frame = read_frame(stdout, code, scan=True, require_protocol=True)
+        binary = locate_core()
+        stdout, code = exchange(str(binary), "scan", json.dumps(request).encode())
+        frame = read_frame(stdout, code, scan=True, require_protocol=True, request=request)
         result: dict[str, object] = {
             "command": options.command,
             "status": frame.status,
             "exit_code": EXIT_CODES[frame.status],
             "frame": json.loads(stdout),
+            "core": {"path": str(binary), "engine": frame.engine, "code_digest": frame.code_digest},
             "gaps": [
                 {"kind": gap.kind, "subject": gap.subject, "reason": gap.reason}
                 for gap in frame.gaps
             ],
         }
+        collected = next((gap for gap in frame.gaps if gap.kind is GapKind.COLLECT), None)
+        if collected is not None:
+            result["refusal"] = {
+                "kind": RefusalKind.COLLECTION_REFUSED,
+                "message": collected.reason,
+            }
         if as_json:
             print(json.dumps(result))
         else:
-            render_text(options.command, frame)
+            if collected is None:
+                render_text(options.command, frame)
+            else:
+                _refused(RefusalKind.COLLECTION_REFUSED, collected.reason, False)
+            print(f"Core: {binary}; engine: {frame.engine}; code digest: {frame.code_digest}")
         return EXIT_CODES[frame.status]
     except (CoreError, OSError, ValueError) as error:
-        refusal = {"status": Status.UNKNOWN, "exit_code": 2, "refusal": str(error)}
-        print(
-            json.dumps(refusal)
-            if as_json
-            else f"UNKNOWN: {error}\nAction: Correct the named cause and run again."
-        )
-        return 2
+        if isinstance(error, RequestMismatch):
+            kind = RefusalKind.REQUEST_MISMATCH
+        elif isinstance(error, CoreError):
+            kind = RefusalKind.CORE_ERROR
+        elif isinstance(error, OSError):
+            kind = RefusalKind.IO_ERROR
+        else:
+            kind = RefusalKind.INVALID_INPUT
+        return _refused(kind, str(error), as_json)
+    except Exception as error:
+        traceback.print_exc()
+        return _refused(RefusalKind.INTERNAL_ERROR, f"{type(error).__name__}: {error}", as_json)
+
+
+def _refused(kind: RefusalKind, message: str, as_json: bool) -> int:
+    refusal = {
+        "status": Status.UNKNOWN,
+        "exit_code": 2,
+        "refusal": {"kind": kind, "message": message},
+    }
+    print(json.dumps(refusal) if as_json else f"REFUSED: {kind}: {message}")
+    return 2
 
 
 def render_text(command: Command, frame: CoreFrame) -> None:

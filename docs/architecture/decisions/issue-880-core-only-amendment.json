@@ -1,9 +1,9 @@
 {
-  "after_baseline_digest": "3027681374815dfb63b8417df1b5ce5d4677ce54fc6c5b7edb42bb0a64761069",
-  "after_digest": "0bd1a2a9cfa04e3f88b8090aec01197e602e0c7358038535c69886afd6ae56bf",
+  "after_baseline_digest": "fdfc5b810206acaa698c3fd7ee409565e443406c5a3796575addec0b15f98962",
+  "after_digest": "cce6214827492a49e971fa112969ce15241d6c277559da9bb33c0549681d68c4",
   "before_baseline_digest": "6538bb180f3e2228a25d7f888a5a477d65903fa165196529ba7c4ebd037e8860",
   "before_digest": "2b4406ce57dbceb00765b6667cea9d0dfdec6d6553ae0aa1e66d5edd20ca4020",
-  "decided_by": "Agent session for Alexander Kell; scope L-121, review in PR #1127 decides",
-  "rationale": "AD-422: add exact CLI modules for isolated core-only dispatch and typed frame metadata. Move the existing rich_argparse scope from the root to the four unchanged legacy grammar owners; move its existing broad-exception allowance to _legacy_main. Move the parser UML declaration to its real module and preserve its public alias. Measured calls_unresolved changes from 1027 to 1060 after the legacy split and frame readers; typing_positions changes from 71 to 78 for checked JSON inputs, not Any. No unknown-position or architecture-violation budget grows. The native core-to-facts edge uses existing identity functions for contract locations, not another verdict.",
+  "decided_by": "Agent session for Alexander Kell; scope L-121 and Opus review round F1/F2/F3/F5; review in PR #1127 decides",
+  "rationale": "AD-422: isolate core-only dispatch and typed frame metadata; move unchanged grammar and parser UML ownership. Keep the legacy broad-exception allowance and add only the final core-only CLI error boundary required by F3. F1 hashes the exact selected contract and binds the collected root in the sole frame reader; it parses config paths, not contract rules. Measured calls_unresolved is 1069 versus 1027 on main (1060 before this review round); typing_positions is 78 versus 71 for checked JSON boundaries. No Any/getattr, unknown-position or violation budget grows. The core-to-facts edge uses existing identity helpers for raw contract digests and source locations.",
   "schema_version": "2.0.0"
 }

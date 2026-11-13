@@ -33,6 +33,10 @@
    Refused collection does not parse an empty contract or report a false contract error.
 9. One lookup finds the installed `_native` binary with its digest, or a checkout build.
    A broken installed binary never falls back to a checkout binary.
+10. The one frame reader binds a successful collection to its requested root and raw contract SHA-256.
+    Read only the config to locate the contract, then hash its bytes; do not parse rules in Python.
+    JSON names the core path, engine and code digest; the text footer gives the same identity.
+    Refusals have a closed `refusal.kind`; text starts `REFUSED:`. Unexpected errors exit 2 with stderr traceback.
 
 **Reason.** The milestone needs one complete architecture gate without a second verdict.
 The merge gate and full report still need ports. A refusal is safer than an incomplete PASS.
@@ -42,10 +46,18 @@ Do not close #1095 or #1103. Stage 1 remains for the operations that core-only r
 
 **Limits.** The default, wheel packaging and Makefile switch belong to slice 5.
 No proof in model or eval changes. No analyzer is removed. No rule kind is added.
-The legacy split and frame readers add 33 unresolved calls and seven checked `object` input positions.
+The legacy split and reviewed frame binding add 42 unresolved calls and seven checked `object` input positions.
 The amendment binds these measured budgets, moved grammar allowances and the parser's UML owner.
 No unknown-position or violation budget grows. These are collector limits, not missing runtime types.
+The final core-only CLI exception boundary has the same narrow broad-exception allowance as the legacy entry.
+F4, slice 5: `git status` reads `.git/config`; a configured `filter.<x>.clean` can execute.
+Fixed Git and cleared environment do not prevent this. Do not scan untrusted Git configuration.
+Main embeds the native code digest in the binary, but supplies no expected code-digest record for this layout.
+Thus a stale release binary can still run before debug; its path and reported digest remain visible.
+The installed `.sha256` verifies binary bytes, not source freshness. Source/build options are not authenticated.
 
 **Tests.** `tests/test_cli_core_only.py` blocks imports in a subprocess.
 Boundary tests cover process failures, frame validation, exit mapping, lookup and refusals.
 Native tests cover Git state, refused collection and typed violation evidence.
+Review tests bind foreign PASS frames and changed contracts, plant an internal error, and check typed refusals.
+Post-command import guards cover real validate/report text and JSON scans and check after refusal, with no exceptions.
