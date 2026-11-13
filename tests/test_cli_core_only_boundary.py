@@ -215,8 +215,33 @@ def test_real_process_faults_are_typed_refusals(
 
 
 @pytest.mark.parametrize("kind", list(core_only.CheckKind))
+@pytest.mark.parametrize(
+    "flags",
+    [
+        [],
+        [
+            "--baseline",
+            "b",
+            "--expectation-commit",
+            "e",
+            "--head",
+            "h",
+            "--expected",
+            "expectation.json",
+            "--expected-digest",
+            "digest",
+            "--branch",
+            "origin/feature",
+            "--accepted-branch",
+            "origin/main",
+            "--host-records",
+            "host.json",
+        ],
+    ],
+)
 def test_each_mandatory_merge_check_is_named_without_a_scan(
     kind: core_only.CheckKind,
+    flags: list[str],
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -224,7 +249,7 @@ def test_each_mandatory_merge_check_is_named_without_a_scan(
         pytest.fail("a refused check must not start the core")
 
     monkeypatch.setattr(core_only, "locate_core", no_binary)
-    assert core_only.run(["check", "--core-only", "--json"]) == 2
+    assert core_only.run(["check", "--core-only", "--json", *flags]) == 2
     result = json.loads(capsys.readouterr().out)
     assert kind in result["refusal"] and "#1103" in result["refusal"]
 
