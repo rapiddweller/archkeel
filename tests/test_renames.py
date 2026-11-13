@@ -92,13 +92,13 @@ def test_a_package_and_folder_rename_propose_the_shortest_prefixes() -> None:
         _component("KUNDE", "window_cleaning_mobile.features.kunde"),
     )
     after = _contract(
-        _component("API", "field_service_mobile.api"),
-        _component("KUNDE", "field_service_mobile.features.customer"),
+        _component("API", "parcel_routing_mobile.api"),
+        _component("KUNDE", "parcel_routing_mobile.features.customer"),
     )
 
     assert rename_candidates(before, after)[0] == {
-        "window_cleaning_mobile": "field_service_mobile",
-        "window_cleaning_mobile.features.kunde": "field_service_mobile.features.customer",
+        "window_cleaning_mobile": "parcel_routing_mobile",
+        "window_cleaning_mobile.features.kunde": "parcel_routing_mobile.features.customer",
     }
 
 

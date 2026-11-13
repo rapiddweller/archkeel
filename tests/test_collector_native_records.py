@@ -45,8 +45,8 @@ from archkeel.ir.protocol import (
 )
 
 ROOT = Path(__file__).parents[1]
-# Folders of further corpora (the x35 tree, a public project): `path:scope:namespace`, separated
-# by `;`. Only totals are printed.
+# Folders of further corpora (the x35 tree, a measured corpus project (aggregate counts only)):
+# `path:scope:namespace`, separated by `;`. Only totals are printed.
 CORPORA = "ARCHKEEL_RECORDS_CORPORA"
 
 # Statements that bind names across files: named, default, namespace and type-only imports, a

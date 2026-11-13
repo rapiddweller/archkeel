@@ -737,12 +737,12 @@ def test_component_provenance_is_neutral() -> None:
 
 def test_a_public_gain_names_the_lost_entry_it_may_replace() -> None:
     """#151: where no rename is recognised, a gain still shows what the same change lost."""
-    before = _component(packages=("a.api",), public=("a.api.generated.planning_api",))
-    after = _component(packages=("b.api",), public=("b.api.generated.planning_api",))
+    before = _component(packages=("a.api",), public=("a.api.generated.ordering_api",))
+    after = _component(packages=("b.api",), public=("b.api.generated.ordering_api",))
 
     assert (
-        "component 'comp'.public gained 'b.api.generated.planning_api' "
-        "in place of 'a.api.generated.planning_api'"
+        "component 'comp'.public gained 'b.api.generated.ordering_api' "
+        "in place of 'a.api.generated.ordering_api'"
     ) in _component_diff(before, after)
 
 
