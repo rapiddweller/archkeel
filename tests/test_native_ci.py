@@ -8,7 +8,6 @@ from __future__ import annotations
 import os
 import re
 import subprocess
-import sys
 from pathlib import Path
 from textwrap import dedent
 
@@ -40,8 +39,8 @@ def test_the_pr_gate_runs_only_the_linux_rust_checks() -> None:
     assert "runs-on: ubuntu-24.04\n" in native
     assert native.index("run: make cargo-deny-install") < native.index("run: make native-check")
     rust = [job for job, body in jobs.items() if re.search(r"make native-|cargo|macos", body)]
-    assert rust == ["native", "native-corpus"]
-    assert "runs-on: ubuntu-24.04\n" in jobs["native-corpus"]
+    assert rust == ["native"]
+    assert "run: make native-check\n" in native
 
 
 # A parent make (`make pr-test`) passes MAKELEVEL on, and GNU make 4 then prints "Leaving directory"
@@ -58,45 +57,6 @@ def _dry_run(*arguments: str) -> str:
         text=True,
         check=True,
     ).stdout
-
-
-def _corpus_tests() -> list[str]:
-    printed = _dry_run("-p", "native-corpus", "LEG=1")
-    found = re.search(r"^NATIVE_CORPUS_TESTS := (.+)$", printed, re.MULTILINE)
-    assert found is not None
-    return found[1].split()
-
-
-def test_ci_runs_each_native_check_test_once_in_the_native_job_or_a_corpus_leg() -> None:
-    """Issue #880: the corpus tests run in parallel legs; the jobs run all of native-check."""
-    jobs = _jobs("ci.yml")
-    corpus = _corpus_tests()
-    assert len(corpus) == 3
-    assert "run: make native-check NATIVE_SPLIT=1\n" in jobs["native"]
-    legs = re.search(r"\n        leg: \[(.+)\]\n", jobs["native-corpus"])
-    assert legs is not None
-    assert legs[1].split(", ") == [str(n) for n in range(1, len(corpus) + 1)]
-    assert "run: make native-corpus LEG=${{ matrix.leg }}\n" in jobs["native-corpus"]
-    for leg, test in enumerate(corpus, start=1):
-        assert _dry_run("native-corpus", f"LEG={leg}").split()[-1] == test
-        # A corpus test must come from the test list of native-check, so that the split drops it.
-        assert test.split("::")[0] in _dry_run("native-check").split()
-    printed = _dry_run("-p", "native-check", "NATIVE_SPLIT=1")
-    options = re.findall(r"^PYTEST_ADDOPTS = (.+)$", printed, re.MULTILINE)
-    assert options == [f"-n 4 --max-worker-restart=0 --deselect {' --deselect '.join(corpus)}"]
-
-
-def test_each_corpus_test_names_one_collected_test() -> None:
-    collected = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only", "-q", *_corpus_tests()],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=120,
-    )
-    assert collected.returncode == 0, collected.stdout + collected.stderr
-    assert re.search(r"^3 tests collected", collected.stdout, re.MULTILINE), collected.stdout
 
 
 def test_full_builds_each_platform_wheel_on_its_own_target() -> None:
@@ -174,29 +134,18 @@ def test_release_requires_exactly_six_platform_wheels_and_one_sdist(tmp_path, wh
 
 
 def _make(tmp_path: Path, target: str, cargo_deny: str) -> subprocess.CompletedProcess[str]:
-    # `self-validate-native` copies the collector that `cargo build` makes, so the stub makes an
-    # empty one. A real build output stays as it is, and the test removes only its own file.
-    built = ROOT / "native/target/self/debug/archkeel-rust-collector"
+    # The stub of cargo builds nothing, and UV=true runs no Python: the test reads only the calls.
     cargo = tmp_path / "cargo"
-    cargo.write_text(
-        f'#!/bin/sh\necho "cargo $*" >> "{tmp_path}/calls"\necho "{cargo_deny}"\n'
-        f'case "$*" in *"build "*) [ -e "{built}" ] || '
-        f'{{ mkdir -p "{built.parent}" && : > "{built}"; }};; esac\n'
-    )
+    cargo.write_text(f'#!/bin/sh\necho "cargo $*" >> "{tmp_path}/calls"\necho "{cargo_deny}"\n')
     cargo.chmod(0o755)
-    existed = built.exists()
-    try:
-        return subprocess.run(
-            ["make", "-o", "typescript-collector", target, "UV=true"],
-            cwd=ROOT,
-            env={**_MAKE_ENV, "PATH": f"{tmp_path}:{os.environ['PATH']}"},
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-    finally:
-        if not existed:
-            built.unlink(missing_ok=True)
+    return subprocess.run(
+        ["make", target, "UV=true"],
+        cwd=ROOT,
+        env={**_MAKE_ENV, "PATH": f"{tmp_path}:{os.environ['PATH']}"},
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
 
 
 def test_native_check_runs_the_dependency_policy_with_the_pinned_cargo_deny(
@@ -213,6 +162,8 @@ def test_native_check_runs_the_dependency_policy_with_the_pinned_cargo_deny(
     assert calls.index("cargo clippy --locked --all-targets -- -D warnings") < calls.index(
         "cargo deny --locked check"
     )
+    # AD-432: the self-check of native-check runs the release core of this checkout.
+    assert calls[-1] == "cargo build --locked --release -p archkeel-core"
 
 
 def test_the_ci_install_of_cargo_deny_checks_the_hash_and_creates_the_target_directory() -> None:
@@ -257,7 +208,7 @@ def test_a_test_that_needs_a_rust_toolchain_runs_only_in_the_wheel_matrix() -> N
 
 def test_native_check_runs_the_clone_and_api_tools_only_through_their_tests() -> None:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-    check = makefile.split("\nnative-check:\n")[1].split("\n# AD-335")[0]
+    check = makefile.split("\nnative-check:\n")[1].split("\n# AD-432")[0]
     assert "tests/test_rust_clones.py tests/test_rust_api.py" in check
     assert "tools/rust_clones.py\n" not in check and "tools/rust_api.py --check" not in check
     assert "cargo build --locked\n" not in check

@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import ast
-import json
 import os
 import re
 import shlex
@@ -26,7 +25,6 @@ CI_CHECK_STEPS = [
     *GATE_STEPS,
     "typescript-compiler-check",
     "browser-graph-check",
-    "demo-typescript",
     "browser-runtime-check",
     "typescript-libs-check",
     "self-validate-native",
@@ -44,21 +42,17 @@ def _run_gate(
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
     steps = tmp_path / "steps"
     overrides = tmp_path / "Makefile"
-    names = [*CI_STEPS, "against", "pr-test", "pr-report-test", "report-browser-tests"]
+    names = [*CI_STEPS, "pr-test", "pr-report-test"]
     recipes = []
     for name in names:
-        output_guard = ""
-        if name == "demo-typescript":
-            output_guard = '\t@test "$(OUTPUT)" = test-artifacts/typescript-demo\n'
         recipes.append(
             f'{name}:\n\t@echo {name} >> "{steps}"\n\t@sleep 0.05\n\t@exit {int(name == failed)}\n'
-            + output_guard
         )
     overrides.write_text(
         ("" if separate_override else f"include {ROOT / 'Makefile'}\n")
         + ".PHONY: "
         + " ".join([*names, "lint", "typecheck", "test"])
-        + "\nlint typecheck test browser-runtime-install typescript-collector:\n\t@:\n"
+        + "\nlint typecheck test browser-runtime-install core:\n\t@:\n"
         + "".join(recipes)
     )
     args = ["make", f"-j{jobs}"]
@@ -89,19 +83,6 @@ def test_gate_validates_first_and_stops_after_each_failure(
 
 
 @pytest.mark.parametrize("jobs", [1, 2])
-@pytest.mark.parametrize("failed", [None, "check"])
-def test_gate_keeps_supported_checks_without_the_python_self_check(
-    tmp_path: Path, jobs: int, failed: str | None
-) -> None:
-    result, steps = _run_gate(tmp_path, "gate", failed, jobs, True, base="a" * 40)
-    expected = GATE_STEPS
-    if failed is not None:
-        expected = expected[: expected.index(failed) + 1]
-    assert steps == expected, result.stderr
-    assert result.returncode == (0 if failed is None else 2), result.stderr
-
-
-@pytest.mark.parametrize("jobs", [1, 2])
 @pytest.mark.parametrize(
     "failed",
     [
@@ -109,7 +90,6 @@ def test_gate_keeps_supported_checks_without_the_python_self_check(
         "ci-artifacts-clean",
         "self-validate-native",
         "typescript-compiler-check",
-        "demo-typescript",
         "mermaid",
     ],
 )
@@ -127,46 +107,6 @@ def test_ci_check_leaves_mermaid_to_its_parallel_workflow_job(tmp_path: Path, jo
     result, steps = _run_gate(tmp_path, "ci-check", None, jobs, True)
     assert result.returncode == 0, result.stderr
     assert steps == CI_CHECK_STEPS
-
-
-@pytest.mark.parametrize("compiler_exit", [0, 1])
-def test_uml_demo_checks_typescript_before_generating_reports(tmp_path: Path, compiler_exit: int):
-    steps = tmp_path / "steps"
-    overrides = tmp_path / "Makefile"
-    overrides.write_text(
-        f"include {ROOT / 'Makefile'}\n"
-        "typescript-compiler-check:\n"
-        f'\t@echo compiler >> "{steps}"\n'
-        f"\t@exit {compiler_exit}\n"
-    )
-    runner = tmp_path / "uv"
-    runner.write_text(f'#!/bin/sh\necho report >> "{steps}"\n')
-    runner.chmod(0o755)
-    result = subprocess.run(
-        ["make", "-j2", "-f", str(overrides), "demo-uml", f"OUTPUT={tmp_path / 'reports'}"],
-        cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": "", "UV": str(runner)},
-        capture_output=True,
-        text=True,
-        timeout=15,
-    )
-    assert steps.read_text().splitlines() == (
-        ["compiler", "report"] if compiler_exit == 0 else ["compiler"]
-    ), result.stderr
-    assert result.returncode == (0 if compiler_exit == 0 else 2), result.stderr
-
-
-def test_python_self_check_has_one_named_restore_condition() -> None:
-    makefile = (ROOT / "Makefile").read_text()
-    assert "PYTHON_SELF_CHECK :=\n" in makefile
-    assert (
-        "no Python self-check until the native Python collector and store support its replies"
-        in makefile
-    )
-    assert (
-        "ci-pr-static: $(PYTHON_SELF_CHECK) lint typecheck browser-architecture-check" in makefile
-    )
-    assert "gate: $(PYTHON_SELF_CHECK) release-check" in (ROOT / "tools/full.mk").read_text()
 
 
 @pytest.mark.parametrize("failed", [None, "browser-architecture-check", "pr-test"])
@@ -192,71 +132,10 @@ def test_pr_report_gate_runs_logic_sample_and_propagates_failure(tmp_path, faile
     assert result.returncode == (0 if failed is None else 2)
 
 
-@pytest.mark.parametrize("fail_pytest", [False, True])
-def test_local_browser_target_installs_and_runs_only_the_smokes(
-    tmp_path: Path, fail_pytest: bool
-) -> None:
-    calls = tmp_path / "uv-calls.jsonl"
-    runner = tmp_path / "uv"
-    runner.write_text(
-        "#!/usr/bin/env python3\n"
-        "import json, os, sys\n"
-        "with open(os.environ['UV_CALLS'], 'a', encoding='utf-8') as stream:\n"
-        "    stream.write(json.dumps(sys.argv[1:]) + '\\n')\n"
-        "if (\n"
-        "    os.environ.get('FAIL_REPORT_PYTEST') == '1'\n"
-        "    and 'pytest' in sys.argv\n"
-        "    and 'browser' in sys.argv\n"
-        "):\n"
-        "    raise SystemExit(7)\n"
-    )
-    runner.chmod(0o755)
-    result = subprocess.run(
-        ["make", "report-browser-tests"],
-        cwd=ROOT,
-        env={
-            **os.environ,
-            "OUTPUT": "",
-            "UV": str(runner),
-            "UV_CALLS": str(calls),
-            "FAIL_REPORT_PYTEST": "1" if fail_pytest else "0",
-        },
-        capture_output=True,
-        text=True,
-        timeout=15,
-    )
-    invocations = [json.loads(line) for line in calls.read_text().splitlines()]
-    assert invocations[0] == [
-        "run",
-        "--locked",
-        "--with",
-        "playwright==1.62.0",
-        "python",
-        "-m",
-        "playwright",
-        "install",
-        "--with-deps",
-        "chromium",
-    ]
-    assert len(invocations) == 2
-    assert invocations[1][:7] == [
-        "run",
-        "--locked",
-        "--with",
-        "playwright==1.62.0",
-        "python",
-        "-m",
-        "pytest",
-    ]
-    assert "-m" in invocations[1] and "browser" in invocations[1]
-    assert result.returncode == (2 if fail_pytest else 0), result.stderr
-
-
 def test_workflow_files_require_an_explicit_governance_change() -> None:
     assert {path.name for path in (ROOT / ".github/workflows").iterdir() if path.is_file()} == {
         "ci.yml",
         "full-verification.yml",
-        "pages.yml",
         "release.yml",
     }
 
@@ -330,49 +209,6 @@ def test_each_release_job_runs_after_full_verification() -> None:
     assert [job for job in jobs if job != "verify" and not after_verify(job)] == []
 
 
-def test_pages_publish_only_a_passed_full_run_of_the_current_main(tmp_path: Path) -> None:
-    pages = (ROOT / ".github/workflows/pages.yml").read_text()
-    assert "workflow_run:\n    workflows: [Full verification]" in pages
-    assert "branches: [main]" in pages
-    step = pages.split("- name: Check that Full passed on the current Main\n", 1)[1]
-    script = dedent(step.split("        run: |\n", 1)[1].split("\n\n", 1)[0])
-    main = "a" * 40
-    for number, (conclusion, run_sha, event, head_repo, published) in enumerate(
-        (
-            ("success", main, "schedule", "o/r", True),
-            ("success", main, "workflow_dispatch", "o/r", True),
-            ("failure", main, "schedule", "o/r", False),
-            ("success", "b" * 40, "schedule", "o/r", False),
-            ("success", main, "pull_request", "o/r", False),
-            ("success", main, "schedule", "fork/r", False),
-        )
-    ):
-        output = tmp_path / str(number)
-        fake = f"gh() {{ echo {main}; }}; export -f gh; "
-        subprocess.run(
-            ["bash", "-eu", "-c", fake + script],
-            env={
-                **os.environ,
-                "CONCLUSION": conclusion,
-                "RUN_SHA": run_sha,
-                "EVENT": event,
-                "HEAD_REPO": head_repo,
-                "GITHUB_OUTPUT": str(output),
-                "GITHUB_REPOSITORY": "o/r",
-            },
-            check=True,
-            capture_output=True,
-        )
-        assert output.read_text() == f"publish={str(published).lower()}\n"
-    for step_name in (
-        "Download the current report",
-        "Download the demo gallery",
-        "Deploy the site",
-    ):
-        body = pages.split(f"- name: {step_name}\n", 1)[1].split("\n\n", 1)[0]
-        assert "if: steps.verified.outputs.publish == 'true'" in body
-
-
 def test_python_classifiers_name_exactly_the_versions_the_full_workflow_tests() -> None:
     """A classifier is a claim (#724): it needs a pinned job, and a pinned job needs its claim."""
     classifiers = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["classifiers"]
@@ -387,67 +223,16 @@ def test_python_classifiers_name_exactly_the_versions_the_full_workflow_tests() 
 
 def test_no_test_branches_on_the_python_version() -> None:
     # The area jobs run Python 3.11, so a version branch hides its newer branch from each CI job.
-    # requires_python makes python-compat run it. test_runtime only finds an interpreter.
     readers = [
         path.name
         for path in sorted((ROOT / "tests").glob("*.py"))
-        if path.name not in {"conftest.py", "test_runtime.py"}
+        if path.name != "conftest.py"
         and any(
             isinstance(node, ast.Attribute) and node.attr == "version_info"
             for node in ast.walk(ast.parse(path.read_text()))
         )
     ]
     assert readers == []
-
-
-@pytest.mark.parametrize("gate", ["15", "11", "below=15"])
-def test_a_python_gate_outside_the_full_versions_fails_collection(
-    tmp_path: Path, gate: str
-) -> None:
-    (tmp_path / "test_gate.py").write_text(
-        f"import pytest\n\n@pytest.mark.requires_python({gate})\ndef test_x():\n    pass\n"
-    )
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", "-p", "conftest", "-p", "no:cacheprovider"],
-        cwd=tmp_path,
-        env={**os.environ, "PYTHONPATH": str(ROOT / "tests")},
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
-    assert "Full verification tests no Python 3." in result.stderr
-
-
-def test_python_compat_selects_marked_tests_and_listed_files_and_fails_closed(
-    tmp_path: Path,
-) -> None:
-    marked = "tests/test_rust_contract_baseline_parity.py::test_baseline_codec_parity[repository]"
-    result, selected = _collected(
-        "--selection=python-compat",
-        marked,
-        "tests/test_analyzer.py",
-        "tests/test_layers.py",
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert [
-        test for test in selected if test.startswith("tests/test_rust_contract_baseline_parity.py")
-    ] == [marked]
-    assert any(test.startswith("tests/test_analyzer.py::") for test in selected)
-    assert not any(test.startswith("tests/test_layers.py::") for test in selected)
-    result, _ = _collected("--selection=no such selection", "tests/test_layers.py")
-    assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
-    assert "is not a selection" in result.stderr
-    # A renamed test must not leave a selection entry that silently selects nothing.
-    (tmp_path / "stale_entry.py").write_text(
-        'import areas\nareas.SELECTIONS["python-compat"] += ("test_layers.py::test_renamed",)\n'
-    )
-    path = os.pathsep.join([str(tmp_path), str(ROOT / "tests")])
-    result, _ = _collected(
-        "-p", "stale_entry", "--selection=python-compat", "tests/test_layers.py", path=path
-    )
-    assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
-    assert "test_layers.py::test_renamed" in result.stderr
 
 
 @pytest.mark.parametrize("renderer_exit", [0, 1])
@@ -479,12 +264,12 @@ def test_mermaid_renders_every_block_and_propagates_renderer_failure(
 
 
 def test_ci_cleanup_preserves_test_evidence(tmp_path: Path) -> None:
-    output = tmp_path / "test-artifacts/typescript-demo"
+    output = tmp_path / "test-artifacts/validation-native"
     output.mkdir(parents=True)
-    (output / "stale.ts").write_text("previous demo")
-    browser = tmp_path / "test-artifacts/report-browser"
+    (output / "result.json").write_text("previous result")
+    browser = tmp_path / "test-artifacts/validation"
     browser.mkdir()
-    (browser / "tour.json").write_text("previous catalog")
+    (browser / "studio-ui.json").write_text("previous result")
     evidence = tmp_path / "test-artifacts/pytest/results.xml"
     evidence.parent.mkdir()
     evidence.write_text("keep")
@@ -517,32 +302,6 @@ def test_only_full_ci_stops_pytest_after_first_failure(target):
     assert ("--maxfail=1" in command) == (target != "test")
     assert "--dist=loadgroup" in command and "--max-worker-restart=0" in command
     assert "--junitxml=test-artifacts/pytest/results.xml" in command
-
-
-@pytest.mark.parametrize("exit_code", [0, 2])
-def test_self_observation_generates_ignored_output_and_preserves_failure(tmp_path, exit_code):
-    arguments = tmp_path / "arguments"
-    runner = tmp_path / "uv"
-    runner.write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" > "{arguments}"\nexit {exit_code}\n')
-    runner.chmod(0o755)
-    result = subprocess.run(
-        ["make", "self-observation", f"UV={runner}"],
-        cwd=ROOT,
-        env={**os.environ, "MAKEFLAGS": ""},
-        capture_output=True,
-        text=True,
-    )
-    assert arguments.read_text().split() == [
-        "run",
-        "--locked",
-        "archkeel",
-        "report",
-        "--root",
-        ".",
-        "--output",
-        "test-artifacts/self-observation/architecture.json",
-    ]
-    assert result.returncode == exit_code
 
 
 def _collected(
@@ -617,12 +376,12 @@ def test_a_test_added_to_the_pr_test_list_does_not_run_full() -> None:
     ).stdout
     resolved = [a for a in shlex.split(dry_run.replace("\\\n", " ")) if a.startswith("tests/")]
     assert resolved == shlex.split(listed.replace("\\\n", " "))
-    assert len(resolved) > 200
+    assert len(resolved) > 80
 
 
 FULL_MK = "tools/full.mk"
 # CI runs these on each PR, so a break in them shows before the merge. Full needs no run for them.
-SHARED_WITH_CI = {"mermaid", "demos"}
+SHARED_WITH_CI = {"mermaid", "self-validate-native"}
 
 
 def _called_targets(workflow: str) -> set[str]:
@@ -671,24 +430,22 @@ def test_each_make_target_that_only_full_runs_is_in_the_full_fragment() -> None:
     assert fragment - only_full == set(), "a recipe in the fragment that Full never runs"
 
 
-def test_every_area_has_files_and_the_python_compat_selection_is_valid() -> None:
+def test_every_area_has_files() -> None:
     """An edit of tests/areas.py that changes the Full job set fails here, not in the Full run."""
     files = [path.name for path in (ROOT / "tests").rglob("test_*.py")]
     assert [area for area in AREAS if not any(area_of(name) == area for name in files)] == []
-    # The collection fails closed on a stale entry or on a gate outside the Full versions.
-    result, selected = _collected("--selection=python-compat", "tests")
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert selected
 
 
 def test_an_area_selects_only_its_files_and_fails_closed_when_empty() -> None:
-    result, selected = _collected("--area=reports", "tests/test_trace.py", "tests/test_layers.py")
+    result, selected = _collected(
+        "--area=reports", "tests/test_report_schema.py", "tests/test_skill.py"
+    )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert selected and all(test.startswith("tests/test_trace.py::") for test in selected)
-    result, _ = _collected("--area=demo catalog", "tests/test_layers.py")
+    assert selected and all(test.startswith("tests/test_report_schema.py::") for test in selected)
+    result, _ = _collected("--area=CLI and core", "tests/test_skill.py")
     assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
     assert "selects no tests" in result.stderr
-    result, _ = _collected("--area=no such area", "tests/test_layers.py")
+    result, _ = _collected("--area=no such area", "tests/test_skill.py")
     assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
     assert "is not an area" in result.stderr
 
@@ -699,23 +456,45 @@ def test_ci_pr_static_runs_policy_without_tests(tmp_path) -> None:
     assert result.returncode == 0
 
 
-@pytest.mark.parametrize("exit_code", [0, 2])
-def test_self_validation_keeps_json_and_shows_failures(tmp_path: Path, exit_code: int) -> None:
+REFUSED = '{"status": "UNKNOWN", "exit_code": 2, "refusal": {"kind": "core_error", "message": "x"}}'
+
+
+@pytest.mark.parametrize(
+    ("target", "printed", "shown"),
+    [
+        ("self-validate-native", REFUSED, "refused: core_error: x"),
+        ("self-validate-native", "", "JSONDecodeError"),
+        ("browser-architecture-check", REFUSED, "core_error"),
+    ],
+)
+def test_a_self_check_without_the_pinned_core_result_fails(
+    tmp_path: Path, target: str, printed: str, shown: str
+) -> None:
+    """AD-432: a refusal or no result of `archkeel validate` never passes a self-check gate."""
     uv = tmp_path / "uv"
     uv.write_text(
-        "#!/bin/sh\n"
-        'printf \'%s\\n\' \'{"declared_rules":"UNKNOWN","diagnostics":[{"claim":"example"}]}\'\n'
-        f"exit {exit_code}\n"
+        '#!/bin/sh\ncase "$*" in\n'
+        f"  *archkeel\\ validate*) printf '%s' '{printed}'; exit 2;;\n"
+        f'  *) shift 3; exec "{sys.executable}" "$@";;\n'
+        "esac\n"
     )
     uv.chmod(0o755)
+    for name in (
+        "native/expected-gaps.json",
+        "docs/architecture/target/studio-ui-expected.json",
+        "tools/native_expected.py",
+    ):
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_bytes((ROOT / name).read_bytes())
     result = subprocess.run(
-        ["make", "-f", str(ROOT / "Makefile"), "self-validate", f"UV={uv}"],
+        ["make", "-f", str(ROOT / "Makefile"), "-o", "core", "-o", "browser-runtime-install"]
+        + [target, f"UV={uv}"],
         cwd=tmp_path,
+        env={**os.environ, "MAKEFLAGS": ""},
         capture_output=True,
         text=True,
+        timeout=30,
     )
-    payload = json.loads((tmp_path / "test-artifacts/validation/result.json").read_text())
-    assert payload["declared_rules"] == "UNKNOWN"
-    assert (result.returncode == 0) == (exit_code == 0)
-    assert "UNKNOWN" in result.stdout
-    assert "example" in result.stdout if exit_code else "example" not in result.stdout
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert shown in result.stdout + result.stderr
+    assert "as pinned in" not in result.stdout

@@ -2,31 +2,36 @@
 # (`make full-test`) and never this list, so Full does not watch this file. Add a test here
 # without a change to the Makefile.
 PR_TEST_FILES := \
-	tests/test_cli_unsupported_projects.py \
-	tests/test_dependency_runtime_identity.py \
-	tests/test_collection_capabilities.py \
-	tests/test_boundary_reason_types.py \
-	tests/test_dual_run_supported_profiles.py \
+	tests/test_cli_core_only.py \
+	tests/test_cli_core_only_boundary.py \
+	tests/test_cli_core_only_build_output.py \
+	tests/test_cli_core_only_exit_table.py \
+	tests/test_cli_core_only_review.py \
+	tests/test_cli_core_only_scan.py \
+	tests/test_cli_native_core_scan.py \
+	tests/test_cli_native_core_scan_rust.py \
+	tests/test_cli_native_core_scan_work.py \
+	tests/test_native_core.py \
+	tests/test_native_expected_gaps.py \
+	tests/test_native_self_core_rows.py \
+	tests/test_native_self_rules.py \
+	tests/test_native_self_contract.py \
+	tests/test_native_report.py \
+	tests/test_report_renderer_units.py \
+	tests/test_ci_daily.py \
 	tests/test_collector_native_catalog.py \
 	tests/test_make_gate.py \
 	tests/test_ci_budget.py \
 	tests/test_native_ci.py \
 	tests/test_native_contract_rules.py \
 	tests/test_cli_native_profile_limits.py \
-	tests/test_native_forbidden_construct.py \
 	tests/test_pr_test_node_ids.py \
 	tests/test_native_versions.py \
-	tests/test_collector_native_python_interpreter.py \
 	tests/test_collector_native_python_parse.py \
-	tests/test_collector_native_python_hostile.py \
-	tests/test_collector_native_python_reply.py \
 	tests/test_collector_native_python_scope.py \
 	tests/test_collector_native_python_survey.py \
 	tests/test_collector_native_python_first_difference.py \
 	tests/test_collector_native_python_texts.py \
-	tests/test_collector_native_python_symbols.py \
-	tests/test_collector_native_python_bindings.py \
-	tests/test_collector_native_python_refusals.py \
 	tests/test_collector_native_python_review.py \
 	tests/test_collector_native_python_review_families.py \
 	tests/test_collector_native_python_compile_sites.py \
@@ -37,53 +42,13 @@ PR_TEST_FILES := \
 	tests/test_browser_markers.py \
 	tests/test_publish_release.py \
 	tests/test_repository_hygiene.py \
-	tests/test_responsibility_validation.py \
-	tests/test_target_architecture.py \
-	tests/test_self.py \
 	tests/test_ir_owners.py \
 	tests/test_skill.py \
-	tests/test_contract_model.py \
-	tests/test_contract_version_types.py \
-	tests/test_dependency_selectors.py \
-	tests/test_requires_symbol_ports.py \
-	tests/test_typed_dependency_api.py \
-	tests/test_dependency_api_target.py \
-	tests/test_module_object_grants.py \
-	tests/test_dependency_typed_control.py \
-	tests/test_typed_state_protocol.py \
-	tests/test_typed_graph_vocabulary.py \
-	tests/test_typed_diagnostic_owner.py \
-	tests/test_state_facts.py \
-	tests/test_decisions.py \
-	tests/test_gap_diagnostics.py \
-	tests/test_typed_contract_rule_grammar.py \
-	tests/test_core_command_result.py \
-	tests/test_typed_measurement_controls.py \
-	tests/test_definition_context_types.py \
-	tests/test_permission_status_types.py \
-	tests/test_snapshot_language_types.py \
-	tests/test_source_resolution_types.py \
-	tests/test_known_delta_action_types.py \
-	tests/test_git_blob_types.py \
-	tests/test_typed_structure_levels.py \
-	tests/test_classifier_projections.py \
-	tests/test_unresolved_call_change_types.py \
-	tests/test_target_graph.py::test_contract_corpus_preserves_version_and_uml_presence \
-	tests/test_explore.py \
-	tests/test_graph_transitive_paths.py \
-	tests/test_source_import_gaps.py \
-	tests/test_report_cell_findings.py \
-	tests/test_collector_lazy_certify.py \
-	tests/test_dependency_scope_gap_check.py \
-	tests/test_collection_protocol.py \
-	tests/test_typed_collector_protocol.py \
 	tests/test_collector_native_wheel.py \
 	tests/test_collector_native_rust.py \
 	tests/test_collector_native_rust_names.py \
-	tests/test_collector_native_rust_scope.py \
 	tests/test_collector_native_rust_test_scope.py \
 	tests/test_collector_native_rust_oracle.py \
-	tests/test_collector_native_rust_language.py \
 	'tests/test_collector_native_rust_scaling.py::test_every_shape_builds_a_crate_with_only_the_expected_expansion_gaps' \
 	'tests/test_collector_native_rust_scaling.py::test_a_chain_past_the_depth_limit_is_cut_and_its_reply_stays_small' \
 	tests/test_collector_native_digest.py \
@@ -127,116 +92,10 @@ PR_TEST_FILES := \
 	tests/test_collector_native_script_deps_scaling.py \
 	tests/test_collector_native_unextracted.py \
 	tests/test_collector_native_rust_unextracted.py \
-	tests/test_collector_bundled_launcher.py \
 	tests/test_collector_native_syntax_scaling.py \
-	tests/test_collector_native_verdicts.py \
-	'tests/test_collector_native_store.py::test_the_store_path_writes_the_bytes_and_verdicts_of_the_python_path' \
-	'tests/test_collector_native_store.py::test_the_python_writer_refuses_an_observation_that_the_store_holds' \
-	'tests/test_collector_native_store.py::test_a_changed_typescript_reply_gives_no_pass_on_the_store_path' \
-	'tests/test_collector_native_store.py::test_the_store_refuses_a_feature_whose_proof_it_does_not_check' \
-	'tests/test_collector_native_store.py::test_the_printable_table_of_the_store_is_the_table_of_this_python' \
-	'tests/test_collector_native_store.py::test_check_with_the_store_set_gives_the_verdict_of_check_without_it' \
-	tests/test_collector_native_store_rust.py \
-	tests/test_collector_native_store_frame.py \
-	tests/test_collector_native_store_guard.py \
 	tests/test_collector_golden_replies.py \
-	tests/test_source_trust_boundary.py \
-	tests/test_source_validate_once.py \
-	tests/test_python_provider_sources.py \
-	tests/test_report_rule_evidence_oracle.py::test_unknown_position_is_associated_with_its_rule_not_every_boundary_rule \
-	tests/test_typescript_script_globals.py \
-	tests/test_browser_architecture.py \
-	tests/test_source_graph.py \
-	tests/test_module_explore.py \
-	tests/test_architecture_owner_characterization.py \
-	tests/test_architecture_coverage_characterization.py \
-	tests/test_projection_ownership_reuse.py \
-	tests/test_dependency_profile_selection.py \
-	tests/test_source_crossing_policy.py \
-	tests/test_typescript_source_input.py \
-	tests/test_typescript_string_constructs.py \
-	tests/test_analyzer.py \
-	tests/test_typescript_bundler.py \
-	tests/test_typescript_decorated_inventory.py \
-	tests/test_typescript_parameter_properties.py \
-	tests/test_uml_comparison.py \
-	tests/test_saved_report.py \
-	tests/test_architecture_projection.py \
-	tests/test_cli.py \
-	tests/test_cli_view.py \
-	tests/test_cli_story.py \
-	tests/test_studio.py \
-	tests/test_studio_chat.py \
-	tests/test_studio_launcher.py \
-	tests/test_cli_typed_inputs.py \
-	tests/test_member_inventory.py \
-	tests/test_partial_member_inventory.py \
-	tests/test_source_values.py \
-	tests/test_identity_memo.py \
-	tests/test_compute_once_per_run.py \
-	tests/test_report_recorded_unknowns.py \
-	tests/test_native_violation_filter.py \
-	tests/test_scoped_dependency_proof.py \
-	tests/test_call_owner_wire_compatibility.py \
-	tests/test_call_argument_policy.py \
-	tests/test_call_argument_binding.py \
-	tests/test_numeric_operand_rule.py \
-	tests/test_protocol_declarations.py \
-	tests/test_source_ownership_policy.py \
-	tests/test_catalog_policy_native.py \
-	tests/test_guarded_effect_contract.py \
-	tests/test_guarded_effect_evaluation.py \
-	tests/test_guarded_effect_facts.py \
-	tests/test_guarded_effect_wire_compatibility.py \
-	tests/test_typescript_namespace_identities.py \
-	tests/test_result_schema.py \
-	tests/test_construct_selectors.py \
-	tests/test_source_facts_columnar.py \
-	tests/test_selector_validation_performance.py \
-	tests/test_runtime.py \
-	tests/test_codec.py \
-	tests/test_codec_compatibility.py \
-	tests/test_source_provenance_acceptance.py \
-	tests/test_collection_process.py \
-	tests/test_collector_producer_trust.py \
-	tests/test_collection_conformance.py \
-	tests/test_schema_drift.py \
-	tests/test_schema_drift_profiles.py \
-	tests/test_runtime_delta.py \
-	tests/test_delta_version_types.py \
-	tests/test_comparison_support_types.py \
-	tests/test_nullable_profile_measurements.py \
-	tests/test_source_section_types.py \
-	tests/test_graph_topology_level_types.py \
-	tests/test_collection_runtime_gate.py \
-	tests/test_ratchets.py \
-	tests/test_model.py \
-	tests/test_trace.py \
-	tests/test_violations.py \
-	tests/test_typescript_demo.py \
-	tests/test_onboarding_guidance.py \
-	tests/test_widening.py \
-	tests/test_measurement_budgets.py \
-	tests/test_typed_amendment_artifact.py \
-	tests/test_onboarding.py \
-	tests/test_terminal.py \
-	tests/test_summary_badge_types.py \
-	tests/test_onboarding_demo.py \
 	tests/test_pypi_description.py \
-	tests/test_typescript_onboarding.py \
-	tests/test_unknown_positions.py \
-	tests/test_report_rule_evidence.py \
-	tests/test_absent_import_namespace.py \
-	tests/test_typed_host_events.py \
-	tests/test_empty_literal_all.py \
-	tests/test_review_workflow_fixture.py \
-	tests/test_rule_driven_collection.py \
-	tests/test_findings.py \
-	tests/test_contract_provenance.py \
 	tests/test_merge_check.py \
-	tests/test_collector_false_pass_gate.py \
 	tests/test_collector_false_pass_rust_layout.py \
 	tests/test_collector_false_pass_rust_test_targets.py \
-	tests/test_collector_false_pass_rust_impls.py \
-	tests/test_dual_run.py \
-	tests/test_dual_run_shell.py
+	tests/test_collector_false_pass_rust_impls.py

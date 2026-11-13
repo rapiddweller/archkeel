@@ -29,6 +29,8 @@ from rust_repository import (
 )
 
 Capsys = pytest.CaptureFixture[str]
+BASE_TO_APP = "native.base_crate -> native.app: undeclared component dependency"
+APP_TO_BASE = "native.app -> native.base_crate: undeclared component dependency"
 
 
 def _verdict(
@@ -62,10 +64,7 @@ def test_an_edge_that_the_contract_does_not_declare_fails(
     result = _verdict(tmp_path, core_binary, capsys, files)
 
     assert statuses(result)["REQUIRES"] == "FAIL"
-    assert any(
-        "native.base_crate -> native.app: undeclared component dependency" in claim
-        for claim in claims(result)
-    )
+    assert any(BASE_TO_APP in claim for claim in claims(result))
 
 
 def test_a_rename_in_cargo_toml_does_not_hide_an_edge(
@@ -80,10 +79,7 @@ def test_a_rename_in_cargo_toml_does_not_hide_an_edge(
     result = _verdict(tmp_path, core_binary, capsys, files)
 
     assert statuses(result)["REQUIRES"] == "FAIL"
-    assert any(
-        "native.base_crate -> native.app: undeclared component dependency" in claim
-        for claim in claims(result)
-    )
+    assert any(BASE_TO_APP in claim for claim in claims(result))
 
 
 def test_a_crate_that_no_component_owns_fails(
@@ -257,10 +253,7 @@ def test_a_path_inside_an_attribute_is_an_edge(
     )
 
     assert statuses(result)["REQUIRES"] == "FAIL"
-    assert any(
-        "native.app -> native.base_crate: undeclared component dependency" in claim
-        for claim in claims(result)
-    )
+    assert any(APP_TO_BASE in claim for claim in claims(result))
 
 
 APP_MODULES = {
@@ -366,10 +359,7 @@ def test_a_crate_name_that_the_file_does_not_declare_is_an_edge(
     )
 
     assert statuses(result)["REQUIRES"] == "FAIL"
-    assert any(
-        "native.app -> native.base_crate: undeclared component dependency" in claim
-        for claim in claims(result)
-    )
+    assert any(APP_TO_BASE in claim for claim in claims(result))
 
 
 @pytest.mark.parametrize(
@@ -481,10 +471,7 @@ def test_a_local_module_does_not_hide_a_path_that_starts_with_two_colons(
     )
 
     assert statuses(result)["REQUIRES"] == "FAIL"
-    assert any(
-        "native.app -> native.base_crate: undeclared component dependency" in claim
-        for claim in claims(result)
-    )
+    assert any(APP_TO_BASE in claim for claim in claims(result))
 
 
 def test_a_message_a_name_or_a_lint_is_no_edge_and_no_gap(

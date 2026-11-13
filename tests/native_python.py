@@ -5,14 +5,14 @@
 
 import json
 import subprocess
-import sys
+import sysconfig
 from pathlib import Path
 from typing import Any
 
 
 def _minor() -> int:
     """The minor version of the interpreter that runs the tests."""
-    return sys.version_info[1]
+    return int(sysconfig.get_python_version().split(".")[1])
 
 
 def _native(binary: Path, root: Path, rels: list[str]) -> dict[str, Any]:

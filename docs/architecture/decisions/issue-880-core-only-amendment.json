@@ -1,9 +1,0 @@
-{
-  "after_baseline_digest": "fdfc5b810206acaa698c3fd7ee409565e443406c5a3796575addec0b15f98962",
-  "after_digest": "e99d4d4474b1c20ca7df1a574ac170791602b32f9f602542c134b4cde10bb609",
-  "before_baseline_digest": "6538bb180f3e2228a25d7f888a5a477d65903fa165196529ba7c4ebd037e8860",
-  "before_digest": "2b4406ce57dbceb00765b6667cea9d0dfdec6d6553ae0aa1e66d5edd20ca4020",
-  "decided_by": "Agent session for Alexander Kell; scope L-121 and Opus review round F1/F2/F3/F5; review in PR #1127 decides",
-  "rationale": "AD-422: isolate core-only dispatch and typed frame metadata; move unchanged grammar and parser UML ownership. Keep the legacy broad-exception allowance and add only the final core-only CLI error boundary required by F3. F1 hashes the exact selected contract and binds the collected root in the sole frame reader; it parses config paths, not contract rules. Measured calls_unresolved is 1069 versus 1027 on main (1060 before this review round); typing_positions is 78 versus 71 for checked JSON boundaries. No Any/getattr, unknown-position or violation budget grows. The core-to-facts edge uses existing identity helpers for raw contract digests and source locations. After rebasing AD-420, the existing GapKind/Gap/CoreError wire errors share core_json to retain typed parse_work_limit without an import cycle; its exact enum-placement source is declared. Budgets remain 1069/78 with zero unknown positions and violations.",
-  "schema_version": "2.0.0"
-}

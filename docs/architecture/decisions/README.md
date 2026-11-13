@@ -1,7 +1,7 @@
 # Decision archive
 
 Internal reasons and proof references. Later records can amend earlier ones.
-For current behavior, use the [contract](../../../architecture-contract.json), source and tests.
+For current behavior, use the [contract of `native/`](../../../native/architecture-contract.json), source and tests.
 
 | Decision | Title |
 |---|---|
@@ -402,3 +402,4 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-422 | [Core-only validation](ad-422-core-only-validation-renders-the-scan-frame.md) |
 | AD-424 | [Known registry derives need identity and helper proofs](ad-424-known-registry-derives-need-identity-and-helper-proofs.md) |
 | AD-426 | [The linked collector states profile limits before the scope proof](ad-426-the-linked-collector-states-profile-limits-before-the-scope-proof.md) |
+| AD-432 | [The Rust core is the only decision path](ad-432-the-rust-core-is-the-only-decision-path.md) |

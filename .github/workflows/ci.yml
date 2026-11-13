@@ -51,6 +51,9 @@ jobs:
           BASE: ${{ github.event_name == 'push' && github.event.before || 'HEAD~1' }}
         run: make ci-pr-static BASE="$BASE"
 
+      - name: Check the Rust of native/ with the core against its pinned result
+        run: make self-validate-native
+
   tests:
     name: "Tests: ${{ matrix.area }}"
     strategy:
@@ -58,16 +61,9 @@ jobs:
       matrix:
         # One entry for each area in tests/areas.py.
         area:
-          - demo catalog
-          - boundary types
-          - Python analysis
-          - CLI and Studio
-          - contracts and dependency rules
-          - typed guards
-          - type and wire guards
-          - native TypeScript collector
+          - CLI and core
+          - native collectors
           - collectors
-          - call and catalog rules
           - reports
           - self-check and CI
     runs-on: ubuntu-24.04
@@ -186,43 +182,10 @@ jobs:
       - name: Render every Mermaid block
         run: make mermaid
 
-  demos:
-    name: Demos
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install uv and Python
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          enable-cache: true
-          python-version: "3.11.12"
-          version: "0.12.13"
-
-      - name: Install locked dependencies
-        run: uv sync --locked
-
-      - name: Run every gallery demo and check its expected result
-        run: make demos
-
-      - name: Upload demo HTML reports
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: demo-reports
-          path: test-artifacts/pages/demos/**/*.html
-          if-no-files-found: warn
-          retention-days: 1
-
   native:
     name: "Native: Rust checks and dependency policy"
     runs-on: ubuntu-24.04
-    # Measured on 2026-11-12: up to 21 minutes, mostly the Python tests of native-check. The two
-    # corpus tests now run in native-corpus (issue #880). The limit only stops a hung job.
+    # The limit only stops a hung job.
     timeout-minutes: 30
     permissions:
       contents: read
@@ -247,43 +210,11 @@ jobs:
         run: make cargo-deny-install
 
       - name: Check format, lint, dependency policy, tests and build of native/
-        run: make native-check NATIVE_SPLIT=1
-
-  native-corpus:
-    name: "Native: dual-run corpus test ${{ matrix.leg }}"
-    strategy:
-      fail-fast: false
-      matrix:
-        # One leg for each test of NATIVE_CORPUS_TESTS in the Makefile.
-        leg: [1, 2, 3]
-    runs-on: ubuntu-24.04
-    # Each corpus test runs the Python engine on all dual-run cases. The limit only stops a hung job.
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Install uv and Python
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          enable-cache: true
-          python-version: "3.11.12"
-          version: "0.12.13"
-
-      - name: Install locked dependencies
-        run: uv sync --locked
-
-      - name: Run one corpus test of the dual run
-        run: make native-corpus LEG=${{ matrix.leg }}
+        run: make native-check
 
   check:
     name: All checks passed
-    needs: [lint, tests, pr-report-check, mermaid, demos, native, native-corpus]
+    needs: [lint, tests, pr-report-check, mermaid, native]
     # always(): a skipped aggregate would count as passed, so it must also run when a job fails.
     if: always()
     runs-on: ubuntu-24.04
