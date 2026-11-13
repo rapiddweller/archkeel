@@ -18,6 +18,20 @@ pub(super) const MAX_BINDING_WORK: usize = 64_000_000;
 
 pub(super) type Result<T> = std::result::Result<T, String>;
 
+pub struct Table {
+    pub data: Result<serde_json::Value>,
+    pub work: usize,
+}
+
+pub(super) fn counts(scan: &mut Scan, values: Vec<String>) -> Result<HashMap<String, usize>> {
+    let mut out = HashMap::new();
+    for value in values {
+        scan.tick(1)?;
+        *out.entry(value).or_default() += 1;
+    }
+    Ok(out)
+}
+
 pub(super) struct Scan {
     pub minor: PyMinor,
     pub work: Work,

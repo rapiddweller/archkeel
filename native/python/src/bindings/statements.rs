@@ -35,7 +35,7 @@ pub(super) fn binding_with(
                 value,
                 Expr::List(_) | Expr::Tuple(_) | Expr::Set(_) | Expr::Dict(_)
             );
-        if !admitted && !(inert && super::proofs::values::inert(scan, value, 0)?) {
+        if !admitted && !(inert && super::values::inert(scan, value, 0)?) {
             let lambda = matches!(value, Expr::Lambda(_));
             let stored = names::stored_names(scan, targets.clone())?;
             scan.tick(stored.len())?;

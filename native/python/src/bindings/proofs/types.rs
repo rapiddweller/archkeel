@@ -4,9 +4,10 @@
 
 //! Type-alias seeds and explicit Generic parameters for import proofs.
 
+use super::super::environment::{resolve, Env};
 use super::super::scan::{Result, Scan};
 use super::super::{class, names, scopes};
-use super::{methods, resolve, Env};
+use super::methods;
 use crate::pyast::Node;
 use ruff_python_ast::{Expr, Operator, Stmt, StmtClassDef};
 use serde_json::{json, Value};
@@ -69,7 +70,7 @@ fn admitted<'a>(scan: &mut Scan, env: &Env<'_>, stmt: &'a Stmt) -> Result<Option
 
 fn nullable(scan: &mut Scan, env: &Env<'_>, nodes: &[Node<'_>]) -> Result<BTreeSet<String>> {
     let bound = names::bound(scan, nodes)?;
-    let counts = super::counts(scan, bound)?;
+    let counts = super::super::scan::counts(scan, bound)?;
     let mut out = BTreeSet::new();
     let opaque = env.opaque;
     // Only a direct assignment can be admitted; module_scope_bindings can repeat its name.

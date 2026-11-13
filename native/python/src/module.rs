@@ -37,6 +37,15 @@ pub struct Module {
 /// The evidence of a scan by its id, sorted as the Python collector sorts it.
 pub type EvidenceMap = BTreeMap<String, Evidence>;
 
+#[cfg(any(test, feature = "dump"))]
+pub fn direct(module: &Module, node: &impl Ranged) -> bool {
+    module
+        .tree
+        .body
+        .binary_search_by_key(&node.start(), Ranged::start)
+        .is_ok()
+}
+
 /// `source._import_bindings`: the names that one import statement binds.
 pub fn import_bindings(statement: &Stmt) -> Vec<String> {
     let (names, dotted) = match statement {

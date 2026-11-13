@@ -15,6 +15,7 @@ use crate::pyast::Node;
 
 mod class;
 mod closure;
+mod environment;
 mod names;
 mod namespace;
 mod output;
@@ -23,15 +24,12 @@ mod records;
 mod scan;
 mod scopes;
 mod statements;
+mod values;
 
 pub use output::check as check_output;
-pub use proofs::table as proofs;
+pub use proofs::table as proof_table;
+pub use scan::Table;
 use scan::{Result, Scan};
-
-pub struct Table {
-    pub data: Result<Value>,
-    pub work: usize,
-}
 
 pub fn table(module: &Module, minor: PyMinor) -> Table {
     let mut scan = Scan::new(minor);

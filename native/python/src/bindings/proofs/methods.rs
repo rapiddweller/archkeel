@@ -8,9 +8,9 @@ use ruff_python_ast::{Expr, Stmt, StmtFunctionDef};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
+use super::super::environment::{resolve, Env};
 use super::super::scan::{Result, Scan};
 use super::super::{class, statements};
-use super::{resolve, Env};
 use crate::pyast::Node;
 
 const TARGETS: &[&str] = &[
@@ -128,12 +128,7 @@ pub(super) fn signature(
 }
 
 pub(super) fn direct(env: &Env<'_>, stmt: &Stmt) -> bool {
-    use ruff_text_size::Ranged;
-    env.module
-        .tree
-        .body
-        .binary_search_by_key(&stmt.start(), Ranged::start)
-        .is_ok()
+    crate::module::direct(env.module, stmt)
 }
 
 pub(super) fn properties(

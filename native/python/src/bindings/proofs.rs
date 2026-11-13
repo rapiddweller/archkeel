@@ -10,54 +10,16 @@ use archkeel_facts::pyminor::PyMinor;
 use ruff_python_ast::{Expr, ExprContext, Stmt};
 use serde_json::{json, Value};
 
-use super::scan::{name, Result, Scan};
-use super::{check_output, closure, names, namespace, scopes, Table};
+use super::environment::Env;
+use super::output::check as check_output;
+use super::scan::{counts, name, Result, Scan, Table};
+use super::{closure, names, namespace, scopes};
 use crate::module::Module;
 use crate::pyast::Node;
 
 mod classes;
 mod methods;
 mod types;
-pub(super) mod values;
-
-struct Env<'a> {
-    module: &'a Module,
-    stable: BTreeSet<String>,
-    unique: BTreeSet<String>,
-    bound: HashSet<String>,
-    opaque: bool,
-}
-
-impl Env<'_> {
-    fn may_exist(
-        &self,
-        scan: &mut Scan,
-        body: &[Stmt],
-        stop: Option<&Stmt>,
-        name: &str,
-    ) -> Result<bool> {
-        if !self.opaque && !self.bound.contains(name) {
-            return Ok(false);
-        }
-        names::may_exist(scan, body, stop, name)
-    }
-}
-
-fn resolve(scan: &mut Scan, module: &Module, expr: &Expr) -> Result<String> {
-    if let Some(text) = namespace::dotted(scan, expr)? {
-        return Ok(text);
-    }
-    let text = super::class::text(scan, expr, module.text())?.unwrap_or_default();
-    let (root, tail) = text
-        .split_once('.')
-        .map_or((text.as_str(), None), |(a, b)| (a, Some(b)));
-    if let Some((target, _)) = scan.aliases.get(root) {
-        let text = tail.map_or_else(|| target.to_owned(), |tail| format!("{target}.{tail}"));
-        scan.tick(text.len())?;
-        return Ok(text);
-    }
-    Ok(text)
-}
 
 pub fn table(module: &Module, minor: PyMinor) -> Table {
     let mut scan = Scan::new(minor);
@@ -181,15 +143,6 @@ fn aliases(scan: &mut Scan, module: &Module, scope: &[Node<'_>]) -> Result<()> {
         }
     }
     Ok(())
-}
-
-fn counts(scan: &mut Scan, values: Vec<String>) -> Result<HashMap<String, usize>> {
-    let mut out = HashMap::new();
-    for value in values {
-        scan.tick(1)?;
-        *out.entry(value).or_default() += 1;
-    }
-    Ok(out)
 }
 
 fn stable(

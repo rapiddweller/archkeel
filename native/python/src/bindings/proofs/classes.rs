@@ -4,9 +4,10 @@
 
 //! Class-body proofs at the empty-provider boundary of import convergence.
 
+use super::super::environment::Env;
 use super::super::scan::{Result, Scan};
-use super::super::{class, names, namespace, scopes, statements};
-use super::{methods, values, Env};
+use super::super::{class, names, namespace, scopes, statements, values};
+use super::methods;
 use crate::pyast::Node;
 use ruff_python_ast::{Expr, Stmt, StmtClassDef};
 use serde_json::{json, Value};
@@ -254,11 +255,37 @@ fn native_method(scan: &mut Scan, env: &Env<'_>, stmt: &Stmt) -> Result<bool> {
     annotations.extend(n.returns.as_deref());
     for annotation in annotations {
         scan.tick(1)?;
-        if !values::deferred(scan, env, annotation)? && !values::inert(scan, annotation, 0)? {
+        if !deferred(scan, env, annotation)? && !values::inert(scan, annotation, 0)? {
             return Ok(false);
         }
     }
     Ok(true)
+}
+
+fn deferred(scan: &mut Scan, env: &Env<'_>, node: &Expr) -> Result<bool> {
+    if matches!(node, Expr::StringLiteral(_)) {
+        return Ok(true);
+    }
+    for stmt in &env.module.tree.body {
+        scan.tick(1)?;
+        let Stmt::ImportFrom(n) = stmt else {
+            continue;
+        };
+        if !n
+            .module
+            .as_ref()
+            .is_some_and(|n| n.as_str() == "__future__")
+        {
+            continue;
+        }
+        for alias in &n.names {
+            scan.tick(1)?;
+            if alias.name.as_str() == "annotations" {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
 }
 
 fn native_body(scan: &mut Scan, env: &Env<'_>, stmt: &Stmt) -> Result<bool> {
@@ -288,7 +315,7 @@ fn native_body(scan: &mut Scan, env: &Env<'_>, stmt: &Stmt) -> Result<bool> {
             }
             Stmt::AnnAssign(n) => {
                 if !matches!(&*n.target, Expr::Name(_))
-                    || !values::deferred(scan, env, &n.annotation)?
+                    || !deferred(scan, env, &n.annotation)?
                         && !values::inert(scan, &n.annotation, 0)?
                 {
                     return Ok(false);

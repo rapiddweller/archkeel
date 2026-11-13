@@ -18,8 +18,10 @@ from deletion eligibility. No partly assembled runtime function earns deletion c
    explicit Generic parameters, type-alias admission and intrinsic nullable aliases.
    Keep property operations in source order. A later binder can cancel an earlier property.
    A decorator alias must have a stable import before the declaration that consumes it.
-3. Keep all new modules in `py-symbols`, under `bindings.proofs`. They read `py-module`,
+3. Keep the new proof modules in `py-symbols`. They read `py-module`,
    `py-tree`, `py-unparse` and the work counter in `py-parse`. No upward edge is added.
+   Keep shared lookup inputs in `bindings.environment` and literal admission in `bindings.values`.
+   Keep the result carrier and counted-name helper in `bindings.scan`, below both dump adapters.
 4. Reuse the binding scan, namespace checks and statement admission. Resolve aliases only when
    the new dump populates them. The pre-import dump keeps its empty map and exact work counts.
 5. Keep the 64,000,000-unit work budget and the 33,554,432-byte output bound of AD-396.
@@ -41,3 +43,4 @@ No Python deletion or general speed improvement is claimed.
 fixtures, corpora and 264 generated probes. Exact work counts hold all 78 new loop charges.
 It checks hostile input, time and peak memory scaling, and an empty corpus failure.
 The PR records the four-minor matrix, isolated fault injections and the final gates.
+The native self-check keeps 0 PASS, 1 FAIL, 42 UNKNOWN, 39 pinned gaps and 7 violations.

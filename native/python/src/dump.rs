@@ -80,7 +80,7 @@ pub fn bindings(minor: &str, root: &str, proofs: bool) -> Result<(), String> {
             Ok::<_, String>(crate::module::Module::new(rel.to_owned(), name, text, tree))
         })();
         let crate::bindings::Table { data, work } = match found {
-            Ok(module) if proofs => crate::bindings::proofs(&module, minor),
+            Ok(module) if proofs => crate::bindings::proof_table(&module, minor),
             Ok(module) => crate::bindings::table(&module, minor),
             Err(reason) => crate::bindings::Table {
                 data: Err(reason),

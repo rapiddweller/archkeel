@@ -4,7 +4,7 @@
 
 //! Literal admission follows ast.literal_eval, including unhashable set and dict keys.
 
-use super::super::scan::{constant, Result, Scan};
+use super::scan::{constant, Result, Scan};
 use crate::pyast::Node;
 use ruff_python_ast::{Expr, Number, Operator, UnaryOp};
 
@@ -93,32 +93,6 @@ fn literal(scan: &mut Scan, node: &Expr, depth: usize) -> Result<Option<bool>> {
         all_hashable &= child_hashable;
     }
     Ok(Some(all_hashable))
-}
-
-pub(super) fn deferred(scan: &mut Scan, env: &super::Env<'_>, node: &Expr) -> Result<bool> {
-    if matches!(node, Expr::StringLiteral(_)) {
-        return Ok(true);
-    }
-    for stmt in &env.module.tree.body {
-        scan.tick(1)?;
-        let ruff_python_ast::Stmt::ImportFrom(n) = stmt else {
-            continue;
-        };
-        if !n
-            .module
-            .as_ref()
-            .is_some_and(|n| n.as_str() == "__future__")
-        {
-            continue;
-        }
-        for alias in &n.names {
-            scan.tick(1)?;
-            if alias.name.as_str() == "annotations" {
-                return Ok(true);
-            }
-        }
-    }
-    Ok(false)
 }
 
 #[cfg(test)]
