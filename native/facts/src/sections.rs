@@ -290,20 +290,36 @@ pub enum Section {
 
 impl Section {
     /// The name of the section on the wire.
-    /// The value invariants of each record of the section (`Record::invariants`).
+    /// The value invariants of each record of the section (`Record::invariants`). Each fact
+    /// type reads its own section (`IntoSection::records`), so a new section must list its type.
     pub fn invariants(&self) -> Result<(), &'static str> {
-        fn each<D: FactData>(records: &[Record<D>]) -> Result<(), &'static str> {
-            records.iter().try_for_each(Record::invariants)
+        fn each<D: IntoSection>(section: &Section) -> Result<(), &'static str> {
+            D::records(section)
+                .unwrap_or_default()
+                .iter()
+                .try_for_each(Record::invariants)
         }
+        type Check = fn(&Section) -> Result<(), &'static str>;
+        let checks: [Check; 8] = [
+            each::<ImportFact>,
+            each::<SymbolFact>,
+            each::<CallFact>,
+            each::<ReferenceFact>,
+            each::<BindingFact>,
+            each::<ConstructFact>,
+            each::<SignalFact>,
+            each::<GapFact>,
+        ];
+        // Exhaustive on purpose: a new section fails to compile here until `checks` names it.
         match self {
-            Section::Imports(records) => each(records),
-            Section::Symbols(records) => each(records),
-            Section::Calls(records) => each(records),
-            Section::References(records) => each(records),
-            Section::Bindings(records) => each(records),
-            Section::Constructs(records) => each(records),
-            Section::TypingSignals(records) => each(records),
-            Section::Unknowns(records) => each(records),
+            Section::Imports(_)
+            | Section::Symbols(_)
+            | Section::Calls(_)
+            | Section::References(_)
+            | Section::Bindings(_)
+            | Section::Constructs(_)
+            | Section::TypingSignals(_)
+            | Section::Unknowns(_) => checks.iter().try_for_each(|check| check(self)),
         }
     }
 
