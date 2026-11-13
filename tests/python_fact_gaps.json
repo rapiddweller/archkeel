@@ -7,7 +7,7 @@
       "pydantic:repo": {"count": 12, "sha256": "f5b98fbaeca1cddd5789c37d58fd2e88c4395e2d077a80e13caa6356848cde26"},
       "fastapi:direct": {"count": 4, "sha256": "21aeee3c1aaa5bcbbc886e8fa09b2df46dac43bbc28c9f70c2efb9908bd50d74"},
       "pydantic:direct": {"count": 12, "sha256": "5a64c4fe53b39e0172f523961ea60c6831e3cc059a4be1753eba4b66bfc33f1c"},
-      "private aggregate": {"count": 1, "sha256": "d4454e57aca0e67b34b0693646dc9adf648a78b0c21405e1c7f18b9f40778901"}
+      "private aggregate": {"count": 1, "reasons": {"lexical compiler child ambiguity": 1}}
     },
     "12": {
       "src:direct": {"count": 6, "sha256": "0ce17825fe00140cabf6d862c6d6438675a2b177af7026dbcc098ef1221ebbd7"},

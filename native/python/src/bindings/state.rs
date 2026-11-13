@@ -93,10 +93,11 @@ pub(super) fn collect(module: &Module, scan: &mut Scan, input: &Value) -> Result
             continue;
         };
         let symbol = symbols.get(name);
-        let frozen = symbol
-            .and_then(|d| d.get("frozen_object"))
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
+        let frozen = match symbol.and_then(|d| d.get("frozen_object")) {
+            None | Some(Value::Null) => false,
+            Some(Value::Bool(value)) => *value,
+            _ => return Err("invalid state frozen flag".into()),
+        };
         let protocol = symbol
             .and_then(|d| d.get("class_kind"))
             .and_then(Value::as_str)

@@ -25,6 +25,9 @@ fn text<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
 
 fn strings(scan: &mut Scan, value: &Value, key: &str) -> Result<Vec<String>> {
     let mut result = Vec::new();
+    value
+        .get(key)
+        .ok_or_else(|| format!("missing {key} array"))?;
     for value in array(value, key)? {
         scan.tick(1)?;
         let value = value.as_str().ok_or("invalid string array entry")?;
@@ -77,7 +80,11 @@ impl Collector<'_> {
             if text(data, "source_package")? == text(data, "target_package")? {
                 continue;
             }
-            let symbol = data.get("symbol").and_then(Value::as_str).unwrap_or("");
+            let symbol = match data.get("symbol") {
+                Some(Value::Null) => "",
+                Some(Value::String(value)) => value,
+                _ => return Err("invalid import symbol".into()),
+            };
             if symbol.is_empty() {
                 continue;
             }
@@ -139,6 +146,7 @@ impl Collector<'_> {
 }
 
 fn dynamic_target(scan: &mut Scan, call: &Value) -> Result<Option<Signal>> {
+    call.get("targets").ok_or("call targets unseen")?;
     for target in array(call, "targets")? {
         scan.tick(1)?;
         let signal = match target.as_str().ok_or("call target unseen")? {

@@ -47,6 +47,7 @@ struct Scope<'a> {
     compiler_parent: Option<usize>,
     globals: BTreeSet<String>,
     nonlocals: BTreeSet<String>,
+    free_names: BTreeSet<String>,
     seen: BTreeSet<String>,
     blocked: BTreeSet<String>,
     bindings: BTreeMap<String, Vec<Site<'a>>>,
@@ -164,6 +165,7 @@ pub(super) fn collect(module: &Module, scan: &mut Scan, input: &Value) -> Result
         compiler_parent: None,
         globals: BTreeSet::new(),
         nonlocals: BTreeSet::new(),
+        free_names: BTreeSet::new(),
         seen: BTreeSet::new(),
         blocked: BTreeSet::new(),
         bindings: BTreeMap::new(),
@@ -270,6 +272,9 @@ impl<'a> Index<'a> {
         name: &str,
         range: TextRange,
     ) -> Result<usize> {
+        if kind == Kind::Function && name == "__annotate__" && scan.minor == PyMinor::Py314 {
+            return Err("lexical annotation compiler child ambiguity".into());
+        }
         let location = self.module.location(&range);
         let qualified = if matches!(kind, Kind::Function | Kind::Class) {
             scan.owner(&self.scope(parent)?.qualified, name)?
@@ -338,6 +343,7 @@ impl<'a> Index<'a> {
             compiler_parent,
             globals: BTreeSet::new(),
             nonlocals: BTreeSet::new(),
+            free_names: BTreeSet::new(),
             seen: BTreeSet::new(),
             blocked: BTreeSet::new(),
             bindings: BTreeMap::new(),

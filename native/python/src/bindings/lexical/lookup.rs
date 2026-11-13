@@ -69,23 +69,32 @@ impl<'a> Index<'a> {
             if self.scope(id)?.locals.contains(&name) || self.scope(id)?.globals.contains(&name) {
                 continue;
             }
-            self.propagate_name(scan, id, &name)?;
+            if self.propagate_name(scan, id, &name)? {
+                self.scope_mut(id)?.free_names.insert(name);
+            }
         }
         Ok(())
     }
 
-    fn propagate_name(&mut self, scan: &mut Scan, id: usize, name: &str) -> Result<()> {
+    fn propagate_name(&mut self, scan: &mut Scan, id: usize, name: &str) -> Result<bool> {
         let mut parent = self.scope(id)?.parent;
         let mut crossed = Vec::new();
         let mut found = false;
+        let mut free = false;
         while let Some(p) = parent {
             scan.tick(1)?;
             let scope = self.scope(p)?;
             if scope.globals.contains(name) {
                 break;
             }
+            if scope.blocked.contains(name) {
+                found = true;
+                free = true;
+                break;
+            }
             if scope.kind != Kind::Class && scope.locals.contains(name) {
                 found = true;
+                free = scope.kind != Kind::Module;
                 break;
             }
             crossed.push(p);
@@ -97,7 +106,7 @@ impl<'a> Index<'a> {
                 self.scope_mut(p)?.seen.insert(name.into());
             }
         }
-        Ok(())
+        Ok(free)
     }
 
     fn owner(&self, scan: &mut Scan, id: usize, name: &str) -> Result<Option<usize>> {
@@ -118,7 +127,7 @@ impl<'a> Index<'a> {
         if id == 0 || scope.locals.contains(name) || scope.compiler_locals.contains(name) {
             return Ok(Some(id));
         }
-        if scope.globals.contains(name) || !scope.seen.contains(name) {
+        if scope.globals.contains(name) || !scope.free_names.contains(name) {
             return Ok(Some(0));
         }
         self.free_owner(scan, scope.parent, name)
@@ -206,9 +215,7 @@ impl<'a> Index<'a> {
         };
         let uncertain = summary.map_or(id != 0, |s| s.uncertain);
         scan.tick(targets.len())?;
-        Ok(
-            json!({"owner":id,"targets":targets,"kind":kind,"uncertain":uncertain}),
-        )
+        Ok(json!({"owner":id,"targets":targets,"kind":kind,"uncertain":uncertain}))
     }
 
     fn receiver(&self, owner: Option<usize>, name: &str) -> Result<Option<&str>> {
@@ -290,15 +297,19 @@ impl<'a> Index<'a> {
             }
             let row = self.scope_row(scan, scope)?;
             scan.output.value(&row)?;
-            ordered.push((id,row));
+            ordered.push((id, row));
         }
-        ordered.sort_by(|a,b|scope_key(&a.1).cmp(&scope_key(&b.1)));
+        ordered.sort_by(|a, b| scope_key(&a.1).cmp(&scope_key(&b.1)));
         scan.tick(ordered.len())?;
-        let references:HashMap<usize,usize>=ordered.iter().enumerate().map(|(index,(id,_))|(*id,index)).collect();
-        let mut scopes=Vec::new();
-        for (_,mut row) in ordered {
+        let references: HashMap<usize, usize> = ordered
+            .iter()
+            .enumerate()
+            .map(|(index, (id, _))| (*id, index))
+            .collect();
+        let mut scopes = Vec::new();
+        for (_, mut row) in ordered {
             scan.tick(1)?;
-            remap(&mut row,"parent",&references)?;
+            remap(&mut row, "parent", &references)?;
             scopes.push(row);
         }
         let mut names = Vec::new();
@@ -309,13 +320,19 @@ impl<'a> Index<'a> {
             };
             let owner = self.owner(scan, query.scope, n.id.as_str())?;
             let loc = self.module.location(n);
-            let mut binding = self.binding_at(scan, owner, (loc.line, loc.column), n.id.as_str())?;
-            remap(&mut binding,"owner",&references)?;
+            let mut binding =
+                self.binding_at(scan, owner, (loc.line, loc.column), n.id.as_str())?;
+            remap(&mut binding, "owner", &references)?;
             let receiver = self.receiver(owner, n.id.as_str())?;
-            scan.tick(receiver.map_or(0,str::len))?;
-            let scope=references.get(&query.scope).ok_or("name scope reference unseen")?;
-            scan.keep(&mut names,json!({"line":loc.line,"column":loc.column,"name":n.id.as_str(),
-                "scope":scope,"binding":binding,"receiver":receiver}))?;
+            scan.tick(receiver.map_or(0, str::len))?;
+            let scope = references
+                .get(&query.scope)
+                .ok_or("name scope reference unseen")?;
+            scan.keep(
+                &mut names,
+                json!({"line":loc.line,"column":loc.column,"name":n.id.as_str(),
+                "scope":scope,"binding":binding,"receiver":receiver}),
+            )?;
         }
         scan.tick(names.len().saturating_add(scopes.len()))?;
         names.sort_by_key(|n| {
@@ -324,22 +341,28 @@ impl<'a> Index<'a> {
                 n.get("column").and_then(Value::as_i64),
             )
         });
-        let mut by_node=Vec::new();
-        let root=references.get(&0).ok_or("root scope reference unseen")?;
-        scan.keep(&mut by_node,json!([["Module",1,1,0],root]))?;
-        for (node, scope) in &self.nodes {
+        let mut by_node = Vec::new();
+        scan.tick(self.nodes.len())?;
+        let mut nodes = self.nodes.clone();
+        nodes.push((("Module", 1, 1, 0), 0));
+        nodes.sort_by_key(|(site, _)| *site);
+        for (node, scope) in &nodes {
             scan.tick(1)?;
-            let scope=references.get(scope).ok_or("node scope reference unseen")?;
-            scan.keep(&mut by_node,json!([node,scope]))?;
+            let scope = references.get(scope).ok_or("node scope reference unseen")?;
+            scan.keep(&mut by_node, json!([node, scope]))?;
         }
-        by_node.sort_by(|a, b| node_key(a).cmp(&node_key(b)));
-        let queries = self.extra_queries(scan, input,&references)?;
+        let queries = self.extra_queries(scan, input, &references)?;
         Ok(
             json!({"scopes":scopes,"names":names,"by_node":by_node,"queries":queries,"generic_header_numeric_lines":self.numeric}),
         )
     }
 
-    fn extra_queries(&self, scan: &mut Scan, input: &Value, references: &HashMap<usize,usize>) -> Result<Vec<Value>> {
+    fn extra_queries(
+        &self,
+        scan: &mut Scan,
+        input: &Value,
+        references: &HashMap<usize, usize>,
+    ) -> Result<Vec<Value>> {
         let mut rows = Vec::new();
         let Some(queries) = input.get("queries") else {
             return Ok(rows);
@@ -362,9 +385,9 @@ impl<'a> Index<'a> {
                 .ok_or("lexical query site unseen")?;
             let owner = self.owner(scan, scope, name)?;
             let mut binding = self.binding_at(scan, owner, (line, column), name)?;
-            remap(&mut binding,"owner",references)?;
-            let receiver=self.receiver(owner,name)?;
-            scan.tick(receiver.map_or(0,str::len))?;
+            remap(&mut binding, "owner", references)?;
+            let receiver = self.receiver(owner, name)?;
+            scan.tick(receiver.map_or(0, str::len))?;
             scan.keep(
                 &mut rows,
                 json!({"kind":kind,"line":line,"column":column,"name":name,
@@ -383,20 +406,15 @@ fn scope_key(n: &Value) -> (Option<&str>, Option<i64>, Option<i64>) {
     )
 }
 
-fn node_key(n: &Value) -> (Option<&str>, Option<i64>, Option<i64>, Option<i64>) {
-    let node = n.get(0);
-    (
-        node.and_then(|n| n.get(0)).and_then(Value::as_str),
-        node.and_then(|n| n.get(1)).and_then(Value::as_i64),
-        node.and_then(|n| n.get(2)).and_then(Value::as_i64),
-        node.and_then(|n| n.get(3)).and_then(Value::as_i64),
-    )
-}
-
-fn remap(value: &mut Value, key: &str, references: &HashMap<usize,usize>) -> Result<()> {
-    let value=value.get_mut(key).ok_or("scope reference field unseen")?;
-    if value.is_null() {return Ok(());}
-    let id=value.as_u64().and_then(|n|usize::try_from(n).ok()).ok_or("invalid scope reference")?;
-    *value=json!(references.get(&id).ok_or("scope reference unseen")?);
+fn remap(value: &mut Value, key: &str, references: &HashMap<usize, usize>) -> Result<()> {
+    let value = value.get_mut(key).ok_or("scope reference field unseen")?;
+    if value.is_null() {
+        return Ok(());
+    }
+    let id = value
+        .as_u64()
+        .and_then(|n| usize::try_from(n).ok())
+        .ok_or("invalid scope reference")?;
+    *value = json!(references.get(&id).ok_or("scope reference unseen")?);
     Ok(())
 }
