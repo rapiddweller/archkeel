@@ -33,3 +33,14 @@ def test_supported_split_names_and_counts_both_unsupported_languages(tmp_path, c
     assert "SKIP python: python" in text
     assert "SKIP dart: dart" in text
     assert "use archkeel 4.0.1" in text
+
+
+def test_committed_case_uses_the_config_path_of_the_archive(monkeypatch):
+    from tools.dual_run_corpus import case_language
+
+    def read(command, **kwargs):
+        assert command == ["git", "show", f"{'a' * 40}:native/archkeel.toml"]
+        return '[scan]\nlanguage = "rust"\n'
+
+    monkeypatch.setattr("tools.dual_run_corpus.subprocess.check_output", read)
+    assert case_language(Case("native", "native", "native/archkeel.toml", commit="a" * 40)) == "rust"

@@ -122,7 +122,7 @@ def case_language(case: Case) -> str:
         text = case.base_files[case.config]
     elif case.commit is not None:
         text = subprocess.check_output(
-            ["git", "show", f"{case.commit}:{Path(case.fixture) / case.config}"],
+            ["git", "show", f"{case.commit}:{case.config}"],
             cwd=REPOSITORY,
             text=True,
         )

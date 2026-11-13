@@ -356,15 +356,14 @@ the folder when it stops. Only `init` writes a contract, and only when you ask f
 **Does a clean graph mean a good design?** No. `PASS` means the required rules have complete evidence
 and no decided violation. It does not prove runtime behavior or the quality of a design decision.
 
-**Which languages?** Python, TypeScript and Dart. Ambiguous bindings and unsupported constructs stay `UNKNOWN`.
+**Which languages?** Rust and TypeScript on main. Use archkeel 4.0.1 for Python and Dart projects.
 
 
 ## Scope and limits
 
-ArchKeel observes static source in configured roots. Python support covers imports, calls, and declared boundaries.
-Dart records declarations, members, signatures and bounded source relationships through a
-Python-hosted Tree-sitter parser. Dart analysis needs no Dart SDK or setup command.
-TypeScript also records lexical UML declarations and statically bound relationships;
+ArchKeel observes static Rust and TypeScript source in configured roots through native collectors.
+Python and Dart profiles give exit 2 before collection. They do not produce a partial result.
+TypeScript records lexical UML declarations and statically bound relationships;
 ambiguous bindings and unsupported constructs remain UNKNOWN. TypeScript roots may name files or directories.
 ArchKeel does not prove runtime behavior, performance, or the quality of every design decision.
 Separate test trees need their own scan and contract.
@@ -375,12 +374,15 @@ Read the [docs](docs/README.md).
 
 ## Development
 
-Python, TypeScript and Dart analysis use the Python installation. Building or running the
-Flutter demo itself still requires Flutter; report generation does not.
+The shell needs Python. The Rust and TypeScript collectors need the shipped native binaries.
+In a source checkout, build TypeScript with `make typescript-collector`.
+Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD have no shipped TypeScript binary.
+Without a native binary, scanning fails closed with exit 2. There is no Python fallback.
 
 ```bash
 make check              # lint, types, logic tests
-make gate               # also build, isolated installs and self-validation
+make gate               # also build and isolated installs
+make self-validate-native # Rust self-check with pinned gaps
 make report-browser-tests # Chromium tests of the rendered report
 ```
 
@@ -389,7 +391,8 @@ the Chromium tests: findings, keyboard navigation, unsafe-content escaping, the 
 reaching a component.
 Use the Nightly gallery for manual visual review.
 
-ArchKeel checks its own [architecture contract](https://github.com/rapiddweller/archkeel/blob/main/architecture-contract.json) using fresh
-observations on every test run. See [CONTRIBUTING.md](https://github.com/rapiddweller/archkeel/blob/main/CONTRIBUTING.md).
+ArchKeel checks its Rust source with `make self-validate-native`.
+The Python self-check stops until the native Python collector and store support its replies (AD-422).
+See [CONTRIBUTING.md](https://github.com/rapiddweller/archkeel/blob/main/CONTRIBUTING.md).
 
 MIT © 2026 Rapiddweller Asia Co., Ltd. Maintained by [Alexander Kell](https://github.com/ake2l).

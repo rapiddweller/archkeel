@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from tools.dual_run_python import pin_receipt_runtime
+
 ORACLE_DIR = Path(__file__).resolve().parent.parent / "tests" / "dual_run"
 SCHEMA = json.loads((Path(__file__).resolve().parent / "dual_run_schema.json").read_text())
 SECTIONS: tuple[str, ...] = tuple(SCHEMA["sections"])
@@ -127,6 +129,7 @@ def decode_sections(architecture: Mapping[str, Any]) -> dict[str, list[dict[str,
                 for key, value in zip(data_fields, data, strict=True)
                 if value != "$m"
             }
+            pin_receipt_runtime(architecture, name, row)
             rows.append(row)
         sections[name] = rows
     return sections
