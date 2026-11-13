@@ -70,7 +70,6 @@ impl Syntax {
             scopes: Scopes::default(),
             import_bindings: Vec::new(),
             module_exports: Vec::new(),
-            type_exports: TypeExports::default(),
             rebound_names: Vec::new(),
             ambient_globals: Vec::new(),
             ambient_top_level: Vec::new(),
@@ -81,6 +80,7 @@ impl Syntax {
             script_bindings: Vec::new(),
             script: Script::default(),
             sites: Sites::default(),
+            type_exports: TypeExports::default(),
         }
     }
 }
