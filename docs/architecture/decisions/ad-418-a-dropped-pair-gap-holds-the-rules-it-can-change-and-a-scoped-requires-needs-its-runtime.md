@@ -20,7 +20,7 @@
 
 **Direction.** For a dropped gap the core is equal to Python or stricter. Where a dropped gap holds a rule, Python forgets the gap and can give PASS; the core gives UNKNOWN. No corpus case has this today. Where no gap holds a rule, the core gives the verdict of AD-384 point 5. Over a Python UNKNOWN for a kept gap, that is a PASS that the frame lists in `beyond`.
 
-**Self-check (`native/`, this tree).** Before: 19 rules decided (18 UNKNOWN, 1 FAIL), 24 refused. After: 43 decided, 0 refused: 1 FAIL, 19 UNKNOWN, 23 PASS beyond Python (22 `forbidden_dependency` rules and `complete_assignment`). No kept gap can change these 23. The run stays FAIL and names each kept gap (39 at the measurement, 54 after the Dart collection of #1101).
+**Self-check (`native/`, first measurement, 43 rules).** Before: 19 rules decided (18 UNKNOWN, 1 FAIL), 24 refused. After: 43 decided, 0 refused: 1 FAIL, 19 UNKNOWN, 23 PASS beyond Python (22 `forbidden_dependency` rules and `complete_assignment`). No kept gap can change these 23. The run stays FAIL and names each kept gap (39 at the measurement). After #1107 the contract has 79 rules: 79 decided, 1 FAIL, 19 UNKNOWN, 59 PASS beyond Python (58 `forbidden_dependency`, `complete_assignment`), 112 kept gaps.
 
 **Corpus (655 cases).** 16 rules change from a refusal to a decision: 15 `complete_requires` UNKNOWN, equal to Python, and the `complete_assignment` rule of `rust/native`, PASS beyond Python. 64 `ScopedRequires` refusals stay. Each is a reply of the runtime that can carry the proof, and Python passes 15 of them. No decided verdict changes.
 
@@ -29,6 +29,11 @@
 - Hold every rule for any dropped gap. This is sound, but it loses each verdict that the gap cannot change.
 - Replay the dependency scope proof in the core. It needs the receipt bindings of the host, and no reply of a Rust collector carries the proof.
 
-**Limit.** The proof reads the drop rule of the core (`pair_gaps.rs`), not the drop rule of the host. Its cycle part and the cycle rows read the same imports of the model.
+**Limit.**
+- The proof reads the drop rule of the core (`pair_gaps.rs`), not the drop rule of the host. Its cycle part and the cycle rows read the same imports of the model.
+- A PASS over a gap needs a gap for each visible candidate of a called method name (`rust/src/impl_edges.rs`). A test pins two candidates (review B1 of #1121).
+- A candidate in another crate that the caller names by a renamed Cargo dependency is a gap too: the manifest reader keeps the package of the dependency. A test pins it (review F3 of #1121).
+- A cross-crate candidate needs a direct Cargo dependency (`impl_edges.rs` `depends`). A method call on a value of a crate that the caller reaches only through another crate gives no gap. On this tree only `NATIVE-NO-CORE-TO-TYPESCRIPT` has such a path (`core -> collect -> typescript`); the public items of `collect` hold no type of the TypeScript collector, so no such value reaches `core`. This is a named limit; no test checks it on other trees.
+- A PASS beyond Python is only as strong as the edge model. The open false-PASS classes #1004 (a trait `impl` in a third module) and #1020 (an item that a macro makes) give no edge and no gap, so a Python UNKNOWN for a kept gap hid them and a core PASS does not. This is a named limit; no test checks it on other trees.
 
-**Tests.** `native/model/src/dropped_gaps_tests.rs`; `native/eval/src/dropped_gap_tests.rs`, `scoped_requires_tests.rs`, `drop_rule_tests.rs`, `gap_scope_tests.rs`, `direction_scope_tests.rs`; `tests/test_native_self_core_rows.py`; `tests/test_native_core.py` (`BEYOND_CASES`).
+**Tests.** `native/model/src/dropped_gaps_tests.rs`; `native/rust/src/impl_edges_tests.rs` (B1, F3); `native/eval/src/dropped_gap_tests.rs`, `scoped_requires_tests.rs`, `drop_rule_tests.rs`, `gap_scope_tests.rs`, `direction_scope_tests.rs`; `tests/test_native_self_core_rows.py`; `tests/test_native_core.py` (`BEYOND_CASES`).

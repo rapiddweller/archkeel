@@ -143,3 +143,82 @@ fn a_path_call_that_the_scan_cannot_resolve_exactly_is_a_gap_of_the_pair() {
     let renamed = a("use crate::c::S as Q;\npub fn f(s: &Q) {\n    Q::m(s);\n}\n");
     assert_eq!(found(&[impl_b, renamed]), (true, Vec::new()));
 }
+
+/// The pair gaps of each collection gap of the facts, sorted, as (source, target).
+fn pair_gaps(files: &[(&str, String)]) -> Vec<(String, String)> {
+    let all: Vec<(&str, &str)> = files
+        .iter()
+        .map(|(rel, text)| (*rel, text.as_str()))
+        .collect();
+    let facts = run(&all, false);
+    let mut pairs: Vec<(String, String)> = (facts.gaps.iter())
+        .filter_map(|gap| match &gap.data {
+            GapFact::CollectionGap(d) => Some((
+                d.source_module.as_ref()?.as_str().to_owned(),
+                d.module.as_ref()?.as_str().to_owned(),
+            )),
+            _ => None,
+        })
+        .collect();
+    pairs.sort();
+    pairs
+}
+
+/// AD-418, review B1 of #1121: the core passes a rule over a pair gap only when no gap of the
+/// call reaches the target side, so the collector must name each visible candidate of the name.
+#[test]
+fn a_method_call_gives_a_gap_for_each_foreign_member_of_its_name() {
+    let lib = (
+        "crates/app/src/lib.rs",
+        "mod a;\nmod b;\nmod c;\nmod d;\n".to_owned(),
+    );
+    let ty = (
+        "crates/app/src/c.rs",
+        "pub struct S;\npub struct S2;\n".to_owned(),
+    );
+    let impl_b = b("impl crate::c::S {\n    pub(crate) fn m(&self, x: u8) {}\n}\n");
+    let impl_d = (
+        "crates/app/src/d.rs",
+        "impl crate::c::S2 {\n    pub fn m(&self, x: u8) {}\n}\n".to_owned(),
+    );
+    let manifest = (MANIFEST.0, MANIFEST.1.to_owned());
+    let pairs = pair_gaps(&[manifest, lib, ty, impl_b, impl_d, a(CALL)]);
+    let want = |t: &str| ("ns.app.a".to_owned(), t.to_owned());
+    assert_eq!(pairs, vec![want("ns.app.b"), want("ns.app.d")]);
+}
+
+/// AD-418, review F3 of #1121: a candidate in another crate that the caller names by a renamed
+/// dependency (`alias = { package = "core-x" }`) is a gap of the pair, as an unrenamed one is.
+#[test]
+fn a_method_call_gives_a_gap_for_a_member_of_a_crate_of_a_renamed_dependency() {
+    let file = |rel: &'static str, text: &str| (rel, text.to_owned());
+    let pairs = pair_gaps(&[
+        file(
+            "crates/Cargo.toml",
+            "[workspace]\nmembers = [\"core-x\", \"app\"]\n",
+        ),
+        file(
+            "crates/core-x/Cargo.toml",
+            "[package]\nname = \"core-x\"\nedition = \"2021\"\n",
+        ),
+        file("crates/core-x/src/lib.rs", "pub struct S;\nmod b;\n"),
+        file(
+            "crates/core-x/src/b.rs",
+            "impl crate::S {\n    pub fn m(&self, x: u8) {}\n}\n",
+        ),
+        file(
+            "crates/app/Cargo.toml",
+            "[package]\nname = \"app\"\nedition = \"2021\"\n\
+             [dependencies]\nalias = { path = \"../core-x\", package = \"core-x\" }\n",
+        ),
+        file("crates/app/src/lib.rs", "mod a;\n"),
+        file(
+            "crates/app/src/a.rs",
+            "pub fn f(s: &alias::S) {\n    s.m(1);\n}\n",
+        ),
+    ]);
+    assert_eq!(
+        pairs,
+        vec![("ns.app.a".to_owned(), "ns.core_x.b".to_owned())]
+    );
+}
