@@ -54,7 +54,8 @@ pub(crate) fn reply_or_refusal(
     let mut value = read_json("tests/golden/typescript/h-typescript.json.gz");
     value["facts"]["adapter"]["version"] = json!("0");
     value["facts"]["adapter"]["code_digest"] = json!("0".repeat(64));
-    value["facts"]["runtime"] = json!({"name": "rust", "version": "1.88.0", "required": ">=1.88",
+    // This synthetic runtime does not carry the native TypeScript scope proof (AD-422).
+    value["facts"]["runtime"] = json!({"name": "test-runtime", "version": "1.88.0", "required": ">=1.88",
                                        "requirement_state": "declared"});
     value["facts"]["source"]["git_head"] = json!("a");
     value["facts"]["source"]["dirty"] = json!(false);
