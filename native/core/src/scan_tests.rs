@@ -191,7 +191,7 @@ fn unproved_derive_targets_hold_every_otherwise_pass_row_of_a_fixture() {
     let root = attribute_repository("glob-derive");
     fs::write(
         root.join("crates/example/src/b.rs"),
-        "macro_rules! words { () => { pub struct Marker; }; } words!();",
+        "macro_rules! words { () => { pub struct Marker; pub use mac::Hide as Default; }; } words!();",
     )
     .unwrap();
     let path = root.join("architecture-contract.json");
@@ -203,7 +203,7 @@ fn unproved_derive_targets_hold_every_otherwise_pass_row_of_a_fixture() {
         "rationale": "Modules have no cycle.", "provenance": ["docs/a.md"], "decided_by": "architect"}));
     fs::write(path, contract.to_string()).unwrap();
     for (import, status) in [("Marker", "PASS"), ("*", "UNKNOWN")] {
-        fs::write(root.join("crates/example/src/a.rs"), format!("use crate::b::{import}; #[derive(Default)] pub struct S; fn marker(_: Marker) {{}}")).unwrap();
+        fs::write(root.join("crates/example/src/a.rs"), format!("use crate::b::{import}; #[derive(Default)] pub struct S; pub fn x() {{}} fn marker(_: Marker) {{}}")).unwrap();
         let (found, _) = frame(&request(&root));
         let rows = found["rules"].as_object().unwrap();
         assert_eq!(rows.len(), 3, "{found}");
