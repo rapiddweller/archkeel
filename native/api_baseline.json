@@ -1909,6 +1909,7 @@
     "variant status::Unexplained::NoTargetWithoutRunRow",
     "variant status::Unexplained::PassWithoutPart",
     "variant status::Unexplained::UnknownWithoutRow",
+    "variant why::WhyUnknown::NoDecidedRule",
     "variant why::WhyUnknown::NoReceipt",
     "variant why::WhyUnknown::OwnershipBlocker",
     "variant why::WhyUnknown::ScopeIncomplete",
