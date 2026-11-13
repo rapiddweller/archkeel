@@ -336,14 +336,6 @@ def test_source_role_schema_accepts_unresolved_transfers_only_for_roles(version)
     assert not validator.is_valid(record)
 
 
-def test_config_schema_accepts_the_parsed_repository_config() -> None:
-    payload = (ROOT / "archkeel.toml").read_bytes()
-    schema = _schema("archkeel.schema.json")
-    Draft202012Validator.check_schema(schema)
-    parse_config(payload)
-    assert not list(Draft202012Validator(schema).iter_errors(tomllib.loads(payload.decode())))
-
-
 @pytest.mark.parametrize("language", ["python", "dart", "typescript"])
 def test_config_schema_accepts_supported_language_options(language: str) -> None:
     payload = (

@@ -51,83 +51,6 @@ def _compare(oracle: Any, frame: Any, selection: Selection = ALL) -> list[Any]:
     return dual_run_oracle.compare_case(oracle, frame, selection)
 
 
-def test_the_python_engine_equals_its_oracle(run: Run) -> None:
-    assert _compare(*run) == []
-
-
-def test_a_changed_verdict_names_the_rule(run: Run) -> None:
-    oracle, frame = _planted(run)
-    rule = sorted(frame["rules"])[0]
-    frame["rules"][rule] = [frame["rules"][rule][0], "FAIL"]
-    [difference] = _compare(oracle, frame)
-    assert (difference.case, difference.scope, difference.id) == (CASE, "rules", rule)
-    assert "FAIL" in difference.detail
-
-
-def test_a_dropped_row_of_a_large_section_shows_its_expected_content(run: Run) -> None:
-    oracle, frame = _planted(run)
-    assert "rows" not in oracle["sections"]["evidence"] or all(
-        isinstance(item, list) for item in oracle["sections"]["evidence"]["rows"]
-    )
-    dropped = frame["sections"]["evidence"].pop(7)
-    [difference] = _compare(oracle, frame)
-    assert (difference.scope, difference.id) == ("evidence", dropped["id"])
-    assert difference.detail.startswith("row 7: the candidate drops this row")
-    assert dropped["file"] in difference.detail
-
-
-def test_a_changed_title_of_a_large_section_names_the_field(run: Run) -> None:
-    oracle, frame = _planted(run)
-    frame["sections"]["modules"][2]["title"] = "planted"
-    [difference] = _compare(oracle, frame)
-    assert difference.scope == "modules"
-    assert difference.detail.startswith("row 2: field title: expected")
-    assert '"planted"' in difference.detail
-
-
-def test_a_reordered_row_is_a_difference(run: Run) -> None:
-    oracle, frame = _planted(run)
-    rows = frame["sections"]["declarations"]
-    rows[2], rows[3] = rows[3], rows[2]
-    [difference] = _compare(oracle, frame)
-    assert (difference.scope, difference.id) == ("declarations", rows[2]["id"])
-    assert "row 2: the order differs" in difference.detail
-
-
-def test_a_changed_field_of_a_full_row_names_the_field(run: Run) -> None:
-    oracle, frame = _planted(run)
-    assert all(isinstance(item, dict) for item in oracle["sections"]["packages"]["rows"])
-    frame["sections"]["packages"][1]["title"] = "planted"
-    [difference] = _compare(oracle, frame)
-    assert difference.scope == "packages"
-    assert difference.detail.startswith("row 1: field title: expected")
-
-
-def test_an_added_last_row_is_a_difference(run: Run) -> None:
-    oracle, frame = _planted(run)
-    frame["sections"]["cycles"].append({"id": "CYCLE-PLANTED", "rule_ids": []})
-    [difference] = _compare(oracle, frame)
-    assert (difference.scope, difference.id) == ("cycles", "CYCLE-PLANTED")
-
-
-def test_a_section_outside_the_known_list_is_a_difference(run: Run) -> None:
-    oracle, frame = _planted(run)
-    frame["sections"]["new_section"] = [{"id": "N1"}]
-    [difference] = _compare(oracle, frame)
-    assert (difference.scope, difference.id) == ("new_section", "-")
-
-
-def test_a_slice_compares_only_what_it_owns(run: Run) -> None:
-    oracle, frame = _planted(run)
-    frame["sections"]["modules"].pop(0)
-    rule, (kind, _) = next(iter(sorted(frame["rules"].items())))
-    frame["rules"][rule] = [kind, "FAIL"]
-    assert kind != "no_component_cycles"
-    assert _compare(oracle, frame, dual_run_oracle.selection_of("imports", "cycles")) == []
-    owned = dual_run_oracle.selection_of("modules", kind)
-    assert [d.scope for d in _compare(oracle, frame, owned)] == ["rules", "modules"]
-
-
 def _rule_oracle(rows: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "case": {"id": "c"},
@@ -239,19 +162,6 @@ def test_record_needs_a_reason_and_a_committed_source(
     monkeypatch.setattr(dual_run, "dirty_sources", lambda: ["src/archkeel/x.py"])
     assert dual_run.main(["record", "--case", "fixture/E-runtime", "--reason", "test"]) == 2
     assert "not committed" in capsys.readouterr().out
-
-
-def test_record_shows_the_differences_that_it_overwrites(tmp_path: Path) -> None:
-    case = _case("fixture/H-uml")
-    previous, output = tmp_path / "previous", tmp_path / "output"
-    previous.mkdir()
-    old = dual_run_oracle.read_oracle(dual_run.oracle_path(case))
-    rule = next(iter(old["rules"]))
-    old["rules"][rule] = [old["rules"][rule][0], "FAIL"]
-    dual_run_oracle.write_oracle(dual_run_oracle.oracle_file(previous, case.id), old)
-    [difference] = dual_run.record_case((case, previous, output))
-    assert (difference.scope, difference.id) == ("rules", rule)
-    assert dual_run_oracle.oracle_file(output, case.id).is_file()
 
 
 def test_an_engine_that_does_not_answer_is_a_difference(
@@ -406,88 +316,9 @@ def test_none_owns_no_section_and_no_family() -> None:
     assert not dual_run_oracle.selection_of("modules", "none").owns_nothing()
 
 
-def test_an_unsupported_part_of_the_frame_is_a_named_difference(run: Run) -> None:
-    """AD-363: an engine that names a part unsupported is never equal on that part."""
-    oracle, _ = run
-    rule = sorted(oracle["rules"])[0]
-    frame = {
-        "rules": {},
-        "unsupported": {
-            "rules": {rule: "unsupported: rule kind X"},
-            "sections": {"modules": "unsupported: section modules: slice S1 ports it"},
-        },
-    }
-    selection = dual_run_oracle.selection_of("modules", oracle["rules"][rule][0])
-    got = [(d.scope, d.id, d.detail) for d in _compare(oracle, frame, selection)]
-    assert got[0][:2] == ("rules", rule) and "are unsupported" in got[0][2]
-    assert ("modules", "-", "unsupported: section modules: slice S1 ports it") in got
-    frame["unsupported"]["rules"] = "unsupported: contract declarations"
-    [first, *_] = _compare(oracle, frame, selection)
-    assert (first.scope, first.id) == ("rules", "-")
-
-
-def test_the_self_test_compares_the_rule_kinds_that_the_engine_read(run: Run) -> None:
-    oracle, _ = run
-    kinds = {rule: kind for rule, (kind, _) in oracle["rules"].items()}
-    frame = {"rules": {}, "self_test": {"contract": {"rules": kinds}, "reply": {"files": 3}}}
-    selection = Selection((), frozenset(), self_test=True)
-    assert _compare(oracle, frame, selection) == []
-    rule = sorted(kinds)[0]
-    frame["self_test"]["contract"]["rules"][rule] = "layer_order"
-    frame["self_test"]["reply"] = {"refused": "not compressed"}
-    got = [(d.scope, d.id) for d in _compare(oracle, frame, selection)]
-    assert got == [("self_test", rule), ("self_test", "reply")]
-
-
-def test_a_rule_that_the_engine_names_unsupported_is_a_named_self_test_difference(
-    run: Run,
-) -> None:
-    """AD-363: a rule that the contract does not hold (the UML target of `declarations.uml`) and
-    that the engine names unsupported is a named difference, never an unexplained kind."""
-    oracle, _ = run
-    kinds = {rule: kind for rule, (kind, _) in oracle["rules"].items()}
-    rule = sorted(kinds)[0]
-    read = {key: value for key, value in kinds.items() if key != rule}
-    reason = "unsupported: the UML target of the contract: no slice ports it yet"
-    frame = {
-        "rules": {},
-        "unsupported": {"rules": {rule: reason}},
-        "self_test": {"contract": {"rules": read}, "reply": {"files": 3}},
-    }
-    selection = Selection((), frozenset(), self_test=True)
-    got = [(d.scope, d.id, d.detail) for d in _compare(oracle, frame, selection)]
-    assert got == [("self_test", rule, reason)]
-
-
 def test_a_self_test_run_owns_no_part_and_says_so(capsys: pytest.CaptureFixture[str]) -> None:
     """AD-363: the wiring check owns no rule and no section, and its summary says self-test."""
     case = _case("fixture/E-runtime")
     self_test = Selection((), frozenset(), self_test=True)
     assert dual_run.report([(case, 0, [])], self_test, None, 0.0) == 0
     assert "dual run: self-test; " in capsys.readouterr().out
-
-
-@pytest.mark.parametrize(
-    ("unsupported", "code", "accepted"),
-    [
-        ({"rules": {"R": "unsupported: rule kind X"}}, 3, True),
-        ({"rules": {}, "sections": {}, "report": None}, 3, False),
-        ({"sections": {"modules": "unsupported: section modules"}}, 0, False),
-        ({}, 0, True),
-    ],
-)
-def test_exit_3_goes_only_with_a_frame_that_names_a_gap(
-    tmp_path: Path, unsupported: dict[str, Any], code: int, accepted: bool
-) -> None:
-    """AD-363: a frame without verdicts is never a plain success, and exit 3 is never empty."""
-    import json
-
-    frame = {"rules": {}, "unsupported": unsupported}
-    if accepted and not unsupported:
-        frame["self_test"] = {"contract": {"rules": {}}, "reply": {"files": 1}}
-    script = tmp_path / "engine.py"
-    script.write_text(f"import sys\nprint({json.dumps(json.dumps(frame))})\nsys.exit({code})\n")
-    case = _case("fixture/E-runtime")
-    with dual_run.materialized(case) as root:
-        got = dual_run.run_engine(case, root, f"{sys.executable} {script}", Selection())
-    assert ("error" not in got) is accepted, got

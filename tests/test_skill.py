@@ -749,18 +749,6 @@ def test_agent_flow_without_a_contract_uses_explore(
     assert _view("check", tmp_path, snapshot, spec, capsys)[0] == 2
 
 
-def test_explore_without_a_production_package_does_not_choose_tests(
-    tmp_path: Path, capsys: pytest.CaptureFixture
-) -> None:
-    root = _shop_without_contract(tmp_path)
-    shutil.rmtree(root / "shop")
-
-    assert main(["explore", "--root", str(root), "--output", str(tmp_path / "x"), "--json"]) == 2
-    result = json.loads(capsys.readouterr().out)
-    assert result["observation_complete"] == "UNKNOWN"
-    assert "Expected one top-level Python package" in result["diagnostics"][0]["unknown_claim"]
-
-
 _SCOPE = ("--source", "--namespace", "--language", "--tsconfig")
 _NAMES = {name: f"<{name}>" for name in ("dir", "package", "language", "file")}
 

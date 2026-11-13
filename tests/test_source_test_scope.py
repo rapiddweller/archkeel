@@ -5,18 +5,14 @@
 
 import json
 import subprocess
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from test_architecture_demo import _prepare_repo
 
 from archkeel.check.ports import Language, ScanConfig
-from archkeel.check.validation import run_validate
 from archkeel.cli import main
-from archkeel.cli.config import ConfigError, load_config, parse_config
-from archkeel.cli.observe import observer_for
-from archkeel.render.summary import report_summary
+from archkeel.cli.config import ConfigError, parse_config
 from fixtures.demo_catalog_support import FIXTURE_DIR
 
 _TYPESCRIPT = Path(__file__).parents[1] / "fixtures" / "H-typescript"
@@ -115,13 +111,6 @@ def test_an_absent_key_is_the_same_as_false(
 _HEAD = b'[scan]\nroots = ["src"]\nnamespace = "app"\ncontract = "c.json"\n'
 
 
-def test_the_key_defaults_to_false_and_reads_true() -> None:
-    assert parse_config(_HEAD).exclude_test_sources is False
-    assert parse_config(_HEAD + b"exclude_test_sources = true\n").exclude_test_sources is True
-    ts = b'language = "typescript"\n' + _HEAD.removeprefix(b"[scan]\n")
-    assert parse_config(b"[scan]\n" + ts + b"exclude_test_sources = true\n").exclude_test_sources
-
-
 @pytest.mark.parametrize(
     ("extra", "message"),
     [
@@ -134,11 +123,6 @@ def test_the_key_rejects_a_bad_value_or_a_language_without_a_test_rule(
 ) -> None:
     with pytest.raises(ConfigError, match=message):
         parse_config(_HEAD + extra)
-
-
-def test_dart_may_name_the_key_as_false() -> None:
-    config = parse_config(_HEAD + b'language = "dart"\nexclude_test_sources = false\n')
-    assert config.exclude_test_sources is False
 
 
 def _statuses(result: dict[str, object]) -> dict[str, str]:
@@ -172,15 +156,6 @@ def test_the_note_lists_at_most_twenty_sorted_paths_and_counts_the_rest(
     assert "test_20.py" not in claim
     assert "and 3 more" in claim
     assert claim.index("test_00.py") < claim.index("test_01.py")
-
-
-def test_the_human_output_prints_the_note(tmp_path: Path) -> None:
-    probed = _repo(tmp_path, "probed", "python", probe=True)
-    config = load_config(probed, "archkeel-on.toml")
-    observer = observer_for(config.language, exclude_test_sources=True)
-    result, _ = run_validate(probed, config, observer)
-    result = replace(result, notes=config.scope_notes(observer.excluded_for()))
-    assert "shop/model/test_mode.py" in report_summary(result).sentence
 
 
 def test_validate_against_notes_a_changed_test_scope(

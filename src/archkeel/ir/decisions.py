@@ -1588,6 +1588,10 @@ def rule_assessments(
         )
         if declaration.kind == "layer_order" and status == RuleAssessmentStatus.PASS:
             reason = "Declared requires permissions follow the selected layer order."
+        if status == RuleAssessmentStatus.UNKNOWN and receipt is not None:
+            proof = receipt.data.get("dependency_scope_proof")
+            if isinstance(proof, RecordData):
+                reason = _runtime_rejection(observation, proof) or reason
         if status == RuleAssessmentStatus.UNKNOWN and scope_complete and not receipt_complete:
             ownership_reason = _ownership_blocker_reason(observation, identifier)
             if ownership_reason is not None:

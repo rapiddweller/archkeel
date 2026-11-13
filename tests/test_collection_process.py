@@ -17,15 +17,11 @@ from unittest.mock import patch
 import pytest
 from test_architecture_demo import _prepare_repo
 from test_collection_protocol import _request, _response
-from test_uml_evaluation import _model
 
 from archkeel.analyzer import process as process_owner
 from archkeel.check.ports import ScanConfig
-from archkeel.ir.decisions import rule_assessments
 from archkeel.ir.facts_codec import decode_request, decode_response
 from archkeel.ir.protocol import CollectionError
-from archkeel.ir.report_graph import architecture_report
-from archkeel.ir.trace import trace_valid_violations
 
 
 def _collector(code: str, **limits):
@@ -324,17 +320,6 @@ def test_host_collector_must_report_the_host_adapter_version(
         )
 
 
-def test_observer_pins_the_adapter_version_only_for_its_own_collectors() -> None:
-    from archkeel.check.ports import Language
-    from archkeel.cli.observe import observer_for
-
-    for language in (Language.DART, Language.TYPESCRIPT):
-        assert observer_for(language).collector.pin_adapter_version
-        configured = observer_for(language, collector_argv=("external-collector",))
-        assert not configured.collector.pin_adapter_version
-    assert observer_for(Language.PYTHON).collector.collector.pin_adapter_version
-
-
 def test_configured_executable_collects_facts_without_receiving_policy(tmp_path) -> None:
     response = _response()
     code = (
@@ -557,43 +542,6 @@ def test_python_survey_response_matches_requested_phase(sections, accepted):
     else:
         with pytest.raises(ProtocolError, match="survey"):
             check_requested_facts(facts, request)
-
-
-@pytest.mark.parametrize("language", ["python", "dart"])
-def test_bundled_collector_never_imports_snapshot_modules(tmp_path: Path, language: str) -> None:
-    from archkeel.cli.observe import observer_for
-
-    marker = tmp_path / "executed"
-    shadow = f"from pathlib import Path\nPath({str(marker)!r}).write_text('executed')\n"
-    for name in ("typing", "dataclasses"):
-        (tmp_path / f"{name}.py").write_text(shadow)
-    source = tmp_path / "src"
-    source.mkdir()
-    if language == "python":
-        source /= "sample"
-        source.mkdir()
-    (source / ("app.py" if language == "python" else "app.dart")).write_text("")
-    if language == "dart":
-        (tmp_path / "pubspec.yaml").write_text("name: sample\n")
-    else:
-        (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
-    (tmp_path / "contract.json").write_text(
-        '{"schema_version":"2.1.0","components":[],"rules":[]}\n'
-    )
-
-    result = observer_for(language)(
-        tmp_path,
-        roots=("src",),
-        namespace="sample",
-        contract="contract.json",
-        git_head="a" * 40,
-        dirty=False,
-        contract_root=tmp_path,
-        language=language,
-    )
-    assert result.exit_code == 0, result.diagnostics
-    assert result.observation is not None
-    assert not marker.exists()
 
 
 # Other OS names remain outside the recognized process platform vocabulary.
@@ -947,200 +895,3 @@ def _comparison_sites(model, owner):
         for row in model.records("constructs")
         if row.kind == "string_literal_compare" and row.data.get("owner") == owner
     ]
-
-
-def test_native_actual_process_target_and_os_control_sites(tmp_path):
-    root, config = _platform_repository(tmp_path)
-    model = _model(root, config)
-    sites = [
-        (row.data.get("owner"), excerpt)
-        for owner in (
-            "archkeel.analyzer.process.ProcessCollector.collect_response",
-            "archkeel.analyzer.process._terminate_process_tree",
-            "archkeel.analyzer.process._process_platform",
-        )
-        for row, excerpt in _comparison_sites(model, owner)
-    ]
-    print("ACTUAL_PROCESS_CONTROL_SITES=" + json.dumps(sites))
-    comparison = architecture_report(model).comparison
-    assert comparison is not None and comparison.status == "PASS", comparison
-    assessments = {row.id: row for row in rule_assessments(model, undecided_by_rule={})}
-    for rule_id in (_PLATFORM_GUARD, _CLEANUP_GUARD, "TYPES-ENUM-IN-MODEL"):
-        assert assessments[rule_id].status == "PASS" and assessments[rule_id].evaluation_proven
-    assert not trace_valid_violations(model)
-    # This filename identity is real remaining grammar, not an OS selector or a blanket exception.
-    assert [
-        excerpt
-        for _, excerpt in _comparison_sites(
-            model, "archkeel.analyzer.process.ProcessCollector.collect_response"
-        )
-    ] == ['if Path(executable).suffix.lower() in {".bat", ".cmd"}:']
-
-
-@pytest.mark.parametrize(
-    "changed,missing,expected",
-    [
-        (None, None, "PASS"),
-        (
-            (
-                "response = self.collect_response(request)",
-                "response = self._exchange(request, b'', [])",
-            ),
-            "PORT-REL-9",
-            "FAIL",
-        ),
-        (
-            (
-                "stdout, stderr = self._exchange(process, payload, workers)",
-                "stdout, stderr = self.collect_response(request)",
-            ),
-            "PORT-REL-PROVIDER-EXCHANGE",
-            "UNKNOWN",
-        ),
-    ],
-    ids=["shared-runner", "missing-response-delegation", "missing-bounded-exchange"],
-)
-def test_required_process_call_path_keeps_both_direct_edges(tmp_path, changed, missing, expected):
-    root, config = _platform_repository(tmp_path, changed=changed)
-    authored = json.loads(
-        (_PROCESS_ROOT / "docs/architecture/contracts/analyzer.json").read_text()
-    )["declarations"]["uml"]["relationships"]
-    required = {
-        "PORT-REL-9": ("process.collect", "process.collect_response"),
-        "PORT-REL-PROVIDER-EXCHANGE": ("process.collect_response", "process._exchange"),
-    }
-    relationships = [row for row in authored if row["id"] in required]
-    assert {row["id"]: (row["source_id"], row["target_id"]) for row in relationships} == required
-    target_path = root / "contract.json"
-    target = json.loads(target_path.read_text())
-    target["declarations"]["uml"]["relationships"] = relationships
-    target_path.write_text(json.dumps(target))
-    intent = target_path.read_bytes()
-    model = _model(root, config)
-    comparison = architecture_report(model).comparison
-    assert comparison is not None and comparison.status == expected
-    violations = trace_valid_violations(model)
-    if missing:
-        [assessment] = [row for row in comparison.assessments if row.subject_id == missing]
-        assert assessment.status == expected
-        if expected == "FAIL":
-            assert any(row.data.get("subject_id") == missing for row in violations)
-        else:
-            assert assessment.reason == "Unresolved source sites may refer to this endpoint."
-            assert assessment.fact_ids and assessment.evidence_ids
-            calls_by_id = {row.id: row for row in model.records("calls")}
-            assert all(
-                calls_by_id[identifier].data.get("status") in {"unresolved", "partially_resolved"}
-                for identifier in assessment.fact_ids
-            )
-            assert not any(
-                row.data.get("source_scope")
-                == "archkeel.analyzer.process.ProcessCollector.collect_response"
-                and row.data.get("targets")
-                == ("archkeel.analyzer.process.ProcessCollector._exchange",)
-                for row in model.records("calls")
-            )
-    else:
-        assert not violations
-        calls = {
-            (row.data.get("source_scope"), row.data.get("targets"))
-            for row in model.records("calls")
-            if row.data.get("expression") in {"self.collect_response", "self._exchange"}
-            and row.data.get("status") == "resolved"
-        }
-        prefix = "archkeel.analyzer.process.ProcessCollector."
-        assert calls == {
-            (prefix + "collect", (prefix + "collect_response",)),
-            (prefix + "collect_response", (prefix + "_exchange",)),
-        }
-    assert target_path.read_bytes() == intent
-
-
-@pytest.mark.parametrize(
-    "old,new",
-    [
-        (
-            "def _process_platform(name: str) -> _ProcessPlatform | None:",
-            "def _process_platform(name: object) -> _ProcessPlatform | None:",
-        ),
-        (
-            "def _process_platform(name: str) -> _ProcessPlatform | None:",
-            "def _process_platform(name: str) -> str | None:",
-        ),
-        ("class _ProcessPlatform(Enum):", "class _ProcessPlatform:"),
-    ],
-    ids=["raw-domain", "nominal-result", "enum-kind"],
-)
-def test_fixed_process_platform_target_rejects_port_weakening(tmp_path, old, new):
-    root, config = _platform_repository(tmp_path, changed=(old, new))
-    intent = (root / "contract.json").read_bytes()
-    model = _model(root, config)
-    comparison = architecture_report(model).comparison
-    assert comparison is not None and comparison.status == "FAIL", comparison
-    assert trace_valid_violations(model)
-    assert (root / "contract.json").read_bytes() == intent
-
-
-def test_actual_root_placement_rejects_process_enum_relocation(tmp_path):
-    root, config = _platform_repository(tmp_path, relocate=True)
-    model = _model(root, config)
-    assert any("TYPES-ENUM-IN-MODEL" in row.rule_ids for row in trace_valid_violations(model))
-
-
-@pytest.mark.parametrize(
-    "old,new,rule_id",
-    [
-        (
-            "    try:\n        return _ProcessPlatform(name)",
-            '    if name == "posix":\n        return _ProcessPlatform.POSIX\n'
-            "    try:\n        return _ProcessPlatform(name)",
-            _PLATFORM_GUARD,
-        ),
-        (
-            "    if platform is _ProcessPlatform.POSIX:",
-            '    if os.name == "posix":',
-            _CLEANUP_GUARD,
-        ),
-        (
-            "    if platform is _ProcessPlatform.POSIX:",
-            "    if platform.value == _ProcessPlatform.POSIX.value:",
-            _CLEANUP_GUARD,
-        ),
-        (
-            "            if platform is _ProcessPlatform.WINDOWS:",
-            '            if os.name == "nt":',
-            _COLLECT_PROBE,
-        ),
-    ],
-    ids=[
-        "converter-raw-control",
-        "cleanup-raw-control",
-        "cleanup-value-evasion",
-        "collect-os-control",
-    ],
-)
-def test_actual_os_comparison_mutations_keep_native_control_trace(tmp_path, old, new, rule_id):
-    changed_in = {
-        _PLATFORM_GUARD: "_process_platform",
-        _CLEANUP_GUARD: "_terminate_process_tree",
-        _COLLECT_PROBE: "collect_response",
-    }[rule_id]
-    root, config = _platform_repository(
-        tmp_path,
-        changed=(old, new),
-        changed_in=changed_in,
-        collect_probe=rule_id == _COLLECT_PROBE,
-    )
-    model = _model(root, config)
-    violations = [row for row in trace_valid_violations(model) if rule_id in row.rule_ids]
-    assert violations
-    if rule_id == _COLLECT_PROBE:
-        facts = [
-            row
-            for row, excerpt in _comparison_sites(
-                model, "archkeel.analyzer.process.ProcessCollector.collect_response"
-            )
-            if excerpt == 'if os.name == "nt":'
-        ]
-        assert len(facts) == 1
-        assert any(facts[0].id in row.fact_ids for row in violations)

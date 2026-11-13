@@ -203,44 +203,6 @@ def _trace(observation: Observation, source: str, target: str | None = None, **l
     return trace_flow(observation, source, target, **{"max_paths": 5, "max_hops": 12, **limits})
 
 
-@pytest.mark.parametrize(
-    ("change", "message"),
-    [
-        (lambda s: s.update(schema_version="1.1.0"), "1.2.0"),
-        (lambda s: (s.pop("story"), s["steps"][0].update(title="T")), "need a story"),
-        (lambda s: s["story"].update(chapters=[{"id": "a", "title": "A"}] * 2), "unique"),
-        (lambda s: s["story"].update(id=""), "story.id"),
-        (lambda s: s["story"].update(status="proven"), "allows only"),
-        (lambda s: s["steps"][0].update(chapter="nowhere"), "names no chapter"),
-        (
-            lambda s: s["steps"][0].update(external=[{"system": "ldap", "direction": "reads"}]),
-            "one of",
-        ),
-        (
-            lambda s: s["steps"][0].update(external=[{"system": "redis", "direction": "sends"}]),
-            "one of",
-        ),
-        (
-            lambda s: s["steps"][0].update(
-                external=[{"system": "redis", "direction": "reads"}] * 2
-            ),
-            "twice",
-        ),
-        (
-            lambda s: s["steps"][0].update(
-                external=[{"system": "redis", "direction": "reads", "status": "proven"}]
-            ),
-            "allows only",
-        ),
-    ],
-)
-def test_story_fields_are_closed_and_need_version_1_2_0(shop: Observation, change, message) -> None:
-    raw = _spec(shop, [{"node": MAIN}, {"node": PLACE}])
-    change(raw)
-    with pytest.raises(ValueError, match=message):
-        parse_view_spec(raw)
-
-
 def test_a_wide_dispatch_is_searched_in_bounded_work_and_proven_paths_come_first() -> None:
     """58 candidates at two levels (the EE shape), and a longer path of resolved calls only."""
     width = 58

@@ -12,6 +12,7 @@ from collections import Counter
 from dataclasses import asdict, replace
 from pathlib import PurePosixPath
 
+from archkeel.ir.dependency_binding import native_runtime_valid
 from archkeel.ir.facts import (
     SOURCE_RESOLUTION_GAP_KIND,
     InventoryStatus,
@@ -19,7 +20,6 @@ from archkeel.ir.facts import (
     ResolutionRole,
     member_inventories,
 )
-from archkeel.ir.facts import RuntimeRequirementState as _RuntimeRequirementState
 from archkeel.ir.identity_memo import IdentityMemo
 from archkeel.ir.model import (
     TARGET_GRAPH_RECORD_KINDS,
@@ -29,7 +29,6 @@ from archkeel.ir.model import (
     RawJson,
     Record,
     RecordData,
-    RuntimeInfo,
     Verdict,
     stable_id,
 )
@@ -89,18 +88,6 @@ def _inventory_binding(model: Observation) -> str:
     return _inventory_digest(value) if store is None else store.digest(value)
 
 
-def _native_runtime(runtime: RuntimeInfo) -> bool:
-    lower = re.fullmatch(r">=([0-9]+)\.([0-9]+)(?:\.([0-9]+))?", runtime.required or "")
-    version = re.fullmatch(r"([0-9]+)\.([0-9]+)\.([0-9]+)", runtime.version)
-    return (
-        runtime.name == "rust"
-        and runtime.requirement_state == _RuntimeRequirementState.DECLARED
-        and lower is not None
-        and version is not None
-        and tuple(map(int, version.groups())) >= tuple(int(v or 0) for v in lower.groups())
-    )
-
-
 def _inventory_selected_inputs(model: Observation, inputs: tuple[RecordData, ...]) -> set[str]:
     if model.analyzer.name not in {"archkeel-dart-analyzer", "archkeel-typescript-imports"}:
         return set()
@@ -108,7 +95,7 @@ def _inventory_selected_inputs(model: Observation, inputs: tuple[RecordData, ...
     if (
         runtime is None
         or model.producer_kind is not ProducerKind.BUNDLED
-        or not _native_runtime(runtime)
+        or not native_runtime_valid(runtime)
     ):
         return set()
     if model.producer is None or model.producer.name != model.analyzer.name:

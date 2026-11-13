@@ -36,7 +36,6 @@ from archkeel.ir.model import (
     ContractComponent,
     Observation,
 )
-from archkeel.ir.module_explore import module_exploration
 from archkeel.ir.ownership import deepest_owners, owner_of, scope_names, scope_owners
 from archkeel.ir.profiles import profile_for
 from archkeel.ir.report_graph import _memberships
@@ -526,15 +525,3 @@ def test_view_spec_view_graph_members_lists_only_unique_root_owners() -> None:
 @pytest.fixture(scope="module")
 def ambiguous_sample(tmp_path_factory: pytest.TempPathFactory) -> Observation:
     return _sample(tmp_path_factory.mktemp("ambiguous"), ambiguous=True)
-
-
-def test_module_explore_statistics_keep_an_overlapping_module_as_candidates_not_owner(
-    ambiguous_sample: Observation,
-) -> None:
-    """Characterization: records current behaviour of module_explore.module_exploration.
-    Step S2 of #880 may merge the copies only if this stays true or an AD changes it."""
-    level = next(item for item in module_exploration(ambiguous_sample) if item.parent_id is None)
-    found = {item.name: (item.component_id, item.candidate_ids) for item in level.modules}
-    assert found["sample.core"] == (None, ("core", "overlap"))
-    assert found["sample.peer"] == ("peer", ("peer",))
-    assert found["sample.unowned"] == (None, ())

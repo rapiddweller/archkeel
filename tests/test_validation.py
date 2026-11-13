@@ -10,13 +10,10 @@ from unittest.mock import Mock
 
 import pytest
 from test_analyzer import _component
-from test_architecture_demo import CONFIG as SHOP_CONFIG
-from test_architecture_demo import _prepare_repo
 from test_delta import _model, _record, _violation
 
 from archkeel.check.onboarding import architecture_document
 from archkeel.check.ports import ScanConfig
-from archkeel.check.report import observe_repository
 from archkeel.check.validation import (
     COMPONENT_GRAPH_MARKER,
     _observed_result,
@@ -33,13 +30,11 @@ from archkeel.check.validation.public_api import (
     interface_diagnostics,
     public_api_diagnostics,
 )
-from archkeel.cli.config import load_config
 from archkeel.cli.observe import observe
 from archkeel.ir.baseline import KnownViolation, ViolationFingerprint, violation_fingerprint
 from archkeel.ir.codec import (
     CONTRACT_SCHEMA_VERSION,
     baseline_bytes,
-    decode_json,
     parse_contract,
     parse_observation,
 )
@@ -49,8 +44,6 @@ from archkeel.ir.model import (
     ObservationResult,
     Record,
 )
-from fixtures.architecture_demo import CATALOG
-from fixtures.demo_catalog_support import FIXTURE_DIR
 from fixtures.demo_catalog_typescript import VARIANTS as TYPESCRIPT_VARIANTS
 
 ROOT = Path(__file__).parents[1]
@@ -130,38 +123,6 @@ def _second_return_type(func: Callable[..., object]) -> type:
     """
     (_, files_type) = get_args(get_type_hints(func)["return"])
     return get_origin(files_type) or files_type
-
-
-def test_run_validate_declares_a_files_type_that_is_not_a_bare_dict(
-    tmp_path: Path,
-) -> None:
-    """AD-68's Limit (issue #59): pin `--write-graph`'s written file through `run_validate`
-    itself, the way `test_architecture_demo.py`'s graph-drift tests already do, but also
-    require the declared files type to stop being a bare `dict[str, bytes]` - the exact shape
-    CHECK-TYPES-DECLARED rejects. A refactor may change what carries the answer; it must not
-    change which file is rewritten, or leave it unrewritten.
-    """
-    assert _second_return_type(run_validate) is not dict
-
-    rows = {variant.item: variant for variant in CATALOG}
-    stale = _prepare_repo(tmp_path, dict(rows["graph.drift:write-graph"].files))
-    page = stale / "docs/architecture/shop.md"
-    original = page.read_bytes()
-
-    result, files = run_validate(stale, SHOP_CONFIG, observe, write_graph=True)
-
-    assert result.exit_code == 0
-    written = dict(files.entries)
-    assert set(written) == {"docs/architecture/shop.md"}
-    assert written["docs/architecture/shop.md"] != original
-
-    # The bytes returned must be exactly what a clean, regenerated graph looks like: writing
-    # them and validating again must find nothing left to rewrite and no graph drift.
-    page.write_bytes(written["docs/architecture/shop.md"])
-    revalidated, rerun_files = run_validate(stale, SHOP_CONFIG, observe, write_graph=True)
-    assert revalidated.exit_code == 0
-    assert revalidated.diagnostics == ()
-    assert dict(rerun_files.entries) == {}
 
 
 def test_validate_rejects_contract_1_1_with_exact_pointer(tmp_path: Path) -> None:
@@ -1078,53 +1039,6 @@ def test_public_api_diagnostics_never_flags_an_entry_the_analyzer_already_marked
     assert public_api_diagnostics(contract, observation) == ()
 
 
-def test_public_api_name_without_all_is_unknown_to_the_analyzer_only_when_unprovable(
-    tmp_path: Path,
-) -> None:
-    """AD-72: the analyzer, not `check`, decides a `public_api` name `__all__` never declared.
-
-    `shop.app.orders:place_order` is a real scanned function, so the scan itself proves the
-    promise kept; `shop.app.orders:TypoThatIsNotReal` is the reviewer's own example -- its
-    module declares no `__all__` and `symbols` records no such name -- so neither the module nor
-    the scan can prove or disprove it. Only the second is recorded as `unknowns`; `validate`
-    reports it there, not as a diagnostic (coded or not) of any kind, and `public_api_diagnostics`
-    stays silent for both -- so the exit code, and `declared_rules`, are exactly what the clean
-    sample already gives, unmoved by an entry nothing could settle.
-    """
-    # The clean sample already declares shop.app.orders:place_order as public_api (a real
-    # scanned function); only the reviewer's unprovable name needs adding.
-    shop_contract = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
-    assert "shop.app.orders:place_order" in shop_contract["declarations"]["public_api"]
-    shop_contract["declarations"]["public_api"] = [
-        *shop_contract["declarations"]["public_api"],
-        "shop.app.orders:TypoThatIsNotReal",
-    ]
-    root = _prepare_repo(
-        tmp_path,
-        {"architecture-contract.json": json.dumps(shop_contract, indent=2) + "\n"},
-    )
-    observed = observe_repository(root, SHOP_CONFIG, observe)
-    assert observed.diagnostics == ()
-    observation = observed.observation
-    assert observation is not None
-    contract = parse_contract(decode_json((root / "architecture-contract.json").read_bytes()))
-
-    assert public_api_diagnostics(contract, observation) == ()
-    assert _unknowns_naming(observation, "shop.app.orders:place_order") == []
-    unresolved = _unknowns_naming(observation, "shop.app.orders:TypoThatIsNotReal")
-    assert len(unresolved) == 1, unresolved
-    unknown = unresolved[0]
-    assert unknown.data.get("module") == "shop.app.orders"
-    assert unknown.data.get("name") == "TypoThatIsNotReal"
-
-    result, _ = run_validate(root, SHOP_CONFIG, observe)
-    assert result.exit_code == 0
-    assert result.diagnostics == ()
-    # AD-72: the entry is what the contract declared and nothing could settle, so the run is
-    # honest about it -- and says so without gating, which the two assertions above hold.
-    assert result.declared_rules == "UNKNOWN"
-
-
 def test_planned_entry_not_yet_built_has_no_diagnostic() -> None:
     """AD-56: a planned entry the scan never saw is target work, not a finding."""
     contract = parse_contract(
@@ -1280,19 +1194,6 @@ def test_no_interface_rule_means_neither_diagnostic() -> None:
         _model(git_head="a" * 40, imports=[_cross_import("sample.core")])
     )
     assert interface_diagnostics(contract, observation) == ()
-
-
-def test_a_violated_inside_rule_points_at_the_component_that_declares_the_level(
-    tmp_path: Path,
-) -> None:
-    """AD-36: the rule is in no `rules` array here, so `/rules/0` would blame another rule."""
-    variant = next(item for item in CATALOG if item.id == "class-a-complete-requires-inside")
-    root = _prepare_repo(tmp_path, dict(variant.files))
-
-    diagnostics = run_validate(root, SHOP_CONFIG, observe)[0].diagnostics
-
-    assert {item.pointer for item in diagnostics} == {"/components/1/inside"}
-    assert {item.subject for item in diagnostics} == {"store:STORE-REQUIRES-COMPLETE"}
 
 
 def test_write_graph_writes_the_graph_init_writes() -> None:
@@ -1655,54 +1556,6 @@ def test_write_graph_leaves_a_target_block_it_cannot_read_to_the_architect() -> 
     assert drift.subject == "sample.md (target graph)"
     assert "`subgraph core`" in drift.remedy
     assert "by hand" in drift.remedy
-
-
-def test_names_outside_the_namespace_validate_where_the_namespace_never_held_them(
-    tmp_path: Path,
-) -> None:
-    """AD-105 renames commands, path steps and construct sources but does not hold them to the
-    namespace: a shell command, an external step or a test-tree source validates as before."""
-    raw = json.loads((FIXTURE_DIR / "architecture-contract.json").read_text())
-    raw["declarations"]["public_commands"][0]["command"] = "python -m shop.cli.main"
-    raw["declarations"]["paths"][0]["steps"] += ["sqlite"]
-    broad = next(rule for rule in raw["rules"] if rule["id"] == "CONSTRUCT-NO-BROAD-EXCEPT")
-    broad["exact_sources"] += ["tests.conftest.main"]
-    root = _prepare_repo(tmp_path, {"architecture-contract.json": json.dumps(raw, indent=2)})
-
-    result, _ = run_validate(root, SHOP_CONFIG, observe)
-
-    assert (result.exit_code, result.diagnostics) == (0, ())
-
-
-@pytest.mark.parametrize(
-    "variant_id",
-    [
-        "validation-graph-drift-write-graph",
-        "public-api-inherited-unknown",
-        "class-a-symbol-placement",
-    ],
-)
-def test_validation_diagnostics_preserve_inspected_evidence(
-    tmp_path: Path, variant_id: str
-) -> None:
-    from archkeel.check.report import run_report
-    from archkeel.render.summary import report_summary
-
-    variant = next(item for item in CATALOG if item.id == variant_id)
-    overlay = dict(variant.files)
-    if variant_id == "public-api-inherited-unknown":
-        overlay["docs/architecture/shop.md"] = "# Stale graph\n"
-    root = _prepare_repo(tmp_path, overlay, variant.fixture)
-    config = load_config(root, variant.config)
-    result, files = run_validate(root, config, observe)
-    report, _ = run_report(root, config=config, analyzer=observe)
-    assert result.exit_code == 2 and result.diagnostics
-    assert result.observation_complete == "PASS"
-    assert result.declared_rules == report.declared_rules
-    assert result.measurements == report.measurements
-    assert result.expectation_fulfilled == "n/a"
-    assert not files.entries
-    assert "Nothing was checked" not in report_summary(result).sentence
 
 
 def test_failed_validation_inspection_keeps_unknown_verdicts() -> None:

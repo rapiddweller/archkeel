@@ -12,11 +12,10 @@ import pytest
 from test_onboarding import _repository
 
 from archkeel.check import onboarding
-from archkeel.check.onboarding import ADOPTED_RATIONALE, CONTRACT_PATH, run_init
+from archkeel.check.onboarding import ADOPTED_RATIONALE, CONTRACT_PATH
 from archkeel.cli import main
 from archkeel.cli.config import ADOPTED_BASELINE_PATH as BASELINE_PATH
 from archkeel.cli.guide import GUIDE_PATH
-from archkeel.cli.observe import observe
 from archkeel.ir.codec import decode_json, parse_contract
 from archkeel.ir.model import FirstLook, RunResult
 from archkeel.render.summary import init_summary
@@ -60,48 +59,6 @@ def _observed_pairs(payload: dict) -> set[tuple[str, str]]:
 
 def _contract(root: Path) -> dict:
     return json.loads((root / CONTRACT_PATH).read_bytes())
-
-
-def test_first_look_reports_a_module_cycle_when_there_is_one(tmp_path: Path) -> None:
-    result, _ = run_init(
-        _cyclic_repository(tmp_path), source=None, namespace=None, force=False, analyzer=observe
-    )
-
-    lines = _first_look_lines(init_summary(result).sentence)
-
-    assert "Module cycles: 1 (largest: 2 modules)" in lines
-
-
-def test_first_look_says_none_when_there_is_no_module_cycle(tmp_path: Path) -> None:
-    result, _ = run_init(
-        _repository(tmp_path), source=None, namespace=None, force=False, analyzer=observe
-    )
-
-    lines = _first_look_lines(init_summary(result).sentence)
-
-    assert "Module cycles: none" in lines
-    assert "Most imported module: archkeel.ir.model (3 modules import it)" in lines
-    assert any(line.startswith("Largest component: ") for line in lines)
-    assert any(re.fullmatch(r"Files parsed: \d+ of \d+", line) for line in lines)
-    assert any(re.fullmatch(r"Calls resolved: (not measured|\d+\.\d\d %)", line) for line in lines)
-    assert "Positions left UNKNOWN: 0" in lines
-
-
-@pytest.mark.parametrize("cyclic", [False, True])
-def test_first_look_and_next_steps_state_facts_without_judgement(
-    tmp_path: Path, cyclic: bool
-) -> None:
-    root = _cyclic_repository(tmp_path) if cyclic else _repository(tmp_path)
-    result, _ = run_init(root, source=None, namespace=None, force=False, analyzer=observe)
-    sentence = init_summary(result).sentence
-
-    lines = _first_look_lines(sentence)
-
-    assert len(lines) == 6
-    assert not [line for line in lines if _JUDGEMENT.search(line)]
-    stripped = [line.strip() for line in sentence.splitlines()]
-    for step in _NEXT_STEPS:
-        assert step in stripped
 
 
 def test_first_look_wording_for_one_importer_a_tie_and_no_measured_calls() -> None:

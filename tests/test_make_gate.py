@@ -422,19 +422,17 @@ def test_a_python_gate_outside_the_full_versions_fails_collection(
 def test_python_compat_selects_marked_tests_and_listed_files_and_fails_closed(
     tmp_path: Path,
 ) -> None:
-    marked = (
-        "tests/test_annotation_carriers.py::test_pep695_carrier_value_is_not_a_new_annotation_site"
-    )
+    marked = "tests/test_rust_contract_baseline_parity.py::test_baseline_codec_parity[repository]"
     result, selected = _collected(
         "--selection=python-compat",
-        "tests/test_annotation_carriers.py",
+        marked,
         "tests/test_analyzer.py",
         "tests/test_layers.py",
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert [test for test in selected if test.startswith("tests/test_annotation_carriers.py")] == [
-        marked
-    ]
+    assert [
+        test for test in selected if test.startswith("tests/test_rust_contract_baseline_parity.py")
+    ] == [marked]
     assert any(test.startswith("tests/test_analyzer.py::") for test in selected)
     assert not any(test.startswith("tests/test_layers.py::") for test in selected)
     result, _ = _collected("--selection=no such selection", "tests/test_layers.py")
@@ -624,7 +622,7 @@ def test_a_test_added_to_the_pr_test_list_does_not_run_full() -> None:
 
 FULL_MK = "tools/full.mk"
 # CI runs these on each PR, so a break in them shows before the merge. Full needs no run for them.
-SHARED_WITH_CI = {"mermaid", "demos"}
+SHARED_WITH_CI = {"mermaid", "demos", "self-validate-native"}
 
 
 def _called_targets(workflow: str) -> set[str]:
@@ -697,7 +695,7 @@ def test_an_area_selects_only_its_files_and_fails_closed_when_empty() -> None:
 
 def test_ci_pr_static_runs_policy_without_tests(tmp_path) -> None:
     result, steps = _run_gate(tmp_path, "ci-pr-static", None, 2, False, base="a" * 40)
-    assert steps == ["against", "browser-architecture-check"]
+    assert steps == ["browser-architecture-check"]
     assert result.returncode == 0
 
 

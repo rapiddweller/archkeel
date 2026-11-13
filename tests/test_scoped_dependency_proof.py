@@ -383,8 +383,11 @@ def test_unaffected_nested_requires_passes_with_partial_global_coverage(tmp_path
     saved_path.write_bytes(encoded)
     saved = run_saved_report(saved_path)
     assert {row.id: row.status for row in saved.rule_assessments or ()} == {
-        key: row.status for key, row in rows.items()
+        key: "UNKNOWN" for key in rows
     }
+    assert next(row for row in saved.rule_assessments if row.id == "a:requires").reason == (
+        "dependency_scope_runtime_unverified"
+    )
     _, repeated = run_report(
         tmp_path / "project",
         config=ScanConfig(
@@ -437,7 +440,7 @@ def test_real_nest_dynamic_import_blocks_account_but_not_sibling_rules():
         },
     )
     with materialized_fixture(changed) as root:
-        result, encoded = run_report(
+        result, encoded, model = run_report_with_observation(
             root,
             config=ScanConfig(
                 ("src",),
@@ -450,7 +453,7 @@ def test_real_nest_dynamic_import_blocks_account_but_not_sibling_rules():
             analyzer=observer_for("typescript", tsconfig="tsconfig.build.json"),
         )
     assert encoded is not None and result.exit_code == 2
-    model = parse_observation(decode_canonical_model(json.loads(encoded)))
+    assert model is not None
     rows = _rows(model)
     assert rows["Account and authentication:REQUIRES-COMPLETE"].status == "UNKNOWN"
     assert rows["REQUIRES-COMPLETE"].status == "UNKNOWN"
@@ -458,6 +461,14 @@ def test_real_nest_dynamic_import_blocks_account_but_not_sibling_rules():
     assert rows["Article and comment publishing:REQUIRES-COMPLETE"].status == "PASS"
     assert model.coverage.files_read == model.coverage.files_parsed == 41
     assert len(model.coverage.failures) == 2
+    replayed = parse_observation(decode_canonical_model(json.loads(encoded)))
+    for identifier in (
+        "API composition:REQUIRES-COMPLETE",
+        "Article and comment publishing:REQUIRES-COMPLETE",
+    ):
+        row = _rows(replayed)[identifier]
+        assert row.status == "UNKNOWN"
+        assert row.reason == "dependency_scope_runtime_unverified"
 
 
 def test_dynamic_import_blocks_its_nested_scope_and_ancestors(tmp_path: Path):

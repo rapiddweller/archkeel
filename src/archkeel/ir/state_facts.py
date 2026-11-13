@@ -7,7 +7,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TypeAlias
+from typing import TYPE_CHECKING, TypeAlias
+
+if TYPE_CHECKING:
+    from .facts import RuntimeInfo
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,6 +26,7 @@ class VerifiedBinary:
 
     digest: str
     analyzer: str
+    runtime: RuntimeInfo | None = None
 
 
 class BindingState(StrEnum):

@@ -5,7 +5,6 @@
 
 import copy
 import json
-import os
 import shlex
 import subprocess
 import sys
@@ -17,18 +16,13 @@ from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 from test_delta import _model
 
-from archkeel.check.delta import SUPPORTED_DIMENSIONS, build_architecture_delta
-from archkeel.ir.codec import delta_payload, observation_payload
+from archkeel.ir.codec import observation_payload
 from archkeel.ir.model import (
-    CLASSIFIED_SECTIONS,
-    SCHEMA_VERSION,
     DiagnosticCode,
     DiagnosticKind,
     RunResult,
 )
 from archkeel.ir.profiles import PYTHON
-from fixtures.architecture_demo import CATALOG, materialized_fixture
-from tests.test_exact_module_ownership import _contract, _observe_tree
 from tests.test_onboarding import _repository as _onboarding_repository
 
 ROOT = Path(__file__).parents[1]
@@ -360,7 +354,7 @@ def test_measurement_schema_rejects_incoherent_count_availability(
 def test_decoded_typescript_schema_preserves_unmeasured_call_availability(version) -> None:
     from test_nullable_profile_measurements import _profile_model
 
-    from archkeel.ir.codec import observation_payload, parse_observation
+    from archkeel.ir.codec import parse_observation
 
     schemas = [json.loads(path.read_bytes()) for path in (ROOT / "schema").glob("*.json")]
     registry = Registry().with_resources(
@@ -380,186 +374,6 @@ def test_decoded_typescript_schema_preserves_unmeasured_call_availability(versio
         call_resolution_percent=0,
     )
     assert not decoded.is_valid(payload)
-
-
-@pytest.fixture(scope="module")
-def results(tmp_path_factory: pytest.TempPathFactory) -> dict[str, dict]:
-    output = tmp_path_factory.mktemp("json-result-demos")
-    demo = output / "check"
-    make_env = {**os.environ, "MAKELEVEL": "1", "MAKEFLAGS": "w"}
-    run = subprocess.run(
-        ["make", "--no-print-directory", "demo", f"OUTPUT={demo}"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        env=make_env,
-    )
-    assert run.returncode == 0, (run.stdout, run.stderr)
-    payloads = {path.stem: json.loads(path.read_bytes()) for path in demo.glob("*.stdout.json")}
-    payloads["parse-check"] = _incomplete_check(demo)
-    for variant, expected in (
-        ("clean", 0),
-        ("tour", 2),
-        ("validation-parse-error", 2),
-        ("validation-measurement-budget-rise", 2),
-        ("validation-facade-budget-clean", 0),
-        ("class-a-boundary-types-contained-mapping-unknown", 0),
-        ("ownership-exact-module-positive", 0),
-        ("dart-clean", 0),
-    ):
-        run = subprocess.run(
-            [
-                "make",
-                "--no-print-directory",
-                "demo-architecture",
-                f"VARIANT={variant}",
-                f"OUTPUT={output / variant}.json",
-            ],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            env=make_env,
-        )
-        assert run.returncode == expected, (run.stdout, run.stderr)
-        for payload in (json.loads(line) for line in run.stdout.splitlines()):
-            payloads[f"{variant}-{payload['command']}"] = payload
-    for command in ("check", "validate", "report"):
-        args = [command, "--root", str(output), "--json"]
-        if command == "check":
-            args.extend(
-                [
-                    "--baseline",
-                    "0" * 40,
-                    "--expectation-commit",
-                    "0" * 40,
-                    "--head",
-                    "0" * 40,
-                    "--expected",
-                    "expectation.json",
-                    "--expected-digest",
-                    "0" * 64,
-                    "--branch",
-                    "candidate",
-                    "--accepted-branch",
-                    "main",
-                ]
-            )
-        run = subprocess.run(
-            [sys.executable, "-m", "archkeel.cli", *args],
-            capture_output=True,
-            text=True,
-        )
-        assert run.returncode == 2, (run.stdout, run.stderr)
-        payloads[f"invalid-{command}"] = json.loads(run.stdout)
-    tour = next(variant for variant in CATALOG if variant.id == "tour")
-    with materialized_fixture(tour) as root:
-        run = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "archkeel.cli",
-                "report",
-                "--root",
-                str(root),
-                "--only",
-                "violations",
-                "--output",
-                str(output / "filtered.json"),
-                "--json",
-            ],
-            capture_output=True,
-            text=True,
-        )
-        assert run.returncode == 0, (run.stdout, run.stderr)
-        payloads["filtered-report"] = json.loads(run.stdout)
-        payloads.update(_open_decision_results(root, output))
-    return payloads
-
-
-def test_real_cli_demo_results_match_the_published_schema(validator, results) -> None:
-    for name, payload in results.items():
-        errors = list(validator.iter_errors(payload))
-        assert not errors, (name, [(list(error.path), error.message) for error in errors])
-        old_packet = copy.deepcopy(payload)
-        old_packet.pop("open_decision_count", None)
-        old_packet.pop("open_decisions_complete", None)
-        assert validator.is_valid(old_packet), name
-    assert results["C-check.stdout"]["expectation_fulfilled"] == "PASS"
-    assert results["A-check.stdout"]["expectation_fulfilled"] == "FAIL"
-    assert results["B-missing-host.stdout"]["expectation_fulfilled"] == "UNKNOWN"
-    assert results["tour-report"]["exit_code"] == 0
-    assert results["tour-report"]["declared_rules"] == "FAIL"
-    assert results["validation-measurement-budget-rise-validate"]["exit_code"] == 1
-    assert (
-        results["class-a-boundary-types-contained-mapping-unknown-report"]["declared_rules"]
-        == "UNKNOWN"
-    )
-
-
-def test_legacy_cli_result_without_review_fields_matches_schema(validator, results) -> None:
-    for name, result in results.items():
-        payload = copy.deepcopy(result)
-        payload.pop("widenings")
-        payload.pop("amendment_status")
-        assert validator.is_valid(payload), name
-
-    payload = copy.deepcopy(results["clean-report"])
-
-    for field, malformed in (("widenings", "invalid"), ("amendment_status", "invalid")):
-        payload[field] = malformed
-        assert not validator.is_valid(payload), field
-        del payload[field]
-
-
-@pytest.mark.parametrize("full", [False, True])
-def test_real_cli_init_results_match_the_published_schema(validator, tmp_path: Path, full: bool):
-    root = _onboarding_repository(tmp_path / ("full" if full else "compact"))
-    command = [
-        sys.executable,
-        "-m",
-        "archkeel.cli",
-        "init",
-        "--root",
-        str(root),
-        "--json",
-        *(["--full"] if full else []),
-    ]
-    run = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
-    payload = json.loads(run.stdout)
-    assert run.returncode == 0, (payload["diagnostics"], run.stderr)
-    errors = list(validator.iter_errors(payload))
-    assert not errors, [(list(error.path), error.message) for error in errors]
-    assert payload["command"] == "init"
-    assert payload["draft_sizes"]
-    assert payload["open_decision_count"] >= len(payload["open_decisions"])
-    assert payload["open_decisions_complete"] is full
-
-    for field in ("open_decision_count", "open_decisions_complete", "draft_sizes"):
-        missing = copy.deepcopy(payload)
-        del missing[field]
-        assert not validator.is_valid(missing), field
-        missing[field] = None
-        assert not validator.is_valid(missing), field
-
-    repeated = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
-    diagnostic = json.loads(repeated.stdout)
-    assert repeated.returncode == 2
-    assert validator.is_valid(diagnostic)
-    assert all(
-        diagnostic[field] is None
-        for field in ("open_decision_count", "open_decisions_complete", "draft_sizes")
-    )
-
-    for size in (
-        {"label": "core", "modules": True, "inner_edges": 0},
-        {"label": "core", "modules": 1, "inner_edges": -1},
-        {"label": "", "modules": 1, "inner_edges": 0},
-        {"label": "core", "modules": 1},
-        {"label": "core", "modules": 1, "inner_edges": 0, "extra": 0},
-    ):
-        malformed = copy.deepcopy(payload)
-        malformed["draft_sizes"] = [size]
-        assert not validator.is_valid(malformed), size
 
 
 @pytest.mark.parametrize("compact", [False, True])
@@ -606,50 +420,6 @@ def test_real_cli_validate_decision_summaries_match_supported_schemas(
             assert not schema.is_valid(malformed), (field, value)
 
 
-def test_delta_schema_keeps_legacy_integer_call_totals(legacy_validator, tmp_path: Path) -> None:
-    result = _observe_tree(tmp_path, {"sample/a.py": ""}, _contract([]))
-    assert result.observation is not None
-    delta = delta_payload(
-        build_architecture_delta(
-            result.observation,
-            result.observation,
-            baseline_digest="a" * 64,
-            head_digest="a" * 64,
-            checker_digest="b" * 64,
-        )
-    )
-    schema = legacy_validator.evolve(schema=legacy_validator.schema["$defs"]["delta"])
-    for side in ("baseline", "head"):
-        delta["ratchets"][side]["scalars"]["calls_unresolved"] = None
-    for version in ("1.3.0", "1.4.0"):
-        legacy = copy.deepcopy(delta)
-        legacy["schema_version"] = version
-        assert schema.is_valid(legacy)
-        for side in ("baseline", "head"):
-            legacy["ratchets"][side]["calls_total"] = None
-        assert schema.is_valid(legacy) is (version == "1.4.0")
-
-
-def test_python_observation_sections_remain_required(validator, tmp_path: Path) -> None:
-    result = _observe_tree(tmp_path, {"sample/a.py": ""}, _contract([]))
-    assert result.exit_code == 0 and result.observation is not None
-    observation = observation_payload(result.observation)
-    schemas = (
-        validator.evolve(schema={"$ref": f"urn:archkeel:architecture-ir:decoded:{SCHEMA_VERSION}"}),
-        validator.evolve(
-            schema={"$ref": f"urn:archkeel:architecture-ir:python-decoded:{SCHEMA_VERSION}"}
-        ),
-    )
-    for schema in schemas:
-        assert schema.is_valid(observation)
-        for section in CLASSIFIED_SECTIONS:
-            malformed = dict(observation)
-            del malformed[section]
-            assert not schema.is_valid(malformed), section
-            malformed[section] = None
-            assert not schema.is_valid(malformed), section
-
-
 @pytest.mark.parametrize("version", [f"2.{minor}.0" for minor in range(1, 10)])
 @pytest.mark.parametrize("branch", [1, 2])
 def test_command_result_9_observation_branches_admit_supported_history(
@@ -669,30 +439,6 @@ def test_command_result_9_observation_branches_admit_supported_history(
     assert not errors, (version, branch, [(list(error.path), error.message) for error in errors])
 
 
-def test_report_findings_match_the_current_schema_and_reject_misuse(validator, results) -> None:
-    """AD-258: ranked findings are a report-only array whose items carry no empty change."""
-    payload = results["tour-report"]
-    assert payload["findings"], "the tour demo violates its rules"
-    assert all("change" not in item and "before" not in item for item in payload["findings"])
-    assert validator.is_valid(payload)
-
-    first = payload["findings"][0]
-    for bad in (
-        {**first, "kind": "budget"},
-        {**first, "sentence": ""},
-        {**first, "size": -1},
-        {**first, "change": "unchanged"},
-        {**first, "unexpected": 1},
-        {key: value for key, value in first.items() if key != "locations"},
-    ):
-        assert not validator.is_valid({**payload, "findings": [bad]}), bad
-    assert validator.is_valid({**payload, "findings": [{**first, "change": "new", "before": 0}]})
-    assert not validator.is_valid({**payload, "findings": None})
-    validated = results["validation-facade-budget-clean-validate"]
-    assert "findings" not in validated
-    assert not validator.is_valid({**validated, "findings": [first]})
-
-
 def test_result_properties_cover_the_writer(legacy_validator, current_validator) -> None:
     # Published schemas stay byte-exact; the current version's strict branch names every field.
     strict = current_validator.schema["anyOf"][2]
@@ -706,212 +452,3 @@ def test_result_properties_cover_the_writer(legacy_validator, current_validator)
         DiagnosticKind.INCOMPLETE_SCAN,
     }
     assert set(diagnostic["code"]["enum"]) == set(DiagnosticCode)
-
-
-@pytest.mark.parametrize("field", VERDICTS)
-@pytest.mark.parametrize("value", [None, "", "SUPPORTED", [], 0])
-def test_verdicts_cannot_be_missing_or_malformed(validator, results, field, value) -> None:
-    payload = copy.deepcopy(results["clean-report"])
-    payload[field] = value
-    assert not validator.is_valid(payload)
-    del payload[field]
-    assert not validator.is_valid(payload)
-
-
-@pytest.mark.parametrize("command", ["check", "validate", "report"])
-def test_unknown_requires_diagnostic_evidence(validator, results, command) -> None:
-    payload = copy.deepcopy(results[f"invalid-{command}"])
-    for field in ("kind", "subject", "unknown_claim", "remedy"):
-        malformed = copy.deepcopy(payload)
-        del malformed["diagnostics"][0][field]
-        assert not validator.is_valid(malformed), field
-    payload["diagnostics"] = []
-    assert not validator.is_valid(payload)
-
-
-def test_mode_specific_nulls_and_expectations(validator, results) -> None:
-    report = copy.deepcopy(results["clean-report"])
-    report["expectation_fulfilled"] = "PASS"
-    assert not validator.is_valid(report)
-    report = copy.deepcopy(results["clean-report"])
-    report["provenance"] = results["C-check.stdout"]["provenance"]
-    assert not validator.is_valid(report)
-    check = copy.deepcopy(results["C-check.stdout"])
-    check["expectation_fulfilled"] = "n/a"
-    assert not validator.is_valid(check)
-    check["delta"] = None
-    assert not validator.is_valid(check)
-    validation = copy.deepcopy(results["clean-validate"])
-    validation["report_filter"] = results["A-calls.stdout"]["report_filter"]
-    assert not validator.is_valid(validation)
-
-
-def test_measured_empty_and_unmeasured_are_distinct(validator, results) -> None:
-    report = copy.deepcopy(results["clean-report"])
-    assert report["filtered_violations"] is None
-    report["filtered_violations"] = []
-    assert not validator.is_valid(report)
-    calls = copy.deepcopy(results["A-calls.stdout"])
-    calls["filtered_calls"] = None
-    assert not validator.is_valid(calls)
-
-
-@pytest.mark.parametrize("command", ["check", "validate", "report"])
-def test_unverifiable_results_cannot_claim_completed_measurements(
-    validator, results, command
-) -> None:
-    payload = copy.deepcopy(results[f"invalid-{command}"])
-    payload["measurements"] = results["clean-report"]["measurements"]
-    assert not validator.is_valid(payload)
-
-
-def test_filtered_violation_evidence_is_a_violation(validator, results) -> None:
-    payload = copy.deepcopy(results["filtered-report"])
-    payload["filtered_violations"][0]["evidence_class"] = "FACT"
-    assert not validator.is_valid(payload)
-
-
-def test_open_suggestions_require_contract_evidence_or_an_unavailable_reason(
-    validator, results
-) -> None:
-    payload = copy.deepcopy(results["open-known-report"])
-    payload["open_decisions"][0]["options"]["allowed_dependency"]["provenance"] = []
-    assert not validator.is_valid(payload)
-    payload = copy.deepcopy(results["open-unavailable-report"])
-    unavailable = next(
-        item for item in payload["open_decisions"] if "options_unavailable_reason" in item
-    )
-    del unavailable["options_unavailable_reason"]
-    assert not validator.is_valid(payload)
-
-
-def test_source_and_delta_evidence_cannot_be_missing_or_malformed(validator, results) -> None:
-    payload = copy.deepcopy(results["C-check.stdout"])
-    changes = payload["delta"]["semantic_changes"]
-    projection = next(change["after"] for change in changes if change["after"] is not None)
-    assert projection["evidence"]
-    del projection["evidence"][0]["file"]
-    assert not validator.is_valid(payload)
-    payload = copy.deepcopy(results["C-check.stdout"])
-    del payload["delta"]["coverage"]["status"]
-    assert not validator.is_valid(payload)
-    payload = copy.deepcopy(results["validation-parse-error-report"])
-    failure = payload["coverage"]["failures"][0]
-    del failure["evidence_class"]
-    assert not validator.is_valid(payload)
-
-
-@pytest.mark.parametrize("dimension", [*SUPPORTED_DIMENSIONS, None])
-def test_check_requires_every_supported_dimension_assessment(validator, results, dimension) -> None:
-    payload = copy.deepcopy(results["C-check.stdout"])
-    if dimension is None:
-        payload["delta"]["dimensions"] = {}
-    else:
-        del payload["delta"]["dimensions"][dimension]
-    assert not validator.is_valid(payload)
-
-
-def test_unknown_future_fields_are_additive(validator, results) -> None:
-    payload = copy.deepcopy(results["clean-report"])
-    payload["future_optional_field"] = {"detail": "ignored by an older consumer"}
-    assert validator.is_valid(payload)
-    check = copy.deepcopy(results["C-check.stdout"])
-    check["delta"]["dimensions"]["future_dimension"] = check["delta"]["dimensions"]["violations"]
-    assert validator.is_valid(check)
-
-
-@pytest.mark.parametrize("field", ["diagnostics", "coverage", "delta", "provenance"])
-def test_check_evidence_envelope_cannot_be_missing(validator, results, field) -> None:
-    payload = copy.deepcopy(results["C-check.stdout"])
-    del payload[field]
-    assert not validator.is_valid(payload)
-
-
-def test_small_consumer_preserves_report_fail_and_unknown(results) -> None:
-    consumer = ROOT / "fixtures/consume_result.py"
-    for name, expected in (
-        ("C-check.stdout", "check: PASS / PASS / PASS\n"),
-        ("tour-report", "report: PASS / FAIL / n/a\n"),
-        ("tour-validate", "validate: PASS / FAIL / n/a\n"),
-        ("invalid-validate", "validate: UNKNOWN / UNKNOWN / UNKNOWN\n"),
-    ):
-        run = subprocess.run(
-            [sys.executable, str(consumer)],
-            input=json.dumps(results[name]),
-            capture_output=True,
-            text=True,
-        )
-        assert run.returncode == 0, (run.stdout, run.stderr)
-        assert run.stdout == expected
-
-
-def test_diagnostic_validate_preserves_complete_evidence_only(legacy_validator, results) -> None:
-    payload = copy.deepcopy(results["tour-validate"])
-    assert payload["exit_code"] == 2
-    assert [payload[key] for key in VERDICTS] == ["PASS", "FAIL", "n/a"]
-    assert legacy_validator.is_valid(payload)
-    for field in ("measurements", "coverage", "claims"):
-        invalid = copy.deepcopy(payload)
-        invalid[field] = None
-        assert not legacy_validator.is_valid(invalid), field
-    for command in ("check", "report"):
-        invalid = copy.deepcopy(payload)
-        invalid["command"] = command
-        assert not legacy_validator.is_valid(invalid), command
-    incomplete = copy.deepcopy(payload)
-    incomplete["observation_complete"] = "UNKNOWN"
-    assert not legacy_validator.is_valid(incomplete)
-    legacy = copy.deepcopy(legacy_validator.schema)
-    diagnostic_validate = next(
-        branch["then"]
-        for branch in legacy["else"]["allOf"]
-        if branch["if"] == {"properties": {"exit_code": {"const": 2}}}
-    )
-    diagnostic_validate["then"] = diagnostic_validate["else"]
-    assert not legacy_validator.evolve(schema=legacy).is_valid(payload)
-    assert legacy_validator.evolve(schema=legacy).is_valid(results["invalid-validate"])
-
-
-@pytest.mark.parametrize(
-    "field", ["agent_decisions", "violations_by_rule", "violations_by_component_pair"]
-)
-def test_completed_diagnostic_validate_requires_measured_counts(validator, results, field) -> None:
-    payload = copy.deepcopy(results["tour-validate"])
-    assert payload["exit_code"] == 2 and payload["observation_complete"] == "PASS"
-    assert payload[field] is not None and validator.is_valid(payload)
-    payload[field] = None
-    assert not validator.is_valid(payload)
-
-
-def test_validate_assessments_require_completed_inspection(validator, results) -> None:
-    incomplete = copy.deepcopy(results["invalid-validate"])
-    assert incomplete["rule_assessments"] is None and validator.is_valid(incomplete)
-    incomplete["rule_assessments"] = []
-    assert not validator.is_valid(incomplete)
-    complete = copy.deepcopy(results["tour-validate"])
-    complete["rule_assessments"] = results["tour-report"]["rule_assessments"]
-    assert complete["rule_assessments"] and validator.is_valid(complete)
-
-
-@pytest.mark.parametrize("version", ["1.3.0", "1.4.0", "2.0.0"])
-def test_delta_schema_requires_new_wire_version_for_runtime_metadata(
-    legacy_validator, tmp_path, version
-):
-    observed = _observe_tree(tmp_path, {"sample/a.py": ""}, _contract([]))
-    raw = delta_payload(
-        build_architecture_delta(
-            observed.observation,
-            observed.observation,
-            baseline_digest="a" * 64,
-            head_digest="a" * 64,
-            checker_digest="b" * 64,
-        )
-    )
-    raw["schema_version"] = version
-    schema = legacy_validator.evolve(schema=legacy_validator.schema["$defs"]["delta"])
-    for side in ("baseline", "head"):
-        raw[side]["runtime"] = {"name": "python", "version": "3.11.12"}
-    assert schema.is_valid(raw)
-    for side in ("baseline", "head"):
-        raw[side]["runtime"]["requirement_state"] = "metadata_missing"
-    assert schema.is_valid(raw) is (version == "2.0.0")

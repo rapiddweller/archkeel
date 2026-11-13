@@ -11,13 +11,10 @@ from typing import get_type_hints
 import pytest
 from test_architecture_demo import _prepare_repo
 from test_snapshot import _committed_repository, _git, _write
-from test_uml_evaluation import _model
 
 from archkeel.check import snapshot
 from archkeel.check.ports import ScanConfig
 from archkeel.ir.facts import Language
-from archkeel.ir.report_graph import architecture_report
-from archkeel.ir.trace import trace_valid_violations
 
 ROOT = Path(__file__).parents[1]
 
@@ -118,26 +115,3 @@ def _target_repository(tmp_path):
         },
     )
     return root, ScanConfig(("archkeel",), "archkeel", "contract.json", "0" * 64)
-
-
-def test_actual_snapshot_fulfils_the_independent_language_target(tmp_path):
-    root, config = _target_repository(tmp_path)
-    model = _model(root, config)
-    comparison = architecture_report(model).comparison
-    assert comparison is not None and comparison.status == "PASS", comparison
-    assert not trace_valid_violations(model)
-
-
-def test_snapshot_language_widening_fails_the_unchanged_independent_target(tmp_path):
-    root, config = _target_repository(tmp_path)
-    path = root / "archkeel/check/snapshot.py"
-    original = path.read_text()
-    assert "language: Language = Language.PYTHON" in original
-    path.write_text(
-        original.replace("language: Language = Language.PYTHON", 'language: str = "python"')
-    )
-    target = (root / "contract.json").read_bytes()
-    comparison = architecture_report(_model(root, config)).comparison
-    assert comparison is not None
-    assert any(row.status == "FAIL" and row.aspect == "signature" for row in comparison.assessments)
-    assert (root / "contract.json").read_bytes() == target

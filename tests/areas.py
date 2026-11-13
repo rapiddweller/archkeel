@@ -202,7 +202,6 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_native_self_rules.py",
         "test_native_self_contract.py",
         "test_native_self_core_rows.py",
-        "test_native_self_core_rows.py",
         "test_native_standard_library.py",
         # AD-402: the real compiler of each minor checks the refusal witnesses.
         "test_collector_native_python_compile_sites.py",
@@ -238,13 +237,10 @@ SELECTIONS: dict[str, tuple[str, ...]] = {
         "test_collector_native_python_bindings.py",
         "test_analyzer.py",
         "test_architecture_projection.py",
-        "test_boundary_types_contextmanager.py",
         "test_python_provider_sources.py",
         "test_validation.py",
         # AD-388: the pinned standard library equals `sys.stdlib_module_names` of each minor.
         "test_native_standard_library.py",
-        "test_architecture_demo.py::test_variant_produces_the_catalogued_findings"
-        "[class-a-boundary-types-stdlib-path-facade]",
     ),
 }
 

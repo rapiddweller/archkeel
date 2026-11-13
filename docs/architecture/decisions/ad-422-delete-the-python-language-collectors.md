@@ -48,6 +48,8 @@ The typed exception retains a `missing_tool` diagnostic, exit 2 and the released
 Studio refuses an unsupported profile before it can start or reuse a server.
 Historical Python and Dart configurations refuse before a supported candidate is collected.
 Python version claims do not authorize dependency receipts.
+The host-only identity also binds the runtime read from the verified process, not matching reply text.
+Changed runtime claims give UNKNOWN with a named reason. Saved results do not carry host verification.
 The Rust core names native TypeScript scope proof as an unread part, never as a proven PASS.
 Native member inventory proof also checks the compiler version and rejects malformed runtime claims.
 `tests/test_dependency_runtime_identity.py` binds receipts to the verified binary digest and analyzer identity.

@@ -66,9 +66,6 @@ ALLOWED_LONG_FUNCTIONS = {
     "src/archkeel/check/evaluation/boundary_types.py::_public_api_base": (
         "One base proof joins type, binding and member evidence before substitution."
     ),
-    ("src/archkeel/analyzer/python/collect.py::collect"): (
-        "One deterministic collector pass shares the parsed and resolved project."
-    ),
     ("src/archkeel/check/declarations.py::project_rule_declaration"): (
         "One output record is built per declared rule kind."
     ),

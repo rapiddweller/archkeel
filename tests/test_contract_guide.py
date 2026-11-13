@@ -217,30 +217,6 @@ def test_guide_never_changes_the_contract_or_other_files(tmp_path: Path) -> None
     assert all(after[path] == before[path] for path in before)
 
 
-def test_guide_refuses_to_overwrite_the_contract_or_the_configuration(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    root = _repository(tmp_path, _without_requires())
-    (root / "alias.json").symlink_to(root / "architecture-contract.json")
-    before = {path: path.read_bytes() for path in root.rglob("*") if path.is_file()}
-
-    for output in ("architecture-contract.json", "archkeel.toml", "alias.json"):
-        assert main(["guide", "--root", str(root), "--output", output]) == 2
-        assert "Refusing to overwrite" in capsys.readouterr().err
-
-    assert {path: path.read_bytes() for path in root.rglob("*") if path.is_file()} == before
-
-
-def test_guide_without_a_contract_exits_two_with_the_init_hint(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    root = _repository(tmp_path, _without_requires())
-    (root / "architecture-contract.json").unlink()
-
-    assert main(["guide", "--root", str(root)]) == 2
-    assert "Run archkeel init first." in capsys.readouterr().err
-
-
 def test_guide_without_archkeel_toml_exits_two_with_the_init_hint(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
