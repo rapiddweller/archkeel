@@ -43,4 +43,6 @@ def test_committed_case_uses_the_config_path_of_the_archive(monkeypatch):
         return '[scan]\nlanguage = "rust"\n'
 
     monkeypatch.setattr("tools.dual_run_corpus.subprocess.check_output", read)
-    assert case_language(Case("native", "native", "native/archkeel.toml", commit="a" * 40)) == "rust"
+    assert (
+        case_language(Case("native", "native", "native/archkeel.toml", commit="a" * 40)) == "rust"
+    )

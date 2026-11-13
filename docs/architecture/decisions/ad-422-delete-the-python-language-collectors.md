@@ -38,4 +38,8 @@ The colocated digest detects a changed binary, not an attacker with install-writ
 ## Checks
 
 `tests/test_cli_unsupported_projects.py` checks fail-first command and direct-entry refusals.
+The typed exception retains a `missing_tool` diagnostic, exit 2 and the released-version remedy.
+Studio refuses an unsupported profile before it can start or reuse a server.
+Historical Python and Dart configurations refuse before a supported candidate is collected.
+`tests/test_dependency_runtime_identity.py` checks the analyzer identity before Python runtime trust.
 The native self-check and Rust/TypeScript dual run check the retained paths.

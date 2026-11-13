@@ -36,6 +36,7 @@ from ..check.validation import invalid_result, run_validate
 from ..host.gitlab import load_gitlab_records
 from ..ir.codec import decode_json
 from ..ir.facts_codec import DEFAULT_RESPONSE_LIMIT_BYTES, MAX_RESPONSE_LIMIT_BYTES
+from ..ir.languages import UnsupportedProjectError, require_supported_project
 from ..ir.phases import Phase, PhaseClock, WorkCounter, measured
 from ..ir.story import trace_flow, trace_json, trace_summary
 from ..ir.view_spec import (
@@ -286,8 +287,8 @@ def build_parser() -> _Parser:
         choices=list(Language),
         type=source_language,
         default=Language.PYTHON,
-        help="Source language of --source. Dart needs --source and --namespace (the pubspec "
-        "name). TypeScript also needs --tsconfig. Default: python.",
+        help="Source language of --source. Use rust or typescript. The default remains python, "
+        "which requires archkeel 4.0.1, as does dart. TypeScript also needs --tsconfig.",
     )
 
     report = commands.add_parser(
@@ -383,19 +384,17 @@ def build_parser() -> _Parser:
         help="See the code as it is: an observed overview that needs no contract.",
         formatter_class=RawDescriptionRichHelpFormatter,
         description=(
-            "Observes the one top-level Python package, or the --source and --namespace you pass,\n"
-            "and groups its modules by layout. It needs no archkeel.toml and no contract, and it\n"
-            "writes nothing into the repository. No rule is declared, so the result says target:\n"
-            "unavailable and gives no rule verdict. TypeScript and Dart need the scope options\n"
-            "because they are not detected (AD-285).\n\n"
+            "Observes the Rust or TypeScript --source and --namespace you pass and groups its\n"
+            "modules by layout. It needs no archkeel.toml and no contract. It writes nothing into\n"
+            "the repository. No rule is declared, so the result says target: unavailable and\n"
+            "gives no rule verdict. Python and Dart projects require archkeel 4.0.1.\n\n"
             "Examples:\n"
-            "  archkeel explore\n"
-            "  archkeel explore --root ../service --output ../service-explore\n"
-            "  archkeel explore --language dart --source lib --namespace my_app\n\n"
+            "  archkeel explore --language typescript --source src --namespace app \\\n"
+            "    --tsconfig tsconfig.json --output ../app-explore\n\n"
             "Exit codes:\n"
             "  0  the observation is complete\n"
-            "  2  not checked: no single Python package, no Git commit, an output inside the\n"
-            "     repository, or incomplete coverage\n\n"
+            "  2  not checked: unsupported project, no Git commit, an output inside the\n"
+            "     repository, invalid scope, or incomplete coverage\n\n"
             f"Start here: {_DOCS}/getting-started.md"
         ),
     )
@@ -555,14 +554,11 @@ def build_parser() -> _Parser:
         formatter_class=RawDescriptionRichHelpFormatter,
         description=(
             "Observes the configured source roots and proposes components from their layout.\n"
-            "Python can detect its top-level package from pyproject.toml or package markers.\n"
             "It writes no dependency rule: every undecided ordered component pair remains open.\n"
             "The default JSON lists observed crossings and reports the exact total; --full\n"
             "includes unobserved pairs too.\n\n"
             "Examples:\n"
-            "  archkeel init\n"
-            "  archkeel init --source lib/shop --namespace shop --json\n"
-            "  archkeel init --language dart --source lib --namespace my_app\n"
+            "  archkeel init --language rust --source src --namespace shop --json\n"
             "  archkeel init --language typescript --source src --namespace app "
             "--tsconfig tsconfig.json\n\n"
             "Exit codes:\n"
@@ -865,6 +861,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if command is Command.STUDIO:
             subject = str(args.root)
+            if not args.stop:
+                require_supported_project(args.language)
             from .studio import serve_studio
 
             return serve_studio(args)
@@ -1166,6 +1164,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if guide_code != 0:
                     raise RuntimeError(f"archkeel guide failed with exit code {guide_code}")
                 artifacts.append(root / GUIDE_PATH)
+    except UnsupportedProjectError as error:
+        result = unknown_result(command, subject, error)
     except ConfigFileMissingError as error:
         result = (
             invalid_result(subject, error)

@@ -17,7 +17,9 @@ from archkeel.ir.languages import Language
 
 
 @pytest.mark.parametrize("language", ["python", "dart"])
-@pytest.mark.parametrize("command", ["report", "validate", "baseline", "explore", "init", "check"])
+@pytest.mark.parametrize(
+    "command", ["report", "validate", "baseline", "baseline-read", "explore", "init", "check"]
+)
 def test_unsupported_project_refuses_before_collection(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -48,7 +50,9 @@ def test_unsupported_project_refuses_before_collection(
 
     monkeypatch.setattr(ProcessCollector, "collect", forbidden)
     options = [command, "--root", str(tmp_path), "--json"]
-    if command == "baseline":
+    if command == "baseline-read":
+        options = ["validate", "--root", str(tmp_path), "--json", "--baseline", "baseline.json"]
+    elif command == "baseline":
         options = [
             "validate",
             "--root",
@@ -76,6 +80,8 @@ def test_unsupported_project_refuses_before_collection(
     assert main(options) == 2
     result = json.loads(capsys.readouterr().out)
     assert result.get("declared_rules") != "PASS"
+    assert result["diagnostics"][0]["kind"] == "missing_tool"
+    assert result["diagnostics"][0]["remedy"] == "Use archkeel 4.0.1 for Python and Dart projects."
     assert (
         f"{language.title()} projects are not supported in this version; use archkeel 4.0.1"
         in str(result)
@@ -109,3 +115,73 @@ def test_saved_facts_refuse_before_decode(tmp_path, capsys, profile, name):
         f"{name} projects are not supported in this version; use archkeel 4.0.1"
         in capsys.readouterr().out
     )
+
+
+@pytest.mark.parametrize("language", ["python", "dart"])
+def test_studio_refuses_before_reusing_or_starting_a_server(
+    tmp_path, monkeypatch, capsys, language
+):
+    def forbidden(*args, **kwargs):
+        pytest.fail("Studio starts or reuses an unsupported project")
+
+    monkeypatch.setattr("archkeel.cli.studio.serve_studio", forbidden)
+    assert main(["studio", "--root", str(tmp_path), "--language", language]) == 2
+    assert (
+        "projects are not supported in this version; use archkeel 4.0.1" in capsys.readouterr().out
+    )
+
+
+@pytest.mark.parametrize(
+    "fault", ["missing-binary", "missing-digest", "invalid-digest", "changed-binary"]
+)
+def test_typescript_without_a_verified_binary_has_no_python_fallback(tmp_path, monkeypatch, fault):
+    from archkeel.cli.observe import DIGEST_SUFFIX, TYPESCRIPT_COLLECTOR, executable
+    from archkeel.ir.protocol import CollectionError, CollectionErrorKind
+
+    binary = executable(TYPESCRIPT_COLLECTOR, tmp_path)
+    if fault != "missing-binary":
+        binary.write_bytes(b"not a trusted executable")
+    if fault in {"invalid-digest", "changed-binary"}:
+        Path(str(binary) + DIGEST_SUFFIX).write_text(
+            "bad" if fault == "invalid-digest" else "0" * 64
+        )
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("an unverified TypeScript collector or Python fallback starts")
+
+    monkeypatch.setattr(ProcessCollector, "collect", forbidden)
+    observer = observer_for(Language.TYPESCRIPT, native_directory=tmp_path)
+    result = observer.collector.collect(None)
+    assert isinstance(result, CollectionError)
+    assert result.kind is CollectionErrorKind.MISSING_TOOL
+    assert "There is no Python fallback" in result.message
+
+
+@pytest.mark.parametrize("language", ["python", "dart"])
+def test_supported_candidate_refuses_an_unsupported_historical_configuration(
+    tmp_path, monkeypatch, capsys, language
+):
+    (tmp_path / "src").mkdir()
+    config = tmp_path / "archkeel.toml"
+    text = '[scan]\nroots = ["src"]\nnamespace = "app"\ncontract = "contract.json"\n'
+    config.write_text(text + f'language = "{language}"\n')
+    (tmp_path / "contract.json").write_text("{}")
+    (tmp_path / "tsconfig.json").write_text('{"include":["src"]}')
+    for args in [
+        ("init", "-q"),
+        ("add", "."),
+        ("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "test"),
+    ]:
+        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=tmp_path, text=True).strip()
+    config.write_text(text + 'language = "typescript"\n')
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("a supported candidate is collected before the historical profile is refused")
+
+    monkeypatch.setattr(ProcessCollector, "collect", forbidden)
+    assert main(["validate", "--root", str(tmp_path), "--against", head, "--json"]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["diagnostics"][0]["kind"] == "missing_tool"
+    assert result.get("declared_rules") != "PASS"
+    assert f"{language.title()} projects are not supported" in str(result)

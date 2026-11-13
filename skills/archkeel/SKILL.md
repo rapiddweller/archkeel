@@ -5,10 +5,15 @@ description: Use when meeting a new or unknown codebase ("explain this codebase"
 
 # Archkeel
 
-Archkeel is a deterministic architecture checker. It observes Python, TypeScript and Dart imports, evaluates a
+Archkeel is a deterministic architecture checker. Main observes Rust and TypeScript through native collectors, evaluates a
 declared contract of components and rules against that observation, and distinguishes
 PASS, FAIL and UNKNOWN. Rules live in `architecture-contract.json` and its explicit nested
 contracts; nothing is enforced by convention alone.
+
+Python and Dart projects are not supported in this version; use archkeel 4.0.1.
+Unsupported profiles give exit 2 before collection, including saved facts and baseline commands.
+Do not report PASS for a supported subset of an unsupported project.
+In a source checkout, run `make typescript-collector`. There is no Python TypeScript fallback.
 
 ## First run on a codebase
 
@@ -26,7 +31,8 @@ After the draft, continue with "Onboarding" below. When the owner wants to see t
 browser, use the `explore` skill with the same scope options as `explore`. Studio is local and
 writes nothing into the repository (AD-290).
 
-1. Run `archkeel explore --json`. It writes nothing into the repository. Check `scan_roots` as
+1. Run `archkeel explore --language <rust|typescript> --source <dir> --namespace <name> --json`.
+   Add `--tsconfig <file>` for TypeScript. It writes nothing into the repository. Check `scan_roots` as
    "Show a flow" step 2 tells. Keep the `findings` of the result.
 2. Run `archkeel report --input <snapshot> --only architecture --json`.
    `<snapshot>` is `artifact` in the explore result.

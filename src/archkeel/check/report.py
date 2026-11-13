@@ -65,6 +65,7 @@ from archkeel.ir.facts_codec import (
 )
 from archkeel.ir.facts_validation import validate_source_bindings
 from archkeel.ir.findings import findings
+from archkeel.ir.languages import SourceProfile, UnsupportedProjectError, require_supported_project
 from archkeel.ir.model import (
     ArchitectureContract,
     BaselineViolationComparison,
@@ -243,7 +244,7 @@ def _baseline_status(
 
 
 def unknown_result(command: _Command, subject: str, error: Exception) -> RunResult:
-    if isinstance(error, DiagnosticError):
+    if isinstance(error, DiagnosticError | UnsupportedProjectError):
         diagnostic = error.diagnostic
     else:
         diagnostic = Diagnostic(
@@ -838,8 +839,6 @@ def read_saved_snapshot(path: Path) -> Observation:
     raw = decode_json(path.read_bytes())
     if not isinstance(raw, dict):
         raise ValueError("architecture.json must be an object")
-    from archkeel.ir.languages import SourceProfile, require_supported_project
-
     analyzer = raw.get("analyzer")
     if isinstance(analyzer, dict) and isinstance(analyzer.get("name"), str):
         require_supported_project(SourceProfile(analyzer["name"]))
@@ -871,11 +870,7 @@ def run_saved_report(
     try:
         model = read_saved_snapshot(path)
         runtime = runtime_diagnostic(model.runtime) if model.runtime is not None else None
-        language = next(
-            language
-            for language, profile in PROFILES.items()
-            if profile.analyzer == model.analyzer.name
-        )
+        language = next(lang for lang, p in PROFILES.items() if p.analyzer == model.analyzer.name)
 
         diagnostics = observation_diagnostics(model, runtime, language)
         return _report_result(
@@ -938,7 +933,6 @@ def _validate_saved_sources(model: Observation) -> None:
         {item.id: item for item in model.evidence},
         import_ids={item.id for item in model.records("imports") or ()},
         selected_inputs={item.file for item in model.evidence},
-        allow_part_evidence=model.analyzer.name == "archkeel-dart-analyzer",
     )
     _validate_saved_selector_receivers(model)
 

@@ -99,10 +99,15 @@ def pinned_version() -> Iterator[None]:
 
     def pinned_inventory(model: Observation) -> str:
         # Pin the producer identity only; retain the members and each other binding input.
-        if model.analyzer.name == "archkeel-typescript-imports" and model.verified_binary is not None:
+        if (
+            model.analyzer.name == "archkeel-typescript-imports"
+            and model.verified_binary is not None
+        ):
             model = replace(
                 model,
-                runtime=RuntimeInfo("python", "3.11.12", ">=3.11", RuntimeRequirementState.DECLARED),
+                runtime=RuntimeInfo(
+                    "python", "3.11.12", ">=3.11", RuntimeRequirementState.DECLARED
+                ),
             )
         return inventory_binding(model)
 

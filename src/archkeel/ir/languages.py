@@ -5,6 +5,8 @@
 
 from enum import StrEnum
 
+from .diagnostics import Diagnostic, DiagnosticKind
+
 
 class Language(StrEnum):
     PYTHON = "python"
@@ -23,10 +25,19 @@ class SourceProfile(StrEnum):
 class UnsupportedProjectError(Exception):
     """The project needs a collector that this version does not support (AD-422)."""
 
+    def __init__(self, diagnostic: Diagnostic) -> None:
+        self.diagnostic = diagnostic
+        super().__init__(diagnostic.unknown_claim)
+
 
 def require_supported_project(language: Language | SourceProfile) -> None:
     if language in {Language.PYTHON, SourceProfile.PYTHON, Language.DART, SourceProfile.DART}:
         name = "Python" if language in {Language.PYTHON, SourceProfile.PYTHON} else "Dart"
         raise UnsupportedProjectError(
-            f"{name} projects are not supported in this version; use archkeel 4.0.1"
+            Diagnostic(
+                DiagnosticKind.MISSING_TOOL,
+                str(language),
+                f"{name} projects are not supported in this version; use archkeel 4.0.1",
+                "Use archkeel 4.0.1 for Python and Dart projects.",
+            )
         )
