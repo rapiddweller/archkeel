@@ -35,6 +35,7 @@ from archkeel.analyzer.runtime import package_version
 from archkeel.check.report import observe_repository
 from archkeel.cli import main, native_core, native_scan, observe
 from archkeel.cli.config import load_config
+from archkeel.cli.core_frame import GapKind, read_frame
 from tools.dual_run_corpus import Case, corpus_cases, materialized
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -214,6 +215,43 @@ def test_the_core_decides_a_typescript_run_through_the_scan_request(install: Pat
     [note] = core_notes(result)
     assert "The core ran the TypeScript collector in its own process" in note
     assert result["rule_assessments"] == off[1]["rule_assessments"]
+
+
+def test_a_declaration_only_scan_names_no_decided_rule_and_keeps_product_parity(
+    install: Path,
+) -> None:
+    with case_root(HONEST) as root:
+        config = load_config(root)
+        path = root / config.contract
+        contract = json.loads(path.read_text())
+        contract["rules"] = [
+            {
+                **contract["rules"][0],
+                "id": "ALLOW",
+                "kind": "allowed_dependency",
+                "source": config.namespace,
+                "target": config.namespace,
+            }
+        ]
+        path.write_text(json.dumps(contract))
+        payload = _shell_request(root, _case(HONEST))
+        request = native_scan.scan_request(payload, "archkeel.toml")
+        assert isinstance(request, dict)
+        binary = str(install / f"archkeel-core{SUFFIX}")
+        stdout, exit_code = native_scan.exchange(binary, "scan", json.dumps(request).encode())
+        frame = read_frame(stdout, exit_code, scan=True)
+        assert exit_code == 3
+        assert frame.status == "UNKNOWN" and not frame.decided
+        assert frame.rules["ALLOW"].status == "DECLARATION"
+        [gap] = frame.gaps
+        assert gap.kind is GapKind.NO_DECIDED_RULE
+        assert gap.reason == "unsupported: contract has no decided rule"
+        assert frame.derived is not None and json.loads(frame.derived) == json.loads(payload)
+        off = report(root)
+        code, result = report(root, "--native-core")
+    assert (code, result["declared_rules"]) == (off[0], off[1]["declared_rules"]) == (0, "PASS")
+    assert result["rule_assessments"] == off[1]["rule_assessments"]
+    assert "contract has no decided rule" in core_notes(result)[0]
 
 
 def test_an_undecided_scan_goes_back_to_the_check_request_and_names_its_parts(
