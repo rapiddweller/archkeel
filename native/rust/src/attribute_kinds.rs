@@ -18,66 +18,27 @@ pub(crate) enum Kind {
 }
 
 /// The one table of built-in attribute names and their interpretation.
-const BUILTINS: &[(&str, Kind)] = &[
-    ("cfg", Kind::Builtin),
-    ("cfg_attr", Kind::Conditional),
-    ("test", Kind::Builtin),
-    ("ignore", Kind::Builtin),
-    ("should_panic", Kind::Builtin),
-    ("derive", Kind::Derive),
-    ("automatically_derived", Kind::Builtin),
-    ("macro_export", Kind::Builtin),
-    ("macro_use", Kind::Builtin),
-    ("proc_macro", Kind::Builtin),
-    ("proc_macro_derive", Kind::Builtin),
-    ("proc_macro_attribute", Kind::Builtin),
-    ("allow", Kind::Builtin),
-    ("expect", Kind::Builtin),
-    ("warn", Kind::Builtin),
-    ("deny", Kind::Builtin),
-    ("forbid", Kind::Builtin),
-    ("deprecated", Kind::Builtin),
-    ("must_use", Kind::Builtin),
-    ("link", Kind::Builtin),
-    ("link_name", Kind::Builtin),
-    ("link_ordinal", Kind::Builtin),
-    ("no_link", Kind::Builtin),
-    ("repr", Kind::Builtin),
-    ("crate_type", Kind::Builtin),
-    ("no_main", Kind::Builtin),
-    ("export_name", Kind::Builtin),
-    ("link_section", Kind::Builtin),
-    ("no_mangle", Kind::Builtin),
-    ("used", Kind::Builtin),
-    ("crate_name", Kind::Builtin),
-    ("inline", Kind::Builtin),
-    ("cold", Kind::Builtin),
-    ("naked", Kind::Builtin),
-    ("no_builtins", Kind::Builtin),
-    ("target_feature", Kind::Builtin),
-    ("track_caller", Kind::Builtin),
-    ("instruction_set", Kind::Builtin),
-    ("doc", Kind::Builtin),
-    ("no_std", Kind::Builtin),
-    ("no_implicit_prelude", Kind::Builtin),
-    ("path", Kind::Builtin),
-    ("recursion_limit", Kind::Builtin),
-    ("type_length_limit", Kind::Builtin),
-    ("panic_handler", Kind::Builtin),
-    ("global_allocator", Kind::Builtin),
-    ("windows_subsystem", Kind::Builtin),
-    ("debugger_visualizer", Kind::Builtin),
-    ("collapse_debuginfo", Kind::Builtin),
-    ("feature", Kind::Builtin),
-    ("non_exhaustive", Kind::Builtin),
-    ("unsafe", Kind::Unsafe),
+const BUILTINS: &[(Kind, &str)] = &[
+    (
+        Kind::Builtin,
+        "cfg test ignore should_panic automatically_derived macro_export macro_use
+         proc_macro proc_macro_derive proc_macro_attribute allow expect warn deny forbid
+         deprecated must_use link link_name link_ordinal no_link repr crate_type no_main
+         export_name link_section no_mangle used crate_name inline cold naked no_builtins
+         target_feature track_caller instruction_set doc no_std no_implicit_prelude path
+         recursion_limit type_length_limit panic_handler global_allocator windows_subsystem
+         debugger_visualizer collapse_debuginfo feature non_exhaustive",
+    ),
+    (Kind::Derive, "derive"),
+    (Kind::Conditional, "cfg_attr"),
+    (Kind::Unsafe, "unsafe"),
 ];
 
 pub(crate) fn kind(path: &Path) -> Option<Kind> {
     let name = path.get_ident()?.to_string();
     BUILTINS
         .iter()
-        .find_map(|(n, k)| (*n == name).then_some(*k))
+        .find_map(|(kind, names)| names.split_whitespace().any(|n| n == name).then_some(*kind))
 }
 
 /// Tool names from the tool-attributes section of the same Rust reference.
