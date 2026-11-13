@@ -1436,6 +1436,7 @@
     "variant causes::Cause::WorkTree",
     "variant causes::InterfaceGap::PublicationRoute",
     "variant causes::InterfaceGap::PublicationSurface",
+    "variant causes::InterfaceGap::TypePublication",
     "variant causes::InterfaceGap::UnreadBinding",
     "variant causes::Part::ConstructSubjects",
     "variant causes::Part::ContractSource",

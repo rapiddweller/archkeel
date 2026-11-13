@@ -18,7 +18,9 @@ use crate::ancestors::{
     IN_UNMODELED_BLOCK,
 };
 use crate::definitions::{Definition, Defs, Scopes};
-use crate::exports::{ambient, export_bindings, module_exports, ExportBinding, Named};
+use crate::exports::{
+    ambient, export_bindings, module_exports, type_exports, ExportBinding, Named, TypeExports,
+};
 use crate::import_bindings::{of_statement, ImportBinding};
 use crate::kinds::{F, K};
 use crate::layout::Layout;
@@ -38,6 +40,7 @@ pub(crate) struct Syntax {
     pub scopes: Scopes,
     pub import_bindings: Vec<ImportBinding>,
     pub(crate) module_exports: Vec<ExportBinding>,
+    pub(crate) type_exports: TypeExports,
     pub rebound_names: Vec<String>,
     pub ambient_globals: Named,
     pub ambient_top_level: Named,
@@ -67,6 +70,7 @@ impl Syntax {
             scopes: Scopes::default(),
             import_bindings: Vec::new(),
             module_exports: Vec::new(),
+            type_exports: TypeExports::default(),
             rebound_names: Vec::new(),
             ambient_globals: Vec::new(),
             ambient_top_level: Vec::new(),
@@ -404,6 +408,7 @@ impl<'a, 't> Walk<'a, 't> {
         Syntax {
             module_file: exports.module_syntax || (hinted && !declaration_file),
             module_exports: export_bindings(&cx, (root, &top), &self.frames),
+            type_exports: type_exports(&cx, root, &top, &self.frames),
             definitions,
             scopes,
             import_bindings,

@@ -48,16 +48,97 @@ pub(crate) fn expand(facts: &Facts, pending: &Pending, cited: &mut Cited, record
                 "IMP_BINDING",
                 &[Part::Text(item.id.as_str()), Part::Number(ordinal)],
             );
-            let fact_ids = match known_witness(pending, kept, binding, target) {
+            let mut fact_ids = match known_witness(pending, kept, binding, target) {
                 Some(witness) => vec![add_witness(cited, records, &mut seen, &witness)],
                 None => Vec::new(),
             };
-            records
-                .imports
-                .push(bound_record(item, &bound_id, binding, target, fact_ids));
+            let mut chain = Vec::new();
+            for witness in type_witnesses(facts, pending, kept, binding, target) {
+                chain.push(format!("{}.{}", witness.0, witness.2));
+                fact_ids.push(add_witness(cited, records, &mut seen, &witness));
+            }
+            let mut record = bound_record(item, &bound_id, binding, target, fact_ids);
+            if binding.type_only && !chain.is_empty() {
+                record.data.data_mut().reexport_chain = Some(chain);
+            }
+            records.imports.push(record);
             records.targets.push(target.with_import_id(&bound_id));
         }
     }
+}
+
+/// The bounded route uses the resolver's exact file target, never a name search across modules.
+fn type_witnesses<'a>(
+    facts: &Facts,
+    pending: &'a Pending,
+    source: &Kept,
+    binding: &ImportBinding,
+    target: &Target,
+) -> Vec<Witness<'a>> {
+    if !binding.type_only
+        || pending.partial
+        || source.has_error
+        || !binding.source_unique
+        || binding.namespace
+        || binding.imported != binding.local
+        || binding.imported == "default"
+        || source.type_exports.declared.contains(&binding.local)
+    {
+        return Vec::new();
+    }
+    let Target::Local { file, .. } = target else {
+        return Vec::new();
+    };
+    let Some(destination) = pending.kept.get(file).filter(|k| !k.has_error) else {
+        return Vec::new();
+    };
+    if let Some(witness) = direct_type(destination, file, &binding.imported) {
+        return vec![witness];
+    }
+    let Some(hop) = destination
+        .type_exports
+        .hops
+        .iter()
+        .find(|h| h.name == binding.imported)
+    else {
+        return Vec::new();
+    };
+    let edge = pending.sites.iter().find(|(_, site)| {
+        site.rel == *file && site.line == hop.export.line && site.column == hop.export.column
+    });
+    let Some((id, _)) = edge else {
+        return Vec::new();
+    };
+    let Some(Target::Local { file: leaf, .. }) =
+        facts.imports.iter().find(|t| t.import_id().as_str() == id)
+    else {
+        return Vec::new();
+    };
+    let Some(implementation) = pending.kept.get(leaf).filter(|k| !k.has_error) else {
+        return Vec::new();
+    };
+    let Some(witness) = direct_type(implementation, leaf, &binding.imported) else {
+        return Vec::new();
+    };
+    vec![
+        (
+            destination.module.clone(),
+            file.clone(),
+            binding.imported.clone(),
+            (&hop.declaration, &hop.export),
+        ),
+        witness,
+    ]
+}
+
+fn direct_type<'a>(kept: &'a Kept, file: &str, name: &str) -> Option<Witness<'a>> {
+    let binding = kept.type_exports.direct.iter().find(|b| b.name == name)?;
+    Some((
+        kept.module.clone(),
+        file.to_owned(),
+        name.to_owned(),
+        (&binding.declaration, &binding.export),
+    ))
 }
 
 /// Only a static import without bindings proves a whole-module import.
