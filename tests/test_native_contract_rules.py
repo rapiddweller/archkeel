@@ -53,6 +53,14 @@ EXPECTED_RULES = [
     ("NATIVE-NO-MODEL-TO-CORE", "forbidden_dependency"),
     ("NATIVE-NO-EVAL-TO-CORE", "forbidden_dependency"),
     ("NATIVE-NO-REPORT-TO-CORE", "forbidden_dependency"),
+    # AD-406: only archkeel-collect links a collector, and only the core uses archkeel-collect.
+    ("NATIVE-NO-CORE-TO-TYPESCRIPT", "forbidden_dependency"),
+    ("NATIVE-NO-EVAL-TO-TYPESCRIPT", "forbidden_dependency"),
+    ("NATIVE-NO-MODEL-TO-TYPESCRIPT", "forbidden_dependency"),
+    ("NATIVE-NO-REPORT-TO-TYPESCRIPT", "forbidden_dependency"),
+    ("NATIVE-NO-EVAL-TO-COLLECT", "forbidden_dependency"),
+    ("NATIVE-NO-MODEL-TO-COLLECT", "forbidden_dependency"),
+    ("NATIVE-NO-REPORT-TO-COLLECT", "forbidden_dependency"),
 ]
 
 

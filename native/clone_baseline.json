@@ -53,6 +53,14 @@
     "reason": "A generated table of Unicode code point ranges (tools/contract_printable.py, L-28): rows of number pairs, as a test table of numbers is. It holds data, not logic.",
     "tokens": 74
   },
+  "contract/src/version.rs|typescript/src/references.rs|28d4a368b5": {
+    "files": [
+      "contract/src/version.rs",
+      "typescript/src/references.rs"
+    ],
+    "reason": "Exhaustive match tables of two closed enums (contract features to versions, reference forms to kinds) have one token shape; each arm names its own variant, and a new variant must fail to compile there. AD-406: the `pub(crate)` of the library target of the collector adds three tokens to the same shape; no code was copied.",
+    "tokens": 75
+  },
   "facts/src/data/imports.rs|facts/src/data/imports.rs|e27425ddc5": {
     "files": [
       "facts/src/data/imports.rs"
@@ -573,13 +581,13 @@
     "reason": "Field lists of the input structs of build have one shape, as the rows of the payload tables do. No logic repeats.",
     "tokens": 70
   },
-  "report/src/kind.rs|typescript/src/symbol_table.rs|e1200c3f37": {
+  "report/src/kind.rs|typescript/src/symbol_table.rs|36d03b27ae": {
     "files": [
       "report/src/kind.rs",
       "typescript/src/symbol_table.rs"
     ],
-    "reason": "Exhaustive word tables of closed enums (Section names, RuleKind words, symbol kinds) have one token shape. No code is shared: each arm names its own variant and word, and a new variant must fail to compile there (AD-381).",
-    "tokens": 72
+    "reason": "Exhaustive word tables of closed enums (Section names, RuleKind words, symbol kinds) have one token shape. No code is shared: each arm names its own variant and word, and a new variant must fail to compile there (AD-381). AD-406: the `pub(crate)` of the library target of the collector adds three tokens to the same shape; no code was copied.",
+    "tokens": 76
   },
   "report/src/payload.rs|typescript/src/definitions.rs|b53e2fe389": {
     "files": [
@@ -589,12 +597,12 @@
     "reason": "Derive lines and pub field lists of wire structs have one shape. No logic repeats.",
     "tokens": 80
   },
-  "rust/src/main.rs|typescript/src/main.rs|9ac1f99895": {
+  "rust/src/main.rs|typescript/src/lib.rs|9ac1f99895": {
     "files": [
       "rust/src/main.rs",
-      "typescript/src/main.rs"
+      "typescript/src/lib.rs"
     ],
-    "reason": "Each collector lists its modules as `mod name;` lines in one shape. They are data.",
+    "reason": "Each collector lists its modules as `mod name;` lines in one shape. They are data. AD-406: the module list of the TypeScript collector moved from its binary to its library.",
     "tokens": 71
   },
   "store/src/shell.rs|store/src/shell.rs|161cd47fd0": {
@@ -647,8 +655,16 @@
       "typescript/src/manifest.rs",
       "typescript/src/options.rs"
     ],
-    "reason": "Two truthiness checks of a JSON value that mirror two Python helpers (`_has_exports`, `_option_value`). The arms differ in one case.",
-    "tokens": 84
+    "reason": "Two truthiness checks of a JSON value that mirror two Python helpers (`_has_exports`, `_option_value`). The arms differ in one case. AD-406: the `pub(crate)` of the library target of the collector adds three tokens to the same shape; no code was copied.",
+    "tokens": 87
+  },
+  "typescript/src/script_alias.rs|typescript/src/script_factory.rs|80e1eba104": {
+    "files": [
+      "typescript/src/script_alias.rs",
+      "typescript/src/script_factory.rs"
+    ],
+    "reason": "Two producers of the script analysis collect the declarators of one shape with the same signature; each reads its own facts (`_script_aliases`, `_script_destructures`). AD-406: the `pub(crate)` of the library target of the collector adds three tokens to the same shape; no code was copied.",
+    "tokens": 72
   },
   "typescript/src/sites.rs|typescript/src/sites.rs|4d91b36b51": {
     "files": [
@@ -658,12 +674,12 @@
     "reason": "Two match arms read an identifier field and record a write. They differ in the kind and the field.",
     "tokens": 70
   },
-  "typescript/src/symbol_table.rs|typescript/src/symbol_table.rs|cd4eccf015": {
+  "typescript/src/symbol_table.rs|typescript/src/symbol_table.rs|cdcf6ea0c0": {
     "files": [
       "typescript/src/symbol_table.rs",
       "typescript/src/symbol_table.rs"
     ],
-    "reason": "Two lookups by key with the same three-line shape; the maps differ. A generic helper would hide the Python names they mirror.",
-    "tokens": 72
+    "reason": "Two lookups by key with the same three-line shape; the maps differ. A generic helper would hide the Python names they mirror. AD-406: the `pub(crate)` of the library target of the collector adds three tokens to the same shape; no code was copied.",
+    "tokens": 75
   }
 }
