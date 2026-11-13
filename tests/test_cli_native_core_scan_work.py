@@ -31,6 +31,14 @@ PEAK_BOUND = 128 * 1024 * 1024
 HEAD = "0123456789abcdef0123456789abcdef01234567"
 
 
+def canonical(root: Path) -> Path:
+    text = str(root.resolve())
+    # Rust canonicalize keeps the Windows verbatim prefix in a scan identity.
+    if os.name == "nt" and not text.startswith("\\\\?\\"):
+        text = "\\\\?\\UNC\\" + text[2:] if text.startswith("\\\\") else "\\\\?\\" + text
+    return Path(text)
+
+
 @pytest.fixture(scope="module")
 def release_core() -> Path:
     if shutil.which("cargo") is None:
@@ -59,7 +67,7 @@ def project(root: Path, files: int, depth: int) -> dict[str, object]:
         (root / f"src/deep{number}.ts").write_text(text)
     return {
         "protocol": "archkeel-core-scan-1",
-        "root": str(root.resolve()),
+        "root": str(canonical(root)),
         "config": "archkeel.toml",
         "git_head": HEAD,
         "dirty": False,
@@ -99,6 +107,7 @@ def test_deep_release_scans_refuse_without_a_frame_under_128_mib(
 @pytest.mark.usefixtures("install")
 def test_a_real_scan_work_refusal_leaves_no_shell_artifact() -> None:
     with case_root(HONEST) as root:
+        root = canonical(root)
         (root / "src/deep.ts").write_text("(" * 50_000 + "0" + ")" * 50_000 + ";\n")
         python_code, _ = report(root)
         assert python_code == 0
