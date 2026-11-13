@@ -95,9 +95,19 @@ impl Builder<'_> {
             if !self.parsed.contains(rel) {
                 continue;
             }
-            let Some(raw) = override_text(&source.content) else {
+            let Some(raw) = override_text(&source.content, &self.decl.work)? else {
                 continue;
             };
+            if raw.split('.').any(|part| part.len() > 4_300) {
+                self.gap(
+                    rel,
+                    &file_span(),
+                    ExceptionName::LanguageVersionError,
+                    "LanguageVersionDigitLimit: Dart language version exceeds 4300 digits",
+                    None,
+                )?;
+                continue;
+            }
             let Some(version) = version(raw) else {
                 let mut quoted = String::new();
                 archkeel_facts::pyrepr::string(raw, &mut quoted);
@@ -123,14 +133,7 @@ impl Builder<'_> {
             if values.all(|value| Some(value) == first) {
                 continue;
             }
-            let mut main = None;
-            for source in &self.input.files {
-                self.decl.work.charge(1)?;
-                if paths.contains_key(&source.file.rel) && source.file.module == module {
-                    main = Some(source.file.rel.clone());
-                    break;
-                }
-            }
+            let main = self.overriding_main(&module, &paths)?;
             let message = if main.is_some() {
                 "library parts declare inconsistent Dart language versions"
             } else {
@@ -149,17 +152,42 @@ impl Builder<'_> {
         }
         Ok(())
     }
+
+    fn overriding_main(
+        &self,
+        module: &str,
+        paths: &BTreeMap<String, String>,
+    ) -> Result<Option<String>, Stop> {
+        for source in &self.input.files {
+            self.decl.work.charge(1)?;
+            if paths.contains_key(&source.file.rel) && source.file.module == module {
+                return Ok(Some(source.file.rel.clone()));
+            }
+        }
+        Ok(None)
+    }
 }
 
-fn override_text(content: &str) -> Option<&str> {
-    archkeel_pytext::splitlines(content)
-        .into_iter()
-        .find_map(|line| {
-            let rest = crate::pytext::lstrip(line).strip_prefix("//")?;
-            let rest = crate::pytext::lstrip(rest).strip_prefix("@dart=")?;
-            let end = rest.find(crate::pytext::is_space).unwrap_or(rest.len());
-            rest.get(..end).filter(|value| !value.is_empty())
-        })
+fn override_text<'a>(
+    mut content: &'a str,
+    work: &crate::declarations::work::Work,
+) -> Result<Option<&'a str>, Stop> {
+    while !content.is_empty() {
+        work.charge(1)?;
+        let line = crate::pytext::lstrip(content);
+        let raw = line
+            .strip_prefix("//")
+            .map(crate::pytext::lstrip)
+            .and_then(|rest| rest.strip_prefix("@dart="));
+        if let Some(raw) = raw {
+            let end = raw.find(crate::pytext::is_space).unwrap_or(raw.len());
+            if end > 0 {
+                return Ok(raw.get(..end));
+            }
+        }
+        content = line.split_once('\n').map_or("", |(_, rest)| rest);
+    }
+    Ok(None)
 }
 
 fn version(raw: &str) -> Option<String> {

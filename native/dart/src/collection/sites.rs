@@ -4,7 +4,7 @@
 
 //! Binding, call and reference records. Bindings precede all uses in a file.
 
-use super::types::{RecordKind, ResolvedSite, ResultBinding, SiteData};
+use super::types::{RecordKind, ResolvedSite, ResultBinding, SiteData, Source};
 use super::{decl, expression, fact, id, Builder, Stop};
 use crate::syntax::{Site, SiteKind, SiteUse, Visibility};
 use archkeel_facts::identity::Part;
@@ -22,40 +22,54 @@ pub(super) struct Bound {
 }
 
 impl Builder<'_> {
-    pub(super) fn sites(&mut self) -> Result<(), Stop> {
-        for source in &self.input.files {
-            self.decl.work.charge(1)?;
-            let rel = &source.file.rel;
-            if !self.parsed.contains(rel) {
-                continue;
+    pub(super) fn sites(&mut self, source: &Source) -> Result<(), Stop> {
+        let rel = &source.file.rel;
+        let index = *self.site_indices.get(rel).ok_or(Stop::Input)?;
+        let answer = self.input.resolver.sites.get(index).ok_or(Stop::Input)?;
+        self.validate_sites(&source.file.syntax.sites, &answer.sites)?;
+        self.file_sites(rel, &answer.sites)?;
+        Ok(())
+    }
+
+    fn validate_sites(&self, sites: &[Site], answers: &[ResolvedSite]) -> Result<(), Stop> {
+        let mut answers = answers.iter();
+        for site in sites {
+            self.decl.work.copies(site)?;
+            let mut expected = site.clone();
+            if site.kind == SiteKind::Reference && site.r#use == SiteUse::ReadWrite {
+                expected.r#use = SiteUse::Read;
+                answers
+                    .next()
+                    .filter(|answer| answer.site == expected)
+                    .ok_or(Stop::Input)?;
+                expected.r#use = SiteUse::Write;
             }
-            let index = *self.site_indices.get(rel).ok_or(Stop::Input)?;
-            let answer = self.input.resolver.sites.get(index).ok_or(Stop::Input)?;
-            let mut expected = source.file.syntax.sites.len();
-            for site in &source.file.syntax.sites {
-                self.decl.work.charge(1)?;
-                if site.kind == SiteKind::Reference && site.r#use == SiteUse::ReadWrite {
-                    expected = expected.saturating_add(1);
-                }
+            answers
+                .next()
+                .filter(|answer| answer.site == expected)
+                .ok_or(Stop::Input)?;
+        }
+        if answers.next().is_some() {
+            return Err(Stop::Input);
+        }
+        Ok(())
+    }
+
+    fn file_sites(&mut self, rel: &str, sites: &[ResolvedSite]) -> Result<(), Stop> {
+        let bindings = self.binding_sites(rel, sites)?;
+        for resolved in sites {
+            self.decl.work.copies(resolved)?;
+            match resolved.site.kind {
+                SiteKind::Binding
+                | SiteKind::Assignment
+                | SiteKind::Extends
+                | SiteKind::Implements
+                | SiteKind::With
+                | SiteKind::FieldFormal
+                | SiteKind::SuperFormal => continue,
+                SiteKind::Reference | SiteKind::Call | SiteKind::Creation | SiteKind::Type => {}
             }
-            if answer.sites.len() != expected {
-                return Err(Stop::Input);
-            }
-            let bindings = self.binding_sites(rel, &answer.sites)?;
-            for resolved in &answer.sites {
-                self.decl.work.copies(resolved)?;
-                match resolved.site.kind {
-                    SiteKind::Binding
-                    | SiteKind::Assignment
-                    | SiteKind::Extends
-                    | SiteKind::Implements
-                    | SiteKind::With
-                    | SiteKind::FieldFormal
-                    | SiteKind::SuperFormal => continue,
-                    SiteKind::Reference | SiteKind::Call | SiteKind::Creation | SiteKind::Type => {}
-                }
-                self.site_record(rel, resolved, &bindings)?;
-            }
+            self.site_record(rel, resolved, &bindings)?;
         }
         Ok(())
     }
@@ -182,36 +196,18 @@ impl Builder<'_> {
                 Part::Text(use_text),
             ],
         );
-        let mut matching = Vec::new();
-        for binding in bindings {
-            self.decl.work.charge(1)?;
-            if binding.site.initializer.as_deref() == Some(site.expression.as_str())
-                && binding.site.span.start_byte <= site.span.start_byte
-                && site.span.start_byte <= binding.site.span.end_byte
-            {
-                matching.push(binding);
-            }
-        }
         if !call
             && matches!(
                 site.r#use,
                 SiteUse::Read | SiteUse::ReadWrite | SiteUse::Value
             )
         {
-            for binding in bindings.iter().rev() {
-                self.decl.work.charge(1)?;
-                if binding.site.scope_span == site.scope_span
-                    && binding.site.span.start_byte <= site.span.start_byte
-                    && site.span.end_byte <= binding.site.span.end_byte
-                {
-                    scope.clone_from(&binding.qualified);
-                    scope_id = Some(binding.id.clone());
-                    break;
-                }
-            }
+            (scope, scope_id) = self
+                .binding_scope(site, bindings)?
+                .unwrap_or((scope, scope_id));
         }
         let module = self.file(rel)?.module.clone();
-        let mut data = SiteData {
+        let data = SiteData {
             source_scope: scope.clone(),
             source_definition_id: scope_id,
             source_module: module,
@@ -241,20 +237,9 @@ impl Builder<'_> {
                 })
             },
             construction,
-            result_bindings: Vec::new(),
+            result_bindings: self.result_bindings(site, bindings)?,
         };
-        for binding in matching {
-            self.decl.work.text(&binding.name)?;
-            data.result_bindings.push(ResultBinding {
-                id: binding.id.clone(),
-                name: binding.name.clone(),
-                target_kind: "name",
-                annotation: binding.annotation.clone(),
-                initializer: expression(site),
-                evidence_ids: vec![binding.evidence.clone()],
-                definition_contexts: [],
-            });
-        }
+
         let cited = self.cite(rel, &site.span)?;
         let record = fact(
             identity,
@@ -274,5 +259,46 @@ impl Builder<'_> {
             self.output.references.push(record);
         }
         Ok(())
+    }
+
+    fn binding_scope(
+        &self,
+        site: &Site,
+        bindings: &[Bound],
+    ) -> Result<Option<(String, Option<String>)>, Stop> {
+        for binding in bindings.iter().rev() {
+            self.decl.work.copies(&binding.site.scope_span)?;
+            if binding.site.scope_span == site.scope_span
+                && binding.site.span.start_byte <= site.span.start_byte
+                && site.span.end_byte <= binding.site.span.end_byte
+            {
+                return Ok(Some((binding.qualified.clone(), Some(binding.id.clone()))));
+            }
+        }
+        Ok(None)
+    }
+
+    fn result_bindings(&self, site: &Site, bindings: &[Bound]) -> Result<Vec<ResultBinding>, Stop> {
+        let mut matching = Vec::new();
+        for binding in bindings {
+            self.decl.work.copies(&binding.site.initializer)?;
+            if binding.site.initializer.as_deref() != Some(site.expression.as_str())
+                || binding.site.span.start_byte > site.span.start_byte
+                || site.span.start_byte > binding.site.span.end_byte
+            {
+                continue;
+            }
+            self.decl.work.text(&binding.name)?;
+            matching.push(ResultBinding {
+                id: binding.id.clone(),
+                name: binding.name.clone(),
+                target_kind: "name",
+                annotation: binding.annotation.clone(),
+                initializer: expression(site),
+                evidence_ids: vec![binding.evidence.clone()],
+                definition_contexts: [],
+            });
+        }
+        Ok(matching)
     }
 }

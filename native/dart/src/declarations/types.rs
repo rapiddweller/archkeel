@@ -12,6 +12,9 @@ macro_rules! words {
     ($vis:vis $name:ident { $($variant:ident => $word:literal),+ $(,)? }) => {
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
         $vis enum $name { $(#[serde(rename = $word)] $variant),+ }
+        impl AsRef<str> for $name {
+            fn as_ref(&self) -> &str { match self { $(Self::$variant => $word),+ } }
+        }
     };
 }
 
@@ -22,20 +25,6 @@ words!(pub(crate) ParameterKind { Positional => "positional", KeywordOnly => "ke
 words!(pub(crate) InventoryKind { Attribute => "attribute", Method => "method" });
 words!(pub(crate) Category { Class => "class", Function => "function", Method => "method",
     TypeAlias => "type_alias", Attribute => "attribute", Constant => "constant", DynamicBinding => "dynamic_binding" });
-
-impl Kind {
-    pub(crate) fn as_str(self) -> &'static str {
-        match self {
-            Self::Class => "class",
-            Self::Function => "function",
-            Self::Method => "method",
-            Self::Alias => "alias",
-            Self::Attribute => "attribute",
-            Self::Constant => "constant",
-            Self::Binding => "binding",
-        }
-    }
-}
 
 #[derive(Clone, Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -253,15 +242,6 @@ impl Inventory {
 pub(crate) type Scope = (String, String, String, String, Span, usize, usize);
 
 words!(pub(crate) BaseKind { Inherits => "inherits", Realizes => "realizes", MixesIn => "mixes_in" });
-impl BaseKind {
-    pub(crate) fn as_str(self) -> &'static str {
-        match self {
-            Self::Inherits => "inherits",
-            Self::Realizes => "realizes",
-            Self::MixesIn => "mixes_in",
-        }
-    }
-}
 
 #[derive(Serialize)]
 pub(crate) struct Base {

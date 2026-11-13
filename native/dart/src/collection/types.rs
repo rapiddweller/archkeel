@@ -6,6 +6,7 @@
 
 use crate::declarations::types::{File, Symbol};
 use crate::syntax::{Site, Span};
+pub(crate) use archkeel_facts::data::ImportData;
 use archkeel_facts::envelope::{Capabilities, Dirty, Evidence, FileFact, Input as Digest, Target};
 use archkeel_facts::ids::EvidenceId;
 use archkeel_facts::sections::GapFact;
@@ -36,13 +37,9 @@ pub(crate) struct Source {
     pub(crate) owner: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct Problem {
-    pub(crate) path: String,
-    pub(crate) kind: ExceptionName,
-    pub(crate) message: String,
-    pub(crate) span: Option<Span>,
+crate::syntax::value! { pub(crate) Problem {
+    path: String, kind: ExceptionName, message: String, span: Option<Span>,
+}
 }
 
 #[derive(Serialize, Deserialize)]
@@ -55,33 +52,22 @@ pub(crate) struct Answers {
     pub(crate) problems: Vec<Problem>,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct DirectiveTarget {
-    pub(crate) module: String,
-    pub(crate) package: String,
-    pub(crate) rel_path: Option<String>,
-    pub(crate) uri: String,
-    pub(crate) builtin: bool,
+crate::syntax::value! { pub(crate) DirectiveTarget {
+    module: String, package: String, rel_path: Option<String>, uri: String, builtin: bool,
+}
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct DirectiveAnswer {
-    pub(crate) rel: String,
-    pub(crate) start: usize,
-    pub(crate) targets: Vec<DirectiveTarget>,
+crate::syntax::value! { pub(crate) DirectiveAnswer {
+    rel: String, start: usize, targets: Vec<DirectiveTarget>,
+}
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct NameAnswer {
-    pub(crate) rel: String,
-    pub(crate) name: String,
-    pub(crate) targets: Vec<String>,
+crate::syntax::value! { pub(crate) NameAnswer {
+    rel: String, name: String, targets: Vec<String>,
+}
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Resolution {
     Resolved,
@@ -89,7 +75,7 @@ pub(crate) enum Resolution {
     Unresolved,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum BindingKind {
     Class,
@@ -112,49 +98,30 @@ pub(crate) enum BindingKind {
     ImplicitConstructor,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct Binding {
-    pub(crate) module: String,
-    pub(crate) name: String,
-    pub(crate) kind: BindingKind,
-    pub(crate) via_prefix: Option<String>,
-    pub(crate) declaration_id: String,
-    pub(crate) rel_path: String,
-    pub(crate) span: Span,
-    pub(crate) visibility: crate::syntax::Visibility,
+crate::syntax::value! { pub(crate) Binding {
+    module: String, name: String, kind: BindingKind, via_prefix: Option<String>,
+    declaration_id: String, rel_path: String, span: Span, visibility: crate::syntax::Visibility,
+}
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct ResolvedSite {
-    pub(crate) site: Site,
-    pub(crate) status: Resolution,
-    pub(crate) bindings: Vec<Binding>,
+crate::syntax::value! { pub(crate) ResolvedSite {
+    site: Site, status: Resolution, bindings: Vec<Binding>,
+}
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct SitesAnswer {
-    pub(crate) rel: String,
-    pub(crate) sites: Vec<ResolvedSite>,
+crate::syntax::value! { pub(crate) SitesAnswer {
+    rel: String, sites: Vec<ResolvedSite>,
+}
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct Construction {
-    pub(crate) status: Resolution,
-    pub(crate) binding: Option<Binding>,
-    pub(crate) reason: Option<String>,
+crate::syntax::value! { pub(crate) Construction {
+    status: Resolution, binding: Option<Binding>, reason: Option<String>,
+}
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct ConstructionAnswer {
-    pub(crate) rel: String,
-    pub(crate) start: usize,
-    pub(crate) expression: String,
-    pub(crate) resolution: Construction,
+crate::syntax::value! { pub(crate) ConstructionAnswer {
+    rel: String, start: usize, expression: String, resolution: Construction,
+}
 }
 
 #[derive(Clone, Copy, Serialize)]
@@ -166,25 +133,6 @@ pub(crate) enum RecordKind {
 }
 
 pub(crate) type Fact<T> = Symbol<T, RecordKind>;
-
-#[derive(Serialize)]
-pub(crate) struct ImportData {
-    pub(crate) source_module: String,
-    pub(crate) source_package: String,
-    pub(crate) target_module: String,
-    pub(crate) target_package: String,
-    pub(crate) symbol: Option<String>,
-    pub(crate) binding: Option<String>,
-    pub(crate) symbols_known: bool,
-    pub(crate) relative_level: usize,
-    pub(crate) under_type_checking: bool,
-    pub(crate) ordinary_module: bool,
-    pub(crate) module_level_import: bool,
-    pub(crate) reexport: bool,
-    pub(crate) reexport_chain: Vec<String>,
-    pub(crate) origin_definition: Option<String>,
-    pub(crate) symbol_visibility: Option<archkeel_facts::vocab::Visibility>,
-}
 
 #[derive(Serialize)]
 pub(crate) struct SiteData {

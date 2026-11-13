@@ -25,32 +25,17 @@ impl Builder<'_> {
             if stage == 3 && site.scope.is_none() {
                 break;
             }
-            let mut best: Option<&decl::Scope> = None;
-            for index in indices.into_iter().flatten() {
-                self.decl.work.charge(1)?;
-                let candidate = self
-                    .decl
-                    .output
-                    .scope_candidates
-                    .get(*index)
-                    .ok_or(Stop::Input)?;
-                if !(candidate.5 <= site.span.start_byte && site.span.start_byte < candidate.6) {
-                    continue;
-                }
-                let position = if stage < 2 {
-                    site.scope_span.as_ref().ok_or(Stop::Input)?.start_byte
-                } else {
-                    site.span.start_byte
-                };
-                let matches = match stage {
-                    0 | 2 => candidate.4.start_byte <= position && position <= candidate.4.end_byte,
-                    1 | 3 => candidate.4.start_byte <= position,
-                    _ => return Err(Stop::Input),
-                };
-                if matches && best.is_none_or(|old| candidate.4.start_byte > old.4.start_byte) {
-                    best = Some(candidate);
-                }
-            }
+            let position = if stage < 2 {
+                site.scope_span.as_ref().ok_or(Stop::Input)?.start_byte
+            } else {
+                site.span.start_byte
+            };
+            let best = self.scope_at(
+                indices.map_or(&[], Vec::as_slice),
+                site,
+                position,
+                stage % 2 == 0,
+            )?;
             if let Some(best) = best {
                 return Ok((best.2.clone(), Some(best.3.clone())));
             }
@@ -58,13 +43,35 @@ impl Builder<'_> {
         Ok((self.file(rel)?.module.clone(), None))
     }
 
-    pub(super) fn site_target_state(
+    fn scope_at(
         &self,
-        rel: &str,
-        resolved: &ResolvedSite,
-        call: bool,
-    ) -> Result<(Vec<String>, Option<ConstructionData>, Status), Stop> {
-        let site = &resolved.site;
+        indices: &[usize],
+        site: &Site,
+        position: usize,
+        containing: bool,
+    ) -> Result<Option<&decl::Scope>, Stop> {
+        let mut best: Option<&decl::Scope> = None;
+        for index in indices {
+            self.decl.work.charge(1)?;
+            let candidate = self
+                .decl
+                .output
+                .scope_candidates
+                .get(*index)
+                .ok_or(Stop::Input)?;
+            if !(candidate.5 <= site.span.start_byte && site.span.start_byte < candidate.6) {
+                continue;
+            }
+            let matches = candidate.4.start_byte <= position
+                && (!containing || position <= candidate.4.end_byte);
+            if matches && best.is_none_or(|old| candidate.4.start_byte > old.4.start_byte) {
+                best = Some(candidate);
+            }
+        }
+        Ok(best)
+    }
+
+    fn site_names(&self, resolved: &ResolvedSite, call: bool) -> Result<(Vec<String>, bool), Stop> {
         let mut names = BTreeSet::new();
         for binding in &resolved.bindings {
             self.decl.work.copies(binding)?;
@@ -92,15 +99,24 @@ impl Builder<'_> {
                 constructor = true;
             }
         }
-        if !call {
-            if let Some(binding) = enum_binding {
-                let name = binding.name.split('.').next().unwrap_or("");
-                let target = format!("{}.{name}", binding.module);
-                if self.symbol_kind(&target) == Some(decl::Kind::Class) {
-                    target_names = vec![target];
-                }
+        if let Some(binding) = enum_binding.filter(|_| !call) {
+            let name = binding.name.split('.').next().unwrap_or("");
+            let target = format!("{}.{name}", binding.module);
+            if self.symbol_kind(&target) == Some(decl::Kind::Class) {
+                target_names = vec![target];
             }
         }
+        Ok((target_names, constructor))
+    }
+
+    pub(super) fn site_target_state(
+        &self,
+        rel: &str,
+        resolved: &ResolvedSite,
+        call: bool,
+    ) -> Result<(Vec<String>, Option<ConstructionData>, Status), Stop> {
+        let site = &resolved.site;
+        let (mut target_names, constructor) = self.site_names(resolved, call)?;
         let resolution = if call && (site.kind == SiteKind::Creation || constructor) {
             let key = (
                 rel.to_owned(),

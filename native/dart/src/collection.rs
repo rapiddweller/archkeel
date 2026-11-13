@@ -117,9 +117,9 @@ impl<'a> Builder<'a> {
             self.symbol_indices
                 .insert(symbol.data.qualified_name.clone(), index);
         }
-        self.imports()?;
-        self.bases()?;
-        self.sites()?;
+        self.for_parsed_file(Self::imports)?;
+        self.for_parsed_file(Self::bases)?;
+        self.for_parsed_file(Self::sites)?;
         self.duplicates()?;
         for problem in &self.input.resolver.problems {
             self.decl.work.copies(problem)?;
@@ -133,6 +133,15 @@ impl<'a> Builder<'a> {
         }
         self.finalize_inventories()?;
         self.source_facts()?;
+        for symbol in &self.decl.output.symbols {
+            self.decl.work.text(symbol.id.as_str())?;
+        }
+        for record in self.output.calls.iter().chain(&self.output.references) {
+            self.decl.work.text(record.id.as_str())?;
+        }
+        for record in &self.output.imports {
+            self.decl.work.text(record.id.as_str())?;
+        }
         Ok(())
     }
 
@@ -172,6 +181,19 @@ impl<'a> Builder<'a> {
             let key = (answer.rel.clone(), answer.start, answer.expression.clone());
             if self.construction_indices.insert(key, index).is_some() {
                 return Err(Stop::Input);
+            }
+        }
+        Ok(())
+    }
+
+    fn for_parsed_file(
+        &mut self,
+        collect: fn(&mut Self, &'a Source) -> Result<(), Stop>,
+    ) -> Result<(), Stop> {
+        for source in &self.input.files {
+            self.decl.work.charge(1)?;
+            if self.parsed.contains(&source.file.rel) {
+                collect(self, source)?;
             }
         }
         Ok(())

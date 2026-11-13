@@ -4,53 +4,63 @@
 
 //! Import records and base declarations from closed, typed resolver answers.
 
-use super::types::{DirectiveTarget, ImportData, RecordKind};
+use super::types::{DirectiveTarget, ImportData, RecordKind, Source};
 use super::{decl, fact, id, package, Builder, Stop};
-use crate::syntax::{Combinator, DefinitionKind, Directive, DirectiveKind, Visibility};
+use crate::syntax::{
+    Combinator, Definition, DefinitionKind, Directive, DirectiveKind, Span, Visibility,
+};
 use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::Part;
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
+use archkeel_facts::nullable::Nullable;
 use archkeel_facts::vocab::Status;
 use std::collections::BTreeSet;
 
 impl Builder<'_> {
-    pub(super) fn imports(&mut self) -> Result<(), Stop> {
-        for source in &self.input.files {
-            let rel = &source.file.rel;
-            self.decl.work.charge(1)?;
-            if !self.parsed.contains(rel) {
-                continue;
-            }
-            let module = self.file(rel)?.module.clone();
-            for directive in &source.file.syntax.directives {
-                self.decl.work.copies(directive)?;
-                match directive.kind {
-                    DirectiveKind::Import | DirectiveKind::Export => {}
-                    DirectiveKind::Part | DirectiveKind::PartOf | DirectiveKind::Library => {
-                        continue
-                    }
-                }
-                let key = (rel.clone(), directive.span.start_byte);
-                let answer = self
-                    .directive_indices
-                    .get(&key)
-                    .and_then(|index| self.input.resolver.directives.get(*index))
-                    .ok_or(Stop::Input)?;
-                let selected = self.selected(directive)?;
-                for target in &answer.targets {
-                    self.decl.work.copies(target)?;
-                    for symbol in &selected {
-                        self.decl.work.charge(1)?;
-                        self.import(
-                            rel,
-                            &module,
-                            directive,
-                            target,
-                            symbol.as_deref(),
-                            selected != [None],
-                        )?;
-                    }
-                }
+    pub(super) fn imports(&mut self, source: &Source) -> Result<(), Stop> {
+        source
+            .file
+            .syntax
+            .directives
+            .iter()
+            .try_for_each(|directive| self.import_directive(&source.file.rel, directive))
+    }
+
+    pub(super) fn bases(&mut self, source: &Source) -> Result<(), Stop> {
+        let rel = &source.file.rel;
+        let module = self.file(rel)?.module.clone();
+        for definition in &source.file.syntax.definitions {
+            self.base_definition(rel, &module, definition)?;
+        }
+        Ok(())
+    }
+
+    fn import_directive(&mut self, rel: &str, directive: &Directive) -> Result<(), Stop> {
+        self.decl.work.copies(directive)?;
+        match directive.kind {
+            DirectiveKind::Import | DirectiveKind::Export => {}
+            DirectiveKind::Part | DirectiveKind::PartOf | DirectiveKind::Library => return Ok(()),
+        }
+        let module = self.file(rel)?.module.clone();
+        let key = (rel.to_owned(), directive.span.start_byte);
+        let answer = self
+            .directive_indices
+            .get(&key)
+            .and_then(|index| self.input.resolver.directives.get(*index))
+            .ok_or(Stop::Input)?;
+        let selected = self.selected(directive)?;
+        for target in &answer.targets {
+            self.decl.work.copies(target)?;
+            for symbol in &selected {
+                self.decl.work.charge(1)?;
+                self.import(
+                    rel,
+                    &module,
+                    directive,
+                    target,
+                    symbol.as_deref(),
+                    selected != [None],
+                )?;
             }
         }
         Ok(())
@@ -95,36 +105,37 @@ impl Builder<'_> {
         let cited = self.cite(rel, &directive.span)?;
         let target_module = &target.module;
         let qualified = symbol.map(|name| format!("{target_module}.{name}"));
-        let data = ImportData {
-            source_module: module.to_owned(),
-            source_package: package(module),
-            target_module: target_module.clone(),
-            target_package: if target.rel_path.is_some() {
-                package(target_module)
+        let mut data = ImportData::statement();
+        data.specifier = None;
+        data.type_only = None;
+        data.source_module = ModuleName::new(module);
+        data.source_package = PackageName::new(package(module));
+        data.target_module = ModuleName::new(target_module);
+        data.target_package = PackageName::new(if target.rel_path.is_some() {
+            package(target_module)
+        } else {
+            target.package.clone()
+        });
+        data.symbol = symbol.map(str::to_owned);
+        data.binding = symbol.map(str::to_owned).or_else(|| {
+            if directive.kind == DirectiveKind::Import {
+                directive.prefix.clone()
             } else {
-                target.package.clone()
-            },
-            symbol: symbol.map(str::to_owned),
-            binding: symbol.map(str::to_owned).or_else(|| {
-                if directive.kind == DirectiveKind::Import {
-                    directive.prefix.clone()
-                } else {
-                    None
-                }
-            }),
-            symbols_known: known,
-            relative_level: 0,
-            under_type_checking: false,
-            ordinary_module: true,
-            module_level_import: true,
-            reexport: directive.kind == DirectiveKind::Export,
-            reexport_chain: qualified.iter().cloned().collect(),
-            origin_definition: qualified,
-            symbol_visibility: symbol.map(|name| match Visibility::of(name) {
+                None
+            }
+        });
+        data.symbols_known = known;
+        data.ordinary_module = Some(true);
+        data.module_level_import = true;
+        data.reexport = directive.kind == DirectiveKind::Export;
+        data.reexport_chain = Some(qualified.iter().cloned().collect());
+        data.origin_definition = qualified.map_or(Nullable::Null, Nullable::Value);
+        data.symbol_visibility = symbol
+            .map(|name| match Visibility::of(name) {
                 Visibility::Private => archkeel_facts::vocab::Visibility::Private,
                 Visibility::Public => archkeel_facts::vocab::Visibility::PublicName,
-            }),
-        };
+            })
+            .map_or(Nullable::Null, Nullable::Value);
         self.output.imports.push(fact(
             identity.clone(),
             RecordKind::Import,
@@ -160,104 +171,105 @@ impl Builder<'_> {
         Ok(())
     }
 
-    pub(super) fn bases(&mut self) -> Result<(), Stop> {
-        for source in &self.input.files {
+    fn base_definition(
+        &mut self,
+        rel: &str,
+        module: &str,
+        definition: &Definition,
+    ) -> Result<(), Stop> {
+        self.decl.work.copies(definition)?;
+        match definition.kind {
+            DefinitionKind::Class
+            | DefinitionKind::Interface
+            | DefinitionKind::Mixin
+            | DefinitionKind::Enum => {}
+            DefinitionKind::Extension
+            | DefinitionKind::ExtensionType
+            | DefinitionKind::Typedef
+            | DefinitionKind::Function
+            | DefinitionKind::Getter
+            | DefinitionKind::Setter
+            | DefinitionKind::Variable => return Ok(()),
+        }
+        let qualified = format!("{module}.{}", definition.name);
+        let Some(index) = self.symbol_index(&qualified) else {
+            return Ok(());
+        };
+        let mut bases = Vec::new();
+        for (kind, names) in [
+            (decl::BaseKind::Inherits, &definition.extends),
+            (decl::BaseKind::MixesIn, &definition.with_types),
+            (decl::BaseKind::Realizes, &definition.implements),
+        ] {
             self.decl.work.charge(1)?;
-            let rel = &source.file.rel;
-            if !self.parsed.contains(rel) {
-                continue;
-            }
-            let module = self.file(rel)?.module.clone();
-            for definition in &source.file.syntax.definitions {
-                self.decl.work.copies(definition)?;
-                match definition.kind {
-                    DefinitionKind::Class
-                    | DefinitionKind::Interface
-                    | DefinitionKind::Mixin
-                    | DefinitionKind::Enum => {}
-                    DefinitionKind::Extension
-                    | DefinitionKind::ExtensionType
-                    | DefinitionKind::Typedef
-                    | DefinitionKind::Function
-                    | DefinitionKind::Getter
-                    | DefinitionKind::Setter
-                    | DefinitionKind::Variable => continue,
-                }
-                let qualified = format!("{module}.{}", definition.name);
-                let Some(index) = self.symbol_index(&qualified) else {
-                    continue;
-                };
-                let mut bases = Vec::new();
-                for (kind, names) in [
-                    (decl::BaseKind::Inherits, &definition.extends),
-                    (decl::BaseKind::MixesIn, &definition.with_types),
-                    (decl::BaseKind::Realizes, &definition.implements),
-                ] {
-                    self.decl.work.charge(1)?;
-                    for name in names {
-                        self.decl.work.text(name)?;
-                        let targets = self.names(rel, name)?;
-                        let target = match targets.as_slice() {
-                            [one] => self.canonical_target(one)?,
-                            _ => String::new(),
-                        };
-                        let target_record = self
-                            .symbol_index(&target)
-                            .and_then(|index| self.decl.output.symbols.get(index));
-                        let is_class =
-                            target_record.is_some_and(|record| record.kind == decl::Kind::Class);
-                        let mixin = target_record.is_some_and(|record| match &record.data.detail {
-                            decl::Detail::Class {
-                                class_kind,
-                                mixin_capable,
-                                ..
-                            } => {
-                                *class_kind == decl::ClassKind::Mixin
-                                    || *mixin_capable == Some(true)
-                            }
-                            decl::Detail::Callable { .. }
-                            | decl::Detail::Value { .. }
-                            | decl::Detail::Binding { .. } => false,
-                        });
-                        let resolved = is_class && (kind != decl::BaseKind::MixesIn || mixin);
-                        bases.push(decl::Base {
-                            id: FactId::new(id(
-                                "DARTBASE",
-                                rel,
-                                definition.span.start_byte,
-                                &[Part::Text(kind.as_str()), Part::Text(name)],
-                            )),
-                            relationship_kind: kind,
-                            status: if resolved {
-                                Status::Resolved
-                            } else {
-                                Status::Unresolved
-                            },
-                            targets: if resolved { vec![target] } else { Vec::new() },
-                            candidate_count: if resolved { 1 } else { targets.len() },
-                            candidates_truncated: false,
-                            expression: name.clone(),
-                            reason: if resolved {
-                                "Analyzer resolved local declared type"
-                            } else if kind == decl::BaseKind::MixesIn {
-                                "with target is not proven to be a local mixin-capable declaration"
-                            } else {
-                                "base type is external or unresolved"
-                            },
-                            evidence_ids: vec![EvidenceId::new(self.cite(rel, &definition.span)?)],
-                        });
-                    }
-                }
-                self.decl
-                    .output
-                    .symbols
-                    .get_mut(index)
-                    .ok_or(Stop::Input)?
-                    .data
-                    .base_declarations = Some(bases);
+            for name in names {
+                bases.push(self.base_record(rel, &definition.span, kind, name)?);
             }
         }
+        self.decl
+            .output
+            .symbols
+            .get_mut(index)
+            .ok_or(Stop::Input)?
+            .data
+            .base_declarations = Some(bases);
         Ok(())
+    }
+
+    fn base_record(
+        &mut self,
+        rel: &str,
+        span: &Span,
+        kind: decl::BaseKind,
+        name: &str,
+    ) -> Result<decl::Base, Stop> {
+        self.decl.work.text(name)?;
+        let targets = self.names(rel, name)?;
+        let target = match targets.as_slice() {
+            [one] => self.canonical_target(one)?,
+            _ => String::new(),
+        };
+        let target_record = self
+            .symbol_index(&target)
+            .and_then(|index| self.decl.output.symbols.get(index));
+        let is_class = target_record.is_some_and(|record| record.kind == decl::Kind::Class);
+        let mixin = target_record.is_some_and(|record| match &record.data.detail {
+            decl::Detail::Class {
+                class_kind,
+                mixin_capable,
+                ..
+            } => *class_kind == decl::ClassKind::Mixin || *mixin_capable == Some(true),
+            decl::Detail::Callable { .. }
+            | decl::Detail::Value { .. }
+            | decl::Detail::Binding { .. } => false,
+        });
+        let resolved = is_class && (kind != decl::BaseKind::MixesIn || mixin);
+        Ok(decl::Base {
+            id: FactId::new(id(
+                "DARTBASE",
+                rel,
+                span.start_byte,
+                &[Part::Text(kind.as_ref()), Part::Text(name)],
+            )),
+            relationship_kind: kind,
+            status: if resolved {
+                Status::Resolved
+            } else {
+                Status::Unresolved
+            },
+            targets: if resolved { vec![target] } else { Vec::new() },
+            candidate_count: if resolved { 1 } else { targets.len() },
+            candidates_truncated: false,
+            expression: name.to_owned(),
+            reason: if resolved {
+                "Analyzer resolved local declared type"
+            } else if kind == decl::BaseKind::MixesIn {
+                "with target is not proven to be a local mixin-capable declaration"
+            } else {
+                "base type is external or unresolved"
+            },
+            evidence_ids: vec![EvidenceId::new(self.cite(rel, span)?)],
+        })
     }
 
     fn canonical_target(&self, qualified: &str) -> Result<String, Stop> {

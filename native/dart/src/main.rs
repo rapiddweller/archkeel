@@ -21,8 +21,10 @@
     )
 )]
 
+#[cfg(feature = "dump")]
 mod collection;
 mod dartstr;
+#[cfg(feature = "dump")]
 mod declarations;
 mod definitions;
 mod directives;

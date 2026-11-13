@@ -47,7 +47,11 @@ pub(crate) struct Assembly {
 /// A failure discards all partial records and indices. A caller cannot mistake a prefix for facts.
 pub(crate) fn build(input: &Input) -> Output {
     let mut assembly = Assembly::default();
-    if let Err(stop) = assembly.run(input) {
+    if let Err(stop) = assembly
+        .work
+        .input(input)
+        .and_then(|()| assembly.run(input))
+    {
         let (_, gap) = crate::records::gap(
             ".",
             1,
@@ -81,7 +85,6 @@ pub(crate) fn build(input: &Input) -> Output {
 
 impl Assembly {
     pub(crate) fn run(&mut self, input: &Input) -> Result<(), Stop> {
-        self.work.input(input)?;
         let mut files: Vec<_> = input.files.iter().collect();
         for file in &files {
             self.work.charge(1)?;
@@ -170,11 +173,11 @@ impl Assembly {
         self.work.copies(definition)?;
         let qualified = format!("{}.{}", file.module, definition.name);
         self.work.text(&qualified)?;
-        let kind = match definition.kind {
-            D::Class | D::Interface | D::Mixin | D::Enum => Kind::Class,
-            D::Function | D::Getter | D::Setter => Kind::Function,
-            D::Typedef => Kind::Alias,
-            D::Variable => Kind::Attribute,
+        let (kind, category) = match definition.kind {
+            D::Class | D::Interface | D::Mixin | D::Enum => (Kind::Class, Category::Class),
+            D::Function | D::Getter | D::Setter => (Kind::Function, Category::Function),
+            D::Typedef => (Kind::Alias, Category::TypeAlias),
+            D::Variable => (Kind::Attribute, Category::Attribute),
             D::Extension | D::ExtensionType => {
                 self.unsupported(file, definition, &qualified)?;
                 return Ok(());
@@ -183,19 +186,10 @@ impl Assembly {
         let identity_kind = if definition.kind == D::Variable {
             "variable"
         } else {
-            kind.as_str()
+            kind.as_ref()
         };
         let identity = identity(&file.rel, &definition.span, &qualified, identity_kind);
         self.index(file, &definition.span, &identity, None);
-        let category = match kind {
-            Kind::Class => Category::Class,
-            Kind::Function => Category::Function,
-            Kind::Alias => Category::TypeAlias,
-            Kind::Attribute => Category::Attribute,
-            Kind::Method => Category::Method,
-            Kind::Constant => Category::Constant,
-            Kind::Binding => Category::DynamicBinding,
-        };
         let mut data = self.meta(
             file,
             &definition.name,
