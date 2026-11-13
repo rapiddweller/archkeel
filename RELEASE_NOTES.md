@@ -9,6 +9,11 @@ The future Rust Python and Dart collectors stay under `native/`. Support returns
 TypeScript has no Python fallback. Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD lack shipped binaries.
 Those platforms cannot scan TypeScript without a native build and fail closed with exit 2.
 
+The Rust core `archkeel-core` is the only decision path on `main` (AD-432). The Python engine is deleted.
+`validate` and `report` (text and JSON) print the frame of the core: PASS exits 0, FAIL exits 1, UNKNOWN exits 2.
+`check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
+No package carries the core binary yet. Run `main` from a source checkout after `make core`.
+
 Declare component responsibilities, exact interfaces and invocation ownership, with
 native source evidence and conservative UNKNOWNs.
 

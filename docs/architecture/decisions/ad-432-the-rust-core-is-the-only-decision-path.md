@@ -51,8 +51,9 @@ Reports as HTML, `architecture.json`, explore, Studio and the merge gate `check`
 Python and Dart projects stay unsupported (AD-430). Release 4.0.1 has `check`, `init`, full
 reports and Python, Dart and TypeScript projects. It has no Rust profile, explore or Studio.
 A tree with more than 100,000 entries outside its tagged directories, or more than 1,000,000
-below them, is refused by name. A module path into a tagged directory gives UNKNOWN with the coverage refusal
-of the store. The trust limits of AD-422 for Git configuration and binary freshness stay.
+below them, is refused by name. A module path into a tagged directory gives UNKNOWN with the
+coverage refusal of the store. The trust limits of AD-422 for Git configuration and binary
+freshness stay.
 
 **Way back.** `git revert` of the squash commit of this change restores the Python core, the
 stage-1 switch and the deleted tests and tools. No data migration is necessary.
