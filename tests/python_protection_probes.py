@@ -105,6 +105,9 @@ BRANCHES = (
     "x = ['\\x1cA | None\\x1f', ' None ', '((A | B))', 'A # comment', 'A; B']\n",
     "x = f'A{value}None'\ny = f'{value:A}'\n",
     "if yes:\n x: A\nelif other:\n consume(A)\nwhile A if test else B: pass\n",
+    "import os\nos.path.join('a', 'b')\nos.__dict__.update(x=1)\n",
+    "x: dict[str, int]\ny: tuple[[A, B], C]\n",
+    BASES[4] + "def outer():\n global other\n other = 1\n",
 )
 
 
