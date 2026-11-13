@@ -58,7 +58,7 @@ def test_a_review_rule_holds_in_each_source_position(family: str, family_results
     ]
     + [
         (
-            "x = f'{a:\n}'",
+            "\n".join(("x = f'{a:", "}'")),
             {12},
             "f-string: newlines are not allowed in format specifiers when using single quotes",
         )
