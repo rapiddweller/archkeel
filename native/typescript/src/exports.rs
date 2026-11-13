@@ -60,7 +60,9 @@ pub(crate) fn type_exports(cx: &Cx, root: Node, top: &[Node], frames: &Frames) -
     let mut counts = HashMap::<String, usize>::new();
     for node in &declarations {
         if let Some(name) = cx.field(*node, F::Name) {
-            *counts.entry(cx.text(name)).or_default() += 1;
+            let name = cx.text(name);
+            let root = name.split('.').next().unwrap_or(&name);
+            *counts.entry(root.to_owned()).or_default() += 1;
         }
     }
     let mut found = TypeExports {

@@ -28,6 +28,8 @@ A proven direct import of a private type gives FAIL under the same conditions as
 An unrelated public type with the same name cannot authorize the private import.
 `Scope::complete` still checks coverage, gaps and the unchanged `receipts::ownership` proof.
 The existing makers remain the only way to create PASS.
+Type publication does not lift the existing dependency-symbol limits.
+Included type-only symbol ports and nonmatching forbidden symbols stay undecided.
 
 The new typed gap is `InterfaceGap::TypePublication`.
 It names an unproven named type publication, not a lifecycle result.

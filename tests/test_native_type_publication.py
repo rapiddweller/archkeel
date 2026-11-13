@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -103,6 +104,18 @@ def release() -> Path:
             'import type { Published } from "./api";',
             "UNKNOWN",
         ),
+        (
+            "export interface Published {} export namespace Published.Inner {}",
+            "",
+            'import type { Published } from "./api";',
+            "UNKNOWN",
+        ),
+        (
+            'export type { Published } from "./impl";',
+            "export interface Published {} export class Published {}",
+            'import type { Published } from "./api";',
+            "UNKNOWN",
+        ),
         ("interface Published {}", "", 'import type { Published } from "./api";', "UNKNOWN"),
         (
             "export interface Published {}",
@@ -152,3 +165,39 @@ def test_a_proven_type_cannot_hide_an_unowned_source(release: Path, tmp_path: Pa
     frame = run_core(release, tmp_path)
     assert frame["rules"]["INTERFACE"][1] == "UNKNOWN", frame
     assert "a module has not exactly one owner" in frame["explained"]["INTERFACE"], frame
+
+
+def test_type_publication_does_not_lift_dependency_symbol_limits(
+    release: Path, tmp_path: Path
+) -> None:
+    scan(release, tmp_path, 'import type { Published } from "./api";')
+    (tmp_path / "src/api.ts").write_text("export interface Published {}")
+    path = tmp_path / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    contract["components"][0]["requires"] = [
+        {
+            "component": "service",
+            "rationale": "Use the type port.",
+            "through": ["app.src.api_x2e_ts:Published"],
+        }
+    ]
+    contract["rules"].extend(
+        [
+            {
+                **contract["rules"][0],
+                "id": "SYMBOL",
+                "kind": "forbidden_dependency",
+                "source": "app.src.client_x2e_ts",
+                "target": "app.src.api_x2e_ts",
+                "target_symbol": "Other",
+                "include_type_checking": True,
+            },
+            {**contract["rules"][0], "id": "REQUIRES", "kind": "complete_requires"},
+        ]
+    )
+    path.write_text(json.dumps(contract))
+    frame = run_core(release, tmp_path)
+    assert frame["rules"]["INTERFACE"][1] == "PASS", frame
+    for rule in ("SYMBOL", "REQUIRES"):
+        assert frame["rules"][rule][1] == "UNKNOWN", frame
+        assert "undecided" in frame["explained"][rule], frame
