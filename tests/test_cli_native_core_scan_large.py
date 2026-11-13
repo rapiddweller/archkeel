@@ -158,3 +158,75 @@ def test_ad420_states_linear_units_distinct_input_and_the_way_back() -> None:
     ).read_text()
     for required in ["bytes + tokens", "64 MiB", "once", "**Way back.**"]:
         assert required in text
+
+
+def chain_source(language: str, shape: str, count: int) -> str:
+    if shape == "branches":
+        clauses = " else ".join(
+            f"if (x == {index}) {{ return {index}; }}" for index in range(count)
+        )
+        return (
+            f"export function chain(x: number) {{ {clauses} else {{ return -1; }} }}\n"
+            if language == "typescript"
+            else f"pub fn chain(x: i32) -> i32 {{ {clauses} else {{ return -1; }} }}\n"
+        )
+    if shape == "concat":
+        expression = " + ".join(['"a"'] * count)
+        return (
+            f"export const chain = {expression};\n"
+            if language == "typescript"
+            else f"pub fn chain() -> String {{ String::new() + {expression} }}\n"
+        )
+    expression = "a" + "".join(".b()" if index % 2 == 0 else ".c()" for index in range(count))
+    return (
+        "class A { b() { return this; } c() { return this; } }\n"
+        f"export function chain(a: A) {{ return {expression}; }}\n"
+        if language == "typescript"
+        else "pub struct A;\n"
+        "impl A { pub fn b(self) -> Self { self } pub fn c(self) -> Self { self } }\n"
+        f"pub fn chain(a: A) -> A {{ {expression} }}\n"
+    )
+
+
+@pytest.mark.parametrize("language", ["typescript", "rust"])
+@pytest.mark.parametrize(
+    ("shape", "count"),
+    [
+        ("branches", 300),
+        ("branches", 1000),
+        ("branches", 5000),
+        ("concat", 1000),
+        ("concat", 10_000),
+        ("methods", 2000),
+    ],
+)
+def test_flat_chains_keep_the_unguarded_frame(
+    built: Path, release_core: Path, tmp_path: Path, language: str, shape: str, count: int
+) -> None:
+    root = tmp_path / "project"
+    request = project(root, 0, 0, language)
+    complete_contract(root)
+    path = root / ("src/chain.ts" if language == "typescript" else "src/lib.rs")
+    path.write_text(chain_source(language, shape, count))
+    stdout, code = native_scan.exchange(str(release_core), "scan", json.dumps(request).encode())
+    frame = json.loads(stdout)
+    assert code == 0, frame["unsupported"]
+    plain = unguarded_frame(built, release_core, frame)
+    frame["self_test"].pop("collect")
+    assert frame == plain
+
+
+@pytest.mark.parametrize("language", ["typescript", "rust"])
+def test_six_hundred_brackets_still_refuse_without_a_frame(
+    release_core: Path, tmp_path: Path, language: str
+) -> None:
+    request = project(tmp_path / "project", 1, 600, language)
+    done = subprocess.run(
+        [str(release_core), "scan"],
+        input=json.dumps(request).encode(),
+        capture_output=True,
+        check=False,
+        timeout=60,
+    )
+    assert done.returncode == 2 and done.stdout == b"", done.stderr
+    assert b"parse_work_limit" in done.stderr

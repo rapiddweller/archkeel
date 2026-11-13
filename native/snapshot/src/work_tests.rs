@@ -88,6 +88,18 @@ fn every_byte_and_token_counts_once_not_once_per_later_byte() {
 }
 
 #[test]
+fn a_flat_four_mib_expression_fits_the_linear_and_bracket_bounds() {
+    let term = "\"a\" + ";
+    let suffix = "\"a\";\n";
+    let size = crate::MAX_FILE_BYTES as usize - 1;
+    let count = (size - suffix.len()) / term.len();
+    let mut text = format!("{}{suffix}", term.repeat(count));
+    text.push_str(&" ".repeat(size - text.len()));
+    assert_eq!(text.len(), size);
+    assert_eq!(bounded(|| permits("source", text.as_bytes())), Ok(true));
+}
+
+#[test]
 fn actual_nesting_is_separate_from_file_width_and_literal_text() {
     let deep = "(".repeat(MAX_NESTING + 1);
     for wrapped in [

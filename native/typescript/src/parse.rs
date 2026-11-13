@@ -15,7 +15,7 @@ use crate::tree::cx::Cx;
 use crate::walk::{Syntax, Walk};
 
 pub(crate) struct Parsed {
-    /// The composition must discard the run when the requested tree-depth limit was hit.
+    /// The composition must discard the run when the requested bracket-nesting limit was hit.
     pub depth_limited: bool,
     pub references: Vec<Reference>,
     /// The number of import-bearing nodes of the tree, to check that each has an outcome.
@@ -47,7 +47,7 @@ pub(crate) fn parse_for(
     rel: &str,
     data: &[u8],
     reach: Reach,
-    max_depth: Option<usize>,
+    max_bracket_depth: Option<usize>,
 ) -> Parsed {
     // The filename test of the Python collector ignores one final newline.
     let suffix = classify_file(rel.strip_suffix('\n').unwrap_or(rel));
@@ -55,7 +55,7 @@ pub(crate) fn parse_for(
     let typescript = suffix.is_some_and(|suffix| suffix.parser_typescript());
     let parsed = parsers.parse(typescript, data);
     let depth_limited = parsed.as_ref().is_some_and(|(tree, _)| {
-        max_depth.is_some_and(|limit| tree_too_deep(tree.root_node(), limit))
+        max_bracket_depth.is_some_and(|limit| brackets_too_deep(tree.root_node(), limit))
     });
     let parsed = parsed.filter(|_| !depth_limited);
     let Some((tree, grammar)) = parsed else {
@@ -114,23 +114,50 @@ pub(crate) fn parse_for(
     }
 }
 
-fn tree_too_deep(root: tree_sitter::Node<'_>, limit: usize) -> bool {
+fn brackets_too_deep(root: tree_sitter::Node<'_>, limit: usize) -> bool {
     let (mut cursor, mut depth) = (root.walk(), 0);
     loop {
+        depth += usize::from(bracketed(cursor.node()));
+        if depth > limit {
+            return true;
+        }
         if cursor.goto_first_child() {
-            depth += 1;
-            if depth > limit {
-                return true;
-            }
             continue;
         }
-        while !cursor.goto_next_sibling() {
+        loop {
+            depth -= usize::from(bracketed(cursor.node()));
+            if cursor.goto_next_sibling() {
+                break;
+            }
             if !cursor.goto_parent() {
                 return false;
             }
-            depth -= 1;
         }
     }
+}
+
+fn bracketed(node: tree_sitter::Node<'_>) -> bool {
+    // Expression/statement chains deepen the AST without nesting source delimiters.
+    matches!(
+        node.kind(),
+        "arguments"
+            | "formal_parameters"
+            | "parenthesized_expression"
+            | "parenthesized_type"
+            | "statement_block"
+            | "class_body"
+            | "object"
+            | "object_pattern"
+            | "object_type"
+            | "array"
+            | "array_pattern"
+            | "tuple_type"
+            | "type_arguments"
+            | "type_parameters"
+            | "jsx_element"
+            | "jsx_fragment"
+            | "jsx_expression"
+    )
 }
 
 #[cfg(test)]

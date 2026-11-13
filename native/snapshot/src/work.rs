@@ -11,7 +11,7 @@ use std::thread::{self, ThreadId};
 
 /// One unit per byte plus one per possible token, counted once: at most twice the file byte cap.
 pub const MAX_PARSE_WORK: u64 = 8 << 20;
-/// A separate depth bound for the non-linear parser and nested-fact paths.
+/// A separate bracket-nesting bound for the non-linear parser and nested-fact paths.
 pub const MAX_NESTING: usize = 512;
 /// The most distinct input bytes in one in-process collection.
 pub const MAX_SCAN_BYTES: u64 = 64 << 20;
@@ -147,7 +147,7 @@ pub(crate) fn permits(root: &Path, path: &str, bytes: &[u8]) -> bool {
     true
 }
 
-/// A parser's actual tree depth also covers grammar constructs without paired byte delimiters.
+/// Refuse bracket nesting found by the parser, including paired type arguments and JSX tags.
 pub fn refuse_depth(path: &str) {
     let mut limits = limits();
     let Some(budget) = limits.get_mut(&thread::current().id()) else {
