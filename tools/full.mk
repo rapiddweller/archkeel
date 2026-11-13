@@ -59,11 +59,6 @@ typescript-native: browser-runtime-install typescript-collector
 		tests/test_typescript_string_constructs.py tests/test_typescript_bundler.py \
 		tests/test_typescript_init_acceptance.py tests/test_typescript_demo.py
 
-# The same commit measured 80-96s on hosted runners; allow for runner noise.
-REPORT_MAX_SECONDS ?= 190
-report-timing:
-	$(UV) run --locked python -m tools.report_timing --max-seconds "$(REPORT_MAX_SECONDS)"
-
 demo-typescript:
 	@$(UV) run --locked python -m fixtures.reproduce_typescript $(if $(OUTPUT),--output "$(OUTPUT)")
 

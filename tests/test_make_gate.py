@@ -622,7 +622,7 @@ def test_a_test_added_to_the_pr_test_list_does_not_run_full() -> None:
 
 FULL_MK = "tools/full.mk"
 # CI runs these on each PR, so a break in them shows before the merge. Full needs no run for them.
-SHARED_WITH_CI = {"mermaid", "demos", "self-validate-native"}
+SHARED_WITH_CI = {"mermaid", "demos"}
 
 
 def _called_targets(workflow: str) -> set[str]:

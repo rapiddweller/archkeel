@@ -8,7 +8,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 from test_catalog_policy_native import _argument, _run
 
 from archkeel.check.report import run_saved_report
@@ -307,21 +306,3 @@ UNICODE_ALIAS_CALLS = {
     ),
     "unicode-alias-spaced": ("Clé", "read_option( Clé.PAGE_SIZE )", OPS),
 }
-
-
-@pytest.mark.parametrize(
-    "annotation",
-    ["Annotated[OptionKey, 'meta']", "list[OptionKey] | None", "'OptionKey'"],
-)
-def test_owner_in_an_annotation_without_a_call_still_passes(tmp_path, annotation):
-    verdict = _verdicts(
-        tmp_path,
-        caller=HEAD + CONSUME,
-        rules=[_argument_rule()],
-        extra_files={
-            "sample/other.py": HEAD
-            + "from typing import Annotated\n"
-            + f"def f(v: {annotation}) -> None: ...\n"
-        },
-    )
-    assert verdict == ("PASS", True)

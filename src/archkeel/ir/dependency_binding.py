@@ -5,13 +5,11 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterable as _Iterable
 
-from .facts import RuntimeRequirementState
 from .identity_memo import IdentityMemo
 from .model import Evidence, Observation, Record, RecordData, RuntimeInfo, Section, stable_id
-from .state_facts import ProducerKind, VerifiedBinary
+from .state_facts import ProducerKind, VerifiedBinary, native_runtime_valid
 from .store_seam import active_store
 
 _REPLAYED: IdentityMemo[Observation, str] = IdentityMemo()
@@ -36,25 +34,14 @@ def dependency_runtime_rejection(observation: Observation, proof: RecordData) ->
         or verified.runtime is None
     ):
         return "dependency_scope_runtime_unverified"
-    if observation.runtime != verified.runtime or not native_runtime_valid(verified.runtime):
+    actual = observation.runtime
+    if actual is None or not native_runtime_valid(actual) or actual != verified.runtime:
         return "dependency_scope_runtime_claim_invalid"
     runtime = proof.get("runtime")
     digest = runtime.get("code_digest") if isinstance(runtime, RecordData) else None
     if not digest:
         return "dependency_scope_runtime_digest_missing"
     return "dependency_scope_runtime_digest_mismatch" if digest != verified.digest else None
-
-
-def native_runtime_valid(runtime: RuntimeInfo) -> bool:
-    lower = re.fullmatch(r">=([0-9]+)\.([0-9]+)(?:\.([0-9]+))?", runtime.required or "")
-    version = re.fullmatch(r"([0-9]+)\.([0-9]+)\.([0-9]+)", runtime.version)
-    return (
-        runtime.name == "rust"
-        and runtime.requirement_state == RuntimeRequirementState.DECLARED
-        and lower is not None
-        and version is not None
-        and tuple(map(int, version.groups())) >= tuple(int(v or 0) for v in lower.groups())
-    )
 
 
 def dependency_binding_id(

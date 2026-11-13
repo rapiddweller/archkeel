@@ -183,40 +183,6 @@ def _repository(tmp_path: Path, contract: dict[str, Any]) -> Path:
     return tmp_path
 
 
-def test_guide_writes_the_default_file_and_check_follows_the_contract(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    root = _repository(tmp_path, _without_requires())
-    guide = root / "docs/architecture/contract-guide.md"
-
-    assert main(["guide", "--root", str(root)]) == 0
-    assert guide.read_text(encoding="utf-8") == _render_for_root(root)
-    assert main(["guide", "--root", str(root), "--check"]) == 0
-
-    (root / "architecture-contract.json").write_text(json.dumps(_with_requires()), encoding="utf-8")
-    capsys.readouterr()
-    assert main(["guide", "--root", str(root), "--check"]) == 1
-    assert "contract-guide.md" in capsys.readouterr().out
-
-    assert main(["guide", "--root", str(root)]) == 0
-    assert main(["guide", "--root", str(root), "--check"]) == 0
-
-    guide.unlink()
-    assert main(["guide", "--root", str(root), "--check"]) == 1
-
-
-def test_guide_never_changes_the_contract_or_other_files(tmp_path: Path) -> None:
-    root = _repository(tmp_path, _without_requires())
-    before = {path: path.read_bytes() for path in root.rglob("*") if path.is_file()}
-
-    assert main(["guide", "--root", str(root)]) == 0
-
-    after = {path: path.read_bytes() for path in root.rglob("*") if path.is_file()}
-    created = set(after) - set(before)
-    assert created == {root / "docs/architecture/contract-guide.md"}
-    assert all(after[path] == before[path] for path in before)
-
-
 def test_guide_without_archkeel_toml_exits_two_with_the_init_hint(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

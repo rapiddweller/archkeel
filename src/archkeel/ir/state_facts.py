@@ -5,12 +5,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING, TypeAlias
-
-if TYPE_CHECKING:
-    from .facts import RuntimeInfo
+from typing import TypeAlias
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,6 +18,25 @@ class AnalyzerInfo:
     code_digest: str
 
 
+class RuntimeRequirementState(StrEnum):
+    DECLARED = "declared"
+    METADATA_MISSING = "metadata_missing"
+    METADATA_INVALID = "metadata_invalid"
+    REQUIREMENT_MISSING = "requirement_missing"
+    REQUIREMENT_INVALID = "requirement_invalid"
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeInfo:
+    name: str
+    version: str
+    required: str | None = None
+    # Diagnostic context does not change runtime comparability for saved snapshots.
+    requirement_state: RuntimeRequirementState = field(
+        default=RuntimeRequirementState.DECLARED, compare=False
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class VerifiedBinary:
     """Host-only evidence of a bundled executable checked in this run; never read from wire."""
@@ -27,6 +44,18 @@ class VerifiedBinary:
     digest: str
     analyzer: str
     runtime: RuntimeInfo | None = None
+
+
+def native_runtime_valid(runtime: RuntimeInfo) -> bool:
+    lower = re.fullmatch(r">=([0-9]+)\.([0-9]+)(?:\.([0-9]+))?", runtime.required or "")
+    version = re.fullmatch(r"([0-9]+)\.([0-9]+)\.([0-9]+)", runtime.version)
+    return (
+        runtime.name == "rust"
+        and runtime.requirement_state == RuntimeRequirementState.DECLARED
+        and lower is not None
+        and version is not None
+        and tuple(map(int, version.groups())) >= tuple(int(v or 0) for v in lower.groups())
+    )
 
 
 class BindingState(StrEnum):

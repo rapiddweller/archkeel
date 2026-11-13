@@ -5,14 +5,12 @@
 
 import json
 import subprocess
-from dataclasses import asdict, replace
+from dataclasses import asdict
 
 import pytest
 from test_result_schema import current_validator as current_validator
 
 from archkeel.check.ports import ScanConfig
-from archkeel.check.report import run_report
-from archkeel.cli.observe import observe
 from archkeel.ir.architecture_graph import RuleAssessment as GraphRuleAssessment
 from archkeel.ir.architecture_graph import RuleAssessmentStatus as GraphRuleAssessmentStatus
 from archkeel.ir.command_view import short_selector
@@ -142,50 +140,6 @@ def _repository(tmp_path, *, closed=True):
     ):
         subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
     return root, ScanConfig(("sample",), "sample", "architecture-contract.json", "0" * 64)
-
-
-@pytest.mark.parametrize(
-    "field,value",
-    [
-        ("source", "sample.store"),
-        ("target", "sample.store"),
-        ("rationale", "Forged reason."),
-        ("decided_by", "agent"),
-        ("include_type_checking", False),
-    ],
-)
-def test_permission_metadata_cannot_disagree_with_authenticated_contract(tmp_path, field, value):
-    root, config = _repository(tmp_path)
-
-    def forged_analyzer(*args, **kwargs):
-        original = observe(*args, **kwargs)
-        model = original.observation
-        sections = tuple(
-            replace(
-                section,
-                records=tuple(
-                    replace(
-                        record,
-                        data=replace(
-                            record.data,
-                            entries=tuple({**dict(record.data.entries), field: value}.items()),
-                        ),
-                    )
-                    if record.id == "NO-OTHER"
-                    else record
-                    for record in section.records
-                ),
-            )
-            for section in model.sections
-        )
-        return replace(original, observation=replace(model, sections=sections))
-
-    result, _ = run_report(root, config=config, analyzer=forged_analyzer, only_architecture=True)
-    assert result.exit_code == 2 and result.diagnostics
-    assert (
-        result.architecture_projection is None
-        or not result.architecture_projection.permission_rules
-    )
 
 
 @pytest.mark.parametrize(

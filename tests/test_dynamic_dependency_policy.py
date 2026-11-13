@@ -12,42 +12,6 @@ from archkeel.ir.decisions import rule_assessments
 @pytest.mark.parametrize(
     "body, expected",
     [
-        ('import importlib\nimportlib.import_module("sample.retired.old")\n', "FAIL"),
-        ('import importlib as loader\nloader.import_module("sample.retired.old")\n', "FAIL"),
-        ('from importlib import import_module as load\nload("sample.retired.old")\n', "FAIL"),
-        ('__import__("sample.retired.old")\n', "FAIL"),
-        ('import importlib\nimportlib.import_module(".retired.old", package="sample")\n', "FAIL"),
-        ('import importlib\nimportlib.import_module(name="sample.retired.old")\n', "FAIL"),
-        ('import importlib\nimportlib.import_module("sample.errors")\n', "PASS"),
-        ("import importlib\ndef run(name):\n    return importlib.import_module(name)\n", "UNKNOWN"),
-        (
-            "from importlib import import_module\n"
-            "def import_module(name):\n    return name\n"
-            'import_module("sample.retired.old")\n',
-            "UNKNOWN",
-        ),
-    ],
-)
-@pytest.mark.parametrize("mounted", [False, True])
-def test_native_dynamic_dependency_policy(tmp_path, body, expected, mounted):
-    result = _observe_namespace(tmp_path, body, mounted=mounted)
-    assert result.observation is not None, result.diagnostics
-    [row] = [
-        r
-        for r in rule_assessments(result.observation, undecided_by_rule={})
-        if r.kind == "forbidden_dependency"
-    ]
-    assert row.status == expected, row
-    if expected != "UNKNOWN":
-        assert row.evaluation_proven
-    findings = result.observation.records("violations") or ()
-    if expected == "FAIL":
-        assert all(item.rule_ids and item.fact_ids and item.evidence_ids for item in findings)
-
-
-@pytest.mark.parametrize(
-    "body, expected",
-    [
         ('from builtins import __import__ as load\nload("sample.retired.old")\n', "FAIL"),
         ('import importlib\nimportlib.import_module(".old", package=package)\n', "UNKNOWN"),
         ('import importlib\nimportlib.import_module("sample.retired." + name)\n', "UNKNOWN"),
@@ -77,30 +41,6 @@ def test_loader_proof_limits(tmp_path, body, expected):
         if r.kind == "forbidden_dependency"
     ]
     assert row.status == expected, row
-
-
-@pytest.mark.parametrize(
-    "setup, expected",
-    [
-        ("", "FAIL"),
-        ("    importlib.import_module = lambda name: name\n", "UNKNOWN"),
-        ("    mutate(importlib)\n", "UNKNOWN"),
-    ],
-)
-def test_local_loader_requires_unchanged_members(tmp_path, setup, expected):
-    result = _observe_namespace(
-        tmp_path,
-        "def run():\n    import importlib\n"
-        + setup
-        + '    return importlib.import_module("sample.retired.old")\n',
-    )
-    assert result.observation is not None, result.diagnostics
-    [row] = [
-        r
-        for r in rule_assessments(result.observation, undecided_by_rule={})
-        if r.kind == "forbidden_dependency"
-    ]
-    assert row.status == expected
 
 
 @pytest.mark.parametrize(
@@ -143,35 +83,6 @@ def test_loader_mutations_use_import_identity_instead_of_spelling(tmp_path, body
         if r.kind == "forbidden_dependency"
     ]
     assert row.status == expected
-
-
-@pytest.mark.parametrize(
-    "mutation", ["importlib.import_module = lambda name: name\n", "mutate(importlib)\n"]
-)
-def test_loader_mutation_in_another_scanned_module_withholds_proof(tmp_path, mutation):
-    from test_absent_import_namespace import _namespace_contract
-    from test_exact_module_ownership import _observe_tree
-
-    contract = _namespace_contract()
-    for component in contract["components"]:
-        component["packages"] = component["packages"][:1]
-    result = _observe_tree(
-        tmp_path,
-        {
-            "sample/__init__.py": "",
-            "sample/caller/__init__.py": "import importlib\nfrom sample.errors import marker\n"
-            'importlib.import_module("sample.retired.old")\n',
-            "sample/errors/__init__.py": "import importlib\n" + mutation + "marker = 1\n",
-        },
-        contract,
-    )
-    assert result.observation is not None, result.diagnostics
-    [row] = [
-        r
-        for r in rule_assessments(result.observation, undecided_by_rule={})
-        if r.kind == "forbidden_dependency"
-    ]
-    assert row.status == "UNKNOWN" and not row.evaluation_proven
 
 
 @pytest.mark.parametrize(

@@ -68,9 +68,15 @@ def test_a_verified_digest_cannot_authorize_another_analyzer_identity(profile):
     )
 
 
-def test_matching_valid_runtime_text_cannot_replace_the_host_verified_runtime():
+@pytest.mark.parametrize(
+    "claimed",
+    [
+        RuntimeInfo("rust", "9.99.0", ">=1.0", RuntimeRequirementState.DECLARED),
+        RuntimeInfo("rust", "1.97.0", ">=1.97", RuntimeRequirementState.REQUIREMENT_MISSING),
+    ],
+)
+def test_matching_valid_runtime_text_cannot_replace_the_host_verified_runtime(claimed):
     verified = RuntimeInfo("rust", "1.97.0", ">=1.97", RuntimeRequirementState.DECLARED)
-    claimed = RuntimeInfo("rust", "9.99.0", ">=1.0", RuntimeRequirementState.DECLARED)
     binary = VerifiedBinary("sha256:" + "0" * 64, SourceProfile.TYPESCRIPT, verified)
     observation = SimpleNamespace(
         producer_kind=ProducerKind.BUNDLED,

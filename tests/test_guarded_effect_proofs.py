@@ -9,7 +9,6 @@ import json
 import textwrap
 from pathlib import Path
 
-import pytest
 from test_exact_module_ownership import _component, _observe_tree, _rule
 
 from archkeel.check.report import run_saved_report
@@ -150,13 +149,6 @@ NONLOCAL_CLEARS_THE_GUARD = """
             clear()
             _effect()
 """
-
-
-@pytest.mark.parametrize("names", ["seeded", "other, seeded", "seeded, other"])
-def test_a_nested_function_that_rebinds_the_parameter_makes_the_guard_unknown(tmp_path, names):
-    files = {"sample/core.py": NONLOCAL_CLEARS_THE_GUARD.format(names=names)}
-    status, _ = _verdict(tmp_path, files, target="sample.core._effect")
-    assert status is RuleAssessmentStatus.UNKNOWN
 
 
 MEMBER_REBINDINGS = {

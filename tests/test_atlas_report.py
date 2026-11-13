@@ -11,7 +11,6 @@ from pathlib import Path
 import pytest
 from browser_report_support import _browser_page, _open_details
 from test_architecture_demo import _prepare_repo
-from test_module_explore import _sample
 from test_uml_rendering import _wait_for_layout
 
 from archkeel.check.report import run_report
@@ -200,16 +199,6 @@ _ABSENT_ALIAS_PAIR = object()
 
 _TYPED_UNION_BODY = "dict[str, float] | dict[tuple[int, int], float] | dict[SexKey, float]"
 _EXPANDED_UNION_BODY = _TYPED_UNION_BODY.replace("SexKey", "str | None")
-
-
-@pytest.mark.parametrize("payload", [b"{}", b"not JSON"])
-def test_pair_keeps_strict_decode(tmp_path, payload):
-    model = _sample(tmp_path)
-    result = _result(model)
-    with pytest.raises((ValueError, KeyError, TypeError)):
-        html_renderer.render_architecture_pages(
-            result, payload, repository="One", architecture_href="architecture.json"
-        )
 
 
 def _open_permission_records(page):

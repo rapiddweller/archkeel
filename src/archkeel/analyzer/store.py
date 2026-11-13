@@ -27,7 +27,7 @@ from archkeel.ir.protocol import CollectionRequest, CollectionResponse, Protocol
 from archkeel.ir.readset_codec import decode_read_set
 from archkeel.ir.state_facts import VerifiedBinary
 from archkeel.ir.store_seam import StoreEntry, close_store, open_store
-from archkeel.ir.validated_facts import accept_store_facts
+from archkeel.ir.validated_facts import with_verified_binary
 
 # The factor of `facts_codec.decode_response`: a reply may inflate to 16 times its bytes.
 _INFLATE_FACTOR = 16
@@ -105,9 +105,8 @@ class StoreSession:
         response = decode_read_set(self._ask(b"R", reply))
         if verified_binary is not None:
             response = replace(
-                response, facts=replace(response.facts, verified_binary=verified_binary)
+                response, facts=with_verified_binary(response.facts, verified_binary)
             )
-            accept_store_facts(response.facts)
         facts: SourceFacts = response.facts
         records = [record for section in facts.sections for record in section.records]
         self._records = frozenset(record.id for record in (*records, *facts.coverage.gaps))

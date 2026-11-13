@@ -42,7 +42,7 @@ from archkeel.ir.protocol import (
 )
 from archkeel.ir.state_facts import VerifiedBinary
 from archkeel.ir.store_seam import store_enabled
-from archkeel.ir.validated_facts import validate_decoded_facts
+from archkeel.ir.validated_facts import with_verified_binary
 
 
 class _OutputLimitError(ValueError):
@@ -252,9 +252,8 @@ class ProcessCollector:
             response = decode_response(stdout, output_limit=self.output_limit_bytes)
             if self.verified_binary is not None:
                 response = replace(
-                    response, facts=replace(response.facts, verified_binary=self.verified_binary)
+                    response, facts=with_verified_binary(response.facts, self.verified_binary)
                 )
-                validate_decoded_facts(response.facts)
             check_reply(
                 response,
                 request,

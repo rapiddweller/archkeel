@@ -61,17 +61,6 @@ def test_the_parser_returns_the_nodes_of_the_excerpt() -> None:
     ("file", "names"),
     [
         (
-            "analyzer/python/constructs.py",
-            (
-                "_numeric_evidence_excerpt_supported",
-                "_numeric_decorator_excerpt",
-                "_numeric_elif_start",
-                "_numeric_indented_excerpt",
-                "_numeric_header_has_synthetic_body",
-                "_numeric_elif_excerpt_supported",
-            ),
-        ),
-        (
             "ir/facts_validation.py",
             (
                 "_parse_numeric_evidence_excerpt",

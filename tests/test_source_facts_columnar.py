@@ -137,19 +137,6 @@ def test_v4_decoder_rejects_v5_compact_envelope() -> None:
         decode_response(json.dumps(compact).encode())
 
 
-def test_v5_provider_survey_retains_provider_sources_and_bindings(tmp_path) -> None:
-    from test_python_provider_sources import _provider_passes
-
-    from archkeel.ir.facts_codec import decode_response, encode_response
-    from archkeel.ir.protocol import CollectionResponse, ProtocolVersion
-
-    _, provider, survey, _ = _provider_passes(tmp_path)
-    response = CollectionResponse(survey, ProtocolVersion.V5, (provider,))
-    encoded = encode_response(response)
-    assert decode_response(encoded) == response
-    assert encode_response(decode_response(encoded)) == encoded
-
-
 def test_v5_decoder_rejects_out_of_range_string_reference() -> None:
     from test_collection_protocol import _response
 

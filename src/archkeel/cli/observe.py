@@ -84,17 +84,12 @@ class _VerifiedCollector(ProcessCollector):
             return CollectionError(
                 CollectionErrorKind.MISSING_TOOL, self.argv[0], "The binary changed."
             )
-        result = ProcessCollector.collect(
+        return ProcessCollector.collect(
             replace(
                 self, verified_binary=VerifiedBinary(verified.digest, SourceProfile.TYPESCRIPT)
             ),
             request,
         )
-        if isinstance(result, SourceFacts) and result.verified_binary is not None:
-            result = replace(
-                result, verified_binary=replace(result.verified_binary, runtime=result.runtime)
-            )
-        return result
 
 
 def _is_digest(text: str) -> bool:

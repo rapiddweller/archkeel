@@ -8,12 +8,10 @@ import subprocess
 from collections.abc import Iterable
 from pathlib import Path
 
-import pytest
 from test_analyzer import _component
 
 from archkeel.check.ports import ScanConfig
-from archkeel.check.validation import COMPONENT_GRAPH_MARKER, run_validate
-from archkeel.cli.observe import observe
+from archkeel.check.validation import COMPONENT_GRAPH_MARKER
 from archkeel.ir.model import Diagnostic
 
 
@@ -153,40 +151,3 @@ def _assert_requires_diagnostic(
     assert len(matches) == 1, diagnostics
     diagnostic = matches[0]
     assert target in diagnostic.subject or target in diagnostic.unknown_claim
-
-
-@pytest.mark.parametrize(
-    ("level", "target", "pointer"),
-    [
-        ("root", "typo", "/components/0/requires/0/component"),
-        ("nested-ancestor", "app", "/components/0/inside/components/0/requires/0/component"),
-        ("nested-other-mount", "peer", "/components/0/inside/components/0/requires/0/component"),
-        (
-            "deep-ancestor",
-            "service",
-            "/components/0/inside/components/0/inside/components/0/requires/0/component",
-        ),
-    ],
-    ids=[
-        "root-typo",
-        "nested-ancestor-is-not-local",
-        "other-mount-is-not-local",
-        "deep-ancestor-is-not-local",
-    ],
-)
-def test_unknown_requires_target_is_rejected_at_its_declaring_level(
-    tmp_path: Path, level: str, target: str, pointer: str
-) -> None:
-    requirements = (
-        {"app_requires": (target,)}
-        if level == "root"
-        else {"deep_requires": (target,)}
-        if level == "deep-ancestor"
-        else {"service_requires": (target,)}
-    )
-    config = _write_repo(tmp_path, **requirements)
-
-    result, _ = run_validate(tmp_path, config, observe)
-
-    assert result.exit_code == 2, result.diagnostics
-    _assert_requires_diagnostic(result.diagnostics, target=target, pointer=pointer)

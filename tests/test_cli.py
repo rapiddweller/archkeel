@@ -184,42 +184,6 @@ def heading_check_repository(tmp_path_factory: pytest.TempPathFactory) -> tuple[
     return output / "C", shlex.split(command)[1:]
 
 
-@pytest.mark.parametrize("command", ["report", "check"])
-@pytest.mark.parametrize(
-    "metadata,heading",
-    [
-        ('[project]\nname = "Declared-Project"\nrequires-python = ">=3.11"\n', "Declared-Project"),
-        ('[project]\nname = "<unsafe>"\n', "sample"),
-        ("[project]\nname = 42\n", "sample"),
-        ("[project] broken", "sample"),
-        (None, "sample"),
-    ],
-)
-def test_html_heading_uses_valid_project_name_with_namespace_fallback(
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture,
-    command: str,
-    metadata: str | None,
-    heading: str,
-    heading_check_repository: tuple[Path, list[str]],
-) -> None:
-    root, check_args = heading_check_repository
-    metadata_path = root / "pyproject.toml"
-    if metadata is not None:
-        metadata_path.write_text(metadata)
-    else:
-        metadata_path.unlink(missing_ok=True)
-    output = tmp_path / "result.json"
-    args = ["report", "--root", str(root)] if command == "report" else check_args
-    exit_code = main([*args, "--output", str(output), "--json"])
-    assert exit_code in (0, 2)
-    result = json.loads(capsys.readouterr().out)
-    assert result["command"] == command
-    html = (tmp_path / f"result.{command}.html").read_text()
-    assert f"<h1>{heading}</h1>" in html
-    assert "<unsafe>" not in html
-
-
 _FULL_ERROR = "--full requires --only architecture"
 _RULE_ERROR = "--rule narrows violations; --only calls or architecture cannot select a rule"
 

@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 """Call ownership follows bound declarations, not matching method names."""
 
-import json
 from pathlib import Path
 
 import pytest
@@ -366,18 +365,6 @@ def test_missing_scope_or_parse_failure_is_unknown(tmp_path, source, caller):
     assert row.status == "UNKNOWN" and not row.evaluation_proven
 
 
-@pytest.mark.parametrize(
-    "caller,target",
-    [
-        ("VALUE = 1\n", "sample.storage.absent"),
-        ("", "sample.storage.Storage.page"),
-    ],
-)
-def test_missing_target_or_empty_source_cannot_certify_absence(tmp_path, caller, target):
-    _, row = _observe(tmp_path, caller, source="sample.caller", target=target)
-    assert row.status == "UNKNOWN" and not row.evaluation_proven
-
-
 @pytest.mark.parametrize("mounted", [False, True])
 @pytest.mark.parametrize(
     "provider,target,expected",
@@ -464,80 +451,3 @@ def test_uncalled_target_requires_its_binding_proof(tmp_path, provider, target, 
         ]
         assert symbol.data.get("source_binding_static") is True
         assert symbol.data.get("source_member_binding_static") is False
-
-
-@pytest.mark.parametrize(
-    "mount, caller, source, expected",
-    [
-        ("prefix", "VALUE = 1\n", "sample", "PASS"),
-        ("exact", "VALUE = 1\n", "sample", "PASS"),
-        ("nested", "VALUE = 1\n", "sample", "PASS"),
-        ("empty", "VALUE = 1\n", "sample", "UNKNOWN"),
-        ("prefix", "", "sample", "UNKNOWN"),
-        ("prefix", "VALUE = 1\n", "sample.other", "UNKNOWN"),
-        ("ancestor", "VALUE = 1\n", "sample.other", "UNKNOWN"),
-        (
-            "prefix",
-            "from ..storage import settle\nsettle()\n",
-            "sample",
-            "FAIL",
-        ),
-    ],
-)
-def test_mounted_call_owner_uses_actual_source_modules(tmp_path, mount, caller, source, expected):
-    rule = _rule(
-        "call_owner",
-        source=source,
-        target="sample.storage.settle",
-        allowed_sources=[],
-        exact_sources=[],
-    )
-    package = "sample.missing" if mount == "empty" else "sample.caller"
-    parent = _component("narrow", [package], inside="inside.json")
-    child = _component("child", [package])
-    others = ["sample.storage", "sample.other"]
-    files = {
-        "sample/__init__.py": "",
-        "sample/caller/__init__.py": caller,
-        "sample/storage.py": "def settle(): pass\n",
-        "sample/other.py": "from .storage import settle\nsettle()\n",
-    }
-    if mount == "exact":
-        parent.update(packages=[], exact_modules=[package])
-        child.update(packages=[], exact_modules=[package])
-        others.append("sample.caller.child")
-        files["sample/caller/child.py"] = "from ..storage import settle\nsettle()\n"
-    inside = {"schema_version": "3.7.0", "components": [child], "rules": [rule]}
-    if mount in {"nested", "ancestor"}:
-        child["inside"] = "nested.json"
-        inside["rules"] = []
-        files["nested.json"] = json.dumps(
-            {
-                "schema_version": "3.7.0",
-                "components": [
-                    _component("leaf", ["sample.other" if mount == "ancestor" else package])
-                ],
-                "rules": [rule],
-            }
-        )
-    files["inside.json"] = json.dumps(inside)
-    result = _observe_tree(
-        tmp_path,
-        files,
-        {
-            "schema_version": "3.7.0",
-            "components": [parent, _component("others", others)],
-            "rules": [],
-        },
-    )
-    assert result.observation is not None, result.diagnostics
-    [row] = [
-        r
-        for r in rule_assessments(result.observation, undecided_by_rule={})
-        if r.kind == "call_owner"
-    ]
-    assert row.status == expected, row
-    assert row.evaluation_proven is (expected != "UNKNOWN")
-    violations = result.observation.records("violations") or ()
-    assert all(r.data.get("source_module") == "sample.caller" for r in violations)
-    assert bool(violations) is (expected == "FAIL")

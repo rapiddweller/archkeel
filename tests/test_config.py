@@ -25,6 +25,7 @@ from archkeel.cli.config import ConfigError, load_check_config, load_config, par
     ],
 )
 def test_parse_rejects_invalid_shape_or_paths(payload: bytes) -> None:
+    payload = payload.replace(b"[scan]\n", b'[scan]\nlanguage = "typescript"\n')
     with pytest.raises(ConfigError):
         parse_config(payload)
 
@@ -140,7 +141,7 @@ def test_load_typescript_config_requires_contained_tsconfig(tmp_path: Path) -> N
         load_config(tmp_path)
 
 
-@pytest.mark.parametrize("language", ["python", "dart", "typescript"])
+@pytest.mark.parametrize("language", ["typescript", "rust"])
 def test_scan_language_is_narrowed_to_a_supported_profile(language: str) -> None:
     payload = (
         f'[scan]\nroots = ["src"]\nnamespace = "sample"\n'

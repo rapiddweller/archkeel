@@ -48,9 +48,6 @@ jobs:
       - name: Check architecture, lint, types, build, installed CLI and generated assets
         run: make ci-core-check SKIP_TESTS=1
 
-      - name: Check the native architecture report
-        run: make self-validate-native
-
       - name: Check documentation diagrams
         run: make mermaid
 

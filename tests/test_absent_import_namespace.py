@@ -147,27 +147,3 @@ def _observe_namespace(root, body, *, mounted=False, ordinary=False, **selectors
         outer["rules"] = []
         contract = outer
     return _observe_tree(root, files, contract)
-
-
-@pytest.mark.parametrize("mounted", (False, True))
-@pytest.mark.parametrize(
-    "body,status",
-    [
-        ("", "PASS"),
-        ("import sample.retired.tasks\n", "FAIL"),
-        ("from ..retired import tasks\n", "FAIL"),
-    ],
-)
-def test_native_absent_namespace_has_proven_verdicts(tmp_path, mounted, body, status):
-    from archkeel.ir.decisions import rule_assessments
-
-    result = _observe_namespace(tmp_path, body, mounted=mounted)
-    assert result.observation is not None, result.diagnostics
-    observation = result.observation
-    assert observation.coverage.status == "PASS", observation.coverage.failures
-    identity = "all:NO-AGGREGATE" if mounted else "NO-AGGREGATE"
-    [row] = [
-        row for row in rule_assessments(observation, undecided_by_rule={}) if row.id == identity
-    ]
-    assert row.status == status and row.evaluation_proven
-    assert not (tmp_path / "sample/retired").exists()

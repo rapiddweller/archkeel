@@ -336,7 +336,7 @@ def test_source_role_schema_accepts_unresolved_transfers_only_for_roles(version)
     assert not validator.is_valid(record)
 
 
-@pytest.mark.parametrize("language", ["python", "dart", "typescript"])
+@pytest.mark.parametrize("language", ["typescript", "rust"])
 def test_config_schema_accepts_supported_language_options(language: str) -> None:
     payload = (
         f'[scan]\nlanguage="{language}"\nroots=["src"]\nnamespace="sample"\n'
@@ -458,11 +458,13 @@ def test_typescript_config_defaults_its_tsconfig_in_parser_and_schema() -> None:
         "collector_argv = []\n",
         'collector_argv = ["node", ""]\n',
         'collector_argv = ["node", "\\u0000"]\n',
-        'language = "dart"\ntsconfig = "tsconfig.json"\n',
+        'language = "rust"\ntsconfig = "tsconfig.json"\n',
         'language = "typescript"\ntsconfig = "."\n',
     ],
 )
 def test_config_schema_and_parser_reject_invalid_typescript_options(options: str) -> None:
+    if "language =" not in options:
+        options += 'language = "typescript"\n'
     payload = (
         '[scan]\nroots = ["src"]\nnamespace = "app"\n'
         'contract = "architecture-contract.json"\n' + options

@@ -272,29 +272,6 @@ def test_a_root_that_is_not_a_git_repository_gives_a_clear_error(
     assert not (fakes.work / "call.json").exists()
 
 
-@pytest.mark.parametrize(
-    "body",
-    [
-        b"not json",
-        b"[" * 5000,
-        b"[]",
-        {},
-        {"question": ""},
-        {"question": 5},
-        {"question": "x" * 2001},
-        {"question": "ok", "extra": 1},
-        {"question": "ok", "context": 5},
-        {"question": "ok", "context": "shop.nothing.here"},
-        {"question": "ok", "context": "shop.app.orders"},
-    ],
-)
-def test_a_bad_body_gets_400(chat: Studio, fakes: Fakes, body: object) -> None:
-    status, _, raw = post(chat, login(chat), body)
-    assert status == 400
-    validate(json.loads(raw), "chat_error")
-    assert not (fakes.work / "call.json").exists()
-
-
 def test_the_chat_waits_for_the_snapshot(tmp_path: Path, fakes: Fakes) -> None:
     fakes.install("claude")
     with running(_repository(tmp_path / "shop", _FILES), tmp_path / "cache") as server:

@@ -12,7 +12,6 @@ from collections import Counter
 from dataclasses import asdict, replace
 from pathlib import PurePosixPath
 
-from archkeel.ir.dependency_binding import native_runtime_valid
 from archkeel.ir.facts import (
     SOURCE_RESOLUTION_GAP_KIND,
     InventoryStatus,
@@ -33,6 +32,7 @@ from archkeel.ir.model import (
     stable_id,
 )
 from archkeel.ir.source_values import record_array, vocabulary_text
+from archkeel.ir.state_facts import native_runtime_valid
 from archkeel.ir.store_seam import active_store
 
 MEMBER_INVENTORY_PROOF = "member_inventory_proof"

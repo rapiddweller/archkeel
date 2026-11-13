@@ -1578,9 +1578,8 @@ def rule_assessments(
         receipt_complete = rule_receipt_complete(observation, declaration, receipt)
         scope_complete = _rule_scope_complete(observation, declaration, receipt, complete)
         evaluation_proven = scope_complete and receipt_complete
-        declared_only = declaration.kind == "allowed_dependency"
         status, reason = _rule_status(
-            declared_only=declared_only,
+            declared_only=declaration.kind == "allowed_dependency",
             violations=violation_count,
             complete=scope_complete,
             receipt=receipt_complete,
@@ -1598,9 +1597,7 @@ def rule_assessments(
                 reason = ownership_reason
         parent_id = declaration.data.get("parent_id")
         scope = str(parent_id) if isinstance(parent_id, str) else "root"
-        parent = records.get(scope)
-        if parent is not None:
-            scope = parent.title
+        scope = records[scope].title if scope in records else scope
         rule_components = {
             component.title
             for component in components

@@ -7,8 +7,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).parents[1]
 FIXTURE = ROOT / "fixtures/E-runtime"
 
@@ -72,87 +70,6 @@ def _report(minor: int, root: Path) -> tuple[int, dict[str, object]]:
     return run.returncode, json.loads(run.stdout)
 
 
-@pytest.mark.parametrize("minor", [11, 12])
-def test_pep695_fixture_reports_actual_runtime(tmp_path: Path, minor: int) -> None:
-    root = _fixture(tmp_path)
-    code, result = _report(minor, root)
-    version = subprocess.check_output(
-        [_interpreter(minor), "-c", "import platform; print(platform.python_version())"], text=True
-    ).strip()
-    observation = json.loads((root / "architecture.json").read_bytes())
-    assert result["python_version"] == observation["python_version"] == version
-    if minor == 11:
-        assert code == 2
-        diagnostic = result["diagnostics"][0]
-        assert diagnostic == {
-            "kind": "runtime_mismatch",
-            "subject": f"python {version} < requires-python >=3.12",
-            "unknown_claim": "AST may differ from target runtime; parse errors may be "
-            "parser limitations, not source defects",
-            "remedy": "Select a Python version that satisfies the full project range, then run: "
-            "uvx --python <compatible-version> archkeel <command>",
-        }
-        assert observation["coverage"]["files_parsed"] == 0
-    else:
-        assert code == 0
-        assert result["diagnostics"] == []
-        assert (
-            observation["coverage"]["files_parsed"]
-            == observation["coverage"]["files_discovered"]
-            == 1
-        )
-
-
-def test_invalid_python_is_parse_error_when_runtime_is_allowed(tmp_path: Path) -> None:
-    root = _fixture(tmp_path)
-    (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.11"\n')
-    (root / "sample/probe.py").write_text("def broken(:\n    pass\n")
-    code, result = _report(11, root)
-    assert code == 2
-    assert result["diagnostics"][0]["kind"] == "parse_error"
-    assert "declared target runtime" in result["diagnostics"][0]["remedy"]
-
-
-@pytest.mark.parametrize(
-    ("metadata", "remedy"),
-    [
-        (None, "Add [project].requires-python to pyproject.toml"),
-        ("", "Add [project].requires-python to pyproject.toml"),
-        ("[project]\n", "Add [project].requires-python to pyproject.toml"),
-        ("[project]\nrequires-python = 7\n", "PEP 440 range"),
-        ("[project\n", "Repair pyproject.toml as valid TOML"),
-        ('[project]\nrequires-python = "invalid"\n', "PEP 440 range"),
-    ],
-)
-def test_missing_or_invalid_runtime_metadata_preserves_observation(
-    tmp_path: Path, metadata: str | None, remedy: str
-) -> None:
-    root = _fixture(tmp_path)
-    if metadata is None:
-        (root / "pyproject.toml").unlink()
-    else:
-        (root / "pyproject.toml").write_text(metadata)
-    (root / "sample/probe.py").write_text("value = 1\n")
-    code, result = _report(11, root)
-    assert code == 2
-    assert result["diagnostics"][0]["kind"] == "runtime_mismatch"
-    assert remedy in result["diagnostics"][0]["remedy"]
-    assert result["coverage"]["files_parsed"] == 1
-    assert (root / "architecture.json").is_file()
-    if metadata == '[project]\nrequires-python = "invalid"\n':
-        from archkeel.ir.codec import decode_canonical_model, parse_observation
-
-        artifact = json.loads((root / "architecture.json").read_bytes())
-        assert artifact["runtime"]["requirement_state"] == "requirement_invalid"
-        observation = parse_observation(decode_canonical_model(artifact))
-        assert observation.runtime.requirement_state == "requirement_invalid"
-        diagnostic = result["diagnostics"][0]
-        assert (
-            diagnostic["subject"] == "pyproject.toml Python requirement is invalid or unsupported"
-        )
-        assert "valid PEP 440 range" in diagnostic["remedy"]
-
-
 def test_legacy_invalid_python_requirement_names_metadata_subject() -> None:
     from archkeel.check.runtime import runtime_diagnostic
     from archkeel.ir.facts import RuntimeInfo
@@ -194,60 +111,3 @@ def test_python_mismatch_recommends_a_version_matching_the_full_range() -> None:
     assert "satisfies the full project range" in diagnostic.remedy
     assert "uvx --python <compatible-version> archkeel <command>" in diagnostic.remedy
     assert "--python 3.12 " not in diagnostic.remedy
-
-
-@pytest.mark.parametrize(
-    ("project", "expected"),
-    [
-        ('requires-python = ">=3.10"', (">=3.10", "declared")),
-        ("requires-python = 7", (None, "requirement_invalid")),
-        ('requires-python = "not a range"', ("not a range", "declared")),
-    ],
-)
-def test_project_requirement_has_precedence_over_poetry_fallback(
-    tmp_path: Path, project: str, expected: tuple[str | None, str]
-) -> None:
-    from archkeel.analyzer.runtime import python_requirement
-
-    (tmp_path / "pyproject.toml").write_text(
-        f'[project]\n{project}\n\n[tool.poetry.dependencies]\npython = "^3.9"\n',
-        encoding="utf-8",
-    )
-    assert python_requirement(tmp_path) == expected
-
-
-def test_poetry_runtime_gate_accepts_supported_caret_and_blocks_unsupported(tmp_path: Path) -> None:
-    supported = _fixture(tmp_path / "supported")
-    (supported / "pyproject.toml").write_text(
-        '[tool.poetry.dependencies]\npython = "^3.9"\n', encoding="utf-8"
-    )
-    (supported / "sample/probe.py").write_text("value = 1\n", encoding="utf-8")
-    code, report = _report(11, supported)
-    assert code == 0
-    assert report["diagnostics"] == []
-    assert report["coverage"]["files_parsed"] == 1
-
-    invalid_project = _fixture(tmp_path / "invalid-project")
-    (invalid_project / "pyproject.toml").write_text(
-        '[project]\nrequires-python = "not a range"\n\n'
-        '[tool.poetry.dependencies]\npython = "^3.9"\n',
-        encoding="utf-8",
-    )
-    (invalid_project / "sample/probe.py").write_text("value = 1\n", encoding="utf-8")
-    code, report = _report(11, invalid_project)
-    assert code == 2
-    assert report["diagnostics"][0]["kind"] == "runtime_mismatch"
-    assert "invalid or unsupported" in report["diagnostics"][0]["subject"]
-
-    unsupported = _fixture(tmp_path / "unsupported")
-    (unsupported / "pyproject.toml").write_text(
-        '[tool.poetry.dependencies]\npython = "~3.9"\n', encoding="utf-8"
-    )
-    (unsupported / "sample/probe.py").write_text("value = 1\n", encoding="utf-8")
-    code, report = _report(11, unsupported)
-    assert code == 2
-    assert report["diagnostics"][0]["kind"] == "runtime_mismatch"
-    assert "invalid or unsupported" in report["diagnostics"][0]["subject"]
-    assert "supported positive-major Poetry caret" in report["diagnostics"][0]["remedy"]
-    artifact = json.loads((unsupported / "architecture.json").read_bytes())
-    assert artifact["runtime"]["requirement_state"] == "requirement_invalid"

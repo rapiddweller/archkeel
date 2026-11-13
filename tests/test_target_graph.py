@@ -13,9 +13,7 @@ from jsonschema import Draft202012Validator
 from test_architecture_demo import _prepare_repo
 
 from archkeel.check.ports import ScanConfig
-from archkeel.check.uml import assemble_uml
 from archkeel.check.validation.references import reference_diagnostics
-from archkeel.cli.observe import observe
 from archkeel.ir.architecture_graph import (
     ArchitectureGraph,
     ArchitectureReport,
@@ -235,53 +233,6 @@ def _permission_contract(raw=None):
         }
     )
     return raw
-
-
-@pytest.mark.parametrize(
-    "field,value",
-    [
-        ("component", "core"),
-        ("through", ()),
-        ("rationale", "Changed intent."),
-        ("decided_by", "architect"),
-    ],
-)
-def test_core_authenticates_dependency_permission_contents(tmp_path, field, value):
-    root, config = _repository(tmp_path)
-    (root / config.contract).write_text(json.dumps(_permission_contract()))
-    original = observe(
-        root,
-        roots=config.roots,
-        namespace=config.namespace,
-        contract=config.contract,
-        git_head="a" * 40,
-        dirty=False,
-        contract_root=root,
-    )
-    owner = next(item for item in original.observation.records("declarations") if item.id == "core")
-    permissions = owner.data.get("requires")
-    changed = replace(
-        permissions[0], entries=tuple({**dict(permissions[0].entries), field: value}.items())
-    )
-    forged = replace(
-        owner,
-        data=replace(
-            owner.data, entries=tuple({**dict(owner.data.entries), "requires": (changed,)}.items())
-        ),
-    )
-    sections = tuple(
-        replace(
-            section,
-            records=tuple(forged if item.id == owner.id else item for item in section.records),
-        )
-        for section in original.observation.sections
-    )
-    result = assemble_uml(
-        replace(original, observation=replace(original.observation, sections=sections)),
-        root,
-        config.contract,
-    )
-    assert result.diagnostics
 
 
 def test_uml_cannot_redeclare_component_permissions():

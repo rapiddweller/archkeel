@@ -59,12 +59,11 @@ def test_response_decodes_runtime_state_once_and_preserves_wire_bytes(state):
 
 
 def test_language_aliases_reference_the_same_owner():
-    from archkeel.analyzer.runtime import Language as RuntimeLanguage
     from archkeel.check.ports import Language as PortLanguage
     from archkeel.ir.facts import Language
     from archkeel.ir.profiles import Language as ProfileLanguage
 
-    assert RuntimeLanguage is PortLanguage is ProfileLanguage is Language
+    assert PortLanguage is ProfileLanguage is Language
     assert Language.PYTHON.value == "python"
 
 

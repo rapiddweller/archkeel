@@ -20,7 +20,7 @@ from archkeel.ir.model import CLASSIFIED_SECTIONS
 from tools import dual_run, dual_run_oracle
 from tools.dual_run_oracle import Selection
 
-CASE = "fixture/F-architecture"
+CASE = "fixture/H-typescript"
 REPOSITORY = Path(__file__).resolve().parent.parent
 Run = tuple[dict[str, Any], dict[str, Any]]
 
@@ -93,8 +93,19 @@ def test_a_rule_kind_and_a_family_name_both_select() -> None:
 def test_a_run_that_selects_nothing_fails(capsys: pytest.CaptureFixture[str]) -> None:
     assert dual_run.main(["compare", "--case", "fixture/H-ulm"]) == 2
     assert "no case matches fixture/H-ulm" in capsys.readouterr().out
-    assert dual_run.main(["compare", "--case", "fixture/H-uml", "--families", "directon"]) == 2
-    arguments = ["compare", "--case", "fixture/H-uml", "--families", "direction", "--jobs", "1"]
+    assert (
+        dual_run.main(["compare", "--case", "fixture/H-uml-typescript", "--families", "directon"])
+        == 2
+    )
+    arguments = [
+        "compare",
+        "--case",
+        "fixture/H-uml-typescript",
+        "--families",
+        "direction",
+        "--jobs",
+        "1",
+    ]
     assert dual_run.main(arguments) == 2
     assert "0 rules" in capsys.readouterr().out
 
@@ -151,26 +162,26 @@ def test_the_rule_kinds_with_few_fail_cases_are_the_named_gap() -> None:
 
 def test_the_fixture_corpus_equals_its_oracles() -> None:
     """The fast subset of the PR suite: a change of the Python result makes it fail."""
-    assert dual_run.main(["compare", "--case", "fixture/*"]) == 0
+    assert dual_run.main(["compare", "--case", "fixture/*", "--jobs", "1"]) == 0
 
 
 def test_record_needs_a_reason_and_a_committed_source(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert dual_run.main(["record", "--case", "fixture/E-runtime"]) == 2
+    assert dual_run.main(["record", "--case", "fixture/H-typescript"]) == 2
     assert "--reason" in capsys.readouterr().out
     monkeypatch.setattr(dual_run, "dirty_sources", lambda: ["src/archkeel/x.py"])
-    assert dual_run.main(["record", "--case", "fixture/E-runtime", "--reason", "test"]) == 2
+    assert dual_run.main(["record", "--case", "fixture/H-typescript", "--reason", "test"]) == 2
     assert "not committed" in capsys.readouterr().out
 
 
 def test_an_engine_that_does_not_answer_is_a_difference(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    arguments = ["compare", "--case", "fixture/E-runtime", "--jobs", "1"]
+    arguments = ["compare", "--case", "fixture/H-typescript", "--jobs", "1"]
     assert dual_run.main([*arguments, "--engine-command", "sleep 5", "--engine-timeout", "1"]) == 1
     output = capsys.readouterr().out
-    assert "fixture/E-runtime: engine: -: the engine did not answer in 1 s" in output
+    assert "fixture/H-typescript: engine: -: the engine did not answer in 1 s" in output
     assert dual_run.main([*arguments, "--engine-command", "exit 4"]) == 1
     assert "the engine exits with 4" in capsys.readouterr().out
 
@@ -191,11 +202,11 @@ def test_a_command_engine_with_a_planted_difference_fails_the_run(
         "json.dump(frame, sys.stdout)\n"
     )
     command = f"{sys.executable} {script}"
-    arguments = ["compare", "--case", "fixture/H-uml", "--jobs", "1"]
+    arguments = ["compare", "--case", "fixture/H-uml-typescript", "--jobs", "1"]
     assert dual_run.main(arguments) == 0
     assert dual_run.main([*arguments, "--engine-command", command]) == 1
     output = capsys.readouterr().out
-    assert "fixture/H-uml: rules: " in output
+    assert "fixture/H-uml-typescript: rules: " in output
     assert f"engine: {command}" in output
     assert "1 differences" in output
 

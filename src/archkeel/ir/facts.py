@@ -16,6 +16,8 @@ from typing import Final, Literal, TypeAlias, TypeVar
 from .languages import Language as Language
 from .languages import SourceProfile as SourceProfile
 from .state_facts import AnalyzerInfo as AnalyzerInfo
+from .state_facts import RuntimeInfo as RuntimeInfo
+from .state_facts import RuntimeRequirementState as RuntimeRequirementState
 from .state_facts import StateFacts, VerifiedBinary
 from .type_shapes import TypeShape
 
@@ -46,14 +48,6 @@ class DefinitionBranchKind(StrEnum):
     HANDLER = "handler"
     FINALLY = "finally"
     CASE = "case"
-
-
-class RuntimeRequirementState(StrEnum):
-    DECLARED = "declared"
-    METADATA_MISSING = "metadata_missing"
-    METADATA_INVALID = "metadata_invalid"
-    REQUIREMENT_MISSING = "requirement_missing"
-    REQUIREMENT_INVALID = "requirement_invalid"
 
 
 class StringTablePolicy(StrEnum):
@@ -1075,17 +1069,6 @@ class Capabilities:
     sections: tuple[SourceSectionName, ...]
     resolution_features: tuple[str, ...] = ()
     constructs: tuple[ConstructCapability, ...] = ()
-
-
-@dataclass(frozen=True, slots=True)
-class RuntimeInfo:
-    name: str
-    version: str
-    required: str | None = None
-    # Diagnostic context does not change runtime comparability for saved snapshots.
-    requirement_state: RuntimeRequirementState = field(
-        default=RuntimeRequirementState.DECLARED, compare=False
-    )
 
 
 @dataclass(frozen=True, slots=True)

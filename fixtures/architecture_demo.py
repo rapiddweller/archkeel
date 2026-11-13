@@ -272,6 +272,9 @@ def markdown() -> str:
     )
     return f"""# Architecture demos
 
+Main runs the TypeScript demos only (AD-422). Python and Dart examples below require archkeel 4.0.1.
+The catalog retains their historical expected results; main does not collect those projects.
+
 ## Full-project journeys
 
 The [published gallery](https://rapiddweller.github.io/archkeel/demos/) groups each pinned
@@ -280,19 +283,10 @@ rules and UML comparison are shown separately.
 
 {project_overview}
 
-Create a report with several deliberate violations:
-
-The default tour also shows `forbidden_call_argument`: a literal order ID at the store lookup,
-`catalog_argument`: an undeclared store option, `catalog_use`: an unused declared key,
-`source_ownership`: a model-owned helper read from the app layer, and
-`forbidden_effect_under_condition`: `secrets.token_hex` on a seeded run.
-
-The clean shop sample returns a fixed token for seeded runs and calls `secrets.token_hex` only
-for unseeded runs. `class-a-forbidden-effect-under-condition` and the default tour move the effect
-under the declared `seeded` condition and produce `EFFECT-NO-TOKEN-WHEN-SEEDED`.
+Create a supported TypeScript report with a deliberate dependency violation:
 
 ```sh
-make demo-architecture VARIANT=tour OUTPUT=build/demo.json
+make demo-architecture VARIANT=nest-realworld-forbidden-edge OUTPUT=build/demo.json
 ```
 
 Use a new output path. The command validates, then writes report JSON and HTML.

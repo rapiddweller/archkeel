@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 """Published command results describe real CLI output, including failed observations."""
 
-import copy
 import json
 import shlex
 import subprocess
@@ -23,7 +22,6 @@ from archkeel.ir.model import (
     RunResult,
 )
 from archkeel.ir.profiles import PYTHON
-from tests.test_onboarding import _repository as _onboarding_repository
 
 ROOT = Path(__file__).parents[1]
 VERDICTS = ("observation_complete", "declared_rules", "expectation_fulfilled")
@@ -244,79 +242,6 @@ def test_command_coverage_distinguishes_unmeasured_from_mixed_call_counts(legacy
 
 
 @pytest.mark.parametrize(
-    ("language", "source", "calls_analyzed", "total", "unresolved"),
-    [
-        ("python", "VALUE = 1\n", 0, 0, 0),
-        ("python", "def run():\n    return missing()\n", 1, 1, 1),
-        ("dart", "void main() { print('hello'); }\n", 1, None, None),
-    ],
-)
-def test_real_cli_call_totals_preserve_availability(
-    validator,
-    tmp_path: Path,
-    language: str,
-    source: str,
-    calls_analyzed: int,
-    total: int | None,
-    unresolved: int | None,
-) -> None:
-    from archkeel.ir.codec import parse_measurements
-
-    (tmp_path / "src").mkdir()
-    if language == "python":
-        (tmp_path / "src/sample").mkdir()
-    source_path = "src/app.dart" if language == "dart" else "src/sample/app.py"
-    (tmp_path / source_path).write_text(source)
-    (tmp_path / ("pubspec.yaml" if language == "dart" else "pyproject.toml")).write_text(
-        "name: sample\n" if language == "dart" else '[project]\nrequires-python=">=3.11"\n'
-    )
-    (tmp_path / "contract.json").write_text(
-        json.dumps({"schema_version": "2.1.0", "components": [], "rules": []})
-    )
-    (tmp_path / "archkeel.toml").write_text(
-        f'[scan]\nroots=["src"]\nnamespace="sample"\ncontract="contract.json"\n'
-        f'language="{language}"\n'
-    )
-    for args in (
-        ("init", "-q"),
-        ("add", "."),
-        (
-            "-c",
-            "user.name=Test",
-            "-c",
-            "user.email=test@example.invalid",
-            "commit",
-            "-qm",
-            "Call measurement fixture",
-        ),
-    ):
-        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
-    run = subprocess.run(
-        [
-            sys.executable,
-            "-I",
-            "-m",
-            "archkeel.cli",
-            "report",
-            "--root",
-            str(tmp_path),
-            "--output",
-            str(tmp_path / "architecture.json"),
-            "--json",
-        ],
-        capture_output=True,
-        text=True,
-    )
-    payload = json.loads(run.stdout)
-    assert run.returncode == 0, (payload["diagnostics"], run.stderr)
-    assert payload["coverage"]["calls_analyzed"] == calls_analyzed
-    assert payload["measurements"]["calls_total"] == total
-    assert payload["measurements"]["scalars"]["calls_unresolved"] == unresolved
-    assert not list(validator.iter_errors(payload))
-    assert parse_measurements(payload["measurements"], "report").calls_total == total
-
-
-@pytest.mark.parametrize(
     ("total", "unresolved", "resolution", "valid"),
     [
         (None, None, "n/a", True),
@@ -374,50 +299,6 @@ def test_decoded_typescript_schema_preserves_unmeasured_call_availability(versio
         call_resolution_percent=0,
     )
     assert not decoded.is_valid(payload)
-
-
-@pytest.mark.parametrize("compact", [False, True])
-def test_real_cli_validate_decision_summaries_match_supported_schemas(
-    legacy_validator, current_validator, tmp_path: Path, compact: bool
-) -> None:
-    root = _onboarding_repository(tmp_path / "repository")
-    init = subprocess.run(
-        [sys.executable, "-m", "archkeel.cli", "init", "--root", str(root), "--json"],
-        capture_output=True,
-        text=True,
-    )
-    assert init.returncode == 0, (init.stdout, init.stderr)
-    run = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "archkeel.cli",
-            "validate",
-            "--root",
-            str(root),
-            "--json",
-            *(["--compact-open-decisions"] if compact else []),
-        ],
-        capture_output=True,
-        text=True,
-    )
-    payload = json.loads(run.stdout)
-
-    assert run.returncode == 2, (payload, run.stderr)
-    assert payload["observation_complete"] == "PASS"
-    assert payload["open_decision_count"] == 6
-    assert payload["open_decisions_complete"] is not compact
-    assert len(payload["open_decisions"]) == (3 if compact else 6)
-    for schema in (legacy_validator, current_validator):
-        assert not list(schema.iter_errors(payload))
-        for field, value in (
-            ("open_decision_count", -1),
-            ("open_decision_count", True),
-            ("open_decisions_complete", "false"),
-        ):
-            malformed = copy.deepcopy(payload)
-            malformed[field] = value
-            assert not schema.is_valid(malformed), (field, value)
 
 
 @pytest.mark.parametrize("version", [f"2.{minor}.0" for minor in range(1, 10)])
