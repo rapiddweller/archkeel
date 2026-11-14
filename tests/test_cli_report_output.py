@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 from core_support import run
 from corpus_support import commit_tree
+from frozen_native import frozen_root as frozen_root
 from rust_repository import CRATE_RULES, GRAPH_PAGE, component, repository, rule
 
 from archkeel.cli import core_only, core_output
@@ -445,13 +446,18 @@ def test_native_static_page_stays_below_the_review_size_budget(
     tmp_path: Path,
     release_core: Path,
     monkeypatch: pytest.MonkeyPatch,
+    frozen_root: Path,
 ) -> None:
-    from core_support import ROOT
-
     monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
     target = tmp_path / "native.html"
     code, found = run(
-        "report", "--root", str(ROOT), "--config", "native/archkeel.toml", "--output", str(target)
+        "report",
+        "--root",
+        str(frozen_root),
+        "--config",
+        "native/archkeel.toml",
+        "--output",
+        str(target),
     )
     assert code == 1 and found["status"] == "FAIL", found
     assert target.stat().st_size < 600_000

@@ -9,21 +9,24 @@
 //! import survey (`PYTHON_IMPORT_SURVEY_SECTIONS`): the sections `imports` and `unknowns` only,
 //! no resolution feature and no construct. The sections `symbols`, `calls`, `references`,
 //! `bindings`, `typing_signals` and `constructs` are not declared, so they are not collected, and
-//! the lists of the collection phase are empty. The host refuses a 10.0.0 reply, and the evaluation
-//! refuses a Python reply with these capabilities (AD-334, AD-367).
+//! the lists of the collection phase are empty (AD-334, AD-367). The linked path gives the same
+//! survey as a typed reply (AD-450).
 
-use archkeel_facts::envelope::{Adapter, Coverage, Profile, Provenance, Runtime};
+use archkeel_facts::envelope::{
+    Adapter, Coverage, Evidence, Input, Profile, Provenance, Reply, Runtime,
+};
 use archkeel_facts::request::PythonRequest;
-use archkeel_facts::{GapFact, ImportFact};
+use archkeel_facts::{GapFact, ImportFact, Record};
 use archkeel_snapshot::Snapshot;
 use archkeel_wire::protocol::reply_version;
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
+use archkeel_wire::typed::assemble;
 
 use crate::survey::Survey;
 use crate::{inputs, requirement};
 
 /// `PYTHON_IMPORT_SURVEY_SECTIONS`, in its order. No other section is collected.
-pub const SURVEY_SECTIONS: [&str; 2] = ["imports", "unknowns"];
+pub(crate) const SURVEY_SECTIONS: [&str; 2] = ["imports", "unknowns"];
 
 /// The version and the code digest of this binary (`archkeel-build-support`).
 pub struct Build<'a> {
@@ -32,14 +35,69 @@ pub struct Build<'a> {
 }
 
 /// The compressed 10.0.0 reply of one survey.
-pub fn reply(
+pub(crate) fn reply(
     request: &PythonRequest,
     survey: Survey,
     build: &Build<'_>,
 ) -> Result<Vec<u8>, String> {
+    let (head, records) = parts(request, survey, build)?;
+    let mut bytes = Vec::new();
+    let version = reply_version(request.protocol_version);
+    encode_stream(version, head, &mut bytes, |writer| records.produce(writer))?;
+    Ok(bytes)
+}
+
+/// The same survey as the typed reply of the linked path: one head and one record producer.
+pub(crate) fn typed(
+    request: &PythonRequest,
+    survey: Survey,
+    build: &Build<'_>,
+) -> Result<Reply, String> {
+    let (head, records) = parts(request, survey, build)?;
+    assemble(reply_version(request.protocol_version), head, |writer| {
+        records.produce(writer)
+    })
+}
+
+/// The records of the sections and the tail of one survey.
+struct Records {
+    imports: Vec<Record<ImportFact>>,
+    unknowns: Vec<Record<GapFact>>,
+    coverage: Coverage,
+    evidence: Vec<Evidence>,
+}
+
+impl Records {
+    fn produce(self, writer: &mut impl SectionSink) -> std::io::Result<Tail> {
+        let Self {
+            imports,
+            unknowns,
+            coverage,
+            evidence,
+        } = self;
+        writer.write_typed_section::<ImportFact>(|emit| imports.iter().for_each(emit))?;
+        writer.write_typed_section::<GapFact>(|emit| unknowns.iter().for_each(emit))?;
+        Ok(Tail {
+            selected_files: coverage.selected_files,
+            files_read: usize::try_from(coverage.files_read).map_err(std::io::Error::other)?,
+            gaps: coverage.gaps,
+            evidence,
+        })
+    }
+}
+
+/// The head and the records of one survey. The inputs are read again here; each selected
+/// input must have the digest of the bytes that the survey parsed, else the source changed
+/// during the scan and there is no reply.
+fn parts(
+    request: &PythonRequest,
+    survey: Survey,
+    build: &Build<'_>,
+) -> Result<(Head, Records), String> {
     let mut snapshot = Snapshot::new(&request.snapshot.root);
     let selected = survey.coverage.selected_files.clone();
     let (inputs, source_digest) = inputs::inputs(&mut snapshot, &selected);
+    same_inputs(&inputs, &survey.parsed)?;
     let head = Head {
         provenance: provenance(request, &mut snapshot, build),
         git_head: request.snapshot.git_head.clone(),
@@ -48,7 +106,8 @@ pub fn reply(
             .scope
             .roots
             .iter()
-            .map(|root| format!("{root}/**/*.py"))
+            // The label of a scan root that the model binds to its settings (AD-450).
+            .map(|root| format!("{root}/**"))
             .collect(),
         sections: SURVEY_SECTIONS.to_vec(),
         features: Vec::new(),
@@ -58,31 +117,27 @@ pub fn reply(
         files: survey.files,
         imports: survey.targets,
     };
-    let Survey {
-        imports,
-        unknowns,
-        coverage,
-        evidence,
-        ..
-    } = survey;
-    same_coverage(&coverage, head.files.len())?;
-    let mut bytes = Vec::new();
-    encode_stream(
-        reply_version(request.protocol_version),
-        head,
-        &mut bytes,
-        |writer| {
-            writer.write_typed_section::<ImportFact>(|emit| imports.iter().for_each(emit))?;
-            writer.write_typed_section::<GapFact>(|emit| unknowns.iter().for_each(emit))?;
-            Ok(Tail {
-                selected_files: coverage.selected_files,
-                files_read: usize::try_from(coverage.files_read).map_err(std::io::Error::other)?,
-                gaps: coverage.gaps,
-                evidence,
-            })
-        },
-    )?;
-    Ok(bytes)
+    same_coverage(&survey.coverage, head.files.len())?;
+    let records = Records {
+        imports: survey.imports,
+        unknowns: survey.unknowns,
+        coverage: survey.coverage,
+        evidence: survey.evidence,
+    };
+    Ok((head, records))
+}
+
+/// Each parsed file has an input with the digest of the parsed bytes.
+fn same_inputs(inputs: &[Input], parsed: &[Input]) -> Result<(), String> {
+    for file in parsed {
+        if !inputs
+            .iter()
+            .any(|input| input.path == file.path && input.digest == file.digest)
+        {
+            return Err(format!("the source changed during the scan: {}", file.path));
+        }
+    }
+    Ok(())
 }
 
 /// The adapter of this binary, and the runtime that the Python collector claims: the version of

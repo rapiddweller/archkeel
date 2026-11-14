@@ -161,7 +161,8 @@ fn in_process(profile: Profile) -> TrustOf {
                 gap: None,
             };
         };
-        let standard_library = archkeel_store::standard_library(profile)
+        // AD-450: only a name that is standard in each version of the profile.
+        let standard_library = archkeel_store::standard_library_everywhere(profile)
             .into_iter()
             .map(str::to_owned)
             .collect();

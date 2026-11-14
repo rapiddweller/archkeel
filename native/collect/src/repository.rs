@@ -226,8 +226,15 @@ fn survey_within(root: &Root, cache_entries: usize) -> Result<(), String> {
             ));
         }
         let cache = inherited || is_cache(&directory);
-        let listing = fs::read_dir(&directory)
-            .map_err(|error| format!("cannot list {}: {error}", directory.display()))?;
+        let listing = match fs::read_dir(&directory) {
+            Ok(listing) => listing,
+            // Build output is not source: a parallel build removes its temporary directories, so
+            // a directory below a proven cache can vanish. Its entries are not charged.
+            Err(_) if cache => continue,
+            Err(error) => {
+                return Err(format!("cannot list {}: {error}", directory.display()));
+            }
+        };
         for entry in listing {
             if cache {
                 cached = cached.saturating_add(1);
@@ -246,8 +253,13 @@ fn survey_within(root: &Root, cache_entries: usize) -> Result<(), String> {
                      directories, the work budget of the collector in the core process"
                 ));
             }
-            let entry =
-                entry.map_err(|error| format!("cannot list {}: {error}", directory.display()))?;
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(_) if cache => continue,
+                Err(error) => {
+                    return Err(format!("cannot list {}: {error}", directory.display()));
+                }
+            };
             let Ok(kind) = entry.file_type() else {
                 continue;
             };

@@ -36,10 +36,15 @@ HONEST = "probe/sources-test-an-honest-project-gives-pass-in-both-producers-hone
 EMPTY_GRAPH = "# Provenance\n\n<!-- archkeel-component-graph -->\n```mermaid\nflowchart LR\n```\n"
 
 
-def copy_native(root: Path) -> None:
-    """Copy `native/` without its build, and each document that its contract cites (AD-466)."""
-    shutil.copytree(NATIVE, root / "native", ignore=shutil.ignore_patterns("target"))
-    contract = json.loads((NATIVE / "architecture-contract.json").read_text(encoding="utf-8"))
+def copy_native(root: Path, source: Path = ROOT) -> None:
+    """Copy `native/` of `source` without its build, and each document that its contract cites.
+
+    AD-466: a scan of the native contract reads its cited documents. Pass the frozen tree as
+    `source` (`frozen_native.frozen_root`), which holds both.
+    """
+    native = source / "native"
+    shutil.copytree(native, root / "native", ignore=shutil.ignore_patterns("target"))
+    contract = json.loads((native / "architecture-contract.json").read_text(encoding="utf-8"))
     cited = {
         path
         for item in [*contract["components"], *contract["rules"]]
@@ -47,7 +52,7 @@ def copy_native(root: Path) -> None:
     }
     for path in cited:
         (root / path).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(ROOT / path, root / path)
+        shutil.copy2(source / path, root / path)
 
 
 def _cargo() -> str:

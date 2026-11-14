@@ -34,6 +34,33 @@ pub fn standard_library(profile: Profile) -> Vec<&'static str> {
     names
 }
 
+/// The names that are standard in each version list of a profile, in sorted order (AD-450). A
+/// name that only some versions have is not in this list, so the core never takes it for a
+/// standard module of a project whose version it does not know. A profile without versions has
+/// one list, and this is that list.
+pub fn standard_library_everywhere(profile: Profile) -> Vec<&'static str> {
+    let mut owners: Vec<&'static str> = Vec::new();
+    let mut rows: Vec<(&'static str, &'static str)> = Vec::new();
+    for (owner, name) in TABLE.lines().filter_map(|line| line.split_once(' ')) {
+        if owner.split('@').next() == Some(profile.as_str()) {
+            if !owners.contains(&owner) {
+                owners.push(owner);
+            }
+            rows.push((owner, name));
+        }
+    }
+    let mut names: Vec<&'static str> = standard_library(profile)
+        .into_iter()
+        .filter(|name| {
+            owners
+                .iter()
+                .all(|owner| rows.iter().any(|row| row == &(*owner, *name)))
+        })
+        .collect();
+    names.sort_unstable();
+    names
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -56,6 +83,22 @@ mod tests {
         assert!(!standard_library(Profile::Python).contains(&"xxsubtype"));
         assert!(standard_library(Profile::TypeScript).is_empty());
         assert_eq!(standard_library(Profile::Dart).len(), 1);
+    }
+
+    #[test]
+    fn a_name_of_only_some_versions_is_not_standard_everywhere() {
+        let everywhere = standard_library_everywhere(Profile::Python);
+        assert!(everywhere.contains(&"os"));
+        // `distutils` left the standard library in 3.12; `_interpreters` arrived in 3.13.
+        assert!(standard_library(Profile::Python).contains(&"distutils"));
+        assert!(!everywhere.contains(&"distutils"));
+        assert!(!everywhere.contains(&"_interpreters"));
+        for profile in [Profile::Rust, Profile::TypeScript, Profile::Dart] {
+            assert_eq!(
+                standard_library_everywhere(profile),
+                standard_library(profile)
+            );
+        }
         assert_eq!(standard_library(Profile::Rust).len(), 3);
     }
 }

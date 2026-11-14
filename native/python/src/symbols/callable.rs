@@ -16,7 +16,7 @@ use crate::pyast::{walk, Node};
 use crate::unparse::TextFailure as Failure;
 
 /// `_function_signature`: the parameters, the receiver, the return annotation and `async`.
-pub fn signature(
+pub(super) fn signature(
     scan: &Scan<'_>,
     node: &StmtFunctionDef,
     data: &mut Map<String, Value>,
@@ -83,7 +83,7 @@ fn address(expr: &Expr) -> usize {
 
 /// `_parameters_contained`: each read of a parameter in the body (nested scopes included) is an
 /// operand of a comparison or the index of a subscript, and no subscript is a target.
-pub fn parameters_contained(
+pub(super) fn parameters_contained(
     node: &StmtFunctionDef,
     minor: archkeel_facts::pyminor::PyMinor,
 ) -> bool {
@@ -120,7 +120,7 @@ pub fn parameters_contained(
 
 /// `_stored_field_writes` of an `__init__`: `<receiver>.<field> = <parameter>` in the top-level
 /// body, where the parameter is positional and not the first one.
-pub fn stored_field_writes(scan: &mut Scan<'_>, node: &StmtFunctionDef) -> Value {
+pub(super) fn stored_field_writes(scan: &mut Scan<'_>, node: &StmtFunctionDef) -> Value {
     let params = &node.parameters;
     let parameters: HashMap<&str, &Parameter> = params
         .posonlyargs
@@ -166,7 +166,10 @@ pub fn stored_field_writes(scan: &mut Scan<'_>, node: &StmtFunctionDef) -> Value
 }
 
 /// `_shape`: the class names of the body (without a leading docstring) in walk order, digested.
-pub fn shape(node: &StmtFunctionDef, minor: archkeel_facts::pyminor::PyMinor) -> (String, usize) {
+pub(super) fn shape(
+    node: &StmtFunctionDef,
+    minor: archkeel_facts::pyminor::PyMinor,
+) -> (String, usize) {
     let mut body: &[Stmt] = &node.body;
     if let Some(Stmt::Expr(first)) = body.first() {
         if is_constant(&first.value) {

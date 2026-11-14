@@ -19,7 +19,7 @@ use ruff_python_ast::{
 const ALL: &str = "__all__";
 
 /// The binder facts of one module.
-pub struct Binders {
+pub(crate) struct Binders {
     /// How often each name is bound anywhere in the module (`source._bound_names`).
     counts: HashMap<String, usize>,
     /// The names that a top-level definition or import binds, in source order.
@@ -32,7 +32,7 @@ pub struct Binders {
 }
 
 impl Binders {
-    pub fn of(tree: &ModModule) -> Self {
+    pub(crate) fn of(tree: &ModModule) -> Self {
         let mut walk = Walk::default();
         walk.visit_body(&tree.body);
         let mut direct = Vec::new();
@@ -61,12 +61,18 @@ impl Binders {
     /// `_bare_builtin`: no star import and no type parameter list in the module, and no binder of
     /// the name anywhere in it. A type parameter list parses only from Python 3.12, where the
     /// Python rule applies it.
-    pub fn builtin_visible(&self, name: &str) -> bool {
+    pub(crate) fn builtin_visible(&self, name: &str) -> bool {
         !self.opaque && !self.counts.contains_key(name)
     }
 
+    /// How often a binder binds the name anywhere in the module, or `None` when a star import
+    /// or a type parameter list makes the count unknown (`guard.rs`).
+    pub(crate) fn count(&self, name: &str) -> Option<usize> {
+        (!self.opaque).then(|| self.counts.get(name).copied().unwrap_or(0))
+    }
+
     /// `_unique_direct_module_bindings`: a direct name that no other binder in the module binds.
-    pub fn unique(&self) -> HashSet<String> {
+    pub(crate) fn unique(&self) -> HashSet<String> {
         if self.opaque {
             return HashSet::new();
         }
@@ -75,7 +81,7 @@ impl Binders {
     }
 }
 
-pub use crate::module::{first_part, import_bindings};
+pub(crate) use crate::module::{first_part, import_bindings};
 
 #[derive(Default)]
 struct Walk {
@@ -161,12 +167,12 @@ impl<'a> Bind<'a> for Walk {
 }
 
 /// A visitor that counts the names that binders bind.
-pub trait Bind<'a>: Visitor<'a> {
+pub(crate) trait Bind<'a>: Visitor<'a> {
     fn bind_name(&mut self, name: &'a str);
 }
 
 /// Count the name of an except handler and walk the handler.
-pub fn bind_handler<'a, V: Bind<'a>>(visitor: &mut V, handler: &'a ExceptHandler) {
+pub(crate) fn bind_handler<'a, V: Bind<'a>>(visitor: &mut V, handler: &'a ExceptHandler) {
     if let Some(name) = handler_name(handler) {
         visitor.bind_name(name);
     }
@@ -174,7 +180,7 @@ pub fn bind_handler<'a, V: Bind<'a>>(visitor: &mut V, handler: &'a ExceptHandler
 }
 
 /// Count the name of a pattern and walk the pattern.
-pub fn bind_pattern<'a, V: Bind<'a>>(visitor: &mut V, pattern: &'a Pattern) {
+pub(crate) fn bind_pattern<'a, V: Bind<'a>>(visitor: &mut V, pattern: &'a Pattern) {
     if let Some(name) = pattern_name(pattern) {
         visitor.bind_name(name);
     }
@@ -182,7 +188,7 @@ pub fn bind_pattern<'a, V: Bind<'a>>(visitor: &mut V, pattern: &'a Pattern) {
 }
 
 /// The names of a `global` or a `nonlocal` statement.
-pub fn declared(stmt: &Stmt) -> &[Identifier] {
+pub(crate) fn declared(stmt: &Stmt) -> &[Identifier] {
     match stmt {
         Stmt::Global(node) => &node.names,
         Stmt::Nonlocal(node) => &node.names,

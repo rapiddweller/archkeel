@@ -262,7 +262,12 @@ fn raw_spec_failure(text: &str) -> bool {
     false
 }
 
-pub fn check(expr: &Expr, source: &str, minor: PyMinor, work: &mut Work) -> Option<&'static str> {
+pub(super) fn check(
+    expr: &Expr,
+    source: &str,
+    minor: PyMinor,
+    work: &mut Work,
+) -> Option<&'static str> {
     let mut check = Check {
         source,
         minor,
@@ -289,7 +294,7 @@ pub fn check(expr: &Expr, source: &str, minor: PyMinor, work: &mut Work) -> Opti
     }
 }
 
-pub fn docstring(
+pub(super) fn docstring(
     body: &[ruff_python_ast::Stmt],
     source: &str,
     minor: PyMinor,

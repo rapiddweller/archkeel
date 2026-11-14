@@ -21,10 +21,10 @@ use crate::parse::ParseFailure as Failure;
 const FILE_FAILURE: &str = " could not be analyzed";
 
 /// The message of `OSError.strerror` for a file that does not exist.
-pub const NOT_FOUND: &str = "No such file or directory";
+pub(super) const NOT_FOUND: &str = "No such file or directory";
 
 /// A gap record with the sorted subjects and evidence ids of `classified`.
-pub fn record(
+pub(super) fn record(
     (id, area, title): (String, Area, String),
     subjects: Vec<String>,
     evidence_ids: Vec<EvidenceId>,
@@ -60,7 +60,7 @@ fn file_data(rel: &str, line: i64, message: &str) -> GapData {
 }
 
 /// The failure record of a file that does not read, decode, parse or have a module name.
-pub fn failure(rel: &str, failure: &Failure) -> Record<GapFact> {
+pub(super) fn failure(rel: &str, failure: &Failure) -> Record<GapFact> {
     let line = i64::try_from(failure.line).unwrap_or(i64::MAX);
     let name = failure.exception.as_str();
     let parts = [
@@ -82,7 +82,7 @@ pub fn failure(rel: &str, failure: &Failure) -> Record<GapFact> {
 }
 
 /// The failure of a file before its parse, on line 1 (`OSError`, decode, module name).
-pub fn early(exception: ExceptionName, message: &str) -> Failure {
+pub(super) fn early(exception: ExceptionName, message: &str) -> Failure {
     Failure {
         exception,
         line: 1,
@@ -92,7 +92,7 @@ pub fn early(exception: ExceptionName, message: &str) -> Failure {
 
 /// `_shadowed_gap`: a module that a package of the same name shadows (#797). The name
 /// `ShadowedModule` exists in protocol 10.0.0 only (AD-367 point 9).
-pub fn shadowed(item: &Shadowed) -> Record<GapFact> {
+pub(super) fn shadowed(item: &Shadowed) -> Record<GapFact> {
     let data = GapFact::ExceptionGap {
         exception: ExceptionName::ShadowedModule,
         data: file_data(&item.file, 1, &item.message()),
@@ -102,7 +102,12 @@ pub fn shadowed(item: &Shadowed) -> Record<GapFact> {
 }
 
 /// The collection gap of a file that the native collector does not see: its reason names it.
-pub fn unseen(rel: &str, reason: &str) -> Record<GapFact> {
+pub(super) fn unseen(rel: &str, reason: &str) -> Record<GapFact> {
+    file_gap(rel, reason, format!("{rel}:1{FILE_FAILURE}"))
+}
+
+/// The collection gap of one file with its title.
+pub(super) fn file_gap(rel: &str, reason: &str, title: String) -> Record<GapFact> {
     let mut data = GapData::at(reason, "");
     data.module = None;
     data.file = Some(rel.to_owned());
@@ -111,11 +116,7 @@ pub fn unseen(rel: &str, reason: &str) -> Record<GapFact> {
         Part::Text("collection_gap"),
         Part::Text(reason),
     ];
-    let head = (
-        stable_id("COVERAGE", &parts),
-        Area::AnalysisCoverage,
-        format!("{rel}:1{FILE_FAILURE}"),
-    );
+    let head = (stable_id("COVERAGE", &parts), Area::AnalysisCoverage, title);
     record(
         head,
         vec![rel.to_owned()],

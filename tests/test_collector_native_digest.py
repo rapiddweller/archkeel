@@ -19,6 +19,7 @@ from pathlib import Path
 
 import pytest
 from conftest import install_rust_toolchain
+from frozen_native import frozen_root as frozen_root
 
 ROOT = Path(__file__).parents[1]
 PACKAGE = "archkeel-typescript-collector"
@@ -38,18 +39,18 @@ def _require_cargo() -> None:
     install_rust_toolchain(cargo)
 
 
-def _copy(destination: Path) -> Path:
-    """Copy `native/` into `destination` without build output."""
+def _copy(source: Path, destination: Path) -> Path:
+    """Copy the frozen `native/` into `destination`: no build output, no file in change."""
     copy = destination / "native"
-    shutil.copytree(ROOT / "native", copy, ignore=shutil.ignore_patterns("target"))
+    shutil.copytree(source / "native", copy)
     return copy
 
 
 @pytest.fixture
-def workspace(tmp_path: Path) -> Path:
+def workspace(tmp_path: Path, frozen_root: Path) -> Path:
     """A copy of `native/` for one test."""
     _require_cargo()
-    return _copy(tmp_path)
+    return _copy(frozen_root, tmp_path)
 
 
 def _digest(workspace: Path) -> str:
@@ -153,7 +154,9 @@ def test_a_source_change_changes_the_digest(
     ["target/planted.rs", "typescript/target/planted.rs"],
     ids=["root-target", "nested-target"],
 )
-def test_a_source_in_a_target_directory_keeps_the_digest(tmp_path: Path, planted: str) -> None:
+def test_a_source_in_a_target_directory_keeps_the_digest(
+    tmp_path: Path, frozen_root: Path, planted: str
+) -> None:
     """Build output is not an input: a `target` directory at any depth is skipped.
 
     Two fresh builds, each with its own copy: a planted file changes nothing when the same
@@ -161,9 +164,9 @@ def test_a_source_in_a_target_directory_keeps_the_digest(tmp_path: Path, planted
     because cargo does not run the build script again for a path it did not watch.
     """
     _require_cargo()
-    reference = _copy(tmp_path / "reference")
+    reference = _copy(frozen_root, tmp_path / "reference")
     _edit_dependency_source(reference)
-    with_build_output = _copy(tmp_path / "with-build-output")
+    with_build_output = _copy(frozen_root, tmp_path / "with-build-output")
     _edit_dependency_source(with_build_output)
     path = with_build_output / planted
     path.parent.mkdir(parents=True, exist_ok=True)

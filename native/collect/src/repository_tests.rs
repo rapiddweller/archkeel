@@ -270,6 +270,37 @@ fn a_tag_without_the_signature_or_behind_a_link_proves_no_cache_directory() {
     let _ = fs::remove_dir_all(base);
 }
 
+#[cfg(unix)]
+#[test]
+fn a_directory_that_cannot_be_listed_below_a_proven_cache_is_no_refusal() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let (base, root) = with_large_build_output("cache-gone");
+    fs::write(base.join("target").join(CACHE_TAG), CACHE_SIGNATURE).unwrap();
+    fs::create_dir_all(base.join("target/debug/deps/rustcX")).unwrap();
+    fs::create_dir_all(base.join("src/locked")).unwrap();
+    let locked = [
+        base.join("target/debug/deps/rustcX"),
+        base.join("src/locked"),
+    ];
+    for path in &locked {
+        fs::set_permissions(path, fs::Permissions::from_mode(0o000)).unwrap();
+    }
+    // A process that is allowed to read it (root) cannot show the failure.
+    if fs::read_dir(&locked[0]).is_err() {
+        // A directory outside the cache stays a refusal: the scan cannot read that source.
+        let refusal = survey(&root).unwrap_err();
+        assert!(refusal.contains("src/locked"), "{refusal}");
+        fs::set_permissions(&locked[1], fs::Permissions::from_mode(0o755)).unwrap();
+        // The directory below the proven cache is build output: no refusal.
+        assert_eq!(survey(&root), Ok(()));
+    }
+    for path in &locked {
+        fs::set_permissions(path, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let _ = fs::remove_dir_all(base);
+}
+
 #[test]
 fn the_survey_refuses_a_deep_nest_and_follows_no_symlink_loop() {
     let base = scratch("deep");

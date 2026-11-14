@@ -19,6 +19,7 @@ from typing import Any
 import pytest
 from core_support import copy_native, run
 from corpus_support import commit_tree
+from frozen_native import frozen_root as frozen_root
 
 from archkeel.cli import core_only
 
@@ -221,11 +222,13 @@ def _found(frame: dict[str, Any]) -> set[Plant]:
 
 
 @pytest.fixture(scope="module")
-def runs(core_binary: Path, tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
+def runs(
+    core_binary: Path, tmp_path_factory: pytest.TempPathFactory, frozen_root: Path
+) -> dict[str, Any]:
     found: dict[str, Any] = {}
     for name, plant in (("code", _code_forms), ("requires", _with_requires)):
         root = tmp_path_factory.mktemp(name)
-        copy_native(root)
+        copy_native(root, frozen_root)
         plants = plant(root / "native")
         found[name] = (plants, _run(root, core_binary))
     return found
