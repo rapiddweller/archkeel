@@ -2,97 +2,82 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Whether a registry or git dependency can be redirected to a path (AD-502).
+//! Whether any file of the snapshot can redirect a dependency to a path (AD-502).
 //!
-//! Cargo can point a registry name at a local crate: `[patch]` and `[replace]` in the manifest of
-//! the crate or of its workspace root (also a root named by `package.workspace`), and `[patch]`,
-//! `paths` and `[source]` in a `.cargo/config.toml` of the crate directory or any directory above
-//! it. The collector reads each of these places below the scan root. A place that it cannot
-//! read gives a named gap. A place outside the scan root (`$CARGO_HOME/config.toml`, a root
-//! above the scan root) and the `CARGO_*` environment stay unread: `docs/known-limits.md`.
+//! Cargo can point a registry name at a local crate: `[patch]` and `[replace]` in a manifest, and
+//! `[patch]`, `[replace]`, `paths`, `[source]` or an `include` in a `.cargo/config.toml` (or the
+//! old `.cargo/config`). One predicate for the whole scan: if any such file redirects, or does not
+//! parse, no dependency is cut from the crates of the workspace (the old rule stays: a name of the
+//! workspace is an edge). The price is a false FAIL for a repository that has a patch or a vendored
+//! source. A config outside the snapshot (`$CARGO_HOME`, a directory above the repository), the
+//! `CARGO_*` environment and `--config` stay unread: `docs/known-limits.md`.
+
+use std::collections::BTreeSet;
 
 use crate::source::read_text;
 use crate::toml::{self, Table};
 use archkeel_snapshot::paths::{dirname, join};
 use archkeel_snapshot::Snapshot;
 
-/// The tables that redirect a dependency.
-const REDIRECTS: [&str; 3] = ["patch", "replace", "paths"];
-/// The cargo config files of one directory, in the order that Cargo prefers.
+/// The keys of a manifest that redirect a dependency.
+const MANIFEST_KEYS: [&str; 2] = ["patch", "replace"];
+/// The keys of a cargo config that redirect a dependency or read another file that may.
+const CONFIG_KEYS: [&str; 5] = ["patch", "replace", "paths", "source", "include"];
+/// The cargo config files of one directory; both are read.
 const CONFIGS: [&str; 2] = [".cargo/config.toml", ".cargo/config"];
 
-/// What the places that can redirect a dependency say.
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) enum Redirect {
-    /// Every place was read and none redirects: a registry name is not a crate of the workspace.
-    None,
-    /// A place redirects, or may redirect, a name: the old rule (a name of the workspace is an
-    /// edge) stays.
-    Possible,
-    /// A place that Cargo reads could not be read: the reason, for a gap.
-    Unread(String),
+/// What the files of the snapshot say.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) struct Outcome {
+    /// A file redirects or does not parse: a registry name stays an edge to a crate of the
+    /// workspace of that name.
+    pub redirected: bool,
+    /// A file that does not parse and is not reported elsewhere: its path and the reason.
+    pub unread: Vec<(String, String)>,
 }
 
-/// The root that `package.workspace` names, as the crate reader found it.
-pub(crate) enum Named<'t> {
-    /// The manifest names no root.
-    No,
-    Table(&'t Table),
-    /// The root is outside the scan root or has no manifest: the reason.
-    Unread(String),
+fn has(table: &Table, keys: &[&str]) -> bool {
+    keys.iter().any(|key| table.contains_key(*key))
 }
 
-fn redirects(table: &Table) -> bool {
-    REDIRECTS.iter().any(|key| table.contains_key(*key)) || table.contains_key("source")
-}
-
-/// The places of the manifest of `dir`: its own tables, the workspace root above it (`above`), the
-/// root that `package.workspace` names, and the cargo configs from `dir` up to the scan root.
-pub(crate) fn of(
-    source: &mut Snapshot,
-    (dir, table): (&str, &Table),
-    (above, named): (Option<&Table>, Named<'_>),
-) -> Redirect {
-    let manifests = |table: &Table| {
-        ["patch", "replace"]
-            .iter()
-            .any(|key| table.contains_key(*key))
-    };
-    if manifests(table) || above.is_some_and(manifests) {
-        return Redirect::Possible;
+/// Read the manifests of the directories of `manifests` and of every directory above them, and
+/// the cargo configs of the same directories. A manifest in `manifests` is reported by the crate
+/// reader when it does not parse; any other file is reported here.
+pub(crate) fn scan(source: &mut Snapshot, manifests: &[String]) -> Outcome {
+    let mut directories = BTreeSet::new();
+    for file in manifests {
+        let mut at = dirname(file).to_owned();
+        while directories.insert(at.clone()) && !at.is_empty() {
+            at = dirname(&at).to_owned();
+        }
     }
-    match named {
-        Named::No => {}
-        Named::Table(root) if manifests(root) => return Redirect::Possible,
-        Named::Table(_) => {}
-        Named::Unread(reason) => return Redirect::Unread(reason),
-    }
-    configs(source, dir)
-}
-
-/// The cargo config files of `dir` and of each directory above it, up to the scan root.
-fn configs(source: &mut Snapshot, dir: &str) -> Redirect {
-    let mut at = dir.to_owned();
-    loop {
-        for name in CONFIGS {
-            let rel = join(&at, name);
+    let mut found = Outcome::default();
+    for dir in directories {
+        let manifest = join(&dir, "Cargo.toml");
+        let own = manifests.contains(&manifest);
+        let files = std::iter::once((manifest, MANIFEST_KEYS.as_slice(), own)).chain(
+            CONFIGS
+                .iter()
+                .map(|name| (join(&dir, name), CONFIG_KEYS.as_slice(), false)),
+        );
+        for (rel, keys, reported) in files {
             if !source.is_file(&rel) {
                 continue;
             }
-            let read = read_text(source, &rel).and_then(|text| {
-                toml::parse(&text).map_err(|error| format!("Cannot read {rel}: {error}"))
-            });
+            let read = read_text(source, &rel)
+                .and_then(|text| toml::parse(&text).map_err(|e| format!("Cannot read {rel}: {e}")));
             match read {
-                Ok(table) if redirects(&table) => return Redirect::Possible,
-                Ok(_) => {}
-                Err(reason) => return Redirect::Unread(reason),
+                Ok(table) => found.redirected |= has(&table, keys),
+                Err(reason) => {
+                    found.redirected = true;
+                    if !reported {
+                        found.unread.push((rel, reason));
+                    }
+                }
             }
         }
-        if at.is_empty() {
-            return Redirect::None;
-        }
-        at = dirname(&at).to_owned();
     }
+    found
 }
 
 #[cfg(test)]

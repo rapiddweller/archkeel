@@ -158,7 +158,23 @@ CONFIGS = {
     "the old name of a config": {".cargo/config": PATCH},
     "a paths override": {".cargo/config.toml": 'paths = ["crates/base"]\n'},
     "a source replacement": {".cargo/config.toml": '[source.crates-io]\nreplace-with = "v"\n'},
+    # Review N1: the config only includes a file; the patch is in the included file.
+    "a config that includes a file": {
+        ".cargo/config.toml": 'include = ["extra.toml"]\n',
+        ".cargo/extra.toml": PATCH,
+    },
+    # Review N2: the patch is in the config of the root that package.workspace names.
+    "a config beside the root that package.workspace names": {
+        "crates/ws/Cargo.toml": ROOT_OF_APP,
+        "crates/ws/.cargo/config.toml": PATCH,
+    },
 }
+# Review N3: a root package of its own workspace, with the patch and a path dependency on `app`.
+TOP = (
+    '[package]\nname = "top"\n[workspace]\nmembers = ["../app"]\n'
+    + PATCH.replace('"base"', '"../base"')
+    + '[dependencies]\napp = { path = "../app" }\n'
+)
 HARMLESS = {".cargo/config.toml": "[build]\njobs = 2\n"}
 
 DEPENDENCY_PROBES = {
@@ -198,6 +214,12 @@ DEPENDENCY_PROBES = {
         {"crates/ws/Cargo.toml": ROOT_OF_APP + PATCH.replace('"base"', '"../base"')},
         "FAIL",
     ),
+    "a root package of another workspace with a patch": (
+        REGISTRY_APP,
+        None,
+        {"crates/ws/Cargo.toml": TOP, "crates/ws/src/lib.rs": "pub fn top() {}\n"},
+        "FAIL",
+    ),
     **{name: (REGISTRY_APP, None, files, "FAIL") for name, files in CONFIGS.items()},
 }
 
@@ -226,24 +248,24 @@ def test_a_dependency_is_an_edge_to_a_crate_of_the_workspace_only_with_a_path(
     assert named == (expected == "FAIL"), claims(result)
 
 
-UNREAD_PLACES = {
-    "a root named by package.workspace that is not in the repository": (
-        {"crates/app/Cargo.toml": POINTING_APP},
-        "cannot be read",
-    ),
-    "a root named by package.workspace above the scan root": (
-        {"crates/app/Cargo.toml": POINTING_APP.replace("../ws", "../../../up")},
-        "lies outside the scan root",
-    ),
+UNREAD_FILES = {
     "a config that cannot be parsed": (
         {"crates/app/Cargo.toml": REGISTRY_APP, ".cargo/config.toml": "= nope"},
         "Cannot read .cargo/config.toml",
     ),
+    "a config of a sibling root that cannot be parsed": (
+        {
+            "crates/app/Cargo.toml": POINTING_APP,
+            "crates/ws/Cargo.toml": ROOT_OF_APP,
+            "crates/ws/.cargo/config": "= nope",
+        },
+        "Cannot read crates/ws/.cargo/config",
+    ),
 }
 
 
-@pytest.mark.parametrize(("files", "reason"), UNREAD_PLACES.values(), ids=UNREAD_PLACES.keys())
-def test_a_place_that_can_redirect_a_dependency_and_is_not_read_gives_a_gap(
+@pytest.mark.parametrize(("files", "reason"), UNREAD_FILES.values(), ids=UNREAD_FILES.keys())
+def test_a_file_that_can_redirect_a_dependency_and_is_not_read_gives_a_gap(
     tmp_path: Path,
     core_binary: Path,
     capsys: pytest.CaptureFixture[str],

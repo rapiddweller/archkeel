@@ -17,15 +17,18 @@ same name, although Cargo fetches that name from elsewhere. `REQUIRES` gave a fa
    before and the crate is UNKNOWN with a named gap.
 4. A package that one manifest names with a path entry and with a registry entry (for example a
    dev-dependency) is local.
-5. "No edge" holds only when the collector has read every place that can redirect the name and
-   found none. The places: `[patch]` and `[replace]` in the manifest of the crate, in the workspace
-   root above it and in the root that `package.workspace` names; `[patch]`, `[replace]`, `paths`
-   and `[source]` in a `.cargo/config.toml` or `.cargo/config` of the crate directory and of each
-   directory above it up to the scan root. A redirect in any of them keeps the old rule (a name of
-   the workspace is an edge) for the whole crate. A place that cannot be read (a config that does
-   not parse, a named root that is missing or outside the scan root) gives a named gap, and the
-   old rule stays. The code is `native/rust/src/redirects.rs`.
+5. "No edge" is one predicate for the whole scan (L-189). If any `Cargo.toml` of the snapshot
+   below or above the scan roots has `[patch]` or `[replace]`, or any `.cargo/config.toml` or
+   `.cargo/config` of the directory of a manifest or of a directory above it has `[patch]`,
+   `[replace]`, `paths`, `[source]` or an `include` key, or any of these files does not parse,
+   then the rule is off for the whole scan: each dependency named like a crate of the workspace
+   keeps the old edge. A config or manifest that does not parse also has its named gap. Else the
+   rule applies. The code is `native/rust/src/redirects.rs`; it does not follow the workspace
+   links of a crate, so a redirect in a sibling root or in an included file is seen.
 6. A UTF-8 byte order mark at the start of a manifest is not part of its text, as for Cargo.
+
+**Price.** A repository with any patch, replace, `paths`, `[source]` or `include` gets the false
+FAIL of #946 back: the predicate cannot tell which name a file redirects.
 
 **Open false PASS, not accepted.** The collector does not read a config outside the repository
 (`$CARGO_HOME/config.toml`, a config above the scan root), the environment (`CARGO_*`)
@@ -47,7 +50,8 @@ keep the edge where the source is unknown, so no edge goes missing silently.
 **Limits.** The transitive crate closure of impl blocks still follows each dependency by package
 name; it can add a pair gap, never remove one.
 
-**Tests.** `tests/test_collector_false_pass_rust_layout.py` (registry, git, workspace, each place
-of point 5, unread places, byte order mark); `tests/test_collector_false_pass_rust_impls.py`
+**Tests.** `tests/test_collector_false_pass_rust_layout.py` (registry, git, workspace, each file
+of point 5, an included config, a sibling root, a root package with a patch, unread files, byte
+order mark); `tests/test_collector_false_pass_rust_impls.py`
 (held edge); `native/rust/src/manifest_tests.rs`, `redirects_tests.rs`, `resolve_tests.rs`,
 `toml_tests.rs`; `native/core/src/hygiene_graph_tests.rs`.

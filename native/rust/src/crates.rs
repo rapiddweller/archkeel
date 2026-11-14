@@ -20,7 +20,6 @@ use archkeel_snapshot::Snapshot;
 
 #[path = "redirects.rs"]
 mod redirects;
-use redirects::{Named, Redirect};
 
 /// One manifest, read once: its table and its text.
 pub(crate) struct Parsed {
@@ -65,6 +64,8 @@ pub(crate) struct Workspace {
     pub problems: Vec<Problem>,
     /// The primary root of each crate by name; the first crate of a name wins.
     primaries: BTreeMap<String, Option<Root>>,
+    /// A file of the snapshot can redirect a registry name to a path (`redirects`).
+    redirected: bool,
 }
 
 /// Find the crates among `files`, all the files below the scan roots.
@@ -73,7 +74,14 @@ pub(crate) fn discover(source: &mut Snapshot, files: &[String], namespace: &str)
         crates: Vec::new(),
         problems: Vec::new(),
         primaries: BTreeMap::new(),
+        redirected: false,
     };
+    let manifests: Vec<String> = files.iter().filter(|f| is_manifest(f)).cloned().collect();
+    let outcome = redirects::scan(source, &manifests);
+    found.redirected = outcome.redirected;
+    for (file, reason) in outcome.unread {
+        found.problems.push(Problem { reason, file });
+    }
     let mut tables: BTreeMap<String, Option<Rc<Parsed>>> = BTreeMap::new();
     for file in files.iter().filter(|file| is_manifest(file)) {
         let dir = dirname(file).to_owned();
@@ -130,33 +138,6 @@ pub(crate) fn manifest_table(
     Ok(table)
 }
 
-/// The workspace root that `package.workspace` of the manifest in `dir` names: `Ok(None)` when it
-/// names none, and the reason when the root is outside the scan root or cannot be read.
-fn pointed_root(
-    source: &mut Snapshot,
-    tables: &mut BTreeMap<String, Option<Rc<Parsed>>>,
-    (dir, table): (&str, &Table),
-) -> Result<Option<Rc<Parsed>>, String> {
-    let Some(pointer) = manifest::get(table, &["package", "workspace"]).and_then(|v| v.text())
-    else {
-        return Ok(None);
-    };
-    let root = join(dir, pointer);
-    let root = if root == "." { String::new() } else { root };
-    if root == ".." || root.starts_with("../") {
-        let reason = format!(
-            "The workspace root {pointer} of the crate in {dir} lies outside the scan root"
-        );
-        return Err(reason);
-    }
-    match manifest_table(source, tables, &root) {
-        Ok(Some(named)) => Ok(Some(named)),
-        Ok(None) | Err(_) => Err(format!(
-            "The workspace root {root} of the crate in {dir} cannot be read"
-        )),
-    }
-}
-
 /// The nearest workspace manifest at or above `dir`.
 fn workspace_manifest(
     source: &mut Snapshot,
@@ -201,28 +182,10 @@ impl Workspace {
         let Some(mut read) = manifest::read(&parsed.table, &dependencies) else {
             return;
         };
-        // A registry name is no crate of the workspace unless a place that can redirect it says so
-        // or cannot be read (`redirects`): then the old rule (a name of the workspace is an edge)
-        // stays, and an unread place is a gap.
-        if !read.remote.is_empty() {
-            let pointer = pointed_root(source, tables, (dir, &parsed.table));
-            let named = match &pointer {
-                Ok(Some(root)) => Named::Table(&root.table),
-                Ok(None) => Named::No,
-                Err(reason) => Named::Unread(reason.clone()),
-            };
-            let place = (dir, &parsed.table);
-            match redirects::of(source, place, (above.as_ref().map(|p| &p.table), named)) {
-                Redirect::None => {}
-                Redirect::Possible => read.remote.clear(),
-                Redirect::Unread(reason) => {
-                    read.remote.clear();
-                    self.problems.push(Problem {
-                        reason,
-                        file: join(dir, "Cargo.toml"),
-                    });
-                }
-            }
+        // A registry name is no crate of the workspace, unless a file of the snapshot can
+        // redirect it (`redirects`): then the old rule (a name of the workspace is an edge) stays.
+        if self.redirected {
+            read.remote.clear();
         }
         if read.edition.is_none() {
             read.edition = above
