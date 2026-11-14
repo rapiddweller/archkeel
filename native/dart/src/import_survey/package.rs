@@ -69,7 +69,7 @@ pub(crate) fn package_gaps(
 
 /// The key words that the root `pubspec.yaml` holds outside a comment line.
 #[derive(Debug, Default, PartialEq, Eq)]
-struct Keys {
+struct PubspecWords {
     workspace: bool,
     path: bool,
     escape: bool,
@@ -77,10 +77,10 @@ struct Keys {
 
 /// Read the words of `text`. A YAML line break is `\n` or `\r`; a comment line has only spaces or
 /// tabs before its `#`, and no part of such a line can be a key of a YAML scalar alone.
-fn keys(text: &str) -> Keys {
-    let mut found = Keys {
+fn keys(text: &str) -> PubspecWords {
+    let mut found = PubspecWords {
         escape: text.contains('\\'),
-        ..Keys::default()
+        ..PubspecWords::default()
     };
     for line in text.split(['\n', '\r']) {
         if line.trim_start_matches([' ', '\t']).starts_with('#') {
@@ -121,15 +121,11 @@ fn pubspec_gaps(raw: &[u8], gaps: &mut Gaps) {
 
 #[cfg(test)]
 mod tests {
-    use super::{keys, Keys};
+    use super::keys;
 
     fn words(text: &str) -> (bool, bool, bool) {
-        let Keys {
-            workspace,
-            path,
-            escape,
-        } = keys(text);
-        (workspace, path, escape)
+        let found = keys(text);
+        (found.workspace, found.path, found.escape)
     }
 
     #[test]
