@@ -16,7 +16,7 @@
     "F-typescript-story": {
       "language": "typescript",
       "runs": [
-      {"name": "F-typescript-story", "root": "F-typescript-story", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 1 coverage gaps", "gaps": {"graph.count": 1}, "refusal": null}}
+      {"name": "F-typescript-story", "root": "F-typescript-story", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 1 coverage gap", "gaps": {"graph.count": 1}, "refusal": null}}
       ]
     },
     "G-dart": {
