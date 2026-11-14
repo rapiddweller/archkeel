@@ -201,20 +201,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             "identifier" => self.function_binding(object),
             _ => false,
         };
-        let called = tree.parent(node).is_some_and(|parent| {
-            matches!(parent.kind(), "call_expression" | "new_expression")
-                && (tree.is_field_of_parent(node, F::Function)
-                    || tree.is_field_of_parent(node, F::Constructor))
-        });
-        ((reaches || self.window_value(object)) && self.used(node))
-            || (called && !self.plain_data(object))
-    }
-
-    /// An object or array literal, or a name bound once to one and never written again: one key
-    /// of it reaches only its own values or a prototype method that runs no text.
-    fn plain_data(&self, object: Node<'t>) -> bool {
-        let data = |node: Node<'t>| matches!(node.kind(), "object" | "array");
-        data(object) || (object.kind() == "identifier" && self.sole_value(object).is_some_and(data))
+        (reaches || self.window_value(object)) && self.used(node)
     }
 
     /// Code that a page runs from a text: `document.write`, an `on…` attribute, a `script`

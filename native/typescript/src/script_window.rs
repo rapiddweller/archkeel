@@ -251,7 +251,10 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let tree = self.tree;
         match node.kind() {
             "identifier" => {
-                if tree.in_type(node) {
+                let parameter = tree
+                    .parent(node)
+                    .is_some_and(|p| p.kind() == "formal_parameters");
+                if tree.in_type(node) || tree.declaration_name(node) || parameter {
                     return false;
                 }
                 let name = tree.text(node);
@@ -310,7 +313,8 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// The value leaves the place where it is read: it is called, passed, stored or returned.
-    /// A member read, a comparison, `typeof`, `!` and `void` are no escape. With `elements`, an
+    /// A member read, a comparison, `typeof`, `!`, `void` and an argument of a script wrapper,
+    /// whose parameter is an alias of the window, are no escape. With `elements`, an
     /// element of the value is the value: `f(frames[0])` passes a window.
     pub(crate) fn escapes(&self, node: Node<'t>, elements: bool) -> bool {
         let tree = self.tree;
@@ -335,9 +339,16 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 "member_expression" | "subscript_expression" => {
                     return !tree.is_field_of_parent(at, F::Object)
                 }
+                "arguments" => return !self.wrapper_argument(parent),
                 _ => return true,
             }
         }
+    }
+
+    /// The arguments of the call of a script wrapper.
+    fn wrapper_argument(&self, arguments: Node<'t>) -> bool {
+        let call = self.tree.parent(arguments);
+        call.is_some_and(|call| self.wrappers.values().any(|w| w.call.id() == call.id()))
     }
 }
 

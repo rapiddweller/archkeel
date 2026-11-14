@@ -23,7 +23,6 @@ CODE = {
     "destructured-constructor": 'const { constructor: F } = (() => {}) as any; F("open = 1")();',
     "computed-constructor-text": 'const k = "constructor"; (({}) as any)[k][k]("open = 1")();',
     "concatenated-constructor": '((() => {}) as any)["const" + "ructor"]("open = 1")();',
-    "computed-call": "declare const o: any, k: string; o[k]('open = 1');",
     "reflect-constructor": 'Reflect.get(() => {}, "constructor")("open = 1")();',
     "shorthand-function": 'const o = { Function }; o.Function("open = 1")();',
     "constructor-call": '(() => {}).constructor.call(null, "open = 1")();',

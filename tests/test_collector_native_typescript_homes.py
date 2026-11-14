@@ -118,4 +118,5 @@ def test_each_script_global_decision_reads_the_one_write_check() -> None:
     check = check[: check.index("\n    }\n")]
     for field in ("self.writes.push(", "self.checked.push(", "self.paths.push("):
         assert field in check, field
-    assert "writes.extend(declared.checked" in (SOURCE / "script.rs").read_text()
+    script = re.sub(r"\s+", "", (SOURCE / "script.rs").read_text())
+    assert "declared.checked.iter()" in script and "writes.extend(checked)" in script
