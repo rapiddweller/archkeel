@@ -58,7 +58,8 @@ pub writes it from `pubspec.yaml`, so the survey reads the source of truth.
 
 **Limits.** No `collect` dispatch, store acceptance, scope receipt, build provenance or test
 feature list: the wiring change adds them. Symbols, calls, references and `show`/`hide` names are
-not surveyed. The 1 MiB budget does not bound the time of a smaller hostile file; #1097 stays open.
+not surveyed. The budget does not bound memory or time; #1097 stays open. On the release build a
+1 MiB source of 520,000 tokens takes 1.8 s and 1.0 GiB; 100 KB of nested classes takes 4.7 s.
 The grammar parity across wheels (#1031) is unchanged. The self-check pins four new method-call pair gaps.
 
 **Tests.** `native/dart/src/import_survey/*_tests.rs` hold one test for each rule and each gap.

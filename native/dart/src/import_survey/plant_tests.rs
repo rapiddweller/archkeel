@@ -89,3 +89,30 @@ fn a_request_that_excludes_test_sources_is_refused() {
             .unwrap_err();
     assert!(refused.contains("exclude_test_sources"), "{refused}");
 }
+
+#[cfg(unix)]
+#[test]
+fn a_linked_package_file_at_the_root_is_a_gap() {
+    let tree = Tree::new(&with_pubspec(&[("lib/a.dart", "")]));
+    let outside = Tree::new(&[("package_config.json", "{}")]);
+    std::os::unix::fs::symlink(
+        outside.root.join("package_config.json"),
+        tree.root.join("package_config.json"),
+    )
+    .unwrap();
+    let request = json!({
+        "protocol_version": "8.0.0",
+        "snapshot": {"root": tree.path(), "git_head": "0".repeat(40), "dirty": false},
+        "scope": {"roots": ["lib"], "namespace": "shop"},
+        "resolver": {"language": "dart"},
+    });
+    let decoded = crate::import_survey::reply::decode(request.to_string().as_bytes()).unwrap();
+    let found = survey(&decoded).unwrap();
+    assert_eq!(
+        gaps(&found).get("DartPackageConfig"),
+        Some(&1),
+        "{:?}",
+        gaps(&found)
+    );
+    assert!(!found.coverage.full_scope);
+}
