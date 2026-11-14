@@ -19,6 +19,13 @@ Unsupported profiles give exit 2 before collection, including saved facts and ba
 Do not report PASS for a supported subset of an unsupported project.
 In a source checkout, run `make core` to build the core binary. There is no Python fallback.
 
+On main, `report --output PATH` writes one static HTML page. Add `--format json` for the core frame.
+There is no default file or sidecar. The parent must exist; links and directories refuse with exit 2.
+Safe file output requires POSIX directory handles. It keeps stdout and the frame exit unchanged.
+UNKNOWN and collection-refused reports show their causes. A refusal without an accepted frame writes no file.
+This is not `architecture.json`, a saved snapshot or a graph. The legacy report instructions below do not apply to main.
+`validate --output`, `--html`, saved-input and report-filter options remain refused.
+
 ## First run on a codebase
 
 For native Python parity work, use `--dump-proofs` for the import-local proof boundary (AD-404).

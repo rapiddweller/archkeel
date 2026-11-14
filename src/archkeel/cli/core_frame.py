@@ -30,6 +30,7 @@ from .core_json import CoreError as CoreError
 from .core_json import Gap as Gap
 from .core_json import GapKind as GapKind
 from .core_json import RequestMismatch, _count, _fields, _object, _text, _texts
+from .core_output import read_html
 
 
 class Status(StrEnum):
@@ -143,7 +144,15 @@ _FIELDS: Final = frozenset(
 )
 FRAME_PROTOCOL: Final = FrameProtocol.FRAME
 _EVIDENCE_FIELDS: Final = frozenset(
-    {"protocol", "details", "locations", "unknown_kinds", "collection_gaps", "contract_digest"}
+    {
+        "protocol",
+        "details",
+        "locations",
+        "unknown_kinds",
+        "collection_gaps",
+        "contract_digest",
+        "html",
+    }
 )
 _UNSUPPORTED: Final = frozenset({"rules", "sections", "report"})
 _SELF_TEST: Final = frozenset({"contract", "reply"})
@@ -206,6 +215,7 @@ class CoreFrame:
     locations: Mapping[str, Location] = field(default_factory=dict)
     unknown_kinds: Mapping[str, UnknownKind] = field(default_factory=dict)
     collection_gaps: tuple[CollectionGap, ...] = ()
+    html: str | None = None
 
     @property
     def complete_scope(self) -> bool:
@@ -466,4 +476,9 @@ def read_frame(
         locations=locations,
         unknown_kinds=unknown_kinds,
         collection_gaps=_collection_gaps(frame.get("collection_gaps", [])),
+        html=read_html(
+            frame.get("html"),
+            status,
+            required="html" in frame or bool(request and request.get("html")),
+        ),
     )
