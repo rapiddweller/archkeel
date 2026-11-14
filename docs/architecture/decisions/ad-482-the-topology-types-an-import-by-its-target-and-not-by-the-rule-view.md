@@ -1,4 +1,4 @@
-# AD-466 The topology types an import by its target, not by the rule view
+# AD-482 The topology types an import by its target, not by the rule view
 
 **Status.** Proposed. Part of #880. It changes AD-464.
 

@@ -119,7 +119,7 @@ def test_a_construct_failure_from_main_keeps_its_cause_and_location(built: Path)
         assert text in done.stdout
 
 
-@pytest.mark.parametrize("language", ["python", "dart"])
+@pytest.mark.parametrize("language", ["python"])
 def test_an_unsupported_profile_refuses_by_name(built: Path, language: str) -> None:
     with case_root(HONEST) as root:
         (root / "archkeel.toml").write_text(
@@ -133,24 +133,38 @@ def test_an_unsupported_profile_refuses_by_name(built: Path, language: str) -> N
     assert "refused" not in result["frame"]["self_test"]["contract"]
 
 
+def test_a_dart_scan_of_a_tree_without_dart_sources_is_unknown(built: Path) -> None:
+    # AD-468: the core collects Dart. A tree without a package and sources is UNKNOWN by name.
+    with case_root(HONEST) as root:
+        (root / "archkeel.toml").write_text(
+            '[scan]\nlanguage = "dart"\nroots = ["src"]\n'
+            'namespace = "app"\ncontract = "architecture-contract.json"\n'
+        )
+        done = command(built / f"archkeel-core{SUFFIX}", root, "--json")
+    assert done.returncode == 2, done.stdout + done.stderr
+    assert "no pubspec.yaml at the snapshot root" in done.stdout
+    assert '"PASS"' not in done.stdout
+
+
 @pytest.mark.parametrize("declaration", [False, True])
 def test_zero_decided_rules_stay_unknown_and_nonzero(built: Path, declaration: bool) -> None:
     with case_root(HONEST) as root:
         path = root / "architecture-contract.json"
         contract = json.loads(path.read_text())
-        contract["rules"] = (
-            [
-                {
-                    **contract["rules"][0],
-                    "id": "ALLOW",
-                    "kind": "allowed_dependency",
-                    "source": "a",
-                    "target": "b",
-                }
-            ]
-            if declaration
-            else []
-        )
+        # AD-466: each ordered component pair is decided, so no hygiene row hides the gap.
+        allowed = [
+            {
+                **contract["rules"][0],
+                "id": f"ALLOW-{source}",
+                "kind": "allowed_dependency",
+                "source": f"app.src.{source}",
+                "target": f"app.src.{target}",
+            }
+            for source, target in (("a", "b"), ("b", "a"))
+        ]
+        contract["rules"] = allowed if declaration else []
+        if not declaration:
+            contract["components"] = contract["components"][:1]
         path.write_text(json.dumps(contract))
         done = command(built / f"archkeel-core{SUFFIX}", root, "--json")
     assert done.returncode == 2, done.stdout + done.stderr

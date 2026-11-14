@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-466: the topology of a Python project types an import of the platform or of a library."""
+"""AD-482: the topology of a Python project types an import of the platform or of a library."""
 
 import json
 from pathlib import Path

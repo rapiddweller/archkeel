@@ -9,7 +9,7 @@
 >
 > - `archkeel validate` and `archkeel report` run through the core, as text or JSON.
 >   PASS exits 0, FAIL exits 1, UNKNOWN and a refusal exit 2.
-> - Only **Rust and TypeScript projects** are supported. Python and Dart profiles give exit 2.
+> - **Rust and TypeScript projects** are supported, and the import rules of Python and Dart projects.
 > - `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
 >   Interactive reports, `architecture.json`, baselines and focused reports are not available.
 > - `report --output PATH` writes one static HTML page; `--format json` writes the core frame instead.
@@ -146,14 +146,14 @@ locally. The agent in your harness explains and proposes; its text is a claim, n
 **Does a clean graph mean a good design?** No. `PASS` means the required rules have complete evidence
 and no decided violation. It does not prove runtime behavior or the quality of a design decision.
 
-**Which languages?** Rust and TypeScript on main, and the import rules of Python projects (AD-450).
-Use archkeel 4.0.1 for the other Python rules and for Dart projects.
+**Which languages?** Rust and TypeScript on main, and the import rules of Python (AD-450) and Dart
+(AD-468) projects. Use archkeel 4.0.1 for the other Python and Dart rules.
 
 
 ## Scope and limits
 
 ArchKeel observes static Rust and TypeScript source in configured roots through native collectors.
-Python and Dart profiles give exit 2 before collection. They do not produce a partial result.
+Python and Dart projects get PASS or FAIL only for rules that read the import graph.
 TypeScript records lexical UML declarations and statically bound relationships;
 ambiguous bindings and unsupported constructs remain UNKNOWN. TypeScript roots may name files or directories.
 ArchKeel does not prove runtime behavior, performance, or the quality of every design decision.

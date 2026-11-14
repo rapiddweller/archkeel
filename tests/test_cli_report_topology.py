@@ -83,6 +83,13 @@ def without_section(stdout: str) -> str:
     return stdout[:start] + stdout[end:]
 
 
+def import_b(root: Path) -> None:
+    """Let `a` import `b`; the marked graph draws the edge, so no hygiene row names it (AD-466)."""
+    (root / "src/a/a.ts").write_text('import type { T } from "../b/t";\nexport const a: T = 1;\n')
+    readme = root / "README.md"
+    readme.write_text(readme.read_text().replace("flowchart LR\n", "flowchart LR\n    a --> b\n"))
+
+
 def topology_frame(binary: Path, root: Path) -> dict:
     done = command(binary, root, "--json", "--topology", verb="report")
     result = json.loads(done.stdout)
@@ -167,9 +174,7 @@ def test_topology_is_byte_stable_and_text_names_its_limits(release_core: Path) -
 )
 def test_a_requested_old_or_forged_topology_is_refused(release_core: Path, fault: str) -> None:
     with case_root(HONEST) as root:
-        (root / "src/a/a.ts").write_text(
-            'import type { T } from "../b/t";\nexport const a: T = 1;\n'
-        )
+        import_b(root)
         frame = topology_frame(release_core, root)
         topology = frame["topology"]
         if fault == "absent":
@@ -293,9 +298,7 @@ def test_an_edge_that_names_no_listed_row_is_refused(
     release_core: Path, level: str, end: str
 ) -> None:
     with case_root(HONEST) as root:
-        (root / "src/a/a.ts").write_text(
-            'import type { T } from "../b/t";\nexport const a: T = 1;\n'
-        )
+        import_b(root)
         frame = topology_frame(release_core, root)
     frame["topology"][level][0][end] = "NOT-LISTED"
     with pytest.raises(CoreError, match="names no listed"):
@@ -304,9 +307,7 @@ def test_an_edge_that_names_no_listed_row_is_refused(
 
 def test_an_edge_may_name_a_row_beyond_a_truncated_list(release_core: Path) -> None:
     with case_root(HONEST) as root:
-        (root / "src/a/a.ts").write_text(
-            'import type { T } from "../b/t";\nexport const a: T = 1;\n'
-        )
+        import_b(root)
         frame = topology_frame(release_core, root)
     topology = frame["topology"]
     limit = topology["budgets"]["modules"]

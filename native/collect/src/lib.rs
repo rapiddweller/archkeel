@@ -20,6 +20,7 @@
 #![deny(unreachable_pub)]
 
 mod config;
+mod dart;
 mod git;
 mod python;
 mod refusal;
@@ -81,6 +82,7 @@ pub fn test_features() -> &'static [&'static str] {
     [
         archkeel_rust_collector::TEST_FEATURES,
         archkeel_python_collector::TEST_FEATURES,
+        archkeel_dart_collector::TEST_FEATURES,
     ]
     .into_iter()
     .find(|features| !features.is_empty())
@@ -131,9 +133,12 @@ pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Re
     let bytes =
         serde_json::to_vec(&request).map_err(|error| refused("request", error.to_string()))?;
     let reply = run::collect(config.profile, &bytes)?;
-    if config.profile == Profile::Python {
-        python::bound(&root, reply.reply()).map_err(|why| refused("collector", why))?;
-    }
+    let bound = match config.profile {
+        Profile::Python => python::bound(&root, reply.reply()),
+        Profile::Dart => dart::bound(&root, reply.reply()),
+        Profile::TypeScript | Profile::Rust => Ok(()),
+    };
+    bound.map_err(|why| refused("collector", why))?;
     let contract = match root.read(&config.contract, contract_budget) {
         Ok(Some((_, bytes))) => bytes,
         Ok(None) => return Err(refused("contract", "the core cannot read the contract")),
@@ -225,6 +230,7 @@ fn request(identity: &Identity<'_>, config: &config::Config) -> Value {
     let mut resolver = match config.profile {
         Profile::Rust => json!({"language": "rust"}),
         Profile::Python => python::resolver(),
+        Profile::Dart => dart::resolver(),
         _ => json!({"language": "typescript", "tsconfig": config.tsconfig}),
     };
     if config.bundler {

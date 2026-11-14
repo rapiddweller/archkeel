@@ -5,7 +5,7 @@
 //! The request and the typed reply of the survey (AD-454). The reply declares the sections
 //! `imports` and `unknowns` only, as the import survey of the Python collector does.
 
-use archkeel_facts::envelope::{Provenance, Reply};
+use archkeel_facts::envelope::{LimitSupport, OwnedFile, ProfileLimits, Provenance, Reply};
 use archkeel_facts::request::DartRequest;
 use archkeel_facts::{GapFact, ImportFact};
 use archkeel_wire::protocol::Version;
@@ -29,6 +29,8 @@ pub fn typed_reply(
     version: Version,
 ) -> Result<Reply, String> {
     let found = survey(request)?;
+    let parts = found.parts;
+    let parsed = found.coverage.files_parsed;
     let head = Head {
         provenance,
         git_head: request.snapshot.git_head.clone(),
@@ -49,9 +51,25 @@ pub fn typed_reply(
         gaps: found.unknowns,
         evidence: found.evidence,
     };
-    archkeel_wire::typed::assemble(version, head, |writer| {
+    let mut reply = archkeel_wire::typed::assemble(version, head, |writer| {
         writer.write_typed_section::<ImportFact>(|emit| imports.iter().for_each(emit))?;
         writer.write_typed_section::<GapFact>(|emit| tail.gaps.iter().for_each(emit))?;
         Ok(tail)
-    })
+    })?;
+    // AD-468: the survey reads no symbol and no interface, and each part names its owner.
+    reply.facts.profile_limits = Some(ProfileLimits {
+        dependency_symbols: LimitSupport::Unsupported,
+        interface_boundary: LimitSupport::Unsupported,
+    });
+    // The wire counts a parsed file for each module; a part is a parsed file too (AD-468).
+    reply.facts.coverage.files_parsed = parsed;
+    reply.facts.owned_files = parts
+        .into_iter()
+        .map(|part| OwnedFile {
+            rel_path: part.part,
+            module: part.part_module,
+            owner: part.module,
+        })
+        .collect();
+    Ok(reply)
 }

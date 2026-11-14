@@ -274,7 +274,7 @@ fn edge_rows(
     for import in models.root().graph().imports() {
         // The typed target decides. A profile that reads each target by its module gives the
         // rules `Resolved::Local` for a library or a platform module: it is no module of the
-        // scan, so the display calls it external (AD-466).
+        // scan, so the display calls it external (AD-482).
         let outside = matches!(
             targets.get(import.id()),
             Some(Target::External { .. } | Target::Builtin { .. })

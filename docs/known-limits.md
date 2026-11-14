@@ -2,11 +2,13 @@
 
 ## Supported projects on main
 
-Main supports Rust and TypeScript projects, and the import rules of Python projects (AD-450).
+Main supports Rust and TypeScript projects, and the import rules of Python (AD-450) and Dart (AD-468) projects.
 A Python project gets PASS or FAIL only for rules that read the import graph. A dynamic import,
 an import-system change and the other gaps of AD-450 give UNKNOWN for each rule of the run.
-Python rules that read symbols, calls or constructs stay UNKNOWN. Dart projects are not
-supported in this version; use archkeel 4.0.1. An unsupported profile gives exit 2 before collection.
+Python rules that read symbols, calls or constructs stay UNKNOWN. A Dart project gets PASS or FAIL
+only for rules that read the import graph; each gap of AD-454 and a part in another component than
+its library give UNKNOWN for each rule of the run. A contract with a symbol selector or an
+`interface_boundary` rule is a profile limit: each Dart rule is UNKNOWN (AD-468).
 
 **Open false-PASS class (Python, shared with 4.0.1).** A third-party function can import a module
 from a string, for example a plugin loader, a framework that reads a dotted path from settings, or
@@ -26,21 +28,28 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 - No release carries the core binary. A platform wheel of `main` carries it (`make native-wheel`),
   and a build without the core refuses. Run `main` from a source checkout after `make core`.
 - The core decides on Windows since AD-442, and the installed Windows wheel must equal the core of
-  the checkout. A release from `main` stays closed: the release guard (`NO_VERDICT` in
-  `tools/release_core.py`, `PUBLISH_NATIVE_WHEELS` in `release.yml`) still lists `win_amd64`.
-  A later change lifts it (AD-436).
+  the checkout. A release from `main` is open (AD-476): it publishes the sdist and the six platform
+  wheels that Full builds and runs. The Windows wheel writes no report file (see `report --output`).
 - `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give the typed refusal
   `not_on_this_development_line`, exit 2. Interactive reports, `architecture.json`, saved and focused
   reports, baselines, amendments and `--write-graph` are refused by option name.
 - `report --output PATH` writes one static HTML page or the JSON frame (`--format json`). It has no graph.
   The parent must exist. Safe file output needs POSIX directory handles; Windows refuses `--output` with exit 2 (`io_error`), writes no file and keeps the frame.
 - A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`. The run exits 2.
+- The core does not compare `declarations.uml` with the source facts. The UML target row is always
+  UNKNOWN (`no_receipt`), so the run exits 2. A conflict that 4.0.1 shows as FAIL is UNKNOWN (AD-470).
 - A collection gap makes each rule UNKNOWN whose reading it can change. A manifest edge that the core
   proved can give a `requires` FAIL beside such a gap.
 - `validate` and `report` read explicit `inside` mounts through the bounded core tree reader.
   Unsafe, linked, missing or invalid mounts stay UNKNOWN. Unproved tree rules keep their named gaps.
   A safe mount path that is absent, unreadable or not a contained regular file gives
   "mounts inside contracts that the shell has not sent". This names missing input, not an unported tree rule.
+- The core checks contract hygiene on `validate` and `report` (AD-466). It reads and binds each cited
+  provenance file. A file that it cannot read refuses the contract. A missing, repeated or stale marked
+  graph, and the reference, rationale, responsibility, closed-world and `public_api` defects of 4.0.1,
+  give a row that keeps the run from PASS. A cited path must be in normal form. A contract with an
+  `interface_boundary` rule, `declarations.compat` or `declarations.measurement_budgets`, and a
+  mounted contract with an `allowed_dependency` rule, get a named gap: these checks are not ported.
 - Source that nests deeper than the parse work limit is the typed refusal `core_error` with `parse_work_limit`.
 - A `collector_argv` in `archkeel.toml` is refused. The core starts only its own collectors.
 - The survey refuses a root with more than 1 GiB of file bytes or more than 100,000 entries, by name.

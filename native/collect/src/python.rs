@@ -38,10 +38,28 @@ pub(crate) fn resolver() -> Value {
 /// Read each input of the reply again from the snapshot. Each digest and the source digest must
 /// be the digest of the bytes there; else the reply describes other bytes and gives no verdict.
 pub(crate) fn bound(root: &Root, reply: &Reply) -> Result<(), String> {
-    let facts = &reply.facts;
-    let mut inputs: Vec<&Input> = facts.inputs.iter().collect();
-    inputs.sort_by(|left, right| left.path.cmp(&right.path));
     let mut source = Vec::new();
+    reread(root, reply, |path, bytes| {
+        source.extend_from_slice(path.as_bytes());
+        source.push(0);
+        source.extend_from_slice(bytes);
+        source.push(0);
+    })?;
+    if reply.facts.source.source_digest != sha256_hex(&source) {
+        return Err("the source digest differs from the inputs".to_owned());
+    }
+    Ok(())
+}
+
+/// Read each input of the reply again, in path order: its bytes must have its digest. `each`
+/// sees the path and the bytes of each input (AD-450, AD-468).
+pub(crate) fn reread(
+    root: &Root,
+    reply: &Reply,
+    mut each: impl FnMut(&str, &[u8]),
+) -> Result<(), String> {
+    let mut inputs: Vec<&Input> = reply.facts.inputs.iter().collect();
+    inputs.sort_by(|left, right| left.path.cmp(&right.path));
     for input in inputs {
         let bytes = match root.read(&input.path, MAX_INPUT_BYTES) {
             Ok(Some((_, bytes))) => bytes,
@@ -52,13 +70,7 @@ pub(crate) fn bound(root: &Root, reply: &Reply) -> Result<(), String> {
         if sha256_hex(&bytes) != input.digest {
             return Err(format!("the input {} differs from its digest", input.path));
         }
-        source.extend_from_slice(input.path.as_bytes());
-        source.push(0);
-        source.extend_from_slice(&bytes);
-        source.push(0);
-    }
-    if facts.source.source_digest != sha256_hex(&source) {
-        return Err("the source digest differs from the inputs".to_owned());
+        each(&input.path, &bytes);
     }
     Ok(())
 }

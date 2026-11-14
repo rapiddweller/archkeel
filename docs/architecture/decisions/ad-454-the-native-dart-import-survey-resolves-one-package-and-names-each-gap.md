@@ -62,9 +62,8 @@ feature list: the wiring change adds them. Symbols, calls, references and `show`
 not surveyed. Release build, worst case below the bounds: a dense source of 131,072 tokens takes
 0.4 s and 131 MiB peak. Grammar parity (#1031) is unchanged. The self-check pins new pair gaps.
 
-**Open for the wiring change.** A part has no file fact; its edges belong to its library. A part
-whose path is in the directory of another component must become a named ownership gap or a
-proven rule before any Dart PASS.
+**Closed by AD-468.** A part has no file fact; its edges belong to its library. A part whose path
+module and library have other components makes the scope of the run incomplete.
 
 **Tests.** `import_survey/*_tests.rs`: one test for each rule and gap; the fixture edge sets and
 gap names are pinned; a test checks this table. Cargo tests only, no shared dump binary (#1114).

@@ -66,6 +66,8 @@ COLLECT = "native.archkeel_collect"
 TS, RUST = "native.archkeel_typescript_collector", "native.archkeel_rust_collector"
 # AD-450: `BUILD` is the version and code digest text of the Python collector. It stays in collect.
 PY = "native.archkeel_python_collector"
+# AD-468: the Dart items return a `Reply`, a `Provenance` and text, all facts types.
+DART = "native.archkeel_dart_collector"
 COLLECT_TO_COLLECTORS = {
     ("native.archkeel_collect", "archkeel_typescript_collector::TEST_FEATURES", TS),
     ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-typescript-collector", TS),
@@ -79,6 +81,10 @@ COLLECT_TO_COLLECTORS = {
     ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-python-collector", PY),
     ("native.archkeel_collect.run", "archkeel_python_collector::BUILD", PY),
     ("native.archkeel_collect.run", "archkeel_python_collector::typed_reply", PY),
+    ("native.archkeel_collect", "archkeel_dart_collector::TEST_FEATURES", DART),
+    ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-dart-collector", DART),
+    ("native.archkeel_collect.run", "archkeel_dart_collector::provenance", DART),
+    ("native.archkeel_collect.run", "archkeel_dart_collector::typed_reply", DART),
 }
 
 

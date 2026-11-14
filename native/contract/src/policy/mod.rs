@@ -60,4 +60,5 @@ pub use change::{ChangeDirection, ChangeKind, ContractChange};
 pub use clip::{clip_inside, Clipped};
 pub use compare::{compare_trees, Comparison};
 pub use issue::{IssueKind, SourceProblem, TreeError, TreeIssue};
+pub use scope::provenance_paths;
 pub use tree::{assemble_tree, ContractTree, InsideMount, MAX_DEPTH};
