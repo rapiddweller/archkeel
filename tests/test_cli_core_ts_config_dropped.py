@@ -328,6 +328,90 @@ REVIEW: dict[str, tuple[Files, list[str]]] = {
 }
 
 
+MANIFEST = {"src/b/package.json": "{}", "src/b/node_modules/local/index.ts": IMPORT3}
+DECLARED = "import type { a } from '../../../../a/a';\nexport declare const l: typeof a;\n"
+
+
+def _reaches(specifier: str) -> str:
+    return f"import {{ hidden }} from '{specifier}';\nexport const t = hidden;\n"
+
+
+# The delta review of #1160 (cf1b14bbd): each form gave PASS there and gives a named gap now.
+REVIEW.update(
+    {
+        "R1-paths-through-parent-base": (
+            {
+                **MANIFEST,
+                "tsconfig.json": _options({"paths": {"@b/*": ["./src/b/*"]}}),
+                "src/b/t.ts": _reaches("@b/node_modules/local/index"),
+            },
+            ["src/b/node_modules/local/index.ts"],
+        ),
+        "R1-paths-through-parent-base-with-base-url": (
+            {
+                **MANIFEST,
+                "tsconfig.json": _options({"baseUrl": ".", "paths": {"@b/*": ["./src/b/*"]}}),
+                "src/b/t.ts": _reaches("@b/node_modules/local/index"),
+            },
+            ["src/b/node_modules/local/index.ts"],
+        ),
+        "R1-base-url-above-the-package": (
+            {
+                **MANIFEST,
+                "tsconfig.json": _options({"baseUrl": "src/b"}),
+                "src/b/t.ts": _reaches("node_modules/local/index"),
+            },
+            ["src/b/node_modules/local/index.ts"],
+        ),
+        "R1-base-url-at-the-root": (
+            {
+                **MANIFEST,
+                "tsconfig.json": _options({"baseUrl": "."}),
+                "src/b/t.ts": _reaches("src/b/node_modules/local/index"),
+            },
+            ["src/b/node_modules/local/index.ts"],
+        ),
+        "R2-type-roots-and-types": (
+            {
+                "src/b/package.json": "{}",
+                "src/b/node_modules/@types/local/index.d.ts": DECLARED,
+                "tsconfig.json": _options(
+                    {"typeRoots": ["src/b/node_modules/@types"], "types": ["local"]}
+                ),
+            },
+            ["src/b/node_modules/@types/local/index.d.ts"],
+        ),
+        "R2-type-roots-without-types": (
+            {
+                "src/b/package.json": "{}",
+                "src/b/node_modules/@types/local/index.d.ts": DECLARED,
+                "tsconfig.json": _options({"typeRoots": ["src/b/node_modules/@types"]}),
+            },
+            ["src/b/node_modules/@types/local/index.d.ts"],
+        ),
+        "R2-reference-types": (
+            {
+                **MANIFEST,
+                "src/b/node_modules/local/package.json": '{"types": "index.ts"}',
+                "src/b/t.ts": '/// <reference types="local" />\nexport const t = 2;\n',
+            },
+            ["src/b/node_modules/local/index.ts"],
+        ),
+        "R3-manifest-is-not-json": (
+            {**MANIFEST, "src/b/package.json": "{ not json"},
+            ["src/b/node_modules/local/index.ts"],
+        ),
+        "R3-manifest-is-a-directory": (
+            {
+                "src/b/package.json/keep.txt": "x\n",
+                "src/b/node_modules/local/index.ts": IMPORT3,
+            },
+            ["src/b/node_modules/local/index.ts"],
+        ),
+    }
+)
+
+
 @pytest.mark.parametrize("finding", sorted(REVIEW))
 def test_each_review_finding_is_a_named_gap_and_no_rule_passes(finding: str) -> None:
     files, dropped = REVIEW[finding]

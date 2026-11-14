@@ -29,9 +29,9 @@ pub(crate) struct Config {
     /// The snapshot-relative files that the config selects inside the requested roots, sorted.
     pub files: Vec<String>,
     pub partial: bool,
-    /// The files that the TSConfig selects under the roots in an installed-package directory: the
-    /// collector does not read them, so the source survey names them (AD-488).
-    pub installed: Vec<String>,
+    /// What the TSConfig reaches in an installed-package directory: each file that it selects
+    /// there, which the collector does not read, and what its type options reach (AD-488).
+    pub reach: Vec<String>,
     /// The script host and the vendored libraries that the project declares.
     pub script: crate::script_environment::ScriptEnvironment,
 }
@@ -109,7 +109,7 @@ pub(crate) fn load_config(snapshot: &mut Snapshot, tsconfig: &str, roots: &[Stri
         }
     }
     let mut chosen = BTreeSet::new();
-    let mut held = Vec::new();
+    let mut held = crate::unselected::type_reach(own, &layer.compiler);
     for rel in candidates {
         if is_outside(&rel) || !roots.iter().any(|root| within(root, &rel)) {
             continue;
@@ -128,7 +128,7 @@ pub(crate) fn load_config(snapshot: &mut Snapshot, tsconfig: &str, roots: &[Stri
         options,
         files: chosen.into_iter().collect(),
         partial: layer.partial || options_partial,
-        installed: held,
+        reach: held,
         script,
     }
 }

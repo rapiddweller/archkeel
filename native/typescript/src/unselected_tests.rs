@@ -130,3 +130,60 @@ fn a_file_root_counts_by_its_suffix() {
     assert_eq!(sources(&files, &["main.ts"], &[]), ["main.ts"]);
     assert!(sources(&files, &["main.css"], &[]).is_empty());
 }
+
+#[test]
+fn a_package_that_a_path_reaches_is_listed_and_its_neighbours_are_not() {
+    let files = [
+        ("src/package.json", "{}"),
+        ("src/node_modules/p/index.ts", ""),
+        ("src/node_modules/q/index.ts", ""),
+        ("src/node_modules/@s/r/index.d.ts", ""),
+        ("src/node_modules/@s/t/index.d.ts", ""),
+    ];
+    let reached = sources(&files, &["src"], &["src/node_modules/p/index.ts"]);
+    assert_eq!(reached, ["src/node_modules/p/index.ts"]);
+    let scoped = sources(&files, &["src"], &["src/node_modules/@s/r"]);
+    assert_eq!(scoped, ["src/node_modules/@s/r/index.d.ts"]);
+    let root = sources(&files, &["src"], &["src/node_modules/@s"]);
+    let both = [
+        "src/node_modules/@s/r/index.d.ts",
+        "src/node_modules/@s/t/index.d.ts",
+    ];
+    assert_eq!(root, both);
+}
+
+#[test]
+fn a_manifest_that_is_not_a_json_object_exempts_nothing() {
+    for manifest in ["{ no", "[]", "1"] {
+        let files = [
+            ("src/package.json", manifest),
+            ("src/node_modules/p/i.ts", ""),
+        ];
+        assert_eq!(sources(&files, &["src"], &[]), ["src/node_modules/p/i.ts"]);
+    }
+}
+
+#[test]
+fn the_type_options_and_reference_directives_name_what_they_reach() {
+    let candidates = super::type_candidates("src/b", "@s/x");
+    assert_eq!(
+        candidates,
+        [
+            "src/b/node_modules/@types/s__x",
+            "src/b/node_modules/@s/x",
+            "src/node_modules/@types/s__x",
+            "src/node_modules/@s/x",
+            "node_modules/@types/s__x",
+            "node_modules/@s/x",
+        ]
+    );
+    let options = serde_json::json!({"typeRoots": ["${configDir}/t"], "types": ["n"]});
+    let compiler = options.as_object().cloned().unwrap_or_default();
+    let reach = super::type_reach(".", &compiler);
+    assert_eq!(
+        reach,
+        ["t", "t/n", "node_modules/@types/n", "node_modules/n"]
+    );
+    let text = "// x\n/// <reference types=\"a\" />\n///<reference types='b'/>\nimport 'c';\n/// <reference types=\"d\" />\n";
+    assert_eq!(super::reference_types(text), ["a", "b"]);
+}

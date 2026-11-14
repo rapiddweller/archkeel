@@ -68,6 +68,8 @@ struct Collection<'a> {
     queue: Vec<String>,
     queued: HashSet<String>,
     gaps: BTreeMap<String, Record<GapFact>>,
+    /// What reaches an installed-package directory other than a `node_modules` search (AD-488).
+    reach: BTreeSet<String>,
     evidence: BTreeMap<String, Evidence>,
     files: Vec<FileFact>,
     imports: Vec<crate::collected::ImportRecord>,
@@ -130,7 +132,7 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         && resolver.blocked.is_none()
         && resolver.options.resolution() == Resolution::Bundler;
     let partial = config.partial;
-    let installed = config.installed;
+    let reach = config.reach;
     let script = config.script;
     let listed = config.files;
     let mut collection = Collection {
@@ -144,6 +146,7 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         queue: Vec::new(),
         queued: HashSet::new(),
         gaps: BTreeMap::new(),
+        reach: BTreeSet::new(),
         evidence: BTreeMap::new(),
         files: Vec::new(),
         imports: Vec::new(),
@@ -181,7 +184,8 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         collection.file(&rel);
         index += 1;
     }
-    collection.unselected(installed);
+    collection.reach.extend(reach);
+    collection.unselected();
     let (script, dependency_scope) = collection.script_dependencies(partial);
     let problems: Vec<String> = collection.snapshot.problems.iter().cloned().collect();
     for problem in problems {
@@ -250,26 +254,12 @@ impl Collection<'_> {
 
     /// AD-488: each project source under the scan roots that the collection did not read is a
     /// coverage gap. The TSConfig can drop a file that holds an import, so silence could pass a
-    /// rule. A test source that a 9.0.0 request removes is not a gap (AD-313). `installed` are the
-    /// files that the TSConfig selects in an installed-package directory. An alias that maps a
-    /// specifier into an installed-package directory reaches its code as source too.
-    fn unselected(&mut self, installed: Vec<String>) {
-        let mut used: BTreeSet<String> = installed.into_iter().collect();
-        for target in &self.targets {
-            if let Target::Local {
-                file,
-                runtime_file,
-                declaration_file,
-                ..
-            } = target
-            {
-                used.insert(file.clone());
-                used.extend(runtime_file.iter().chain(declaration_file).cloned());
-            }
-        }
-        used.extend(alias_bases(&self.resolver.options));
+    /// rule. A test source that a 9.0.0 request removes is not a gap (AD-313). `reach` makes a
+    /// package of an installed-package directory project source.
+    fn unselected(&mut self) {
         let roots = self.roots.clone();
-        for rel in crate::unselected::project_sources(&mut self.snapshot, &roots, &used) {
+        let reach = std::mem::take(&mut self.reach);
+        for rel in crate::unselected::project_sources(&mut self.snapshot, &roots, &reach) {
             if self.queued.contains(&rel) || self.excluded_test(&rel) {
                 continue;
             }
@@ -300,6 +290,14 @@ impl Collection<'_> {
         self.read += 1;
         self.snapshot.select(rel);
         let text = String::from_utf8_lossy(&content);
+        let directory = match archkeel_snapshot::paths::dirname(rel) {
+            "" => ".",
+            directory => directory,
+        };
+        for name in crate::unselected::reference_types(&text) {
+            let candidates = crate::unselected::type_candidates(directory, &name);
+            self.reach.extend(candidates);
+        }
         let evidence = self.file_evidence(rel, &text);
         self.files.push(FileFact::of(
             (rel, &module),
@@ -340,19 +338,6 @@ impl Collection<'_> {
         let (id, record) = Record::unknown_gap(reason, evidence, module, fact);
         self.gaps.entry(id).or_insert(record);
     }
-}
-
-/// The fixed directory of each `paths` target and of `baseUrl`: the places that an alias reaches.
-fn alias_bases(options: &crate::options::Options) -> Vec<String> {
-    let targets = options.paths.iter().flat_map(|(_, targets)| targets);
-    let mut bases: Vec<String> = targets
-        .map(|target| {
-            let fixed = target.split('*').next().unwrap_or_default();
-            join(&options.paths_base, fixed)
-        })
-        .collect();
-    bases.extend(options.base_url.iter().cloned());
-    bases
 }
 
 #[path = "import_record.rs"]
