@@ -55,29 +55,33 @@ pub(crate) fn scan(source: &mut Snapshot, manifests: &[String]) -> Outcome {
     for dir in directories {
         let manifest = join(&dir, "Cargo.toml");
         let own = manifests.contains(&manifest);
-        let files = std::iter::once((manifest, MANIFEST_KEYS.as_slice(), own)).chain(
-            CONFIGS
-                .iter()
-                .map(|name| (join(&dir, name), CONFIG_KEYS.as_slice(), false)),
-        );
-        for (rel, keys, reported) in files {
-            if !source.is_file(&rel) {
-                continue;
-            }
-            let read = read_text(source, &rel)
-                .and_then(|text| toml::parse(&text).map_err(|e| format!("Cannot read {rel}: {e}")));
-            match read {
-                Ok(table) => found.redirected |= has(&table, keys),
-                Err(reason) => {
-                    found.redirected = true;
-                    if !reported {
-                        found.unread.push((rel, reason));
-                    }
+        found.check(source, (&manifest, MANIFEST_KEYS.as_slice()), own);
+        for name in CONFIGS {
+            found.check(source, (&join(&dir, name), CONFIG_KEYS.as_slice()), false);
+        }
+    }
+    found
+}
+
+impl Outcome {
+    /// Read one file, if there is one: it redirects when it has a key of `keys`, and a file that
+    /// does not parse redirects as well. `reported`: the crate reader names the parse error.
+    fn check(&mut self, source: &mut Snapshot, (rel, keys): (&str, &[&str]), reported: bool) {
+        if !source.is_file(rel) {
+            return;
+        }
+        let read = read_text(source, rel)
+            .and_then(|text| toml::parse(&text).map_err(|e| format!("Cannot read {rel}: {e}")));
+        match read {
+            Ok(table) => self.redirected |= has(&table, keys),
+            Err(reason) => {
+                self.redirected = true;
+                if !reported {
+                    self.unread.push((rel.to_owned(), reason));
                 }
             }
         }
     }
-    found
 }
 
 #[cfg(test)]
