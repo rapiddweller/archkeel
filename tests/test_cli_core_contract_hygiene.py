@@ -59,9 +59,7 @@ def page(root: Path, old: str, new: str) -> None:
 
 
 GRAPH = "<!-- archkeel-component-graph -->"
-TARGET = (
-    "\n<!-- archkeel-target-graph -->\n```mermaid\nflowchart LR\n    app --> data\n```\n"
-)
+TARGET = "\n<!-- archkeel-target-graph -->\n```mermaid\nflowchart LR\n    app --> data\n```\n"
 
 
 def _forbid_observed(contract: dict[str, Any]) -> None:
@@ -85,11 +83,15 @@ def _conflict(contract: dict[str, Any]) -> None:
     forbidden = rule(contract, "DOMAIN-NO-DATA")
     allowed = {key: forbidden[key] for key in ("rationale", "provenance", "decided_by")}
     allowed |= {"id": "DOMAIN-DATA", "kind": "allowed_dependency"}
-    contract["rules"].append(allowed | {"source": forbidden["source"], "target": forbidden["target"]})
+    contract["rules"].append(
+        allowed | {"source": forbidden["source"], "target": forbidden["target"]}
+    )
 
 
 def _interface(contract: dict[str, Any]) -> None:
-    base = {key: rule(contract, "REQUIRES")[key] for key in ("rationale", "provenance", "decided_by")}
+    base = {
+        key: rule(contract, "REQUIRES")[key] for key in ("rationale", "provenance", "decided_by")
+    }
     contract["rules"].append(base | {"id": "FACADES", "kind": "interface_boundary"})
 
 
@@ -129,7 +131,9 @@ PLANTS: dict[str, tuple[str, Callable[[Path], None]]] = {
     ),
     "package-unscanned": (
         "reference.package_unscanned",
-        lambda root: edit(root, lambda c: component(c, "data")["packages"].append("shop.src.ghost")),
+        lambda root: edit(
+            root, lambda c: component(c, "data")["packages"].append("shop.src.ghost")
+        ),
     ),
     "observed-forbidden": (
         "closed_world.observed_forbidden",
