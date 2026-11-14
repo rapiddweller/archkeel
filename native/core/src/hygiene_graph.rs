@@ -6,10 +6,10 @@
 //!
 //! Reference engine: `check/validation/graphs.py` `graph_diagnostics`. The documents must hold
 //! exactly one block after the component marker, and at most one after the target marker
-//! (`graph.count`). The edges of the component block must be the observed component edges, and the
-//! edges of the target block the permitted component pairs (`graph.drift`). A block with a line
-//! that is not an edge, a node, a declaration or a comment, or with an ambiguous node label, is a
-//! drift too. The text is read with universal newlines, as the reference engine reads it.
+//! (`graph.count`). The edges of the component block must be the observed component edges, and
+//! the edges of the target block the permitted component pairs (`graph.drift`). A block with a
+//! line that is not an edge, a node, a declaration or a comment, or with an ambiguous node label,
+//! is a drift too. The text is read with universal newlines, as the reference engine reads it.
 
 use std::collections::{BTreeMap, BTreeSet};
 

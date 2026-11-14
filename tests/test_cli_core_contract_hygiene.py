@@ -199,7 +199,8 @@ def test_each_hygiene_defect_keeps_the_run_from_pass(
             assert code_name in json.dumps(result["frame"]["unsupported"]), result
     if name in {"missing-page", "outside-link"}:
         # A cited file that the core cannot read refuses the whole contract (exit 2).
-        assert code == 2 and isinstance(result["frame"]["unsupported"]["rules"], str)
+        refusal = result["frame"]["unsupported"]["rules"]
+        assert code == 2 and isinstance(refusal, str) and "cannot read" in refusal, refusal
 
 
 def test_a_page_change_after_the_run_refuses_the_replay(

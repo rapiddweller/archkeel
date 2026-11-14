@@ -29,8 +29,8 @@
 provenance file or a stale marked graph gave exit 2 in 4.0.1 and PASS with exit 0 on `main`.
 The frame did not bind the provenance documents, so a document change could not refuse a replay.
 
-**Rejected.** A refusal for each run with a marked graph: release 4.0.1 requires one component graph,
-so no project could pass. A gap for the whole family: the same effect. Checks in the shell: the
+**Rejected.** A refusal for each run with a marked graph: release 4.0.1 requires one component
+graph, so no project could pass. A gap for the whole family: the same effect. Checks in the shell: the
 shell decides nothing (AD-432). A JSON walk of the raw contract bytes: the namespace walk reads the
 canonical form of the typed contract, so the contract crate stays the only reader.
 
