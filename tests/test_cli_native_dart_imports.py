@@ -22,6 +22,10 @@ BASE = {
     "lib/data/repo.dart": "import 'package:shop/domain/model.dart';\n",
 }
 RULES = ["FORBID", "ASSIGN", "CYCLES", "REQUIRES"]
+GRAPH = (
+    "# Provenance\n\n<!-- archkeel-component-graph -->\n```mermaid\nflowchart LR\n"
+    '    n_0["domain"]\n    n_1["data"]\n    n_1 --> n_0\n```\n'
+)
 
 
 def contract_rules() -> list[dict[str, Any]]:
@@ -58,6 +62,8 @@ def project(root: Path, files: dict[str, str | bytes], *, extra: str = "") -> Pa
         "rules": contract_rules(),
     }
     (root / "architecture-contract.json").write_text(json.dumps(contract))
+    # AD-466: the core binds each provenance file of the contract and its drawn graph.
+    (root / "p").write_text(GRAPH)
     _commit(root)
     return root
 
