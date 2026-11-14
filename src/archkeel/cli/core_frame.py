@@ -359,7 +359,13 @@ def resolve_root(path: Path) -> Path:
         if len(drive) != 2 or not drive[0].isascii() or not drive[0].isalpha() or drive[1] != ":":
             raise ValueError("the root is not a supported local disk path")
     resolved = path.resolve()
-    return Path(str(resolved).removeprefix("\\\\?\\")) if sys.platform == "win32" else resolved
+    if (
+        sys.platform == "win32"
+        and resolved.drive.startswith("\\\\?\\")
+        and len(resolved.drive) == 6
+    ):
+        return Path(str(resolved).removeprefix("\\\\?\\"))
+    return resolved
 
 
 def _bind_request(frame: Mapping[str, object], request: Mapping[str, object], derived: str) -> None:

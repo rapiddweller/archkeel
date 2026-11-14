@@ -69,7 +69,8 @@ def test_windows_shell_resolves_disk_spellings(release_core: Path, tmp_path: Pat
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows path prefixes")
 @pytest.mark.parametrize(
-    "text", [r"\\server\share", r"\\?\UNC\server\share", "\\\\.\\" + "C:" + "\\", "\\\\?\\Volume{abc}\\"]
+    "text",
+    [r"\\server\share", r"\\?\UNC\server\share", "\\\\.\\" + "C:" + "\\", "\\\\?\\Volume{abc}\\"],
 )
 def test_windows_network_and_device_roots_refuse(release_core: Path, text: str) -> None:
     done = command(release_core, Path(text), "--json")
