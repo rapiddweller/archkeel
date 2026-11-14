@@ -8,6 +8,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | Decision | Title |
 |---|---|
 | AD-464 | [Report topology is an opt-in, bounded display of the same run](ad-464-report-topology-is-an-opt-in-bounded-display-of-the-same-run.md) |
+| AD-462 | [Fixture results are pinned and the nightly run publishes a gallery](ad-462-fixture-results-are-pinned-and-the-nightly-run-publishes-a-gallery.md) |
 | AD-440 | [Report files present the same core ruling](ad-440-report-files-present-the-same-core-ruling.md) |
 | AD-438 | [The default scan reads and binds every inside contract](ad-438-the-default-scan-reads-and-binds-every-inside-contract.md) |
 | AD-434 | [Named type publication needs a direct witness or one same-name hop](ad-434-named-type-publication-needs-a-direct-witness-or-one-same-name-hop.md) |
