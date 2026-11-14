@@ -169,6 +169,22 @@ def plants() -> list[Plant]:
             why="an alias with two targets is not a proven route",
         ),
         p(
+            "alias of a private name",
+            "from app.lib import f\n",
+            ("app.lib.impl",),
+            {LIB: "from app.lib.impl import _g as f\n", IMPL: "def _g(): pass\n"},
+            four="FAIL",
+            core=("FAIL",),
+        ),
+        p(
+            "binding redefined after the re-export",
+            "from app.lib import f\n",
+            ("app.lib.impl",),
+            {LIB: REEXPORTS + "def f(): pass\n", IMPL: DEFINES},
+            four="UNKNOWN",
+            core=("UNKNOWN",),
+        ),
+        p(
             "type-checking import of a hidden name",
             "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from app.lib.impl import f\n",
             ("app.lib",),
