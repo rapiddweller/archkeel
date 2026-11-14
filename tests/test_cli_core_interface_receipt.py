@@ -14,8 +14,16 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from interface_receipt_plants import EXPECTED, PLANTS
 from test_cli_core_only_scan import command
+
+
+# The plants of the proof review of #1155: each tree maps a path to its text, and `expected`
+# gives the rule and the row of release 4.0.1 on it.
+DATA = json.loads(
+    (Path(__file__).parent / "golden/mounted-receipt/interface-plants.json").read_text()
+)
+PLANTS: dict[str, dict[str, str]] = DATA["plants"]
+EXPECTED: dict[str, list[str]] = DATA["expected"]
 
 
 def tree(root: Path, files: dict[str, str]) -> Path:
