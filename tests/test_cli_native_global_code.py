@@ -68,6 +68,7 @@ REVIEW = {
     "d1-view-eval": "e.view.eval(t);",
     "d1-source-function": "e.source.Function(t)();",
     "d1-target-eval": "e.currentTarget.eval(t);",
+    "d1-target-escape": "g(e.currentTarget);",
     "d1-new-function": "new x.Function(t);",
     "d1-eval-call": "x.eval.call(null, t);",
     "d1-function-alias": "declare const Level: any;\nconst F = Level.Function;\nF(t)();",
