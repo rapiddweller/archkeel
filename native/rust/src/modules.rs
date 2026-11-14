@@ -413,13 +413,12 @@ impl<'a> Index<'a> {
             return Some(self.follow(&lib.module, 0, &names[1..]));
         }
         let none = std::collections::BTreeSet::new();
-        // A glob of an inline module reaches only its module and below. A glob whose path starts
-        // with the name cannot bring it in (`use e::*;` for `e`, `use me::b::*;` for the alias).
+        // A glob of an inline module reaches only its module and below; `use me::b::*` is no alias.
         let reaching: Vec<&&Reference> = frame
             .globs
             .iter()
             .filter(|glob| inside(lexical_at, &lexical(frame, &glob.scope)))
-            .filter(|glob| glob.names.first() != Some(first))
+            .filter(|glob| !(aliased && glob.names.first() == Some(first)))
             .collect();
         let alias = || self.prelude_edge(frame, names);
         let crate_name = !aliased && classify(first, frame.krate, &none, false).is_some();
@@ -442,7 +441,10 @@ impl<'a> Index<'a> {
 }
 
 impl Index<'_> {
-    /// What `names` names when the glob `use` brings in its first name, or `None`.
+    /// What `names` names when the glob `use` brings in its first name, or `None`. The glob is
+    /// read only when the resolver of `use` paths takes its whole path to a module of the crate,
+    /// which no macro call at module level may fill, or names an external crate. Any other glob
+    /// may bring in the name, so the path is UNKNOWN.
     fn through_glob(
         &self,
         frame: &Frame<'_>,
@@ -451,45 +453,40 @@ impl Index<'_> {
         hops: usize,
     ) -> Outcome {
         let at = lexical(frame, &glob.scope);
-        // An empty last name lets a one-name glob path (`use yy::*;`) reach its binding.
+        let unknown =
+            |why: &str| Outcome::Unknown(format!("A glob import may bring in {}: {why}", names[0]));
+        // An empty last name lets the path end at a module (`use yy::*;`, `use crate::*;`).
         let mut target = glob.names.clone();
         target.push(String::new());
-        // The path of a glob may start with a name that another glob brings in.
-        match self.path(frame, &target, glob.absolute, (&at, true), hops + 1) {
-            Outcome::Unknown(reason) => {
-                Outcome::Unknown(format!("A glob import may bring in {}: {reason}", names[0]))
-            }
+        match self.path(frame, &target, glob.absolute, (&at, false), hops + 1) {
+            Outcome::Unknown(reason) => unknown(&reason),
             Outcome::Edge(edge) if edge.symbol.as_deref().is_none_or(str::is_empty) => {
                 let Some(target) = self.frames.get(edge.module.as_str()) else {
-                    return Outcome::None;
+                    return unknown("the module of the glob is not in the walk");
                 };
                 match self.bare(target, names, (edge.lexical.as_str(), true), hops + 1, true) {
-                    // A macro call of the module may define the name (`mk!();` for `pub use`).
-                    Outcome::None if self.filled(target) => {
-                        let reason = format!(
-                            "A glob may bring in {} from a module that a macro call fills",
-                            names[0]
-                        );
-                        Outcome::Unknown(reason)
+                    Outcome::None if filled::may_fill(target.module) => {
+                        unknown("a macro call at module level of its module may define it")
                     }
                     found => found,
                 }
             }
-            _ => Outcome::None,
+            Outcome::None if self.external(frame, glob) => Outcome::None,
+            _ => unknown("its path names no module of the crate"),
         }
     }
 
-    /// Whether a macro call at module level of `target` may fill it (`filled.rs`).
-    fn filled(&self, target: &Frame<'_>) -> bool {
-        let reach = |path: &[String]| match self.follow(target.root, 0, path) {
-            Outcome::Edge(edge) if edge.symbol.is_none() => Some((edge.module, edge.lexical)),
-            _ => None,
+    /// Whether the path of `glob` starts at a crate that the manifest or the sysroot names, and
+    /// the file declares no name that hides it.
+    fn external(&self, frame: &Frame<'_>, glob: &Reference) -> bool {
+        let Some(first) = glob.names.first() else {
+            return false;
         };
-        filled::may_fill(
-            target.module,
-            &reach,
-            self.frames.values().map(|f| f.module),
-        )
+        let none = std::collections::BTreeSet::new();
+        let declared = frame.module.scan.counts.contains_key(first);
+        !declared
+            && !self.aliases.in_prelude(frame.root, first)
+            && classify(first, frame.krate, &none, glob.absolute).is_some()
     }
 }
 

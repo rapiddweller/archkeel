@@ -3,11 +3,10 @@
 # SPDX-License-Identifier: MIT
 """#880: a glob over a module that a macro call may fill, and a cfg alias of the own crate.
 
-Consumer: `archkeel validate`. Second review of #1173. The scan reads a module-level macro call as
-safe (no hidden `pub use`) only when no other macro of its name can apply: one `macro_rules!` of
-that name in the crate, no `use`, glob or `#[macro_use] extern crate` that can bring another one,
-and a plain name or a `crate::` path to a module that binds the name by `use m;`. In each plant
-below, `cargo check` sees the edge from `x` to `b`; the rule that forbids it may never PASS.
+Consumer: `archkeel validate`. Reviews 2 and 3 of #1173. A glob is read only when the resolver of
+`use` paths takes its whole path to a module of the crate that has no module-level macro call,
+or to an external crate; any other glob that may bring in a name makes the path UNKNOWN. In each
+plant below, `cargo check` sees the edge from `x` to `b`; the rule that forbids it may never PASS.
 """
 
 from __future__ import annotations
@@ -23,7 +22,8 @@ DEP = {
     "vendor/dep/Cargo.toml": '[package]\nname = "dep"\nversion = "0.0.0"\nedition = "2021"\n',
     "vendor/dep/src/lib.rs": "#[macro_export]\nmacro_rules! mk { () => { pub use crate::b; }; }\n",
 }
-LIB = "pub mod b;\npub mod m;\npub mod w;\npub mod x;\npub mod y;\n"
+LIB = "pub mod b;\npub mod m;\npub mod w;\npub mod x;\npub mod y;\npub mod z;\n"
+GEN = "macro_rules! gen { () => { macro_rules! mk { () => { pub use crate::b; }; } }; }\ngen!();\n"
 FILLS = "macro_rules! mk { () => { pub use crate::b; }; }\n"
 HARMLESS = "macro_rules! mk { () => { pub const K: u8 = 1; }; }\nmk!();\n"
 GLOB_X = "use crate::y::*;\npub fn f() { b::g(); }\n"
@@ -71,13 +71,49 @@ CASES = {
         {"w.rs": HARMLESS, "y.rs": FILLS + "mk!();\n"},
         HELD,
     ),
+    "R3 a macro that another macro defines, and a harmless one of its name": (
+        {"lib.rs": GEN + LIB, "y.rs": "mk!();\n", "w.rs": HARMLESS},
+        HELD,
+    ),
+    "R3 a crate path to a macro that another macro defines": (
+        {
+            "lib.rs": GEN + LIB,
+            "z.rs": "pub(crate) use mk;\n",
+            "y.rs": "crate::z::mk!();\n",
+            "w.rs": HARMLESS,
+        },
+        HELD,
+    ),
+    "R3 a glob through self and a renamed module": (
+        {
+            "y.rs": "pub use crate::b;\n",
+            "x.rs": "use crate::y as yy;\nuse self::yy::*;\npub fn f() { b::g(); }\n",
+        },
+        HELD,
+    ),
+    "R3 a glob through a renamed module and a re-export": (
+        {
+            "y.rs": "pub mod q { pub use crate::z as r; }\n",
+            "z.rs": "pub use crate::b;\n",
+            "x.rs": "use crate::y::q as qq;\nuse qq::r::*;\npub fn f() { b::g(); }\n",
+        },
+        HELD,
+    ),
+    "R3 a glob through a re-export of an inline module": (
+        {
+            "y.rs": "pub use crate::b;\n",
+            "x.rs": "mod inner { pub use crate::y as yy; }\nuse inner::yy::*;\n"
+            "pub fn f() { b::g(); }\n",
+        },
+        HELD,
+    ),
     "B4 a one-name glob through a name that another glob brings in": (
         {
             "w.rs": "pub use crate::y as m2;\n",
             "y.rs": "pub use crate::b;\n",
             "x.rs": "use crate::w::*;\nuse m2::*;\npub fn f() { b::g(); }\n",
         },
-        FAIL,
+        HELD,
     ),
     "B4 a one-name glob to an inline module of the file": (
         {
@@ -103,7 +139,15 @@ def run(
     files: dict[str, str],
     rules: tuple[dict[str, object], ...],
 ) -> dict[str, object]:
-    base = {"lib.rs": LIB, "b.rs": B, "m.rs": "", "w.rs": "", "x.rs": GLOB_X, "y.rs": ""}
+    base = {
+        "lib.rs": LIB,
+        "b.rs": B,
+        "m.rs": "",
+        "w.rs": "",
+        "x.rs": GLOB_X,
+        "y.rs": "",
+        "z.rs": "",
+    }
     sources = {SRC + name: text for name, text in {**base, **files}.items()}
     return validate(repository(tmp_path, core_binary, {**DEP, **sources}, rules=rules), capsys)
 
@@ -122,10 +166,10 @@ def test_a_glob_over_a_module_that_a_macro_may_fill_never_passes(
     assert statuses(result).get("NO-X-TO-B") in expected, claims(result)
 
 
-def test_a_crate_path_to_the_one_use_of_a_harmless_crate_macro_keeps_the_verdict(
+def test_any_module_level_macro_call_of_a_glob_target_is_a_named_gap(
     tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # The pattern of `crate::syntax::value!` in the Dart collector: no gap, no edge.
+    # L-189: no macro call is read as safe, also one that defines only a type.
     types = "macro_rules! mk { () => { pub struct T; impl T { pub fn make() {} } }; }\n"
     files = {
         "m.rs": types + "pub(crate) use mk;\n",
@@ -135,8 +179,8 @@ def test_a_crate_path_to_the_one_use_of_a_harmless_crate_macro_keeps_the_verdict
     rules = (*CRATE_RULES, forbid("native.app.x", "native.app.b"))
     result = run(tmp_path, core_binary, capsys, files, rules)
 
-    assert statuses(result).get("NO-X-TO-B") == "PASS", claims(result)
-    assert result["status"] == "PASS", claims(result)
+    assert statuses(result).get("NO-X-TO-B") == "UNKNOWN", claims(result)
+    assert "a macro call at module level of its module may define it" in str(claims(result))
 
 
 def test_a_cfg_alias_named_like_a_dependency_is_a_named_gap(

@@ -159,10 +159,10 @@ def test_a_declaration_of_the_scope_that_holds_the_path_still_resolves_without_a
     assert result["status"] == "PASS", claims(result)
 
 
-def test_a_glob_over_a_macro_that_defines_only_a_type_keeps_its_verdict(
+def test_a_glob_over_a_macro_that_defines_only_a_type_is_unknown(
     tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # The macro declares no module name or `use`, so the glob cannot bring in a module through it.
+    # L-189: the scan reads no macro body, so any module-level call may define the name.
     types = "macro_rules! mk { () => { pub struct T; impl T { pub fn make() {} } }; }\nmk!();\n"
     sources = {
         SRC + "lib.rs": WITH_Y,
@@ -174,7 +174,7 @@ def test_a_glob_over_a_macro_that_defines_only_a_type_keeps_its_verdict(
     rules = (*CRATE_RULES, forbid("native.app.x", "native.app.b"))
     result = validate(repository(tmp_path, core_binary, sources, rules=rules), capsys)
 
-    assert result["status"] == "PASS", claims(result)
+    assert statuses(result).get("NO-X-TO-B") == "UNKNOWN", claims(result)
 
 
 def test_the_alias_item_of_the_root_is_no_shadow_in_an_inline_module_of_the_root(

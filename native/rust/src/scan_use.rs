@@ -100,8 +100,6 @@ impl Walker<'_> {
         if node.ident != "self" {
             let site = self.site(span);
             self.out.extern_crates.push((plain(&node.ident), site));
-            let macro_use = node.attrs.iter().any(|a| a.path().is_ident("macro_use"));
-            self.out.macro_use_crate |= macro_use;
         }
         // A `cfg` may remove the alias, so a path that starts with its name may name the alias
         // or a crate of that name: the scan cannot say which.

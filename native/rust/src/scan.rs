@@ -110,8 +110,6 @@ pub(crate) struct Scan {
     pub definitions: Vec<Definition>,
     /// The crate of each `extern crate name;` other than `self`, and its place.
     pub extern_crates: Vec<(String, Site)>,
-    /// A `#[macro_use] extern crate` brings in macros whose names the scan does not know.
-    pub macro_use_crate: bool,
     /// Each `extern crate self as name;` outside a function body: its inline modules and `name`.
     pub self_aliases: Vec<(Vec<String>, String)>,
     /// The inherent `impl` blocks at any depth, and the method calls (#953).
@@ -476,7 +474,7 @@ mod attributes;
 /// The read of `macro_rules!` definitions and macro calls: what their bodies hold.
 #[path = "scan_macros.rs"]
 mod macros;
-pub(crate) use macros::{MacroCall, MacroDef, KNOWN_MACROS};
+pub(crate) use macros::{MacroCall, MacroDef};
 
 /// The second count of the nodes that must end as an outcome (`edges_extracted.rs`).
 #[path = "scan_extracted.rs"]
