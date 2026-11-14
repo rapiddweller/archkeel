@@ -220,7 +220,8 @@
         "native.archkeel_report"
       ],
       "responsibilities": [
-        "Own the report v2 payload: the typed Report frame, its canonical bytes, the status rule and the check that refuses a frame whose status has no explaining row (AD-361, AD-371)."
+        "Own the report v2 payload: the typed Report frame, its canonical bytes, the status rule and the check that refuses a frame whose status has no explaining row (AD-361, AD-371).",
+        "Render the static HTML presentation of the same ruling in engine_frame.html (AD-440)."
       ],
       "forbidden_responsibilities": [
         "Reading a file, deciding a verdict, naming a language, and writing a PASS that no Decision of the model holds."

@@ -30,6 +30,7 @@ SHELL = frozenset(
         "cli/core_frame.py",
         "cli/core_json.py",
         "cli/core_only.py",
+        "cli/core_output.py",
         "cli/native_scan.py",
         "cli/skill.py",
     )

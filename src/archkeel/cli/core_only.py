@@ -33,6 +33,7 @@ from .core_frame import (
 )
 from .core_frame import CoreCommand as Command
 from .core_json import RequestMismatch
+from .core_output import write_output
 from .native_scan import SCAN_PROTOCOL, exchange, identity
 
 # Accepted and ignored: the core is the only path, so the switch selects nothing.
@@ -98,6 +99,8 @@ options:
   --config PATH   Configuration file below the root. Default: archkeel.toml.
   --json          Print JSON also in a terminal.
   --text          Print text also without a terminal.
+  --output PATH   Report only: write one file. No file is written by default.
+  --format FORMAT Report only, with --output: html (default) or json. No sidecar files.
   --core-only     Accepted and ignored: the core is the only path.
   --version       Print the version.
 """
@@ -123,6 +126,8 @@ class Options(argparse.Namespace):
     core_only: bool = False
     action: str = ""
     agent: str = ""
+    output: Path | None = None
+    format: str = "html"
 
 
 class Parser(argparse.ArgumentParser):
@@ -155,6 +160,17 @@ def _command(argv: Sequence[str]) -> Command:
     return command
 
 
+def _output_path(value: str) -> Path:
+    if value == "-":
+        raise argparse.ArgumentTypeError("standard output is not a file target; omit --output")
+    path = Path(value)
+    if not value or not path.name:
+        raise argparse.ArgumentTypeError(
+            "--output must name a file, not an empty path or directory"
+        )
+    return path
+
+
 def parse(argv: Sequence[str]) -> Options:
     """The options of a served command. Each other argument is refused by name."""
     command = _command(argv)
@@ -169,6 +185,9 @@ def parse(argv: Sequence[str]) -> Options:
     else:
         parser.add_argument("--core-only", action="store_true")
         parser.add_argument("--config", default="archkeel.toml")
+        if command is Command.REPORT:
+            parser.add_argument("--output", type=_output_path)
+            parser.add_argument("--format", choices=["html", "json"], default="html")
     options, extra = parser.parse_known_args(argv[1:], Options(command=command))
     for argument in extra:
         if (name := argument.split("=", 1)[0]) in REMOVED_OPTIONS:
@@ -176,6 +195,8 @@ def parse(argv: Sequence[str]) -> Options:
             raise NotOnThisLine(f"{command} {name} is {_LINE}; {remedy} (#880)")
     if extra:
         raise ValueError(f"unknown arguments: {' '.join(extra)}; run archkeel --help")
+    if any(arg == "--format" or arg.startswith("--format=") for arg in argv) and not options.output:
+        raise ValueError("--format needs --output; no report file was written")
     return options
 
 
@@ -201,7 +222,10 @@ def run(argv: Sequence[str]) -> int:
             return _install_skill(options, as_json)
         return _decide(options, as_json)
     except (CoreError, OSError, ValueError) as error:
-        return _refused(_refusal_kind(error), str(error), as_json)
+        message = str(error)
+        if any(arg == "--output" or arg.startswith("--output=") for arg in argv):
+            message += "; no report file was written"
+        return _refused(_refusal_kind(error), message, as_json)
     except Exception as error:
         traceback.print_exc()
         return _refused(RefusalKind.INTERNAL_ERROR, f"{type(error).__name__}: {error}", as_json)
@@ -253,17 +277,22 @@ def _decide(options: Options, as_json: bool) -> int:
     }
     if (claim := identity(root)) is not None:
         request["git_head"], request["dirty"] = claim
+    if options.output is not None and options.format == "html":
+        request["html"] = True
     binary = locate_core()
     started_ns = time_ns()
     stdout, code = exchange(str(binary), "scan", json.dumps(request).encode())
     frame = read_frame(
         stdout, code, scan=True, require_protocol=True, request=request, started_ns=started_ns
     )
+    document = json.loads(stdout)
+    document.pop("html", None)
+    exit_code = EXIT_CODES[frame.status]
     result: dict[str, object] = {
         "command": options.command,
         "status": frame.status,
-        "exit_code": EXIT_CODES[frame.status],
-        "frame": json.loads(stdout),
+        "exit_code": exit_code,
+        "frame": document,
         "core": {"path": str(binary), "engine": frame.engine, "code_digest": frame.code_digest},
         "gaps": [
             {"kind": gap.kind, "subject": gap.subject, "reason": gap.reason} for gap in frame.gaps
@@ -272,6 +301,16 @@ def _decide(options: Options, as_json: bool) -> int:
     collected = next((gap for gap in frame.gaps if gap.kind is GapKind.COLLECT), None)
     if collected is not None:
         result["refusal"] = {"kind": RefusalKind.COLLECTION_REFUSED, "message": collected.reason}
+    file_error: str | None = None
+    try:
+        _write_report(options, frame, stdout)
+    except OSError as error:
+        file_error = (
+            f"cannot write report file {options.output}: {error}; no report file was written"
+        )
+        exit_code = 2
+        result["exit_code"] = exit_code
+        result["refusal"] = {"kind": RefusalKind.IO_ERROR, "message": file_error}
     if as_json:
         print(json.dumps(result))
     else:
@@ -280,7 +319,21 @@ def _decide(options: Options, as_json: bool) -> int:
         else:
             _refused(RefusalKind.COLLECTION_REFUSED, collected.reason, False)
         print(f"Core: {binary}; engine: {frame.engine}; code digest: {frame.code_digest}")
-    return EXIT_CODES[frame.status]
+        if file_error is not None:
+            _refused(RefusalKind.IO_ERROR, file_error, False)
+    return exit_code
+
+
+def _write_report(options: Options, frame: CoreFrame, stdout: bytes) -> None:
+    if options.output is None:
+        return
+    if options.format == "html":
+        if frame.html is None:
+            raise CoreError("the core frame lacks the requested HTML")
+        payload = frame.html.encode("utf-8")
+    else:
+        payload = stdout
+    write_output(options.output, payload)
 
 
 def _refused(kind: RefusalKind, message: str, as_json: bool) -> int:

@@ -133,7 +133,7 @@ pub(super) fn locations(
 }
 
 /// A refused collection has no contract input. Never parse empty bytes as a contract.
-pub(crate) fn refused_scan(reason: &str) -> Result<Answered, String> {
+pub(crate) fn refused_scan(reason: &str, html: bool) -> Result<Answered, String> {
     let missing = Reason::MissingInput(Input::Reply);
     let ruling = archkeel_report::rule(
         Err(&missing),
@@ -160,6 +160,7 @@ pub(crate) fn refused_scan(reason: &str) -> Result<Answered, String> {
         },
     };
     let frame = ruling
+        .with_html(html)
         .frame(&parts)
         .map_err(|error| error.to_string())?
         .into_bytes();

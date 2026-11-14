@@ -12,6 +12,9 @@
 use serde::Serialize;
 use serde_json::{Map, Value};
 
+#[path = "html.rs"]
+mod html;
+
 /// The canonical bytes of one engine frame. The field is private: only `Ruling::frame` makes one.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EngineFrame {
@@ -66,9 +69,13 @@ pub(crate) fn write<P: Serialize>(
     ruling: Result<Value, serde_json::Error>,
     reasons: Result<Value, serde_json::Error>,
     parts: &P,
+    html: bool,
 ) -> Result<EngineFrame, FrameError> {
     let ruling = object(ruling)?;
     let mut parts = object(serde_json::to_value(parts))?;
+    if parts.contains_key("html") {
+        return Err(FrameError::RulingKey("html".to_owned()));
+    }
     if let Some(key) = parts.keys().find(|key| ruling.contains_key(*key)) {
         return Err(FrameError::RulingKey(key.clone()));
     }
@@ -90,6 +97,11 @@ pub(crate) fn write<P: Serialize>(
     frame.extend(ruling);
     frame.extend(parts);
     frame.insert("unsupported".to_owned(), Value::Object(merged));
+    if html {
+        let rendered =
+            html::render(&frame).map_err(|error| FrameError::Encode(error.to_string()))?;
+        frame.insert("html".to_owned(), rendered);
+    }
     let bytes = serde_json::to_vec(&Value::Object(frame))
         .map_err(|error| FrameError::Encode(error.to_string()))?;
     Ok(EngineFrame { bytes })

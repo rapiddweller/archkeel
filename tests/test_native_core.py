@@ -73,7 +73,7 @@ def test_a_repeated_section_name_is_refused_before_any_row_is_built(
     assert "repeated section cycles" in done.stderr
 
 
-def test_the_shell_names_the_core_in_four_modules_and_no_wheel_carries_it() -> None:
+def test_the_shell_names_the_core_in_five_modules_and_no_wheel_carries_it() -> None:
     """AD-432: the entry, its frame reader, its scan request and the binary lookup name the core.
     No wheel carries the core yet, so an installed package refuses with `core_binary_not_found`."""
     names = {
@@ -84,6 +84,7 @@ def test_the_shell_names_the_core_in_four_modules_and_no_wheel_carries_it() -> N
     assert names == {
         "src/archkeel/cli/core_only.py",
         "src/archkeel/cli/core_frame.py",
+        "src/archkeel/cli/core_output.py",
         "src/archkeel/cli/native_scan.py",
         "src/archkeel/cli/core_binary.py",
     }
