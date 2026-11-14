@@ -5,10 +5,12 @@
 // Consumer: the script dependencies. The expected sets are what `config.standard_globals` gives
 // (`tests/test_collector_native_script_deps.py` compares them on options read from real configs).
 
-use serde_json::json;
+use std::collections::HashSet;
 
-use super::*;
-use crate::options::{ModuleKind, Options};
+use serde_json::{json, Map};
+
+use super::{default_target, libraries, standard_globals};
+use crate::options::{ModuleKind, Options, Target};
 
 fn globals(options: &Options) -> HashSet<String> {
     standard_globals(options)

@@ -11,7 +11,7 @@ use proc_macro2::Span;
 use syn::{ItemMacro, Macro};
 
 use super::Walker;
-use crate::definitions::MethodCall;
+use crate::definitions::{Holder, MethodCall};
 use crate::net;
 use crate::plant;
 use crate::site::Site;
@@ -61,6 +61,9 @@ pub(crate) struct MacroCall {
     pub name: String,
     pub site: Site,
     pub placed: bool,
+    /// The call is at module level: it may define a name of the module, which a glob `use` of
+    /// the module then brings in, so such a glob is UNKNOWN (`modules/filled.rs`).
+    pub fills: bool,
 }
 
 /// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path
@@ -193,10 +196,12 @@ impl Walker<'_> {
                 ["crate", "self", "super"].contains(&first.ident.to_string().as_str())
             });
         let site = self.site(span);
+        let module_level = self.blocks == 0 && matches!(self.holder, Holder::Module);
         let call = MacroCall {
             name: name.clone(),
             site,
             placed: local,
+            fills: module_level,
         };
         // The tokens of a macro are not code that the scan reads: a call in them is not placed.
         let mut inner = BTreeSet::new();

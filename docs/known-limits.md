@@ -54,14 +54,17 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 - `report --output PATH` writes one static HTML page or the JSON frame (`--format json`). It has no graph.
   The parent must exist. Safe file output needs POSIX directory handles; Windows refuses `--output` with exit 2 (`io_error`), writes no file and keeps the frame.
 - A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`. The run exits 2.
-- The core compares only the module and import part of `declarations.uml` (AD-494): module entities,
-  `imports` relationships between modules, open scopes and closed scopes over modules and imports.
-  A symbol entity or relationship, a target in an inside contract and an external import target keep
-  the UML row UNKNOWN (`no_receipt`), so a target that 4.0.1 passes with symbol facts exits 2.
-  A FAIL for an extra element of a closed scope is true whatever the coverage, so it stays in an
-  incomplete run; a closed scope without an extra element stays UNKNOWN. A dropped pair gap that
+- The core compares the module and import part of `declarations.uml` (AD-494) and the symbol part
+  for TypeScript (AD-512). Python, Dart and Rust give no symbol facts, so a symbol entity or
+  relationship of such a target keeps the UML row UNKNOWN (`no_receipt`) with a named gap. A target
+  in an inside contract and an external import target keep it UNKNOWN too. A target that 4.0.1
+  passes with symbol facts (H-uml, H-uml-dart) exits 2. A FAIL for a conflict, a missing base or an
+  extra element of a closed scope is true whatever the coverage, so it stays in an incomplete run.
+  A missing symbol, call or reference is UNKNOWN, never FAIL. A planned member that the matched class lacks is
+  UNKNOWN too, where 4.0.1 gives FAIL (AD-512): the collector states no complete member table. A closed scope without an extra
+  element stays UNKNOWN, also where 4.0.1 passes it from a member inventory. A dropped pair gap that
   touches a module of the target holds the UML row. A Rust UML row has no 4.0.1 comparison and
-  rests on the scope proof alone (AD-494).
+  rests on the scope proof alone.
 - A collection gap makes each rule UNKNOWN whose reading it can change. A manifest edge that the core
   proved can give a `requires` FAIL beside such a gap.
 - `validate` and `report` read explicit `inside` mounts through the bounded core tree reader.
@@ -480,6 +483,18 @@ refuses with `core_binary_not_found`
   `Cargo.toml` is UNKNOWN, never PASS. It compiles only when a `build.rs` prints
   `cargo:rustc-link-search=crate=...`. Such a link is not read
   ([AD-356](architecture/decisions/ad-356-a-call-or-crate-that-a-producer-cannot-see-is-a-gap.md)).
+- **`extern crate self as name;`** binds `name` to the root of the own crate. In the crate root it
+  joins the extern prelude: `name::b::g`, `use name::b::g;` and `::name::b::g` in any module of
+  that crate are an edge to `b`, and so is `crate::name::b::g` where a module binds the alias. An
+  alias in a function body is read in its own file only. A file that declares the name itself, or a
+  glob that may bring it in, makes the path UNKNOWN. Not seen, and the verdict can be PASS: the
+  alias through a `pub use` of the root (`pub use crate::name as other;`), the same class as any
+  other path through a re-export of the root. An alias that a macro generates is a macro
+  expansion gap. An alias item with a `cfg` or `cfg_attr` is a gap, also when the condition is
+  always true.
+- **A glob import.** A glob is read only when the resolver of `use` paths takes its whole path to
+  a module of the crate that has no module-level macro call, or to an external crate. Any other
+  glob that may bring in the first name of a path makes that path UNKNOWN.
 - **An attribute name in a macro body** is read as a derive helper, not as a crate name
   ([AD-335](architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md),
   amendment (b)). A crate that a macro reaches through such a name is seen only when the manifest
