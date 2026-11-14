@@ -57,7 +57,7 @@ def bind_request(
         raw = stream.read((1 << 20) + 1)
     if len(raw) > 1 << 20:
         raise RequestMismatch("the configuration exceeds the core byte limit")
-    scan = _object(tomllib.loads(raw.decode("utf-8")).get("scan"), "scan")
+    scan = _object(tomllib.loads(raw.decode("utf-8-sig")).get("scan"), "scan")
     reference = _text(scan.get("contract"), "scan.contract")
     contract = resolve_root(root / reference, strict=True)
     if not contract.is_relative_to(root):

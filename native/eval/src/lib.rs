@@ -239,3 +239,7 @@ mod dropped_gap_tests;
 #[cfg(test)]
 #[path = "scoped_requires_tests.rs"]
 mod scoped_requires_tests;
+
+#[cfg(test)]
+#[path = "unported_tests.rs"]
+mod unported_tests;
