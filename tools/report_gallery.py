@@ -7,9 +7,10 @@ The runs come from `fixtures/matrix.json`.
 The tool decides nothing. It runs `archkeel report --output` for each run, reads the envelope that
 the CLI prints, and shows the verdict, the counts and the refusal of the core as they are.
 A run that gives no envelope gets a row without links and makes the exit code 1.
-The first section of the index shows two self runs: ArchKeel on its Rust core and on its Python
-shell. They have stable paths (`self/core.html`, `self/core.json`, `self/shell.html`,
-`self/shell.json`) and one shield endpoint file each (`self/core-badge.json`,
+The entry page `index.html` is the product page (`tools/report_product_page.py`): two part cards for
+the two self runs, ArchKeel on its Python shell and on its Rust core. The fixture table is at
+`showcase/index.html`. The self runs have stable paths (`self/core.html`, `self/core.json`,
+`self/shell.html`, `self/shell.json`) and one shield endpoint file each (`self/core-badge.json`,
 `self/shell-badge.json`), so a README can link them for good. The badge colour comes from the
 status of the envelope. A written file names the repository as `<repo>`: the path of the runner
 is not published.
@@ -22,14 +23,19 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import re
 import shlex
 import subprocess
 import sys
+import tempfile
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from tools.report_product import Part, part_of
+from tools.report_product_page import product_page
 
 ROOT = Path(__file__).resolve().parents[1]
 MATRIX = ROOT / "fixtures" / "matrix.json"
@@ -38,16 +44,20 @@ RUN_TIMEOUT = 900
 # The self runs: the stable name, the title, the configuration and the label of the badge.
 SELF_RUNS: tuple[dict[str, str], ...] = (
     {
-        "name": "core",
-        "title": "Rust core (native/)",
-        "config": "native/archkeel.toml",
-        "label": "core self-check",
-    },
-    {
         "name": "shell",
         "title": "Python shell (src/archkeel)",
+        "part": "Python shell",
+        "language": "PYTHON",
         "config": "docs/architecture/shell.toml",
         "label": "shell self-check",
+    },
+    {
+        "name": "core",
+        "title": "Rust core (native/)",
+        "part": "Rust core",
+        "language": "RUST",
+        "config": "native/archkeel.toml",
+        "label": "core self-check",
     },
 )
 # Shields endpoint colours (design-system palette): pass, fail and unknown. No result is grey.
@@ -155,6 +165,26 @@ def badge(row: Mapping[str, Any], label: str) -> dict[str, Any]:
     }
 
 
+def _topology_envelope(
+    cli: Sequence[str], run: Mapping[str, Any]
+) -> tuple[dict[str, Any] | None, str]:
+    """The envelope with the topology of a self run. The file of this run is thrown away."""
+    with tempfile.TemporaryDirectory() as folder:
+        arguments = [*command(cli, run, Path(folder) / "t.json", "json"), "--json", "--topology"]
+        try:
+            done = subprocess.run(
+                arguments,
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                timeout=RUN_TIMEOUT,
+                check=False,
+            )
+            return json.loads(done.stdout), ""
+        except (OSError, subprocess.TimeoutExpired, ValueError) as err:
+            return None, f"{type(err).__name__}: {err}"[:300]
+
+
 def build_self(cli: Sequence[str], entry: Mapping[str, str], out: Path) -> dict[str, Any]:
     """Write the reports and the badge file of one self run at their stable paths."""
     folder = out / "self"
@@ -171,6 +201,18 @@ def build_self(cli: Sequence[str], entry: Mapping[str, str], out: Path) -> dict[
         json.dumps(badge(row, entry["label"]), ensure_ascii=False) + "\n", encoding="utf-8"
     )
     row["title"] = entry["title"]
+    page = folder / f"{entry['name']}.html"
+    envelope, problem = (
+        (None, row.get("error", "")) if "error" in row else _topology_envelope(cli, run)
+    )
+    if envelope is not None and not page.is_file():
+        envelope, problem = None, "the CLI wrote no report"
+    row["part"] = part_of(envelope, entry, f"self/{page.name}", problem)
+    row["ids"] = (
+        frozenset(re.findall(r'\sid="([^"]+)"', page.read_text()))
+        if page.is_file()
+        else frozenset()
+    )
     return row
 
 
@@ -194,8 +236,9 @@ def _verdict(row: Mapping[str, Any]) -> str:
 
 
 def _links(row: Mapping[str, Any]) -> str:
+    # The table is one folder below the root of the site.
     anchors = [
-        f'<a href="{html.escape(path, quote=True)}">{label}</a>' for label, path in row["links"]
+        f'<a href="../{html.escape(path, quote=True)}">{label}</a>' for label, path in row["links"]
     ]
     return f"<td>{' '.join(anchors) or 'none'}</td>"
 
@@ -204,36 +247,20 @@ def _self_row(row: Mapping[str, Any]) -> str:
     return f"<tr>{_cell(row['title'])}{_verdict(row)}{_links(row)}</tr>\n"
 
 
-def index(
-    rows: Sequence[Mapping[str, Any]],
-    sha: str,
-    built_at: str,
-    self_rows: Sequence[Mapping[str, Any]] = (),
-) -> str:
-    """One static page: plain HTML, no script, each dynamic text escaped."""
+def index(rows: Sequence[Mapping[str, Any]], sha: str, built_at: str) -> str:
+    """The fixture table, a static page at `showcase/index.html`: plain HTML, no script."""
     body = "".join(
         f"<tr>{_cell(row['run']['name'])}{_cell(row['run']['language'])}{_verdict(row)}{_links(row)}</tr>\n"
         for row in rows
     )
     head = "<th>Verdict</th><th>PASS</th><th>FAIL</th><th>UNKNOWN</th><th>Gaps</th><th>Reports</th>"
-    selves = ""
-    if self_rows:
-        selves = (
-            "<h2>ArchKeel checks itself</h2>\n"
-            "<p>ArchKeel runs on its own Rust core and on its own Python shell, with the "
-            "contract of each. The table shows the result as the CLI prints it. "
-            "A FAIL or an UNKNOWN stays visible.</p>\n"
-            f'<table border="1" cellpadding="4"><thead><tr><th>Part</th>{head}</tr></thead>\n'
-            f"<tbody>\n{''.join(map(_self_row, self_rows))}</tbody></table>\n"
-            "<h2>Fixture reports</h2>\n"
-        )
     return (
         '<!doctype html>\n<html lang="en"><head><meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width">\n'
-        "<title>ArchKeel reports</title></head><body>\n"
-        "<h1>ArchKeel reports</h1>\n"
+        "<title>ArchKeel fixture reports</title></head><body>\n"
+        "<h1>ArchKeel fixture reports</h1>\n"
+        '<p><a href="../index.html">ArchKeel as a product</a></p>\n'
         f"<p>Commit <code>{html.escape(sha)}</code>. Built {html.escape(built_at)}.</p>\n"
-        f"{selves}"
         "<p>Each row is one run of the core on a project of <code>fixtures/</code>. "
         "A refused row shows the exact reason of the core. UNKNOWN is not a pass.</p>\n"
         '<table border="1" cellpadding="4"><thead><tr><th>Fixture</th><th>Language</th>'
@@ -264,12 +291,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     args.out.mkdir(parents=True, exist_ok=True)
     cli = shlex.split(args.archkeel)
+    sha = args.sha or _head_sha()
     self_rows = [build_self(cli, entry, args.out) for entry in SELF_RUNS]
     rows = [build_run(cli, run, args.out) for run in load_runs(args.matrix)]
     built_at = args.built_at or datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
-    page = index(rows, args.sha or _head_sha(), built_at, self_rows)
-    (args.out / "index.html").write_text(page)
+    parts: list[Part] = [row["part"] for row in self_rows]
+    ids = {row["part"].key: row["ids"] for row in self_rows}
+    (args.out / "index.html").write_text(product_page(parts, ids, sha, built_at))
+    (args.out / "showcase").mkdir()
+    (args.out / "showcase" / "index.html").write_text(index(rows, sha, built_at))
     failed = [row["run"]["name"] for row in [*self_rows, *rows] if "error" in row]
+    failed += [part.key for part in parts if part.error and part.key not in failed]
     if failed:
         print(f"No result for: {', '.join(failed)}", file=sys.stderr)
     return 1 if failed else 0
