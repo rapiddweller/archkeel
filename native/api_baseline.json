@@ -716,6 +716,7 @@
     "fn envelope::layout(self)->Layout",
     "fn envelope::native(profile:Profile,(adapter_version,code_digest):(&str,&str),(runtime_version,rust_version):(&str,&str),)->Self",
     "fn envelope::pair_gap_drop(self)->PairGapDrop",
+    "fn envelope::proves_cycle_scope(self)->bool",
     "fn envelope::source_digest(inputs:&[Input])->String",
     "fn envelope::target_marks(self)->TargetMarks",
     "fn envelope::with_import_id(&self,id:&str)->Self",

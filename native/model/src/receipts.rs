@@ -16,7 +16,6 @@
 //! gap scope, which `Scope::complete` checks first.
 
 use archkeel_contract::{CycleLevel, Lifecycle, NoComponentCycles, Rule, RuleKind};
-use archkeel_facts::envelope::CycleScope;
 
 use crate::brand::Brand;
 use crate::causes::{Cause, Part};
@@ -84,7 +83,7 @@ pub(crate) fn cycle(
     };
     // AD-496: without a proof that the reply sees each local package, a cycle can close through
     // a package that it does not see.
-    if model.graph().observed().cycle_scope == CycleScope::Unproved {
+    if !model.graph().observed().cycle_scope {
         return Err(
             Cause::Receipt("the collector does not prove that it sees each local package").into(),
         );

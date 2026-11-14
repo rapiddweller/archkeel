@@ -596,10 +596,6 @@
           "rationale": "Decode the Dart request and assemble the typed reply with the shared wire (AD-406)."
         },
         {
-          "component": "pytext",
-          "rationale": "Split pubspec.yaml into lines where Python str.splitlines splits."
-        },
-        {
           "component": "dart-text",
           "rationale": "Name the module of a path, check a package name and strip a line."
         },
