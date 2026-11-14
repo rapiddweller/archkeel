@@ -173,6 +173,7 @@ fn cycle_record(cyclic: &Cyclic) -> Value {
         facts,
         evidence,
         edges,
+        path: _,
     } = cyclic;
     let joined = members.join(" \u{2194} ");
     let (kind, title, data) = match edges {

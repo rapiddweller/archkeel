@@ -30,6 +30,31 @@ impl ComponentCycle {
         &self.members
     }
 
+    /// The imports between two members with their two member labels: the input of the cycle path
+    /// (AD-484). The index is the position of the import in the graph.
+    pub fn links(&self, model: &Model) -> Vec<crate::closed_path::Link> {
+        let label = |module: &str| {
+            let owner = crate::ownership::owner_of(model.components(), module)?;
+            model
+                .components()
+                .iter()
+                .find(|(id, _)| id.index() == owner.index())
+                .map(|(_, component)| component.label().as_text().to_owned())
+        };
+        let all = model.graph().imports();
+        self.imports
+            .iter()
+            .filter_map(|&index| {
+                let import = all.get(index)?;
+                Some((
+                    index,
+                    label(import.source_module())?,
+                    label(import.target_module())?,
+                ))
+            })
+            .collect()
+    }
+
     /// The imports between two members, in the order of the reply.
     pub fn imports<'m>(&self, model: &'m Model) -> Vec<&'m Import> {
         let all = model.graph().imports();

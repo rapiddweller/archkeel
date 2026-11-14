@@ -272,6 +272,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
     let (ruling, links) =
         ruled.map_err(|problem| format!("{}: an inconsistent frame: {problem}", run.case))?;
     let topology = run.topology.then(|| engine.topology(&ruling, &links));
+    let explain = Some(engine.explain(&ruling));
     let (rows, sections) = crate::sections::split(rows);
     let names_a_gap = report.is_err()
         || !ruling.unsupported().is_empty()
@@ -280,6 +281,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         || !matches!(contract, ContractState::Parsed(_));
     let parts = Parts {
         topology,
+        explain,
         contract_digest,
         collection_gaps,
         engine: ENGINE,

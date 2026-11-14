@@ -73,6 +73,25 @@ fn a_stub_or_compiled_module_file_is_a_gap_and_a_cached_one_is_not() {
         let found = surveyed(&[("src/app/__init__.py", ""), (&file, "")]);
         assert_eq!(reasons(&found), [format!("{FOREIGN}: {file}")]);
     }
+    // A stub beside its source module is no gap; a stub of a package beside `__init__.py` too.
+    let pairs = [
+        ("src/app/client.pyi", "src/app/client.py"),
+        ("src/app/__init__.pyi", "src/app/__init__.py"),
+    ];
+    for (stub, source) in pairs {
+        let found = surveyed(&[
+            ("src/app/__init__.py", ""),
+            (source, ""),
+            (stub, "x: int\n"),
+        ]);
+        assert!(found.unknowns.is_empty(), "{stub}: {:?}", reasons(&found));
+    }
+    let compiled = surveyed(&[
+        ("src/app/__init__.py", ""),
+        ("src/app/fast.py", ""),
+        ("src/app/fast.so", ""),
+    ]);
+    assert_eq!(reasons(&compiled), [format!("{FOREIGN}: src/app/fast.so")]);
     let cached = surveyed(&[
         ("src/app/__init__.py", ""),
         ("src/app/__pycache__/x.pyc", ""),

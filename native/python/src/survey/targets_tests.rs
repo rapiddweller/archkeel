@@ -29,7 +29,7 @@ fn survey_of(tree: &Tree, roots: &[&str], namespace: &str) -> Survey {
         "snapshot": {"root": tree.path(), "git_head": "a".repeat(40), "dirty": false},
         "scope": {"roots": roots, "namespace": namespace, "exclude_test_sources": false},
         "resolver": {"language": "python", "phase": "imports", "interpreter": {
-            "version": "3.14.0", "stdlib_module_names": ["json", "os", "sys"],
+            "version": "3.14.0", "stdlib_module_names": ["importlib", "json", "os", "sys"],
             "builtin_module_names": []}},
     });
     crate::survey::survey(&decode_python(raw.to_string().as_bytes()).unwrap()).unwrap()
@@ -171,4 +171,64 @@ fn a_package_directory_without_init_is_a_gap_in_each_import_form() {
         ("src/app/client.py", "from app import space\n"),
     ]);
     assert!(attribute.unknowns.is_empty(), "{:?}", reasons(&attribute));
+}
+
+#[test]
+fn a_proven_literal_call_is_a_local_edge_without_a_gap() {
+    let found = client(
+        "import importlib\nload = lambda: importlib.import_module('app.service')\n",
+        "",
+    );
+    assert!(found.unknowns.is_empty(), "{:?}", reasons(&found));
+    assert_eq!(kinds(&found), ["builtin", "local"]);
+    let call = found
+        .imports
+        .iter()
+        .find(|r| r.data.data().target_module.as_str() == "app.service");
+    let data = call.expect("the call is an import record").data.data();
+    assert_eq!(data.binding, None);
+    assert!(!data.module_level_import && !data.reexport);
+    let init = client(
+        "",
+        "import importlib\nimportlib.import_module('app.service')\n",
+    );
+    let call = init
+        .imports
+        .iter()
+        .find(|r| r.data.data().target_module.as_str() == "app.service");
+    let data = call
+        .expect("the call in the package body is a record")
+        .data
+        .data();
+    assert!(
+        !data.reexport,
+        "a call in a package body re-exports nothing"
+    );
+    let computed = client("import importlib\nimportlib.import_module(name)\n", "");
+    assert!(
+        reasons(&computed)
+            .iter()
+            .all(|r| r.starts_with("dynamic_import")),
+        "{:?}",
+        reasons(&computed)
+    );
+    assert!(!computed.unknowns.is_empty());
+}
+
+#[test]
+fn a_literal_call_record_is_a_runtime_edge_also_under_a_guard() {
+    // AD-472: the guard proof covers import statements only, so a literal call record is never
+    // `under_type_checking`, also in the body of `if TYPE_CHECKING:` (the stricter reading).
+    for source in [
+        "__import__('app.service')\n",
+        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    __import__('app.service')\n",
+    ] {
+        let found = client(source, "");
+        let call = found
+            .imports
+            .iter()
+            .find(|r| r.data.data().target_module.as_str() == "app.service");
+        let data = call.expect("the call is an import record").data.data();
+        assert!(!data.under_type_checking, "{source}");
+    }
 }

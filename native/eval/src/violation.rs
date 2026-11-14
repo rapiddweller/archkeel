@@ -129,6 +129,24 @@ pub struct Cyclic {
     /// The distinct `(source, target)` module pairs of a module cycle, sorted; `None` for a
     /// component cycle.
     pub edges: Option<Vec<[String; 2]>>,
+    /// One closed path through the members, in order (AD-484): empty only when the members have
+    /// no closed path of imports.
+    pub path: Vec<CycleStep>,
+}
+
+/// One step of the path of a cycle: two members and the imports that make the step.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CycleStep {
+    pub from: String,
+    pub to: String,
+    /// The one component that owns each end of a module step; the id of the member of a
+    /// component step. `None` for a module without exactly one owner.
+    pub from_component: Option<String>,
+    pub to_component: Option<String>,
+    /// The ids of the imports of the step, sorted.
+    pub imports: Vec<String>,
+    /// The evidence of those imports, sorted.
+    pub evidence: Vec<String>,
 }
 
 /// The record of a `layer_order` violation: the components, their layers and the contract cites.
