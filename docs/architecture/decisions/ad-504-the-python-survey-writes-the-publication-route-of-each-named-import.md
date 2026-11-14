@@ -1,7 +1,7 @@
 # AD-504 The Python survey writes the publication route of each named import
 
 **Status.** Proposed. Part of #880. It amends AD-450 (the survey states no interface) and AD-500.
-The hygiene checks `interface.*` follow in AD-514.
+The hygiene checks `interface.*` follow in a second change.
 
 **Reason.** `interface_boundary` on Python was UNKNOWN for each rule: the linked survey stated
 `interface_boundary: Unsupported`. Release 4.0.1 decides it (M-review-workflow: 12 PASS). The core
