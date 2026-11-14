@@ -21,7 +21,8 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from .core_frame import CoreError, read_refusal
+from .core_frame import read_refusal
+from .core_json import CoreError
 
 SCAN_PROTOCOL: Final = "archkeel-core-scan-1"
 TIMEOUT_SECONDS: Final = 600

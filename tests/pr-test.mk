@@ -17,6 +17,7 @@ PR_TEST_FILES := \
 	tests/test_native_core.py \
 	tests/test_native_expected_gaps.py \
 	tests/test_native_self_core_rows.py \
+	tests/test_cli_shell_self_check.py \
 	tests/test_native_self_rules.py \
 	tests/test_native_self_contract.py \
 	tests/test_native_report.py \

@@ -28,6 +28,7 @@ CI_CHECK_STEPS = [
     "browser-runtime-check",
     "typescript-libs-check",
     "self-validate-native",
+    "self-validate-shell",
 ]
 CI_STEPS = [*CI_CHECK_STEPS, "mermaid"]
 
@@ -89,6 +90,7 @@ def test_gate_validates_first_and_stops_after_each_failure(
         None,
         "ci-artifacts-clean",
         "self-validate-native",
+        "self-validate-shell",
         "typescript-compiler-check",
         "mermaid",
     ],
@@ -381,7 +383,7 @@ def test_a_test_added_to_the_pr_test_list_does_not_run_full() -> None:
 
 FULL_MK = "tools/full.mk"
 # CI runs these on each PR, so a break in them shows before the merge. Full needs no run for them.
-SHARED_WITH_CI = {"mermaid", "self-validate-native"}
+SHARED_WITH_CI = {"mermaid", "self-validate"}
 
 
 def _called_targets(workflow: str) -> set[str]:
@@ -464,6 +466,8 @@ REFUSED = '{"status": "UNKNOWN", "exit_code": 2, "refusal": {"kind": "core_error
     [
         ("self-validate-native", REFUSED, "refused: core_error: x"),
         ("self-validate-native", "", "JSONDecodeError"),
+        ("self-validate-shell", REFUSED, "refused: core_error: x"),
+        ("self-validate-shell", "", "JSONDecodeError"),
         ("browser-architecture-check", REFUSED, "core_error"),
     ],
 )
@@ -481,6 +485,7 @@ def test_a_self_check_without_the_pinned_core_result_fails(
     uv.chmod(0o755)
     for name in (
         "native/expected-gaps.json",
+        "docs/architecture/target/shell-expected.json",
         "docs/architecture/target/studio-ui-expected.json",
         "tools/native_expected.py",
     ):
