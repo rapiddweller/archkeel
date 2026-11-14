@@ -28,9 +28,6 @@ const TYPESCRIPT_FEATURES: [&str; 8] = [
     "bundler-mode-v1",
 ];
 
-/// The feature of the Python survey that writes the symbol and the route of each named import.
-pub(crate) const ROUTES_FEATURE: &str = "import-routes-v1";
-
 /// The feature of the Rust collector. No Python check reads it, so it asks for no proof.
 const RUST_FEATURES: [&str; 1] = ["rust-crate-edges"];
 
@@ -130,7 +127,7 @@ fn checkable(facts: &Facts) -> Result<(), String> {
         Profile::Rust => &RUST_FEATURES,
         // AD-450, AD-468: the import survey has no resolution feature. AD-504: the Python survey
         // of the linked path states `import-routes-v1`.
-        Profile::Python => &[ROUTES_FEATURE],
+        Profile::Python => &[crate::registered::ROUTES_FEATURE],
         Profile::Dart => &[],
     };
     for feature in &facts.capabilities.resolution_features {
