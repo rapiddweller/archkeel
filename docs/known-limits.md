@@ -30,6 +30,12 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   Unsafe, linked, missing or invalid mounts stay UNKNOWN. Unproved tree rules keep their named gaps.
   A safe mount path that is absent, unreadable or not a contained regular file gives
   "mounts inside contracts that the shell has not sent". This names missing input, not an unported tree rule.
+- The core checks contract hygiene on `validate` and `report` (AD-458). It reads and binds each cited
+  provenance file. A file that it cannot read refuses the contract. A missing, repeated or stale marked
+  graph, and the reference, rationale, responsibility, closed-world and `public_api` defects of 4.0.1,
+  give a row that keeps the run from PASS. A contract with an `interface_boundary` rule or with
+  `declarations.compat` gets the gap of its lifecycle checks: these are not ported yet. Mounted
+  contracts get no `inside.*` check yet.
 - Source that nests deeper than the parse work limit is the typed refusal `core_error` with `parse_work_limit`.
 - A `collector_argv` in `archkeel.toml` is refused. The core starts only its own collectors.
 - The survey refuses a root with more than 1 GiB of file bytes or more than 100,000 entries, by name.

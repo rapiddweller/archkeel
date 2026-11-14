@@ -33,8 +33,20 @@ pub(crate) fn findings(
 ) -> Vec<Finding> {
     let mut found = Vec::new();
     let markers = [
-        (COMPONENT_MARKER, "component", true, observed, "observed imports"),
-        (TARGET_MARKER, "target", false, permitted, "the edges the contract permits"),
+        (
+            COMPONENT_MARKER,
+            "component",
+            true,
+            observed,
+            "observed imports",
+        ),
+        (
+            TARGET_MARKER,
+            "target",
+            false,
+            permitted,
+            "the edges the contract permits",
+        ),
     ];
     for (marker, noun, required, edges, source) in markers {
         let graphs: Vec<(&str, &str)> = documents
@@ -49,7 +61,10 @@ pub(crate) fn findings(
             continue;
         }
         let [(path, body)] = graphs.as_slice() else {
-            let claim = format!("Expected one marked Mermaid {noun} graph, found {}.", graphs.len());
+            let claim = format!(
+                "Expected one marked Mermaid {noun} graph, found {}.",
+                graphs.len()
+            );
             found.push(("graph.count", format!("architecture {noun} graph"), claim));
             continue;
         };
@@ -60,7 +75,11 @@ pub(crate) fn findings(
         }
         let list = |pairs: Vec<&Pair>| {
             let text: Vec<String> = pairs.iter().map(|(a, b)| format!("{a}->{b}")).collect();
-            if text.is_empty() { "none".to_owned() } else { text.join(", ") }
+            if text.is_empty() {
+                "none".to_owned()
+            } else {
+                text.join(", ")
+            }
         };
         let claim = format!(
             "The marked {noun} graph differs from {source}; drawn and not found: {}; found and \
@@ -96,7 +115,9 @@ fn marked_bodies<'t>(content: &'t str, marker: &str) -> Vec<&'t str> {
         if let Some(fence) = window.find(FENCE) {
             let start = at.saturating_add(fence).saturating_add(FENCE.len());
             let inner = content.get(start..limit).unwrap_or_default();
-            let end = inner.find(CLOSE).map_or(limit, |end| start.saturating_add(end));
+            let end = inner
+                .find(CLOSE)
+                .map_or(limit, |end| start.saturating_add(end));
             bodies.push(content.get(start..end).unwrap_or_default());
         }
         position = following;
@@ -111,7 +132,9 @@ pub(crate) fn space(character: char) -> bool {
 
 /// The lines of a body as the reference engine splits them (`splitlines`).
 fn lines(body: &str) -> impl Iterator<Item = &str> {
-    body.split(['\n', '\u{b}', '\u{c}', '\u{1c}', '\u{1d}', '\u{1e}', '\u{85}', '\u{2028}', '\u{2029}'])
+    body.split([
+        '\n', '\u{b}', '\u{c}', '\u{1c}', '\u{1d}', '\u{1e}', '\u{85}', '\u{2028}', '\u{2029}',
+    ])
 }
 
 fn strip(line: &str) -> &str {
@@ -169,7 +192,9 @@ fn unescape(value: &str) -> Option<String> {
     while let Some(at) = rest.find('#') {
         out.push_str(rest.get(..at)?);
         let after = rest.get(at.saturating_add(1)..)?;
-        let digits = after.find(|c: char| !c.is_ascii_digit()).unwrap_or(after.len());
+        let digits = after
+            .find(|c: char| !c.is_ascii_digit())
+            .unwrap_or(after.len());
         if digits > 0 && after.get(digits..)?.starts_with(';') {
             let code: u32 = after.get(..digits)?.parse().ok()?;
             out.push(char::from_u32(code)?);
@@ -196,7 +221,9 @@ fn node_labels(body: &str) -> (BTreeMap<String, String>, Option<String>) {
             return (labels, conflict);
         };
         let other_label = labels.get(alias).is_some_and(|previous| *previous != label);
-        let other_alias = aliases.get(&label).is_some_and(|previous| previous != alias);
+        let other_alias = aliases
+            .get(&label)
+            .is_some_and(|previous| previous != alias);
         if other_label || other_alias {
             return (labels, conflict);
         }
@@ -209,7 +236,12 @@ fn node_labels(body: &str) -> (BTreeMap<String, String>, Option<String>) {
 /// The edges that a block draws, with each alias replaced by its label.
 fn declared_edges(body: &str) -> BTreeSet<Pair> {
     let (labels, _) = node_labels(body);
-    let name = |alias: &str| labels.get(alias).cloned().unwrap_or_else(|| alias.to_owned());
+    let name = |alias: &str| {
+        labels
+            .get(alias)
+            .cloned()
+            .unwrap_or_else(|| alias.to_owned())
+    };
     lines(body)
         .filter_map(edge)
         .map(|(source, target)| (name(source), name(target)))

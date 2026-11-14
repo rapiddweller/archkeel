@@ -33,8 +33,7 @@ use crate::provenance::Documents;
 /// The interface lifecycle checks: they apply to a contract with an `interface_boundary` rule.
 const INTERFACE: &str = "interface.undeclared, interface.unused, interface.usage_unknown, \
                          interface.missing, interface.planned_built";
-/// The checks of `declarations.public_api` and of `declarations.compat`.
-const API_SURFACE: &str = "api_surface.missing";
+/// The checks of `declarations.compat`.
 const COMPATIBILITY: &str = "compatibility.invalid";
 
 /// What the hygiene of a run adds to the gaps of the core.
@@ -50,7 +49,8 @@ impl Found {
     fn defect(&mut self, place: &str, (code, pointer, subject, claim): hygiene_refs::Finding) {
         let id = format!("hygiene:{code}:{place}{pointer}:{subject}");
         let detail = format!("{place}{pointer} {subject}: {claim}");
-        self.rules.insert(id, Reason::Hygiene(Hygiene::new(code, detail)));
+        self.rules
+            .insert(id, Reason::Hygiene(Hygiene::new(code, detail)));
     }
 
     fn gap(&mut self, place: &str, family: &'static str, codes: &'static str) {
@@ -122,20 +122,22 @@ fn root(
     for finding in hygiene_refs::rationale(contract) {
         found.defect(path, finding);
     }
-    if let Some(declarations) = contract.declarations() {
-        if !declarations.public_api().is_empty() {
-            found.gap(path, "api_surface", API_SURFACE);
-        }
-        if !declarations.compat().is_empty() {
-            found.gap(path, "compatibility", COMPATIBILITY);
-        }
+    if contract
+        .declarations()
+        .as_ref()
+        .is_some_and(|declarations| !declarations.compat().is_empty())
+    {
+        found.gap(path, "compatibility", COMPATIBILITY);
     }
     // The checks below read the code: a run without models has no PASS to hold back.
     let Ok(models) = models else {
         return;
     };
     let graph = models.root().graph();
-    for finding in unscanned(contract, graph) {
+    for finding in unscanned(contract, graph)
+        .into_iter()
+        .chain(api_surface(contract, graph))
+    {
         found.defect(path, finding);
     }
     let observed = hygiene_pairs::observed(contract, graph);
@@ -169,7 +171,12 @@ fn unscanned(contract: &Contract, graph: &Graph) -> Vec<hygiene_refs::Finding> {
             if !modules.iter().any(|module| in_scope(module, package)) {
                 let pointer = format!("/components/{index}/packages/{item}");
                 let claim = "The component package has no scanned module.".to_owned();
-                found.push(("reference.package_unscanned", pointer, package.to_owned(), claim));
+                found.push((
+                    "reference.package_unscanned",
+                    pointer,
+                    package.to_owned(),
+                    claim,
+                ));
             }
         }
         for (item, exact) in component.exact_modules().iter().enumerate() {
@@ -177,9 +184,48 @@ fn unscanned(contract: &Contract, graph: &Graph) -> Vec<hygiene_refs::Finding> {
             if !modules.contains(&exact) {
                 let pointer = format!("/components/{index}/exact_modules/{item}");
                 let claim = "The exact module has no scanned source file.".to_owned();
-                found.push(("reference.package_unscanned", pointer, exact.to_owned(), claim));
+                found.push((
+                    "reference.package_unscanned",
+                    pointer,
+                    exact.to_owned(),
+                    claim,
+                ));
             }
         }
+    }
+    found
+}
+
+/// The `declarations.public_api` entries whose module has no scanned file, or whose name the
+/// stated exports of the module do not hold (`api_surface.missing`). The exposed-type part of the
+/// reference engine reads type facts that no collector of the core writes, so it has no input.
+fn api_surface(contract: &Contract, graph: &Graph) -> Vec<hygiene_refs::Finding> {
+    let Some(declarations) = contract.declarations() else {
+        return Vec::new();
+    };
+    let mut found = Vec::new();
+    for (index, entry) in declarations.public_api().iter().enumerate() {
+        let entry = entry.as_text();
+        let (module, name) = entry.split_once(':').unwrap_or((entry, ""));
+        let scanned = graph.modules().iter().find(|(_, m)| m.name() == module);
+        let claim = match scanned {
+            None => "The declared public API entry's module has not been scanned.",
+            Some((_, m))
+                if !name.is_empty()
+                    && !m.exports().is_empty()
+                    && !m.exports().iter().any(|export| export == name) =>
+            {
+                "The module states its exports and the promised name is not in them."
+            }
+            Some(_) => continue,
+        };
+        let pointer = format!("/declarations/public_api/{index}");
+        found.push((
+            "api_surface.missing",
+            pointer,
+            entry.to_owned(),
+            claim.to_owned(),
+        ));
     }
     found
 }

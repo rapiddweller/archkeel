@@ -37,7 +37,9 @@ struct Document {
 impl Documents {
     /// The bytes of the document that a contract cites as `reference`, when the core read it.
     pub(crate) fn bytes(&self, reference: &str) -> Option<&[u8]> {
-        self.read.get(reference).map(|document| document.bytes.as_slice())
+        self.read
+            .get(reference)
+            .map(|document| document.bytes.as_slice())
     }
 
     /// Each cited path that the core cannot read, sorted.
@@ -101,9 +103,9 @@ pub(crate) fn read(
     let Some(usable) = crate::contract::answer(input).1 else {
         return Ok(documents);
     };
-    let mut total = insides
-        .iter()
-        .fold(0u64, |sum, file| sum.saturating_add(file.bytes.len() as u64));
+    let mut total = insides.iter().fold(0u64, |sum, file| {
+        sum.saturating_add(file.bytes.len() as u64)
+    });
     for reference in cited(&usable) {
         if insides.len().saturating_add(documents.read.len()) >= MAX_INSIDE_FILES {
             return Err(format!(

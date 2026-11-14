@@ -123,14 +123,29 @@ pub(crate) fn closed_world(contract: &Contract, observed: &BTreeSet<Pair>) -> Ve
     let allowed: BTreeSet<Pair> = allowed_items.iter().cloned().collect();
     let mut found: Vec<Finding> = open(contract, &forbidden, &allowed).into_iter().collect();
     let groups = [
-        ("closed_world.observed_forbidden", observed.intersection(&forbidden).cloned().collect(),
-            "An observed component dependency is also forbidden."),
-        ("closed_world.duplicate", repeated(&forbidden_items),
-            "The component pair has duplicate forbidden_dependency rules."),
-        ("closed_world.duplicate", repeated(&allowed_items),
-            "The component pair has duplicate allowed_dependency rules."),
-        ("decision.conflict", allowed.intersection(&forbidden).cloned().collect::<BTreeSet<_>>(),
-            "The component pair has both an allowed_dependency and a forbidden_dependency rule."),
+        (
+            "closed_world.observed_forbidden",
+            observed.intersection(&forbidden).cloned().collect(),
+            "An observed component dependency is also forbidden.",
+        ),
+        (
+            "closed_world.duplicate",
+            repeated(&forbidden_items),
+            "The component pair has duplicate forbidden_dependency rules.",
+        ),
+        (
+            "closed_world.duplicate",
+            repeated(&allowed_items),
+            "The component pair has duplicate allowed_dependency rules.",
+        ),
+        (
+            "decision.conflict",
+            allowed
+                .intersection(&forbidden)
+                .cloned()
+                .collect::<BTreeSet<_>>(),
+            "The component pair has both an allowed_dependency and a forbidden_dependency rule.",
+        ),
     ];
     for (code, pairs, claim) in groups {
         for (source, target) in pairs {
@@ -142,7 +157,11 @@ pub(crate) fn closed_world(contract: &Contract, observed: &BTreeSet<Pair>) -> Ve
 
 /// The open decisions of a contract without `complete_requires`: each ordered pair of distinct
 /// labels that no whole-package rule decides (`open_decision_summary`).
-fn open(contract: &Contract, forbidden: &BTreeSet<Pair>, allowed: &BTreeSet<Pair>) -> Option<Finding> {
+fn open(
+    contract: &Contract,
+    forbidden: &BTreeSet<Pair>,
+    allowed: &BTreeSet<Pair>,
+) -> Option<Finding> {
     if contract
         .rules()
         .iter()
