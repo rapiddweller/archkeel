@@ -5,7 +5,7 @@
 //! The package gaps of the survey (AD-454): each file or `pubspec.yaml` key that can make a
 //! `package:` URI name a file that the root `pubspec.yaml` alone does not give.
 //!
-//! The workspace has no YAML parser, so the check reads words, not YAML (AD-496). A YAML key is a
+//! The workspace has no YAML parser, so the check reads words, not YAML (AD-500). A YAML key is a
 //! scalar. Without a backslash escape, the text of a scalar is in the file as it is: a quoted key,
 //! a flow key and an explicit `?` key alike, and a folded line break gives a space, never a join.
 //! So each word `path`, `workspace` or `resolution` outside a comment line is a gap, and each

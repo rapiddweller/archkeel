@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-496: a stated unsupported feature holds only the rules that read it.
+"""AD-500: a stated unsupported feature holds only the rules that read it.
 
 The linked Python collector states that it reads no dependency symbol and no module interface.
 Each plant adds one reader of one feature: that rule stays UNKNOWN, and each rule that reads
@@ -183,7 +183,7 @@ def typescript(core: Path, root: Path, plant: str) -> dict[str, Any]:
 def test_typescript_without_the_symbol_feature_holds_only_the_symbol_readers(
     release_core: Path, tmp_path: Path, plant: str
 ) -> None:
-    """Before AD-496 the unsupported statement held each rule of the run, as 4.0.1 does."""
+    """Before AD-500 the unsupported statement held each rule of the run, as 4.0.1 does."""
     result = typescript(release_core, tmp_path, plant)
     found = {rule: row[1] for rule, row in result["frame"]["rules"].items()}
     assert found == {**TS_PLANTS[plant][2], "ASSIGN": "PASS"}, result["frame"]["explained"]

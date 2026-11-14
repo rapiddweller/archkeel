@@ -81,7 +81,7 @@ def _commit(root: Path) -> None:
 
 
 def decided() -> dict[str, str]:
-    """Each rule PASS but the cycle rule, which has no receipt for a Dart reply (AD-496)."""
+    """Each rule PASS but the cycle rule, which has no receipt for a Dart reply (AD-500)."""
     return {**dict.fromkeys(RULES, "PASS"), "CYCLES": "UNKNOWN"}
 
 
@@ -96,7 +96,7 @@ def test_a_clean_dart_project_passes_each_import_rule(
 ) -> None:
     result = verdict(release_core, project(tmp_path, BASE), verb)
     assert rows(result) == decided(), result["frame"]["explained"]
-    # AD-496: the survey does not prove that it sees each local package, so a cycle rule and the
+    # AD-500: the survey does not prove that it sees each local package, so a cycle rule and the
     # run stay UNKNOWN.
     assert "sees each local package" in result["frame"]["explained"]["CYCLES"]
     assert result["status"] == "UNKNOWN" and result["exit_code"] == 2

@@ -7,7 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
-| AD-496 | [A stated profile limit holds only the rules that read it](ad-496-a-stated-profile-limit-holds-only-the-rules-that-read-it.md) |
+| AD-500 | [A stated profile limit holds only the rules that read it](ad-500-a-stated-profile-limit-holds-only-the-rules-that-read-it.md) |
 | AD-494 | [The core compares the module and import part of a UML target](ad-494-the-core-compares-the-module-and-import-part-of-a-uml-target.md) |
 | AD-492 | [The browser assets are pinned until their HTML sinks are rewritten](ad-492-the-browser-assets-are-pinned-until-their-html-sinks-are-rewritten.md) |
 | AD-484 | [The frame names rule sides, cycle paths and gap holds](ad-484-the-frame-names-rule-sides-cycle-paths-and-gap-holds.md) |

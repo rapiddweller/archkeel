@@ -8,13 +8,13 @@ an import-system change and the other gaps of AD-450 give UNKNOWN for each rule 
 Python rules that read symbols, calls or constructs stay UNKNOWN. A Dart project gets PASS or FAIL
 only for rules that read the import graph; each gap of AD-454 and a part in another component than
 its library give UNKNOWN for each rule of the run. A symbol selector or an `interface_boundary`
-rule holds only the rules that read it (AD-496). A Dart cycle rule (`no_component_cycles`) is
+rule holds only the rules that read it (AD-500). A Dart cycle rule (`no_component_cycles`) is
 always UNKNOWN: the survey does not prove that it sees each local package, and 4.0.1 gives no Dart
 cycle receipt either. A proof that releases it: the survey resolves each `package:` URI from a
 complete package map that it reads (each `pubspec.yaml` of the project and its path and workspace
 members), and a test plants each YAML form of a local package. The `pubspec.yaml` reader has no
 YAML parser: each word `path`, `workspace` or `resolution` and each backslash is a gap, also in a
-value or a description (AD-496).
+value or a description (AD-500).
 
 **Open false-PASS class (Python, shared with 4.0.1).** A third-party function can import a module
 from a string, for example a plugin loader, a framework that reads a dotted path from settings, or

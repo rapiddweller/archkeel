@@ -81,7 +81,7 @@ pub(crate) fn cycle(
             .as_ref()
             .is_none_or(|labels| labels.iter().any(|l| l.as_text() == label))
     };
-    // AD-496: without a proof that the reply sees each local package, a cycle can close through
+    // AD-500: without a proof that the reply sees each local package, a cycle can close through
     // a package that it does not see.
     if !model.graph().observed().cycle_scope {
         return Err(

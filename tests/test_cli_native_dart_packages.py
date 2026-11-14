@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-496: a second local package cannot hide a Dart import edge.
+"""AD-500: a second local package cannot hide a Dart import edge.
 
 Each plant has a real cycle a -> b -> o -> a. The edge b -> o goes through
 `package:other/o.dart`, and `other` is a local package below `packages/other`. The survey must

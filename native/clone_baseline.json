@@ -409,14 +409,14 @@
     "files": [
       "model/src/limits.rs"
     ],
-    "reason": "AD-496: `limits::reads` lists every rule kind with no default arm, so a new kind does not compile until it states what it reads. Its two lists of kinds repeat by design (AD-378).",
+    "reason": "AD-500: `limits::reads` lists every rule kind with no default arm, so a new kind does not compile until it states what it reads. Its two lists of kinds repeat by design (AD-378).",
     "tokens": 78
   },
   "model/src/limits.rs|model/src/limits.rs|31355fc48f": {
     "files": [
       "model/src/limits.rs"
     ],
-    "reason": "AD-496: `limits::reads` lists every rule kind with no default arm, so a new kind does not compile until it states what it reads. Its two lists of kinds repeat by design (AD-378).",
+    "reason": "AD-500: `limits::reads` lists every rule kind with no default arm, so a new kind does not compile until it states what it reads. Its two lists of kinds repeat by design (AD-378).",
     "tokens": 83
   },
   "model/src/limits.rs|model/src/scope.rs|4106bb7efc": {
