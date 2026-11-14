@@ -8,6 +8,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | Decision | Title |
 |---|---|
 | AD-510 | [The report page shows the exceptions first and folds the rest](ad-510-the-report-page-shows-the-exceptions-first-and-folds-the-rest.md) |
+| AD-508 | [The script-global rule closes the forms that need no value flow](ad-508-the-script-global-rule-closes-the-forms-that-need-no-value-flow.md) |
 | AD-506 | [A forbidden SDK library is no reference outside the namespace](ad-506-a-forbidden-sdk-library-is-no-reference-outside-the-namespace.md) |
 | AD-502 | [A registry or git dependency is no edge to a crate of the workspace](ad-502-a-registry-or-git-dependency-is-no-edge-to-a-crate-of-the-workspace.md) |
 | AD-500 | [A stated profile limit holds only the rules that read it](ad-500-a-stated-profile-limit-holds-only-the-rules-that-read-it.md) |
