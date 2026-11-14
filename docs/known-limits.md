@@ -286,9 +286,23 @@ A `/// <amd-dependency path="x" />` directive is UNKNOWN, as a `path` directive 
 the project ([AD-354](architecture/decisions/ad-354-a-type-root-inside-the-project-makes-a-types-directive-a-concern.md)).
 `self` and `frames` are roots of the global object, like `window` and `globalThis`. A use through
 `top` or `parent` is read as a use through the window too, so it is an edge or a gap, never silent;
-inside a frame they name another window, so the edge can go to a global of the page above. A write
-through them (`top.x = 1`) publishes nothing. A chain of these names (`window.self.x`, `top.window.x`,
-`parent.top.x`) is read like one of them (#1007).
+inside a frame they name another window, so the edge can go to a global of the page above. A chain
+of these names (`window.self.x`, `top.window.x`, `parent.top.x`) is read like one of them (#1007).
+A write through them (`top.x = 1`) publishes nothing, but it blocks each proof of the global `x`
+([AD-460](architecture/decisions/ad-460-a-write-through-any-alias-of-the-global-object-blocks-a-global-proof.md)).
+A write `o.x = …` blocks the global `x` unless `o` is a local new value or the `this` of a
+constructor, a field or a static block. An unknown key on a window value, a window value that
+escapes, and code from a text block every global proof of the project.
+Open false PASS, not accepted (AD-460): a window value that reaches a computed write through a
+parameter, a call result or a property (`function f(w) { w[k] = v; }` with `f(document.defaultView)`);
+an extracted class method that writes `this[k]` and runs as a callback; a computed call with a key
+built at run time on a parameter, an import, a property or a global function (`Object[k](text)` with
+`k` equal to `constructor`); a reflection call with a run-time key; and DOM code from
+text outside the named triggers (for example a `src` or `href` of `javascript:` built at run time).
+Older classes stay open too: a prototype change through a call
+(`Object.defineProperty(EventTarget.prototype, …)`), a member patch of a platform object that is no
+window (`JSON.parse = …`, `document.open = …`), a use through `opener` or
+`document.defaultView`, and a write in a file outside the scan roots or under `exclude`.
 The native TypeScript collector reads a file up to 4 MiB. Above that size it gives UNKNOWN for
 the file, where the Python collector reads the file and can give FAIL. The two collectors give
 the same facts only for files under the limit.

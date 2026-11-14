@@ -41,6 +41,26 @@ impl Cx<'_> {
         self.kinds.field(node, field)
     }
 
+    /// The expression inside parentheses, `as`, `satisfies`, `!` and `<T>`: the value is the same
+    /// at run time. Each reader of a write target uses this one helper.
+    pub(crate) fn unwrapped<'t>(&self, node: Node<'t>) -> Node<'t> {
+        let mut node = node;
+        loop {
+            let inner = match node.kind() {
+                "parenthesized_expression"
+                | "as_expression"
+                | "satisfies_expression"
+                | "non_null_expression" => node.named_child(0),
+                "type_assertion" => node.named_child(node.named_child_count().saturating_sub(1)),
+                _ => None,
+            };
+            match inner {
+                Some(inner) => node = inner,
+                None => return node,
+            }
+        }
+    }
+
     /// Whether a child of `node` has the kind `kind`.
     pub(crate) fn has_child(&self, node: Node, kind: K) -> bool {
         let mut found = false;

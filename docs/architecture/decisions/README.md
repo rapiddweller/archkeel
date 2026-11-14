@@ -17,6 +17,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-465 | [A scan does not depend on build output that another process changes](ad-465-a-scan-does-not-depend-on-build-output-that-another-process-changes.md) |
 | AD-464 | [Report topology is an opt-in, bounded display of the same run](ad-464-report-topology-is-an-opt-in-bounded-display-of-the-same-run.md) |
 | AD-462 | [Fixture results are pinned and the nightly run publishes a gallery](ad-462-fixture-results-are-pinned-and-the-nightly-run-publishes-a-gallery.md) |
+| AD-460 | [A write through any alias of the global object blocks a global proof](ad-460-a-write-through-any-alias-of-the-global-object-blocks-a-global-proof.md) |
 | AD-454 | [The native Dart import survey resolves one package and names each gap](ad-454-the-native-dart-import-survey-resolves-one-package-and-names-each-gap.md) |
 | AD-450 | [Python import rules use a bound import survey](ad-450-python-import-rules-use-a-bound-import-survey.md) |
 | AD-442 | [Windows disk roots use one plain canonical path](ad-442-windows-disk-roots-use-one-plain-canonical-path.md) |
