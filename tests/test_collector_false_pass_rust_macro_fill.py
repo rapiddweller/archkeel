@@ -113,7 +113,7 @@ CASES = {
             "y.rs": "pub use crate::b;\n",
             "x.rs": "use crate::w::*;\nuse m2::*;\npub fn f() { b::g(); }\n",
         },
-        HELD,
+        {"UNKNOWN"},  # one rule: a glob path does not look into globs
     ),
     "B4 a one-name glob to an inline module of the file": (
         {

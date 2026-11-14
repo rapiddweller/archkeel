@@ -174,9 +174,17 @@ fn a_glob_that_the_scan_cannot_follow_makes_an_unbound_name_unknown() {
     let text = "use super::super::*;\nfn t() { x::f(); }";
     let found = run("src/b.rs", text, "ns.app.b", "x::f");
     assert!(matches!(found, Outcome::Unknown(_)), "{found:?}");
-    // A glob of std or of an enum brings no module, and a use path under a glob is UNKNOWN.
-    let text = "use std::collections::*;\nuse crate::a::Kind::*;\nfn t() { x::f(); }";
+    // A glob of a crate brings no module of this crate. A glob whose path does not end at a
+    // module (an enum, a re-export) is UNKNOWN, and so is a use path under a glob (L-189).
+    let text = "use std::collections::*;\nfn t() { x::f(); }";
     assert_eq!(run("src/b.rs", text, "ns.app.b", "x::f"), Outcome::None);
+    for text in [
+        "use std::collections::*;\nuse crate::a::Kind::*;\nfn t() { x::f(); }",
+        "enum Kind { A }\nuse Kind::*;\nfn t() { x::f(); }",
+    ] {
+        let found = run("src/b.rs", text, "ns.app.b", "x::f");
+        assert!(matches!(found, Outcome::Unknown(_)), "{found:?}");
+    }
     let text = "use crate::a::*;\nuse x::y;";
     let found = run("src/b.rs", text, "ns.app.b", "x::y");
     assert!(matches!(found, Outcome::Unknown(_)), "{found:?}");
