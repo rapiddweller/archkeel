@@ -61,7 +61,13 @@ def _component(name: str, requires: list[str]) -> dict[str, object]:
         packages=[f"app.src.{name}"],
         public=[f"app.src.{name}"],
         responsibilities=[f"Hold {name}."],
-        requires=[{"component": item, "rationale": "a uses b."} for item in requires],
+        requires=[
+            {
+                "component": item,
+                "rationale": "The client calls the library that the script publishes.",
+            }
+            for item in requires
+        ],
     )
     return component
 
@@ -74,6 +80,8 @@ PUBLISHED = {
         }
     ),
     "src/b/b.js": "function run() {}\nwindow.Lib = { run };\n",
+    # AD-466: the provenance document draws the observed component edge.
+    "README.md": "# probe\n\n<!-- archkeel-component-graph -->\n```mermaid\nflowchart LR\n    a --> b\n```\n",
 }
 CHANGES = {
     "parent": "parent.Lib = { run() {} };",
