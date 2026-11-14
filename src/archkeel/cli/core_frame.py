@@ -476,9 +476,5 @@ def read_frame(
         locations=locations,
         unknown_kinds=unknown_kinds,
         collection_gaps=_collection_gaps(frame.get("collection_gaps", [])),
-        html=read_html(
-            frame.get("html"),
-            status,
-            required="html" in frame or bool(request and request.get("html")),
-        ),
+        html=read_html(frame, status, request),
     )

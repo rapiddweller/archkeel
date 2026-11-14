@@ -8,15 +8,20 @@ from __future__ import annotations
 import os
 import secrets
 import stat
+from collections.abc import Mapping
 from pathlib import Path
 
 from .core_json import CoreError, _fields, _text
 
 
-def read_html(value: object, status: str, *, required: bool = False) -> str | None:
-    if value is None and not required:
+def read_html(
+    frame: Mapping[str, object],
+    status: str,
+    request: Mapping[str, object] | None,
+) -> str | None:
+    if "html" not in frame and not (request and request.get("html")):
         return None
-    part = _fields(value, "html", frozenset({"protocol", "status", "document"}))
+    part = _fields(frame.get("html"), "html", frozenset({"protocol", "status", "document"}))
     if part["protocol"] != "archkeel-core-html-1" or part["status"] != status:
         raise CoreError("the core HTML part has another protocol or status")
     return _text(part["document"], "html.document")
@@ -51,7 +56,7 @@ def _target(directory: int, name: str) -> None:
 
 
 def write_output(path: Path, payload: bytes) -> None:
-    """Replace one regular file, as 4.0.1 did. Refuse links and missing parents. Write no sidecars."""
+    """Atomically replace one regular file. Refuse links and missing parents. Write no sidecars."""
     directory = _parent(path)
     temporary = f".archkeel-{secrets.token_hex(16)}"
     created = False

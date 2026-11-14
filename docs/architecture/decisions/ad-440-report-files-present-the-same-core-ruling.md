@@ -32,6 +32,7 @@
    Platforms without directory handles refuse file output; stdout remains available.
 10. `cli/core_output.py` owns received-page decoding and file IO only. It contains no renderer or decision.
     `engine_frame.html` belongs to the existing report component. No model, evaluator or proof maker changes.
+    The reviewed public API adds only `Ruling::with_html`; its API baseline names this method.
 
 **Reason.** A user needs a report file without a second decision path.
 The old default wrote `architecture.json` and HTML sidecars. Those facts and topology are not available on this line.

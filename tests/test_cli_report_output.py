@@ -170,6 +170,15 @@ def test_a_failed_write_preserves_the_old_file_and_removes_the_temporary(
     assert list(tmp_path.iterdir()) == [target]
 
 
+def test_missing_directory_handles_refuse_instead_of_using_a_weaker_write(tmp_path: Path) -> None:
+    target = tmp_path / "report.html"
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(core_output.os, "name", "nt")
+        with pytest.raises(OSError, match="directory handles"):
+            core_output.write_output(target, b"never written")
+    assert not target.exists()
+
+
 @pytest.mark.parametrize(
     "part",
     [
