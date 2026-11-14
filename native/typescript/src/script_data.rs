@@ -17,6 +17,26 @@ use crate::script_syntax::Producer;
 const NAMESPACES: [&str; 5] = ["Math", "JSON", "Atomics", "Intl", "console"];
 
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
+    /// The object of `o[k]` when the key is no literal and no number.
+    pub(crate) fn runtime_object(&self, node: Node<'t>) -> Option<Node<'t>> {
+        let tree = self.tree;
+        let index = tree.field(node, F::Index);
+        let literal = crate::references::literal(index, tree.cx.source).is_some();
+        if literal || index.is_some_and(|i| i.kind() == "number") {
+            return None;
+        }
+        tree.field(node, F::Object).map(|o| tree.cx.unwrapped(o))
+    }
+
+    /// The argument of a call at `at`, without the comments.
+    pub(crate) fn argument(&self, call: Node<'t>, at: usize) -> Option<Node<'t>> {
+        let arguments = self.tree.field(call, F::Arguments)?;
+        let mut found = crate::tree::nodes::named_children(arguments)
+            .into_iter()
+            .filter(|argument| argument.kind() != "comment");
+        found.nth(at)
+    }
+
     /// The text of a string literal or a template without a substitution.
     pub(crate) fn text_of(&self, node: Node<'t>) -> Option<String> {
         crate::script_window::string_text(self, node)

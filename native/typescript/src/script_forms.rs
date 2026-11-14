@@ -102,15 +102,8 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
     /// `o[k](…)` with a key that is not a literal, on a value that is not data or a namespace.
     fn runtime_key_call(&self, node: Node<'t>) -> bool {
-        let tree = self.tree;
-        let index = tree.field(node, F::Index);
-        if literal(index, tree.cx.source).is_some() || index.is_some_and(|i| i.kind() == "number") {
-            return false;
-        }
-        let Some(object) = tree.field(node, F::Object).map(|o| tree.cx.unwrapped(o)) else {
-            return false;
-        };
-        self.called(node) && !self.data_object(object)
+        let object = self.runtime_object(node);
+        object.is_some_and(|object| self.called(node) && !self.data_object(object))
     }
 
     /// The value is called, constructed or tagged, also through `call`, `apply` or `bind` (with a
@@ -274,11 +267,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let Some((object, name)) = self.member_call(call) else {
             return false;
         };
-        let key = tree.field(call, F::Arguments).and_then(|arguments| {
-            crate::tree::nodes::named_children(arguments)
-                .get(1)
-                .copied()
-        });
+        let key = self.argument(call, 1);
         let risky_key = || {
             key.is_none_or(|key| {
                 literal(Some(key), tree.cx.source)
@@ -300,11 +289,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let Some((object, name)) = self.member_call(call) else {
             return false;
         };
-        let first = tree.field(call, F::Arguments).and_then(|arguments| {
-            crate::tree::nodes::named_children(arguments)
-                .first()
-                .copied()
-        });
+        let first = self.argument(call, 0);
         object == "location"
             && matches!(name.as_str(), "assign" | "replace" | "*")
             && first.is_none_or(|first| literal(Some(first), tree.cx.source).is_none())
@@ -352,11 +337,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 }
                 _ => false,
             });
-        let first = tree.field(call, F::Arguments).and_then(|arguments| {
-            crate::tree::nodes::named_children(arguments)
-                .into_iter()
-                .find(|argument| argument.kind() != "comment")
-        });
+        let first = self.argument(call, 0);
         global && first.is_some_and(|first| literal(Some(first), tree.cx.source).is_none())
     }
 

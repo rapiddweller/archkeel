@@ -8,7 +8,6 @@
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::references::literal;
 use crate::script_syntax::Producer;
 use crate::script_window::{cooked, Written, CODE_NAMES, TIMERS};
 
@@ -195,10 +194,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         if named.is_some_and(|name| TIMERS.contains(&name.as_str())) {
             return self.timer_runs_text(node);
         }
-        if literal(index, tree.cx.source).is_some() || index.is_some_and(|i| i.kind() == "number") {
-            return false;
-        }
-        let Some(object) = tree.field(node, F::Object).map(|o| tree.cx.unwrapped(o)) else {
+        let Some(object) = self.runtime_object(node) else {
             return false;
         };
         let reaches = match object.kind() {
