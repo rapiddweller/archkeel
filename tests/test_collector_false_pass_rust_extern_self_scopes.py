@@ -163,15 +163,26 @@ def test_a_glob_over_a_macro_that_defines_only_a_type_keeps_its_verdict(
     tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     # The macro declares no module name or `use`, so the glob cannot bring in a module through it.
-    types = "macro_rules! mk { () => { pub struct T; }; }\nmk!();\n"
+    types = "macro_rules! mk { () => { pub struct T; impl T { pub fn make() {} } }; }\nmk!();\n"
     sources = {
         SRC + "lib.rs": WITH_Y,
         SRC + "b.rs": B,
         SRC + "c.rs": C,
         SRC + "y.rs": types,
-        SRC + "x.rs": "use crate::y::*;\npub fn f() -> T { T }\n",
+        SRC + "x.rs": "use crate::y::*;\npub fn f() { T::make(); }\n",
     }
     rules = (*CRATE_RULES, forbid("native.app.x", "native.app.b"))
     result = validate(repository(tmp_path, core_binary, sources, rules=rules), capsys)
 
     assert result["status"] == "PASS", claims(result)
+
+
+def test_the_alias_item_of_the_root_is_no_shadow_in_an_inline_module_of_the_root(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    lib = "extern crate self as me;\npub mod b;\nmod inner { pub fn f() { me::b::g(); } }\n"
+    sources = {SRC + "lib.rs": lib, SRC + "b.rs": B}
+    rules = (*CRATE_RULES, forbid("native.app", "native.app.b"))
+    result = validate(repository(tmp_path, core_binary, sources, rules=rules), capsys)
+
+    assert statuses(result).get("NO-X-TO-B") == "FAIL", claims(result)

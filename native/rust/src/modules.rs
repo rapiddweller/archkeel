@@ -354,11 +354,6 @@ impl<'a> Index<'a> {
         let aliases = &frame.module.scan.self_aliases;
         let own =
             frame.module.module == frame.root && aliases.contains(&(Vec::new(), first.clone()));
-        let (count, local) = if aliased && own && count == 1 {
-            (0, false)
-        } else {
-            (count, local)
-        };
         if count == 0 && !local {
             if let Some(found) = self.unbound(frame, names, (place.0, hops), globs) {
                 return found;
