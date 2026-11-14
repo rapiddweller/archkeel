@@ -72,9 +72,9 @@ pub(crate) struct Observed {
     pub(crate) layout: Layout,
     /// The language name of the profile, as a UML target entity names it (AD-494).
     pub(crate) language: &'static str,
-    /// The profile keeps a type namespace apart from a value namespace (AD-498).
+    /// The profile keeps a type namespace apart from a value namespace (AD-502).
     pub(crate) namespaces: bool,
-    /// The collector of the profile states symbol facts (AD-498).
+    /// The collector of the profile states symbol facts (AD-502).
     pub(crate) symbol_facts: bool,
     /// Whether the host drops an allowed pair gap of the profile (slice S7).
     pub(crate) pair_gap_drop: PairGapDrop,

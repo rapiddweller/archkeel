@@ -4,7 +4,7 @@
 """The UML target row of a contract through the release core and the default CLI (AD-470).
 
 Release 4.0.1 compares `declarations.uml` with the source facts. The core compares the module,
-import and TypeScript symbol parts (AD-494, AD-498). Each plant is a defect that 4.0.1 reports:
+import and TypeScript symbol parts (AD-494, AD-502). Each plant is a defect that 4.0.1 reports:
 a refusal, a FAIL or an UNKNOWN. The core gives no PASS for any of them.
 """
 
@@ -64,7 +64,7 @@ def _entity(contract: dict[str, Any], identity: str) -> dict[str, Any]:
     return next(item for item in _uml(contract)["entities"] if item["id"] == identity)
 
 
-# AD-494 and AD-498: the core compares the module, import and symbol assessments of a
+# AD-494 and AD-502: the core compares the module, import and symbol assessments of a
 # TypeScript target. It leaves exactly the assessments undecided that release 4.0.1 leaves
 # undecided (9 and 3), so the row stays UNKNOWN by its count.
 @pytest.mark.parametrize(
@@ -141,7 +141,7 @@ def _missing_provenance(contract: dict[str, Any]) -> None:
 # Release 4.0.1 gives FAIL (exit 2) for the first three plants and UNKNOWN (exit 0) for the next
 # two. It refuses the contract for the last plant: the cited file is missing. The core gives the
 # same rows: FAIL (exit 1) for a symbol conflict and for an extra element of a closed scope
-# (AD-498), UNKNOWN for a missing module or call.
+# (AD-502), UNKNOWN for a missing module or call.
 @pytest.mark.parametrize(
     "plant",
     [

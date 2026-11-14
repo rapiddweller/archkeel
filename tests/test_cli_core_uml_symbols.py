@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-498: the core compares the symbol part of a UML target on TypeScript plants.
+"""AD-502: the core compares the symbol part of a UML target on TypeScript plants.
 
 Each plant is a TypeScript tree with a UML target. `PLANTS` gives the row of release 4.0.1 on the
 same tree and the row of the core. The core row is equal to the release row or stricter: a core
@@ -440,7 +440,7 @@ CAUSES: dict[str, str | tuple[str, ...]] = {
 
 
 # The core PASS needs resolved definitions and a complete scope. Where 4.0.1 passes on partial
-# coverage, the core stays UNKNOWN (AD-498 lists the forms). Any other difference is a bug.
+# coverage, the core stays UNKNOWN (AD-502 lists the forms). Any other difference is a bug.
 STRICTER = {("PASS", "UNKNOWN")}
 
 

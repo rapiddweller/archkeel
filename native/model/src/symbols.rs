@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The symbol table of a reply (AD-498): the modules, the symbols and their members as entities,
+//! The symbol table of a reply (AD-502): the modules, the symbols and their members as entities,
 //! and the call, reference, base and construction sites as edges.
 //!
 //! Reference engine: `ir/source_graph.py` `_source_entities`, `_symbol`, `_attribute_entities`

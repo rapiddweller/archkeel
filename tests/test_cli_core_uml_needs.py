@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-498: a run without a UML target has no need, so the frame does not change.
+"""AD-502: a run without a UML target has no need, so the frame does not change.
 
 Each case runs one fixture twice through the default CLI and the release core: once without a
 UML target and once with one. The UML target is the only need today. The second frame must hold
