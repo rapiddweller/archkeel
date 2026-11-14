@@ -164,7 +164,7 @@ pub(crate) fn requires(
             Cause::Receipt("the collector did not read and parse each selected file").into(),
         );
     }
-    // AD-470: the scan roots must also hold the packages and exact modules of the parent of a
+    // AD-476: the scan roots must also hold the packages and exact modules of the parent of a
     // mount (`source_roots`, `source_exact_modules`); a root has none.
     let (parent_packages, parent_exact) = model.parent_scopes();
     let packages: Vec<&str> = parent_packages
@@ -197,7 +197,7 @@ pub(crate) fn requires(
 
 /// The one ownership-completeness proof shared by dependency and interface receipts. It reads
 /// the modules of the source domain of the model: every module for a root, and the modules of
-/// its mount for an inside contract (`_inside_rule_scope_is_complete`, AD-470).
+/// its mount for an inside contract (`_inside_rule_scope_is_complete`, AD-476).
 pub(crate) fn ownership(model: &Model) -> Result<(), Reason> {
     let modules: Vec<_> = model
         .graph()
