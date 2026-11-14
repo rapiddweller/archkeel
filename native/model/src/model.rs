@@ -195,6 +195,12 @@ impl Model {
             .is_none_or(|domain| domain.below_roots(package))
     }
 
+    /// The packages and the exact modules of the parent of this mount (`source_roots`,
+    /// `source_exact_modules`); none for a root.
+    pub(crate) fn parent_scopes(&self) -> (&[String], &[String]) {
+        self.domain.as_ref().map_or((&[], &[]), Domain::scopes)
+    }
+
     /// True for the model of an inside contract.
     pub fn is_mount(&self) -> bool {
         self.domain.is_some()

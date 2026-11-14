@@ -13,7 +13,7 @@ fn domain() -> Domain {
     Domain::new(
         vec![id_of::<ModuleId>(1)],
         HashSet::from(["p.a.m".to_owned()]),
-        vec!["p.a".to_owned()],
+        (vec!["p.a".to_owned()], Vec::new()),
     )
 }
 

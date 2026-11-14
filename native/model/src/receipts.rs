@@ -164,17 +164,30 @@ pub(crate) fn requires(
             Cause::Receipt("the collector did not read and parse each selected file").into(),
         );
     }
-    let packages: Vec<&str> = contract
-        .components()
+    // AD-470: the scan roots must also hold the packages and exact modules of the parent of a
+    // mount (`source_roots`, `source_exact_modules`); a root has none.
+    let (parent_packages, parent_exact) = model.parent_scopes();
+    let packages: Vec<&str> = parent_packages
         .iter()
-        .flat_map(|component| component.packages())
-        .map(|package| package.as_text())
+        .map(String::as_str)
+        .chain(
+            contract
+                .components()
+                .iter()
+                .flat_map(|component| component.packages())
+                .map(|package| package.as_text()),
+        )
         .collect();
-    let exact: Vec<&str> = contract
-        .components()
+    let exact: Vec<&str> = parent_exact
         .iter()
-        .flat_map(|component| component.exact_modules())
-        .map(|exact| exact.as_text())
+        .map(String::as_str)
+        .chain(
+            contract
+                .components()
+                .iter()
+                .flat_map(|component| component.exact_modules())
+                .map(|exact| exact.as_text()),
+        )
         .collect();
     if !roots.covers(&packages, &exact) {
         return Err(Cause::Receipt("a component domain lies outside the scan roots").into());
@@ -182,16 +195,23 @@ pub(crate) fn requires(
     ownership(model)
 }
 
-/// The one ownership-completeness proof shared by dependency and interface receipts.
+/// The one ownership-completeness proof shared by dependency and interface receipts. It reads
+/// the modules of the source domain of the model: every module for a root, and the modules of
+/// its mount for an inside contract (`_inside_rule_scope_is_complete`, AD-470).
 pub(crate) fn ownership(model: &Model) -> Result<(), Reason> {
-    let modules = model.graph().modules();
+    let modules: Vec<_> = model
+        .graph()
+        .modules()
+        .iter()
+        .filter(|(id, _)| model.holds(*id))
+        .collect();
     if modules.is_empty() {
         return Err(Reason::NoSubjects);
     }
     if planned(model) {
         return Err(Cause::Receipt("the contract has a planned component").into());
     }
-    if modules.iter().any(|(id, _)| model.owner(id).is_none()) {
+    if modules.iter().any(|(id, _)| model.owner(*id).is_none()) {
         return Err(Cause::Receipt("a module has not exactly one owner").into());
     }
     Ok(())
