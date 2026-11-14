@@ -173,3 +173,24 @@ fn the_survey_selects_each_source_file_that_an_independent_walk_finds() {
     selected.sort();
     assert_eq!(selected, expected);
 }
+
+#[test]
+fn a_file_with_an_encoding_declaration_other_than_utf8_is_a_gap() {
+    let found = surveyed(&[
+        ("src/app/__init__.py", ""),
+        ("src/app/a.py", "# coding: utf-7\nimport os\n"),
+    ]);
+    let messages: Vec<String> = found
+        .unknowns
+        .iter()
+        .filter_map(|gap| match &gap.data {
+            GapFact::ExceptionGap { data, .. } => data.message.clone(),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        messages,
+        ["source_encoding: the file declares the encoding utf-7"]
+    );
+    assert_eq!(found.files.len(), 1);
+}

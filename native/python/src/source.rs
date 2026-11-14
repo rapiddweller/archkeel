@@ -34,7 +34,8 @@ pub(crate) fn declared_encoding(raw: &[u8]) -> Result<(), String> {
     let normal = name.to_ascii_lowercase().replace('_', "-");
     let utf8 = UTF8.contains(&normal.as_str()) || normal.starts_with("utf-8-");
     let ascii = ASCII.contains(&normal.as_str()) && raw.is_ascii();
-    if utf8 || ascii && !raw.starts_with(b"\xef\xbb\xbf") {
+    // A byte order mark is no ASCII byte, so with a mark only UTF-8 reads.
+    if utf8 || ascii {
         Ok(())
     } else {
         Err(name)
