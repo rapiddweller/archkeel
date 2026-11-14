@@ -141,6 +141,10 @@ fn decide(scanned: Scanned, html: bool, topology: bool) -> Result<Answered, Stri
         trust: in_process(profile),
         collect: Some(json!({ "request": request, "contract_files": contract_files })),
         documents: Some(documents),
+        sdk_libraries: archkeel_store::sdk_libraries(profile)
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
     })
 }
 
