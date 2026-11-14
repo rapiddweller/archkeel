@@ -1,0 +1,13 @@
+:root,[data-theme="dark"]{--surface-0:#0f1014;--surface-1:#16171b;--surface-2:#1d1e23;--surface-3:#272830;--line:#2a2b32;--line-strong:#7b7c83;--ink:#f1eee6;--ink-muted:#a8a8ab;--ink-subtle:#8b8c92;--accent:#e8805d;--accent-hover:#f0916f;--accent-subtle:#2b1b15;--accent-text:#e8805d;--on-accent:#0f1014;--focus:#e8805d;--pass:#46bfd0;--pass-subtle:#0f2a2f;--pass-text:#6fd3df;--fail:#f2606b;--fail-subtle:#31161a;--fail-text:#ff8b93;--unknown:#ecb64a;--unknown-subtle:#2e2410;--unknown-text:#f2c765;--shadow-pop:0 8px 24px #00000080;}
+[data-theme="light"]{--surface-0:#f5f2eb;--surface-1:#fffdf8;--surface-2:#ece8de;--surface-3:#e0dbce;--line:#ddd8cc;--line-strong:#6f7068;--ink:#14151a;--ink-muted:#55565c;--ink-subtle:#626369;--accent:#e8805d;--accent-hover:#d96f4b;--accent-subtle:#fbe6dc;--accent-text:#a8431f;--on-accent:#14151a;--focus:#a8431f;--pass:#0b7285;--pass-subtle:#d9eff2;--pass-text:#0a5f6f;--fail:#c4263a;--fail-subtle:#fbe1e4;--fail-text:#a31d2f;--unknown:#946200;--unknown-subtle:#f8ecc9;--unknown-text:#6f4a00;--shadow-pop:0 8px 24px #14151a1f;}
+:root{--font-sans:"Geist", system-ui, -apple-system, "Segoe UI", sans-serif;--font-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;--space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;--space-6:32px;--space-7:48px;--space-8:64px;--radius-sm:4px;--radius-md:8px;--radius-lg:12px;}
+.display{font-family:var(--font-sans);font-size:56px;line-height:56px;font-weight:700;letter-spacing:-0.035em;}
+.h1{font-family:var(--font-sans);font-size:32px;line-height:38px;font-weight:650;letter-spacing:-0.025em;}
+.h2{font-family:var(--font-sans);font-size:22px;line-height:28px;font-weight:600;letter-spacing:-0.015em;}
+.h3{font-family:var(--font-sans);font-size:17px;line-height:24px;font-weight:600;letter-spacing:-0.01em;}
+.body{font-family:var(--font-sans);font-size:15px;line-height:24px;font-weight:400;}
+.body-sm{font-family:var(--font-sans);font-size:13px;line-height:20px;font-weight:400;}
+.ui{font-family:var(--font-sans);font-size:14px;line-height:20px;font-weight:500;}
+.caption{font-family:var(--font-sans);font-size:12px;line-height:16px;font-weight:500;letter-spacing:0.01em;}
+.code{font-family:var(--font-mono);font-size:13px;line-height:20px;font-weight:400;}
+.tag{font-family:var(--font-mono);font-size:11px;line-height:16px;font-weight:600;letter-spacing:0.08em;}
