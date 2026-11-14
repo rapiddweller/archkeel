@@ -59,6 +59,8 @@ pub(super) struct Frame {
     pub(super) explain: Explain,
     pub(super) head: String,
     pub(super) explained: BTreeMap<String, String>,
+    /// The named gaps of the run that are no rule of the contract: an id and its reason.
+    pub(super) named: BTreeMap<String, String>,
     /// The identity of the run: the digests of the contract, its files and the core.
     pub(super) identity: Identity,
     /// Why the run is not decided: the refusal or the scope text of the frame.
@@ -100,6 +102,8 @@ impl Frame {
         Frame {
             identity,
             explained: field(frame, "explained"),
+            named: serde_json::from_value(frame["unsupported"]["rules"].clone())
+                .unwrap_or_default(),
             cause,
             status: frame["status"].as_str().unwrap_or("unavailable").to_owned(),
             rules: field(frame, "rules"),
