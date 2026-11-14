@@ -1545,6 +1545,7 @@
     "variant reason::Refusal::StandardLibrary",
     "variant reason::Unsupported::Baseline",
     "variant reason::Unsupported::Hygiene",
+    "variant reason::Unsupported::HygieneInput",
     "variant reason::Unsupported::InsideRule",
     "variant reason::Unsupported::InsideTree",
     "variant reason::Unsupported::NoRules",

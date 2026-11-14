@@ -249,16 +249,18 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         Answer::Report(reason) => Err(reason.to_string()),
         other => Err(format!("unexpected answer {other:?}")),
     };
-    let hygiene = run.documents.as_ref().map(|documents| {
+    // AD-466: a request without documents names the hygiene that it cannot check.
+    let hygiene = {
         let (usable, models) = engine.inputs();
-        crate::hygiene::check(documents, usable, models, &namespace, &path)
-    });
+        match run.documents.as_ref() {
+            Some(documents) => crate::hygiene::check(documents, usable, models, &namespace, &path),
+            None => crate::hygiene::unread(usable),
+        }
+    };
     let mut named = named(&contract, run.baseline, &engine, &path);
     named.contract = named.contract.or(trust.gap).or(base);
-    if let Some(hygiene) = hygiene {
-        named.contract = named.contract.or(hygiene.refusal);
-        named.rules.extend(hygiene.rules);
-    }
+    named.contract = named.contract.or(hygiene.refusal);
+    named.rules.extend(hygiene.rules);
     let ruled = if run.topology {
         engine.rule(named, true)
     } else {

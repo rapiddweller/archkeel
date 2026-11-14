@@ -35,6 +35,10 @@ const INTERFACE: &str = "interface.undeclared, interface.unused, interface.usage
                          interface.missing, interface.planned_built";
 /// The checks of `declarations.compat`.
 const COMPATIBILITY: &str = "compatibility.invalid";
+/// The check of an `allowed_dependency` rule of a mounted contract against its parent.
+const INSIDE: &str = "inside.forbidden_import";
+/// The measurement budgets: release 4.0.1 needs a baseline for them, and `main` reads none.
+const BUDGET: &str = "baseline.invalid, budget.exceeded, budget.unknown";
 
 /// What the hygiene of a run adds to the gaps of the core.
 #[derive(Debug, Default)]
@@ -62,6 +66,17 @@ impl Found {
     fn refuse(&mut self, code: &'static str, detail: String) {
         self.refusal = Some(Reason::Hygiene(Hygiene::new(code, detail)).to_string());
     }
+}
+
+/// The hygiene of a request without provenance documents (a dual-run or a check request): one
+/// named row for a usable contract, so such a request cannot give PASS without hygiene.
+pub(crate) fn unread(usable: Option<&Usable>) -> Found {
+    let mut found = Found::default();
+    if usable.is_some() {
+        let reason = Reason::Unsupported(Unsupported::HygieneInput);
+        found.rules.insert("hygiene:request".to_owned(), reason);
+    }
+    found
 }
 
 /// The hygiene of a run over the usable contract at `path`, the provenance documents and the
@@ -99,12 +114,12 @@ pub(crate) fn check(
         for finding in findings.into_iter().flatten() {
             found.defect(place, finding);
         }
-        if contract
-            .rules()
-            .iter()
-            .any(|rule| matches!(rule, Rule::InterfaceBoundary(_)))
-        {
+        let has = |test: fn(&Rule) -> bool| contract.rules().iter().any(test);
+        if has(|rule| matches!(rule, Rule::InterfaceBoundary(_))) {
             found.gap(place, "interface", INTERFACE);
+        }
+        if place != path && has(|rule| matches!(rule, Rule::AllowedDependency(_))) {
+            found.gap(place, "inside", INSIDE);
         }
     }
     root(&mut found, documents, &usable.root, models, path);
@@ -122,12 +137,13 @@ fn root(
     for finding in hygiene_refs::rationale(contract) {
         found.defect(path, finding);
     }
-    if contract
-        .declarations()
-        .as_ref()
-        .is_some_and(|declarations| !declarations.compat().is_empty())
-    {
-        found.gap(path, "compatibility", COMPATIBILITY);
+    if let Some(declarations) = contract.declarations() {
+        if !declarations.compat().is_empty() {
+            found.gap(path, "compatibility", COMPATIBILITY);
+        }
+        if !declarations.measurement_budgets().is_empty() {
+            found.gap(path, "budget", BUDGET);
+        }
     }
     // The checks below read the code: a run without models has no PASS to hold back.
     let Ok(models) = models else {

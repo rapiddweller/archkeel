@@ -31,6 +31,24 @@ class GapKind(StrEnum):
     COLLECT = "collect"
     REQUEST_DIFFERS = "request_differs"
     PARSE_WORK_LIMIT = "parse_work_limit"
+    # AD-466: a contract hygiene defect has the code of release 4.0.1 as its kind.
+    REFERENCE_PROVENANCE = "reference.provenance"
+    REFERENCE_NAMESPACE = "reference.namespace"
+    REFERENCE_PUBLIC_OWNER = "reference.public_owner"
+    REFERENCE_PUBLIC_UNDERSCORE = "reference.public_underscore"
+    REFERENCE_PACKAGE_UNSCANNED = "reference.package_unscanned"
+    GRAPH_COUNT = "graph.count"
+    GRAPH_DRIFT = "graph.drift"
+    CLOSED_WORLD_OBSERVED_FORBIDDEN = "closed_world.observed_forbidden"
+    CLOSED_WORLD_DUPLICATE = "closed_world.duplicate"
+    DECISION_CONFLICT = "decision.conflict"
+    DECISION_OPEN = "decision.open"
+    RATIONALE_PLACEHOLDER = "rationale.placeholder"
+    RATIONALE_REPEATED = "rationale.repeated"
+    RESPONSIBILITY_MISSING = "responsibility.missing"
+    API_SURFACE_MISSING = "api_surface.missing"
+    HYGIENE_NOT_PORTED = "contract_hygiene_not_ported"
+    HYGIENE_NOT_READ = "contract_hygiene_not_read"
 
 
 @dataclass(frozen=True, slots=True)

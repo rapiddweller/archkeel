@@ -95,6 +95,60 @@ def _interface(contract: dict[str, Any]) -> None:
     contract["rules"].append(base | {"id": "FACADES", "kind": "interface_boundary"})
 
 
+def _cite(text: str) -> Callable[[Path], None]:
+    """Let the `data` component cite the page through another form of its path."""
+
+    def plant(root: Path) -> None:
+        value = str(root / PAGE) if text == "absolute" else text
+        edit(root, lambda c: component(c, "data").update(provenance=[value]))
+
+    return plant
+
+
+def _declare(declarations: dict[str, Any]) -> Callable[[Path], None]:
+    """Add declarations with schema 3.6, the newest schema that 4.0.1 reads."""
+
+    def change(contract: dict[str, Any]) -> None:
+        contract["schema_version"] = "3.6.0"
+        contract["declarations"] = declarations
+
+    return lambda root: edit(root, change)
+
+
+def _mount(root: Path, rules: list[dict[str, Any]], package: str) -> None:
+    """Mount an inside contract on `domain` with one component and `rules`."""
+
+    def change(contract: dict[str, Any]) -> None:
+        domain = component(contract, "domain")
+        domain["inside"] = "inside.json"
+        child = {**domain, "id": "COMP-ORDER", "label": "order", "packages": [package]}
+        child["public"] = [package]
+        child.pop("inside")
+        child["requires"] = []
+        inside = {"schema_version": contract["schema_version"], "components": [child]}
+        (root / "inside.json").write_text(json.dumps(inside | {"rules": rules}))
+
+    edit(root, change)
+
+
+def _inside_allows_data(root: Path) -> None:
+    base = {"rationale": "Order reads data.", "provenance": [PAGE], "decided_by": "architect"}
+    allowed = base | {"id": "ORDER-DATA", "kind": "allowed_dependency"}
+    allowed |= {"source": "shop.src.domain.order_x2e_ts", "target": "shop.src.data"}
+    _mount(root, [allowed], "shop.src.domain.order_x2e_ts")
+
+
+def _inside_claims_data(root: Path) -> None:
+    _mount(root, [], "shop.src.data")
+
+
+def _fence(root: Path) -> None:
+    text = (root / PAGE).read_text()
+    (root / PAGE).write_text(text.replace("```mermaid\n", "```text\n"))
+
+
+PAGE_BUDGET = {"provenance": [PAGE]}
+
 # Each plant: the code that 4.0.1 names, and the change of the fixture.
 PLANTS: dict[str, tuple[str, Callable[[Path], None]]] = {
     "missing-page": ("reference.provenance", lambda root: (root / PAGE).unlink()),
@@ -163,6 +217,47 @@ PLANTS: dict[str, tuple[str, Callable[[Path], None]]] = {
         lambda root: edit(root, lambda c: component(c, "data").update(responsibilities=["TBD"])),
     ),
     "interface": ("interface.unused", lambda root: edit(root, _interface)),
+    "dot-dot-path": ("reference.provenance", _cite("docs/../docs/architecture/shop.md")),
+    "dot-path": ("reference.provenance", _cite("docs/./architecture/shop.md")),
+    "empty-segment": ("reference.provenance", _cite("docs//architecture/shop.md")),
+    "trailing-slash": ("reference.provenance", _cite("docs/architecture/shop.md/")),
+    "absolute-path": ("reference.provenance", _cite("absolute")),
+    "backslash-path": ("reference.provenance", _cite("docs\\architecture\\shop.md")),
+    "text-fence": ("graph.count", _fence),
+    "facade-budget": (
+        "budget",
+        _declare({"facade_budgets": [{"component": "domain", "max_names": 0} | PAGE_BUDGET]}),
+    ),
+    "coupling-budget": (
+        "budget",
+        _declare(
+            {
+                "coupling_budgets": [
+                    {"source": "data", "target": "domain", "max_names": 0} | PAGE_BUDGET
+                ]
+            }
+        ),
+    ),
+    "measurement-budget": (
+        "budget",
+        _declare({"measurement_budgets": [{"name": "cycle_edges"} | PAGE_BUDGET]}),
+    ),
+    "compat": (
+        "compatibility.invalid",
+        _declare(
+            {
+                "compat": [
+                    {
+                        "module": "shop.src.domain.index_x2e_ts",
+                        "target": "shop.src.domain.order_x2e_ts",
+                        "lifetime": "migration",
+                    }
+                ]
+            }
+        ),
+    ),
+    "inside-allows-forbidden": ("inside.forbidden_import", _inside_allows_data),
+    "inside-claims-outside": ("contract.invalid", _inside_claims_data),
     "api-surface": (
         "api_surface.missing",
         lambda root: edit(
@@ -189,6 +284,26 @@ def test_the_unbroken_fixture_passes_and_binds_its_page(
     assert PAGE in result["frame"]["self_test"]["collect"]["contract_files"]
 
 
+# A cited path that the core cannot read refuses the whole contract (exit 2).
+REFUSED = frozenset(
+    {
+        "missing-page",
+        "outside-link",
+        "dot-dot-path",
+        "dot-path",
+        "empty-segment",
+        "trailing-slash",
+        "absolute-path",
+        "backslash-path",
+    }
+)
+# A family that applies and that the core does not port: a named gap.
+NOT_PORTED = frozenset({"interface", "compat", "measurement-budget", "inside-allows-forbidden"})
+# The core holds these runs by a gap that it already had: a profile limit, a refused contract or
+# the domain of a mount. The hygiene check is not reached, as in 4.0.1, which also stops earlier.
+EARLIER = frozenset({"facade-budget", "coupling-budget", "inside-claims-outside"})
+
+
 @pytest.mark.parametrize("name", sorted(PLANTS))
 def test_each_hygiene_defect_keeps_the_run_from_pass(
     release_core: Path, monkeypatch: pytest.MonkeyPatch, name: str
@@ -200,11 +315,29 @@ def test_each_hygiene_defect_keeps_the_run_from_pass(
         for verb in ("validate", "report"):
             code, result = run(verb, "--root", str(root))
             assert code != 0 and result["status"] != "PASS", result
-            assert code_name in json.dumps(result["frame"]["unsupported"]), result
-    if name in {"missing-page", "outside-link"}:
-        # A cited file that the core cannot read refuses the whole contract (exit 2).
-        refusal = result["frame"]["unsupported"]["rules"]
-        assert code == 2 and isinstance(refusal, str) and "cannot read" in refusal, refusal
+            kinds = {gap["kind"] for gap in result["gaps"]}
+            if name in REFUSED:
+                refusal = result["frame"]["unsupported"]["rules"]
+                assert code == 2 and isinstance(refusal, str) and "cannot read" in refusal
+                assert "reference.provenance" in kinds, result["gaps"]
+            elif name in NOT_PORTED:
+                assert "contract_hygiene_not_ported" in kinds, result["gaps"]
+                assert code_name.split(".")[0] in json.dumps(result["frame"]["unsupported"])
+            elif name not in EARLIER:
+                # The gap kind is the code of release 4.0.1, typed by the shell.
+                assert code_name in kinds, result["gaps"]
+
+
+def test_the_static_report_shows_the_hygiene_code(
+    release_core: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    target = tmp_path / "report.html"
+    with shop() as root:
+        PLANTS["no-graph"][1](root)
+        code, _ = run("report", "--root", str(root), "--output", str(target))
+    assert code == 2
+    assert "contract hygiene graph.count" in target.read_text()
 
 
 def test_a_page_change_after_the_run_refuses_the_replay(

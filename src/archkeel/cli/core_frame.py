@@ -172,6 +172,8 @@ _GAP_PREFIXES: Final[tuple[tuple[str, GapKind], ...]] = (
     ("unsupported: the UML target", GapKind.UML_TARGET),
     ("unsupported: the scope proof: ", GapKind.SCOPE_PROOF),
     ("refused: ", GapKind.CONTRACT_REFUSED),
+    ("unsupported: the contract hygiene checks ", GapKind.HYGIENE_NOT_PORTED),
+    ("unsupported: the contract hygiene of the request", GapKind.HYGIENE_NOT_READ),
     # A rule of a ported kind without a model: the store refused the reply.
     ("missing input: ", GapKind.REPLY_REFUSED),
 )
@@ -227,10 +229,16 @@ class CoreFrame:
         return self.engine.removeprefix("archkeel-core ")
 
 
+_HYGIENE: Final = "contract hygiene "
+
+
 def gap_kind(reason: str) -> GapKind:
     for prefix, kind in _GAP_PREFIXES:
         if reason.startswith(prefix):
             return kind
+    if reason.startswith(_HYGIENE):
+        # AD-466: `Reason::Hygiene` writes the code of release 4.0.1 first; the code is the kind.
+        return _word(GapKind, reason.removeprefix(_HYGIENE).partition(":")[0], "hygiene code")
     return GapKind.OTHER
 
 

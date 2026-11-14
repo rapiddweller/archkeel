@@ -175,3 +175,27 @@ fn complete_requires_leaves_no_pair_open() {
     let contract = contract(components, vec![rule("R", "complete_requires", json!({}))]);
     assert!(closed_world(&contract, &BTreeSet::new()).is_empty());
 }
+
+#[test]
+fn only_a_path_in_normal_form_is_read() {
+    use crate::provenance::normal;
+    for path in ["docs/a.md", "a.md", "docs/100%25.md", "docs/.hidden.md"] {
+        assert!(normal(path), "{path}");
+    }
+    for path in [
+        "",
+        "/docs/a.md",
+        "docs/../docs/a.md",
+        "../a.md",
+        "docs/./a.md",
+        "./a.md",
+        "docs//a.md",
+        "docs/a.md/",
+        "docs\\a.md",
+        "C:/docs/a.md",
+        "docs/a.md:stream",
+        "docs/a\0.md",
+    ] {
+        assert!(!normal(path), "{path}");
+    }
+}

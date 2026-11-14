@@ -68,7 +68,8 @@ fn unsupported(part: &Unsupported) -> WhyUnknown {
         | Unsupported::UmlTarget
         | Unsupported::Baseline
         | Unsupported::TreeScope
-        | Unsupported::Hygiene(_) => WhyUnknown::ScopeIncomplete,
+        | Unsupported::Hygiene(_)
+        | Unsupported::HygieneInput => WhyUnknown::ScopeIncomplete,
     }
 }
 

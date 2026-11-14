@@ -34,9 +34,9 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 - The core checks contract hygiene on `validate` and `report` (AD-466). It reads and binds each cited
   provenance file. A file that it cannot read refuses the contract. A missing, repeated or stale marked
   graph, and the reference, rationale, responsibility, closed-world and `public_api` defects of 4.0.1,
-  give a row that keeps the run from PASS. A contract with an `interface_boundary` rule or with
-  `declarations.compat` gets the gap of its lifecycle checks: these are not ported yet. Mounted
-  contracts get no `inside.*` check yet.
+  give a row that keeps the run from PASS. A cited path must be in normal form. A contract with an
+  `interface_boundary` rule, `declarations.compat` or `declarations.measurement_budgets`, and a
+  mounted contract with an `allowed_dependency` rule, get a named gap: these checks are not ported.
 - Source that nests deeper than the parse work limit is the typed refusal `core_error` with `parse_work_limit`.
 - A `collector_argv` in `archkeel.toml` is refused. The core starts only its own collectors.
 - The survey refuses a root with more than 1 GiB of file bytes or more than 100,000 entries, by name.

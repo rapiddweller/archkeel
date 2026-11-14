@@ -40,6 +40,9 @@ pub enum Unsupported {
     /// A contract hygiene check that applies to the contract and that the core does not port
     /// yet: the codes of the reference engine that it names (AD-466).
     Hygiene(&'static str),
+    /// The contract hygiene of a request that carries no provenance documents: only the scan
+    /// request reads the repository (AD-466).
+    HygieneInput,
 }
 
 /// An input of a run that the core needs.
@@ -160,6 +163,9 @@ impl fmt::Display for Unsupported {
                 "the scope proof of a contract tree: the models do not hold every mount",
             ),
             Unsupported::NoRules => formatter.write_str("contract has no decided rule"),
+            Unsupported::HygieneInput => formatter.write_str(
+                "the contract hygiene of the request: it carries no provenance documents",
+            ),
             Unsupported::Hygiene(codes) => {
                 write!(
                     formatter,

@@ -86,6 +86,19 @@ pub(crate) fn cited(usable: &Usable) -> BTreeSet<String> {
     paths
 }
 
+/// True for a cited path in normal form: relative, with segments split by `/` only, and no empty,
+/// `.` or `..` segment, so no trailing slash. A backslash, a colon (a drive or a stream name) and
+/// a NUL are refused on each platform. A percent sign is a literal character: the core decodes
+/// no escape. Release 4.0.1 refuses only `..`, an absolute path and a backslash; the core refuses
+/// each other form too, because the shell binds a path only in this form.
+pub(crate) fn normal(reference: &str) -> bool {
+    !reference.is_empty()
+        && !reference.contains(['\\', ':', '\0'])
+        && reference
+            .split('/')
+            .all(|segment| !matches!(segment, "" | "." | ".."))
+}
+
 /// Read the provenance documents of the scanned tree. The inside contracts already hold a part of
 /// the bounds; a tree over a bound is an error (exit 2), as an inside tree over a bound is.
 pub(crate) fn read(
@@ -107,6 +120,10 @@ pub(crate) fn read(
         sum.saturating_add(file.bytes.len() as u64)
     });
     for reference in cited(&usable) {
+        if !normal(&reference) {
+            documents.unread.insert(reference);
+            continue;
+        }
         if insides.len().saturating_add(documents.read.len()) >= MAX_INSIDE_FILES {
             return Err(format!(
                 "the contract tree cites more than {MAX_INSIDE_FILES} nested files"

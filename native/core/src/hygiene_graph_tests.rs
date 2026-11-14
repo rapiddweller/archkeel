@@ -176,3 +176,24 @@ fn a_block_without_a_closing_fence_reads_to_the_next_same_marker() {
     let found = codes(&[("d.md", page)], &[("a", "b")], &[]);
     assert_eq!(found, ["graph.drift d.md (component graph)"]);
 }
+
+#[test]
+fn only_a_mermaid_fence_opens_a_block() {
+    // The reference engine looks for the text "```mermaid" and a newline after the marker.
+    for fence in [
+        "```text\n",
+        "```\n",
+        "``` mermaid\n",
+        "```Mermaid\n",
+        "~~~mermaid\n",
+    ] {
+        let page = format!("{COMPONENT}\n{fence}flowchart LR\n```\n");
+        assert_eq!(
+            codes(&[("d.md", page)], &[], &[]),
+            ["graph.count architecture component graph"],
+            "{fence}"
+        );
+    }
+    let page = format!("{COMPONENT}\n````mermaid\nflowchart LR\n````\n");
+    assert!(codes(&[("d.md", page)], &[], &[]).is_empty());
+}
