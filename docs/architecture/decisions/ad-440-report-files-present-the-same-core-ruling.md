@@ -16,7 +16,8 @@
    The strict shell decoder checks the fields, protocol, text and matching status.
    It requires exactly one exact verdict heading for that status and refuses any other verdict heading.
    A requested page without this part refuses, including an old core frame. No file is written.
-   An old frame without this part remains valid when no HTML was requested.
+   A frame without this part remains valid when no HTML was requested, subject to current request binding.
+   Keep AD-438 binding for every contract file and the request-start timestamp when HTML is requested.
 6. The shell writes only after `read_frame` accepts the whole frame and its request binding.
    It removes the transport-only HTML part from stdout. Existing text and JSON stdout stay unchanged.
    A completed write keeps the frame exit: PASS 0, FAIL 1, UNKNOWN 2.
@@ -27,6 +28,7 @@
    A run that cannot deliver the requested file is not a clean FAIL. No file error can become PASS.
 8. Escape each dynamic text at the HTML boundary. Keep full names; wrap long text without truncation.
    Show rule counts, rule rows, violation details, evidence locations, gaps, unsupported parts and request identity.
+   List the bound contract files and SHA-256 digests from `self_test.collect.contract_files` in the identity block.
    Render details as definition lists and only cited evidence locations as table rows, not a JSON dump.
    Unknown detail shapes use escaped compact single-line text. One escape function protects all dynamic HTML text.
    Show the core code digest, not the crate version. The scan request carries no package version.

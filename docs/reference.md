@@ -38,6 +38,12 @@ not globs. Optional `language` is `rust` or `typescript`; a missing value or `py
 `dart` is refused. TypeScript also uses `tsconfig`; roots may be files or directories.
 Inputs must exist inside `--root`.
 
+An explicit component `inside` mounts a child contract over the same scan. Its path is
+relative to `--root`, not to its parent contract. `validate` and `report` read all mounts
+through the core. Labels and rule IDs are mount-qualified; each mount keeps its own source domain.
+The shell checks the SHA-256 of every contract file. A changed, linked, missing or unsafe
+nested file cannot produce PASS. See [nested intent](rules.md#nested-and-independent-intent).
+
 `exclude_test_sources = true` (default false) leaves recognized test sources out of the scan
 of `report` and `validate`. File counts and verdicts then cover production code only, and the
 result has a note that says so. An import from production code into a test source stays UNKNOWN.
@@ -134,6 +140,7 @@ Neither stdout form is a complete `architecture.json` or an HTML report.
 `--format html` is the default and needs `--output`. Without an output path, no file is written.
 The HTML comes from the same ruling in the Rust core. It has no scripts, external resources or graph.
 It includes verdicts, counts, rule rows, violations, evidence locations, gaps, unsupported parts and request identity.
+The identity block lists each bound contract file and its SHA-256 digest, including nested contracts (AD-438).
 UNKNOWN and collection-refused frames write reports that show their verdict and causes.
 A refusal without an accepted frame writes nothing and says so. Stdout and verdict exits stay unchanged.
 If the report file cannot be written, stdout still shows the frame verdict with typed `io_error`, exit 2.

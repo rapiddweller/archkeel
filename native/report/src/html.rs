@@ -169,7 +169,8 @@ pub(super) fn render(frame: &Map<String, Value>) -> Result<Value, serde_json::Er
         "Request identity",
         &json!({
             "snapshot": value["self_test"]["collect"]["request"]["snapshot"],
-            "contract_digest": value["contract_digest"]
+            "contract_digest": value["contract_digest"],
+            "contract_files": value["self_test"]["collect"]["contract_files"]
         }),
     )?;
     let digest = text(&value["engine"])

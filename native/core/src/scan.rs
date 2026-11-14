@@ -16,7 +16,7 @@
 //! (`in_process`). It is not `check::stage_one_shell_trust`, which stays the only trust path of the
 //! check request. A part that `archkeel-collect` cannot run (another profile, a configured
 //! collector, a hostile repository over the work budget) is a frame that names it (exit 3), and
-//! the shell keeps its stage 1 path.
+//! the shell gives UNKNOWN without a fallback.
 
 use serde::Deserialize;
 use serde_json::json;
@@ -34,7 +34,7 @@ use crate::dual_run::{self, Answered, ReplyInput, Run, Trust, TrustOf};
 /// The protocol of the scan request.
 const PROTOCOL: &str = "archkeel-core-scan-1";
 /// The bounds of the shell on the inside contracts (`cli/native_core.py`): the rounds of a chain
-/// of 900 mounts and the bytes of the contract and of all inside contracts.
+/// of 900 mounts. Each of the root and the inside files has a total byte bound.
 const MAX_ROUNDS: usize = 901;
 const MAX_BYTES: u64 = 64 << 20;
 
@@ -99,6 +99,17 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
 /// The run of a scan that `archkeel-collect` completed.
 fn decide(scanned: Scanned, html: bool) -> Result<Answered, String> {
     let insides = tree(&scanned)?;
+    let contract_files: std::collections::BTreeMap<_, _> = std::iter::once((
+        scanned.contract.0.clone(),
+        archkeel_facts::identity::sha256_hex(&scanned.contract.1),
+    ))
+    .chain(insides.iter().map(|file| {
+        (
+            file.reference.clone(),
+            archkeel_facts::identity::sha256_hex(&file.bytes),
+        )
+    }))
+    .collect();
     let Scanned {
         profile,
         roots,
@@ -122,12 +133,12 @@ fn decide(scanned: Scanned, html: bool) -> Result<Answered, String> {
         html,
         base: None,
         trust: in_process(profile),
-        collect: Some(json!({ "request": request })),
+        collect: Some(json!({ "request": request, "contract_files": contract_files })),
     })
 }
 
 /// The frame of a scan that `archkeel-collect` refused: no reply and no contract, and the
-/// `collect` part names why. The frame decides nothing, so the shell keeps its stage 1 path.
+/// `collect` part names why. The frame decides nothing, so the shell gives UNKNOWN.
 fn refused(refusal: &Refusal, html: bool) -> Result<Answered, String> {
     dual_run::refused_scan(&refusal.to_string(), html)
 }
