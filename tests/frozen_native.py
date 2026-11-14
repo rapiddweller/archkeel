@@ -10,8 +10,9 @@ while the test reads. A scan then fails with `Unreadable source directory`, or t
 The fixture `frozen_root` copies the files of `native/` once for the whole session: the tracked
 files and the new files that Git does not ignore, as they are now. A changed tracked file is
 tested as it is. The copy also holds each document that the native contract cites, because
-the core reads and binds it (AD-466). The copy is a Git repository with one commit. Its directory name holds a digest
-of the files, so all workers of one session share one copy through a lock file.
+the core reads and binds it (AD-466). The copy is a Git repository with one commit. Its
+directory name holds a digest of the files, so all workers of one session share one copy
+through a lock file.
 """
 
 from __future__ import annotations
