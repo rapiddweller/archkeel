@@ -15,9 +15,10 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 
 ## The core path on main
 
-- No package carries the core binary. An installed package refuses each run with
-  `core_binary_not_found`, exit 2. Run `main` from a source checkout after `make core`. A release
-  from `main` is closed until each wheel carries the core (`tools/release_core.py`).
+- No release carries the core binary. A platform wheel of `main` carries it (`make native-wheel`),
+  and a build without the core refuses. Run `main` from a source checkout after `make core`.
+- The core refuses each root on Windows, so the Windows wheel gives no verdict. A release from
+  `main` is closed until each wheel of the matrix gives a verdict (`tools/release_core.py`, AD-436).
 - `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give the typed refusal
   `not_on_this_development_line`, exit 2. Interactive reports, `architecture.json`, saved and focused
   reports, baselines, amendments and `--write-graph` are refused by option name.
@@ -345,8 +346,8 @@ has no component in the native contract until it has code. Test code (`cfg(test)
 code until the host key `[scan] exclude_test_sources` is set. With the flag, a `cfg(test)` or `cfg(all(test, ..))` item, module,
 impl or trait member and `let` or macro statement, a `#[test]`, `#[x::test]` or `#[rstest]` function, and the `tests/`, `benches/` and `examples/` targets
 leave the reply. A `cfg` on a field, a match arm or an expression stays in scope, and so does a test attribute that this list does not
-name (`#[test_case]`). A production target or module file in a test directory is UNKNOWN, because the host refuses a reply that selects it. A platform wheel carries the collector; an install without it
-reports `missing_tool`
+name (`#[test_case]`). A production target or module file in a test directory is UNKNOWN, because the host refuses a reply that selects it. A platform wheel carries the core, which links the collector; a package without the core
+refuses with `core_binary_not_found`
 ([AD-335](architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md)).
 
 ### Rust: what the collector does not prove

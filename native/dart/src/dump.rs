@@ -29,7 +29,7 @@ struct SdkInput {
 }
 
 /// One result for each JSON input line; this is not a collector reply.
-pub(crate) fn sdk(text: &str) -> Result<String, String> {
+pub fn sdk(text: &str) -> Result<String, String> {
     rows(text, |input: SdkInput| {
         let (supported, gaps, work) =
             crate::records::sdk_support(input.state, input.constraint.as_deref());
@@ -37,13 +37,13 @@ pub(crate) fn sdk(text: &str) -> Result<String, String> {
     })
 }
 
-pub(crate) fn declarations(text: &str) -> Result<String, String> {
+pub fn declarations(text: &str) -> Result<String, String> {
     rows(text, |input: crate::declarations::types::Input| {
         crate::declarations::build(&input)
     })
 }
 
-pub(crate) fn collection(text: &str) -> Result<String, String> {
+pub fn collection(text: &str) -> Result<String, String> {
     rows(text, |input: crate::collection::types::Input| {
         crate::collection::build(&input)
     })
@@ -63,7 +63,7 @@ fn rows<T: serde::de::DeserializeOwned, R: serde::Serialize>(
 }
 
 /// The JSON text of the sections, from `<snapshot-root> <namespace> <root>...`.
-pub(crate) fn run(arguments: &[String]) -> Result<String, String> {
+pub fn run(arguments: &[String]) -> Result<String, String> {
     let [root, namespace, roots @ ..] = arguments else {
         return Err("usage: --dump <snapshot-root> <namespace> <root>...".to_owned());
     };
@@ -105,8 +105,31 @@ pub(crate) fn run(arguments: &[String]) -> Result<String, String> {
     serde_json::to_string(&value).map_err(|error| error.to_string())
 }
 
+/// The JSON text of the import survey of `<snapshot-root> <namespace> <root>...` (AD-454): the
+/// counts, each edge as its source file, kind and target, and each gap by its name or kind.
+pub fn survey(arguments: &[String]) -> Result<String, String> {
+    let [root, namespace, roots @ ..] = arguments else {
+        return Err("usage: --dump-survey <snapshot-root> <namespace> <root>...".to_owned());
+    };
+    let request = json!({
+        "protocol_version": "8.0.0",
+        "snapshot": {"root": root, "git_head": "0".repeat(40), "dirty": false},
+        "scope": {"roots": roots, "namespace": namespace},
+        "resolver": {"language": "dart"},
+    });
+    let request = crate::import_survey::reply::decode(request.to_string().as_bytes())?;
+    let found = crate::import_survey::survey(&request)?;
+    let value = json!({
+        "files": found.files.len(),
+        "parts": found.parts.len(),
+        "edges": crate::import_survey::edge_rows(&found),
+        "gaps": crate::import_survey::gap_rows(&found),
+    });
+    serde_json::to_string(&value).map_err(|error| error.to_string())
+}
+
 /// The JSON lines of `--dump-syntax`: one line for each path of `paths`.
-pub(crate) fn syntax(paths: &str) -> Result<String, String> {
+pub fn syntax(paths: &str) -> Result<String, String> {
     let mut parser = DartParser::new()?;
     let mut lines = String::new();
     for path in paths.lines().filter(|line| !line.is_empty()) {

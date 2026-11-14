@@ -49,23 +49,7 @@ pub(crate) struct Sections {
 /// each source, in the order of `discovery.sources`.
 pub(crate) fn sections(discovery: &Discovery, roots: &[String], syntax: &[Syntax]) -> Sections {
     let mut evidence = BTreeMap::new();
-    let mut inputs: Vec<Input> = discovery
-        .sources
-        .iter()
-        .map(|source| Input {
-            digest: source.digest.clone(),
-            path: source.rel_path.clone(),
-            role: Role::Selected,
-        })
-        .collect();
-    if let Some(digest) = &discovery.pubspec_digest {
-        inputs.push(Input {
-            digest: digest.clone(),
-            path: "pubspec.yaml".to_owned(),
-            role: Role::Resolution,
-        });
-    }
-    inputs.sort_by(|a, b| a.path.cmp(&b.path));
+    let inputs = inputs(discovery);
     // `_prepare_sources`: the gaps of the parse first, then the snapshot problems. The first gap
     // of an id stays, and the file evidence is written last, as `_files` writes it.
     let mut gaps = BTreeMap::new();
@@ -76,20 +60,7 @@ pub(crate) fn sections(discovery: &Discovery, roots: &[String], syntax: &[Syntax
             gaps.entry(id).or_insert(record);
         }
     }
-    for found in &discovery.problems {
-        let content = discovery
-            .sources
-            .iter()
-            .find(|source| source.rel_path == found.path)
-            .map(|source| source.content.as_slice());
-        let cited = content.map(|content| file_evidence(&mut evidence, &found.path, content));
-        let (id, record) = gap(&found.path, 1, found.kind, &found.message, cited);
-        gaps.entry(id).or_insert(record);
-    }
-    let (_, sdk_gaps, _) = sdk_support(discovery.sdk_state, discovery.sdk.as_deref());
-    for record in sdk_gaps {
-        gaps.entry(record.id.as_str().to_owned()).or_insert(record);
-    }
+    discovery_gaps(discovery, &mut evidence, &mut gaps);
     // A source with a syntax error has no file fact (`_prepare_sources` leaves it unparsed).
     let files = discovery
         .sources
@@ -118,6 +89,51 @@ pub(crate) fn sections(discovery: &Discovery, roots: &[String], syntax: &[Syntax
             .map(|source| source.rel_path.clone())
             .collect(),
     }
+}
+
+/// The gaps of the snapshot problems and of the SDK support of `discovery`. The first gap of an
+/// id stays.
+pub(crate) fn discovery_gaps(
+    discovery: &Discovery,
+    evidence: &mut BTreeMap<String, Evidence>,
+    gaps: &mut BTreeMap<String, Record<GapFact>>,
+) {
+    for found in &discovery.problems {
+        let content = discovery
+            .sources
+            .iter()
+            .find(|source| source.rel_path == found.path)
+            .map(|source| source.content.as_slice());
+        let cited = content.map(|content| file_evidence(evidence, &found.path, content));
+        let (id, record) = gap(&found.path, 1, found.kind, &found.message, cited);
+        gaps.entry(id).or_insert(record);
+    }
+    let (_, sdk_gaps, _) = sdk_support(discovery.sdk_state, discovery.sdk.as_deref());
+    for record in sdk_gaps {
+        gaps.entry(record.id.as_str().to_owned()).or_insert(record);
+    }
+}
+
+/// The selected sources and the `pubspec.yaml` of `discovery` with their digests, sorted by path.
+pub(crate) fn inputs(discovery: &Discovery) -> Vec<Input> {
+    let mut inputs: Vec<Input> = discovery
+        .sources
+        .iter()
+        .map(|source| Input {
+            digest: source.digest.clone(),
+            path: source.rel_path.clone(),
+            role: Role::Selected,
+        })
+        .collect();
+    if let Some(digest) = &discovery.pubspec_digest {
+        inputs.push(Input {
+            digest: digest.clone(),
+            path: "pubspec.yaml".to_owned(),
+            role: Role::Resolution,
+        });
+    }
+    inputs.sort_by(|a, b| a.path.cmp(&b.path));
+    inputs
 }
 
 /// `_sdk_constraints` writes one file-level gap without evidence: pubspec is not a source.
@@ -166,7 +182,11 @@ pub(crate) fn parse_gaps(parsed: &Syntax) -> Vec<(&Span, ExceptionName, &str)> {
 }
 
 /// `_Collection._gap` evidence: the span when it has an excerpt, else the first line.
-fn cite(evidence: &mut BTreeMap<String, Evidence>, source: &Source, span: &Span) -> String {
+pub(crate) fn cite(
+    evidence: &mut BTreeMap<String, Evidence>,
+    source: &Source,
+    span: &Span,
+) -> String {
     if span.excerpt.is_empty() {
         return file_evidence(evidence, &source.rel_path, &source.content);
     }
@@ -188,7 +208,11 @@ fn number(value: usize) -> i64 {
 }
 
 /// `source_records.file_evidence`: line 1 when the first line holds text, else line 0.
-fn file_evidence(evidence: &mut BTreeMap<String, Evidence>, rel: &str, content: &[u8]) -> String {
+pub(crate) fn file_evidence(
+    evidence: &mut BTreeMap<String, Evidence>,
+    rel: &str,
+    content: &[u8],
+) -> String {
     let text = String::from_utf8_lossy(content);
     let first = splitlines(&text)
         .first()
