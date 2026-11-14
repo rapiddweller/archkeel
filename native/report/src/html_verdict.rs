@@ -47,12 +47,24 @@ fn next(frame: &Frame, places: &Places) -> String {
             .push("Nothing to do. Keep the contract and this report with the commit.".to_owned()),
         status => {
             if places.total > 0 {
-                let links: Vec<String> = places
+                // All the places up to nine; else the first five and a link to the whole section.
+                let shown = if places.shown.len() <= 9 {
+                    places.shown.len()
+                } else {
+                    5
+                };
+                let mut links: Vec<String> = places
                     .shown
                     .iter()
-                    .take(5)
+                    .take(shown)
                     .map(|place| format!("<a href=\"#x{n}\">{n}</a>", n = place.number))
                     .collect();
+                if places.total > shown {
+                    links.push(format!(
+                        "<a href=\"#violations\">+{} more</a>",
+                        places.total - shown
+                    ));
+                }
                 steps.push(format!(
                     "Remove {}. Evidence: {}.",
                     count(places.total, "violated place"),
@@ -60,11 +72,15 @@ fn next(frame: &Frame, places: &Places) -> String {
                 ));
             }
             if frame.rules_with("UNKNOWN") > 0 {
-                let held = causes::grouped(frame).len();
+                let held = causes::grouped(frame)
+                    .iter()
+                    .filter(|cause| !cause.rules.is_empty())
+                    .count();
                 steps.push(format!(
-                    "Close the gaps behind the {}: {} hold them.",
+                    "Close the gaps behind the {}: {} {} them. <a href=\"#unknown\">Causes</a>.",
                     count(frame.rules_with("UNKNOWN"), "unknown rule"),
-                    count(held, "cause")
+                    count(held, "cause"),
+                    if held == 1 { "holds" } else { "hold" }
                 ));
             } else if status == "UNKNOWN" {
                 // No rule row is UNKNOWN: a named gap or the run itself keeps it open.
@@ -92,49 +108,36 @@ fn next(frame: &Frame, places: &Places) -> String {
     )
 }
 
-/// One cause as a phrase: how many rules it holds, what it is, and at most five rule ids by name.
-fn cause_line(cause: &causes::Cause<'_>) -> String {
-    let title = escape(&causes::title(cause));
-    if cause.rules.is_empty() {
-        return format!("{}: {title}", count(cause.named, "named gap"));
-    }
-    let ids: Vec<String> = cause
-        .rules
-        .iter()
-        .take(5)
-        .map(|id| format!("<span class=\"rp-code\">{}</span>", escape(id)))
-        .collect();
-    let more = cause.rules.len().saturating_sub(5);
-    let tail = if more > 0 {
-        format!(", +{more} more")
-    } else {
-        String::new()
-    };
-    format!(
-        "{}: {title} ({}{tail})",
-        count(cause.rules.len(), "rule"),
-        ids.join(", ")
-    )
-}
-
-/// One line under the verdict: the three largest causes of the UNKNOWN rules, text only.
+/// One line for each of the three largest causes of the UNKNOWN rules, without rule ids: the ids
+/// are in the card of the cause. A cause is one short sentence and the number of the rules.
 fn top_causes(frame: &Frame) -> String {
     let all = causes::grouped(frame);
     if all.is_empty() {
         return String::new();
     }
-    let shown: Vec<String> = all.iter().take(3).map(|cause| cause_line(cause)).collect();
+    let mut lines: String = all
+        .iter()
+        .take(3)
+        .map(|cause| {
+            let held = if cause.rules.is_empty() {
+                count(cause.named, "named gap")
+            } else {
+                count(cause.rules.len(), "rule")
+            };
+            format!(
+                "<p class=\"body-sm ak-verdict__note\">{held}: {}</p>",
+                escape(&causes::title(cause))
+            )
+        })
+        .collect();
     let more = all.len().saturating_sub(3);
-    let tail = if more > 0 {
-        format!("; and {}", count(more, "more cause"))
-    } else {
-        String::new()
-    };
-    format!(
-        "<p class=\"body-sm ak-verdict__note\">Unknown because of {}. {}{tail}.</p>",
-        count(all.len(), "cause"),
-        shown.join("; ")
-    )
+    if more > 0 {
+        lines.push_str(&format!(
+            "<p class=\"body-sm ak-verdict__note\"><a href=\"#unknown\">{} more</a></p>",
+            count(more, "cause")
+        ));
+    }
+    lines
 }
 
 /// The verdict card and the next steps: the first block of the page.

@@ -45,6 +45,11 @@ impl<'a> Names<'a> {
         self.modules.get(module).map(|m| m.path.as_str())
     }
 
+    /// Whether a name is a module of the topology.
+    pub(super) fn is_module(&self, name: &str) -> bool {
+        self.modules.contains_key(name)
+    }
+
     /// The name of a component id, or the id.
     pub(super) fn name(&self, id: &'a str) -> &'a str {
         self.components.get(id).copied().unwrap_or(id)
@@ -121,7 +126,9 @@ fn sides(frame: &Frame, names: &Names<'_>, rule: &str) -> String {
     }
 }
 
-fn violated(frame: &Frame, names: &Names<'_>, rules: &[Violated]) -> String {
+/// The rules that fail at a place. A cycle rule is worded by the level of its members, as the
+/// frame shows it: a module of the topology is a module cycle, else a component cycle.
+fn violated(frame: &Frame, names: &Names<'_>, rules: &[Violated], level: Option<&str>) -> String {
     let mut list = String::from("<ul class=\"rp-rules\">");
     for found in rules {
         let kind = frame
@@ -129,6 +136,10 @@ fn violated(frame: &Frame, names: &Names<'_>, rules: &[Violated]) -> String {
             .get(&found.rule)
             .map(|row| row.0.replace('_', " "))
             .unwrap_or_default();
+        let kind = match level {
+            Some(level) if kind == "no component cycles" => format!("no {level} cycles"),
+            _ => kind,
+        };
         list.push_str(&format!(
             "<li class=\"body-sm\">Violates <b class=\"rp-code\">{}</b> &#183; {} &#183; cause: {}{}</li>",
             escape(&found.rule),
@@ -218,7 +229,7 @@ fn import_block(
 <p class=\"caption rp-at\">Evidence: {}</p></div>{}</article>",
         head(place.number, &title),
         evidence_line(frame, evidence, 5),
-        violated(frame, names, &place.rules),
+        violated(frame, names, &place.rules, None),
         n = place.number
     )
 }
@@ -258,6 +269,11 @@ fn closing(names: &Names<'_>, cycle: &CyclePath) -> String {
 }
 
 fn cycle_block(frame: &Frame, names: &Names<'_>, place: &Place, cycle: &CyclePath) -> String {
+    let level = if cycle.members.iter().all(|m| names.is_module(m)) {
+        "module"
+    } else {
+        "component"
+    };
     let owners: std::collections::BTreeSet<&str> = cycle
         .path
         .iter()
@@ -290,7 +306,7 @@ fn cycle_block(frame: &Frame, names: &Names<'_>, place: &Place, cycle: &CyclePat
 <th class=\"caption\">To</th><th class=\"caption\">Imports</th></tr></thead><tbody>{rows}</tbody></table></div>\
 {cut}</div>{}</article>",
         head(place.number, &title),
-        violated(frame, names, &place.rules),
+        violated(frame, names, &place.rules, Some(level)),
         n = place.number,
         members = count(cycle.members.len(), "member"),
         steps = count(cycle.path.len(), "step"),
@@ -311,14 +327,27 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
         count(rules, "rule")
     );
     for place in &places.shown {
-        page.push_str(&match &place.kind {
+        let block = match &place.kind {
             Kind::Import {
                 source,
                 target,
                 evidence,
             } => import_block(frame, names, place, (source, target.as_deref(), evidence)),
             Kind::Cycle(cycle) => cycle_block(frame, names, place, cycle),
-        });
+        };
+        if place.number <= OPEN_PLACES {
+            page.push_str(&block);
+        } else {
+            // A place after the first ones is folded under its line. The id moves to the fold, so
+            // a link to the place opens it.
+            let id = format!("id=\"x{}\"", place.number);
+            page.push_str(&format!(
+                "<details class=\"rp-fold rp-place\" {id}><summary class=\"body-sm\"><span class=\"rp-no\">{}</span> {}</summary>{}</details>",
+                place.number,
+                escape(&one_line(names, place)),
+                block.replacen(&format!(" {id}"), "", 1)
+            ));
+        }
     }
     for (rule, cycles) in &frame.explain.cycles {
         if cycles.total > cycles.items.len() {
@@ -340,4 +369,40 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
     }
     page.push_str("</section>\n");
     page
+}
+
+/// The violated places that show open; the others are folded under one line.
+const OPEN_PLACES: usize = 2;
+
+/// A place as one line of text, for the list of the exceptions.
+pub(super) fn one_line(names: &Names<'_>, place: &Place) -> String {
+    match &place.kind {
+        Kind::Cycle(cycle) => {
+            let mut owners = cycle
+                .path
+                .iter()
+                .flat_map(|step| [&step.from_component, &step.to_component])
+                .flatten()
+                .map(|id| names.name(id))
+                .collect::<Vec<_>>();
+            owners.sort_unstable();
+            owners.dedup();
+            let level = if cycle.members.iter().all(|m| names.is_module(m)) {
+                "modules"
+            } else {
+                "components"
+            };
+            match owners.as_slice() {
+                [one] => format!("Cycle of {} {level} in {one}", cycle.members.len()),
+                _ => format!("Cycle of {} {level}", cycle.members.len()),
+            }
+        }
+        Kind::Import { source, target, .. } => {
+            let file = |module: &str| names.file(module).unwrap_or(module).to_owned();
+            match target {
+                Some(target) => format!("{} imports {}", file(source), file(target)),
+                None => file(source),
+            }
+        }
+    }
 }

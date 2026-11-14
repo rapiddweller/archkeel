@@ -21,6 +21,8 @@ pub(super) struct Cause<'a> {
     pub(super) unnamed: usize,
     /// Named gaps of this cause that are no rule of the contract (for example a hygiene code).
     pub(super) named: usize,
+    /// The pairs of modules that hold the rules of the cause.
+    pub(super) pairs: Vec<(&'a str, &'a str)>,
 }
 
 /// The causes of the UNKNOWN rules of a frame, the cause with most rules first.
@@ -36,18 +38,22 @@ pub(super) fn grouped(frame: &Frame) -> Vec<Cause<'_>> {
         let total = held.map_or(0, |h| h.total);
         // A cause with no typed form is told apart by the text of the core.
         let text = if kind == "other" { reason } else { "" };
-        causes
-            .entry((kind, text, total))
-            .or_insert_with(|| Cause {
-                kind,
-                reason,
-                rules: Vec::new(),
-                total,
-                unnamed: held.map_or(0, |h| h.unnamed_imports),
-                named: 0,
-            })
-            .rules
-            .push(rule);
+        let card = causes.entry((kind, text, total)).or_insert_with(|| Cause {
+            kind,
+            reason,
+            rules: Vec::new(),
+            total,
+            unnamed: held.map_or(0, |h| h.unnamed_imports),
+            named: 0,
+            pairs: Vec::new(),
+        });
+        card.rules.push(rule);
+        for pair in held.into_iter().flat_map(|h| &h.pairs) {
+            let key = (pair.source.as_str(), pair.target.as_str());
+            if !card.pairs.contains(&key) {
+                card.pairs.push(key);
+            }
+        }
     }
     // A named gap has no rule row; its reason is its cause, and equal reasons are one cause.
     for reason in frame.named.values() {
@@ -60,6 +66,7 @@ pub(super) fn grouped(frame: &Frame) -> Vec<Cause<'_>> {
                 total: 0,
                 unnamed: 0,
                 named: 0,
+                pairs: Vec::new(),
             })
             .named += 1;
     }
@@ -82,6 +89,27 @@ pub(super) fn title(cause: &Cause<'_>) -> String {
             count(cause.unnamed, "unresolved import")
         ),
         "no_source_files" => "the collector selected no source file".to_owned(),
-        _ => cause.reason.to_owned(),
+        _ => short(cause.reason),
     }
+}
+
+/// A reason as one short sentence: a list after the last colon shows three examples and the number
+/// of the others; a long text is cut at a word. The whole text stays in the cause card.
+pub(super) fn short(reason: &str) -> String {
+    if let Some((head, tail)) = reason.rsplit_once(": ") {
+        let items: Vec<&str> = tail.split(", ").collect();
+        if items.len() > 4 {
+            return format!(
+                "{head}: {}, +{} more",
+                items[..3].join(", "),
+                items.len() - 3
+            );
+        }
+    }
+    if reason.chars().count() <= 140 {
+        return reason.to_owned();
+    }
+    let cut: String = reason.chars().take(140).collect();
+    let end = cut.rfind(' ').unwrap_or(cut.len());
+    format!("{} \u{2026}", &cut[..end])
 }
