@@ -27,7 +27,8 @@ def _project(root: Path) -> None:
     (root / "src").mkdir(parents=True)
     (root / "src" / "lib.rs").write_text("")
     (root / "Cargo.toml").write_text('[package]\nname = "p"\nversion = "0.0.0"\nedition = "2021"\n')
-    (root / "archkeel.toml").write_text('[scan]\nlanguage = "rust"\nroots = ["src"]\nnamespace = "p"\ncontract = "c.json"\n')
+    config = '[scan]\nlanguage = "rust"\nroots = ["src"]\nnamespace = "p"\ncontract = "c.json"\n'
+    (root / "archkeel.toml").write_text(config)
     (root / "c.json").write_text(json.dumps({"components": []}))
 
 
