@@ -15,12 +15,8 @@ use crate::survey::binders::Binders;
 fn declared(text: &str, minor: u32) -> Vec<Record<SymbolFact>> {
     let module = crate::test_module(text, minor);
     let binders = Binders::of(&module.tree);
-    records(
-        &module,
-        &binders,
-        crate::test_minor(minor),
-        &mut EvidenceMap::new(),
-    )
+    let _ = minor;
+    records(&module, &binders, &mut EvidenceMap::new())
 }
 
 fn names(found: &[Record<SymbolFact>]) -> Vec<String> {
@@ -116,19 +112,18 @@ fn an_attribute_write_with_another_base_than_self_writes_no_member() {
 }
 
 #[test]
-fn a_text_that_native_cannot_write_gives_no_record_of_the_module() {
-    let deep = format!(
-        "def f(a: {}1{}) -> int:\n    pass\n",
-        "[".repeat(110),
-        "]".repeat(110)
+fn a_text_that_the_reader_does_not_write_gives_no_record_of_its_declaration() {
+    let found = declared(
+        concat!(
+            "def f(a: list[int]) -> int:\n    pass\n\n\ndef g(a: int = 1) -> None:\n    pass\n\n\n",
+            "def h(a: int = None, b: 'x.y' = True) -> a.b:\n    pass\n"
+        ),
+        11,
     );
-    let module = crate::test_module(&deep, 11);
-    let binders = Binders::of(&module.tree);
-    let found = records(
-        &module,
-        &binders,
-        crate::test_minor(11),
-        &mut EvidenceMap::new(),
+    assert_eq!(names(&found), Vec::<String>::new());
+    let plain = declared(
+        "def h(a: int = None, b: x.y = True) -> a.b:\n    pass\n",
+        11,
     );
-    assert!(found.is_empty());
+    assert_eq!(names(&plain), ["app.probe.h"]);
 }

@@ -15,8 +15,9 @@ use ruff_python_ast::{Expr, Stmt, StmtAnnAssign, StmtClassDef, StmtFunctionDef};
 use ruff_text_size::TextRange;
 use serde_json::{json, Map, Value};
 
+use super::scan::Scan;
 use super::writes::{self, store_names};
-use crate::declare::{visibility, Scan};
+use crate::declare::visibility;
 use crate::pyast::{walk, Node};
 use crate::unparse::TextFailure as Failure;
 

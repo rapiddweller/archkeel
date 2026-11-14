@@ -22,9 +22,11 @@ mod bindings;
 mod declare;
 #[cfg(any(test, feature = "dump"))]
 mod symbols;
+#[cfg(any(test, feature = "dump"))]
 mod unparse;
 
 mod module;
+#[cfg(any(test, feature = "dump"))]
 #[expect(
     unreachable_pub,
     reason = "the CPython node view of the tests and the dump keeps its operator tables as they are"

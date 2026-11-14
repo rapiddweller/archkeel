@@ -17,11 +17,10 @@ use ruff_python_ast::{Expr, Stmt, StmtClassDef, StmtFunctionDef, UnaryOp};
 use ruff_text_size::Ranged;
 
 use super::kind::Kind;
-use super::scan::Scan;
-use super::signature::visibility;
+use super::reader::{Reader, Unwritable};
+use crate::declare::visibility;
 use crate::survey::binders::Binders;
 use crate::survey::bound::Bound;
-use crate::unparse::TextFailure as Failure;
 
 /// The attributes of a class and, for an enum, the names of its literals.
 pub(super) struct Attributes {
@@ -32,11 +31,11 @@ pub(super) struct Attributes {
 /// The declared attributes of a class body. An enum lists a name only when the whole body is
 /// proven: constants for literals, methods, a docstring and `pass`; else it lists none.
 pub(super) fn attributes(
-    scan: &mut Scan<'_>,
+    scan: &mut Reader<'_>,
     node: &StmtClassDef,
     bound: &Bound,
     kind: Kind,
-) -> Result<Attributes, Failure> {
+) -> Result<Attributes, Unwritable> {
     let enumeration = kind == Kind::Enum;
     let mut found = Vec::new();
     for statement in &node.body {
@@ -131,7 +130,7 @@ fn constant(value: &Expr) -> bool {
 
 /// `_class_attribute_declarations` for one name of one statement.
 fn declaration(
-    scan: &mut Scan<'_>,
+    scan: &mut Reader<'_>,
     statement: &Stmt,
     name: &str,
     annotation: Option<String>,

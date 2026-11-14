@@ -11,7 +11,7 @@ use ruff_python_ast::{Expr, ExprContext, Parameter, Stmt, StmtFunctionDef};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
-use crate::declare::Scan;
+use super::scan::Scan;
 use crate::pyast::{walk, Node};
 
 fn address(expr: &Expr) -> usize {
