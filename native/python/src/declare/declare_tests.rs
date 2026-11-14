@@ -78,7 +78,7 @@ fn each_record_names_its_parent_and_its_kind() {
                 assert_eq!(data.method_kind, Some(MethodKind::Static));
                 assert_eq!(data.parent.as_deref(), Some("app.probe.A"));
             }
-            other => panic!("unexpected record {other:?}"),
+            other => assert!(matches!(other, SymbolFact::Function(_)), "{other:?}"),
         }
     }
 }

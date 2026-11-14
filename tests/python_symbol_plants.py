@@ -36,7 +36,12 @@ SHAPES: dict[str, Plant] = {
             fn(
                 signature={
                     "parameters": [
-                        {"name": "a", "annotation": "int", "kind": "positional", "default_known": True}
+                        {
+                            "name": "a",
+                            "annotation": "int",
+                            "kind": "positional",
+                            "default_known": True,
+                        }
                     ],
                     "returns": "str",
                 },
@@ -50,9 +55,7 @@ SHAPES: dict[str, Plant] = {
         [fn(signature={"parameters": [], "returns": "int"})],
         "DIFF",
     ),
-    "async-function": pl(
-        "async def f():\n    pass\n", [fn(modifiers=["async"])], "PASS"
-    ),
+    "async-function": pl("async def f():\n    pass\n", [fn(modifiers=["async"])], "PASS"),
     "method": pl("class A:\n    def m(self):\n        pass\n", [C, Want("method", "A.m")], "PASS"),
     "staticmethod": pl(
         "class A:\n    @staticmethod\n    def s():\n        pass\n",
@@ -88,17 +91,15 @@ SHAPES: dict[str, Plant] = {
     "qualified-enum": pl(
         "import enum\n\n\nclass E(enum.IntEnum):\n    R = 1\n", [Want("enum", "E")], "PASS"
     ),
-    "nested-class": pl(
-        "class A:\n    class B:\n        pass\n", [C, Want("class", "A.B")], "PASS"
+    "nested-class": pl("class A:\n    class B:\n        pass\n", [C, Want("class", "A.B")], "PASS"),
+    "local-base": pl(
+        "class A:\n    pass\n\n\nclass B(A):\n    pass\n", [C, Want("class", "B")], "PASS"
     ),
-    "local-base": pl("class A:\n    pass\n\n\nclass B(A):\n    pass\n", [C, Want("class", "B")], "PASS"),
     "builtin-base": pl("class A(Exception):\n    pass\n", [C], "PASS"),
     "slots": pl("class A:\n    __slots__ = ('x',)\n", [C], "PASS"),
     "all-list": pl("__all__ = ['f']\n\n\ndef f():\n    pass\n", [fn()], "PASS"),
     "wrong-kind": pl("class f:\n    pass\n", [fn()], "DIFF"),
-    "enum-as-class": pl(
-        "from enum import Enum\n\n\nclass A(Enum):\n    R = 1\n", [C], "DIFF"
-    ),
+    "enum-as-class": pl("from enum import Enum\n\n\nclass A(Enum):\n    R = 1\n", [C], "DIFF"),
     "protocol-subclass": pl(
         "from typing import Protocol\n\n\nclass P(Protocol):\n    pass\n\n\nclass A(P):\n    pass\n",
         [Want("interface", "P"), Want("interface", "A")],
@@ -148,9 +149,7 @@ BOUND: dict[str, Plant] = {
         **{"other.py": "f = 5\n"},
     ),
     "class-redefined": pl("class A:\n    pass\n\n\nclass A:\n    x = 1\n", [C], "DIFF"),
-    "module-getattr": pl(
-        "def __getattr__(name):\n    return lambda: 1\n", [fn("g")], "PASS"
-    ),
+    "module-getattr": pl("def __getattr__(name):\n    return lambda: 1\n", [fn("g")], "PASS"),
     "globals-write": pl("class f:\n    pass\n\n\nglobals()['f'] = lambda: 1\n", [fn()], "PASS"),
     "exec-def": pl("exec('def f(): return 5')\n", [fn()], "PASS"),
     "write-from-other": pl(
@@ -199,8 +198,12 @@ CLASSES: dict[str, Plant] = {
     "typeddict": pl(
         "from typing import TypedDict\n\n\nclass A(TypedDict):\n    x: int\n", [C], "PASS"
     ),
-    "unknown-base": pl("from demo.other import Base\n\n\nclass A(Base):\n    pass\n", [C], "DIFF",
-                       **{"other.py": "from enum import Enum\n\n\nclass Base(Enum):\n    pass\n"}),
+    "unknown-base": pl(
+        "from demo.other import Base\n\n\nclass A(Base):\n    pass\n",
+        [C],
+        "DIFF",
+        **{"other.py": "from enum import Enum\n\n\nclass Base(Enum):\n    pass\n"},
+    ),
     "enum-rebound": pl(
         "from enum import Enum\n\nEnum = object\n\n\nclass E(Enum):\n    R = 1\n",
         [Want("enum", "E")],
@@ -251,7 +254,9 @@ MEMBERS: dict[str, Plant] = {
         "DIFF",
     ),
     "write-after-class": pl(
-        "class A:\n    def m(self):\n        pass\n\n\nA.m = None\n", [C, Want("method", "A.m")], "DIFF"
+        "class A:\n    def m(self):\n        pass\n\n\nA.m = None\n",
+        [C, Want("method", "A.m")],
+        "DIFF",
     ),
     "setattr-class": pl(
         "class A:\n    def m(self):\n        pass\n\n\nsetattr(A, 'm', None)\n",
