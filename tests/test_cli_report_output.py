@@ -9,6 +9,7 @@ import errno
 import html
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -86,17 +87,11 @@ def test_files_keep_the_frame_and_exit(
     else:
         text = target.read_text()
         assert f"<h1>Verdict: {found['status']}</h1>" in text
-        for heading in (
-            "Counts",
-            "Rules",
-            "Violations",
-            "Gaps",
-            "Unsupported",
-            "Request identity",
-            "Tool",
-        ):
+        for heading in ("Counts", "Rules", "Gaps", "Unsupported", "Request identity", "Tool"):
             assert f"<h2>{heading}</h2>" in text
-        assert "<script" not in text and "src=" not in text and "href=" not in text
+        # AD-496: one script (the theme switch, admitted by hash) and links inside the page only.
+        assert text.count("<script>") == 1 and "src=" not in text
+        assert not re.findall(r'href="(?!#)', text)
         for identifier, (_, verdict) in found["frame"]["rules"].items():
             assert f"<td>{identifier}</td>" in text and f"<td>{verdict}</td>" in text
 
@@ -278,7 +273,8 @@ def test_a_long_hostile_rule_name_is_not_truncated_or_executed(
     assert code == 0, found
     document = target.read_text()
     assert html.escape(plant, quote=True).replace("&#x27;", "&#39;") in document
-    assert "<script>" not in document
+    # AD-496: the page has its one theme script; the planted text adds none.
+    assert document.count("<script>") == 1 and '<script>"' not in document
 
 
 def test_an_invalid_utf8_name_cannot_publish_a_success_page(
@@ -323,7 +319,8 @@ def test_document_verdict_mismatch_refuses_before_writing(
 ) -> None:
     root = project(tmp_path / "project", release_core, "rust", "FAIL")
     monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
-    _, real = run("report", "--root", str(root))
+    # AD-496: a page request also asks for the topology, so the frame that the core gives holds it.
+    _, real = run("report", "--root", str(root), "--topology")
     frame = real["frame"]
     assert frame["status"] == "FAIL"
     frame["html"] = {"protocol": "archkeel-core-html-1", "status": "FAIL", "document": document}
@@ -421,9 +418,12 @@ def test_compact_report_has_evidence_locations_and_an_honest_tool_identity(
     code, found = run("report", "--root", str(root), "--output", str(target))
     assert code == 1 and found["status"] == "FAIL"
     document = target.read_text()
-    violations = document.split("<h2>Violations</h2>", 1)[1].split("<h2>Gaps</h2>", 1)[0]
-    assert "<pre>" not in violations and "<dl>" in violations
-    assert "<table>" in violations and "crates/app/Cargo.toml" in violations
+    # AD-496: one block for each violated place, with the path down to its file and line.
+    violations = document.split('id="violations">Violations</h2>', 1)[1].split(
+        "<h2>Counts</h2>", 1
+    )[0]
+    assert "<pre>" not in violations and 'class="rp-dos"' in violations
+    assert "crates/app/Cargo.toml" in violations and "Evidence path" in violations
     assert "Core code digest" in document and found["core"]["code_digest"] in document
     assert "&quot;version&quot;" not in document and "0.0.0" not in document
 
