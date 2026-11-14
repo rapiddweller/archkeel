@@ -16,8 +16,8 @@ from pathlib import Path
 from typing import Literal, TypedDict
 from urllib.parse import quote
 
-# AD-317: the platform wheels of the native collector, one for each pinned build image of Full.
-# The release workflow adds them to `dist/` only when PUBLISH_NATIVE_WHEELS is "true".
+# AD-317, AD-436: the platform wheels, one for each pinned build image of Full. Each carries the
+# core. The release workflow adds them to `dist/` only when PUBLISH_NATIVE_WHEELS is "true".
 PLATFORM_TAGS = (
     "py3-none-macosx_10_12_x86_64",
     "py3-none-macosx_11_0_arm64",
@@ -160,17 +160,15 @@ def _release_body(notes: Path, repository: str, tag: str, version: str) -> str:
 
 
 def _assets(dist: Path, plugin: Path, version: str) -> tuple[list[Path], dict[str, Path]]:
-    pure = dist / f"archkeel-{version}-py3-none-any.whl"
     sdist = dist / f"archkeel-{version}.tar.gz"
     platform = [dist / f"archkeel-{version}-{tag}.whl" for tag in PLATFORM_TAGS]
     found = set(dist.glob("*.whl")) | set(dist.glob("*.tar.gz"))
-    if pure not in found or sdist not in found:
-        raise ValueError("expected the pure wheel and the sdist for this tag")
-    if found - {pure, sdist} - set(dist.glob(f"archkeel-{version}-*.whl")):
+    if found - {sdist} - set(dist.glob(f"archkeel-{version}-*.whl")):
         raise ValueError("distribution directory contains another version")
-    if found - {pure, sdist} not in (set(), set(platform)):
-        raise ValueError("expected none or all six platform wheels for this tag")
-    distributions = [pure, *(platform if platform[0] in found else []), sdist]
+    # AD-436: only a platform wheel carries the core. A pure wheel refuses each run.
+    if found != {sdist, *platform}:
+        raise ValueError("expected the sdist and exactly the six platform wheels for this tag")
+    distributions = [*platform, sdist]
     archive = plugin / f"archkeel-plugin-{version}.zip"
     checksum = archive.with_suffix(".zip.sha256")
     if set(plugin.iterdir()) != {archive, checksum}:

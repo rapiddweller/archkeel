@@ -98,13 +98,17 @@ class Remote:
         return subprocess.CompletedProcess(args, 0, result)
 
 
+PLATFORM_WHEELS = [f"archkeel-5.0.0-{tag}.whl" for tag in publish_release.PLATFORM_TAGS]
+
+
 @pytest.fixture
 def release(tmp_path, monkeypatch):
     dist = tmp_path / "dist"
     plugin = tmp_path / "plugin"
     dist.mkdir()
     plugin.mkdir()
-    (dist / "archkeel-5.0.0-py3-none-any.whl").write_bytes(b"wheel")
+    for name in PLATFORM_WHEELS:
+        (dist / name).write_bytes(name.encode())
     (dist / "archkeel-5.0.0.tar.gz").write_bytes(b"sdist")
     archive = plugin / "archkeel-plugin-5.0.0.zip"
     archive.write_bytes(b"plugin")
@@ -133,7 +137,8 @@ def test_new_release_downloads_every_asset_before_pypi_and_publishes_same_draft(
     assert "4.0.1" not in remote.release["body"]
     assert "## Highlights" in remote.release["body"]
     assert len([e for e in remote.events if e[1:3] == ("release", "create")]) == 1
-    assert len([e for e in remote.events if "Accept: application/octet-stream" in e]) == 8
+    # Six platform wheels, the sdist, the plugin archive and its checksum: each is read two times.
+    assert len([e for e in remote.events if "Accept: application/octet-stream" in e]) == 18
 
 
 @pytest.mark.parametrize(
@@ -222,7 +227,7 @@ def test_partially_uploaded_draft_resumes_without_replacing_existing_bytes(relea
     remote.events.clear()
     publish(release)
     upload = next(e for e in remote.events if e[1:3] == ("release", "upload"))
-    assert len(upload[4 : upload.index("--repo")]) == 3
+    assert len(upload[4 : upload.index("--repo")]) == 8
     assert not remote.release["draft"]
 
 
@@ -349,13 +354,11 @@ def test_plugin_upload_selects_only_archive_and_checksum_from_exporter_directory
         shutil.copyfile(path, download / path.name)
     dist = tmp_path / "dist"
     dist.mkdir()
-    (dist / "archkeel-5.0.0-py3-none-any.whl").write_bytes(b"wheel")
+    for name in PLATFORM_WHEELS:
+        (dist / name).write_bytes(name.encode())
     (dist / "archkeel-5.0.0.tar.gz").write_bytes(b"sdist")
     _, assets = publish_release._assets(dist, download, "5.0.0")
-    assert len(assets) == 4
-
-
-PLATFORM_WHEELS = [f"archkeel-5.0.0-{tag}.whl" for tag in publish_release.PLATFORM_TAGS]
+    assert len(assets) == 9
 
 
 def test_the_platform_tags_are_the_six_targets_of_the_build_hook():
@@ -375,42 +378,36 @@ def test_the_platform_tags_are_the_six_targets_of_the_build_hook():
 
 
 def test_a_release_with_every_platform_wheel_uploads_and_publishes_each_one(release):
-    remote, dist, _, _ = release
-    for name in PLATFORM_WHEELS:
-        (dist / name).write_bytes(name.encode())
+    remote = release[0]
     publish(release)
     assert not remote.release["draft"]
     assert set(PLATFORM_WHEELS) <= set(remote.assets)
     (upload,) = [e for e in remote.events if e[:2] == ("uv", "publish")]
     assert sorted(Path(arg).name for arg in upload if arg.endswith((".whl", ".tar.gz"))) == sorted(
-        ["archkeel-5.0.0-py3-none-any.whl", *PLATFORM_WHEELS, "archkeel-5.0.0.tar.gz"]
+        [*PLATFORM_WHEELS, "archkeel-5.0.0.tar.gz"]
     )
 
 
 @pytest.mark.parametrize(
-    "names",
+    "missing,added",
     [
-        PLATFORM_WHEELS[:5],
-        [*PLATFORM_WHEELS, "archkeel-5.0.0-py3-none-manylinux_2_28_x86_64.whl"],
-        ["archkeel-5.0.0-cp311-cp311-win_amd64.whl"],
+        (PLATFORM_WHEELS[5:], []),
+        (PLATFORM_WHEELS, []),
+        ([], ["archkeel-5.0.0-py3-none-manylinux_2_28_x86_64.whl"]),
+        ([], ["archkeel-5.0.0-cp311-cp311-win_amd64.whl"]),
+        # AD-436: a pure wheel carries no core, so its package refuses each run.
+        ([], ["archkeel-5.0.0-py3-none-any.whl"]),
+        (PLATFORM_WHEELS, ["archkeel-5.0.0-py3-none-any.whl"]),
     ],
-    ids=["one-missing", "unknown-tag", "abi-tag"],
+    ids=["one-missing", "no-wheel", "unknown-tag", "abi-tag", "pure-wheel", "only-pure-wheel"],
 )
-def test_platform_wheels_are_all_six_targets_or_none(release, names):
+def test_a_release_has_exactly_the_six_platform_wheels(release, missing, added):
     remote, dist, _, _ = release
-    for name in names:
+    for name in missing:
+        (dist / name).unlink()
+    for name in added:
         (dist / name).write_bytes(name.encode())
-    with pytest.raises(ValueError, match="none or all six platform wheels"):
-        publish(release)
-    assert remote.release is None
-
-
-def test_a_release_without_the_pure_wheel_stops_before_any_mutation(release):
-    remote, dist, _, _ = release
-    (dist / "archkeel-5.0.0-py3-none-any.whl").unlink()
-    for name in PLATFORM_WHEELS:
-        (dist / name).write_bytes(name.encode())
-    with pytest.raises(ValueError, match="pure wheel"):
+    with pytest.raises(ValueError, match="exactly the six platform wheels"):
         publish(release)
     assert remote.release is None
 

@@ -152,8 +152,8 @@ The Python shell and the tools have no architecture contract.
   `make native-check` ([AD-316](docs/architecture/decisions/ad-316-native-collectors-live-in-native-and-reply-with-protocol-8.md)).
   Without `cargo`, the native tests are skipped locally. CI always has `cargo`, so they
   fail there when it is missing. `make native-wheel` builds the platform wheel of your host with
-  the binary and its SBOM, then installs it and runs the binary
-  ([AD-317](docs/architecture/decisions/ad-317-a-platform-wheel-carries-the-native-typescript-collector.md)).
+  the core and its SBOM, then installs it alone and reads the verdicts of its core
+  ([AD-436](docs/architecture/decisions/ad-436-a-platform-wheel-carries-the-core-and-no-other-wheel-is-built.md)).
 - **A performance change earns at least 10 %.** Compare the median of three interleaved runs,
    before and after, on the supported project that the change targets.
   Below 10 % the change is discarded; record the measurement on the issue instead.

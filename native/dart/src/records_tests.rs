@@ -29,6 +29,7 @@ fn discovery(sources: Vec<Source>, problems: Vec<Problem>) -> Discovery {
         sdk_state: SdkState::Missing,
         pubspec_digest: Some("d".repeat(64)),
         problems,
+        package_files: Vec::new(),
     }
 }
 

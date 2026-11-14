@@ -7,7 +7,9 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-464 | [Report topology is an opt-in, bounded display of the same run](ad-464-report-topology-is-an-opt-in-bounded-display-of-the-same-run.md) |
 | AD-462 | [Fixture results are pinned and the nightly run publishes a gallery](ad-462-fixture-results-are-pinned-and-the-nightly-run-publishes-a-gallery.md) |
+| AD-454 | [The native Dart import survey resolves one package and names each gap](ad-454-the-native-dart-import-survey-resolves-one-package-and-names-each-gap.md) |
 | AD-450 | [Python import rules use a bound import survey](ad-450-python-import-rules-use-a-bound-import-survey.md) |
 | AD-440 | [Report files present the same core ruling](ad-440-report-files-present-the-same-core-ruling.md) |
 | AD-438 | [The default scan reads and binds every inside contract](ad-438-the-default-scan-reads-and-binds-every-inside-contract.md) |
@@ -411,3 +413,4 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-424 | [Known registry derives need identity and helper proofs](ad-424-known-registry-derives-need-identity-and-helper-proofs.md) |
 | AD-426 | [The linked collector states profile limits before the scope proof](ad-426-the-linked-collector-states-profile-limits-before-the-scope-proof.md) |
 | AD-432 | [The Rust core is the only decision path](ad-432-the-rust-core-is-the-only-decision-path.md) |
+| AD-436 | [A platform wheel carries the core and no other wheel is built](ad-436-a-platform-wheel-carries-the-core-and-no-other-wheel-is-built.md) |
