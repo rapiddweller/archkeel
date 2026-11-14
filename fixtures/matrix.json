@@ -52,7 +52,7 @@
     "I-flutter-shop": {
       "language": "dart",
       "runs": [
-      {"name": "I-flutter-shop", "root": "I-flutter-shop", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 1, "FAIL": 0, "UNKNOWN": 6}, "scope": "complete", "gaps": {}, "refusal": null}}
+      {"name": "I-flutter-shop", "root": "I-flutter-shop", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 6, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "J-compass": {
