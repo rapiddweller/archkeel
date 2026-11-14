@@ -38,6 +38,12 @@ not globs. Optional `language` is `rust` or `typescript`; a missing value or `py
 `dart` is refused. TypeScript also uses `tsconfig`; roots may be files or directories.
 Inputs must exist inside `--root`.
 
+An explicit component `inside` mounts a child contract over the same scan. Its path is
+relative to `--root`, not to its parent contract. `validate` and `report` read all mounts
+through the core. Labels and rule IDs are mount-qualified; each mount keeps its own source domain.
+The shell checks the SHA-256 of every contract file. A changed, linked, missing or unsafe
+nested file cannot produce PASS. See [nested intent](rules.md#nested-and-independent-intent).
+
 `exclude_test_sources = true` (default false) leaves recognized test sources out of the scan
 of `report` and `validate`. File counts and verdicts then cover production code only, and the
 result has a note that says so. An import from production code into a test source stays UNKNOWN.

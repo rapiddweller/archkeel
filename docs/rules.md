@@ -306,6 +306,11 @@ implicitly creates a boundary. Child public interfaces govern siblings; the
 parent's outward API is independent and ancestor restrictions still apply.
 Unsupported declarations or invalid mounts fail closed.
 
+On `main`, `validate` and `report` read these trees in the core. The frame names each
+contract file and its SHA-256. The shell checks those bytes before it prints a verdict.
+A changed nested contract cannot reuse an old PASS frame, even when the root contract,
+Git head and dirty state stay unchanged ([AD-438](architecture/decisions/ad-438-the-default-scan-reads-and-binds-every-inside-contract.md)).
+
 Contract 2.2 adds independent `declarations.uml`; see [UML conformance](architecture/uml-model-target.md).
 Contract 2.3 adds component `layer` and `layer_order`: ordered inner-to-outer layers
 forbid earlier-to-later declared requirements. Missing affected layers remain
