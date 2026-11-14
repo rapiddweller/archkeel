@@ -47,24 +47,27 @@ pub(crate) fn project_sources(
             let fresh = snapshot
                 .real(&directory)
                 .is_some_and(|real| seen.insert(real));
-            if !fresh || outputs.iter().any(|out| within(out, &directory)) {
-                continue;
-            }
-            let (files, children) = snapshot.entries(&directory);
-            let names: BTreeSet<&str> = files.iter().map(String::as_str).collect();
-            for name in &files {
-                if source(name) && !shadowed(name, &|other| names.contains(other)) {
-                    found.insert(join(&directory, name));
-                }
-            }
-            for child in children {
-                if !INSTALLED.contains(&child.as_str()) {
-                    pending.push(join(&directory, &child));
-                }
+            if fresh && !outputs.iter().any(|out| within(out, &directory)) {
+                pending.extend(visit(snapshot, &directory, &mut found));
             }
         }
     }
     found.into_iter().collect()
+}
+
+/// Add the source files of `directory` to `found`; give the child directories to walk.
+fn visit(snapshot: &mut Snapshot, directory: &str, found: &mut BTreeSet<String>) -> Vec<String> {
+    let (files, children) = snapshot.entries(directory);
+    let names: BTreeSet<&str> = files.iter().map(String::as_str).collect();
+    let emitted = |name: &str| shadowed(name, &|other| names.contains(other));
+    for name in files.iter().filter(|name| source(name) && !emitted(name)) {
+        found.insert(join(directory, name));
+    }
+    children
+        .into_iter()
+        .filter(|child| !INSTALLED.contains(&child.as_str()))
+        .map(|child| join(directory, &child))
+        .collect()
 }
 
 /// True for a TypeScript, declaration or JavaScript file name.
