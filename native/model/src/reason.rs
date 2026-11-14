@@ -96,7 +96,7 @@ impl Hygiene {
     }
 }
 
-/// Why the UML target row of a contract tree is UNKNOWN (AD-470, AD-490).
+/// Why the UML target row of a contract tree is UNKNOWN (AD-470, AD-494).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum UmlGap {
     /// The target declares no entity, relationship or scope (the reference `UML-EMPTY` row).

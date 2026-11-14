@@ -70,7 +70,7 @@ pub(crate) struct Observed {
     pub(crate) inventory_complete: bool,
     /// How the modules of the profile lie in the scan roots (slice S7).
     pub(crate) layout: Layout,
-    /// The language name of the profile, as a UML target entity names it (AD-490).
+    /// The language name of the profile, as a UML target entity names it (AD-494).
     pub(crate) language: &'static str,
     /// Whether the host drops an allowed pair gap of the profile (slice S7).
     pub(crate) pair_gap_drop: PairGapDrop,

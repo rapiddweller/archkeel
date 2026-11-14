@@ -64,7 +64,7 @@ def _entity(contract: dict[str, Any], identity: str) -> dict[str, Any]:
     return next(item for item in _uml(contract)["entities"] if item["id"] == identity)
 
 
-# AD-490: the core compares the module and import assessments; the symbol assessments of
+# AD-494: the core compares the module and import assessments; the symbol assessments of
 # these targets need facts that no collector gives yet, so the row stays UNKNOWN by its count.
 @pytest.mark.parametrize(
     ("name", "passes", "undecided"),
@@ -140,7 +140,7 @@ def _missing_provenance(contract: dict[str, Any]) -> None:
 # Release 4.0.1 gives FAIL (exit 2) for the first three plants and UNKNOWN (exit 0) for the next
 # two. It refuses the contract for the last plant: the cited file is missing. The core gives
 # UNKNOWN for the first five: each differs in a symbol fact or in a closed scope of symbol kinds
-# (AD-490), which it does not compare.
+# (AD-494), which it does not compare.
 @pytest.mark.parametrize(
     "plant",
     [
@@ -270,7 +270,7 @@ def _target(path: Path, identities: list[str]) -> None:
 
 def test_a_mounted_contract_with_its_own_target_has_one_row_that_sums_the_tree() -> None:
     """A tree has one UML row at the id of its root path. A target in a mount keeps the row
-    UNKNOWN by name (AD-490), and it holds back the PASS of the tree."""
+    UNKNOWN by name (AD-494), and it holds back the PASS of the tree."""
     with case_root(HONEST) as root:
         tree(root)
         code, envelope = run("validate", "--root", str(root))

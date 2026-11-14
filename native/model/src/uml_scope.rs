@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The scope assessments of a UML target (`_scope_assessments` and
-//! `_closed_relationship_assessments` of `check/uml_compare.py`, AD-490).
+//! `_closed_relationship_assessments` of `check/uml_compare.py`, AD-494).
 
 use archkeel_contract::{CompletenessMode, EntityKind, RelationshipKind, Target, TargetScope};
 

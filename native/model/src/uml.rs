@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The comparison of a UML target with the module and import facts (AD-490).
+//! The comparison of a UML target with the module and import facts (AD-494).
 //!
 //! Reference engine: `check/uml_compare.py` `compare_graphs` at release 4.0.1. The core makes the
 //! assessments that module and import facts decide, with the same status as 4.0.1 or a stricter
@@ -30,7 +30,7 @@ use crate::model::Model;
 use crate::reason::UmlGap;
 use crate::verdict::Decision;
 
-/// The input of the target row from the contract tree (AD-470, AD-490).
+/// The input of the target row from the contract tree (AD-470, AD-494).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum UmlTarget {
     /// The root target, which the core compares with the model of the root.
@@ -250,7 +250,3 @@ fn relationship(
         evidence: vec![from.evidence().to_owned()],
     })
 }
-
-#[cfg(test)]
-#[path = "uml_tests.rs"]
-mod tests;

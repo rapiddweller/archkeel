@@ -25,7 +25,7 @@ impl ViolationDetail {
         }
     }
 
-    /// The evidence of one differing assessment of a UML target row (AD-490).
+    /// The evidence of one differing assessment of a UML target row (AD-494).
     pub(crate) fn uml(diff: &archkeel_model::UmlDiff) -> Self {
         Self {
             source: diff.subject.clone(),

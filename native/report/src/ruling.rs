@@ -51,7 +51,7 @@ pub struct Named {
     /// A reason that holds back each PASS of the run (the scope of a contract tree).
     pub hold: Option<Reason>,
     /// The UML target row of the tree, by its id (AD-470): the target that the model compares,
-    /// or the cause that keeps the row UNKNOWN (AD-490).
+    /// or the cause that keeps the row UNKNOWN (AD-494).
     pub uml: Option<(String, UmlTarget)>,
 }
 
@@ -311,7 +311,7 @@ impl Rows {
 }
 
 impl Rows {
-    /// The UML target row (AD-470, AD-490). Without a model the row is a gap with the reason of
+    /// The UML target row (AD-470, AD-494). Without a model the row is a gap with the reason of
     /// the run. With a model, the root model compares the target: PASS only with the scope proof
     /// of the run (`Decision::passes`), FAIL with each differing fact, else UNKNOWN with its
     /// cause. The row never enters `decisions`, so the run proof reads only the rules.

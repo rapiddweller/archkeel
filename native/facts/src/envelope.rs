@@ -103,7 +103,7 @@ impl Profile {
         }
     }
 
-    /// The language name that a UML target entity gives for a fact of this profile (AD-490).
+    /// The language name that a UML target entity gives for a fact of this profile (AD-494).
     pub fn language(self) -> &'static str {
         match self {
             Profile::Python => "python",

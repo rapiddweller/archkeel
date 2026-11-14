@@ -171,7 +171,7 @@ fn usable(tree: ContractTree) -> Usable {
 
 /// The input of the one UML target row of a tree: the reference engine names one target for the
 /// declared intent of all its contracts (AD-470). The core compares a root target; a target of an
-/// inside contract keeps the row UNKNOWN (AD-490). `None` when no contract has `declarations.uml`.
+/// inside contract keeps the row UNKNOWN (AD-494). `None` when no contract has `declarations.uml`.
 fn uml_target<'a>(
     root: &'a Contract,
     mounts: impl IntoIterator<Item = &'a Contract>,
@@ -205,7 +205,7 @@ pub(crate) fn missing_reason(paths: &[String]) -> String {
 }
 
 /// The UML target row of a tree with `declarations.uml` in any of its contracts, at `path`: its
-/// id and its input (AD-470, AD-490).
+/// id and its input (AD-470, AD-494).
 pub(crate) fn uml_row(contract: Option<&Usable>, path: &str) -> Option<(String, UmlTarget)> {
     let target = contract?.uml.clone()?;
     Some((uml_target_id(path).as_text().to_owned(), target))

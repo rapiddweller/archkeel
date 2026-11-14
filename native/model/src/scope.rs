@@ -180,7 +180,7 @@ impl<'id, 'm> Scope<'id, 'm> {
         }
     }
 
-    /// The scope proof of the UML target row `id` (AD-490): the scope of the whole run must be
+    /// The scope proof of the UML target row `id` (AD-494): the scope of the whole run must be
     /// complete, because a target can name each component. The caller passes only a target whose
     /// every assessment passes (`uml::compare`).
     pub(crate) fn uml_complete(&self, id: &str) -> Result<ScopeComplete<'id>, Reason> {

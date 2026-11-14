@@ -433,7 +433,7 @@ fn a_root_rule_with_the_scoped_id_of_a_mount_rule_refuses_the_tree() {
     assert!(usable.is_none());
 }
 
-/// AD-490: the UML row of a root target carries the target that the model compares.
+/// AD-494: the UML row of a root target carries the target that the model compares.
 #[test]
 fn a_root_uml_target_row_carries_its_target_for_the_comparison() {
     let bytes = include_bytes!("../../../fixtures/H-uml-typescript/architecture-contract.json");
