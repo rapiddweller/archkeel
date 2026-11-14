@@ -370,3 +370,25 @@ fn an_alias_that_only_a_nested_module_binds_is_no_prelude_name() {
     ];
     assert_eq!(outcome_in(&all, "ns.app.b", "me::a::f"), Outcome::None);
 }
+
+#[test]
+fn a_glob_of_the_alias_brings_in_the_modules_of_the_root() {
+    let root = "extern crate self as me;\nmod a;\nmod b;\n";
+    let text = "use me::*;\nfn t() { a::f(); }";
+    assert_eq!(aliased(root, text, "a::f"), edge("ns.app.a", Some("f"), 1));
+}
+
+#[test]
+fn a_shadow_of_the_alias_is_read_in_its_own_scope_only() {
+    let root = "extern crate self as me;\nmod a;\nmod b;\n";
+    let top = "use crate::a as me;\nmod inner { fn t() { me::a::f(); } }";
+    assert!(matches!(
+        aliased(root, top, "me::a::f"),
+        Outcome::Unknown(_)
+    ));
+    let body = "fn h() { use crate::a as me; }\nfn t() { me::a::f(); }";
+    assert!(matches!(
+        aliased(root, body, "me::a::f"),
+        Outcome::Unknown(_)
+    ));
+}

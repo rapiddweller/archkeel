@@ -61,7 +61,7 @@ CASES = {
     "S3 use in one function, path in another": (
         {
             "lib.rs": PUB_ALIAS,
-            "x.rs": "pub fn h() -> me::S { use crate::c as me; me::S }\n"
+            "x.rs": "pub fn h() { use crate::c as me; let _ = me::S; }\n"
             "pub fn f() -> u8 { me::b::g(); 1 }\n",
         },
         HELD,
