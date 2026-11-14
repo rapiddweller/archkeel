@@ -4,9 +4,9 @@
 """The plants of the Python `interface_boundary` differential (AD-504, #880).
 
 One consumer module imports from one library component. Each plant sets the public entries of the
-library, the files of the library and the import of the consumer. `FOUR` holds the verdict of
-release 4.0.1 for the plant: its `report` on the same tree, one run of
-`/private/tmp/oracle-401/bin/archkeel report --json` for each plant (read-only oracle).
+library, the files of the library and the import of the consumer. `four` holds the verdict of
+release 4.0.1 for the plant: its `report --json` on the same tree, one run for each plant
+(recorded once from an installed 4.0.1).
 """
 
 from __future__ import annotations
