@@ -19,7 +19,7 @@ _BYTES = 64 << 20
 
 
 def resolve_root(path: Path, *, strict: bool = False) -> Path:
-    """Use one plain disk form for the root and its resolved files, never a device or network root."""
+    """Use one plain disk form for the root and its files; refuse device and network roots."""
     if sys.platform == "win32" and path.drive:
         drive = path.drive.removeprefix("\\\\?\\")
         if len(drive) != 2 or not drive[0].isascii() or not drive[0].isalpha() or drive[1] != ":":
