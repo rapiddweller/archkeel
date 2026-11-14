@@ -8,13 +8,12 @@ from __future__ import annotations
 import contextlib
 import json
 import os
-import shutil
 import subprocess
 import tomllib
 from pathlib import Path
 from typing import Any
 
-from core_support import NATIVE, ROOT, SUFFIX
+from core_support import NATIVE, ROOT, SUFFIX, copy_native
 from corpus_support import commit_tree, corpus_cases, materialized
 
 from archkeel.cli import native_scan
@@ -81,7 +80,7 @@ def test_each_rust_corpus_request_has_equal_facts_or_a_named_refusal(
 
 def test_the_core_scans_its_own_workspace_with_no_shell_reply(built: Path, tmp_path: Path) -> None:
     root = tmp_path / "project"
-    shutil.copytree(NATIVE, root / "native", ignore=shutil.ignore_patterns("target"))
+    copy_native(root)
     commit_tree(root)
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
     request = {

@@ -47,7 +47,7 @@ impl WhyUnknown {
         match reason {
             Reason::Unsupported(part) => unsupported(part),
             Reason::NotComplete(cause) => not_complete(cause),
-            Reason::Interface(_) => WhyUnknown::Undecided,
+            Reason::Interface(_) | Reason::Hygiene(_) => WhyUnknown::Undecided,
             Reason::NoSubjects | Reason::UncitedChild(_) => WhyUnknown::NoReceipt,
             Reason::TooManyRows(_)
             | Reason::MissingInput(_)
@@ -67,7 +67,8 @@ fn unsupported(part: &Unsupported) -> WhyUnknown {
         | Unsupported::InsideTree
         | Unsupported::UmlTarget
         | Unsupported::Baseline
-        | Unsupported::TreeScope => WhyUnknown::ScopeIncomplete,
+        | Unsupported::TreeScope
+        | Unsupported::Hygiene(_) => WhyUnknown::ScopeIncomplete,
     }
 }
 

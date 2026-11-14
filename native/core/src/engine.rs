@@ -158,6 +158,14 @@ impl Engine {
         (contract, derived)
     }
 
+    /// The usable contract and the models of the run, derived one time (AD-458).
+    pub(crate) fn inputs(&mut self) -> (Option<&Usable>, Result<&ModelTree, Reason>) {
+        self.derived();
+        let missing = Reason::MissingInput(Input::Contract);
+        let models = self.derived.as_ref().map_or(Err(missing), Derived::models);
+        (self.contract.as_ref(), models)
+    }
+
     /// The number of derivations of this run.
     #[cfg(test)]
     pub(crate) fn derivations(&self) -> usize {

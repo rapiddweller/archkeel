@@ -10,7 +10,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from core_support import ROOT, SUFFIX
+from core_support import EMPTY_GRAPH, ROOT, SUFFIX
 from test_cli_native_core_scan_work import input_measurement, project
 
 from archkeel.cli import native_scan
@@ -29,11 +29,12 @@ def complete_contract(root: Path) -> None:
             "kind": "complete_assignment",
             "source": "shop",
             "rationale": "All generated source is observed.",
-            "provenance": ["test"],
+            "provenance": ["docs/architecture/shop.md"],
             "decided_by": "architect",
         }
     ]
     path.write_text(json.dumps(contract))
+    (root / "docs/architecture/shop.md").write_text(EMPTY_GRAPH)
 
 
 def honest_source(language: str, shape: str, size: int) -> str:

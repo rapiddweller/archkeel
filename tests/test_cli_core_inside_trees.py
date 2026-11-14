@@ -55,7 +55,7 @@ def test_html_report_keeps_tree_binding_and_lists_escaped_contract_file_identity
         files = result["frame"]["self_test"]["collect"]["contract_files"]
         assert files == {
             name: hashlib.sha256((root / name).read_bytes()).hexdigest()
-            for name in ("architecture-contract.json", "inside.json", leaf)
+            for name in ("architecture-contract.json", "inside.json", leaf, "README.md")
         }
         page = target.read_text()
         assert page.count(f"<h1>Verdict: {result['frame']['status']}</h1>") == 1
@@ -93,7 +93,12 @@ def test_two_mount_levels_keep_each_verdict_and_exit(
                     assert result["frame"]["rules"]["a:inner:INNER-ASSIGN"][1] == "PASS"
                     assert result["frame"]["self_test"]["collect"]["contract_files"] == {
                         name: hashlib.sha256((root / name).read_bytes()).hexdigest()
-                        for name in ("architecture-contract.json", "inside.json", "deep.json")
+                        for name in (
+                            "architecture-contract.json",
+                            "inside.json",
+                            "deep.json",
+                            "README.md",
+                        )
                     }
             else:
                 assert f"{verb}: {status}" in done.stdout

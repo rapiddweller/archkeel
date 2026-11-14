@@ -138,19 +138,20 @@ def test_zero_decided_rules_stay_unknown_and_nonzero(built: Path, declaration: b
     with case_root(HONEST) as root:
         path = root / "architecture-contract.json"
         contract = json.loads(path.read_text())
-        contract["rules"] = (
-            [
-                {
-                    **contract["rules"][0],
-                    "id": "ALLOW",
-                    "kind": "allowed_dependency",
-                    "source": "a",
-                    "target": "b",
-                }
-            ]
-            if declaration
-            else []
-        )
+        # AD-458: each ordered component pair is decided, so no hygiene row hides the gap.
+        allowed = [
+            {
+                **contract["rules"][0],
+                "id": f"ALLOW-{source}",
+                "kind": "allowed_dependency",
+                "source": f"app.src.{source}",
+                "target": f"app.src.{target}",
+            }
+            for source, target in (("a", "b"), ("b", "a"))
+        ]
+        contract["rules"] = allowed if declaration else []
+        if not declaration:
+            contract["components"] = contract["components"][:1]
         path.write_text(json.dumps(contract))
         done = command(built / f"archkeel-core{SUFFIX}", root, "--json")
     assert done.returncode == 2, done.stdout + done.stderr

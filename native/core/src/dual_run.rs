@@ -139,6 +139,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
             gap: None,
         }),
         collect: None,
+        documents: None,
     })
 }
 
@@ -180,6 +181,8 @@ pub(crate) struct Run {
     pub(crate) trust: TrustOf,
     /// The `collect` part of the self-test of a scan request (AD-406); `None` for the others.
     pub(crate) collect: Option<serde_json::Value>,
+    /// The provenance documents that a scan request read (AD-458); `None` for the others.
+    pub(crate) documents: Option<crate::provenance::Documents>,
 }
 
 /// How a check request reads its base reply: from the validated candidate reply and the inputs
@@ -222,6 +225,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         };
         base(engine.reply(), shared)
     });
+    let namespace = run.namespace.clone();
     let trust = (run.trust)(run.namespace, engine.reply());
     let settings = settings_of(trust.settings, &input, run.roots);
     let locations = frame_parts::locations(engine.reply(), &input.path, &input.bytes, &settings);
@@ -243,8 +247,16 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         Answer::Report(reason) => Err(reason.to_string()),
         other => Err(format!("unexpected answer {other:?}")),
     };
+    let hygiene = run.documents.as_ref().map(|documents| {
+        let (usable, models) = engine.inputs();
+        crate::hygiene::check(documents, usable, models, &namespace, &path)
+    });
     let mut named = named(&contract, run.baseline, &engine, &path);
     named.contract = named.contract.or(trust.gap).or(base);
+    if let Some(hygiene) = hygiene {
+        named.contract = named.contract.or(hygiene.refusal);
+        named.rules.extend(hygiene.rules);
+    }
     let ruling = match engine.answer(Request::Rules(named)) {
         Answer::Rules(ruling) => *ruling,
         other => Err(format!("unexpected answer {other:?}")),

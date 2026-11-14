@@ -37,6 +37,9 @@ pub enum Unsupported {
     TreeScope,
     /// No outcome of the contract tree has a decision; declarations do not decide (AD-416).
     NoRules,
+    /// A contract hygiene check that applies to the contract and that the core does not port
+    /// yet: the codes of the reference engine that it names (AD-458).
+    Hygiene(&'static str),
 }
 
 /// An input of a run that the core needs.
@@ -71,6 +74,28 @@ pub enum Reason {
     NotComplete(Cause),
     /// A fact needed to decide an interface crossing is absent.
     Interface(InterfaceGap),
+    /// A contract hygiene check of the core found a defect (AD-458).
+    Hygiene(Hygiene),
+}
+
+/// One contract hygiene defect: the code of the reference engine (`graph.drift`, ...) and the
+/// text that names the subject and the defect.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Hygiene {
+    code: &'static str,
+    detail: String,
+}
+
+impl Hygiene {
+    /// The defect `code` with its `detail`.
+    pub fn new(code: &'static str, detail: String) -> Hygiene {
+        Hygiene { code, detail }
+    }
+
+    /// The code of the reference engine.
+    pub fn code(&self) -> &'static str {
+        self.code
+    }
 }
 
 /// Why the core refuses the settings that the shell sends with a reply (AD-372).
@@ -140,6 +165,9 @@ impl fmt::Display for Unsupported {
                 "the scope proof of a contract tree: the models do not hold every mount",
             ),
             Unsupported::NoRules => formatter.write_str("contract has no decided rule"),
+            Unsupported::Hygiene(codes) => {
+                write!(formatter, "the contract hygiene checks {codes}: no slice ports them yet")
+            }
         }
     }
 }
@@ -174,6 +202,9 @@ impl fmt::Display for Reason {
             Reason::Refused(refusal) => write!(formatter, "refused settings: {refusal}"),
             Reason::NotComplete(cause) => write!(formatter, "incomplete scope: {cause}"),
             Reason::Interface(gap) => write!(formatter, "incomplete scope: {gap}"),
+            Reason::Hygiene(found) => {
+                write!(formatter, "contract hygiene {}: {}", found.code, found.detail)
+            }
             Reason::UncitedChild(child) => write!(
                 formatter,
                 "the layout child {child} has no module record to cite"

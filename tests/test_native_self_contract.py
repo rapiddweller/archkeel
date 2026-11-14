@@ -13,12 +13,11 @@ that does not fail at its planted file fails here.
 from __future__ import annotations
 
 import json
-import shutil
 from pathlib import Path
 from typing import Any
 
 import pytest
-from core_support import run
+from core_support import copy_native, run
 from corpus_support import commit_tree
 
 from archkeel.cli import core_only
@@ -226,7 +225,7 @@ def runs(core_binary: Path, tmp_path_factory: pytest.TempPathFactory) -> dict[st
     found: dict[str, Any] = {}
     for name, plant in (("code", _code_forms), ("requires", _with_requires)):
         root = tmp_path_factory.mktemp(name)
-        shutil.copytree(ROOT / "native", root / "native", ignore=shutil.ignore_patterns("target"))
+        copy_native(root)
         plants = plant(root / "native")
         found[name] = (plants, _run(root, core_binary))
     return found
