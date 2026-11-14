@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: MIT
 """The UML target row of a contract through the release core and the default CLI (AD-470).
 
-Release 4.0.1 compares `declarations.uml` with the source facts. The core does not compare them
-yet, so the row is UNKNOWN with a named reason and never PASS. Each plant is a defect that 4.0.1
-reports: a refusal, a FAIL or an UNKNOWN. The core gives no PASS for any of them.
+Release 4.0.1 compares `declarations.uml` with the source facts. The core compares the module,
+import and TypeScript symbol parts (AD-494, AD-498). Each plant is a defect that 4.0.1 reports:
+a refusal, a FAIL or an UNKNOWN. The core gives no PASS for any of them.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from archkeel.cli import core_only
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 ROW = "UML-TARGET-a2e40c5592b1b06a"
-UNDECIDED = "the UML target: {count} assessments need facts that the core does not have: "
+UNDECIDED = "the UML target: {count} assessments cannot be decided: "
 MOUNTED = (
     "the UML target: an inside contract has its own UML target, which the core does not compare"
 )
@@ -64,11 +64,12 @@ def _entity(contract: dict[str, Any], identity: str) -> dict[str, Any]:
     return next(item for item in _uml(contract)["entities"] if item["id"] == identity)
 
 
-# AD-494: the core compares the module and import assessments; the symbol assessments of
-# these targets need facts that no collector gives yet, so the row stays UNKNOWN by its count.
+# AD-494 and AD-498: the core compares the module, import and symbol assessments of a
+# TypeScript target. It leaves exactly the assessments undecided that release 4.0.1 leaves
+# undecided (9 and 3), so the row stays UNKNOWN by its count.
 @pytest.mark.parametrize(
     ("name", "passes", "undecided"),
-    [("H-typescript", 9, 16), ("H-uml-typescript", 0, 32)],
+    [("H-typescript", 9, 9), ("H-uml-typescript", 0, 3)],
 )
 def test_the_uml_target_is_an_unknown_row_with_its_reason_and_not_a_gap(
     tmp_path: Path, name: str, passes: int, undecided: int
@@ -138,9 +139,9 @@ def _missing_provenance(contract: dict[str, Any]) -> None:
 
 
 # Release 4.0.1 gives FAIL (exit 2) for the first three plants and UNKNOWN (exit 0) for the next
-# two. It refuses the contract for the last plant: the cited file is missing. The core gives
-# UNKNOWN for the first five: each differs in a symbol fact or in a closed scope of symbol kinds
-# (AD-494), which it does not compare.
+# two. It refuses the contract for the last plant: the cited file is missing. The core gives the
+# same rows: FAIL (exit 1) for a symbol conflict and for an extra element of a closed scope
+# (AD-498), UNKNOWN for a missing module or call.
 @pytest.mark.parametrize(
     "plant",
     [
@@ -155,14 +156,19 @@ def _missing_provenance(contract: dict[str, Any]) -> None:
 )
 def test_a_wrong_uml_target_never_passes(tmp_path: Path, plant: Plant) -> None:
     code, envelope = run("validate", "--root", str(_copy(tmp_path, "H-uml-typescript", plant)))
-    assert (code, envelope["status"]) == (2, "UNKNOWN")
     if plant is _missing_provenance:
         # AD-466: a cited file that the core cannot read refuses the whole contract.
+        assert (code, envelope["status"]) == (2, "UNKNOWN")
         refusal = envelope["frame"]["unsupported"]["rules"]
         assert refusal.startswith("contract hygiene reference.provenance"), refusal
         return
-    assert _rows(envelope)[ROW] == ["uml_target", "UNKNOWN"]
-    assert "assessments need facts" in envelope["frame"]["explained"][ROW]
+    failing = plant in {_wrong_kind, _wrong_signature, _closed_scope_extra}
+    assert (code, envelope["status"]) == ((1, "FAIL") if failing else (2, "UNKNOWN"))
+    assert _rows(envelope)[ROW] == ["uml_target", "FAIL" if failing else "UNKNOWN"]
+    if failing:
+        assert envelope["frame"]["details"][ROW]
+    else:
+        assert "assessments cannot be decided" in envelope["frame"]["explained"][ROW]
 
 
 def test_an_empty_uml_target_names_that_it_declares_nothing(tmp_path: Path) -> None:
@@ -241,10 +247,10 @@ def test_a_uml_target_that_changes_after_the_core_read_it_is_refused(
 
 
 def test_the_python_uml_fixture_has_an_unknown_row_and_never_passes(tmp_path: Path) -> None:
-    """Release 4.0.1 passes this target with symbol facts; the core has none, so it is UNKNOWN."""
+    """Release 4.0.1 passes this target with symbol facts; the core has none for Python (PR2)."""
     code, envelope = run("validate", "--root", str(_copy(tmp_path, "H-uml")))
     assert _rows(envelope) == {ROW: ["uml_target", "UNKNOWN"]}
-    assert "assessments need facts" in envelope["frame"]["explained"][ROW]
+    assert "assessments cannot be decided" in envelope["frame"]["explained"][ROW]
     assert envelope["gaps"] == []
     assert (code, envelope["status"], envelope["frame"]["status"]) == (2, "UNKNOWN", "UNKNOWN")
 

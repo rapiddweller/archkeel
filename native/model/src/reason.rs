@@ -139,7 +139,7 @@ impl fmt::Display for UmlGap {
             }
             UmlGap::Undecided { count, kinds } => write!(
                 formatter,
-                "{count} assessments need facts that the core does not have: {}",
+                "{count} assessments cannot be decided: {}",
                 kinds.join(", ")
             ),
             UmlGap::Incomplete(reason) => {
