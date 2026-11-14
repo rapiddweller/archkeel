@@ -40,13 +40,22 @@ struct Gathered<'t> {
 
 impl<'t> Gathered<'t> {
     /// A write of the one check at the place of `span`: a write and a path of its name, or a
-    /// write and a path of an unknown name.
+    /// write and a path of an unknown name. Call it after the source write of the same target.
     fn check(&mut self, written: Option<Written>, span: Span) {
         let (name, path) = match written {
             Some(Written::Name(name)) => (Some(name.clone()), vec![name]),
             Some(Written::Unknown) => (None, Vec::new()),
             None => return,
         };
+        // The write of the target that the source writes just took: the script writes and the
+        // paths hold it already.
+        if self
+            .writes
+            .last()
+            .is_some_and(|last| last.0 == name && last.1 == span)
+        {
+            return;
+        }
         self.writes.push((name.clone(), span.clone()));
         self.checked.push((name, span));
         self.paths.push(path);
@@ -146,9 +155,9 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             found.writes.extend(tree.declaration_write(node));
             found.check(self.node_write(node), tree.span(node));
             while let Some((_, target)) = targets.next_if(|(owner, _)| owner.id() == node.id()) {
+                self.declared_target(node, *target, &mut found);
                 found.check(self.global_write(*target), tree.span(node));
                 found.check(self.changed_global(*target), tree.span(node));
-                self.declared_target(node, *target, &mut found);
             }
             if let Some((span, object)) = self.published_object(node) {
                 found.put(span, object);

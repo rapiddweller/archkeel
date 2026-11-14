@@ -42,8 +42,14 @@ pub(crate) fn read<'t>(
     );
     let (mut globals, mut writes) = producer.globals();
     let declared = producer.declarations();
-    writes.extend(declared.checked.iter().cloned());
-    let writes = crate::script_syntax::unique(writes);
+    let known: std::collections::HashSet<&crate::script_types::Write> = writes.iter().collect();
+    let checked: Vec<_> = declared
+        .checked
+        .iter()
+        .filter(|w| !known.contains(w))
+        .cloned()
+        .collect();
+    writes.extend(checked);
     for item in &mut globals {
         if let Some(members) = declared.members.get(&item.span) {
             item.source_members.clone_from(members);

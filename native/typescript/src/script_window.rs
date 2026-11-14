@@ -133,18 +133,24 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// The global that a deeper write changes: `parent.Lib.run = f` changes the global `Lib`.
-    /// The name after the last window value of the object chain is that global.
+    /// The name after the last window value of the object chain is that global. An element of a
+    /// window value is a window value too.
     pub(crate) fn changed_global(&self, target: Node<'t>) -> Option<Written> {
         let tree = self.tree;
-        let top = tree.cx.unwrapped(target);
-        let mut at = top;
-        while let Some(object) = tree.field(at, F::Object).map(|o| tree.cx.unwrapped(o)) {
-            if at.id() != top.id() && self.window_value(object) {
-                return self.member_name(at);
-            }
-            at = object;
+        let mut chain = vec![tree.cx.unwrapped(target)];
+        while let Some(object) = chain.last().and_then(|at| tree.field(*at, F::Object)) {
+            chain.push(tree.cx.unwrapped(object));
         }
-        None
+        let mut window = false;
+        let mut changed = None;
+        for (at, node) in chain.iter().enumerate().rev() {
+            if window && at > 0 {
+                changed = Some(*node);
+            }
+            let element = window && node.kind() == "subscript_expression";
+            window = element || self.window_leaf(*node);
+        }
+        changed.and_then(|node| self.member_name(node))
     }
 
     /// The name of the member `at`: its property, a literal key, or an unknown name.
@@ -220,17 +226,35 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 .is_some_and(|value| new_value(tree.k(value)))
     }
 
-    /// The value can be a window: a window name, a window member, an element of such a value, or
-    /// `this` that a plain function or the top of a script receives.
+    /// The value can be a window: a window name, a window member, an element of such a value, a
+    /// branch of a condition, or `this` that a plain function or the top of a script receives.
+    /// The walk uses a list, not a recursion, so a deep expression costs no stack.
     pub(crate) fn window_value(&self, node: Node<'t>) -> bool {
         let tree = self.tree;
-        let node = tree.cx.unwrapped(node);
+        let mut pending = vec![node];
+        while let Some(next) = pending.pop() {
+            let next = tree.cx.unwrapped(next);
+            match next.kind() {
+                "subscript_expression" => pending.extend(tree.field(next, F::Object)),
+                "ternary_expression" | "binary_expression" | "sequence_expression" => {
+                    pending.extend(crate::tree::nodes::named_children(next));
+                }
+                _ if self.window_leaf(next) => return true,
+                _ => {}
+            }
+        }
+        false
+    }
+
+    /// A name, a `this` or a member that can be a window, read without its operands.
+    pub(crate) fn window_leaf(&self, node: Node<'t>) -> bool {
+        let tree = self.tree;
         match node.kind() {
             "identifier" => {
-                let name = tree.text(node);
                 if tree.in_type(node) {
                     return false;
                 }
+                let name = tree.text(node);
                 if tree.binding_scope(node, &name).is_some() {
                     return self.is_alias(self.wrapper_of(node), &name);
                 }
@@ -246,13 +270,6 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                     is_window_name(&name) || WINDOW_MEMBERS.contains(&name.as_str())
                 })
             }),
-            "subscript_expression" => tree
-                .field(node, F::Object)
-                .is_some_and(|object| self.window_value(object)),
-            "ternary_expression" | "binary_expression" | "sequence_expression" => {
-                let branches = crate::tree::nodes::named_children(node);
-                branches.into_iter().any(|branch| self.window_value(branch))
-            }
             _ => false,
         }
     }
@@ -293,8 +310,9 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// The value leaves the place where it is read: it is called, passed, stored or returned.
-    /// A member read, a comparison, `typeof`, `!` and `void` are no escape.
-    pub(crate) fn escapes(&self, node: Node<'t>) -> bool {
+    /// A member read, a comparison, `typeof`, `!` and `void` are no escape. With `elements`, an
+    /// element of the value is the value: `f(frames[0])` passes a window.
+    pub(crate) fn escapes(&self, node: Node<'t>, elements: bool) -> bool {
         let tree = self.tree;
         let mut at = node;
         loop {
@@ -311,6 +329,9 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 | "sequence_expression" => at = parent,
                 "binary_expression" if logical(tree, parent) => at = parent,
                 "binary_expression" | "unary_expression" => return false,
+                "subscript_expression" if elements && tree.is_field_of_parent(at, F::Object) => {
+                    at = parent;
+                }
                 "member_expression" | "subscript_expression" => {
                     return !tree.is_field_of_parent(at, F::Object)
                 }

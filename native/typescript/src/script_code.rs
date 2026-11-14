@@ -38,7 +38,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         }
         let unknown = self.runs_code(node)
             || self.injects_code(node)
-            || (self.window_value(node) && self.escapes(node));
+            || (self.window_leaf(node) && self.escapes(node, true));
         unknown.then_some(Written::Unknown)
     }
 
@@ -46,10 +46,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// than a read; the text `constructor`; a computed call that can reach `Function`.
     pub(crate) fn runs_code(&self, node: Node<'t>) -> bool {
         let tree = self.tree;
-        if tree.in_type(node) || tree.declaration_name(node) {
-            return false;
-        }
-        match node.kind() {
+        let found = match node.kind() {
             "identifier" | "property_identifier" | "shorthand_property_identifier" => {
                 self.code_name(node)
             }
@@ -60,11 +57,16 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             "string" | "template_string" => self.constructor_text(node),
             "subscript_expression" => self.computed_code(node),
             _ => false,
-        }
+        };
+        found && !tree.in_type(node) && !tree.declaration_name(node)
     }
 
     /// The cooked name of the node is one of `names`; an escape that is not plain matches.
     fn name_is(&self, node: Node<'t>, names: &[&str]) -> bool {
+        let bytes = self.tree.cx.bytes(node);
+        if !bytes.contains(&b'\\') {
+            return names.iter().any(|name| name.as_bytes() == bytes);
+        }
         cooked(&self.tree.text(node)).is_none_or(|name| names.contains(&name.as_str()))
     }
 
@@ -80,6 +82,9 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// A name of code or of a timer: the expression that it names is used as more than a read.
     fn code_name(&self, node: Node<'t>) -> bool {
         let tree = self.tree;
+        if !self.name_is(node, &CODE_NAMES) && !self.name_is(node, &TIMERS) {
+            return false;
+        }
         let parent = tree.parent(node);
         let pair_key =
             parent.is_some_and(|p| p.kind() == "pair" && tree.is_field_of_parent(node, F::Key));
@@ -111,7 +116,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                     .field(parent, F::Property)
                     .is_some_and(|property| self.name_is(property, &CALLERS))
         });
-        caller || self.escapes(expression)
+        caller || self.escapes(expression, false)
     }
 
     /// A timer that is not called with a function as its first argument.
