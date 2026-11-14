@@ -7,7 +7,7 @@
 
 use archkeel_contract::{CompletenessMode, EntityKind, RelationshipKind, Target, TargetScope};
 
-use crate::uml::{entity, word, Assessed, Facts, UmlDiff};
+use crate::uml_facts::{entity, word, Assessed, Facts, UmlDiff};
 
 /// The assessments of one scope.
 pub(crate) fn scope(facts: &Facts<'_>, target: &Target, item: &TargetScope) -> Vec<Assessed> {

@@ -183,7 +183,7 @@ impl<'id, 'm> Scope<'id, 'm> {
     /// The scope proof of the UML target row `id` (AD-494): the scope of the whole run must be
     /// complete, because a target can name each component. The caller passes only a target whose
     /// every assessment passes (`uml::compare`).
-    pub(crate) fn uml_complete(&self, id: &str) -> Result<ScopeComplete<'id>, Reason> {
+    fn uml_complete(&self, id: &str) -> Result<ScopeComplete<'id>, Reason> {
         self.run()?;
         Ok(ScopeComplete {
             brand: PhantomData,
@@ -240,6 +240,17 @@ impl<'id, 'm> Scope<'id, 'm> {
             .collect();
         Ok(ScanProof::of(Roots::new(roots, files)))
     }
+}
+
+/// The PASS of the UML target row `id` of the root model, with the scope proof of the run
+/// (AD-494).
+pub(crate) fn uml_pass(model: &Model, id: &str) -> Result<Decision, Reason> {
+    model.scope(|scope| scope.uml_complete(id).map(|proof| scope.pass(proof)))
+}
+
+/// True when the scope of the whole run of `model` is complete (AD-494).
+pub(crate) fn run_complete(model: &Model) -> bool {
+    model.scope(|scope| scope.run()).is_ok()
 }
 
 /// The receipt of a rule (`rules.py` `_rule_evaluation_facts_for_rule`): the rule selects a

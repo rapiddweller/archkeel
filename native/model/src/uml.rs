@@ -22,12 +22,12 @@
 
 use std::collections::BTreeSet;
 
-use archkeel_contract::{
-    Entity, EntityKind, PresenceKind, Relationship, RelationshipKind, Target, VisibilityKind,
-};
+use archkeel_contract::{Entity, EntityKind, PresenceKind, Relationship, RelationshipKind, Target};
 
 use crate::model::Model;
 use crate::reason::UmlGap;
+pub use crate::uml_facts::UmlDiff;
+use crate::uml_facts::{entity, plain, word, Assessed, Facts};
 use crate::verdict::Decision;
 
 /// The input of the target row from the contract tree (AD-470, AD-494).
@@ -39,30 +39,12 @@ pub enum UmlTarget {
     Gap(UmlGap),
 }
 
-/// One assessment of the target that differs from the facts: the FAIL evidence of the row.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct UmlDiff {
-    /// The id of the target element: an entity, a relationship or the entity of a scope.
-    pub subject: String,
-    /// The fact that differs: a module or an import edge `source -> target`.
-    pub fact: String,
-    pub cause: &'static str,
-    pub evidence: Vec<String>,
-}
-
 /// The typed result of the target row.
 #[derive(Clone, Debug)]
 pub enum UmlOutcome {
     Pass(Decision),
     Fail(Vec<UmlDiff>),
     Unknown(UmlGap),
-}
-
-/// One assessment.
-pub(crate) enum Assessed {
-    Pass,
-    Fail(UmlDiff),
-    Unknown(String),
 }
 
 /// Compare the root target with the model of the root of the run; `id` is the row id.
@@ -110,72 +92,10 @@ fn verdict(model: &Model, found: Vec<Assessed>, id: &str) -> UmlOutcome {
             kinds,
         });
     }
-    model.scope(|scope| match scope.uml_complete(id) {
-        Ok(proof) => UmlOutcome::Pass(scope.pass(proof)),
+    match crate::scope::uml_pass(model, id) {
+        Ok(decision) => UmlOutcome::Pass(decision),
         Err(reason) => UmlOutcome::Unknown(UmlGap::Incomplete(reason.to_string())),
-    })
-}
-
-/// The module and import facts that the comparison reads.
-pub(crate) struct Facts<'m> {
-    pub(crate) model: &'m Model,
-    pub(crate) language: &'static str,
-}
-
-impl<'m> Facts<'m> {
-    fn of(model: &'m Model) -> Self {
-        Facts {
-            model,
-            language: model.graph().observed().language,
-        }
     }
-
-    /// The modules of the reply named `name`, when `language` is the language of the reply.
-    pub(crate) fn modules(&self, name: &str, language: &str) -> Vec<&'m crate::modules::Module> {
-        if language != self.language {
-            return Vec::new();
-        }
-        let modules = self.model.graph().modules();
-        modules
-            .iter()
-            .map(|(_, module)| module)
-            .filter(|module| module.name() == name)
-            .collect()
-    }
-
-    /// True when the reply has the resolved local import edge `source -> target`.
-    pub(crate) fn has_edge(&self, source: &str, target: &str) -> bool {
-        self.model.graph().imports().iter().any(|import| {
-            import.resolved == crate::imports::Resolved::Local
-                && import.source_module == source
-                && import.target_module == target
-        })
-    }
-}
-
-/// The entity of the target with the id `id`.
-pub(crate) fn entity<'t>(target: &'t Target, id: &str) -> Option<&'t Entity> {
-    target
-        .entities()
-        .iter()
-        .find(|item| item.id().as_text() == id)
-}
-
-/// True when an entity states no detail that a module fact cannot hold.
-fn plain(entity: &Entity) -> bool {
-    entity.signature().is_none()
-        && *entity.visibility().kind() == VisibilityKind::Unknown
-        && entity.annotation().is_none()
-        && entity.modifiers().is_empty()
-        && entity.initializer().is_none()
-}
-
-/// The word of a closed contract value.
-pub(crate) fn word<T: serde::Serialize>(value: &T) -> String {
-    serde_json::to_value(value)
-        .ok()
-        .and_then(|value| value.as_str().map(str::to_owned))
-        .unwrap_or_default()
 }
 
 fn entity_assessment(facts: &Facts<'_>, target: &Target, item: &Entity) -> Vec<Assessed> {
@@ -240,7 +160,7 @@ fn relationship(
         return Assessed::Pass;
     }
     // `_relationship`: a missing edge is FAIL only in a complete inventory.
-    if model.scope(|scope| scope.run()).is_err() {
+    if !crate::scope::run_complete(model) {
         return Assessed::Unknown("imports relationship coverage".to_owned());
     }
     Assessed::Fail(UmlDiff {

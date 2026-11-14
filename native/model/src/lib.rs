@@ -71,6 +71,7 @@ mod section;
 mod settings;
 mod topology;
 mod uml;
+mod uml_facts;
 mod uml_scope;
 mod verdict;
 
