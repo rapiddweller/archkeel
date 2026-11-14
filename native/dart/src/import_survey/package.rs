@@ -146,6 +146,8 @@ mod tests {
         }
         assert_eq!(words("\"workspace\":\n  - x"), (true, false, false));
         assert_eq!(words("'resolution': workspace"), (true, false, false));
+        // The key alone is a gap: the value need not be the word `workspace`.
+        assert_eq!(words("\"resolution\": x"), (true, false, false));
         assert_eq!(words("a:\n  \"pa\\x74h\": x"), (false, false, true));
     }
 

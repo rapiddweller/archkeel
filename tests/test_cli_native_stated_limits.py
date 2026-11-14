@@ -115,15 +115,50 @@ def test_a_symbol_public_entry_without_a_reader_holds_no_rule(
     assert "profile" not in json.dumps(result["frame"]["unsupported"])
 
 
-def test_typescript_without_the_symbol_feature_holds_only_the_symbol_rule(
-    release_core: Path, tmp_path: Path
-) -> None:
-    """A CommonJS file cannot use a browser global and a bare import names no symbol, so the reply has no `script-globals-v1` and states
-    `dependency_symbols` as unsupported. Before AD-496 that held each rule of the run."""
+TS_SYMBOL = {
+    "id": "SYMBOL",
+    "kind": "forbidden_dependency",
+    "source": "app.src.b",
+    "target": "app.src.a",
+    "target_symbol": "other",
+    "include_type_checking": True,
+}
+TS_PLANTS: dict[str, tuple[list[str], list[str], dict[str, str]]] = {
+    # rules, public entries of `a`, expected rows besides ASSIGN
+    "symbol-rule": (["SYMBOL"], [], {"SYMBOL": "UNKNOWN"}),
+    "symbol-rule-and-interface": (
+        ["SYMBOL", "BOUNDARY"],
+        [],
+        {"SYMBOL": "UNKNOWN", "BOUNDARY": "UNKNOWN"},
+    ),
+    # The module is public, so the bare import is no violation; the symbol entry holds the rule.
+    "symbol-public-and-interface": (
+        ["BOUNDARY"],
+        ["app.src.a.one_x2e_cts", "app.src.a.one_x2e_cts:one"],
+        {"BOUNDARY": "UNKNOWN"},
+    ),
+}
+
+
+def typescript(core: Path, root: Path, plant: str) -> dict[str, Any]:
+    """A CommonJS file cannot use a browser global and a bare import names no symbol, so the reply
+    has no `script-globals-v1` and states `dependency_symbols` as unsupported."""
     from test_cli_core_mounted_receipt import RULE as TS_RULE
     from test_cli_core_mounted_receipt import component as ts_component
     from test_cli_core_only_scan import command
 
+    names, public, _ = TS_PLANTS[plant]
+    a = ts_component("a", ["app.src.a"], **({"public": public} if public else {}))
+    chosen = {
+        "SYMBOL": TS_SYMBOL,
+        "BOUNDARY": {"id": "BOUNDARY", "kind": "interface_boundary"},
+    }
+    contract = {
+        "schema_version": "2.2.0",
+        "components": [a, ts_component("b", ["app.src.b"], ("a",))],
+        "rules": [{**TS_RULE, **chosen[name]} for name in names]
+        + [{**TS_RULE, "id": "ASSIGN", "kind": "complete_assignment", "source": "app"}],
+    }
     files = {
         "README.md": "x\n",
         "tsconfig.json": '{"compilerOptions": {"strict": true}}\n',
@@ -131,26 +166,26 @@ def test_typescript_without_the_symbol_feature_holds_only_the_symbol_rule(
         "src/b/two.cts": "import '../a/one.cjs';\nexport const two = 2;\n",
         "archkeel.toml": '[scan]\nlanguage = "typescript"\nroots = ["src"]\nnamespace = "app"\n'
         'contract = "architecture-contract.json"\ntsconfig = "tsconfig.json"\n',
+        "architecture-contract.json": json.dumps(contract),
     }
-    symbol = {"source": "app.src.b", "target": "app.src.a", "target_symbol": "other"}
-    symbol["include_type_checking"] = True
-    contract = {
-        "schema_version": "2.2.0",
-        "components": [ts_component("a", ["app.src.a"]), ts_component("b", ["app.src.b"], ("a",))],
-        "rules": [
-            {**TS_RULE, "id": "SYMBOL", "kind": "forbidden_dependency", **symbol},
-            {**TS_RULE, "id": "ASSIGN", "kind": "complete_assignment", "source": "app"},
-        ],
-    }
-    files["architecture-contract.json"] = json.dumps(contract)
     for name, text in files.items():
-        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
-        (tmp_path / name).write_text(text)
-    names = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t"}
-    env = {**os.environ, **names, "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text(text)
+    names_env = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t"}
+    env = {**os.environ, **names_env, "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
     for step in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "init"]):
-        subprocess.run(["git", "-C", str(tmp_path), *step], check=True, env=env)
-    result = json.loads(command(release_core, tmp_path, "--json").stdout)
+        subprocess.run(["git", "-C", str(root), *step], check=True, env=env)
+    result: dict[str, Any] = json.loads(command(core, root, "--json").stdout)
+    return result
+
+
+@pytest.mark.parametrize("plant", sorted(TS_PLANTS))
+def test_typescript_without_the_symbol_feature_holds_only_the_symbol_readers(
+    release_core: Path, tmp_path: Path, plant: str
+) -> None:
+    """Before AD-496 the unsupported statement held each rule of the run, as 4.0.1 does."""
+    result = typescript(release_core, tmp_path, plant)
     found = {rule: row[1] for rule, row in result["frame"]["rules"].items()}
-    assert found == {"SYMBOL": "UNKNOWN", "ASSIGN": "PASS"}, result["frame"]["explained"]
-    assert "the profile cannot decide SYMBOL" in result["frame"]["explained"]["SYMBOL"]
+    assert found == {**TS_PLANTS[plant][2], "ASSIGN": "PASS"}, result["frame"]["explained"]
+    for rule in TS_PLANTS[plant][2]:
+        assert "the profile cannot decide" in result["frame"]["explained"][rule]

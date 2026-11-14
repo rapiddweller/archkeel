@@ -26,12 +26,27 @@ FILES = {
 }
 # Each form maps the package `other` to a local directory: YAML reads the same key.
 FORMS = {
-    "double-quoted-key": ('dependencies:\n  other:\n    "path": packages/other\n', "DartPathDependency"),
-    "single-quoted-key": ("dependencies:\n  other:\n    'path': packages/other\n", "DartPathDependency"),
+    "double-quoted-key": (
+        'dependencies:\n  other:\n    "path": packages/other\n',
+        "DartPathDependency",
+    ),
+    "single-quoted-key": (
+        "dependencies:\n  other:\n    'path': packages/other\n",
+        "DartPathDependency",
+    ),
     "flow-mapping": ('dependencies: {"other": {"path": packages/other}}\n', "DartPathDependency"),
-    "explicit-key": ("dependencies:\n  other:\n    ? path\n    : packages/other\n", "DartPathDependency"),
-    "explicit-quoted-key": ('dependencies:\n  other:\n    ? "path"\n    : packages/other\n', "DartPathDependency"),
-    "escaped-key": ('dependencies:\n  other:\n    "pa\\x74h": packages/other\n', "DartPathDependency"),
+    "explicit-key": (
+        "dependencies:\n  other:\n    ? path\n    : packages/other\n",
+        "DartPathDependency",
+    ),
+    "explicit-quoted-key": (
+        'dependencies:\n  other:\n    ? "path"\n    : packages/other\n',
+        "DartPathDependency",
+    ),
+    "escaped-key": (
+        'dependencies:\n  other:\n    "pa\\x74h": packages/other\n',
+        "DartPathDependency",
+    ),
     "quoted-workspace": ('"workspace":\n  - packages/other\n', "DartWorkspace"),
     "quoted-resolution": ("'resolution': workspace\n", "DartWorkspace"),
 }

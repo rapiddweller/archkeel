@@ -1,6 +1,6 @@
 # AD-496 A stated profile limit holds only the rules that read it
 
-**Status.** Proposed. Part of #880. It amends item 3 of AD-426 and item 6 of AD-468.
+**Status.** Proposed. Part of #880. It amends item 3 of AD-426, items 5 and 6 of AD-468, and AD-454.
 
 **Reason.** The linked collector can state `dependency_symbols` or `interface_boundary` as
 `Unsupported` (Python in AD-450, Dart in AD-468). AD-426 turned each such statement into a
@@ -17,8 +17,7 @@ edges. G-dart gave 0 PASS, and the released 4.0.1 gives 9.
 | `dependency_symbols` | `interface::assess` reads each `public` entry with a symbol; `interface_crossings` reads the verdicts of each `target_symbol` rule | each `interface_boundary` rule |
 | `interface_boundary` | `interface::receipt` | each `interface_boundary` rule |
 
-No other rule kind reads a symbol, `public` or `through` fact. `pair_gaps` reads only whether a
-`requires` entry has a `through` list, and that is a contract fact.
+No other rule kind reads a symbol, `public` or `through` fact (`pair_gaps` reads only the contract).
 
 **Decision.**
 1. A stated `Unsupported` feature is no longer a limit of the run (`limits.rs`).
@@ -40,17 +39,32 @@ set and not from the symbol statement. A Dart `show` or `hide` list does not cha
 URI. A re-export route is not an import edge in the core or in 4.0.1. So a rule that reads edges
 sees the same edges with or without these features.
 
+**A second local package (review finding B1).** A cycle a -> b -> o -> a through
+`package:other/o.dart` gave `COMPONENT-NO-CYCLES` PASS (4.0.1: UNKNOWN). The survey read the keys of
+`pubspec.yaml` line by line, so a quoted, flow, explicit (`?`) or escaped `path` key and a quoted
+`workspace` or `resolution` key were no gap. A `pubspec.yaml` above a scan root was never read.
+6. The workspace has no YAML parser, so `package.rs` reads words. Without a backslash, the text of a
+   YAML scalar is in the file as it is, and a folded line break gives a space. So each word `path`,
+   `workspace` or `resolution` outside a comment line is a gap, and a backslash is a gap.
+7. Each package file in a directory above a scan root is a gap (`DartNestedPackage`).
+8. `Profile::cycle_scope` is `Unproved` for Dart, so a Dart cycle rule has no receipt. A proof that
+   releases it: the survey resolves each `package:` URI from a complete package map that it reads
+   (each `pubspec.yaml` of the project with its path and workspace members), with a plant for each
+   YAML form of a local package. `docs/known-limits.md` names this limit.
+
 **Rejected.**
 - A hand table of rule kinds beside the evaluator. It can become stale without a test failure.
 - Undecided positions for each import. A rule without a matching import would pass, and the
   collector writes `symbols_known: true` although it states that it reads no symbol.
 - Keep a hold in `Scope::run`. `run_complete` needs every rule PASS, so no test can reach it.
 
-**Limits.** G-dart goes from 0/0/10 to 9/0/1 and H-uml-dart from 0/0/4 to 1/0/3. One new PASS
-has no PASS in 4.0.1: G-dart `COMPONENT-NO-CYCLES` (4.0.1: UNKNOWN). 4.0.1 proves a cycle scope only
-for a profile with project import closure or for Python. The core gives the Dart receipt by the
-layout of AD-468 item 5. The profile limit hid that difference before. No other fixture row changes.
+**Limits.** G-dart 0/0/10 -> 8/0/2 and H-uml-dart 0/0/5 -> 4/0/1 (4.0.1: 9/0/1 and 5/0/0).
+M-review-workflow (Python) 0/0/12 -> 6/0/6 (4.0.1: 12 PASS). Each new PASS is PASS in 4.0.1. One
+behavior change has no 4.0.1 PASS: a TypeScript reply without `script-globals-v1` states
+`dependency_symbols` as unsupported, and 4.0.1 holds each rule of that run. The core now holds only
+the rules that read a symbol selector; the same plant without the selector is PASS in 4.0.1 too.
+A word in a `pubspec.yaml` value or description gives a gap without need.
 
-**Tests.** `tests/test_cli_native_stated_limits.py` (release core and default CLI: each feature
-and reader gives UNKNOWN on its reader and PASS on each edge rule; a forbidden edge stays FAIL; a
-symbol `public` entry without a reader holds no rule). `native/model/src/limits_tests.rs`.
+**Tests.** `tests/test_cli_native_stated_limits.py` (Python and TypeScript plants of each feature
+and reader), `tests/test_cli_native_dart_packages.py` (the eight YAML forms, a package file above a
+scan root, the held cycle rule), `native/model/src/limits_tests.rs`, `package.rs` unit tests.
