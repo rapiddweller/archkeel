@@ -50,16 +50,20 @@ pub(crate) struct Scope {
     /// The stub and compiled module files below the roots: the survey cannot read them as
     /// source, and Python can import them (AD-450).
     pub foreign: Vec<String>,
+    /// The linked directories below the roots: Python follows them, the walk does not (AD-450).
+    pub linked: Vec<String>,
 }
 
-/// The suffixes of a module file that is not Python source.
-const FOREIGN: [&str; 4] = [".pyi", ".so", ".pyd", ".pyc"];
+/// The suffixes of a module file that the survey does not read: stubs, compiled modules and
+/// `.pyw` sources, which Python imports and the survey does not select (AD-450).
+const FOREIGN: [&str; 5] = [".pyi", ".so", ".pyd", ".pyc", ".pyw"];
 
 /// The scope of the roots: the selected files and the unseen entries.
 pub(crate) fn scope(snapshot: &mut Snapshot, roots: &[String], exclude_tests: bool) -> Scope {
     let mut found = Vec::new();
     let mut unseen = Vec::new();
     let mut foreign = Vec::new();
+    let mut linked = Vec::new();
     for root in roots {
         if !snapshot.is_dir(root) {
             continue;
@@ -72,7 +76,10 @@ pub(crate) fn scope(snapshot: &mut Snapshot, roots: &[String], exclude_tests: bo
                 place(join(&directory, name), &mut found, &mut foreign);
             }
             let children = directories.iter().map(|name| join(&directory, name));
-            pending.extend(children.filter(|child| !snapshot.is_link(child)));
+            let (links, plain): (Vec<String>, Vec<String>) =
+                children.partition(|child| snapshot.is_link(child));
+            linked.extend(links);
+            pending.extend(plain);
             hidden(snapshot, &directory, exclude_tests, &mut unseen);
         }
     }
@@ -85,10 +92,13 @@ pub(crate) fn scope(snapshot: &mut Snapshot, roots: &[String], exclude_tests: bo
     found.dedup();
     foreign.retain(|rel| keep(snapshot, rel, exclude_tests));
     foreign.sort();
+    linked.retain(|rel| !in_cache(rel) && !(exclude_tests && is_test_source(rel)));
+    linked.sort();
     Scope {
         selected: found,
         unseen,
         foreign,
+        linked,
     }
 }
 

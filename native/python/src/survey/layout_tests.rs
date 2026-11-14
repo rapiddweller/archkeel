@@ -68,7 +68,7 @@ fn a_top_package_above_its_root_is_a_gap_and_a_root_that_is_the_package_is_not()
 
 #[test]
 fn a_stub_or_compiled_module_file_is_a_gap_and_a_cached_one_is_not() {
-    for name in ["client.pyi", "fast.so", "fast.pyd", "old.pyc"] {
+    for name in ["client.pyi", "fast.so", "fast.pyd", "old.pyc", "window.pyw"] {
         let file = format!("src/app/{name}");
         let found = surveyed(&[("src/app/__init__.py", ""), (&file, "")]);
         assert_eq!(reasons(&found), [format!("{FOREIGN}: {file}")]);
@@ -115,4 +115,61 @@ fn an_unreadable_directory_is_a_gap() {
             "{UNREADABLE}: Unreadable source directory: src/app/locked"
         )]
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_linked_directory_below_a_root_is_a_gap() {
+    let tree = archkeel_snapshot::test_tree::Tree::new(&[
+        ("src/app/__init__.py", ""),
+        ("src/app/client/__init__.py", ""),
+        ("elsewhere/sub/__init__.py", "import app.service\n"),
+    ]);
+    std::os::unix::fs::symlink(
+        "../../../elsewhere/sub",
+        tree.root.join("src/app/client/sub"),
+    )
+    .unwrap();
+    let found = surveyed_at(&tree);
+    assert!(
+        reasons(&found).contains(&format!("{LINKED}: src/app/client/sub")),
+        "{:?}",
+        reasons(&found)
+    );
+}
+
+/// Each `.py` file below the root that an independent walk finds, outside `__pycache__`.
+fn walked(root: &std::path::Path, base: &std::path::Path, found: &mut Vec<String>) {
+    for entry in std::fs::read_dir(root).unwrap() {
+        let path = entry.unwrap().path();
+        let rel = path
+            .strip_prefix(base)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        if path.is_dir() && !rel.ends_with("__pycache__") {
+            walked(&path, base, found);
+        } else if rel.ends_with(".py") && !rel.contains("__pycache__") {
+            found.push(rel);
+        }
+    }
+}
+
+#[test]
+fn the_survey_selects_each_source_file_that_an_independent_walk_finds() {
+    let tree = archkeel_snapshot::test_tree::Tree::new(&[
+        ("src/app/__init__.py", ""),
+        ("src/app/a/b/c/deep.py", ""),
+        ("src/app/.hidden/inner.py", ""),
+        ("src/app/data.txt", ""),
+        ("src/app/__pycache__/cached.py", ""),
+        ("src/app/tests/test_x.py", ""),
+    ]);
+    let mut expected = Vec::new();
+    walked(&tree.root.join("src"), &tree.root, &mut expected);
+    expected.sort();
+    let mut selected = surveyed_at(&tree).coverage.selected_files;
+    selected.sort();
+    assert_eq!(selected, expected);
 }

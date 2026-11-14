@@ -25,6 +25,7 @@ pub(super) const DUPLICATE: &str = "duplicate_module";
 pub(super) const OUTSIDE_LAYOUT: &str = "module_outside_layout";
 pub(super) const FOREIGN: &str = "stub_or_compiled_module";
 pub(super) const UNREADABLE: &str = "unreadable_source";
+pub(super) const LINKED: &str = "linked_source";
 
 /// The collection gap of one file. Its title is its reason, so the frame names the gap.
 fn file_gap(rel: &str, reason: &str) -> Record<GapFact> {
@@ -102,6 +103,15 @@ pub(super) fn outside(modules: &[Module], roots: &[String]) -> Vec<Record<GapFac
             );
             file_gap(&module.rel, &reason)
         })
+        .collect()
+}
+
+/// A gap for each linked directory below a root: Python imports its modules, the survey does not
+/// read them.
+pub(super) fn linked(directories: &[String]) -> Vec<Record<GapFact>> {
+    directories
+        .iter()
+        .map(|rel| file_gap(rel, &format!("{LINKED}: {rel}")))
         .collect()
 }
 
