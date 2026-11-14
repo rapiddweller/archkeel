@@ -20,6 +20,7 @@ from pathlib import Path
 
 import jsonschema
 import pytest
+from core_support import ensure_target_dir
 from filelock import FileLock
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,7 +41,7 @@ def built(tmp_path_factory: pytest.TempPathFactory) -> Path:
     out = tmp_path_factory.mktemp("report-samples")
     command = [cargo, "test", "--locked", "-q", "-p", "archkeel-report", "--lib"]
     command += ["write_built_samples_for_the_schema_test"]
-    (NATIVE / "target").mkdir(exist_ok=True)
+    ensure_target_dir(NATIVE)
     with FileLock(str(NATIVE / "target" / ".pytest-native-build.lock")):
         done = subprocess.run(
             command,
@@ -115,7 +116,7 @@ def test_each_barrier_attempt_of_ad_381_fails_with_its_error_code() -> None:
     command = [cargo, "test", "--locked", "-q", "--doc"]
     for crate in ATTEMPTS:
         command += ["-p", crate]
-    (NATIVE / "target").mkdir(exist_ok=True)
+    ensure_target_dir(NATIVE)
     with FileLock(str(NATIVE / "target" / ".pytest-native-build.lock")):
         done = subprocess.run(
             command,

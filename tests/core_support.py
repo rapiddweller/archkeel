@@ -42,11 +42,32 @@ def _cargo() -> str:
     return cargo
 
 
+CACHE_TAG = (
+    "Signature: 8a477f597d28d172789f06886806bc55\n"
+    "# This file is a cache directory tag created by cargo.\n"
+)
+
+
+def ensure_target_dir(native: Path) -> None:
+    """Make `native/target` the way cargo does: with its `CACHEDIR.TAG`.
+
+    Cargo writes the tag only when it creates the directory itself. A test that makes the
+    directory first for the build lock leaves it untagged. The core then counts the build output
+    as source and refuses a scan of this checkout over its work budget.
+    """
+    target = native / "target"
+    try:
+        target.mkdir()
+    except FileExistsError:
+        return
+    (target / "CACHEDIR.TAG").write_text(CACHE_TAG)
+
+
 COLLECTORS = ("archkeel-typescript-collector", "archkeel-rust-collector")
 
 
 def _build(*arguments: str, timeout: int = 1200) -> None:
-    (NATIVE / "target").mkdir(exist_ok=True)
+    ensure_target_dir(NATIVE)
     command = [_cargo(), "build", "--locked", "-q", "-p", "archkeel-core", *arguments]
     # All workers of all test sessions on this checkout share one build lock.
     with FileLock(str(NATIVE / "target" / ".pytest-native-build.lock")):

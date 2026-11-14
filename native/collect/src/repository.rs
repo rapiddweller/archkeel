@@ -204,7 +204,8 @@ fn charged(total: u64, size: u64) -> Result<u64, String> {
     let total = total.saturating_add(size);
     if total > MAX_TOTAL_BYTES {
         return Err(format!(
-            "the repository holds more than {MAX_TOTAL_BYTES} bytes of files"
+            "the repository holds more than {MAX_TOTAL_BYTES} bytes of files; a build \
+             directory counts as source unless it holds a CACHEDIR.TAG file"
         ));
     }
     Ok(total)
