@@ -126,7 +126,7 @@ impl<'id, 'm> Scope<'id, 'm> {
         }
         match rule {
             Rule::NoComponentCycles(cycle) => receipts::cycle(self.model, cycle, self.scan())?,
-            Rule::InterfaceBoundary(_) => receipts::ownership(self.model)?,
+            Rule::InterfaceBoundary(_) => receipts::interface(self.model, self.scan())?,
             Rule::CompleteRequires(_) => {
                 receipt(self.model, rule)?;
                 receipts::requires(self.model, self.scan())?;

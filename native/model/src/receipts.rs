@@ -164,34 +164,72 @@ pub(crate) fn requires(
             Cause::Receipt("the collector did not read and parse each selected file").into(),
         );
     }
-    let packages: Vec<&str> = contract
-        .components()
+    covered(model, &roots)?;
+    ownership(model)
+}
+
+/// The receipt of an `interface_boundary` rule: the scan roots hold each component domain and
+/// one component owns each module of the domain (`receipt_scope_complete` and
+/// `_inside_rule_scope_is_complete` of 4.0.1, which `complete_requires` shares, AD-480).
+pub(crate) fn interface(
+    model: &Model,
+    scan: Result<ScanProof<'_, '_>, Reason>,
+) -> Result<(), Reason> {
+    let ScanProof { brand: _, roots } = scan?;
+    covered(model, &roots)?;
+    ownership(model)
+}
+
+/// The scan roots hold the packages and the exact modules of each component, and, for a mount,
+/// of its parent component (`source_roots`, `source_exact_modules`, AD-480).
+fn covered(model: &Model, roots: &Roots<'_>) -> Result<(), Reason> {
+    let contract = model.contract();
+    let (parent_packages, parent_exact) = model.parent_scopes();
+    let packages: Vec<&str> = parent_packages
         .iter()
-        .flat_map(|component| component.packages())
-        .map(|package| package.as_text())
+        .map(String::as_str)
+        .chain(
+            contract
+                .components()
+                .iter()
+                .flat_map(|component| component.packages())
+                .map(|package| package.as_text()),
+        )
         .collect();
-    let exact: Vec<&str> = contract
-        .components()
+    let exact: Vec<&str> = parent_exact
         .iter()
-        .flat_map(|component| component.exact_modules())
-        .map(|exact| exact.as_text())
+        .map(String::as_str)
+        .chain(
+            contract
+                .components()
+                .iter()
+                .flat_map(|component| component.exact_modules())
+                .map(|exact| exact.as_text()),
+        )
         .collect();
     if !roots.covers(&packages, &exact) {
         return Err(Cause::Receipt("a component domain lies outside the scan roots").into());
     }
-    ownership(model)
+    Ok(())
 }
 
-/// The one ownership-completeness proof shared by dependency and interface receipts.
+/// The one ownership-completeness proof shared by dependency and interface receipts. It reads
+/// the modules of the source domain of the model: every module for a root, and the modules of
+/// its mount for an inside contract (`_inside_rule_scope_is_complete`, AD-480).
 pub(crate) fn ownership(model: &Model) -> Result<(), Reason> {
-    let modules = model.graph().modules();
+    let modules: Vec<_> = model
+        .graph()
+        .modules()
+        .iter()
+        .filter(|(id, _)| model.holds(*id))
+        .collect();
     if modules.is_empty() {
         return Err(Reason::NoSubjects);
     }
     if planned(model) {
         return Err(Cause::Receipt("the contract has a planned component").into());
     }
-    if modules.iter().any(|(id, _)| model.owner(id).is_none()) {
+    if modules.iter().any(|(id, _)| model.owner(*id).is_none()) {
         return Err(Cause::Receipt("a module has not exactly one owner").into());
     }
     Ok(())
@@ -239,3 +277,7 @@ impl From<Cause> for Reason {
 #[cfg(test)]
 #[path = "receipts_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "receipts_mount_tests.rs"]
+mod mount_tests;

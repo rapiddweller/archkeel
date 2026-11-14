@@ -172,7 +172,8 @@ fn clips(root: &Contract, mounts: &[InsideMount], graph: &Graph) -> (Vec<Clip>, 
             .unzip();
         let clipped = clip_inside(packages, exact, mount.contract());
         let roots = packages.iter().map(|p| p.as_text().to_owned()).collect();
-        let domain = Domain::new(held, names, roots);
+        let exact_roots = exact.iter().map(|m| m.as_text().to_owned()).collect();
+        let domain = Domain::new(held, names, (roots, exact_roots));
         by_parent.insert(mount.parent_id().as_str(), clips.len());
         clips.push(Clip {
             contract: clipped.contract().clone(),
