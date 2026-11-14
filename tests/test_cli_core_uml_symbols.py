@@ -16,14 +16,13 @@ from pathlib import Path
 import pytest
 from test_cli_core_only_scan import command
 from test_cli_core_uml_compare import project
-from uml_symbol_plants import (
-    CAUSES,
-    COUNTS,
-    PLANTS,
-    ROW,
-    STRICTER,
-    WRONG_RELEASE_PASS,
-)
+from uml_symbol_plants import CAUSES as BASE_CAUSES
+from uml_symbol_plants import PLANTS as BASE_PLANTS
+from uml_symbol_plants import ROW
+from uml_symbol_review import COUNTS, REVIEW_CAUSES, REVIEW_PLANTS, STRICTER, WRONG_RELEASE_PASS
+
+PLANTS = {**BASE_PLANTS, **REVIEW_PLANTS}
+CAUSES = {**BASE_CAUSES, **REVIEW_CAUSES}
 
 
 @pytest.mark.parametrize("name", sorted(PLANTS))

@@ -805,6 +805,7 @@
       "role": "component",
       "packages": [
         "native.archkeel_typescript_collector.sites",
+        "native.archkeel_typescript_collector.site_local",
         "native.archkeel_typescript_collector.site_names",
         "native.archkeel_typescript_collector.site_paths",
         "native.archkeel_typescript_collector.site_syntax",
@@ -2317,6 +2318,7 @@
         "native.archkeel_typescript_collector.constructors",
         "native.archkeel_typescript_collector.layout",
         "native.archkeel_typescript_collector.sites",
+        "native.archkeel_typescript_collector.site_local",
         "native.archkeel_typescript_collector.site_names",
         "native.archkeel_typescript_collector.site_paths",
         "native.archkeel_typescript_collector.site_syntax",
@@ -2391,6 +2393,7 @@
         "native.archkeel_typescript_collector.constructors",
         "native.archkeel_typescript_collector.layout",
         "native.archkeel_typescript_collector.sites",
+        "native.archkeel_typescript_collector.site_local",
         "native.archkeel_typescript_collector.site_names",
         "native.archkeel_typescript_collector.site_paths",
         "native.archkeel_typescript_collector.site_syntax",
