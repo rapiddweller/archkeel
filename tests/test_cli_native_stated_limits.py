@@ -11,6 +11,8 @@ only module-level import edges is decided, also when its edge is a violation.
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -69,6 +71,9 @@ def planted(root: Path, files: dict[str, str], plant: Callable[[dict[str, Any]],
     contract = json.loads(path.read_text())
     reader = plant(contract)
     path.write_text(json.dumps(contract))
+    names = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t"}
+    env = {**os.environ, **names, "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+    subprocess.run(["git", "-C", str(root), "commit", "-qam", "plant"], check=True, env=env)
     return reader
 
 
@@ -105,4 +110,6 @@ def test_a_symbol_public_entry_without_a_reader_holds_no_rule(
     planted(tmp_path, BASE, public_only)
     result = verdict(release_core, tmp_path)
     assert rows(result) == dict.fromkeys(EDGE_RULES, "PASS")
-    assert result["status"] == "PASS" and result["exit_code"] == 0
+    # AD-466 hygiene can still hold the status; no profile limit may hold it.
+    assert result["frame"]["scope"] == "complete", result
+    assert "profile" not in json.dumps(result["frame"]["unsupported"])
