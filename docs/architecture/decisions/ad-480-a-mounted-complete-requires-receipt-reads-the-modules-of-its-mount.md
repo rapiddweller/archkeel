@@ -1,4 +1,4 @@
-# AD-476 A mounted complete_requires receipt reads the modules of its mount
+# AD-480 A mounted complete_requires receipt reads the modules of its mount
 
 **Status.** Proposed. Part of #880. It extends AD-384 and AD-385.
 

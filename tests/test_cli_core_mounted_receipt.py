@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-476: the receipt of a mounted `complete_requires` reads the modules of its mount.
+"""AD-480: the receipt of a mounted `complete_requires` reads the modules of its mount.
 
 Each expected row is the row of release 4.0.1 on the same plant (`rule_assessments`).
 """
