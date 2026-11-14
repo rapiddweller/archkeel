@@ -1,5 +1,10 @@
 # Archkeel architecture
 
+> **History.** This page describes the Python engine that is deleted ([AD-432](decisions/ad-432-the-rust-core-is-the-only-decision-path.md)).
+> Its contract, source and tests are in the Git history before that change, so some links on this
+> page and on the other pages of this directory have no target on `main`.
+> The current architecture is [the native workspace](native.md).
+
 The [contract](../../architecture-contract.json) owns boundaries, interfaces and permissions.
 [Source](../../src/archkeel) and [tests](../../tests/test_self.py) show the implementation.
 

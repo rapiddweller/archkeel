@@ -5,8 +5,8 @@
 
 The Rust test `write_built_samples_for_the_schema_test` builds frames from the inputs of the
 oracle payloads, with and without the graph and the Target. Each frame and each oracle payload
-of `native/report/testdata` must validate against `schema/report-2.0.schema.json` and pass the
-Python checker, and a frame built from the inputs of an oracle payload must equal its bytes.
+of `native/report/testdata` must validate against `schema/report-2.0.schema.json`, and a frame
+built from the inputs of an oracle payload must equal its bytes.
 """
 
 from __future__ import annotations
@@ -21,8 +21,6 @@ from pathlib import Path
 import jsonschema
 import pytest
 from filelock import FileLock
-
-from archkeel.report.payload.checker import check_payload
 
 ROOT = Path(__file__).resolve().parents[1]
 NATIVE = ROOT / "native"
@@ -58,12 +56,7 @@ def built(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 def _errors(path: Path) -> list[str]:
     payload = json.loads(path.read_bytes())
-    errors = [error.message for error in VALIDATOR.iter_errors(payload)]
-    try:
-        check_payload(payload)
-    except ValueError as error:
-        errors.append(str(error))
-    return errors
+    return [error.message for error in VALIDATOR.iter_errors(payload)]
 
 
 def test_each_oracle_payload_of_the_testdata_is_valid() -> None:

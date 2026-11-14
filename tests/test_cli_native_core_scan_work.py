@@ -5,38 +5,21 @@
 
 from __future__ import annotations
 
-import contextlib
-import io
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
-from functools import partial
 from pathlib import Path
-from typing import Any
 
 import pytest
-from filelock import FileLock
-from test_cli_native_core_scan import (
-    HONEST,
-    ROOT,
-    built,
-    case_root,
-    diagnostics,
-    install,
-    report,
-)
+from core_support import HONEST, ROOT, case_root, run
 
-from archkeel.analyzer.runtime import package_version
-from archkeel.cli import main, native_core, native_scan
+from archkeel.cli import core_only, native_scan
 from archkeel.cli.core_frame import CoreError, GapKind
 
-__all__ = ["built", "install"]
-
 PEAK_BOUND = 128 * 1024 * 1024
-HEAD = "0123456789abcdef0123456789abcdef01234567"
 
 
 def test_the_printed_core_error_uses_its_typed_gap() -> None:
@@ -48,22 +31,22 @@ def test_the_printed_core_error_uses_its_typed_gap() -> None:
     assert "too deep" in str(error)
 
 
-@pytest.mark.usefixtures("install")
-def test_the_shell_diagnostic_maps_the_typed_gap_not_the_opaque_message(
-    monkeypatch: pytest.MonkeyPatch,
+def test_the_shell_refusal_names_the_typed_gap_not_the_opaque_message(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     from archkeel.cli.core_frame import Gap
 
     def refused(*args: object, **kwargs: object) -> None:
         raise CoreError("opaque message", gap=Gap(GapKind.PARSE_WORK_LIMIT, "source", "too deep"))
 
-    monkeypatch.setattr(native_core.NativeCore, "decide", refused)
-    with case_root(HONEST) as root:
-        code, result = report(root, "--native-core")
-        assert code == 2
-        assert "parse_work_limit" in diagnostics(result)
-        assert "source: too deep" in diagnostics(result)
-        assert not (root.parent / "out/architecture.json").exists()
+    monkeypatch.setattr(core_only, "locate_core", lambda: Path("core"))
+    monkeypatch.setattr(core_only, "exchange", refused)
+    code, result = run("validate", "--root", str(tmp_path))
+    assert code == 2 and result["status"] == "UNKNOWN"
+    assert "frame" not in result
+    assert result["refusal"]["kind"] == "core_error"
+    assert "parse_work_limit" in result["refusal"]["message"]
+    assert "source: too deep" in result["refusal"]["message"]
 
 
 def canonical(root: Path) -> Path:
@@ -74,29 +57,22 @@ def canonical(root: Path) -> Path:
     return Path(text)
 
 
-@pytest.fixture(scope="module")
-def release_core() -> Path:
-    if shutil.which("cargo") is None:
-        pytest.skip("cargo is not installed")
-    target = ROOT / "native/target"
-    target.mkdir(exist_ok=True)
-    with FileLock(str(target / ".pytest-native-build.lock")):
-        subprocess.run(
-            ["cargo", "build", "--release", "--locked", "-p", "archkeel-core"],
-            cwd=ROOT / "native",
-            env={**os.environ, "ARCHKEEL_VERSION": package_version()},
-            capture_output=True,
-            check=True,
-            timeout=600,
-        )
-    suffix = ".exe" if os.name == "nt" else ""
-    return ROOT / "native/target/release" / f"archkeel-core{suffix}"
-
-
 def project(root: Path, files: int, depth: int, language: str = "typescript") -> dict[str, object]:
     shutil.copytree(ROOT / "fixtures/H-typescript", root)
-    (root / ".git").mkdir()
-    (root / ".git/HEAD").write_text(HEAD + "\n")
+    for args in [
+        ["init", "-q"],
+        ["add", "."],
+        [
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-qm",
+            "fixture",
+        ],
+    ]:
+        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
     suffix = "ts"
     if language == "rust":
         suffix = "rs"
@@ -122,8 +98,6 @@ def project(root: Path, files: int, depth: int, language: str = "typescript") ->
         "protocol": "archkeel-core-scan-1",
         "root": str(canonical(root)),
         "config": "archkeel.toml",
-        "git_head": HEAD,
-        "dirty": False,
     }
 
 
@@ -319,17 +293,20 @@ def test_nested_grammar_constructs_stay_under_300_mib(
     assert peak is None or peak < 300 << 20
 
 
-@pytest.mark.usefixtures("install")
-def test_a_real_scan_work_refusal_leaves_no_shell_artifact() -> None:
+@pytest.mark.parametrize("command", ["validate", "report"])
+def test_a_real_scan_work_refusal_is_a_typed_refusal_of_the_default_path(
+    core_binary: Path, monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
+    monkeypatch.setattr(core_only, "locate_core", lambda: core_binary)
     with case_root(HONEST) as root:
-        root = canonical(root)
+        code, honest = run(command, "--root", str(root))
+        assert (code, honest["status"]) == (0, "PASS")
         (root / "src/deep.ts").write_text("(" * 50_000 + "0" + ")" * 50_000 + ";\n")
-        python_code, _ = report(root)
-        assert python_code == 0
-        code, result = report(root, "--native-core")
-        assert code == 2
-        assert "parse_work_limit" in diagnostics(result)
-        assert not (root.parent / "out/architecture.json").exists()
+        code, result = run(command, "--root", str(root))
+    assert code == 2 and result["status"] == "UNKNOWN"
+    assert "frame" not in result
+    assert result["refusal"]["kind"] == "core_error"
+    assert "parse_work_limit" in result["refusal"]["message"]
 
 
 @pytest.mark.parametrize("language", ["typescript", "rust"])
@@ -342,67 +319,6 @@ def test_the_shell_keeps_the_typed_refusal_of_a_real_core(
     assert error.value.gap is not None
     assert error.value.gap.kind is GapKind.PARSE_WORK_LIMIT
     assert "parse_work_limit" in str(error.value)
-
-
-@pytest.mark.parametrize("workspace", [False, True], ids=["typescript-corpus", "native"])
-def test_a_scan_below_both_bounds_gives_the_same_frame_as_without_the_guard(
-    install: Path, monkeypatch: pytest.MonkeyPatch, workspace: bool
-) -> None:
-    checked = []
-    plain_frames = []
-
-    def exchange(binary: str, kind: str, payload: bytes) -> tuple[bytes, int]:
-        stdout, code = native_scan.exchange(binary, kind, payload)
-        plain_frames.append(json.loads(stdout))
-        return stdout, code
-
-    monkeypatch.setattr(native_core, "exchange", exchange)
-
-    def decide(self: native_core.NativeCore, result: Any, root: Path, config: Any, *_: Any) -> Any:
-        assert self.binary is not None
-        # The bundled subprocess collector has no in-process guard.
-        plain = self.run(
-            self.binary, config, partial(native_core.read_inside, root), self.replies[0], None
-        )
-        config_path = "native/archkeel.toml" if workspace else "archkeel.toml"
-        request = native_scan.scan_request(self.requests[0], config_path)
-        stdout, _ = native_scan.exchange(str(self.binary), "scan", json.dumps(request).encode())
-        scanned = json.loads(stdout)
-        # Only scan carries self_test.collect; every other wire-frame field must match.
-        assert "request" in scanned["self_test"].pop("collect")
-        [unbounded] = plain_frames
-        assert scanned == unbounded
-        if workspace:
-            assert "the collector reports" not in plain.scope, plain.scope
-        checked.append(plain)
-        return result
-
-    monkeypatch.setattr(native_core.NativeCore, "decide", decide)
-    if workspace:
-        from graph_report_support import commit_tree
-
-        root = install.parent / "project"
-        shutil.copytree(ROOT / "native", root / "native", ignore=shutil.ignore_patterns("target"))
-        commit_tree(root)
-        monkeypatch.chdir(root)
-        output = io.StringIO()
-        with contextlib.redirect_stdout(output):
-            main(
-                [
-                    "report",
-                    "--config",
-                    "native/archkeel.toml",
-                    "--json",
-                    "--native-core",
-                    "--output",
-                    str(install.parent / "out/architecture.json"),
-                ]
-            )
-        assert checked, output.getvalue()
-    else:
-        with case_root(HONEST) as root:
-            report(root, "--native-core")
-    assert len(checked) == 1
 
 
 @pytest.mark.parametrize(

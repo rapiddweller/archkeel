@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """#984: the Rust collector completes a run on the layouts that it once refused.
 
-Consumer: the host (`run_report`). The layouts are a module directory named `target`, `cfg`
+Consumer: `archkeel validate`. The layouts are a module directory named `target`, `cfg`
 alternatives of one `mod`, and a crate root in a skipped directory. A hidden edge is never PASS.
 """
 
@@ -12,7 +12,16 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from rust_repository import APP, CRATE_RULES, component, repository, rule, statuses, validate
+from rust_repository import (
+    APP,
+    CRATE_RULES,
+    claims,
+    component,
+    repository,
+    rule,
+    statuses,
+    validate,
+)
 
 NO_REQUIRES = (component("base", "base_crate"), component("app", "app"))
 
@@ -68,7 +77,7 @@ REFUSAL_PROBES = {
 )
 def test_a_run_that_once_refused_completes_and_never_passes_a_hidden_edge(
     tmp_path: Path,
-    rust_binary: Path,
+    core_binary: Path,
     capsys: pytest.CaptureFixture[str],
     files: dict[str, str],
     source: str,
@@ -85,15 +94,15 @@ def test_a_run_that_once_refused_completes_and_never_passes_a_hidden_edge(
         include_type_checking=True,
     )
     rules = (*CRATE_RULES, forbidden)
-    result = validate(repository(tmp_path, rust_binary, sources, rules=rules), capsys)
+    result = validate(repository(tmp_path, core_binary, sources, rules=rules), capsys)
 
     status = statuses(result).get("NO-A-TO-B")
-    assert status != "PASS", result["diagnostics"]
-    assert (status == expected) if expected else result["declared_rules"] in {"FAIL", "UNKNOWN"}
+    assert status != "PASS", claims(result)
+    assert (status == expected) if expected else result["status"] in {"FAIL", "UNKNOWN"}
 
 
 def test_a_crate_root_in_a_skipped_directory_gives_a_gap_and_no_pass(
-    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     files = {
         "crates/app/Cargo.toml": APP + '[lib]\npath = "target/lib.rs"\n',
@@ -101,10 +110,10 @@ def test_a_crate_root_in_a_skipped_directory_gives_a_gap_and_no_pass(
         "crates/app/target/lib.rs": "use base_crate::make;\n",
         "crates/app/src/lib.rs": "",
     }
-    result = validate(repository(tmp_path, rust_binary, files, components=NO_REQUIRES), capsys)
+    result = validate(repository(tmp_path, core_binary, files, components=NO_REQUIRES), capsys)
 
     assert statuses(result).get("REQUIRES") != "PASS"
-    assert result["declared_rules"] in {"FAIL", "UNKNOWN"}
+    assert result["status"] in {"FAIL", "UNKNOWN"}
 
 
 # FP-28: `extern crate` of a crate that no manifest declares compiles only through a link that a
@@ -118,14 +127,14 @@ UNDECLARED_PROBES = {
 
 @pytest.mark.parametrize("source", UNDECLARED_PROBES.values(), ids=UNDECLARED_PROBES.keys())
 def test_an_extern_crate_that_no_manifest_declares_gives_no_pass(
-    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str], source: str
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], source: str
 ) -> None:
     files = {
         "crates/app/Cargo.toml": APP.split("[dependencies]")[0],
         "crates/app/build.rs": 'fn main() { println!("cargo:rustc-link-search=crate=x"); }\n',
         "crates/app/src/lib.rs": source,
     }
-    result = validate(repository(tmp_path, rust_binary, files, components=NO_REQUIRES), capsys)
+    result = validate(repository(tmp_path, core_binary, files, components=NO_REQUIRES), capsys)
 
-    assert statuses(result).get("REQUIRES") != "PASS", result["diagnostics"]
-    assert result["declared_rules"] in {"FAIL", "UNKNOWN"}
+    assert statuses(result).get("REQUIRES") != "PASS", claims(result)
+    assert result["status"] in {"FAIL", "UNKNOWN"}

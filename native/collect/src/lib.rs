@@ -40,10 +40,12 @@ pub struct Identity<'a> {
     pub root: &'a str,
     /// The repository-relative path of the configuration file.
     pub config: &'a str,
-    /// The commit of `HEAD` as the shell read it; the core reads it too and refuses a difference.
-    pub git_head: &'a str,
-    /// The dirty state of the work tree as the shell read it (provenance, AD-406).
-    pub dirty: bool,
+    /// Discover the work tree from `root` only when the caller supplied no explicit root.
+    pub discover_root: bool,
+    /// An optional claim about `HEAD`; the core reads it and refuses a difference.
+    pub git_head: Option<&'a str>,
+    /// An optional claim about the work tree; the core reads it and refuses a difference.
+    pub dirty: Option<bool>,
 }
 
 /// The result of one scan: what the core needs to decide the run.
@@ -86,20 +88,43 @@ pub fn test_features() -> &'static [&'static str] {
 /// the bytes of the root contract.
 pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Refusal> {
     built(test_features())?;
-    let root = repository::Root::of(identity.root).map_err(|why| refused("root", why))?;
+    let supplied = repository::Root::of(identity.root).map_err(|why| refused("root", why))?;
+    let root = if identity.discover_root {
+        let repository = git::root(supplied.path()).map_err(|why| refused("root", why))?;
+        let text = repository
+            .to_str()
+            .ok_or_else(|| refused("root", "the root is not UTF-8"))?;
+        repository::Root::of(text).map_err(|why| refused("root", why))?
+    } else {
+        supplied
+    };
+    let root_text = root
+        .path()
+        .to_str()
+        .ok_or_else(|| refused("root", "the root is not UTF-8"))?;
     let config = read_config(&root, identity.config)?;
     let head = git::head(root.path()).map_err(|why| refused("git head", why))?;
-    if head != identity.git_head {
-        return Err(refused(
-            "git head",
-            format!(
-                "the shell names the commit {}, and HEAD is {head}",
-                identity.git_head
-            ),
-        ));
+    if let Some(claimed) = identity.git_head {
+        if head != claimed {
+            return Err(refused(
+                "git head",
+                format!("the shell names the commit {claimed}, and HEAD is {head}"),
+            ));
+        }
     }
-    let request = request(identity, &config);
     repository::survey(&root).map_err(|why| refused("work budget", why))?;
+    let dirty = git::dirty(root.path()).map_err(|why| refused("dirty", why))?;
+    if identity.dirty.is_some_and(|claimed| claimed != dirty) {
+        return Err(refused("dirty", "the request differs from the repository"));
+    }
+    let derived = Identity {
+        root: root_text,
+        config: identity.config,
+        discover_root: false,
+        git_head: Some(&head),
+        dirty: Some(dirty),
+    };
+    let request = request(&derived, &config);
     let bytes =
         serde_json::to_vec(&request).map_err(|error| refused("request", error.to_string()))?;
     let reply = run::collect(config.profile, &bytes)?;

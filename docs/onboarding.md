@@ -1,5 +1,10 @@
 # Set up Archkeel
 
+> **Not on `main`.** This page describes the Python engine before [AD-432](architecture/decisions/ad-432-the-rust-core-is-the-only-decision-path.md). On `main`, the Rust core decides
+> `archkeel validate` and `archkeel report` for Rust and TypeScript projects, and each other
+> command gives a typed refusal with exit 2. See the [state of `main`](reference.md#state-of-main). Release 4.0.1 has
+> `check`, `init` and full reports. No release has `explore` or Studio.
+
 Requires Python 3.11+ and a Git repository with at least one commit.
 
 ```bash
@@ -88,6 +93,5 @@ archkeel validate --baseline known-violations.json
 
 Review the initial file. Known violations remain FAIL. Update resolved debt with
 its code change; `--accept-new` needs an explicit decision. Continue with the
-[target-first loop](target-first.md). `make demo-onboarding` replays setup with
-committed decisions and no live approval. See [reference](reference.md) for plugins
+[target-first loop](target-first.md). See [reference](reference.md) for plugins
 and other commands.

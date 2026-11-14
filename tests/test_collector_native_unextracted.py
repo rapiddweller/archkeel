@@ -12,13 +12,10 @@ and checks that the node becomes a collection gap named `unextracted`.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
-from test_collector_native_imports import _request
-
-from archkeel.analyzer.process import ProcessCollector
-from archkeel.ir.facts import SourceFacts
-from archkeel.ir.protocol import CollectionError, ProtocolVersion
+from collector_wire import collect, request_bytes
 
 PLANT = "ARCHKEEL_PLANT_SKIP"
 FILES = {
@@ -36,38 +33,35 @@ def _write(root: Path, files: dict[str, str]) -> None:
         path.write_text(text, encoding="utf-8")
 
 
-def _collect(binary: Path, root: Path) -> SourceFacts:
-    request = _request(root, "app", "tsconfig.json")
-    result = ProcessCollector((str(binary),), protocol_version=ProtocolVersion.V8).collect(request)
-    assert not isinstance(result, CollectionError), result
-    return result
+def _collect(binary: Path, root: Path) -> dict[str, Any]:
+    return collect(binary, request_bytes(root, "app", "tsconfig.json"))
 
 
-def _titles(facts: SourceFacts) -> list[str]:
-    return [gap.title for gap in facts.coverage.gaps]
+def _titles(facts: dict[str, Any]) -> list[str]:
+    return [gap["title"] for gap in facts["coverage"]["gaps"]]
 
 
-def _imports_of(facts: SourceFacts, rel: str) -> int:
-    evidence = {item.id: item.file for item in facts.evidence}
-    section = next(item for item in facts.sections if item.name.value == "imports")
-    return sum(1 for record in section.records if evidence[record.evidence_ids[0]] == rel)
+def _imports_of(facts: dict[str, Any], rel: str) -> int:
+    evidence = {item["id"]: item["file"] for item in facts["evidence"]}
+    section = next(item for item in facts["sections"] if item["name"] == "imports")
+    return sum(1 for record in section["records"] if evidence[record["evidence_ids"][0]] == rel)
 
 
 def test_an_extraction_that_loses_no_node_has_no_unextracted_gap(
     tmp_path: Path,
-    dump_binary: Path,  # noqa: F811
+    dump_binary: Path,
 ) -> None:
     _write(tmp_path, FILES)
     facts = _collect(dump_binary, tmp_path)
     assert not [title for title in _titles(facts) if "unextracted" in title]
-    assert facts.coverage.full_scope
+    assert facts["coverage"]["full_scope"]
     assert _imports_of(facts, "src/a.ts") == 2
 
 
 @pytest.mark.parametrize("index", [0, 1])
 def test_a_node_that_the_extraction_skips_becomes_an_unextracted_gap(
     tmp_path: Path,
-    dump_binary: Path,  # noqa: F811
+    dump_binary: Path,
     monkeypatch: pytest.MonkeyPatch,
     index: int,
 ) -> None:
@@ -77,12 +71,12 @@ def test_a_node_that_the_extraction_skips_becomes_an_unextracted_gap(
     lost = [title for title in _titles(facts) if "unextracted" in title]
     assert lost == ["unextracted: 1 import-bearing node(s) of src/a.ts have no record and no gap"]
     assert _imports_of(facts, "src/a.ts") == 1
-    assert not facts.coverage.full_scope
+    assert not facts["coverage"]["full_scope"]
 
 
 def test_a_node_in_a_repaired_part_has_the_gap_of_the_syntax_error(
     tmp_path: Path,
-    dump_binary: Path,  # noqa: F811
+    dump_binary: Path,
 ) -> None:
     files = {
         **FILES,
@@ -93,7 +87,7 @@ def test_a_node_in_a_repaired_part_has_the_gap_of_the_syntax_error(
     titles = _titles(facts)
     assert any(title.startswith("Syntax error in src/a.ts") for title in titles)
     assert not [title for title in titles if "unextracted" in title]
-    assert not facts.coverage.full_scope
+    assert not facts["coverage"]["full_scope"]
 
 
 SCAN_FILES = {
@@ -111,7 +105,7 @@ SCAN_FILES = {
 @pytest.mark.parametrize("lost", ["import", "export", "dynamic", "require"])
 def test_a_node_that_the_scan_loses_becomes_an_unextracted_gap(
     tmp_path: Path,
-    dump_binary: Path,  # noqa: F811
+    dump_binary: Path,
     monkeypatch: pytest.MonkeyPatch,
     lost: str,
 ) -> None:
@@ -122,12 +116,12 @@ def test_a_node_that_the_scan_loses_becomes_an_unextracted_gap(
     facts = _collect(dump_binary, tmp_path)
     found = [title for title in _titles(facts) if "unextracted" in title]
     assert found == ["unextracted: 1 import-bearing node(s) of src/a.ts have no record and no gap"]
-    assert not facts.coverage.full_scope
+    assert not facts["coverage"]["full_scope"]
 
 
 def test_a_scan_that_loses_nothing_has_no_unextracted_gap(
     tmp_path: Path,
-    dump_binary: Path,  # noqa: F811
+    dump_binary: Path,
 ) -> None:
     _write(tmp_path, SCAN_FILES)
     facts = _collect(dump_binary, tmp_path)

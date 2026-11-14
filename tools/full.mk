@@ -5,19 +5,16 @@
 # SKIP_TESTS=1: skip the test suite here; Full verification runs it in area jobs (make full-test).
 check: lint typecheck browser-architecture-check $(if $(strip $(SKIP_TESTS)),,test)
 
-gate: $(PYTHON_SELF_CHECK) release-check
+gate: release-check
 
 release-check: check build smoke
 
 ci-core-check: PYTEST_STOP := --maxfail=1
-ci-core-check: gate typescript-compiler-check browser-graph-check ci-typescript browser-runtime-check typescript-libs-check
+ci-core-check: gate typescript-compiler-check browser-graph-check browser-runtime-check typescript-libs-check
 
 # One area of the full suite (tests/areas.py); Full verification runs every area in parallel.
 full-test: TEST_WORKERS = 4
 full-test: browser-runtime-install test
-
-ci-typescript: OUTPUT := test-artifacts/typescript-demo
-ci-typescript: demo-typescript
 
 test:
 	$(UV) run --locked $(PYTEST_EXTRA) python -m pytest -n $(TEST_WORKERS) --dist=loadgroup --max-worker-restart=0 \
@@ -36,39 +33,14 @@ native-wheel:
 	ARCHKEEL_NATIVE_WHEEL="$$(ls dist/native/*.whl)" $(UV) run --locked python -m pytest -q \
 		-m native_wheel tests/test_collector_native_wheel.py
 
-collector-safety:
-	$(UV) run --locked python -m pytest -q tests/test_collection_protocol.py tests/test_typed_collector_protocol.py tests/test_typed_collector_native.py \
-		tests/test_collection_process.py tests/test_collection_runtime_gate.py \
-		tests/test_runtime.py tests/test_source_trust_boundary.py \
-		tests/test_collector_interrupt.py tests/test_windows_launcher_startup.py \
-		tests/test_collector_safety_acceptance.py tests/test_collector_liveness_observer.py \
-		tests/test_inheritance_proof_transport.py
+# The shell is the only Python of the product (AD-432): its tests on the newest claimed Python.
+shell-compat:
+	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=loadgroup --max-worker-restart=0 -q \
+		tests/test_cli_core_only.py tests/test_cli_core_only_boundary.py tests/test_cli_core_only_exit_table.py \
+		tests/test_cli_core_only_review.py tests/test_cli_core_only_scan.py tests/test_skill.py
 
 typescript-compiler-check:
 	npx --yes --package typescript@5.9.3 tsc --noEmit --project fixtures/H-uml-typescript/tsconfig.json
-
-# TypeScript uses only the native collector (AD-430).
-typescript-native: browser-runtime-install typescript-collector
-	$(UV) run --locked python -m pytest -n $(TEST_WORKERS) --dist=loadfile --max-worker-restart=0 \
-		-q --durations=10 \
-		tests/test_typescript_inner.py tests/test_typescript_uml_acceptance.py \
-		tests/test_typescript_namespace_identities.py \
-		tests/test_typescript_collect.py tests/test_typescript_source_input.py \
-		tests/test_typescript_script_globals.py tests/test_typescript_standard_globals.py \
-		tests/test_browser_architecture.py::test_browser_runner_serializes_windows_config_as_a_posix_port \
-		tests/test_typescript_string_constructs.py tests/test_typescript_bundler.py \
-		tests/test_typescript_init_acceptance.py tests/test_typescript_demo.py
-
-demo-typescript:
-	@$(UV) run --locked python -m fixtures.reproduce_typescript $(if $(OUTPUT),--output "$(OUTPUT)")
-
-PLAYWRIGHT_VERSION ?= 1.62.0
-
-browser-install:
-	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m playwright install --with-deps chromium
-
-report-browser-tests: browser-install
-	$(UV) run --locked --with playwright==$(PLAYWRIGHT_VERSION) python -m pytest -m browser -n 2 --dist=loadfile --max-worker-restart=0 -q
 
 # Twine validates PyPI metadata; it is a build-only tool.
 build:
@@ -82,12 +54,3 @@ smoke:
 typescript-libs-check: browser-runtime-install
 	$(UV) run --locked mypy --strict tools/typescript_libs.py
 	$(UV) run --locked python -m tools.typescript_libs --check
-
-# AD-360: compare the engine with the recorded oracles in tests/dual_run. Narrow a slice with
-# DUAL_RUN_ARGS="--sections modules,packages --families direction --engine-command '<command>'".
-dual-run: dual-run-collector
-	$(UV) run --locked python -m tools.dual_run compare $(DUAL_RUN_ARGS)
-
-# The Rust cases of the corpus run the Rust collector of this workspace.
-dual-run-collector:
-	cd native && cargo build --locked -q -p archkeel-rust-collector

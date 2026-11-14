@@ -1,139 +1,56 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-418: the core decides each rule of the self-contract of native/ (#880, goal M2).
+"""AD-418, AD-432: the core decides each rule of the self-contract of native/ (#880).
 
-The test collects `native/` from this tree with the Rust collector of this build and sends the
-reply to the core of the same build. Stage 1 sends no request while the Python run is not
-complete, so the test calls the core of the shell directly with the collected reply. Each rule
-has a decision: the status of the Python engine, or PASS beyond it over a Python UNKNOWN that
-the frame names (AD-384). No rule names a part of the scope proof.
+The test runs the default `archkeel validate` on `native/` of this tree with the core of this
+build. Each rule has a row: no rule names a part of the scope proof. The rows equal the pinned
+file `native/expected-gaps.json`, which `make self-validate-native` checks with the same code.
 """
 
 from __future__ import annotations
 
-import contextlib
-import hashlib
-import io
 import json
-import os
-import shutil
 import subprocess
+import sys
 import zlib
 from collections import Counter
-from dataclasses import asdict
-from functools import partial
 from pathlib import Path
 from typing import Any
 
 import pytest
-from filelock import FileLock
+from core_support import NATIVE, ROOT, SUFFIX, run
 
-from archkeel.analyzer.runtime import package_version
-from archkeel.cli import main, native_core, observe
+from archkeel.cli import core_only
 
-ROOT = Path(__file__).resolve().parents[1]
-NATIVE = ROOT / "native"
-SUFFIX = ".exe" if os.name == "nt" else ""
-BINARIES = ("archkeel-core", "archkeel-rust-collector")
+sys.path.insert(0, str(ROOT / "tools"))
+from native_expected import problems  # noqa: E402
 
 
 @pytest.fixture(scope="module")
-def built() -> Path:
-    """The core and the Rust collector, built with the version of this install (AD-319)."""
-    cargo = shutil.which("cargo")
-    if cargo is None and os.environ.get("CI"):
-        pytest.fail("CI must provide cargo for the native core tests.")
-    if cargo is None:
-        pytest.skip("cargo is not installed; install Rust to test changes in native/.")
-    target = NATIVE / "target" / "shell"
-    (NATIVE / "target").mkdir(exist_ok=True)
-    command = [cargo, "build", "--locked", "-q", "-p", BINARIES[0], "-p", BINARIES[1]]
-    with FileLock(str(NATIVE / "target" / ".pytest-native-build.lock")):
-        done = subprocess.run(
-            [*command, "--target-dir", str(target)],
-            cwd=NATIVE,
-            env={**os.environ, "ARCHKEEL_VERSION": package_version()},
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    assert done.returncode == 0, done.stderr
-    return target / "debug"
-
-
-def _self_check(
-    built: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    """The core frame, the Python result and the collector reply of the report of
-    `native/archkeel.toml`."""
-    install = tmp_path / "native"
-    install.mkdir()
-    for name in BINARIES:
-        binary = install / f"{name}{SUFFIX}"
-        shutil.copy2(built / binary.name, binary)
-        digest = hashlib.sha256(binary.read_bytes()).hexdigest()
-        (install / f"{binary.name}.sha256").write_text(digest, encoding="ascii")
-    monkeypatch.setattr(observe, "_NATIVE_DIRECTORY", install)
-    monkeypatch.delenv(native_core.SWITCH_VARIABLE, raising=False)
-    monkeypatch.delenv(observe.NATIVE_STORE, raising=False)
-    frames: list[Any] = []
-    replies: list[bytes] = []
-
-    def decide(self: native_core.NativeCore, result: Any, root: Path, config: Any, *_: Any) -> Any:
-        assert self.binary is not None
-        read = partial(native_core.read_inside, root)
-        replies.append(self.replies[0])
-        frames.append(self.run(self.binary, config, read, self.replies[0], None))
-        return result
-
-    monkeypatch.setattr(native_core.NativeCore, "decide", decide)
-    monkeypatch.chdir(ROOT)
-    output = io.StringIO()
-    artifact = tmp_path / "out" / "architecture.json"
-    with contextlib.redirect_stdout(output):
-        main(
-            ["report", "--config", "native/archkeel.toml", "--json", "--output", str(artifact)]
-            + ["--native-core"]
-        )
-    [frame], [reply] = frames, replies
-    return asdict(frame), json.loads(output.getvalue()), json.loads(zlib.decompress(reply))
-
-
-@pytest.fixture(scope="module")
-def checked(
-    built: Path, tmp_path_factory: pytest.TempPathFactory
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    """One self-check run for the tests of this file."""
-    with pytest.MonkeyPatch.context() as monkeypatch:
-        return _self_check(built, tmp_path_factory.mktemp("self"), monkeypatch)
+def checked(built: Path) -> tuple[int, dict[str, Any]]:
+    """One default run on `native/` for the tests of this file: the exit code and the result."""
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(core_only, "locate_core", lambda: built / f"archkeel-core{SUFFIX}")
+        return run("validate", "--root", str(ROOT), "--config", "native/archkeel.toml")
 
 
 def test_the_core_decides_each_rule_of_the_self_contract(
-    checked: tuple[dict[str, Any], dict[str, Any], dict[str, Any]],
+    checked: tuple[int, dict[str, Any]],
 ) -> None:
-    frame, result, _ = checked
-    python = {row["id"]: row["status"] for row in result["rule_assessments"]}
+    code, result = checked
+    frame = result["frame"]
+    core = {rule: row[1] for rule, row in frame["rules"].items()}
     expected = json.loads((NATIVE / "expected-gaps.json").read_text())
-    assert python == expected["rules"]
-    core = {rule: row["status"] for rule, row in frame["rules"].items()}
-    assert set(core) == set(python), set(core) ^ set(python)
+    assert problems(result, expected) == []
     assert len(core) == 83
     # No rule names a part of the scope proof: each one has a decision.
-    assert [gap for gap in frame["gaps"] if gap["kind"] == "scope_proof"] == []
-    assert list(frame["gaps"]) == []
-    beyond = set(frame["beyond"])
-    for rule, status in core.items():
-        if rule in beyond:
-            assert (status, python[rule]) == ("PASS", "UNKNOWN"), rule
-        else:
-            assert status == python[rule], rule
-    assert Counter(python.values()) == {"UNKNOWN": 82, "FAIL": 1}
+    assert result["gaps"] == []
     assert Counter(core.values()) == {"PASS": 63, "UNKNOWN": 19, "FAIL": 1}
-    assert beyond == {rule for rule, status in core.items() if status == "PASS"}
-    # The run names each pinned gap; it never passes.
-    assert frame["status"] == "FAIL"
-    kept = f"incomplete scope: {len(expected['gaps'])} gaps between two modules that the contract"
+    # The one failure makes the run a failure; the gaps never let it pass.
+    assert (code, result["status"], frame["status"]) == (1, "FAIL", "FAIL")
+    assert set(frame["unknown_kinds"]) == {r for r, status in core.items() if status == "UNKNOWN"}
+    kept = "incomplete scope: 114 gaps between two modules that the contract"
     assert frame["scope"].startswith(kept), frame["scope"]
 
 
@@ -163,9 +80,19 @@ def _crate(module: str) -> str:
 
 
 def test_collect_hands_core_no_value_of_a_collector_type(
-    checked: tuple[dict[str, Any], dict[str, Any], dict[str, Any]],
+    built: Path, checked: tuple[int, dict[str, Any]]
 ) -> None:
-    _, _, reply = checked
+    # The core states the request that it sent to its collector; the Rust collector of the same
+    # build answers it again here, so the test reads the import records themselves.
+    request = checked[1]["frame"]["self_test"]["collect"]["request"]
+    done = subprocess.run(
+        [str(built / f"archkeel-rust-collector{SUFFIX}")],
+        input=json.dumps(request, sort_keys=True, separators=(",", ":")).encode(),
+        capture_output=True,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr.decode(errors="replace")
+    reply = json.loads(zlib.decompress(done.stdout))
     records = [
         record["data"]
         for section in reply["facts"]["sections"]

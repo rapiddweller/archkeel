@@ -23,11 +23,10 @@ from oracle_support import ORACLE_UNAVAILABLE
 
 pytest.skip(ORACLE_UNAVAILABLE, allow_module_level=True)
 
+from archkeel.analyzer.interpreter import interpreter, python_request
 from archkeel.analyzer.python.collect import _inputs
 from archkeel.analyzer.python.explore_scope import parse_unshadowed, selected_paths
 from archkeel.analyzer.python.source import module_for, package_for
-
-from archkeel.analyzer.interpreter import interpreter, python_request
 from archkeel.analyzer.runtime import python_requirement
 from archkeel.cli.config import load_config
 from archkeel.ir.protocol import (

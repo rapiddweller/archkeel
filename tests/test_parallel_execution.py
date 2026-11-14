@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 """A faster gate must still reject worker crashes and accept healthy runs."""
 
+import os
 import shutil
 import subprocess
 import sys
@@ -13,6 +14,8 @@ import pytest
 
 ROOT = Path(__file__).parents[1]
 PARALLEL = ["-n", "2", "--dist=loadfile", "--max-worker-restart=0"]
+# The copy of conftest.py imports its helper modules, which stay in tests/.
+ENV = {**os.environ, "PYTHONPATH": str(ROOT / "tests")}
 
 
 @pytest.mark.parametrize("phase", ["collection", "body"])
@@ -47,6 +50,7 @@ def test_parallel_worker_crash_fails_the_command(tmp_path: Path, phase: str) -> 
         [sys.executable, "-m", "pytest", "-q", *PARALLEL, "test_crash.py"],
         cwd=tmp_path,
         capture_output=True,
+        env=ENV,
         text=True,
         timeout=30,
     )
@@ -65,6 +69,7 @@ def test_healthy_runner_finishes_without_a_false_failure(
         [sys.executable, "-m", "pytest", "-q", *options, "--junitxml=result.xml"],
         cwd=tmp_path,
         capture_output=True,
+        env=ENV,
         text=True,
         timeout=30,
     )
