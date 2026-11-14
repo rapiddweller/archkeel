@@ -19,7 +19,7 @@ use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::EvidenceId;
 use archkeel_facts::vocab::{Area, ExceptionName};
 use std::collections::{BTreeMap, BTreeSet};
-use types::*;
+use types::{Fact, Input, Output, RecordKind, Source};
 
 const SECTIONS: [SectionName; 6] = [
     SectionName::Imports,
