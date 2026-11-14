@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The symbol selector that each rule reads (AD-482).
+//! The symbol selector that each rule reads (AD-496).
 
 use archkeel_contract::{Contract, ParsedContract};
 

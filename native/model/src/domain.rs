@@ -17,18 +17,31 @@ pub(crate) struct Domain {
     held: Vec<ModuleId>,
     names: HashSet<String>,
     roots: Vec<String>,
+    /// The exact modules of the parent of the mount (`source_exact_modules`).
+    exact: Vec<String>,
 }
 
 impl Domain {
-    /// The domain of the held modules, their names and the parent packages.
+    /// The domain of the held modules, their names, the parent packages and the parent exact
+    /// modules.
     pub(crate) fn new(
         mut held: Vec<ModuleId>,
         names: HashSet<String>,
-        roots: Vec<String>,
+        (roots, exact): (Vec<String>, Vec<String>),
     ) -> Domain {
         held.sort_unstable();
         held.dedup();
-        Domain { held, names, roots }
+        Domain {
+            held,
+            names,
+            roots,
+            exact,
+        }
+    }
+
+    /// The packages and the exact modules of the parent of the mount.
+    pub(crate) fn scopes(&self) -> (&[String], &[String]) {
+        (&self.roots, &self.exact)
     }
 
     /// The held modules, sorted.

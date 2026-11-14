@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-482: a stated unsupported feature holds only the rules that read it.
+"""AD-496: a stated unsupported feature holds only the rules that read it.
 
 The linked Python collector states that it reads no dependency symbol and no module interface.
 Each plant adds one reader of one feature: that rule stays UNKNOWN, and each rule that reads

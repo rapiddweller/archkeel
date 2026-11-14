@@ -9,7 +9,10 @@ use super::*;
 
 fn kinds(source: &str) -> Vec<&'static str> {
     let tree = crate::test_tree(source, 14).expect("valid probe");
-    sites(&tree).into_iter().map(|site| site.kind).collect()
+    sites(&tree, super::super::literal::Proof::default())
+        .into_iter()
+        .map(|site| site.kind)
+        .collect()
 }
 
 fn has(source: &str, kind: &str) -> bool {
@@ -66,6 +69,8 @@ fn each_standard_library_door_is_a_dynamic_import() {
         "from unittest.mock import patch\n",
         "import zipimport\n",
         "import imp\n",
+        "import importlib.metadata\nimportlib.metadata.version('x')\n",
+        "from importlib import resources\nresources.files('x')\n",
     ] {
         assert!(has(source, DYNAMIC), "{source}");
     }
@@ -109,12 +114,32 @@ fn an_unrelated_name_is_no_site() {
         "import os\nos.path.join(a, b)\n",
         "import re\nre.compile(text)\n",
         "import json\njson.loads(text)\n",
-        "import importlib.metadata\nimportlib.metadata.version('x')\n",
-        "import importlib.resources\nimportlib.resources.files('x')\n",
         "import sys\nsys.exit(1)\nsys.argv\n",
         "x = pkg.__path__\n",
         "from os import path\npath.join(a, b)\n",
     ] {
         assert!(kinds(source).is_empty(), "{source}: {:?}", kinds(source));
+    }
+}
+
+#[test]
+fn only_the_inert_names_of_importlib_metadata_are_no_site() {
+    let inert = "from importlib.metadata import PackageNotFoundError, version\ntry:\n    v = version('x')\nexcept PackageNotFoundError:\n    v = None\n";
+    assert!(kinds(inert).is_empty(), "{:?}", kinds(inert));
+    assert!(kinds("from importlib.metadata import version as v\nv('x')\n").is_empty());
+    for source in [
+        "from importlib.metadata import entry_points\n",
+        "from importlib.metadata import distribution\n",
+        "from importlib.metadata import metadata\n",
+        "from importlib.metadata import files\n",
+        "from importlib.metadata import *\n",
+        "from importlib import metadata\nmetadata.version('x')\n",
+        "import importlib.metadata as md\nmd.version('x')\n",
+        "import importlib.metadata\nimportlib.metadata.version('x')\n",
+        "from importlib.metadata import version, entry_points\n",
+        "from importlib.metadata import version\nversion.__globals__\n",
+        "from importlib.metadata import version\nversion.inner\n",
+    ] {
+        assert!(has(source, DYNAMIC), "{source}");
     }
 }

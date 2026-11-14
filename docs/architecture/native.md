@@ -84,7 +84,7 @@ The linked collector states its profile limits in the typed in-process reply
 ([AD-426](decisions/ad-426-the-linked-collector-states-profile-limits-before-the-scope-proof.md)).
 The model reads these statements before the existing scope proof. They remove no actual source gap.
 A stated unsupported feature holds only the rules that read it, not the run
-([AD-482](decisions/ad-482-a-stated-profile-limit-holds-only-the-rules-that-read-it.md)).
+([AD-496](decisions/ad-496-a-stated-profile-limit-holds-only-the-rules-that-read-it.md)).
 The statements are not serialized. The wire path keeps its conservative profile refusals.
 
 Slice S11 decides `forbidden_construct` from construct and typing-signal facts (AD-408).

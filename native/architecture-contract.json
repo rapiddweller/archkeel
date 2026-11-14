@@ -891,6 +891,7 @@
         "native.archkeel_typescript_collector.script",
         "native.archkeel_typescript_collector.script_alias",
         "native.archkeel_typescript_collector.script_bind",
+        "native.archkeel_typescript_collector.script_code",
         "native.archkeel_typescript_collector.script_declarations",
         "native.archkeel_typescript_collector.script_declare",
         "native.archkeel_typescript_collector.script_factory",
@@ -902,6 +903,7 @@
         "native.archkeel_typescript_collector.script_refs",
         "native.archkeel_typescript_collector.script_scope",
         "native.archkeel_typescript_collector.script_syntax",
+        "native.archkeel_typescript_collector.script_window",
         "native.archkeel_typescript_collector.script_wrapper",
         "native.archkeel_typescript_collector.script_writes",
         "native.archkeel_typescript_collector.umd"
@@ -2329,6 +2331,7 @@
         "native.archkeel_typescript_collector.script",
         "native.archkeel_typescript_collector.script_alias",
         "native.archkeel_typescript_collector.script_bind",
+        "native.archkeel_typescript_collector.script_code",
         "native.archkeel_typescript_collector.script_declarations",
         "native.archkeel_typescript_collector.script_declare",
         "native.archkeel_typescript_collector.script_factory",
@@ -2340,6 +2343,7 @@
         "native.archkeel_typescript_collector.script_refs",
         "native.archkeel_typescript_collector.script_scope",
         "native.archkeel_typescript_collector.script_syntax",
+        "native.archkeel_typescript_collector.script_window",
         "native.archkeel_typescript_collector.script_wrapper",
         "native.archkeel_typescript_collector.script_writes",
         "native.archkeel_typescript_collector.umd",
@@ -2401,6 +2405,7 @@
         "native.archkeel_typescript_collector.script",
         "native.archkeel_typescript_collector.script_alias",
         "native.archkeel_typescript_collector.script_bind",
+        "native.archkeel_typescript_collector.script_code",
         "native.archkeel_typescript_collector.script_declarations",
         "native.archkeel_typescript_collector.script_declare",
         "native.archkeel_typescript_collector.script_factory",
@@ -2412,6 +2417,7 @@
         "native.archkeel_typescript_collector.script_refs",
         "native.archkeel_typescript_collector.script_scope",
         "native.archkeel_typescript_collector.script_syntax",
+        "native.archkeel_typescript_collector.script_window",
         "native.archkeel_typescript_collector.script_wrapper",
         "native.archkeel_typescript_collector.script_writes",
         "native.archkeel_typescript_collector.umd",
@@ -2529,7 +2535,9 @@
         "native.archkeel_python_collector.symbols.writes",
         "native.archkeel_python_collector.pyast.node",
         "native.archkeel_python_collector.symbols.scan",
-        "native.archkeel_python_collector.cargo_toml"
+        "native.archkeel_python_collector.cargo_toml",
+        "native.archkeel_python_collector.survey.literal",
+        "native.archkeel_python_collector.survey.package_body"
       ],
       "rationale": "Only the parse modules, the tree readers of the survey, the CPython view of the tree, the expression text and the definition table of the Python collector read the tree of the Python parser; discovery, naming and the entry read owned values.",
       "provenance": [
@@ -2592,7 +2600,8 @@
         "native.archkeel_python_collector.symbols.class",
         "native.archkeel_python_collector.symbols.scan",
         "native.archkeel_python_collector.symbols.sites",
-        "native.archkeel_python_collector.survey.hazards"
+        "native.archkeel_python_collector.survey.hazards",
+        "native.archkeel_python_collector.survey.imports"
       ],
       "rationale": "Only the survey module and the CPython view, the string check and the definition table of the Python collector read the text ranges of the Python parser (AD-377).",
       "provenance": [

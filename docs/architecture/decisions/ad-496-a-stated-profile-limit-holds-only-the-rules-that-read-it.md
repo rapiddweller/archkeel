@@ -1,4 +1,4 @@
-# AD-482 A stated profile limit holds only the rules that read it
+# AD-496 A stated profile limit holds only the rules that read it
 
 **Status.** Proposed. Part of #880. It amends item 3 of AD-426 and item 6 of AD-468.
 

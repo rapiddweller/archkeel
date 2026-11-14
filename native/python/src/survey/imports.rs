@@ -15,10 +15,12 @@ use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::vocab::{Area, EvidenceClass};
 use archkeel_facts::{ImportFact, Record};
-use ruff_python_ast::{Expr, Stmt, StmtImportFrom};
+use ruff_python_ast::{Stmt, StmtImportFrom};
+use ruff_text_size::{Ranged, TextRange};
 
-use super::binders::{first_part, import_bindings, Binders};
+use super::binders::{first_part, Binders};
 use super::guard::Guard;
+use super::package_body::{anchor, open_body, own_submodules, shadowing_names};
 use crate::module::{EvidenceMap, Location, Module};
 use crate::names::package_for;
 
@@ -104,37 +106,48 @@ pub(super) fn collect_all(
     }
 }
 
-/// The submodules that a package body imports at its top level. The import system binds each
-/// one as an attribute of the package, so `__getattr__` is not called for its name.
-fn own_submodules(module: &Module) -> HashSet<String> {
-    let package = module.name.as_str();
-    let mut found = HashSet::new();
-    for statement in &module.tree.body {
-        match statement {
-            Stmt::ImportFrom(node) => {
-                let Some(anchor) = anchor(node, package) else {
-                    continue;
-                };
-                found.insert(anchor.clone());
-                let names = node.names.iter().map(|alias| alias.name.as_str());
-                found.extend(names.map(|name| format!("{anchor}.{name}")));
-            }
-            Stmt::Import(node) => {
-                found.extend(node.names.iter().map(|alias| alias.name.to_string()));
-            }
-            _ => {}
-        }
+/// The import record of each literal import call (AD-472): `(module index, range, target)`. A
+/// record has no binding, is not at module level and re-exports nothing.
+pub(super) fn literal_records(
+    modules: &[Module],
+    binders: &[Binders],
+    namespace: &str,
+    evidence: &mut EvidenceMap,
+    sites: &[(usize, TextRange, String)],
+) -> Vec<Record<ImportFact>> {
+    let (names, directories, bindings, open) = (
+        HashSet::new(),
+        HashSet::new(),
+        HashMap::new(),
+        HashMap::new(),
+    );
+    let (mut records, mut aliases, mut ambiguous) = (Vec::new(), Aliases::new(), HashSet::new());
+    for (index, range, target) in sites {
+        let (module, binders) = (&modules[*index], &binders[*index]);
+        let mut collector = Collector {
+            module,
+            binders,
+            unique: HashSet::new(),
+            names: &names,
+            directories: &directories,
+            guard: Guard::default(),
+            bindings: &bindings,
+            open: &open,
+            namespace,
+            evidence: &mut *evidence,
+            records: &mut records,
+            aliases: &mut aliases,
+            ambiguous: &mut ambiguous,
+        };
+        let found = Binding {
+            target,
+            symbol: None,
+            binding: None,
+            level: 0,
+        };
+        collector.record((range, false, false), &found);
     }
-    found
-}
-
-/// A package body that can give any name: a top-level `__getattr__` or a star import.
-fn open_body(module: &Module) -> bool {
-    module.tree.body.iter().any(|statement| match statement {
-        Stmt::FunctionDef(node) => node.name.as_str() == "__getattr__",
-        Stmt::ImportFrom(node) => node.names.iter().any(|alias| alias.name.as_str() == "*"),
-        _ => false,
-    })
+    records
 }
 
 /// `collect_package_bindings`: for each package, the names that its body binds ahead of a
@@ -156,76 +169,6 @@ fn owning_package(module: &Module) -> &str {
         .name
         .rsplit_once('.')
         .map_or("", |(package, _)| package)
-}
-
-/// `importlib.util.resolve_name` for a name of `level` dots and then `name`. Each failure of it
-/// on CPython 3.11 to 3.14 is an `ImportError`.
-fn resolve(level: u32, name: &str, package: &str) -> Option<String> {
-    if package.is_empty() {
-        return None;
-    }
-    let mut base = package;
-    for _ in 1..level {
-        base = &base[..base.rfind('.')?];
-    }
-    Some(if name.is_empty() {
-        base.to_owned()
-    } else {
-        format!("{base}.{name}")
-    })
-}
-
-/// The module that `from ... import` names, or `None` when `resolve_name` fails.
-fn anchor(node: &StmtImportFrom, package: &str) -> Option<String> {
-    let name = node.module.as_ref().map_or("", |module| module.as_str());
-    if node.level == 0 {
-        return Some(name.to_owned());
-    }
-    resolve(node.level, name, package)
-}
-
-/// `_shadowed_names`: the names that the top-level statements of a package body bind ahead of a
-/// submodule of the same name (AD-53). `__getattr__` or a star import empties the set.
-fn shadowing_names(module: &Module) -> HashSet<String> {
-    let mut names = HashSet::new();
-    for statement in &module.tree.body {
-        match statement {
-            Stmt::FunctionDef(node) if node.name.as_str() == "__getattr__" => {
-                return HashSet::new()
-            }
-            Stmt::ClassDef(node) if node.name.as_str() == "__getattr__" => return HashSet::new(),
-            Stmt::FunctionDef(node) => drop(names.insert(node.name.id.to_string())),
-            Stmt::ClassDef(node) => drop(names.insert(node.name.id.to_string())),
-            Stmt::Assign(node) => names.extend(node.targets.iter().filter_map(name_of)),
-            Stmt::AnnAssign(node) => names.extend(name_of(&node.target)),
-            Stmt::Import(_) => names.extend(import_bindings(statement)),
-            Stmt::ImportFrom(node) => {
-                if node.names.iter().any(|alias| alias.name.as_str() == "*") {
-                    return HashSet::new();
-                }
-                names.extend(from_bindings(node, &module.name));
-            }
-            _ => {}
-        }
-    }
-    names
-}
-
-/// The names of `from ... import` in the package body of `package`, without the plain
-/// `from . import name` that binds the submodule itself (`_binds_identical_submodule`).
-fn from_bindings<'n>(node: &'n StmtImportFrom, package: &str) -> impl Iterator<Item = String> + 'n {
-    let own = anchor(node, package).as_deref() == Some(package);
-    node.names
-        .iter()
-        .filter(move |alias| !(own && alias.asname.is_none()))
-        .map(|alias| alias.asname.as_ref().unwrap_or(&alias.name).id.to_string())
-}
-
-fn name_of(target: &Expr) -> Option<String> {
-    match target {
-        Expr::Name(node) => Some(node.id.to_string()),
-        _ => None,
-    }
 }
 
 /// The alias target of `import a.b`: the module `a`, or `a.b` itself under an `as` name.
@@ -258,7 +201,7 @@ struct Collector<'m, 'e> {
 struct Binding<'t> {
     target: &'t str,
     symbol: Option<&'t str>,
-    binding: &'t str,
+    binding: Option<&'t str>,
     level: u32,
 }
 
@@ -325,7 +268,7 @@ impl Collector<'_, '_> {
                     let found = Binding {
                         target: name,
                         symbol: None,
-                        binding,
+                        binding: Some(binding),
                         level: 0,
                     };
                     self.bind(level, binding, import_target(alias).to_owned(), true);
@@ -351,7 +294,7 @@ impl Collector<'_, '_> {
                 let found = Binding {
                     target: &anchor,
                     symbol: Some("*"),
-                    binding: "*",
+                    binding: Some("*"),
                     level: node.level,
                 };
                 self.record(place, &found);
@@ -386,7 +329,7 @@ impl Collector<'_, '_> {
             let found = Binding {
                 target: if local { &submodule } else { &anchor },
                 symbol: if local { None } else { Some(name) },
-                binding,
+                binding: Some(binding),
                 level: node.level,
             };
             self.record(place, &found);
@@ -404,10 +347,10 @@ impl Collector<'_, '_> {
         }
     }
 
-    fn record(&mut self, (statement, module_level, guarded): (&Stmt, bool, bool), b: &Binding) {
+    fn record<N: Ranged>(&mut self, (node, module_level, guarded): (&N, bool, bool), b: &Binding) {
         let module = self.module;
-        let evidence_id = module.evidence(self.evidence, statement);
-        let Location { line, column, .. } = module.location(statement);
+        let evidence_id = module.evidence(self.evidence, node);
+        let Location { line, column, .. } = module.location(node);
         let in_scope = b.target == self.namespace
             || b.target
                 .strip_prefix(self.namespace)
@@ -424,18 +367,22 @@ impl Collector<'_, '_> {
             Part::Number(column),
             Part::Text(b.target),
             symbol,
-            Part::Text(b.binding),
+            b.binding.map_or(Part::Nothing, Part::Text),
         ];
-        let init = module.is_init();
-        let exported = self.binders.all_exports.contains(b.binding);
-        let literal_unique = self.binders.all_literal && self.unique.contains(b.binding);
+        // A literal import call binds no name and re-exports nothing (AD-472).
+        let init = module.is_init() && b.binding.is_some();
+        let exported = b
+            .binding
+            .is_some_and(|name| self.binders.all_exports.contains(name));
+        let literal_unique =
+            self.binders.all_literal && b.binding.is_some_and(|name| self.unique.contains(name));
         let data = ImportData {
             source_module: ModuleName::new(module.name.as_str()),
             source_package: PackageName::new(module.package.as_str()),
             target_module: ModuleName::new(b.target),
             target_package: PackageName::new(target_package),
             symbol: b.symbol.map(str::to_owned),
-            binding: Some(b.binding.to_owned()),
+            binding: b.binding.map(str::to_owned),
             symbols_known: true,
             specifier: None,
             type_only: None,
@@ -443,7 +390,7 @@ impl Collector<'_, '_> {
             under_type_checking: guarded,
             reexport: init || (exported && literal_unique),
             module_level_import: module_level,
-            ordinary_module: Some(!init),
+            ordinary_module: Some(!module.is_init()),
             reexport_candidate: Some(
                 !init && module_level && exported && b.symbol.is_some() && !literal_unique,
             ),
