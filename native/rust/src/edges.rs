@@ -63,13 +63,16 @@ impl Builder {
             if plant::skip(&module.rel, at) {
                 continue;
             }
+            // An alias of `extern crate self` beats a dependency and a name of the sysroot.
+            let alias = index.is_alias(&module.module, &reference.root);
             let found = classify(
                 &reference.root,
                 krate,
                 &module.scan.shadows,
                 reference.absolute,
-            );
-            if found.is_some() {
+            )
+            .filter(|_| !alias);
+            if found.is_some() || alias {
                 covered.insert(reference.root.clone());
             }
             match found {

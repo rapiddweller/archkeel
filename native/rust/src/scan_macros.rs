@@ -11,7 +11,7 @@ use proc_macro2::Span;
 use syn::{ItemMacro, Macro};
 
 use super::Walker;
-use crate::definitions::MethodCall;
+use crate::definitions::{Holder, MethodCall};
 use crate::net;
 use crate::plant;
 use crate::site::Site;
@@ -33,6 +33,8 @@ pub(crate) struct MacroDef {
     /// `impl` block that the scan does not see (AD-383).
     pub members: BTreeSet<String>,
     pub unknowns: Vec<String>,
+    /// The body holds `mod`, `use` or `extern`: an expansion may declare a module name.
+    pub declares: bool,
     /// A definition in a function body is visible only in the rest of that body.
     pub local: Option<Local>,
 }
@@ -61,11 +63,20 @@ pub(crate) struct MacroCall {
     pub name: String,
     pub site: Site,
     pub placed: bool,
+    /// The call is at module level: it may define a name of the module, which a glob `use` of
+    /// the module then brings in. `modules/filled.rs` decides which such calls are safe.
+    pub fills: bool,
+    /// The tokens of the call hold `mod`, `use` or `extern`: they may declare a module name.
+    pub declares: bool,
+    /// The path that names the macro, or nothing when it starts with `::`.
+    pub path: Vec<String>,
+    /// The inline modules that enclose the call: a `use` of the same module can bind its name.
+    pub scope: Vec<String>,
 }
 
 /// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path
 /// inside is a path of this file. A macro of another name that holds a path is UNKNOWN.
-const KNOWN_MACROS: [&str; 33] = [
+pub(crate) const KNOWN_MACROS: [&str; 33] = [
     "assert",
     "assert_eq",
     "assert_ne",
@@ -100,6 +111,17 @@ const KNOWN_MACROS: [&str; 33] = [
     "cfg",
     "json",
 ];
+
+/// Whether the tokens hold `mod`, `use` or `extern` at any depth.
+fn declares(tokens: proc_macro2::TokenStream) -> bool {
+    tokens.into_iter().any(|tree| match tree {
+        proc_macro2::TokenTree::Ident(id) => {
+            matches!(id.to_string().as_str(), "mod" | "use" | "extern")
+        }
+        proc_macro2::TokenTree::Group(group) => declares(group.stream()),
+        _ => false,
+    })
+}
 
 impl Walker<'_> {
     /// A `macro_rules!` definition. Its expansion stays in this crate, so its body is read as code
@@ -172,6 +194,7 @@ impl Walker<'_> {
             methods,
             members,
             unknowns,
+            declares: declares(node.mac.tokens.clone()),
             local,
         });
         for attr in &node.attrs {
@@ -193,15 +216,26 @@ impl Walker<'_> {
                 ["crate", "self", "super"].contains(&first.ident.to_string().as_str())
             });
         let site = self.site(span);
+        let module_level = self.blocks == 0 && matches!(self.holder, Holder::Module);
         let call = MacroCall {
             name: name.clone(),
             site,
             placed: local,
+            fills: module_level,
+            declares: declares(node.tokens.clone()),
+            path: (node.path.segments.iter())
+                .filter(|_| node.path.leading_colon.is_none())
+                .map(|segment| plain(&segment.ident))
+                .collect(),
+            scope: self.inline.clone(),
         };
         // The tokens of a macro are not code that the scan reads: a call in them is not placed.
         let mut inner = BTreeSet::new();
         macro_names(node.tokens.clone(), 0, &mut inner);
+        // A path in the tokens of a macro that is not in `KNOWN_MACROS` is a concern below, and a
+        // known macro expands to no item: so a name here that can fill a module is a plain call.
         let hidden = inner.into_iter().map(|name| MacroCall {
+            path: vec![name.clone()],
             name,
             placed: false,
             ..call.clone()

@@ -92,12 +92,10 @@ pub(crate) struct Scan {
     pub references: Vec<Reference>,
     pub concerns: Vec<Concern>,
     pub children: Vec<Child>,
-    /// Every name that the file declares or imports, in any namespace and at any depth. The scan
-    /// does not decide which item a path means: a root that is also in this set is UNKNOWN.
+    /// Each name that the file declares or imports (any namespace, any depth): a root in it is UNKNOWN.
     pub names: BTreeSet<String>,
-    /// The names of `names` that can hide a crate. A name is left out only when its single
-    /// source is a `use` leaf that the crate of that name itself provides (`use anyhow::anyhow;`):
-    /// whichever item a path `anyhow::x` then picks, it lies in the crate `anyhow`.
+    /// The names of `names` that can hide a crate. A name is left out only when its single source
+    /// is a `use` leaf of the crate of that name (`use anyhow::anyhow;`): `anyhow::x` is in it.
     pub shadows: BTreeSet<String>,
     /// How many times the file declares or imports each name, in any namespace and at any depth.
     pub counts: BTreeMap<String, usize>,
@@ -112,6 +110,10 @@ pub(crate) struct Scan {
     pub definitions: Vec<Definition>,
     /// The crate of each `extern crate name;` other than `self`, and its place.
     pub extern_crates: Vec<(String, Site)>,
+    /// A `#[macro_use] extern crate` brings in macros whose names the scan does not know.
+    pub macro_use_crate: bool,
+    /// Each `extern crate self as name;` outside a function body: its inline modules and `name`.
+    pub self_aliases: Vec<(Vec<String>, String)>,
     /// The inherent `impl` blocks at any depth, and the method calls (#953).
     pub impls: Vec<ImplBlock>,
     pub method_calls: Vec<MethodCall>,
@@ -474,7 +476,7 @@ mod attributes;
 /// The read of `macro_rules!` definitions and macro calls: what their bodies hold.
 #[path = "scan_macros.rs"]
 mod macros;
-pub(crate) use macros::{MacroCall, MacroDef};
+pub(crate) use macros::{MacroCall, MacroDef, KNOWN_MACROS};
 
 /// The second count of the nodes that must end as an outcome (`edges_extracted.rs`).
 #[path = "scan_extracted.rs"]

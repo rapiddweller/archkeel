@@ -441,6 +441,21 @@ refuses with `core_binary_not_found`
   `Cargo.toml` is UNKNOWN, never PASS. It compiles only when a `build.rs` prints
   `cargo:rustc-link-search=crate=...`. Such a link is not read
   ([AD-356](architecture/decisions/ad-356-a-call-or-crate-that-a-producer-cannot-see-is-a-gap.md)).
+- **`extern crate self as name;`** binds `name` to the root of the own crate. In the crate root it
+  joins the extern prelude: `name::b::g`, `use name::b::g;` and `::name::b::g` in any module of
+  that crate are an edge to `b`, and so is `crate::name::b::g` where a module binds the alias. An
+  alias in a function body is read in its own file only. A file that declares the name itself, or a
+  glob that may bring it in, makes the path UNKNOWN. Not seen, and the verdict can be PASS: the
+  alias through a `pub use` of the root (`pub use crate::name as other;`), the same class as any
+  other path through a re-export of the root. An alias that a macro generates is a macro
+  expansion gap. An alias item with a `cfg` or `cfg_attr` is a gap, also when the condition is
+  always true.
+- **A glob over a module with a macro call.** A glob that finds no name in its target is UNKNOWN
+  when a module-level macro call of the target may declare a name. A call is read as safe only
+  when no other macro of its name can apply: one `macro_rules!` of that name in the crate with no
+  `mod`, `use`, `extern` or macro call in its body; no `use`, glob or `#[macro_use] extern crate`
+  that can bring another one; and a plain name, or a `crate::a::m!()` path to a module that binds
+  `m` by one `use m;`. A standard macro that the crate does not define or import is safe.
 - **An attribute name in a macro body** is read as a derive helper, not as a crate name
   ([AD-335](architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md),
   amendment (b)). A crate that a macro reaches through such a name is seen only when the manifest
