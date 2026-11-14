@@ -15,7 +15,7 @@ use std::collections::BTreeMap;
 
 use archkeel_contract::policy::{assemble_tree, ContractTree};
 use archkeel_contract::{head_of, kind_of, uml_target_id, Contract, ParsedContract, RuleKind};
-use archkeel_model::{Reason, Unsupported};
+use archkeel_model::{Reason, UmlGap, Unsupported};
 
 /// The most inside contracts of one request. The reference engine has no bound (AD-379).
 pub(crate) const MAX_INSIDE_FILES: usize = 1024;
@@ -72,8 +72,8 @@ pub(crate) struct Usable {
     pub(crate) tree: Option<ContractTree>,
     /// The scoped id and kind of each rule of each mount, in the order of the mounts.
     pub(crate) inside: Vec<(String, RuleKind)>,
-    /// True when a contract of the tree has `declarations.uml`.
-    pub(crate) uml: bool,
+    /// The cause of the UML target row when a contract of the tree has `declarations.uml`.
+    pub(crate) uml: Option<UmlGap>,
 }
 
 /// The state of the contract input, and the contract when the core can use it.
@@ -87,7 +87,7 @@ pub(crate) fn answer(input: ContractInput) -> (ContractState, Option<Usable>) {
     };
     let usable = match parsed {
         ParsedContract::Complete(contract) if input.insides.is_empty() => {
-            let uml = has_uml(&contract);
+            let uml = uml_gap([&contract]);
             Usable {
                 root: contract,
                 tree: None,
@@ -159,7 +159,8 @@ fn usable(tree: ContractTree) -> Usable {
         .flat_map(|mount| mount.contract().rules())
         .map(|rule| (head_of(rule).id().as_text().to_owned(), kind_of(rule)))
         .collect();
-    let uml = has_uml(tree.root()) || tree.mounts().iter().any(|m| has_uml(m.contract()));
+    let mounts = tree.mounts().iter().map(|mount| mount.contract());
+    let uml = uml_gap(std::iter::once(tree.root()).chain(mounts));
     Usable {
         root: tree.root().clone(),
         inside,
@@ -168,11 +169,31 @@ fn usable(tree: ContractTree) -> Usable {
     }
 }
 
-fn has_uml(contract: &Contract) -> bool {
-    contract
-        .declarations()
-        .as_ref()
-        .is_some_and(|declarations| declarations.uml().is_some())
+/// The cause of the one UML target row of a tree: the reference engine names one target for the
+/// declared intent of all its contracts (AD-470). `None` when no contract has `declarations.uml`.
+fn uml_gap<'a>(contracts: impl IntoIterator<Item = &'a Contract>) -> Option<UmlGap> {
+    let targets: Vec<_> = contracts
+        .into_iter()
+        .filter_map(|contract| contract.declarations().as_ref()?.uml().as_ref())
+        .collect();
+    if targets.is_empty() {
+        return None;
+    }
+    let count = |part: fn(&archkeel_contract::Target) -> usize| -> usize {
+        targets.iter().map(|target| part(target)).sum()
+    };
+    let entities = count(|target| target.entities().len());
+    let relationships = count(|target| target.relationships().len());
+    let scopes = count(|target| target.scopes().len());
+    Some(if entities == 0 && relationships == 0 && scopes == 0 {
+        UmlGap::Empty
+    } else {
+        UmlGap::NotCompared {
+            entities,
+            relationships,
+            scopes,
+        }
+    })
 }
 
 /// The reason of a contract state that names a gap, for the rules of the frame.
@@ -184,13 +205,11 @@ pub(crate) fn missing_reason(paths: &[String]) -> String {
     )
 }
 
-/// The UML target row of a tree with `declarations.uml` in any of its contracts, at `path`, by
-/// name: no slice ports it. The reference engine names one target for the whole tree.
-pub(crate) fn uml_reason(contract: Option<&Usable>, path: &str) -> Option<(String, Reason)> {
-    contract.is_some_and(|usable| usable.uml).then(|| {
-        let id = uml_target_id(path).as_text().to_owned();
-        (id, Reason::Unsupported(Unsupported::UmlTarget))
-    })
+/// The UML target row of a tree with `declarations.uml` in any of its contracts, at `path`: its
+/// id and the cause that keeps it UNKNOWN (AD-470).
+pub(crate) fn uml_row(contract: Option<&Usable>, path: &str) -> Option<(String, UmlGap)> {
+    let gap = contract?.uml?;
+    Some((uml_target_id(path).as_text().to_owned(), gap))
 }
 
 #[cfg(test)]
