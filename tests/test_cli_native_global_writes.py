@@ -68,9 +68,15 @@ WRITES = {
     "escaped-member": "window.op\\u0065n = () => {};",
     "escaped-root": "p\\u0061rent.open = () => {};",
     "view-element-computed": "declare const k: string; (document.defaultView![0] as any)[k] = 1;",
-    "timer-this-computed": "declare const k: string; setTimeout(function (this: any) { this[k] = 1; });",
-    "logical-window-computed": "declare const k: string, x: any; (x || document.defaultView)[k] = 1;",
-    "logical-window-escape": "declare const x: any; Object.assign(x || document.defaultView, { open: 1 });",
+    "timer-this-computed": (
+        "declare const k: string; setTimeout(function (this: any) { this[k] = 1; });"
+    ),
+    "logical-window-computed": (
+        "declare const k: string, x: any; (x || document.defaultView)[k] = 1;"
+    ),
+    "logical-window-escape": (
+        "declare const x: any; Object.assign(x || document.defaultView, { open: 1 });"
+    ),
     "function-this": "export function f(this: any) { this.open = () => {}; }",
     "timer-this": "setTimeout(function (this: any) { this.open = () => {}; });",
     "listener-this": 'addEventListener("load", function (this: any) { this.open = () => {}; });',
