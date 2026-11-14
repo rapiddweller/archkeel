@@ -289,36 +289,11 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                     return true;
                 }
                 // The platform hands out a window through these members of an event or a
-                // window. Only an object that the file makes as data cannot hold one.
-                let platform = is_window_name(&name) || PLATFORM_MEMBERS.contains(&name.as_str());
-                platform
-                    && !tree
-                        .field(node, F::Object)
-                        .is_some_and(|object| self.data_base(object))
+                // window, on any object (AD-492).
+                is_window_name(&name) || PLATFORM_MEMBERS.contains(&name.as_str())
             }
             _ => false,
         }
-    }
-
-    /// The base of a member chain is data that the file makes: a name bound once, never written,
-    /// to an object or array literal or to `Object.create(null)`. The platform gives no such value,
-    /// and a window stored into it later escapes and writes an unknown name.
-    pub(crate) fn data_base(&self, object: Node<'t>) -> bool {
-        let tree = self.tree;
-        let mut base = tree.cx.unwrapped(object);
-        while let Some(inner) = tree.field(base, F::Object) {
-            base = tree.cx.unwrapped(inner);
-        }
-        base.kind() == "identifier"
-            && self
-                .sole_value(base)
-                .is_some_and(|value| match value.kind() {
-                    "object" | "array" => true,
-                    "call_expression" => {
-                        tree.text(value).replace(char::is_whitespace, "") == "Object.create(null)"
-                    }
-                    _ => false,
-                })
     }
 
     /// What binds the `this` at a node. A computed name of a class member is read outside it.

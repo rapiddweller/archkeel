@@ -304,16 +304,15 @@ Older classes stay open too: a prototype change through a call
 window (`JSON.parse = …`, `document.open = …`), a use through `opener` or
 `document.defaultView`, and a write in a file outside the scan roots or under `exclude`.
 A member `source`, `view`, `currentTarget` or a window name is a window, and a member `eval` or
-`Function` is the global, unless the base of the member chain is file data: a name bound once to
-an object or array literal or to `Object.create(null)`
+`Function` is the global, on every object
 ([AD-492](architecture/decisions/ad-492-the-browser-assets-are-pinned-until-their-html-sinks-are-rewritten.md)).
+An exemption for data that the file makes is later work: a literal can carry an event.
 A markup literal is text only when it holds no handler, code element, URL attribute, style, code
 scheme, `&` or `\\`. A destructured member (`const { source } = e`) stays open, as on `main`.
 `docs/architecture/browser.toml` is UNKNOWN with 881 gaps from 115 sites: 41 HTML, element or
-attribute sinks in `flow.js` and `report-canvas.js`, and 74 platform window members on bases that
-are no file data. A rewrite of the sinks alone does not reach PASS. The Studio UI contract is
-UNKNOWN with 269 gaps from 21 sites (`Level.Function` through an import, `source` and `view`
-members). Both results are pinned in `docs/architecture/target/`; the pins only go down.
+attribute sinks in `flow.js` and `report-canvas.js`, and 74 platform window members. A rewrite of the sinks alone does not reach PASS. The Studio UI contract is
+UNKNOWN with 269 gaps from 22 sites (9 `Level.Function`, 13 `source` and `view` members). Both
+results are pinned in `docs/architecture/target/`; the pins only go down.
 The native TypeScript collector reads a file up to 4 MiB. Above that size it gives UNKNOWN for
 the file, where the Python collector reads the file and can give FAIL. The two collectors give
 the same facts only for files under the limit.

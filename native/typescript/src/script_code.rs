@@ -98,16 +98,8 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         if member.is_none() && tree.binding_scope(node, &tree.text(node)).is_some() {
             return false;
         }
-        // A member `eval` or `Function` of data that the file makes is a property that the file
-        // sets: a store of the global escapes and writes an unknown name. On any other object it
-        // can be the global of a window that the platform hands out. `constructor` always stays.
-        let local_property = member
-            .and_then(|member| tree.field(member, F::Object))
-            .is_some_and(|object| self.data_base(object))
-            && self.name_is(node, &["eval", "Function"]);
         let code = self.name_is(node, &CODE_NAMES)
-            && (member.is_some() || !self.name_is(node, &["constructor"]))
-            && !local_property;
+            && (member.is_some() || !self.name_is(node, &["constructor"]));
         if code {
             return self.used(expression);
         }
@@ -192,12 +184,8 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let tree = self.tree;
         let index = tree.field(node, F::Index);
         let named = index.and_then(|index| crate::script_window::string_text(self, index));
-        if let Some(name) = named.filter(|name| CODE_NAMES.contains(&name.as_str())) {
-            let data = name != "constructor"
-                && tree
-                    .field(node, F::Object)
-                    .is_some_and(|o| self.data_base(o));
-            return !data && self.used(node);
+        if named.is_some_and(|name| CODE_NAMES.contains(&name.as_str())) {
+            return self.used(node);
         }
         if literal(index, tree.cx.source).is_some() || index.is_some_and(|i| i.kind() == "number") {
             return false;

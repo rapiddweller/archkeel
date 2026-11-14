@@ -75,6 +75,39 @@ REVIEW = {
     "d1-method-eval": (
         'class C { m(this: any) { this.eval(t); } }\naddEventListener("load", new C().m);'
     ),
+    # L-176: file data can carry an event or a window, so a member of it counts.
+    "g1-literal-event": "addEventListener('click', (e) => { const o = { e }; o.e.view[k] = 1; });",
+    "g1-literal-escape": "addEventListener('click', (e) => { const o = { e }; g(o.e.view); });",
+    "g1-array-eval": "addEventListener('click', (e) => { const a = [e]; a[0].view.eval(t); });",
+    "g1-literal-target": (
+        "addEventListener('click', (e) => { const o = { e }; o.e.currentTarget.eval(t); });"
+    ),
+    "g2-store-event": (
+        "const o: any = {};\naddEventListener('message', (e) => { o.e = e; o.e.source[k] = 1; });"
+    ),
+    "g2-push-event": (
+        "const a: any[] = [];\naddEventListener('click', (e) => { a.push(e); a[0].view[k] = 1; });"
+    ),
+    "g2-key-store": (
+        "const o: any = {};\naddEventListener('click', (e) => { o[k] = e; o[k].view[k] = 1; });"
+    ),
+    "g2-alias-store": (
+        "const o: any = {};\nconst p = o;\n"
+        "addEventListener('click', (e) => { p.e = e; o.e.view[k] = 1; });"
+    ),
+    "g2-null-prototype": (
+        "const o: any = Object.create(null);\n"
+        "addEventListener('click', (e) => { o.e = e; o.e.view[k] = 1; });"
+    ),
+    "g3-proto-literal": "const o: any = { __proto__: e };\no.view[k] = 1;",
+    "g3-pattern-store": "const o: any = {};\n({ view: o.view } = e);\no.view[k] = 1;",
+    "g3-set-prototype": "const o: any = {};\nObject.setPrototypeOf(o, e);\no.view[k] = 1;",
+    "g4-open-result": "const o: any = {};\no.w = open();\no.w.eval(t);",
+    "g4-event-target": "const o = { t: e.target };\no.t.eval(t);",
+    "g4-any-function": "const o = { F: x };\no.F.Function(t)();",
+    "g4-passed-object": "const o: any = {};\ng(o);\no.view[k] = 1;",
+    "g4-assigned-event": "const o: any = {};\nObject.assign(o, e);\no.view[k] = 1;",
+    "g4-spread-event": "const o: any = { ...e };\no.view[k] = 1;",
     "f2-comment-html": (
         "el.insertAdjacentHTML(/* c */ 'beforeend', '<details open ontoggle=open=1>');"
     ),
