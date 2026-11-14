@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-482 | [The topology types an import by its target, not by the rule view](ad-482-the-topology-types-an-import-by-its-target-and-not-by-the-rule-view.md) |
 | AD-478 | [The Python shell checks itself with its own contract](ad-478-the-python-shell-checks-itself-with-its-own-contract.md) |
 | AD-476 | [A release publishes each platform wheel that Full builds and runs](ad-476-a-release-publishes-each-platform-wheel-that-full-builds-and-runs.md) |
 | AD-470 | [The UML target is an UNKNOWN row of the core](ad-470-the-uml-target-is-an-unknown-row-of-the-core.md) |

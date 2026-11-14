@@ -61,7 +61,7 @@
     "source_ownership"
   ],
   "stricter_native_scope": {
-    "core_reason": "incomplete scope: the collector reports 1 coverage gaps",
+    "core_reason": "incomplete scope: the collector reports 1 coverage gap",
     "reason": "core stricter than Python: computed dynamic_import in mikro-orm.config.ts; the core does not read the host-verified scope proof from the native launcher",
     "cases": {
       "fixture/L-nest-realworld": [
