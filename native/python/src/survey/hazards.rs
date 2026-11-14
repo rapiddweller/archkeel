@@ -31,47 +31,21 @@ use ruff_text_size::{Ranged, TextRange};
 pub(super) const DYNAMIC: &str = "dynamic_import";
 pub(super) const IMPORT_SYSTEM: &str = "import_system_change";
 
-/// The doors: a reference to one of these names, or to a name below it, is a dynamic import.
-const DOORS: [&str; 38] = [
-    "builtins.__import__",
-    "builtins.exec",
-    "builtins.eval",
-    "builtins.compile",
-    "builtins.__dict__",
-    "importlib.import_module",
-    "importlib.__import__",
-    "importlib.reload",
-    "importlib.util",
-    "importlib.machinery",
-    "importlib._bootstrap",
-    "importlib._bootstrap_external",
-    "importlib.metadata.entry_points",
-    "importlib.metadata.EntryPoint",
-    "importlib.metadata.EntryPoints",
-    "pkgutil",
-    "pydoc",
-    "runpy",
-    "imp",
-    "zipimport",
-    "code",
-    "codeop",
-    "timeit",
-    "doctest",
-    "marshal",
-    "pickle",
-    "_pickle",
-    "shelve",
-    "dill",
-    "cloudpickle",
-    "ctypes.pythonapi",
-    "types.FunctionType",
-    "types.CodeType",
-    "unittest.mock.patch",
-    "mock.patch",
-    "pytest.importorskip",
-    "__builtins__",
-    "sys.__dict__",
-];
+/// The doors, as one list of qualified names: a reference to one of them, or to a name below
+/// it, is a dynamic import.
+const DOORS: &str = "\
+    builtins.__import__ builtins.exec builtins.eval builtins.compile builtins.__dict__ \
+    importlib.import_module importlib.__import__ importlib.reload importlib.util \
+    importlib.machinery importlib._bootstrap importlib._bootstrap_external \
+    importlib.metadata.entry_points importlib.metadata.EntryPoint importlib.metadata.EntryPoints \
+    ctypes.pythonapi types.FunctionType types.CodeType unittest.mock.patch mock.patch \
+    pytest.importorskip sys.__dict__ __builtins__ pkgutil pydoc runpy imp zipimport code codeop \
+    timeit doctest marshal pickle _pickle shelve dill cloudpickle";
+
+/// Each door as one qualified name.
+fn doors() -> impl Iterator<Item = &'static str> {
+    DOORS.split_whitespace()
+}
 
 /// The state of the import system: a reference is an import-system change.
 const STATE: [&str; 6] = [
@@ -138,7 +112,7 @@ fn hazard(name: &str) -> Option<&'static str> {
     };
     if STATE.iter().any(under) {
         Some(IMPORT_SYSTEM)
-    } else if DOORS.iter().any(under) {
+    } else if doors().any(|door| under(&door)) {
         Some(DYNAMIC)
     } else {
         None
@@ -148,10 +122,7 @@ fn hazard(name: &str) -> Option<&'static str> {
 /// True for a module above a hazard name, such as `sys` or `importlib.metadata`.
 fn above(name: &str) -> bool {
     let prefix = format!("{name}.");
-    DOORS
-        .iter()
-        .chain(&STATE)
-        .any(|entry| entry.starts_with(&prefix))
+    doors().chain(STATE).any(|entry| entry.starts_with(&prefix))
 }
 
 /// The qualified names that the import statements of a module bind, in any scope.

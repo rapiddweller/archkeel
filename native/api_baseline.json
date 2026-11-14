@@ -1485,6 +1485,7 @@
     "variant causes::Cause::InsideSourceDomain",
     "variant causes::Cause::LayerMetadata",
     "variant causes::Cause::NoRuleSubjects",
+    "variant causes::Cause::OutsideNamespace",
     "variant causes::Cause::PairGaps",
     "variant causes::Cause::Producer",
     "variant causes::Cause::ProfileLimit",

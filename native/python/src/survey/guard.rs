@@ -8,13 +8,16 @@
 //! name is bound by an import from `typing` or `typing_extensions` and the file binds that name
 //! nowhere else: `from typing import TYPE_CHECKING [as X]`, or `typing.TYPE_CHECKING` where
 //! `import typing [as X]` is each binding of the module name. Any other name or attribute
-//! called `TYPE_CHECKING` is a runtime value, so its imports are runtime edges. A module-level
-//! star import can bind any name, so a module with one has no guard. `if not <guard>:` and `else` run.
+//! called `TYPE_CHECKING` is a runtime value, so its imports are runtime edges. A star import or
+//! a type parameter list makes the binding count unknown (`binders.rs`), so such a module has no
+//! guard. `if not <guard>:` and `else` run.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{Alias, Expr, ExprContext, ModModule, Parameter, Pattern, Stmt};
+use ruff_python_ast::{Expr, ModModule, Stmt};
+
+use super::binders::Binders;
 
 /// The modules whose `TYPE_CHECKING` is the guard.
 const TYPING: [&str; 2] = ["typing", "typing_extensions"];
@@ -22,143 +25,82 @@ const TYPING: [&str; 2] = ["typing", "typing_extensions"];
 /// The guard names and the typing module names of one module.
 #[derive(Default)]
 pub(super) struct Guard {
-    names: HashSet<String>,
-    modules: HashSet<String>,
+    names: Vec<String>,
+    modules: Vec<String>,
 }
 
 impl Guard {
-    pub(super) fn of(tree: &ModModule) -> Self {
-        let mut walk = Bindings::default();
+    /// The guard of a module. `binders` counts each binding of each name in the module; a name
+    /// is a guard name when each of its bindings is an import of the guard from a typing module.
+    pub(super) fn of(tree: &ModModule, binders: &Binders) -> Self {
+        let mut walk = Imports::default();
         walk.visit_body(&tree.body);
-        let star = tree.body.iter().any(|stmt| {
-            matches!(stmt, Stmt::ImportFrom(node) if node.names.iter().any(|a| a.name.as_str() == "*"))
-        });
-        if star {
-            return Guard::default();
-        }
-        let only = |found: &HashMap<String, usize>| -> HashSet<String> {
+        let only = |found: HashMap<String, usize>| -> Vec<String> {
             found
-                .keys()
-                .filter(|name| !walk.other.contains_key(*name))
-                .cloned()
+                .into_iter()
+                .filter(|(name, count)| binders.count(name) == Some(*count))
+                .map(|(name, _)| name)
                 .collect()
         };
         Guard {
-            names: only(&walk.guards),
-            modules: only(&walk.typing),
+            names: only(walk.guards),
+            modules: only(walk.typing),
         }
     }
 
     /// True when `test` is the guard.
     pub(super) fn holds(&self, test: &Expr) -> bool {
+        let known = |list: &[String], name: &str| list.iter().any(|item| item == name);
         match test {
-            Expr::Name(node) => self.names.contains(node.id.as_str()),
+            Expr::Name(node) => known(&self.names, node.id.as_str()),
             Expr::Attribute(node) => {
                 node.attr.as_str() == "TYPE_CHECKING"
-                    && matches!(&*node.value, Expr::Name(base) if self.modules.contains(base.id.as_str()))
+                    && matches!(&*node.value, Expr::Name(base) if known(&self.modules, base.id.as_str()))
             }
             _ => false,
         }
     }
 }
 
-/// Each binding of each name in a module, in any scope.
+/// The bindings of the guard and of the typing modules by import statements, in any scope.
 #[derive(Default)]
-struct Bindings {
+struct Imports {
     guards: HashMap<String, usize>,
     typing: HashMap<String, usize>,
-    other: HashMap<String, usize>,
 }
 
-impl Bindings {
-    fn other(&mut self, name: &str) {
-        *self.other.entry(name.to_owned()).or_default() += 1;
-    }
-
-    fn import(&mut self, stmt: &Stmt) {
+impl<'a> Visitor<'a> for Imports {
+    fn visit_stmt(&mut self, stmt: &'a Stmt) {
         match stmt {
-            Stmt::Import(node) => node.names.iter().for_each(|alias| self.plain(alias)),
-            Stmt::ImportFrom(node) => {
-                let typing = node.level == 0
+            Stmt::Import(node) => {
+                let typing = node
+                    .names
+                    .iter()
+                    .filter(|a| TYPING.contains(&a.name.as_str()));
+                for alias in typing {
+                    let local = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
+                    *self.typing.entry(local.to_owned()).or_default() += 1;
+                }
+            }
+            Stmt::ImportFrom(node)
+                if node.level == 0
                     && node
                         .module
                         .as_ref()
-                        .is_some_and(|m| TYPING.contains(&m.as_str()));
-                node.names.iter().for_each(|alias| self.from(alias, typing));
-            }
-            _ => {}
-        }
-    }
-
-    /// `import m [as x]`: a binding of a typing module or another binding.
-    fn plain(&mut self, alias: &Alias) {
-        let name = alias.name.as_str();
-        let local = alias.asname.as_ref().map_or_else(
-            || name.split('.').next().unwrap_or(name),
-            |asname| asname.as_str(),
-        );
-        let table = if TYPING.contains(&name) {
-            &mut self.typing
-        } else {
-            &mut self.other
-        };
-        *table.entry(local.to_owned()).or_default() += 1;
-    }
-
-    /// One name of `from m import ...`; `typing` is true for an import from a typing module.
-    fn from(&mut self, alias: &Alias, typing: bool) {
-        let name = alias.name.as_str();
-        let local = alias.asname.as_ref().map_or(name, |asname| asname.as_str());
-        let table = match name {
-            "*" => return,
-            "TYPE_CHECKING" if typing => &mut self.guards,
-            _ => &mut self.other,
-        };
-        *table.entry(local.to_owned()).or_default() += 1;
-    }
-}
-
-impl<'a> Visitor<'a> for Bindings {
-    fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        match stmt {
-            Stmt::Import(_) | Stmt::ImportFrom(_) => self.import(stmt),
-            Stmt::FunctionDef(node) => self.other(node.name.as_str()),
-            Stmt::ClassDef(node) => self.other(node.name.as_str()),
-            Stmt::Global(node) => node.names.iter().for_each(|n| self.other(n.as_str())),
-            Stmt::Nonlocal(node) => node.names.iter().for_each(|n| self.other(n.as_str())),
-            Stmt::Try(node) => {
-                for handler in &node.handlers {
-                    let ruff_python_ast::ExceptHandler::ExceptHandler(handler) = handler;
-                    handler.name.iter().for_each(|n| self.other(n.as_str()));
+                        .is_some_and(|m| TYPING.contains(&m.as_str())) =>
+            {
+                let guard = node
+                    .names
+                    .iter()
+                    .filter(|a| a.name.as_str() == "TYPE_CHECKING");
+                for alias in guard {
+                    let local = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
+                    *self.guards.entry(local.to_owned()).or_default() += 1;
                 }
             }
             _ => {}
         }
         visitor::walk_stmt(self, stmt);
-    }
-
-    fn visit_expr(&mut self, expr: &'a Expr) {
-        if let Expr::Name(node) = expr {
-            if node.ctx != ExprContext::Load {
-                self.other(node.id.as_str());
-            }
-        }
-        visitor::walk_expr(self, expr);
-    }
-
-    fn visit_parameter(&mut self, parameter: &'a Parameter) {
-        self.other(parameter.name.as_str());
-        visitor::walk_parameter(self, parameter);
-    }
-
-    fn visit_pattern(&mut self, pattern: &'a Pattern) {
-        match pattern {
-            Pattern::MatchAs(node) => node.name.iter().for_each(|n| self.other(n.as_str())),
-            Pattern::MatchStar(node) => node.name.iter().for_each(|n| self.other(n.as_str())),
-            Pattern::MatchMapping(node) => node.rest.iter().for_each(|n| self.other(n.as_str())),
-            _ => {}
-        }
-        visitor::walk_pattern(self, pattern);
     }
 }
 

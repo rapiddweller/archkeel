@@ -10,7 +10,7 @@ use super::*;
 /// Whether the test of the first `if` statement of the module is the guard.
 fn guarded(source: &str) -> bool {
     let tree = crate::test_tree(source, 14).expect("valid probe");
-    let guard = Guard::of(&tree);
+    let guard = Guard::of(&tree, &Binders::of(&tree));
     let test = tree.body.iter().find_map(|stmt| match stmt {
         Stmt::If(node) => Some(&*node.test),
         _ => None,

@@ -84,7 +84,7 @@ pub(super) fn collect_all(
             unique: binders.unique(),
             names: &names,
             directories: &directories,
-            guard: Guard::of(&module.tree),
+            guard: Guard::of(&module.tree, binders),
             bindings: &bindings,
             open: &open,
             namespace,

@@ -65,6 +65,12 @@ impl Binders {
         !self.opaque && !self.counts.contains_key(name)
     }
 
+    /// How often a binder binds the name anywhere in the module, or `None` when a star import
+    /// or a type parameter list makes the count unknown (`guard.rs`).
+    pub(crate) fn count(&self, name: &str) -> Option<usize> {
+        (!self.opaque).then(|| self.counts.get(name).copied().unwrap_or(0))
+    }
+
     /// `_unique_direct_module_bindings`: a direct name that no other binder in the module binds.
     pub(crate) fn unique(&self) -> HashSet<String> {
         if self.opaque {
