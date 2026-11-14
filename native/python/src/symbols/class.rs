@@ -15,8 +15,8 @@ use ruff_python_ast::{Expr, Stmt, StmtAnnAssign, StmtClassDef, StmtFunctionDef};
 use ruff_text_size::TextRange;
 use serde_json::{json, Map, Value};
 
-use super::scan::Scan;
 use super::writes::{self, store_names};
+use crate::declare::{visibility, Scan};
 use crate::pyast::{walk, Node};
 use crate::unparse::TextFailure as Failure;
 
@@ -82,17 +82,6 @@ fn fields(scan: &Scan<'_>, node: &StmtClassDef) -> Result<Value, Failure> {
         }
     }
     Ok(Value::Array(found))
-}
-
-/// `_python_visibility`: private by the leading underscore, except a special name.
-pub(super) fn visibility(name: &str) -> Value {
-    let special = name.starts_with("__") && name.ends_with("__") && name.chars().count() > 4;
-    let kind = if name.starts_with('_') && !special {
-        "private"
-    } else {
-        "public"
-    };
-    json!({"kind": kind, "basis": "convention", "spelling": name})
 }
 
 fn attribute_declarations(scan: &mut Scan<'_>, node: &StmtClassDef) -> Result<Value, Failure> {

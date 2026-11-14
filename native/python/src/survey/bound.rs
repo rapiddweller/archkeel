@@ -32,7 +32,7 @@ struct Site {
 
 /// The module-scope binders of one module body.
 #[derive(Default)]
-pub(super) struct Bound {
+pub(crate) struct Bound {
     sites: HashMap<String, Vec<Site>>,
     /// Names that a function of the module declares `global` (a write binds the module name).
     globals: HashSet<String>,
@@ -43,7 +43,7 @@ pub(super) struct Bound {
 }
 
 impl Bound {
-    pub(super) fn of(body: &[Stmt]) -> Self {
+    pub(crate) fn of(body: &[Stmt]) -> Self {
         let mut walk = Walk::default();
         walk.visit_body(body);
         walk.bound
@@ -51,7 +51,7 @@ impl Bound {
 
     /// True when `start` is the one statement that binds `name`, it is a plain statement of the
     /// module body, and nothing else can bind the name.
-    pub(super) fn sole(&self, name: &str, start: TextSize) -> bool {
+    pub(crate) fn sole(&self, name: &str, start: TextSize) -> bool {
         !self.opaque
             && !self.globals.contains(name)
             && self.sites.get(name).is_some_and(
@@ -60,7 +60,7 @@ impl Bound {
     }
 
     /// Each name that a statement of the module scope, or a `global` declaration, binds.
-    pub(super) fn names(&self) -> HashSet<String> {
+    pub(crate) fn names(&self) -> HashSet<String> {
         let sites = self.sites.keys().cloned();
         sites.chain(self.globals.iter().cloned()).collect()
     }

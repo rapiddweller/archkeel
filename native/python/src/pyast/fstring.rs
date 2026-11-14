@@ -32,6 +32,7 @@ pub(crate) enum Piece<'a> {
 }
 
 impl Piece<'_> {
+    #[cfg(any(test, feature = "dump"))]
     pub(crate) fn kind(&self) -> &'static str {
         match self {
             Piece::Text(_) => "Constant",

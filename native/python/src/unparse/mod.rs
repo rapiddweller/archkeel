@@ -18,7 +18,9 @@ pub(crate) mod literal;
 mod operators;
 mod outcome;
 
-pub(crate) use hazard::{replaced, string_failure};
+#[cfg(any(test, feature = "dump"))]
+pub(crate) use hazard::replaced;
+pub(crate) use hazard::string_failure;
 use outcome::Prec;
 pub(crate) use outcome::TextFailure;
 use outcome::TextFailure as Failure;

@@ -12,22 +12,19 @@
 
 use std::collections::HashSet;
 
-use archkeel_facts::identity::{stable_id, Part};
 use ruff_python_ast::Expr;
 use serde_json::{json, Map, Value};
 
-use crate::module::{EvidenceMap, Location, Module};
-use crate::pyast::{walk, Node};
+use crate::module::{EvidenceMap, Module};
 use crate::unparse::{self, TextFailure as Failure};
 use sites::{Def, Site};
 
 mod callable;
 mod class;
-mod scan;
 mod sites;
 mod writes;
 
-use scan::Scan;
+use crate::declare::{definition_id, first_failure, signature, Scan};
 
 /// What one module gives: its records, or the gap that names why it has none.
 pub(crate) enum Table {
@@ -115,17 +112,6 @@ fn gap(module: &Module, failure: Failure) -> Table {
     }
 }
 
-/// The first string of the module whose CPython value or tree native cannot write.
-fn first_failure(module: &Module, minor: archkeel_facts::pyminor::PyMinor) -> Option<Failure> {
-    module
-        .tree
-        .body
-        .iter()
-        .flat_map(|stmt| walk(Node::Stmt(stmt), minor))
-        .filter_map(|node| node.expr())
-        .find_map(|expr| unparse::string_failure(expr, module.text(), minor))
-}
-
 struct Header<'h> {
     qualname: &'h str,
     parent: Option<&'h str>,
@@ -133,20 +119,6 @@ struct Header<'h> {
     namespace_bound: bool,
     all_exports: &'h HashSet<String>,
     witnesses: bool,
-}
-
-/// `definition_id`: the qualified name and the location of the `def` or `class` keyword.
-fn definition_id(module: &Module, def: Def<'_>, qualname: &str) -> String {
-    let Location { line, column, .. } = module.location(&def.range(module.text()));
-    stable_id(
-        "SYM",
-        &[
-            Part::Text(qualname),
-            Part::Text(&module.rel),
-            Part::Number(line),
-            Part::Number(column),
-        ],
-    )
 }
 
 fn record(scan: &mut Scan<'_>, site: &Site<'_>, header: &Header<'_>) -> Result<Value, Failure> {
@@ -162,13 +134,13 @@ fn record(scan: &mut Scan<'_>, site: &Site<'_>, header: &Header<'_>) -> Result<V
     data.insert("module".into(), json!(module.name));
     data.insert("package".into(), json!(module.package));
     data.insert("name".into(), json!(name));
-    let visibility = if name.starts_with('_') {
+    let word = if name.starts_with('_') {
         "private"
     } else {
         "public_name"
     };
-    data.insert("visibility".into(), json!(visibility));
-    data.insert("visibility_detail".into(), class::visibility(name));
+    data.insert("visibility".into(), json!(word));
+    data.insert("visibility_detail".into(), crate::declare::visibility(name));
     data.insert(
         "declared_in_all".into(),
         json!(header.all_exports.contains(name)),
@@ -183,7 +155,7 @@ fn record(scan: &mut Scan<'_>, site: &Site<'_>, header: &Header<'_>) -> Result<V
             "class"
         }
         Def::Function(node) => {
-            callable::signature(scan, node, &mut data)?;
+            signature(scan, node, &mut data)?;
             data.insert(
                 "parameters_contained".into(),
                 json!(callable::parameters_contained(node, scan.minor)),

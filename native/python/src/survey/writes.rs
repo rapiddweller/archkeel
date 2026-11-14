@@ -159,6 +159,14 @@ fn literal_import(expr: &Expr) -> Option<String> {
     }
 }
 
+/// The base of each store, `del`, `setattr` and mutation in a body, at any depth: the one reader
+/// of the objects that a statement writes to (AD-504, AD-514).
+pub(crate) fn bases(body: &[Stmt]) -> Vec<&Expr> {
+    let mut walk = Writes::default();
+    walk.visit_body(body);
+    walk.bases
+}
+
 /// The objects that a module writes to: the base of each store, `del`, `setattr` and mutation.
 #[derive(Default)]
 struct Writes<'a> {

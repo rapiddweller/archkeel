@@ -78,6 +78,8 @@ pub(crate) struct Observed {
     pub(crate) namespaces: bool,
     /// The collector of the profile states symbol facts (AD-512).
     pub(crate) symbol_facts: bool,
+    /// The collector of the profile also states the sites of the symbols (AD-514).
+    pub(crate) symbol_sites: bool,
     /// Whether the host drops an allowed pair gap of the profile (slice S7).
     pub(crate) pair_gap_drop: PairGapDrop,
     /// The host can accept a dependency scope proof from the runtime of the reply (AD-418).
@@ -164,6 +166,7 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
         language: facts.profile.language_name(),
         namespaces: facts.profile.separates_type_namespace(),
         symbol_facts: facts.profile.symbol_facts(),
+        symbol_sites: facts.profile.symbol_sites(),
         pair_gap_drop: facts.profile.pair_gap_drop(),
         scope_receipt: facts.runtime.carries_scope_proof(),
         owned_files: facts

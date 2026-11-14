@@ -34,6 +34,8 @@ pub(crate) fn derive(facts: &Facts, modules: &Table<ModuleId, Module>) -> Symbol
         })
         .unwrap_or(&[]);
     table.symbols(records);
-    crate::symbol_sites::sites(&mut table, facts, records);
+    if facts.profile.symbol_sites() {
+        crate::symbol_sites::sites(&mut table, facts, records);
+    }
     table
 }

@@ -4,7 +4,9 @@
 
 //! The shared CPython definition location, after the decorator list.
 
-use ruff_python_ast::{Stmt, StmtClassDef, StmtFunctionDef};
+#[cfg(any(test, feature = "dump"))]
+use ruff_python_ast::Stmt;
+use ruff_python_ast::{StmtClassDef, StmtFunctionDef};
 use ruff_text_size::{Ranged, TextRange, TextSize};
 
 #[derive(Clone, Copy)]
@@ -14,6 +16,7 @@ pub(crate) enum Def<'a> {
 }
 
 impl<'a> Def<'a> {
+    #[cfg(any(test, feature = "dump"))]
     pub(crate) fn name(&self) -> &'a str {
         match self {
             Def::Function(node) => node.name.as_str(),
@@ -21,6 +24,7 @@ impl<'a> Def<'a> {
         }
     }
 
+    #[cfg(any(test, feature = "dump"))]
     pub(crate) fn body(&self) -> &'a [Stmt] {
         match self {
             Def::Function(node) => &node.body,

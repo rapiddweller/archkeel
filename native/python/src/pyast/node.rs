@@ -39,6 +39,10 @@ pub enum Node<'a> {
     /// One value of a `JoinedStr` or a `TemplateStr`.
     Piece(Rc<[Piece<'a>]>, usize),
     /// A context or an operator: a node without fields.
+    #[cfg_attr(
+        not(any(test, feature = "dump")),
+        expect(dead_code, reason = "only the dump reads the name of a leaf")
+    )]
     Leaf(&'static str),
 }
 
@@ -52,6 +56,7 @@ impl<'a> Node<'a> {
     }
 
     /// The class name, as `type(node).__name__`.
+    #[cfg(any(test, feature = "dump"))]
     pub fn kind(&self) -> &'static str {
         match self {
             Node::Stmt(stmt) => stmt_kind(stmt),
@@ -78,6 +83,7 @@ impl<'a> Node<'a> {
     }
 }
 
+#[cfg(any(test, feature = "dump"))]
 fn stmt_kind(stmt: &Stmt) -> &'static str {
     match stmt {
         Stmt::FunctionDef(node) if node.is_async => "AsyncFunctionDef",
@@ -112,6 +118,7 @@ fn stmt_kind(stmt: &Stmt) -> &'static str {
     }
 }
 
+#[cfg(any(test, feature = "dump"))]
 fn expr_kind(expr: &Expr) -> &'static str {
     match expr {
         Expr::BoolOp(_) => "BoolOp",
@@ -150,6 +157,7 @@ fn expr_kind(expr: &Expr) -> &'static str {
     }
 }
 
+#[cfg(any(test, feature = "dump"))]
 fn pattern_kind(pattern: &Pattern) -> &'static str {
     match pattern {
         Pattern::MatchValue(_) => "MatchValue",
