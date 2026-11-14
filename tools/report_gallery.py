@@ -34,8 +34,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from tools.report_product import Part, part_of
-from tools.report_product_page import product_page
+from tools.report_product import Contract, Part, contract_of, part_of
+from tools.report_product_page import product_page, shell
 
 ROOT = Path(__file__).resolve().parents[1]
 MATRIX = ROOT / "fixtures" / "matrix.json"
@@ -59,6 +59,11 @@ SELF_RUNS: tuple[dict[str, str], ...] = (
         "config": "native/archkeel.toml",
         "label": "core self-check",
     },
+)
+# The other own contracts: one line on the product page each, no report file of their own.
+OTHER_RUNS: tuple[dict[str, str], ...] = (
+    {"title": "Browser assets", "config": "docs/architecture/browser.toml"},
+    {"title": "Studio UI", "config": "docs/architecture/studio-ui.toml"},
 )
 # Shields endpoint colours (design-system palette): pass, fail and unknown. No result is grey.
 COLORS = {"PASS": "46bfd0", "FAIL": "f2606b", "UNKNOWN": "ecb64a"}
@@ -166,11 +171,12 @@ def badge(row: Mapping[str, Any], label: str) -> dict[str, Any]:
 
 
 def _topology_envelope(
-    cli: Sequence[str], run: Mapping[str, Any]
+    cli: Sequence[str], run: Mapping[str, Any], topology: bool = True
 ) -> tuple[dict[str, Any] | None, str]:
-    """The envelope with the topology of a self run. The file of this run is thrown away."""
+    """The envelope of a run, with the topology unless told otherwise. Its file is thrown away."""
     with tempfile.TemporaryDirectory() as folder:
-        arguments = [*command(cli, run, Path(folder) / "t.json", "json"), "--json", "--topology"]
+        arguments = [*command(cli, run, Path(folder) / "t.json", "json"), "--json"]
+        arguments += ["--topology"] if topology else []
         try:
             done = subprocess.run(
                 arguments,
@@ -183,6 +189,13 @@ def _topology_envelope(
             return json.loads(done.stdout), ""
         except (OSError, subprocess.TimeoutExpired, ValueError) as err:
             return None, f"{type(err).__name__}: {err}"[:300]
+
+
+def build_other(cli: Sequence[str], entry: Mapping[str, str]) -> Contract:
+    """The line of one other contract. The CLI writes its file into a folder that is thrown away."""
+    run = {"name": "other", "command": "report", "root_path": ".", "config": entry["config"]}
+    envelope, problem = _topology_envelope(cli, run, topology=False)
+    return contract_of(envelope, entry["title"], problem)
 
 
 def build_self(cli: Sequence[str], entry: Mapping[str, str], out: Path) -> dict[str, Any]:
@@ -243,30 +256,32 @@ def _links(row: Mapping[str, Any]) -> str:
     return f"<td>{' '.join(anchors) or 'none'}</td>"
 
 
-def _self_row(row: Mapping[str, Any]) -> str:
-    return f"<tr>{_cell(row['title'])}{_verdict(row)}{_links(row)}</tr>\n"
-
-
 def index(rows: Sequence[Mapping[str, Any]], sha: str, built_at: str) -> str:
-    """The fixture table, a static page at `showcase/index.html`: plain HTML, no script."""
-    body = "".join(
-        f"<tr>{_cell(row['run']['name'])}{_cell(row['run']['language'])}{_verdict(row)}{_links(row)}</tr>\n"
-        for row in rows
-    )
+    """The fixture tables, one for each language, at `showcase/index.html`."""
     head = "<th>Verdict</th><th>PASS</th><th>FAIL</th><th>UNKNOWN</th><th>Gaps</th><th>Reports</th>"
-    return (
-        '<!doctype html>\n<html lang="en"><head><meta charset="utf-8">\n'
-        '<meta name="viewport" content="width=device-width">\n'
-        "<title>ArchKeel fixture reports</title></head><body>\n"
-        "<h1>ArchKeel fixture reports</h1>\n"
-        '<p><a href="../index.html">ArchKeel as a product</a></p>\n'
-        f"<p>Commit <code>{html.escape(sha)}</code>. Built {html.escape(built_at)}.</p>\n"
-        "<p>Each row is one run of the core on a project of <code>fixtures/</code>. "
+    groups = ""
+    for language in sorted({row["run"]["language"] for row in rows}):
+        chosen = [row for row in rows if row["run"]["language"] == language]
+        body = "".join(
+            f"<tr>{_cell(row['run']['name'])}{_verdict(row)}{_links(row)}</tr>\n" for row in chosen
+        )
+        groups += (
+            f'<h2 class="h3">{html.escape(language)}</h2>\n'
+            f'<p class="caption">{len(chosen)} {"run" if len(chosen) == 1 else "runs"}</p>\n'
+            '<table class="rp-mini"><thead><tr><th>Fixture</th>'
+            f"{head}</tr></thead>\n<tbody>\n{body}</tbody></table>\n"
+        )
+    body = (
+        '<h1 class="h2">ArchKeel fixture reports</h1>\n'
+        '<p class="body-sm"><a href="../index.html">ArchKeel as a product</a></p>\n'
+        f'<p class="body-sm">Commit <code>{html.escape(sha)}</code>. '
+        f"Built {html.escape(built_at)}.</p>\n"
+        '<p class="body-sm">Each row is one run of the core on a project of '
+        "<code>fixtures/</code>. "
         "A refused row shows the exact reason of the core. UNKNOWN is not a pass.</p>\n"
-        '<table border="1" cellpadding="4"><thead><tr><th>Fixture</th><th>Language</th>'
-        f"{head}</tr></thead>\n"
-        f"<tbody>\n{body}</tbody></table>\n</body></html>\n"
+        f"{groups}"
     )
+    return shell("ArchKeel fixture reports", "Report \u00b7 fixture reports", body)
 
 
 def _head_sha() -> str:
@@ -295,13 +310,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     self_rows = [build_self(cli, entry, args.out) for entry in SELF_RUNS]
     rows = [build_run(cli, run, args.out) for run in load_runs(args.matrix)]
     built_at = args.built_at or datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+    others = [build_other(cli, entry) for entry in OTHER_RUNS]
     parts: list[Part] = [row["part"] for row in self_rows]
     ids = {row["part"].key: row["ids"] for row in self_rows}
-    (args.out / "index.html").write_text(product_page(parts, ids, sha, built_at))
+    (args.out / "index.html").write_text(product_page(parts, ids, sha, built_at, others))
     (args.out / "showcase").mkdir()
     (args.out / "showcase" / "index.html").write_text(index(rows, sha, built_at))
     failed = [row["run"]["name"] for row in [*self_rows, *rows] if "error" in row]
     failed += [part.key for part in parts if part.error and part.key not in failed]
+    failed += [item.title for item in others if item.error]
     if failed:
         print(f"No result for: {', '.join(failed)}", file=sys.stderr)
     return 1 if failed else 0

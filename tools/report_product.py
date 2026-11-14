@@ -25,6 +25,8 @@ NAMED_LIMIT = 8
 # The most exceptions that one verdict block lists.
 LISTED_LIMIT = 8
 DIGEST_SHOWN = 16
+# A part with at most this many components shows each one by name, also without an exception.
+ALL_NAMED_LIMIT = 12
 
 
 @dataclass(frozen=True)
@@ -123,6 +125,10 @@ def _tiles(
     states = {
         cid: "FAIL" if cid in failing else "UNKNOWN" if cid in unknown else "" for cid in order
     }
+    if len(order) <= ALL_NAMED_LIMIT:
+        rank = {"FAIL": 0, "UNKNOWN": 1, "": 2}
+        ranked = sorted(order, key=lambda cid: rank[states[cid]])
+        return tuple(Tile(names[cid], states[cid], failing.get(cid)) for cid in ranked)
     totals = Counter(states.values())
     tiles: list[Tile] = []
     words = {"FAIL": "with a violation", "UNKNOWN": "with gaps", "": "without an exception"}
@@ -193,6 +199,27 @@ def part_of(
         contract=str(frame.get("contract_digest", ""))[:DIGEST_SHOWN],
         binary=engine.split()[0] if engine else "",
     )
+
+
+@dataclass(frozen=True)
+class Contract:
+    """One other own contract of ArchKeel: one line with its verdict and its rule counts."""
+
+    title: str
+    status: str = ""
+    counts: Mapping[str, int] = field(default_factory=dict)
+    error: str = ""
+
+
+def contract_of(envelope: Mapping[str, Any] | None, title: str, error: str = "") -> Contract:
+    """The line of a contract run. A run without a result or with a refusal has no counts."""
+    if envelope is None:
+        return Contract(title, error=error or "no envelope")
+    if envelope.get("refusal"):
+        return Contract(title, error="refused")
+    rows = (envelope.get("frame") or {}).get("rules", {})
+    counts = Counter(row[1] for row in rows.values())
+    return Contract(title, envelope["status"], {name: counts.get(name, 0) for name in STATUSES})
 
 
 def worst(parts: Sequence[Part]) -> str:

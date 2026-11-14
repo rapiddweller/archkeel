@@ -16,7 +16,14 @@ from frozen_native import frozen_root as frozen_root
 
 from archkeel.cli import core_only
 from tools import report_gallery
-from tools.report_product import MAX_PLACES, NAMED_LIMIT, Part, part_of, worst
+from tools.report_product import (
+    ALL_NAMED_LIMIT,
+    MAX_PLACES,
+    Part,
+    contract_of,
+    part_of,
+    worst,
+)
 from tools.report_product_page import product_page
 
 MAX_VISIBLE = 4_000
@@ -84,17 +91,17 @@ def test_a_component_with_a_violation_is_named_and_an_unknown_one_after_it() -> 
         ("comp-2", "FAIL"),
         ("comp-3", "FAIL"),
         ("comp-1", "UNKNOWN"),
-        ("1 without an exception", ""),
+        ("comp-4", ""),
     ]
     assert part.tiles[0].place == 1
 
 
 def test_a_large_state_is_one_count_and_never_a_row_of_names() -> None:
-    frame = _frame(comps=NAMED_LIMIT + 12, cycles=0, imports=0, gaps=0)
-    frame["collection_gaps"] = [{"subjects": [f"m{i}"]} for i in range(2, NAMED_LIMIT + 12)]
+    frame = _frame(comps=ALL_NAMED_LIMIT + 8, cycles=0, imports=0, gaps=0)
+    frame["collection_gaps"] = [{"subjects": [f"m{i}"]} for i in range(2, ALL_NAMED_LIMIT + 8)]
     part = _part(CORE, frame)
     assert [tile.label for tile in part.tiles] == [
-        f"{NAMED_LIMIT + 10} with gaps",
+        f"{ALL_NAMED_LIMIT + 6} with gaps",
         "2 without an exception",
     ]
 
@@ -149,6 +156,7 @@ def test_every_link_of_the_gallery_page_has_a_target_that_the_tool_writes(tmp_pa
     assert code == 0 and len(_visible(page)) <= MAX_VISIBLE
     links = set(re.findall(r'href="([^"]+)"', page))
     assert any("#x1" in link for link in links)
+    assert "Studio UI 1/1/1" in _visible(page) and "Browser assets 1/1/1" in _visible(page)
     for link in links:
         path, _, anchor = link.partition("#")
         target = out / path
@@ -188,3 +196,23 @@ def test_the_anchors_of_the_real_core_report_exist_and_match_the_number_of_place
         f"x{place.number}" for place in part.places
     ]
     assert part.tiles and part.counts["FAIL"] > 0
+
+
+def test_a_part_of_at_most_twelve_components_names_each_one_and_a_larger_one_counts() -> None:
+    small = _part(SHELL, _frame(comps=ALL_NAMED_LIMIT, cycles=0, imports=0, gaps=0), "PASS")
+    assert [tile.label for tile in small.tiles] == [f"comp-{i}" for i in range(ALL_NAMED_LIMIT)]
+    assert not any(tile.count or tile.state for tile in small.tiles)
+    large = _part(SHELL, _frame(comps=ALL_NAMED_LIMIT + 1, cycles=0, imports=0, gaps=0), "PASS")
+    assert [tile.label for tile in large.tiles] == [f"{ALL_NAMED_LIMIT + 1} without an exception"]
+
+
+def test_another_contract_is_one_line_with_its_counts_and_a_failure_shows_no_counts() -> None:
+    rules = {"R": ["x", "UNKNOWN"]}
+    ok = contract_of({"status": "UNKNOWN", "frame": {"rules": rules}}, "Studio UI")
+    bad = contract_of(None, "Browser assets", "boom")
+    parts = [_part(SHELL, _frame(), "PASS"), _part(CORE, _frame())]
+    ids = {part.key: frozenset[str]() for part in parts}
+    text = _visible(product_page(parts, ids, "abc", "now", [ok, bad]))
+    assert "UNKNOWN Studio UI 0/0/1" in text
+    assert "NO RESULT Browser assets boom" in text
+    assert len(text) <= MAX_VISIBLE
