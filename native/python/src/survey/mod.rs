@@ -42,8 +42,8 @@ mod package_body;
 pub(crate) mod routes;
 mod stable;
 mod targets;
+mod uses;
 mod walks;
-mod writes;
 
 pub(crate) struct Survey {
     pub files: Vec<FileFact>,
@@ -115,7 +115,18 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .map(|module| Binders::of(&module.tree))
         .collect();
     let mut evidence = EvidenceMap::new();
-    let collected = imports::collect_all(modules, &binders, namespace, &mut evidence);
+    // A module that another module writes to may bind a name of its own to a package attribute
+    // that hides a submodule, so the first pass names the written modules and the second pass
+    // reads them (`uses.rs`, AD-504).
+    let first = imports::collect_all(
+        modules,
+        &binders,
+        namespace,
+        &mut EvidenceMap::new(),
+        &HashSet::new(),
+    );
+    let written = uses::escaped(modules, &first.records);
+    let collected = imports::collect_all(modules, &binders, namespace, &mut evidence, &written);
     let (mut imports, aliases) = (collected.records, collected.aliases);
     let sole_binders = collected.sole;
     let ambiguous = collected.ambiguous.clone();
@@ -139,7 +150,8 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .filter(|(_, binders)| binders.all_unread)
         .map(|(module, _)| module.name.clone())
         .collect();
-    opaque_surface.extend(writes::written(modules, &imports));
+    opaque_surface.extend(written);
+    opaque_surface.extend(uses::escaped(modules, &imports));
     let files: Vec<FileFact> = modules
         .iter()
         .zip(&binders)

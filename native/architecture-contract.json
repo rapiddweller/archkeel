@@ -2542,7 +2542,7 @@
         "native.archkeel_python_collector.survey.literal",
         "native.archkeel_python_collector.survey.package_body",
         "native.archkeel_python_collector.survey.bound",
-        "native.archkeel_python_collector.survey.writes"
+        "native.archkeel_python_collector.survey.uses"
       ],
       "rationale": "Only the parse modules, the tree readers of the survey, the CPython view of the tree, the expression text and the definition table of the Python collector read the tree of the Python parser; discovery, naming and the entry read owned values.",
       "provenance": [

@@ -63,13 +63,11 @@ pub(super) fn own_submodules(module: &Module) -> HashSet<String> {
     found
 }
 
-/// A package body that can give any name: a top-level `__getattr__` or a star import.
+/// A package body that can give any name: any binder of `__getattr__` (a def, an assignment, an
+/// import, a walrus, a `global` write; at any depth) or a star import (`bound.rs`).
 pub(super) fn open_body(module: &Module) -> bool {
-    module.tree.body.iter().any(|statement| match statement {
-        Stmt::FunctionDef(node) => node.name.as_str() == "__getattr__",
-        Stmt::ImportFrom(node) => node.names.iter().any(|alias| alias.name.as_str() == "*"),
-        _ => false,
-    })
+    let bound = Bound::of(&module.tree.body);
+    bound.getattr || bound.opaque
 }
 
 /// `importlib.util.resolve_name` for a name of `level` dots and then `name`. Each failure of it
