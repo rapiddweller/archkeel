@@ -26,8 +26,14 @@ RULES = ["FORBID", "ASSIGN", "CYCLES", "REQUIRES"]
 
 def contract_rules() -> list[dict[str, Any]]:
     return [
-        {**RULE, "id": "FORBID", "kind": "forbidden_dependency", "source": "shop.domain",
-         "target": "shop.data", "include_type_checking": True},
+        {
+            **RULE,
+            "id": "FORBID",
+            "kind": "forbidden_dependency",
+            "source": "shop.domain",
+            "target": "shop.data",
+            "include_type_checking": True,
+        },
         {**RULE, "id": "ASSIGN", "kind": "complete_assignment", "source": "shop"},
         {**RULE, "id": "CYCLES", "kind": "no_component_cycles"},
         {**RULE, "id": "REQUIRES", "kind": "complete_requires"},
@@ -57,8 +63,13 @@ def project(root: Path, files: dict[str, str | bytes], *, extra: str = "") -> Pa
 
 
 def _commit(root: Path) -> None:
-    env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
-           "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@t",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@t",
+    }
     for step in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "init"]):
         subprocess.run(["git", "-C", str(root), *step], check=True, env=env)
 
@@ -116,7 +127,10 @@ def test_a_part_in_another_component_makes_each_rule_unknown(
 DENSE = "var x = [" + "1," * 70_000 + "];\n"
 GAPS: dict[str, dict[str, str]] = {
     "DartTargetMissing": {"lib/data/x.dart": "import 'gone.dart';\n"},
-    "DartTargetNotSelected": {"lib/data/x.dart": "import '../../tool/t.dart';\n", "tool/t.dart": ""},
+    "DartTargetNotSelected": {
+        "lib/data/x.dart": "import '../../tool/t.dart';\n",
+        "tool/t.dart": "",
+    },
     "DartTargetOutside": {"lib/data/x.dart": "import '../../../x.dart';\n"},
     "DartTargetIsPart": {
         "lib/data/x.dart": "part 'p.dart';\n",
