@@ -7,8 +7,14 @@ A Python project gets PASS or FAIL only for rules that read the import graph. A 
 an import-system change and the other gaps of AD-450 give UNKNOWN for each rule of the run.
 Python rules that read symbols, calls or constructs stay UNKNOWN. A Dart project gets PASS or FAIL
 only for rules that read the import graph; each gap of AD-454 and a part in another component than
-its library give UNKNOWN for each rule of the run. A contract with a symbol selector or an
-`interface_boundary` rule is a profile limit: each Dart rule is UNKNOWN (AD-468).
+its library give UNKNOWN for each rule of the run. A symbol selector or an `interface_boundary`
+rule holds only the rules that read it (AD-500). A Dart cycle rule (`no_component_cycles`) is
+always UNKNOWN: the survey does not prove that it sees each local package, and 4.0.1 gives no Dart
+cycle receipt either. A proof that releases it: the survey resolves each `package:` URI from a
+complete package map that it reads (each `pubspec.yaml` of the project and its path and workspace
+members), and a test plants each YAML form of a local package. The `pubspec.yaml` reader has no
+YAML parser: each word `path`, `workspace` or `resolution` and each backslash is a gap, also in a
+value or a description (AD-500).
 
 **Open false-PASS class (Python, shared with 4.0.1).** A third-party function can import a module
 from a string, for example a plugin loader, a framework that reads a dotted path from settings, or
@@ -17,11 +23,15 @@ A forbidden or cyclic dependency that only such a call makes can give PASS. Rele
 same hole. This is an open defect, not an accepted limit. The survey covers the names of AD-450
 point 7: the standard-library doors, the import state and the builtins that run text.
 
-**Open false-PASS class (TypeScript, shared with 4.0.1).** A `.ts` file below a scan root that the
-`tsconfig.json` drops with `exclude`, a narrow `include` or `files` is not read. Its imports are
-not edges, so an undeclared or forbidden dependency that only such a file makes can give PASS.
-Plant: `src/a/y/hidden.ts` imports `src/a/x/one.ts`, and `"exclude": ["src/a/y/hidden.ts"]`;
-both engines give PASS. This is an open defect, not an accepted limit.
+**Open false-PASS class (TypeScript, shared with 4.0.1): code of an installed package is outside
+the model.** The collector does not read a package in `node_modules`, `jspm_packages` or
+`bower_components` beside a valid manifest when only a `node_modules` search reaches it, for
+example a bare `import 'local'`. An import in that package code is not an edge. So when the package
+imports project source by a relative path, an undeclared or forbidden dependency can give PASS.
+Plant: `src/b/package.json`, `src/b/node_modules/local/index.ts` holds
+`import { a } from '../../../a/a'`, and `src/b/t.ts` holds `import { hidden } from 'local'`; B
+does not require A, and both engines give PASS. This is an open defect, not an accepted limit. A
+TSConfig drop of a source file is no longer in this class: it is a named gap (AD-488).
 The Rust core is the only decision path (AD-432). There is no Python fallback.
 Saved results do not carry host verification; dependency scope proofs replay as UNKNOWN with `dependency_scope_runtime_unverified`.
 Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD have no shipped binary.
@@ -241,6 +251,23 @@ standing scan disclaimers retain their separate meanings.
   ([AD-284](architecture/decisions/ad-284-studio-shows-views-as-checked-data.md)).
 
 ## TypeScript profile
+
+A TypeScript, declaration or JavaScript file under the scan roots that the TSConfig does not
+select (`files`, `include`, `exclude`, `allowJs`) is a coverage gap that names the file, so no
+rule of the run can PASS. Emitted names (`a.js` beside `a.ts`) and files in the `outDir` or
+`declarationDir` are gaps too: a name does not prove generated code. A package in an installed
+directory beside a valid manifest is not a gap while only a `node_modules` search reaches it (an
+open false-PASS class, see the top of this page). Test sources that `exclude_test_sources`
+removes are not gaps. The gap holds every rule of the run.
+Narrow the scan roots to the source, or select the file in the TSConfig
+([AD-488](architecture/decisions/ad-488-a-source-file-that-the-tsconfig-drops-is-a-coverage-gap.md)).
+
+These files give no gap in the core and in 4.0.1 (follow-up work):
+- `.vue`, `.svelte`, `.astro` and `.mdx` files, module scripts inline in HTML, and `.es6` files:
+  the collector has no model for them.
+- `exclude_test_sources = true` removes `test`/`tests`/`__tests__` directories and `*.test.*` and
+  `*.spec.*` files by design (AD-313, opt-in), also when such a file imports another component.
+- Code of an installed package: see the open false-PASS class at the top of this page.
 
 Import graphs, ownership, externals, cycles and layout are measured. Lexical UML
 declarations, members, signatures and proven local relationships are available;

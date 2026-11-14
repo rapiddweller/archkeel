@@ -596,10 +596,6 @@
           "rationale": "Decode the Dart request and assemble the typed reply with the shared wire (AD-406)."
         },
         {
-          "component": "pytext",
-          "rationale": "Split pubspec.yaml into lines where Python str.splitlines splits."
-        },
-        {
           "component": "dart-text",
           "rationale": "Name the module of a path, check a package name and strip a line."
         },
@@ -997,7 +993,8 @@
         "native.archkeel_typescript_collector.options_target",
         "native.archkeel_typescript_collector.script_environment",
         "native.archkeel_typescript_collector.std_globals",
-        "native.archkeel_typescript_collector.test_sources"
+        "native.archkeel_typescript_collector.test_sources",
+        "native.archkeel_typescript_collector.unselected"
       ],
       "responsibilities": [
         "Select the input files: read the configuration, the options, the package manifests, the installed packages, the layers and the globs."

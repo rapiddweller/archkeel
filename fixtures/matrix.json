@@ -22,7 +22,7 @@
     "G-dart": {
       "language": "dart",
       "runs": [
-      {"name": "G-dart", "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 10}, "scope": "incomplete scope: the profile cannot decide INTERFACE-BOUNDARY", "gaps": {"contract_hygiene_not_ported": 1, "reference.namespace": 1}, "refusal": null}}
+      {"name": "G-dart", "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 8, "FAIL": 0, "UNKNOWN": 2}, "scope": "complete", "gaps": {"contract_hygiene_not_ported": 1, "reference.namespace": 1}, "refusal": null}}
       ]
     },
     "H-typescript": {
@@ -40,7 +40,7 @@
     "H-uml-dart": {
       "language": "dart",
       "runs": [
-      {"name": "H-uml-dart", "root": "H-uml-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 5}, "scope": "incomplete scope: the profile cannot decide presentation:controller", "gaps": {}, "refusal": null}}
+      {"name": "H-uml-dart", "root": "H-uml-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 4, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "H-uml-typescript": {
@@ -70,13 +70,13 @@
     "L-nest-realworld": {
       "language": "typescript",
       "runs": [
-      {"name": "L-nest-realworld", "root": "L-nest-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 6}, "scope": "incomplete scope: the collector reports 68 coverage gaps", "gaps": {}, "refusal": null}}
+      {"name": "L-nest-realworld", "root": "L-nest-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 6}, "scope": "incomplete scope: the collector reports 71 coverage gaps", "gaps": {}, "refusal": null}}
       ]
     },
     "M-review-workflow": {
       "language": "python",
       "runs": [
-      {"name": "M-review-workflow", "root": "M-review-workflow", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 12}, "scope": "incomplete scope: the profile cannot decide INTERFACE-BOUNDARY", "gaps": {"contract_hygiene_not_ported": 3}, "refusal": null}}
+      {"name": "M-review-workflow", "root": "M-review-workflow", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 6, "FAIL": 0, "UNKNOWN": 6}, "scope": "complete", "gaps": {"contract_hygiene_not_ported": 3}, "refusal": null}}
       ]
     },
     "golden-python": {
