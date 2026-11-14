@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::script_names::bound_scope;
+use crate::script_names;
 use crate::script_scope::is_receiver_scope;
 use crate::script_syntax::{unique, Producer};
 use crate::script_tree::Tree;
@@ -103,9 +103,9 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         }
         // The wrapper is the only scope above the node that binds the name: it is the nearest, and
         // none is above it.
-        let nearest = bound_scope(tree, node, name);
+        let nearest = script_names::bound_scope(tree, node, name);
         let only = nearest.is_some_and(|scope| scope.id() == wrapper.id())
-            && bound_scope(tree, wrapper, name).is_none();
+            && script_names::bound_scope(tree, wrapper, name).is_none();
         only && tree.count(wrapper, name) == 1
             && !tree.in_ambiguous_scope(node)
             && self.free_arguments(wrapper)
