@@ -388,10 +388,6 @@ fn an_equal_place_is_shown_once_with_its_number_and_no_link_lacks_a_target() {
     assert!(!page.contains("src/m.rs:9</span>, <span class=\"rp-code\">src/m.rs:9"));
     let dead = dependency_frame(1);
     let page = document(&dead);
-    assert!(
-        !page.contains("href=\"#c-"),
-        "a component has no block to link to"
-    );
     for link in page.split("href=\"#").skip(1) {
         let id = link.split('"').next().unwrap();
         assert!(page.contains(&format!("id=\"{id}\"")), "{id} has no target");
@@ -408,16 +404,18 @@ fn the_verdict_names_the_largest_causes_in_one_line() {
             "A": {"kind": "coverage_gaps", "total": 5}, "B": {"kind": "coverage_gaps", "total": 5},
             "C": {"kind": "pair_gaps", "total": 7}}}}});
     let page = document(&frame);
-    let code = |id: &str| format!("<span class=\"rp-code\">{id}</span>");
-    assert!(page.contains(&format!(
-        "Unknown because of 3 causes. 2 rules: 5 coverage gaps in the scan ({}, {}); \
-1 rule: other &lt;b&gt; ({}); 1 rule: 7 gaps between two modules ({}).",
-        code("A"),
-        code("B"),
-        code("D"),
-        code("C")
-    )));
-    assert!(page.contains("4 unknown rules: 3 causes hold them."));
+    assert!(page.contains(
+        "<p class=\"body-sm ak-verdict__note\">2 rules: 5 coverage gaps in the scan</p>"
+    ));
+    assert!(page.contains("1 rule: other &lt;b&gt;</p>"));
+    assert!(page.contains("1 rule: 7 gaps between two modules</p>"));
+    // The ids are in the cards, not in the card of the verdict.
+    let verdict = page
+        .split("<dl class=\"ak-verdict__stats\">")
+        .next()
+        .unwrap();
+    assert!(!verdict.contains("rp-code\">A<"));
+    assert!(page.contains("4 unknown rules: 3 causes hold them. <a href=\"#unknown\">Causes</a>."));
 }
 
 // Red main (#1169): a page of an UNKNOWN run says why, with the code of the cause, and which rules
@@ -444,10 +442,10 @@ fn every_unknown_run_names_a_cause_and_the_rules_it_holds_with_a_bound() {
         let frame = json!({"status": "UNKNOWN", "rules": rules, "explained": explained});
         let page = document(&frame);
         let card = page
-            .split("Unknown because of")
+            .split("id=\"unknown\"")
             .nth(1)
             .unwrap()
-            .split("</p>")
+            .split("</article>")
             .next()
             .unwrap();
         for index in 0..held.min(5) {
@@ -458,7 +456,8 @@ fn every_unknown_run_names_a_cause_and_the_rules_it_holds_with_a_bound() {
         }
         if held > 5 {
             assert!(card.contains(&format!("+{} more", held - 5)), "{held}");
-            assert!(!card.contains("R05"), "the sixth id stays in the JSON");
+            let fold = card.split("</summary>").nth(1).unwrap();
+            assert!(fold.contains("R05"), "the sixth id is in the fold");
         }
     }
     let empty = document(&json!({"status": "UNKNOWN", "scope": "missing input"}));

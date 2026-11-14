@@ -27,14 +27,16 @@ row! {
     Detail { source: String, target: Option<String>, cause: String, evidence: Vec<String> }
     Component { id: String, name: String }
     Module { name: String, path: String, component: Option<String> }
-    Edge { source: String, target: String, resolution: String, count: usize }
+    Edge { source: String, target: String, resolution: String, count: usize, evidence: Vec<Location>, evidence_total: usize }
     Totals { components: usize, modules: usize, component_edges: usize }
     Topology { total: Totals, components: Vec<Component>, modules: Vec<Module>, component_edges: Vec<Edge> }
     Shape { direction: String, source: Vec<String>, target: Vec<String> }
     Step { from: String, to: String, from_component: Option<String>, to_component: Option<String>, evidence: Vec<String>, evidence_total: usize }
     CyclePath { index: usize, members: Vec<String>, path: Vec<Step>, steps_total: usize, truncated: bool }
     Cycles { total: usize, items: Vec<CyclePath> }
-    RuleHolds { kind: String, total: usize, unnamed_imports: usize }
+    Pair { source: String, target: String }
+    RuleHolds { kind: String, pairs: Vec<Pair>, total: usize, unnamed_imports: usize }
+    CollectionGap { kind: String, subjects: Vec<String>, reason: String }
     Holds { rules: BTreeMap<String, RuleHolds> }
     Explain { rules: BTreeMap<String, Shape>, cycles: BTreeMap<String, Cycles>, holds: Holds }
 }
@@ -61,6 +63,7 @@ pub(super) struct Frame {
     pub(super) explained: BTreeMap<String, String>,
     /// The named gaps of the run that are no rule of the contract: an id and its reason.
     pub(super) named: BTreeMap<String, String>,
+    pub(super) collection_gaps: Vec<CollectionGap>,
     /// The identity of the run: the digests of the contract, its files and the core.
     pub(super) identity: Identity,
     /// Why the run is not decided: the refusal or the scope text of the frame.
@@ -102,6 +105,7 @@ impl Frame {
         Frame {
             identity,
             explained: field(frame, "explained"),
+            collection_gaps: field(frame, "collection_gaps"),
             named: serde_json::from_value(frame["unsupported"]["rules"].clone())
                 .unwrap_or_default(),
             cause,
