@@ -3,7 +3,7 @@
 **Status.** Proposed. Part of #880. It amends item 3 of AD-426.
 
 **Reason.** The linked collector can state `dependency_symbols` or `interface_boundary` as
-`Unsupported` (Python since AD-450, Dart in AD-468). AD-426 turned each such statement into a
+`Unsupported` (Python since AD-450, Dart on the branch of #1148). AD-426 turned each such statement into a
 certain profile limit, and a profile limit is a coverage failure of the run: each rule of the run
 was UNKNOWN. A symbol or interface fact cannot change a rule that reads only module-level import
 edges. On the Dart branch, G-dart gave 0 PASS, and the released 4.0.1 gives 9.
