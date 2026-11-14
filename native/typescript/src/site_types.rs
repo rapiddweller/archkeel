@@ -57,6 +57,8 @@ pub(crate) struct Site {
     pub scope_ambiguous: bool,
     pub assignment_span: Option<Span>,
     pub assignment_annotation: Option<String>,
+    /// A scope below the module declares the name of the site (AD-512; `site_local.rs`).
+    pub local: bool,
     pub initializer: Option<Text>,
     pub usage: SiteUse,
     pub receiver_kind: ReceiverKind,
@@ -107,6 +109,7 @@ impl Site {
             scope_ambiguous: false,
             assignment_span: None,
             assignment_annotation: None,
+            local: false,
             initializer: None,
             usage: SiteUse::Value,
             receiver_kind: named.receiver_kind,

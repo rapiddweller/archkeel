@@ -358,6 +358,15 @@ fn result_binding(
     ) else {
         return Vec::new();
     };
+    // A variable that holds any value, or that is written again, does not hold this value (AD-512).
+    let loose = matches!(
+        site.assignment_annotation.as_deref(),
+        Some("any" | "unknown")
+    );
+    let written = kept.shadow.writes(site.shadow.chain, &name) > 1;
+    if loose || written || kept.rebound.contains(&name) {
+        return Vec::new();
+    }
     let id = stable_id(
         "VALUEBIND",
         &[

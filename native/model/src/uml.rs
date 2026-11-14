@@ -27,7 +27,7 @@ use archkeel_contract::{Entity, EntityKind, PresenceKind, Relationship, Relation
 use crate::model::Model;
 use crate::reason::UmlGap;
 pub use crate::uml_facts::UmlDiff;
-use crate::uml_facts::{entity, plain, word, Assessed, Facts};
+use crate::uml_facts::{entity, plain, Assessed, Facts};
 use crate::verdict::Decision;
 
 /// The input of the target row from the contract tree (AD-470, AD-494).
@@ -112,8 +112,10 @@ fn entity_assessment(facts: &Facts<'_>, target: &Target, item: &Entity) -> Vec<A
     if *item.presence() == PresenceKind::Referenced && plain(item) {
         return Vec::new();
     }
-    if *item.kind() != EntityKind::Module {
-        return vec![Assessed::Unknown(format!("{} entity", word(item.kind())))];
+    match item.kind() {
+        EntityKind::Module => {}
+        EntityKind::Package => return vec![Assessed::Unknown("package entity".to_owned())],
+        _ => return crate::uml_symbols::assess(facts, target, item),
     }
     let found = facts.modules(item.qualified_name(), item.language());
     if found.len() != 1 {
@@ -137,9 +139,9 @@ fn entity_assessment(facts: &Facts<'_>, target: &Target, item: &Entity) -> Vec<A
 }
 
 fn relationship(facts: &Facts<'_>, target: &Target, edge: &Relationship) -> Assessed {
-    let kind = word(edge.kind());
     if *edge.kind() != RelationshipKind::Imports {
-        return Assessed::Unknown(format!("{kind} relationship"));
+        let complete = crate::scope::uml_run(facts.model, facts.read);
+        return crate::uml_symbols::relationship(facts, target, edge, complete);
     }
     let ends = (
         entity(target, edge.source_id().as_text()),
