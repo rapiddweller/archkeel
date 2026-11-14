@@ -270,9 +270,9 @@ constructor, a field or a static block. An unknown key on a window value, a wind
 escapes, and code from a text block every global proof of the project.
 Open false PASS, not accepted (AD-460): a window value that reaches a computed write through a
 parameter, a call result or a property (`function f(w) { w[k] = v; }` with `f(document.defaultView)`);
-an extracted class method that writes `this[k]` and runs as a callback; a computed read that is
-stored and then read and called again with a key built at run time (`const c = o[k]; const F = c[k];
-F(text)` with `k` equal to `constructor`); a reflection call with a run-time key; and DOM code from
+an extracted class method that writes `this[k]` and runs as a callback; a computed call with a key
+built at run time on a parameter, an import, a property or a global function (`Object[k](text)` with
+`k` equal to `constructor`); a reflection call with a run-time key; and DOM code from
 text outside the named triggers (for example a `src` or `href` of `javascript:` built at run time).
 Older classes stay open too: a prototype change through a call
 (`Object.defineProperty(EventTarget.prototype, …)`), a member patch of a platform object that is no

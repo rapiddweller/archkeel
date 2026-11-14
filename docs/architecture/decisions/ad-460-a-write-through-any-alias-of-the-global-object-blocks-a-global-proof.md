@@ -29,9 +29,10 @@ namespace and a factory. A homes test pins each decision site to its gate.
    function or script `this`. Such a value with an unknown key, or such a value that escapes,
    writes an unknown name. `source_input.rs` is the one home of the window names.
 4. Code from a text writes an unknown name: `eval`, `Function` or a `constructor` member used as
-   more than a read; the text `constructor`; a timer without a function; a computed call on a value
-   that is not plain data; `document.write`; an `on…` or unknown attribute; a `script` element;
-   HTML text with `<`; a `javascript:` text; a dynamic import of a text or an unknown name.
+   more than a read; the text `constructor`; a timer without a function; a computed call on a
+   function, an element, a `constructor` member or a window value; `document.write`; an `on…` or
+   unknown attribute; a `script` element; HTML text with `<`; a `javascript:` text.
+   The existing import analysis gives a gap for a dynamic import of a text or of an unknown name.
 5. A top-level `enum` or `namespace` of a script writes its name.
 6. Each reader of a target unwraps parentheses, `as`, `satisfies`, `!` and `<T>` with one helper.
    It compares the cooked name; an escape that is not plain is an unknown name.
@@ -45,9 +46,10 @@ A denylist of global aliases grows with each plant, so named writes use the allo
 An allowlist for unknown keys blocks each `map[k] = v` on a parameter. That blocks every project.
 A full value-flow analysis is out of scope. These open false PASS classes stay, not accepted:
 a window value that reaches a computed write through a parameter, a call result or a property;
-an extracted class method that writes `this[k]`; a stored computed read that is read and called
-again with a key built at run time; a reflection call with a run-time key; DOM code from a text
-outside the named triggers. `docs/known-limits.md` lists them and the older open classes.
+an extracted class method that writes `this[k]`; a computed call with a key built at run time on
+a parameter, an import, a property or a global function (`Object[k](text)`); a reflection call
+with a run-time key; DOM code from a text outside the named triggers. A broader computed-call
+trigger blocked all 117 `Math` proofs of the golden case `excalidraw-math` (`Math[func](x)`). `docs/known-limits.md` lists them and the older open classes.
 `assignment_targets` keeps its shape: unwrapping it there makes new publications, a PASS path.
 
 Cost, measured with the release core on the reviewer's plants, the fixtures and the corpus:
