@@ -339,29 +339,58 @@ fn handler(name: &str) -> bool {
         .is_some_and(|start| start.eq_ignore_ascii_case("on"))
 }
 
-/// Markup that runs no code: no `on…` attribute, no `script`, `iframe`, `object`, `embed`,
-/// `frame`, `base` or `meta` element, no `srcdoc`, and no `javascript:` or `data:` link. A text
-/// with a character reference is not read, so it counts as code.
+/// The elements that run, load or link code, or that hide markup from this reading.
+const CODE_ELEMENTS: [&str; 20] = [
+    "script", "iframe", "frame", "frameset", "object", "embed", "applet", "base", "meta", "link",
+    "style", "svg", "math", "template", "a", "area", "form", "portal", "noscript", "xmp",
+];
+
+/// The attribute parts that load a URL, hold a style or start a URL scheme of code.
+const CODE_PARTS: [&str; 12] = [
+    "href",
+    "src",
+    "action",
+    "style",
+    "xlink",
+    "poster",
+    "background",
+    "data:",
+    "javascript:",
+    "vbscript:",
+    "&",
+    "\\",
+];
+
+/// Markup that runs no code. The text is read in lower case, as HTML reads names. It is refused
+/// when it holds an `on…` attribute, an element of `CODE_ELEMENTS`, or a part of `CODE_PARTS`
+/// (`srcdoc`, `srcset` and `formaction` contain `src` and `action`; `&` stops a character
+/// reference). Text without `<` holds no element.
 fn inert_markup(text: &str) -> bool {
     let lower = text.to_ascii_lowercase();
     if !lower.contains('<') {
         return true;
     }
-    let tags = [
-        "<script", "<iframe", "<object", "<embed", "<frame", "<base", "<meta", "<svg",
-    ];
-    let words = ["srcdoc", "javascript:", "data:", "&"];
+    let bytes = lower.as_bytes();
     let handler = lower
         .match_indices("on")
-        .any(|(at, _)| handler_at(lower.as_bytes(), at));
-    !handler && !tags.iter().chain(&words).any(|part| lower.contains(part))
+        .any(|(at, _)| handler_at(bytes, at));
+    let element = lower.match_indices('<').any(|(at, _)| {
+        let name: String = lower
+            .get(at + 1..)
+            .unwrap_or_default()
+            .trim_start_matches('/')
+            .chars()
+            .take_while(|c| c.is_ascii_alphanumeric() || *c == '-')
+            .collect();
+        CODE_ELEMENTS.contains(&name.as_str())
+    });
+    !handler && !element && !CODE_PARTS.iter().any(|part| lower.contains(part))
 }
 
-/// An attribute name `on…` at `at`: after a space, `/`, a quote or `<`, before `=`.
+/// An attribute name `on…` at `at`: after any byte that is no letter or digit, before `=`.
 fn handler_at(bytes: &[u8], at: usize) -> bool {
     let before = at.checked_sub(1).and_then(|i| bytes.get(i));
-    let starts =
-        before.is_some_and(|b| b.is_ascii_whitespace() || matches!(b, b'/' | b'"' | b'\'' | b'<'));
+    let starts = before.is_some_and(|b| !b.is_ascii_alphanumeric());
     let name_end = bytes
         .iter()
         .skip(at)

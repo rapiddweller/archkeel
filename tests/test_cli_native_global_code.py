@@ -46,6 +46,36 @@ CODE = {
 }
 
 
+# Each markup literal that the write check refuses (AD-460): every one can run or load code.
+MARKUP = {
+    "upper-case-handler": "<IMG SRC=x ONERROR=y>",
+    "slash-handler": "<img/onerror=y>",
+    "quote-handler": '<img alt="x"onerror=y>',
+    "entity": "<p>&#106;avascript:</p>",
+    "svg": "<svg></svg>",
+    "math": "<math></math>",
+    "formaction": "<button formaction=x>b</button>",
+    "style": '<p style="x">p</p>',
+    "anchor": '<a href="#">a</a>',
+    "form-action": "<form action=x></form>",
+    "link": "<link rel=x>",
+    "template": "<template><p>p</p></template>",
+    "image-source": "<img src=x>",
+    "script": "<script>open = 1</script>",
+    "code-scheme": "<p>vbscript:x</p>",
+}
+
+
+@pytest.mark.parametrize("name", sorted(MARKUP))
+def test_markup_that_can_run_code_gives_no_pass(
+    tmp_path: Path, release_core: Path, name: str
+) -> None:
+    text = json.dumps(MARKUP[name])
+    write = f"declare const e: any;\ne.innerHTML = {text};"
+    code, document = _verdict(_project(tmp_path, MODULE + write, "window.open();\n"), release_core)
+    assert (code, document["status"]) != (0, "PASS"), name
+
+
 @pytest.mark.parametrize("name", sorted(CODE))
 def test_code_from_a_text_gives_no_pass(tmp_path: Path, release_core: Path, name: str) -> None:
     root = _project(tmp_path, MODULE + CODE[name], "window.open();\n")

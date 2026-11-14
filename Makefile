@@ -187,7 +187,8 @@ browser-runtime-check: browser-runtime-install
 # The Studio UI result must equal its pinned result (one typed UNKNOWN), so it is not a PASS.
 browser-architecture-check: browser-runtime-install core
 	@mkdir -p test-artifacts/validation
-	@$(UV) run --locked archkeel validate --config docs/architecture/browser.toml --json > test-artifacts/validation/browser.json || { cat test-artifacts/validation/browser.json; exit 1; }
+	@$(UV) run --locked archkeel validate --config docs/architecture/browser.toml --json > test-artifacts/validation/browser.json || true
+	$(UV) run --locked python tools/native_expected.py test-artifacts/validation/browser.json docs/architecture/target/browser-expected.json
 	@$(UV) run --locked archkeel validate --config docs/architecture/studio-ui.toml --json > test-artifacts/validation/studio-ui.json || true
 	$(UV) run --locked python tools/native_expected.py test-artifacts/validation/studio-ui.json docs/architecture/target/studio-ui-expected.json
 

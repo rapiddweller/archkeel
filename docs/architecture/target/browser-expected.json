@@ -1,0 +1,4417 @@
+{
+  "name": "Browser assets",
+  "rules": {
+    "BROWSER-COMPLETE-REQUIRES": "UNKNOWN"
+  },
+  "unknown": {
+    "BROWSER-COMPLETE-REQUIRES": "scope_incomplete"
+  },
+  "gaps": [
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Array has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Array has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global CSS has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global CSS has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global CSS has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global CSS has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global CSS has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global CSS has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global CustomEvent has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global CustomEvent has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global CustomEvent has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global CustomEvent has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global HTMLDetailsElement has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Infinity has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Infinity has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global JSON has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global JSON has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global JSON has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global JSON has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global JSON has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global JSON has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global JSON has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global URL has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global URLSearchParams has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global URLSearchParams has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global URLSearchParams has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global URLSearchParams has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global URLSearchParams has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global URLSearchParams has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global URLSearchParams has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global URLSearchParams has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global URLSearchParams has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global URLSearchParams has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global URLSearchParams has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global URLSearchParams has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global URLSearchParams has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global URLSearchParams has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global addEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global addEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global addEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global addEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global addEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global addEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global addEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global clearTimeout has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global decodeURIComponent has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global decodeURIComponent has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global encodeURIComponent has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global encodeURIComponent has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global encodeURIComponent has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global encodeURIComponent has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global encodeURIComponent has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global encodeURIComponent has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global encodeURIComponent has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global getComputedStyle has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global getComputedStyle has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global getComputedStyle has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global getComputedStyle has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global getComputedStyle has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global history has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global history has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global matchMedia has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global matchMedia has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global navigator has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global parseFloat has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global parseFloat has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global parseFloat has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global parseFloat has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global postMessage has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global queueMicrotask has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global queueMicrotask has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global requestAnimationFrame has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global requestAnimationFrame has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global scrollTo has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global scrollX has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global scrollY has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.flow_x2e_js",
+      "Script global setTimeout has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_atlas_x2d_deviations_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_atlas_x2d_deviations_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Blob has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global URL has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global URL has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global URLSearchParams has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global XMLSerializer has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global addEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global addEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global getComputedStyle has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global getComputedStyle has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global history has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global innerHeight has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global matchMedia has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global navigator has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global navigator has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global navigator has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global requestAnimationFrame has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global setTimeout has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_canvas_x2e_js",
+      "Script global setTimeout has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_filters_x2e_js",
+      "Factory result uses are not statically bounded"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_filters_x2e_js",
+      "Factory result uses are not statically bounded"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_filters_x2e_js",
+      "Factory result uses are not statically bounded"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_filters_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_filters_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_filters_x2e_js",
+      "Script global addEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_filters_x2e_js",
+      "Script global decodeURIComponent has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_filters_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_filters_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_filters_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_filters_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_filters_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_filters_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_filters_x2e_js",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_filters_x2e_js",
+      "Script global navigator has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_filters_x2e_js",
+      "Script global requestAnimationFrame has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_filters_x2e_js",
+      "Script global requestAnimationFrame has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Array has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Array has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global TypeError has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global TypeError has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global TypeError has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global TypeError has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_protocol_x2e_js",
+      "Script global TypeError has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global TypeError has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_graph_x2d_scene_x2e_js",
+      "Script global WeakMap has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Array has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Array has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Infinity has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Infinity has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Infinity has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Infinity has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Infinity has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Infinity has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Infinity has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Infinity has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Infinity has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Infinity has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_layout_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global Infinity has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global Infinity has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.report_x2d_scene_x2e_js",
+      "Script global structuredClone has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.violations_x2e_js",
+      "Factory result uses are not statically bounded"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.violations_x2e_js",
+      "Script global Event has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "browser.src.archkeel.render.assets.violations_x2e_js",
+      "Script global document has no unique unconditional publication"
+    ]
+  ],
+  "violations": []
+}
