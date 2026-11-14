@@ -10,7 +10,7 @@ A PASS needs a complete scope and a deciding rule. Refuse a frame with `CoreErro
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Final, TypeVar
@@ -28,7 +28,7 @@ from .core_json import CoreError as CoreError
 from .core_json import Gap as Gap
 from .core_json import GapKind as GapKind
 from .core_json import _count, _fields, _object, _text, _texts
-from .core_topology import Topology, frame_topology
+from .core_topology import Topology, frame_topology, require_topology
 
 
 class Status(StrEnum):
@@ -366,6 +366,24 @@ def _explained(
             raise CoreError(f"the core frame rule {rule} is {verdict.status} without its row")
 
 
+def _check_rows(
+    require_protocol: bool,
+    unknown_kinds: Mapping[str, object],
+    explained: Mapping[str, object],
+    violations: Mapping[str, int],
+    details: Mapping[str, Sequence[object]],
+) -> None:
+    """The typed causes and the violation details agree with the rule rows."""
+    if require_protocol:
+        if unknown_kinds.keys() != explained.keys():
+            raise CoreError("the core frame UNKNOWN rules lack their typed cause kinds")
+        for rule, count in violations.items():
+            if len(details.get(rule, ())) != count:
+                raise CoreError(f"the core frame FAIL rule {rule} lacks its violation details")
+    if not details.keys() <= violations.keys():
+        raise CoreError("the core frame gives violation details to a rule without violations")
+
+
 def read_frame(
     stdout: bytes,
     exit_code: int,
@@ -381,6 +399,7 @@ def read_frame(
         signal = f" (signal {-exit_code})" if exit_code < 0 else ""
         raise CoreError(f"the core exits with {exit_code}{signal}")
     frame = _document(stdout)
+    require_topology(frame, request)
     _word(
         FrameProtocol,
         frame.get("protocol", None if require_protocol else FRAME_PROTOCOL),
@@ -398,14 +417,7 @@ def read_frame(
         rule: _word(UnknownKind, kind, "unknown_kinds")
         for rule, kind in _object(frame.get("unknown_kinds", {}), "unknown_kinds").items()
     }
-    if require_protocol:
-        if unknown_kinds.keys() != explained.keys():
-            raise CoreError("the core frame UNKNOWN rules lack their typed cause kinds")
-        for rule, count in violations.items():
-            if len(details.get(rule, ())) != count:
-                raise CoreError(f"the core frame FAIL rule {rule} lacks its violation details")
-    if not details.keys() <= violations.keys():
-        raise CoreError("the core frame gives violation details to a rule without violations")
+    _check_rows(require_protocol, unknown_kinds, explained, violations, details)
     _object(frame["sections"], "sections")
     gaps, missing, derived = _gaps(frame, scan)
     if request is not None and derived is not None:
@@ -445,5 +457,5 @@ def read_frame(
         locations=locations,
         unknown_kinds=unknown_kinds,
         collection_gaps=_collection_gaps(frame.get("collection_gaps", [])),
-        topology=frame_topology(frame, request, rules),
+        topology=frame_topology(frame, rules),
     )

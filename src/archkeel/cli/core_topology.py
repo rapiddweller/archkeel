@@ -209,12 +209,14 @@ def read_topology(value: object, scope: str, rules: Mapping[str, object]) -> Top
     return topology
 
 
-def frame_topology(
-    frame: Mapping[str, object], request: Mapping[str, object] | None, rules: Mapping[str, object]
-) -> Topology | None:
-    """The decoded section of a frame. A requested section that is absent is a refusal."""
+def require_topology(frame: Mapping[str, object], request: Mapping[str, object] | None) -> None:
+    """A requested section that the frame does not hold is a refusal."""
+    if "topology" not in frame and request is not None and request.get("topology"):
+        raise CoreError("the core did not produce the requested topology section")
+
+
+def frame_topology(frame: Mapping[str, object], rules: Mapping[str, object]) -> Topology | None:
+    """The decoded section of a frame, or `None` when the frame has none."""
     if "topology" not in frame:
-        if request is not None and request.get("topology"):
-            raise CoreError("the core did not produce the requested topology section")
         return None
     return read_topology(frame["topology"], _text(frame["scope"], "scope"), rules)
