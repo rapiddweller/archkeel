@@ -25,3 +25,11 @@ pub(crate) fn ascend(
     }
     Ok((cur, ups, at))
 }
+
+/// Whether `module` is `root` or a module below it.
+pub(crate) fn inside(module: &str, root: &str) -> bool {
+    module == root
+        || module
+            .strip_prefix(root)
+            .is_some_and(|rest| rest.starts_with('.'))
+}

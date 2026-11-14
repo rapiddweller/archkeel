@@ -63,16 +63,19 @@ pub(crate) struct MacroCall {
     pub name: String,
     pub site: Site,
     pub placed: bool,
-    /// The call is at module level and is no standard expression macro: it may define a name of
-    /// the module, which a glob `use` of the module then brings in.
+    /// The call is at module level: it may define a name of the module, which a glob `use` of
+    /// the module then brings in. `modules/filled.rs` decides which such calls are safe.
     pub fills: bool,
-    /// The tokens of the call hold `mod`, `use` or `extern`: they may declare a module name.
+    /// The tokens of the call hold `mod`, `use`, `extern` or a macro call by a path: they may
+    /// declare a module name.
     pub declares: bool,
+    /// The path that names the macro, or nothing when it starts with `::`.
+    pub path: Vec<String>,
 }
 
 /// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path
 /// inside is a path of this file. A macro of another name that holds a path is UNKNOWN.
-const KNOWN_MACROS: [&str; 33] = [
+pub(crate) const KNOWN_MACROS: [&str; 33] = [
     "assert",
     "assert_eq",
     "assert_ne",
@@ -107,6 +110,23 @@ const KNOWN_MACROS: [&str; 33] = [
     "cfg",
     "json",
 ];
+
+/// Whether the tokens hold a macro call by a path (`a::m!`) at any depth. Its name alone does not
+/// say which macro it is.
+fn path_call(tokens: proc_macro2::TokenStream) -> bool {
+    let trees: Vec<_> = tokens.into_iter().collect();
+    trees.iter().enumerate().any(|(at, tree)| match tree {
+        proc_macro2::TokenTree::Group(group) => path_call(group.stream()),
+        proc_macro2::TokenTree::Ident(_) => {
+            let colon = |i: usize| {
+                matches!(trees.get(i), Some(proc_macro2::TokenTree::Punct(p)) if p.as_char() == ':')
+            };
+            let bang = matches!(trees.get(at + 1), Some(proc_macro2::TokenTree::Punct(p)) if p.as_char() == '!');
+            bang && at > 0 && colon(at - 1)
+        }
+        _ => false,
+    })
+}
 
 /// Whether the tokens hold `mod`, `use` or `extern` at any depth.
 fn declares(tokens: proc_macro2::TokenStream) -> bool {
@@ -217,14 +237,20 @@ impl Walker<'_> {
             name: name.clone(),
             site,
             placed: local,
-            fills: module_level && !KNOWN_MACROS.contains(&name.as_str()),
-            declares: declares(node.tokens.clone()),
+            fills: module_level,
+            declares: declares(node.tokens.clone()) || path_call(node.tokens.clone()),
+            path: (node.path.segments.iter())
+                .filter(|_| node.path.leading_colon.is_none())
+                .map(|segment| plain(&segment.ident))
+                .collect(),
         };
         // The tokens of a macro are not code that the scan reads: a call in them is not placed.
         let mut inner = BTreeSet::new();
         macro_names(node.tokens.clone(), 0, &mut inner);
+        // A call by a path in the tokens makes `declares` of the outer call true, so each name
+        // here is a plain call.
         let hidden = inner.into_iter().map(|name| MacroCall {
-            fills: module_level && !KNOWN_MACROS.contains(&name.as_str()),
+            path: vec![name.clone()],
             name,
             placed: false,
             ..call.clone()

@@ -25,6 +25,7 @@ mod filled;
 mod outcome;
 use alias::Aliases;
 use climb::ascend;
+pub(crate) use climb::inside;
 pub(crate) use outcome::{Edge, Outcome, TypeOf};
 
 /// The deepest chain of `use` bindings and globs that the resolver follows.
@@ -95,14 +96,6 @@ pub(crate) fn index<'a>(workspace: &'a Workspace, modules: &'a [Module]) -> Inde
         built.frames.insert(&module.module, frame);
     }
     built
-}
-
-/// Whether `module` is `root` or a module below it.
-pub(crate) fn inside(module: &str, root: &str) -> bool {
-    module == root
-        || module
-            .strip_prefix(root)
-            .is_some_and(|rest| rest.starts_with('.'))
 }
 
 fn lexical(frame: &Frame<'_>, scope: &[String]) -> String {
@@ -457,22 +450,20 @@ impl Index<'_> {
         hops: usize,
     ) -> Outcome {
         let at = lexical(frame, &glob.scope);
-        match self.path(frame, &glob.names, glob.absolute, (&at, false), hops + 1) {
+        // An empty last name lets a one-name glob path (`use yy::*;`) reach its binding.
+        let mut target = glob.names.clone();
+        target.push(String::new());
+        match self.path(frame, &target, glob.absolute, (&at, false), hops + 1) {
             Outcome::Unknown(reason) => {
                 Outcome::Unknown(format!("A glob import may bring in {}: {reason}", names[0]))
             }
-            Outcome::Edge(edge) if edge.symbol.is_none() => {
+            Outcome::Edge(edge) if edge.symbol.as_deref().is_none_or(str::is_empty) => {
                 let Some(target) = self.frames.get(edge.module.as_str()) else {
                     return Outcome::None;
                 };
                 match self.bare(target, names, (edge.lexical.as_str(), true), hops + 1, true) {
                     // A macro call of the module may define the name (`mk!();` for `pub use`).
-                    Outcome::None
-                        if filled::may_fill(
-                            target.module,
-                            self.frames.values().map(|f| f.module),
-                        ) =>
-                    {
+                    Outcome::None if self.filled(target) => {
                         let reason = format!(
                             "A glob may bring in {} from a module that a macro call fills",
                             names[0]
@@ -484,6 +475,19 @@ impl Index<'_> {
             }
             _ => Outcome::None,
         }
+    }
+
+    /// Whether a macro call at module level of `target` may fill it (`filled.rs`).
+    fn filled(&self, target: &Frame<'_>) -> bool {
+        let reach = |path: &[String]| match self.follow(target.root, 0, path) {
+            Outcome::Edge(edge) if edge.symbol.is_none() => Some((edge.module, edge.lexical)),
+            _ => None,
+        };
+        filled::may_fill(
+            target.module,
+            &reach,
+            self.frames.values().map(|f| f.module),
+        )
     }
 }
 
