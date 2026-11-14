@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-434: a named type needs a direct witness or one same-name export hop."""
+"""AD-434: release-core type imports need a direct witness or one same-name export hop."""
 
 from __future__ import annotations
 

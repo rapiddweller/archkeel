@@ -49,7 +49,7 @@ Public-interface lifecycle checks and facade signatures remain outside this impo
 
 ## Checks
 
-`tests/test_native_type_publication.py` plants direct types, one-hop types and unproved forms in the release core.
+`tests/test_cli_native_type_publication.py` plants direct types, one-hop types and unproved forms in the release core.
 It also checks private types, same-name types in separate modules and unowned sources.
 Collector tests retain exact value, overload and script-global records.
 The native self-row and expected-gap tests retain their unchanged pins.

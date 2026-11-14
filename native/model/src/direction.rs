@@ -51,6 +51,7 @@ pub fn forbidden<'m>(model: &'m Model, rule: &'m ForbiddenDependency) -> Vec<(&'
                 && !(import.under_type_checking() && !rule.include_type_checking())
         })
         .map(|import| {
+            // AD-434: named type publication does not lift dependency symbol limits.
             let judged = match rule.target_symbol() {
                 None => Judged::Fail,
                 Some(symbol) if import.symbol() == Some(symbol.as_str()) => Judged::Fail,
