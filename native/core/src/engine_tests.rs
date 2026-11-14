@@ -392,18 +392,18 @@ fn a_section_without_a_contract_or_a_reply_names_the_missing_input() {
 }
 
 #[test]
-fn the_uml_target_of_a_contract_is_an_unsupported_rule_by_name() {
+fn the_uml_target_of_a_contract_is_an_unknown_row_with_its_cause() {
     let mut engine = Engine::default();
     let _ = engine.answer(Request::Contract(ContractInput::root(
         br#"{"schema_version": "2.2.0", "components": [], "rules": [],
         "declarations": {"uml": {"schema_version": "1.1.0"}}}"#
             .to_vec(),
     )));
-    let reason = crate::contract::uml_reason(engine.usable(), "architecture-contract.json");
-    let reason = reason.map(|(id, reason)| format!("{id}: {reason}"));
+    let row = crate::contract::uml_row(engine.usable(), "architecture-contract.json");
+    let row = row.map(|(id, gap)| format!("{id}: {}", Reason::Uml(gap)));
     assert_eq!(
-        reason.as_deref(),
-        Some("UML-TARGET-a2e40c5592b1b06a: unsupported: the UML target of the contract: no slice ports it yet")
+        row.as_deref(),
+        Some("UML-TARGET-a2e40c5592b1b06a: the UML target: it declares no entity, relationship or scope")
     );
 }
 

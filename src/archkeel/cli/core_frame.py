@@ -169,7 +169,6 @@ _GAP_PREFIXES: Final[tuple[tuple[str, GapKind], ...]] = (
     ("unsupported: the contract mounts inside contracts", GapKind.INSIDE_CONTRACT_MISSING),
     ("unsupported: a rule of an inside contract", GapKind.INSIDE_RULE),
     ("unsupported: the scope proof of a contract tree", GapKind.TREE_SCOPE),
-    ("unsupported: the UML target", GapKind.UML_TARGET),
     ("unsupported: the scope proof: ", GapKind.SCOPE_PROOF),
     ("refused: ", GapKind.CONTRACT_REFUSED),
     # A rule of a ported kind without a model: the store refused the reply.

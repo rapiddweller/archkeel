@@ -81,7 +81,7 @@ pub use imports::{Import, Resolved};
 pub use model::{Model, Rows};
 pub use modules::{Module, Package};
 pub use ownership::{claims, in_scope};
-pub use reason::{Input, Reason, Refusal, Unsupported};
+pub use reason::{Input, Reason, Refusal, UmlGap, Unsupported};
 pub use scope::{Scope, ScopeComplete};
 pub use section::{Porting, Section, Slice};
 pub use settings::{Producer, Settings, STANDARD_LIBRARY_LIMIT, STANDARD_NAME_LIMIT};

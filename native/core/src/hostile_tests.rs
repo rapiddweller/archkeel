@@ -88,7 +88,10 @@ fn an_external_collector_is_never_trusted_and_each_rule_names_the_pin() {
     assert_eq!(passes(&got), 0, "{got}");
     assert_eq!(got["status"], "UNKNOWN");
     assert_eq!(got["scope"], EXTERNAL);
-    let explained = got["explained"].as_object().cloned().unwrap_or_default();
+    let mut explained = got["explained"].as_object().cloned().unwrap_or_default();
+    // AD-470: the UML target row is UNKNOWN for its own cause, with or without a trusted reply.
+    let uml = explained.remove("UML-TARGET-a2e40c5592b1b06a");
+    assert!(uml.is_some_and(|why| why.as_str().is_some_and(|why| why.starts_with("the UML"))));
     assert!(explained.len() >= 6, "{got}");
     assert!(explained.values().all(|why| why == EXTERNAL), "{got}");
 }

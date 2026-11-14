@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 
 use serde_json::{json, Value};
 
-use archkeel_model::{Input, Reason};
+use archkeel_model::{Input, Reason, UmlGap};
 
 use crate::engine::Engine;
 use crate::request::Request;
@@ -304,10 +304,13 @@ fn a_uml_target_in_an_inside_contract_names_the_target_of_the_tree() {
     let bytes = serde_json::to_vec(&inside).unwrap_or_default();
     let (state, usable) = answer(input(&root, vec![file("a.json", "a.json", &bytes)]));
     assert!(matches!(state, ContractState::Parsed(_)), "{state:?}");
-    let reason = super::uml_reason(usable.as_ref(), ROOT);
-    assert!(reason.is_some_and(|(id, _)| id == "UML-TARGET-a2e40c5592b1b06a"));
+    let row = super::uml_row(usable.as_ref(), ROOT);
+    assert_eq!(
+        row,
+        Some(("UML-TARGET-a2e40c5592b1b06a".to_owned(), UmlGap::Empty))
+    );
     let (_, plain) = answer(input(&contract(vec![component("a", None)], vec![]), vec![]));
-    assert!(super::uml_reason(plain.as_ref(), ROOT).is_none());
+    assert!(super::uml_row(plain.as_ref(), ROOT).is_none());
 }
 
 #[test]
@@ -425,4 +428,19 @@ fn a_root_rule_with_the_scoped_id_of_a_mount_rule_refuses_the_tree() {
         "{state:?}"
     );
     assert!(usable.is_none());
+}
+
+/// AD-470: the cause of the UML row counts the declared intent that the core does not compare.
+#[test]
+fn a_uml_target_row_counts_the_intent_that_the_core_does_not_compare() {
+    let bytes = include_bytes!("../../../fixtures/H-uml-typescript/architecture-contract.json");
+    let (state, usable) = answer(input(bytes, vec![]));
+    assert!(matches!(state, ContractState::Parsed(_)), "{state:?}");
+    let gap = UmlGap::NotCompared {
+        entities: 21,
+        relationships: 13,
+        scopes: 2,
+    };
+    let row = super::uml_row(usable.as_ref(), ROOT);
+    assert_eq!(row, Some(("UML-TARGET-a2e40c5592b1b06a".to_owned(), gap)));
 }

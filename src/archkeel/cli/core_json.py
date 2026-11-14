@@ -18,7 +18,6 @@ class GapKind(StrEnum):
     INSIDE_CONTRACT_MISSING = "inside_contract_missing"
     INSIDE_RULE = "inside_rule"
     TREE_SCOPE = "tree_scope"
-    UML_TARGET = "uml_target"
     SCOPE_PROOF = "scope_proof"
     CONTRACT_REFUSED = "contract_refused"
     SECTION = "section"
