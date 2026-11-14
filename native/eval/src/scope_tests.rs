@@ -193,7 +193,7 @@ fn a_runtime_requirement_that_the_core_does_not_read_is_a_named_gap() {
     let reason = unread(Part::RuntimeRequirement);
     let cases = [
         (json!("~=1.88"), "declared"),
-        (json!(">=1.88,<2"), "declared"),
+        (json!(">=1.88,<=2"), "declared"),
         (json!(">=1.80 || >=2"), "declared"),
         (json!(">=1.88"), "metadata_missing"),
     ];
@@ -207,6 +207,8 @@ fn a_runtime_requirement_that_the_core_does_not_read_is_a_named_gap() {
 fn a_runtime_at_or_above_its_bound_passes() {
     for required in [
         json!(">=1.88"),
+        // AD-472: each `>=X` and `<X` clause of a comma list must hold.
+        json!(">=1.88,<2"),
         json!(">= 1.88.0"),
         json!(">=1"),
         json!(">=01.9"),
