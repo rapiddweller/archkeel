@@ -20,43 +20,14 @@ use crate::resolve::classify;
 use crate::scan::Reference;
 use crate::tree::Module;
 mod alias;
+mod climb;
+mod outcome;
 use alias::Aliases;
+use climb::climb;
+pub(crate) use outcome::{Edge, Outcome, TypeOf};
 
 /// The deepest chain of `use` bindings and globs that the resolver follows.
 const MAX_HOPS: usize = 8;
-
-/// A module that a path names: the file that holds it and the first segment after it.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Edge {
-    /// The module id of the file that holds the target.
-    pub module: String,
-    /// The module of the target itself: an inline `mod` has its own, below its file.
-    pub lexical: String,
-    /// The segment after the deepest module, or `None` when the path ends at a module.
-    pub symbol: Option<String>,
-    /// 0 for `crate::`, 1 for `self::` and a child name, `n + 1` for `super::` n times.
-    pub level: i64,
-}
-
-/// The type that a path names, for the members of its `impl` blocks (#953).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum TypeOf {
-    /// The lexical module that defines the type, and its name.
-    Known(String, String),
-    /// The scan cannot say which type it is: a glob may bring it in, or the path is UNKNOWN.
-    Unknown,
-    /// No type of this crate: another crate, `Self`, or an associated item.
-    Other,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) enum Outcome {
-    /// The path names no module of this crate (a crate, a type, a function).
-    None,
-    Edge(Edge),
-    /// The scan cannot say which module the path names, and says why.
-    Unknown(String),
-}
 
 /// One file of the walk, with the names that it binds.
 pub(crate) struct Frame<'a> {
@@ -123,29 +94,6 @@ pub(crate) fn index<'a>(workspace: &'a Workspace, modules: &'a [Module]) -> Inde
         built.frames.insert(&module.module, frame);
     }
     built
-}
-
-/// Climb one module for each `super` that starts `names` at `at`: the module, the number of
-/// steps and the index after the last `super`.
-fn climb(
-    frame: &Frame<'_>,
-    from: &str,
-    names: &[String],
-    mut at: usize,
-) -> Result<(String, i64, usize), Outcome> {
-    let (mut cur, mut ups) = (from.to_owned(), 0);
-    while names.get(at).map(String::as_str) == Some("super") {
-        if cur == frame.root {
-            let reason = "super names a module above the crate root";
-            return Err(Outcome::Unknown(reason.to_owned()));
-        }
-        cur = cur
-            .rsplit_once('.')
-            .map_or(cur.clone(), |(parent, _)| parent.to_owned());
-        ups += 1;
-        at += 1;
-    }
-    Ok((cur, ups, at))
 }
 
 /// Whether `module` is `root` or a module below it.
@@ -302,11 +250,14 @@ impl<'a> Index<'a> {
         // that is a module of the root names that module (and a crate name is no module).
         let rooted = frame.krate.manifest.legacy() && (absolute || !globs);
         let root_child = format!("{}.{first}", frame.root);
-        if rooted
-            && !["crate", "self", "super"].contains(&first)
-            && self.lexical.contains_key(&root_child)
-        {
-            return self.follow(frame.root, 0, names);
+        if rooted && !["crate", "self", "super"].contains(&first) {
+            if self.lexical.contains_key(&root_child) {
+                return self.follow(frame.root, 0, names);
+            }
+            // The alias of the root is an item of the root, not a name of the extern prelude.
+            if let Some(found) = self.prelude_edge(frame, names) {
+                return found;
+            }
         }
         if absolute {
             return self.prelude_edge(frame, names).unwrap_or(Outcome::None);
@@ -319,12 +270,12 @@ impl<'a> Index<'a> {
             }
             "self" | "super" => {
                 let start = usize::from(first == "self");
-                match climb(frame, &cur, names, start) {
+                match climb(frame.root, &cur, names, start) {
                     Ok((above, ups, at)) => {
                         (cur, level) = (above, level + ups);
                         at
                     }
-                    Err(unknown) => return unknown,
+                    Err(reason) => return Outcome::Unknown(reason.to_owned()),
                 }
             }
             _ => return self.bare(frame, names, place, hops, globs),
@@ -338,6 +289,12 @@ impl<'a> Index<'a> {
             Outcome::Edge(edge) => edge.module,
             _ => start.to_owned(),
         }
+    }
+
+    /// Whether `name` is an alias of the extern prelude for the target that holds `module`.
+    pub(crate) fn is_alias(&self, module: &str, name: &str) -> bool {
+        let root = self.frames.get(module).map(|frame| frame.root);
+        root.is_some_and(|root| self.aliases.in_prelude(root, name))
     }
 
     /// What `names` names when its first name is in the extern prelude (`extern crate self as me;`).
@@ -384,27 +341,51 @@ impl<'a> Index<'a> {
         // The count and the bindings below are read across the whole file, not in the scope of the
         // path. That is safe only because a name that the file declares more than once is UNKNOWN.
         let first = &names[0];
-        if first == "Self" || names.len() < 2 {
+        let aliased = self.aliases.in_prelude(frame.root, first);
+        if first == "Self" || (names.len() < 2 && !aliased) {
             return Outcome::None;
         }
         let count = frame.module.scan.counts.get(first).copied().unwrap_or(0);
         let child = format!("{}.{first}", place.0);
         let bound = frame.bindings.get(first.as_str());
         let local = self.lexical.contains_key(&child) || bound.is_some();
+        // The one declaration of the alias name may be the alias item of the crate root itself.
+        let aliases = &frame.module.scan.self_aliases;
+        let own =
+            frame.module.module == frame.root && aliases.contains(&(Vec::new(), first.clone()));
+        let (count, local) = if aliased && own && count == 1 {
+            (0, false)
+        } else {
+            (count, local)
+        };
         if count == 0 && !local {
             if let Some(found) = self.unbound(frame, names, (place.0, hops), globs) {
                 return found;
             }
             return Outcome::None;
         }
-        let hides = !local && self.aliases.in_prelude(frame.root, first);
-        if !local && !hides {
+        // A `use` or a `mod` hides the alias in its own scope only; the declaration of any other
+        // kind, and one in a function body, are not placed.
+        let scopes: Vec<(String, bool)> = (bound.into_iter().flatten())
+            .map(|leaf| {
+                (
+                    lexical(frame, &leaf.scope),
+                    matches!(leaf.via, crate::scan::Via::Use { block: true, .. }),
+                )
+            })
+            .collect();
+        let here = (place.0, self.lexical.contains_key(&child));
+        if aliased && Aliases::contested((count, own), &scopes, here) {
+            let reason =
+                format!("A name that the file declares may hide the alias of the crate: {first}");
+            return Outcome::Unknown(reason);
+        }
+        if !local {
             return Outcome::None;
         }
-        if count != 1 || hides {
-            let reason = format!(
-                "A name that the file declares more than once, or over the alias of the crate, may name a module: {first}"
-            );
+        if count != 1 {
+            let reason =
+                format!("A name that the file declares more than once may name a module: {first}");
             return Outcome::Unknown(reason);
         }
         match bound {
@@ -488,7 +469,19 @@ impl Index<'_> {
                 let Some(target) = self.frames.get(edge.module.as_str()) else {
                     return Outcome::None;
                 };
-                self.bare(target, names, (edge.lexical.as_str(), true), hops + 1, true)
+                match self.bare(target, names, (edge.lexical.as_str(), true), hops + 1, true) {
+                    // A macro call of the module may define the name (`mk!();` for `pub use`).
+                    Outcome::None
+                        if target.module.scan.macro_calls.iter().any(|c| !c.expression) =>
+                    {
+                        let reason = format!(
+                            "A glob may bring in {} from a module that a macro call fills",
+                            names[0]
+                        );
+                        Outcome::Unknown(reason)
+                    }
+                    found => found,
+                }
             }
             _ => Outcome::None,
         }

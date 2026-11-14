@@ -61,6 +61,8 @@ pub(crate) struct MacroCall {
     pub name: String,
     pub site: Site,
     pub placed: bool,
+    /// The macro is one of the standard expression macros, which define no item.
+    pub expression: bool,
 }
 
 /// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path
@@ -197,11 +199,13 @@ impl Walker<'_> {
             name: name.clone(),
             site,
             placed: local,
+            expression: KNOWN_MACROS.contains(&name.as_str()),
         };
         // The tokens of a macro are not code that the scan reads: a call in them is not placed.
         let mut inner = BTreeSet::new();
         macro_names(node.tokens.clone(), 0, &mut inner);
         let hidden = inner.into_iter().map(|name| MacroCall {
+            expression: KNOWN_MACROS.contains(&name.as_str()),
             name,
             placed: false,
             ..call.clone()

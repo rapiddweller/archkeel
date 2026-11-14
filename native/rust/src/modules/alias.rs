@@ -47,6 +47,25 @@ impl Aliases {
         self.members.get(&key).map(String::as_str)
     }
 
+    /// Whether the file may hide the alias `name` in some scope, so that a path of the scope
+    /// `place` cannot be read. `count` is how often the file declares the name; `own` says that
+    /// the only declaration is the alias item itself; `bindings` are the lexical module of each
+    /// `use` leaf that binds the name, and whether it is in a function body; `child` says that
+    /// a `mod` of that name is in `place`. A scope that the one declaration does not reach sees
+    /// the alias, and a declaration that the scan cannot place may hide it.
+    pub(crate) fn contested(
+        (count, own): (usize, bool),
+        bindings: &[(String, bool)],
+        (place, child): (&str, bool),
+    ) -> bool {
+        match (count, bindings) {
+            (0, _) => false,
+            (1, _) if own || child => false,
+            (1, [(at, false)]) => at != place,
+            _ => true,
+        }
+    }
+
     /// Whether the extern prelude of the target with the root `root` holds `name`.
     pub(crate) fn in_prelude(&self, root: &str, name: &str) -> bool {
         self.prelude
