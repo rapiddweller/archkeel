@@ -77,9 +77,10 @@ def frame(status: Status = Status.PASS) -> bytes:
                 "contract": {"rules": {"R1": "forbidden_dependency"}},
                 "reply": {"files": 2},
                 "collect": {
+                    "contract_files": {"contract.json": hashlib.sha256(b"contract").hexdigest()},
                     "request": {
                         "snapshot": {"root": str(Path.cwd()), "git_head": HEAD, "dirty": False}
-                    }
+                    },
                 },
             },
         }

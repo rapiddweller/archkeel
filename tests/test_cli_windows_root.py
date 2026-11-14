@@ -4,6 +4,7 @@
 """AD-442: a release core uses one disk root and refuses network and device roots."""
 
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -12,7 +13,7 @@ import pytest
 from rust_repository import component, repository
 from test_cli_core_only_scan import command
 
-from archkeel.cli.core_frame import resolve_root
+from archkeel.cli.core_binding import resolve_root
 
 
 def test_the_release_core_proves_a_disk_pass_and_failure(
@@ -30,6 +31,44 @@ def test_the_release_core_proves_a_disk_pass_and_failure(
         assert result["frame"]["self_test"]["collect"]["request"]["snapshot"]["root"] == str(
             resolve_root(root)
         )
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows long disk paths")
+def test_windows_scans_a_disk_root_longer_than_260_characters(
+    release_core: Path, tmp_path: Path
+) -> None:
+    source = repository(tmp_path / "short", release_core)
+    with (source / ".git/config").open("a") as stream:
+        stream.write("\n[core]\nlongpaths = true\n")
+    root = tmp_path
+    while len(str(root)) <= 280:
+        root /= "long-directory-name"
+    shutil.copytree(source, root)
+    assert len(str(root)) > 260
+    done = command(release_core, root, "--json")
+    assert done.returncode == 0, done.stdout + done.stderr
+    result = json.loads(done.stdout)
+    assert result["status"] == "PASS"
+    assert result["frame"]["self_test"]["collect"]["request"]["snapshot"]["root"] == str(
+        resolve_root(root)
+    )
+
+
+def test_tree_contract_file_names_stay_posix(release_core: Path) -> None:
+    from core_support import HONEST, case_root
+    from test_cli_core_inside_trees import tree
+
+    with case_root(HONEST) as root:
+        tree(root)
+        (root / "nested").mkdir()
+        (root / "deep.json").rename(root / "nested/deep.json")
+        inside = root / "inside.json"
+        inside.write_text(inside.read_text().replace("deep.json", "nested/deep.json"))
+        done = command(release_core, root, "--json")
+        assert done.returncode == 0, done.stdout + done.stderr
+        files = json.loads(done.stdout)["frame"]["self_test"]["collect"]["contract_files"]
+        assert set(files) == {"architecture-contract.json", "inside.json", "nested/deep.json"}
+        assert all("\\" not in name and ":" not in name for name in files)
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows path resolution")

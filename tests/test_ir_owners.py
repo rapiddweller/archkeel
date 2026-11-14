@@ -25,6 +25,7 @@ SHELL = frozenset(
         "cli/__init__.py",
         "cli/__main__.py",
         "cli/core_binary.py",
+        "cli/core_binding.py",
         "cli/core_evidence.py",
         "cli/core_frame.py",
         "cli/core_json.py",

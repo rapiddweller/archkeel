@@ -17,9 +17,11 @@ import sys
 import traceback
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from time import time_ns
 from typing import Final, NoReturn
 
 from .core_binary import CoreBinaryNotFound, locate_core
+from .core_binding import resolve_root
 from .core_frame import (
     CheckKind,
     CoreError,
@@ -28,7 +30,6 @@ from .core_frame import (
     RefusalKind,
     Status,
     read_frame,
-    resolve_root,
 )
 from .core_frame import CoreCommand as Command
 from .core_json import RequestMismatch
@@ -248,14 +249,16 @@ def _decide(options: Options, as_json: bool) -> int:
         "protocol": SCAN_PROTOCOL,
         "root": str(root),
         "config": options.config,
-        "root_only": True,
         "discover_root": options.root is None,
     }
     if (claim := identity(root)) is not None:
         request["git_head"], request["dirty"] = claim
     binary = locate_core()
+    started_ns = time_ns()
     stdout, code = exchange(str(binary), "scan", json.dumps(request).encode())
-    frame = read_frame(stdout, code, scan=True, require_protocol=True, request=request)
+    frame = read_frame(
+        stdout, code, scan=True, require_protocol=True, request=request, started_ns=started_ns
+    )
     result: dict[str, object] = {
         "command": options.command,
         "status": frame.status,

@@ -29,6 +29,12 @@ It refuses other Windows prefixes before resolution, so a device path cannot bec
 A caller that sends a noncanonical root directly to the core still gets a refusal.
 A configuration or scan root that resolves outside the project still gets no bytes.
 Unix path handling does not change.
+The tree binding uses this same resolved form for the root, configuration and all contract files.
+Contract file lists keep POSIX references with `/`, including on Windows.
+
+There is no 260-character root limit. The filesystem APIs accept long disk paths.
+The Windows scan test uses a root longer than 260 characters and repository-local `core.longpaths=true` for Git.
+If the fixed Git executable cannot read a repository, its error remains a typed refusal, never PASS.
 
 The snapshot crate already compares canonical roots with canonical targets in the same namespace.
 Its `snapshot.rs` and `listing.rs` canonicalization calls need no prefix conversion.

@@ -45,6 +45,10 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
+      - name: Install the pinned Rust toolchain once, before any parallel step
+        working-directory: native
+        run: rustup toolchain install
+
       - name: Check architecture, format, lint, Python types and browser code
         env:
           # A dispatch has no previous push; one squash merge is one commit on main.
@@ -95,6 +99,10 @@ jobs:
 
       - name: Install locked dependencies
         run: uv sync --locked
+
+      - name: Install the pinned Rust toolchain once, before any parallel step
+        working-directory: native
+        run: rustup toolchain install
 
       - name: Show the runner CPU
         run: lscpu | grep -E '^(Model name|CPU\(s\)):'
@@ -205,6 +213,10 @@ jobs:
 
       - name: Install locked dependencies
         run: uv sync --locked
+
+      - name: Install the pinned Rust toolchain once, before any parallel step
+        working-directory: native
+        run: rustup toolchain install
 
       - name: Install the pinned cargo-deny and check its SHA-256
         run: make cargo-deny-install

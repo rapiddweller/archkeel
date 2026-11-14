@@ -9,16 +9,13 @@ A PASS needs a complete scope and a deciding rule. Refuse a frame with `CoreErro
 
 from __future__ import annotations
 
-import hashlib
 import json
-import sys
-import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
-from pathlib import Path
 from typing import Final, TypeVar
 
+from .core_binding import bind_request
 from .core_evidence import (
     CollectionGap,
     Location,
@@ -30,7 +27,7 @@ from .core_evidence import (
 from .core_json import CoreError as CoreError
 from .core_json import Gap as Gap
 from .core_json import GapKind as GapKind
-from .core_json import RequestMismatch, _count, _fields, _object, _text, _texts
+from .core_json import _count, _fields, _object, _text, _texts
 
 
 class Status(StrEnum):
@@ -323,7 +320,14 @@ def _gaps(
     collected: list[Gap] = []
     derived: str | None = None
     if scan:
-        tag, found = _one(test["collect"], "self_test.collect", _CollectRead)
+        collect = _object(test["collect"], "self_test.collect")
+        tag, found = _one(
+            {key: value for key, value in collect.items() if key != "contract_files"},
+            "self_test.collect",
+            _CollectRead,
+        )
+        if "contract_files" in collect:
+            _texts(collect["contract_files"], "self_test.collect.contract_files")
         if tag is _CollectRead.REQUEST:
             derived = json.dumps(_object(found, "self_test.collect.request"))
         else:
@@ -352,59 +356,6 @@ def _explained(
             raise CoreError(f"the core frame rule {rule} is {verdict.status} without its row")
 
 
-def resolve_root(path: Path) -> Path:
-    """Resolve the shell root, but never turn a device or network root into a disk root."""
-    if sys.platform == "win32" and path.drive:
-        drive = path.drive.removeprefix("\\\\?\\")
-        if len(drive) != 2 or not drive[0].isascii() or not drive[0].isalpha() or drive[1] != ":":
-            raise ValueError("the root is not a supported local disk path")
-    resolved = path.resolve()
-    if (
-        sys.platform == "win32"
-        and resolved.drive.startswith("\\\\?\\")
-        and len(resolved.drive) == 6
-    ):
-        return Path(str(resolved).removeprefix("\\\\?\\"))
-    return resolved
-
-
-def _bind_request(frame: Mapping[str, object], request: Mapping[str, object], derived: str) -> None:
-    """Bind the response to the requested root, Git identity and exact contract bytes.
-
-    This is not a second verdict: the rule rows are trusted to the located core binary (AD-432).
-    """
-    root = resolve_root(Path(_text(request["root"], "request.root")))
-    if request.get("discover_root") is True:
-        root = next((path for path in (root, *root.parents) if (path / ".git").exists()), root)
-    collected = _object(json.loads(derived), "collect.request")
-    snapshot = _object(collected.get("snapshot"), "collect.request.snapshot")
-    if _text(snapshot.get("root"), "snapshot.root") != str(root):
-        raise RequestMismatch("the core frame answers another root")
-    # AD-432: the shell states the commit and the dirty state; the frame must name the same.
-    head, dirty = request.get("git_head"), request.get("dirty")
-    if not isinstance(head, str) or snapshot.get("git_head") != head:
-        raise RequestMismatch("the core frame answers another commit than the shell read")
-    if not isinstance(dirty, bool) or snapshot.get("dirty") is not dirty:
-        raise RequestMismatch("the core frame answers another work tree state than the shell read")
-    config = (root / _text(request["config"], "request.config")).resolve(strict=True)
-    if not config.is_relative_to(root):
-        raise RequestMismatch("the configuration leaves the requested root")
-    with config.open("rb") as stream:
-        raw = stream.read((1 << 20) + 1)
-    if len(raw) > 1 << 20:
-        raise RequestMismatch("the configuration exceeds the core byte limit")
-    scan = _object(tomllib.loads(raw.decode("utf-8")).get("scan"), "scan")
-    contract = (root / _text(scan.get("contract"), "scan.contract")).resolve(strict=True)
-    if not contract.is_relative_to(root):
-        raise RequestMismatch("the contract leaves the requested root")
-    with contract.open("rb") as stream:
-        payload = stream.read((64 << 20) + 1)
-    if len(payload) > 64 << 20:
-        raise RequestMismatch("the contract exceeds the core byte limit")
-    if frame.get("contract_digest") != hashlib.sha256(payload).hexdigest():
-        raise RequestMismatch("the core frame contract digest differs from the requested contract")
-
-
 def read_frame(
     stdout: bytes,
     exit_code: int,
@@ -412,6 +363,7 @@ def read_frame(
     scan: bool = False,
     require_protocol: bool = False,
     request: Mapping[str, object] | None = None,
+    started_ns: int | None = None,
 ) -> CoreFrame:
     """The typed frame of one run of the core, or `CoreError`. `scan` reads the frame of a scan
     request, whose self-test has the `collect` part (AD-406)."""
@@ -447,7 +399,7 @@ def read_frame(
     _object(frame["sections"], "sections")
     gaps, missing, derived = _gaps(frame, scan)
     if request is not None and derived is not None:
-        _bind_request(frame, request, derived)
+        bind_request(frame, request, derived, started_ns)
     beyond = _texts(frame["beyond"], "beyond")
     passing = {rule for rule, verdict in rules.items() if verdict.status is RuleStatus.PASS}
     if not passing.issuperset(beyond):
