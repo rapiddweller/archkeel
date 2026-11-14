@@ -72,6 +72,8 @@ impl RuleReasons {
 pub struct Ruling {
     protocol: &'static str,
     #[serde(skip)]
+    html: bool,
+    #[serde(skip)]
     decided: Decided,
     status: Status,
     /// The kind word and the verdict of each decided rule.
@@ -92,6 +94,12 @@ pub struct Ruling {
 }
 
 impl Ruling {
+    /// Request a static presentation of this same ruling, without changing its decision.
+    pub fn with_html(mut self, html: bool) -> Self {
+        self.html = html;
+        self
+    }
+
     /// The decided mark: the status, the run proof of a PASS and the Decision of each rule.
     pub fn decided(&self) -> &Decided {
         &self.decided
@@ -107,7 +115,7 @@ impl Ruling {
     pub fn frame<P: Serialize>(&self, parts: &P) -> Result<EngineFrame, FrameError> {
         let ruling = serde_json::to_value(self);
         let reasons = serde_json::to_value(&self.unsupported);
-        crate::engine_frame::write(ruling, reasons, parts)
+        crate::engine_frame::write(ruling, reasons, parts, self.html)
     }
 }
 
@@ -115,6 +123,16 @@ impl Ruling {
 /// AD-385), the gaps of the core, the status and its proof. A frame that breaks the explaining
 /// rows of AD-361 point 5 is an error, never a ruling.
 pub fn rule(models: Result<&ModelTree, &Reason>, named: Named) -> Result<Ruling, BuildError> {
+    rule_with_edge_links(models, named, false).map(|(ruling, _)| ruling)
+}
+
+/// Evaluate once and also give the rules whose FAIL rows cite each import identity; the map is
+/// empty unless `keep_links` is set.
+pub fn rule_with_edge_links(
+    models: Result<&ModelTree, &Reason>,
+    named: Named,
+    keep_links: bool,
+) -> Result<(Ruling, BTreeMap<String, BTreeSet<String>>), BuildError> {
     let scope = match models {
         Ok(models) => models
             .models()
@@ -124,6 +142,7 @@ pub fn rule(models: Result<&ModelTree, &Reason>, named: Named) -> Result<Ruling,
     let complete = scope.is_none();
     let scope = scope.map_or_else(|| "complete".to_owned(), |reason| reason.to_string());
     let mut rows = Rows::default();
+    let mut edge_links = crate::edge_links::Links::new();
     let mut reasons: BTreeMap<String, String> = BTreeMap::new();
     let mut gaps = named.rules;
     // Each row reads the model whose contract holds its rule; a reason for the whole contract
@@ -132,6 +151,9 @@ pub fn rule(models: Result<&ModelTree, &Reason>, named: Named) -> Result<Ruling,
     for model in decided.into_iter().flat_map(ModelTree::models) {
         for outcome in evaluate(model) {
             rows.add(&outcome, model, named.hold.as_ref(), &mut gaps)?;
+            if keep_links {
+                crate::edge_links::add(&mut edge_links, &outcome);
+            }
         }
     }
     reasons.extend(
@@ -166,8 +188,9 @@ pub fn rule(models: Result<&ModelTree, &Reason>, named: Named) -> Result<Ruling,
         Some(reason) => RuleReasons::All(reason),
         None => RuleReasons::Each(reasons),
     };
-    Ok(Ruling {
+    let ruling = Ruling {
         protocol: "archkeel-core-frame-1",
+        html: false,
         decided: Decided {
             status,
             pass,
@@ -183,7 +206,8 @@ pub fn rule(models: Result<&ModelTree, &Reason>, named: Named) -> Result<Ruling,
         beyond: rows.beyond,
         scope,
         unsupported,
-    })
+    };
+    Ok((ruling, edge_links))
 }
 
 /// The rows of the decided rules.

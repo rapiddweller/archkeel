@@ -11,9 +11,11 @@
 >   PASS exits 0, FAIL exits 1, UNKNOWN and a refusal exit 2.
 > - Only **Rust and TypeScript projects** are supported. Python and Dart profiles give exit 2.
 > - `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
->   HTML reports, `architecture.json`, baselines and focused reports are not available.
-> - No package carries the core binary yet. Run `main` from a source checkout after `make core`.
->   An installed package refuses each run with `core_binary_not_found`. There is no Python fallback.
+>   Interactive reports, `architecture.json`, baselines and focused reports are not available.
+> - `report --output PATH` writes one static HTML page; `--format json` writes the core frame instead.
+> - The [nightly fixture reports](https://rapiddweller.github.io/archkeel/) show what the core says for each project of `fixtures/`, refusals included.
+> - No release carries the core binary yet. Run `main` from a source checkout after `make core`.
+>   A package without the core refuses each run with `core_binary_not_found`. There is no Python fallback.
 > - Release 4.0.1 has `check`, `init` and full reports for Python, Dart and TypeScript projects.
 >   No release has Studio or `explore`. See the [state of `main`](docs/reference.md#state-of-main).
 
@@ -86,13 +88,14 @@ first, then declare what you want to keep.
 ArchKeel needs Python 3.11+ and a Git repository with at least one commit.
 
 ```bash
-uv tool install git+https://github.com/rapiddweller/archkeel
+ARCHKEEL_BUNDLE_NATIVE=1 uv tool install git+https://github.com/rapiddweller/archkeel
 archkeel --version
 ```
 
-This installs the current `main` without the core binary, so each run refuses with exit 2.
+This builds the current `main` with its core binary. The build needs `cargo` and `cargo-auditable`,
+and it refuses without the variable, because a package without the core refuses each run.
 `uv tool install archkeel` installs release 4.0.1 from PyPI, which has the Python engine.
-To run `main`, use a source checkout:
+You can also run `main` from a source checkout:
 
 ```bash
 git clone https://github.com/rapiddweller/archkeel.git
@@ -123,6 +126,7 @@ The plugin needs the CLI above; it adds the agent skill.
 ```bash
 archkeel validate        # check the contract: exit 0, 1 or 2
 archkeel report --text   # the same frame of the core as a report
+archkeel report --output report.html  # one static page; the parent must exist
 ```
 
 `validate` and `report` need an `archkeel.toml` with `language = "rust"` or `"typescript"` and a
@@ -136,8 +140,8 @@ Read the verdicts: on `main`, `report` has the exit codes of `validate`.
 **Does ArchKeel use an LLM to check my code?** No. Checks are deterministic static analysis and run
 locally. The agent in your harness explains and proposes; its text is a claim, never a proof.
 
-**Does ArchKeel change my repository?** `validate` and `report` write nothing. `skill install`
-writes one skill file.
+**Does ArchKeel change my repository?** `validate` and `report` write nothing by default.
+`report --output PATH` replaces the named regular file atomically. `skill install` writes one skill file.
 
 **Does a clean graph mean a good design?** No. `PASS` means the required rules have complete evidence
 and no decided violation. It does not prove runtime behavior or the quality of a design decision.

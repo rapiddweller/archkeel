@@ -14,7 +14,7 @@ The Python engine is deleted. The shell reads the arguments, starts the core and
 
 `main` supports Rust and TypeScript projects. Python and Dart profiles give exit 2 before collection (AD-430).
 A config without `language` selects the Python profile, so it is refused. There is no partial PASS.
-HTML reports, `architecture.json`, saved reports, focused reports, baselines, amendments and
+Interactive reports, `architecture.json`, saved reports, focused reports, baselines, amendments and
 `--write-graph` are not on `main`. The shell refuses each of their options by name with exit 2.
 
 Release 4.0.1 has the Python engine: `check`, `init`, full reports and baselines for Python,
@@ -132,16 +132,44 @@ The shell also compares the root, the commit and the dirty state of the frame wi
 A difference is a refusal. The rule rows are trusted to the located core binary.
 
 `--core-only` is accepted and changes nothing. `ARCHKEEL_CORE_ONLY` and `ARCHKEEL_NATIVE_CORE` are ignored.
-`--native-core`, `--timings`, `--html` and each option of the Python engine give a typed refusal with exit 2.
+`--native-core`, `--timings`, `--html` and unported options of the Python engine give a typed refusal with exit 2.
 `report --json` gives the verdict frame as JSON, and `--text` gives the text summary.
-Neither form is a complete `architecture.json` or an HTML report.
+Neither stdout form is a complete `architecture.json` or an HTML report.
+`report --topology` adds a bounded `topology` section: components, modules, edges, completeness, budgets
+and the rules that cite each edge (AD-464). Without the option the frame and its time do not change.
+A total over a budget sets `truncated` and keeps the exact total. The section never changes a verdict.
+`topology.complete` means only: the scope is complete and no list is truncated. It is not the verdict
+and does not mean that the run has no gap: an UNKNOWN run can show `complete: true`.
+
+`report --output PATH` writes one static HTML page. `--format json` writes the core frame instead.
+`--format html` is the default and needs `--output`. Without an output path, no file is written.
+The HTML comes from the same ruling in the Rust core. It has no scripts, external resources or graph.
+It includes verdicts, counts, rule rows, violations, evidence locations, gaps, unsupported parts and request identity.
+The identity block lists each bound contract file and its SHA-256 digest, including nested contracts (AD-438).
+UNKNOWN and collection-refused frames write reports that show their verdict and causes.
+A refusal without an accepted frame writes nothing and says so. Stdout and verdict exits stay unchanged.
+If the report file cannot be written, stdout still shows the frame verdict with typed `io_error`, exit 2.
+Exit 2 replaces exit 1 of a FAIL: a run that cannot deliver the requested file is not a clean FAIL.
+The parent must exist. Ancestor links are allowed, including `/tmp` on macOS; the resolved parent is pinned once.
+A final-component link, directory or special file is refused. Empty and `.` output paths refuse before the scan.
+`--output -` refuses: standard output is not a file target; omit `--output`.
+An existing regular file is replaced atomically. No sidecar or parent directory is created.
+The page uses compact detail fields and cited evidence locations. The Tool block labels the core code digest.
+It shows no package version, because the scan request does not carry one. The crate version is not the package version.
+This safe file output requires POSIX directory handles; other platforms refuse file output.
+`validate --output` stays refused, as release 4.0.1 did not have it. See AD-440.
+
 `check` always refuses and names each check it cannot run: its expectation, lock, Git and host checks need #1103.
 No failure falls back to Python.
 
 The shell looks for the core only below its own package: `archkeel/_native` with a SHA-256 file,
-else `native/target/release/archkeel-core` of the checkout that holds the package, else its debug build.
+else `native/target/release/archkeel-core` of the checkout that holds the package below `src/`, else its debug build.
+An installed package has no checkout and uses only `archkeel/_native`.
+The digest finds a damaged or wrong file. It does not stop a party that can write both files,
+and the binary can change between the check and its start.
 It never reads the scanned project, the current directory or `PATH`. Build the core with `make core`.
-No package carries the core yet, so an installed package refuses with `core_binary_not_found`.
+A platform wheel carries the core and its digest in `archkeel/_native` (AD-436). No release carries it yet.
+A package without the core refuses with `core_binary_not_found`.
 The scan reads Git through the fixed system executable, not PATH. Missing Git is a named refusal.
 
 The repository survey refuses a root with more than 1 GiB of file bytes or more than 100,000 entries.

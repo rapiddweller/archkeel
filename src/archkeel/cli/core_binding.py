@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import stat
+import sys
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
@@ -17,11 +18,27 @@ from .core_json import RequestMismatch, _object, _text, _texts
 _BYTES = 64 << 20
 
 
+def resolve_root(path: Path, *, strict: bool = False) -> Path:
+    """Use one plain disk form for the root and its files; refuse device and network roots."""
+    if sys.platform == "win32" and path.drive:
+        drive = path.drive.removeprefix("\\\\?\\")
+        if len(drive) != 2 or not drive[0].isascii() or not drive[0].isalpha() or drive[1] != ":":
+            raise ValueError("the root is not a supported local disk path")
+    resolved = path.resolve(strict=strict)
+    if (
+        sys.platform == "win32"
+        and resolved.drive.startswith("\\\\?\\")
+        and len(resolved.drive) == 6
+    ):
+        return Path(str(resolved).removeprefix("\\\\?\\"))
+    return resolved
+
+
 def bind_request(
     frame: Mapping[str, object], request: Mapping[str, object], derived: str, started_ns: int | None
 ) -> None:
     """Check identity, not verdicts. Only the located core proves the rule rows."""
-    root = Path(_text(request["root"], "request.root")).resolve()
+    root = resolve_root(Path(_text(request["root"], "request.root")))
     if request.get("discover_root") is True:
         root = next((path for path in (root, *root.parents) if (path / ".git").exists()), root)
     collected = _object(json.loads(derived), "collect.request")
@@ -33,7 +50,7 @@ def bind_request(
         raise RequestMismatch("the core frame answers another commit than the shell read")
     if not isinstance(dirty, bool) or snapshot.get("dirty") is not dirty:
         raise RequestMismatch("the core frame answers another work tree state than the shell read")
-    config = (root / _text(request["config"], "request.config")).resolve(strict=True)
+    config = resolve_root(root / _text(request["config"], "request.config"), strict=True)
     if not config.is_relative_to(root):
         raise RequestMismatch("the configuration leaves the requested root")
     with config.open("rb") as stream:
@@ -42,7 +59,7 @@ def bind_request(
         raise RequestMismatch("the configuration exceeds the core byte limit")
     scan = _object(tomllib.loads(raw.decode("utf-8")).get("scan"), "scan")
     reference = _text(scan.get("contract"), "scan.contract")
-    contract = (root / reference).resolve(strict=True)
+    contract = resolve_root(root / reference, strict=True)
     if not contract.is_relative_to(root):
         raise RequestMismatch("the contract leaves the requested root")
     with contract.open("rb") as stream:
@@ -78,7 +95,7 @@ def _bind_inside(root: Path, name: str, digest: str, budget: int, started_ns: in
         raise RequestMismatch(f"the core frame names an unsafe contract path: {name}")
     path = root / relative
     try:
-        if path.resolve(strict=True) != path:
+        if resolve_root(path, strict=True) != path:
             raise RequestMismatch(f"the nested contract is a link or leaves the root: {name}")
         before = path.stat()
         if not stat.S_ISREG(before.st_mode):
@@ -92,7 +109,7 @@ def _bind_inside(root: Path, name: str, digest: str, budget: int, started_ns: in
             before.st_ino,
             before.st_mtime_ns,
             before.st_ctime_ns,
-        ) or path.resolve(strict=True) != path:
+        ) or resolve_root(path, strict=True) != path:
             raise RequestMismatch(f"the nested contract changed during the binding read: {name}")
     except OSError as error:
         raise RequestMismatch(f"the nested contract cannot be read: {name}: {error}") from error

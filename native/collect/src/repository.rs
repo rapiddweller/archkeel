@@ -28,6 +28,63 @@ pub(crate) const MAX_TOTAL_BYTES: u64 = 1 << 30;
 #[derive(Debug)]
 pub(crate) struct Root(PathBuf);
 
+/// Only disk paths with ordinary Win32 names can lose their verbatim prefix (AD-442).
+#[cfg(any(windows, test))]
+fn disk_text(text: &str) -> Option<&str> {
+    let plain = text.strip_prefix(r"\\?\").unwrap_or(text);
+    let bytes = plain.as_bytes();
+    if !matches!(bytes, [drive, b':', b'\\', ..] if drive.is_ascii_alphabetic()) {
+        return None;
+    }
+    let rest = plain.get(3..)?;
+    (rest.is_empty() || rest.split('\\').all(ordinary_name)).then_some(plain)
+}
+
+#[cfg(any(windows, test))]
+fn ordinary_name(name: &str) -> bool {
+    let stem = name
+        .split('.')
+        .next()
+        .unwrap_or("")
+        .trim_end_matches(' ')
+        .to_uppercase();
+    let device = matches!(
+        stem.as_str(),
+        "CON" | "PRN" | "AUX" | "NUL" | "CONIN$" | "CONOUT$"
+    ) || ["COM", "LPT"].iter().any(|prefix| {
+        stem.strip_prefix(prefix).is_some_and(|suffix| {
+            matches!(
+                suffix,
+                "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "¹" | "²" | "³"
+            )
+        })
+    });
+    !name.is_empty()
+        && !name.ends_with(['.', ' '])
+        && !name
+            .chars()
+            .any(|ch| ch < ' ' || r#"/:<>"|?*"#.contains(ch))
+        && !device
+}
+
+/// Keep one form for the request, the reported root and the contained reads.
+fn local_path(path: &Path) -> Option<PathBuf> {
+    #[cfg(windows)]
+    {
+        use std::path::Prefix;
+        match path.components().next()? {
+            Component::Prefix(prefix)
+                if matches!(prefix.kind(), Prefix::Disk(_) | Prefix::VerbatimDisk(_)) =>
+            {
+                disk_text(path.to_str()?).map(PathBuf::from)
+            }
+            _ => None,
+        }
+    }
+    #[cfg(not(windows))]
+    Some(path.to_path_buf())
+}
+
 impl Root {
     /// The root of `text`. It must be absolute and canonical, as the shell resolves it, so the
     /// root of the request and the snapshot root of the collector are one path.
@@ -36,8 +93,13 @@ impl Root {
         if !path.is_absolute() {
             return Err(format!("the root {text} is not an absolute path"));
         }
-        let canonical = fs::canonicalize(path)
+        let path = local_path(path).ok_or_else(|| {
+            format!("the root {text} is not canonical or not a supported local disk path")
+        })?;
+        let canonical = fs::canonicalize(&path)
             .map_err(|error| format!("the root {text} cannot be resolved: {error}"))?;
+        let canonical = local_path(&canonical)
+            .ok_or_else(|| format!("the root {text} resolves to an unsupported path"))?;
         // The text, not the `Path`: `Path` equality skips a `.` part.
         if canonical.as_os_str() != path.as_os_str() {
             return Err(format!(
@@ -57,7 +119,7 @@ impl Root {
 
     /// The real path of `relative` when it resolves inside the root, else `None`.
     pub(crate) fn contained(&self, relative: &str) -> Option<PathBuf> {
-        let target = fs::canonicalize(self.0.join(relative)).ok()?;
+        let target = local_path(&fs::canonicalize(self.0.join(relative)).ok()?)?;
         target.starts_with(&self.0).then_some(target)
     }
 
@@ -204,7 +266,8 @@ fn charged(total: u64, size: u64) -> Result<u64, String> {
     let total = total.saturating_add(size);
     if total > MAX_TOTAL_BYTES {
         return Err(format!(
-            "the repository holds more than {MAX_TOTAL_BYTES} bytes of files"
+            "the repository holds more than {MAX_TOTAL_BYTES} bytes of files; a build \
+             directory counts as source unless it holds a CACHEDIR.TAG file"
         ));
     }
     Ok(total)

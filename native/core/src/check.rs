@@ -90,6 +90,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
             Box::new(move |candidate, shared| crate::base::gap(base, candidate, shared))
         });
     dual_run::run(Run {
+        topology: false,
         case: "check".to_owned(),
         path: request.contract.path,
         contract: dual_run::hex(&request.contract.hex)?,
@@ -100,6 +101,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         roots: request.roots,
         baseline: false,
         report: false,
+        html: false,
         base,
         trust: Box::new(stage_one_shell_trust),
         collect: None,

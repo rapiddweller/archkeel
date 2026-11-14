@@ -111,7 +111,7 @@
 //! ```compile_fail,E0451
 //! use archkeel_report::{Decided, RuleReasons, Ruling, Status};
 //! fn ruling(decided: Decided) -> Ruling {
-//!     Ruling { decided, protocol: "archkeel-core-frame-1", status: Status::Pass,
+//!     Ruling { decided, protocol: "archkeel-core-frame-1", html: false, status: Status::Pass,
 //!         rules: Default::default(), details: Default::default(), unknown_kinds: Default::default(),
 //!         explained: Default::default(), violations: Default::default(),
 //!         beyond: Default::default(), scope: "complete".into(),
@@ -175,6 +175,7 @@ mod check_order;
 mod check_rows;
 mod check_structure;
 mod codes;
+mod edge_links;
 mod engine_frame;
 mod frame;
 mod frame_rules;
@@ -213,7 +214,7 @@ pub(crate) use payload::Payload;
 pub use payload::{DecodeError, MAX_BYTES, SCHEMA_VERSION};
 pub use problem::Problem;
 pub use report::{Decided, ReadError, Recorded, Report};
-pub use ruling::{rule, Named, RuleReasons, Ruling};
+pub use ruling::{rule, rule_with_edge_links, Named, RuleReasons, Ruling};
 #[cfg(test)]
 pub(crate) use status::{status_of, unexplained};
 pub use status::{Unexplained, PASS_NEEDS};

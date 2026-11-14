@@ -122,6 +122,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     let producer = producer(request.collector_argv.as_ref());
     let (profile, standard_library) = (request.profile, request.standard_library);
     run(Run {
+        topology: false,
         case: request.case,
         path,
         contract: contract.into_bytes(),
@@ -132,6 +133,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         roots: request.roots,
         baseline: request.baseline.is_some(),
         report: true,
+        html: false,
         base: None,
         trust: Box::new(move |namespace, _| Trust {
             settings: Settings::new(namespace, profile, standard_library).with_producer(producer),
@@ -158,6 +160,7 @@ impl ReplyInput {
 /// What a request kind gives to the one engine path (`run`): the dual run of the harness
 /// (`answer`) or the check request of the shell (`check.rs`). The two kinds differ only here.
 pub(crate) struct Run {
+    pub(crate) topology: bool,
     pub(crate) case: String,
     pub(crate) path: String,
     pub(crate) contract: Vec<u8>,
@@ -170,6 +173,8 @@ pub(crate) struct Run {
     pub(crate) baseline: bool,
     /// True when the frame names the report payload part (the dual run).
     pub(crate) report: bool,
+    /// Request a static presentation of the same ruling in the frame.
+    pub(crate) html: bool,
     /// The reading of the base reply of a check request (AD-399); the dual run has none.
     pub(crate) base: Option<BaseOf>,
     /// The settings of the namespace for the validated reply (or none), and a reason that names
@@ -242,11 +247,17 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
     };
     let mut named = named(&contract, run.baseline, &engine, &path);
     named.contract = named.contract.or(trust.gap).or(base);
-    let ruling = match engine.answer(Request::Rules(named)) {
-        Answer::Rules(ruling) => *ruling,
-        other => Err(format!("unexpected answer {other:?}")),
-    }
-    .map_err(|problem| format!("{}: an inconsistent frame: {problem}", run.case))?;
+    let ruled = if run.topology {
+        engine.rule(named, true)
+    } else {
+        match engine.answer(Request::Rules(named)) {
+            Answer::Rules(ruling) => (*ruling).map(|ruling| (ruling, BTreeMap::new())),
+            other => Err(format!("unexpected answer {other:?}")),
+        }
+    };
+    let (ruling, links) =
+        ruled.map_err(|problem| format!("{}: an inconsistent frame: {problem}", run.case))?;
+    let topology = run.topology.then(|| engine.topology(&ruling, &links));
     let (rows, sections) = crate::sections::split(rows);
     let names_a_gap = report.is_err()
         || !ruling.unsupported().is_empty()
@@ -254,6 +265,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         || !matches!(reply, ReplyCheck::Files(_))
         || !matches!(contract, ContractState::Parsed(_));
     let parts = Parts {
+        topology,
         contract_digest,
         collection_gaps,
         engine: ENGINE,
@@ -274,6 +286,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         locations,
     };
     let frame = ruling
+        .with_html(run.html)
         .frame(&parts)
         .map_err(|error| format!("{}: an inconsistent frame: {error}", run.case))?
         .into_bytes();
