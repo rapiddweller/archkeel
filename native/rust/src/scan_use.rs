@@ -109,6 +109,11 @@ impl Walker<'_> {
             };
             self.refer(&["crate".to_owned()], span);
             self.via = Via::Path;
+            if self.blocks == 0 {
+                self.out
+                    .self_aliases
+                    .push((self.inline.clone(), plain(rename)));
+            }
         }
     }
 }

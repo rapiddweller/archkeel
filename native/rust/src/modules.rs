@@ -70,12 +70,15 @@ pub(crate) struct Index<'a> {
     /// A module or inline module, by its dotted id, to the module id of its file.
     lexical: BTreeMap<String, &'a str>,
     frames: BTreeMap<&'a str, Frame<'a>>,
+    /// The names that `extern crate self as name;` binds to a crate root.
+    aliases: alias::Aliases,
 }
 
 pub(crate) fn index<'a>(workspace: &'a Workspace, modules: &'a [Module]) -> Index<'a> {
     let mut built = Index {
         lexical: BTreeMap::new(),
         frames: BTreeMap::new(),
+        aliases: alias::Aliases::default(),
     };
     for module in modules {
         let Some(krate) = workspace.crates.get(module.crate_index) else {
@@ -91,6 +94,7 @@ pub(crate) fn index<'a>(workspace: &'a Workspace, modules: &'a [Module]) -> Inde
             continue;
         };
         built.lexical.insert(module.module.clone(), &module.module);
+        built.aliases.record(module, root);
         for inline in &module.scan.inlines {
             built.lexical.insert(
                 format!("{}.{}", module.module, inline.join(".")),
@@ -303,7 +307,7 @@ impl<'a> Index<'a> {
             return self.follow(frame.root, 0, names);
         }
         if absolute {
-            return Outcome::None;
+            return self.absolute(frame, names);
         }
         let (mut cur, mut level) = (lexical.to_owned(), 1);
         let at = match first {
@@ -338,11 +342,16 @@ impl<'a> Index<'a> {
     fn follow(&self, start: &str, level: i64, rest: &[String]) -> Outcome {
         let mut cur = start.to_owned();
         let mut used = 0;
-        while let Some(next) = rest.get(used).map(|part| format!("{cur}.{part}")) {
-            if !self.lexical.contains_key(&next) {
+        while let Some(part) = rest.get(used) {
+            let next = format!("{cur}.{part}");
+            if self.lexical.contains_key(&next) {
+                cur = next;
+            } else if let Some(root) = self.aliases.member(&cur, part) {
+                // `crate::me::b`: the alias of `extern crate self as me;` names the root again.
+                cur = root.to_owned();
+            } else {
                 break;
             }
-            cur = next;
             used += 1;
         }
         let Some(module) = self.lexical.get(&cur) else {
@@ -381,7 +390,7 @@ impl<'a> Index<'a> {
             return Outcome::None;
         }
         if !local {
-            return Outcome::None;
+            return self.declared_over_alias(frame, first);
         }
         if count != 1 {
             let reason =
@@ -418,19 +427,24 @@ impl<'a> Index<'a> {
     ) -> Option<Outcome> {
         let first = &names[0];
         let primary = frame.krate.primary.as_ref();
-        if *first == frame.krate.ident {
+        let aliased = self.aliases.in_prelude(frame, first);
+        if *first == frame.krate.ident && !aliased {
             let lib = primary.filter(|root| root.module != frame.root)?;
             return Some(self.follow(&lib.module, 0, &names[1..]));
         }
         let none = std::collections::BTreeSet::new();
-        // A glob of an inline module reaches only the names in that module and below.
+        // A glob of an inline module reaches only the names in that module and below. A glob
+        // that starts with the alias (`use me::b::*`) does not bring the alias in.
         let reaching: Vec<&&Reference> = frame
             .globs
             .iter()
             .filter(|glob| inside(lexical_at, &lexical(frame, &glob.scope)))
+            .filter(|glob| !(aliased && glob.names.first() == Some(first)))
             .collect();
-        if classify(first, frame.krate, &none, false).is_some() || reaching.is_empty() {
-            return None;
+        let alias = || self.prelude_edge(frame, names);
+        let crate_name = !aliased && classify(first, frame.krate, &none, false).is_some();
+        if crate_name || reaching.is_empty() {
+            return alias();
         }
         if !globs {
             let reason =
@@ -443,7 +457,7 @@ impl<'a> Index<'a> {
                 found => return Some(found),
             }
         }
-        None
+        alias()
     }
 }
 
@@ -471,6 +485,9 @@ impl Index<'_> {
         }
     }
 }
+
+#[path = "modules_alias.rs"]
+mod alias;
 
 #[cfg(test)]
 #[path = "modules_tests.rs"]
