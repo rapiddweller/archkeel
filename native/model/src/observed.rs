@@ -70,6 +70,8 @@ pub(crate) struct Observed {
     pub(crate) inventory_complete: bool,
     /// How the modules of the profile lie in the scan roots (slice S7).
     pub(crate) layout: Layout,
+    /// Whether a cycle rule can have its receipt (AD-500).
+    pub(crate) cycle_scope: bool,
     /// The language name of the profile, as a UML target entity names it (AD-494).
     pub(crate) language: &'static str,
     /// Whether the host drops an allowed pair gap of the profile (slice S7).
@@ -154,6 +156,7 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
             .any(|feature| feature == SYMBOL_FEATURE),
         inventory_complete: inventory_complete(facts),
         layout: facts.profile.layout(),
+        cycle_scope: archkeel_facts::envelope::cycle::proves_cycle_scope(facts.profile),
         language: facts.profile.language(),
         pair_gap_drop: facts.profile.pair_gap_drop(),
         scope_receipt: facts.runtime.carries_scope_proof(),

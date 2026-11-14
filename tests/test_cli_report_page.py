@@ -180,3 +180,20 @@ def test_every_link_inside_the_core_self_page_has_its_target(self_page: str) -> 
     ids = set(re.findall(r' id="([^"]+)"', self_page))
     links = re.findall(r'href="#([^"]+)"', self_page)
     assert links and not (set(links) - ids), sorted(set(links) - ids)[:5]
+
+
+@pytest.mark.parametrize("name", ["H-typescript", "L-nest-realworld"])
+def test_the_page_of_an_unknown_run_names_its_cause_and_at_most_five_held_rules(
+    release_core: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, name: str
+) -> None:
+    folder, config, _ = RUNS[name]
+    _, text, found = write_page(
+        release_core, monkeypatch, ROOT / folder, config, tmp_path / "p.html"
+    )
+    assert found["status"] == "UNKNOWN" and "Unknown because of" in text
+    held = [rule for rule, row in found["frame"]["rules"].items() if row[1] == "UNKNOWN"]
+    line = text.split("Unknown because of", 1)[1].split("</p>", 1)[0]
+    named = [rule for rule in held if html.escape(rule, quote=True) in line]
+    assert named and len(named) <= 3 * 5
+    if len(held) <= 5:
+        assert len(named) == len(held)

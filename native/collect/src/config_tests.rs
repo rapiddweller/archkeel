@@ -172,3 +172,14 @@ fn roots_namespace_and_contract_are_checked() {
     }
     assert!(scan("[\"src\", \"srcx\"]", "\"a_b.c1\"", "\"c\"").is_ok());
 }
+
+/// #749: a leading BOM is one byte order mark and no more; the shell reads it the same way.
+#[test]
+fn one_leading_byte_order_mark_is_read_and_any_other_is_refused() {
+    let one = format!("\u{feff}{BASE}");
+    assert!(parsed(&one).is_ok());
+    let two = format!("\u{feff}\u{feff}{BASE}");
+    assert!(matches!(parsed(&two), Err(Refused::Invalid(_))));
+    let middle = BASE.replace("namespace", "\u{feff}namespace");
+    assert!(matches!(parsed(&middle), Err(Refused::Invalid(_))));
+}

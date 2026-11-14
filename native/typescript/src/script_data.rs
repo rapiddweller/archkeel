@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The data exemption of the run-time key call (AD-500): a value that reaches no `Function`.
+//! The data exemption of the run-time key call (AD-508): a value that reaches no `Function`.
 //!
 //! A literal object or array that a name binds once is data, when nothing changes its prototype:
 //! no `__proto__` key, no method, no write through the name, no argument, no store and no export.
@@ -44,7 +44,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
     /// A literal object or array that a name binds once, that nothing writes through, that no
     /// call receives and that nothing else stores, or a namespace of the platform. Such a value
-    /// reaches no `Function`: its prototype is `Object.prototype` (AD-500).
+    /// reaches no `Function`: its prototype is `Object.prototype` (AD-508).
     pub(crate) fn data_object(&self, object: Node<'t>) -> bool {
         let tree = self.tree;
         match object.kind() {

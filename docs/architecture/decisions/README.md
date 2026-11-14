@@ -7,7 +7,8 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
-| AD-500 | [The script-global rule closes the forms that need no value flow](ad-500-the-script-global-rule-closes-the-forms-that-need-no-value-flow.md) |
+| AD-508 | [The script-global rule closes the forms that need no value flow](ad-508-the-script-global-rule-closes-the-forms-that-need-no-value-flow.md) |
+| AD-500 | [A stated profile limit holds only the rules that read it](ad-500-a-stated-profile-limit-holds-only-the-rules-that-read-it.md) |
 | AD-498 | [The report page is short and has no dump of the frame](ad-498-the-report-page-is-short-and-has-no-dump-of-the-frame.md) |
 | AD-496 | [The report page uses the design system and one script that the policy admits by hash](ad-496-the-report-page-is-the-design-system-with-one-admitted-script.md) |
 | AD-494 | [The core compares the module and import part of a UML target](ad-494-the-core-compares-the-module-and-import-part-of-a-uml-target.md) |

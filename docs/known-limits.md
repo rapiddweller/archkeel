@@ -7,8 +7,14 @@ A Python project gets PASS or FAIL only for rules that read the import graph. A 
 an import-system change and the other gaps of AD-450 give UNKNOWN for each rule of the run.
 Python rules that read symbols, calls or constructs stay UNKNOWN. A Dart project gets PASS or FAIL
 only for rules that read the import graph; each gap of AD-454 and a part in another component than
-its library give UNKNOWN for each rule of the run. A contract with a symbol selector or an
-`interface_boundary` rule is a profile limit: each Dart rule is UNKNOWN (AD-468).
+its library give UNKNOWN for each rule of the run. A symbol selector or an `interface_boundary`
+rule holds only the rules that read it (AD-500). A Dart cycle rule (`no_component_cycles`) is
+always UNKNOWN: the survey does not prove that it sees each local package, and 4.0.1 gives no Dart
+cycle receipt either. A proof that releases it: the survey resolves each `package:` URI from a
+complete package map that it reads (each `pubspec.yaml` of the project and its path and workspace
+members), and a test plants each YAML form of a local package. The `pubspec.yaml` reader has no
+YAML parser: each word `path`, `workspace` or `resolution` and each backslash is a gap, also in a
+value or a description (AD-500).
 
 **Open false-PASS class (Python, shared with 4.0.1).** A third-party function can import a module
 from a string, for example a plugin loader, a framework that reads a dotted path from settings, or
@@ -320,7 +326,7 @@ A write through them (`top.x = 1`) publishes nothing, but it blocks each proof o
 A write `o.x = …` blocks the global `x` unless `o` is a local new value or the `this` of a
 constructor, a field or a static block. An unknown key on a window value, a window value that
 escapes, and code from a text block every global proof of the project.
-Open false PASS, not accepted (AD-460, AD-500): any alias of `this`, `super`, `Object`, `Reflect`,
+Open false PASS, not accepted (AD-460, AD-508): any alias of `this`, `super`, `Object`, `Reflect`,
 `location`, `open` or of a looked-up function, except a name that is bound once to `this`; a looked-up
 function that is stored, passed or an argument (`const f = o[k]`, `Function.prototype.call.call(o[k])`);
 a window value that reaches a computed write through a parameter, a call result or a property
@@ -328,7 +334,7 @@ a window value that reaches a computed write through a parameter, a call result 
 callback receives; `ev.target[k] = 1` (the target of a `message` event is a window); a computed key
 in a pattern (`const { [k]: v } = e`); and DOM code from text outside the named triggers (a `src` or
 `href` that is no literal, and a click on the element).
-AD-500 closed these forms: a write with a run-time key through `this` of a class method, through
+AD-508 closed these forms: a write with a run-time key through `this` of a class method, through
 `super` or through a name bound once to such a `this`; a call, `new`, tagged template, `call`,
 `apply` or `bind` of a member with a run-time key (also through a comma, a condition, a logical
 operator or `await`) on a value that is no plain literal object or array (no `__proto__`, method,
@@ -351,7 +357,7 @@ scheme, `&` or `\\`.
 attribute sinks in `flow.js` and `report-canvas.js`, and 74 platform window members. A rewrite of the sinks alone does not reach PASS. The Studio UI contract is
 UNKNOWN with 269 gaps from 22 sites (9 `Level.Function`, 13 `source` and `view` members). Both
 results are pinned in `docs/architecture/target/`; the pins only go down.
-AD-500 adds 6 sites to the browser contract (5 `location.href = …` in `flow.js` and
+AD-508 adds 6 sites to the browser contract (5 `location.href = …` in `flow.js` and
 `report-canvas.js`, and the pattern `{ frames }` in `report-layout.js`) and 1 to the Studio UI
 contract (the pattern `{ left, top } = MAP_CARD` in `map-layout.ts`). The gap lists do not change:
 each global already had an unknown write.

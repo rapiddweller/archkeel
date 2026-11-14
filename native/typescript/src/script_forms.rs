@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The open forms of AD-460 and AD-492 that the write check can close without a value flow (AD-500).
+//! The open forms of AD-460 and AD-492 that the write check can close without a value flow (AD-508).
 //!
 //! Each form below can reach `Function`, `eval` or a window through a key, a pattern or a URL that
 //! the file builds at run time. The check adds one unknown write for each such node. It adds no
@@ -315,7 +315,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
     /// `open(x, …)` or `window.open(x, …)`, also through a comma, a condition or a wrapper, with a
     /// first argument that is a spread or no literal: a `javascript:` URL runs in the page for the
-    /// target `_self` and in a same-origin window for each other target (AD-500).
+    /// target `_self` and in a same-origin window for each other target (AD-508).
     fn open_call(&self, call: Node<'t>) -> bool {
         let tree = self.tree;
         let Some(callee) = tree.field(call, F::Function) else {
