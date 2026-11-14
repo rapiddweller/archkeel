@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Each push to main publishes the gallery by one job that cannot change the verdict of CI (AD-462)."""
+"""One CI job publishes the gallery on each push to main and cannot change the CI verdict (AD-462)."""
 
 from __future__ import annotations
 
