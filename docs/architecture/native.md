@@ -39,7 +39,7 @@ the public API of each library by name and signature. #1075 lists what the scan 
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
 | `archkeel-pytext` | The text rules of Python `str` that more than one collector repeats, such as `str.splitlines` (AD-327). | no crate of the workspace |
 | `archkeel-dart-grammar` | Gives the Dart grammar: the vendored C parser of tree-sitter-dart 0.1.0, the grammar of the Python collector (AD-342). It does not parse; only the Dart collector uses it (`deny.toml`). | no crate of the workspace |
-| `archkeel-dart-collector` | Reads Dart source. It holds discovery (AD-365), request decoding (AD-368), syntax and sites (AD-369, AD-376), SDK checks (AD-387), declarations (AD-392) and complete collection assembly from typed resolver answers (AD-400). Resolution stays Python until 4d. It writes no reply before slice 5 of #880. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-pytext`, `archkeel-dart-grammar`, `archkeel-build-support` |
+| `archkeel-dart-collector` | Reads Dart source. It holds discovery (AD-365), request decoding (AD-368), syntax and sites (AD-369, AD-376), SDK checks (AD-387), declarations (AD-392) and complete collection assembly from typed resolver answers (AD-400) and the typed import survey of one package with its own resolver (AD-454). The binary writes no reply, and `archkeel-collect` does not link it yet. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-pytext`, `archkeel-dart-grammar`, `archkeel-build-support` |
 | `archkeel-typescript-collector` | Reads TypeScript source. A library that `archkeel-collect` links, and a binary that the host starts (AD-406). | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-pytext`, `archkeel-build-support` |
 | `archkeel-rust-collector` | Reads Rust source. A linked library and a binary use one record producer (AD-406, #1095 slice 2). | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
 | `archkeel-python-collector` | Reads Python source with `ruff_python_parser`, pinned exactly ([AD-334](decisions/ad-334-the-native-python-collector-reads-the-interpreter-from-the-request.md)). Slice 1c-2d: the reply of the import survey, which the host does not read yet. | `archkeel-wire`, `archkeel-snapshot`, `archkeel-facts`, `archkeel-build-support` |
@@ -283,6 +283,7 @@ flowchart LR
     n_2 --> n_5
     n_2 --> n_31
     n_53["collect"]
+    n_54["dart-survey"]
     n_2 --> n_53
     n_53 --> n_4
     n_53 --> n_15
@@ -401,6 +402,16 @@ flowchart LR
     n_35 --> n_42
     n_36 --> n_43
     n_36 --> n_3
+    n_54 --> n_4
+    n_54 --> n_14
+    n_54 --> n_30
+    n_54 --> n_43
+    n_54 --> n_32
+    n_54 --> n_33
+    n_54 --> n_42
+    n_54 --> n_34
+    n_35 --> n_54
+    n_36 --> n_54
     n_25 --> n_43
     n_19 --> n_43
     n_44 --> n_4
