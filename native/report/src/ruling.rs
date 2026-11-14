@@ -28,6 +28,10 @@ use archkeel_model::{
 };
 use serde::Serialize;
 
+#[path = "explain.rs"]
+mod explain;
+pub use explain::Explain;
+
 use crate::{
     build_error::BuildError,
     engine_frame::{EngineFrame, FrameError},
@@ -97,6 +101,9 @@ pub struct Ruling {
     scope: String,
     #[serde(skip)]
     unsupported: RuleReasons,
+    /// What the `explain` part copies; the core adds the coverage gaps of the reply (AD-484).
+    #[serde(skip)]
+    explain: explain::Collected,
 }
 
 impl Ruling {
@@ -104,6 +111,12 @@ impl Ruling {
     pub fn with_html(mut self, html: bool) -> Self {
         self.html = html;
         self
+    }
+
+    /// The `explain` part of the frame (AD-484): the shape of each rule, the path of each cycle
+    /// and the gaps that hold each rule. It copies what the decision states and decides nothing.
+    pub fn explain(&self, gaps: &[archkeel_model::CoverageGap]) -> explain::Explain {
+        self.explain.clone().finish(gaps)
     }
 
     /// The decided mark: the status, the run proof of a PASS and the Decision of each rule.
@@ -156,6 +169,7 @@ pub fn rule_with_edge_links(
     let decided = models.ok().filter(|_| named.contract.is_none());
     for model in decided.into_iter().flat_map(ModelTree::models) {
         for outcome in evaluate(model) {
+            rows.explain.rule(&outcome, model);
             rows.add(&outcome, model, named.hold.as_ref(), &mut gaps)?;
             if keep_links {
                 crate::edge_links::add(&mut edge_links, &outcome);
@@ -163,6 +177,9 @@ pub fn rule_with_edge_links(
         }
     }
     let uml = rows.uml(named.uml, decided, models.err(), &mut gaps)?;
+    for (id, reason) in &gaps {
+        rows.explain.unknown(id, reason);
+    }
     reasons.extend(
         gaps.into_iter()
             .map(|(id, reason)| (id, reason.to_string())),
@@ -215,6 +232,7 @@ pub fn rule_with_edge_links(
         beyond: rows.beyond,
         scope,
         unsupported,
+        explain: rows.explain,
     };
     Ok((ruling, edge_links))
 }
@@ -230,6 +248,7 @@ struct Rows {
     unknown_kinds: BTreeMap<String, WhyUnknown>,
     beyond: BTreeMap<String, String>,
     decisions: Vec<(String, Option<Decision>)>,
+    explain: explain::Collected,
 }
 
 impl Rows {
@@ -284,6 +303,7 @@ impl Rows {
                     }
                     self.explained.insert(id.clone(), why);
                     if let Some(reason) = reason {
+                        self.explain.unknown(&id, reason);
                         self.unknown_kinds
                             .insert(id.clone(), WhyUnknown::of(reason));
                     }
@@ -359,6 +379,7 @@ impl Rows {
             }
             UmlOutcome::Unknown(gap) => {
                 let reason = Reason::Uml(gap);
+                self.explain.unknown(&id, &reason);
                 self.explained.insert(id.clone(), reason.to_string());
                 self.unknown_kinds
                     .insert(id.clone(), WhyUnknown::of(&reason));

@@ -115,7 +115,7 @@
 //!         rules: Default::default(), details: Default::default(), unknown_kinds: Default::default(),
 //!         explained: Default::default(), violations: Default::default(),
 //!         beyond: Default::default(), scope: "complete".into(),
-//!         unsupported: RuleReasons::All(String::new()) }
+//!         unsupported: RuleReasons::All(String::new()), explain: Default::default() }
 //! }
 //! ```
 //!
@@ -214,7 +214,7 @@ pub(crate) use payload::Payload;
 pub use payload::{DecodeError, MAX_BYTES, SCHEMA_VERSION};
 pub use problem::Problem;
 pub use report::{Decided, ReadError, Recorded, Report};
-pub use ruling::{rule, rule_with_edge_links, Named, RuleReasons, Ruling};
+pub use ruling::{rule, rule_with_edge_links, Explain, Named, RuleReasons, Ruling};
 #[cfg(test)]
 pub(crate) use status::{status_of, unexplained};
 pub use status::{Unexplained, PASS_NEEDS};

@@ -24,6 +24,7 @@ from .core_evidence import (
     _details,
     _locations,
 )
+from .core_explain import Explain, read_explain
 from .core_json import CoreError as CoreError
 from .core_json import Gap as Gap
 from .core_json import GapKind as GapKind
@@ -151,6 +152,7 @@ _EVIDENCE_FIELDS: Final = frozenset(
         "collection_gaps",
         "contract_digest",
         "topology",
+        "explain",
         "html",
     }
 )
@@ -217,6 +219,7 @@ class CoreFrame:
     unknown_kinds: Mapping[str, UnknownKind] = field(default_factory=dict)
     collection_gaps: tuple[CollectionGap, ...] = ()
     topology: Topology | None = None
+    explain: Explain | None = None
     html: str | None = None
 
     @property
@@ -467,5 +470,6 @@ def read_frame(
         unknown_kinds=unknown_kinds,
         collection_gaps=_collection_gaps(frame.get("collection_gaps", [])),
         topology=frame_topology(frame, rules),
+        explain=read_explain(frame["explain"], violations) if "explain" in frame else None,
         html=read_html(frame, status, request),
     )

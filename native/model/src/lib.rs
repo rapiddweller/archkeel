@@ -53,10 +53,12 @@ mod construct_tests;
 #[cfg(test)]
 mod construct_replay_tests;
 
+mod closed_path;
 mod condensation;
 mod coverage;
 mod cycles;
 mod edges;
+mod gaps;
 mod graph;
 mod ids;
 mod imports;
@@ -69,6 +71,7 @@ mod reason;
 mod scope;
 mod section;
 mod settings;
+mod sides;
 mod topology;
 mod uml;
 mod uml_facts;
@@ -123,9 +126,12 @@ mod receipts;
 mod roots;
 
 pub use causes::{Held, HELD_SHOWN};
+pub use closed_path::{cycle_path, Link, Step};
 pub use component_cycles::{cycles_of_components, ComponentCycle};
+pub use gaps::CoverageGap;
 pub use pair_gaps::{reads, Reads};
 pub use receipts::{GapScope, ScanProof};
+pub use sides::{shape, Direction, Shape};
 
 // The models of an inside-contract tree (AD-385): one model for each contract of the tree.
 mod domain;
