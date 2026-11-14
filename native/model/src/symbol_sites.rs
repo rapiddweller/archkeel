@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The edges of the symbol table (AD-508): the call, reference, base and construction sites,
+//! The edges of the symbol table (AD-512): the call, reference, base and construction sites,
 //! and the value bindings of call results.
 //!
 //! Reference engine: `ir/source_graph.py` `_relationships`, `_site_relationship`, `_endpoint`,

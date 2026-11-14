@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The details of a matched symbol entity (AD-508): signature, visibility, modifiers,
+//! The details of a matched symbol entity (AD-512): signature, visibility, modifiers,
 //! annotation and initializer.
 //!
 //! Reference engine: `check/uml_compare.py` `_details`, `_signature` and `_syntax_details` at

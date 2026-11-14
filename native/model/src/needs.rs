@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! What a run needs beyond the module and import facts (AD-508).
+//! What a run needs beyond the module and import facts (AD-512).
 //!
 //! The core derives one `Needs` value from the contract tree (`core/src/contract.rs`). A run
 //! without a need builds no symbol table, so its reply part and its frame do not change. A new

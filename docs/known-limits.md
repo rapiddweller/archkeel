@@ -53,7 +53,7 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   The parent must exist. Safe file output needs POSIX directory handles; Windows refuses `--output` with exit 2 (`io_error`), writes no file and keeps the frame.
 - A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`. The run exits 2.
 - The core compares the module and import part of `declarations.uml` (AD-494) and the symbol part
-  for TypeScript (AD-508). Python, Dart and Rust give no symbol facts, so a symbol entity or
+  for TypeScript (AD-512). Python, Dart and Rust give no symbol facts, so a symbol entity or
   relationship of such a target keeps the UML row UNKNOWN (`no_receipt`) with a named gap. A target
   in an inside contract and an external import target keep it UNKNOWN too. A target that 4.0.1
   passes with symbol facts (H-uml, H-uml-dart) exits 2. A FAIL for a conflict, a missing base or an

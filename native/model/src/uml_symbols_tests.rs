@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The base receipt of a class (`_coverage` of release 4.0.1): a missing base is FAIL only when
-//! each base of the class, and of each class inside it, resolves (AD-508).
+//! each base of the class, and of each class inside it, resolves (AD-512).
 
 use archkeel_contract::EntityKind;
 

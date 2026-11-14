@@ -77,7 +77,7 @@ pub(crate) struct Usable {
 }
 
 impl Usable {
-    /// What the run of this contract tree needs beyond the module and import facts (AD-508).
+    /// What the run of this contract tree needs beyond the module and import facts (AD-512).
     /// This is the one owner of the needs of a run: a new reason is one more `Need`.
     pub(crate) fn needs(&self) -> Needs {
         let target = matches!(self.uml, Some(UmlTarget::Compare(_)));

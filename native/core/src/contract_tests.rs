@@ -451,7 +451,7 @@ fn a_root_uml_target_row_carries_its_target_for_the_comparison() {
     assert_eq!(counts, Some((21, 13, 2)));
 }
 
-/// AD-508: only a UML target that the core compares gives a need. A contract without a target
+/// AD-512: only a UML target that the core compares gives a need. A contract without a target
 /// and a target that the core does not compare (a mount) give none, so their runs read no symbols.
 #[test]
 fn only_a_compared_uml_target_gives_the_need_for_symbols() {

@@ -140,6 +140,7 @@ fn each_held_reference_stays_in_the_namespace() {
             ],
         ),
         "app",
+        &[],
     );
     assert_eq!(
         codes(found),
@@ -149,6 +150,40 @@ fn each_held_reference_stays_in_the_namespace() {
             "reference.namespace /rules/0/target lib",
             "reference.namespace /rules/0/allowed_sources/0 x.y",
             "reference.namespace /rules/2/members/1 elsewhere",
+        ]
+    );
+}
+
+#[test]
+fn a_forbidden_sdk_library_is_no_reference_outside_the_namespace() {
+    let rules = vec![
+        rule(
+            "IO",
+            "forbidden_dependency",
+            json!({"source": "app.a", "target": "dart.io", "include_type_checking": true}),
+        ),
+        rule(
+            "OTHER",
+            "forbidden_dependency",
+            json!({"source": "app.a", "target": "dart.nothing", "include_type_checking": true}),
+        ),
+        rule(
+            "ALLOWED",
+            "allowed_dependency",
+            json!({"source": "app.a", "target": "dart.io"}),
+        ),
+    ];
+    let sdk = ["dart.io".to_owned()];
+    let found = namespace(
+        &contract(vec![component("a", json!({}))], rules),
+        "app",
+        &sdk,
+    );
+    assert_eq!(
+        codes(found),
+        [
+            "reference.namespace /rules/1/target dart.nothing",
+            "reference.namespace /rules/2/target dart.io",
         ]
     );
 }
