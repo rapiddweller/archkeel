@@ -413,12 +413,13 @@ impl<'a> Index<'a> {
             return Some(self.follow(&lib.module, 0, &names[1..]));
         }
         let none = std::collections::BTreeSet::new();
-        // A glob of an inline module reaches only its module and below; `use me::b::*` is no alias.
+        // A glob of an inline module reaches only its module and below. A glob whose path starts
+        // with the name cannot bring it in (`use e::*;` for `e`, `use me::b::*;` for the alias).
         let reaching: Vec<&&Reference> = frame
             .globs
             .iter()
             .filter(|glob| inside(lexical_at, &lexical(frame, &glob.scope)))
-            .filter(|glob| !(aliased && glob.names.first() == Some(first)))
+            .filter(|glob| glob.names.first() != Some(first))
             .collect();
         let alias = || self.prelude_edge(frame, names);
         let crate_name = !aliased && classify(first, frame.krate, &none, false).is_some();
@@ -453,7 +454,8 @@ impl Index<'_> {
         // An empty last name lets a one-name glob path (`use yy::*;`) reach its binding.
         let mut target = glob.names.clone();
         target.push(String::new());
-        match self.path(frame, &target, glob.absolute, (&at, false), hops + 1) {
+        // The path of a glob may start with a name that another glob brings in.
+        match self.path(frame, &target, glob.absolute, (&at, true), hops + 1) {
             Outcome::Unknown(reason) => {
                 Outcome::Unknown(format!("A glob import may bring in {}: {reason}", names[0]))
             }

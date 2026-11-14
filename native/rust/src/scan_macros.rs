@@ -70,6 +70,8 @@ pub(crate) struct MacroCall {
     pub declares: bool,
     /// The path that names the macro, or nothing when it starts with `::`.
     pub path: Vec<String>,
+    /// The inline modules that enclose the call: a `use` of the same module can bind its name.
+    pub scope: Vec<String>,
 }
 
 /// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path
@@ -225,6 +227,7 @@ impl Walker<'_> {
                 .filter(|_| node.path.leading_colon.is_none())
                 .map(|segment| plain(&segment.ident))
                 .collect(),
+            scope: self.inline.clone(),
         };
         // The tokens of a macro are not code that the scan reads: a call in them is not placed.
         let mut inner = BTreeSet::new();

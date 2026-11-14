@@ -71,6 +71,21 @@ CASES = {
         {"w.rs": HARMLESS, "y.rs": FILLS + "mk!();\n"},
         HELD,
     ),
+    "B4 a one-name glob through a name that another glob brings in": (
+        {
+            "w.rs": "pub use crate::y as m2;\n",
+            "y.rs": "pub use crate::b;\n",
+            "x.rs": "use crate::w::*;\nuse m2::*;\npub fn f() { b::g(); }\n",
+        },
+        FAIL,
+    ),
+    "B4 a one-name glob to an inline module of the file": (
+        {
+            "y.rs": "pub use crate::b;\n",
+            "x.rs": "pub mod yy { pub use crate::y::*; }\nuse yy::*;\npub fn f() { b::g(); }\n",
+        },
+        FAIL,
+    ),
     "B4 a glob through a renamed module": (
         {
             "y.rs": "pub use crate::b;\n",

@@ -22,8 +22,9 @@ pub(crate) type Reach<'r> = dyn Fn(&[String]) -> Option<(String, String)> + 'r;
 ///
 /// 1. its tokens hold no `mod`, `use` or `extern`;
 /// 2. no file of the crate has a `#[macro_use] extern crate`;
-/// 3. it is a plain call, and the file of the call has no glob `use` and no `use` that binds
-///    the name; or it is `crate::a::m!()`, and the module `a` binds `m` by one `use m;` only;
+/// 3. it is a plain call, and its module has no glob `use` and no `use` that binds the name (a
+///    `use` binds in its own module only); or it is `crate::a::m!()`, and the module `a` binds
+///    `m` by one `use m;` only;
 /// 4. exactly one `macro_rules!` of the crate has the name, and its body holds no `mod`, `use`,
 ///    `extern` and calls no macro; or, for a plain call, no `macro_rules!` of the crate has the
 ///    name and it is a macro of the standard library (`KNOWN_MACROS`).
@@ -36,10 +37,12 @@ pub(crate) fn may_fill<'a>(
 ) -> bool {
     let krate = all.filter(|module| module.crate_index == target.crate_index);
     let macro_use = krate.clone().any(|module| module.scan.macro_use_crate);
-    let globs = (target.scan.references.iter()).any(|r| matches!(r.via, Via::Glob { .. }));
     let calls = target.scan.macro_calls.iter();
     calls.filter(|call| call.fills).any(|call| {
-        let plain = call.path.len() == 1 && !globs && leaves(target, &call.name).next().is_none();
+        let here = |r: &&Reference| r.scope == call.scope;
+        let globs =
+            (target.scan.references.iter().filter(here)).any(|r| matches!(r.via, Via::Glob { .. }));
+        let plain = call.path.len() == 1 && !globs && !leaves(target, &call.name).any(|r| here(&r));
         let own = || own_path(call, reach, krate.clone());
         if call.declares || macro_use || !(plain || own()) {
             return true;
