@@ -264,3 +264,76 @@ fn hostile_names_reach_no_markup_in_any_new_block() {
         assert!(part.contains(&escape(HOSTILE)), "{block}");
     }
 }
+
+/// A frame of one component of two modules with one cycle between them.
+fn one_cycle_frame() -> Value {
+    let step = |from: &str, to: &str| {
+        json!({"from": from, "to": to, "from_component": "COMP-0", "to_component": "COMP-0",
+            "imports": 1, "evidence": ["E"], "evidence_total": 1})
+    };
+    let mut frame = component_frame(1, 2);
+    frame["status"] = json!("FAIL");
+    frame["rules"] = json!({"CY": ["no_component_cycles", "FAIL"]});
+    frame["details"] = json!({"CY": [{"source": "p0.m0 -> p0.m1", "target": "p0.m0",
+        "cause": "dependency cycle", "evidence": ["E"]}]});
+    frame["locations"] = json!({"E": {"path": "src/p0/m0.rs", "line": 1}});
+    frame["explain"] = json!({"rules": {}, "cycles": {"CY": {"total": 1, "items": [
+        {"id": "V0", "index": 0, "members": ["p0.m0", "p0.m1"],
+         "path": [step("p0.m0", "p0.m1"), step("p0.m1", "p0.m0")],
+         "steps_total": 2, "truncated": false}]}}});
+    frame
+}
+
+#[test]
+fn a_cycle_over_two_modules_of_one_component_is_one_violation() {
+    let page = document(&one_cycle_frame());
+    let panel = page.split("id=\"c-comp-0\"").nth(1).unwrap();
+    let summary = panel.split("</summary>").next().unwrap();
+    assert!(
+        summary.contains("1 violation") && !summary.contains("2 violations"),
+        "{summary}"
+    );
+}
+
+#[test]
+fn the_next_step_counts_only_the_causes_that_hold_a_rule() {
+    let frame = json!({"status": "UNKNOWN",
+        "rules": {"R": ["k", "UNKNOWN"]}, "explained": {"R": "why"},
+        "unsupported": {"rules": {"h:a": "named one", "h:b": "named two"}}});
+    let page = document(&frame);
+    assert!(
+        page.contains("1 unknown rule: 1 cause holds them."),
+        "{page}"
+    );
+}
+
+#[test]
+fn ids_beyond_five_are_in_a_fold_of_the_card_bounded_at_forty() {
+    let rules: serde_json::Map<String, Value> = (0..50)
+        .map(|i| (format!("R{i:02}"), json!(["k", "UNKNOWN"])))
+        .collect();
+    let explained: serde_json::Map<String, Value> = (0..50)
+        .map(|i| (format!("R{i:02}"), json!("why")))
+        .collect();
+    let page = document(&json!({"status": "UNKNOWN", "rules": rules, "explained": explained}));
+    let card = page
+        .split("id=\"unknown\"")
+        .nth(1)
+        .unwrap()
+        .split("</article>")
+        .next()
+        .unwrap();
+    assert!(card.contains("R05") && card.contains("R39") && !card.contains("R40"));
+    assert!(card.contains("<details class=\"rp-fold\"><summary class=\"caption rp-at\">+45 more"));
+    assert!(card.contains("and 10 more"));
+}
+
+#[test]
+fn the_page_wraps_a_long_term_and_the_folds_print_open() {
+    let css = include_str!("../assets/report.css");
+    assert!(css.contains(".rp-kv dt { color: var(--ink-muted); overflow-wrap: anywhere; }"));
+    assert!(css.contains("details::details-content"));
+    // At 390 px the identity list is one column and a small table scrolls inside itself.
+    assert!(css.contains(".rp-kv { grid-template-columns: minmax(0, 1fr); }"));
+    assert!(css.contains(".rp-mini { display: block; max-width: 100%; overflow-x: auto; }"));
+}

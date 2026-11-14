@@ -456,7 +456,8 @@ fn every_unknown_run_names_a_cause_and_the_rules_it_holds_with_a_bound() {
         }
         if held > 5 {
             assert!(card.contains(&format!("+{} more", held - 5)), "{held}");
-            assert!(!card.contains("R05"), "the sixth id stays in the JSON");
+            let fold = card.split("</summary>").nth(1).unwrap();
+            assert!(fold.contains("R05"), "the sixth id is in the fold");
         }
     }
     let empty = document(&json!({"status": "UNKNOWN", "scope": "missing input"}));

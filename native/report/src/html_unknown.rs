@@ -17,6 +17,7 @@ use super::markup::{count, escape, status_icon};
 const MAX_CARDS: usize = 12;
 const MAX_ROWS: usize = 12;
 const MAX_IDS: usize = 5;
+const MAX_LISTED_IDS: usize = 40;
 
 /// What to do, for a cause whose meaning is fixed.
 fn advice(kind: &str) -> Option<&'static str> {
@@ -145,16 +146,30 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
             .take(MAX_IDS)
             .map(|id| format!("<span class=\"rp-code\">{}</span>", escape(id)))
             .collect();
-        let more = held.saturating_sub(MAX_IDS);
-        let tail = if more > 0 {
-            format!(" <span class=\"rp-at\">+{more} more</span>")
-        } else {
-            String::new()
-        };
         html.push_str(&format!(
-            "<p class=\"body-sm rp-at\">Holds {}{tail}</p>",
+            "<p class=\"body-sm rp-at\">Holds {}</p>",
             ids.join(", ")
         ));
+        let more = held.saturating_sub(MAX_IDS);
+        if more > 0 {
+            // The other ids are behind a fold, up to a bound; the rest is stated.
+            let rest: Vec<String> = found
+                .rules
+                .iter()
+                .skip(MAX_IDS)
+                .take(MAX_LISTED_IDS - MAX_IDS)
+                .map(|id| format!("<span class=\"rp-code\">{}</span>", escape(id)))
+                .collect();
+            let tail = match held.saturating_sub(MAX_LISTED_IDS) {
+                0 => String::new(),
+                n => format!(", and {n} more in the JSON"),
+            };
+            html.push_str(&format!(
+                "<details class=\"rp-fold\"><summary class=\"caption rp-at\">+{more} more</summary>\
+<p class=\"rp-fold__body body-sm\">{}{tail}</p></details>",
+                rest.join(", ")
+            ));
+        }
     }
     if found.kind == "other" || found.kind == "named" {
         html.push_str(&format!(

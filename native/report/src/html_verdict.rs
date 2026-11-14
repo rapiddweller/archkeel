@@ -72,7 +72,10 @@ fn next(frame: &Frame, places: &Places) -> String {
                 ));
             }
             if frame.rules_with("UNKNOWN") > 0 {
-                let held = causes::grouped(frame).len();
+                let held = causes::grouped(frame)
+                    .iter()
+                    .filter(|cause| !cause.rules.is_empty())
+                    .count();
                 steps.push(format!(
                     "Close the gaps behind the {}: {} {} them. <a href=\"#unknown\">Causes</a>.",
                     count(frame.rules_with("UNKNOWN"), "unknown rule"),

@@ -11,12 +11,14 @@
 6. The drill-down (component, module, file, import) exists only for a component with a violation or a gap. A component name links to its block only then. The first 24 have all tables; the others are one line.
 7. The first two violated places are open; the others are folds with a one-line summary. The id `xN` stays, on the fold, so a link opens it.
 8. A rule that holds is one count line per kind; the names are in a fold. The ids `violations`, `arch`, `next`, `x1…xN` do not change.
-9. Word budget: visible text without closed folds is under 6,000 characters on each dogfood page.
+9. The violation count of a component is the number of distinct violated places that touch it. The next step counts only causes that hold a rule. Rule ids beyond five of a cause are in a fold of the card, up to 40; the rest is stated as in the JSON.
+10. At 390 px the identity list is one column, a small table scrolls inside itself and the top bar wraps, so no fold makes the page scroll sideways.
+11. Word budget: visible text without closed folds is under 6,000 characters on each dogfood page.
 
 **Reason.** The page answered "what is wrong" with a wall of nouns and ids. The reader wants the picture first and the words last.
 
 **Rejected.** A block for each component: 55 blocks on the self page and no answer. A link to a component that has no block.
 
-**Limits.** A gap is placed at its first subject module. More than 24 components with an exception show one line each. A closed fold prints only its summary, so print shows the first two violated places in full.
+**Limits.** A gap is placed at its first subject module. More than 24 components with an exception show one line each. Print opens the folds with `details::details-content` (Chrome 131 and later, Safari and Firefox with the pseudo-element). A browser without it prints the summary of a closed fold only. The admitted script is not changed.
 
 **Tests.** `tests/test_cli_report_page.py` (word budget, links, cause cards), `tests/test_cli_report_output.py` (every rule id is on the page), `native/report/src/html_tests.rs` and `html_blocks_tests.rs`.

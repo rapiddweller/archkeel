@@ -40,7 +40,8 @@ struct Entry<'a> {
 
 impl Entry<'_> {
     fn violations(&self) -> usize {
-        self.marks.values().map(Vec::len).sum()
+        // A place that touches several modules of the component is one violation.
+        self.marks.values().flatten().collect::<BTreeSet<_>>().len()
     }
 
     /// The group of the component: 0 with a violation, 1 with a gap, 2 without an exception.
