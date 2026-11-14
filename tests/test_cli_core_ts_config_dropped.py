@@ -24,6 +24,7 @@ from archkeel.cli import core_only
 
 REASON = "Source file under the scan roots is not selected by the TSConfig: "
 IMPORT = "import { a } from '../a/a';\nexport const hidden = a;\n"
+DECLARATION = "import type { a } from '../a/a';\nexport declare const h: typeof a;\n"
 Files = dict[str, str]
 
 
@@ -118,7 +119,7 @@ DROPPED: dict[str, tuple[Files, str]] = {
     "declaration": (
         {
             "tsconfig.json": _tsconfig({**SRC, "exclude": ["**/*.d.ts"]}),
-            "src/b/hidden.d.ts": "import type { a } from '../a/a';\nexport declare const h: typeof a;\n",
+            "src/b/hidden.d.ts": DECLARATION,
         },
         "src/b/hidden.d.ts",
     ),
