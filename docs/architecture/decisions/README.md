@@ -8,6 +8,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | Decision | Title |
 |---|---|
 | AD-496 | [A stated profile limit holds only the rules that read it](ad-496-a-stated-profile-limit-holds-only-the-rules-that-read-it.md) |
+| AD-484 | [The frame names rule sides, cycle paths and gap holds](ad-484-the-frame-names-rule-sides-cycle-paths-and-gap-holds.md) |
 | AD-482 | [The topology types an import by its target, not by the rule view](ad-482-the-topology-types-an-import-by-its-target-and-not-by-the-rule-view.md) |
 | AD-480 | [A mounted complete_requires receipt reads the modules of its mount](ad-480-a-mounted-complete-requires-receipt-reads-the-modules-of-its-mount.md) |
 | AD-478 | [The Python shell checks itself with its own contract](ad-478-the-python-shell-checks-itself-with-its-own-contract.md) |

@@ -49,7 +49,7 @@ pub(crate) fn incomplete(coverage: &Coverage, unknown_imports: usize) -> Option<
 }
 
 /// True for a gap between two modules: the contract can allow it (`drop_allowed_pair_gaps`).
-fn droppable(data: &GapData) -> bool {
+pub(crate) fn droppable(data: &GapData) -> bool {
     match (&data.source_module, &data.module) {
         (Some(source), Some(module)) => source != module,
         _ => false,

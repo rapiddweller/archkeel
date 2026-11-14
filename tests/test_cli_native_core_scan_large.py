@@ -96,6 +96,8 @@ def unguarded_frame(built: Path, core: Path, frame: dict) -> dict:
     # AD-466: a check request reads no provenance document. It names that gap and never passes.
     hygiene = plain["unsupported"]["rules"].pop("hygiene:request")
     assert hygiene.startswith("unsupported: the contract hygiene of the request"), hygiene
+    # AD-484: the part `explain` names the same cause once more, without a gap.
+    assert plain["explain"]["holds"]["rules"].pop("hygiene:request")["kind"] == "other"
     assert plain.pop("status") != "PASS"
     return plain
 
