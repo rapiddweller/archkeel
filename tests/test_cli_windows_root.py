@@ -34,23 +34,28 @@ def test_the_release_core_proves_a_disk_pass_and_failure(
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows long disk paths")
-def test_windows_scans_a_disk_root_longer_than_260_characters(
+def test_windows_refuses_a_disk_root_longer_than_260_characters_with_a_typed_reason(
     release_core: Path, tmp_path: Path
 ) -> None:
+    """The fixed Git executable cannot enter such a root (`git -C`: Filename too long).
+
+    The core reads the work tree state only through that executable, so it cannot decide the
+    scan. The refusal is typed and the verdict is UNKNOWN, never PASS (AD-442).
+    """
     source = repository(tmp_path / "short", release_core)
-    with (source / ".git/config").open("a") as stream:
-        stream.write("\n[core]\nlongpaths = true\n")
     root = tmp_path
     while len(str(root)) <= 280:
         root /= "long-directory-name"
     shutil.copytree(source, root)
     assert len(str(root)) > 260
     done = command(release_core, root, "--json")
-    assert done.returncode == 0, done.stdout + done.stderr
+    assert done.returncode == 2, done.stdout + done.stderr
     result = json.loads(done.stdout)
-    assert result["status"] == "PASS"
-    assert result["frame"]["self_test"]["collect"]["request"]["snapshot"]["root"] == str(
-        resolve_root(root)
+    assert result["status"] == "UNKNOWN"
+    assert result["frame"]["rules"] == {}
+    refused = result["frame"]["self_test"]["collect"]["refused"]
+    assert refused.startswith("collect: unsupported: dirty: cannot read the work tree state"), (
+        refused
     )
 
 
@@ -71,16 +76,20 @@ def test_tree_contract_file_names_stay_posix(release_core: Path) -> None:
         assert all("\\" not in name and ":" not in name for name in files)
 
 
+def _short_path(path: Path) -> str:
+    """The 8.3 spelling that the volume gives; the long one when 8.3 names are off."""
+    import ctypes
+
+    buffer = ctypes.create_unicode_buffer(32768)
+    size = ctypes.windll.kernel32.GetShortPathNameW(str(path), buffer, len(buffer))  # type: ignore[attr-defined]
+    assert size, ctypes.GetLastError()  # type: ignore[attr-defined]
+    return buffer.value
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows path resolution")
 def test_windows_shell_resolves_disk_spellings(release_core: Path, tmp_path: Path) -> None:
     root = repository(tmp_path / "long project name", release_core).resolve()
-    short = subprocess.run(
-        ["cmd", "/C", f'for %I in ("{root}") do @echo %~sI'],
-        capture_output=True,
-        text=True,
-        check=True,
-        timeout=10,
-    ).stdout.strip()
+    short = _short_path(root)
     spellings = [
         str(root),
         str(root).replace("\\", "/"),
