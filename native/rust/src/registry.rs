@@ -155,6 +155,13 @@ pub(crate) fn overrides(snapshot: &mut Snapshot, roots: &[String]) -> bool {
         if config_at(snapshot, &dir, &entries) {
             return true;
         }
+        // Build output is not source (the walk of the collector skips it too), and a parallel
+        // build adds and removes files there while the scan runs: its content decides nothing.
+        if entries.iter().any(|(name, kind)| {
+            *kind == Entry::File && crate::source::BUILD_MARKERS.contains(&name.as_str())
+        }) {
+            continue;
+        }
         for (name, kind) in entries {
             match kind {
                 Entry::Directory => pending.push((join(&dir, &name), depth + 1)),
@@ -283,3 +290,7 @@ pub(crate) fn read(
     direct.retain(|key| !rejected_keys.contains(key));
     Registry { direct, packages }
 }
+
+#[cfg(test)]
+#[path = "registry_tests.rs"]
+mod tests;

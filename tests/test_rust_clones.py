@@ -13,6 +13,7 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+from frozen_native import frozen_root as frozen_root
 
 ROOT = Path(__file__).parents[1]
 TOOL = ROOT / "tools/rust_clones.py"
@@ -204,9 +205,9 @@ def test_a_second_copy_in_one_baselined_pair_of_files_fails() -> None:
     assert len(clones.ratchet_problems(found, baseline)) == 1
 
 
-def test_the_real_workspace_matches_its_baseline() -> None:
+def test_the_real_workspace_matches_its_baseline(frozen_root: Path) -> None:
     result = subprocess.run(
-        [sys.executable, str(TOOL), "--native", str(ROOT / "native")],
+        [sys.executable, str(TOOL), "--native", str(frozen_root / "native")],
         capture_output=True,
         text=True,
         check=False,

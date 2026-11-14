@@ -20,6 +20,7 @@ from typing import Any
 
 import pytest
 from core_support import NATIVE, ROOT, SUFFIX, run
+from frozen_native import frozen_root as frozen_root
 
 from archkeel.cli import core_only
 
@@ -28,11 +29,11 @@ from native_expected import problems  # noqa: E402
 
 
 @pytest.fixture(scope="module")
-def checked(built: Path) -> tuple[int, dict[str, Any]]:
+def checked(built: Path, frozen_root: Path) -> tuple[int, dict[str, Any]]:
     """One default run on `native/` for the tests of this file: the exit code and the result."""
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(core_only, "locate_core", lambda: built / f"archkeel-core{SUFFIX}")
-        return run("validate", "--root", str(ROOT), "--config", "native/archkeel.toml")
+        return run("validate", "--root", str(frozen_root), "--config", "native/archkeel.toml")
 
 
 def test_the_core_decides_each_rule_of_the_self_contract(

@@ -27,7 +27,7 @@ pub(crate) fn read_text(snapshot: &mut Snapshot, rel: &str) -> Result<String, St
 }
 
 /// What Cargo writes into its own build output, which no source directory holds.
-const BUILD_MARKERS: [&str; 2] = ["CACHEDIR.TAG", ".rustc_info.json"];
+pub(crate) const BUILD_MARKERS: [&str; 2] = ["CACHEDIR.TAG", ".rustc_info.json"];
 
 /// The files below `rel`, relative to the snapshot, sorted. A hidden directory and the build
 /// output are not entered: a directory with a Cargo marker file, and the `target` directory
