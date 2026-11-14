@@ -56,6 +56,8 @@ struct ScanRequest {
     discover_root: bool,
     #[serde(default)]
     html: bool,
+    #[serde(default)]
+    topology: bool,
 }
 
 /// The frame of one scan request. An error is a request that the core cannot read.
@@ -87,7 +89,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
                     .map_err(Into::into);
                 }
             }
-            decide(scanned, request.html).map_err(Into::into)
+            decide(scanned, request.html, request.topology).map_err(Into::into)
         }
         Err(refusal) if refusal.kind == RefusalKind::ParseWork => {
             Err(crate::refusal::Error::Refused(refusal))
@@ -97,7 +99,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
 }
 
 /// The run of a scan that `archkeel-collect` completed.
-fn decide(scanned: Scanned, html: bool) -> Result<Answered, String> {
+fn decide(scanned: Scanned, html: bool, topology: bool) -> Result<Answered, String> {
     let insides = tree(&scanned)?;
     let contract_files: std::collections::BTreeMap<_, _> = std::iter::once((
         scanned.contract.0.clone(),
@@ -131,6 +133,7 @@ fn decide(scanned: Scanned, html: bool) -> Result<Answered, String> {
         baseline: false,
         report: false,
         html,
+        topology,
         base: None,
         trust: in_process(profile),
         collect: Some(json!({ "request": request, "contract_files": contract_files })),
