@@ -51,5 +51,4 @@ The dataclasses, the schema generator and the demo targets are deleted with the 
 
 [Demo coverage #339](https://github.com/rapiddweller/archkeel/issues/339) and
 [independent inner Targets #340](https://github.com/rapiddweller/archkeel/issues/340)
-track remaining work. See [adapter ownership](language-adapter-target.md) and
-[render ownership](render-target.md).
+track remaining work. See [adapter ownership](language-adapter-target.md).

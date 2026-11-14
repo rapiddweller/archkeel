@@ -53,15 +53,6 @@ A configured `filter.<x>.clean` can execute a command during status. Do not scan
 Disabling repository-configured execution is deferred to slice 5; the fixed executable does not prevent it.
 See [AD-422](architecture/decisions/ad-422-core-only-validation-renders-the-scan-frame.md).
 
-## Explore without a contract
-
-`archkeel explore` detects one top-level Python package only. TypeScript and Dart need
-`--language`, `--source` and `--namespace` (and `--tsconfig`). Its components follow the
-package layout; they are not decisions. Entry modules are `__main__` modules only. An import
-edge is not a call edge or a runtime order. A contract with components but no rule gives
-`target: unavailable` and no rule verdict
-([AD-285](architecture/decisions/ad-285-explore-without-a-contract.md)).
-
 ## Before claiming PASS
 
 A rule needs applicable subjects, complete relevant coverage and sufficient evidence.
@@ -183,39 +174,6 @@ An allowance cannot clear uncertainty elsewhere. Non-exempt UNKNOWN evidence
 prevents aggregate PASS; external-type positions outside component policy and
 standing scan disclaimers retain their separate meanings.
 
-## Python declaration and runtime proof
-
-Source declaration identity is separate from runtime member and creation proof.
-An opaque alias transfer can retain the known declaration and its source violations
-while blocking an exact allowance. Missing or mutated binding identity remains
-UNKNOWN. Exact metadata allowances also need positive member-binding evidence;
-a class header alone cannot rule out metaclass replacement.
-
-Creation and alias-value proofs cover bounded builtin forms and supported native
-providers. Arbitrary operators, class namespace redirects and opaque module/object
-transfers can invalidate proof across the scanned closure. Captured provider source
-does not establish runtime immutability or arbitrary factory behavior.
-
-The 3.13+ standard library layouts (a module `__getattr__`, a star import, a
-`sys.modules` child publication) are proven only for top-level standard library
-modules, and a publication only when every import of the initializer is a
-top-level standard library module. A package of several star imports (`pathlib`
-on 3.13) binds a name only when the last star source alone lists it in a literal
-`__all__` ([AD-278](architecture/decisions/ad-278-a-stdlib-star-facade-binds-the-names-of-its-sources.md)).
-A stdlib module that changes another stdlib module through a stored member call
-is not tracked (trusted). Code outside the scan, for example a project that
-patches a stdlib module at run time, is not tracked either.
-
-## Source syntax newer than the interpreter
-
-ArchKeel reads Python source with the `ast` module of the interpreter that runs it. Code with newer
-syntax (for example `except A, B:` from Python 3.14, PEP 758) is a parse failure on an older
-interpreter. A `runtime_mismatch` diagnostic names the running version and the full
-`requires-python` range. It blocks a complete scan. Select a Python version that satisfies the
-full range, then retry with `uvx --python <compatible-version> archkeel <command>`. ArchKeel does
-not install or select that interpreter. The tool supports Python 3.11 and newer. The nightly job
-checks 3.12, 3.13 and 3.14 (#724, #743).
-
 ## Other static blind spots
 
 - Calls are partly resolved. Annotated receivers do not enforce runtime types;
@@ -302,29 +260,6 @@ through them (`top.x = 1`) publishes nothing. A chain of these names (`window.se
 The native TypeScript collector reads a file up to 4 MiB. Above that size it gives UNKNOWN for
 the file, where the Python collector reads the file and can give FAIL. The two collectors give
 the same facts only for files under the limit.
-
-## Dart profile
-
-The Python-hosted Dart collector records declarations, classifier members, syntax signatures,
-and resolved bases, calls, references, constructions and local bindings. It does
-not prove runtime dispatch, live object identity, or exhaustive call-site coverage.
-Dynamic dispatch, missing resolver inputs, malformed units and unsupported
-declarations stay UNKNOWN. Own-package resolution uses the package name from
-`pubspec.yaml`; snapshot resolution inputs must be present. Python-only
-type/construct rules and unmeasured budgets remain unsupported or UNKNOWN.
-
-The native Dart collection dump assembles records from typed Python resolver answers (AD-400).
-It is not a collector reply. The store still refuses Dart replies until slice 5 of #880.
-`CollectionInputGap` rejects missing, repeated or inconsistent answers. `CollectionWorkLimit`
-discards all partial records after `min(2^34, 2^20 + 128 * N)` work units for N typed-input bytes.
-`LanguageVersionOrderGap` names inconsistent parts without an overriding main library.
-`LanguageVersionDigitLimit` names a version component above 4 300 digits. Each gap revokes full scope.
-Slice 4d must port the resolver, remove its repeated whole-site scans and review whole-project work limits.
-The measured Flutter `test/material/text_field_test.dart` shape hits `CollectionWorkLimit`:
-713 748 source bytes, 16 definitions, 17 members and 35 677 sites. It emits no partial records.
-The other 6 622 Flutter inputs, 28 private inputs and 344 dart-http inputs match Python byte for byte.
-The parity tool records per-file size, shape and timings outside the repository and resumes completed inputs.
-Run each corpus command with `timeout 900`; do not treat an unfinished run as equal.
 
 ## Rust profile
 

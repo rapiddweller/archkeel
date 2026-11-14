@@ -1,4 +1,0 @@
-[scan]
-roots = ["src/archkeel"]
-namespace = "archkeel"
-contract = "architecture-contract.json"
