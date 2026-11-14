@@ -70,8 +70,11 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let mut at = node;
         while let Some(parent) = tree.parent(at) {
             match parent.kind() {
-                "parenthesized_expression" | "as_expression" | "satisfies_expression"
-                | "non_null_expression" | "type_assertion" => at = parent,
+                "parenthesized_expression"
+                | "as_expression"
+                | "satisfies_expression"
+                | "non_null_expression"
+                | "type_assertion" => at = parent,
                 "call_expression" | "new_expression" => {
                     return tree.is_field_of_parent(at, F::Function)
                         || tree.is_field_of_parent(at, F::Constructor);
@@ -96,9 +99,11 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         if !matches!(object.as_str(), "Reflect" | "Object") {
             return false;
         }
-        let key = tree
-            .field(call, F::Arguments)
-            .and_then(|arguments| crate::tree::nodes::named_children(arguments).get(1).copied());
+        let key = tree.field(call, F::Arguments).and_then(|arguments| {
+            crate::tree::nodes::named_children(arguments)
+                .get(1)
+                .copied()
+        });
         match name.as_str() {
             "getOwnPropertyDescriptors" | "*" => true,
             "get" | "getOwnPropertyDescriptor" => {
@@ -114,9 +119,11 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let Some((object, name)) = self.member_call(call) else {
             return false;
         };
-        let first = tree
-            .field(call, F::Arguments)
-            .and_then(|arguments| crate::tree::nodes::named_children(arguments).first().copied());
+        let first = tree.field(call, F::Arguments).and_then(|arguments| {
+            crate::tree::nodes::named_children(arguments)
+                .first()
+                .copied()
+        });
         object == "location"
             && matches!(name.as_str(), "assign" | "replace" | "*")
             && first.is_none_or(|first| literal(Some(first), tree.cx.source).is_none())
@@ -154,8 +161,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 let on_location = tree.field(left, F::Object).is_some_and(is_location);
                 let runtime_key = left.kind() == "subscript_expression"
                     && tree.field(left, F::Index).is_some_and(|i| {
-                        i.kind() != "number"
-                            && crate::script_window::string_text(self, i).is_none()
+                        i.kind() != "number" && crate::script_window::string_text(self, i).is_none()
                     });
                 member(left).is_some_and(|key| key == "location")
                     || (on_location
@@ -180,7 +186,8 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             "computed_property_name" => return false,
             _ => crate::script_window::cooked(&tree.text(key)),
         };
-        !tree.in_type(node) && name.is_none_or(|name| crate::script_window::window_member_name(&name))
+        !tree.in_type(node)
+            && name.is_none_or(|name| crate::script_window::window_member_name(&name))
     }
 
     /// `open(x, y)` and `window.open(x, y)` with a first argument that is no literal and a second
@@ -191,7 +198,9 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             return false;
         };
         let global = match callee.kind() {
-            "identifier" => tree.text(callee) == "open" && tree.binding_scope(callee, "open").is_none(),
+            "identifier" => {
+                tree.text(callee) == "open" && tree.binding_scope(callee, "open").is_none()
+            }
             "member_expression" => {
                 let named = tree.field(callee, F::Property).map(|p| tree.text(p));
                 named.as_deref() == Some("open")

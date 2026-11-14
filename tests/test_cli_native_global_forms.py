@@ -31,7 +31,9 @@ METHOD_THIS = {
     "object-pattern": "class C { m(this: any) { ({ a: this[k] } = x); } }" + LISTEN,
     "for-of": "class C { m(this: any) { for (this[k] of g) {} } }" + LISTEN,
     "static": "class C { static m(this: any) { this[k] = 1; } }\naddEventListener('load', C.m);",
-    "accessor": "class C { get v(): any { (this as any)[k] = 1; return 1; } }\nexport const c = new C();",
+    "accessor": (
+        "class C { get v(): any { (this as any)[k] = 1; return 1; } }\nexport const c = new C();"
+    ),
 }
 
 # Group 2: a call through a key that is built at run time, on a value that is no data.
@@ -107,7 +109,10 @@ PINNED = {
     "scheme-location-literal": "location.href = 'java\\tscript:open=1';",
     "method-eval": "class C { m(this: any) { this.eval(t); } }" + LISTEN,
     "method-function": "class C { m(this: any) { this.Function(t)(); } }" + LISTEN,
-    "handle-event": "class C { handleEvent() { (this as any).eval(t); } }\naddEventListener('load', new C() as any);",
+    "handle-event": (
+        "class C { handleEvent() { (this as any).eval(t); } }\n"
+        "addEventListener('load', new C() as any);"
+    ),
     "bound-method": "class C { m() { (this as any).eval(t); } }" + LISTEN,
     "this-alias": "class C { m() { const s: any = this; s.eval(t); } }" + LISTEN,
     "this-write": "class C { m() { (this as any).open = 1; } }" + LISTEN,
@@ -140,9 +145,14 @@ PRECISION = {
     "target-pattern": "const { target } = e;\nexport const w = target;",
     "literal-location": "location.href = '/home';\nlocation.assign('/a');",
     "blank-window": "open(t, '_blank');\nopen('/x');",
-    "this-literal-key": "class C { m() { (this as any)['x'] = 1; (this as any)[0] = 2; } }\nexport const c = new C();",
+    "this-literal-key": (
+        "class C { m() { (this as any)['x'] = 1; (this as any)[0] = 2; } }\n"
+        "export const c = new C();"
+    ),
     "this-named-key": "class C { m() { this.x = 1; } x = 0; }\nexport const c = new C();",
-    "arrow-field-this": "class C { h = () => { (this as any)[k] = 1; }; }\nexport const c = new C();",
+    "arrow-field-this": (
+        "class C { h = () => { (this as any)[k] = 1; }; }\nexport const c = new C();"
+    ),
     "record-write": "const m: Record<string, number> = {};\nm[k] = 1;",
 }
 
