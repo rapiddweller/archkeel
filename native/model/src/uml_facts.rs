@@ -30,13 +30,16 @@ pub(crate) enum Assessed {
 pub(crate) struct Facts<'m> {
     pub(crate) model: &'m Model,
     pub(crate) language: &'static str,
+    /// The qualified names of the module entities of the target: the modules that it reads.
+    pub(crate) read: &'m [&'m str],
 }
 
 impl<'m> Facts<'m> {
-    pub(crate) fn of(model: &'m Model) -> Self {
+    pub(crate) fn of(model: &'m Model, read: &'m [&'m str]) -> Self {
         Facts {
             model,
             language: model.graph().observed().language,
+            read,
         }
     }
 

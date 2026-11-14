@@ -31,6 +31,29 @@ any other UNKNOWN makes it UNKNOWN, else it is PASS. A component entity has no a
    model. The row stays out of `decisions`. FAIL rows carry each differing fact as a detail.
 5. A target in an inside contract keeps the row UNKNOWN (`UmlGap::Mounted`); 4.0.1 can pass it.
    An empty target and a target without an assessment stay UNKNOWN.
+6. An `imports` endpoint that is not a module entity is UNKNOWN by name, as in `_matches`: a
+   class, function, interface or package of a module name needs symbol facts. A package scope
+   reads only packages; only a component scope falls back to a module of its name (`_scope`).
+7. The contract owner refuses a `component` entity in `declarations.uml` (`contract.invalid`,
+   exit 2): "UML cannot redeclare an existing component owner", as `intent_graph` of 4.0.1.
+8. A pair gap that the drop rule drops and that touches a module of the target holds the row for
+   a PASS and for a missing-import FAIL (`Scope::uml_run`). `Scope::run` lets a dropped gap hold
+   only the rules of the contract, but the gap can be an import edge between two modules of the
+   target.
+9. A FAIL for an extra element of a closed scope is true whatever the coverage, so it stays in an
+   incomplete run. A closed scope without an extra element is UNKNOWN: it needs a complete
+   inventory, which the core does not prove.
+
+**Where the core differs from 4.0.1, with the proof.**
+- Python `importlib.import_module('app.b.t')` or `__import__('app.b.t')` with a literal name is an
+  import edge since AD-472. A declared edge gives PASS where 4.0.1 gives FAIL, and the edge under
+  a closed scope without a listed import gives FAIL where 4.0.1 gives PASS. The core reads the
+  true edge; 4.0.1 misses it.
+- TypeScript `import t = require('../b/t')` and a Dart conditional import under a closed scope:
+  4.0.1 cannot complete the scan (exit 2, `parse_error`; its row is FAIL for TypeScript and
+  UNKNOWN for Dart). The core gives FAIL for the true unlisted edge.
+- Rust has no 4.0.1 comparison of a UML target. A Rust row rests on the scope proof alone,
+  including the dropped pair gaps of point 8.
 
 **Reason.** The UML row was always UNKNOWN, so each run with a target ended with exit 2. The
 module and import part is decidable today and gives a real FAIL or PASS.
@@ -47,3 +70,5 @@ compared (UNKNOWN), and a package entity is UNKNOWN.
 (pass, missing edge, extra edge, extra module, an incomplete run, a renamed module, another
 language, a class entity, a component or missing scope, a mounted target) and a missing
 provenance file. `tests/test_cli_core_uml_target.py` keeps the fixture and refusal cases.
+`tests/test_cli_core_uml_review.py`: the forms of the proof review (points 6 to 9, the
+differences above) in TypeScript, Python, Dart and Rust plants, and the component refusal.

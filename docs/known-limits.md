@@ -46,6 +46,10 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   `imports` relationships between modules, open scopes and closed scopes over modules and imports.
   A symbol entity or relationship, a target in an inside contract and an external import target keep
   the UML row UNKNOWN (`no_receipt`), so a target that 4.0.1 passes with symbol facts exits 2.
+  A FAIL for an extra element of a closed scope is true whatever the coverage, so it stays in an
+  incomplete run; a closed scope without an extra element stays UNKNOWN. A dropped pair gap that
+  touches a module of the target holds the UML row. A Rust UML row has no 4.0.1 comparison and
+  rests on the scope proof alone (AD-494).
 - A collection gap makes each rule UNKNOWN whose reading it can change. A manifest edge that the core
   proved can give a `requires` FAIL beside such a gap.
 - `validate` and `report` read explicit `inside` mounts through the bounded core tree reader.

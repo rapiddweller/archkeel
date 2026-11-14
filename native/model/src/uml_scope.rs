@@ -5,7 +5,9 @@
 //! The scope assessments of a UML target (`_scope_assessments` and
 //! `_closed_relationship_assessments` of `check/uml_compare.py`, AD-494).
 
-use archkeel_contract::{CompletenessMode, EntityKind, RelationshipKind, Target, TargetScope};
+use archkeel_contract::{
+    CompletenessMode, Entity, EntityKind, RelationshipKind, Target, TargetScope,
+};
 
 use crate::uml_facts::{entity, word, Assessed, Facts, UmlDiff};
 
@@ -25,7 +27,7 @@ pub(crate) fn scope(facts: &Facts<'_>, target: &Target, item: &TargetScope) -> V
             ))]
         }
     };
-    if found(facts, name, owner.language(), module) != 1 {
+    if found(facts, owner, module) != 1 {
         return vec![Assessed::Unknown(
             "scope without one module or package".to_owned(),
         )];
@@ -73,8 +75,11 @@ pub(crate) fn scope(facts: &Facts<'_>, target: &Target, item: &TargetScope) -> V
     extras.into_iter().map(Assessed::Fail).collect()
 }
 
-/// The number of modules (for a module scope) or packages, else modules, named `name`.
-fn found(facts: &Facts<'_>, name: &str, language: &str, module: bool) -> usize {
+/// `_scope`: the number of observed entities of a scope. A module scope counts the modules of
+/// its name and a package scope the packages. Only a component scope falls back to the modules
+/// when no package has its name.
+fn found(facts: &Facts<'_>, owner: &Entity, module: bool) -> usize {
+    let (name, language) = (owner.qualified_name(), owner.language());
     let modules = facts.modules(name, language).len();
     if module || language != facts.language {
         return modules;
@@ -84,10 +89,9 @@ fn found(facts: &Facts<'_>, name: &str, language: &str, module: bool) -> usize {
         .iter()
         .filter(|(_, package)| package.name() == name)
         .count();
-    if named > 0 {
-        named
-    } else {
-        modules
+    match owner.kind() {
+        EntityKind::Component if named == 0 => modules,
+        _ => named,
     }
 }
 

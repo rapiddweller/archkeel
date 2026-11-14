@@ -183,12 +183,27 @@ impl<'id, 'm> Scope<'id, 'm> {
     /// The scope proof of the UML target row `id` (AD-494): the scope of the whole run must be
     /// complete, because a target can name each component. The caller passes only a target whose
     /// every assessment passes (`uml::compare`).
-    fn uml_complete(&self, id: &str) -> Result<ScopeComplete<'id>, Reason> {
-        self.run()?;
+    fn uml_complete(&self, id: &str, modules: &[&str]) -> Result<ScopeComplete<'id>, Reason> {
+        self.uml_run(modules)?;
         Ok(ScopeComplete {
             brand: PhantomData,
             rule: id.to_owned(),
         })
+    }
+
+    /// The scope of the run for the UML target row (AD-494): the run is complete, and no pair
+    /// gap that the drop rule drops touches a module that the target names. `run` lets such a
+    /// gap hold only the rules of the contract, but the gap can be an import edge between two
+    /// modules of the target, so it holds the row for a PASS and for a FAIL.
+    fn uml_run(&self, modules: &[&str]) -> Result<(), Reason> {
+        self.run()?;
+        let touched = self.model.pairs().dropped.iter().filter(|gap| {
+            modules.contains(&gap.source.as_str()) || modules.contains(&gap.target.as_str())
+        });
+        match Held::of(touched.map(|gap| (gap.source.as_str(), gap.target.as_str()))) {
+            Some(held) => Err(Reason::NotComplete(Cause::AllowedPairGaps(held))),
+            None => Ok(()),
+        }
     }
 
     /// PASS, with a proof of this scope.
@@ -244,13 +259,18 @@ impl<'id, 'm> Scope<'id, 'm> {
 
 /// The PASS of the UML target row `id` of the root model, with the scope proof of the run
 /// (AD-494).
-pub(crate) fn uml_pass(model: &Model, id: &str) -> Result<Decision, Reason> {
-    model.scope(|scope| scope.uml_complete(id).map(|proof| scope.pass(proof)))
+pub(crate) fn uml_pass(model: &Model, id: &str, modules: &[&str]) -> Result<Decision, Reason> {
+    model.scope(|scope| {
+        scope
+            .uml_complete(id, modules)
+            .map(|proof| scope.pass(proof))
+    })
 }
 
-/// True when the scope of the whole run of `model` is complete (AD-494).
-pub(crate) fn run_complete(model: &Model) -> bool {
-    model.scope(|scope| scope.run()).is_ok()
+/// True when the scope of the run is complete for the UML target row that names `modules`
+/// (AD-494).
+pub(crate) fn uml_run(model: &Model, modules: &[&str]) -> bool {
+    model.scope(|scope| scope.uml_run(modules)).is_ok()
 }
 
 /// The receipt of a rule (`rules.py` `_rule_evaluation_facts_for_rule`): the rule selects a

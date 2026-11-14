@@ -49,23 +49,29 @@ pub enum UmlOutcome {
 
 /// Compare the root target with the model of the root of the run; `id` is the row id.
 pub fn compare(model: &Model, target: &Target, id: &str) -> UmlOutcome {
-    let facts = Facts::of(model);
+    let modules: Vec<&str> = target
+        .entities()
+        .iter()
+        .filter(|item| *item.kind() == EntityKind::Module)
+        .map(|item| item.qualified_name().as_str())
+        .collect();
+    let facts = Facts::of(model, &modules);
     let mut found: Vec<Assessed> = Vec::new();
     for entity in target.entities() {
         found.extend(entity_assessment(&facts, target, entity));
     }
     for edge in target.relationships() {
         if *edge.kind() != RelationshipKind::Requires {
-            found.push(relationship(&facts, target, edge, model));
+            found.push(relationship(&facts, target, edge));
         }
     }
     for scope in target.scopes() {
         found.extend(crate::uml_scope::scope(&facts, target, scope));
     }
-    verdict(model, found, id)
+    verdict(&facts, found, id)
 }
 
-fn verdict(model: &Model, found: Vec<Assessed>, id: &str) -> UmlOutcome {
+fn verdict(facts: &Facts<'_>, found: Vec<Assessed>, id: &str) -> UmlOutcome {
     if found.is_empty() {
         return UmlOutcome::Unknown(UmlGap::NothingCompared);
     }
@@ -92,7 +98,7 @@ fn verdict(model: &Model, found: Vec<Assessed>, id: &str) -> UmlOutcome {
             kinds,
         });
     }
-    match crate::scope::uml_pass(model, id) {
+    match crate::scope::uml_pass(facts.model, id, facts.read) {
         Ok(decision) => UmlOutcome::Pass(decision),
         Err(reason) => UmlOutcome::Unknown(UmlGap::Incomplete(reason.to_string())),
     }
@@ -130,12 +136,7 @@ fn entity_assessment(facts: &Facts<'_>, target: &Target, item: &Entity) -> Vec<A
     result
 }
 
-fn relationship(
-    facts: &Facts<'_>,
-    target: &Target,
-    edge: &Relationship,
-    model: &Model,
-) -> Assessed {
+fn relationship(facts: &Facts<'_>, target: &Target, edge: &Relationship) -> Assessed {
     let kind = word(edge.kind());
     if *edge.kind() != RelationshipKind::Imports {
         return Assessed::Unknown(format!("{kind} relationship"));
@@ -149,6 +150,10 @@ fn relationship(
     let (Some(source), Some(end)) = ends else {
         return Assessed::Unknown("imports relationship endpoint".to_owned());
     };
+    // `_matches` reads a module fact only for a module entity; another kind needs symbol facts.
+    if *source.kind() != EntityKind::Module || *end.kind() != EntityKind::Module {
+        return Assessed::Unknown("imports relationship endpoint that is not a module".to_owned());
+    }
     let modules = (
         facts.modules(source.qualified_name(), source.language()),
         facts.modules(end.qualified_name(), end.language()),
@@ -160,7 +165,7 @@ fn relationship(
         return Assessed::Pass;
     }
     // `_relationship`: a missing edge is FAIL only in a complete inventory.
-    if !crate::scope::run_complete(model) {
+    if !crate::scope::uml_run(facts.model, facts.read) {
         return Assessed::Unknown("imports relationship coverage".to_owned());
     }
     Assessed::Fail(UmlDiff {
