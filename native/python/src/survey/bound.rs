@@ -103,6 +103,15 @@ impl Walk {
         }
     }
 
+    /// A star import of the module scope binds names that cannot be listed.
+    fn star(&mut self, stmt: &Stmt) {
+        let Stmt::ImportFrom(node) = stmt else {
+            return;
+        };
+        let star = node.names.iter().any(|alias| alias.name.as_str() == "*");
+        self.bound.opaque |= star && self.scope == 0;
+    }
+
     fn definition(&mut self, name: &str, start: TextSize) {
         self.site(name, start, true);
         if self.scope == 0 && self.depth == 0 && name == "__getattr__" {
@@ -128,12 +137,7 @@ impl<'a> Visitor<'a> for Walk {
                 self.scope -= 1;
             }
             Stmt::Import(_) | Stmt::ImportFrom(_) => {
-                if let Stmt::ImportFrom(node) = stmt {
-                    if node.names.iter().any(|alias| alias.name.as_str() == "*") && self.scope == 0
-                    {
-                        self.bound.opaque = true;
-                    }
-                }
+                self.star(stmt);
                 for name in import_bindings(stmt) {
                     self.site(&name, start, true);
                 }
