@@ -57,7 +57,7 @@ WINDOW_HOMES = (
     ("other windows", ("opener", "global"), "source_input.rs"),
     (
         "window members",
-        ("defaultView", "contentWindow", "parentWindow", "view", "source"),
+        ("defaultView", "contentWindow", "parentWindow"),
         "script_window.rs",
     ),
     ("text timers", ("setTimeout", "setInterval", "setImmediate"), "script_window.rs"),

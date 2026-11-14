@@ -27,6 +27,7 @@ CODE = {
     "shorthand-function": 'const o = { Function }; o.Function("open = 1")();',
     "constructor-call": '(() => {}).constructor.call(null, "open = 1")();',
     "window-eval": 'window.eval("open = 1");',
+    "self-function": '(self as any).Function("open = 1")();',
     "logical-eval": 'declare const x: any; (x || eval)("open = 1");',
     "tagged-function": "Function`open = 1`();",
     "reflect-construct": 'Reflect.construct(Function, ["open = 1"])();',
@@ -43,6 +44,119 @@ CODE = {
     "data-import": 'import("data:text/javascript,open=1");',
     "dynamic-import": "declare const u: string; import(u);",
 }
+
+
+# Review of #1161: each form gave PASS on its head and must stay a gap (B1, B2, D1, F2).
+REVIEW_DECLARATIONS = "declare const k: string, x: any, g: any, el: any, e: any, t: string;\n"
+REVIEW = {
+    "b1-logical-parent": "(x || document.defaultView).parent[k] = 1;",
+    "b1-ternary-top": "(x ? el.contentWindow : x).top[k] = 1;",
+    "b1-sequence-top": "(0, document.defaultView).top[k] = 1;",
+    "b1-escape-parent": "g((x || document.defaultView).parent);",
+    "b1-parent-eval": "(x || document.defaultView).parent.eval('open = 1');",
+    "b2-continuation": "el.innerHTML = '<details open o\\\nntoggle=open=1>';",
+    "b2-template": "el.innerHTML = `<details open o\\\nntoggle=open=1>`;",
+    "b2-crlf": "el.innerHTML = '<details open o\\\r\nntoggle=open=1>';",
+    "b2-separator": "el.innerHTML = '<details open o\\\u2028ntoggle=open=1>';",
+    "b2-fragment": "el.createContextualFragment('<scr\\\nipt>open = 1</script>');",
+    "d1-source-key": "e.source[k] = 1;",
+    "d1-view-key": "e.view[k] = 1;",
+    "d1-view-escape": "g(e.view);",
+    "d1-view-assign": "Object.assign(e.view, { [k]: 1 });",
+    "d1-source-top": "e.source.top[k] = 1;",
+    "d1-opener-key": "x.opener[k] = 1;",
+    "d1-view-eval": "e.view.eval(t);",
+    "d1-source-function": "e.source.Function(t)();",
+    "d1-target-eval": "e.currentTarget.eval(t);",
+    "d1-target-escape": "g(e.currentTarget);",
+    "d1-new-function": "new x.Function(t);",
+    "d1-eval-call": "x.eval.call(null, t);",
+    "d1-function-alias": "declare const Level: any;\nconst F = Level.Function;\nF(t)();",
+    "d1-method-eval": (
+        'class C { m(this: any) { this.eval(t); } }\naddEventListener("load", new C().m);'
+    ),
+    # L-176: file data can carry an event or a window, so a member of it counts.
+    "g1-literal-event": "addEventListener('click', (e) => { const o = { e }; o.e.view[k] = 1; });",
+    "g1-literal-escape": "addEventListener('click', (e) => { const o = { e }; g(o.e.view); });",
+    "g1-array-eval": "addEventListener('click', (e) => { const a = [e]; a[0].view.eval(t); });",
+    "g1-literal-target": (
+        "addEventListener('click', (e) => { const o = { e }; o.e.currentTarget.eval(t); });"
+    ),
+    "g2-store-event": (
+        "const o: any = {};\naddEventListener('message', (e) => { o.e = e; o.e.source[k] = 1; });"
+    ),
+    "g2-push-event": (
+        "const a: any[] = [];\naddEventListener('click', (e) => { a.push(e); a[0].view[k] = 1; });"
+    ),
+    "g2-key-store": (
+        "const o: any = {};\naddEventListener('click', (e) => { o[k] = e; o[k].view[k] = 1; });"
+    ),
+    "g2-alias-store": (
+        "const o: any = {};\nconst p = o;\n"
+        "addEventListener('click', (e) => { p.e = e; o.e.view[k] = 1; });"
+    ),
+    "g2-null-prototype": (
+        "const o: any = Object.create(null);\n"
+        "addEventListener('click', (e) => { o.e = e; o.e.view[k] = 1; });"
+    ),
+    "g3-proto-literal": "const o: any = { __proto__: e };\no.view[k] = 1;",
+    "g3-pattern-store": "const o: any = {};\n({ view: o.view } = e);\no.view[k] = 1;",
+    "g3-set-prototype": "const o: any = {};\nObject.setPrototypeOf(o, e);\no.view[k] = 1;",
+    "g4-open-result": "const o: any = {};\no.w = open();\no.w.eval(t);",
+    "g4-event-target": "const o = { t: e.target };\no.t.eval(t);",
+    "g4-any-function": "const o = { F: x };\no.F.Function(t)();",
+    "g4-passed-object": "const o: any = {};\ng(o);\no.view[k] = 1;",
+    "g4-assigned-event": "const o: any = {};\nObject.assign(o, e);\no.view[k] = 1;",
+    "g4-spread-event": "const o: any = { ...e };\no.view[k] = 1;",
+    "f2-comment-html": (
+        "el.insertAdjacentHTML(/* c */ 'beforeend', '<details open ontoggle=open=1>');"
+    ),
+    "f2-comment-attribute": "el.setAttributeNS(/* c */ 'x', 'onclick', t);",
+    "f2-comment-element": "document.createElementNS(/* c */ 'x', 'script');",
+    "f2-html-key": "el['innerHTML'] = t;",
+    "f2-html-pattern": "[el.innerHTML] = [t];",
+    "f2-eval-key": "x['eval'](t);",
+    "f2-function-pattern": "const { Function: F } = x;\nF(t)();",
+    "f2-tab-scheme": "el.src = 'java\\tscript:open=1';",
+    "f2-raw-tab-scheme": "el.src = 'java\tscript:open=1';",
+}
+
+
+@pytest.mark.parametrize("name", sorted(REVIEW))
+def test_a_review_form_of_1161_gives_no_pass(tmp_path: Path, release_core: Path, name: str) -> None:
+    write = MODULE + REVIEW_DECLARATIONS + REVIEW[name]
+    code, document = _verdict(_project(tmp_path, write, "window.open();\n"), release_core)
+    assert (code, document["status"]) != (0, "PASS"), name
+
+
+# Each markup literal that the write check refuses (AD-460): every one can run or load code.
+MARKUP = {
+    "upper-case-handler": "<IMG SRC=x ONERROR=y>",
+    "slash-handler": "<img/onerror=y>",
+    "quote-handler": '<img alt="x"onerror=y>',
+    "entity": "<p>&#106;avascript:</p>",
+    "svg": "<svg></svg>",
+    "math": "<math></math>",
+    "formaction": "<button formaction=x>b</button>",
+    "style": '<p style="x">p</p>',
+    "anchor": '<a href="#">a</a>',
+    "form-action": "<form action=x></form>",
+    "link": "<link rel=x>",
+    "template": "<template><p>p</p></template>",
+    "image-source": "<img src=x>",
+    "script": "<script>open = 1</script>",
+    "code-scheme": "<p>vbscript:x</p>",
+}
+
+
+@pytest.mark.parametrize("name", sorted(MARKUP))
+def test_markup_that_can_run_code_gives_no_pass(
+    tmp_path: Path, release_core: Path, name: str
+) -> None:
+    text = json.dumps(MARKUP[name])
+    write = f"declare const e: any;\ne.innerHTML = {text};"
+    code, document = _verdict(_project(tmp_path, MODULE + write, "window.open();\n"), release_core)
+    assert (code, document["status"]) != (0, "PASS"), name
 
 
 @pytest.mark.parametrize("name", sorted(CODE))

@@ -21,14 +21,11 @@ pub(crate) enum Written {
     Unknown,
 }
 
-/// The members of an object whose value can be a window.
-const WINDOW_MEMBERS: [&str; 5] = [
-    "defaultView",
-    "contentWindow",
-    "parentWindow",
-    "view",
-    "source",
-];
+/// The members whose value is a window on any object: only a document or a frame has them.
+const WINDOW_MEMBERS: [&str; 3] = ["defaultView", "contentWindow", "parentWindow"];
+
+/// The members of an event that the platform sets to a window, beside the window names.
+const PLATFORM_MEMBERS: [&str; 3] = ["source", "view", "currentTarget"];
 
 /// The names that run text as code, and the member that reaches `Function` from any function.
 pub(crate) const CODE_NAMES: [&str; 3] = ["eval", "Function", "constructor"];
@@ -62,6 +59,8 @@ pub(crate) fn cooked(text: &str) -> Option<String> {
             continue;
         }
         match chars.next()? {
+            // A line continuation: JavaScript drops the backslash and the line end.
+            '\n' | '\r' | '\u{2028}' | '\u{2029}' => return None,
             'u' if chars.peek() == Some(&'{') => {
                 chars.next();
                 let digits: String = chars.by_ref().take_while(|c| *c != '}').collect();
@@ -69,6 +68,12 @@ pub(crate) fn cooked(text: &str) -> Option<String> {
             }
             'u' => out.push(hex_char(&mut chars, 4)?),
             'x' => out.push(hex_char(&mut chars, 2)?),
+            'n' => out.push('\n'),
+            't' => out.push('\t'),
+            'r' => out.push('\r'),
+            'b' => out.push('\u{8}'),
+            'f' => out.push('\u{c}'),
+            'v' => out.push('\u{b}'),
             other if other.is_ascii_alphanumeric() => return None,
             other => out.push(other),
         }
@@ -259,7 +264,11 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 }
                 let name = tree.text(node);
                 if tree.binding_scope(node, &name).is_some() {
-                    return self.is_alias(self.wrapper_of(node), &name);
+                    // A local binding is no global; only a wrapper parameter names the window.
+                    let wrapper = self
+                        .wrapper_of(node)
+                        .and_then(|w| self.wrappers.get(&w.id()));
+                    return wrapper.is_some_and(|info| info.names.contains(&name));
                 }
                 cooked(&name).is_none_or(|name| is_window_name(&name))
             }
@@ -268,11 +277,21 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 Receiver::Top => !self.module_syntax,
                 Receiver::Method | Receiver::Bound => false,
             },
-            "member_expression" => tree.field(node, F::Property).is_some_and(|property| {
-                cooked(&tree.text(property)).is_none_or(|name| {
-                    is_window_name(&name) || WINDOW_MEMBERS.contains(&name.as_str())
-                })
-            }),
+            "member_expression" => {
+                let Some(property) = tree.field(node, F::Property) else {
+                    return false;
+                };
+                let name = cooked(&tree.text(property));
+                let Some(name) = name else {
+                    return true;
+                };
+                if WINDOW_MEMBERS.contains(&name.as_str()) {
+                    return true;
+                }
+                // The platform hands out a window through these members of an event or a
+                // window, on any object (AD-492).
+                is_window_name(&name) || PLATFORM_MEMBERS.contains(&name.as_str())
+            }
             _ => false,
         }
     }
