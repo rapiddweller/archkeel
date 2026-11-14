@@ -287,25 +287,6 @@ impl Cx<'_> {
         preceding
     }
 
-    /// `_decorated_member` for the member that follows a run of decorators and comments: whether
-    /// a decorator at body level belongs to it.
-    pub(crate) fn decorated_member(&self, candidate: Node, place: &Place) -> bool {
-        if candidate.has_error()
-            || !matches!(
-                self.k(candidate),
-                K::MethodDefinition | K::MethodSignature | K::PublicFieldDefinition
-            )
-        {
-            return false;
-        }
-        let Some(name) = self.field(candidate, F::Name) else {
-            return false;
-        };
-        self.k(name) != K::ComputedPropertyName
-            && self.valid_unicode_member_name(name)
-            && !self.instance_constructor(candidate, place)
-    }
-
     /// `_signature_complete`.
     pub(crate) fn signature_complete(&self, node: Node) -> bool {
         let Some(parameters) = self.field(node, F::Parameters) else {

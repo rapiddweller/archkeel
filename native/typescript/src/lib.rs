@@ -52,6 +52,7 @@ mod records_lists;
 mod references;
 mod resolution;
 mod resolve;
+mod resolver;
 mod scan;
 mod scope;
 mod script;

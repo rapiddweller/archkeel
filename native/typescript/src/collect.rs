@@ -31,7 +31,7 @@ use crate::records::write_reply;
 use crate::records_lists::listed;
 #[cfg(any(test, feature = "dump"))]
 use crate::records_lists::records_of;
-use crate::resolve::Resolver;
+use crate::resolver::Resolver;
 use crate::syntax::Parsers;
 use crate::test_sources::{is_test_source, NO_PRODUCTION_SOURCE};
 use archkeel_snapshot::paths::join;
