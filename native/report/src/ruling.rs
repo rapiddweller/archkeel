@@ -70,8 +70,6 @@ impl RuleReasons {
 /// The decided head of the engine frame. The fields are private: only `rule` makes one.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Ruling {
-    #[serde(skip)]
-    edge_links: crate::edge_links::Links,
     protocol: &'static str,
     #[serde(skip)]
     decided: Decided,
@@ -94,15 +92,6 @@ pub struct Ruling {
 }
 
 impl Ruling {
-    /// The evaluated FAIL rows that cite each import identity; empty unless requested.
-    pub fn edge_links(&self) -> &BTreeMap<String, BTreeSet<String>> {
-        &self.edge_links
-    }
-
-    /// The existing scope proof result, without a second completeness decision.
-    pub fn scope(&self) -> &str {
-        &self.scope
-    }
     /// The decided mark: the status, the run proof of a PASS and the Decision of each rule.
     pub fn decided(&self) -> &Decided {
         &self.decided
@@ -126,15 +115,16 @@ impl Ruling {
 /// AD-385), the gaps of the core, the status and its proof. A frame that breaks the explaining
 /// rows of AD-361 point 5 is an error, never a ruling.
 pub fn rule(models: Result<&ModelTree, &Reason>, named: Named) -> Result<Ruling, BuildError> {
-    rule_with_edge_links(models, named, false)
+    rule_with_edge_links(models, named, false).map(|(ruling, _)| ruling)
 }
 
-/// Evaluate once and optionally keep the import-to-rule links for a topology projection.
+/// Evaluate once and also give the rules whose FAIL rows cite each import identity; the map is
+/// empty unless `keep_links` is set.
 pub fn rule_with_edge_links(
     models: Result<&ModelTree, &Reason>,
     named: Named,
     keep_links: bool,
-) -> Result<Ruling, BuildError> {
+) -> Result<(Ruling, BTreeMap<String, BTreeSet<String>>), BuildError> {
     let scope = match models {
         Ok(models) => models
             .models()
@@ -190,8 +180,7 @@ pub fn rule_with_edge_links(
         Some(reason) => RuleReasons::All(reason),
         None => RuleReasons::Each(reasons),
     };
-    Ok(Ruling {
-        edge_links,
+    let ruling = Ruling {
         protocol: "archkeel-core-frame-1",
         decided: Decided {
             status,
@@ -208,7 +197,8 @@ pub fn rule_with_edge_links(
         beyond: rows.beyond,
         scope,
         unsupported,
-    })
+    };
+    Ok((ruling, edge_links))
 }
 
 /// The rows of the decided rules.

@@ -135,6 +135,9 @@ A difference is a refusal. The rule rows are trusted to the located core binary.
 `--native-core`, `--timings`, `--html` and each option of the Python engine give a typed refusal with exit 2.
 `report --json` gives the verdict frame as JSON, and `--text` gives the text summary.
 Neither form is a complete `architecture.json` or an HTML report.
+`report --topology` adds a bounded `topology` section: components, modules, edges, completeness, budgets
+and the rules that cite each edge (AD-448). Without the option the frame and its time do not change.
+A total over a budget sets `truncated` and keeps the exact total. The section never changes a verdict.
 `check` always refuses and names each check it cannot run: its expectation, lock, Git and host checks need #1103.
 No failure falls back to Python.
 

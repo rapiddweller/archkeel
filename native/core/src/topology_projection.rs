@@ -92,10 +92,23 @@ pub(crate) fn project(
     models: Result<&ModelTree, Reason>,
     reply: Option<&Ingested>,
     ruling: &Ruling,
+    links: &BTreeMap<String, BTreeSet<String>>,
 ) -> Topology {
     let mut gaps = BTreeSet::new();
-    if ruling.scope() != "complete" {
-        gaps.insert(ruling.scope().to_owned());
+    // The scope text is the one the frame carries: read it from the ruling, not decide it again.
+    let scope = serde_json::to_value(ruling).ok().and_then(|value| {
+        value
+            .get("scope")
+            .and_then(|s| s.as_str().map(str::to_owned))
+    });
+    match scope.as_deref() {
+        Some("complete") => {}
+        Some(reason) => {
+            gaps.insert(reason.to_owned());
+        }
+        None => {
+            gaps.insert("scope: not readable from the ruling".to_owned());
+        }
     }
     let mut components = Vec::new();
     let mut modules = Vec::new();
@@ -105,7 +118,7 @@ pub(crate) fn project(
         (Ok(models), Some(reply)) => {
             components = component_rows(models);
             modules = module_rows(models);
-            (edges, component_edges) = edge_rows(models, reply, ruling, &modules);
+            (edges, component_edges) = edge_rows(models, reply, links, &modules);
         }
         (Err(reason), _) => {
             gaps.insert(reason.to_string());
@@ -235,7 +248,7 @@ fn module_rows(models: &ModelTree) -> Vec<Module> {
 fn edge_rows(
     models: &ModelTree,
     reply: &Ingested,
-    ruling: &Ruling,
+    links: &BTreeMap<String, BTreeSet<String>>,
     modules: &[Module],
 ) -> (Vec<Edge>, Vec<Edge>) {
     let facts = &reply.reply().facts;
@@ -263,7 +276,7 @@ fn edge_rows(
             (import.source_module(), import.target_module(), resolution),
             import.id(),
             import.evidence().iter().map(String::as_str),
-            (&locations, ruling),
+            (&locations, links),
         );
     }
     let unresolved: BTreeSet<_> = facts
@@ -290,7 +303,7 @@ fn edge_rows(
                     ),
                     record.id.as_str(),
                     record.evidence_ids.iter().map(|id| id.as_str()),
-                    (&locations, ruling),
+                    (&locations, links),
                 );
             }
         }
@@ -323,7 +336,10 @@ fn add<'a>(
     (source, target, resolution): (&str, &str, &'static str),
     import: &str,
     evidence: impl Iterator<Item = &'a str>,
-    (locations, ruling): (&BTreeMap<&str, Location>, &Ruling),
+    (locations, links): (
+        &BTreeMap<&str, Location>,
+        &BTreeMap<String, BTreeSet<String>>,
+    ),
 ) {
     let bucket = buckets
         .entry((source.to_owned(), target.to_owned(), resolution))
@@ -332,7 +348,7 @@ fn add<'a>(
     bucket
         .evidence
         .extend(evidence.filter_map(|id| locations.get(id).cloned()));
-    if let Some(rules) = ruling.edge_links().get(import) {
+    if let Some(rules) = links.get(import) {
         bucket.rules.extend(rules.iter().cloned());
     }
 }
@@ -343,7 +359,12 @@ fn finish(buckets: BTreeMap<Key, Bucket>, level: &str) -> Vec<Edge> {
         .map(|((source, target, resolution), bucket)| Edge {
             id: stable_id(
                 "EDGE",
-                &[Part::Text(level), Part::Text(&source), Part::Text(&target)],
+                &[
+                    Part::Text(level),
+                    Part::Text(&source),
+                    Part::Text(&target),
+                    Part::Text(resolution),
+                ],
             ),
             source,
             target,
@@ -355,3 +376,7 @@ fn finish(buckets: BTreeMap<Key, Bucket>, level: &str) -> Vec<Edge> {
         })
         .collect()
 }
+
+#[cfg(test)]
+#[path = "topology_projection_tests.rs"]
+mod tests;

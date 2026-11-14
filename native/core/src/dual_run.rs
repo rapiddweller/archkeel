@@ -244,20 +244,17 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
     };
     let mut named = named(&contract, run.baseline, &engine, &path);
     named.contract = named.contract.or(trust.gap).or(base);
-    let ruling = if run.topology {
+    let ruled = if run.topology {
         engine.rule(named, true)
     } else {
         match engine.answer(Request::Rules(named)) {
-            Answer::Rules(ruling) => *ruling,
+            Answer::Rules(ruling) => (*ruling).map(|ruling| (ruling, BTreeMap::new())),
             other => Err(format!("unexpected answer {other:?}")),
         }
-    }
-    .map_err(|problem| format!("{}: an inconsistent frame: {problem}", run.case))?;
-    let topology = if run.topology {
-        Some(engine.topology(&ruling))
-    } else {
-        None
     };
+    let (ruling, links) =
+        ruled.map_err(|problem| format!("{}: an inconsistent frame: {problem}", run.case))?;
+    let topology = run.topology.then(|| engine.topology(&ruling, &links));
     let (rows, sections) = crate::sections::split(rows);
     let names_a_gap = report.is_err()
         || !ruling.unsupported().is_empty()

@@ -48,7 +48,7 @@ def test_small_typescript_topology_links_the_existing_fail(release_core: Path) -
         frame = json.loads(done.stdout)["frame"]
         original = json.loads(plain.stdout)["frame"]
         topology = frame.pop("topology")
-        assert frame == original
+        assert json.dumps(frame) == json.dumps(original)
         assert [(m["path"], m["component"]) for m in topology["modules"]] == [
             ("src/a/a.ts", "COMP-A"), ("src/b/t.ts", "COMP-B")
         ]
@@ -136,6 +136,7 @@ def test_a_requested_old_or_forged_topology_is_refused(release_core: Path, fault
         if fault == "absent":
             frame.pop("topology")
             assert read_frame(json.dumps(frame).encode(), 0, scan=True).topology is None
+            return
         elif fault == "version":
             topology["version"] = True
         elif fault == "extra":
@@ -150,5 +151,13 @@ def test_a_requested_old_or_forged_topology_is_refused(release_core: Path, fault
             topology["edges"][0]["resolution"] = "guessed"
         else:
             topology["edges"][0]["rules"] = ["NOT-A-ROW"]
-        with pytest.raises(CoreError):
+        with pytest.raises(CoreError, match="topology"):
+            read_frame(json.dumps(frame).encode(), 0, scan=True)
+
+
+def test_a_requested_but_absent_section_is_refused(release_core: Path) -> None:
+    with case_root(HONEST) as root:
+        frame = topology_frame(release_core, root)
+        frame.pop("topology")
+        with pytest.raises(CoreError, match="requested topology"):
             read_frame(json.dumps(frame).encode(), 0, scan=True, request={"topology": True})

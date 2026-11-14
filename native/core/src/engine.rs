@@ -10,6 +10,7 @@ use archkeel_contract::policy::ContractTree;
 use archkeel_contract::Contract;
 use archkeel_model::{Graph, Input, Model, ModelTree, Reason, Settings};
 use archkeel_store::Ingested;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::contract::{ContractInput, ContractState, Usable};
 use crate::ingest::ReplyState;
@@ -77,13 +78,17 @@ impl Derived {
 }
 
 impl Engine {
-    pub(crate) fn topology(&mut self, ruling: &Ruling) -> crate::topology_projection::Topology {
+    pub(crate) fn topology(
+        &mut self,
+        ruling: &Ruling,
+        links: &BTreeMap<String, BTreeSet<String>>,
+    ) -> crate::topology_projection::Topology {
         self.derived();
         let models = self
             .derived
             .as_ref()
             .map_or_else(|| Err(Reason::MissingInput(Input::Reply)), Derived::models);
-        crate::topology_projection::project(models, self.reply(), ruling)
+        crate::topology_projection::project(models, self.reply(), ruling, links)
     }
 
     pub(crate) fn answer(&mut self, request: Request) -> Answer {
@@ -115,13 +120,19 @@ impl Engine {
                 let derivation = (derived.graph(), derived.model());
                 Answer::Sections(crate::sections::answer(derivation, &outcomes, &sections))
             }
-            Request::Rules(named) => Answer::Rules(Box::new(self.rule(named, false))),
+            Request::Rules(named) => {
+                Answer::Rules(Box::new(self.rule(named, false).map(|(ruling, _)| ruling)))
+            }
             Request::Report => Answer::Report(crate::report::answer()),
         }
     }
 
     /// The ruling of the report over the model and the gaps of the request and of the core.
-    pub(crate) fn rule(&mut self, mut named: Named, keep_links: bool) -> Result<Ruling, String> {
+    pub(crate) fn rule(
+        &mut self,
+        mut named: Named,
+        keep_links: bool,
+    ) -> Result<(Ruling, BTreeMap<String, BTreeSet<String>>), String> {
         let tree = self.contract.as_ref().map(crate::rules::Tree::of);
         let (contract, derived) = self.derived();
         let models = derived.models();
