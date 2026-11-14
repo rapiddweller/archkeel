@@ -58,6 +58,7 @@ mod script;
 mod script_alias;
 mod script_bind;
 mod script_code;
+mod script_data;
 mod script_declarations;
 mod script_declare;
 mod script_depend;

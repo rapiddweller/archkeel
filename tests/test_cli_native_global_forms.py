@@ -121,9 +121,79 @@ PINNED = {
     "nested-pattern": "const { a: { view } } = e;\nview.eval(t);",
     "rest-pattern": "const { ...r } = e;\nr.view[k] = 1;",
     "reflect-get": "Reflect.get(() => {}, k)(t)();",
+    "reflect-alias": "const R = Reflect;\nR.get(() => {}, k);",
+    "reflect-stored": "const get = Reflect.get;\nget(() => {}, k);",
     "reflect-namespace-key": "Reflect[k](() => {}, k);",
     "reflect-descriptor": "Reflect.getOwnPropertyDescriptor(() => {}, k)!.value(t)();",
     "reflect-literal-method": "Reflect['getOwnPropertyDescriptor'](() => {}, k);",
+}
+
+# Review of #1170: each form below gave PASS or a reading that the PR called safe.
+REVIEW_OPEN = {
+    "blank-target": "open(t, '_blank');",
+    "no-target": "open(t);",
+    "window-open": "window.open(t);",
+    "spread-arguments": "open(...[t, '_self']);",
+    "comma-callee": "(0, open)(t, '_self');",
+    "condition-callee": "(x ? open : g)(t, '_self');",
+}
+REVIEW_DATA = {
+    "proto-literal": "const table = { __proto__: () => 1 };\ntable[k](t)();",
+    "proto-write": "const table: any = { a: 1 };\ntable.__proto__ = () => 1;\ntable[k](t)();",
+    "proto-key-write": "const table: any = { a: 1 };\ntable[k + '_'] = () => 1;\ntable[k](t)();",
+    "set-prototype": (
+        "const table = { a: 1 };\nObject.setPrototypeOf(table, () => 1);\ntable[k as 'a'](t);"
+    ),
+    "assigned-from": "const table = { a: 1 };\nObject.assign(table, x);\ntable[k as 'a'](t);",
+    "alias": (
+        "const table = { a: 1 };\nconst same: any = table;\nsame.__proto__ = () => 1;\n"
+        "table[k as 'a'](t);"
+    ),
+    "exported": "export const table = { a: 1 };\ntable[k as 'a'](t);",
+    "method": "const table = { m() { return 1; } };\ntable[k as 'm'](t);",
+    "spread": "const table = { ...x };\ntable[k](t);",
+    "passed": "const table = { a: 1 };\ng(table);\ntable[k as 'a'](t);",
+    "inline-proto": "({ __proto__: () => 1 } as any)[k](t);",
+}
+REVIEW_SUPER = {
+    "super-key": "class B {}\nclass C extends B { m() { (super[k as 'x'] as any) = 1; } }" + LISTEN,
+    "this-alias": "class C { m() { const self: any = this; self[k] = 1; } }" + LISTEN,
+    "this-alias-cast": "class C { m() { const self = this as any; self[k] = 1; } }" + LISTEN,
+}
+REVIEW_CALLEE = {
+    "comma": "(0, o[k])(t);",
+    "condition": "(x ? o[k] : g)(t);",
+    "logical-or": "(o[k] || g)(t);",
+    "nullish": "(o[k] ?? g)(t);",
+    "await": "(async () => { (await o[k])(t); })();",
+    "string-call": "o[k]['call'](null, t);",
+    "string-apply": "o[k][`apply`](null, [t]);",
+    "string-bind": "o[k]['bind'](null, t)();",
+}
+REVIEW_REFLECTION = {
+    "call-on-method": "Object.getOwnPropertyDescriptor.call(Object, () => {}, k);",
+    "object-alias": "const O = Object;\nO.getOwnPropertyDescriptor(() => {}, k);",
+    "pattern-method": "const { getOwnPropertyDescriptor: d } = Object;\nd(() => {}, k);",
+    "stored-method": "const d = Object.getOwnPropertyDescriptor;\nd(() => {}, k);",
+    "passed-method": "g(Object.getOwnPropertyDescriptor);",
+    "comma-method": "(0, Object.getOwnPropertyDescriptor)(() => {}, k);",
+    "any-object": "x.getOwnPropertyDescriptor(() => {}, k);",
+    "eval-key": "Object.getOwnPropertyDescriptor(x, 'eval')!.value(t);",
+    "function-key": "Object.getOwnPropertyDescriptor(x, 'Function')!.value(t)();",
+    "timer-key": "x['setTimeout'](t);",
+}
+REVIEW_NAVIGATION = {
+    "array-target": "[location.href] = [t];",
+    "object-target": "({ a: location.href } = x);",
+    "for-of-target": "for (location.href of [t]) {}",
+    "assign-call": "Object.assign(location, { href: t });",
+    "assign-through-call": "location.assign.call(location, t);",
+    "assign-stored": "const a = location.assign;\na(t);",
+    "alias": "const l = location;\nl.href = t;",
+    "passed": "g(location);",
+    "window-location-alias": "const l = window.location;\nl.href = t;",
+    "open-alias": "const o = open;\no(t, '_self');",
+    "comma-assign": "(0, location.assign)(t);",
 }
 
 CLOSED = {
@@ -132,6 +202,12 @@ CLOSED = {
     **{f"reflection-{name}": text for name, text in REFLECTION.items()},
     **{f"location-{name}": text for name, text in LOCATION.items()},
     **{f"pattern-{name}": text for name, text in PATTERN.items()},
+    **{f"open-{name}": text for name, text in REVIEW_OPEN.items()},
+    **{f"data-{name}": text for name, text in REVIEW_DATA.items()},
+    **{f"super-{name}": text for name, text in REVIEW_SUPER.items()},
+    **{f"callee-{name}": text for name, text in REVIEW_CALLEE.items()},
+    **{f"reflection-{name}": text for name, text in REVIEW_REFLECTION.items()},
+    **{f"navigation-{name}": text for name, text in REVIEW_NAVIGATION.items()},
 }
 
 # The closure is a rule about run-time keys, `this` of a method, `location` and window members.
@@ -142,9 +218,8 @@ PRECISION = {
     "array-call": "const fns = [() => 1];\nfns[0]();\nfns.map((q) => q());",
     "plain-pattern": "const { name, value } = e;\nexport const z = name + value;",
     "array-pattern": "const [a, b] = g;\nexport const s = a + b;",
-    "target-pattern": "const { target } = e;\nexport const w = target;",
     "literal-location": "location.href = '/home';\nlocation.assign('/a');",
-    "blank-window": "open(t, '_blank');\nopen('/x');",
+    "literal-open": "open('/x');\nopen('/x', '_blank');",
     "this-literal-key": (
         "class C { m() { (this as any)['x'] = 1; (this as any)[0] = 2; } }\n"
         "export const c = new C();"

@@ -185,8 +185,15 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let tree = self.tree;
         let index = tree.field(node, F::Index);
         let named = index.and_then(|index| crate::script_window::string_text(self, index));
-        if named.is_some_and(|name| CODE_NAMES.contains(&name.as_str())) {
+        if named
+            .as_ref()
+            .is_some_and(|name| CODE_NAMES.contains(&name.as_str()))
+        {
             return self.used(node);
+        }
+        // A literal key names the member as the dotted form does: `x['setTimeout'](t)`.
+        if named.is_some_and(|name| TIMERS.contains(&name.as_str())) {
+            return self.timer_runs_text(node);
         }
         if literal(index, tree.cx.source).is_some() || index.is_some_and(|i| i.kind() == "number") {
             return false;

@@ -42,6 +42,8 @@ pub(crate) struct Producer<'x, 'a, 't> {
     pub(crate) free_arguments: RefCell<HashMap<usize, bool>>,
     /// The nearest wrapper above each node, by the position of the node.
     wrapper_above: Vec<u32>,
+    /// The declarations of literals that a use can change or hand on (AD-500), built on first use.
+    pub(crate) data_taint: std::cell::OnceCell<HashSet<usize>>,
 }
 
 /// The writes and publications that `_script_globals` finds while it reads the nodes in order.
@@ -92,6 +94,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             free_arguments: RefCell::new(HashMap::new()),
             wrapper_above: tree.nearest_above(|node| wrappers.contains_key(&node.id())),
             wrappers,
+            data_taint: std::cell::OnceCell::new(),
             by_span,
             bodies: RefCell::new(HashMap::new()),
             targets,
