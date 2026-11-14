@@ -58,7 +58,10 @@ def _case(head: str, body: str, caller: str, *, types: str = TYPE) -> dict[str, 
 Y = "pub struct Y;\n"
 FROM = "fn from(_: crate::a::Y) -> Self {\n    crate::c::S\n}"
 ERROR = "pub struct E;\n"
-ITER = "type Item = u8;\ntype IntoIter = std::vec::IntoIter<u8>;\nfn into_iter(self) -> Self::IntoIter {\n    Vec::new().into_iter()\n}"
+ITER = (
+    "type Item = u8;\ntype IntoIter = std::vec::IntoIter<u8>;\n"
+    "fn into_iter(self) -> Self::IntoIter {\n    Vec::new().into_iter()\n}"
+)
 TRAIT = "pub struct S;\npub trait Tr {\n    fn m(&self) -> u8;\n}\n"
 TR_BODY = "fn m(&self) -> u8 {\n    1\n}"
 
@@ -127,7 +130,8 @@ PLANTS: dict[str, dict[str, str]] = {
     ),
     "TryFrom": _case(
         f"TryFrom<crate::a::Y> for {S}",
-        "type Error = ();\nfn try_from(_: crate::a::Y) -> Result<Self, ()> {\n    Ok(crate::c::S)\n}",
+        "type Error = ();\nfn try_from(_: crate::a::Y) -> Result<Self, ()> {\n"
+        "    Ok(crate::c::S)\n}",
         Y + "pub fn f(y: Y) -> Result<crate::c::S, ()> {\n    y.try_into()\n}\n",
     ),
     "Index": _case(
@@ -154,8 +158,28 @@ PLANTS: dict[str, dict[str, str]] = {
         "use crate::c::Tr;\npub fn f(s: &crate::c::S) -> u8 {\n    s.m()\n}\n",
         types=TRAIT,
     ),
+    "a type alias in b": {
+        **_case(
+            "std::fmt::Display for Q",
+            HEAD_DISPLAY,
+            "pub fn f(s: &crate::c::S) -> String {\n    s.to_string()\n}\n",
+        ),
+        "b.rs": f"type Q = crate::c::S;\nimpl std::fmt::Display for Q {{\n{HEAD_DISPLAY}\n}}\n",
+    },
+    "a type that a glob brings into b": {
+        **_case(
+            "std::fmt::Display for S",
+            HEAD_DISPLAY,
+            "pub fn f(s: &crate::c::S) -> String {\n    s.to_string()\n}\n",
+        ),
+        "b.rs": f"use crate::c::*;\nimpl std::fmt::Display for S {{\n{HEAD_DISPLAY}\n}}\n",
+    },
 }
 
+FROM_Y = (
+    "pub struct Y;\nimpl From<Y> for String {\n"
+    "    fn from(_: Y) -> String {\n        String::new()\n    }\n}\n"
+)
 DISPLAY = PLANTS["Display and to_string"]
 
 
@@ -197,17 +221,17 @@ CONTROLS: dict[str, dict[str, str]] = {
     "the impl is in the module of its trait": {
         **PLANTS["a local trait for a local type"],
         "c.rs": "pub struct S;\n",
-        "b.rs": "pub trait Tr {\n    fn m(&self) -> u8;\n}\n"
-        f"impl Tr for {S} {{\n{TR_BODY}\n}}\n",
+        "b.rs": f"pub trait Tr {{\n    fn m(&self) -> u8;\n}}\nimpl Tr for {S} {{\n{TR_BODY}\n}}\n",
         "a.rs": "pub fn f(_s: &crate::c::S) -> u8 {\n    1\n}\n",
     },
     "the type of the impl is a type that the block declares": {
         **DISPLAY,
-        "b.rs": "pub fn g() {\n    struct Q;\n    impl Drop for Q {\n        fn drop(&mut self) {}\n    }\n}\n",
+        "b.rs": "pub fn g() {\n    struct Q;\n    impl Drop for Q {\n"
+        "        fn drop(&mut self) {}\n    }\n}\n",
     },
     "the impl takes a type of its module for a foreign type": {
         **DISPLAY,
-        "b.rs": "pub struct Y;\nimpl From<Y> for String {\n    fn from(_: Y) -> String {\n        String::new()\n    }\n}\n",
+        "b.rs": FROM_Y,
         "a.rs": "pub fn f() -> String {\n    String::new()\n}\n",
     },
 }
@@ -311,8 +335,14 @@ OPEN: dict[str, dict[str, str]] = {
     "a value of a type of b that c returns": {
         "lib.rs": LIB,
         "c.rs": "pub fn make() -> crate::b::Y {\n    crate::b::Y\n}\n",
-        "b.rs": "pub struct Y;\nimpl From<Y> for String {\n    fn from(_: Y) -> String {\n        String::new()\n    }\n}\n",
+        "b.rs": FROM_Y,
         "a.rs": "pub fn f() -> String {\n    crate::c::make().into()\n}\n",
+    },
+    "an impl that a macro of b generates": {
+        **DISPLAY,
+        "b.rs": "macro_rules! show {\n    () => {\n"
+        "        impl std::fmt::Display for crate::c::S {\n"
+        f"            {HEAD_DISPLAY}\n        }}\n    }};\n}}\nshow!();\n",
     },
 }
 
