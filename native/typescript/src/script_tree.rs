@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: MIT
 
 //! The data of the tree of one file: the named nodes in document order, the scopes that bind each
-//! name and the answers that the tree keeps. The questions on it live in `script_scope.rs`,
-//! `script_flags.rs` and `script_names.rs`.
+//! name and the answers that the tree keeps, with the accessors that read them. The questions on it
+//! live in `script_scope.rs`, `script_flags.rs` and `script_names.rs`.
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -13,8 +13,11 @@ use std::rc::Rc;
 
 use tree_sitter::Node;
 
-use crate::layout::{IdHasher, IdMap};
+use crate::kinds::{F, K};
+use crate::layout::{IdHasher, IdMap, Layout, IN_ERROR, IN_FUNCTION, IN_TYPE, NONE};
+use crate::source::Span;
 use crate::tree::cx::Cx;
+use crate::tree::nodes::children;
 
 pub(crate) type Names = HashMap<String, u32>;
 
@@ -64,4 +67,148 @@ pub(crate) struct Memo<'t> {
     pub(crate) wrappers: IdMap<Option<Wrapper<'t>>>,
     /// `leads_to_call` by position: 0 not known, 1 no, 2 yes.
     pub(crate) calls: Vec<u8>,
+}
+
+impl<'a, 't> Tree<'a, 't> {
+    /// The tree of a file from the layout that the walk recorded.
+    pub(crate) fn from_layout(cx: Cx<'a>, root: Node<'t>, layout: Layout<'t>) -> Self {
+        Self {
+            cx,
+            root,
+            nodes: Rc::new(layout.nodes),
+            position: layout.position,
+            subtree_end: layout.ends,
+            parents: layout.parents,
+            bindings: IdMap::default(),
+            ambiguous: HashSet::default(),
+            flags: layout.flags,
+            memo: RefCell::new(Memo::default()),
+            names_index: HashMap::new(),
+        }
+    }
+
+    pub(crate) fn k(&self, node: Node) -> K {
+        self.cx.k(node)
+    }
+
+    pub(crate) fn text(&self, node: Node) -> String {
+        self.cx.text(node)
+    }
+
+    pub(crate) fn field(&self, node: Node<'t>, field: F) -> Option<Node<'t>> {
+        self.cx.field(node, field)
+    }
+
+    pub(crate) fn span(&self, node: Node) -> Span {
+        self.cx.span(node)
+    }
+
+    /// Whether `node` is the field `field` of its parent.
+    pub(crate) fn is_field_of_parent(&self, node: Node<'t>, field: F) -> bool {
+        self.parent(node)
+            .and_then(|parent| self.field(parent, field))
+            .is_some_and(|found| found.id() == node.id())
+    }
+
+    /// `node.parent`, from the table of the file.
+    pub(crate) fn parent(&self, node: Node<'t>) -> Option<Node<'t>> {
+        let Some(at) = self.pos(node) else {
+            return node.parent();
+        };
+        let above = self
+            .parents
+            .get(at)
+            .copied()
+            .filter(|above| *above != NONE)?;
+        self.nodes.get(above as usize).copied()
+    }
+
+    /// `_ancestors`.
+    pub(crate) fn ancestors(&self, node: Node<'t>) -> impl Iterator<Item = Node<'t>> + '_ {
+        std::iter::successors(self.parent(node), |parent| self.parent(*parent))
+    }
+
+    /// The position of a node in the document order.
+    pub(crate) fn pos(&self, node: Node) -> Option<usize> {
+        self.position.get(&node.id()).copied()
+    }
+
+    /// `parse._in_error`: the node holds a repair, or lies inside one.
+    pub(crate) fn in_error(&self, node: Node<'t>) -> bool {
+        node.has_error() || self.flag(node, IN_ERROR)
+    }
+
+    /// `parse._in_type`.
+    pub(crate) fn in_type(&self, node: Node<'t>) -> bool {
+        self.flag(node, IN_TYPE)
+    }
+
+    /// The node lies inside a function declaration, a function expression, an arrow function or a
+    /// method.
+    pub(crate) fn inside_function(&self, node: Node<'t>) -> bool {
+        self.flag(node, IN_FUNCTION)
+    }
+
+    /// The nodes of the subtree of `node` in document order, the node first (`_walk`).
+    pub(crate) fn subtree(&self, node: Node) -> &[Node<'t>] {
+        match self.position.get(&node.id()) {
+            Some(&at) => self.nodes.get(at..self.end_of(at)).unwrap_or(&[]),
+            None => &[],
+        }
+    }
+
+    /// The end of the subtree of the node at a position.
+    pub(crate) fn end_of(&self, at: usize) -> usize {
+        self.subtree_end.get(at).map_or(at, |end| *end as usize)
+    }
+
+    /// The document-order range of the subtree of `node`.
+    pub(crate) fn range(&self, node: Node) -> (usize, usize) {
+        match self.position.get(&node.id()) {
+            Some(&at) => (at, self.end_of(at)),
+            None => (0, 0),
+        }
+    }
+
+    pub(crate) fn at(&self, node: Node) -> usize {
+        self.position.get(&node.id()).copied().unwrap_or(0)
+    }
+
+    /// The child that is not wrapped in parentheses.
+    pub(crate) fn unparenthesized(&self, node: Node<'t>) -> Node<'t> {
+        let mut node = node;
+        while self.k(node) == K::ParenthesizedExpression {
+            match node.named_child(0) {
+                Some(child) => node = child,
+                None => break,
+            }
+        }
+        node
+    }
+
+    /// `while value is not None and kind is PARENTHESIZED: value = first named child`: ends with
+    /// `None` for an empty pair of parentheses.
+    pub(crate) fn strip_parentheses(&self, node: Option<Node<'t>>) -> Option<Node<'t>> {
+        let mut value = node;
+        while let Some(current) = value {
+            if self.k(current) != K::ParenthesizedExpression {
+                break;
+            }
+            value = current.named_child(0);
+        }
+        value
+    }
+
+    pub(crate) fn has_child_kind(&self, node: Node, kind: K) -> bool {
+        children(node)
+            .into_iter()
+            .any(|child| self.k(child) == kind)
+    }
+
+    /// Whether a flag holds for the node.
+    pub(crate) fn flag(&self, node: Node, bit: u8) -> bool {
+        let at = self.pos(node);
+        at.and_then(|at| self.flags.get(at))
+            .is_some_and(|flags| flags & bit != 0)
+    }
 }

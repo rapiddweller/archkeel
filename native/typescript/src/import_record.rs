@@ -13,7 +13,7 @@ use archkeel_facts::vocab::{Area, EvidenceClass};
 use archkeel_facts::{ImportFact, Record};
 
 use super::import_target::Ref;
-use super::Collection;
+use crate::collection::Collection;
 use crate::manifest::Lookup;
 use crate::references::{Form, Reference};
 use crate::source_input::{classify_specifier, ModuleFormat};

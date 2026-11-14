@@ -7,7 +7,7 @@
 //! A reference that cannot be proven is an UNKNOWN gap, never a PASS: a computed specifier, a
 //! setting that is not observed, a target that no rule covers.
 
-use super::{Collection, GapKind};
+use crate::collection::{Collection, GapKind};
 use crate::kept::Kept;
 use crate::kept_script::ScriptFile;
 use crate::manifest::Lookup;

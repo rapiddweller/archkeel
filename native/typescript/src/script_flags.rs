@@ -69,11 +69,4 @@ impl<'a, 't> Tree<'a, 't> {
         }
         answer
     }
-
-    /// Whether a flag holds for the node.
-    pub(crate) fn flag(&self, node: Node, bit: u8) -> bool {
-        let at = self.pos(node);
-        at.and_then(|at| self.flags.get(at))
-            .is_some_and(|flags| flags & bit != 0)
-    }
 }

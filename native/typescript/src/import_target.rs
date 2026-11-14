@@ -11,7 +11,7 @@ use archkeel_facts::identity::module_identity;
 use archkeel_facts::ids::{FactId, ModuleName, PackageName};
 use archkeel_snapshot::paths::{dirname, join, within};
 
-use super::{Collection, GapKind};
+use crate::collection::{Collection, GapKind};
 use crate::installed::{in_node_modules, installed};
 use crate::manifest::Lookup;
 use crate::references::{Form, Reference};

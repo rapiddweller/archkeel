@@ -775,6 +775,7 @@
         "native.archkeel_typescript_collector.import_bindings",
         "native.archkeel_typescript_collector.class_members",
         "native.archkeel_typescript_collector.constructors",
+        "native.archkeel_typescript_collector.decorators",
         "native.archkeel_typescript_collector.layout",
         "native.archkeel_typescript_collector.members"
       ],
@@ -901,6 +902,7 @@
         "native.archkeel_typescript_collector.script_refs",
         "native.archkeel_typescript_collector.script_scope",
         "native.archkeel_typescript_collector.script_syntax",
+        "native.archkeel_typescript_collector.script_tree",
         "native.archkeel_typescript_collector.script_window",
         "native.archkeel_typescript_collector.script_wrapper",
         "native.archkeel_typescript_collector.script_writes",
@@ -1025,6 +1027,7 @@
       "role": "component",
       "packages": [
         "native.archkeel_typescript_collector.resolve",
+        "native.archkeel_typescript_collector.resolver",
         "native.archkeel_typescript_collector.resolve.package"
       ],
       "responsibilities": [
@@ -1121,6 +1124,7 @@
       "packages": [
         "native.archkeel_typescript_collector.script_depend",
         "native.archkeel_typescript_collector.script_deps",
+        "native.archkeel_typescript_collector.script_state",
         "native.archkeel_typescript_collector.script_global",
         "native.archkeel_typescript_collector.script_project",
         "native.archkeel_typescript_collector.script_proof",
@@ -1181,6 +1185,7 @@
       "role": "component",
       "packages": [
         "native.archkeel_typescript_collector.collect",
+        "native.archkeel_typescript_collector.collection",
         "native.archkeel_typescript_collector.collect.imports",
         "native.archkeel_typescript_collector.collect.script_run",
         "native.archkeel_typescript_collector.collect.import_target",
@@ -2317,6 +2322,7 @@
         "native.archkeel_typescript_collector.import_bindings",
         "native.archkeel_typescript_collector.class_members",
         "native.archkeel_typescript_collector.constructors",
+        "native.archkeel_typescript_collector.decorators",
         "native.archkeel_typescript_collector.layout",
         "native.archkeel_typescript_collector.sites",
         "native.archkeel_typescript_collector.site_names",
@@ -2344,6 +2350,7 @@
         "native.archkeel_typescript_collector.script_refs",
         "native.archkeel_typescript_collector.script_scope",
         "native.archkeel_typescript_collector.script_syntax",
+        "native.archkeel_typescript_collector.script_tree",
         "native.archkeel_typescript_collector.script_window",
         "native.archkeel_typescript_collector.script_wrapper",
         "native.archkeel_typescript_collector.script_writes",

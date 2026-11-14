@@ -7,7 +7,7 @@
 
 use std::collections::HashSet;
 
-use super::{Collection, GapKind};
+use crate::collection::{Collection, GapKind};
 use crate::script_project::{Project, Write, WriteIndex};
 use crate::script_records::{ScriptFacts, UNBOUNDED_EFFECT};
 use crate::script_state::Run;

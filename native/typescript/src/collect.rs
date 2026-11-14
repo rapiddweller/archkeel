@@ -10,11 +10,10 @@
 //! bindings and the constructs follow in the same reply, with the capability `inner-uml-v1`
 //! (AD-340). The script globals belong to a later phase. It invents no evidence.
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write;
 
-use archkeel_facts::envelope::Target;
-use archkeel_facts::envelope::{Evidence, FileFact, Provenance};
+use archkeel_facts::envelope::{FileFact, Provenance};
 use archkeel_facts::identity::module_identity;
 use archkeel_facts::request::TypeScriptRequest;
 use archkeel_facts::{GapFact, Record, Section};
@@ -22,10 +21,10 @@ use archkeel_facts::{GapFact, Record, Section};
 use crate::collected::Facts;
 #[cfg(any(test, feature = "dump"))]
 use crate::collected::Records;
+use crate::collection::{Collection, GapKind};
 use crate::config::load_config;
-use crate::kept::{Kept, Pending};
+use crate::kept::Pending;
 use crate::options::Resolution;
-use crate::pytext::is_space;
 use crate::records::write_reply;
 #[cfg(any(test, feature = "dump"))]
 use crate::records_lists::listed;
@@ -33,7 +32,7 @@ use crate::records_lists::listed;
 use crate::records_lists::records_of;
 use crate::resolver::Resolver;
 use crate::syntax::Parsers;
-use crate::test_sources::{is_test_source, NO_PRODUCTION_SOURCE};
+use crate::test_sources::NO_PRODUCTION_SOURCE;
 use archkeel_snapshot::paths::join;
 use archkeel_snapshot::Snapshot;
 
@@ -49,40 +48,6 @@ const COMPILER_SPACE: &str = " \t\n\u{b}\u{c}\r\u{a0}\u{1680}\u{2000}\u{2001}\u{
 /// The reason of a project source under the scan roots that the TSConfig does not select.
 pub(crate) const UNSELECTED: &str =
     "Source file under the scan roots is not selected by the TSConfig";
-
-enum GapKind {
-    Collection,
-    Resolution,
-}
-
-struct Collection<'a> {
-    request: &'a TypeScriptRequest,
-    namespace: &'a str,
-    roots: Vec<String>,
-    snapshot: Snapshot,
-    resolver: Resolver,
-    parsers: Parsers,
-    /// A bundler is assumed to decide module loading, and the settings allow it.
-    bundler: bool,
-    /// Every file to read, in discovery order; a file added while walking is walked too.
-    queue: Vec<String>,
-    queued: HashSet<String>,
-    gaps: BTreeMap<String, Record<GapFact>>,
-    /// What reaches an installed-package directory other than a `node_modules` search (AD-488).
-    reach: BTreeSet<String>,
-    evidence: BTreeMap<String, Evidence>,
-    files: Vec<FileFact>,
-    imports: Vec<crate::collected::ImportRecord>,
-    targets: Vec<Target>,
-    read: usize,
-    kept: BTreeMap<String, Kept>,
-    order: Vec<String>,
-    sites: HashMap<String, crate::source::FileSite>,
-    /// The script host and the vendored libraries of the project.
-    script: crate::script_environment::ScriptEnvironment,
-    /// `script_pending_effects` of the files: writes that no publication bounds.
-    pending_effects: Vec<(String, crate::source::Span)>,
-}
 
 /// The reply of one request, written into `out`: the imports, the symbols, the calls, the
 /// references, the bindings and the constructs, with the capability `inner-uml-v1` (AD-340, PR
@@ -241,16 +206,6 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
 }
 
 impl Collection<'_> {
-    /// A 9.0.0 request removes test sources, by their path or by their real path.
-    fn excluded_test(&mut self, rel: &str) -> bool {
-        self.request.excludes_test_sources()
-            && (is_test_source(rel)
-                || self
-                    .snapshot
-                    .real(rel)
-                    .is_some_and(|real| is_test_source(&real)))
-    }
-
     /// AD-488: each project source under the scan roots that the collection did not read is a
     /// coverage gap. The TSConfig can drop a file that holds an import, so silence could pass a
     /// rule. A test source that a 9.0.0 request removes is not a gap (AD-313). `reach` makes a
@@ -304,38 +259,6 @@ impl Collection<'_> {
             evidence.clone(),
         ));
         self.references(rel, &module, &evidence, &text);
-    }
-
-    /// `source_records.file_evidence`: line 1 shows the file; an empty first line cites line 0.
-    fn file_evidence(&mut self, rel: &str, text: &str) -> String {
-        let first = text
-            .split('\n')
-            .next()
-            .unwrap_or("")
-            .trim_end_matches(is_space);
-        let (line, column) = if first.is_empty() { (0, 0) } else { (1, 0) };
-        let evidence = Evidence::at(rel, line, line, column, first);
-        let id = evidence.id.as_str().to_owned();
-        self.evidence.insert(id.clone(), evidence);
-        id
-    }
-
-    /// `collect._cite`: file one source location as evidence.
-    fn cite(&mut self, rel: &str, span: &crate::source::Span) -> String {
-        let evidence = Evidence::at(rel, span.line, span.end_line, span.column, &span.excerpt);
-        let id = evidence.id.as_str().to_owned();
-        self.evidence.insert(id.clone(), evidence);
-        id
-    }
-
-    /// `collect._gap`: one UNKNOWN record; the same reason, evidence and module give one record.
-    fn gap(&mut self, reason: &str, evidence: Option<&str>, module: &str, kind: GapKind) {
-        let fact = match kind {
-            GapKind::Collection => GapFact::collection(reason, module),
-            GapKind::Resolution => GapFact::resolution(reason, module),
-        };
-        let (id, record) = Record::unknown_gap(reason, evidence, module, fact);
-        self.gaps.entry(id).or_insert(record);
     }
 }
 

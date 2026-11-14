@@ -248,45 +248,6 @@ impl Cx<'_> {
         result
     }
 
-    /// `_decorators`: the attached decorators and the sibling decorators of a class member.
-    /// `_decorators`, from the children of the node (the caller has them).
-    pub(crate) fn decorators_in<'t>(
-        &self,
-        node: Node<'t>,
-        kids: &[Node<'t>],
-        place: &Place<'_, 't>,
-    ) -> Vec<Node<'t>> {
-        let mut attached: Vec<Node> = Vec::new();
-        if let Some(parent) = place
-            .parent
-            .filter(|_| place.parent_kind == K::ExportStatement)
-        {
-            attached.extend(
-                named_children(parent)
-                    .into_iter()
-                    .filter(|child| self.k(*child) == K::Decorator),
-            );
-        }
-        attached.extend(
-            kids.iter()
-                .copied()
-                .filter(|child| self.k(*child) == K::Decorator && child.is_named()),
-        );
-        if !place.class_member() || !self.decorated_member(node, place) {
-            return attached;
-        }
-        // Each decorator of the run before the member reaches the member: only comments and
-        // decorators lie between them.
-        let mut preceding: Vec<Node> = place
-            .before
-            .iter()
-            .copied()
-            .filter(|item| self.k(*item) == K::Decorator)
-            .collect();
-        preceding.extend(attached);
-        preceding
-    }
-
     /// `_signature_complete`.
     pub(crate) fn signature_complete(&self, node: Node) -> bool {
         let Some(parameters) = self.field(node, F::Parameters) else {

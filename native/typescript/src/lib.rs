@@ -20,10 +20,12 @@ mod class_data;
 mod class_members;
 mod collect;
 mod collected;
+mod collection;
 mod concerns;
 mod config;
 mod construct_records;
 mod constructors;
+mod decorators;
 mod definitions;
 mod discover;
 #[cfg(feature = "dump")]
