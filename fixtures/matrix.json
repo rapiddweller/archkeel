@@ -22,7 +22,7 @@
     "G-dart": {
       "language": "dart",
       "runs": [
-      {"name": "G-dart", "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 10}, "scope": "incomplete scope: the profile cannot decide INTERFACE-BOUNDARY", "gaps": {}, "refusal": null}}
+      {"name": "G-dart", "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 10}, "scope": "incomplete scope: the profile cannot decide INTERFACE-BOUNDARY", "gaps": {"contract_hygiene_not_ported": 1, "reference.namespace": 1}, "refusal": null}}
       ]
     },
     "H-typescript": {
@@ -40,7 +40,7 @@
     "H-uml-dart": {
       "language": "dart",
       "runs": [
-      {"name": "H-uml-dart", "root": "H-uml-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 4}, "scope": "incomplete scope: the profile cannot decide presentation:controller", "gaps": {"uml_target": 1}, "refusal": null}}
+      {"name": "H-uml-dart", "root": "H-uml-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 5}, "scope": "incomplete scope: the profile cannot decide presentation:controller", "gaps": {}, "refusal": null}}
       ]
     },
     "H-uml-typescript": {
@@ -52,13 +52,13 @@
     "I-flutter-shop": {
       "language": "dart",
       "runs": [
-      {"name": "I-flutter-shop", "root": "I-flutter-shop", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 1, "FAIL": 0, "UNKNOWN": 5}, "scope": "complete", "gaps": {"uml_target": 1}, "refusal": null}}
+      {"name": "I-flutter-shop", "root": "I-flutter-shop", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 1, "FAIL": 0, "UNKNOWN": 6}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "J-compass": {
       "language": "dart",
       "runs": [
-      {"name": "J-compass", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 6}, "scope": "incomplete scope: the collector reports 2 coverage gaps", "gaps": {"uml_target": 1}, "refusal": null}}
+      {"name": "J-compass", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 7}, "scope": "incomplete scope: the collector reports 2 coverage gaps", "gaps": {}, "refusal": null}}
       ]
     },
     "K-python-realworld": {
