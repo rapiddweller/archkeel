@@ -24,6 +24,21 @@ pub(super) fn escape(text: &str) -> String {
     safe
 }
 
+/// The id of an HTML anchor from a component id: lower case, letters and digits only.
+pub(super) fn anchor(prefix: &str, id: &str) -> String {
+    let tail: String = id
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    format!("{prefix}{tail}")
+}
+
 /// The word `1 module` or `2 modules`.
 pub(super) fn count(number: usize, singular: &str) -> String {
     let plural = match singular.strip_suffix('y') {

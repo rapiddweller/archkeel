@@ -272,3 +272,8 @@ html:not([data-theme]) .ak-seg { display: none; }
 .rp-main > dl { margin: 0; overflow-wrap: anywhere; }
 .rp-main > dl dt { color: var(--ink-muted); }
 .rp-main > dl dd { margin: 0 0 var(--space-2); font-family: var(--font-mono); }
+.rp-pic .rp-tiles { margin-bottom: var(--space-4); }
+.rp-pic .rp-ev { margin-bottom: var(--space-3); }
+.rp-place { margin: 0 0 var(--space-2); }
+.rp-place > summary { cursor: pointer; padding: var(--space-1) 0; }
+.rp-place[open] { margin-bottom: var(--space-4); }
