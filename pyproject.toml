@@ -65,7 +65,7 @@ exclude = [
   "src/archkeel/studio/ui/AGENTS.md",
 ]
 
-# AD-317: only ARCHKEEL_BUNDLE_NATIVE makes a platform wheel with the native collector.
+# AD-436: the hook puts the core into each wheel and refuses a wheel without the core.
 [tool.hatch.build.targets.wheel.hooks.custom]
 path = "native/hatch_build.py"
 
@@ -80,6 +80,7 @@ path = "native/hatch_build.py"
 # Distributors rebuild from the Git tag. README.md is the declared readme source, so the
 # tarball carries it rather than leaning on the description hatchling froze into PKG-INFO.
 # The wheel hook is a build input; the native sources are not, so an sdist never runs cargo.
+# A wheel from the sdist needs a prebuilt core in ARCHKEEL_BUNDLE_NATIVE (AD-436).
 only-include = ["src", "schema", "README.md", "skills", "native/hatch_build.py"]
 
 [dependency-groups]

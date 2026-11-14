@@ -590,7 +590,8 @@ No failure falls back to Python.
 The shell looks for the core only below its own package: `archkeel/_native` with a SHA-256 file,
 else `native/target/release/archkeel-core` of the checkout that holds the package, else its debug build.
 It never reads the scanned project, the current directory or `PATH`. Build the core with `make core`.
-No package carries the core yet, so an installed package refuses with `core_binary_not_found`.
+A platform wheel carries the core and its digest in `archkeel/_native` (AD-436). No release carries it yet.
+A package without the core refuses with `core_binary_not_found`.
 The scan reads Git through the fixed system executable, not PATH. Missing Git is a named refusal.
 
 The repository survey refuses a root with more than 1 GiB of file bytes or more than 100,000 entries.

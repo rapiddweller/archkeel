@@ -15,13 +15,14 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # AD-432: no wheel carries the core, so an installed package refuses each run. The release is
-  # closed. Only "true" opens it, and then `tools/release_core.py` must pass on the wheels.
+  # AD-436: each platform wheel carries the core. The release stays closed while a platform of the
+  # matrix gives no verdict: `NO_VERDICT` in `tools/release_core.py` names each one. Only "true"
+  # opens the release, and then `tools/release_core.py` must pass on the wheels.
   PUBLISH_NATIVE_WHEELS: "false"
 
 jobs:
   core-in-wheel:
-    name: Refuse a release while no wheel carries the core
+    name: Refuse a release while a wheel of the matrix gives no verdict
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
@@ -30,7 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$PUBLISH_NATIVE_WHEELS" == true ]] || {
-            echo "::error::No release from this line: no wheel carries archkeel-core, so an installed package refuses each run (AD-432). Release 4.0.1 is the last release that decides."
+            echo "::error::No release from this line: the wheel of win_amd64 carries archkeel-core and gives no verdict, because the core refuses each root on Windows (AD-436). Release 4.0.1 is the last release that decides."
             exit 2
           }
 
@@ -80,10 +81,8 @@ jobs:
             echo "Release requires six platform wheels and one sdist" >&2
             exit 2
           }
+          # A wheel without a platform carries no core: none comes in and none is in dist/.
           for wheel in "${wheels[@]}"; do [[ "$wheel" != *-none-any.whl ]] || exit 2; done
-          pure=(dist/*-py3-none-any.whl)
-          [[ ${#pure[@]} -eq 1 ]] || exit 2
-          rm -- "${pure[@]}"
           cp -- "${wheels[@]}" dist/
           published=(dist/*.whl)
           distributions=(dist/*)

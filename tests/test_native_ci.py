@@ -1,10 +1,11 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-316 and AD-317: CI checks the native collector, and a release gates its platform wheels."""
+"""AD-316, AD-317 and AD-436: CI checks the native code, and a release gates its platform wheels."""
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import subprocess
@@ -91,7 +92,6 @@ def test_a_release_adds_the_platform_wheels_only_when_the_gate_is_open(
     (tmp_path / "dist").mkdir()
     (tmp_path / "native-wheels").mkdir()
     (tmp_path / "dist/archkeel-5.0.0.tar.gz").write_bytes(b"sdist")
-    (tmp_path / "dist/archkeel-5.0.0-py3-none-any.whl").write_bytes(b"pure")
     for tag in PLATFORM_TAGS:
         (tmp_path / "native-wheels" / f"archkeel-5.0.0-{tag}.whl").write_bytes(b"wheel")
     result = subprocess.run(
@@ -102,19 +102,24 @@ def test_a_release_adds_the_platform_wheels_only_when_the_gate_is_open(
         capture_output=True,
     )
     assert (result.returncode == 0) is published
-    assert len(list((tmp_path / "dist").glob("*.whl"))) == (len(PLATFORM_TAGS) if published else 1)
+    assert len(list((tmp_path / "dist").glob("*.whl"))) == (len(PLATFORM_TAGS) if published else 0)
     assert len(list((tmp_path / "dist").glob("*.tar.gz"))) == 1
 
 
 @pytest.mark.parametrize("wheels,sdists", [(n, 1) for n in range(8)] + [(6, 0), (6, 2)])
-def test_release_requires_exactly_six_platform_wheels_and_one_sdist(tmp_path, wheels, sdists):
+@pytest.mark.parametrize("pure", ["", "dist", "native-wheels"])
+def test_release_requires_exactly_six_platform_wheels_and_one_sdist(
+    tmp_path: Path, wheels: int, sdists: int, pure: str
+) -> None:
+    """A wheel without a platform carries no core (AD-436): it stops the step where it is."""
     build = _jobs("release.yml")["build"]
     step = build.split("- name: Add the platform wheels only when PUBLISH_NATIVE_WHEELS is true\n")
     script = dedent(step[1].split("        run: |\n", 1)[1].split("\n\n", 1)[0])
     (tmp_path / "dist").mkdir()
     (tmp_path / "native-wheels").mkdir()
-    (tmp_path / "dist/archkeel-5.0.0-py3-none-any.whl").write_bytes(b"pure")
-    for index in range(wheels):
+    if pure:
+        (tmp_path / pure / "archkeel-5.0.0-py3-none-any.whl").write_bytes(b"pure")
+    for index in range(wheels - (pure == "native-wheels")):
         (tmp_path / "native-wheels" / f"archkeel-5.0.0-py3-none-platform{index}.whl").write_bytes(
             b"wheel"
         )
@@ -127,22 +132,23 @@ def test_release_requires_exactly_six_platform_wheels_and_one_sdist(tmp_path, wh
         capture_output=True,
         text=True,
     )
-    assert (result.returncode == 0) is (wheels == 6 and sdists == 1)
+    assert (result.returncode == 0) is (wheels == 6 and sdists == 1 and not pure)
     if result.returncode == 0:
         assert len(list((tmp_path / "dist").glob("*.whl"))) == 6
-        assert not (tmp_path / "dist/archkeel-5.0.0-py3-none-any.whl").exists()
 
 
 @pytest.mark.parametrize("gate,opened", [("false", False), ("", False), ("true", True)])
 def test_a_release_stops_before_full_verification_while_it_is_closed(
     gate: str, opened: bool
 ) -> None:
-    """AD-432: no wheel carries the core, so the first job of a release refuses the release."""
+    """AD-436: a wheel of the matrix gives no verdict, so the first job refuses the release."""
     workflow = (WORKFLOWS / "release.yml").read_text()
     flag = re.findall(r'^  PUBLISH_NATIVE_WHEELS: "(\w+)"$', workflow, re.MULTILINE)
-    # Only a wheel hook that bundles the core can open the release.
+    # The release opens only when the hook bundles the core and each platform gives a verdict.
     hook = (ROOT / "native/hatch_build.py").read_text()
-    assert flag == ["true" if '"archkeel-core"' in hook else "false"]
+    works = '"archkeel-core"' in hook and not release_core.NO_VERDICT
+    assert flag == ["true" if works else "false"]
+    assert set(release_core.NO_VERDICT) <= {tag.rsplit("-", 1)[-1] for tag in PLATFORM_TAGS}
     jobs = _jobs("release.yml")
     first = jobs["core-in-wheel"]
     assert "    needs: core-in-wheel\n" in jobs["verify"]
@@ -156,7 +162,9 @@ def test_a_release_stops_before_full_verification_while_it_is_closed(
         text=True,
     )
     assert result.returncode == (0 if opened else 2)
-    assert ("no wheel carries archkeel-core" in result.stdout) is not opened
+    assert ("gives no verdict" in result.stdout) is not opened
+    # The refusal names each platform that keeps the release closed.
+    assert opened or all(platform in result.stdout for platform in release_core.NO_VERDICT)
 
 
 def test_the_release_build_checks_the_core_of_the_wheels_before_it_uploads_them() -> None:
@@ -167,11 +175,13 @@ def test_the_release_build_checks_the_core_of_the_wheels_before_it_uploads_them(
     assert "if:" not in build and "continue-on-error" not in build
 
 
-def _wheel(directory: Path, tag: str, *members: str) -> Path:
+def _wheel(directory: Path, tag: str, *members: str, digest: str = "") -> Path:
+    """A wheel with the members; a `.sha256` member holds the digest of the other members."""
     wheel = directory / f"archkeel-5.0.0-{tag}.whl"
     with zipfile.ZipFile(wheel, "w") as archive:
         for member in ("archkeel/__init__.py", *members):
-            archive.writestr(member, "x")
+            recorded = digest or hashlib.sha256(b"x").hexdigest()
+            archive.writestr(member, recorded if member.endswith(".sha256") else "x")
     return wheel
 
 
@@ -184,6 +194,12 @@ def test_a_wheel_carries_the_core_only_with_the_binary_and_its_digest(tmp_path: 
     assert not release_core.carries_core(_wheel(tmp_path, "d", core, core + ".exe.sha256"))
     assert release_core.carries_core(_wheel(tmp_path, "e", core, core + ".sha256"))
     assert release_core.carries_core(_wheel(tmp_path, "f", core + ".exe", core + ".exe.sha256"))
+    # A digest of other bytes makes the shell refuse the binary, so the wheel carries no core.
+    other = hashlib.sha256(b"other").hexdigest()
+    assert not release_core.carries_core(
+        _wheel(tmp_path, "g", core, core + ".sha256", digest=other)
+    )
+    assert not release_core.carries_core(_wheel(tmp_path, "h", core, core + ".sha256", digest="x"))
     (tmp_path / "no-archive.whl").write_bytes(b"wheel")
     assert not release_core.carries_core(tmp_path / "no-archive.whl")
 
@@ -208,6 +224,23 @@ def test_the_release_check_refuses_each_wheel_without_the_core(
     assert release_core.main([str(tmp_path), str(host)]) == 2
     assert "gives no verdict of its core: refusal core_binary_not_found" in capsys.readouterr().err
     assert release_core.main([str(tmp_path)]) == 2
+
+
+def test_the_release_check_refuses_a_wheel_of_a_platform_that_gives_no_verdict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """AD-436: such a wheel carries the core, and the installed package still refuses each run."""
+    core = release_core.MEMBER
+    host = _wheel(tmp_path, "py3-none-host", core, core + ".sha256")
+    windows = _wheel(tmp_path, "py3-none-win_amd64", core + ".exe", core + ".exe.sha256")
+    ran: list[Path] = []
+    monkeypatch.setattr(release_core, "smoke", lambda wheel: ran.append(wheel) or "")
+    monkeypatch.setattr(release_core, "NO_VERDICT", {"win_amd64": "the cause"})
+    assert release_core.carries_core(windows)
+    assert release_core.main([str(tmp_path), str(host)]) == 2 and ran == []
+    assert f"release refused: {windows.name} gives no verdict: the cause" in capsys.readouterr().err
+    monkeypatch.setattr(release_core, "NO_VERDICT", {})
+    assert release_core.main([str(tmp_path), str(host)]) == 0 and ran == [host]
 
 
 def test_only_a_verdict_of_the_bundled_core_passes_the_installed_run() -> None:
@@ -297,6 +330,9 @@ def test_a_test_that_needs_a_rust_toolchain_runs_only_in_the_wheel_matrix() -> N
     assert "cargo install --locked cargo-auditable@0.7.7" in dry_run
     assert "ARCHKEEL_BUNDLE_NATIVE=1 uv build --wheel --no-sources --out-dir dist/native" in dry_run
     assert "-m native_wheel tests/test_collector_native_wheel.py" in dry_run
+    # AD-436: the same wheel, installed alone, gives the verdicts of its core.
+    assert dry_run.count('ARCHKEEL_NATIVE_WHEEL="$(ls dist/native/*.whl)" uv run --locked') == 2
+    assert dry_run.rstrip().endswith("tests/test_cli_installed_wheel.py")
 
 
 def test_native_check_runs_the_clone_and_api_tools_only_through_their_tests() -> None:

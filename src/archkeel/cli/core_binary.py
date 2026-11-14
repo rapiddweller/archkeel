@@ -5,7 +5,7 @@
 
 The lookup reads only the directory of this package: the bundled binary with its digest, else the
 build output of the checkout that holds this package. It never reads the scanned project, the
-current directory or `PATH` (AD-432).
+current directory or `PATH` (AD-432). A platform wheel bundles the binary and its digest (AD-436).
 """
 
 import hashlib
@@ -45,6 +45,6 @@ def locate_core(package: Path | None = None) -> Path:
             "the core binary is missing; build native/ with cargo build --release -p archkeel-core"
         )
     raise CoreBinaryNotFound(
-        "this package holds no core binary (#880); use release 4.0.1, or run from a checkout "
-        "after cargo build --release -p archkeel-core"
+        "this package holds no core binary; install a platform wheel of archkeel, or run from a "
+        "checkout after cargo build --release -p archkeel-core"
     )

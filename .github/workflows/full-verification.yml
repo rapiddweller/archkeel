@@ -153,7 +153,8 @@ jobs:
         shell: bash
         run: make build smoke SHELL=bash
 
-  # AD-317: build each platform wheel on its own target, then install it and run its binary.
+  # AD-317, AD-436: build each platform wheel on its own target, then install it alone and read
+  # the verdicts of its core.
   native-wheel-linux:
     name: "Native wheel: ${{ matrix.target }}"
     runs-on: ${{ matrix.runner }}
@@ -193,6 +194,8 @@ jobs:
         run: |
           docker run --rm -e TAG -v "$PWD:/io" -w /io "$IMAGE" bash -euo pipefail -c '
             git config --global --add safe.directory /io
+            # The core runs Git only from /usr/bin/git, and the image has it in /usr/local/bin.
+            ln -s /usr/local/bin/git /usr/bin/git
             curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs \
               | sh -s -- -y --profile minimal --default-toolchain 1.97.0
             . "$HOME/.cargo/env"
