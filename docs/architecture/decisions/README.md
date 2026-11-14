@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-492 | [The browser assets are pinned until their HTML sinks are rewritten](ad-492-the-browser-assets-are-pinned-until-their-html-sinks-are-rewritten.md) |
 | AD-488 | [A source file that the TSConfig drops is a coverage gap](ad-488-a-source-file-that-the-tsconfig-drops-is-a-coverage-gap.md) |
 | AD-484 | [The frame names rule sides, cycle paths and gap holds](ad-484-the-frame-names-rule-sides-cycle-paths-and-gap-holds.md) |
 | AD-482 | [The topology types an import by its target, not by the rule view](ad-482-the-topology-types-an-import-by-its-target-and-not-by-the-rule-view.md) |

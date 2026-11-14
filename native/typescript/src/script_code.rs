@@ -72,10 +72,10 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
     fn key_is_code(&self, key: Node<'t>) -> bool {
         match key.kind() {
-            "property_identifier" => self.name_is(key, &["constructor"]),
+            "property_identifier" => self.name_is(key, &CODE_NAMES),
             "computed_property_name" => true,
             _ => crate::script_window::string_text(self, key)
-                .is_none_or(|text| text == "constructor"),
+                .is_none_or(|text| CODE_NAMES.contains(&text.as_str())),
         }
     }
 
@@ -183,6 +183,10 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     fn computed_code(&self, node: Node<'t>) -> bool {
         let tree = self.tree;
         let index = tree.field(node, F::Index);
+        let named = index.and_then(|index| crate::script_window::string_text(self, index));
+        if named.is_some_and(|name| CODE_NAMES.contains(&name.as_str())) {
+            return self.used(node);
+        }
         if literal(index, tree.cx.source).is_some() || index.is_some_and(|i| i.kind() == "number") {
             return false;
         }
@@ -213,13 +217,11 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         }
         match node.kind() {
             "string" | "template_string" => crate::script_window::string_text(self, node)
-                .is_some_and(|text| {
-                    text.trim_start()
-                        .to_ascii_lowercase()
-                        .starts_with("javascript:")
-                }),
+                .is_some_and(|text| url_text(&text).starts_with("javascript:")),
             "call_expression" => self.injecting_call(node),
-            "assignment_expression" | "augmented_assignment_expression" => self.html_write(node),
+            "assignment_expression" | "augmented_assignment_expression" | "for_in_statement" => {
+                self.html_write(node)
+            }
             _ => false,
         }
     }
@@ -227,22 +229,36 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// A write of HTML text into an element, unless the text is a literal without markup.
     fn html_write(&self, node: Node<'t>) -> bool {
         let tree = self.tree;
-        let target = tree
+        let left = tree
             .field(node, F::Left)
             .map(|left| tree.cx.unwrapped(left));
-        let html = target
-            .filter(|t| t.kind() == "member_expression")
-            .and_then(|t| {
-                tree.field(t, F::Property)
-                    .map(|p| HTML_MEMBERS.contains(&tree.text(p).as_str()))
-            });
-        html == Some(true) && !self.plain_text(tree.field(node, F::Right))
+        let targets = tree.script_targets(node);
+        let html = targets
+            .iter()
+            .any(|target| self.html_member(tree.cx.unwrapped(*target)));
+        // Only a plain assignment of one member has a value that this check can read.
+        let plain = node.kind() == "assignment_expression"
+            && left.is_some_and(|left| self.html_member(left));
+        html && !(plain && self.plain_text(tree.field(node, F::Right)))
     }
 
-    /// A literal text without `<`: it holds no element and so no handler.
+    /// A member `innerHTML`, `outerHTML` or `srcdoc`, also with a literal key.
+    fn html_member(&self, target: Node<'t>) -> bool {
+        let tree = self.tree;
+        let name = match target.kind() {
+            "member_expression" => tree.field(target, F::Property).map(|p| tree.text(p)),
+            "subscript_expression" => tree
+                .field(target, F::Index)
+                .and_then(|index| crate::script_window::string_text(self, index)),
+            _ => None,
+        };
+        name.is_some_and(|name| HTML_MEMBERS.contains(&name.as_str()))
+    }
+
+    /// A literal text whose markup holds no handler, script, frame or code link.
     fn plain_text(&self, node: Option<Node<'t>>) -> bool {
         node.and_then(|node| crate::script_window::string_text(self, node))
-            .is_some_and(|text| !text.contains('<'))
+            .is_some_and(|text| inert_markup(&text))
     }
 
     fn injecting_call(&self, call: Node<'t>) -> bool {
@@ -253,7 +269,10 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let arguments: Vec<Node<'t>> = tree
             .field(call, F::Arguments)
             .map(crate::tree::nodes::named_children)
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|argument| argument.kind() != "comment")
+            .collect();
         let text_of = |at: usize| {
             arguments
                 .get(at)
@@ -329,4 +348,77 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 fn handler(name: &str) -> bool {
     name.get(..2)
         .is_some_and(|start| start.eq_ignore_ascii_case("on"))
+}
+
+/// The elements that run, load or link code, or that hide markup from this reading.
+const CODE_ELEMENTS: [&str; 20] = [
+    "script", "iframe", "frame", "frameset", "object", "embed", "applet", "base", "meta", "link",
+    "style", "svg", "math", "template", "a", "area", "form", "portal", "noscript", "xmp",
+];
+
+/// The attribute parts that load a URL, hold a style or start a URL scheme of code.
+const CODE_PARTS: [&str; 12] = [
+    "href",
+    "src",
+    "action",
+    "style",
+    "xlink",
+    "poster",
+    "background",
+    "data:",
+    "javascript:",
+    "vbscript:",
+    "&",
+    "\\",
+];
+
+/// Markup that runs no code. The text is read in lower case, as HTML reads names. It is refused
+/// when it holds an `on…` attribute, an element of `CODE_ELEMENTS`, or a part of `CODE_PARTS`
+/// (`srcdoc`, `srcset` and `formaction` contain `src` and `action`; `&` stops a character
+/// reference). Text without `<` holds no element.
+fn inert_markup(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    let url = url_text(text);
+    if !lower.contains('<') {
+        return true;
+    }
+    let bytes = lower.as_bytes();
+    let handler = lower
+        .match_indices("on")
+        .any(|(at, _)| handler_at(bytes, at));
+    let element = lower.match_indices('<').any(|(at, _)| {
+        let name: String = lower
+            .get(at + 1..)
+            .unwrap_or_default()
+            .trim_start_matches('/')
+            .chars()
+            .take_while(|c| c.is_ascii_alphanumeric() || *c == '-')
+            .collect();
+        CODE_ELEMENTS.contains(&name.as_str())
+    });
+    !handler && !element && !CODE_PARTS.iter().any(|part| url.contains(part))
+}
+
+/// An attribute name `on…` at `at`: after any byte that is no letter or digit, before `=`.
+fn handler_at(bytes: &[u8], at: usize) -> bool {
+    let before = at.checked_sub(1).and_then(|i| bytes.get(i));
+    let starts = before.is_some_and(|b| !b.is_ascii_alphanumeric());
+    let name_end = bytes
+        .iter()
+        .skip(at)
+        .position(|b| !(b.is_ascii_alphanumeric() || *b == b'-' || *b == b'_'))
+        .map_or(bytes.len(), |n| at + n);
+    let rest = bytes.get(name_end..).unwrap_or(&[]);
+    starts && rest.iter().find(|b| !b.is_ascii_whitespace()) == Some(&b'=')
+}
+
+/// The text as a browser reads a URL scheme: lower case, without tab, line feed and carriage
+/// return, and without leading control characters and spaces.
+fn url_text(text: &str) -> String {
+    let kept: String = text
+        .chars()
+        .filter(|c| !matches!(c, '\t' | '\n' | '\r'))
+        .collect();
+    kept.trim_start_matches(|c: char| c <= ' ')
+        .to_ascii_lowercase()
 }
