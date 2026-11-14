@@ -18,7 +18,9 @@ from typing import Any
 
 import pytest
 from python_interface_plants import GRAPH
-from python_review_plants import OPEN, PLANTS
+from python_review_plants import OPEN
+from python_review_plants import PLANTS as WRITES
+from python_review_shadows import PLANTS as SHADOWS
 from test_cli_native_python_imports import rows, verdict
 
 
@@ -83,6 +85,9 @@ def build(root: Path, plant: dict[str, Any]) -> Path:
 
     commit_tree(root)
     return root
+
+
+PLANTS = {**WRITES, **SHADOWS}
 
 
 @pytest.mark.parametrize("name", sorted(PLANTS))
