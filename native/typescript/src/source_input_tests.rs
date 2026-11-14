@@ -4,6 +4,9 @@
 
 // Consumer: discovery and resolution. Each expected value is printed by `source_input.py`.
 
+use super::SpecifierKind::{
+    Absolute, Bare, Current, CurrentPath, Imports, Node, ParentPath, Scoped,
+};
 use super::*;
 
 #[test]
@@ -51,9 +54,6 @@ fn a_suffix_has_the_replacements_of_its_family() {
 
 #[test]
 fn specifiers_classify_as_the_python_table() {
-    use super::SpecifierKind::{
-        Absolute, Bare, Current, CurrentPath, Imports, Node, ParentPath, Scoped,
-    };
     // text, kind, name, package, typed name, directory only, builtin, npm package, relative
     let cases = [
         (".", Current, ".", ".", ".", false, false, false, true),
