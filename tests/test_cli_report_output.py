@@ -94,9 +94,11 @@ def test_files_keep_the_frame_and_exit(
         # AD-496: one script (the theme switch, admitted by hash) and links inside the page only.
         assert text.count("<script>") == 1 and "src=" not in text
         assert not re.findall(r'href="(?!#)', text)
-        # A rule that fails has its block; the page lists no other rule.
+        # A rule that fails has its block; an UNKNOWN rule is named under the verdict (at most
+        # five of a cause); the page lists no rule that holds.
         for identifier, (_, verdict) in found["frame"]["rules"].items():
-            assert (html.escape(identifier, quote=True) in text) == (verdict == "FAIL"), identifier
+            named = verdict in ("FAIL", "UNKNOWN")
+            assert (html.escape(identifier, quote=True) in text) == named, identifier
 
 
 def test_report_file_options_are_explicit_and_validate_stays_refused() -> None:
