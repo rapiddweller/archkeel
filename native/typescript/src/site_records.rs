@@ -363,11 +363,8 @@ fn result_binding(
         site.assignment_annotation.as_deref(),
         Some("any" | "unknown")
     );
-    let written = match site.shadow.chain {
-        Some(_) => kept.shadow.writes(site.shadow.chain, &name) > 1,
-        None => kept.rebound.contains(&name),
-    };
-    if loose || written {
+    let written = kept.shadow.writes(site.shadow.chain, &name) > 1;
+    if loose || written || kept.rebound.contains(&name) {
         return Vec::new();
     }
     let id = stable_id(

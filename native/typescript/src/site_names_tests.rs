@@ -89,12 +89,13 @@ fn a_declaration_below_the_module_hides_its_name_only_inside_its_scope() {
 fn a_scope_counts_each_write_of_a_name_in_its_body() {
     let data = b"aaa";
     let mut names = Names::default();
-    names.written(0, Text { start: 0, end: 1 });
-    names.written(1, Text { start: 1, end: 2 });
-    names.written(9, Text { start: 2, end: 3 });
+    names.assigned(0, Text { start: 0, end: 1 });
+    names.assigned(1, Text { start: 1, end: 2 });
+    names.assigned(9, Text { start: 2, end: 3 });
     let scope = names.open(None, None, Some((0, 5)));
     let index = names.index(data);
     assert_eq!(index.writes(Some(scope), "a"), 2);
     assert_eq!(index.writes(Some(scope), "b"), 0);
-    assert_eq!(index.writes(None, "a"), 0);
+    // Outside every function the writes of the whole file count.
+    assert_eq!(index.writes(None, "a"), 3);
 }

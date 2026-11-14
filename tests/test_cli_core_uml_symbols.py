@@ -16,13 +16,14 @@ from pathlib import Path
 import pytest
 from test_cli_core_only_scan import command
 from test_cli_core_uml_compare import project
+from uml_symbol_patterns import PATTERN_CAUSES, PATTERN_PLANTS, WRONG_RELEASE_PATTERNS
 from uml_symbol_plants import CAUSES as BASE_CAUSES
 from uml_symbol_plants import PLANTS as BASE_PLANTS
 from uml_symbol_plants import ROW
 from uml_symbol_review import COUNTS, REVIEW_CAUSES, REVIEW_PLANTS, STRICTER, WRONG_RELEASE_PASS
 
-PLANTS = {**BASE_PLANTS, **REVIEW_PLANTS}
-CAUSES = {**BASE_CAUSES, **REVIEW_CAUSES}
+PLANTS = {**BASE_PLANTS, **REVIEW_PLANTS, **PATTERN_PLANTS}
+CAUSES = {**BASE_CAUSES, **REVIEW_CAUSES, **PATTERN_CAUSES}
 
 
 @pytest.mark.parametrize("name", sorted(PLANTS))
@@ -37,7 +38,7 @@ def test_the_difference_between_the_release_rows_and_the_core_rows_is_counted() 
     passes = {n for n, p in PLANTS.items() if (p[2], p[3]) == ("PASS", "UNKNOWN")}
     fails = {n for n, p in PLANTS.items() if (p[2], p[3]) == ("FAIL", "UNKNOWN")}
     assert (equal, len(passes), len(fails), len(PLANTS)) == COUNTS
-    assert WRONG_RELEASE_PASS < passes
+    assert (WRONG_RELEASE_PASS | WRONG_RELEASE_PATTERNS) < passes
 
 
 @pytest.mark.parametrize("name", sorted(PLANTS))
