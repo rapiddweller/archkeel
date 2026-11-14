@@ -105,7 +105,7 @@ impl Profile {
 
     /// How the modules of this profile lie in the scan roots. A Python module that is not its
     /// path below a scan root is a gap of the survey, so the parent rule holds (AD-450). A Dart
-    /// module is the namespace and the path below its scan root (AD-466).
+    /// module is the namespace and the path below its scan root (AD-468).
     pub fn layout(self) -> Layout {
         match self {
             Profile::TypeScript | Profile::Rust | Profile::Python | Profile::Dart => {
@@ -208,7 +208,7 @@ object! {
         /// The linked collector's scope statements. Wire replies carry no live authority.
         #[serde(skip)]
         pub profile_limits: Option<ProfileLimits>,
-        /// The linked collector's files that belong to another module (AD-466). Wire replies
+        /// The linked collector's files that belong to another module (AD-468). Wire replies
         /// carry none.
         #[serde(skip)]
         pub owned_files: Vec<OwnedFile>,
@@ -232,7 +232,7 @@ object! {
 
 /// A selected file that has no module of its own: its facts belong to the module `owner`.
 /// `module` is the module that its path would name. The model checks that one component claims
-/// both names; else no rule can rely on the owner (AD-466).
+/// both names; else no rule can rely on the owner (AD-468).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OwnedFile {
     pub rel_path: String,

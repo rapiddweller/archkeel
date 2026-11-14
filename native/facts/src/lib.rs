@@ -34,7 +34,6 @@ pub mod envelope;
 pub mod fields;
 mod gap;
 pub mod identity;
-mod linked;
 pub mod ids;
 pub mod nested;
 pub mod nullable;

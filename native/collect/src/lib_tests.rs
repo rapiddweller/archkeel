@@ -159,9 +159,6 @@ fn another_head_profile_or_collector_is_refused_by_name() {
     let original = fs::read_to_string(&config).unwrap();
     fs::write(&config, original.replace("typescript", "python")).unwrap();
     assert_eq!(refusal_part(&root), "config");
-    let dart = original.replace("typescript", "dart");
-    fs::write(&config, dart.replace("tsconfig = \"tsconfig.json\"\n", "")).unwrap();
-    assert_eq!(refusal_part(&root), "profile");
     fs::write(&config, format!("{original}collector_argv = [\"/x\"]\n")).unwrap();
     assert_eq!(refusal_part(&root), "collector");
 }
@@ -251,8 +248,7 @@ fn the_profile_selects_its_strict_decoder_and_refuses_unlinked_collectors() {
     let request = serde_json::to_vec(&scanned.request).unwrap();
     assert!(run::collect(Profile::Rust, &request).is_err());
     let error = reply_of(Profile::Dart, &request).unwrap_err();
-    assert!(error.contains(Profile::Dart.as_str()), "{error}");
-    assert!(error.contains("no collector in the core process yet"));
+    assert!(error.contains("Dart resolver"), "{error}");
     let error = reply_of(Profile::Python, &request).unwrap_err();
     assert!(error.contains("Python resolver"), "{error}");
 }

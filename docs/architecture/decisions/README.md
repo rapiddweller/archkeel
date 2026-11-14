@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-468 | [Dart import rules use the bound import survey](ad-468-dart-import-rules-use-the-bound-import-survey.md) |
 | AD-464 | [Report topology is an opt-in, bounded display of the same run](ad-464-report-topology-is-an-opt-in-bounded-display-of-the-same-run.md) |
 | AD-462 | [Fixture results are pinned and the nightly run publishes a gallery](ad-462-fixture-results-are-pinned-and-the-nightly-run-publishes-a-gallery.md) |
 | AD-454 | [The native Dart import survey resolves one package and names each gap](ad-454-the-native-dart-import-survey-resolves-one-package-and-names-each-gap.md) |

@@ -59,6 +59,9 @@ pub enum Cause {
     /// A component of an inside contract claims a package or a module outside its parent: the
     /// parent key of the mount (`inside_source_domain_incomplete`, AD-385).
     InsideSourceDomain(String),
+    /// A file without a module of its own whose path module and owner module have other
+    /// components (AD-468): the path of the file.
+    OwnedFileOwner(String),
 }
 
 /// The gaps that hold a rule: the first ones as `a -> b` and the number of all.
@@ -187,6 +190,10 @@ impl fmt::Display for Cause {
             Cause::InsideSourceDomain(parent) => write!(
                 formatter,
                 "a component inside {parent} claims a module outside its parent"
+            ),
+            Cause::OwnedFileOwner(path) => write!(
+                formatter,
+                "the file {path} belongs to a module of another component than its own path"
             ),
         }
     }

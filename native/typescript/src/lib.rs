@@ -106,7 +106,27 @@ use archkeel_wire::protocol::Version;
 
 pub use crate::collect::reply;
 
-archkeel_facts::linked_collector!(Profile::TypeScript);
+/// The test features that this build of the collector has. A build with one of them reads the
+/// planted faults of `plant.rs` from the environment, so `archkeel-collect` refuses its facts
+/// (AD-406). The release build has none.
+pub const TEST_FEATURES: &[&str] = if cfg!(feature = "dump") {
+    &["dump"]
+} else {
+    &[]
+};
+
+/// The provenance of this build: the collector of the TypeScript profile with the code digest of
+/// the workspace.
+pub fn provenance() -> Provenance {
+    Provenance::native(
+        Profile::TypeScript,
+        (env!("ARCHKEEL_VERSION"), env!("ARCHKEEL_CODE_DIGEST")),
+        (
+            env!("ARCHKEEL_RUSTC_VERSION"),
+            env!("CARGO_PKG_RUST_VERSION"),
+        ),
+    )
+}
 
 /// The typed reply of one request: the same facts that `reply` writes as compressed bytes.
 pub fn typed_reply(

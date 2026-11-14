@@ -10,7 +10,7 @@ declared contract of components and rules against that observation, and distingu
 PASS, FAIL and UNKNOWN. Rules live in `architecture-contract.json` and its explicit nested
 contracts; nothing is enforced by convention alone.
 
-Python and Dart projects are not supported in this version; use archkeel 4.0.1.
+Python and Dart projects get verdicts only for import rules in this version; use archkeel 4.0.1 for the other rules.
 The Rust core decides `validate` and `report`, and no other command runs in this version.
 `check`, `explore`, `init`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
 Release 4.0.1 has `check` and `init`; no release has the other five commands.

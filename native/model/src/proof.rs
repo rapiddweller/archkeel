@@ -97,11 +97,17 @@ pub(crate) fn state(
     if let Some(found) = contract_failures(contract, observed, &all, &mut unread) {
         return cause(found);
     }
+    if let Some(path) = split_owner(contract.components(), observed) {
+        return cause(Cause::OwnedFileOwner(path));
+    }
     // `_inside_rule_results`: the clip, the limits and the subject check of each mount are
     // coverage failures of the whole run.
     for mount in mounts.into_iter().flatten() {
         if mount.outside {
             return cause(Cause::InsideSourceDomain(mount.parent_id.to_owned()));
+        }
+        if let Some(path) = split_owner(mount.contract.components(), observed) {
+            return cause(Cause::OwnedFileOwner(path));
         }
         let scoped = names(graph, mount.contract.components(), Some(&mount.domain));
         if let Some(found) = contract_failures(mount.contract, observed, &scoped, &mut unread) {
@@ -109,6 +115,24 @@ pub(crate) fn state(
         }
     }
     unread.map_or(State::Complete, State::Unread)
+}
+
+/// The first file without a module of its own whose path module and owner module have other
+/// claiming components (AD-468). A rule reads the facts of such a file as facts of its owner, so
+/// a rule of the component of its path would miss them: the scope is not complete.
+fn split_owner(components: &[Component], observed: &crate::observed::Observed) -> Option<String> {
+    let claimants = |module: &str| -> Vec<&str> {
+        components
+            .iter()
+            .filter(|component| crate::ownership::claims(component, module))
+            .map(|component| component.id().as_text())
+            .collect()
+    };
+    observed
+        .owned_files
+        .iter()
+        .find(|(_, module, owner)| claimants(module) != claimants(owner))
+        .map(|(path, _, _)| path.clone())
 }
 
 /// The names that the subject check of one contract reads: the source subjects (the domain of a

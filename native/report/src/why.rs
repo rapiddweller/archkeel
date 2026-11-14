@@ -84,6 +84,8 @@ fn not_complete(cause: &Cause) -> WhyUnknown {
         | Cause::LayerMetadata(_)
         | Cause::NoRuleSubjects(_)
         // A claim of a mount outside its parent is a coverage failure of the run (AD-385).
-        | Cause::InsideSourceDomain(_) => WhyUnknown::ScopeIncomplete,
+        | Cause::InsideSourceDomain(_)
+        // A file whose owner has another component than its path (AD-468).
+        | Cause::OwnedFileOwner(_) => WhyUnknown::ScopeIncomplete,
     }
 }

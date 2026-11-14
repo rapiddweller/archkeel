@@ -46,7 +46,24 @@ use archkeel_facts::envelope::{Profile, Provenance, Reply};
 use archkeel_facts::request::RustRequest;
 use archkeel_wire::protocol::Version;
 
-archkeel_facts::linked_collector!(Profile::Rust);
+/// Test features read planted faults. The composition refuses a build with one.
+pub const TEST_FEATURES: &[&str] = if cfg!(feature = "dump") {
+    &["dump"]
+} else {
+    &[]
+};
+
+/// The provenance of this linked collector and its workspace source digest.
+pub fn provenance() -> Provenance {
+    Provenance::native(
+        Profile::Rust,
+        (env!("ARCHKEEL_VERSION"), env!("ARCHKEEL_CODE_DIGEST")),
+        (
+            env!("ARCHKEEL_RUSTC_VERSION"),
+            env!("CARGO_PKG_RUST_VERSION"),
+        ),
+    )
+}
 
 /// The compressed reply of the subprocess path.
 pub fn reply(

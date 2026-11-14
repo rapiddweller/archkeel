@@ -5,8 +5,10 @@
 Main supports Rust and TypeScript projects, and the import rules of Python projects (AD-450).
 A Python project gets PASS or FAIL only for rules that read the import graph. A dynamic import,
 an import-system change and the other gaps of AD-450 give UNKNOWN for each rule of the run.
-Python rules that read symbols, calls or constructs stay UNKNOWN. Dart projects are not
-supported in this version; use archkeel 4.0.1. An unsupported profile gives exit 2 before collection.
+Python rules that read symbols, calls or constructs stay UNKNOWN. A Dart project gets PASS or FAIL
+only for rules that read the import graph; each gap of AD-454 and a part in another component than
+its library give UNKNOWN for each rule of the run. A contract with a symbol selector or an
+`interface_boundary` rule is a profile limit: each Dart rule is UNKNOWN (AD-468).
 The Rust core is the only decision path (AD-432). There is no Python fallback.
 Saved results do not carry host verification; dependency scope proofs replay as UNKNOWN with `dependency_scope_runtime_unverified`.
 Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD have no shipped binary.
