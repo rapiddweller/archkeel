@@ -34,6 +34,8 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 - `report --output PATH` writes one static HTML page or the JSON frame (`--format json`). It has no graph.
   The parent must exist. Safe file output needs POSIX directory handles; Windows refuses `--output` with exit 2 (`io_error`), writes no file and keeps the frame.
 - A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`. The run exits 2.
+- The core does not compare `declarations.uml` with the source facts. The UML target row is always
+  UNKNOWN (`no_receipt`), so the run exits 2. A conflict that 4.0.1 shows as FAIL is UNKNOWN (AD-470).
 - A collection gap makes each rule UNKNOWN whose reading it can change. A manifest edge that the core
   proved can give a `requires` FAIL beside such a gap.
 - `validate` and `report` read explicit `inside` mounts through the bounded core tree reader.

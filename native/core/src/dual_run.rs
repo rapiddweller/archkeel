@@ -332,8 +332,9 @@ fn producer(collector_argv: Option<&Vec<String>>) -> Producer {
 }
 
 /// The gaps of the request: a baseline or a contract that the core cannot use names the whole
-/// contract, and a UML target names its row. A refused or absent reply gives no model, so the
-/// report writes no PASS. The report adds the gaps of the model and writes the status (AD-388).
+/// contract, and a UML target has its UNKNOWN row (AD-470). A refused or absent reply gives no
+/// model, so the report writes no PASS. The report adds the gaps of the model and writes the
+/// status (AD-388).
 fn named(contract: &ContractState, baseline: bool, engine: &Engine, path: &str) -> Named {
     let whole = match contract {
         _ if baseline => Some(Reason::Unsupported(Unsupported::Baseline).to_string()),
@@ -342,11 +343,10 @@ fn named(contract: &ContractState, baseline: bool, engine: &Engine, path: &str) 
         ContractState::Refused(message) => Some(format!("refused: {message}")),
     };
     Named {
-        rules: crate::contract::uml_reason(engine.usable(), path)
-            .into_iter()
-            .collect(),
+        rules: BTreeMap::new(),
         contract: whole,
         hold: None,
+        uml: crate::contract::uml_row(engine.usable(), path),
     }
 }
 
