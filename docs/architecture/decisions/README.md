@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-440 | [Report files present the same core ruling](ad-440-report-files-present-the-same-core-ruling.md) |
 | AD-438 | [The default scan reads and binds every inside contract](ad-438-the-default-scan-reads-and-binds-every-inside-contract.md) |
 | AD-434 | [Named type publication needs a direct witness or one same-name hop](ad-434-named-type-publication-needs-a-direct-witness-or-one-same-name-hop.md) |
 | AD-430 | [Delete the Python language collectors](ad-430-delete-the-python-language-collectors.md) |

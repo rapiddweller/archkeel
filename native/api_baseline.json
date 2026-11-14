@@ -1772,6 +1772,7 @@
     "fn ruling::is_empty(&self)->bool",
     "fn ruling::rule(models:Result<&ModelTree,&Reason>,named:Named)->Result<Ruling,BuildError>",
     "fn ruling::unsupported(&self)->&RuleReasons",
+    "fn ruling::with_html(mut self,html:bool)->Self",
     "fn tables::opt_gap(cell:OptGap)->Option<Code<Gap>>",
     "fn why::of(reason:&Reason)->WhyUnknown",
     "struct codes::Code",
