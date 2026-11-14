@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from core_support import EMPTY_GRAPH
 from test_cli_core_only_scan import command
 
 RULE = {"rationale": "Keep the boundary.", "provenance": ["p"], "decided_by": "architect"}
@@ -84,6 +85,9 @@ def project(
         "rules": rules() if contract_rules is None else contract_rules,
     }
     (root / "architecture-contract.json").write_text(json.dumps(contract))
+    # AD-466: the cited page `p` holds the one marked graph; a missing page refuses the contract.
+    if not (root / "p").exists():
+        (root / "p").write_text(EMPTY_GRAPH)
     env = {
         **os.environ,
         "GIT_AUTHOR_NAME": "t",
@@ -112,8 +116,11 @@ def rows(result: dict[str, Any]) -> dict[str, str]:
 def test_a_clean_project_passes_each_import_rule(
     release_core: Path, tmp_path: Path, verb: str
 ) -> None:
-    result = verdict(release_core, project(tmp_path, BASE), verb)
-    assert rows(result) == dict.fromkeys(["FORBID", "ASSIGN", "CYCLES", "EXTERNAL"], "PASS")
+    # AD-466: `complete_requires` decides each pair; 4.0.1 names open decisions without it.
+    decided = [*rules(), {**RULE, "id": "REQUIRES", "kind": "complete_requires"}]
+    result = verdict(release_core, project(tmp_path, BASE, contract_rules=decided), verb)
+    names = ["FORBID", "ASSIGN", "CYCLES", "EXTERNAL", "REQUIRES"]
+    assert rows(result) == dict.fromkeys(names, "PASS")
     assert result["status"] == "PASS" and result["exit_code"] == 0
 
 
