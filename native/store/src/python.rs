@@ -55,7 +55,7 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
             .capabilities
             .resolution_features
             .iter()
-            .any(|feature| feature == crate::registered::ROUTES_FEATURE);
+            .any(|feature| feature == crate::features::ROUTES_FEATURE);
         if !routes {
             return Err("an interface statement needs the feature import-routes-v1".to_owned());
         }

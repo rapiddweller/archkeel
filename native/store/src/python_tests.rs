@@ -75,7 +75,7 @@ fn the_survey_has_exactly_two_sections_and_no_construct() {
 #[test]
 fn only_the_python_survey_with_its_routes_may_state_an_interface() {
     use archkeel_facts::envelope::ProfileLimits;
-    let routes = crate::registered::ROUTES_FEATURE.to_owned();
+    let routes = crate::features::ROUTES_FEATURE.to_owned();
     let stated = |profile: Profile, features: Vec<String>, symbols: LimitSupport| {
         let mut facts = survey_facts();
         facts.profile = profile;
