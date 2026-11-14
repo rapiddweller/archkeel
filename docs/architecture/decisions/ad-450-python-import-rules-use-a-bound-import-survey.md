@@ -1,6 +1,7 @@
 # AD-450 Python import rules use a bound import survey
 
-**Status.** Proposed. Part of #880. It extends AD-334, AD-388, AD-406 and AD-426.
+**Status.** Proposed. Part of #880. It extends AD-334, AD-388, AD-406 and AD-426. AD-472 narrows
+the gaps of a direct literal import call and of a stub beside its source.
 
 **Decision.**
 1. `native/python` has a library. `archkeel-collect` links it and takes the typed reply.

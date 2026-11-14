@@ -64,7 +64,7 @@
     "K-python-realworld": {
       "language": "python",
       "runs": [
-      {"name": "K-python-realworld", "root": "K-python-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 2 coverage gaps", "gaps": {"scope_proof": 6, "uml_target": 1}, "refusal": null}}
+      {"name": "K-python-realworld", "root": "K-python-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 1 coverage gaps", "gaps": {"scope_proof": 6, "uml_target": 1}, "refusal": null}}
       ]
     },
     "L-nest-realworld": {
@@ -76,7 +76,7 @@
     "M-review-workflow": {
       "language": "python",
       "runs": [
-      {"name": "M-review-workflow", "root": "M-review-workflow", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 9}, "scope": "incomplete scope: the collector reports 3 coverage gaps", "gaps": {"scope_proof": 3}, "refusal": null}}
+      {"name": "M-review-workflow", "root": "M-review-workflow", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 12}, "scope": "incomplete scope: the profile cannot decide INTERFACE-BOUNDARY", "gaps": {}, "refusal": null}}
       ]
     },
     "golden-python": {

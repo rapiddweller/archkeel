@@ -35,7 +35,9 @@ mod guard;
 mod hazards;
 mod imports;
 mod layout;
+mod literal;
 mod namespace;
+mod package_body;
 mod stable;
 mod targets;
 mod walks;
@@ -104,7 +106,21 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .collect();
     let mut evidence = EvidenceMap::new();
     let collected = imports::collect_all(modules, &binders, namespace, &mut evidence);
-    let (imports, aliases) = (collected.records, collected.aliases);
+    let (mut imports, aliases) = (collected.records, collected.aliases);
+    // AD-472: a proven literal import call is an import record; each other site is a gap.
+    let (mut literals, mut hazards) = (Vec::new(), Vec::new());
+    for (index, (module, binders)) in modules.iter().zip(&binders).enumerate() {
+        let proof = literal::Proof::of(&module.tree, binders);
+        for site in hazards::sites(&module.tree, proof) {
+            match site.kind {
+                hazards::LITERAL => literals.push((index, site.range, site.detail)),
+                _ => hazards.push((index, site)),
+            }
+        }
+    }
+    let calls = imports::literal_records(modules, &binders, namespace, &mut evidence, &literals);
+    imports.extend(calls);
+    imports.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
     let files: Vec<FileFact> = modules
         .iter()
         .zip(&binders)
@@ -127,12 +143,11 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .collect();
     let resolved = targets::resolve(&imports, &files, &stdlib, namespace, &collected.ambiguous);
     let mut sites = resolved.gaps;
-    for module in modules {
-        for site in hazards::sites(&module.tree) {
-            let id = module.evidence(&mut evidence, &site.range);
-            let (key, gap) = targets::site_gap(site.kind, &site.detail, &module.name, &id);
-            sites.insert(key, gap);
-        }
+    for (index, site) in hazards {
+        let module = &modules[index];
+        let id = module.evidence(&mut evidence, &site.range);
+        let (key, gap) = targets::site_gap(site.kind, &site.detail, &module.name, &id);
+        sites.insert(key, gap);
     }
     unknowns.extend(found);
     unknowns.extend(sites.into_values());

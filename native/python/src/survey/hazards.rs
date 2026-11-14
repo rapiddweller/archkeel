@@ -27,9 +27,13 @@ use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, ExprContext, ModModule, Stmt};
 use ruff_text_size::{Ranged, TextRange};
 
+use super::literal::Proof;
+
 /// The named gaps of the sites.
 pub(super) const DYNAMIC: &str = "dynamic_import";
 pub(super) const IMPORT_SYSTEM: &str = "import_system_change";
+/// A proven literal import call: a static edge, not a gap (AD-472, `literal.rs`).
+pub(super) const LITERAL: &str = "literal_import";
 
 /// The doors, as one list of qualified names: a reference to one of them, or to a name below
 /// it, is a dynamic import.
@@ -93,10 +97,11 @@ pub(super) struct Site {
 }
 
 /// The sites of a module, in source order.
-pub(super) fn sites(tree: &ModModule) -> Vec<Site> {
+pub(super) fn sites(tree: &ModModule, proof: Proof) -> Vec<Site> {
     let mut walk = Walk {
         found: Vec::new(),
         bound: bindings(tree),
+        proof,
     };
     walk.visit_body(&tree.body);
     walk.found
@@ -196,6 +201,7 @@ fn imported(stmt: &Stmt) -> Vec<String> {
 struct Walk {
     found: Vec<Site>,
     bound: HashMap<String, Vec<String>>,
+    proof: Proof,
 }
 
 impl Walk {
@@ -294,6 +300,12 @@ impl<'a> Visitor<'a> for Walk {
 
     fn visit_expr(&mut self, expr: &'a Expr) {
         match expr {
+            // AD-472: only the callee of a proven literal call is exempt; its one argument is a
+            // string literal, so nothing below the call is left to read.
+            Expr::Call(call) => match self.proof.target(call) {
+                Some(target) => self.push(LITERAL, &target, expr),
+                None => visitor::walk_expr(self, expr),
+            },
             Expr::Attribute(_) => self.chain(expr),
             Expr::Name(node) if node.id.as_str() == "__path__" => {
                 if node.ctx != ExprContext::Load {

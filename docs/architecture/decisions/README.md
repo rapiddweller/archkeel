@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-472 | [A direct literal import call is a Python import edge](ad-472-a-direct-literal-import-call-is-a-python-import-edge.md) |
 | AD-465 | [A scan does not depend on build output that another process changes](ad-465-a-scan-does-not-depend-on-build-output-that-another-process-changes.md) |
 | AD-464 | [Report topology is an opt-in, bounded display of the same run](ad-464-report-topology-is-an-opt-in-bounded-display-of-the-same-run.md) |
 | AD-462 | [Fixture results are pinned and the nightly run publishes a gallery](ad-462-fixture-results-are-pinned-and-the-nightly-run-publishes-a-gallery.md) |

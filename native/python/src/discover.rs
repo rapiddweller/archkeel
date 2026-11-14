@@ -12,6 +12,8 @@
 //! What the walk cannot see soundly is an `Unseen` value, never a silent omission (AD-367): the
 //! survey writes a gap for each one, so the scope that holds it cannot be PASS.
 
+use std::collections::HashSet;
+
 use archkeel_snapshot::paths::join;
 use archkeel_snapshot::{Hidden, Snapshot};
 
@@ -91,6 +93,13 @@ pub(crate) fn scope(snapshot: &mut Snapshot, roots: &[String], exclude_tests: bo
     found.sort_by(|left, right| left.split('/').cmp(right.split('/')));
     found.dedup();
     foreign.retain(|rel| keep(snapshot, rel, exclude_tests));
+    // AD-472: a stub beside its selected source module is no runtime module. Python imports the
+    // `.py`, and a gap of that file holds the run when it does not read or parse.
+    let sources: HashSet<&str> = found.iter().map(String::as_str).collect();
+    foreign.retain(|rel| {
+        !rel.strip_suffix('i')
+            .is_some_and(|source| rel.ends_with(".pyi") && sources.contains(source))
+    });
     foreign.sort();
     linked.retain(|rel| !in_cache(rel) && !(exclude_tests && is_test_source(rel)));
     linked.sort();
