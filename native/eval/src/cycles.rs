@@ -13,9 +13,9 @@ use std::collections::BTreeSet;
 
 use archkeel_contract::{CycleLevel, NoComponentCycles};
 use archkeel_facts::identity::{stable_id, Part};
-use archkeel_model::{Import, Level, Model};
+use archkeel_model::{cycle_path, Import, Level, Link, Model};
 
-use crate::violation::{Cyclic, Violation};
+use crate::violation::{CycleStep, Cyclic, Violation};
 
 /// The violations of a `no_component_cycles` rule.
 pub(crate) fn check(id: &str, rule: &NoComponentCycles, model: &Model) -> Vec<Violation> {
@@ -28,7 +28,10 @@ pub(crate) fn check(id: &str, rule: &NoComponentCycles, model: &Model) -> Vec<Vi
         CycleLevel::Component => archkeel_model::cycles_of_components(model)
             .iter()
             .filter(|cycle| cycle.members().iter().any(|label| in_scope(label)))
-            .map(|cycle| cyclic(id, cycle.members(), &cycle.imports(model), None))
+            .map(|cycle| {
+                let path = steps(model, &cycle.links(model), true);
+                cyclic(id, cycle.members(), &cycle.imports(model), None, path)
+            })
             .collect(),
         CycleLevel::Module => {
             let scope: Vec<_> = model
@@ -53,11 +56,23 @@ pub(crate) fn check(id: &str, rule: &NoComponentCycles, model: &Model) -> Vec<Vi
                 .map(|cycle| {
                     let members: BTreeSet<&str> =
                         cycle.members().iter().map(String::as_str).collect();
-                    let closing: Vec<&Import> = imports
+                    let inside: Vec<(usize, &Import)> = imports
                         .iter()
-                        .filter(|import| {
+                        .enumerate()
+                        .filter(|(_, import)| {
                             let ends = [import.source_module(), import.target_module()];
                             ends.iter().all(|end| members.contains(end)) && ends[0] != ends[1]
+                        })
+                        .collect();
+                    let closing: Vec<&Import> = inside.iter().map(|(_, import)| *import).collect();
+                    let links: Vec<Link> = inside
+                        .iter()
+                        .map(|(index, import)| {
+                            (
+                                *index,
+                                import.source_module().to_owned(),
+                                import.target_module().to_owned(),
+                            )
                         })
                         .collect();
                     let edges: BTreeSet<[String; 2]> = closing
@@ -71,6 +86,7 @@ pub(crate) fn check(id: &str, rule: &NoComponentCycles, model: &Model) -> Vec<Vi
                         cycle.members(),
                         &closing,
                         Some(edges.into_iter().collect()),
+                        steps(model, &links, false),
                     )
                 })
                 .collect()
@@ -87,6 +103,7 @@ fn cyclic(
     members: &[String],
     imports: &[&Import],
     edges: Option<Vec<[String; 2]>>,
+    path: Vec<CycleStep>,
 ) -> Violation {
     let mut parts = vec![Part::Text(rule)];
     parts.extend(members.iter().map(|member| Part::Text(member)));
@@ -101,5 +118,59 @@ fn cyclic(
         facts,
         evidence,
         edges,
+        path,
     }))
+}
+
+/// The ordered path through a cycle, from the links between its members (AD-484). The model finds
+/// the path; this function names the imports and the owners of each step. A component step names
+/// the member by its label, so `by_label` reads the component id of the label.
+fn steps(model: &Model, links: &[Link], by_label: bool) -> Vec<CycleStep> {
+    let mut members: Vec<String> = links
+        .iter()
+        .flat_map(|(_, from, to)| [from.clone(), to.clone()])
+        .collect();
+    members.sort();
+    members.dedup();
+    let imports = model.graph().imports();
+    let components = model.contract().components();
+    let component_of = |name: &str| -> Option<String> {
+        if by_label {
+            return components
+                .iter()
+                .find(|component| component.label().as_text() == name)
+                .map(|component| component.id().as_text().to_owned());
+        }
+        let mut owners = components
+            .iter()
+            .filter(|component| archkeel_model::claims(component, name));
+        let first = owners.next()?;
+        owners
+            .next()
+            .is_none()
+            .then(|| first.id().as_text().to_owned())
+    };
+    cycle_path(&members, links)
+        .into_iter()
+        .map(|step| {
+            let cited: Vec<&Import> = step
+                .imports
+                .iter()
+                .filter_map(|&i| imports.get(i))
+                .collect();
+            let mut facts: Vec<String> = cited.iter().map(|i| i.id().to_owned()).collect();
+            facts.sort();
+            let mut evidence: Vec<String> =
+                cited.iter().flat_map(|i| i.evidence().to_vec()).collect();
+            evidence.sort();
+            CycleStep {
+                from_component: component_of(&step.from),
+                to_component: component_of(&step.to),
+                from: step.from,
+                to: step.to,
+                imports: facts,
+                evidence,
+            }
+        })
+        .collect()
 }

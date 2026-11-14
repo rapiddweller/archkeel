@@ -177,6 +177,7 @@ mod check_structure;
 mod codes;
 mod edge_links;
 mod engine_frame;
+mod explain;
 mod frame;
 mod frame_rules;
 mod head;
@@ -197,6 +198,7 @@ pub use codes::{
     NOT_CARRIED,
 };
 pub use engine_frame::{EngineFrame, FrameError};
+pub use explain::Explain;
 pub use frame::build;
 pub use head::{
     Component, Counts, Coverage, GapRow, NotRanked, PayloadBudget, RuleReason, RuleResult,

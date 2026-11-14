@@ -33,6 +33,7 @@ pub struct Graph {
     modules: Table<ModuleId, Module>,
     packages: Table<PackageId, Package>,
     incomplete: Option<Incomplete>,
+    gaps: Vec<crate::gaps::CoverageGap>,
     settings: Settings,
     imports: Vec<Import>,
     module_edges: Vec<Edge>,
@@ -72,6 +73,7 @@ impl Graph {
             modules,
             packages,
             incomplete: coverage::incomplete(&facts.coverage, split.unknown),
+            gaps: crate::gaps::coverage_gaps(&facts.coverage),
             settings,
             imports: split.imports,
             module_edges,
@@ -104,6 +106,11 @@ impl Graph {
     /// What the reply proves not seen, if anything. It can only give UNKNOWN, never PASS.
     pub fn incomplete(&self) -> Option<Incomplete> {
         self.incomplete
+    }
+
+    /// The coverage gaps of the reply, in its order (AD-484).
+    pub fn coverage_gaps(&self) -> &[crate::gaps::CoverageGap] {
+        &self.gaps
     }
 
     /// The settings of the shell: the namespace and the standard library of the profile.

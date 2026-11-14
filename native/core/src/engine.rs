@@ -91,6 +91,19 @@ impl Engine {
         crate::topology_projection::project(models, self.reply(), ruling, links)
     }
 
+    /// The `explain` part of the frame (AD-484): the ruling copies the shape of each rule, the
+    /// path of each cycle and the holds; the coverage gaps of the reply come from its graph.
+    pub(crate) fn explain(&mut self, ruling: &Ruling) -> archkeel_report::Explain {
+        self.derived();
+        let gaps = self
+            .derived
+            .as_ref()
+            .and_then(|derived| derived.graph().ok())
+            .map(|graph| graph.coverage_gaps().to_vec())
+            .unwrap_or_default();
+        ruling.explain(&gaps)
+    }
+
     pub(crate) fn answer(&mut self, request: Request) -> Answer {
         match request {
             Request::Contract(input) => self.take_contract(input),
