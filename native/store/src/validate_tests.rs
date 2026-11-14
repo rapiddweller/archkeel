@@ -156,7 +156,8 @@ fn a_changed_reply_fails_with_the_message_of_the_python_check() {
         ("a Python reply must be the 10.0.0 import survey", |v| {
             v["facts"]["profile"] = json!("archkeel-python-analyzer");
         }),
-        ("does not check archkeel-dart-analyzer replies", |v| {
+        // AD-468: a Dart reply is the import survey; it has no resolution feature.
+        ("does not check the resolution feature", |v| {
             v["facts"]["profile"] = json!("archkeel-dart-analyzer");
         }),
         // A Rust reply may claim only the feature of the Rust collector.

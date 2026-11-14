@@ -16,13 +16,13 @@
     "F-typescript-story": {
       "language": "typescript",
       "runs": [
-      {"name": "F-typescript-story", "root": "F-typescript-story", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 1 coverage gaps", "gaps": {"graph.count": 1}, "refusal": null}}
+      {"name": "F-typescript-story", "root": "F-typescript-story", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 1 coverage gap", "gaps": {"graph.count": 1}, "refusal": null}}
       ]
     },
     "G-dart": {
       "language": "dart",
       "runs": [
-      {"name": "G-dart", "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile dart has no collector in the core process yet"}}}
+      {"name": "G-dart", "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 10}, "scope": "incomplete scope: the profile cannot decide INTERFACE-BOUNDARY", "gaps": {"contract_hygiene_not_ported": 1, "reference.namespace": 1}, "refusal": null}}
       ]
     },
     "H-typescript": {
@@ -40,7 +40,7 @@
     "H-uml-dart": {
       "language": "dart",
       "runs": [
-      {"name": "H-uml-dart", "root": "H-uml-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile dart has no collector in the core process yet"}}}
+      {"name": "H-uml-dart", "root": "H-uml-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 5}, "scope": "incomplete scope: the profile cannot decide presentation:controller", "gaps": {}, "refusal": null}}
       ]
     },
     "H-uml-typescript": {
@@ -52,13 +52,13 @@
     "I-flutter-shop": {
       "language": "dart",
       "runs": [
-      {"name": "I-flutter-shop", "root": "I-flutter-shop", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile dart has no collector in the core process yet"}}}
+      {"name": "I-flutter-shop", "root": "I-flutter-shop", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 6, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "J-compass": {
       "language": "dart",
       "runs": [
-      {"name": "J-compass", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile dart has no collector in the core process yet"}}}
+      {"name": "J-compass", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 7}, "scope": "incomplete scope: the collector reports 2 coverage gaps", "gaps": {}, "refusal": null}}
       ]
     },
     "K-python-realworld": {

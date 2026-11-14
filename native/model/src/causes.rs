@@ -62,6 +62,9 @@ pub enum Cause {
     /// A component names a module outside the namespace of the settings: the reference engine
     /// refuses such a contract (AD-450).
     OutsideNamespace(String),
+    /// A file without a module of its own whose path module and owner module have other
+    /// components (AD-468): the path of the file.
+    OwnedFileOwner(String),
 }
 
 /// The gaps that hold a rule: the first ones as `a -> b` and the number of all.
@@ -194,6 +197,10 @@ impl fmt::Display for Cause {
             Cause::OutsideNamespace(reference) => write!(
                 formatter,
                 "the contract names {reference}, which lies outside the namespace"
+            ),
+            Cause::OwnedFileOwner(path) => write!(
+                formatter,
+                "the file {path} belongs to a module of another component than its own path"
             ),
         }
     }

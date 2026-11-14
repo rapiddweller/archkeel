@@ -343,6 +343,10 @@
         {
           "component": "py-entry",
           "rationale": "Run the Python import survey through its typed library path and bind its digests to the snapshot (AD-450)."
+        },
+        {
+          "component": "dart-entry",
+          "rationale": "Run the Dart import survey through its typed library path, its provenance and its test features (AD-468)."
         }
       ],
       "decided_by": "architect"
@@ -887,6 +891,7 @@
         "native.archkeel_typescript_collector.script",
         "native.archkeel_typescript_collector.script_alias",
         "native.archkeel_typescript_collector.script_bind",
+        "native.archkeel_typescript_collector.script_code",
         "native.archkeel_typescript_collector.script_declarations",
         "native.archkeel_typescript_collector.script_declare",
         "native.archkeel_typescript_collector.script_factory",
@@ -898,6 +903,7 @@
         "native.archkeel_typescript_collector.script_refs",
         "native.archkeel_typescript_collector.script_scope",
         "native.archkeel_typescript_collector.script_syntax",
+        "native.archkeel_typescript_collector.script_window",
         "native.archkeel_typescript_collector.script_wrapper",
         "native.archkeel_typescript_collector.script_writes",
         "native.archkeel_typescript_collector.umd"
@@ -2325,6 +2331,7 @@
         "native.archkeel_typescript_collector.script",
         "native.archkeel_typescript_collector.script_alias",
         "native.archkeel_typescript_collector.script_bind",
+        "native.archkeel_typescript_collector.script_code",
         "native.archkeel_typescript_collector.script_declarations",
         "native.archkeel_typescript_collector.script_declare",
         "native.archkeel_typescript_collector.script_factory",
@@ -2336,6 +2343,7 @@
         "native.archkeel_typescript_collector.script_refs",
         "native.archkeel_typescript_collector.script_scope",
         "native.archkeel_typescript_collector.script_syntax",
+        "native.archkeel_typescript_collector.script_window",
         "native.archkeel_typescript_collector.script_wrapper",
         "native.archkeel_typescript_collector.script_writes",
         "native.archkeel_typescript_collector.umd",
@@ -2397,6 +2405,7 @@
         "native.archkeel_typescript_collector.script",
         "native.archkeel_typescript_collector.script_alias",
         "native.archkeel_typescript_collector.script_bind",
+        "native.archkeel_typescript_collector.script_code",
         "native.archkeel_typescript_collector.script_declarations",
         "native.archkeel_typescript_collector.script_declare",
         "native.archkeel_typescript_collector.script_factory",
@@ -2408,6 +2417,7 @@
         "native.archkeel_typescript_collector.script_refs",
         "native.archkeel_typescript_collector.script_scope",
         "native.archkeel_typescript_collector.script_syntax",
+        "native.archkeel_typescript_collector.script_window",
         "native.archkeel_typescript_collector.script_wrapper",
         "native.archkeel_typescript_collector.script_writes",
         "native.archkeel_typescript_collector.umd",

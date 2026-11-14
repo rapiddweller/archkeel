@@ -457,5 +457,6 @@ fn only_two_accepted_profiles_have_typed_target_marks() {
         .filter(|profile| profile.target_marks() == TargetMarks::Typed)
         .count();
     assert_eq!(typed, 2, "{accepted:?}");
-    assert_eq!(accepted.len(), 3, "{accepted:?}");
+    // AD-468: the store also checks Dart replies; Python and Dart read targets by module.
+    assert_eq!(accepted.len(), 4, "{accepted:?}");
 }
