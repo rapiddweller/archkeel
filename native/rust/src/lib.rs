@@ -16,6 +16,7 @@ mod crates;
 mod declared;
 mod definitions;
 mod derive_identity;
+mod derive_imports;
 mod edges;
 mod edges_extracted;
 mod impl_edges;
