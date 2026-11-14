@@ -1,17 +1,1369 @@
 {
   "name": "Studio UI",
   "rules": {
-    "UI-ASSIGNMENT": "PASS",
-    "UI-EXTERNAL-COMPLETE": "PASS",
-    "UI-NETWORK-IN-CLIENT": "PASS",
-    "UI-NO-CYCLES": "PASS",
-    "UI-PREACT-ONLY": "PASS",
+    "UI-ASSIGNMENT": "UNKNOWN",
+    "UI-EXTERNAL-COMPLETE": "UNKNOWN",
+    "UI-NETWORK-IN-CLIENT": "UNKNOWN",
+    "UI-NO-CYCLES": "UNKNOWN",
+    "UI-PREACT-ONLY": "UNKNOWN",
     "UI-REQUIRES-COMPLETE": "UNKNOWN",
-    "UI-VIEWS-ISOLATED": "PASS"
+    "UI-VIEWS-ISOLATED": "UNKNOWN"
   },
   "unknown": {
-    "UI-REQUIRES-COMPLETE": "undecided"
+    "UI-ASSIGNMENT": "scope_incomplete",
+    "UI-EXTERNAL-COMPLETE": "scope_incomplete",
+    "UI-NETWORK-IN-CLIENT": "scope_incomplete",
+    "UI-NO-CYCLES": "scope_incomplete",
+    "UI-PREACT-ONLY": "scope_incomplete",
+    "UI-REQUIRES-COMPLETE": "scope_incomplete",
+    "UI-VIEWS-ISOLATED": "scope_incomplete"
   },
-  "gaps": [],
+  "gaps": [
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.api_x2e_ts",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.api_x2e_ts",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.api_x2e_ts",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.api_x2e_ts",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.api_x2e_ts",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.api_x2e_ts",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.api_x2e_ts",
+      "Script global JSON has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.api_x2e_ts",
+      "Script global JSON has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.api_x2e_ts",
+      "Script global encodeURIComponent has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.api_x2e_ts",
+      "Script global encodeURIComponent has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.api_x2e_ts",
+      "Script global fetch has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.api_x2e_ts",
+      "Script global fetch has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.api_x2e_ts",
+      "Script global fetch has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.api_x2e_ts",
+      "Script global fetch has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.canvas_x2e_tsx",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.canvas_x2e_tsx",
+      "Script global addEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.canvas_x2e_tsx",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.canvas_x2e_tsx",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.canvas_x2e_tsx",
+      "Script global getComputedStyle has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.canvas_x2e_tsx",
+      "Script global removeEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx",
+      "Script global Blob has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx",
+      "Script global JSON has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx",
+      "Script global JSON has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx",
+      "Script global JSON has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx",
+      "Script global URL has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx",
+      "Script global URL has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.chat_x2e_tsx",
+      "Script global setTimeout has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.components_x2e_tsx",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.lens_x2d_layout_x2e_ts",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_layout_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Float64Array has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Infinity has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Int32Array has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Uint8Array has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.level_x2d_route_x2e_ts",
+      "Script global Uint8Array has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+      "Script global Array has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+      "Script global Array has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+      "Script global Array has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.map_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.measure_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.measure_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.measure_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Array has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Array has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Array has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.model_x2e_ts",
+      "Script global WeakMap has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.navigation_x2e_tsx",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.navigation_x2e_tsx",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.navigation_x2e_tsx",
+      "Script global addEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.navigation_x2e_tsx",
+      "Script global removeEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.shell_x2e_tsx",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.shell_x2e_tsx",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.shell_x2e_tsx",
+      "Script global Object has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.shell_x2e_tsx",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.shell_x2e_tsx",
+      "Script global addEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.shell_x2e_tsx",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.shell_x2e_tsx",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.shell_x2e_tsx",
+      "Script global removeEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.store_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.store_x2e_ts",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.store_x2e_ts",
+      "Script global setTimeout has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.story_x2d_layout_x2e_ts",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx",
+      "Script global Element has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx",
+      "Script global HTMLInputElement has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx",
+      "Script global HTMLTextAreaElement has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.viewport_x2e_tsx",
+      "Script global ResizeObserver has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.briefing_x2e_tsx",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.briefing_x2e_tsx",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.briefing_x2e_tsx",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.component_x2e_tsx",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.component_x2e_tsx",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.component_x2e_tsx",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.component_x2e_tsx",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.component_x2e_tsx",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.component_x2e_tsx",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx",
+      "Script global HTMLInputElement has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx",
+      "Script global addEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx",
+      "Script global matchMedia has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.explore_x2e_tsx",
+      "Script global removeEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx",
+      "Script global Boolean has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx",
+      "Script global HTMLInputElement has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx",
+      "Script global addEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.map_x2e_tsx",
+      "Script global removeEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.module_x2e_tsx",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.module_x2e_tsx",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.module_x2e_tsx",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.module_x2e_tsx",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.module_x2e_tsx",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.module_x2e_tsx",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.module_x2e_tsx",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.module_x2e_tsx",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.module_x2e_tsx",
+      "Script global Number has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+      "Script global Error has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+      "Script global HTMLInputElement has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+      "Script global HTMLTextAreaElement has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+      "Script global ResizeObserver has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+      "Script global String has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+      "Script global addEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+      "Script global clearInterval has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+      "Script global matchMedia has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+      "Script global removeEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.views.story_x2e_tsx",
+      "Script global setInterval has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global Element has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global HTMLInputElement has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global HTMLInputElement has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global Infinity has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global Map has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global Math has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global Set has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global addEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global addEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global document has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global location has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global matchMedia has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global matchMedia has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global matchMedia has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global matchMedia has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global removeEventListener has no unique unconditional publication"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.workbench_x2e_tsx",
+      "Script global removeEventListener has no unique unconditional publication"
+    ]
+  ],
   "violations": []
 }
