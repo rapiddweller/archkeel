@@ -180,6 +180,17 @@ impl<'id, 'm> Scope<'id, 'm> {
         }
     }
 
+    /// The scope proof of the UML target row `id` (AD-490): the scope of the whole run must be
+    /// complete, because a target can name each component. The caller passes only a target whose
+    /// every assessment passes (`uml::compare`).
+    pub(crate) fn uml_complete(&self, id: &str) -> Result<ScopeComplete<'id>, Reason> {
+        self.run()?;
+        Ok(ScopeComplete {
+            brand: PhantomData,
+            rule: id.to_owned(),
+        })
+    }
+
     /// PASS, with a proof of this scope.
     /// The PASS names the rule of the proof and the serial of the model.
     pub fn pass(&self, proof: ScopeComplete<'id>) -> Decision {

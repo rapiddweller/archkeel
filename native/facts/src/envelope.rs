@@ -103,6 +103,16 @@ impl Profile {
         }
     }
 
+    /// The language name that a UML target entity gives for a fact of this profile (AD-490).
+    pub fn language(self) -> &'static str {
+        match self {
+            Profile::Python => "python",
+            Profile::Dart => "dart",
+            Profile::TypeScript => "typescript",
+            Profile::Rust => "rust",
+        }
+    }
+
     /// How the modules of this profile lie in the scan roots. A Python module that is not its
     /// path below a scan root is a gap of the survey, so the parent rule holds (AD-450). A Dart
     /// module is the namespace and the path below its scan root (AD-468).

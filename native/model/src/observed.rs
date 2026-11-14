@@ -70,6 +70,8 @@ pub(crate) struct Observed {
     pub(crate) inventory_complete: bool,
     /// How the modules of the profile lie in the scan roots (slice S7).
     pub(crate) layout: Layout,
+    /// The language name of the profile, as a UML target entity names it (AD-490).
+    pub(crate) language: &'static str,
     /// Whether the host drops an allowed pair gap of the profile (slice S7).
     pub(crate) pair_gap_drop: PairGapDrop,
     /// The host can accept a dependency scope proof from the runtime of the reply (AD-418).
@@ -152,6 +154,7 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
             .any(|feature| feature == SYMBOL_FEATURE),
         inventory_complete: inventory_complete(facts),
         layout: facts.profile.layout(),
+        language: facts.profile.language(),
         pair_gap_drop: facts.profile.pair_gap_drop(),
         scope_receipt: facts.runtime.carries_scope_proof(),
         owned_files: facts

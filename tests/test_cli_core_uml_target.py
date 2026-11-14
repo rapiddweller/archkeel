@@ -25,9 +25,9 @@ from archkeel.cli import core_only
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 ROW = "UML-TARGET-a2e40c5592b1b06a"
-NOT_COMPARED = (
-    "the UML target: the core does not compare {entities} entities, {relationships} relationships"
-    " and {scopes} scopes with the source facts"
+UNDECIDED = "the UML target: {count} assessments need facts that the core does not have: "
+MOUNTED = (
+    "the UML target: an inside contract has its own UML target, which the core does not compare"
 )
 Plant = Callable[[dict[str, Any]], None]
 
@@ -64,12 +64,14 @@ def _entity(contract: dict[str, Any], identity: str) -> dict[str, Any]:
     return next(item for item in _uml(contract)["entities"] if item["id"] == identity)
 
 
+# AD-490: the core compares the module and import assessments; the symbol assessments of
+# these targets need facts that no collector gives yet, so the row stays UNKNOWN by its count.
 @pytest.mark.parametrize(
-    ("name", "passes", "counts"),
-    [("H-typescript", 9, (17, 14, 0)), ("H-uml-typescript", 0, (21, 13, 2))],
+    ("name", "passes", "undecided"),
+    [("H-typescript", 9, 16), ("H-uml-typescript", 0, 32)],
 )
 def test_the_uml_target_is_an_unknown_row_with_its_reason_and_not_a_gap(
-    tmp_path: Path, name: str, passes: int, counts: tuple[int, int, int]
+    tmp_path: Path, name: str, passes: int, undecided: int
 ) -> None:
     code, envelope = run("validate", "--root", str(_copy(tmp_path, name)))
     rows = _rows(envelope)
@@ -79,9 +81,8 @@ def test_the_uml_target_is_an_unknown_row_with_its_reason_and_not_a_gap(
     ]
     assert sum(row[1] == "PASS" for row in rows.values()) == passes
     assert all(row[1] != "UNKNOWN" for rule, row in rows.items() if rule != ROW)
-    entities, relationships, scopes = counts
-    reason = NOT_COMPARED.format(entities=entities, relationships=relationships, scopes=scopes)
-    assert envelope["frame"]["explained"][ROW] == reason
+    reason = envelope["frame"]["explained"][ROW]
+    assert reason.startswith(UNDECIDED.format(count=undecided)), reason
     assert envelope["frame"]["unknown_kinds"][ROW] == "no_receipt"
     assert envelope["gaps"] == []
     assert (code, envelope["status"]) == (2, "UNKNOWN")
@@ -137,7 +138,9 @@ def _missing_provenance(contract: dict[str, Any]) -> None:
 
 
 # Release 4.0.1 gives FAIL (exit 2) for the first three plants and UNKNOWN (exit 0) for the next
-# two. It refuses the contract for the last plant: the cited file is missing.
+# two. It refuses the contract for the last plant: the cited file is missing. The core gives
+# UNKNOWN for the first five: each differs in a symbol fact or in a closed scope of symbol kinds
+# (AD-490), which it does not compare.
 @pytest.mark.parametrize(
     "plant",
     [
@@ -159,7 +162,7 @@ def test_a_wrong_uml_target_never_passes(tmp_path: Path, plant: Plant) -> None:
         assert refusal.startswith("contract hygiene reference.provenance"), refusal
         return
     assert _rows(envelope)[ROW] == ["uml_target", "UNKNOWN"]
-    assert envelope["frame"]["explained"][ROW].startswith("the UML target: the core does not")
+    assert "assessments need facts" in envelope["frame"]["explained"][ROW]
 
 
 def test_an_empty_uml_target_names_that_it_declares_nothing(tmp_path: Path) -> None:
@@ -238,10 +241,10 @@ def test_a_uml_target_that_changes_after_the_core_read_it_is_refused(
 
 
 def test_the_python_uml_fixture_has_an_unknown_row_and_never_passes(tmp_path: Path) -> None:
-    """Release 4.0.1 passes this target. The core does not compare it, so the row is UNKNOWN."""
+    """Release 4.0.1 passes this target with symbol facts; the core has none, so it is UNKNOWN."""
     code, envelope = run("validate", "--root", str(_copy(tmp_path, "H-uml")))
     assert _rows(envelope) == {ROW: ["uml_target", "UNKNOWN"]}
-    assert envelope["frame"]["explained"][ROW].startswith("the UML target: the core does not")
+    assert "assessments need facts" in envelope["frame"]["explained"][ROW]
     assert envelope["gaps"] == []
     assert (code, envelope["status"], envelope["frame"]["status"]) == (2, "UNKNOWN", "UNKNOWN")
 
@@ -266,8 +269,8 @@ def _target(path: Path, identities: list[str]) -> None:
 
 
 def test_a_mounted_contract_with_its_own_target_has_one_row_that_sums_the_tree() -> None:
-    """A tree has one UML row at the id of its root path. Its cause counts the intent of every
-    contract of the tree, and a target only in a mount holds back the PASS of the tree."""
+    """A tree has one UML row at the id of its root path. A target in a mount keeps the row
+    UNKNOWN by name (AD-490), and it holds back the PASS of the tree."""
     with case_root(HONEST) as root:
         tree(root)
         code, envelope = run("validate", "--root", str(root))
@@ -277,13 +280,11 @@ def test_a_mounted_contract_with_its_own_target_has_one_row_that_sums_the_tree()
         rows = _rows(envelope)
         assert rows[ROW] == ["uml_target", "UNKNOWN"]
         assert [rule for rule, row in rows.items() if row[1] != "PASS"] == [ROW]
-        reason = NOT_COMPARED.format(entities=1, relationships=0, scopes=0)
-        assert envelope["frame"]["explained"][ROW] == reason
+        assert envelope["frame"]["explained"][ROW] == MOUNTED
         assert (code, envelope["status"]) == (2, "UNKNOWN")
         _target(root / "architecture-contract.json", ["root-string", "root-string-2"])
         _target(root / "deep.json", ["deep-string"])
         code, envelope = run("validate", "--root", str(root))
         assert [rule for rule in _rows(envelope) if rule.startswith("UML-TARGET-")] == [ROW]
-        reason = NOT_COMPARED.format(entities=4, relationships=0, scopes=0)
-        assert envelope["frame"]["explained"][ROW] == reason
+        assert envelope["frame"]["explained"][ROW] == MOUNTED
         assert (code, envelope["status"]) == (2, "UNKNOWN")
