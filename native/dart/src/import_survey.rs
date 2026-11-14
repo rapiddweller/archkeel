@@ -80,7 +80,7 @@ pub fn survey(request: &DartRequest) -> Result<Survey, String> {
     let found = discover(&mut snapshot, &request.scope.namespace, &roots)?;
     let mut gaps = Gaps::default();
     discovery_gaps(&found, &mut gaps.evidence, &mut gaps.records);
-    package::package_gaps(&mut snapshot, &found, &mut gaps);
+    package::package_gaps(&mut snapshot, &found, &roots, &mut gaps);
     let root = &request.snapshot.root;
     let config = config::config_gaps(&mut snapshot, root, &found.package_name, &mut gaps);
     let index = parse_sources(&found, &mut gaps)?;

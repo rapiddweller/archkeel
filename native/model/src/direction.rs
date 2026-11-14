@@ -104,7 +104,9 @@ pub struct Crossing<'m> {
 ///
 /// Without the symbol feature a profile does not judge an import whose target has a `through`
 /// entry with a symbol (`dependency_symbols` is false): the import is left out, and the profile
-/// limit of the scope proof (`limits.rs`) names such an entry for the whole run.
+/// limit of the scope proof (`limits.rs`) names such an entry. Without a statement of the
+/// collector it holds the whole run; with a stated `Unsupported` it holds each `complete_requires`
+/// rule (AD-500).
 pub fn crossings<'m>(model: &'m Model, rule: &CompleteRequires) -> Vec<Crossing<'m>> {
     let components = model.components();
     // `dependency_symbols`: a profile judges symbol ports only with the symbol feature
