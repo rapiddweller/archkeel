@@ -320,21 +320,23 @@ A write through them (`top.x = 1`) publishes nothing, but it blocks each proof o
 A write `o.x = …` blocks the global `x` unless `o` is a local new value or the `this` of a
 constructor, a field or a static block. An unknown key on a window value, a window value that
 escapes, and code from a text block every global proof of the project.
-Open false PASS, not accepted (AD-460, AD-500): a window value that reaches a computed write through
-a parameter, a call result or a property (`function f(w) { w[k] = v; }` with
-`f(document.defaultView)`); the `this` of a class method that a callback receives and that the method
-passes on (`g(this)`); a value of a run-time key that the file stores before it calls it
-(`const f = o[k]; f(text)`) or that it reaches through an alias of `Reflect` (`const R = Reflect`);
-a computed key read in a pattern (`const { [k]: v } = e`); and DOM code from text outside the named
-triggers (a `src` or `href` that is no literal and a click on the element).
-AD-500 closed these forms: a write with a run-time key through `this` of a class method; a call,
-`new`, tagged template, `call`, `apply` or `bind` of a member with a run-time key on a value that is
-no literal object, array or plain namespace (`Math`, `JSON`, `Atomics`, `Intl`, `console`); a
-reflection with a run-time key (`Object` and `Reflect`: `get`, `getOwnPropertyDescriptor`,
-`getOwnPropertyDescriptors`); a navigation with a value that is no literal (`location.assign`,
-`replace`, `href`, `location = x`, `open(x, y)` with a target other than a literal `_blank`); and a
-destructuring pattern that takes a window member out of a value (`const { source } = e`, a
-parameter, `for…of` and `catch` pattern).
+Open false PASS, not accepted (AD-460, AD-500): any alias of `this`, `super`, `Object`, `Reflect`,
+`location`, `open` or of a looked-up function, except a name that is bound once to `this`; a looked-up
+function that is stored, passed or an argument (`const f = o[k]`, `Function.prototype.call.call(o[k])`);
+a window value that reaches a computed write through a parameter, a call result or a property
+(`function f(w) { w[k] = v; }` with `f(document.defaultView)`); `g(this)` in a class method that a
+callback receives; `ev.target[k] = 1` (the target of a `message` event is a window); a computed key
+in a pattern (`const { [k]: v } = e`); and DOM code from text outside the named triggers (a `src` or
+`href` that is no literal, and a click on the element).
+AD-500 closed these forms: a write with a run-time key through `this` of a class method, through
+`super` or through a name bound once to such a `this`; a call, `new`, tagged template, `call`,
+`apply` or `bind` of a member with a run-time key (also through a comma, a condition, a logical
+operator or `await`) on a value that is no plain literal object or array (no `__proto__`, method,
+write, argument or export) and no `Math`, `JSON`, `Atomics`, `Intl` or `console`; a reflection with a
+run-time key (`getOwnPropertyDescriptor(s)`, `Reflect.get`, also stored or passed); a navigation with a
+value that is no literal (`location.*`, `location = x`, a pattern or `for…of` target, `open(x, …)` with
+any target); a free `Object`, `Reflect`, `location` or `open` that is passed, stored or returned; and a
+destructuring pattern that takes a window member out of a value.
 Older classes stay open too: a prototype change through a call
 (`Object.defineProperty(EventTarget.prototype, …)`), a member patch of a platform object that is no
 window (`JSON.parse = …`, `document.open = …`), a use through `opener` or
