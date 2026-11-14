@@ -14,7 +14,7 @@
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use crate::crates::Parsed;
+use super::{manifest_table, Parsed};
 use crate::manifest::get;
 use crate::source::read_text;
 use crate::toml::{self, Table};
@@ -66,7 +66,7 @@ pub(crate) fn of(
                 "The workspace root {pointer} of the crate in {dir} lies outside the scan root"
             ));
         }
-        match crate::crates::manifest_table(source, tables, &root) {
+        match manifest_table(source, tables, &root) {
             Ok(Some(named)) if manifests(&named.table) => return Redirect::Possible,
             Ok(Some(_)) => {}
             Ok(None) | Err(_) => {

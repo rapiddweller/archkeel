@@ -13,11 +13,14 @@ use std::rc::Rc;
 use crate::manifest::{self, ident, Manifest, Target, TargetKind};
 use crate::manifest_lines::LineIndex;
 use crate::paths::normalize;
-use crate::redirects::{self, Redirect};
 use crate::source::read_text;
 use crate::toml::{self, Table};
 use archkeel_snapshot::paths::{dirname, join};
 use archkeel_snapshot::Snapshot;
+
+#[path = "redirects.rs"]
+mod redirects;
+use redirects::Redirect;
 
 /// One manifest, read once: its table and its text.
 pub(crate) struct Parsed {

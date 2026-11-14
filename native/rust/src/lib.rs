@@ -30,7 +30,6 @@ mod nesting;
 mod net;
 mod paths;
 mod plant;
-mod redirects;
 mod registry;
 mod reply;
 mod resolve;
