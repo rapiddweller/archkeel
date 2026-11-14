@@ -142,7 +142,8 @@ writes one skill file.
 **Does a clean graph mean a good design?** No. `PASS` means the required rules have complete evidence
 and no decided violation. It does not prove runtime behavior or the quality of a design decision.
 
-**Which languages?** Rust and TypeScript on main. Use archkeel 4.0.1 for Python and Dart projects.
+**Which languages?** Rust and TypeScript on main, and the import rules of Python projects (AD-450).
+Use archkeel 4.0.1 for the other Python rules and for Dart projects.
 
 
 ## Scope and limits

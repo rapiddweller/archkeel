@@ -62,10 +62,10 @@ pub fn collect_all(
 ) -> Collected {
     let names: HashSet<&str> = modules.iter().map(|module| module.name.as_str()).collect();
     let bindings = package_bindings(modules);
-    let open: HashSet<&str> = modules
+    let open: HashMap<&str, HashSet<String>> = modules
         .iter()
         .filter(|module| module.is_init() && open_body(module))
-        .map(|module| module.name.as_str())
+        .map(|module| (module.name.as_str(), own_submodules(module)))
         .collect();
     let mut records = Vec::new();
     let mut aliases = Vec::with_capacity(modules.len());
@@ -94,6 +94,30 @@ pub fn collect_all(
         aliases,
         ambiguous,
     }
+}
+
+/// The submodules that a package body imports at its top level. The import system binds each
+/// one as an attribute of the package, so `__getattr__` is not called for its name.
+fn own_submodules(module: &Module) -> HashSet<String> {
+    let package = module.name.as_str();
+    let mut found = HashSet::new();
+    for statement in &module.tree.body {
+        match statement {
+            Stmt::ImportFrom(node) => {
+                let Some(anchor) = anchor(node, package) else {
+                    continue;
+                };
+                found.insert(anchor.clone());
+                let names = node.names.iter().map(|alias| alias.name.as_str());
+                found.extend(names.map(|name| format!("{anchor}.{name}")));
+            }
+            Stmt::Import(node) => {
+                found.extend(node.names.iter().map(|alias| alias.name.to_string()));
+            }
+            _ => {}
+        }
+    }
+    found
 }
 
 /// A package body that can give any name: a top-level `__getattr__` or a star import.
@@ -221,7 +245,7 @@ struct Collector<'m, 'e> {
     unique: HashSet<String>,
     names: &'m HashSet<&'m str>,
     bindings: &'m HashMap<&'m str, HashSet<String>>,
-    open: &'m HashSet<&'m str>,
+    open: &'m HashMap<&'m str, HashSet<String>>,
     namespace: &'m str,
     evidence: &'e mut EvidenceMap,
     records: &'e mut Vec<Record<ImportFact>>,
@@ -340,7 +364,11 @@ impl Collector<'_, '_> {
                 .is_some_and(|names| names.contains(name));
             let exists = self.names.contains(submodule.as_str());
             let local = !shadowed && exists;
-            let ambiguous = exists && (shadowed || self.open.contains(anchor.as_str()));
+            let open = self
+                .open
+                .get(anchor.as_str())
+                .is_some_and(|own| !own.contains(&submodule));
+            let ambiguous = exists && (shadowed || open);
             let binding = alias.asname.as_ref().map_or(name, |a| a.as_str());
             let target = if local {
                 submodule.clone()

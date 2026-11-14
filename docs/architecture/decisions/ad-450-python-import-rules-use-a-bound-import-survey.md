@@ -27,8 +27,8 @@
    - A write to `sys.path` or a call of `site.addsitedir`.
    - An import of a project name that has no selected module, as a namespace package.
    - A star import of a project module: `__all__` can import submodules.
-   - `from pkg import name` when `pkg` binds `name` (or has `__getattr__` or a star import)
-     and the module `pkg.name` exists. The runtime can give either one.
+   - `from pkg import name` when the module `pkg.name` exists and `pkg` binds `name`, or has
+     `__getattr__` or a star import and does not import `pkg.name` itself. Either can be given.
    - A relative import above the top package.
    - A syntax error, a file that is not UTF-8, a file or directory that cannot be read (#1043).
      The repository survey of `collect` refuses a directory that it cannot list before this.

@@ -129,6 +129,9 @@ fn a_name_that_can_be_an_attribute_or_a_submodule_is_a_gap() {
             reasons(&found)
         );
     }
+    // The package body imports the submodule: the import system binds it before `__getattr__`.
+    let own = "from .service import VALUE\ndef __getattr__(name):\n    return name\n";
+    assert!(client("from app import service\n", own).unknowns.is_empty());
     // No binding: the submodule. A binding without a submodule: the attribute.
     assert!(client("from app import service\n", "").unknowns.is_empty());
     assert!(client("from app import other\n", "other = 1\n")

@@ -2,10 +2,11 @@
 
 ## Supported projects on main
 
-Main supports Rust and TypeScript projects only during the native-core change (AD-430).
-Python and Dart projects are not supported in this version; use archkeel 4.0.1.
-Unsupported profiles give exit 2 before collection, including saved facts and baseline operations.
-The Rust Python and Dart collectors remain in development. Their replies must pass the store before support returns.
+Main supports Rust and TypeScript projects, and the import rules of Python projects (AD-450).
+A Python project gets PASS or FAIL only for rules that read the import graph. A dynamic import,
+an import-system change and the other gaps of AD-450 give UNKNOWN for each rule of the run.
+Python rules that read symbols, calls or constructs stay UNKNOWN. Dart projects are not
+supported in this version; use archkeel 4.0.1. An unsupported profile gives exit 2 before collection.
 The Rust core is the only decision path (AD-432). There is no Python fallback.
 Saved results do not carry host verification; dependency scope proofs replay as UNKNOWN with `dependency_scope_runtime_unverified`.
 Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD have no shipped binary.
