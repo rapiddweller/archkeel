@@ -2,6 +2,8 @@
 
 **Status.** Proposed. Part of #880. This extends AD-422 and AD-432.
 
+**Amended.** [AD-496](ad-496-the-report-page-is-the-design-system-with-one-admitted-script.md) replaces point 3 (no script) and the page rules of point 8.
+
 **Decision.**
 1. Serve `report --output PATH --format html|json`. The default format is HTML.
    Without `--output`, write no file. `--format` needs `--output`.

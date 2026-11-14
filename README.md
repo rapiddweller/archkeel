@@ -1,32 +1,30 @@
 # ArchKeel
 
-<p>
-  <img src="docs/assets/archkeel-mark.svg" alt="ArchKeel" width="96">
+<p align="center">
+  <img src="docs/assets/archkeel-hero.png" alt="ArchKeel: deterministic architecture checks. PASS, FAIL or UNKNOWN." width="100%">
 </p>
-
-> **State of `main` (issue [#880](https://github.com/rapiddweller/archkeel/issues/880)).**
-> The Rust core `archkeel-core` is the only engine. The Python engine is deleted.
->
-> - `archkeel validate` and `archkeel report` run through the core, as text or JSON.
->   PASS exits 0, FAIL exits 1, UNKNOWN and a refusal exit 2.
-> - **Rust and TypeScript projects** are supported, and the import rules of Python and Dart projects.
-> - `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
->   Interactive reports, `architecture.json`, baselines and focused reports are not available.
-> - `report --output PATH` writes one static HTML page; `--format json` writes the core frame instead.
-> - The [nightly fixture reports](https://rapiddweller.github.io/archkeel/) show what the core says for each project of `fixtures/`, refusals included.
-> - No release carries the core binary yet. Run `main` from a source checkout after `make core`.
->   A package without the core refuses each run with `core_binary_not_found`. There is no Python fallback.
-> - Release 4.0.1 has `check`, `init` and full reports for Python, Dart and TypeScript projects.
->   No release has Studio or `explore`. See the [state of `main`](docs/reference.md#state-of-main).
 
 **See what your code really does. Check it against what you decided.**
 
-![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-5EEAD4?labelColor=141414)
 [![CI](https://github.com/rapiddweller/archkeel/actions/workflows/ci.yml/badge.svg)](https://github.com/rapiddweller/archkeel/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/archkeel)](https://pypi.org/project/archkeel/)
+[![core self-check](https://img.shields.io/endpoint?url=https://rapiddweller.github.io/archkeel/self/core-badge.json&labelColor=141414)](https://rapiddweller.github.io/archkeel/self/core.html)
+[![shell self-check](https://img.shields.io/endpoint?url=https://rapiddweller.github.io/archkeel/self/shell-badge.json&labelColor=141414)](https://rapiddweller.github.io/archkeel/self/shell.html)
+![verdict: PASS, FAIL or UNKNOWN](https://img.shields.io/badge/verdict-PASS%20%C2%B7%20FAIL%20%C2%B7%20UNKNOWN-46bfd0?labelColor=141414)
+![no LLM in the verdict](https://img.shields.io/badge/LLM%20in%20the%20verdict-none-e8805d?labelColor=141414)
+
+![engine: Rust](https://img.shields.io/badge/engine-Rust-e8805d?labelColor=141414)
+![checks Rust and TypeScript](https://img.shields.io/badge/checks-Rust%20%C2%B7%20TypeScript-46bfd0?labelColor=141414)
 [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-D97757?labelColor=141414)](#claude-code)
 [![Codex plugin](https://img.shields.io/badge/Codex-plugin-8A8A8A?labelColor=141414)](#codex)
-[![MIT](https://img.shields.io/badge/license-MIT-C5F82A?labelColor=141414)](https://github.com/rapiddweller/archkeel/blob/main/LICENSE)
+[![MIT](https://img.shields.io/badge/license-MIT-a8a8ab?labelColor=141414)](https://github.com/rapiddweller/archkeel/blob/main/LICENSE)
+
+**See it live.** ArchKeel checks itself, and these reports follow the current `main`:
+[the product, two parts](https://rapiddweller.github.io/archkeel/) ·
+[the Rust core](https://rapiddweller.github.io/archkeel/self/core.html) ·
+[the Python shell](https://rapiddweller.github.io/archkeel/self/shell.html) ·
+[the fixture showcase](https://rapiddweller.github.io/archkeel/showcase/index.html).
+The self reports show each FAIL and each UNKNOWN row as it is. Each one has its cause pinned in the repository.
+The showcase has Python, Dart and TypeScript projects; the Rust core is the first self report. Every showcase row is UNKNOWN today: most name a gap in the contract checks, and some name a rule kind that the core does not read yet.
 
 [Install](#install) · [Quick start](#quick-start) · [Why](#why-archkeel) · [Compared](#archkeel-floorplan-or-understand-anything) · [Features](#features) · [FAQ](#faq)
 
@@ -83,6 +81,26 @@ first, then declare what you want to keep.
 - **Made for coding agents.** A skill for Claude Code and Codex, and JSON results with a typed
   status.
 
+## State of `main`
+
+Issue [#880](https://github.com/rapiddweller/archkeel/issues/880). The Rust core `archkeel-core`
+is the only engine. The Python engine is deleted.
+
+- `archkeel validate` and `archkeel report` run through the core, as text or JSON.
+  PASS exits 0, FAIL exits 1, UNKNOWN and a refusal exit 2.
+- **Rust and TypeScript projects** are supported, and the import rules of Python and Dart projects.
+- `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
+  Interactive reports, `architecture.json`, baselines and focused reports are not available.
+- `report --output PATH` writes one static HTML page; `--format json` writes the core frame instead.
+  `report --topology` adds a bounded topology section to the frame.
+- The [reports of the current `main`](https://rapiddweller.github.io/archkeel/) show what the core says
+  for ArchKeel itself and for each project of `fixtures/`, refusals included.
+- No release carries the core binary yet. The release workflow builds the platform wheels with the
+  core (AD-476), but the last release is 4.0.1. Run `main` from a source checkout after `make core`.
+  A package without the core refuses each run with `core_binary_not_found`. There is no Python fallback.
+- Release 4.0.1 has `check`, `init` and full reports for Python, Dart and TypeScript projects.
+  No release has Studio or `explore`. See the [state of `main`](docs/reference.md#state-of-main).
+
 ## Install
 
 ArchKeel needs Python 3.11+ and a Git repository with at least one commit.
@@ -129,8 +147,8 @@ archkeel report --text   # the same frame of the core as a report
 archkeel report --output report.html  # one static page; the parent must exist
 ```
 
-`validate` and `report` need an `archkeel.toml` with `language = "rust"` or `"typescript"` and a
-contract. `init`, which drafts a contract, is in release 4.0.1 and not on `main`.
+`validate` and `report` need an `archkeel.toml` with `language = "rust"` or `"typescript"` (or
+`"python"` or `"dart"` for import rules) and a contract. `init`, which drafts a contract, is in release 4.0.1 and not on `main`.
 
 Read the verdicts: on `main`, `report` has the exit codes of `validate`.
 `archkeel --help` lists the commands and options. See the [reference](docs/reference.md).
@@ -173,11 +191,14 @@ Without the core binary, each run refuses with exit 2. There is no Python fallba
 make check                # lint, types, browser code check, tests
 make gate                 # also build and isolated installs
 make native-check         # Rust format, lints, tests, and the self-check
-make self-validate-native # the core checks native/ against its pinned result
+make self-validate        # the core checks native/ and the Python shell against their pinned results
+make report-gallery       # build the reports that the site shows, in test-artifacts/gallery
 ```
 
-ArchKeel checks its Rust source with `make self-validate-native`: 63 rules PASS, 1 FAIL and
-19 UNKNOWN, each pinned in `native/expected-gaps.json` with its cause.
+ArchKeel checks its own Rust source (`native/archkeel.toml`) and its own Python shell
+(`docs/architecture/shell.toml`) with `make self-validate`. Each rule row is pinned with its cause
+in `native/expected-gaps.json` and `docs/architecture/target/shell-expected.json`.
+The [live reports](https://rapiddweller.github.io/archkeel/) show both results.
 See [CONTRIBUTING.md](https://github.com/rapiddweller/archkeel/blob/main/CONTRIBUTING.md).
 
 MIT © 2026 Rapiddweller Asia Co., Ltd. Maintained by [Alexander Kell](https://github.com/ake2l).

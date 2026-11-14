@@ -20,6 +20,11 @@
   },
   "gaps": [
     [
+      "collection_gap",
+      "studio_ui.src.archkeel.studio.ui.studio_x2e_js",
+      "Source file under the scan roots is not selected by the TSConfig: src/archkeel/studio/ui/studio.js"
+    ],
+    [
       "source_resolution_gap",
       "studio_ui.src.archkeel.studio.ui.api_x2e_ts",
       "Script global Error has no unique unconditional publication"
