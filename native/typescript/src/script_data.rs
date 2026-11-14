@@ -17,6 +17,11 @@ use crate::script_syntax::Producer;
 const NAMESPACES: [&str; 5] = ["Math", "JSON", "Atomics", "Intl", "console"];
 
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
+    /// The text of a string literal or a template without a substitution.
+    pub(crate) fn text_of(&self, node: Node<'t>) -> Option<String> {
+        crate::script_window::string_text(self, node)
+    }
+
     /// A literal object or array that a name binds once, that nothing writes through, that no
     /// call receives and that nothing else stores, or a namespace of the platform. Such a value
     /// reaches no `Function`: its prototype is `Object.prototype` (AD-500).

@@ -80,11 +80,6 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         }
     }
 
-    /// The text of a string literal or a template without a substitution.
-    pub(crate) fn text_of(&self, node: Node<'t>) -> Option<String> {
-        crate::script_window::string_text(self, node)
-    }
-
     /// The operands that a callee can give: a sequence gives its last, a condition and a logical
     /// operator give each branch, and a wrapper gives its inside.
     fn callee_parts(&self, callee: Node<'t>) -> Vec<Node<'t>> {
