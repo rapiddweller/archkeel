@@ -347,6 +347,7 @@ def test_lookup_uses_checkout_or_verified_installed_layout(tmp_path: Path) -> No
     crate = tmp_path / "native" / "core"
     crate.mkdir(parents=True)
     (crate / "Cargo.toml").touch()
+    (tmp_path / "pyproject.toml").touch()
     source = tmp_path / "native" / "target" / "release" / "archkeel-core"
     source.parent.mkdir(parents=True)
     source.write_bytes(b"source")
@@ -361,4 +362,22 @@ def test_lookup_uses_checkout_or_verified_installed_layout(tmp_path: Path) -> No
     assert core_binary.locate_core(package) == installed
     installed.write_bytes(b"changed")
     with pytest.raises(CoreError, match="digest"):
+        core_binary.locate_core(package)
+
+
+@pytest.mark.parametrize("layout", ["site-packages", "no pyproject.toml", "no core crate"])
+def test_lookup_uses_the_build_output_only_from_a_real_checkout(
+    tmp_path: Path, layout: str
+) -> None:
+    """AD-436: an installed package has no checkout, so a build output beside it never runs."""
+    package = tmp_path / ("lib" if layout == "site-packages" else "src") / "archkeel"
+    built = tmp_path / "native" / "target" / "release" / "archkeel-core"
+    built.parent.mkdir(parents=True)
+    built.write_bytes(b"planted")
+    if layout != "no core crate":
+        (tmp_path / "native" / "core").mkdir()
+        (tmp_path / "native" / "core" / "Cargo.toml").touch()
+    if layout != "no pyproject.toml":
+        (tmp_path / "pyproject.toml").touch()
+    with pytest.raises(core_binary.CoreBinaryNotFound, match="holds no core binary"):
         core_binary.locate_core(package)

@@ -102,7 +102,8 @@ in the needs of `All Full checks passed`, so a Pages error never fails Full. The
 repository must be set to GitHub Actions. `fixtures/matrix.json` pins the result of the core for each
 fixture; a test fails when the result changes. Update the pin in the same change.
 The Python engine built the older gallery and its Pages workflow (`pages.yml`); AD-432 deleted both.
-No Windows job runs the shell tests; the Windows job builds and checks the wheel.
+The Windows wheel job builds and checks the wheel. It also runs the disk-root Rust tests and
+`tests/test_cli_windows_root.py` through the release core. It does not run the full shell suite.
 
 ## Browser assets
 
@@ -152,8 +153,8 @@ The Python shell and the tools have no architecture contract.
   `make native-check` ([AD-316](docs/architecture/decisions/ad-316-native-collectors-live-in-native-and-reply-with-protocol-8.md)).
   Without `cargo`, the native tests are skipped locally. CI always has `cargo`, so they
   fail there when it is missing. `make native-wheel` builds the platform wheel of your host with
-  the binary and its SBOM, then installs it and runs the binary
-  ([AD-317](docs/architecture/decisions/ad-317-a-platform-wheel-carries-the-native-typescript-collector.md)).
+  the core and its SBOM, then installs it alone and reads the verdicts of its core
+  ([AD-436](docs/architecture/decisions/ad-436-a-platform-wheel-carries-the-core-and-no-other-wheel-is-built.md)).
 - **A performance change earns at least 10 %.** Compare the median of three interleaved runs,
    before and after, on the supported project that the change targets.
   Below 10 % the change is discarded; record the measurement on the issue instead.

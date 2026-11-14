@@ -1,10 +1,10 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Verify an installed distribution: its files, its commands and its refusals (AD-432).
+"""Verify an installed distribution: its files, its commands and its refusals (AD-432, AD-436).
 
-No package carries the core binary yet. So each deciding command must refuse with the typed
-`core_binary_not_found`, exit 2, and never print a verdict. Run: `make smoke`.
+Each package carries the core binary and its digest. So each deciding command must give the frame
+of that binary, and a command that is not on this line must refuse. Run: `make smoke`.
 """
 
 import json
@@ -121,32 +121,75 @@ def refusal(run: subprocess.CompletedProcess[str], kind: str) -> str:
     return str(result["refusal"]["message"])
 
 
+def decided(run: subprocess.CompletedProcess[str], native: Path) -> None:
+    """The run gives the frame of the core of the package: PASS for the project, exit 0."""
+    assert run.returncode == 0 and "Traceback" not in run.stderr, (run.stdout, run.stderr)
+    result = json.loads(run.stdout)
+    assert result["status"] == "PASS" and result["exit_code"] == 0, result
+    assert "refusal" not in result, result
+    assert Path(result["core"]["path"]).parent == native, result["core"]
+    assert result["frame"]["engine"].startswith("archkeel-core "), result["frame"]["engine"]
+    assert result["frame"]["rules"] == {"NO-CYCLES": ["no_component_cycles", "PASS"]}, result
+
+
+CONTRACT = {
+    "schema_version": "2.1.0",
+    "components": [
+        {
+            "id": "COMP-APP",
+            "label": "app",
+            "role": "component",
+            "packages": ["app.src"],
+            "responsibilities": ["Own the source."],
+            "forbidden_responsibilities": [],
+            "provenance": ["tsconfig.json"],
+            "requires": [],
+            "decided_by": "architect",
+        }
+    ],
+    "rules": [
+        {
+            "id": "NO-CYCLES",
+            "kind": "no_component_cycles",
+            "rationale": "The components have no cycle.",
+            "provenance": ["tsconfig.json"],
+            "decided_by": "architect",
+        }
+    ],
+}
+
+
+def commit(root: Path) -> None:
+    # The core reads a Git work tree with a commit.
+    git = ["git", "-c", "user.email=qa@example.invalid", "-c", "user.name=QA"]
+    for step in (["init", "-q", "-b", "main"], ["add", "-A"], ["commit", "-q", "-m", "base"]):
+        subprocess.run([*git, "-c", "commit.gpgsign=false", *step], cwd=root, check=True)
+
+
 def commands() -> None:
-    package = files("archkeel")
-    assert not package.joinpath("_native").is_dir(), "this test is for a package without the core"
+    native = Path(str(files("archkeel").joinpath("_native")))
+    held = sorted(item.name.replace(".exe", "") for item in native.iterdir())
+    assert held == ["archkeel-core", "archkeel-core.sha256"], held
     with TemporaryDirectory(prefix="archkeel-smoke-") as temporary:
-        root = Path(temporary)
+        root = Path(temporary).resolve()
         (root / "src").mkdir()
         (root / "src/a.ts").write_text("export const a = 1;\n")
         (root / "tsconfig.json").write_text('{"include": ["src"]}\n')
-        (root / "architecture-contract.json").write_text(
-            '{"schema_version": "2.1.0", "components": [], "rules": []}\n'
-        )
+        (root / "architecture-contract.json").write_text(json.dumps(CONTRACT) + "\n")
         (root / "archkeel.toml").write_text(
             '[scan]\nlanguage = "typescript"\nroots = ["src"]\nnamespace = "app"\n'
             'contract = "architecture-contract.json"\ntsconfig = "tsconfig.json"\n'
         )
+        commit(root)
         version = cli("--version")
         assert version.returncode == 0 and version.stdout.startswith("archkeel "), version
         assert cli("--help").returncode == 0
         for command in ("validate", "report"):
             for extra in ((), ("--core-only",)):
-                run = cli(command, "--root", str(root), "--json", *extra)
-                assert "holds no core binary" in refusal(run, "core_binary_not_found")
+                decided(cli(command, "--root", str(root), "--json", *extra), native)
             text = cli(command, "--root", str(root), "--text")
-            assert text.returncode == 2, (text.stdout, text.stderr)
-            assert text.stdout.startswith("REFUSED: core_binary_not_found: "), text.stdout
-            assert "PASS" not in text.stdout
+            assert text.returncode == 0, (text.stdout, text.stderr)
+            assert text.stdout.startswith(f"{command}: PASS\n"), text.stdout
         for command in REFUSED:
             message = refusal(
                 cli(command, "--root", str(root), "--json"), "not_on_this_development_line"

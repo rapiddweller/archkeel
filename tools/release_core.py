@@ -1,18 +1,20 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Refuse a release whose wheels do not carry a core that decides (AD-432).
+"""Refuse a release whose wheels do not carry a core that decides (AD-432, AD-436).
 
 The Python shell decides nothing. A wheel without `archkeel-core` gives a package that refuses each
 run, so the release build runs this check on `dist/` before it uploads a distribution. Each wheel
-must hold the core binary and its digest. The wheel of the build host, installed alone, must give
-a verdict of its own core for a fixture.
+must hold the core binary and the digest of that binary, and its platform must not be in
+`NO_VERDICT`. The wheel of the build host, installed alone, must give a verdict of its own core
+for a fixture. Full verification installs the wheel of each other target on that target.
 
 Run: `python -m tools.release_core <dist> <wheel of this host>`. Exit 0 or 2.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -20,17 +22,26 @@ import zipfile
 from pathlib import Path
 
 MEMBER = "archkeel/_native/archkeel-core"
+# A platform whose wheel carries the core and gives no verdict, with the cause (AD-436).
+NO_VERDICT = {
+    "win_amd64": "the core refuses each root on Windows: it requires the canonical text of the "
+    "root, and Rust gives the canonical path of Windows with the prefix \\\\?\\",
+}
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures/H-typescript"
 
 
 def carries_core(wheel: Path) -> bool:
-    """Whether the wheel holds the binary and the digest that `cli/core_binary.py` reads."""
+    """Whether the wheel holds the binary and its digest, as `cli/core_binary.py` reads them."""
     try:
         with zipfile.ZipFile(wheel) as archive:
             names = set(archive.namelist())
+            for name in (MEMBER, MEMBER + ".exe"):
+                if {name, name + ".sha256"} <= names:
+                    recorded = archive.read(name + ".sha256").decode("ascii", errors="replace")
+                    return recorded == hashlib.sha256(archive.read(name)).hexdigest()
     except (OSError, zipfile.BadZipFile):
         return False
-    return any({name, name + ".sha256"} <= names for name in (MEMBER, MEMBER + ".exe"))
+    return False
 
 
 def undecided(result: object, code: int) -> str:
@@ -77,6 +88,11 @@ def problems(dist: Path, host: Path) -> list[str]:
         return [f"{dist} holds no wheel"]
     found = [f"{wheel.name} does not carry {MEMBER} and its digest" for wheel in wheels]
     found = [line for line, wheel in zip(found, wheels, strict=True) if not carries_core(wheel)]
+    found += [
+        f"{wheel.name} gives no verdict: {cause}"
+        for wheel in wheels
+        if (cause := NO_VERDICT.get(wheel.stem.rsplit("-", 1)[-1]))
+    ]
     if found:
         return found
     if host.resolve() not in {wheel.resolve() for wheel in wheels}:
@@ -93,7 +109,7 @@ def main(arguments: list[str]) -> int:
     for line in found:
         print(f"release refused: {line}", file=sys.stderr)
     if found:
-        print("A package without the core refuses each run (AD-432).", file=sys.stderr)
+        print("A package without a core that decides refuses each run (AD-436).", file=sys.stderr)
     return 2 if found else 0
 
 

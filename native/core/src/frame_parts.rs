@@ -17,6 +17,8 @@ pub(super) const ENGINE: &str = concat!("archkeel-core ", env!("ARCHKEEL_CODE_DI
 
 #[derive(Serialize)]
 pub(super) struct Parts {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) topology: Option<crate::topology_projection::Topology>,
     pub(super) engine: &'static str,
     pub(super) sections: BTreeMap<&'static str, Vec<serde_json::Value>>,
     pub(super) unsupported: UnsupportedParts,
@@ -144,6 +146,7 @@ pub(crate) fn refused_scan(reason: &str, html: bool) -> Result<Answered, String>
     )
     .map_err(|error| error.to_string())?;
     let parts = Parts {
+        topology: None,
         engine: ENGINE,
         sections: BTreeMap::new(),
         locations: BTreeMap::new(),
