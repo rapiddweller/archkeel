@@ -25,8 +25,6 @@ pub enum Unsupported {
     Report,
     /// A contract that mounts inside contracts that the shell has not sent yet (AD-379).
     InsideTree,
-    /// The UML target row of a contract with `declarations.uml`.
-    UmlTarget,
     /// The baseline of a request: no slice reads it yet.
     Baseline,
     /// A rule of an inside contract without the domain of its mount: `Model::of` refuses an
@@ -79,6 +77,8 @@ pub enum Reason {
     Interface(InterfaceGap),
     /// A contract hygiene check of the core found a defect (AD-466).
     Hygiene(Hygiene),
+    /// The UML target row of a contract tree is UNKNOWN for this cause (AD-470).
+    Uml(UmlGap),
 }
 
 /// One contract hygiene defect: the code of the reference engine (`graph.drift`, ...) and the
@@ -93,6 +93,37 @@ impl Hygiene {
     /// The defect `code` with its `detail`.
     pub fn new(code: &'static str, detail: String) -> Hygiene {
         Hygiene { code, detail }
+    }
+}
+
+/// Why the UML target row of a contract tree is UNKNOWN (AD-470). No cause can give the row PASS
+/// or FAIL: the core does not compare the declared intent with the source facts yet.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UmlGap {
+    /// The target declares no entity, relationship or scope (the reference `UML-EMPTY` row).
+    Empty,
+    /// The declared intent that the core does not compare with the source facts.
+    NotCompared {
+        entities: usize,
+        relationships: usize,
+        scopes: usize,
+    },
+}
+
+impl fmt::Display for UmlGap {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            UmlGap::Empty => formatter.write_str("it declares no entity, relationship or scope"),
+            UmlGap::NotCompared {
+                entities,
+                relationships,
+                scopes,
+            } => write!(
+                formatter,
+                "the core does not compare {entities} entities, {relationships} relationships \
+                 and {scopes} scopes with the source facts"
+            ),
+        }
     }
 }
 
@@ -150,9 +181,6 @@ impl fmt::Display for Unsupported {
             Unsupported::Report => formatter.write_str("the report payload: slice 0d ports it"),
             Unsupported::InsideTree => formatter
                 .write_str("the contract mounts inside contracts that the shell has not sent"),
-            Unsupported::UmlTarget => {
-                formatter.write_str("the UML target of the contract: no slice ports it yet")
-            }
             Unsupported::Baseline => {
                 formatter.write_str("the baseline of the request: no slice reads it yet")
             }
@@ -213,6 +241,7 @@ impl fmt::Display for Reason {
                     found.code, found.detail
                 )
             }
+            Reason::Uml(gap) => write!(formatter, "the UML target: {gap}"),
             Reason::UncitedChild(child) => write!(
                 formatter,
                 "the layout child {child} has no module record to cite"

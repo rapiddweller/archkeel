@@ -27,7 +27,6 @@ from core_support import NATIVE, ROOT, SUFFIX, case_root, run
 from filelock import FileLock
 
 from archkeel.cli import core_only
-from tools.release_core import NO_VERDICT
 
 NAME = f"archkeel-core{SUFFIX}"
 WINDOWS = os.name == "nt"
@@ -135,12 +134,6 @@ class Installed:
 
 
 @pytest.fixture(scope="module")
-def decides(wheel: Path) -> bool:
-    """False for a platform whose core refuses each root, so its wheel gives no verdict."""
-    return wheel.stem.rsplit("-", 1)[1] not in NO_VERDICT
-
-
-@pytest.fixture(scope="module")
 def installed(wheel: Path, tmp_path_factory: pytest.TempPathFactory) -> Installed:
     return Installed(wheel, tmp_path_factory.mktemp("installed"))
 
@@ -201,7 +194,7 @@ def test_the_installed_core_has_the_digest_that_the_wheel_records(
 
 
 def test_the_installed_wheel_gives_the_verdict_of_its_core(
-    installed: Installed, reference: Path, project: tuple[Path, str], decides: bool
+    installed: Installed, reference: Path, project: tuple[Path, str]
 ) -> None:
     root, verdict = project
     done = installed.validate(root)
@@ -211,13 +204,7 @@ def test_the_installed_wheel_gives_the_verdict_of_its_core(
 
     assert result["exit_code"] == done.returncode == code, (result, done.stderr)
     assert result["status"] == checkout["status"]
-    if not decides:
-        # The core of this platform refuses each root: no verdict, and never a PASS (AD-436).
-        assert done.returncode == 2 and result["status"] == "UNKNOWN", result
-        assert result["refusal"] == checkout["refusal"], result
-        assert "is not canonical" in result["refusal"]["message"], result
-        assert not statuses & {"PASS", "FAIL"}, result
-        return
+    # Each platform decides (AD-442): the installed wheel equals the core of the checkout.
     # The installed shell ran the binary of its own package, never the core of the checkout.
     assert Path(result["core"]["path"]) == installed.core, result["core"]
     assert result["core"]["code_digest"] == checkout["core"]["code_digest"]
@@ -230,16 +217,31 @@ def test_the_installed_wheel_gives_the_verdict_of_its_core(
 
 @pytest.mark.parametrize("form", ["json", "html"])
 def test_the_installed_wheel_writes_a_report_file_of_its_core(
-    installed: Installed, crate: Path, decides: bool, form: str, tmp_path: Path
+    installed: Installed, reference: Path, crate: Path, form: str, tmp_path: Path
 ) -> None:
-    """AD-440: the report file of the installed core keeps the ruling of the frame."""
-    if not decides:
-        pytest.skip("the core of this platform gives no verdict (AD-436)")
+    """AD-440: the report file of the installed core keeps the ruling of the frame.
+
+    Windows has no directory handles, so it refuses file output with a typed reason and writes no
+    file; the frame stays the one of the checkout core (known limit, AD-440).
+    """
     target = tmp_path / f"report.{form}"
     done = installed.run(
         *("report", "--root", str(crate), "--output", str(target), "--format", form, "--json")
     )
     result = json.loads(done.stdout)
+    if WINDOWS:
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(core_only, "locate_core", lambda: reference)
+            _, checkout = run("report", "--root", str(crate))
+        assert done.returncode == result["exit_code"] == 2, (done.stdout, done.stderr)
+        assert result["status"] == "PASS" and result["frame"] == checkout["frame"], result
+        assert result["refusal"]["kind"] == "io_error", result
+        assert result["refusal"]["message"].endswith(
+            "atomic report output needs directory handles on this platform; "
+            "no report file was written"
+        ), result
+        assert not target.exists()
+        return
     assert done.returncode == 0 and result["status"] == "PASS", (done.stdout, done.stderr)
     if form == "json":
         assert json.loads(target.read_bytes()) == result["frame"]
@@ -290,7 +292,7 @@ def _plant(reference: Path, *places: Path) -> None:
 
 
 def test_the_lookup_never_runs_a_binary_of_the_project_the_directory_or_the_path(
-    changed: Installed, reference: Path, crate: Path, tmp_path: Path, decides: bool
+    changed: Installed, reference: Path, crate: Path, tmp_path: Path
 ) -> None:
     cwd, tools = tmp_path / "cwd", tmp_path / "tools"
     (crate / "native/core").mkdir(parents=True)
@@ -299,9 +301,8 @@ def test_the_lookup_never_runs_a_binary_of_the_project_the_directory_or_the_path
     _plant(reference, *places, cwd, cwd / "_native", tools)
     rust_repository.commit_tree(crate)
 
-    if decides:
-        done = changed.validate(crate, cwd=cwd, path=tools)
-        assert Path(json.loads(done.stdout)["core"]["path"]) == changed.core, done.stdout
+    done = changed.validate(crate, cwd=cwd, path=tools)
+    assert Path(json.loads(done.stdout)["core"]["path"]) == changed.core, done.stdout
     # Without its own core the package refuses: no planted binary answers.
     changed.core.unlink()
     changed.digest.unlink()

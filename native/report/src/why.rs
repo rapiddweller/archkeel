@@ -48,7 +48,9 @@ impl WhyUnknown {
             Reason::Unsupported(part) => unsupported(part),
             Reason::NotComplete(cause) => not_complete(cause),
             Reason::Interface(_) | Reason::Hygiene(_) => WhyUnknown::Undecided,
-            Reason::NoSubjects | Reason::UncitedChild(_) => WhyUnknown::NoReceipt,
+            // AD-470: the reference engine gives the UML target `no_receipt` without a complete
+            // comparison, and the core has no comparison.
+            Reason::NoSubjects | Reason::UncitedChild(_) | Reason::Uml(_) => WhyUnknown::NoReceipt,
             Reason::TooManyRows(_)
             | Reason::MissingInput(_)
             | Reason::Incomplete(_)
@@ -65,7 +67,6 @@ fn unsupported(part: &Unsupported) -> WhyUnknown {
         | Unsupported::Section(_)
         | Unsupported::Report
         | Unsupported::InsideTree
-        | Unsupported::UmlTarget
         | Unsupported::Baseline
         | Unsupported::TreeScope
         | Unsupported::Hygiene(_)
