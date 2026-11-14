@@ -25,13 +25,15 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 
 - No release carries the core binary. A platform wheel of `main` carries it (`make native-wheel`),
   and a build without the core refuses. Run `main` from a source checkout after `make core`.
-- The core refuses each root on Windows, so the Windows wheel gives no verdict. A release from
-  `main` is closed until each wheel of the matrix gives a verdict (`tools/release_core.py`, AD-436).
+- The core decides on Windows since AD-442, and the installed Windows wheel must equal the core of
+  the checkout. A release from `main` stays closed: the release guard (`NO_VERDICT` in
+  `tools/release_core.py`, `PUBLISH_NATIVE_WHEELS` in `release.yml`) still lists `win_amd64`.
+  A later change lifts it (AD-436).
 - `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give the typed refusal
   `not_on_this_development_line`, exit 2. Interactive reports, `architecture.json`, saved and focused
   reports, baselines, amendments and `--write-graph` are refused by option name.
 - `report --output PATH` writes one static HTML page or the JSON frame (`--format json`). It has no graph.
-  The parent must exist. Safe file output needs POSIX directory handles; other platforms refuse with exit 2.
+  The parent must exist. Safe file output needs POSIX directory handles; Windows refuses `--output` with exit 2 (`io_error`), writes no file and keeps the frame.
 - A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`. The run exits 2.
 - A collection gap makes each rule UNKNOWN whose reading it can change. A manifest edge that the core
   proved can give a `requires` FAIL beside such a gap.
