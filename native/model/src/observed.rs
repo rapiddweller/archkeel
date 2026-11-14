@@ -156,7 +156,7 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
             .any(|feature| feature == SYMBOL_FEATURE),
         inventory_complete: inventory_complete(facts),
         layout: facts.profile.layout(),
-        cycle_scope: facts.profile.proves_cycle_scope(),
+        cycle_scope: archkeel_facts::envelope::cycle::proves_cycle_scope(facts.profile),
         language: facts.profile.language(),
         pair_gap_drop: facts.profile.pair_gap_drop(),
         scope_receipt: facts.runtime.carries_scope_proof(),

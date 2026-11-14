@@ -6,13 +6,11 @@
 
 use super::Profile;
 
-impl Profile {
-    /// Whether a cycle rule can have its receipt: the collector proves that it sees each local
-    /// package (`_cycle_scan_coverage`). The Dart survey does not prove it (AD-496).
-    pub fn proves_cycle_scope(self) -> bool {
-        match self {
-            Profile::TypeScript | Profile::Rust | Profile::Python => true,
-            Profile::Dart => false,
-        }
+/// Whether a cycle rule can have its receipt: the collector proves that it sees each local
+/// package (`_cycle_scan_coverage`). The Dart survey does not prove it (AD-496).
+pub fn proves_cycle_scope(profile: Profile) -> bool {
+    match profile {
+        Profile::TypeScript | Profile::Rust | Profile::Python => true,
+        Profile::Dart => false,
     }
 }
