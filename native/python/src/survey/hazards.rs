@@ -15,8 +15,8 @@ use ruff_python_ast::{Expr, ModModule, Stmt};
 use ruff_text_size::{Ranged, TextRange};
 
 /// The named gaps of the sites.
-pub const DYNAMIC: &str = "dynamic_import";
-pub const IMPORT_SYSTEM: &str = "import_system_change";
+pub(super) const DYNAMIC: &str = "dynamic_import";
+pub(super) const IMPORT_SYSTEM: &str = "import_system_change";
 
 /// The functions that import a module from a value, as a name or as an attribute.
 const IMPORT_FUNCTIONS: [&str; 8] = [
@@ -54,14 +54,14 @@ const MUTATORS: [&str; 9] = [
 ];
 
 /// One site: its gap, a short text and its range.
-pub struct Site {
+pub(super) struct Site {
     pub kind: &'static str,
     pub detail: String,
     pub range: TextRange,
 }
 
 /// The sites of a module, in source order.
-pub fn sites(tree: &ModModule) -> Vec<Site> {
+pub(super) fn sites(tree: &ModModule) -> Vec<Site> {
     let mut walk = Walk { found: Vec::new() };
     walk.visit_body(&tree.body);
     walk.found

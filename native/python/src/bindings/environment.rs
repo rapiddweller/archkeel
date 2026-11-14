@@ -30,7 +30,7 @@ pub(super) fn root(expr: &Expr) -> Option<&str> {
 }
 
 impl Env<'_> {
-    pub fn may_exist(
+    pub(super) fn may_exist(
         &self,
         scan: &mut Scan,
         body: &[Stmt],

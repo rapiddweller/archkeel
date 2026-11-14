@@ -17,7 +17,7 @@ use archkeel_snapshot::{Hidden, Snapshot};
 
 /// A file or directory that the native walk cannot read soundly.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Unseen {
+pub(crate) enum Unseen {
     /// A selected symlink to a missing file. Python selects it too, and its read fails with
     /// `FileNotFoundError`; the survey writes that failure.
     Missing(String),
@@ -33,7 +33,7 @@ pub enum Unseen {
 
 impl Unseen {
     /// The reason of the collection gap; `None` for `Missing`, whose gap is a parse failure.
-    pub fn reason(&self, snapshot: &Snapshot) -> Option<String> {
+    pub(crate) fn reason(&self, snapshot: &Snapshot) -> Option<String> {
         match self {
             Unseen::Missing(_) => None,
             Unseen::NotUtf8(path) => Some(format!("Source name is not UTF-8: {path}")),
@@ -44,7 +44,7 @@ impl Unseen {
 }
 
 /// The selected files of the roots, sorted by their parts, and what the walk cannot see.
-pub struct Scope {
+pub(crate) struct Scope {
     pub selected: Vec<String>,
     pub unseen: Vec<Unseen>,
     /// The stub and compiled module files below the roots: the survey cannot read them as
@@ -56,7 +56,7 @@ pub struct Scope {
 const FOREIGN: [&str; 4] = [".pyi", ".so", ".pyd", ".pyc"];
 
 /// The scope of the roots: the selected files and the unseen entries.
-pub fn scope(snapshot: &mut Snapshot, roots: &[String], exclude_tests: bool) -> Scope {
+pub(crate) fn scope(snapshot: &mut Snapshot, roots: &[String], exclude_tests: bool) -> Scope {
     let mut found = Vec::new();
     let mut unseen = Vec::new();
     let mut foreign = Vec::new();
@@ -135,7 +135,7 @@ fn hidden(snapshot: &mut Snapshot, directory: &str, exclude_tests: bool, out: &m
 /// (`survey::unread`); the scope dump and its tests use this.
 #[cfg(any(feature = "dump", test))]
 #[must_use]
-pub fn oversized(snapshot: &Snapshot, selected: &[String]) -> Vec<Unseen> {
+pub(crate) fn oversized(snapshot: &Snapshot, selected: &[String]) -> Vec<Unseen> {
     selected
         .iter()
         .filter(|rel| snapshot.size_gap(rel).is_some())
@@ -160,7 +160,7 @@ fn keep(snapshot: &mut Snapshot, rel: &str, exclude_tests: bool) -> bool {
 
 /// `profiles.is_test_source` for Python: a part `test`, `tests` or `__tests__` above the file, or
 /// a name `test_*.py` or `*_test.py`.
-pub fn is_test_source(path: &str) -> bool {
+pub(crate) fn is_test_source(path: &str) -> bool {
     let mut parts = path
         .rsplit('/')
         .filter(|part| !part.is_empty() && *part != ".");

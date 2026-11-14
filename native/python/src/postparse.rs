@@ -32,7 +32,7 @@ struct Check {
 }
 
 /// A named refusal with its source offset. The visitor stops before a depth or work limit.
-pub fn check(
+pub(super) fn check(
     module: &ModModule,
     source: &str,
     minor: archkeel_facts::pyminor::PyMinor,

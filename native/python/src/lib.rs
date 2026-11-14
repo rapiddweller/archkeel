@@ -9,6 +9,7 @@
 //! survey. Both paths use one survey and one record producer (`reply.rs`).
 
 #![forbid(unsafe_code)]
+#![deny(unreachable_pub)]
 
 #[cfg(feature = "dump")]
 pub mod dump;
@@ -26,6 +27,10 @@ mod unparse;
 
 mod module;
 #[cfg(any(test, feature = "dump"))]
+#[expect(
+    unreachable_pub,
+    reason = "the CPython node view of the tests and the dump keeps its operator tables as they are"
+)]
 mod pyast;
 
 mod discover;

@@ -12,17 +12,17 @@
 use ruff_python_ast::token::TokenKind as T;
 
 /// `MAXSTACK` of the CPython parser (3.11 to 3.14).
-pub const MAX_STACK: usize = 6_000;
+pub(super) const MAX_STACK: usize = 6_000;
 
 // The parser frames of each nesting, an upper bound of the measured maximum on CPython 3.11 to
 // 3.14: the measured value of each is in the comment.
 /// A statement and the rules above its first expression: at most 54.
-pub const STACK_BASE: usize = 80;
+pub(super) const STACK_BASE: usize = 80;
 /// An indented block: 6 to 8.
-pub const STACK_BLOCK: usize = 10;
+pub(super) const STACK_BLOCK: usize = 10;
 /// A bracket with the operators of its level (`or`, `and`, a comparison, a keyword argument, a
 /// comprehension condition, an f-string field): at most 37.
-pub const STACK_BRACKET: usize = 48;
+pub(super) const STACK_BRACKET: usize = 48;
 /// A `lambda`: 2, and 8 through a parameter default.
 const STACK_LAMBDA: usize = 10;
 /// A conditional `else`: 1.
@@ -34,7 +34,7 @@ const STACK_POWER: usize = 3;
 
 /// The links of one bracket level that the parser has not closed yet.
 #[derive(Clone, Copy, Default)]
-pub struct Frame {
+pub(super) struct Frame {
     /// `lambda` and a conditional `else`: they last to the end of the expression.
     lambdas: usize,
     elses: usize,
@@ -48,7 +48,7 @@ pub struct Frame {
 
 impl Frame {
     /// The bound of the open links.
-    pub fn stack(&self) -> usize {
+    pub(super) fn stack(&self) -> usize {
         self.lambdas * STACK_LAMBDA
             + self.elses * STACK_ELSE
             + self.unary * STACK_UNARY
@@ -57,7 +57,7 @@ impl Frame {
 
     /// Count the link of a token that is no bracket; `true` when it ends the expression of the
     /// level, so that the next one starts at the depth of the bracket.
-    pub fn token(&mut self, kind: T, previous: T) -> bool {
+    pub(super) fn token(&mut self, kind: T, previous: T) -> bool {
         let prefix = !ends_operand(previous);
         match kind {
             T::Colon if self.parameters > 0 => self.parameters -= 1,

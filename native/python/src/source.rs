@@ -6,7 +6,7 @@
 
 /// `source.decode_source`: strict UTF-8 without one leading byte order mark (#742). `None` is the
 /// `UnicodeDecodeError` of Python.
-pub fn decode(raw: &[u8]) -> Option<&str> {
+pub(crate) fn decode(raw: &[u8]) -> Option<&str> {
     let text = std::str::from_utf8(raw).ok()?;
     Some(text.strip_prefix('\u{feff}').unwrap_or(text))
 }
@@ -14,7 +14,7 @@ pub fn decode(raw: &[u8]) -> Option<&str> {
 /// The text that the tokenizer of CPython reads: `ast.parse` of a `str` turns each `\r\n` and
 /// each lone `\r` into `\n` before it reads a token (`translate_newlines`), also inside a string
 /// literal. A line keeps its number and each column keeps its offset (AD-377).
-pub fn newlines(text: &str) -> std::borrow::Cow<'_, str> {
+pub(crate) fn newlines(text: &str) -> std::borrow::Cow<'_, str> {
     if !text.contains('\r') {
         return std::borrow::Cow::Borrowed(text);
     }
@@ -22,12 +22,12 @@ pub fn newlines(text: &str) -> std::borrow::Cow<'_, str> {
 }
 
 /// The start offset of each line, as `re.split(r"\r\n?|\n", source)` splits the text.
-pub struct Lines {
+pub(crate) struct Lines {
     starts: Vec<usize>,
 }
 
 impl Lines {
-    pub fn new(text: &str) -> Self {
+    pub(crate) fn new(text: &str) -> Self {
         let bytes = text.as_bytes();
         let mut starts = vec![0];
         let mut at = 0;
@@ -48,12 +48,12 @@ impl Lines {
     }
 
     /// The 1-based line of a byte offset.
-    pub fn line(&self, offset: usize) -> usize {
+    pub(crate) fn line(&self, offset: usize) -> usize {
         self.starts.partition_point(|start| *start <= offset)
     }
 
     /// The text of the 1-based `line` without its newline, as the Python split gives it.
-    pub fn text<'t>(&self, text: &'t str, line: usize) -> Option<&'t str> {
+    pub(crate) fn text<'t>(&self, text: &'t str, line: usize) -> Option<&'t str> {
         let start = *self.starts.get(line.checked_sub(1)?)?;
         let part = match self.starts.get(line) {
             Some(end) => &text[start..*end],
@@ -64,7 +64,7 @@ impl Lines {
     }
 
     /// The byte offset where the line of `offset` starts.
-    pub fn start_of(&self, offset: usize) -> usize {
+    pub(crate) fn start_of(&self, offset: usize) -> usize {
         let line = self.line(offset);
         self.starts
             .get(line.saturating_sub(1))

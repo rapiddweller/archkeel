@@ -25,7 +25,7 @@ use crate::names::module_for;
 /// `NO_PRODUCTION_SOURCE`.
 const NO_PRODUCTION_SOURCE: &str = "No production source files in scope after the test exclusion";
 
-pub struct Excluded {
+pub(super) struct Excluded {
     modules: HashSet<String>,
     prefixes: HashSet<String>,
     files: usize,
@@ -38,7 +38,7 @@ pub struct Excluded {
 
 impl Excluded {
     /// `ExcludedTests.find`.
-    pub fn find(
+    pub(super) fn find(
         snapshot: &mut Snapshot,
         roots: &[String],
         namespace: &str,
@@ -138,7 +138,7 @@ impl Excluded {
 
     /// `ExcludedTests.gaps`: the gap of each import into an excluded test source, and one gap when
     /// the exclusion left no source.
-    pub fn gaps(
+    pub(super) fn gaps(
         &self,
         imports: &[Record<ImportFact>],
         bindings: &HashMap<&str, HashSet<String>>,

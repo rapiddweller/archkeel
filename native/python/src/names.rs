@@ -14,7 +14,7 @@ use archkeel_facts::pyrepr::string;
 /// The dotted module of a snapshot path: the path from the first part where the namespace
 /// starts, without its last suffix and without a last `__init__`. `None` when the path does not
 /// hold the namespace (`module_for` raises `ValueError`).
-pub fn module_for(rel: &str, namespace: &str, minor: PyMinor) -> Option<String> {
+pub(crate) fn module_for(rel: &str, namespace: &str, minor: PyMinor) -> Option<String> {
     let mut parts: Vec<&str> = rel.split('/').filter(|part| !part.is_empty()).collect();
     let last = parts.pop()?;
     parts.push(without_suffix(last, minor)?);
@@ -55,34 +55,34 @@ fn without_suffix(name: &str, minor: PyMinor) -> Option<&str> {
 }
 
 /// `source.package_for`: the first two parts of a module.
-pub fn package_for(module: &str) -> String {
+pub(crate) fn package_for(module: &str) -> String {
     module.splitn(3, '.').take(2).collect::<Vec<_>>().join(".")
 }
 
 /// A selected module that a package of the same name shadows: Python imports the package.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Shadowed {
+pub(crate) struct Shadowed {
     pub file: String,
     pub module: String,
 }
 
 impl Shadowed {
     /// The text of the gap of `explore_scope._shadowed_gap`.
-    pub fn message(&self) -> String {
+    pub(crate) fn message(&self) -> String {
         format!(
             "module {} is shadowed by the package of the same name and is never imported",
             repr(&self.module)
         )
     }
 
-    pub fn title(&self) -> String {
+    pub(crate) fn title(&self) -> String {
         format!(
             "{}: module is shadowed by a package of the same name",
             self.file
         )
     }
 
-    pub fn id(&self) -> String {
+    pub(crate) fn id(&self) -> String {
         let message = self.message();
         let parts = [
             Part::Text(&self.file),
@@ -101,10 +101,10 @@ fn repr(text: &str) -> String {
     out
 }
 
-pub const SHADOWED_KIND: &str = "ShadowedModule";
+pub(crate) const SHADOWED_KIND: &str = "ShadowedModule";
 
 /// The selected modules that a package of the same name shadows, in the order of `selected`.
-pub fn shadowed(selected: &[String], namespace: &str, minor: PyMinor) -> Vec<Shadowed> {
+pub(crate) fn shadowed(selected: &[String], namespace: &str, minor: PyMinor) -> Vec<Shadowed> {
     let named: Vec<(&String, String)> = selected
         .iter()
         .filter_map(|rel| module_for(rel, namespace, minor).map(|module| (rel, module)))
@@ -124,7 +124,7 @@ pub fn shadowed(selected: &[String], namespace: &str, minor: PyMinor) -> Vec<Sha
         .collect()
 }
 
-pub fn is_package(rel: &str) -> bool {
+pub(crate) fn is_package(rel: &str) -> bool {
     rel.rsplit('/').next() == Some("__init__.py")
 }
 

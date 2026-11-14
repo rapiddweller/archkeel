@@ -23,7 +23,7 @@ use crate::unparse::TextFailure as Failure;
 /// `MAX_NUMERIC_EVIDENCE_CHARS`: a longer class has no member write scope evidence.
 const MAX_EXCERPT_CHARS: usize = 16_384;
 
-pub fn class_data(
+pub(super) fn class_data(
     scan: &mut Scan<'_>,
     node: &StmtClassDef,
     witnesses: bool,
@@ -85,7 +85,7 @@ fn fields(scan: &Scan<'_>, node: &StmtClassDef) -> Result<Value, Failure> {
 }
 
 /// `_python_visibility`: private by the leading underscore, except a special name.
-pub fn visibility(name: &str) -> Value {
+pub(super) fn visibility(name: &str) -> Value {
     let special = name.starts_with("__") && name.ends_with("__") && name.chars().count() > 4;
     let kind = if name.starts_with('_') && !special {
         "private"

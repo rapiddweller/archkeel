@@ -23,18 +23,18 @@ use crate::names::package_for;
 
 /// What a module-level import binds a name to (`source.AliasBinding`): the target module, or
 /// the module and the symbol joined by a dot.
-pub struct Alias {
+pub(super) struct Alias {
     pub target: String,
     pub module: bool,
 }
 
 /// `ParsedModule.aliases`: the last module-level import of each name wins, as in the dict.
-pub type Aliases = HashMap<String, Alias>;
+pub(super) type Aliases = HashMap<String, Alias>;
 
 /// The import records of all modules, sorted by id, and the aliases of each module.
 /// `binders` has one entry for each module.
 #[cfg(test)]
-pub fn collect(
+pub(super) fn collect(
     modules: &[Module],
     binders: &[Binders],
     namespace: &str,
@@ -45,7 +45,7 @@ pub fn collect(
 }
 
 /// What the import walk finds: the records, the aliases and the ambiguous records.
-pub struct Collected {
+pub(super) struct Collected {
     pub records: Vec<Record<ImportFact>>,
     pub aliases: Vec<Aliases>,
     /// The ids of each `from pkg import name` where `pkg` can give an attribute or the module
@@ -54,7 +54,7 @@ pub struct Collected {
 }
 
 /// `collect`, with the ambiguous records.
-pub fn collect_all(
+pub(super) fn collect_all(
     modules: &[Module],
     binders: &[Binders],
     namespace: &str,
@@ -131,7 +131,7 @@ fn open_body(module: &Module) -> bool {
 
 /// `collect_package_bindings`: for each package, the names that its body binds ahead of a
 /// submodule. A later module of the same name replaces an earlier one, as in the Python dict.
-pub fn package_bindings(modules: &[Module]) -> HashMap<&str, HashSet<String>> {
+pub(super) fn package_bindings(modules: &[Module]) -> HashMap<&str, HashSet<String>> {
     modules
         .iter()
         .filter(|module| module.is_init())

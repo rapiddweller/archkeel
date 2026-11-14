@@ -21,38 +21,18 @@ use archkeel_facts::{GapFact, Record};
 use super::failures::record;
 use crate::module::Module;
 
-pub const DUPLICATE: &str = "duplicate_module";
-pub const OUTSIDE_LAYOUT: &str = "module_outside_layout";
-pub const FOREIGN: &str = "stub_or_compiled_module";
-pub const UNREADABLE: &str = "unreadable_source";
+pub(super) const DUPLICATE: &str = "duplicate_module";
+pub(super) const OUTSIDE_LAYOUT: &str = "module_outside_layout";
+pub(super) const FOREIGN: &str = "stub_or_compiled_module";
+pub(super) const UNREADABLE: &str = "unreadable_source";
 
 /// The collection gap of one file. Its title is its reason, so the frame names the gap.
 fn file_gap(rel: &str, reason: &str) -> Record<GapFact> {
-    let mut data = GapData::at(reason, "");
-    data.module = None;
-    data.file = Some(rel.to_owned());
-    let parts = [
-        Part::Text(rel),
-        Part::Text("collection_gap"),
-        Part::Text(reason),
-    ];
-    let head = (
-        stable_id("COVERAGE", &parts),
-        Area::AnalysisCoverage,
-        reason.to_owned(),
-    );
-    let subjects = vec![rel.to_owned()];
-    record(
-        head,
-        subjects,
-        Vec::new(),
-        Vec::new(),
-        GapFact::CollectionGap(data),
-    )
+    super::failures::file_gap(rel, reason, reason.to_owned())
 }
 
 /// Remove each module whose name another module has too, and give a gap for each such file.
-pub fn duplicates(modules: &mut Vec<Module>) -> Vec<Record<GapFact>> {
+pub(super) fn duplicates(modules: &mut Vec<Module>) -> Vec<Record<GapFact>> {
     let mut files: HashMap<String, Vec<String>> = HashMap::new();
     for module in modules.iter() {
         let paths = files.entry(module.name.clone()).or_default();
@@ -111,7 +91,7 @@ fn in_layout(root: &str, module: &Module) -> bool {
 }
 
 /// A gap for each module that is not in the layout of any scan root.
-pub fn outside(modules: &[Module], roots: &[String]) -> Vec<Record<GapFact>> {
+pub(super) fn outside(modules: &[Module], roots: &[String]) -> Vec<Record<GapFact>> {
     modules
         .iter()
         .filter(|module| !roots.iter().any(|root| in_layout(root, module)))
@@ -126,7 +106,7 @@ pub fn outside(modules: &[Module], roots: &[String]) -> Vec<Record<GapFact>> {
 }
 
 /// A gap for each stub or compiled module file.
-pub fn foreign(files: &[String]) -> Vec<Record<GapFact>> {
+pub(super) fn foreign(files: &[String]) -> Vec<Record<GapFact>> {
     files
         .iter()
         .map(|rel| file_gap(rel, &format!("{FOREIGN}: {rel}")))
@@ -134,7 +114,7 @@ pub fn foreign(files: &[String]) -> Vec<Record<GapFact>> {
 }
 
 /// A gap for each problem of the snapshot: a directory or an entry that it cannot read.
-pub fn problems(problems: &BTreeSet<String>) -> Vec<Record<GapFact>> {
+pub(super) fn problems(problems: &BTreeSet<String>) -> Vec<Record<GapFact>> {
     problems
         .iter()
         .map(|problem| {

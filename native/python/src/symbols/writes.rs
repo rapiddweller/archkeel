@@ -15,7 +15,7 @@ use ruff_python_ast::{Expr, ExprContext, Stmt, StmtClassDef, StmtFunctionDef};
 use crate::pyast::{child_nodes, walk, Node};
 
 /// The sorted member names of `class_instance_member_write_names`.
-pub fn instance_member_writes(
+pub(super) fn instance_member_writes(
     node: &StmtClassDef,
     minor: archkeel_facts::pyminor::PyMinor,
 ) -> Vec<String> {
@@ -100,7 +100,10 @@ fn escapes(
 }
 
 /// The names of `Name` nodes with a `Store` context, in walk order.
-pub fn store_names(targets: &[Expr], minor: archkeel_facts::pyminor::PyMinor) -> Vec<String> {
+pub(super) fn store_names(
+    targets: &[Expr],
+    minor: archkeel_facts::pyminor::PyMinor,
+) -> Vec<String> {
     targets
         .iter()
         .flat_map(|target| walk(Node::Expr(target), minor))

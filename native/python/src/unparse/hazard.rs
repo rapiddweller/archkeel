@@ -15,7 +15,7 @@ use archkeel_facts::pyminor::PyMinor;
 
 /// The parser replaced a lone surrogate escape with U+FFFD: the value has U+FFFD and the source
 /// of the literal has a backslash. A U+FFFD that the source spells gives the failure too.
-pub fn replaced(value: &str, source: &str) -> bool {
+pub(crate) fn replaced(value: &str, source: &str) -> bool {
     value.contains('\u{fffd}') && source.contains('\\')
 }
 
@@ -74,7 +74,7 @@ impl Check<'_> {
 
 /// The failure of a string literal, an f-string or a t-string, or `None`. The fields of an
 /// f-string are expressions of their own: a walk reaches them.
-pub fn string_failure(expr: &Expr, source: &str, minor: PyMinor) -> Option<Failure> {
+pub(crate) fn string_failure(expr: &Expr, source: &str, minor: PyMinor) -> Option<Failure> {
     let check = Check { source, minor };
     match expr {
         Expr::StringLiteral(node) => {

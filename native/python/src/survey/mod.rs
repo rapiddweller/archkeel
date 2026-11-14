@@ -28,7 +28,7 @@ use binders::Binders;
 use excluded::Excluded;
 use failures::{early, NOT_FOUND};
 
-pub mod binders;
+pub(crate) mod binders;
 mod excluded;
 mod failures;
 mod hazards;
@@ -39,7 +39,7 @@ mod stable;
 mod targets;
 mod walks;
 
-pub struct Survey {
+pub(crate) struct Survey {
     pub files: Vec<FileFact>,
     pub imports: Vec<Record<ImportFact>>,
     pub targets: Vec<Target>,
@@ -53,7 +53,7 @@ pub struct Survey {
 /// The parsed modules of a request and their binders, as the survey reads them (the dump of
 /// the definition table, AD-377).
 #[cfg(feature = "dump")]
-pub struct Modules {
+pub(crate) struct Modules {
     pub minor: PyMinor,
     pub modules: Vec<Module>,
     pub binders: Vec<Binders>,
@@ -61,7 +61,7 @@ pub struct Modules {
 }
 
 #[cfg(feature = "dump")]
-pub fn modules(request: &PythonRequest) -> Result<Modules, String> {
+pub(crate) fn modules(request: &PythonRequest) -> Result<Modules, String> {
     let minor = request.resolver.interpreter.version.minor();
     let mut snapshot = Snapshot::new(&request.snapshot.root);
     let scope = discover::scope(
@@ -83,7 +83,7 @@ pub fn modules(request: &PythonRequest) -> Result<Modules, String> {
     })
 }
 
-pub fn survey(request: &PythonRequest) -> Result<Survey, String> {
+pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     let interpreter = &request.resolver.interpreter;
     let minor = interpreter.version.minor();
     let mut snapshot = Snapshot::new(&request.snapshot.root);

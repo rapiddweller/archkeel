@@ -22,19 +22,19 @@ use super::binders::first_part;
 const UNRESOLVED: &str = "<unresolved:";
 
 /// The named gaps of the import sites.
-pub const BEYOND_TOP: &str = "relative_import_beyond_top";
-pub const NOT_FOUND: &str = "project_module_not_found";
-pub const STAR: &str = "star_import";
-pub const AMBIGUOUS: &str = "reexport_ambiguity";
+pub(super) const BEYOND_TOP: &str = "relative_import_beyond_top";
+pub(super) const NOT_FOUND: &str = "project_module_not_found";
+pub(super) const STAR: &str = "star_import";
+pub(super) const AMBIGUOUS: &str = "reexport_ambiguity";
 
 /// The typed targets, in the order of the imports, and the gaps of the sites, by id.
-pub struct Resolved {
+pub(super) struct Resolved {
     pub targets: Vec<Target>,
     pub gaps: BTreeMap<String, Record<GapFact>>,
 }
 
 /// A gap of one import site: the source module and the evidence of the import (AD-450).
-pub fn site_gap(
+pub(super) fn site_gap(
     kind: &str,
     detail: &str,
     module: &str,
@@ -46,7 +46,7 @@ pub fn site_gap(
 }
 
 /// `collect._import_targets` with the classification of AD-450, and the gaps of the sites.
-pub fn resolve(
+pub(super) fn resolve(
     imports: &[Record<ImportFact>],
     files: &[FileFact],
     stdlib: &HashSet<&str>,

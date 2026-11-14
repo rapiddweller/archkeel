@@ -12,7 +12,7 @@ use ruff_python_ast::{
 };
 use std::collections::HashSet;
 
-pub fn is_future(node: &ruff_python_ast::StmtImportFrom, minor: PyMinor) -> bool {
+pub(super) fn is_future(node: &ruff_python_ast::StmtImportFrom, minor: PyMinor) -> bool {
     let relative = match minor {
         PyMinor::Py311 | PyMinor::Py312 => true,
         PyMinor::Py313 | PyMinor::Py314 => false,
@@ -24,7 +24,7 @@ pub fn is_future(node: &ruff_python_ast::StmtImportFrom, minor: PyMinor) -> bool
             .is_some_and(|name| name == "__future__")
 }
 
-pub fn imported_name(alias: &ruff_python_ast::Alias) -> &str {
+pub(super) fn imported_name(alias: &ruff_python_ast::Alias) -> &str {
     alias
         .asname
         .as_ref()
@@ -36,13 +36,13 @@ pub fn imported_name(alias: &ruff_python_ast::Alias) -> &str {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-pub enum AnnotationScope {
+pub(super) enum AnnotationScope {
     Outer,
     Annotation,
     Type,
 }
 
-pub fn future_annotations(
+pub(super) fn future_annotations(
     node: &ruff_python_ast::StmtImportFrom,
     minor: PyMinor,
     work: &mut Work,
@@ -61,21 +61,21 @@ pub fn future_annotations(
 }
 
 #[derive(Clone, Copy, PartialEq)]
-pub enum LexicalScope {
+pub(super) enum LexicalScope {
     Module,
     Class,
     Function,
     Async,
 }
 
-pub struct ScopeBindings {
+pub(super) struct ScopeBindings {
     pub names: HashSet<String>,
     pub globals: HashSet<String>,
     pub yielded: bool,
     pub return_value: bool,
 }
 
-pub fn resolves(frame: &ScopeBindings, name: &str) -> Option<bool> {
+pub(super) fn resolves(frame: &ScopeBindings, name: &str) -> Option<bool> {
     if frame.globals.contains(name) {
         Some(false)
     } else {
@@ -83,7 +83,7 @@ pub fn resolves(frame: &ScopeBindings, name: &str) -> Option<bool> {
     }
 }
 
-pub fn bindings(body: &[Stmt], work: &mut Work) -> ScopeBindings {
+pub(super) fn bindings(body: &[Stmt], work: &mut Work) -> ScopeBindings {
     let mut scan = Bindings {
         names: HashSet::new(),
         globals: HashSet::new(),

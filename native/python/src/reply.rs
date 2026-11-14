@@ -26,7 +26,7 @@ use crate::survey::Survey;
 use crate::{inputs, requirement};
 
 /// `PYTHON_IMPORT_SURVEY_SECTIONS`, in its order. No other section is collected.
-pub const SURVEY_SECTIONS: [&str; 2] = ["imports", "unknowns"];
+pub(crate) const SURVEY_SECTIONS: [&str; 2] = ["imports", "unknowns"];
 
 /// The version and the code digest of this binary (`archkeel-build-support`).
 pub struct Build<'a> {
@@ -35,7 +35,7 @@ pub struct Build<'a> {
 }
 
 /// The compressed 10.0.0 reply of one survey.
-pub fn reply(
+pub(crate) fn reply(
     request: &PythonRequest,
     survey: Survey,
     build: &Build<'_>,
@@ -48,7 +48,11 @@ pub fn reply(
 }
 
 /// The same survey as the typed reply of the linked path: one head and one record producer.
-pub fn typed(request: &PythonRequest, survey: Survey, build: &Build<'_>) -> Result<Reply, String> {
+pub(crate) fn typed(
+    request: &PythonRequest,
+    survey: Survey,
+    build: &Build<'_>,
+) -> Result<Reply, String> {
     let (head, records) = parts(request, survey, build)?;
     assemble(reply_version(request.protocol_version), head, |writer| {
         records.produce(writer)

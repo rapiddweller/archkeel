@@ -18,7 +18,7 @@ use ruff_python_ast::{
 use ruff_text_size::Ranged;
 
 /// One value of a `JoinedStr` or a `TemplateStr`.
-pub enum Piece<'a> {
+pub(crate) enum Piece<'a> {
     /// A `Constant` with a `str` value.
     Text(String),
     /// A `FormattedValue` (or an `Interpolation` of a t-string).
@@ -32,7 +32,7 @@ pub enum Piece<'a> {
 }
 
 impl Piece<'_> {
-    pub fn kind(&self) -> &'static str {
+    pub(crate) fn kind(&self) -> &'static str {
         match self {
             Piece::Text(_) => "Constant",
             Piece::Value {
@@ -44,7 +44,7 @@ impl Piece<'_> {
 }
 
 /// The values of an f-string, with its implicitly joined literal parts.
-pub fn fstring(value: &FStringValue) -> Rc<[Piece<'_>]> {
+pub(crate) fn fstring(value: &FStringValue) -> Rc<[Piece<'_>]> {
     let mut out = Vec::new();
     for part in value.iter() {
         match part {
@@ -56,7 +56,7 @@ pub fn fstring(value: &FStringValue) -> Rc<[Piece<'_>]> {
 }
 
 /// The values of a t-string (3.14).
-pub fn tstring(value: &TStringValue) -> Rc<[Piece<'_>]> {
+pub(crate) fn tstring(value: &TStringValue) -> Rc<[Piece<'_>]> {
     let mut out = Vec::new();
     for part in value.iter() {
         elements(&mut out, &part.elements, true);
@@ -75,7 +75,7 @@ fn elements<'a>(
 }
 
 /// The parse refuses a deeper spec before this view reads it. Ruff itself keeps deeper specs.
-pub const MAX_SPEC_DEPTH: u8 = 2;
+pub(crate) const MAX_SPEC_DEPTH: u8 = 2;
 
 fn element_into<'a>(
     out: &mut Vec<Piece<'a>>,
@@ -119,7 +119,7 @@ fn element_into<'a>(
 
 /// `Interpolation.str`: the source from after `{` to the last token of the expression, with
 /// its closing parentheses and without a comment or the white space after it.
-pub fn interpolation_text<'s>(field: &InterpolatedElement, source: &'s str) -> &'s str {
+pub(crate) fn interpolation_text<'s>(field: &InterpolatedElement, source: &'s str) -> &'s str {
     let start = field.start().to_usize() + 1;
     let mut end = field.expression.end().to_usize();
     let mut at = end;

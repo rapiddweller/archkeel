@@ -13,7 +13,10 @@ use super::fstring::{self, Piece};
 use super::node::{bool_op, cmp_op, context, operator, type_params, unary_op, Node};
 
 /// `ast.iter_child_nodes`: the child nodes in the order of `_fields`.
-pub fn child_nodes<'a>(node: &Node<'a>, minor: archkeel_facts::pyminor::PyMinor) -> Vec<Node<'a>> {
+pub(crate) fn child_nodes<'a>(
+    node: &Node<'a>,
+    minor: archkeel_facts::pyminor::PyMinor,
+) -> Vec<Node<'a>> {
     let mut out = Vec::new();
     match node {
         Node::Stmt(stmt) => stmt_children(stmt, minor, &mut out),
@@ -180,7 +183,7 @@ fn stmt_children<'a>(
 }
 
 /// The `orelse` of an `If`: the `If` of the next `elif`, or the body of the `else`.
-pub fn orelse<'a>(clauses: &'a [ElifElseClause], out: &mut Vec<Node<'a>>) {
+pub(super) fn orelse<'a>(clauses: &'a [ElifElseClause], out: &mut Vec<Node<'a>>) {
     match clauses.first() {
         Some(clause) if clause.test.is_some() => out.push(Node::Elif(clauses)),
         Some(clause) => stmts(out, &clause.body),
