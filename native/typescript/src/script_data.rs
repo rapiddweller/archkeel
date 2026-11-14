@@ -110,50 +110,44 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// through the name, an argument, a store, a spread, an alias, a comparison or an export.
     fn tainted_data(&self) -> &std::collections::HashSet<usize> {
         self.data_taint.get_or_init(|| {
-            let tree = self.tree;
-            let mut found = std::collections::HashSet::new();
-            for node in tree.nodes.iter().copied() {
-                let reference = match node.kind() {
-                    "identifier" => !tree.in_type(node) && !tree.declaration_name(node),
-                    "shorthand_property_identifier" => true,
-                    _ => false,
-                };
-                if !reference {
-                    continue;
-                }
-                let Some(declaration) = self.sole_declaration(node) else {
-                    continue;
-                };
-                if tree.k(declaration) == K::VariableDeclarator && !self.pure_read(node) {
-                    found.insert(declaration.id());
-                }
-            }
-            found
+            let tainted = |node: Node<'t>| self.taints(node);
+            self.tree
+                .nodes
+                .iter()
+                .copied()
+                .filter_map(tainted)
+                .collect()
         })
+    }
+
+    /// The declaration that a use of a name taints: a reference that is no pure read.
+    fn taints(&self, node: Node<'t>) -> Option<usize> {
+        let tree = self.tree;
+        let reference = match node.kind() {
+            "identifier" => !tree.in_type(node) && !tree.declaration_name(node),
+            "shorthand_property_identifier" => true,
+            _ => false,
+        };
+        let declaration = self.sole_declaration(node).filter(|_| reference)?;
+        (tree.k(declaration) == K::VariableDeclarator && !self.pure_read(node))
+            .then(|| declaration.id())
     }
 
     /// The name is only the object of a member that is read, never written or deleted.
     fn pure_read(&self, name: Node<'t>) -> bool {
         let tree = self.tree;
         let mut at = name;
-        loop {
-            let Some(parent) = tree.parent(at) else {
-                return false;
-            };
-            match parent.kind() {
-                "parenthesized_expression"
-                | "as_expression"
-                | "satisfies_expression"
-                | "non_null_expression"
-                | "type_assertion" => at = parent,
-                "member_expression" | "subscript_expression"
-                    if tree.is_field_of_parent(at, F::Object) =>
-                {
-                    return !self.written_through(parent);
-                }
-                _ => return false,
+        while let Some(parent) = tree.parent(at) {
+            if is_wrapper(parent.kind()) {
+                at = parent;
+                continue;
             }
+            let member = matches!(parent.kind(), "member_expression" | "subscript_expression");
+            return member
+                && tree.is_field_of_parent(at, F::Object)
+                && !self.written_through(parent);
         }
+        false
     }
 
     /// The member chain that ends at `member` is an assignment target, an update, a `delete`, or
@@ -196,4 +190,16 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             _ => false,
         }
     }
+}
+
+/// A node that gives its inside unchanged: parentheses and the type wrappers.
+fn is_wrapper(kind: &str) -> bool {
+    matches!(
+        kind,
+        "parenthesized_expression"
+            | "as_expression"
+            | "satisfies_expression"
+            | "non_null_expression"
+            | "type_assertion"
+    )
 }
