@@ -75,7 +75,26 @@ pub enum PairGapDrop {
     Never,
 }
 
+/// How the rules read the target of an import (`evaluate.py` `evaluate_source`, AD-372, AD-450).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TargetMarks {
+    /// An external package target matches a dependency by its package, and a builtin target is
+    /// no dependency.
+    Typed,
+    /// Each resolved target matches a dependency by the scope of its target module, as the
+    /// reference engine reads a Python import.
+    ByModule,
+}
+
 impl Profile {
+    /// How the rules read the import targets of this profile.
+    pub fn target_marks(self) -> TargetMarks {
+        match self {
+            Profile::TypeScript | Profile::Rust => TargetMarks::Typed,
+            Profile::Python | Profile::Dart => TargetMarks::ByModule,
+        }
+    }
+
     /// What the host does with an allowed pair gap of this profile.
     pub fn pair_gap_drop(self) -> PairGapDrop {
         match self {

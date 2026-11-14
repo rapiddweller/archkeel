@@ -153,6 +153,20 @@ def test_a_standard_name_must_be_standard_in_each_supported_minor(
     assert rows(result)["EXTERNAL"] == expected, result
 
 
+@pytest.mark.parametrize(
+    ("dependency", "source"),
+    [("requests", "import requests.adapters\n"), ("google.cloud", "from google.cloud import storage\n")],
+)
+def test_an_external_dependency_matches_by_module_scope(
+    release_core: Path, tmp_path: Path, dependency: str, source: str
+) -> None:
+    rule = {**RULE, "id": "SCOPE", "kind": "external_dependency_scope", "dependency": dependency,
+            "allowed_sources": ["app.service"]}
+    files = {**BASE, "src/app/client.py": source}
+    result = verdict(release_core, project(tmp_path, files, contract_rules=[rule]))
+    assert rows(result) == {"SCOPE": "FAIL"}, result
+
+
 GAPS = {
     "dynamic_import": {"src/app/client.py": "import importlib\nimportlib.import_module(name)\n"},
     "dynamic_import ": {"src/app/client.py": "__import__('app.service')\n"},

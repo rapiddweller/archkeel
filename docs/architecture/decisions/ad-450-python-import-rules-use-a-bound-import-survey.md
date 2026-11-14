@@ -11,6 +11,8 @@
 3. A target is project, standard or external by its first part, as a bare TypeScript specifier.
    The namespace of the configuration is the project. Its target needs a selected module, else
    the survey writes a gap. A standard name is builtin. Each other name is an external package.
+   The rules read a Python target by its module scope, as 4.0.1 does (`TargetMarks::ByModule`):
+   the dependency `google.cloud` matches `google.cloud.storage`.
 4. The survey binds itself. Each parsed file must have the input digest of its parsed bytes.
    `collect` reads each input again: each digest and the source digest must agree, else refusal.
 5. The store accepts 10.0.0 only from the Python profile, and Python only in 10.0.0. It
