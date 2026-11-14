@@ -28,7 +28,7 @@ def project(root: Path, binary: Path, profile: str, status: str) -> Path:
     rules = None
     if status == "UNKNOWN":
         rules = (rule("UNPORTED", "symbol_placement", source="native"),)
-    # AD-458: the marked graph draws the observed edge also when no `requires` entry allows it.
+    # AD-466: the marked graph draws the observed edge also when no `requires` entry allows it.
     drawn = "    app --> base"
     root = repository(
         root, binary, components=parts, drawn=drawn, **({"rules": rules} if rules else {})
@@ -268,7 +268,7 @@ def test_a_long_hostile_rule_name_is_not_truncated_or_executed(
     root = repository(
         tmp_path / "project",
         release_core,
-        # AD-458: `complete_requires` decides each pair; without it the pairs stay open.
+        # AD-466: `complete_requires` decides each pair; without it the pairs stay open.
         rules=(rule(plant, "complete_assignment", source="native"), *CRATE_RULES[1:2]),
     )
     monkeypatch.setattr(core_only, "locate_core", lambda: release_core)

@@ -94,7 +94,7 @@ def repository(
     """Write the fixture below `root`. A file in `files` replaces or adds a file of the default.
 
     `binary` is the core that decides the fixture (the `core_binary` fixture). The marked graph
-    draws the `requires` edges, or the edges of `drawn` when the observed edges differ (AD-458).
+    draws the `requires` edges, or the edges of `drawn` when the observed edges differ (AD-466).
     """
     assert binary.is_file(), binary
     _CORES[root.resolve()] = binary

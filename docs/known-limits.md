@@ -30,7 +30,7 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   Unsafe, linked, missing or invalid mounts stay UNKNOWN. Unproved tree rules keep their named gaps.
   A safe mount path that is absent, unreadable or not a contained regular file gives
   "mounts inside contracts that the shell has not sent". This names missing input, not an unported tree rule.
-- The core checks contract hygiene on `validate` and `report` (AD-458). It reads and binds each cited
+- The core checks contract hygiene on `validate` and `report` (AD-466). It reads and binds each cited
   provenance file. A file that it cannot read refuses the contract. A missing, repeated or stale marked
   graph, and the reference, rationale, responsibility, closed-world and `public_api` defects of 4.0.1,
   give a row that keeps the run from PASS. A contract with an `interface_boundary` rule or with

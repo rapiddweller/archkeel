@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The provenance documents of a scanned contract tree (AD-458).
+//! The provenance documents of a scanned contract tree (AD-466).
 //!
 //! The core reads each repository path that a contract of the tree cites as provenance, with the
 //! same reader as the inside contracts: no link, no path outside the root and no file that is not

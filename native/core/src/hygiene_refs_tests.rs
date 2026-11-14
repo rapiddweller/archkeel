@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The contract references of AD-458 against the rules of the reference engine.
+//! The contract references of AD-466 against the rules of the reference engine.
 
 use archkeel_contract::{parse, Contract, ParsedContract};
 use serde_json::{json, Value};

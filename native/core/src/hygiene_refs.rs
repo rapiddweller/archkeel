@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The contract references that need no reply (AD-458).
+//! The contract references that need no reply (AD-466).
 //!
 //! Reference engine: `check/validation/references.py` (`reference.namespace`,
 //! `reference.public_owner`, `reference.public_underscore`), `ir/model.py` `module_references`,

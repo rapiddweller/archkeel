@@ -56,7 +56,7 @@ fn head(rule: &Rule) -> &RuleHead {
 }
 
 /// Python `contract_provenance_paths`: each repository path that the contract cites. The core
-/// reads and binds each of these files (AD-458).
+/// reads and binds each of these files (AD-466).
 pub fn provenance_paths(contract: &Contract) -> BTreeSet<String> {
     let mut lists: Vec<&Vec<String>> = contract.components.iter().map(|c| &c.provenance).collect();
     lists.extend(contract.rules.iter().map(|rule| &head(rule).provenance));

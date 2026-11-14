@@ -1,4 +1,4 @@
-# AD-458 The core checks contract hygiene and binds each provenance file
+# AD-466 The core checks contract hygiene and binds each provenance file
 
 **Status.** Proposed. Part of #880. It extends AD-432 and AD-438.
 
@@ -43,8 +43,9 @@ canonical form of the typed contract, so the contract crate stays the only reade
   namespace (`dart.io` in 4.0.1) needs that exemption when it is ported.
 - The self contract gave one finding: the marked graph of `docs/architecture/native.md` was stale.
   The page now draws the observed edges. The self rows stay 63 PASS, 1 FAIL and 19 UNKNOWN.
-- Test fixtures without a marked graph or with an uncited file now give UNKNOWN. Release 4.0.1
-  rejects each of them too. The fixtures that a test needs to pass now carry a graph.
+- Test fixtures without a marked graph or with a missing cited file now give UNKNOWN. Release
+  4.0.1 rejects each of them too. The fixtures that a test needs to pass now carry a graph.
+  `fixtures/F-typescript-story` stays UNKNOWN; its pinned gap is now the `graph.count` row.
 
 **Tests.** `tests/test_cli_core_contract_hygiene.py` sends one plant for each code through the
 release core and the default shell, and replays a frame after a page change (exit 2). The core

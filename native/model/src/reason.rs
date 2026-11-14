@@ -38,7 +38,7 @@ pub enum Unsupported {
     /// No outcome of the contract tree has a decision; declarations do not decide (AD-416).
     NoRules,
     /// A contract hygiene check that applies to the contract and that the core does not port
-    /// yet: the codes of the reference engine that it names (AD-458).
+    /// yet: the codes of the reference engine that it names (AD-466).
     Hygiene(&'static str),
 }
 
@@ -74,7 +74,7 @@ pub enum Reason {
     NotComplete(Cause),
     /// A fact needed to decide an interface crossing is absent.
     Interface(InterfaceGap),
-    /// A contract hygiene check of the core found a defect (AD-458).
+    /// A contract hygiene check of the core found a defect (AD-466).
     Hygiene(Hygiene),
 }
 

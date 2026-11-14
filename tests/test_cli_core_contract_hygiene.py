@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-458: each contract hygiene defect of release 4.0.1 keeps the default path from PASS.
+"""AD-466: each contract hygiene defect of release 4.0.1 keeps the default path from PASS.
 
 Each plant starts from `fixtures/H-typescript` without its UML target, which the release core and
 the default shell decide with PASS. Each plant breaks one condition that release 4.0.1 rejects

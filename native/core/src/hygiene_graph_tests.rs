@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The marked graphs of AD-458 against the rules of the reference engine.
+//! The marked graphs of AD-466 against the rules of the reference engine.
 
 use std::collections::BTreeSet;
 

@@ -122,6 +122,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     let producer = producer(request.collector_argv.as_ref());
     let (profile, standard_library) = (request.profile, request.standard_library);
     run(Run {
+        topology: false,
         case: request.case,
         path,
         contract: contract.into_bytes(),
@@ -160,6 +161,7 @@ impl ReplyInput {
 /// What a request kind gives to the one engine path (`run`): the dual run of the harness
 /// (`answer`) or the check request of the shell (`check.rs`). The two kinds differ only here.
 pub(crate) struct Run {
+    pub(crate) topology: bool,
     pub(crate) case: String,
     pub(crate) path: String,
     pub(crate) contract: Vec<u8>,
@@ -181,7 +183,7 @@ pub(crate) struct Run {
     pub(crate) trust: TrustOf,
     /// The `collect` part of the self-test of a scan request (AD-406); `None` for the others.
     pub(crate) collect: Option<serde_json::Value>,
-    /// The provenance documents that a scan request read (AD-458); `None` for the others.
+    /// The provenance documents that a scan request read (AD-466); `None` for the others.
     pub(crate) documents: Option<crate::provenance::Documents>,
 }
 
@@ -257,11 +259,17 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         named.contract = named.contract.or(hygiene.refusal);
         named.rules.extend(hygiene.rules);
     }
-    let ruling = match engine.answer(Request::Rules(named)) {
-        Answer::Rules(ruling) => *ruling,
-        other => Err(format!("unexpected answer {other:?}")),
-    }
-    .map_err(|problem| format!("{}: an inconsistent frame: {problem}", run.case))?;
+    let ruled = if run.topology {
+        engine.rule(named, true)
+    } else {
+        match engine.answer(Request::Rules(named)) {
+            Answer::Rules(ruling) => (*ruling).map(|ruling| (ruling, BTreeMap::new())),
+            other => Err(format!("unexpected answer {other:?}")),
+        }
+    };
+    let (ruling, links) =
+        ruled.map_err(|problem| format!("{}: an inconsistent frame: {problem}", run.case))?;
+    let topology = run.topology.then(|| engine.topology(&ruling, &links));
     let (rows, sections) = crate::sections::split(rows);
     let names_a_gap = report.is_err()
         || !ruling.unsupported().is_empty()
@@ -269,6 +277,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         || !matches!(reply, ReplyCheck::Files(_))
         || !matches!(contract, ContractState::Parsed(_));
     let parts = Parts {
+        topology,
         contract_digest,
         collection_gaps,
         engine: ENGINE,

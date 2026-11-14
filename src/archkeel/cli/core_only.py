@@ -98,6 +98,7 @@ options:
   --config PATH   Configuration file below the root. Default: archkeel.toml.
   --json          Print JSON also in a terminal.
   --text          Print text also without a terminal.
+  --topology      Include the bounded topology in report only. Default: no topology work.
   --output PATH   Report only: write one file. No file is written by default.
   --format FORMAT Report only, with --output: html (default) or json. No sidecar files.
   --core-only     Accepted and ignored: the core is the only path.
@@ -123,6 +124,7 @@ class Options(argparse.Namespace):
     json: bool = False
     text: bool = False
     core_only: bool = False
+    topology: bool = False
     action: str = ""
     agent: str = ""
     output: Path | None = None
@@ -185,6 +187,7 @@ def parse(argv: Sequence[str]) -> Options:
         parser.add_argument("--core-only", action="store_true")
         parser.add_argument("--config", default="archkeel.toml")
         if command is Command.REPORT:
+            parser.add_argument("--topology", action="store_true")
             parser.add_argument("--output", type=_output_path)
             parser.add_argument("--format", choices=["html", "json"], default="html")
     options, extra = parser.parse_known_args(argv[1:], Options(command=command))
@@ -276,6 +279,8 @@ def _decide(options: Options, as_json: bool) -> int:
     }
     if (claim := identity(root)) is not None:
         request["git_head"], request["dirty"] = claim
+    if options.topology:
+        request["topology"] = True
     if options.output is not None and options.format == "html":
         request["html"] = True
     binary = locate_core()
@@ -356,6 +361,12 @@ def _places(frame: CoreFrame, evidence: Sequence[str]) -> str:
 
 def render_text(command: Command, frame: CoreFrame) -> None:
     print(f"{command}: {frame.status}")
+    if (topology := frame.topology) is not None:
+        print(
+            f"Topology: {len(topology.modules)}/{topology.total['modules']} modules, "
+            f"{len(topology.edges)}/{topology.total['edges']} edges; "
+            f"complete: {topology.complete}; truncated: {topology.truncated}"
+        )
     if not frame.complete_scope:
         print(f"Scope: {frame.scope}")
         print("Action: Resolve the named scope gap and run again.")

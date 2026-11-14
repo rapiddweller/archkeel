@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The component pairs of the root contract and of the code (AD-458).
+//! The component pairs of the root contract and of the code (AD-466).
 //!
 //! Reference engine: `check/validation/closed_world.py` (`observed_component_edges`,
 //! `target_component_edges`, `closed_world_diagnostics`) and `ir/decisions.py`

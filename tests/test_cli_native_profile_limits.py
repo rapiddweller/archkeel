@@ -147,7 +147,7 @@ def test_a_symbol_public_interface_releases_no_actual_gap(built: Path) -> None:
         component = next(c for c in contract["components"] if c["label"] == "data")
         component["public"] = ["shop.src.data.local_x2e_ts:local"]
         contract["declarations"] = {}
-        # AD-458: `complete_requires` decides each pair; without it 4.0.1 names open decisions.
+        # AD-466: `complete_requires` decides each pair; without it 4.0.1 names open decisions.
         kept = {"DOMAIN-NO-DATA", "REQUIRES"}
         contract["rules"] = [r for r in contract["rules"] if r["id"] in kept]
         path.write_text(json.dumps(contract))

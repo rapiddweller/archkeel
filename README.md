@@ -13,6 +13,7 @@
 > - `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
 >   Interactive reports, `architecture.json`, baselines and focused reports are not available.
 > - `report --output PATH` writes one static HTML page; `--format json` writes the core frame instead.
+> - The [nightly fixture reports](https://rapiddweller.github.io/archkeel/) show what the core says for each project of `fixtures/`, refusals included.
 > - No package carries the core binary yet. Run `main` from a source checkout after `make core`.
 >   An installed package refuses each run with `core_binary_not_found`. There is no Python fallback.
 > - Release 4.0.1 has `check`, `init` and full reports for Python, Dart and TypeScript projects.

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The marked Mermaid graphs of the provenance documents of the root contract (AD-458).
+//! The marked Mermaid graphs of the provenance documents of the root contract (AD-466).
 //!
 //! Reference engine: `check/validation/graphs.py` `graph_diagnostics`. The documents must hold
 //! exactly one block after the component marker, and at most one after the target marker

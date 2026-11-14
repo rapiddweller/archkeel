@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Contract hygiene of a scanned run (AD-458).
+//! Contract hygiene of a scanned run (AD-466).
 //!
 //! Release 4.0.1 rejects a run (exit 2) when a contract cites a provenance file that does not
 //! exist, when the marked graph of the provenance documents is missing, repeated or stale, when a

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The hygiene of a run (AD-458): a refusal for an unread document, a named row for each defect
+//! The hygiene of a run (AD-466): a refusal for an unread document, a named row for each defect
 //! and for each family that applies and is not ported, and nothing for a clean contract.
 
 use std::collections::BTreeSet;

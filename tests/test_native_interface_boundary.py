@@ -22,7 +22,7 @@ def scan(
     (root / "src/client.ts").write_text(source)
     (root / "src/api.ts").write_text("export const Published = 1; export const _private = 2;\n")
     (root / "src/impl.ts").write_text("export const Secret = 1;\n")
-    # AD-458: the rules cite the page `p`; a cited file that does not exist refuses the contract.
+    # AD-466: the rules cite the page `p`; a cited file that does not exist refuses the contract.
     (root / "p").write_text(EMPTY_GRAPH)
     (root / "tsconfig.json").write_text(
         (Path(__file__).parents[1] / "fixtures/H-typescript/tsconfig.json").read_text()

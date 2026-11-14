@@ -31,13 +31,13 @@ NATIVE = ROOT / "native"
 SUFFIX = ".exe" if os.name == "nt" else ""
 # A corpus case that the core decides with PASS.
 HONEST = "probe/sources-test-an-honest-project-gives-pass-in-both-producers-honest"
-# A provenance page with one marked component graph and no edge (AD-458): the graph of a contract
+# A provenance page with one marked component graph and no edge (AD-466): the graph of a contract
 # with one component, or with components that do not import each other.
 EMPTY_GRAPH = "# Provenance\n\n<!-- archkeel-component-graph -->\n```mermaid\nflowchart LR\n```\n"
 
 
 def copy_native(root: Path) -> None:
-    """Copy `native/` without its build, and each document that its contract cites (AD-458)."""
+    """Copy `native/` without its build, and each document that its contract cites (AD-466)."""
     shutil.copytree(NATIVE, root / "native", ignore=shutil.ignore_patterns("target"))
     contract = json.loads((NATIVE / "architecture-contract.json").read_text(encoding="utf-8"))
     cited = {

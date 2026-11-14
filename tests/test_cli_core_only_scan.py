@@ -138,7 +138,7 @@ def test_zero_decided_rules_stay_unknown_and_nonzero(built: Path, declaration: b
     with case_root(HONEST) as root:
         path = root / "architecture-contract.json"
         contract = json.loads(path.read_text())
-        # AD-458: each ordered component pair is decided, so no hygiene row hides the gap.
+        # AD-466: each ordered component pair is decided, so no hygiene row hides the gap.
         allowed = [
             {
                 **contract["rules"][0],

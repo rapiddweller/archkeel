@@ -124,7 +124,7 @@ def test_a_method_of_another_module_gives_no_false_pass(
     assert _verdict(result, "NO-A-TO-B") == expected, claims(result)
 
 
-# AD-458: the marked graph draws the observed edges; an allowed pair that the code does not use
+# AD-466: the marked graph draws the observed edges; an allowed pair that the code does not use
 # is not an observed edge.
 OBSERVED_IMPL = "    root --> base\n    a --> c\n    b --> c"
 OBSERVED_GLOB = "    root --> b\n    root --> base\n    a --> root"
