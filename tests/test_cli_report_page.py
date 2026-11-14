@@ -71,14 +71,15 @@ def test_the_verdict_heading_is_the_one_exact_line_that_the_shell_checks(self_pa
     assert len(re.findall(r"<h1\b", self_page)) == 1
 
 
-def test_the_self_run_page_shows_one_block_for_each_of_its_seven_cycles(self_page: str) -> None:
-    # The first two places are open blocks; the others are folds with the same id (AD-510).
+def test_the_self_run_page_shows_one_block_for_each_of_its_cycles(self_page: str) -> None:
+    # The first two places are open blocks; the others are folds with the same id (AD-510). The
+    # self run has the one cycle of the Rust collector (#1076).
     blocks = re.findall(
         r'<(?:article|details) class="rp-(?:dos|fold rp-place)" id="x(\d+)"', self_page
     )
-    assert blocks == [str(number) for number in range(1, 8)]
-    assert self_page.count('<article class="rp-dos"') == 7
-    assert "7 places in the code, 1 rule broken" in self_page
+    assert blocks == [str(number) for number in range(1, 2)]
+    assert self_page.count('<article class="rp-dos"') == 1
+    assert "1 place in the code, 1 rule broken" in self_page
     # Each step names a file and a line of the frame: `path.rs:line`.
     cycle = self_page.split('id="x1"', 1)[1].split("</article>", 1)[0]
     assert re.search(r'<span class="rp-code">native/[a-z_/-]+\.rs:\d+</span>', cycle)
