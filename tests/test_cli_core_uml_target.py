@@ -18,7 +18,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from core_support import run
+from core_support import HONEST, case_root, run
+from test_cli_core_inside_trees import tree
 
 from archkeel.cli import core_only
 
@@ -229,3 +230,55 @@ def test_a_uml_target_that_changes_after_the_core_read_it_is_refused(
     assert "frame" not in envelope
     assert "contract digest differs" in envelope["refusal"]["message"]
     assert (code, envelope["status"]) == (2, "UNKNOWN")
+
+
+def test_the_python_uml_fixture_has_an_unknown_row_and_never_passes(tmp_path: Path) -> None:
+    """Release 4.0.1 passes this target. The core does not compare it, so the row is UNKNOWN."""
+    code, envelope = run("validate", "--root", str(_copy(tmp_path, "H-uml")))
+    assert _rows(envelope) == {ROW: ["uml_target", "UNKNOWN"]}
+    assert envelope["frame"]["explained"][ROW].startswith("the UML target: the core does not")
+    assert envelope["gaps"] == []
+    assert (code, envelope["status"], envelope["frame"]["status"]) == (2, "UNKNOWN", "UNKNOWN")
+
+
+def _symbol(identity: str) -> dict[str, Any]:
+    return {
+        "id": identity,
+        "kind": "symbol",
+        "qualified_name": "String",
+        "language": "typescript",
+        "presence": "referenced",
+        "provenance": ["README.md"],
+    }
+
+
+def _target(path: Path, identities: list[str]) -> None:
+    document = json.loads(path.read_text(encoding="utf-8"))
+    entities = [_symbol(identity) for identity in identities]
+    uml = {"schema_version": "1.1.0", "entities": entities, "relationships": [], "scopes": []}
+    document["declarations"] = {**document.get("declarations", {}), "uml": uml}
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+
+def test_a_mounted_contract_with_its_own_target_has_one_row_that_sums_the_tree() -> None:
+    """A tree has one UML row at the id of its root path. Its cause counts the intent of every
+    contract of the tree, and a target only in a mount holds back the PASS of the tree."""
+    with case_root(HONEST) as root:
+        tree(root)
+        code, envelope = run("validate", "--root", str(root))
+        assert (code, envelope["status"]) == (0, "PASS"), envelope
+        _target(root / "inside.json", ["inner-string"])
+        code, envelope = run("validate", "--root", str(root))
+        rows = _rows(envelope)
+        assert rows[ROW] == ["uml_target", "UNKNOWN"]
+        assert [rule for rule, row in rows.items() if row[1] != "PASS"] == [ROW]
+        reason = NOT_COMPARED.format(entities=1, relationships=0, scopes=0)
+        assert envelope["frame"]["explained"][ROW] == reason
+        assert (code, envelope["status"]) == (2, "UNKNOWN")
+        _target(root / "architecture-contract.json", ["root-string", "root-string-2"])
+        _target(root / "deep.json", ["deep-string"])
+        code, envelope = run("validate", "--root", str(root))
+        assert [rule for rule in _rows(envelope) if rule.startswith("UML-TARGET-")] == [ROW]
+        reason = NOT_COMPARED.format(entities=4, relationships=0, scopes=0)
+        assert envelope["frame"]["explained"][ROW] == reason
+        assert (code, envelope["status"]) == (2, "UNKNOWN")
