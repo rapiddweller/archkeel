@@ -17,6 +17,16 @@ pub(crate) const WALK_ROOTS: [&str; 4] = ["window", "globalThis", "self", "frame
 /// them as roots; a publication does not.
 pub(crate) const FRAME_ROOTS: [&str; 2] = ["top", "parent"];
 
+/// The other global names whose value is a window: the window that opened this one, and the
+/// global object of Node.
+pub(crate) const OTHER_WINDOWS: [&str; 2] = ["opener", "global"];
+
+/// A global name whose value can be a window: a root, a frame root or another window. This is the
+/// one list of such names; the write check of a script reads it.
+pub(crate) fn is_window_name(name: &str) -> bool {
+    is_script_root(name.as_bytes()) || FRAME_ROOTS.contains(&name) || OTHER_WINDOWS.contains(&name)
+}
+
 pub(crate) fn is_script_root(text: &[u8]) -> bool {
     WALK_ROOTS.iter().any(|root| root.as_bytes() == text)
 }

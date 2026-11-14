@@ -10,20 +10,11 @@ use std::collections::HashMap;
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::script_scope::{is_function, is_root};
+use crate::script_scope::is_root;
 use crate::script_syntax::{unique, Producer};
 use crate::script_types::{Member, Write};
+use crate::script_window::Written;
 use crate::source::Span;
-use crate::source_input::FRAME_ROOTS;
-
-/// The path on the global object without its leading roots, so that `parent.self.f` writes `f`.
-/// A frame root and `opener` are a window too: a write through them can replace a global that a
-/// script of the project reads in that window.
-fn global_path(path: impl IntoIterator<Item = String>) -> Vec<String> {
-    let window =
-        |name: &String| is_root(name) || FRAME_ROOTS.contains(&name.as_str()) || name == "opener";
-    path.into_iter().skip_while(window).collect()
-}
 
 /// What `_script_declarations` returns.
 pub(crate) struct Declarations {
@@ -31,6 +22,8 @@ pub(crate) struct Declarations {
     pub writes: Vec<Write>,
     pub paths: Vec<Vec<String>>,
     pub top_level_paths: Vec<Vec<String>>,
+    /// The writes of the one check (AD-460); the script writes take them too.
+    pub checked: Vec<Write>,
 }
 
 /// What the producer finds while it reads the nodes in order.
@@ -42,9 +35,23 @@ struct Gathered<'t> {
     writes: Vec<Write>,
     paths: Vec<Vec<String>>,
     top_level: Vec<Vec<String>>,
+    checked: Vec<Write>,
 }
 
 impl<'t> Gathered<'t> {
+    /// A write of the one check at the place of `span`: a write and a path of its name, or a
+    /// write and a path of an unknown name.
+    fn check(&mut self, written: Option<Written>, span: Span) {
+        let (name, path) = match written {
+            Some(Written::Name(name)) => (Some(name.clone()), vec![name]),
+            Some(Written::Unknown) => (None, Vec::new()),
+            None => return,
+        };
+        self.writes.push((name.clone(), span.clone()));
+        self.checked.push((name, span));
+        self.paths.push(path);
+    }
+
     /// `objects[span] = object`: a later object of the same span replaces the earlier one.
     fn put(&mut self, span: Span, object: Node<'t>) {
         match self.at.get(&span) {
@@ -69,7 +76,8 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             return;
         };
         if is_root(first) || tree.script_free_in(target, target, false) {
-            found.paths.push(global_path(route.iter().cloned()));
+            let skip = usize::from(is_root(first));
+            found.paths.push(route.iter().skip(skip).cloned().collect());
             return;
         }
         let at_top = tree
@@ -93,61 +101,6 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 .paths
                 .extend(self.write_alias_path(target, &[], None, None));
         }
-        found.paths.extend(self.this_path(target));
-    }
-
-    /// A `this` that can be the global object: not in a module file, which is strict, and not in a
-    /// class, whose code is strict. A plain call of a function in a sloppy script gives that `this`.
-    fn global_receiver(&self, this: Node<'t>) -> bool {
-        let tree = self.tree;
-        if self.module_syntax || tree.k(this) != K::This {
-            return false;
-        }
-        let owner = tree.ancestors(this).find(|node| {
-            let kind = tree.k(*node);
-            matches!(kind, K::ClassBody | K::ClassStaticBlock)
-                || (is_function(kind) && kind != K::ArrowFunction)
-        });
-        owner.is_none_or(|owner| {
-            let kind = tree.k(owner);
-            let method = kind == K::MethodDefinition
-                && tree
-                    .parent(owner)
-                    .is_some_and(|body| tree.k(body) == K::ClassBody);
-            !(method || matches!(kind, K::ClassBody | K::ClassStaticBlock))
-        })
-    }
-
-    /// The path that a write target reaches from a `this` that can be the global object. A
-    /// computed member directly on `this` can name any global.
-    fn this_path(&self, target: Node<'t>) -> Option<Vec<String>> {
-        let tree = self.tree;
-        let mut names = Vec::new();
-        let mut at = tree.unparenthesized(target);
-        loop {
-            match tree.k(at) {
-                K::MemberExpression => {
-                    let property = tree.field(at, F::Property)?;
-                    names.push(tree.text(property));
-                }
-                K::SubscriptExpression => names.clear(),
-                _ => break,
-            }
-            at = tree.unparenthesized(tree.field(at, F::Object)?);
-        }
-        if !self.global_receiver(at) {
-            return None;
-        }
-        names.reverse();
-        Some(global_path(names))
-    }
-
-    /// The unknown path `()` that a node gives: code that it runs, or a `this` that can be the
-    /// global object and escapes.
-    fn opaque_path(&self, node: Node<'t>) -> Option<Vec<String>> {
-        let tree = self.tree;
-        let escaped = self.global_receiver(node) && tree.script_escape(node);
-        (escaped || tree.runs_code(node)).then(Vec::new)
     }
 
     /// The target of an assignment, unless the object that it writes into is a call.
@@ -191,8 +144,10 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let mut targets = self.targets.iter().peekable();
         for node in tree.nodes.iter().copied() {
             found.writes.extend(tree.declaration_write(node));
-            found.paths.extend(self.opaque_path(node));
+            found.check(self.node_write(node), tree.span(node));
             while let Some((_, target)) = targets.next_if(|(owner, _)| owner.id() == node.id()) {
+                found.check(self.global_write(*target), tree.span(node));
+                found.check(self.changed_global(*target), tree.span(node));
                 self.declared_target(node, *target, &mut found);
             }
             if let Some((span, object)) = self.published_object(node) {
@@ -209,6 +164,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             writes: unique(found.writes),
             paths: unique(found.paths),
             top_level_paths: unique(found.top_level),
+            checked: unique(found.checked),
         }
     }
 }
