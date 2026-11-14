@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-512 | [The core compares the symbol part of a UML target when the run needs it](ad-512-the-core-compares-the-symbol-part-of-a-uml-target-when-the-run-needs-it.md) |
 | AD-506 | [A forbidden SDK library is no reference outside the namespace](ad-506-a-forbidden-sdk-library-is-no-reference-outside-the-namespace.md) |
 | AD-500 | [A stated profile limit holds only the rules that read it](ad-500-a-stated-profile-limit-holds-only-the-rules-that-read-it.md) |
 | AD-498 | [The report page is short and has no dump of the frame](ad-498-the-report-page-is-short-and-has-no-dump-of-the-frame.md) |

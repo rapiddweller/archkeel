@@ -23,9 +23,9 @@ use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
 use archkeel_facts::envelope::{
-    ConstructSupport, Dirty, Facts, Layout, PairGapDrop, ProfileLimits, RequirementState, Role,
-    Runtime as RuntimeFact,
+    ConstructSupport, Dirty, Facts, ProfileLimits, RequirementState, Role, Runtime as RuntimeFact,
 };
+use archkeel_facts::profile_traits::{Layout, PairGapDrop};
 use archkeel_facts::sections::{GapFact, Section};
 
 use crate::coverage::data_of;
@@ -74,6 +74,10 @@ pub(crate) struct Observed {
     pub(crate) cycle_scope: bool,
     /// The language name of the profile, as a UML target entity names it (AD-494).
     pub(crate) language: &'static str,
+    /// The profile keeps a type namespace apart from a value namespace (AD-512).
+    pub(crate) namespaces: bool,
+    /// The collector of the profile states symbol facts (AD-512).
+    pub(crate) symbol_facts: bool,
     /// Whether the host drops an allowed pair gap of the profile (slice S7).
     pub(crate) pair_gap_drop: PairGapDrop,
     /// The host can accept a dependency scope proof from the runtime of the reply (AD-418).
@@ -157,7 +161,9 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
         inventory_complete: inventory_complete(facts),
         layout: facts.profile.layout(),
         cycle_scope: archkeel_facts::envelope::cycle::proves_cycle_scope(facts.profile),
-        language: facts.profile.language(),
+        language: facts.profile.language_name(),
+        namespaces: facts.profile.separates_type_namespace(),
+        symbol_facts: facts.profile.symbol_facts(),
         pair_gap_drop: facts.profile.pair_gap_drop(),
         scope_receipt: facts.runtime.carries_scope_proof(),
         owned_files: facts

@@ -223,6 +223,13 @@ impl Sites {
     fn note_names(&mut self, cx: &Cx, visit: &Visit, declared: bool) {
         let node = visit.node;
         let start = node.start_byte();
+        let named = matches!(visit.kind, K::Identifier | K::TypeIdentifier);
+        let scope = named
+            .then(|| crate::site_local::declared_in(cx, node, visit.stack))
+            .flatten();
+        if let Some(range) = scope {
+            self.names.local(range, Text::of(node));
+        }
         match visit.kind {
             K::Identifier if declared => self.names.declared(start, Text::of(node)),
             K::VariableDeclarator => {

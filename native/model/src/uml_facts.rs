@@ -26,20 +26,41 @@ pub(crate) enum Assessed {
     Unknown(String),
 }
 
-/// The module and import facts that the comparison reads.
+/// The facts that the comparison reads: the modules, the imports and the symbol table.
 pub(crate) struct Facts<'m> {
     pub(crate) model: &'m Model,
     pub(crate) language: &'static str,
     /// The qualified names of the module entities of the target: the modules that it reads.
     pub(crate) read: &'m [&'m str],
+    /// The profile keeps a type namespace apart from a value namespace (AD-512).
+    pub(crate) namespaces: bool,
 }
 
 impl<'m> Facts<'m> {
     pub(crate) fn of(model: &'m Model, read: &'m [&'m str]) -> Self {
+        let observed = model.graph().observed();
         Facts {
             model,
-            language: model.graph().observed().language,
+            language: observed.language,
             read,
+            namespaces: observed.namespaces,
+        }
+    }
+
+    /// The symbol table of the run, or the cause that it decides nothing (AD-512).
+    pub(crate) fn symbols(&self) -> Result<&'m crate::symbols::Symbols, String> {
+        if !self.model.graph().observed().symbol_facts {
+            return Err(format!(
+                "the {} collector states no symbol facts",
+                self.language
+            ));
+        }
+        let Some(table) = self.model.graph().symbols() else {
+            return Err("the run has no symbol table".to_owned());
+        };
+        match &table.broken {
+            Some(why) => Err(format!("the symbol facts are not consistent: {why}")),
+            None => Ok(table),
         }
     }
 

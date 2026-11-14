@@ -17,7 +17,8 @@
 
 use std::collections::{HashMap, HashSet};
 
-use archkeel_facts::envelope::{Facts, Target, TargetMarks};
+use archkeel_facts::envelope::{Facts, Target};
+use archkeel_facts::profile_traits::TargetMarks;
 use archkeel_facts::sections::{ImportFact, Section};
 use archkeel_facts::vocab::ResolutionDimension;
 use archkeel_facts::Record;

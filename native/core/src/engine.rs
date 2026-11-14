@@ -8,7 +8,7 @@
 
 use archkeel_contract::policy::ContractTree;
 use archkeel_contract::Contract;
-use archkeel_model::{Graph, Input, Model, ModelTree, Reason, Settings};
+use archkeel_model::{Graph, Input, Model, ModelTree, Needs, Reason, Settings};
 use archkeel_store::Ingested;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -186,11 +186,17 @@ impl Engine {
             .contract
             .as_ref()
             .and_then(|usable| usable.tree.as_ref());
+        let needs = self
+            .contract
+            .as_ref()
+            .map(Usable::needs)
+            .unwrap_or_default();
         let (reply, settings) = (&self.reply, &self.settings);
         let derivations = &mut self.derivations;
         let derived = self.derived.get_or_insert_with(|| {
             *derivations += 1;
-            derive_model(contract, tree, reply.as_ref(), settings.as_ref())
+            let inputs = (reply.as_ref(), settings.as_ref());
+            derive_model(contract, tree, inputs, &needs)
         });
         (contract, derived)
     }
@@ -215,11 +221,11 @@ impl Engine {
 fn derive_model(
     contract: Option<&Contract>,
     tree: Option<&ContractTree>,
-    reply: Option<&Ingested>,
-    settings: Option<&Settings>,
+    (reply, settings): (Option<&Ingested>, Option<&Settings>),
+    needs: &Needs,
 ) -> Derived {
     let graph = match (reply, settings) {
-        (Some(reply), Some(settings)) => Graph::derive(reply, settings.clone()),
+        (Some(reply), Some(settings)) => Graph::derive_for(reply, settings.clone(), needs),
         (None, _) => Err(Reason::MissingInput(Input::Reply)),
         (_, None) => Err(Reason::MissingInput(Input::Settings)),
     };

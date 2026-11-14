@@ -34,6 +34,8 @@ pub(crate) struct Names {
     declared: Vec<Entry>,
     /// The names of variable declarators and the left sides of assignments, in document order.
     written: Vec<Entry>,
+    /// The names that a scope below the module declares, with the range of that scope.
+    local: Vec<(usize, usize, Text)>,
 }
 
 impl Names {
@@ -60,6 +62,11 @@ impl Names {
     /// A declarator or an assignment that names an identifier.
     pub(crate) fn written(&mut self, start: usize, name: Text) {
         self.written.push((start, name));
+    }
+
+    /// A name that a declaration below the module binds in the scope `from..to` (AD-512).
+    pub(crate) fn local(&mut self, range: (usize, usize), name: Text) {
+        self.local.push((range.0, range.1, name));
     }
 
     /// The names of the entries that start in `range`.
@@ -98,6 +105,8 @@ impl Names {
 pub(crate) struct NameIndex {
     declared: HashMap<String, Vec<usize>>,
     written: HashMap<String, Vec<usize>>,
+    /// The scopes below the module that declare a name: `(from, to, widest end so far)`, by from.
+    local: HashMap<String, Vec<(usize, usize, usize)>>,
     /// For each scope, the head of its list of body ranges and of parameter ranges.
     body: Vec<Option<u32>>,
     parameters: Vec<Option<u32>>,
@@ -115,6 +124,21 @@ impl Names {
         ] {
             for (start, name) in list {
                 target.entry(name.decode(data)).or_default().push(*start);
+            }
+        }
+        for (from, to, name) in &self.local {
+            index
+                .local
+                .entry(name.decode(data))
+                .or_default()
+                .push((*from, *to, *to));
+        }
+        for ranges in index.local.values_mut() {
+            ranges.sort_unstable();
+            let mut widest = 0;
+            for range in ranges.iter_mut() {
+                widest = widest.max(range.1);
+                range.2 = widest;
             }
         }
         for scope in &self.scopes {
@@ -162,6 +186,35 @@ impl NameIndex {
             next = rest;
         }
         false
+    }
+
+    /// How many times the nearest scope of `chain` writes `name`: a declarator or an assignment.
+    /// A name that it writes more than once does not keep the value of its first write (AD-512).
+    pub(crate) fn writes(&self, chain: Option<u32>, name: &str) -> usize {
+        let range = chain
+            .and_then(|at| self.body.get(at as usize).copied().flatten())
+            .and_then(|head| self.ranges.get(head as usize));
+        let (Some((from, to, _)), Some(starts)) = (range, self.written.get(name)) else {
+            return 0;
+        };
+        let first = starts.partition_point(|start| start < from);
+        let last = starts.partition_point(|start| start < to);
+        last.saturating_sub(first)
+    }
+
+    /// True when a scope below the module declares `name` and holds the byte `at` (AD-512).
+    pub(crate) fn locally(&self, name: &str, at: usize) -> bool {
+        let Some(ranges) = self.local.get(name) else {
+            return false;
+        };
+        let end = ranges.partition_point(|range| range.0 <= at);
+        ranges
+            .get(..end)
+            .unwrap_or(&[])
+            .iter()
+            .rev()
+            .take_while(|range| range.2 > at)
+            .any(|range| at < range.1)
     }
 
     /// `name in site.shadowed_names` for the site whose chain ends at `chain`.

@@ -15,7 +15,7 @@ use std::collections::BTreeMap;
 
 use archkeel_contract::policy::{assemble_tree, ContractTree};
 use archkeel_contract::{head_of, kind_of, uml_target_id, Contract, ParsedContract, RuleKind};
-use archkeel_model::{Reason, UmlGap, UmlTarget, Unsupported};
+use archkeel_model::{Need, Needs, Reason, UmlGap, UmlTarget, Unsupported};
 
 /// The most inside contracts of one request. The reference engine has no bound (AD-379).
 pub(crate) const MAX_INSIDE_FILES: usize = 1024;
@@ -74,6 +74,15 @@ pub(crate) struct Usable {
     pub(crate) inside: Vec<(String, RuleKind)>,
     /// The UML target row input when a contract of the tree has `declarations.uml`.
     pub(crate) uml: Option<UmlTarget>,
+}
+
+impl Usable {
+    /// What the run of this contract tree needs beyond the module and import facts (AD-512).
+    /// This is the one owner of the needs of a run: a new reason is one more `Need`.
+    pub(crate) fn needs(&self) -> Needs {
+        let target = matches!(self.uml, Some(UmlTarget::Compare(_)));
+        Needs::from_reasons(target.then_some(Need::UmlTarget))
+    }
 }
 
 /// The state of the contract input, and the contract when the core can use it.

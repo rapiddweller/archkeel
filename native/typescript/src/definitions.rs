@@ -254,7 +254,8 @@ impl Defs {
         let (peer, opaque) = uncollected(cx, node, kind, stack, seen);
         self.omitted.extend(peer);
         self.opaque |= opaque;
-        if kind != K::VariableDeclarator {
+        // A constant of a namespace is no constant of the file (AD-512).
+        if kind != K::VariableDeclarator || seen & INSIDE_NAMESPACE != 0 {
             return;
         }
         let module_level = top_of_file(stack, 2);
