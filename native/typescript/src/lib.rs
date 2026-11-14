@@ -66,6 +66,7 @@ mod script_effects;
 mod script_environment;
 mod script_factory;
 mod script_flags;
+mod script_forms;
 mod script_global;
 mod script_index;
 mod script_names;

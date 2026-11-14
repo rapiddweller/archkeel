@@ -38,7 +38,8 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         }
         let unknown = self.runs_code(node)
             || self.injects_code(node)
-            || (self.window_leaf(node) && self.escapes(node, true));
+            || (self.window_leaf(node) && self.escapes(node, true))
+            || self.open_form(node);
         unknown.then_some(Written::Unknown)
     }
 

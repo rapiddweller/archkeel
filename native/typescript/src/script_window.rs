@@ -35,7 +35,7 @@ pub(crate) const TIMERS: [&str; 3] = ["setTimeout", "setInterval", "setImmediate
 
 /// What binds `this`, as far as a write through it is concerned.
 #[derive(PartialEq, Eq)]
-enum Receiver {
+pub(crate) enum Receiver {
     /// The top level of the file.
     Top,
     /// A plain function or an object method: a caller can give it the window.
@@ -130,7 +130,8 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 match string_text(self, index) {
                     Some(name) => Some(Written::Name(name)),
                     None if index.kind() == "number" => None,
-                    None => self.window_value(object).then_some(Written::Unknown),
+                    None => (self.window_value(object) || self.open_key_write(object))
+                        .then_some(Written::Unknown),
                 }
             }
             _ => None,
@@ -297,7 +298,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// What binds the `this` at a node. A computed name of a class member is read outside it.
-    fn receiver(&self, this: Node<'t>) -> Receiver {
+    pub(crate) fn receiver(&self, this: Node<'t>) -> Receiver {
         let tree = self.tree;
         let mut skip_member = false;
         for node in tree.ancestors(this) {
