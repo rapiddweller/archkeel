@@ -121,3 +121,25 @@ fn an_unrelated_name_is_no_site() {
         assert!(kinds(source).is_empty(), "{source}: {:?}", kinds(source));
     }
 }
+
+#[test]
+fn only_the_inert_names_of_importlib_metadata_are_no_site() {
+    let inert = "from importlib.metadata import PackageNotFoundError, version\ntry:\n    v = version('x')\nexcept PackageNotFoundError:\n    v = None\n";
+    assert!(kinds(inert).is_empty(), "{:?}", kinds(inert));
+    assert!(kinds("from importlib.metadata import version as v\nv('x')\n").is_empty());
+    for source in [
+        "from importlib.metadata import entry_points\n",
+        "from importlib.metadata import distribution\n",
+        "from importlib.metadata import metadata\n",
+        "from importlib.metadata import files\n",
+        "from importlib.metadata import *\n",
+        "from importlib import metadata\nmetadata.version('x')\n",
+        "import importlib.metadata as md\nmd.version('x')\n",
+        "import importlib.metadata\nimportlib.metadata.version('x')\n",
+        "from importlib.metadata import version, entry_points\n",
+        "from importlib.metadata import version\nversion.__globals__\n",
+        "from importlib.metadata import version\nversion.inner\n",
+    ] {
+        assert!(has(source, DYNAMIC), "{source}");
+    }
+}

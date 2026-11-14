@@ -133,8 +133,20 @@ pub(super) fn sites(tree: &ModModule, proof: Proof) -> Vec<Site> {
     walk.found
 }
 
+/// The names of a door module that cannot import a module by a name given at run time (AD-472).
+/// `importlib.metadata.version` reads the version from the metadata files of an installed
+/// distribution, and `PackageNotFoundError` is an exception class. A reference to one of these
+/// exact names is no gap; any name below it, and each other name of the module, still is.
+const INERT: [&str; 2] = [
+    "importlib.metadata.version",
+    "importlib.metadata.PackageNotFoundError",
+];
+
 /// The gap of a qualified name: a door, the import state, or a name below one of them.
 fn hazard(name: &str) -> Option<&'static str> {
+    if INERT.contains(&name) {
+        return None;
+    }
     let under = |entry: &&str| {
         name == *entry
             || name

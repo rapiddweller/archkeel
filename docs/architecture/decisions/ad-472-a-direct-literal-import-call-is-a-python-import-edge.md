@@ -18,7 +18,11 @@
    `__loader__` and `__spec__`, the attributes `__self__`, `__globals__`, `__subclasses__`,
    `__loader__` and `__spec__` of any value, any dunder attribute of a door module, and a string
    that names a door (`"__import__"`, `"import_module"`, `"__builtins__"`). So
-   `importlib.metadata.version("x")` is a gap too.
+   `importlib.metadata.version("x")` is a gap too. A `from importlib.metadata import` of only
+   inert names is no gap: `version` reads the version from the metadata files of an installed
+   distribution, and `PackageNotFoundError` is an exception class. Neither imports a module by a
+   name given at run time. Each other name, a star import, an alias of the module and the
+   attribute form stay gaps.
 3. `from importlib import import_module` stays a door. A relative name, a `package` argument, a
    computed argument, an alias, a value use and `getattr` stay gaps. A literal call record is
    never `under_type_checking`, also in an `if TYPE_CHECKING:` body: the guard proof covers
