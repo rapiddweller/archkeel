@@ -15,13 +15,10 @@ use std::collections::HashMap;
 use archkeel_contract::{EntityKind, ModifierKind, ParameterKind, RelationshipKind};
 use archkeel_contract::{ResolutionKind, VisibilityBasis, VisibilityKind};
 use archkeel_facts::data::{CallableData, ClassData, ValueData};
-use archkeel_facts::envelope::Facts;
 use archkeel_facts::nested::{DefinitionContext, Parameter, VisibilityDetail};
 use archkeel_facts::nullable::Nullable;
-use archkeel_facts::{FactData, Record, Section, SymbolFact};
-
-use crate::ids::{ModuleId, Table};
-use crate::modules::Module;
+use archkeel_facts::vocab::Status;
+use archkeel_facts::{FactData, Record, SymbolFact};
 
 /// The visibility of an entity, as the record states it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -102,30 +99,6 @@ pub(crate) fn module_id(name: &str) -> String {
 }
 
 impl Symbols {
-    /// The table of the facts of a reply over its modules.
-    pub(crate) fn derive(facts: &Facts, modules: &Table<ModuleId, Module>) -> Symbols {
-        let mut table = Symbols::default();
-        for (_, module) in modules.iter() {
-            table.push(Entity::named(
-                module_id(module.name()),
-                EntityKind::Module,
-                module.name(),
-                vec![module.evidence().to_owned()],
-            ));
-        }
-        let records: &[Record<SymbolFact>] = facts
-            .sections
-            .iter()
-            .find_map(|section| match section {
-                Section::Symbols(records) => Some(records.as_slice()),
-                _ => None,
-            })
-            .unwrap_or(&[]);
-        table.symbols(records);
-        crate::symbol_sites::sites(&mut table, facts, records);
-        table
-    }
-
     /// Name a refusal of 4.0.1; the first one stays.
     pub(crate) fn refuse(&mut self, why: &str) {
         self.broken.get_or_insert_with(|| why.to_owned());
@@ -195,7 +168,27 @@ impl Symbols {
         })
     }
 
-    fn symbols(&mut self, records: &[Record<SymbolFact>]) {
+    /// The parent of a symbol without a lexical parent id: the one definition of its `parent`
+    /// name, else its module.
+    fn named_parent(
+        &mut self,
+        record: &Record<SymbolFact>,
+        ids_of: &HashMap<&str, Vec<&str>>,
+    ) -> Option<String> {
+        let parents = parent_name(&record.data)
+            .and_then(|name| ids_of.get(name))
+            .map_or(&[][..], Vec::as_slice);
+        if parents.len() > 1 {
+            self.refuse("an ambiguous lexical parent has no definition id");
+        }
+        match parents.first() {
+            Some(id) => Some((*id).to_owned()),
+            None => record.data.fields().module.flatten().map(module_id),
+        }
+    }
+
+    /// Add the entities of the symbol records.
+    pub(crate) fn symbols(&mut self, records: &[Record<SymbolFact>]) {
         let mut ids_of: HashMap<&str, Vec<&str>> = HashMap::new();
         for record in records {
             if let Some(name) = record.data.fields().qualified_name {
@@ -207,7 +200,6 @@ impl Symbols {
                 self.refuse("a symbol record has no entity kind");
                 continue;
             };
-            let fields = record.data.fields();
             let lexical = match &record.data {
                 SymbolFact::Class(data) => data.lexical_parent_id.clone(),
                 SymbolFact::Function(data) | SymbolFact::Method(data) => {
@@ -217,18 +209,7 @@ impl Symbols {
             };
             entity.parent = match lexical {
                 Some(id) => Some(id.as_str().to_owned()),
-                None => {
-                    let parents = parent_name(&record.data)
-                        .and_then(|name| ids_of.get(name))
-                        .map_or(&[][..], Vec::as_slice);
-                    if parents.len() > 1 {
-                        self.refuse("an ambiguous lexical parent has no definition id");
-                    }
-                    match parents.first() {
-                        Some(id) => Some((*id).to_owned()),
-                        None => fields.module.flatten().map(module_id),
-                    }
-                }
+                None => self.named_parent(record, &ids_of),
             };
             let members = match &record.data {
                 SymbolFact::Class(data) => attributes(record, data, &entity),
@@ -455,4 +436,14 @@ fn attributes(record: &Record<SymbolFact>, data: &ClassData, owner: &Entity) -> 
             member
         })
         .collect()
+}
+
+/// The resolution of a recorded status, or `None` when 4.0.1 has none for it.
+pub(crate) fn resolution(status: Status) -> Option<ResolutionKind> {
+    match status {
+        Status::Resolved => Some(ResolutionKind::Resolved),
+        Status::PartiallyResolved => Some(ResolutionKind::Partial),
+        Status::Unresolved => Some(ResolutionKind::Unresolved),
+        Status::Unknown | Status::Decided => None,
+    }
 }

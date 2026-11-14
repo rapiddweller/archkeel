@@ -67,7 +67,7 @@ impl Graph {
         let facts = admitted(reply, &settings)?;
         let mut graph = Self::from_facts(facts, settings)?;
         if needs.symbols() && graph.observed.symbol_facts {
-            graph.symbols = Some(crate::symbols::Symbols::derive(facts, &graph.modules));
+            graph.symbols = Some(crate::symbol_table::derive(facts, &graph.modules));
         }
         Ok(graph)
     }

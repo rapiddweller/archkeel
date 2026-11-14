@@ -15,7 +15,7 @@ use archkeel_facts::ids::EvidenceId;
 use archkeel_facts::nested::{Construction, ResultBinding};
 use archkeel_facts::vocab::Status;
 
-use crate::symbol_sites::resolution;
+use crate::symbols::resolution;
 use crate::symbols::{evidence, Edge, Entity, Symbols};
 
 /// `_value_bindings`: the binding entities of the results of one call, with their target kind.

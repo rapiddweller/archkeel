@@ -11,12 +11,13 @@
 //! is a referenced entity, which a defined target never matches.
 
 use archkeel_contract::{EntityKind, RelationshipKind, ResolutionKind};
-use archkeel_facts::data::{CallData, ReferenceData};
+use archkeel_facts::data::{CallData, ClassData, ReferenceData};
 use archkeel_facts::envelope::Facts;
 use archkeel_facts::nullable::Nullable;
 use archkeel_facts::vocab::Status;
 use archkeel_facts::{CallFact, Record, ReferenceFact, Section, SymbolFact};
 
+use crate::symbols::resolution;
 use crate::symbols::{evidence, parse, Edge, Entity, Symbols};
 
 /// The parts of one site record that `_site_relationship` reads.
@@ -47,26 +48,31 @@ pub(crate) fn sites(table: &mut Symbols, facts: &Facts, symbols: &[Record<Symbol
     }
     for record in symbols {
         if let SymbolFact::Class(data) = &record.data {
-            let mut resolved = true;
-            for base in &data.base_declarations {
-                let Some(kind) = parse::<RelationshipKind>(base.relationship_kind.as_str()) else {
-                    table.refuse("a base has no relationship kind");
-                    continue;
-                };
-                resolved &= base.status == Status::Resolved;
-                let site = Site {
-                    kind,
-                    source: record.id.as_str().to_owned(),
-                    names: &base.targets,
-                    status: base.status,
-                    count: Some(base.candidate_count),
-                    evidence: evidence(&base.evidence_ids),
-                };
-                edge(table, site);
-            }
-            table.bases.insert(record.id.as_str().to_owned(), resolved);
+            bases(table, record, data);
         }
     }
+}
+
+/// The base edges of one class, and whether each of its bases is resolved.
+fn bases(table: &mut Symbols, record: &Record<SymbolFact>, data: &ClassData) {
+    let mut resolved = true;
+    for base in &data.base_declarations {
+        let Some(kind) = parse::<RelationshipKind>(base.relationship_kind.as_str()) else {
+            table.refuse("a base has no relationship kind");
+            continue;
+        };
+        resolved &= base.status == Status::Resolved;
+        let site = Site {
+            kind,
+            source: record.id.as_str().to_owned(),
+            names: &base.targets,
+            status: base.status,
+            count: Some(base.candidate_count),
+            evidence: evidence(&base.evidence_ids),
+        };
+        edge(table, site);
+    }
+    table.bases.insert(record.id.as_str().to_owned(), resolved);
 }
 
 fn call(table: &mut Symbols, record: &Record<CallFact>) {
@@ -253,14 +259,4 @@ fn edge(table: &mut Symbols, site: Site<'_>) {
         },
         evidence: site.evidence,
     });
-}
-
-/// The resolution of a recorded status, or `None` when 4.0.1 has none for it.
-pub(crate) fn resolution(status: Status) -> Option<ResolutionKind> {
-    match status {
-        Status::Resolved => Some(ResolutionKind::Resolved),
-        Status::PartiallyResolved => Some(ResolutionKind::Partial),
-        Status::Unresolved => Some(ResolutionKind::Unresolved),
-        Status::Unknown | Status::Decided => None,
-    }
 }

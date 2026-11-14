@@ -81,7 +81,7 @@ impl Usable {
     /// This is the one owner of the needs of a run: a new reason is one more `Need`.
     pub(crate) fn needs(&self) -> Needs {
         let target = matches!(self.uml, Some(UmlTarget::Compare(_)));
-        Needs::of(target.then_some(Need::UmlTarget))
+        Needs::from_reasons(target.then_some(Need::UmlTarget))
     }
 }
 

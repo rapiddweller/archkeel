@@ -33,7 +33,7 @@ pub struct Needs(BTreeSet<Need>);
 
 impl Needs {
     /// The needs of a run, from its reasons.
-    pub fn of(needs: impl IntoIterator<Item = Need>) -> Self {
+    pub fn from_reasons(needs: impl IntoIterator<Item = Need>) -> Self {
         Needs(needs.into_iter().collect())
     }
 

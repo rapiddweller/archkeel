@@ -57,7 +57,7 @@ impl Profile {
     }
 
     /// The language name that a UML target entity gives for a fact of this profile (AD-494).
-    pub fn language(self) -> &'static str {
+    pub fn language_name(self) -> &'static str {
         match self {
             Profile::Python => "python",
             Profile::Dart => "dart",
@@ -68,7 +68,7 @@ impl Profile {
 
     /// True when a name of this profile can be a type and a value at the same time, so a UML
     /// target entity of a type kind never matches a value and the other way (AD-502).
-    pub fn namespaces(self) -> bool {
+    pub fn separates_type_namespace(self) -> bool {
         match self {
             Profile::TypeScript => true,
             Profile::Python | Profile::Dart | Profile::Rust => false,
