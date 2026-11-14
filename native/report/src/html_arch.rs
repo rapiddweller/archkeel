@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::cases::Names;
 use super::frame::{Frame, Topology};
-use super::markup::{anchor, count, escape, status_icon};
+use super::markup::{count, escape, status_icon};
 use super::places::{Kind, Places};
 
 const MAP_COMPONENTS: usize = 12;
@@ -271,9 +271,8 @@ aria-label=\"Component map: {}, {}.\"><defs>{}</defs>",
                 String::new()
             };
             svg.push_str(&format!(
-                "<a href=\"#{}\"><g class=\"ak-node{}\"><title>{name}{}</title><rect class=\"ak-node__box\" x=\"{x}\" y=\"{y}\" width=\"{NODE_W}\" height=\"{NODE_H}\" rx=\"8\"/>\
-<text class=\"ak-node__title ui\" x=\"{}\" y=\"{}\">{name}</text><text class=\"ak-node__path code\" x=\"{}\" y=\"{}\">{modules}</text>{tag}</g></a>",
-                anchor("c-", id),
+                "<g class=\"ak-node{}\"><title>{name}{}</title><rect class=\"ak-node__box\" x=\"{x}\" y=\"{y}\" width=\"{NODE_W}\" height=\"{NODE_H}\" rx=\"8\"/>\
+<text class=\"ak-node__title ui\" x=\"{}\" y=\"{}\">{name}</text><text class=\"ak-node__path code\" x=\"{}\" y=\"{}\">{modules}</text>{tag}</g>",
                 if fail { " ak-node--fail" } else { "" },
                 if fail { ": FAIL" } else { "" },
                 x + 16,
@@ -311,8 +310,7 @@ aria-label=\"Component map: {}, {}.\"><defs>{}</defs>",
                 String::new()
             };
             body.push_str(&format!(
-                "<tr><th scope=\"row\"><a href=\"#{}\"><span class=\"rp-p\">{}</span> {}</a>{state}</th><td class=\"rp-n\">{}</td>",
-                anchor("c-", from),
+                "<tr><th scope=\"row\"><span class=\"rp-p\">{}</span> {}{state}</th><td class=\"rp-n\">{}</td>",
                 index[from],
                 escape(names.name(from)),
                 self.modules.get(from).copied().unwrap_or(0)
@@ -354,7 +352,13 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
             picture.matrix(names)
         )
     } else {
-        picture.matrix(names)
+        // A matrix of many components is a table to look up, not a picture: it is folded.
+        format!(
+            "<details class=\"rp-fold\"><summary class=\"caption\">Matrix of {}, {}: a row depends on the marked columns</summary>{}</details>",
+            count(picture.order.len(), "component"),
+            count(picture.drawn(), "dependency"),
+            picture.matrix(names)
+        )
     };
     let listed = picture.topology.component_edges.len();
     let cut = if totals.components > picture.order.len() || totals.component_edges > listed {

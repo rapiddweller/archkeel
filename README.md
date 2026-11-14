@@ -19,9 +19,10 @@
 [![MIT](https://img.shields.io/badge/license-MIT-a8a8ab?labelColor=141414)](https://github.com/rapiddweller/archkeel/blob/main/LICENSE)
 
 **See it live.** ArchKeel checks itself, and these reports follow the current `main`:
+[the product, two parts](https://rapiddweller.github.io/archkeel/) ·
 [the Rust core](https://rapiddweller.github.io/archkeel/self/core.html) ·
 [the Python shell](https://rapiddweller.github.io/archkeel/self/shell.html) ·
-[the fixture showcase](https://rapiddweller.github.io/archkeel/).
+[the fixture showcase](https://rapiddweller.github.io/archkeel/showcase/index.html).
 The self reports show each FAIL and each UNKNOWN row as it is. Each one has its cause pinned in the repository.
 The showcase has Python, Dart and TypeScript projects; the Rust core is the first self report. Every showcase row is UNKNOWN today: most name a gap in the contract checks, and some name a rule kind that the core does not read yet.
 

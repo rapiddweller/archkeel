@@ -5,6 +5,7 @@
 //! The verdict and the next steps (AD-496). The heading `<h1>Verdict: STATUS</h1>` is fixed text
 //! that the shell checks; the card shows the same status and the counts of the frame.
 
+use super::causes;
 use super::frame::Frame;
 use super::markup::{count, escape, status_icon};
 use super::places::Places;
@@ -59,9 +60,11 @@ fn next(frame: &Frame, places: &Places) -> String {
                 ));
             }
             if frame.rules_with("UNKNOWN") > 0 {
+                let held = causes::grouped(frame).len();
                 steps.push(format!(
-                    "Close the gaps behind the {} so that the run can decide them.",
-                    count(frame.rules_with("UNKNOWN"), "unknown rule")
+                    "Close the gaps behind the {}: {} hold them.",
+                    count(frame.rules_with("UNKNOWN"), "unknown rule"),
+                    count(held, "cause")
                 ));
             } else if status == "UNKNOWN" {
                 // No rule row is UNKNOWN: the run itself is open (a refused contract or scan).
@@ -85,6 +88,36 @@ fn next(frame: &Frame, places: &Places) -> String {
     )
 }
 
+/// One line under the verdict: the three largest causes of the UNKNOWN rules, text only.
+fn top_causes(frame: &Frame) -> String {
+    let all = causes::grouped(frame);
+    if all.is_empty() {
+        return String::new();
+    }
+    let shown: Vec<String> = all
+        .iter()
+        .take(3)
+        .map(|cause| {
+            format!(
+                "{}: {}",
+                count(cause.rules.len(), "rule"),
+                escape(&causes::title(cause))
+            )
+        })
+        .collect();
+    let more = all.len().saturating_sub(3);
+    let tail = if more > 0 {
+        format!("; and {}", count(more, "more cause"))
+    } else {
+        String::new()
+    };
+    format!(
+        "<p class=\"body-sm ak-verdict__note\">Unknown because of {}. {}{tail}.</p>",
+        count(all.len(), "cause"),
+        shown.join("; ")
+    )
+}
+
 /// The verdict card and the next steps: the first block of the page.
 pub(super) fn section(frame: &Frame, places: &Places) -> String {
     let status = frame.status.as_str();
@@ -97,12 +130,13 @@ pub(super) fn section(frame: &Frame, places: &Places) -> String {
     format!(
         "<div class=\"rp-head\"><h1>Verdict: {}</h1><section class=\"ak-verdict ak-verdict--{state}\" aria-label=\"Verdict\">\
 <span class=\"ak-badge ak-badge--{state} tag\">{}{}</span><h2 class=\"h2 ak-verdict__title\">{}</h2>\
-<p class=\"body-sm ak-verdict__note\">{}</p><dl class=\"ak-verdict__stats\">{}{}{}</dl></section>{}</div>\n",
+<p class=\"body-sm ak-verdict__note\">{}</p>{}<dl class=\"ak-verdict__stats\">{}{}{}</dl></section>{}</div>\n",
         escape(status),
         status_icon(status),
         escape(status),
         escape(&title(frame, places)),
         note(status),
+        top_causes(frame),
         stat("PASS", frame.rules_with("PASS")),
         stat("FAIL", frame.rules_with("FAIL")),
         stat("UNKNOWN", frame.rules_with("UNKNOWN")),

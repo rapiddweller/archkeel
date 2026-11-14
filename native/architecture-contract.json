@@ -993,7 +993,8 @@
         "native.archkeel_typescript_collector.options_target",
         "native.archkeel_typescript_collector.script_environment",
         "native.archkeel_typescript_collector.std_globals",
-        "native.archkeel_typescript_collector.test_sources"
+        "native.archkeel_typescript_collector.test_sources",
+        "native.archkeel_typescript_collector.unselected"
       ],
       "responsibilities": [
         "Select the input files: read the configuration, the options, the package manifests, the installed packages, the layers and the globs."

@@ -6,6 +6,7 @@ reads the file, as a user does."""
 
 import base64
 import hashlib
+import html
 import re
 from pathlib import Path
 
@@ -78,7 +79,8 @@ def test_the_self_run_page_shows_one_block_for_each_of_its_seven_cycles(self_pag
     # Each step names a file and a line of the frame: `path.rs:line`.
     cycle = self_page.split('id="x1"', 1)[1].split("</article>", 1)[0]
     assert re.search(r'<span class="rp-code">native/[a-z_/-]+\.rs:\d+</span>', cycle)
-    assert "Step 2 returns to step 1." in cycle or "returns to step 1" in cycle
+    assert re.search(r"Step \d+ imports .*, where step 1 starts\.", cycle)
+    assert "members are in this cycle. Shortest closed path shown:" in cycle
     # The count comes from the page, which copies the frame: more than 12 components draw a matrix.
     count = re.search(r"(\d+) components, \d+ modules", self_page)
     assert count and int(count.group(1)) > 12 and 'class="rp-mx"' in self_page
@@ -135,3 +137,46 @@ def test_the_design_system_copy_has_its_pinned_bytes(name: str) -> None:
 
 def test_the_local_style_has_no_rule_that_no_page_uses() -> None:
     assert "rp-ring" not in (ASSETS / "report.css").read_text()
+
+
+def visible_text(page: str) -> str:
+    """The text that a reader sees: no style, no script, the body of a closed fold left out."""
+    page = re.sub(r"<style>.*?</style>|<script>.*?</script>", "", page, flags=re.S)
+    fold = r"<details(?![^>]*\bopen\b)[^>]*>\s*<summary[^>]*>(.*?)</summary>.*?</details>"
+    page = re.sub(fold, r"\1", page, flags=re.S)
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", page))).strip()
+
+
+WORD_BUDGET = 6_000
+
+
+def test_the_word_budget_of_the_core_self_page_and_no_json_block(self_page: str) -> None:
+    """The page is a report for people: its visible text stays short, and it holds no JSON dump.
+    Before (main at e65cbe009): 83,356 characters and 46,862 px."""
+    words = visible_text(self_page)
+    print(f"visible characters of the core self page: {len(words)}")
+    assert len(words) < WORD_BUDGET
+    assert (
+        "<pre" not in self_page
+        and '"kind":' not in self_page
+        and "&quot;kind&quot;" not in self_page
+    )
+
+
+@pytest.mark.parametrize("name", sorted(RUNS))
+def test_the_word_budget_and_the_links_hold_on_each_dogfood_page(
+    release_core: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, name: str
+) -> None:
+    folder, config, _ = RUNS[name]
+    root = ROOT / folder if folder else ROOT
+    _, text, _ = write_page(release_core, monkeypatch, root, config, tmp_path / "p.html")
+    assert len(visible_text(text)) < WORD_BUDGET and "<pre" not in text
+    ids = set(re.findall(r' id="([^"]+)"', text))
+    links = set(re.findall(r'href="#([^"]+)"', text))
+    assert not (links - ids), sorted(links - ids)[:5]
+
+
+def test_every_link_inside_the_core_self_page_has_its_target(self_page: str) -> None:
+    ids = set(re.findall(r' id="([^"]+)"', self_page))
+    links = re.findall(r'href="#([^"]+)"', self_page)
+    assert links and not (set(links) - ids), sorted(set(links) - ids)[:5]

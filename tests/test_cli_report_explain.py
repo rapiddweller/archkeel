@@ -85,16 +85,17 @@ def test_an_unknown_run_names_the_gaps_of_each_rule_and_the_rules_of_each_gap(
     other = holds["rules"][uml[0]]
     assert (other["kind"], other["total"], other["gaps"]) == ("other", 0, [])
     by_gap = {gap["id"]: gap for gap in holds["gaps"]}
-    assert holds["gaps_total"] == 68 and holds["gaps_holding"] == len(by_gap) == 68
+    # 68 collector gaps and 3 spec files that the TSConfig does not select (AD-488).
+    assert holds["gaps_total"] == 71 and holds["gaps_holding"] == len(by_gap) == 71
     for rule in gapped:
         held = holds["rules"][rule]
-        assert (held["kind"], held["total"], held["truncated"]) == ("coverage_gaps", 68, True)
+        assert (held["kind"], held["total"], held["truncated"]) == ("coverage_gaps", 71, True)
         assert len(held["gaps"]) == 20 and held["cause"] == frame["unknown_kinds"][rule]
         # Both directions agree: a gap that a rule lists lists that rule.
         assert all(rule in by_gap[gap]["rules"] for gap in held["gaps"])
     assert all(sorted(gap["rules"]) == gapped for gap in by_gap.values())
     assert all(gap["rules_total"] == 5 and not gap["truncated"] for gap in by_gap.values())
-    assert frame["scope"].endswith("68 coverage gaps")
+    assert frame["scope"].endswith("71 coverage gaps")
 
 
 def test_a_pair_gap_holds_only_the_rules_that_it_can_change(
