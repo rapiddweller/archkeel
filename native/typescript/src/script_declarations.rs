@@ -162,6 +162,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             while let Some((_, target)) = targets.next_if(|(owner, _)| owner.id() == node.id()) {
                 self.declared_target(node, *target, &mut found);
                 found.check(self.global_write(*target), tree.span(node));
+                found.check(self.method_key_write(*target), tree.span(node));
                 found.check(self.changed_global(*target), tree.span(node));
             }
             if let Some((span, object)) = self.published_object(node) {

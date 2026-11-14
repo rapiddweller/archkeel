@@ -13,18 +13,27 @@ use tree_sitter::Node;
 use crate::kinds::F;
 use crate::references::literal;
 use crate::script_syntax::Producer;
-use crate::script_window::Receiver;
+use crate::script_window::{Receiver, Written};
 
 /// The global objects that are no function and give no reflection (`Reflect` does): a computed
 /// call on them reaches no `Function`.
 const NAMESPACES: [&str; 5] = ["Math", "JSON", "Atomics", "Intl", "console"];
 
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
-    /// A write with a key that is not a literal on `this` of a class method: a caller can extract
-    /// the method and give it the window (AD-460).
-    pub(crate) fn open_key_write(&self, object: Node<'t>) -> bool {
-        let object = self.tree.cx.unwrapped(object);
-        object.kind() == "this" && self.receiver(object) == Receiver::Method
+    /// A write with a key that is no literal through `this` of a class method: a caller can
+    /// extract the method and give it the window (AD-460). Its place is the assignment target.
+    pub(crate) fn method_key_write(&self, target: Node<'t>) -> Option<Written> {
+        let tree = self.tree;
+        let target = tree.cx.unwrapped(target);
+        if target.kind() != "subscript_expression" {
+            return None;
+        }
+        let object = tree.cx.unwrapped(tree.field(target, F::Object)?);
+        let index = tree.field(target, F::Index)?;
+        let key =
+            index.kind() != "number" && crate::script_window::string_text(self, index).is_none();
+        let method = object.kind() == "this" && self.receiver(object) == Receiver::Method;
+        (key && method).then_some(Written::Unknown)
     }
 
     /// A node of an open form that writes an unknown name.

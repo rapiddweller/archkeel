@@ -136,8 +136,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 match string_text(self, index) {
                     Some(name) => Some(Written::Name(name)),
                     None if index.kind() == "number" => None,
-                    None => (self.window_value(object) || self.open_key_write(object))
-                        .then_some(Written::Unknown),
+                    None => self.window_value(object).then_some(Written::Unknown),
                 }
             }
             _ => None,
