@@ -400,7 +400,10 @@ fn the_uml_target_of_a_contract_is_an_unknown_row_with_its_cause() {
             .to_vec(),
     )));
     let row = crate::contract::uml_row(engine.usable(), "architecture-contract.json");
-    let row = row.map(|(id, gap)| format!("{id}: {}", Reason::Uml(gap)));
+    let row = row.map(|(id, target)| match target {
+        archkeel_model::UmlTarget::Gap(gap) => format!("{id}: {}", Reason::Uml(gap)),
+        archkeel_model::UmlTarget::Compare(_) => format!("{id}: compared"),
+    });
     assert_eq!(
         row.as_deref(),
         Some("UML-TARGET-a2e40c5592b1b06a: the UML target: it declares no entity, relationship or scope")
