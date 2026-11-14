@@ -10,6 +10,8 @@
 //! symbol, call, reference or binding, and the reply declares the sections `imports` and
 //! `unknowns` only.
 
+mod budget;
+mod config;
 mod edges;
 mod index;
 mod names;
@@ -33,8 +35,7 @@ use index::{Index, Kind};
 pub use names::{GapName, NamedGap};
 use names::{Gaps, Place};
 
-/// The parse budget of one source in bytes (#1097). A larger source is not parsed.
-pub const PARSE_BUDGET_BYTES: usize = 1 << 20;
+pub use budget::{PARSE_BUDGET_BYTES, PARSE_BUDGET_TOKENS, SURVEY_BUDGET_BYTES};
 
 /// The owner of one part file: the library whose module holds the edges of the part.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -78,6 +79,8 @@ pub fn survey(request: &DartRequest) -> Result<Survey, String> {
     let mut gaps = Gaps::default();
     discovery_gaps(&found, &mut gaps.evidence, &mut gaps.records);
     package::package_gaps(&mut snapshot, &found, &mut gaps);
+    let root = &request.snapshot.root;
+    let config = config::config_gaps(&mut snapshot, root, &found.package_name, &mut gaps);
     let index = parse_sources(&found, &mut gaps)?;
     let owners = parts::owners(&mut snapshot, &index, &mut gaps);
     let built = edges::edges(&mut snapshot, &index, &owners, &mut gaps);
@@ -102,7 +105,7 @@ pub fn survey(request: &DartRequest) -> Result<Survey, String> {
     let selected: Vec<String> = found.sources.iter().map(|s| s.rel_path.clone()).collect();
     let read = selected.len() + usize::from(found.pubspec_digest.is_some());
     Ok(Survey {
-        inputs: inputs(&found),
+        inputs: with_config(inputs(&found), config),
         scope: roots.iter().map(|root| pattern(root)).collect(),
         coverage: Coverage::of((read, files.len()), selected, unknowns.clone()),
         files,
@@ -115,10 +118,18 @@ pub fn survey(request: &DartRequest) -> Result<Survey, String> {
     })
 }
 
+/// The inputs with the package configuration, sorted by path.
+fn with_config(mut inputs: Vec<Input>, config: Option<Input>) -> Vec<Input> {
+    inputs.extend(config);
+    inputs.sort_by(|a, b| a.path.cmp(&b.path));
+    inputs
+}
+
 /// Parse the directives of each source within the budget and give each source its kind. The
 /// parse gaps are added to `gaps`; a concern of a URI that is not a plain string gets its name.
 fn parse_sources<'a>(found: &'a Discovery, gaps: &mut Gaps) -> Result<Index<'a>, String> {
     let mut parser = DartParser::new()?;
+    let mut budget = budget::Budget::default();
     let collided: Vec<&str> = found
         .problems
         .iter()
@@ -128,8 +139,8 @@ fn parse_sources<'a>(found: &'a Discovery, gaps: &mut Gaps) -> Result<Index<'a>,
     let mut syntax = Vec::with_capacity(found.sources.len());
     let mut kinds = Vec::with_capacity(found.sources.len());
     for source in &found.sources {
-        if source.content.len() > PARSE_BUDGET_BYTES {
-            let message = format!("the source is over the parse budget of {PARSE_BUDGET_BYTES} bytes; it is not parsed");
+        if let Err(reason) = budget.charge(&source.content) {
+            let message = format!("{reason}; it is not parsed");
             gaps.named(
                 GapName::DartParseBudget,
                 Place::File(&source.rel_path),
@@ -246,3 +257,7 @@ mod fixture_tests;
 #[cfg(test)]
 #[path = "import_survey/plant_tests.rs"]
 mod plant_tests;
+
+#[cfg(test)]
+#[path = "import_survey/review_tests.rs"]
+mod review_tests;

@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: MIT
 
 // Consumer: the wiring of Dart into `archkeel-collect` (#880). The survey of each Dart fixture
-// of the repository is pinned: the files, the parts, the edges and the gaps by name (AD-454).
+// of the repository is pinned: the files, the parts, the edge set and the gaps by name (AD-454).
+// The edge sets in `fixture_edges/` equal the import edges of release 4.0.1 on these fixtures.
 // A change of a count is a change of the survey and needs its reason.
 
 use std::collections::BTreeMap;
@@ -27,7 +28,19 @@ fn surveyed(fixture: &str, namespace: &str) -> (usize, usize, usize, BTreeMap<St
     let found =
         survey(&crate::import_survey::reply::decode(request.to_string().as_bytes()).unwrap())
             .unwrap();
-    assert_eq!(found.imports.len(), edge_rows(&found).len());
+    let pinned: Vec<&str> = match fixture {
+        "G-dart" => include_str!("fixture_edges/G-dart.txt"),
+        "H-uml-dart" => include_str!("fixture_edges/H-uml-dart.txt"),
+        "I-flutter-shop" => include_str!("fixture_edges/I-flutter-shop.txt"),
+        _ => include_str!("fixture_edges/J-compass.txt"),
+    }
+    .lines()
+    .collect();
+    assert_eq!(
+        edge_rows(&found),
+        pinned,
+        "{fixture}: the edge set differs from the pin"
+    );
     let gaps = gap_rows(&found);
     (
         found.files.len(),

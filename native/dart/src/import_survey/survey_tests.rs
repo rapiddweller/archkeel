@@ -365,7 +365,10 @@ fn a_nested_package_or_a_package_config_is_a_gap() {
 fn the_generated_package_config_of_pub_is_not_a_gap() {
     let found = run(&with_pubspec(&[
         ("lib/a.dart", ""),
-        (".dart_tool/package_config.json", "{}"),
+        (
+            ".dart_tool/package_config.json",
+            r#"{"packages": [{"name": "shop", "rootUri": "../", "packageUri": "lib/"}]}"#,
+        ),
     ]));
     assert!(found.coverage.full_scope, "{:#?}", found.unknowns);
 }

@@ -50,7 +50,10 @@ mod work;
 pub mod dump;
 
 pub use import_survey::reply::{decode, typed_reply, SURVEY_SECTIONS};
-pub use import_survey::{survey, GapName, NamedGap, PartOwner, Survey, PARSE_BUDGET_BYTES};
+pub use import_survey::{
+    survey, GapName, NamedGap, PartOwner, Survey, PARSE_BUDGET_BYTES, PARSE_BUDGET_TOKENS,
+    SURVEY_BUDGET_BYTES,
+};
 
 #[cfg(test)]
 #[path = "lib_tests.rs"]

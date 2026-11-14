@@ -5,26 +5,28 @@
 **Decision.**
 1. `native/dart` gets a library target. `survey(&DartRequest)` gives the typed `Survey`: inputs
    with digests, file facts, part owners, import records, their targets, named gaps and coverage.
-   `typed_reply` assembles it with the sections `imports` and `unknowns` only, and the provenance of the caller.
-   The binary calls the library. A valid request still exits 2 with no reply. `collect` still refuses Dart.
-2. The survey reads one package: the `pubspec.yaml` at the snapshot root. It parses directives only;
-   definitions and sites are not built. A request with `exclude_test_sources` is refused.
-3. Identity. A library file is a selected source without `part of`. Its module is the module of
+   `typed_reply` assembles it with the sections `imports` and `unknowns` and the caller provenance.
+   The binary still exits 2 with no reply on a valid request. `collect` still refuses Dart.
+2. The survey reads one package: the root `pubspec.yaml`. It parses directives only. It refuses
+   `exclude_test_sources`. Parse bounds (#1097): 1 MiB and 131,072 possible tokens for each source,
+   bracket depth 900 (the tree limit) and 32 MiB in total.
+3. Package configuration. An absent `.dart_tool/package_config.json` (no `pub get` yet) keeps the
+   language rule: the own package is `lib/`. A present file is an input; it must map the own
+   package to the root and `lib/`, and each other package outside the root.
+4. Identity. A library file is a selected source without `part of`. Its module is the module of
    the discovery. A part file has no file fact, because the store requires one file for each module.
    Its owner is the one library whose `part` URI gives the part file, and the one `part of` of the
    part must name that library by URI or by the whole `library` name. An edge of a part is an edge of
    the owner module. The grammar refuses an import in a part, so that part gets a syntax gap.
-4. A URI resolves as follows. Each resolved URI gives one record.
+5. A URI resolves as follows. Each resolved URI gives one record.
    - A relative URI joins the directory of the importer. It must give a selected library.
    - `package:<own>/<path>` gives `lib/<path>`, which must be a selected library.
    - `package:<other>/<path>` gives an external target of the package `<other>`.
    - `dart:<name>` gives the built-in target `dart.<name>`.
-   - An `export` gives a re-export record. A deferred import gives a plain import record:
-     deferral changes the load time, not the dependency.
-   - A conditional import or export gives one record for the default URI and for each
-     alternative. The survey never selects one branch. Each alternative resolves by these rules.
-5. The survey is complete only with no gap. Each gap is a record of `unknowns` and of the coverage.
-   Its message starts with a closed name (`GapName`). Each gap keeps the scope UNKNOWN.
+   - An `export` gives a re-export record. A deferred import gives a plain record (load time only).
+   - A conditional directive gives one record for the default URI and for each alternative.
+6. The survey is complete only with no gap. Each gap is a record of `unknowns` and of the coverage.
+   Its message starts with a closed name (`GapName`).
 
 | Name | Cause |
 |---|---|
@@ -36,32 +38,33 @@
 | `DartUnsupportedUri` | Another scheme, an absolute path, a query, a fragment, an escape or an empty package path. |
 | `DartUriNotLiteral` | A URI with interpolation or without a plain string, also in a conditional alternative. |
 | `DartMirrors` | `dart:mirrors`: reflection can reach code without an import. The edge stays. |
+| `DartIsolate` | `dart:isolate`: `Isolate.spawnUri` can run another library. The edge stays. |
 | `DartPartUnowned` | A `part of` file that no library claims, or that names another library. |
 | `DartPartNotPart` | A `part` URI gives a library. |
 | `DartPartConflict` | Two libraries claim one part. |
 | `DartWorkspace` | `workspace:` or `resolution:` in the root `pubspec.yaml`. |
 | `DartPathDependency` | A `path:` key in the root `pubspec.yaml`: a local package outside the survey. |
 | `DartNestedPackage` | A `pubspec.yaml` inside a scan root. |
-| `DartPackageConfig` | A `pubspec_overrides.yaml`, `package_config.json` or `.packages` outside `.dart_tool`. |
-| `DartParseBudget` | A source over the parse budget of 1 MiB is not parsed (#1097). |
+| `DartPackageConfig` | `pubspec_overrides.yaml`, `package_config.json` or `.packages` outside `.dart_tool`; a link, unreadable or malformed `.dart_tool` file, or one that breaks rule 3. |
+| `DartParseBudget` | A source over a parse bound of rule 2 is not parsed. |
 
-The discovery and parse gaps stay as they are: a link, an unreadable file or directory, a module
-collision, a missing `pubspec.yaml`, the SDK constraint, a syntax error and bytes that are not UTF-8.
+The discovery and parse gaps stay: link, unreadable file or directory, module collision, missing
+`pubspec.yaml`, SDK constraint, syntax error, bytes that are not UTF-8.
 
-**Reason.** The wiring of Dart into `collect` needs an in-process API and a resolver of its own.
-AD-400 assembles records from resolver answers that come from outside. A bounded subset with a
-named gap for each other case cannot give a PASS that a missing edge hides.
+**Reason.** The wiring of Dart into `collect` needs an in-process API and a resolver of its own
+(AD-400 takes resolver answers from outside). A named gap for each other case hides no edge.
 
-**Rejected.** One branch of a conditional import: it hides the other edges. A gap for each
-conditional import: the edges are known, so a gap loses facts. Reading `package_config.json`:
-pub writes it from `pubspec.yaml`, so the survey reads the source of truth.
+**Rejected.** One branch of a conditional import hides edges; a gap for each loses known edges.
+A gap on each present `.dart_tool` file: each project after `pub get` has one.
 
 **Limits.** No `collect` dispatch, store acceptance, scope receipt, build provenance or test
 feature list: the wiring change adds them. Symbols, calls, references and `show`/`hide` names are
-not surveyed. The budget does not bound memory or time; #1097 stays open. On the release build a
-1 MiB source of 520,000 tokens takes 1.8 s and 1.0 GiB; 100 KB of nested classes takes 4.7 s.
-The grammar parity across wheels (#1031) is unchanged. The self-check pins four new method-call pair gaps.
+not surveyed. Release build, worst case below the bounds: a dense source of 131,072 tokens takes
+0.4 s and 131 MiB peak. Grammar parity (#1031) is unchanged. The self-check pins new pair gaps.
 
-**Tests.** `native/dart/src/import_survey/*_tests.rs` hold one test for each rule and each gap.
-`fixture_tests.rs` pins the files, parts, edges and gaps of the four Dart fixtures. A test checks
-that this table names each `GapName`. All tests are Cargo tests and share no dump binary (#1114).
+**Open for the wiring change.** A part has no file fact; its edges belong to its library. A part
+whose path is in the directory of another component must become a named ownership gap or a
+proven rule before any Dart PASS.
+
+**Tests.** `import_survey/*_tests.rs`: one test for each rule and gap; the fixture edge sets and
+gap names are pinned; a test checks this table. Cargo tests only, no shared dump binary (#1114).

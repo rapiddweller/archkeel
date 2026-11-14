@@ -49,6 +49,7 @@ gap_names! {
     DartUnsupportedUri,
     DartUriNotLiteral,
     DartMirrors,
+    DartIsolate,
     DartPartUnowned,
     DartPartNotPart,
     DartPartConflict,

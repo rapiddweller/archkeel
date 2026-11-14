@@ -252,7 +252,9 @@
     "variant version::ContractVersion::V3_9"
   ],
   "archkeel-dart-collector": [
-    "const import_survey::PARSE_BUDGET_BYTES",
+    "const import_survey::budget::PARSE_BUDGET_BYTES",
+    "const import_survey::budget::PARSE_BUDGET_TOKENS",
+    "const import_survey::budget::SURVEY_BUDGET_BYTES",
     "const import_survey::names::ALL",
     "const import_survey::reply::SURVEY_SECTIONS",
     "enum import_survey::names::GapName",
@@ -288,12 +290,17 @@
     "use GapName",
     "use NamedGap",
     "use PARSE_BUDGET_BYTES",
+    "use PARSE_BUDGET_TOKENS",
     "use PartOwner",
+    "use SURVEY_BUDGET_BYTES",
     "use SURVEY_SECTIONS",
     "use Survey",
     "use decode",
     "use import_survey::GapName",
     "use import_survey::NamedGap",
+    "use import_survey::PARSE_BUDGET_BYTES",
+    "use import_survey::PARSE_BUDGET_TOKENS",
+    "use import_survey::SURVEY_BUDGET_BYTES",
     "use survey",
     "use typed_reply"
   ],

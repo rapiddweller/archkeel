@@ -555,6 +555,8 @@
       "role": "component",
       "packages": [
         "native.archkeel_dart_collector.import_survey",
+        "native.archkeel_dart_collector.import_survey.budget",
+        "native.archkeel_dart_collector.import_survey.config",
         "native.archkeel_dart_collector.import_survey.edges",
         "native.archkeel_dart_collector.import_survey.index",
         "native.archkeel_dart_collector.import_survey.names",

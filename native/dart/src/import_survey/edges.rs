@@ -111,6 +111,11 @@ fn resolve(
                 let message = "dart:mirrors can reach code without an import; the edge stays";
                 gaps.named(GapName::DartMirrors, at, message);
             }
+            if module == "dart.isolate" {
+                let message =
+                    "dart:isolate can run another library with Isolate.spawnUri; the edge stays";
+                gaps.named(GapName::DartIsolate, at, message);
+            }
             return Some(Resolved::Builtin(module));
         }
         Uri::External { package, module } => return Some(Resolved::External { package, module }),
