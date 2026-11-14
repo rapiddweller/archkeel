@@ -21,14 +21,8 @@ pub(crate) enum Written {
     Unknown,
 }
 
-/// The members of an object whose value can be a window.
-const WINDOW_MEMBERS: [&str; 5] = [
-    "defaultView",
-    "contentWindow",
-    "parentWindow",
-    "view",
-    "source",
-];
+/// The members whose value is a window on any object: only a document or a frame has them.
+const WINDOW_MEMBERS: [&str; 3] = ["defaultView", "contentWindow", "parentWindow"];
 
 /// The names that run text as code, and the member that reaches `Function` from any function.
 pub(crate) const CODE_NAMES: [&str; 3] = ["eval", "Function", "constructor"];
@@ -268,11 +262,26 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 Receiver::Top => !self.module_syntax,
                 Receiver::Method | Receiver::Bound => false,
             },
-            "member_expression" => tree.field(node, F::Property).is_some_and(|property| {
-                cooked(&tree.text(property)).is_none_or(|name| {
-                    is_window_name(&name) || WINDOW_MEMBERS.contains(&name.as_str())
-                })
-            }),
+            "member_expression" => {
+                let Some(property) = tree.field(node, F::Property) else {
+                    return false;
+                };
+                let name = cooked(&tree.text(property));
+                if name
+                    .as_deref()
+                    .is_none_or(|name| WINDOW_MEMBERS.contains(&name))
+                {
+                    return true;
+                }
+                // A window name is a window only as a member of a window: `box.top` is data.
+                let object = tree.field(node, F::Object).map(|o| tree.cx.unwrapped(o));
+                name.is_some_and(|name| is_window_name(&name))
+                    && object.is_some_and(|object| {
+                        self.window_leaf(object)
+                            || (object.kind() == "subscript_expression"
+                                && self.window_value(object))
+                    })
+            }
             _ => false,
         }
     }

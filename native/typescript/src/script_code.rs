@@ -98,8 +98,16 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         if member.is_none() && tree.binding_scope(node, &tree.text(node)).is_some() {
             return false;
         }
+        // A member `eval` or `Function` is the global only on a window value: another object
+        // holds it only after a store of the global, which escapes and writes an unknown name.
+        // A `constructor` member of any function is `Function`, so it stays.
+        let local_property = member
+            .and_then(|member| tree.field(member, F::Object))
+            .is_some_and(|object| !self.window_value(object))
+            && self.name_is(node, &["eval", "Function"]);
         let code = self.name_is(node, &CODE_NAMES)
-            && (member.is_some() || !self.name_is(node, &["constructor"]));
+            && (member.is_some() || !self.name_is(node, &["constructor"]))
+            && !local_property;
         if code {
             return self.used(expression);
         }
@@ -239,10 +247,10 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         html == Some(true) && !self.plain_text(tree.field(node, F::Right))
     }
 
-    /// A literal text without `<`: it holds no element and so no handler.
+    /// A literal text whose markup holds no handler, script, frame or code link.
     fn plain_text(&self, node: Option<Node<'t>>) -> bool {
         node.and_then(|node| crate::script_window::string_text(self, node))
-            .is_some_and(|text| !text.contains('<'))
+            .is_some_and(|text| inert_markup(&text))
     }
 
     fn injecting_call(&self, call: Node<'t>) -> bool {
@@ -329,4 +337,36 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 fn handler(name: &str) -> bool {
     name.get(..2)
         .is_some_and(|start| start.eq_ignore_ascii_case("on"))
+}
+
+/// Markup that runs no code: no `on…` attribute, no `script`, `iframe`, `object`, `embed`,
+/// `frame`, `base` or `meta` element, no `srcdoc`, and no `javascript:` or `data:` link. A text
+/// with a character reference is not read, so it counts as code.
+fn inert_markup(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    if !lower.contains('<') {
+        return true;
+    }
+    let tags = [
+        "<script", "<iframe", "<object", "<embed", "<frame", "<base", "<meta", "<svg",
+    ];
+    let words = ["srcdoc", "javascript:", "data:", "&"];
+    let handler = lower
+        .match_indices("on")
+        .any(|(at, _)| handler_at(lower.as_bytes(), at));
+    !handler && !tags.iter().chain(&words).any(|part| lower.contains(part))
+}
+
+/// An attribute name `on…` at `at`: after a space, `/`, a quote or `<`, before `=`.
+fn handler_at(bytes: &[u8], at: usize) -> bool {
+    let before = at.checked_sub(1).and_then(|i| bytes.get(i));
+    let starts =
+        before.is_some_and(|b| b.is_ascii_whitespace() || matches!(b, b'/' | b'"' | b'\'' | b'<'));
+    let name_end = bytes
+        .iter()
+        .skip(at)
+        .position(|b| !(b.is_ascii_alphanumeric() || *b == b'-' || *b == b'_'))
+        .map_or(bytes.len(), |n| at + n);
+    let rest = bytes.get(name_end..).unwrap_or(&[]);
+    starts && rest.iter().find(|b| !b.is_ascii_whitespace()) == Some(&b'=')
 }

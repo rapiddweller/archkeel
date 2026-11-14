@@ -63,6 +63,10 @@ WRITES = {
     "bare-non-null": "open! = () => {};",
     "bare-as": "(open as any) = () => {};",
     "default-view": "document.defaultView.open = () => {};",
+    "default-view-parent-escape": "declare const g: any;\ng(document.defaultView!.parent);",
+    "markup-frame": "declare const e: any;\ne.innerHTML = '<iframe srcdoc=\"x\"></iframe>';",
+    "markup-reference": "declare const e: any;\ne.innerHTML = '<img src=x &#111;nerror=y>';",
+    "markup-handler-space": "declare const e: any;\ne.innerHTML = '<img src=x\\nonerror = y>';",
     "default-view-assign": "Object.assign(document.defaultView!, { open: () => {} });",
     "content-window": "frameElement.contentWindow.open = () => {};",
     "escaped-member": "window.op\\u0065n = () => {};",
@@ -132,6 +136,11 @@ SCRIPT_WRITES = {
 # Forms that do not write onto the global object: a strict `this`, a local name, a type, a read.
 EXACT = {
     "module-top-this": MODULE + "export const t = this;",
+    "data-source": MODULE + "export const f = (item: any, g: any) => g(item.source, item.view);",
+    "data-window-names": MODULE + "export const f = (box: any, g: any) => g(box.top, box.parent);",
+    "member-function": MODULE + "declare const Level: any;\nexport const x = [Level.Function];",
+    "literal-markup": MODULE
+    + "export const f = (e: any) => { e.innerHTML = '<p class=\"k\">x</p>'; };",
     "typeof-timer": MODULE + 'export const t = typeof setTimeout === "function";',
     "window-member-read": MODULE + "export const w = () => document.defaultView!.innerWidth;",
     "module-top-this-write": MODULE + "(this as any).open = 1;",

@@ -27,6 +27,7 @@ CODE = {
     "shorthand-function": 'const o = { Function }; o.Function("open = 1")();',
     "constructor-call": '(() => {}).constructor.call(null, "open = 1")();',
     "window-eval": 'window.eval("open = 1");',
+    "self-function": '(self as any).Function("open = 1")();',
     "logical-eval": 'declare const x: any; (x || eval)("open = 1");',
     "tagged-function": "Function`open = 1`();",
     "reflect-construct": 'Reflect.construct(Function, ["open = 1"])();',
