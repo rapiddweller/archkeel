@@ -72,8 +72,10 @@ pub(crate) struct Observed {
     pub(crate) layout: Layout,
     /// The language name of the profile, as a UML target entity names it (AD-494).
     pub(crate) language: &'static str,
-    /// The profile keeps a type namespace apart from a value namespace (AD-496).
+    /// The profile keeps a type namespace apart from a value namespace (AD-498).
     pub(crate) namespaces: bool,
+    /// The collector of the profile states symbol facts (AD-498).
+    pub(crate) symbol_facts: bool,
     /// Whether the host drops an allowed pair gap of the profile (slice S7).
     pub(crate) pair_gap_drop: PairGapDrop,
     /// The host can accept a dependency scope proof from the runtime of the reply (AD-418).
@@ -158,6 +160,7 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
         layout: facts.profile.layout(),
         language: facts.profile.language(),
         namespaces: facts.profile.namespaces(),
+        symbol_facts: facts.profile.symbol_facts(),
         pair_gap_drop: facts.profile.pair_gap_drop(),
         scope_receipt: facts.runtime.carries_scope_proof(),
         owned_files: facts

@@ -46,7 +46,7 @@ pub struct Graph {
     observed: Observed,
     builtins: Vec<String>,
     constructs: Constructs,
-    /// The symbol table, when a need of the run reads it (AD-496).
+    /// The symbol table, when a need of the run reads it (AD-498).
     symbols: Option<crate::symbols::Symbols>,
 }
 
@@ -57,7 +57,7 @@ impl Graph {
     }
 
     /// Derive the reply part for a run with `needs`: a need that reads the symbols adds the
-    /// symbol table (AD-496). Without one, the reply part is the same as `derive` gives.
+    /// symbol table (AD-498). Without one, the reply part is the same as `derive` gives.
     pub fn derive_for(
         reply: &Ingested,
         settings: Settings,
@@ -175,7 +175,7 @@ impl Graph {
         &self.constructs
     }
 
-    /// The symbol table, when a need of the run reads it (AD-496).
+    /// The symbol table, when a need of the run reads it (AD-498).
     pub(crate) fn symbols(&self) -> Option<&crate::symbols::Symbols> {
         self.symbols.as_ref()
     }

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The symbol part of the comparison of a UML target (AD-496): the symbol entities and the
+//! The symbol part of the comparison of a UML target (AD-498): the symbol entities and the
 //! relationships other than `imports`.
 //!
 //! Reference engine: `check/uml_compare.py` `_matches`, `_entity`, `_containment` and
