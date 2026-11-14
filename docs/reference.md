@@ -136,7 +136,7 @@ A difference is a refusal. The rule rows are trusted to the located core binary.
 `report --json` gives the verdict frame as JSON, and `--text` gives the text summary.
 Neither stdout form is a complete `architecture.json` or an HTML report.
 `report --topology` adds a bounded `topology` section: components, modules, edges, completeness, budgets
-and the rules that cite each edge (AD-452). Without the option the frame and its time do not change.
+and the rules that cite each edge (AD-456). Without the option the frame and its time do not change.
 A total over a budget sets `truncated` and keeps the exact total. The section never changes a verdict.
 
 `report --output PATH` writes one static HTML page. `--format json` writes the core frame instead.
