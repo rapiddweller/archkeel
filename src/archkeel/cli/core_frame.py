@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -351,12 +352,22 @@ def _explained(
             raise CoreError(f"the core frame rule {rule} is {verdict.status} without its row")
 
 
+def resolve_root(path: Path) -> Path:
+    """Resolve the shell root, but never turn a device or network root into a disk root."""
+    if sys.platform == "win32" and path.drive:
+        drive = path.drive.removeprefix("\\\\?\\")
+        if len(drive) != 2 or not drive[0].isascii() or not drive[0].isalpha() or drive[1] != ":":
+            raise ValueError("the root is not a supported local disk path")
+    resolved = path.resolve()
+    return Path(str(resolved).removeprefix("\\\\?\\")) if sys.platform == "win32" else resolved
+
+
 def _bind_request(frame: Mapping[str, object], request: Mapping[str, object], derived: str) -> None:
     """Bind the response to the requested root, Git identity and exact contract bytes.
 
     This is not a second verdict: the rule rows are trusted to the located core binary (AD-432).
     """
-    root = Path(_text(request["root"], "request.root")).resolve()
+    root = resolve_root(Path(_text(request["root"], "request.root")))
     if request.get("discover_root") is True:
         root = next((path for path in (root, *root.parents) if (path / ".git").exists()), root)
     collected = _object(json.loads(derived), "collect.request")

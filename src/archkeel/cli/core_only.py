@@ -28,6 +28,7 @@ from .core_frame import (
     RefusalKind,
     Status,
     read_frame,
+    resolve_root,
 )
 from .core_frame import CoreCommand as Command
 from .core_json import RequestMismatch
@@ -242,7 +243,7 @@ def _install_skill(options: Options, as_json: bool) -> int:
 
 def _decide(options: Options, as_json: bool) -> int:
     """Send the scan identity to the core and print the one frame that it gives."""
-    root = (options.root or Path.cwd()).resolve()
+    root = resolve_root(options.root or Path.cwd())
     request: dict[str, object] = {
         "protocol": SCAN_PROTOCOL,
         "root": str(root),

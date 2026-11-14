@@ -94,7 +94,8 @@ after the merge. Name a new test file so that an area pattern matches it.
 
 No workflow publishes a report site. The Pages workflow and `make report-pages` are deleted with
 the Python engine (AD-432). The [published architecture report](https://rapiddweller.github.io/archkeel/)
-is the last one of that engine. No Windows job runs the shell tests; the Windows job builds and checks the wheel.
+is the last one of that engine. The Windows wheel job also runs the disk-root Rust tests and
+`tests/test_cli_windows_root.py` through the release core. It does not run the full shell suite.
 
 ## Browser assets
 
