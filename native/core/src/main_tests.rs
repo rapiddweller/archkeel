@@ -41,3 +41,29 @@ fn the_process_writes_exactly_one_frame_or_none() {
     assert!(out.is_empty());
     assert!(message.is_some());
 }
+
+#[test]
+fn a_request_over_the_limit_is_refused_after_one_byte_more_than_the_limit() {
+    struct Endless(u64);
+    impl std::io::Read for Endless {
+        fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+            self.0 += buffer.len() as u64;
+            buffer.fill(b' ');
+            Ok(buffer.len())
+        }
+    }
+    let mut endless = Endless(0);
+    let refused = super::read_request(&mut endless, 1000);
+    assert!(matches!(refused, Err(super::Unread::Over)));
+    // The reader was asked for the limit plus one byte, at most one buffer more.
+    assert!(endless.0 < 1000 + 64 * 1024, "{}", endless.0);
+}
+
+#[test]
+fn a_request_at_the_limit_is_read_whole() {
+    let bytes = vec![b'x'; 1000];
+    let read = super::read_request(bytes.as_slice(), 1000);
+    assert_eq!(read.ok().map(|read| read.len()), Some(1000));
+    let over = super::read_request(vec![b'x'; 1001].as_slice(), 1000);
+    assert!(matches!(over, Err(super::Unread::Over)));
+}

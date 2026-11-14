@@ -9,6 +9,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 |---|---|
 | AD-510 | [The report page shows the exceptions first and folds the rest](ad-510-the-report-page-shows-the-exceptions-first-and-folds-the-rest.md) |
 | AD-506 | [A forbidden SDK library is no reference outside the namespace](ad-506-a-forbidden-sdk-library-is-no-reference-outside-the-namespace.md) |
+| AD-502 | [A registry or git dependency is no edge to a crate of the workspace](ad-502-a-registry-or-git-dependency-is-no-edge-to-a-crate-of-the-workspace.md) |
 | AD-500 | [A stated profile limit holds only the rules that read it](ad-500-a-stated-profile-limit-holds-only-the-rules-that-read-it.md) |
 | AD-498 | [The report page is short and has no dump of the frame](ad-498-the-report-page-is-short-and-has-no-dump-of-the-frame.md) |
 | AD-496 | [The report page uses the design system and one script that the policy admits by hash](ad-496-the-report-page-is-the-design-system-with-one-admitted-script.md) |

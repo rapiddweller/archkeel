@@ -302,3 +302,44 @@ def test_a_path_call_that_the_scan_cannot_resolve_exactly_gives_no_pass(
     result = validate(repository(tmp_path, core_binary, _sources(files), rules=rules), capsys)
 
     assert _verdict(result, "NO-A-TO-B") in {"FAIL", "UNKNOWN"}, claims(result)
+
+
+HELD_TEXT = "can be neither confirmed nor refuted"
+SLICE_LEN = {
+    "lib.rs": LIB,
+    "c.rs": TYPE,
+    "b.rs": "impl crate::c::S {\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n",
+    "a.rs": "pub fn f(v: &[u8]) -> usize {\n    v.len()\n}\n",
+}
+
+
+@pytest.mark.parametrize(
+    ("files", "drawn_by_the_graph"),
+    [
+        pytest.param(IMPL_METHOD, OBSERVED_IMPL + "\n    a --> b", id="FP-29 the call may reach b"),
+        pytest.param(
+            SLICE_LEN,
+            "    root --> base\n    b --> c\n    a --> b",
+            id="the call is a slice method",
+        ),
+    ],
+)
+def test_an_allowed_pair_that_only_a_dropped_gap_names_is_neither_confirmed_nor_refuted(
+    tmp_path: Path,
+    core_binary: Path,
+    capsys: pytest.CaptureFixture[str],
+    files: dict[str, str],
+    drawn_by_the_graph: str,
+) -> None:
+    # #1021: the collector cannot tell whether `a` calls the method of `b`. Drawing `a -> b` and
+    # not drawing it are both unproven, so a drawn edge holds the run with a text of its own.
+    components = _modules(("b", "c"), files)
+    root = repository(
+        tmp_path, core_binary, _sources(files), components=components, drawn=drawn_by_the_graph
+    )
+    result = validate(root, capsys)
+
+    drift = [claim for claim in claims(result) if "graph.drift" in claim]
+    assert result["status"] == "UNKNOWN", claims(result)
+    assert len(drift) == 1 and HELD_TEXT in drift[0], claims(result)
+    assert "drawn and not found" not in drift[0], drift

@@ -114,3 +114,41 @@ fn a_dependency_table_or_form_that_the_reader_does_not_know_is_kept_as_unknown()
         ]
     );
 }
+
+const REMOTE_MANIFEST: &str = "[package]\nname = \"app\"\n[dependencies]\n\
+     reg = \"1\"\ngit-dep = { git = \"https://example.invalid/g.git\" }\n\
+     near = { path = \"../near\", version = \"1\" }\n\
+     shared-path = { workspace = true }\nshared-reg = { workspace = true }\n";
+const REMOTE_WORKSPACE: &str = "[workspace.dependencies]\n\
+     shared-path = { path = \"../shared\" }\nshared-reg = \"2\"\n";
+
+#[test]
+fn only_a_registry_or_git_entry_makes_a_dependency_remote() {
+    let found = manifest(REMOTE_MANIFEST, REMOTE_WORKSPACE);
+    let remote: Vec<&str> = found.remote.iter().map(String::as_str).collect();
+    assert_eq!(remote, ["git_dep", "reg", "shared_reg"]);
+    assert!(found.unknown.is_empty());
+}
+
+#[test]
+fn a_package_with_a_path_entry_and_a_registry_entry_is_not_remote() {
+    let found = manifest(
+        "[package]\nname = \"app\"\n[dependencies]\nbase = { path = \"../base\" }\n\
+         [dev-dependencies]\nbase = \"1\"\n[build-dependencies]\nother = { path = \"o\" }\n",
+        "",
+    );
+    assert!(found.remote.is_empty());
+}
+
+#[test]
+fn a_workspace_dependency_without_an_entry_is_unknown_and_not_remote() {
+    let found = manifest(
+        "[package]\nname = \"app\"\n[dependencies]\nlost = { workspace = true }\n",
+        "[workspace.dependencies]\n",
+    );
+    assert!(found.remote.is_empty());
+    assert_eq!(
+        found.unknown,
+        ["A dependency of the workspace has no entry in [workspace.dependencies]: lost"]
+    );
+}
