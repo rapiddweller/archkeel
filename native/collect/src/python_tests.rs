@@ -116,11 +116,17 @@ fn the_store_accepts_a_complete_survey_and_refuses_each_planted_claim() {
     );
     assert_eq!(refusal(original.clone()), "");
     let limits = original.facts.profile_limits.unwrap();
-    assert_eq!(limits.dependency_symbols, LimitSupport::Unsupported);
-    assert_eq!(limits.interface_boundary, LimitSupport::Unsupported);
+    // AD-504: the linked survey states its symbols and its routes with the feature that binds them.
+    assert_eq!(limits.dependency_symbols, LimitSupport::Supported);
+    assert_eq!(limits.interface_boundary, LimitSupport::Supported);
+    assert!(original
+        .facts
+        .capabilities
+        .resolution_features
+        .contains(&"import-routes-v1".to_owned()));
 
     type Change = fn(&mut Reply);
-    let cases: [(&str, Change); 8] = [
+    let cases: [(&str, Change); 9] = [
         ("only the Python import survey", |r| {
             r.facts.profile = Profile::TypeScript
         }),
@@ -133,9 +139,12 @@ fn the_store_accepts_a_complete_survey_and_refuses_each_planted_claim() {
                 .resolution_features
                 .push("static-imports".to_owned());
         }),
-        ("no interface rule", |r| {
+        ("profile symbol statement does not match", |r| {
+            r.facts.capabilities.resolution_features.clear();
+        }),
+        ("profile symbol statement does not match", |r| {
             if let Some(limits) = r.facts.profile_limits.as_mut() {
-                limits.interface_boundary = LimitSupport::Supported;
+                limits.dependency_symbols = LimitSupport::Unsupported;
             }
         }),
         ("external target", |r| {

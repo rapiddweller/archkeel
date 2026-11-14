@@ -5,7 +5,9 @@
 Main supports Rust and TypeScript projects, and the import rules of Python (AD-450) and Dart (AD-468) projects.
 A Python project gets PASS or FAIL only for rules that read the import graph. A dynamic import,
 an import-system change and the other gaps of AD-450 give UNKNOWN for each rule of the run.
-Python rules that read symbols, calls or constructs stay UNKNOWN. A Dart project gets PASS or FAIL
+Python rules that read calls or constructs stay UNKNOWN. `interface_boundary` and symbol-level
+`through` ports are decided from the publication route of each named import (AD-504); the hygiene
+checks `interface.*` are not ported, so the run stays UNKNOWN beside the decided rule rows. A Dart project gets PASS or FAIL
 only for rules that read the import graph; each gap of AD-454 and a part in another component than
 its library give UNKNOWN for each rule of the run. A symbol selector or an `interface_boundary`
 rule holds only the rules that read it (AD-500). A Dart cycle rule (`no_component_cycles`) is

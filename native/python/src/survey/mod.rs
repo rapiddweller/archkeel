@@ -38,6 +38,7 @@ mod layout;
 mod literal;
 mod namespace;
 mod package_body;
+pub(crate) mod routes;
 mod stable;
 mod targets;
 mod walks;
@@ -49,6 +50,8 @@ pub(crate) struct Survey {
     pub unknowns: Vec<Record<GapFact>>,
     pub coverage: Coverage,
     pub evidence: Vec<Evidence>,
+    /// The modules whose `__all__` the survey cannot read (`routes`).
+    pub opaque_surface: HashSet<String>,
     /// The digest of each file that the survey read, from the bytes that it parsed.
     pub parsed: Vec<Input>,
 }
@@ -121,6 +124,12 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     let calls = imports::literal_records(modules, &binders, namespace, &mut evidence, &literals);
     imports.extend(calls);
     imports.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
+    let opaque_surface: HashSet<String> = modules
+        .iter()
+        .zip(&binders)
+        .filter(|(_, binders)| binders.all_unread)
+        .map(|(module, _)| module.name.clone())
+        .collect();
     let files: Vec<FileFact> = modules
         .iter()
         .zip(&binders)
@@ -167,6 +176,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         unknowns,
         coverage,
         evidence: evidence.into_values().collect(),
+        opaque_surface,
         parsed: snapshot
             .inputs()
             .into_iter()

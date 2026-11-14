@@ -22,7 +22,7 @@ use archkeel_wire::protocol::reply_version;
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
 use archkeel_wire::typed::assemble;
 
-use crate::survey::Survey;
+use crate::survey::{routes, Survey};
 use crate::{inputs, requirement};
 
 /// `PYTHON_IMPORT_SURVEY_SECTIONS`, in its order. No other section is collected.
@@ -50,9 +50,12 @@ pub(crate) fn reply(
 /// The same survey as the typed reply of the linked path: one head and one record producer.
 pub(crate) fn typed(
     request: &PythonRequest,
-    survey: Survey,
+    mut survey: Survey,
     build: &Build<'_>,
 ) -> Result<Reply, String> {
+    // AD-504: the linked path also writes the publication routes that `interface_boundary` reads.
+    // The subprocess reply stays the frozen survey of the phase `imports`.
+    routes::resolve(&mut survey.imports, &survey.files, &survey.opaque_surface);
     let (head, records) = parts(request, survey, build)?;
     assemble(reply_version(request.protocol_version), head, |writer| {
         records.produce(writer)

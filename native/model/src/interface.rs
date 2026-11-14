@@ -127,23 +127,47 @@ fn assess(
     if !import.reexport_chain().contains(&route) {
         return Err(InterfaceGap::PublicationRoute);
     }
-    let exact = format!("{module}:{name}");
-    if public.contains(&exact.as_str()) {
+    // 4.0.1 `interface_covers_import`: the import is public when any hop of its route is. A
+    // named type route keeps its first hop only (the collector proves one or two hops).
+    let chain = import.reexport_chain();
+    let hops = if import.under_type_checking() {
+        &chain[..1.min(chain.len())]
+    } else {
+        chain
+    };
+    let mut unread = None;
+    for hop in hops {
+        let Some((hop_module, hop_name)) = hop.rsplit_once('.') else {
+            continue;
+        };
+        match covers(model, &public, hop_module, hop_name) {
+            Ok(true) => return Ok(true),
+            Ok(false) => {}
+            Err(gap) => unread = Some(gap),
+        }
+    }
+    unread.map_or(Ok(false), Err)
+}
+
+/// `facade_covers`: one hop of a route against the public entries of the target component.
+fn covers(model: &Model, public: &[&str], module: &str, name: &str) -> Result<bool, InterfaceGap> {
+    if name.starts_with('_') {
+        return Ok(false);
+    }
+    if public.contains(&format!("{module}:{name}").as_str()) {
         return Ok(true);
     }
-    if public.contains(&module) {
-        let file = model
-            .graph()
-            .modules()
-            .iter()
-            .find(|(_, m)| m.name() == module)
-            .map(|(_, m)| m);
-        return file
-            .map(|m| {
-                m.exports().is_empty() && !m.exports_literal()
-                    || m.exports().iter().any(|n| n == name)
-            })
-            .ok_or(InterfaceGap::PublicationSurface);
+    if !public.contains(&module) {
+        return Ok(false);
     }
-    Ok(false)
+    let file = model
+        .graph()
+        .modules()
+        .iter()
+        .find(|(_, m)| m.name() == module)
+        .map(|(_, m)| m);
+    file.map(|m| {
+        m.exports().is_empty() && !m.exports_literal() || m.exports().iter().any(|n| n == name)
+    })
+    .ok_or(InterfaceGap::PublicationSurface)
 }

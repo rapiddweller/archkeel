@@ -20,6 +20,8 @@ use std::collections::BTreeSet;
 
 use archkeel_facts::envelope::{ConstructSupport, Facts, LimitSupport, Profile};
 
+use crate::validate::ROUTES_FEATURE;
+
 const NATIVE_IMPORTS: [&str; 4] = [
     "literal-imports",
     "relative-specifiers",
@@ -37,11 +39,13 @@ fn names<'a>(items: impl IntoIterator<Item = &'a str>) -> BTreeSet<&'a str> {
 /// The reply refused by name unless its capability sets are a registered set of its profile.
 pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
     if let Some(limits) = facts.profile_limits {
+        // AD-504: the Python statement binds to the feature of its routes, as TypeScript binds
+        // its statement to `script-globals-v1`.
         let symbols = facts
             .capabilities
             .resolution_features
             .iter()
-            .any(|feature| feature == "script-globals-v1");
+            .any(|feature| feature == "script-globals-v1" || feature == ROUTES_FEATURE);
         if (limits.dependency_symbols == LimitSupport::Supported) != symbols {
             return Err("profile symbol statement does not match its capability".to_owned());
         }

@@ -46,7 +46,8 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
         ));
     }
     let interface = facts.profile_limits.map(|limits| limits.interface_boundary);
-    if interface == Some(LimitSupport::Supported) {
+    // AD-504: the Python survey writes the publication routes; the Dart survey does not.
+    if interface == Some(LimitSupport::Supported) && facts.profile != Profile::Python {
         return Err("the import survey supports no interface rule".to_owned());
     }
     Ok(())

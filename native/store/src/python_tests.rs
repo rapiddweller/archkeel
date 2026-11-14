@@ -73,13 +73,21 @@ fn the_survey_has_exactly_two_sections_and_no_construct() {
 }
 
 #[test]
-fn an_interface_statement_is_refused() {
-    let mut facts = survey_facts();
-    facts.profile_limits = Some(archkeel_facts::envelope::ProfileLimits {
-        dependency_symbols: LimitSupport::Unsupported,
-        interface_boundary: LimitSupport::Supported,
-    });
-    assert!(registered(&facts)
-        .unwrap_err()
-        .contains("no interface rule"));
+fn only_the_python_survey_may_state_an_interface() {
+    // AD-504: the Python survey writes the routes; the Dart survey does not.
+    for (profile, accepted) in [(Profile::Python, true), (Profile::Dart, false)] {
+        let mut facts = survey_facts();
+        facts.profile = profile;
+        facts.profile_limits = Some(archkeel_facts::envelope::ProfileLimits {
+            dependency_symbols: LimitSupport::Unsupported,
+            interface_boundary: LimitSupport::Supported,
+        });
+        match registered(&facts) {
+            Ok(()) => assert!(accepted, "{profile:?}"),
+            Err(reason) => {
+                assert!(!accepted, "{profile:?}");
+                assert!(reason.contains("no interface rule"), "{reason}");
+            }
+        }
+    }
 }

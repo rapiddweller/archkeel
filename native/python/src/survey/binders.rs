@@ -28,6 +28,9 @@ pub(crate) struct Binders {
     opaque: bool,
     pub all_exports: HashSet<String>,
     pub all_literal: bool,
+    /// `__all__` is named but is not one literal list of strings: the module publishes names that
+    /// the survey cannot read (AD-504).
+    pub all_unread: bool,
     pub logic_free: bool,
 }
 
@@ -48,12 +51,14 @@ impl Binders {
                 direct.extend(import_bindings(statement));
             }
         }
+        let all_literal = !walk.all_imported && one_literal(&tree.body, walk.all_names);
         Self {
             counts: walk.counts,
             direct,
             opaque: walk.opaque,
             all_exports: literal_all_exports(&tree.body),
-            all_literal: !walk.all_imported && one_literal(&tree.body, walk.all_names),
+            all_literal,
+            all_unread: !all_literal && (walk.all_imported || walk.all_names > 0),
             logic_free: logic_free(&tree.body),
         }
     }
