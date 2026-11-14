@@ -265,11 +265,23 @@ fn edge_rows(
             )
         })
         .collect();
+    let targets: BTreeMap<&str, &Target> = facts
+        .imports
+        .iter()
+        .map(|target| (target.import_id().as_str(), target))
+        .collect();
     let mut buckets = BTreeMap::new();
     for import in models.root().graph().imports() {
+        // The typed target decides. A profile that reads each target by its module (Python, Dart)
+        // gives the rules `Resolved::Local` for a library or a platform module: it is no module
+        // of the scan, so the display calls it external (AD-466).
+        let outside = matches!(
+            targets.get(import.id()),
+            Some(Target::External { .. } | Target::Builtin { .. })
+        );
         let resolution = match import.resolved() {
-            Resolved::Local => "resolved",
-            Resolved::External(_) | Resolved::Builtin => "external",
+            Resolved::Local if !outside => "resolved",
+            _ => "external",
         };
         add(
             &mut buckets,

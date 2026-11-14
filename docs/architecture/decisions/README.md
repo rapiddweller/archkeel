@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-466 | [The topology types an import by its target, not by the rule view](ad-466-the-topology-types-an-import-by-its-target-and-not-by-the-rule-view.md) |
 | AD-465 | [A scan does not depend on build output that another process changes](ad-465-a-scan-does-not-depend-on-build-output-that-another-process-changes.md) |
 | AD-464 | [Report topology is an opt-in, bounded display of the same run](ad-464-report-topology-is-an-opt-in-bounded-display-of-the-same-run.md) |
 | AD-462 | [Fixture results are pinned and the nightly run publishes a gallery](ad-462-fixture-results-are-pinned-and-the-nightly-run-publishes-a-gallery.md) |

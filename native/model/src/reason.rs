@@ -163,11 +163,18 @@ impl fmt::Display for Reason {
             }
             Reason::Incomplete(Incomplete::CoverageGaps(count)) => write!(
                 formatter,
-                "incomplete scope: the collector reports {count} coverage gaps"
+                "incomplete scope: the collector reports {count} coverage {}",
+                if *count == 1 { "gap" } else { "gaps" }
             ),
             Reason::Incomplete(Incomplete::UnknownImports(count)) => write!(
                 formatter,
-                "incomplete scope: {count} imports are not resolved and no gap names them"
+                "incomplete scope: {count} {} not resolved and no gap names {}",
+                if *count == 1 {
+                    "import is"
+                } else {
+                    "imports are"
+                },
+                if *count == 1 { "it" } else { "them" }
             ),
             Reason::NoSubjects => formatter
                 .write_str("the rule selects no module of the reply: no evaluator receipt exists"),
@@ -185,5 +192,31 @@ impl fmt::Display for Reason {
 impl From<Part> for Reason {
     fn from(part: Part) -> Reason {
         Reason::Unsupported(Unsupported::ScopeProof(part))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_count_of_one_has_the_singular_form() {
+        let text = |reason: Reason| reason.to_string();
+        assert_eq!(
+            text(Reason::Incomplete(Incomplete::CoverageGaps(1))),
+            "incomplete scope: the collector reports 1 coverage gap"
+        );
+        assert_eq!(
+            text(Reason::Incomplete(Incomplete::CoverageGaps(2))),
+            "incomplete scope: the collector reports 2 coverage gaps"
+        );
+        assert_eq!(
+            text(Reason::Incomplete(Incomplete::UnknownImports(1))),
+            "incomplete scope: 1 import is not resolved and no gap names it"
+        );
+        assert_eq!(
+            text(Reason::Incomplete(Incomplete::UnknownImports(3))),
+            "incomplete scope: 3 imports are not resolved and no gap names them"
+        );
     }
 }
