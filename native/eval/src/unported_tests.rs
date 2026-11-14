@@ -18,18 +18,6 @@ use crate::tests::{reply, shop_settings};
 /// Whether a slice of the evaluator decides the kind (an arm of `outcome` in `lib.rs`).
 fn ported(kind: K) -> bool {
     match kind {
-        K::CompleteAssignment
-        | K::RootLayout
-        | K::InterfaceBoundary
-        | K::ExternalDependencyScope
-        | K::CompleteExternalScope
-        | K::ForbiddenDependency
-        | K::SiblingIsolation
-        | K::CompleteRequires
-        | K::LayerOrder
-        | K::NoComponentCycles
-        | K::ForbiddenConstruct
-        | K::AllowedDependency => true,
         K::SymbolPlacement
         | K::SourceOwnership
         | K::BoundedNumericOperand
@@ -40,6 +28,18 @@ fn ported(kind: K) -> bool {
         | K::ForbiddenEffectUnderCondition
         | K::ProtocolDeclarations
         | K::BoundaryTypes => false,
+        K::LayerOrder
+        | K::NoComponentCycles
+        | K::ForbiddenConstruct
+        | K::AllowedDependency
+        | K::CompleteAssignment
+        | K::RootLayout
+        | K::InterfaceBoundary
+        | K::ExternalDependencyScope
+        | K::CompleteExternalScope
+        | K::ForbiddenDependency
+        | K::SiblingIsolation
+        | K::CompleteRequires => true,
     }
 }
 
