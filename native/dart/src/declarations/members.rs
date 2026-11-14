@@ -5,8 +5,8 @@
 //! Class members and resolved parameter records, without a second resolver.
 
 use super::types::{
-    Attribute, Category, ClassKind, Constructor, Detail, File, Input, Inventory, InventoryKind,
-    Kind, Parameter, Problem, ProblemKind, VisibilityDetail,
+    Attribute, Category, ClassKind, Constructor, Detail, File, Inventory, InventoryKind, Kind,
+    Parameter, Problem, ProblemKind, VisibilityDetail,
 };
 use super::work::Stop;
 use super::{identity, number, parameter_kind, Assembly};
