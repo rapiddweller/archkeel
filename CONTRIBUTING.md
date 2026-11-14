@@ -50,7 +50,7 @@ Dart import rules run through the release core in `tests/test_cli_native_dart_im
 No new recordings replace the other Dart project tests.
 
 The scheduled **Full verification** workflow runs `make ci-core-check SKIP_TESTS=1`, which
-includes the UML TypeScript compiler check. It also runs `make self-validate-native` and
+includes the UML TypeScript compiler check. It also runs `make self-validate` and
 `make mermaid`. It runs the whole suite in area jobs on Linux/Python 3.11, and the shell tests
 and the package check on Linux/Python 3.12. Manual dispatch uses the same checks.
 Release tags call that workflow before package build and
@@ -70,13 +70,13 @@ aggregate would count as passed.
 
 | Workflow and job | Runs on | Command to reproduce |
 |---|---|---|
-| CI: Lint, types and architecture | each push to `main` | `make ci-pr-static BASE=origin/main`, then `make self-validate-native` |
+| CI: Lint, types and architecture | each push to `main` | `make ci-pr-static BASE=origin/main`, then `make self-validate` |
 | CI: Tests: `<area>` | each push to `main` | `make pr-test AREA="<area>"` |
 | CI: Report and renderer tests | each push to `main` | `make ci-pr-report-check` |
 | CI: Docs diagrams | each push to `main` | `make mermaid`; the job also runs `tests/test_mermaid.py` |
 | CI: Native: Rust checks and dependency policy | each push to `main` | `make native-check` |
 | CI: All checks passed | each push to `main` | none: it needs every CI job and reports each job time against the budget ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md)) |
-| Full: Architecture, build and report checks | nightly, dispatch, release | `make ci-core-check SKIP_TESTS=1`, `make self-validate-native`, `make mermaid` |
+| Full: Architecture, build and report checks | nightly, dispatch, release | `make ci-core-check SKIP_TESTS=1`, `make self-validate`, `make mermaid` |
 | Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |
 | Full: Linux: shell and package on Python 3.12 | same as above | `make shell-compat`, then `make build smoke` |
 | Full: Native wheel: `<target>` (six targets) | same as above | `make native-wheel NATIVE_TAG=<tag>` on the target |
@@ -130,7 +130,10 @@ make self-validate-native
 This builds the core, runs `archkeel validate --config native/archkeel.toml` and compares the result with the pin.
 A result that differs from the pin, a refusal or no result fails the target.
 The full result is in ignored `test-artifacts/validation-native/result.json`.
-The Python shell and the tools have no architecture contract.
+`make self-validate-shell` checks the Python shell of `src/archkeel` with the contract
+`docs/architecture/target/shell-contract.json` against the pinned rows of
+`docs/architecture/target/shell-expected.json` ([shell](docs/architecture/shell.md), AD-478).
+`make self-validate` runs both checks. The tools have no architecture contract.
 
 ## A behaviour change carries its decision
 

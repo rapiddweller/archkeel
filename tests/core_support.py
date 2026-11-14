@@ -31,6 +31,28 @@ NATIVE = ROOT / "native"
 SUFFIX = ".exe" if os.name == "nt" else ""
 # A corpus case that the core decides with PASS.
 HONEST = "probe/sources-test-an-honest-project-gives-pass-in-both-producers-honest"
+# A provenance page with one marked component graph and no edge (AD-466): the graph of a contract
+# with one component, or with components that do not import each other.
+EMPTY_GRAPH = "# Provenance\n\n<!-- archkeel-component-graph -->\n```mermaid\nflowchart LR\n```\n"
+
+
+def copy_native(root: Path, source: Path = ROOT) -> None:
+    """Copy `native/` of `source` without its build, and each document that its contract cites.
+
+    AD-466: a scan of the native contract reads its cited documents. Pass the frozen tree as
+    `source` (`frozen_native.frozen_root`), which holds both.
+    """
+    native = source / "native"
+    shutil.copytree(native, root / "native", ignore=shutil.ignore_patterns("target"))
+    contract = json.loads((native / "architecture-contract.json").read_text(encoding="utf-8"))
+    cited = {
+        path
+        for item in [*contract["components"], *contract["rules"]]
+        for path in item.get("provenance", [])
+    }
+    for path in cited:
+        (root / path).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source / path, root / path)
 
 
 def _cargo() -> str:

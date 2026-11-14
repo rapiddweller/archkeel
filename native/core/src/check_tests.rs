@@ -44,6 +44,12 @@ fn request(reply: Option<&[u8]>) -> Value {
     })
 }
 
+/// The one gap of a request without provenance documents (AD-466).
+const HYGIENE: fn() -> Value = || {
+    json!({"hygiene:request":
+        "unsupported: the contract hygiene of the request: it carries no provenance documents"})
+};
+
 fn frame(value: &Value) -> (Value, bool) {
     match answer(value.to_string().as_bytes()) {
         Ok(answered) => (
@@ -57,8 +63,10 @@ fn frame(value: &Value) -> (Value, bool) {
 #[test]
 fn a_reply_of_the_collector_of_this_build_is_decided_without_a_gap() {
     let (got, names_a_gap) = frame(&request(Some(&reply_with(None, CODE_DIGEST))));
-    assert_eq!(got["unsupported"]["rules"], json!({}), "{got}");
-    assert!(!names_a_gap);
+    // AD-466: the check request reads no provenance document, so it names only that gap.
+    let hygiene = HYGIENE;
+    assert_eq!(got["unsupported"]["rules"], hygiene(), "{got}");
+    assert!(names_a_gap);
     // The frame names no report part: the check request asks for no report payload.
     assert_eq!(got["unsupported"]["report"], Value::Null);
     assert_eq!(got["rules"].as_object().map_or(0, |rules| rules.len()), 83);

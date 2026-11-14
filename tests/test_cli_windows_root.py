@@ -72,7 +72,9 @@ def test_tree_contract_file_names_stay_posix(release_core: Path) -> None:
         done = command(release_core, root, "--json")
         assert done.returncode == 0, done.stdout + done.stderr
         files = json.loads(done.stdout)["frame"]["self_test"]["collect"]["contract_files"]
-        assert set(files) == {"architecture-contract.json", "inside.json", "nested/deep.json"}
+        # AD-466: the cited provenance page is a bound file too.
+        names = {"architecture-contract.json", "inside.json", "nested/deep.json", "README.md"}
+        assert set(files) == names
         assert all("\\" not in name and ":" not in name for name in files)
 
 

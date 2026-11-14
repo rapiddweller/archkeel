@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-316, AD-317 and AD-436: CI checks the native code, and a release gates its platform wheels."""
+"""AD-316, AD-317, AD-436, AD-476: CI checks the native code; a release has six platform wheels."""
 
 from __future__ import annotations
 
@@ -105,28 +105,24 @@ def test_full_builds_each_platform_wheel_on_its_own_target() -> None:
     assert "runner: ubuntu-24.04-arm\n" in wheel_jobs["native-wheel-linux"]
 
 
-@pytest.mark.parametrize("gate,published", [("false", False), ("true", True), ("", False)])
-def test_a_release_adds_the_platform_wheels_only_when_the_gate_is_open(
-    tmp_path: Path, gate: str, published: bool
-) -> None:
+def _add_script() -> str:
     build = _jobs("release.yml")["build"]
     assert "pattern: native-wheel-*\n" in build and "path: native-wheels/\n" in build
-    step = build.split("- name: Add the platform wheels only when PUBLISH_NATIVE_WHEELS is true\n")
-    script = dedent(step[1].split("        run: |\n", 1)[1].split("\n\n", 1)[0])
+    step = build.split("- name: Add the platform wheels that full verification built and ran\n")
+    return dedent(step[1].split("        run: |\n", 1)[1].split("\n\n", 1)[0])
+
+
+def test_a_release_adds_every_platform_wheel_of_full(tmp_path: Path) -> None:
     (tmp_path / "dist").mkdir()
     (tmp_path / "native-wheels").mkdir()
     (tmp_path / "dist/archkeel-5.0.0.tar.gz").write_bytes(b"sdist")
     for tag in PLATFORM_TAGS:
         (tmp_path / "native-wheels" / f"archkeel-5.0.0-{tag}.whl").write_bytes(b"wheel")
     result = subprocess.run(
-        ["bash", "-c", script],
-        cwd=tmp_path,
-        env={**os.environ, "PUBLISH_NATIVE_WHEELS": gate},
-        check=False,
-        capture_output=True,
+        ["bash", "-c", _add_script()], cwd=tmp_path, check=False, capture_output=True
     )
-    assert (result.returncode == 0) is published
-    assert len(list((tmp_path / "dist").glob("*.whl"))) == (len(PLATFORM_TAGS) if published else 0)
+    assert result.returncode == 0, result.stderr
+    assert len(list((tmp_path / "dist").glob("*.whl"))) == len(PLATFORM_TAGS)
     assert len(list((tmp_path / "dist").glob("*.tar.gz"))) == 1
 
 
@@ -136,9 +132,7 @@ def test_release_requires_exactly_six_platform_wheels_and_one_sdist(
     tmp_path: Path, wheels: int, sdists: int, pure: str
 ) -> None:
     """A wheel without a platform carries no core (AD-436): it stops the step where it is."""
-    build = _jobs("release.yml")["build"]
-    step = build.split("- name: Add the platform wheels only when PUBLISH_NATIVE_WHEELS is true\n")
-    script = dedent(step[1].split("        run: |\n", 1)[1].split("\n\n", 1)[0])
+    script = _add_script()
     (tmp_path / "dist").mkdir()
     (tmp_path / "native-wheels").mkdir()
     if pure:
@@ -152,7 +146,6 @@ def test_release_requires_exactly_six_platform_wheels_and_one_sdist(
     result = subprocess.run(
         ["bash", "-c", script],
         cwd=tmp_path,
-        env={**os.environ, "PUBLISH_NATIVE_WHEELS": "true"},
         capture_output=True,
         text=True,
     )
@@ -161,40 +154,33 @@ def test_release_requires_exactly_six_platform_wheels_and_one_sdist(
         assert len(list((tmp_path / "dist").glob("*.whl"))) == 6
 
 
-@pytest.mark.parametrize("gate,opened", [("false", False), ("", False), ("true", True)])
-def test_a_release_stops_before_full_verification_while_it_is_closed(
-    gate: str, opened: bool
-) -> None:
-    """AD-436: a wheel of the matrix gives no verdict, so the first job refuses the release."""
+def _unbuilt(tags: tuple[str, ...]) -> set[str]:
+    """The platforms of a release that no job of Full builds, installs and runs."""
+    jobs = _jobs("full-verification.yml")
+    wheel_jobs = {job: body for job, body in jobs.items() if job.startswith("native-wheel-")}
+    assert all("make native-wheel NATIVE_TAG=" in body for body in wheel_jobs.values())
+    assert all(f"      - {job}\n" in jobs["verified"] for job in wheel_jobs)
+    text = "".join(wheel_jobs.values())
+    built = {a or b for a, b in re.findall(r"tag: (py3-none-\w+)|NATIVE_TAG=(py3-none-\w+)", text)}
+    return set(tags) - built
+
+
+def test_a_release_is_open_and_publishes_only_platforms_that_full_builds_and_runs() -> None:
+    """AD-476: no flag and no first job close the release; Full is the gate for each wheel."""
     workflow = (WORKFLOWS / "release.yml").read_text()
-    flag = re.findall(r'^  PUBLISH_NATIVE_WHEELS: "(\w+)"$', workflow, re.MULTILINE)
-    # The release opens only when the hook bundles the core and each platform gives a verdict.
-    hook = (ROOT / "native/hatch_build.py").read_text()
-    works = '"archkeel-core"' in hook and not release_core.NO_VERDICT
-    assert flag == ["true" if works else "false"]
-    assert set(release_core.NO_VERDICT) <= {tag.rsplit("-", 1)[-1] for tag in PLATFORM_TAGS}
+    assert "PUBLISH_NATIVE_WHEELS" not in workflow and "core-in-wheel" not in workflow
     jobs = _jobs("release.yml")
-    first = jobs["core-in-wheel"]
-    assert "    needs: core-in-wheel\n" in jobs["verify"]
-    assert "needs:" not in first and "uses:" not in first and "if:" not in first
-    assert "    permissions: {}\n" in first
-    script = dedent(first.split("        run: |\n", 1)[1])
-    result = subprocess.run(
-        ["bash", "-c", script],
-        env={**os.environ, "PUBLISH_NATIVE_WHEELS": gate},
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == (0 if opened else 2)
-    assert ("gives no verdict" in result.stdout) is not opened
-    # The refusal names each platform that keeps the release closed.
-    assert opened or all(platform in result.stdout for platform in release_core.NO_VERDICT)
+    assert "needs:" not in jobs["verify"] and "    needs: verify\n" in jobs["build"]
+    assert not hasattr(release_core, "NO_VERDICT")
+    assert _unbuilt(PLATFORM_TAGS) == set()
+    # A listed platform that Full does not build and run is found.
+    assert _unbuilt((*PLATFORM_TAGS, "py3-none-win_arm64")) == {"py3-none-win_arm64"}
 
 
 def test_the_release_build_checks_the_core_of_the_wheels_before_it_uploads_them() -> None:
     build = _jobs("release.yml")["build"]
     check = "run: python3 -m tools.release_core dist dist/archkeel-*-py3-none-manylinux_2_17_x86_64"
-    added = build.index("- name: Add the platform wheels only when PUBLISH_NATIVE_WHEELS is true")
+    added = build.index("- name: Add the platform wheels that full verification built and ran")
     assert added < build.index(check) < build.index("- name: Upload distributions")
     assert "if:" not in build and "continue-on-error" not in build
 
@@ -232,6 +218,7 @@ def test_the_release_check_refuses_each_wheel_without_the_core(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     core = release_core.MEMBER
+    monkeypatch.setattr(release_core, "platform_tags", lambda: ("py3-none-host",))
     assert release_core.main([str(tmp_path), "x.whl"]) == 2
     host = _wheel(tmp_path, "py3-none-host", core, core + ".sha256")
     bare = _wheel(tmp_path, "py3-none-other")
@@ -250,21 +237,26 @@ def test_the_release_check_refuses_each_wheel_without_the_core(
     assert release_core.main([str(tmp_path)]) == 2
 
 
-def test_the_release_check_refuses_a_wheel_of_a_platform_that_gives_no_verdict(
+def test_the_release_check_wants_exactly_the_platforms_of_the_matrix(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """AD-436: such a wheel carries the core, and the installed package still refuses each run."""
+    """AD-476: a missing or an unlisted platform stops the release; each listed one passes."""
     core = release_core.MEMBER
     host = _wheel(tmp_path, "py3-none-host", core, core + ".sha256")
     windows = _wheel(tmp_path, "py3-none-win_amd64", core + ".exe", core + ".exe.sha256")
     ran: list[Path] = []
     monkeypatch.setattr(release_core, "smoke", lambda wheel: ran.append(wheel) or "")
-    monkeypatch.setattr(release_core, "NO_VERDICT", {"win_amd64": "the cause"})
-    assert release_core.carries_core(windows)
-    assert release_core.main([str(tmp_path), str(host)]) == 2 and ran == []
-    assert f"release refused: {windows.name} gives no verdict: the cause" in capsys.readouterr().err
-    monkeypatch.setattr(release_core, "NO_VERDICT", {})
+    monkeypatch.setattr(
+        release_core, "platform_tags", lambda: ("py3-none-host", "py3-none-win_amd64")
+    )
     assert release_core.main([str(tmp_path), str(host)]) == 0 and ran == [host]
+    windows.unlink()
+    assert release_core.main([str(tmp_path), str(host)]) == 2
+    assert "are not exactly the platforms" in capsys.readouterr().err
+    windows = _wheel(tmp_path, "py3-none-win_amd64", core + ".exe", core + ".exe.sha256")
+    monkeypatch.setattr(release_core, "platform_tags", lambda: ("py3-none-host",))
+    assert release_core.main([str(tmp_path), str(host)]) == 2
+    assert "are not exactly the platforms" in capsys.readouterr().err
 
 
 def test_only_a_verdict_of_the_bundled_core_passes_the_installed_run() -> None:
