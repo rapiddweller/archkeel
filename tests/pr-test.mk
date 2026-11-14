@@ -28,14 +28,10 @@ PR_TEST_FILES := \
 	tests/test_cli_native_profile_limits.py \
 	tests/test_pr_test_node_ids.py \
 	tests/test_native_versions.py \
-	tests/test_collector_native_python_parse.py \
-	tests/test_collector_native_python_scope.py \
-	tests/test_collector_native_python_survey.py \
 	tests/test_collector_native_python_first_difference.py \
 	tests/test_collector_native_python_texts.py \
 	tests/test_collector_native_python_review.py \
 	tests/test_collector_native_python_review_families.py \
-	tests/test_collector_native_python_compile_sites.py \
 	tests/test_collector_native_python_compiler.py \
 	tests/test_rust_clones.py \
 	tests/test_rust_api.py \

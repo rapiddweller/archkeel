@@ -5,7 +5,6 @@ owns current work, remaining acceptance and deferred proposals. Keep status ther
 do not copy it into a second table that can present completed work as open.
 
 Accepted decisions live in the [decision index](architecture/decisions/README.md) and
-[release notes](../RELEASE_NOTES.md). The [human review protocol](review-pilot.md)
-describes the evidence required from a real pilot.
+[release notes](../RELEASE_NOTES.md).
 
 Implementation and local tests do not close remote or human acceptance gates.

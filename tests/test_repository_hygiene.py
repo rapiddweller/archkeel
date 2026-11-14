@@ -200,7 +200,7 @@ def test_file_size_limit_covers_code_and_not_data() -> None:
     assert _is_size_limited("tests/test_analyzer.py")
     assert _is_size_limited("fixtures/demo_catalog_types.py")
     assert _is_size_limited("src/archkeel/render/assets/flow.js")
-    assert _is_size_limited("src/archkeel/render/assets/archkeel-report.css")
+    assert _is_size_limited("src/archkeel/studio/ui/studio.css")
     assert _is_size_limited("src/archkeel/studio/ui/workbench.tsx")
     assert _is_size_limited("tools/native_expected.py")
     assert _is_size_limited("tools/browser-runtime/bundle.cjs")

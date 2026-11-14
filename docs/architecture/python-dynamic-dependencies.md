@@ -37,7 +37,7 @@ Each edge reuses the native call identity and lexical binding proof. Static and
 dynamic imports share the existing import collector; no collector peer imports
 another implementation. No contract, IR or SourceFacts protocol format changes.
 
-Proof: [native controls](../../tests/test_dynamic_dependency_policy.py).
+Proof: native controls.
 
 ## Names-only `globals()` in the loading module (AD-275)
 

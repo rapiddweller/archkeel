@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-// The output of the definitions equals `analyzer/dart/parse.py` byte for byte:
-// `tests/test_collector_native_dart_syntax.py` compares whole files. These tests hold the work
+// The output of the definitions equaled the Python collector of release 4.0.1 byte for byte. The
+// test that compared whole files is deleted with the Python core. These tests hold the work
 // account of the walks (AD-376): a walk that stops counting its work changes the pinned value.
 
 use super::*;

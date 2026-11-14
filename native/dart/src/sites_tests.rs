@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-// The expected values come from `analyzer/dart/parse.parse` (Python 3.11).
-// `tests/test_collector_native_dart_sites.py` compares whole files byte for byte.
+// The expected values come from the Python collector of release 4.0.1 (Python 3.11).
+// The test that compared whole files is deleted with the Python core.
 
 use super::*;
 use crate::parse::DartParser;

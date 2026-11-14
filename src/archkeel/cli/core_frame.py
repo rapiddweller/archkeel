@@ -208,11 +208,6 @@ class CoreFrame:
     collection_gaps: tuple[CollectionGap, ...] = ()
 
     @property
-    def decided(self) -> bool:
-        """True when the frame names no part: the core decides every rule of the run."""
-        return not self.gaps and not self.missing
-
-    @property
     def complete_scope(self) -> bool:
         return self.scope == _ScopeWord.COMPLETE
 

@@ -83,4 +83,4 @@ def test_every_flowchart_and_graph_block_quotes_special_node_labels() -> None:
                 failures.append(f"{path}:{start_line + offset}: {label}")
     assert failures == []
     # The architecture contract graph must be included in the scan.
-    assert "docs/architecture/archkeel.md" in seen_paths
+    assert "docs/architecture/native.md" in seen_paths
