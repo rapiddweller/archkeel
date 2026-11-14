@@ -71,18 +71,18 @@ impl Collection<'_> {
             .unwrap_or("")
             .trim_end_matches(is_space);
         let (line, column) = if first.is_empty() { (0, 0) } else { (1, 0) };
-        let evidence = Evidence::at(rel, line, line, column, first);
-        let id = evidence.id.as_str().to_owned();
-        self.evidence.insert(id.clone(), evidence);
-        id
+        self.keep(Evidence::at(rel, line, line, column, first))
     }
 
     /// `collect._cite`: file one source location as evidence.
     pub(crate) fn cite(&mut self, rel: &str, span: &crate::source::Span) -> String {
-        let evidence = Evidence::at(rel, span.line, span.end_line, span.column, &span.excerpt);
-        let id = evidence.id.as_str().to_owned();
-        self.evidence.insert(id.clone(), evidence);
-        id
+        self.keep(Evidence::at(
+            rel,
+            span.line,
+            span.end_line,
+            span.column,
+            &span.excerpt,
+        ))
     }
 
     /// `collect._gap`: one UNKNOWN record; the same reason, evidence and module give one record.
@@ -99,5 +99,12 @@ impl Collection<'_> {
         };
         let (id, record) = Record::unknown_gap(reason, evidence, module, fact);
         self.gaps.entry(id).or_insert(record);
+    }
+
+    /// File one piece of evidence and give its id.
+    fn keep(&mut self, evidence: Evidence) -> String {
+        let id = evidence.id.as_str().to_owned();
+        self.evidence.insert(id.clone(), evidence);
+        id
     }
 }
