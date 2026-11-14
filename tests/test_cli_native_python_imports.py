@@ -29,8 +29,9 @@ BASE = {
 }
 
 
-def component(name: str, packages: list[str], requires: list[str] = (), *,
-              exact: bool = False) -> dict[str, Any]:
+def component(
+    name: str, packages: list[str], requires: list[str] = (), *, exact: bool = False
+) -> dict[str, Any]:
     owned = {"exact_modules": packages, "packages": []} if exact else {"packages": packages}
     return {
         **COMPONENT,
@@ -44,16 +45,26 @@ def component(name: str, packages: list[str], requires: list[str] = (), *,
 def rules(*, type_checking: bool = True) -> list[dict[str, Any]]:
     forbid = {"source": "app.client", "target": "app.service"}
     return [
-        {**RULE, "id": "FORBID", "kind": "forbidden_dependency", **forbid,
-         "include_type_checking": type_checking},
+        {
+            **RULE,
+            "id": "FORBID",
+            "kind": "forbidden_dependency",
+            **forbid,
+            "include_type_checking": type_checking,
+        },
         {**RULE, "id": "ASSIGN", "kind": "complete_assignment", "source": "app"},
         {**RULE, "id": "CYCLES", "kind": "no_component_cycles"},
         {**RULE, "id": "EXTERNAL", "kind": "complete_external_scope", "source": "app"},
     ]
 
 
-def project(root: Path, files: dict[str, str | bytes], *, roots: str = '["src"]',
-            contract_rules: list[dict[str, Any]] | None = None) -> Path:
+def project(
+    root: Path,
+    files: dict[str, str | bytes],
+    *,
+    roots: str = '["src"]',
+    contract_rules: list[dict[str, Any]] | None = None,
+) -> Path:
     for name, text in files.items():
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -73,8 +84,13 @@ def project(root: Path, files: dict[str, str | bytes], *, roots: str = '["src"]'
         "rules": rules() if contract_rules is None else contract_rules,
     }
     (root / "architecture-contract.json").write_text(json.dumps(contract))
-    env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
-           "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@t",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@t",
+    }
     for step in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "init"]):
         subprocess.run(["git", "-C", str(root), *step], check=True, env=env)
     return root
@@ -130,13 +146,18 @@ def test_a_type_checking_import_is_outside_a_rule_that_leaves_it_out(
 ) -> None:
     source = "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    import app.service\n"
     files = {**BASE, "src/app/client.py": source}
-    result = verdict(release_core, project(tmp_path, files, contract_rules=rules(type_checking=False)))
+    result = verdict(
+        release_core, project(tmp_path, files, contract_rules=rules(type_checking=False))
+    )
     assert rows(result)["FORBID"] == "PASS", result
 
 
 def test_a_component_cycle_fails(release_core: Path, tmp_path: Path) -> None:
-    files = {**BASE, "src/app/client.py": "import app.service\n",
-             "src/app/service.py": "import app.client\n"}
+    files = {
+        **BASE,
+        "src/app/client.py": "import app.service\n",
+        "src/app/service.py": "import app.client\n",
+    }
     result = verdict(release_core, project(tmp_path, files))
     assert rows(result)["CYCLES"] == "FAIL", result
 
@@ -155,13 +176,21 @@ def test_a_standard_name_must_be_standard_in_each_supported_minor(
 
 @pytest.mark.parametrize(
     ("dependency", "source"),
-    [("requests", "import requests.adapters\n"), ("google.cloud", "from google.cloud import storage\n")],
+    [
+        ("requests", "import requests.adapters\n"),
+        ("google.cloud", "from google.cloud import storage\n"),
+    ],
 )
 def test_an_external_dependency_matches_by_module_scope(
     release_core: Path, tmp_path: Path, dependency: str, source: str
 ) -> None:
-    rule = {**RULE, "id": "SCOPE", "kind": "external_dependency_scope", "dependency": dependency,
-            "allowed_sources": ["app.service"]}
+    rule = {
+        **RULE,
+        "id": "SCOPE",
+        "kind": "external_dependency_scope",
+        "dependency": dependency,
+        "allowed_sources": ["app.service"],
+    }
     files = {**BASE, "src/app/client.py": source}
     result = verdict(release_core, project(tmp_path, files, contract_rules=[rule]))
     assert rows(result) == {"SCOPE": "FAIL"}, result
@@ -172,11 +201,15 @@ GAPS = {
     "dynamic_import ": {"src/app/client.py": "__import__('app.service')\n"},
     "dynamic_import  ": {"src/app/client.py": "exec('import app.service')\n"},
     "import_system_change": {"src/app/client.py": "import sys\nsys.path.insert(0, 'x')\n"},
-    "project_module_not_found": {"src/app/client.py": "import app.space\n",
-                                 "src/app/space/inner.py": ""},
+    "project_module_not_found": {
+        "src/app/client.py": "import app.space\n",
+        "src/app/space/inner.py": "",
+    },
     "star_import": {"src/app/client.py": "from app import *\n"},
-    "reexport_ambiguity": {"src/app/__init__.py": "service = 1\n",
-                           "src/app/client.py": "from app import service\n"},
+    "reexport_ambiguity": {
+        "src/app/__init__.py": "service = 1\n",
+        "src/app/client.py": "from app import service\n",
+    },
     "relative_import_beyond_top": {"src/app/client.py": "from ... import other\n"},
     "exception_gap": {"src/app/client.py": "def broken(:\n"},
     "exception_gap ": {"src/app/client.py": b"x = '\xff'\n"},
@@ -198,7 +231,9 @@ def test_each_named_gap_gives_unknown(release_core: Path, tmp_path: Path, gap: s
     assert gap.strip() in json.dumps(result["frame"]), result
 
 
-@pytest.mark.skipif(os.name != "posix" or os.geteuid() == 0, reason="needs an unprivileged POSIX user")
+@pytest.mark.skipif(
+    os.name != "posix" or os.geteuid() == 0, reason="needs an unprivileged POSIX user"
+)
 @pytest.mark.parametrize("entry", ["src/app/locked", "src/app/locked/hidden.py"])
 def test_an_unreadable_entry_gives_no_pass(release_core: Path, tmp_path: Path, entry: str) -> None:
     files = {**BASE, "src/app/locked/hidden.py": "import app.service\n"}

@@ -63,7 +63,7 @@ def test_the_core_decides_each_rule_of_the_self_contract(
 # test, and the row of `core` has to be decided again.
 COLLECT = "native.archkeel_collect"
 TS, RUST = "native.archkeel_typescript_collector", "native.archkeel_rust_collector"
-# AD-450: `BUILD` is the version and code digest text of the Python collector; it stays in `collect`.
+# AD-450: `BUILD` is the version and code digest text of the Python collector. It stays in collect.
 PY = "native.archkeel_python_collector"
 COLLECT_TO_COLLECTORS = {
     ("native.archkeel_collect", "archkeel_typescript_collector::TEST_FEATURES", TS),
