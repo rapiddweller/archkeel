@@ -217,14 +217,31 @@ def test_the_installed_wheel_gives_the_verdict_of_its_core(
 
 @pytest.mark.parametrize("form", ["json", "html"])
 def test_the_installed_wheel_writes_a_report_file_of_its_core(
-    installed: Installed, crate: Path, form: str, tmp_path: Path
+    installed: Installed, reference: Path, crate: Path, form: str, tmp_path: Path
 ) -> None:
-    """AD-440: the report file of the installed core keeps the ruling of the frame."""
+    """AD-440: the report file of the installed core keeps the ruling of the frame.
+
+    Windows has no directory handles, so it refuses file output with a typed reason and writes no
+    file; the frame stays the one of the checkout core (known limit, AD-440).
+    """
     target = tmp_path / f"report.{form}"
     done = installed.run(
         *("report", "--root", str(crate), "--output", str(target), "--format", form, "--json")
     )
     result = json.loads(done.stdout)
+    if WINDOWS:
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(core_only, "locate_core", lambda: reference)
+            _, checkout = run("report", "--root", str(crate))
+        assert done.returncode == result["exit_code"] == 2, (done.stdout, done.stderr)
+        assert result["status"] == "PASS" and result["frame"] == checkout["frame"], result
+        assert result["refusal"]["kind"] == "io_error", result
+        assert result["refusal"]["message"].endswith(
+            "atomic report output needs directory handles on this platform; "
+            "no report file was written"
+        ), result
+        assert not target.exists()
+        return
     assert done.returncode == 0 and result["status"] == "PASS", (done.stdout, done.stderr)
     if form == "json":
         assert json.loads(target.read_bytes()) == result["frame"]
