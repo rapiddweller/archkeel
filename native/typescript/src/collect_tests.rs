@@ -44,6 +44,66 @@ fn titles(facts: &Facts) -> Vec<&str> {
     facts.gaps.iter().map(|gap| gap.title.as_str()).collect()
 }
 
+fn global_project(publisher: &str, consumer: &str, extra: &str, content: &str) -> Tree {
+    let mut files = vec![
+        ("tsconfig.json", r#"{"compilerOptions":{"moduleDetection":"legacy","module":"none"},"include":["src/**/*.ts"],"archkeel":{"scriptHost":"classic-browser"}}"#),
+        ("src/api.ts", publisher),
+        ("src/client.ts", consumer),
+    ];
+    if !extra.is_empty() {
+        files.push((extra, content));
+    }
+    Tree::new(&files)
+}
+
+#[test]
+fn a_closed_global_publication_resolves_and_cites_its_binding() {
+    let cases: serde_json::Value = serde_json::from_str(include_str!(
+        "../testdata/global-publication.json"
+    )).unwrap();
+    for case in cases["proved"].as_array().unwrap() {
+        let publisher = case[1].as_str().unwrap();
+        let consumer = case[2].as_str().unwrap();
+        let tree = global_project(publisher, consumer, "", "");
+        let (facts, records) = records(&request(&tree, false), provenance()).unwrap();
+        assert!(titles(&facts).is_empty(), "{case}: {:?}", titles(&facts));
+        let import = facts.imports.iter().find_map(|target| match target {
+            Target::Local { import_id, file, .. } if file == "src/api.ts" => Some(import_id),
+            _ => None,
+        }).unwrap_or_else(|| panic!("{case}: no local publication target"));
+        let record = records.imports.iter().find(|r| r.id == *import).unwrap();
+        assert!(!record.fact_ids.is_empty(), "{case}: no publication proof");
+    }
+}
+
+#[test]
+fn an_unproved_global_publication_keeps_a_resolution_gap() {
+    let cases: serde_json::Value = serde_json::from_str(include_str!(
+        "../testdata/global-publication.json"
+    )).unwrap();
+    for case in cases["unproved"].as_array().unwrap() {
+        let strings: Vec<&str> = case.as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+        let tree = global_project(strings[1], strings[2], strings[3], strings[4]);
+        let facts = collect(&request(&tree, false), provenance());
+        assert!(facts.gaps.iter().any(|gap| matches!(gap.data, GapFact::SourceResolutionGap(_))), "{case}");
+        assert!(!facts.imports.iter().any(|target| matches!(target,
+            Target::Local { file, .. } if file == "src/api.ts")), "{case}");
+    }
+}
+
+#[test]
+fn issue740_replaced_platform_globals_are_not_proven() {
+    let cases: serde_json::Value = serde_json::from_str(include_str!(
+        "../testdata/global-publication.json"
+    )).unwrap();
+    for case in cases["issue740"].as_array().unwrap() {
+        let write = format!("export {{}}; {}", case[1].as_str().unwrap());
+        let tree = global_project("", "window.open();", "src/extra.ts", &write);
+        let facts = collect(&request(&tree, false), provenance());
+        assert!(facts.gaps.iter().any(|gap| matches!(gap.data, GapFact::SourceResolutionGap(_))), "{case}");
+    }
+}
+
 #[test]
 fn a_scope_of_only_test_sources_is_not_complete() {
     let tree = Tree::new(&[

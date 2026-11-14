@@ -45,6 +45,7 @@ The edge does not prove that a particular execution reaches the publication or s
 Do not infer a publisher by a name match, a declaration file or a host property of another frame.
 Do not extend the old object, wrapper, namespace or vendor analyses with this new witness.
 Computed hosts, `Object.assign`, `with`, `eval`, `Function`, sloppy `this` and reassignment prevent the new witness.
+Issue #740's assertion, non-null, delete, alias and `Object.defineProperty` writes also prevent this witness.
 Unknown source inputs and bundler plugins do not become a closed world by omission.
 Every unsupported global use keeps `source_resolution_gap`; no exclusion becomes PASS through this witness.
 This deliberately small syntax set can leave the measured corpus unchanged.

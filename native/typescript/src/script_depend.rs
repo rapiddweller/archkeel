@@ -23,6 +23,53 @@ const UNPUBLISHED: &str = " has no unique unconditional publication";
 pub(crate) type Aliases<'x> = (Option<&'x ScriptAlias>, Option<&'x ScriptAlias>);
 
 impl<'a, 'p> Run<'a, 'p> {
+    /// Resolve only the new closed-source forms. The old object analysis stays separate.
+    pub(crate) fn direct_dependency(&mut self, rel: &str, probe: &Probe, path: &[String]) -> bool {
+        if !self.direct || probe.scope_ambiguous {
+            return false;
+        }
+        let (name, property) = match probe.path.as_slice() {
+            [name] => (name.as_str(), false),
+            [host, name] if matches!(host.as_str(), "window" | "globalThis" | "self") => {
+                (name.as_str(), true)
+            }
+            _ => return false,
+        };
+        if self.standard.contains(name) || path != [name] {
+            return false;
+        }
+        let candidates: Vec<_> = self.project.files.iter().flat_map(|(source, file)| {
+            file.script.script.direct.iter().flatten().filter_map(move |publication| {
+                (publication.name == name).then_some((*source, publication))
+            })
+        }).collect();
+        let [(source, publication)] = candidates.as_slice() else { return false; };
+        if (property && !publication.property)
+            || self.source_writes.sole(name) != Some((*source, &publication.span))
+        {
+            return false;
+        }
+        let publication = ScriptGlobal {
+            name: name.to_owned(), span: publication.span.clone(), members: Vec::new(),
+            stable: true, source_members: Vec::new(), source_origin: true, availability: Vec::new(),
+        };
+        let module = self.module(rel);
+        let target = self.module(source);
+        let proof = self.publication_evidence(source, &publication);
+        let evidence = self.sink.cite(rel, &probe.span);
+        self.sink.targets.push(Target::Local {
+            import_id: FactId::new(global_id(&module, probe.kind, &probe.span)),
+            module: ModuleName::new(&target), file: (*source).to_owned(),
+            runtime_file: None, declaration_file: None,
+        });
+        self.sink.imports.push(import_record(&Use {
+            module: &module, kind: probe.kind, span: &probe.span, path,
+            target_module: &target, target_package: None, symbol: Some(name), known: true,
+            evidence: vec![evidence], binding: None, facts: vec![proof],
+        }));
+        true
+    }
+
     /// `_script_dependency`.
     pub(crate) fn dependency(
         &mut self,

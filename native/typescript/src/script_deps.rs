@@ -56,6 +56,7 @@ impl Probe {
 pub(crate) struct Run<'a, 'p> {
     pub project: &'p Project<'a>,
     pub partial: bool,
+    pub direct: bool,
     pub standard: HashSet<String>,
     pub vendors: Vendors,
     pub writes: WriteIndex<'a>,
@@ -220,6 +221,9 @@ impl<'a, 'p> Run<'a, 'p> {
                 .first()
                 .is_some_and(|first| file.shadow.shadows(site.shadow.chain, first));
         if path.is_empty() || !(site.script_free || alias_call.is_some()) || shadowed {
+            return;
+        }
+        if alias.is_none() && self.direct_dependency(rel, &probe, &path) {
             return;
         }
         let publishers = self.publishers(path.first());

@@ -13,7 +13,7 @@ use tree_sitter::Node;
 use crate::kinds::{F, K};
 use crate::script_scope::Tree;
 use crate::script_syntax::Producer;
-use crate::script_types::{Member, ScriptGlobal};
+use crate::script_types::{DirectPublication, Member, ScriptGlobal};
 use crate::tree::nodes::named_children;
 
 /// The `(published name, local name)` pairs and the keys of an object literal.
@@ -47,6 +47,109 @@ fn object_members<'t>(tree: &Tree<'_, 't>, object: Node<'t>) -> Option<Keyed> {
 }
 
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
+    /// The new witness accepts a closed syntax set, not an incomplete list of dangerous forms.
+    pub(crate) fn direct_publications(&self) -> Option<Vec<DirectPublication>> {
+        let mut publications = Vec::new();
+        for statement in named_children(self.tree.root) {
+            self.direct_statement(statement, &mut publications)?;
+        }
+        Some(publications)
+    }
+
+    fn direct_statement(
+        &self,
+        node: Node<'t>,
+        publications: &mut Vec<DirectPublication>,
+    ) -> Option<()> {
+        let tree = self.tree;
+        match tree.k(node) {
+            K::Comment => {}
+            K::FunctionDeclaration | K::ClassDeclaration => {
+                let class = tree.k(node) == K::ClassDeclaration;
+                let body = tree.field(node, F::Body)?;
+                let name = tree.field(node, F::Name)?;
+                let children = named_children(node);
+                let empty = named_children(body).is_empty();
+                let plain = if class {
+                    children.len() == 2
+                } else {
+                    children.len() == 3
+                        && named_children(tree.field(node, F::Parameters)?).is_empty()
+                        && !tree.has_child_kind(node, K::Async)
+                };
+                if !empty || !plain {
+                    return None;
+                }
+                publications.push(DirectPublication {
+                    name: tree.text(name), span: tree.span(node), property: !class,
+                });
+            }
+            K::VariableDeclaration | K::LexicalDeclaration => {
+                for binding in named_children(node) {
+                    let name = tree.field(binding, F::Name)?;
+                    let value = tree.field(binding, F::Value);
+                    if tree.k(name) != K::Identifier
+                        || named_children(binding).len() != 1 + usize::from(value.is_some())
+                        || value.is_some_and(|value| !self.primitive(value))
+                    {
+                        return None;
+                    }
+                    publications.push(DirectPublication {
+                        name: tree.text(name), span: tree.span(binding),
+                        property: tree.k(node) == K::VariableDeclaration,
+                    });
+                }
+            }
+            K::ExpressionStatement => {
+                let children = named_children(node);
+                let [expression] = children.as_slice() else { return None; };
+                self.direct_expression(*expression, publications)?;
+            }
+            _ => return None,
+        }
+        Some(())
+    }
+
+    fn primitive(&self, node: Node<'t>) -> bool {
+        matches!(self.tree.k(node), K::Number | K::String | K::True | K::False | K::Null)
+    }
+
+    fn direct_expression(
+        &self,
+        node: Node<'t>,
+        publications: &mut Vec<DirectPublication>,
+    ) -> Option<()> {
+        let tree = self.tree;
+        match tree.k(node) {
+            K::AssignmentExpression => {
+                let target = tree.field(node, F::Left)?;
+                let path = tree.static_path(target);
+                let [host, name] = path.as_slice() else { return None; };
+                if !matches!(host.as_str(), "window" | "globalThis" | "self")
+                    || !tree.script_free(target, node)
+                    || !self.primitive(tree.field(node, F::Right)?)
+                {
+                    return None;
+                }
+                publications.push(DirectPublication {
+                    name: name.clone(), span: tree.span(node), property: true,
+                });
+            }
+            K::CallExpression => {
+                let path = tree.static_path(tree.field(node, F::Function)?);
+                if path.is_empty()
+                    || path.iter().any(|part| crate::script_writes::is_effect_name(part))
+                    || !named_children(tree.field(node, F::Arguments)?).is_empty()
+                    || tree.has_child_kind(node, K::OptionalChain)
+                {
+                    return None;
+                }
+            }
+            _ => return None,
+        }
+        Some(())
+    }
+
     /// `_script_members`: the functions that an object literal publishes under their own name.
     pub(crate) fn members(&self, object: Node<'t>, wrapper: Option<Node<'t>>) -> Vec<Member> {
         let tree = self.tree;

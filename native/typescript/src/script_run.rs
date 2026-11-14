@@ -7,6 +7,9 @@
 
 use std::collections::HashSet;
 
+use archkeel_snapshot::paths::{join, within};
+use archkeel_snapshot::Entry;
+
 use super::{Collection, GapKind};
 use crate::script_deps::Run;
 use crate::script_project::{Project, Write, WriteIndex};
@@ -39,9 +42,11 @@ impl Collection<'_> {
             .into_iter()
             .filter(|write| seen.insert(*write));
         let source_writes = WriteIndex::new(unique);
+        let direct = self.direct_scope(&project, partial);
         let mut run = Run {
             project: &project,
             partial,
+            direct,
             standard: standard_globals(&options),
             vendors,
             writes: WriteIndex::new(all.iter().copied()),
@@ -61,6 +66,41 @@ impl Collection<'_> {
         self.kept = kept;
         self.order = order;
         self.take(sink, dependency_scope)
+    }
+
+    /// Close the snapshot boundary before a new source-only publication can resolve a use.
+    fn direct_scope(&mut self, project: &Project<'_>, partial: bool) -> bool {
+        let options = &self.resolver.options;
+        if partial || !self.script.classic_browser || self.request.resolver.bundler
+            || options.resolution() == crate::options::Resolution::Bundler
+            || options.module_detection != Some(crate::options::Detection::Legacy)
+            || !options.scripts_are_global() || project.any_error
+            || project.files.iter().any(|(_, file)| file.script.script.direct.is_none())
+        {
+            return false;
+        }
+        let mut pending = vec![".".to_owned()];
+        while let Some(directory) = pending.pop() {
+            let Some(entries) = self.snapshot.listing(&directory) else { return false; };
+            for (name, kind) in entries {
+                let path = join(&directory, &name);
+                if path == ".git" { continue; }
+                match kind {
+                    Entry::Directory if name != "node_modules" => pending.push(path),
+                    Entry::File if self.direct_input(&path, project) => {}
+                    _ => return false,
+                }
+            }
+        }
+        self.snapshot.problems.is_empty()
+    }
+
+    fn direct_input(&self, path: &str, project: &Project<'_>) -> bool {
+        if project.index.contains_key(path) {
+            return self.roots.iter().any(|root| within(root, path));
+        }
+        path == self.request.resolver.tsconfig || path == "archkeel.toml"
+            || path == "architecture-contract.json" || path.ends_with(".md") || path.ends_with(".txt")
     }
 
     /// Take the imports, targets and gaps of the analysis into the collection.

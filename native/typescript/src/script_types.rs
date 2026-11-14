@@ -75,10 +75,19 @@ pub(crate) struct ScriptAlias {
 /// A write: the published name, or `None` where the write is not known, and where it is.
 pub(crate) type Write = (Option<String>, Span);
 
+/// A direct declaration or host assignment in the closed source syntax of AD-446.
+pub(crate) struct DirectPublication {
+    pub name: String,
+    pub span: Span,
+    /// Global lexical declarations are not properties of the host.
+    pub property: bool,
+}
+
 /// The script fields of `Syntax`.
 #[derive(Default)]
 #[cfg_attr(not(feature = "dump"), allow(dead_code))]
 pub(crate) struct Script {
+    pub direct: Option<Vec<DirectPublication>>,
     pub globals: Vec<ScriptGlobal>,
     pub writes: Vec<Write>,
     pub aliases: Vec<ScriptAlias>,

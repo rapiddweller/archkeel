@@ -41,6 +41,7 @@ impl ScriptFile {
         let cleared = parsed.syntax.script_mode && (format_known || uses_loader);
         let mut script = std::mem::take(&mut parsed.syntax.script);
         if cleared {
+            script.direct = None;
             script.globals.clear();
             script.aliases.clear();
         }

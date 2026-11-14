@@ -48,6 +48,9 @@ pub(crate) fn read<'t>(
         }
     }
     let mut script = Script {
+        direct: (syntax.script_mode && !syntax.declaration_file)
+            .then(|| producer.direct_publications())
+            .flatten(),
         writes,
         source_writes: declared.writes,
         write_paths: declared.paths,
