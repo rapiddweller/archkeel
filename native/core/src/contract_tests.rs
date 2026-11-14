@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 
 use serde_json::{json, Value};
 
-use archkeel_model::{Input, Reason, UmlGap};
+use archkeel_model::{Input, Reason, UmlGap, UmlTarget};
 
 use crate::engine::Engine;
 use crate::request::Request;
@@ -307,7 +307,10 @@ fn a_uml_target_in_an_inside_contract_names_the_target_of_the_tree() {
     let row = super::uml_row(usable.as_ref(), ROOT);
     assert_eq!(
         row,
-        Some(("UML-TARGET-a2e40c5592b1b06a".to_owned(), UmlGap::Empty))
+        Some((
+            "UML-TARGET-a2e40c5592b1b06a".to_owned(),
+            UmlTarget::Gap(UmlGap::Mounted)
+        ))
     );
     let (_, plain) = answer(input(&contract(vec![component("a", None)], vec![]), vec![]));
     assert!(super::uml_row(plain.as_ref(), ROOT).is_none());
@@ -430,17 +433,20 @@ fn a_root_rule_with_the_scoped_id_of_a_mount_rule_refuses_the_tree() {
     assert!(usable.is_none());
 }
 
-/// AD-470: the cause of the UML row counts the declared intent that the core does not compare.
+/// AD-494: the UML row of a root target carries the target that the model compares.
 #[test]
-fn a_uml_target_row_counts_the_intent_that_the_core_does_not_compare() {
+fn a_root_uml_target_row_carries_its_target_for_the_comparison() {
     let bytes = include_bytes!("../../../fixtures/H-uml-typescript/architecture-contract.json");
     let (state, usable) = answer(input(bytes, vec![]));
     assert!(matches!(state, ContractState::Parsed(_)), "{state:?}");
-    let gap = UmlGap::NotCompared {
-        entities: 21,
-        relationships: 13,
-        scopes: 2,
-    };
     let row = super::uml_row(usable.as_ref(), ROOT);
-    assert_eq!(row, Some(("UML-TARGET-a2e40c5592b1b06a".to_owned(), gap)));
+    let counts = row.as_ref().and_then(|(_, target)| match target {
+        UmlTarget::Compare(found) => Some((
+            found.entities().len(),
+            found.relationships().len(),
+            found.scopes().len(),
+        )),
+        UmlTarget::Gap(_) => None,
+    });
+    assert_eq!(counts, Some((21, 13, 2)));
 }

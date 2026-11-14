@@ -25,6 +25,16 @@ impl ViolationDetail {
         }
     }
 
+    /// The evidence of one differing assessment of a UML target row (AD-494).
+    pub(crate) fn uml(diff: &archkeel_model::UmlDiff) -> Self {
+        Self {
+            source: diff.subject.clone(),
+            target: Some(diff.fact.clone()),
+            cause: diff.cause,
+            evidence: diff.evidence.clone(),
+        }
+    }
+
     pub(crate) fn of(violation: &Violation) -> Self {
         match violation {
             Violation::Forbidden { cited, .. } => Self::cited("forbidden dependency", cited),

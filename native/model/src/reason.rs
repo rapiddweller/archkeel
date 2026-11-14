@@ -96,18 +96,26 @@ impl Hygiene {
     }
 }
 
-/// Why the UML target row of a contract tree is UNKNOWN (AD-470). No cause can give the row PASS
-/// or FAIL: the core does not compare the declared intent with the source facts yet.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Why the UML target row of a contract tree is UNKNOWN (AD-470, AD-494).
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum UmlGap {
     /// The target declares no entity, relationship or scope (the reference `UML-EMPTY` row).
     Empty,
-    /// The declared intent that the core does not compare with the source facts.
+    /// The declared intent that the core does not compare: no model decides the run.
     NotCompared {
         entities: usize,
         relationships: usize,
         scopes: usize,
     },
+    /// An inside contract of the tree has its own target; the core compares a root target only.
+    Mounted,
+    /// The target gives no assessment that the core can make.
+    NothingCompared,
+    /// Assessments that the core cannot decide from module and import facts: their number and
+    /// the element kinds that need other facts.
+    Undecided { count: usize, kinds: Vec<String> },
+    /// Each assessment passes, but the scope of the run is not complete: its reason.
+    Incomplete(String),
 }
 
 impl fmt::Display for UmlGap {
@@ -123,6 +131,20 @@ impl fmt::Display for UmlGap {
                 "the core does not compare {entities} entities, {relationships} relationships \
                  and {scopes} scopes with the source facts"
             ),
+            UmlGap::Mounted => formatter.write_str(
+                "an inside contract has its own UML target, which the core does not compare",
+            ),
+            UmlGap::NothingCompared => {
+                formatter.write_str("the target gives no assessment that the core can make")
+            }
+            UmlGap::Undecided { count, kinds } => write!(
+                formatter,
+                "{count} assessments need facts that the core does not have: {}",
+                kinds.join(", ")
+            ),
+            UmlGap::Incomplete(reason) => {
+                write!(formatter, "the scope of the run is not complete: {reason}")
+            }
         }
     }
 }
