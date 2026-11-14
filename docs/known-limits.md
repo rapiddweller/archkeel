@@ -238,11 +238,19 @@ standing scan disclaimers retain their separate meanings.
 
 A TypeScript, declaration or JavaScript file under the scan roots that the TSConfig does not
 select (`files`, `include`, `exclude`, `allowJs`) is a coverage gap that names the file, so no
-rule of the run can PASS. Files under `node_modules`, `bower_components`, `jspm_packages`, the
-`outDir` or `declarationDir`, emitted files beside their source, and test sources that
-`exclude_test_sources` removes are not gaps. The gap holds every rule of the run, not only the
-rules that read the file. Narrow the scan roots, or select the file in the TSConfig
+rule of the run can PASS. Emitted names (`a.js` beside `a.ts`) and files in the `outDir` or
+`declarationDir` are gaps too: a name does not prove generated code. Only an installed-package
+directory beside its manifest that the project does not select or read is not a gap, and test
+sources that `exclude_test_sources` removes are not gaps. The gap holds every rule of the run.
+Narrow the scan roots to the source, or select the file in the TSConfig
 ([AD-488](architecture/decisions/ad-488-a-source-file-that-the-tsconfig-drops-is-a-coverage-gap.md)).
+
+These files give no gap in the core and in 4.0.1 (follow-up work):
+- `.vue`, `.svelte`, `.astro` and `.mdx` files, module scripts inline in HTML, and `.es6` files:
+  the collector has no model for them.
+- `exclude_test_sources = true` removes `test`/`tests`/`__tests__` directories and `*.test.*` and
+  `*.spec.*` files by design (AD-313, opt-in), also when such a file imports another component.
+- Code in an installed package that imports project source by a relative path.
 
 Import graphs, ownership, externals, cycles and layout are measured. Lexical UML
 declarations, members, signatures and proven local relationships are available;

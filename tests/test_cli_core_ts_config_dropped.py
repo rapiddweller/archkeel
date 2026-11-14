@@ -281,6 +281,26 @@ REVIEW: dict[str, tuple[Files, list[str]]] = {
         },
         ["src/b/node_modules/local/index.ts"],
     ),
+    "B3-paths-alias-beside-manifest": (
+        {
+            "tsconfig.json": _options(
+                {"baseUrl": ".", "paths": {"@local/*": ["src/b/node_modules/local/*"]}}
+            ),
+            "src/b/package.json": "{}",
+            "src/b/node_modules/local/index.ts": IMPORT3,
+            "src/b/t.ts": "import { hidden } from '@local/index';\nexport const t = hidden;\n",
+        },
+        ["src/b/node_modules/local/index.ts"],
+    ),
+    "B3-base-url-beside-manifest": (
+        {
+            "tsconfig.json": _options({"baseUrl": "src/b/node_modules"}),
+            "src/b/package.json": "{}",
+            "src/b/node_modules/local/index.ts": IMPORT3,
+            "src/b/t.ts": "import { hidden } from 'local/index';\nexport const t = hidden;\n",
+        },
+        ["src/b/node_modules/local/index.ts"],
+    ),
     "B3-unimported": (
         {"src/b/node_modules/local/index.ts": IMPORT3},
         ["src/b/node_modules/local/index.ts"],

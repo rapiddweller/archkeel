@@ -251,7 +251,8 @@ impl Collection<'_> {
     /// AD-488: each project source under the scan roots that the collection did not read is a
     /// coverage gap. The TSConfig can drop a file that holds an import, so silence could pass a
     /// rule. A test source that a 9.0.0 request removes is not a gap (AD-313). `installed` are the
-    /// files that the TSConfig selects in an installed-package directory.
+    /// files that the TSConfig selects in an installed-package directory. An alias that maps a
+    /// specifier into an installed-package directory reaches its code as source too.
     fn unselected(&mut self, installed: Vec<String>) {
         let mut used: BTreeSet<String> = installed.into_iter().collect();
         for target in &self.targets {
@@ -266,6 +267,7 @@ impl Collection<'_> {
                 used.extend(runtime_file.iter().chain(declaration_file).cloned());
             }
         }
+        used.extend(alias_bases(&self.resolver.options));
         let roots = self.roots.clone();
         for rel in crate::unselected::project_sources(&mut self.snapshot, &roots, &used) {
             if self.queued.contains(&rel) || self.excluded_test(&rel) {
@@ -338,6 +340,19 @@ impl Collection<'_> {
         let (id, record) = Record::unknown_gap(reason, evidence, module, fact);
         self.gaps.entry(id).or_insert(record);
     }
+}
+
+/// The fixed directory of each `paths` target and of `baseUrl`: the places that an alias reaches.
+fn alias_bases(options: &crate::options::Options) -> Vec<String> {
+    let targets = options.paths.iter().flat_map(|(_, targets)| targets);
+    let mut bases: Vec<String> = targets
+        .map(|target| {
+            let fixed = target.split('*').next().unwrap_or_default();
+            join(&options.paths_base, fixed)
+        })
+        .collect();
+    bases.extend(options.base_url.iter().cloned());
+    bases
 }
 
 #[path = "import_record.rs"]
