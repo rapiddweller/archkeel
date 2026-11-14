@@ -114,7 +114,9 @@ def _closed_scope_extra(contract: dict[str, Any]) -> None:
     target = _uml(contract)
     target["entities"] = [e for e in target["entities"] if e["id"] not in {"item", "build"}]
     target["relationships"] = [
-        r for r in target["relationships"] if {r["source_id"], r["target_id"]}.isdisjoint({"item", "build"})
+        r
+        for r in target["relationships"]
+        if {r["source_id"], r["target_id"]}.isdisjoint({"item", "build"})
     ]
 
 
