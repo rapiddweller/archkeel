@@ -113,6 +113,15 @@ impl Profile {
         }
     }
 
+    /// True when a name of this profile can be a type and a value at the same time, so a UML
+    /// target entity of a type kind never matches a value and the other way (AD-496).
+    pub fn namespaces(self) -> bool {
+        match self {
+            Profile::TypeScript => true,
+            Profile::Python | Profile::Dart | Profile::Rust => false,
+        }
+    }
+
     /// How the modules of this profile lie in the scan roots. A Python module that is not its
     /// path below a scan root is a gap of the survey, so the parent rule holds (AD-450). A Dart
     /// module is the namespace and the path below its scan root (AD-468).
