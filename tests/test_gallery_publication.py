@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The nightly gallery is published by one job that cannot change the verdict of Full (AD-458)."""
+"""The nightly gallery is published by one job that cannot change the verdict of Full (AD-462)."""
 
 from __future__ import annotations
 

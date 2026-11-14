@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Each project of `fixtures/` has a pinned result of the release core (AD-458).
+"""Each project of `fixtures/` has a pinned result of the release core (AD-462).
 
 A refused project is pinned as refused with its reason. When a collector starts to serve it, this
 test fails and the author must update `fixtures/matrix.json`: the table shows the progress.

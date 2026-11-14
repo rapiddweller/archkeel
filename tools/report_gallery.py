@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Build the static fixture gallery: one report pair for each run of the matrix (AD-458).
+"""Build the static fixture gallery: one report pair for each run of the matrix (AD-462).
 
 The runs come from `fixtures/matrix.json`.
 The tool decides nothing. It runs `archkeel report --output` for each run, reads the envelope that

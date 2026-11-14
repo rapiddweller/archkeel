@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The gallery builder shows each matrix run and invents no link and no verdict (AD-458)."""
+"""The gallery builder shows each matrix run and invents no link and no verdict (AD-462)."""
 
 from __future__ import annotations
 

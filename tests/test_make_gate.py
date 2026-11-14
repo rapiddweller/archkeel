@@ -171,7 +171,7 @@ def test_each_aggregate_needs_every_job_and_fails_closed(workflow: str, aggregat
     needs = re.search(r"needs: \[(.+)\]|needs:\n((?:      - .+\n)+)", body)
     assert needs is not None
     listed = re.findall(r"\w[\w-]*", needs[1] or needs[2])
-    assert set(listed) == set(jobs) - {aggregate, "publish-gallery"}  # AD-458: not required
+    assert set(listed) == set(jobs) - {aggregate, "publish-gallery"}  # AD-462: not required
     script = dedent(body.split("        run: |\n", 1)[1])
     ok = " ".join(["success"] * len(listed))
 

@@ -55,7 +55,7 @@ typescript-libs-check: browser-runtime-install
 	$(UV) run --locked mypy --strict tools/typescript_libs.py
 	$(UV) run --locked python -m tools.typescript_libs --check
 
-# AD-458: one report pair for each run of fixtures/matrix.json, in test-artifacts/gallery. The
+# AD-462: one report pair for each run of fixtures/matrix.json, in test-artifacts/gallery. The
 # shell decides nothing; the nightly Full run publishes this directory.
 report-gallery: core
 	rm -rf test-artifacts/gallery

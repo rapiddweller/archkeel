@@ -303,7 +303,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # AD-458: publish the fixture report gallery from main. This job is not in `verified`, and it
+  # AD-462: publish the fixture report gallery from main. This job is not in `verified`, and it
   # has continue-on-error: a Pages setting that is off, or a deploy error, must not change the
   # verdict of Full. It is the only job with a condition and the only job with Pages permissions.
   # It never runs for a pull request, a tag or a release call.

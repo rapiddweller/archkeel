@@ -1,4 +1,4 @@
-# AD-458 Fixture results are pinned and the nightly run publishes a gallery
+# AD-462 Fixture results are pinned and the nightly run publishes a gallery
 
 **Status.** Proposed. Part of #880. This extends AD-422, AD-432 and AD-440.
 

@@ -94,7 +94,7 @@ still gives each area its files and matches the Full job matrix. A change to a `
 after the merge. Name a new test file so that an area pattern matches it.
 
 The nightly Full run publishes the fixture report gallery to GitHub Pages
-([AD-458](docs/architecture/decisions/ad-458-fixture-results-are-pinned-and-the-nightly-run-publishes-a-gallery.md)).
+([AD-462](docs/architecture/decisions/ad-462-fixture-results-are-pinned-and-the-nightly-run-publishes-a-gallery.md)).
 The job `publish-gallery` runs `make report-gallery` and deploys `test-artifacts/gallery`. It is not
 in the needs of `All Full checks passed`, so a Pages error never fails Full. The Pages source of the
 repository must be set to GitHub Actions. `fixtures/matrix.json` pins the result of the core for each
