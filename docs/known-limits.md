@@ -450,12 +450,9 @@ refuses with `core_binary_not_found`
   other path through a re-export of the root. An alias that a macro generates is a macro
   expansion gap. An alias item with a `cfg` or `cfg_attr` is a gap, also when the condition is
   always true.
-- **A glob over a module with a macro call.** A glob that finds no name in its target is UNKNOWN
-  when a module-level macro call of the target may declare a name. A call is read as safe only
-  when no other macro of its name can apply: one `macro_rules!` of that name in the crate with no
-  `mod`, `use`, `extern` or macro call in its body; no `use`, glob or `#[macro_use] extern crate`
-  that can bring another one; and a plain name, or a `crate::a::m!()` path to a module that binds
-  `m` by one `use m;`. A standard macro that the crate does not define or import is safe.
+- **A glob import.** A glob is read only when the resolver of `use` paths takes its whole path to
+  a module of the crate that has no module-level macro call, or to an external crate. Any other
+  glob that may bring in the first name of a path makes that path UNKNOWN.
 - **An attribute name in a macro body** is read as a derive helper, not as a crate name
   ([AD-335](architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md),
   amendment (b)). A crate that a macro reaches through such a name is seen only when the manifest
