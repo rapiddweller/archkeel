@@ -4,9 +4,9 @@
 """AD-504: `interface_boundary` on Python through the release core, against release 4.0.1.
 
 Consumer: a CI job that reads the row of an `interface_boundary` rule of a Python project. Each
-plant has the verdict of 4.0.1 (`Plant.four`) and the verdicts that the core may give. The core gives the verdict of 4.0.1, or UNKNOWN where the survey cannot read a hop or the
-names of a module. It never gives PASS where 4.0.1 gives FAIL or UNKNOWN, and never FAIL where
-4.0.1 gives PASS.
+plant has the verdict of 4.0.1 (`Plant.four`) and the verdicts that the core may give. The core
+gives the verdict of 4.0.1, or UNKNOWN where the survey cannot read a hop or the names of a module.
+It never gives PASS where 4.0.1 gives FAIL or UNKNOWN, and never FAIL where 4.0.1 gives PASS.
 """
 
 from __future__ import annotations
