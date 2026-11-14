@@ -15,6 +15,7 @@ use tree_sitter::Node;
 
 use crate::kinds::{F, K};
 use crate::layout::{IdHasher, IdMap, Layout, IN_ERROR, IN_FUNCTION, IN_TYPE, NONE};
+use crate::scope::assignment_targets;
 use crate::source::Span;
 use crate::tree::cx::Cx;
 use crate::tree::nodes::children;
@@ -210,5 +211,74 @@ impl<'a, 't> Tree<'a, 't> {
         let at = self.pos(node);
         at.and_then(|at| self.flags.get(at))
             .is_some_and(|flags| flags & bit != 0)
+    }
+
+    /// `_static_path`: the names of `a`, `a.b` and `a.b.c`; empty for any other node.
+    pub(crate) fn static_path(&self, node: Node<'t>) -> Vec<String> {
+        // The members of the chain, outermost first; the base decides the rest.
+        let mut names: Vec<String> = Vec::new();
+        let mut at = node;
+        loop {
+            match self.k(at) {
+                K::Identifier
+                | K::PropertyIdentifier
+                | K::ShorthandPropertyIdentifier
+                | K::ShorthandPropertyIdentifierPattern => return self.base(names, at),
+                K::MemberExpression => match self.member(at, &mut names) {
+                    Some(receiver) => at = receiver,
+                    None => return Vec::new(),
+                },
+                _ => return Vec::new(),
+            }
+        }
+    }
+
+    /// The path of a chain that ends at the name `at`.
+    fn base(&self, mut names: Vec<String>, at: Node<'t>) -> Vec<String> {
+        names.push(self.text(at));
+        names.reverse();
+        names
+    }
+
+    /// One member of a chain: its name is kept, and its receiver is the next node to read.
+    fn member(&self, at: Node<'t>, names: &mut Vec<String>) -> Option<Node<'t>> {
+        let receiver = self.field(at, F::Object)?;
+        let name = self.field(at, F::Property)?;
+        if self.k(name) != K::PropertyIdentifier {
+            return None;
+        }
+        names.push(self.text(name));
+        Some(receiver)
+    }
+
+    /// `_declaration_name`.
+    pub(crate) fn declaration_name(&self, node: Node<'t>) -> bool {
+        let Some(parent) = self.parent(node) else {
+            return false;
+        };
+        [F::Name, F::Pattern, F::Alias].into_iter().any(|field| {
+            self.field(parent, field)
+                .is_some_and(|found| found.id() == node.id())
+        }) || self.k(parent) == K::NamespaceExport
+            || (self.k(parent) == K::PairPattern
+                && self
+                    .field(parent, F::Key)
+                    .is_some_and(|key| key.id() == node.id()))
+    }
+
+    /// `_script_assignment_targets`.
+    pub(crate) fn script_targets(&self, node: Node<'t>) -> Vec<Node<'t>> {
+        let kind = self.k(node);
+        let left = match kind {
+            K::AssignmentExpression | K::AugmentedAssignmentExpression | K::ForInStatement => {
+                self.field(node, F::Left)
+            }
+            K::UpdateExpression => self.field(node, F::Argument),
+            K::UnaryExpression if self.has_child_kind(node, K::Delete) => {
+                self.field(node, F::Argument)
+            }
+            _ => None,
+        };
+        left.map_or_else(Vec::new, |pattern| assignment_targets(&self.cx, pattern))
     }
 }

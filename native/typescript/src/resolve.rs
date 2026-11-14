@@ -92,6 +92,31 @@ fn package_subpath<'a>(specifier_path: &'a str, name: &str) -> Option<&'a str> {
     .then_some(subpath)
 }
 
+/// Whether Node loads a file as ESM or CommonJS; `Missing` where no format is defined.
+pub(crate) fn format_of(
+    resolver: &mut Resolver,
+    snapshot: &mut Snapshot,
+    rel: &str,
+) -> Lookup<ModuleFormat> {
+    if !matches!(
+        resolver.options.resolution(),
+        Resolution::Node16 | Resolution::NodeNext
+    ) {
+        return Lookup::Missing;
+    }
+    let suffix = classify_file(rel);
+    if !suffix.is_some_and(Suffix::scoped_format) {
+        return suffix
+            .and_then(Suffix::format_hint)
+            .map_or(Lookup::Missing, Lookup::Hit);
+    }
+    match resolver.scope(snapshot, rel) {
+        Lookup::Unknown(reason) => Lookup::Unknown(reason),
+        Lookup::Hit(manifest) if manifest::is_module(&manifest) => Lookup::Hit(ModuleFormat::Esm),
+        _ => Lookup::Hit(ModuleFormat::Cjs),
+    }
+}
+
 impl Resolver {
     /// The nearest `package.json` above a file, searched up to the filesystem root.
     pub(crate) fn scope(&mut self, snapshot: &mut Snapshot, rel: &str) -> Lookup<Json> {
@@ -106,29 +131,6 @@ impl Resolver {
             }
         }
         Lookup::Missing
-    }
-
-    /// Whether Node loads a file as ESM or CommonJS; `Missing` where no format is defined.
-    pub(crate) fn format_of(&mut self, snapshot: &mut Snapshot, rel: &str) -> Lookup<ModuleFormat> {
-        if !matches!(
-            self.options.resolution(),
-            Resolution::Node16 | Resolution::NodeNext
-        ) {
-            return Lookup::Missing;
-        }
-        let suffix = classify_file(rel);
-        if !suffix.is_some_and(Suffix::scoped_format) {
-            return suffix
-                .and_then(Suffix::format_hint)
-                .map_or(Lookup::Missing, Lookup::Hit);
-        }
-        match self.scope(snapshot, rel) {
-            Lookup::Unknown(reason) => Lookup::Unknown(reason),
-            Lookup::Hit(manifest) if manifest::is_module(&manifest) => {
-                Lookup::Hit(ModuleFormat::Esm)
-            }
-            _ => Lookup::Hit(ModuleFormat::Cjs),
-        }
     }
 
     /// The snapshot file that `specifier` names, `Missing` when it names none.

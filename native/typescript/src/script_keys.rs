@@ -11,6 +11,7 @@
 use tree_sitter::Node;
 
 use crate::kinds::F;
+use crate::script_names::bound_scope;
 use crate::script_syntax::Producer;
 
 /// The global objects that are no function and give no reflection (`Reflect` does): a computed
@@ -28,7 +29,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let tree = self.tree;
         let name = tree.text(object);
         object.kind() == "identifier"
-            && tree.binding_scope(object, &name).is_none()
+            && bound_scope(tree, object, &name).is_none()
             && NAMESPACES.contains(&name.as_str())
     }
 

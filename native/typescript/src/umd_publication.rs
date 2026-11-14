@@ -14,6 +14,7 @@ use crate::definitions::Scopes;
 use crate::kinds::{F, K};
 use crate::layout::Layout;
 use crate::references::literal;
+use crate::script_names::bound_scope;
 use crate::script_syntax::Producer;
 use crate::script_tree::Tree;
 use crate::source::{Source, Span};
@@ -190,7 +191,7 @@ fn declared_names<'t>(
             continue;
         };
         let spelling = tree.text(name);
-        if let Some(scope) = tree.bound_scope(name, &spelling) {
+        if let Some(scope) = bound_scope(tree, name, &spelling) {
             declared
                 .entry((scope.id(), spelling))
                 .or_default()
@@ -209,7 +210,7 @@ fn global_write<'t>(
     declared: &Declared<'t>,
 ) -> Option<Option<String>> {
     let tree = producer.tree;
-    if tree.k(target) == K::Identifier && tree.bound_scope(target, &tree.text(target)).is_some() {
+    if tree.k(target) == K::Identifier && bound_scope(tree, target, &tree.text(target)).is_some() {
         return Some(None);
     }
     let Some(path) = global_path(producer, target, factory, declared) else {

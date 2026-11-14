@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 from core_support import ROOT, run
 from frozen_native import frozen_root as frozen_root
+from planted_cycle import cycle_root as cycle_root
 
 from archkeel.cli import core_only
 
@@ -44,6 +45,18 @@ def self_page(
         code, text, found = write_page(
             release_core, patch, frozen_root, "native/archkeel.toml", target
         )
+    assert (code, found["status"]) == (2, "UNKNOWN")
+    return text
+
+
+@pytest.fixture(scope="module")
+def cycle_page(
+    release_core: Path, cycle_root: Path, tmp_path_factory: pytest.TempPathFactory
+) -> str:
+    """The page of the planted project with one module cycle: a rule fails."""
+    with pytest.MonkeyPatch.context() as patch:
+        target = tmp_path_factory.mktemp("page") / "cycle.html"
+        code, text, found = write_page(release_core, patch, cycle_root, "archkeel.toml", target)
     assert (code, found["status"]) == (1, "FAIL")
     return text
 
@@ -66,25 +79,29 @@ def test_the_page_loads_nothing_and_links_only_inside_itself(self_page: str) -> 
     assert "http://" not in self_page and "https://" not in self_page
 
 
-def test_the_verdict_heading_is_the_one_exact_line_that_the_shell_checks(self_page: str) -> None:
-    assert self_page.count("<h1>Verdict: FAIL</h1>") == 1
-    assert len(re.findall(r"<h1\b", self_page)) == 1
+def test_the_verdict_heading_is_the_one_exact_line_that_the_shell_checks(cycle_page: str) -> None:
+    assert cycle_page.count("<h1>Verdict: FAIL</h1>") == 1
+    assert len(re.findall(r"<h1\b", cycle_page)) == 1
 
 
-def test_the_self_run_page_shows_one_block_for_each_of_its_cycles(self_page: str) -> None:
-    # The first two places are open blocks; the others are folds with the same id (AD-510). The
-    # self run has the one cycle of the Rust collector (#1076).
+def test_a_cycle_page_shows_one_block_for_its_cycle(cycle_page: str) -> None:
+    # The first two places are open blocks; the others are folds with the same id (AD-510).
     blocks = re.findall(
-        r'<(?:article|details) class="rp-(?:dos|fold rp-place)" id="x(\d+)"', self_page
+        r'<(?:article|details) class="rp-(?:dos|fold rp-place)" id="x(\d+)"', cycle_page
     )
-    assert blocks == [str(number) for number in range(1, 2)]
-    assert self_page.count('<article class="rp-dos"') == 1
-    assert "1 place in the code, 1 rule broken" in self_page
-    # Each step names a file and a line of the frame: `path.rs:line`.
-    cycle = self_page.split('id="x1"', 1)[1].split("</article>", 1)[0]
-    assert re.search(r'<span class="rp-code">native/[a-z_/-]+\.rs:\d+</span>', cycle)
+    assert blocks == ["1"]
+    assert cycle_page.count('<article class="rp-dos"') == 1
+    assert "1 place in the code, 1 rule broken" in cycle_page
+    # Each step names a file and a line of the frame: `path.py:line`.
+    cycle = cycle_page.split('id="x1"', 1)[1].split("</article>", 1)[0]
+    assert re.search(r'<span class="rp-code">app/[a-z_/]+\.py:\d+</span>', cycle)
     assert re.search(r"Step \d+ imports .*, where step 1 starts\.", cycle)
     assert "members are in this cycle. Shortest closed path shown:" in cycle
+
+
+def test_the_self_run_page_draws_a_matrix_and_no_map_for_its_many_components(
+    self_page: str,
+) -> None:
     # The count comes from the page, which copies the frame: more than 12 components draw a matrix.
     count = re.search(r"(\d+) components, \d+ modules", self_page)
     assert count and int(count.group(1)) > 12 and 'class="rp-mx"' in self_page

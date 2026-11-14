@@ -12,6 +12,7 @@ use tree_sitter::Node;
 
 use crate::kinds::{F, K};
 use crate::references::literal;
+use crate::script_names::bound_scope;
 use crate::script_scope::{is_callable_value, is_root};
 use crate::script_tree::Tree;
 use crate::script_types::Write;
@@ -106,7 +107,7 @@ impl<'a, 't> Tree<'a, 't> {
         let Some(first) = path.first() else {
             return false;
         };
-        self.bound_scope(node, first)
+        bound_scope(self, node, first)
             .is_some_and(|scope| callables.contains(&(scope.id(), first.clone())))
     }
 

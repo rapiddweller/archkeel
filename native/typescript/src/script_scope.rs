@@ -14,7 +14,7 @@ use tree_sitter::Node;
 
 use crate::kinds::{F, K};
 use crate::layout::IN_AMBIGUOUS;
-use crate::scope::assignment_targets;
+use crate::script_names::bound_scope;
 use crate::script_tree::Tree;
 
 /// `_SCRIPT_ROOTS`: the names of the browser global object.
@@ -67,58 +67,9 @@ pub(crate) fn is_callable_value(kind: K) -> bool {
 }
 
 impl<'a, 't> Tree<'a, 't> {
-    /// `_static_path`: the names of `a`, `a.b` and `a.b.c`; empty for any other node.
-    pub(crate) fn static_path(&self, node: Node<'t>) -> Vec<String> {
-        // The members of the chain, outermost first; the base decides the rest.
-        let mut names: Vec<String> = Vec::new();
-        let mut at = node;
-        loop {
-            match self.k(at) {
-                K::Identifier
-                | K::PropertyIdentifier
-                | K::ShorthandPropertyIdentifier
-                | K::ShorthandPropertyIdentifierPattern => return self.base(names, at),
-                K::MemberExpression => match self.member(at, &mut names) {
-                    Some(receiver) => at = receiver,
-                    None => return Vec::new(),
-                },
-                _ => return Vec::new(),
-            }
-        }
-    }
-
-    /// The path of a chain that ends at the name `at`.
-    fn base(&self, mut names: Vec<String>, at: Node<'t>) -> Vec<String> {
-        names.push(self.text(at));
-        names.reverse();
-        names
-    }
-
-    /// One member of a chain: its name is kept, and its receiver is the next node to read.
-    fn member(&self, at: Node<'t>, names: &mut Vec<String>) -> Option<Node<'t>> {
-        let receiver = self.field(at, F::Object)?;
-        let name = self.field(at, F::Property)?;
-        if self.k(name) != K::PropertyIdentifier {
-            return None;
-        }
-        names.push(self.text(name));
-        Some(receiver)
-    }
-
     pub(crate) fn in_ambiguous_scope(&self, node: Node<'t>) -> bool {
         self.parent(node)
             .is_some_and(|parent| self.flag(parent, IN_AMBIGUOUS))
-    }
-
-    /// The scope that binds `name` at `node`: the readers of a write ask the scope module.
-    pub(crate) fn binding_scope(&self, node: Node<'t>, name: &str) -> Option<Node<'t>> {
-        self.bound_scope(node, name)
-    }
-
-    /// The scope that binds `name` at `node` exactly once.
-    pub(crate) fn sole_binding_scope(&self, node: Node<'t>, name: &str) -> Option<Node<'t>> {
-        self.bound_scope(node, name)
-            .filter(|scope| self.count(*scope, name) == 1)
     }
 
     /// `_script_free`: the root of the path of `target` is not bound by a scope above `node`.
@@ -141,37 +92,15 @@ impl<'a, 't> Tree<'a, 't> {
             return false;
         };
         let blocked_here = ambiguous && self.in_ambiguous_scope(node);
-        !blocked_here && self.bound_scope(node, first).is_none()
+        !blocked_here && bound_scope(self, node, first).is_none()
     }
+}
 
-    /// `_declaration_name`.
-    pub(crate) fn declaration_name(&self, node: Node<'t>) -> bool {
-        let Some(parent) = self.parent(node) else {
-            return false;
-        };
-        [F::Name, F::Pattern, F::Alias].into_iter().any(|field| {
-            self.field(parent, field)
-                .is_some_and(|found| found.id() == node.id())
-        }) || self.k(parent) == K::NamespaceExport
-            || (self.k(parent) == K::PairPattern
-                && self
-                    .field(parent, F::Key)
-                    .is_some_and(|key| key.id() == node.id()))
-    }
-
-    /// `_script_assignment_targets`.
-    pub(crate) fn script_targets(&self, node: Node<'t>) -> Vec<Node<'t>> {
-        let kind = self.k(node);
-        let left = match kind {
-            K::AssignmentExpression | K::AugmentedAssignmentExpression | K::ForInStatement => {
-                self.field(node, F::Left)
-            }
-            K::UpdateExpression => self.field(node, F::Argument),
-            K::UnaryExpression if self.has_child_kind(node, K::Delete) => {
-                self.field(node, F::Argument)
-            }
-            _ => None,
-        };
-        left.map_or_else(Vec::new, |pattern| assignment_targets(&self.cx, pattern))
-    }
+/// The scope that binds `name` at `node` exactly once.
+pub(crate) fn sole_binding_scope<'t>(
+    tree: &Tree<'_, 't>,
+    node: Node<'t>,
+    name: &str,
+) -> Option<Node<'t>> {
+    bound_scope(tree, node, name).filter(|scope| tree.count(*scope, name) == 1)
 }

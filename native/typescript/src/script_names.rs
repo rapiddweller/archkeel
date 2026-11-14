@@ -26,26 +26,26 @@ fn holder(list: &[ScopeEntry], end: usize) -> Option<usize> {
     None
 }
 
-impl<'a, 't> Tree<'a, 't> {
-    /// `_script_bound_scope`: the nearest ancestor that binds the name. The scopes that bind a name
-    /// are a list in document order with links to the scope that holds each; the nearest ancestor
-    /// is the last scope that starts before the node, or the first of its links that holds it.
-    pub(crate) fn bound_scope(&self, node: Node<'t>, name: &str) -> Option<Node<'t>> {
-        let at = u32::try_from(self.pos(node)?).ok()?;
-        let list = self.names_index.get(name)?;
-        let mut found = list
-            .partition_point(|entry| entry.start < at)
-            .checked_sub(1);
-        while let Some(index) = found {
-            let entry = list.get(index)?;
-            if at < entry.end {
-                return self.nodes.get(entry.scope as usize).copied();
-            }
-            found = (entry.up != NONE).then_some(entry.up as usize);
+/// `_script_bound_scope`: the nearest ancestor that binds the name. The scopes that bind a name
+/// are a list in document order with links to the scope that holds each; the nearest ancestor
+/// is the last scope that starts before the node, or the first of its links that holds it.
+pub(crate) fn bound_scope<'t>(tree: &Tree<'_, 't>, node: Node<'t>, name: &str) -> Option<Node<'t>> {
+    let at = u32::try_from(tree.pos(node)?).ok()?;
+    let list = tree.names_index.get(name)?;
+    let mut found = list
+        .partition_point(|entry| entry.start < at)
+        .checked_sub(1);
+    while let Some(index) = found {
+        let entry = list.get(index)?;
+        if at < entry.end {
+            return tree.nodes.get(entry.scope as usize).copied();
         }
-        None
+        found = (entry.up != NONE).then_some(entry.up as usize);
     }
+    None
+}
 
+impl<'a, 't> Tree<'a, 't> {
     /// The scopes of the file are known: index them by name, and mark the nodes that lie inside a
     /// scope that is not statically known.
     pub(crate) fn index_scopes(&mut self) {

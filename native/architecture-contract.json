@@ -1372,6 +1372,7 @@
         "native.archkeel_rust_collector.scan",
         "native.archkeel_rust_collector.scan.attributes",
         "native.archkeel_rust_collector.scan.macros",
+        "native.archkeel_rust_collector.scan.state",
         "native.archkeel_rust_collector.scan.use_items",
         "native.archkeel_rust_collector.definitions",
         "native.archkeel_rust_collector.site",

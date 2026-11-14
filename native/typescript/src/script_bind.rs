@@ -12,6 +12,7 @@ use tree_sitter::Node;
 use crate::import_bindings::ImportBinding;
 use crate::kinds::{F, K};
 use crate::scope::assignment_targets;
+use crate::script_names::bound_scope;
 use crate::script_scope::{is_callable_value, is_function, is_scope, is_var_scope};
 use crate::script_tree::Tree;
 use crate::tree::nodes::named_children;
@@ -167,7 +168,7 @@ impl<'a, 't> Tree<'a, 't> {
         let scope = if self.binds(node, &spelling) {
             Some(node)
         } else {
-            self.bound_scope(node, &spelling)
+            bound_scope(self, node, &spelling)
         };
         scope.map(|scope| (scope, spelling))
     }

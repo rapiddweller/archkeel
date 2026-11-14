@@ -12,6 +12,7 @@ use std::rc::Rc;
 use tree_sitter::Node;
 
 use crate::layout::Layout;
+use crate::script_publish::globals;
 use crate::script_syntax::Producer;
 use crate::script_tree::Tree;
 use crate::script_types::Script;
@@ -40,7 +41,7 @@ pub(crate) fn read<'t>(
         module_syntax,
         templates,
     );
-    let (mut globals, mut writes) = producer.globals();
+    let (mut globals, mut writes) = globals(&producer);
     let declared = producer.declarations();
     let known: std::collections::HashSet<&crate::script_types::Write> = writes.iter().collect();
     let checked: Vec<_> = declared

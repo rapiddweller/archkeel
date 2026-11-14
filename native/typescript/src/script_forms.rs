@@ -12,6 +12,7 @@ use tree_sitter::Node;
 
 use crate::kinds::F;
 use crate::references::literal;
+use crate::script_names::bound_scope;
 use crate::script_syntax::Producer;
 use crate::script_window::{Receiver, Written};
 
@@ -171,7 +172,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             object.map(|o| tree.cx.unwrapped(o)).is_some_and(|o| {
                 o.kind() == "identifier"
                     && tree.text(o) == text
-                    && tree.binding_scope(o, text).is_none()
+                    && bound_scope(tree, o, text).is_none()
             })
         };
         let location = |at: Node<'t>| self.location_ref(at);
@@ -195,7 +196,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         if !ALIASED.contains(&name.as_str())
             || tree.in_type(node)
             || tree.declaration_name(node)
-            || tree.binding_scope(node, &name).is_some()
+            || bound_scope(tree, node, &name).is_some()
         {
             return false;
         }
@@ -220,7 +221,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let at = tree.cx.unwrapped(at);
         match at.kind() {
             "identifier" => {
-                tree.text(at) == "location" && tree.binding_scope(at, "location").is_none()
+                tree.text(at) == "location" && bound_scope(tree, at, "location").is_none()
             }
             "member_expression" => tree
                 .field(at, F::Property)
@@ -326,7 +327,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             .into_iter()
             .any(|part| match part.kind() {
                 "identifier" => {
-                    tree.text(part) == "open" && tree.binding_scope(part, "open").is_none()
+                    tree.text(part) == "open" && bound_scope(tree, part, "open").is_none()
                 }
                 "member_expression" => {
                     let named = tree.field(part, F::Property).map(|p| tree.text(p));
