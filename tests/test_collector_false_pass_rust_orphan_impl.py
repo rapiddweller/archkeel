@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from rust_orphan_plants import OPEN_TRAIT_FORMS, OPEN_VALUE_FORMS, SELF_TYPE_PLANTS
 from rust_repository import (
     CRATE_RULES,
     PROVENANCE,
@@ -65,6 +66,10 @@ ITER = (
 TRAIT = "pub struct S;\npub trait Tr {\n    fn m(&self) -> u8;\n}\n"
 TR_BODY = "fn m(&self) -> u8 {\n    1\n}"
 
+FROM_Y = (
+    "pub struct Y;\nimpl From<Y> for String {\n"
+    "    fn from(_: Y) -> String {\n        String::new()\n    }\n}\n"
+)
 PLANTS: dict[str, dict[str, str]] = {
     "From and into": _case(
         f"From<crate::a::Y> for {S}",
@@ -175,11 +180,13 @@ PLANTS: dict[str, dict[str, str]] = {
         "b.rs": f"use crate::c::*;\nimpl std::fmt::Display for S {{\n{HEAD_DISPLAY}\n}}\n",
     },
 }
+PLANTS["a type argument of the trait is local"] = {
+    **PLANTS["Display and to_string"],
+    "b.rs": FROM_Y,
+    "a.rs": "pub fn f() -> String {\n    String::new()\n}\n",
+}
+PLANTS.update(SELF_TYPE_PLANTS)
 
-FROM_Y = (
-    "pub struct Y;\nimpl From<Y> for String {\n"
-    "    fn from(_: Y) -> String {\n        String::new()\n    }\n}\n"
-)
 DISPLAY = PLANTS["Display and to_string"]
 
 
@@ -226,12 +233,13 @@ CONTROLS: dict[str, dict[str, str]] = {
     },
     "the type of the impl is a type that the block declares": {
         **DISPLAY,
+        "a.rs": "pub fn f() {}\n",
         "b.rs": "pub fn g() {\n    struct Q;\n    impl Drop for Q {\n"
         "        fn drop(&mut self) {}\n    }\n}\n",
     },
-    "the impl takes a type of its module for a foreign type": {
+    "the self type is a reference to a type of the module": {
         **DISPLAY,
-        "b.rs": FROM_Y,
+        "b.rs": "pub struct Y;\nimpl std::fmt::Display for &Y {\n" + HEAD_DISPLAY + "\n}\n",
         "a.rs": "pub fn f() -> String {\n    String::new()\n}\n",
     },
 }
@@ -272,13 +280,16 @@ def _modules(requires: tuple[str, ...]) -> tuple[dict[str, Any], ...]:
     )
 
 
-# `b` holds the Display impl of the type `S` of the crate `base`: it defines neither.
+# `b` holds `impl From<Y> for base_crate::S`: a foreign trait and a foreign type with a local
+# argument is valid Rust (no E0117). `b` defines `Y`, the argument, which anchors nothing.
 BASE_TYPE = {
     "crates/base/src/lib.rs": "pub fn make() {}\npub struct S;\n",
     "crates/app/src/lib.rs": LIB,
     "crates/app/src/c.rs": "",
-    "crates/app/src/b.rs": f"impl std::fmt::Display for base_crate::S {{\n{HEAD_DISPLAY}\n}}\n",
-    "crates/app/src/a.rs": "pub fn f(s: &base_crate::S) -> String {\n    s.to_string()\n}\n",
+    "crates/app/src/b.rs": FROM_Y.replace("for String", "for base_crate::S")
+    .replace("String::new()", "base_crate::S")
+    .replace("-> String", "-> base_crate::S"),
+    "crates/app/src/a.rs": "pub fn f(_s: base_crate::S) {}\n",
 }
 OBSERVED = "    a --> base\n    b --> base\n    root --> a\n    root --> b\n    root --> c"
 
@@ -332,12 +343,8 @@ def test_a_trait_impl_in_a_module_of_a_crate_gives_a_pair_gap_to_a_crate_that_de
 # in the module of that type, so no module is an orphan, and `a` never names `b`. The scan reads
 # no types of values (the class of a method on a value of a type that the caller does not name).
 OPEN: dict[str, dict[str, str]] = {
-    "a value of a type of b that c returns": {
-        "lib.rs": LIB,
-        "c.rs": "pub fn make() -> crate::b::Y {\n    crate::b::Y\n}\n",
-        "b.rs": FROM_Y,
-        "a.rs": "pub fn f() -> String {\n    crate::c::make().into()\n}\n",
-    },
+    **{f"a value of a type of b: {name}": files for name, files in OPEN_VALUE_FORMS.items()},
+    **{f"the trait is defined in b: {name}": files for name, files in OPEN_TRAIT_FORMS.items()},
     "an impl that a macro of b generates": {
         **DISPLAY,
         "b.rs": "macro_rules! show {\n    () => {\n"

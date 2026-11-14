@@ -39,8 +39,8 @@ impl PyMinor {
 }
 
 /// The original wire text and its checked minor. Serialization keeps the wire unchanged.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[serde(try_from = "String")]
 pub struct PythonVersion {
     text: String,
     minor: PyMinor,
@@ -56,9 +56,9 @@ impl PythonVersion {
     }
 }
 
-impl From<PythonVersion> for String {
-    fn from(version: PythonVersion) -> Self {
-        version.text
+impl Serialize for PythonVersion {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.text)
     }
 }
 

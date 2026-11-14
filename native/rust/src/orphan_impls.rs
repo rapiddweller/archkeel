@@ -17,37 +17,68 @@ use std::collections::BTreeSet;
 
 use crate::builder::Builder;
 use crate::crates::Workspace;
-use crate::definitions::TraitImpl;
+use crate::definitions::{Form, Owner, TraitImpl};
 use crate::impl_globs::{depends, once_gap};
 use crate::modules::{Index, TypeOf};
 use crate::tree::Module;
 
-/// Whether the path names a type or a trait that the file `home` defines: a block of the impl
-/// declares it, or its lexical module is in the file.
-fn defined_in(index: &Index<'_>, home: &Module, found: &TraitImpl, path: &[String]) -> bool {
-    let local = |name: &String| {
-        let blocks = home.scan.orphans.block_types.iter();
-        let mut blocks = blocks.filter(|(declared, _)| declared == name);
-        blocks.any(|(_, end)| found.blocks.contains(end))
-    };
-    if matches!(path, [name] if local(name)) {
-        return true;
+/// What the blocks around an impl say of its self type: `Some(anchored)` when they decide it,
+/// `None` when no block item or `use` can bind its first name and the module decides.
+fn in_blocks(home: &Module, found: &TraitImpl, path: &[String]) -> Option<bool> {
+    if found.blocks.is_empty() {
+        return None;
     }
-    let Some(frame) = index.frame(&home.module) else {
-        return false;
-    };
-    match index.type_of(frame, &found.scope, path) {
-        TypeOf::Known(lexical, _) => index.file_of(&lexical) == Some(home.module.as_str()),
-        TypeOf::Unknown | TypeOf::Other => false,
+    if !found.scope.is_empty() {
+        return Some(false);
+    }
+    let around =
+        (home.scan.orphans.block_items.iter()).filter(|item| found.blocks.contains(&item.end));
+    let around: Vec<_> = around.collect();
+    if around.iter().any(|item| item.name.is_none()) {
+        return Some(false);
+    }
+    let mut named = around
+        .iter()
+        .filter(|item| item.name.as_ref() == path.first());
+    match (named.next(), named.next(), path.len()) {
+        (None, _, _) => None,
+        (Some(item), None, 1) => Some(item.nominal),
+        _ => Some(false),
     }
 }
 
-/// Whether the impl is an orphan of the module `home`: no path of its head is defined there.
+/// The lexical module and the form of the item that a path names, when the file `home` defines it
+/// (a struct, enum or union as `Form::Struct` or `Form::Enum`, or a trait).
+fn defined(index: &Index<'_>, home: &Module, found: &TraitImpl, path: &[String]) -> Option<Form> {
+    let frame = index.frame(&home.module)?;
+    let TypeOf::Known(lexical, name) = index.type_of(frame, &found.scope, path) else {
+        return None;
+    };
+    if index.file_of(&lexical) != Some(home.module.as_str()) {
+        return None;
+    }
+    let named = home.scan.definitions.iter();
+    let mut named = named.filter(|d| d.name == name && d.owner == Owner::Module);
+    named.find_map(|d| matches!(d.form, Form::Struct | Form::Enum | Form::Trait).then_some(d.form))
+}
+
+/// Whether the file `home` defines the outermost nominal type of the self type of the impl, or the
+/// trait of the impl. A trait argument never anchors; a trait in a block never anchors.
+fn anchored(index: &Index<'_>, home: &Module, found: &TraitImpl) -> bool {
+    let by_type = found.self_path.as_ref().map(|path| {
+        in_blocks(home, found, path)
+            .unwrap_or_else(|| defined(index, home, found, path).is_some_and(|f| f != Form::Trait))
+    });
+    let by_trait = (found.blocks.is_empty())
+        .then_some(found.trait_path.as_ref())
+        .flatten()
+        .is_some_and(|path| defined(index, home, found, path) == Some(Form::Trait));
+    by_type == Some(true) || by_trait
+}
+
+/// Whether the impl is an orphan of the module `home`.
 fn orphan(index: &Index<'_>, home: &Module, found: &TraitImpl) -> bool {
-    !found
-        .anchors
-        .iter()
-        .any(|path| defined_in(index, home, found, path))
+    !anchored(index, home, found)
 }
 
 /// The modules that may run an impl of `home`: its crate and each crate that depends on it.

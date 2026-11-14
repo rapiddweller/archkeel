@@ -397,11 +397,18 @@ in another module than its type is an edge when a path names it (`impl crate::c:
 call of a method of a trait that a glob brings in (`use b::T;` in the parent, `use super::*;` and
 `5u8.m()` in the child), give a gap of the pair `a -> b`. A call on a plain `self` in a method of `impl S`, or a path `Self::m`, is an edge to the module of the one inherent member `m` of `S` and gives no gap when that member has the same `self` form (`self`, `&self`, `&mut self`) and no `cfg` or other attribute can change the member, its block, its module, the type or the caller; any other case keeps the gaps (AD-383). The host drops that gap only when the
 contract lets `a` use `b` and the edge closes no cycle that the edges and the other pair gaps may
-close (AD-357). A trait `impl` in a module that defines no path of its head (an orphan impl: the trait, the type, a
-type argument) gives a pair gap from each module of its crate and of each crate that depends on it
-(AD-516). Open false PASS, not accepted (#1004): a value of a type that an impl anchors in its own
-module, when the caller does not name that module; and a trait of a crate outside the workspace
-that a glob brings in. Open false
+close (AD-357). A trait `impl` that is anchored in no module (neither its self type, read after `&`, nor its trait
+is defined there; a trait argument never anchors; a block name anchors only without a `use`, an inline
+`mod` or a second item of that name) gives a pair gap from each module of its crate and of each crate
+that depends on it (AD-516). The price: one orphan in a crate of N modules gives N-1 gaps, and
+`REQUIRES`, `NO-CYCLES` and the pair rule are UNKNOWN until the contract allows each pair; with one
+component for each module the gap `c -> b` stays when `c` holds the type, because `b -> c` closes a
+cycle. Open false PASS, not accepted (#1004), each a true edge, each pinned: (1) a value of a type
+that `b` defines, which the caller gets from another module, with the impl in `b` (13 forms: a method
+call, `Display`, `Drop`, `==`, `for`, `+`, `?`, `impl Trait`, `dyn`, a field, an alias with
+`Default`, a closure, `into()` into a sink of another module); (2) an impl of a trait of `b` for a
+type of another module, reached through a generic bound, a supertrait, a `dyn` supertrait or a
+re-export of the trait; (3) a trait of a crate outside the workspace that a glob brings in. Open false
 PASS, not accepted (#1020): an item that a function-like macro generates without a recorded path.
 The independent token inventory remains open (#1026); it must detect tokens that a macro reader loses.
 Attribute macros and unproved derives have named expansion gaps on every scanned syntax position.

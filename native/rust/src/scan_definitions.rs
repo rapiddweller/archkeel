@@ -11,13 +11,14 @@
 //! cases. A gap would make the whole scan incomplete, so the limit is in the member receipts of
 //! each class (`symbols.rs`) and in AD-351.
 
-use syn::visit::{self, Visit};
 use syn::{Ident, Item, ItemImpl, ItemTrait, Signature, Type};
 
 use super::receivers::{exact_path, inert, kind_of, type_inert};
 use super::Walker;
 use crate::attrs::{impl_item_attributes, is_test_attributes};
-use crate::definitions::{Access, Definition, Form, Holder, ImplBlock, Member, Owner, TraitImpl};
+use crate::definitions::{
+    Access, BlockItem, Definition, Form, Holder, ImplBlock, Member, Owner, TraitImpl,
+};
 use crate::tokens::plain;
 
 fn access(vis: &syn::Visibility) -> Access {
@@ -260,42 +261,38 @@ pub(super) fn foreign_name(item: &syn::ForeignItem) -> Option<String> {
 
 // What the scan keeps for the pair gaps of trait impls in a third module (AD-516).
 
-/// The paths of a head, except an absolute path and a type parameter of the block.
-struct Heads<'a> {
-    params: Vec<&'a syn::Ident>,
-    found: Vec<Vec<String>>,
-}
-
-impl<'ast> Visit<'ast> for Heads<'_> {
-    fn visit_path(&mut self, path: &'ast syn::Path) {
-        let parameter = path
-            .get_ident()
-            .is_some_and(|ident| self.params.contains(&ident));
-        if path.leading_colon.is_none() && !parameter {
-            self.found
-                .push(path.segments.iter().map(|s| plain(&s.ident)).collect());
-        }
-        visit::visit_path(self, path);
+/// The path of the outermost nominal type of a self type, after `&` and parentheses. A type
+/// parameter of the block, a qualified path, an absolute path and any other type give `None`.
+fn self_path(item: &ItemImpl) -> Option<Vec<String>> {
+    let mut ty = &*item.self_ty;
+    while let Type::Reference(inner) = ty {
+        ty = &inner.elem;
     }
+    let Type::Path(path) = ty else {
+        return None;
+    };
+    let parameter = path.path.get_ident().is_some_and(|ident| {
+        (item.generics.params.iter()).any(|param| match param {
+            syn::GenericParam::Type(found) => found.ident == *ident,
+            syn::GenericParam::Const(found) => found.ident == *ident,
+            syn::GenericParam::Lifetime(_) => false,
+        })
+    });
+    if path.qself.is_some() || path.path.leading_colon.is_some() || parameter {
+        return None;
+    }
+    Some(path.path.segments.iter().map(|s| plain(&s.ident)).collect())
 }
 
 impl Walker<'_> {
     /// Keep an `impl Trait for T` at any depth.
     pub(super) fn trait_impl(&mut self, item: &ItemImpl) {
-        let mut heads = Heads {
-            params: item
-                .generics
-                .type_params()
-                .map(|param| &param.ident)
-                .collect(),
-            found: Vec::new(),
-        };
-        if let Some((path, _)) = &item.trait_ {
-            heads.visit_path(path);
-        }
-        heads.visit_type(&item.self_ty);
+        let trait_path = item.trait_.as_ref().map(|(path, _)| path);
         let found = TraitImpl {
-            anchors: heads.found,
+            self_path: self_path(item),
+            trait_path: trait_path
+                .filter(|path| path.leading_colon.is_none())
+                .map(|path| path.segments.iter().map(|s| plain(&s.ident)).collect()),
             scope: self.inline.clone(),
             blocks: self.block_ends.clone(),
             site: self.site(item.impl_token.span),
@@ -303,17 +300,22 @@ impl Walker<'_> {
         self.out.orphans.impls.push(found);
     }
 
-    /// Keep the end of the block that declares a struct, an enum, a union or a trait.
+    /// Keep each item that a block declares, and each `use` of a block.
     pub(super) fn block_type(&mut self, item: &Item) {
-        let ident = match item {
-            Item::Struct(found) => &found.ident,
-            Item::Enum(found) => &found.ident,
-            Item::Union(found) => &found.ident,
-            Item::Trait(found) => &found.ident,
-            _ => return,
+        let Some(end) = self.block_ends.last().copied() else {
+            return;
         };
-        if let Some(end) = self.block_ends.last() {
-            self.out.orphans.block_types.push((plain(ident), *end));
-        }
+        let nominal = matches!(item, Item::Struct(_) | Item::Enum(_) | Item::Union(_));
+        let name = match item {
+            Item::Use(_) => None,
+            other => match item_name(other) {
+                Some(name) => Some(name),
+                None => return,
+            },
+        };
+        self.out
+            .orphans
+            .block_items
+            .push(BlockItem { name, end, nominal });
     }
 }
