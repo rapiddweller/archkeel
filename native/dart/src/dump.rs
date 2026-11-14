@@ -9,7 +9,7 @@
 //!
 //! `--dump-syntax` reads one file path on each line of stdin and prints one JSON line for each:
 //! the syntax of the file, the time of its parse and the share of the site work limit that it
-//! used, for `tools/dart_syntax_parity.py`.
+//! used, for a comparison with release 4.0.1.
 
 use std::time::Instant;
 

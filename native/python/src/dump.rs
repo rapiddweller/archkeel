@@ -5,8 +5,8 @@
 //! Test only (feature `dump`): print the parse outcome of files as JSON lines.
 //!
 //! `archkeel-python-collector --dump <minor> <root>` reads one snapshot path a line on stdin.
-//! `tests/test_collector_native_python_parse.py` compares each outcome with the failure that
-//! `source.parse_sources` gives for the same bytes. `stack` is the bound of the parser stack of the
+//! The test that compared each outcome with the failure that the Python collector gave for the
+//! same bytes is deleted with the Python core. `stack` is the bound of the parser stack of the
 //! scan (AD-334 point 5), to measure a corpus against `MAX_STACK`. This module is not part of the
 //! release binary.
 

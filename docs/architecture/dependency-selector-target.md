@@ -1,7 +1,7 @@
 # Dependency selector API Target
 
 Issue #541 adds bounded, independently authored API intent to
-[the IR Target](contracts/ir.json). Its dependency declarations express the
+the IR Target. Its dependency declarations express the
 intended API directly; they are not generated from observations.
 
 The `dependency-policy` component owns `archkeel.ir.dependency`: the

@@ -36,8 +36,8 @@ fn python_repr(table: &[(u32, u32)]) -> String {
 #[test]
 fn each_table_equals_the_dump_of_the_oracle() {
     // The SHA-256 values that `tools/dart_unicode_tables.py` wrote from Python 3.11.12
-    // (Unicode 14.0.0); `tests/test_collector_native_dart_syntax.py` runs the script with
-    // `--check`. A hand edit of a table fails here.
+    // (Unicode 14.0.0); `tools/dart_unicode_tables.py --check` compares them.
+    // A hand edit of a table fails here.
     use crate::unicode_tables::{
         ALNUM, ASSIGNED, BYTE_DIGIT, BYTE_SPACE, BYTE_WORD, DECIMAL, LINE_BREAK, SPACE, WORD,
     };

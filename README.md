@@ -1,5 +1,9 @@
 # ArchKeel
 
+<p>
+  <img src="docs/assets/archkeel-mark.svg" alt="ArchKeel" width="96">
+</p>
+
 > **State of `main` (issue [#880](https://github.com/rapiddweller/archkeel/issues/880)).**
 > The Rust core `archkeel-core` is the only engine. The Python engine is deleted.
 >
