@@ -158,6 +158,17 @@ def _command(argv: Sequence[str]) -> Command:
     return command
 
 
+def _output_path(value: str) -> Path:
+    if value == "-":
+        raise argparse.ArgumentTypeError("standard output is not a file target; omit --output")
+    path = Path(value)
+    if not value or not path.name:
+        raise argparse.ArgumentTypeError(
+            "--output must name a file, not an empty path or directory"
+        )
+    return path
+
+
 def parse(argv: Sequence[str]) -> Options:
     """The options of a served command. Each other argument is refused by name."""
     command = _command(argv)
@@ -173,7 +184,7 @@ def parse(argv: Sequence[str]) -> Options:
         parser.add_argument("--core-only", action="store_true")
         parser.add_argument("--config", default="archkeel.toml")
         if command is Command.REPORT:
-            parser.add_argument("--output", type=Path)
+            parser.add_argument("--output", type=_output_path)
             parser.add_argument("--format", choices=["html", "json"], default="html")
     options, extra = parser.parse_known_args(argv[1:], Options(command=command))
     for argument in extra:
@@ -272,18 +283,11 @@ def _decide(options: Options, as_json: bool) -> int:
     frame = read_frame(stdout, code, scan=True, require_protocol=True, request=request)
     document = json.loads(stdout)
     document.pop("html", None)
-    if options.output is not None:
-        if options.format == "html":
-            if frame.html is None:
-                raise CoreError("the core frame lacks the requested HTML")
-            payload = frame.html.encode("utf-8")
-        else:
-            payload = stdout
-        write_output(options.output, payload)
+    exit_code = EXIT_CODES[frame.status]
     result: dict[str, object] = {
         "command": options.command,
         "status": frame.status,
-        "exit_code": EXIT_CODES[frame.status],
+        "exit_code": exit_code,
         "frame": document,
         "core": {"path": str(binary), "engine": frame.engine, "code_digest": frame.code_digest},
         "gaps": [
@@ -293,6 +297,16 @@ def _decide(options: Options, as_json: bool) -> int:
     collected = next((gap for gap in frame.gaps if gap.kind is GapKind.COLLECT), None)
     if collected is not None:
         result["refusal"] = {"kind": RefusalKind.COLLECTION_REFUSED, "message": collected.reason}
+    file_error: str | None = None
+    try:
+        _write_report(options, frame, stdout)
+    except OSError as error:
+        file_error = (
+            f"cannot write report file {options.output}: {error}; no report file was written"
+        )
+        exit_code = 2
+        result["exit_code"] = exit_code
+        result["refusal"] = {"kind": RefusalKind.IO_ERROR, "message": file_error}
     if as_json:
         print(json.dumps(result))
     else:
@@ -301,7 +315,21 @@ def _decide(options: Options, as_json: bool) -> int:
         else:
             _refused(RefusalKind.COLLECTION_REFUSED, collected.reason, False)
         print(f"Core: {binary}; engine: {frame.engine}; code digest: {frame.code_digest}")
-    return EXIT_CODES[frame.status]
+        if file_error is not None:
+            _refused(RefusalKind.IO_ERROR, file_error, False)
+    return exit_code
+
+
+def _write_report(options: Options, frame: CoreFrame, stdout: bytes) -> None:
+    if options.output is None:
+        return
+    if options.format == "html":
+        if frame.html is None:
+            raise CoreError("the core frame lacks the requested HTML")
+        payload = frame.html.encode("utf-8")
+    else:
+        payload = stdout
+    write_output(options.output, payload)
 
 
 def _refused(kind: RefusalKind, message: str, as_json: bool) -> int:

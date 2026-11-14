@@ -136,8 +136,14 @@ The HTML comes from the same ruling in the Rust core. It has no scripts, externa
 It includes verdicts, counts, rule rows, violations, evidence locations, gaps, unsupported parts and request identity.
 UNKNOWN and collection-refused frames write reports that show their verdict and causes.
 A refusal without an accepted frame writes nothing and says so. Stdout and verdict exits stay unchanged.
-File errors give `io_error`, exit 2. The parent must exist. Links, directories and special files are refused.
+If the report file cannot be written, stdout still shows the frame verdict with typed `io_error`, exit 2.
+Exit 2 replaces exit 1 of a FAIL: a run that cannot deliver the requested file is not a clean FAIL.
+The parent must exist. Ancestor links are allowed, including `/tmp` on macOS; the resolved parent is pinned once.
+A final-component link, directory or special file is refused. Empty and `.` output paths refuse before the scan.
+`--output -` refuses: standard output is not a file target; omit `--output`.
 An existing regular file is replaced atomically. No sidecar or parent directory is created.
+The page uses compact detail fields and cited evidence locations. The Tool block labels the core code digest.
+It shows no package version, because the scan request does not carry one. The crate version is not the package version.
 This safe file output requires POSIX directory handles; other platforms refuse file output.
 `validate --output` stays refused, as release 4.0.1 did not have it. See AD-440.
 

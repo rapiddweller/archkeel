@@ -20,8 +20,10 @@ Do not report PASS for a supported subset of an unsupported project.
 In a source checkout, run `make core` to build the core binary. There is no Python fallback.
 
 On main, `report --output PATH` writes one static HTML page. Add `--format json` for the core frame.
-There is no default file or sidecar. The parent must exist; links and directories refuse with exit 2.
+There is no default file or sidecar. The parent must exist; final links and directories refuse with exit 2.
+Ancestor links are resolved once. Empty, `.` and `-` output targets refuse before the scan.
 Safe file output requires POSIX directory handles. It keeps stdout and the frame exit unchanged.
+If file delivery fails, stdout keeps the frame verdict but exit 2 replaces the verdict exit, including FAIL exit 1.
 UNKNOWN and collection-refused reports show their causes. A refusal without an accepted frame writes no file.
 This is not `architecture.json`, a saved snapshot or a graph. The legacy report instructions below do not apply to main.
 `validate --output`, `--html`, saved-input and report-filter options remain refused.

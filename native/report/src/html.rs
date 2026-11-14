@@ -4,6 +4,8 @@
 
 //! Static presentation of the frame assembled from one typed ruling. No verdict is inferred here.
 
+use std::collections::BTreeSet;
+
 use serde_json::{json, Map, Value};
 
 const START: &str = "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\
@@ -46,6 +48,79 @@ fn block(page: &mut String, heading: &str, value: &Value) -> Result<(), serde_js
     Ok(())
 }
 
+fn compact(value: &Value) -> Result<String, serde_json::Error> {
+    match value.as_str() {
+        Some(text) => Ok(text.to_owned()),
+        None => serde_json::to_string(value),
+    }
+}
+
+fn citations<'a>(value: &'a Value, evidence: &mut BTreeSet<&'a str>) {
+    evidence.extend(
+        value["evidence"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str),
+    );
+}
+
+fn detail<'a>(
+    page: &mut String,
+    value: &'a Value,
+    evidence: &mut BTreeSet<&'a str>,
+) -> Result<(), serde_json::Error> {
+    citations(value, evidence);
+    if let Some(fields) = value.as_object() {
+        page.push_str("<dl>");
+        for (key, value) in fields {
+            page.push_str(&format!(
+                "<dt>{}</dt><dd>{}</dd>",
+                escape(key),
+                escape(&compact(value)?)
+            ));
+        }
+        page.push_str("</dl>\n");
+    } else {
+        page.push_str(&format!("<p>{}</p>\n", escape(&compact(value)?)));
+    }
+    Ok(())
+}
+
+fn violations(page: &mut String, value: &Value) -> Result<(), serde_json::Error> {
+    page.push_str("<h2>Violations</h2>\n");
+    let mut evidence = BTreeSet::new();
+    for (id, rows) in value["details"].as_object().into_iter().flatten() {
+        page.push_str(&format!("<h3>{}</h3>\n", escape(id)));
+        match rows.as_array() {
+            Some(rows) => {
+                for row in rows {
+                    detail(page, row, &mut evidence)?;
+                }
+            }
+            None => detail(page, rows, &mut evidence)?,
+        }
+    }
+    for gap in value["collection_gaps"].as_array().into_iter().flatten() {
+        citations(gap, &mut evidence);
+    }
+    page.push_str("<h3>Evidence locations</h3><table><thead><tr><th>Evidence</th><th>File</th><th>Line</th></tr></thead><tbody>\n");
+    for id in evidence {
+        let location = &value["locations"][id];
+        let line = location["line"]
+            .as_i64()
+            .map_or_else(|| "unavailable".to_owned(), |line| line.to_string());
+        page.push_str(&format!(
+            "<tr><td>{}</td><td>{}</td><td>{}</td></tr>\n",
+            escape(id),
+            escape(text(&location["path"])),
+            escape(&line)
+        ));
+    }
+    page.push_str("</tbody></table>\n");
+    Ok(())
+}
+
 pub(super) fn render(frame: &Map<String, Value>) -> Result<Value, serde_json::Error> {
     let value = Value::Object(frame.clone());
     let status = &value["status"];
@@ -81,11 +156,7 @@ pub(super) fn render(frame: &Map<String, Value>) -> Result<Value, serde_json::Er
         ));
     }
     page.push_str("</tbody></table>\n");
-    block(
-        &mut page,
-        "Violations",
-        &json!({"details": value["details"], "locations": value["locations"]}),
-    )?;
+    violations(&mut page, &value)?;
     block(
         &mut page,
         "Gaps",
@@ -101,11 +172,13 @@ pub(super) fn render(frame: &Map<String, Value>) -> Result<Value, serde_json::Er
             "contract_digest": value["contract_digest"]
         }),
     )?;
-    block(
-        &mut page,
-        "Tool",
-        &json!({"version": env!("CARGO_PKG_VERSION"), "engine": value["engine"]}),
-    )?;
+    let digest = text(&value["engine"])
+        .strip_prefix("archkeel-core ")
+        .unwrap_or("unavailable");
+    page.push_str(&format!(
+        "<h2>Tool</h2><dl><dt>Core code digest</dt><dd>{}</dd></dl>\n",
+        escape(digest)
+    ));
     page.push_str("</body></html>\n");
     Ok(json!({"protocol": "archkeel-core-html-1", "status": status, "document": page}))
 }
@@ -128,5 +201,31 @@ mod tests {
         assert!(document.contains(&safe));
         assert!(!document.contains("<script>"));
         assert!(document.contains("<h1>Verdict: UNKNOWN</h1>"));
+    }
+
+    #[test]
+    fn compact_details_keep_cited_locations_and_unknown_shapes_without_injection() {
+        let frame = json!({"status": "FAIL", "rules": {}, "details": {"R<script>": [
+            {"source": "<script>\"&", "target": null, "cause": "bad", "evidence": ["e"]},
+            ["unknown<script>", 42]]}, "locations": {
+                "e": {"path": "<script>\"&.rs", "line": 7},
+                "unused": {"path": "not-cited.rs", "line": 8}},
+            "collection_gaps": [{"evidence": ["missing"]}]});
+        let rendered = render(frame.as_object().unwrap()).unwrap();
+        let document = rendered["document"].as_str().unwrap();
+        let details = document
+            .split("<h2>Violations</h2>")
+            .nth(1)
+            .unwrap()
+            .split("<h2>Gaps</h2>")
+            .next()
+            .unwrap();
+        assert!(!details.contains("<pre>"));
+        assert!(details.contains("<dt>source</dt><dd>&lt;script&gt;&quot;&amp;</dd>"));
+        assert!(details.contains("&lt;script&gt;&quot;&amp;.rs"));
+        assert!(details.contains("unknown&lt;script&gt;"));
+        assert!(details.contains("missing") && details.contains("unavailable"));
+        assert!(!details.contains("not-cited.rs"));
+        assert!(!document.contains("<script>"));
     }
 }

@@ -104,7 +104,7 @@ def test_report_file_options_are_explicit_and_validate_stays_refused() -> None:
     assert code == 2 and found["refusal"]["kind"] == "invalid_input"
 
 
-@pytest.mark.parametrize("plant", ["symlink", "parent-symlink", "directory", "missing-parent"])
+@pytest.mark.parametrize("plant", ["symlink", "directory", "missing-parent"])
 @pytest.mark.parametrize("form", ["json", "html"])
 def test_unsafe_paths_refuse_without_writes(
     tmp_path: Path,
@@ -122,9 +122,6 @@ def test_unsafe_paths_refuse_without_writes(
         target.symlink_to(victim)
     elif plant == "directory":
         target.mkdir()
-    elif plant == "parent-symlink":
-        target.symlink_to(tmp_path, target_is_directory=True)
-        target = target / "victim"
     else:
         target = target / "missing"
     code, found = run("report", "--root", str(root), "--output", str(target), "--format", form)
@@ -299,3 +296,171 @@ def test_an_invalid_utf8_name_cannot_publish_a_success_page(
     assert code == 2, found
     assert "<h1>Verdict: UNKNOWN</h1>" in target.read_text()
     assert "<script>" not in target.read_text()
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        "<h1>Verdict: PASS</h1>",
+        "<h1>Verdict: FAIL</h1><h1>Verdict: FAIL</h1>",
+        '<h1>Verdict: FAIL</h1><h2 class="other">Verdict: PASS</h2>',
+        "<h1>Verdict: FAIL</h1><H1>Verdict: PASS</H1>",
+        "<h1>Verdict: FAIL </h1>",
+    ],
+)
+def test_document_verdict_mismatch_refuses_before_writing(
+    tmp_path: Path,
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    document: str,
+) -> None:
+    root = project(tmp_path / "project", release_core, "rust", "FAIL")
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    _, real = run("report", "--root", str(root))
+    frame = real["frame"]
+    assert frame["status"] == "FAIL"
+    frame["html"] = {"protocol": "archkeel-core-html-1", "status": "FAIL", "document": document}
+    monkeypatch.setattr(core_only, "exchange", lambda *args: (json.dumps(frame).encode(), 0))
+    target = tmp_path / "report.html"
+    code, found = run("report", "--root", str(root), "--output", str(target))
+    assert code == 2 and found["refusal"]["kind"] == "core_error"
+    assert "verdict heading" in found["refusal"]["message"]
+    assert not target.exists()
+
+
+@pytest.mark.parametrize("form", ["html", "json"])
+def test_parent_links_are_resolved_but_the_final_link_is_refused(
+    tmp_path: Path,
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    form: str,
+) -> None:
+    root = repository(tmp_path / "project", release_core)
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    parent = tmp_path / "real"
+    parent.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(parent, target_is_directory=True)
+    target = alias / f"report.{form}"
+    code, found = run("report", "--root", str(root), "--output", str(target), "--format", form)
+    assert code == 0 and found["status"] == "PASS", found
+    assert (parent / target.name).is_file()
+    victim = parent / "victim"
+    victim.write_text("keep")
+    final = alias / "final"
+    final.symlink_to(victim)
+    code, found = run("report", "--root", str(root), "--output", str(final), "--format", form)
+    assert code == 2 and found["refusal"]["kind"] == "io_error"
+    assert "regular file" in found["refusal"]["message"]
+    assert victim.read_text() == "keep" and final.is_symlink()
+
+
+@pytest.mark.parametrize(
+    ("target", "message"),
+    [
+        ("", "must name a file"),
+        (".", "must name a file"),
+        ("-", "standard output is not a file target; omit --output"),
+    ],
+)
+def test_non_file_targets_refuse_before_the_core_starts(
+    monkeypatch: pytest.MonkeyPatch,
+    target: str,
+    message: str,
+) -> None:
+    def no_core() -> Path:
+        pytest.fail("an invalid output target must refuse before binary lookup")
+
+    monkeypatch.setattr(core_only, "locate_core", no_core)
+    code, found = run("report", "--output", target)
+    assert code == 2 and found["refusal"]["kind"] == "invalid_input"
+    assert message in found["refusal"]["message"]
+
+
+@pytest.mark.parametrize("status", ["PASS", "FAIL"])
+def test_delivery_failure_keeps_the_verdict_but_replaces_the_exit(
+    tmp_path: Path,
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    status: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = project(tmp_path / "project", release_core, "rust", status)
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    code, found = run("report", "--root", str(root), "--output", str(tmp_path / "missing/report"))
+    assert (code, found["exit_code"], found["status"], found["frame"]["status"]) == (
+        2,
+        2,
+        status,
+        status,
+    )
+    assert found["refusal"]["kind"] == "io_error"
+    assert "report parent directory" in found["refusal"]["message"]
+    text_code = core_only.run(
+        ["report", "--root", str(root), "--output", str(tmp_path / "missing/report"), "--text"]
+    )
+    text = capsys.readouterr().out
+    assert text_code == 2 and f"report: {status}" in text and "REFUSED: io_error:" in text
+
+
+def test_compact_report_has_evidence_locations_and_an_honest_tool_identity(
+    tmp_path: Path,
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = project(tmp_path / "project", release_core, "rust", "FAIL")
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    target = tmp_path / "report.html"
+    code, found = run("report", "--root", str(root), "--output", str(target))
+    assert code == 1 and found["status"] == "FAIL"
+    document = target.read_text()
+    violations = document.split("<h2>Violations</h2>", 1)[1].split("<h2>Gaps</h2>", 1)[0]
+    assert "<pre>" not in violations and "<dl>" in violations
+    assert "<table>" in violations and "crates/app/Cargo.toml" in violations
+    assert "Core code digest" in document and found["core"]["code_digest"] in document
+    assert "&quot;version&quot;" not in document and "0.0.0" not in document
+
+
+def test_a_real_rust_pass_writes_one_pass_heading_with_exit_zero(
+    tmp_path: Path,
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = repository(tmp_path / "project", release_core)
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    target = tmp_path / "report.html"
+    code, found = run("report", "--root", str(root), "--output", str(target))
+    assert (code, found["status"], found["exit_code"]) == (0, "PASS", 0)
+    assert target.read_text().count("<h1>Verdict: PASS</h1>") == 1
+    assert all(row[1] == "PASS" for row in found["frame"]["rules"].values())
+
+
+def test_native_static_page_stays_below_the_review_size_budget(
+    tmp_path: Path,
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from core_support import ROOT
+
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    target = tmp_path / "native.html"
+    code, found = run(
+        "report", "--root", str(ROOT), "--config", "native/archkeel.toml", "--output", str(target)
+    )
+    assert code == 1 and found["status"] == "FAIL", found
+    assert target.stat().st_size < 600_000
+
+
+def test_tool_identity_does_not_claim_the_crate_version_is_the_package_version(
+    tmp_path: Path,
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = repository(tmp_path / "project", release_core)
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    target = tmp_path / "report.html"
+    code, found = run("report", "--root", str(root), "--output", str(target))
+    assert code == 0
+    tool = target.read_text().split("<h2>Tool</h2>", 1)[1]
+    assert "version" not in tool and "0.0.0" not in tool
+    assert "Core code digest" in tool and found["core"]["code_digest"] in tool

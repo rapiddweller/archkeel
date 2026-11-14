@@ -14,6 +14,7 @@
    `native/report` renders the assembled frame of this same typed ruling before it serializes the frame.
 5. Carry the page in the optional `html` part: protocol `archkeel-core-html-1`, status and document.
    The strict shell decoder checks the fields, protocol, text and matching status.
+   It requires exactly one exact verdict heading for that status and refuses any other verdict heading.
    A requested page without this part refuses, including an old core frame. No file is written.
    An old frame without this part remains valid when no HTML was requested.
 6. The shell writes only after `read_frame` accepts the whole frame and its request binding.
@@ -21,12 +22,18 @@
    A completed write keeps the frame exit: PASS 0, FAIL 1, UNKNOWN 2.
 7. UNKNOWN and collection-refused frames write reports with the same UNKNOWN or FAIL verdict and all named causes.
    A refusal without an accepted frame writes nothing and says that no report file was written.
-   File errors give typed `io_error`, exit 2. No file error can become PASS.
+   File errors give typed `io_error`, exit 2. Stdout still shows the frame verdict.
+   Exit 2 replaces exit 1 of a FAIL when the requested report file cannot be written.
+   A run that cannot deliver the requested file is not a clean FAIL. No file error can become PASS.
 8. Escape each dynamic text at the HTML boundary. Keep full names; wrap long text without truncation.
    Show rule counts, rule rows, violation details, evidence locations, gaps, unsupported parts and request identity.
-   Show the core crate version and code digest. An unavailable identity remains null, never an invented claim.
-9. Use pinned directory handles and no-follow opens for every path component.
-   Refuse links, directories, special files and missing parents. Never create a parent directory.
+   Render details as definition lists and only cited evidence locations as table rows, not a JSON dump.
+   Unknown detail shapes use escaped compact single-line text. One escape function protects all dynamic HTML text.
+   Show the core code digest, not the crate version. The scan request carries no package version.
+   An unavailable identity remains null, never an invented claim.
+9. Resolve the parent directory once, including ancestor links, then open and pin that resolved directory.
+   Refuse a link in the final component, directories, special files and missing parents. Never create a parent directory.
+   Refuse empty and `.` output paths before a scan. Refuse `--output -`: standard output is not a file target; omit `--output`.
    Write and sync a private temporary file in that parent, then atomically replace the named file.
    Replace an existing regular file, as 4.0.1 did. Clean the temporary file after a failed write.
    Platforms without directory handles refuse file output; stdout remains available.
@@ -39,12 +46,12 @@ The old default wrote `architecture.json` and HTML sidecars. Those facts and top
 An explicit path avoids silent writes into the scanned project and keeps current stdout behavior.
 
 **Rejected.** Rendering in the shell; scanning twice; HTML from a second status; restoring an empty legacy graph;
-automatic sidecars; creating missing parents; following links; silently accepting an old frame without the requested page.
+automatic sidecars; creating missing parents; following final-component links; accepting an old frame without the requested page.
 
 **Limits.** This is not the legacy interactive report or a complete report-v2 payload.
 There is no topology projection, saved-input support, filter, baseline or amendment support.
 Directory-handle output currently requires POSIX. Windows file output refuses by name with exit 2.
-The shell trusts presentation bytes to the located core, as it trusts rule rows; it does not parse or render HTML.
+The shell checks the fixed verdict heading but does not render HTML or re-evaluate a rule.
 This change adds no PASS and changes no expected native self-check gap.
 
 **Tests.** `tests/test_cli_report_output.py` checks the release core and default CLI, both formats,
