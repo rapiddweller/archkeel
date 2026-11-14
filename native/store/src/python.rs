@@ -28,7 +28,7 @@ pub(crate) fn version(version: ProtocolVersion, profile: Profile) -> Result<(), 
     }
 }
 
-/// The registered set of the survey: the sections `imports` and `unknowns`, no construct, and no
+/// The registered set of an import survey (Python, AD-450; Dart, AD-468): the sections `imports` and `unknowns`, no construct, and no
 /// statement that interfaces are supported. `validate::checkable` refuses each resolution feature
 /// of a Python reply, and `registered.rs` binds the symbol statement to its feature.
 pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
@@ -40,7 +40,10 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
         .collect();
     sections.sort_unstable();
     if sections != ["imports", "unknowns"] || !facts.capabilities.constructs.is_empty() {
-        return Err("a Python reply must be exactly the import survey (AD-450)".to_owned());
+        return Err(format!(
+            "a {} reply must be exactly the import survey (AD-450, AD-468)",
+            facts.profile.as_str()
+        ));
     }
     let interface = facts.profile_limits.map(|limits| limits.interface_boundary);
     if interface == Some(LimitSupport::Supported) {
@@ -101,7 +104,7 @@ fn statement(fact: &ImportFact) -> Result<(), String> {
 
 /// The coverage gaps are the records of the `unknowns` section, each once: a gap that only one
 /// of them names is a partial claim.
-fn gaps_are_unknowns(facts: &Facts) -> Result<(), String> {
+pub(crate) fn gaps_are_unknowns(facts: &Facts) -> Result<(), String> {
     let mut unknowns: Vec<&str> = facts
         .sections
         .iter()

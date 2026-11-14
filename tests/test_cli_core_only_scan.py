@@ -119,7 +119,7 @@ def test_a_construct_failure_from_main_keeps_its_cause_and_location(built: Path)
         assert text in done.stdout
 
 
-@pytest.mark.parametrize("language", ["python", "dart"])
+@pytest.mark.parametrize("language", ["python"])
 def test_an_unsupported_profile_refuses_by_name(built: Path, language: str) -> None:
     with case_root(HONEST) as root:
         (root / "archkeel.toml").write_text(
@@ -131,6 +131,19 @@ def test_an_unsupported_profile_refuses_by_name(built: Path, language: str) -> N
     result = json.loads(done.stdout)
     assert "profile" in done.stdout and language in done.stdout
     assert "refused" not in result["frame"]["self_test"]["contract"]
+
+
+def test_a_dart_scan_of_a_tree_without_dart_sources_is_unknown(built: Path) -> None:
+    # AD-468: the core collects Dart. A tree without a package and sources is UNKNOWN by name.
+    with case_root(HONEST) as root:
+        (root / "archkeel.toml").write_text(
+            '[scan]\nlanguage = "dart"\nroots = ["src"]\n'
+            'namespace = "app"\ncontract = "architecture-contract.json"\n'
+        )
+        done = command(built / f"archkeel-core{SUFFIX}", root, "--json")
+    assert done.returncode == 2, done.stdout + done.stderr
+    assert "no pubspec.yaml at the snapshot root" in done.stdout
+    assert '"PASS"' not in done.stdout
 
 
 @pytest.mark.parametrize("declaration", [False, True])

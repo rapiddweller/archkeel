@@ -75,6 +75,7 @@ pub fn assemble(
         facts: Facts {
             profile: provenance.profile,
             profile_limits: None,
+            owned_files: Vec::new(),
             adapter: provenance.adapter,
             runtime: provenance.runtime,
             source,

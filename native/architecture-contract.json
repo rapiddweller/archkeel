@@ -343,6 +343,10 @@
         {
           "component": "py-entry",
           "rationale": "Run the Python import survey through its typed library path and bind its digests to the snapshot (AD-450)."
+        },
+        {
+          "component": "dart-entry",
+          "rationale": "Run the Dart import survey through its typed library path, its provenance and its test features (AD-468)."
         }
       ],
       "decided_by": "architect"
