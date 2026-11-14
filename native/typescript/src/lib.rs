@@ -79,6 +79,7 @@ mod script_publish;
 mod script_records;
 mod script_refs;
 mod script_scope;
+mod script_state;
 mod script_syntax;
 mod script_tree;
 mod script_types;

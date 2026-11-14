@@ -8,9 +8,9 @@
 use std::collections::HashSet;
 
 use super::{Collection, GapKind};
-use crate::script_deps::Run;
 use crate::script_project::{Project, Write, WriteIndex};
 use crate::script_records::{ScriptFacts, UNBOUNDED_EFFECT};
+use crate::script_state::Run;
 use crate::script_vendor::{self, Setting};
 use crate::source::Span;
 use crate::std_globals::standard_globals;
