@@ -63,7 +63,7 @@ mod graph;
 mod ids;
 mod imports;
 mod interface;
-pub use interface::interface_crossings;
+pub use interface::{interface_crossings, publishes};
 mod model;
 mod modules;
 mod ownership;

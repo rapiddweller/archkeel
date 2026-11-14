@@ -171,3 +171,32 @@ fn covers(model: &Model, public: &[&str], module: &str, name: &str) -> Result<bo
     })
     .ok_or(InterfaceGap::PublicationSurface)
 }
+
+/// `interface_covers_import` for a count of uses (AD-514): whether the route of an import reaches
+/// a public entry of `target`. A hop that the survey cannot read counts as not reaching it, so a
+/// caller that counts uses never counts one that it cannot prove.
+pub fn publishes(
+    model: &Model,
+    target: &Component,
+    module: &str,
+    symbol: Option<&str>,
+    hops: &[String],
+) -> bool {
+    let public: Vec<&str> = target
+        .public()
+        .iter()
+        .flatten()
+        .map(|p| p.as_text())
+        .collect();
+    let Some(name) = symbol else {
+        return public.contains(&module);
+    };
+    if target.public().is_none() || name.starts_with('_') {
+        return false;
+    }
+    hops.iter().any(|hop| {
+        hop.rsplit_once('.').is_some_and(|(hop_module, hop_name)| {
+            covers(model, &public, hop_module, hop_name) == Ok(true)
+        })
+    })
+}
