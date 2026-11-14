@@ -72,6 +72,8 @@ impl RuleReasons {
 pub struct Ruling {
     protocol: &'static str,
     #[serde(skip)]
+    html: bool,
+    #[serde(skip)]
     decided: Decided,
     status: Status,
     /// The kind word and the verdict of each decided rule.
@@ -92,6 +94,12 @@ pub struct Ruling {
 }
 
 impl Ruling {
+    /// Request a static presentation of this same ruling, without changing its decision.
+    pub fn with_html(mut self, html: bool) -> Self {
+        self.html = html;
+        self
+    }
+
     /// The decided mark: the status, the run proof of a PASS and the Decision of each rule.
     pub fn decided(&self) -> &Decided {
         &self.decided
@@ -107,7 +115,7 @@ impl Ruling {
     pub fn frame<P: Serialize>(&self, parts: &P) -> Result<EngineFrame, FrameError> {
         let ruling = serde_json::to_value(self);
         let reasons = serde_json::to_value(&self.unsupported);
-        crate::engine_frame::write(ruling, reasons, parts)
+        crate::engine_frame::write(ruling, reasons, parts, self.html)
     }
 }
 
@@ -168,6 +176,7 @@ pub fn rule(models: Result<&ModelTree, &Reason>, named: Named) -> Result<Ruling,
     };
     Ok(Ruling {
         protocol: "archkeel-core-frame-1",
+        html: false,
         decided: Decided {
             status,
             pass,

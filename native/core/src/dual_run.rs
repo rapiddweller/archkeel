@@ -132,6 +132,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         roots: request.roots,
         baseline: request.baseline.is_some(),
         report: true,
+        html: false,
         base: None,
         trust: Box::new(move |namespace, _| Trust {
             settings: Settings::new(namespace, profile, standard_library).with_producer(producer),
@@ -170,6 +171,8 @@ pub(crate) struct Run {
     pub(crate) baseline: bool,
     /// True when the frame names the report payload part (the dual run).
     pub(crate) report: bool,
+    /// Request a static presentation of the same ruling in the frame.
+    pub(crate) html: bool,
     /// The reading of the base reply of a check request (AD-399); the dual run has none.
     pub(crate) base: Option<BaseOf>,
     /// The settings of the namespace for the validated reply (or none), and a reason that names
@@ -274,6 +277,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         locations,
     };
     let frame = ruling
+        .with_html(run.html)
         .frame(&parts)
         .map_err(|error| format!("{}: an inconsistent frame: {error}", run.case))?
         .into_bytes();
