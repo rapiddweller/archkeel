@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 // Consumer: the wiring of Dart into `archkeel-collect` (#880). Each test plants one rule or one
-// gap of AD-450. A gap must keep the coverage incomplete, so a missing edge can never give PASS.
+// gap of AD-454. A gap must keep the coverage incomplete, so a missing edge can never give PASS.
 
 use std::collections::BTreeMap;
 
@@ -437,7 +437,7 @@ fn gaps_and_coverage_hold_the_same_records() {
 fn the_decision_record_names_each_gap() {
     let record = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
         "../../docs/architecture/decisions/\
-         ad-450-the-native-dart-import-survey-resolves-one-package-and-names-each-gap.md",
+         ad-454-the-native-dart-import-survey-resolves-one-package-and-names-each-gap.md",
     );
     let text = std::fs::read_to_string(record).unwrap();
     for name in super::GapName::ALL {

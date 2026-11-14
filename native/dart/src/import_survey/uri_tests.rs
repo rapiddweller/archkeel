@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-// Consumer: the edges of the import survey (AD-450, rule 4). Each URI form has one class.
+// Consumer: the edges of the import survey (AD-454, rule 4). Each URI form has one class.
 
 use super::{classify, generated, Uri};
 

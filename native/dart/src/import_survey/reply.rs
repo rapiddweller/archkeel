@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The request and the typed reply of the survey (AD-450). The reply declares the sections
+//! The request and the typed reply of the survey (AD-454). The reply declares the sections
 //! `imports` and `unknowns` only, as the import survey of the Python collector does.
 
 use archkeel_facts::envelope::{Provenance, Reply};

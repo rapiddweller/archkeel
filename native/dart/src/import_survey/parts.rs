@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The owner of each part file (AD-450, rule 3). A part has an owner only when exactly one
+//! The owner of each part file (AD-454, rule 3). A part has an owner only when exactly one
 //! library claims it with `part` and its one `part of` names that library, by URI or by the
 //! name of the `library` directive. Each other case is a named gap.
 

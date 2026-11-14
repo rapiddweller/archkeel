@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The import survey of one package (AD-450): the selected sources with their digests, the file
+//! The import survey of one package (AD-454): the selected sources with their digests, the file
 //! fact of each library, the owner of each part, the import records with their targets and a
 //! gap for each case that the survey does not prove.
 //!

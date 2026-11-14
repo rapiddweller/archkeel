@@ -563,13 +563,13 @@
         "native.archkeel_dart_collector.import_survey.uri"
       ],
       "responsibilities": [
-        "The import survey of one Dart package (AD-450): resolve each directive URI, find the owner of each part, write the import records with their targets and name each case that it does not prove as a gap, and assemble the typed reply with the sections imports and unknowns."
+        "The import survey of one Dart package (AD-454): resolve each directive URI, find the owner of each part, write the import records with their targets and name each case that it does not prove as a gap, and assemble the typed reply with the sections imports and unknowns."
       ],
       "forbidden_responsibilities": [
         "Selecting one branch of a conditional import, reading a package outside the snapshot root, and writing a reply on stdout."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-450-the-native-dart-import-survey-resolves-one-package-and-names-each-gap.md"
+        "docs/architecture/decisions/ad-454-the-native-dart-import-survey-resolves-one-package-and-names-each-gap.md"
       ],
       "requires": [
         {
@@ -646,7 +646,7 @@
         },
         {
           "component": "dart-survey",
-          "rationale": "Run the import survey for the survey dump (AD-450)."
+          "rationale": "Run the import survey for the survey dump (AD-454)."
         }
       ],
       "decided_by": "architect"
@@ -663,7 +663,7 @@
         "native.archkeel_dart_collector.cargo_toml"
       ],
       "responsibilities": [
-        "The library root and the binary of the Dart collector: publish the import survey (AD-450), decode the Dart request, which gives no reply before the wiring of #880, and run the dump; the build script and the manifest of the crate."
+        "The library root and the binary of the Dart collector: publish the import survey (AD-454), decode the Dart request, which gives no reply before the wiring of #880, and run the dump; the build script and the manifest of the crate."
       ],
       "forbidden_responsibilities": [
         "Reading Dart source."
@@ -695,7 +695,7 @@
         },
         {
           "component": "dart-survey",
-          "rationale": "Publish the survey and the typed reply as the library API (AD-450)."
+          "rationale": "Publish the survey and the typed reply as the library API (AD-454)."
         },
         {
           "component": "pytext",

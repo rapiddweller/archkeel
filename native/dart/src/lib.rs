@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The native Dart collector of Archkeel as a library (#880, AD-450).
+//! The native Dart collector of Archkeel as a library (#880, AD-454).
 //!
 //! `survey` gives the typed import survey of one request: the selected sources, the file facts,
 //! the part owners, the import records with their targets and the named gaps. `typed_reply`
@@ -17,7 +17,7 @@
     not(feature = "dump"),
     expect(
         dead_code,
-        reason = "the full parse serves the dump until a slice of #880 surveys symbols (AD-450)"
+        reason = "the full parse serves the dump until a slice of #880 surveys symbols (AD-454)"
     )
 )]
 

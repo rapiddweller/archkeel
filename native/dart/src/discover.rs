@@ -16,7 +16,7 @@ use crate::module::dart_module_name;
 use crate::pubspec::{self, Pubspec, SdkState};
 
 /// The files that can change the package of a URI. The import survey names each one that the
-/// walk sees, because it resolves URIs from the root `pubspec.yaml` alone (AD-450).
+/// walk sees, because it resolves URIs from the root `pubspec.yaml` alone (AD-454).
 pub(crate) const PACKAGE_FILES: [&str; 4] = [
     "pubspec.yaml",
     "pubspec_overrides.yaml",
@@ -46,7 +46,7 @@ pub(crate) struct Source {
 /// The sources, the package identity and the problems of one request.
 #[derive(Debug)]
 pub(crate) struct Discovery {
-    /// Each package file of `PACKAGE_FILES` that the walk saw below a scan root (AD-450).
+    /// Each package file of `PACKAGE_FILES` that the walk saw below a scan root (AD-454).
     pub(crate) package_files: Vec<String>,
     /// Sorted by path.
     pub(crate) sources: Vec<Source>,

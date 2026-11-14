@@ -41,7 +41,7 @@ impl DartParser {
     }
 
     /// The directives, the concerns and the language version of one source, without the
-    /// definitions and the sites: the import survey reads no more (AD-450).
+    /// definitions and the sites: the import survey reads no more (AD-454).
     pub(crate) fn directives(&mut self, content: &[u8]) -> Syntax {
         let source = Source::new(content);
         self.work_permille = 0;

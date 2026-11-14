@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 // Consumer: `archkeel-collect`, which will call `typed_reply` in the process of the core as it
-// calls the TypeScript and Rust collectors (AD-406, AD-450).
+// calls the TypeScript and Rust collectors (AD-406, AD-454).
 
 use archkeel_facts::envelope::{Profile, Provenance, SectionName};
 use archkeel_snapshot::test_tree::Tree;

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 // Consumer: the wiring of Dart into `archkeel-collect` (#880). The survey of each Dart fixture
-// of the repository is pinned: the files, the parts, the edges and the gaps by name (AD-450).
+// of the repository is pinned: the files, the parts, the edges and the gaps by name (AD-454).
 // A change of a count is a change of the survey and needs its reason.
 
 use std::collections::BTreeMap;

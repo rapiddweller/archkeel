@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The import records and their targets (AD-450, rule 4). Each import and export of a library
+//! The import records and their targets (AD-454, rule 4). Each import and export of a library
 //! or of an owned part gives one record for each URI: the default URI and each conditional
 //! alternative. A URI that gives no proven target gives a named gap and no record.
 

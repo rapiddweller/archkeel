@@ -105,7 +105,7 @@ pub fn run(arguments: &[String]) -> Result<String, String> {
     serde_json::to_string(&value).map_err(|error| error.to_string())
 }
 
-/// The JSON text of the import survey of `<snapshot-root> <namespace> <root>...` (AD-450): the
+/// The JSON text of the import survey of `<snapshot-root> <namespace> <root>...` (AD-454): the
 /// counts, each edge as its source file, kind and target, and each gap by its name or kind.
 pub fn survey(arguments: &[String]) -> Result<String, String> {
     let [root, namespace, roots @ ..] = arguments else {

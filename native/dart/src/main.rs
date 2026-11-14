@@ -9,7 +9,7 @@
 //! launcher for it, so a native Dart reply can never give PASS. A build with the test-only
 //! feature `dump` adds `--dump <snapshot-root> <namespace> <root>...`, which prints the sections
 //! as JSON for the parity tool, and `--dump-survey <request-file>`, which prints the counts of
-//! the import survey (AD-450).
+//! the import survey (AD-454).
 
 use std::io::{Read, Write};
 use std::process::ExitCode;

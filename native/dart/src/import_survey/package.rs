@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The package gaps of the survey (AD-450): each file or `pubspec.yaml` key that can make a
+//! The package gaps of the survey (AD-454): each file or `pubspec.yaml` key that can make a
 //! `package:` URI name a file that the root `pubspec.yaml` alone does not give.
 //!
 //! The check reads lines, not YAML. It can find a key that YAML does not see, for example in a

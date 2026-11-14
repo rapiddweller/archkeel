@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The closed names of the import survey gaps (AD-450) and the one writer of their records.
+//! The closed names of the import survey gaps (AD-454) and the one writer of their records.
 //! Each gap message starts with its name, so a gap keeps its name in the reply.
 
 use std::collections::BTreeMap;

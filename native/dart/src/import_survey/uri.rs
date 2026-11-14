@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Classify one literal directive URI of one package (AD-450, rule 4). The classification reads
+//! Classify one literal directive URI of one package (AD-454, rule 4). The classification reads
 //! only the text: the survey then looks up a local path in the selected sources.
 
 use archkeel_snapshot::paths::{dirname, is_outside, join, normpath, within};
