@@ -15,6 +15,7 @@ use archkeel_facts::{ImportFact, Record};
 
 use crate::builder::{import_record, Builder, Origin};
 use crate::crates::{Crate, Workspace};
+use crate::derive_imports::Local;
 use crate::module_edges::local_target;
 use crate::modules::Index;
 use crate::plant;
@@ -36,8 +37,9 @@ impl Builder {
         self.file((&module.rel, &module.module), module.blank, cited);
         self.edges(workspace, index, module);
         self.symbols(module);
+        let local = Local::of(module);
         for concern in &module.scan.concerns {
-            if crate::derive_identity::proven(workspace, index, module, concern, modules) {
+            if crate::derive_identity::proven(workspace, index, &local, concern, modules) {
                 continue;
             }
             let evidence = self.cite(&module.rel, &concern.site);
