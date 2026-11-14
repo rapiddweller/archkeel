@@ -160,8 +160,7 @@ CONTRACT = {
 
 
 GRAPH = (
-    "# Architecture\n\n<!-- archkeel-component-graph -->\n"
-    "```mermaid\nflowchart LR\n    app\n```\n"
+    "# Architecture\n\n<!-- archkeel-component-graph -->\n```mermaid\nflowchart LR\n    app\n```\n"
 )
 
 
