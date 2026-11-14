@@ -77,6 +77,15 @@ impl Derived {
 }
 
 impl Engine {
+    pub(crate) fn topology(&mut self, ruling: &Ruling) -> crate::topology_projection::Topology {
+        self.derived();
+        let models = self
+            .derived
+            .as_ref()
+            .map_or_else(|| Err(Reason::MissingInput(Input::Reply)), Derived::models);
+        crate::topology_projection::project(models, self.reply(), ruling)
+    }
+
     pub(crate) fn answer(&mut self, request: Request) -> Answer {
         match request {
             Request::Contract(input) => self.take_contract(input),
@@ -106,13 +115,13 @@ impl Engine {
                 let derivation = (derived.graph(), derived.model());
                 Answer::Sections(crate::sections::answer(derivation, &outcomes, &sections))
             }
-            Request::Rules(named) => Answer::Rules(Box::new(self.rule(named))),
+            Request::Rules(named) => Answer::Rules(Box::new(self.rule(named, false))),
             Request::Report => Answer::Report(crate::report::answer()),
         }
     }
 
     /// The ruling of the report over the model and the gaps of the request and of the core.
-    fn rule(&mut self, mut named: Named) -> Result<Ruling, String> {
+    pub(crate) fn rule(&mut self, mut named: Named, keep_links: bool) -> Result<Ruling, String> {
         let tree = self.contract.as_ref().map(crate::rules::Tree::of);
         let (contract, derived) = self.derived();
         let models = derived.models();
@@ -120,8 +129,12 @@ impl Engine {
         named.rules.extend(core.rules);
         named.hold = named.hold.or(core.hold);
         named.contract = named.contract.or(core.contract);
-        archkeel_report::rule(models.as_ref().map(|models| *models), named)
-            .map_err(|error| error.to_string())
+        archkeel_report::rule_with_edge_links(
+            models.as_ref().map(|models| *models),
+            named,
+            keep_links,
+        )
+        .map_err(|error| error.to_string())
     }
 
     fn take_contract(&mut self, input: ContractInput) -> Answer {

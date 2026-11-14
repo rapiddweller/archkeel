@@ -28,6 +28,7 @@ from .core_json import CoreError as CoreError
 from .core_json import Gap as Gap
 from .core_json import GapKind as GapKind
 from .core_json import _count, _fields, _object, _text, _texts
+from .core_topology import Topology, read_topology
 
 
 class Status(StrEnum):
@@ -141,7 +142,7 @@ _FIELDS: Final = frozenset(
 )
 FRAME_PROTOCOL: Final = FrameProtocol.FRAME
 _EVIDENCE_FIELDS: Final = frozenset(
-    {"protocol", "details", "locations", "unknown_kinds", "collection_gaps", "contract_digest"}
+    {"protocol", "details", "locations", "unknown_kinds", "collection_gaps", "contract_digest", "topology"}
 )
 _UNSUPPORTED: Final = frozenset({"rules", "sections", "report"})
 _SELF_TEST: Final = frozenset({"contract", "reply"})
@@ -204,6 +205,7 @@ class CoreFrame:
     locations: Mapping[str, Location] = field(default_factory=dict)
     unknown_kinds: Mapping[str, UnknownKind] = field(default_factory=dict)
     collection_gaps: tuple[CollectionGap, ...] = ()
+    topology: Topology | None = None
 
     @property
     def complete_scope(self) -> bool:
@@ -371,6 +373,8 @@ def read_frame(
         signal = f" (signal {-exit_code})" if exit_code < 0 else ""
         raise CoreError(f"the core exits with {exit_code}{signal}")
     frame = _document(stdout)
+    if request is not None and request.get("topology") and "topology" not in frame:
+        raise CoreError("the core did not produce the requested topology section")
     _word(
         FrameProtocol,
         frame.get("protocol", None if require_protocol else FRAME_PROTOCOL),
@@ -435,4 +439,6 @@ def read_frame(
         locations=locations,
         unknown_kinds=unknown_kinds,
         collection_gaps=_collection_gaps(frame.get("collection_gaps", [])),
+        topology=read_topology(frame["topology"], _text(frame["scope"], "scope"), rules)
+        if "topology" in frame else None,
     )

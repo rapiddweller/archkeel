@@ -122,6 +122,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     let producer = producer(request.collector_argv.as_ref());
     let (profile, standard_library) = (request.profile, request.standard_library);
     run(Run {
+        topology: false,
         case: request.case,
         path,
         contract: contract.into_bytes(),
@@ -158,6 +159,7 @@ impl ReplyInput {
 /// What a request kind gives to the one engine path (`run`): the dual run of the harness
 /// (`answer`) or the check request of the shell (`check.rs`). The two kinds differ only here.
 pub(crate) struct Run {
+    pub(crate) topology: bool,
     pub(crate) case: String,
     pub(crate) path: String,
     pub(crate) contract: Vec<u8>,
@@ -242,11 +244,20 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
     };
     let mut named = named(&contract, run.baseline, &engine, &path);
     named.contract = named.contract.or(trust.gap).or(base);
-    let ruling = match engine.answer(Request::Rules(named)) {
-        Answer::Rules(ruling) => *ruling,
-        other => Err(format!("unexpected answer {other:?}")),
+    let ruling = if run.topology {
+        engine.rule(named, true)
+    } else {
+        match engine.answer(Request::Rules(named)) {
+            Answer::Rules(ruling) => *ruling,
+            other => Err(format!("unexpected answer {other:?}")),
+        }
     }
     .map_err(|problem| format!("{}: an inconsistent frame: {problem}", run.case))?;
+    let topology = if run.topology {
+        Some(engine.topology(&ruling))
+    } else {
+        None
+    };
     let (rows, sections) = crate::sections::split(rows);
     let names_a_gap = report.is_err()
         || !ruling.unsupported().is_empty()
@@ -254,6 +265,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         || !matches!(reply, ReplyCheck::Files(_))
         || !matches!(contract, ContractState::Parsed(_));
     let parts = Parts {
+        topology,
         contract_digest,
         collection_gaps,
         engine: ENGINE,
