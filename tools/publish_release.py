@@ -17,7 +17,8 @@ from typing import Literal, TypedDict
 from urllib.parse import quote
 
 # AD-317, AD-436: the platform wheels, one for each pinned build image of Full. Each carries the
-# core. The release workflow adds them to `dist/` only when PUBLISH_NATIVE_WHEELS is "true".
+# core. Full builds, installs and runs each one on its platform; the release workflow adds exactly
+# these wheels to `dist/` after Full passes (AD-476).
 PLATFORM_TAGS = (
     "py3-none-macosx_10_12_x86_64",
     "py3-none-macosx_11_0_arm64",

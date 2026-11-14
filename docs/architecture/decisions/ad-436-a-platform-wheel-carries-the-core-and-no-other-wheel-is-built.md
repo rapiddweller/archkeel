@@ -22,14 +22,13 @@ first limit of AD-432. The lookup and the refusals of AD-432 do not change.
 6. `make native-wheel` builds the wheel, checks its tag, content and SBOM, and installs it alone in
    a new environment outside the checkout. The installed `archkeel validate` must give the result
    of the core of the checkout: PASS and FAIL for a Rust project, UNKNOWN for a TypeScript project.
-7. `tools/release_core.py` is the release guard. It refuses a wheel without the binary, a wheel
-   whose digest is for other bytes, and a wheel of a platform in `NO_VERDICT`. Then it installs the
-   wheel of the build host alone and requires a verdict of the bundled core.
-   `tools/publish_release.py` accepts exactly the sdist and the six platform wheels.
-8. `NO_VERDICT` holds `win_amd64`. The core requires the canonical text of each root, and Rust
-   gives the canonical path of Windows with the prefix `\\?\`, so the core refuses each root.
-   `PUBLISH_NATIVE_WHEELS` is `"true"` only when `NO_VERDICT` is empty. It stays `"false"`, and the
-   first job of `release.yml` names the platform.
+7. `tools/release_core.py` is the release guard. It refuses a wheel without the binary and a wheel
+   whose digest is for other bytes. Then it installs the wheel of the build host alone and
+   requires a verdict of the bundled core. `tools/publish_release.py` accepts exactly the sdist and
+   the six platform wheels.
+8. *Superseded by AD-476.* This point held `win_amd64` in `NO_VERDICT` and kept
+   `PUBLISH_NATIVE_WHEELS` at `"false"`, because the core refused each root on Windows. AD-442
+   corrected that, and AD-476 removed the flag, the first job and `NO_VERDICT`.
 
 **Reason.** The shell decides nothing (AD-432). A package without the core can only refuse, so
 such a package must not be built. A refusal at build time names the remedy once; a pure wheel
@@ -51,8 +50,7 @@ The core is 9,300,528 bytes. The installed `validate` takes 0.1 to 0.3 seconds f
   binary and the digest file. The binary can also change between the check and its start.
 - Windows gave no verdict when this decision was made. AD-442 corrected `native/collect`, so the
   core decides on Windows now, and the installed-wheel test requires the result of the checkout core
-  on each platform. The guard of point 8 still lists `win_amd64`; a later change lifts it. The
-  release opens when the guard is lifted or when the owner removes Windows from the matrix.
+  on each platform. AD-476 lifted the guard of point 8, so a release is open.
 - An install from the Git URL needs `ARCHKEEL_BUNDLE_NATIVE=1`, cargo and `cargo-auditable`.
 - A platform outside the matrix has no wheel, and its build from the sdist refuses.
 - The core starts Git only at `/usr/bin/git` on Linux and macOS. The pypa images have Git in

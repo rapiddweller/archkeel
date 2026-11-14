@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""A frozen copy of `native/` for each test that reads this checkout while other tests build in it.
+"""A frozen copy of `native/` and its cited documents for each test that reads this checkout.
 
 Consumer: each test that scans, walks or copies the live `native/` directory. A parallel worker
 can run `cargo` there, and cargo creates and removes files in `native/target` and `native/.digests`
@@ -9,13 +9,16 @@ while the test reads. A scan then fails with `Unreadable source directory`, or t
 
 The fixture `frozen_root` copies the files of `native/` once for the whole session: the tracked
 files and the new files that Git does not ignore, as they are now. A changed tracked file is
-tested as it is. The copy is a Git repository with one commit. Its directory name holds a digest
-of the files, so all workers of one session share one copy through a lock file.
+tested as it is. The copy also holds each document that the native contract cites, because
+the core reads and binds it (AD-466). The copy is a Git repository with one commit. Its
+directory name holds a digest of the files, so all workers of one session share one copy
+through a lock file.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -41,7 +44,23 @@ def live_files(root: Path = ROOT) -> list[str]:
             for path in sorted((root / "native").rglob("*"))
             if path.is_file()
         ]
-    return sorted(name for name in set(names) if not SKIPPED.intersection(Path(name).parts[1:2]))
+    files = {name for name in names if not SKIPPED.intersection(Path(name).parts[1:2])}
+    return sorted(files | cited(root))
+
+
+def cited(root: Path = ROOT) -> set[str]:
+    """The provenance documents that the native contract cites: a scan reads them (AD-466)."""
+    path = root / "native/architecture-contract.json"
+    try:
+        contract = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return set()
+    return {
+        name
+        for item in [*contract["components"], *contract["rules"]]
+        for name in item.get("provenance", [])
+        if (root / name).is_file()
+    }
 
 
 def _read(root: Path, name: str) -> bytes | None:

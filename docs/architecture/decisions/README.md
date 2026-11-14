@@ -8,6 +8,11 @@ such a link has no target on `main`. The files are in the Git history before tha
 | Decision | Title |
 |---|---|
 | AD-480 | [A mounted complete_requires receipt reads the modules of its mount](ad-480-a-mounted-complete-requires-receipt-reads-the-modules-of-its-mount.md) |
+| AD-478 | [The Python shell checks itself with its own contract](ad-478-the-python-shell-checks-itself-with-its-own-contract.md) |
+| AD-476 | [A release publishes each platform wheel that Full builds and runs](ad-476-a-release-publishes-each-platform-wheel-that-full-builds-and-runs.md) |
+| AD-470 | [The UML target is an UNKNOWN row of the core](ad-470-the-uml-target-is-an-unknown-row-of-the-core.md) |
+| AD-468 | [Dart import rules use the bound import survey](ad-468-dart-import-rules-use-the-bound-import-survey.md) |
+| AD-466 | [The core checks contract hygiene and binds each provenance file](ad-466-the-core-checks-contract-hygiene-and-binds-each-provenance-file.md) |
 | AD-465 | [A scan does not depend on build output that another process changes](ad-465-a-scan-does-not-depend-on-build-output-that-another-process-changes.md) |
 | AD-464 | [Report topology is an opt-in, bounded display of the same run](ad-464-report-topology-is-an-opt-in-bounded-display-of-the-same-run.md) |
 | AD-462 | [Fixture results are pinned and the nightly run publishes a gallery](ad-462-fixture-results-are-pinned-and-the-nightly-run-publishes-a-gallery.md) |

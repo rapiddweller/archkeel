@@ -50,11 +50,12 @@ TABLE: dict[str, tuple[dict[str, Any], int, str, str]] = {
         "UNKNOWN",
         "rule_kind_not_ported: ENUMS-IN-BASE",
     ),
-    "a profile that the core does not collect": (
+    # AD-468: the core collects Dart; a tree without `pubspec.yaml` is a named gap, never PASS.
+    "a Dart scan without a package": (
         {"config": DART},
         2,
         "UNKNOWN",
-        "dart",
+        "no pubspec.yaml at the snapshot root",
     ),
 }
 

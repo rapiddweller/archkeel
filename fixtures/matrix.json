@@ -3,103 +3,103 @@
     "E-runtime": {
       "language": "python",
       "runs": [
-      {"name": "E-runtime", "root": "E-runtime", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"no_decided_rule": 1}, "refusal": null}}
+      {"name": "E-runtime", "root": "E-runtime", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"graph.count": 1}, "refusal": null}}
       ]
     },
     "F-architecture": {
       "language": "python",
       "runs": [
-      {"name": "F-architecture", "root": "F-architecture", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 32, "DECLARATION": 6}, "scope": "incomplete scope: the profile cannot decide CALL-DESCRIBE-NO-MAINTENANCE", "gaps": {"rule_kind_not_ported": 10}, "refusal": null}},
+      {"name": "F-architecture", "root": "F-architecture", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 32, "DECLARATION": 6}, "scope": "incomplete scope: the profile cannot decide CALL-DESCRIBE-NO-MAINTENANCE", "gaps": {"contract_hygiene_not_ported": 1, "rule_kind_not_ported": 10}, "refusal": null}},
       {"name": "F-architecture-tests", "root": "F-architecture", "command": "report", "config": "archkeel-tests.toml", "contract": ["tests/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 5}, "scope": "incomplete scope: the profile cannot decide TESTS-HELPERS-IN-SUPPORT", "gaps": {"rule_kind_not_ported": 1}, "refusal": null}}
       ]
     },
     "F-typescript-story": {
       "language": "typescript",
       "runs": [
-      {"name": "F-typescript-story", "root": "F-typescript-story", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 1 coverage gaps", "gaps": {"no_decided_rule": 1}, "refusal": null}}
+      {"name": "F-typescript-story", "root": "F-typescript-story", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 1 coverage gaps", "gaps": {"graph.count": 1}, "refusal": null}}
       ]
     },
     "G-dart": {
       "language": "dart",
       "runs": [
-      {"name": "G-dart", "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile dart has no collector in the core process yet"}}}
+      {"name": "G-dart", "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 10}, "scope": "incomplete scope: the profile cannot decide INTERFACE-BOUNDARY", "gaps": {"contract_hygiene_not_ported": 1, "reference.namespace": 1}, "refusal": null}}
       ]
     },
     "H-typescript": {
       "language": "typescript",
       "runs": [
-      {"name": "H-typescript", "root": "H-typescript", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 9, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"uml_target": 1}, "refusal": null}}
+      {"name": "H-typescript", "root": "H-typescript", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 9, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "H-uml": {
       "language": "python",
       "runs": [
-      {"name": "H-uml", "root": "H-uml", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"uml_target": 1}, "refusal": null}}
+      {"name": "H-uml", "root": "H-uml", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "H-uml-dart": {
       "language": "dart",
       "runs": [
-      {"name": "H-uml-dart", "root": "H-uml-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile dart has no collector in the core process yet"}}}
+      {"name": "H-uml-dart", "root": "H-uml-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 5}, "scope": "incomplete scope: the profile cannot decide presentation:controller", "gaps": {}, "refusal": null}}
       ]
     },
     "H-uml-typescript": {
       "language": "typescript",
       "runs": [
-      {"name": "H-uml-typescript", "root": "H-uml-typescript", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"uml_target": 1}, "refusal": null}}
+      {"name": "H-uml-typescript", "root": "H-uml-typescript", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "I-flutter-shop": {
       "language": "dart",
       "runs": [
-      {"name": "I-flutter-shop", "root": "I-flutter-shop", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile dart has no collector in the core process yet"}}}
+      {"name": "I-flutter-shop", "root": "I-flutter-shop", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 1, "FAIL": 0, "UNKNOWN": 6}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "J-compass": {
       "language": "dart",
       "runs": [
-      {"name": "J-compass", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile dart has no collector in the core process yet"}}}
+      {"name": "J-compass", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 7}, "scope": "incomplete scope: the collector reports 2 coverage gaps", "gaps": {}, "refusal": null}}
       ]
     },
     "K-python-realworld": {
       "language": "python",
       "runs": [
-      {"name": "K-python-realworld", "root": "K-python-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 2 coverage gaps", "gaps": {"scope_proof": 6, "uml_target": 1}, "refusal": null}}
+      {"name": "K-python-realworld", "root": "K-python-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 1}, "scope": "incomplete scope: the collector reports 2 coverage gaps", "gaps": {"scope_proof": 6}, "refusal": null}}
       ]
     },
     "L-nest-realworld": {
       "language": "typescript",
       "runs": [
-      {"name": "L-nest-realworld", "root": "L-nest-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 5}, "scope": "incomplete scope: the collector reports 68 coverage gaps", "gaps": {"uml_target": 1}, "refusal": null}}
+      {"name": "L-nest-realworld", "root": "L-nest-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 6}, "scope": "incomplete scope: the collector reports 68 coverage gaps", "gaps": {}, "refusal": null}}
       ]
     },
     "M-review-workflow": {
       "language": "python",
       "runs": [
-      {"name": "M-review-workflow", "root": "M-review-workflow", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 9}, "scope": "incomplete scope: the collector reports 3 coverage gaps", "gaps": {"scope_proof": 3}, "refusal": null}}
+      {"name": "M-review-workflow", "root": "M-review-workflow", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 9}, "scope": "incomplete scope: the collector reports 3 coverage gaps", "gaps": {"contract_hygiene_not_ported": 3, "scope_proof": 3}, "refusal": null}}
       ]
     },
     "golden-python": {
       "language": "python",
       "runs": [
-      {"name": "golden-python-fastapi-encoders", "root": "golden-python/fastapi-encoders", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 5 coverage gaps", "gaps": {"no_decided_rule": 1}, "refusal": null}},
-      {"name": "golden-python-fastapi-security", "root": "golden-python/fastapi-security", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 10 coverage gaps", "gaps": {"no_decided_rule": 1}, "refusal": null}},
-      {"name": "golden-python-synthetic-constructs", "root": "golden-python/synthetic-constructs", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 2 coverage gaps", "gaps": {"no_decided_rule": 1}, "refusal": null}},
-      {"name": "golden-python-synthetic-excluded-tests", "root": "golden-python/synthetic-excluded-tests", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "unsupported: the scope proof: a runtime requirement that the core does not read", "gaps": {"no_decided_rule": 1}, "refusal": null}},
-      {"name": "golden-python-synthetic-gaps", "root": "golden-python/synthetic-gaps", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 4 coverage gaps", "gaps": {"no_decided_rule": 1}, "refusal": null}},
-      {"name": "golden-python-synthetic-tests-only", "root": "golden-python/synthetic-tests-only", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "unsupported: the scope proof: a runtime requirement that the core does not read", "gaps": {"no_decided_rule": 1}, "refusal": null}}
+      {"name": "golden-python-fastapi-encoders", "root": "golden-python/fastapi-encoders", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 5 coverage gaps", "gaps": {"reference.provenance": 1}, "refusal": null}},
+      {"name": "golden-python-fastapi-security", "root": "golden-python/fastapi-security", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 10 coverage gaps", "gaps": {"reference.provenance": 1}, "refusal": null}},
+      {"name": "golden-python-synthetic-constructs", "root": "golden-python/synthetic-constructs", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 2 coverage gaps", "gaps": {"reference.provenance": 1}, "refusal": null}},
+      {"name": "golden-python-synthetic-excluded-tests", "root": "golden-python/synthetic-excluded-tests", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "unsupported: the scope proof: a runtime requirement that the core does not read", "gaps": {"reference.provenance": 1}, "refusal": null}},
+      {"name": "golden-python-synthetic-gaps", "root": "golden-python/synthetic-gaps", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 4 coverage gaps", "gaps": {"reference.provenance": 1}, "refusal": null}},
+      {"name": "golden-python-synthetic-tests-only", "root": "golden-python/synthetic-tests-only", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "unsupported: the scope proof: a runtime requirement that the core does not read", "gaps": {"reference.provenance": 1}, "refusal": null}}
       ]
     },
     "python-newer-syntax-demo": {
       "language": "python",
       "runs": [
-      {"name": "python-newer-syntax-demo", "root": "python-newer-syntax-demo", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 1}, "scope": "incomplete scope: the profile cannot decide CALL-PURGE-MAINTENANCE-ONLY", "gaps": {"rule_kind_not_ported": 1}, "refusal": null}}
+      {"name": "python-newer-syntax-demo", "root": "python-newer-syntax-demo", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 1}, "scope": "incomplete scope: the profile cannot decide CALL-PURGE-MAINTENANCE-ONLY", "gaps": {"graph.count": 1, "rule_kind_not_ported": 1}, "refusal": null}}
       ]
     },
     "python-stdlib-demo": {
       "language": "python",
       "runs": [
-      {"name": "python-stdlib-demo", "root": "python-stdlib-demo", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the profile cannot decide STDLIB-TYPES-DECLARED", "gaps": {"rule_kind_not_ported": 1}, "refusal": null}}
+      {"name": "python-stdlib-demo", "root": "python-stdlib-demo", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the profile cannot decide STDLIB-TYPES-DECLARED", "gaps": {"graph.count": 1, "rule_kind_not_ported": 1}, "refusal": null}}
       ]
     }
   }

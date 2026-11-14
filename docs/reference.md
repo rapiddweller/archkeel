@@ -12,8 +12,8 @@ The Python engine is deleted. The shell reads the arguments, starts the core and
 | `check`, `init` | Typed refusal, exit 2. Release 4.0.1 has them. |
 | `explore`, `guide`, `story`, `view`, `studio` | Typed refusal, exit 2. No release has them. |
 
-`main` supports Rust and TypeScript projects. Python and Dart profiles give exit 2 before collection (AD-430).
-A config without `language` selects the Python profile, so it is refused. There is no partial PASS.
+`main` supports Rust and TypeScript projects, and the import rules of Python (AD-450) and Dart (AD-468) projects.
+A config without `language` selects the Python profile. There is no partial PASS.
 Interactive reports, `architecture.json`, saved reports, focused reports, baselines, amendments and
 `--write-graph` are not on `main`. The shell refuses each of their options by name with exit 2.
 
@@ -34,8 +34,8 @@ contract = "architecture-contract.json"
 ```
 
 One run covers one namespace. Roots are repository-relative, nonoverlapping and
-not globs. Optional `language` is `rust` or `typescript`; a missing value or `python` or
-`dart` is refused. TypeScript also uses `tsconfig`; roots may be files or directories.
+not globs. Optional `language` is `rust`, `typescript`, `python` or `dart`; a missing value
+selects `python`. A Dart run refuses `exclude_test_sources`. TypeScript also uses `tsconfig`; roots may be files or directories.
 Inputs must exist inside `--root`.
 
 An explicit component `inside` mounts a child contract over the same scan. Its path is

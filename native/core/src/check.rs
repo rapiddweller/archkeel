@@ -105,6 +105,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         base,
         trust: Box::new(stage_one_shell_trust),
         collect: None,
+        documents: None,
     })
 }
 

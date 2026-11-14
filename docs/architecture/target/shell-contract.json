@@ -1,0 +1,565 @@
+{
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
+  "schema_version": "2.3.0",
+  "components": [
+    {
+      "id": "SHELL-ENTRY",
+      "label": "entry",
+      "role": "component",
+      "layer": "entry",
+      "packages": [],
+      "exact_modules": [
+        "archkeel",
+        "archkeel.cli",
+        "archkeel.cli.__main__"
+      ],
+      "responsibilities": [
+        "Start the command line: give the arguments to the commands and return their exit code."
+      ],
+      "forbidden_responsibilities": [
+        "Decide a verdict, read a frame or start a process."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "commands",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-COMMANDS",
+      "label": "commands",
+      "role": "component",
+      "layer": "commands",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.core_only"
+      ],
+      "responsibilities": [
+        "Parse the arguments, send the scan identity, print the frame as text or JSON and map the status to the exit code."
+      ],
+      "forbidden_responsibilities": [
+        "Interpret a rule row, read a contract or source, or decide a status."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "locate",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "binding",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "frame",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "json",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "output",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "launch",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "skill",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-LOCATE",
+      "label": "locate",
+      "role": "component",
+      "layer": "process",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.core_binary"
+      ],
+      "responsibilities": [
+        "Find the core binary of this install, never one that the scanned repository selects."
+      ],
+      "forbidden_responsibilities": [
+        "Read the scanned repository, run the core or read a frame."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "json",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-LAUNCH",
+      "label": "launch",
+      "role": "component",
+      "layer": "process",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.native_scan"
+      ],
+      "responsibilities": [
+        "Build the scan request from the root and the Git state, start the core and return its bytes."
+      ],
+      "forbidden_responsibilities": [
+        "Read rows of a frame beyond the typed refusal, or decide a status."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "frame",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "json",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-FRAME",
+      "label": "frame",
+      "role": "component",
+      "layer": "frame",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.core_frame"
+      ],
+      "responsibilities": [
+        "Read one core frame into typed values and fail closed. The only part that interprets a verdict and a status."
+      ],
+      "forbidden_responsibilities": [
+        "Start a process, print, or write a file."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "binding",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "display",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "json",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "output",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-DISPLAY",
+      "label": "display",
+      "role": "component",
+      "layer": "decoding",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.core_evidence",
+        "archkeel.cli.core_topology"
+      ],
+      "responsibilities": [
+        "Decode the evidence metadata and the optional topology as typed display values."
+      ],
+      "forbidden_responsibilities": [
+        "Supply a verdict, a status or a scope proof."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "json",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-BINDING",
+      "label": "binding",
+      "role": "component",
+      "layer": "decoding",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.core_binding"
+      ],
+      "responsibilities": [
+        "Bind a frame to its request identity and to the bytes of the contract files. It reads no rules."
+      ],
+      "forbidden_responsibilities": [
+        "Read a rule row or interpret a status."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "json",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-OUTPUT",
+      "label": "output",
+      "role": "component",
+      "layer": "decoding",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.core_output"
+      ],
+      "responsibilities": [
+        "Read the optional presentation of the core and write the received bytes to one file atomically."
+      ],
+      "forbidden_responsibilities": [
+        "Make or change a presentation, or read a verdict."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "json",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-JSON",
+      "label": "json",
+      "role": "component",
+      "layer": "foundation",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.core_json"
+      ],
+      "responsibilities": [
+        "Small checked readers and the error type that every other part shares."
+      ],
+      "forbidden_responsibilities": [
+        "Know a frame field, a rule or a command."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-SKILL",
+      "label": "skill",
+      "role": "component",
+      "layer": "foundation",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.skill"
+      ],
+      "responsibilities": [
+        "Install the coding-agent skill into a repository."
+      ],
+      "forbidden_responsibilities": [
+        "Read a frame, start the core or decide a verdict."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [],
+      "decided_by": "architect"
+    }
+  ],
+  "rules": [
+    {
+      "id": "SHELL-ASSIGNMENT-COMPLETE",
+      "kind": "complete_assignment",
+      "source": "archkeel",
+      "rationale": "A module that no component owns escapes every rule below.",
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-REQUIRES-COMPLETE",
+      "kind": "complete_requires",
+      "rationale": "A part uses another part only where requires says so; absence forbids. This is the direction of the design: the shell decides nothing and only the frame part reads a verdict.",
+      "provenance": [
+        "docs/architecture/decisions/ad-432-the-rust-core-is-the-only-decision-path.md",
+        "docs/architecture/shell.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-NO-COMPONENT-CYCLES",
+      "kind": "no_component_cycles",
+      "rationale": "Parts stay layered: the entry calls the commands, the commands call the parts, and no part calls up.",
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-NO-MODULE-CYCLES",
+      "kind": "no_component_cycles",
+      "level": "module",
+      "rationale": "A module is read after the modules it uses.",
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-LAYER-ORDER",
+      "kind": "layer_order",
+      "layers": [
+        "foundation",
+        "decoding",
+        "frame",
+        "process",
+        "commands",
+        "entry"
+      ],
+      "rationale": "The declared requirements point from the entry down to the foundation and never up.",
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-EXTERNAL-COMPLETE",
+      "kind": "complete_external_scope",
+      "source": "archkeel",
+      "rationale": "The shell uses the standard library only: an import of a third-party package fails, so no analysis library enters the shell.",
+      "provenance": [
+        "docs/architecture/decisions/ad-432-the-rust-core-is-the-only-decision-path.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-ONLY-LAUNCH-STARTS-A-PROCESS",
+      "kind": "external_dependency_scope",
+      "dependency": "subprocess",
+      "allowed_sources": [
+        "archkeel.cli.native_scan"
+      ],
+      "rationale": "Only the launch part starts a process: the core and Git.",
+      "provenance": [
+        "docs/architecture/decisions/ad-422-core-only-validation-renders-the-scan-frame.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-ONLY-COMMANDS-PARSE-ARGUMENTS",
+      "kind": "external_dependency_scope",
+      "dependency": "argparse",
+      "allowed_sources": [
+        "archkeel.cli.core_only"
+      ],
+      "rationale": "Only the commands read the command line.",
+      "provenance": [
+        "docs/architecture/decisions/ad-432-the-rust-core-is-the-only-decision-path.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-ONLY-BINDING-READS-CONFIGURATION",
+      "kind": "external_dependency_scope",
+      "dependency": "tomllib",
+      "allowed_sources": [
+        "archkeel.cli.core_binding"
+      ],
+      "rationale": "Only the binding part reads the configuration, to bind the frame to it.",
+      "provenance": [
+        "docs/architecture/decisions/ad-438-the-default-scan-reads-and-binds-every-inside-contract.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-ONLY-OUTPUT-MAKES-FILES",
+      "kind": "external_dependency_scope",
+      "dependency": "secrets",
+      "allowed_sources": [
+        "archkeel.cli.core_output"
+      ],
+      "rationale": "Only the output part names a temporary file.",
+      "provenance": [
+        "docs/architecture/decisions/ad-440-report-files-present-the-same-core-ruling.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-ONLY-LOCATE-READS-THE-INSTALL",
+      "kind": "external_dependency_scope",
+      "dependency": "sysconfig",
+      "allowed_sources": [
+        "archkeel.cli.core_binary"
+      ],
+      "rationale": "Only the locate part reads the layout of the install.",
+      "provenance": [
+        "docs/architecture/decisions/ad-422-core-only-validation-renders-the-scan-frame.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-ONLY-COMMANDS-REPORT-ERRORS",
+      "kind": "external_dependency_scope",
+      "dependency": "traceback",
+      "allowed_sources": [
+        "archkeel.cli.core_only"
+      ],
+      "rationale": "Only the commands print a trace.",
+      "provenance": [
+        "docs/architecture/decisions/ad-432-the-rust-core-is-the-only-decision-path.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-NO-FRAME-TO-COMMANDS",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.cli.core_frame",
+      "target": "archkeel.cli.core_only",
+      "include_type_checking": true,
+      "rationale": "The frame reader does not know the command that calls it.",
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-NO-DISPLAY-TO-FRAME",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.cli.core_evidence",
+      "target": "archkeel.cli.core_frame",
+      "include_type_checking": true,
+      "rationale": "A display decoder cannot reach the verdict reader.",
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-NO-TOPOLOGY-TO-FRAME",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.cli.core_topology",
+      "target": "archkeel.cli.core_frame",
+      "include_type_checking": true,
+      "rationale": "The topology decoder cannot supply a verdict or a scope proof.",
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-NO-BINDING-TO-FRAME",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.cli.core_binding",
+      "target": "archkeel.cli.core_frame",
+      "include_type_checking": true,
+      "rationale": "The binding part reads no rules.",
+      "provenance": [
+        "docs/architecture/decisions/ad-438-the-default-scan-reads-and-binds-every-inside-contract.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-NO-OUTPUT-TO-FRAME",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.cli.core_output",
+      "target": "archkeel.cli.core_frame",
+      "include_type_checking": true,
+      "rationale": "The output part writes bytes and reads no verdict.",
+      "provenance": [
+        "docs/architecture/decisions/ad-440-report-files-present-the-same-core-ruling.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-NO-LOCATE-TO-FRAME",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.cli.core_binary",
+      "target": "archkeel.cli.core_frame",
+      "include_type_checking": true,
+      "rationale": "The locate part finds a binary and reads no frame.",
+      "provenance": [
+        "docs/architecture/decisions/ad-422-core-only-validation-renders-the-scan-frame.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-NO-JSON-TO-FRAME",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.cli.core_json",
+      "target": "archkeel.cli.core_frame",
+      "include_type_checking": true,
+      "rationale": "The foundation knows no frame field.",
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-NO-SKILL-TO-FRAME",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.cli.skill",
+      "target": "archkeel.cli.core_frame",
+      "include_type_checking": true,
+      "rationale": "The skill installer reads no frame.",
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-NO-LAUNCH-TO-COMMANDS",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.cli.native_scan",
+      "target": "archkeel.cli.core_only",
+      "include_type_checking": true,
+      "rationale": "The launch part does not know the command that calls it.",
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-NO-UP-TO-ENTRY",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.cli.core_only",
+      "target": "archkeel.cli.__main__",
+      "include_type_checking": true,
+      "rationale": "Nothing imports upward into the entry point.",
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "decided_by": "architect"
+    }
+  ]
+}

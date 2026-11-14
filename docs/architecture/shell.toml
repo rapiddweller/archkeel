@@ -1,0 +1,5 @@
+[scan]
+language = "python"
+namespace = "archkeel"
+contract = "docs/architecture/target/shell-contract.json"
+roots = ["src/archkeel"]

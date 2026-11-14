@@ -19,6 +19,7 @@
 
 mod bindings;
 mod canonical;
+mod dart;
 mod decode;
 mod inventory;
 mod pyjson;
