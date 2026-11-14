@@ -26,9 +26,10 @@
 5. `Unsupported::UmlTarget` and the shell gap kind `uml_target` are deleted.
 
 **Bound input.** The target is in the contract bytes, so `contract_digest` and `contract_files` bind
-it. A change after the core read it gives a refusal (exit 2). AD-466 (#1144) reads and binds each
-provenance file that an entity, relationship or scope cites (`policy::provenance_paths` covers
-`declarations.uml`). This record uses that seam and adds no reader. It does not wait for #1144.
+it. A change after the core read it gives a refusal (exit 2). PR #1144 (contract hygiene) reads
+and binds each provenance file that an entity, relationship or scope cites: its
+`policy::provenance_paths` covers `declarations.uml`. This record uses that seam and adds no
+reader. It does not wait for #1144.
 
 **Proven subset.** Each `contract.invalid` case of 4.0.1 above, except the missing provenance file,
 is a contract refusal of the core (`archkeel-contract` already parses and links the target).
@@ -38,7 +39,7 @@ No other assessment is proven. No UML PASS exists in the core.
 - The comparison with the source facts. A conflict that 4.0.1 shows as FAIL is UNKNOWN in the core.
   This is stricter for PASS and less specific for FAIL; both give exit 2.
 - A target that 4.0.1 can PASS (`H-uml-dart`, `H-uml` in 4.0.1) is UNKNOWN in the core.
-- A missing provenance file: UNKNOWN until AD-466 merges, then a refusal.
+- A missing provenance file: UNKNOWN until #1144 merges, then a refusal.
 - The UML facts of the collectors (declarations, members, signatures, calls, references) are not in
   the model. A comparison slice needs them for each language before a row can PASS or FAIL.
 
