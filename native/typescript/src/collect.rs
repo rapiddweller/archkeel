@@ -146,7 +146,7 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         queue: Vec::new(),
         queued: HashSet::new(),
         gaps: BTreeMap::new(),
-        reach: BTreeSet::new(),
+        reach: reach.into_iter().collect(),
         evidence: BTreeMap::new(),
         files: Vec::new(),
         imports: Vec::new(),
@@ -184,7 +184,6 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         collection.file(&rel);
         index += 1;
     }
-    collection.reach.extend(reach);
     collection.unselected();
     let (script, dependency_scope) = collection.script_dependencies(partial);
     let problems: Vec<String> = collection.snapshot.problems.iter().cloned().collect();
