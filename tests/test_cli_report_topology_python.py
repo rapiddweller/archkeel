@@ -58,9 +58,7 @@ def test_a_python_import_of_the_platform_or_a_library_is_an_external_edge(
     assert rows[("pkg.b", "sys")] == "external"
     assert rows[("pkg.a", "pkg.b")] == "resolved"
     # Nothing is dropped: each edge that is resolved ends at a listed module.
-    assert all(
-        e["target"] in modules for e in topology["edges"] if e["resolution"] == "resolved"
-    )
+    assert all(e["target"] in modules for e in topology["edges"] if e["resolution"] == "resolved")
     assert topology["total"]["edges"] == len(topology["edges"])
 
 

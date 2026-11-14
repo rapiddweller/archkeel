@@ -272,9 +272,9 @@ fn edge_rows(
         .collect();
     let mut buckets = BTreeMap::new();
     for import in models.root().graph().imports() {
-        // The typed target decides. A profile that reads each target by its module (Python, Dart)
-        // gives the rules `Resolved::Local` for a library or a platform module: it is no module
-        // of the scan, so the display calls it external (AD-466).
+        // The typed target decides. A profile that reads each target by its module gives the
+        // rules `Resolved::Local` for a library or a platform module: it is no module of the
+        // scan, so the display calls it external (AD-466).
         let outside = matches!(
             targets.get(import.id()),
             Some(Target::External { .. } | Target::Builtin { .. })
