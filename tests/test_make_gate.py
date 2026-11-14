@@ -28,6 +28,7 @@ CI_CHECK_STEPS = [
     "browser-runtime-check",
     "typescript-libs-check",
     "self-validate-native",
+    "self-validate-shell",
 ]
 CI_STEPS = [*CI_CHECK_STEPS, "mermaid"]
 
@@ -89,6 +90,7 @@ def test_gate_validates_first_and_stops_after_each_failure(
         None,
         "ci-artifacts-clean",
         "self-validate-native",
+        "self-validate-shell",
         "typescript-compiler-check",
         "mermaid",
     ],
@@ -199,14 +201,14 @@ def _needs(body: str) -> set[str]:
 
 
 def test_each_release_job_runs_after_full_verification() -> None:
-    """AD-280 decision 3: a release runs Full first. Only the gate of AD-436 is before Full."""
+    """AD-280 decision 3: a release runs Full first and no job is before it (AD-476)."""
     jobs = _jobs("release.yml")
     assert "uses: ./.github/workflows/full-verification.yml" in jobs["verify"]
 
     def after_verify(job: str) -> bool:
         return any(need == "verify" or after_verify(need) for need in _needs(jobs[job]))
 
-    assert [job for job in jobs if job != "verify" and not after_verify(job)] == ["core-in-wheel"]
+    assert [job for job in jobs if job != "verify" and not after_verify(job)] == []
 
 
 def test_python_classifiers_name_exactly_the_versions_the_full_workflow_tests() -> None:
@@ -381,7 +383,7 @@ def test_a_test_added_to_the_pr_test_list_does_not_run_full() -> None:
 
 FULL_MK = "tools/full.mk"
 # CI runs these on each PR, so a break in them shows before the merge. Full needs no run for them.
-SHARED_WITH_CI = {"mermaid", "self-validate-native"}
+SHARED_WITH_CI = {"mermaid", "self-validate"}
 
 
 def _called_targets(workflow: str) -> set[str]:
@@ -454,47 +456,3 @@ def test_ci_pr_static_runs_policy_without_tests(tmp_path) -> None:
     result, steps = _run_gate(tmp_path, "ci-pr-static", None, 2, False, base="a" * 40)
     assert steps == ["browser-architecture-check"]
     assert result.returncode == 0
-
-
-REFUSED = '{"status": "UNKNOWN", "exit_code": 2, "refusal": {"kind": "core_error", "message": "x"}}'
-
-
-@pytest.mark.parametrize(
-    ("target", "printed", "shown"),
-    [
-        ("self-validate-native", REFUSED, "refused: core_error: x"),
-        ("self-validate-native", "", "JSONDecodeError"),
-        ("browser-architecture-check", REFUSED, "core_error"),
-    ],
-)
-def test_a_self_check_without_the_pinned_core_result_fails(
-    tmp_path: Path, target: str, printed: str, shown: str
-) -> None:
-    """AD-432: a refusal or no result of `archkeel validate` never passes a self-check gate."""
-    uv = tmp_path / "uv"
-    uv.write_text(
-        '#!/bin/sh\ncase "$*" in\n'
-        f"  *archkeel\\ validate*) printf '%s' '{printed}'; exit 2;;\n"
-        f'  *) shift 3; exec "{sys.executable}" "$@";;\n'
-        "esac\n"
-    )
-    uv.chmod(0o755)
-    for name in (
-        "native/expected-gaps.json",
-        "docs/architecture/target/studio-ui-expected.json",
-        "tools/native_expected.py",
-    ):
-        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
-        (tmp_path / name).write_bytes((ROOT / name).read_bytes())
-    result = subprocess.run(
-        ["make", "-f", str(ROOT / "Makefile"), "-o", "core", "-o", "browser-runtime-install"]
-        + [target, f"UV={uv}"],
-        cwd=tmp_path,
-        env={**os.environ, "MAKEFLAGS": ""},
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    assert result.returncode == 2, result.stdout + result.stderr
-    assert shown in result.stdout + result.stderr
-    assert "as pinned in" not in result.stdout

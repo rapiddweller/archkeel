@@ -55,8 +55,8 @@ jobs:
           BASE: ${{ github.event_name == 'push' && github.event.before || 'HEAD~1' }}
         run: make ci-pr-static BASE="$BASE"
 
-      - name: Check the Rust of native/ with the core against its pinned result
-        run: make self-validate-native
+      - name: Check native/ and the Python shell with the core against their pinned results
+        run: make self-validate
 
   tests:
     name: "Tests: ${{ matrix.area }}"

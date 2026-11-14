@@ -1,5 +1,9 @@
 # UML model target
 
+> **Main.** This page describes the comparison of release 4.0.1. The Rust core on main does not
+> compare the target with the source facts yet. It writes the target row as UNKNOWN with its cause
+> and never as PASS or FAIL ([AD-470](decisions/ad-470-the-uml-target-is-an-unknown-row-of-the-core.md)).
+
 Core compares independently declared Target intent with recorded source facts.
 As-Is, Target and Diff share one authenticated `ArchitectureReport` and renderer.
 A diagram changes no verdict.

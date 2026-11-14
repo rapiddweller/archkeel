@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from core_support import HONEST, ROOT, case_root, ensure_target_dir, run
+from core_support import EMPTY_GRAPH, HONEST, ROOT, case_root, ensure_target_dir, run
 from filelock import FileLock
 
 from archkeel.cli import core_only, native_scan
@@ -227,11 +227,12 @@ def test_a_forbidden_edge_after_the_cut_cannot_leave_a_rule_pass(
             "target": target,
             "include_type_checking": True,
             "rationale": "The later edge must not escape the refusal.",
-            "provenance": ["test"],
+            "provenance": ["docs/architecture/shop.md"],
             "decided_by": "architect",
         }
     ]
     contract_path.write_text(json.dumps(contract))
+    (root / "docs/architecture/shop.md").write_text(EMPTY_GRAPH)
     suffix = "ts" if language == "typescript" else "rs"
     count = 70 if scope == "scan" else 1
     for index in range(count):

@@ -22,7 +22,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_eval::{evaluate, Outcome};
-use archkeel_model::{Decision, Model, ModelTree, Reason, Unsupported, Verdict as ModelVerdict};
+use archkeel_model::{
+    Decision, Model, ModelTree, Reason, UmlGap, Unsupported, Verdict as ModelVerdict,
+};
 use serde::Serialize;
 
 use crate::{
@@ -47,6 +49,9 @@ pub struct Named {
     pub contract: Option<String>,
     /// A reason that holds back each PASS of the run (the scope of a contract tree).
     pub hold: Option<Reason>,
+    /// The UML target row of the tree, by its id (AD-470). The cause has no verdict, so the row
+    /// is UNKNOWN: it cannot pass and it cannot fail.
+    pub uml: Option<(String, UmlGap)>,
 }
 
 /// The reasons of the rules without a decision: one for each rule, or one for the contract.
@@ -156,13 +161,16 @@ pub fn rule_with_edge_links(
             }
         }
     }
+    let uml = rows.uml(named.uml, decided.is_some(), models.err(), &mut gaps)?;
     reasons.extend(
         gaps.into_iter()
             .map(|(id, reason)| (id, reason.to_string())),
     );
-    // AD-416: declarations have no decision and cannot make a run PASS by themselves.
+    // AD-416: declarations have no decision and cannot make a run PASS by themselves. An UNKNOWN
+    // UML row is a row of the run, so the contract has a row that names why it is open.
     let contract = named.contract.or_else(|| {
         (models.is_ok()
+            && !uml
             && rows
                 .decisions
                 .iter()
@@ -298,6 +306,37 @@ impl Rows {
         self.rules.insert(id.clone(), (kind, verdict));
         self.decisions.push((id, outcome.decision().cloned()));
         Ok(())
+    }
+}
+
+impl Rows {
+    /// The UML target row (AD-470): an UNKNOWN row with its cause when the model decides the
+    /// rules, and a gap with the reason of the run when no model decides them. It never enters
+    /// `decisions`, so it takes no part in a run proof. True when the row is written.
+    fn uml(
+        &mut self,
+        target: Option<(String, UmlGap)>,
+        decided: bool,
+        run: Option<&Reason>,
+        gaps: &mut BTreeMap<String, Reason>,
+    ) -> Result<bool, BuildError> {
+        let Some((id, gap)) = target else {
+            return Ok(false);
+        };
+        if !self.seen.insert(id.clone()) {
+            return Err(BuildError::DuplicateRule { rule: id });
+        }
+        if !decided {
+            gaps.insert(id, run.cloned().unwrap_or(Reason::Uml(gap)));
+            return Ok(false);
+        }
+        let reason = Reason::Uml(gap);
+        self.explained.insert(id.clone(), reason.to_string());
+        self.unknown_kinds
+            .insert(id.clone(), WhyUnknown::of(&reason));
+        self.rules
+            .insert(id, ("uml_target".to_owned(), RuleVerdict::Unknown));
+        Ok(true)
     }
 }
 

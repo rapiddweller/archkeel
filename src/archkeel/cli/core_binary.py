@@ -14,7 +14,7 @@ import hashlib
 import sysconfig
 from pathlib import Path
 
-from .core_frame import CoreError
+from .core_json import CoreError
 
 
 class CoreBinaryNotFound(CoreError):

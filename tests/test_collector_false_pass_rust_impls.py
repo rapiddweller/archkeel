@@ -124,13 +124,23 @@ def test_a_method_of_another_module_gives_no_false_pass(
     assert _verdict(result, "NO-A-TO-B") == expected, claims(result)
 
 
+# AD-466: the marked graph draws the observed edges; an allowed pair that the code does not use
+# is not an observed edge.
+OBSERVED_IMPL = "    root --> base\n    a --> c\n    b --> c"
+OBSERVED_GLOB = "    root --> b\n    root --> base\n    a --> root"
+
+
 @pytest.mark.parametrize(
-    ("files", "requires", "expected"),
+    ("files", "requires", "expected", "drawn"),
     [
-        pytest.param(IMPL_METHOD, ("c",), "UNKNOWN", id="FP-29 the contract forbids a -> b"),
-        pytest.param(IMPL_METHOD, ("b", "c"), "PASS", id="FP-29 the contract allows a -> b"),
-        pytest.param(GLOB_TRAIT, (), "UNKNOWN", id="FP-30 the contract forbids a -> b"),
-        pytest.param(GLOB_TRAIT, ("b",), "PASS", id="FP-30 the contract allows a -> b"),
+        pytest.param(IMPL_METHOD, ("c",), "UNKNOWN", None, id="FP-29 the contract forbids a -> b"),
+        pytest.param(
+            IMPL_METHOD, ("b", "c"), "PASS", OBSERVED_IMPL, id="FP-29 the contract allows a -> b"
+        ),
+        pytest.param(GLOB_TRAIT, (), "UNKNOWN", None, id="FP-30 the contract forbids a -> b"),
+        pytest.param(
+            GLOB_TRAIT, ("b",), "PASS", OBSERVED_GLOB, id="FP-30 the contract allows a -> b"
+        ),
     ],
 )
 def test_the_gap_of_a_pair_is_dropped_only_when_the_contract_allows_the_pair(
@@ -140,10 +150,12 @@ def test_the_gap_of_a_pair_is_dropped_only_when_the_contract_allows_the_pair(
     files: dict[str, str],
     requires: tuple[str, ...],
     expected: str,
+    drawn: str | None,
 ) -> None:
     sources = _sources(files)
     components = _modules(requires, files)
-    result = validate(repository(tmp_path, core_binary, sources, components=components), capsys)
+    root = repository(tmp_path, core_binary, sources, components=components, drawn=drawn)
+    result = validate(root, capsys)
 
     assert _verdict(result, "REQUIRES") == expected, claims(result)
     assert result["status"] == expected, statuses(result)
