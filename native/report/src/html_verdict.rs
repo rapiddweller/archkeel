@@ -6,8 +6,8 @@
 //! that the shell checks; the card shows the same status and the counts of the frame.
 
 use super::frame::Frame;
+use super::markup::{count, escape, status_icon};
 use super::places::Places;
-use super::text::{count, escape, status_icon};
 
 /// The class word of a status.
 fn word(status: &str) -> &'static str {

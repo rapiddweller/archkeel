@@ -12,16 +12,16 @@ mod arch;
 mod cases;
 #[path = "html_frame.rs"]
 mod frame;
+#[path = "html_text.rs"]
+mod markup;
 #[path = "html_places.rs"]
 mod places;
 #[path = "html_shell.rs"]
 mod shell;
-#[path = "html_text.rs"]
-mod text;
 #[path = "html_verdict.rs"]
 mod verdict;
 
-use text::escape;
+use markup::escape;
 
 fn text(value: &Value) -> &str {
     value.as_str().unwrap_or("unavailable")

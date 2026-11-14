@@ -9,8 +9,8 @@
 use std::collections::BTreeMap;
 
 use super::frame::{CyclePath, Frame, Module};
+use super::markup::{count, escape, level_icon};
 use super::places::{Kind, Place, Places, Violated};
-use super::text::{count, escape, level_icon};
 
 /// The names of the modules and the components of the topology.
 pub(super) struct Names<'a> {
@@ -77,7 +77,7 @@ fn tower(names: &Names<'_>, module: &str, file: Option<&str>, label: &str) -> (S
         rows.push_str(&row(
             "component",
             name,
-            Some(&super::text::anchor("c-", id)),
+            Some(&super::markup::anchor("c-", id)),
         ));
         levels += 1;
     }

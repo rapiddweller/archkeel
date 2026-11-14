@@ -14,13 +14,14 @@ use serde_json::Value;
 
 /// A row of the frame that the page reads: a struct of public fields that reads as empty.
 macro_rules! row {
-    ($($name:ident { $($field:ident: $kind:ty),* $(,)? })*) => {$(
+    ($vis:vis, $($name:ident { $($field:ident: $kind:ty),* $(,)? })*) => {$(
         #[derive(Clone, Debug, Default, Deserialize)]
-        pub(super) struct $name { $(pub(super) $field: $kind),* }
+        $vis struct $name { $($vis $field: $kind),* }
     )*};
 }
 
 row! {
+    pub(super),
     Location { path: String, line: i64 }
     Detail { source: String, target: Option<String>, cause: String, evidence: Vec<String> }
     Component { id: String, name: String }

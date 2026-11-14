@@ -10,8 +10,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::cases::Names;
 use super::frame::{Frame, Topology};
+use super::markup::{anchor, count, escape, status_icon};
 use super::places::{Kind, Places};
-use super::text::{anchor, count, escape, status_icon};
 
 const MAP_COMPONENTS: usize = 12;
 const MAP_EDGES: usize = 30;

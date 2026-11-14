@@ -5,7 +5,7 @@
 //! The shell of the report page: the policy, the theme script, the style and the top bar (AD-496).
 //! The files are the design system of the owner; the page loads no other resource.
 
-use super::text::{base64, escape};
+use super::markup::{base64, escape};
 
 const TOKENS: &str = include_str!("../assets/tokens.css");
 const BUNDLE: &str = include_str!("../assets/bundle.css");
