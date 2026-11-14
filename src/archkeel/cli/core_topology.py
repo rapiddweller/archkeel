@@ -157,9 +157,9 @@ _TARGET_LABELS: Final = _OWNER_LABELS | {resolution.value for resolution in Reso
 def _check_references(topology: "Topology") -> None:
     """Each edge end names a listed row. A list that the budget cut can omit the row.
 
-    A module edge starts at a module; it ends at a module, or at the outside name of an external or
-    unresolved import. A component edge starts at a component or `unowned` or `ambiguous`; it ends at
-    a component or at one of those labels or a resolution name (the fallback of the core)."""
+    A module edge starts at a module; it ends at a module, or at the outside name of an external
+    or unresolved import. A component edge starts at a component or `unowned` or `ambiguous`.
+    It ends at a component, at one of those labels or at a resolution name (the fallback)."""
     components = {item.id for item in topology.components}
     modules = {item.name for item in topology.modules}
     cut_components = topology.total["components"] > len(components)

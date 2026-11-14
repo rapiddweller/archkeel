@@ -4,8 +4,8 @@
 """The opt-in topology is a bounded read of the same run, not a second verdict."""
 
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 import pytest
 from core_support import HONEST, case_root
