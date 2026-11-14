@@ -100,7 +100,8 @@ in the needs of `All Full checks passed`, so a Pages error never fails Full. The
 repository must be set to GitHub Actions. `fixtures/matrix.json` pins the result of the core for each
 fixture; a test fails when the result changes. Update the pin in the same change.
 The Python engine built the older gallery and its Pages workflow (`pages.yml`); AD-432 deleted both.
-No Windows job runs the shell tests; the Windows job builds and checks the wheel.
+The Windows wheel job builds and checks the wheel. It also runs the disk-root Rust tests and
+`tests/test_cli_windows_root.py` through the release core. It does not run the full shell suite.
 
 ## Browser assets
 
