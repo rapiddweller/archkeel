@@ -18,7 +18,8 @@ refuses with exit 2. The tests build their own core; without `cargo` they are sk
 Browser code checks, Mermaid rendering and the UML TypeScript compiler check require
 Node.js 22 and npm; CI installs them. `make typescript-compiler-check` runs pinned
 TypeScript 5.9.3 against `fixtures/H-uml-typescript/tsconfig.json` with `--noEmit`.
-Main supports Rust and TypeScript projects only (AD-430). Use archkeel 4.0.1 for Python and Dart.
+Main supports Rust and TypeScript projects and the Python import rules (AD-450). Use archkeel 4.0.1
+for the other Python rules and for Dart.
 Native Python and Dart unit tests stay under `native/`. The tests that compared them with the
 Python collectors are deleted; the Python collectors are gone, and a release 4.0.1 oracle is not wired.
 
@@ -44,8 +45,9 @@ Merge rules ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-an
 Each CI run (a push to `main`) runs the same fixed set of checks. Each test job runs one area.
 The `PR_TEST_FILES` list in `tests/pr-test.mk` names this fixed set file by file and test by test;
 there is no rule that selects it. Samples do not replace testing the behavior you change.
-Python and Dart project tests do not run on main until the native collectors and the store
-support their replies. No new recordings replace those tests.
+Python import rules run through the release core in `tests/test_cli_native_python_imports.py`.
+Dart project tests do not run on main until the native collector and the store support its
+replies. No new recordings replace those tests.
 
 The scheduled **Full verification** workflow runs `make ci-core-check SKIP_TESTS=1`, which
 includes the UML TypeScript compiler check. It also runs `make self-validate-native` and

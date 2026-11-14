@@ -2,10 +2,18 @@
 
 ## Supported projects on main
 
-Main supports Rust and TypeScript projects only during the native-core change (AD-430).
-Python and Dart projects are not supported in this version; use archkeel 4.0.1.
-Unsupported profiles give exit 2 before collection, including saved facts and baseline operations.
-The Rust Python and Dart collectors remain in development. Their replies must pass the store before support returns.
+Main supports Rust and TypeScript projects, and the import rules of Python projects (AD-450).
+A Python project gets PASS or FAIL only for rules that read the import graph. A dynamic import,
+an import-system change and the other gaps of AD-450 give UNKNOWN for each rule of the run.
+Python rules that read symbols, calls or constructs stay UNKNOWN. Dart projects are not
+supported in this version; use archkeel 4.0.1. An unsupported profile gives exit 2 before collection.
+
+**Open false-PASS class (Python, shared with 4.0.1).** A third-party function can import a module
+from a string, for example a plugin loader, a framework that reads a dotted path from settings, or
+an object deserializer. The survey does not know such a function, so it does not see that edge.
+A forbidden or cyclic dependency that only such a call makes can give PASS. Release 4.0.1 has the
+same hole. This is an open defect, not an accepted limit. The survey covers the names of AD-450
+point 7: the standard-library doors, the import state and the builtins that run text.
 The Rust core is the only decision path (AD-432). There is no Python fallback.
 Saved results do not carry host verification; dependency scope proofs replay as UNKNOWN with `dependency_scope_runtime_unverified`.
 Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD have no shipped binary.
@@ -17,13 +25,15 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 
 - No release carries the core binary. A platform wheel of `main` carries it (`make native-wheel`),
   and a build without the core refuses. Run `main` from a source checkout after `make core`.
-- The core refuses each root on Windows, so the Windows wheel gives no verdict. A release from
-  `main` is closed until each wheel of the matrix gives a verdict (`tools/release_core.py`, AD-436).
+- The core decides on Windows since AD-442, and the installed Windows wheel must equal the core of
+  the checkout. A release from `main` stays closed: the release guard (`NO_VERDICT` in
+  `tools/release_core.py`, `PUBLISH_NATIVE_WHEELS` in `release.yml`) still lists `win_amd64`.
+  A later change lifts it (AD-436).
 - `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give the typed refusal
   `not_on_this_development_line`, exit 2. Interactive reports, `architecture.json`, saved and focused
   reports, baselines, amendments and `--write-graph` are refused by option name.
 - `report --output PATH` writes one static HTML page or the JSON frame (`--format json`). It has no graph.
-  The parent must exist. Safe file output needs POSIX directory handles; other platforms refuse with exit 2.
+  The parent must exist. Safe file output needs POSIX directory handles; Windows refuses `--output` with exit 2 (`io_error`), writes no file and keeps the frame.
 - A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`. The run exits 2.
 - A collection gap makes each rule UNKNOWN whose reading it can change. A manifest edge that the core
   proved can give a `requires` FAIL beside such a gap.

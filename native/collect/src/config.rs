@@ -107,6 +107,7 @@ pub(crate) fn parse(payload: &[u8], name: &str) -> Result<Config, Refused> {
     let profile = match language {
         "typescript" => Profile::TypeScript,
         "rust" => Profile::Rust,
+        "python" => Profile::Python,
         _ => {
             // AD-406: each other profile stays on stage 1 by name.
             return Err(Refused::Unsupported(

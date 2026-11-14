@@ -6,7 +6,7 @@
 
 /// Why an expression has no text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TextFailure {
+pub(crate) enum TextFailure {
     /// CPython raises `ValueError`: `annotation_text` is `None`.
     Invalid,
     /// Over `MAX_DEPTH` levels: CPython can stop with `RecursionError`.
@@ -23,7 +23,7 @@ pub enum TextFailure {
 
 /// `_Precedence`: `BOR` is `EXPR`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Prec {
+pub(super) enum Prec {
     NamedExpr = 1,
     Tuple,
     Yield,
@@ -46,7 +46,7 @@ pub enum Prec {
 
 impl Prec {
     /// `next()`: one level higher, at most `ATOM`.
-    pub fn next(self) -> Prec {
+    pub(super) fn next(self) -> Prec {
         use Prec::*;
         match self {
             NamedExpr => Tuple,

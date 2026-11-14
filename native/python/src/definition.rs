@@ -8,27 +8,27 @@ use ruff_python_ast::{Stmt, StmtClassDef, StmtFunctionDef};
 use ruff_text_size::{Ranged, TextRange, TextSize};
 
 #[derive(Clone, Copy)]
-pub enum Def<'a> {
+pub(crate) enum Def<'a> {
     Function(&'a StmtFunctionDef),
     Class(&'a StmtClassDef),
 }
 
 impl<'a> Def<'a> {
-    pub fn name(&self) -> &'a str {
+    pub(crate) fn name(&self) -> &'a str {
         match self {
             Def::Function(node) => node.name.as_str(),
             Def::Class(node) => node.name.as_str(),
         }
     }
 
-    pub fn body(&self) -> &'a [Stmt] {
+    pub(crate) fn body(&self) -> &'a [Stmt] {
         match self {
             Def::Function(node) => &node.body,
             Def::Class(node) => &node.body,
         }
     }
 
-    pub fn range(&self, source: &str) -> TextRange {
+    pub(crate) fn range(&self, source: &str) -> TextRange {
         let (range, decorators) = match self {
             Def::Function(node) => (node.range, node.decorator_list.last()),
             Def::Class(node) => (node.range, node.decorator_list.last()),

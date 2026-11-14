@@ -4,7 +4,7 @@
 
 [package]
 name = "archkeel-python-collector"
-description = "Native Python collector of Archkeel; it runs as a subprocess of the host"
+description = "Native Python collector of Archkeel: the library that the core links and a thin binary (AD-450)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

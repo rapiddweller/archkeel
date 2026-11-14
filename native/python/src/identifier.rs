@@ -29,7 +29,7 @@ struct Constants {
     reason: Option<(usize, &'static str)>,
 }
 
-pub fn constant_names(module: &ModModule, minor: PyMinor) -> Option<(usize, &'static str)> {
+pub(super) fn constant_names(module: &ModModule, minor: PyMinor) -> Option<(usize, &'static str)> {
     match minor {
         PyMinor::Py311 | PyMinor::Py312 => return None,
         PyMinor::Py313 | PyMinor::Py314 => {}
@@ -93,7 +93,7 @@ impl<'a> SourceOrderVisitor<'a> for Constants {
 
 /// Whether CPython 3.`minor` refuses `c` in an identifier that ruff accepts: `first` for the first
 /// character of the name. Only a name with a character outside ASCII comes here.
-pub fn refused(minor: PyMinor, first: bool, c: char) -> bool {
+pub(super) fn refused(minor: PyMinor, first: bool, c: char) -> bool {
     let version = match minor {
         PyMinor::Py311 => "3.11",
         PyMinor::Py312 => "3.12",

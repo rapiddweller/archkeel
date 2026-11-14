@@ -46,15 +46,15 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
         Some(&reply),
         &["metrics", "evidence", "violations"],
     ));
-    // The native rules select no module of the H-typescript reply: the subject check of the
-    // reference engine fails, so the scope is not complete and each decided rule is UNKNOWN
-    // with its reason (AD-378).
+    // The native contract names modules outside the namespace `shop` of the H-typescript reply:
+    // the reference engine refuses such a contract, so the scope is not complete and each
+    // decided rule is UNKNOWN with its reason (AD-378, AD-450).
     let decided = got["rules"].as_object().cloned().unwrap_or_default();
     assert_eq!(decided.len(), 83);
     assert!(decided.values().all(|value| value[1] == "UNKNOWN"));
     assert_eq!(
         got["explained"]["NATIVE-EXTERNAL-SYN"],
-        "incomplete scope: the rule NATIVE-PY-SYMBOLS-NO-SURVEY selects no module"
+        "incomplete scope: the contract names native.archkeel_facts, which lies outside the namespace"
     );
     assert_eq!(got["status"], "UNKNOWN");
     assert_eq!(got["violations"], json!({}));

@@ -17,7 +17,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use archkeel_facts::envelope::{Facts, Target};
+use archkeel_facts::envelope::{Facts, Target, TargetMarks};
 use archkeel_facts::sections::{ImportFact, Section};
 use archkeel_facts::vocab::ResolutionDimension;
 use archkeel_facts::Record;
@@ -161,6 +161,8 @@ pub(crate) fn split(facts: &Facts) -> Split {
                 .then(|| (data.module.as_ref().map(|m| m.as_str()), evidence(gap)))
         })
         .collect();
+    // A profile without marks reads every resolved target by its module (AD-450).
+    let typed = facts.profile.target_marks() == TargetMarks::Typed;
     let mut found = Split::default();
     for record in facts.sections.iter().flat_map(records) {
         let data = record.data.data();
@@ -177,8 +179,11 @@ pub(crate) fn split(facts: &Facts) -> Split {
                 });
                 continue;
             }
-            Some(Target::External { package, .. }) => Resolved::External(package.as_str().into()),
-            Some(Target::Builtin { .. }) => Resolved::Builtin,
+            Some(Target::External { package, .. }) if typed => {
+                Resolved::External(package.as_str().into())
+            }
+            Some(Target::Builtin { .. }) if typed => Resolved::Builtin,
+            Some(Target::External { .. } | Target::Builtin { .. }) => Resolved::Local,
             Some(Target::Local { .. }) | None => Resolved::Local,
         };
         found.imports.push(Import {

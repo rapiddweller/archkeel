@@ -49,8 +49,10 @@ The core is 9,300,528 bytes. The installed `validate` takes 0.1 to 0.3 seconds f
 **Limits.**
 - The digest finds a damaged file and a wrong file. It does not stop a party that can write the
   binary and the digest file. The binary can also change between the check and its start.
-- Windows gives no verdict. The correction is in `native/collect`; this change does not make it.
-  The release opens when Windows gives a verdict or when the owner removes it from the matrix.
+- Windows gave no verdict when this decision was made. AD-442 corrected `native/collect`, so the
+  core decides on Windows now, and the installed-wheel test requires the result of the checkout core
+  on each platform. The guard of point 8 still lists `win_amd64`; a later change lifts it. The
+  release opens when the guard is lifted or when the owner removes Windows from the matrix.
 - An install from the Git URL needs `ARCHKEEL_BUNDLE_NATIVE=1`, cargo and `cargo-auditable`.
 - A platform outside the matrix has no wheel, and its build from the sdist refuses.
 - The core starts Git only at `/usr/bin/git` on Linux and macOS. The pypa images have Git in

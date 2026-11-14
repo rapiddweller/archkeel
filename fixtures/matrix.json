@@ -3,14 +3,14 @@
     "E-runtime": {
       "language": "python",
       "runs": [
-      {"name": "E-runtime", "root": "E-runtime", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile python has no collector in the core process yet"}}}
+      {"name": "E-runtime", "root": "E-runtime", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"no_decided_rule": 1}, "refusal": null}}
       ]
     },
     "F-architecture": {
       "language": "python",
       "runs": [
-      {"name": "F-architecture", "root": "F-architecture", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile python has no collector in the core process yet"}}},
-      {"name": "F-architecture-tests", "root": "F-architecture", "command": "report", "config": "archkeel-tests.toml", "contract": ["tests/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile python has no collector in the core process yet"}}}
+      {"name": "F-architecture", "root": "F-architecture", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 32, "DECLARATION": 6}, "scope": "incomplete scope: the profile cannot decide CALL-DESCRIBE-NO-MAINTENANCE", "gaps": {"rule_kind_not_ported": 10}, "refusal": null}},
+      {"name": "F-architecture-tests", "root": "F-architecture", "command": "report", "config": "archkeel-tests.toml", "contract": ["tests/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 5}, "scope": "incomplete scope: the profile cannot decide TESTS-HELPERS-IN-SUPPORT", "gaps": {"rule_kind_not_ported": 1}, "refusal": null}}
       ]
     },
     "F-typescript-story": {
@@ -34,7 +34,7 @@
     "H-uml": {
       "language": "python",
       "runs": [
-      {"name": "H-uml", "root": "H-uml", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile python has no collector in the core process yet"}}}
+      {"name": "H-uml", "root": "H-uml", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"uml_target": 1}, "refusal": null}}
       ]
     },
     "H-uml-dart": {
@@ -64,7 +64,7 @@
     "K-python-realworld": {
       "language": "python",
       "runs": [
-      {"name": "K-python-realworld", "root": "K-python-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile python has no collector in the core process yet"}}}
+      {"name": "K-python-realworld", "root": "K-python-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 2 coverage gaps", "gaps": {"scope_proof": 6, "uml_target": 1}, "refusal": null}}
       ]
     },
     "L-nest-realworld": {
@@ -76,30 +76,30 @@
     "M-review-workflow": {
       "language": "python",
       "runs": [
-      {"name": "M-review-workflow", "root": "M-review-workflow", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile python has no collector in the core process yet"}}}
+      {"name": "M-review-workflow", "root": "M-review-workflow", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 9}, "scope": "incomplete scope: the collector reports 3 coverage gaps", "gaps": {"scope_proof": 3}, "refusal": null}}
       ]
     },
     "golden-python": {
       "language": "python",
       "runs": [
-      {"name": "golden-python-fastapi-encoders", "root": "golden-python/fastapi-encoders", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile python has no collector in the core process yet"}}},
-      {"name": "golden-python-fastapi-security", "root": "golden-python/fastapi-security", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile python has no collector in the core process yet"}}},
-      {"name": "golden-python-synthetic-constructs", "root": "golden-python/synthetic-constructs", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile python has no collector in the core process yet"}}},
-      {"name": "golden-python-synthetic-excluded-tests", "root": "golden-python/synthetic-excluded-tests", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile python has no collector in the core process yet"}}},
-      {"name": "golden-python-synthetic-gaps", "root": "golden-python/synthetic-gaps", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile python has no collector in the core process yet"}}},
-      {"name": "golden-python-synthetic-tests-only", "root": "golden-python/synthetic-tests-only", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile python has no collector in the core process yet"}}}
+      {"name": "golden-python-fastapi-encoders", "root": "golden-python/fastapi-encoders", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 5 coverage gaps", "gaps": {"no_decided_rule": 1}, "refusal": null}},
+      {"name": "golden-python-fastapi-security", "root": "golden-python/fastapi-security", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 10 coverage gaps", "gaps": {"no_decided_rule": 1}, "refusal": null}},
+      {"name": "golden-python-synthetic-constructs", "root": "golden-python/synthetic-constructs", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 2 coverage gaps", "gaps": {"no_decided_rule": 1}, "refusal": null}},
+      {"name": "golden-python-synthetic-excluded-tests", "root": "golden-python/synthetic-excluded-tests", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "unsupported: the scope proof: a runtime requirement that the core does not read", "gaps": {"no_decided_rule": 1}, "refusal": null}},
+      {"name": "golden-python-synthetic-gaps", "root": "golden-python/synthetic-gaps", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 4 coverage gaps", "gaps": {"no_decided_rule": 1}, "refusal": null}},
+      {"name": "golden-python-synthetic-tests-only", "root": "golden-python/synthetic-tests-only", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "unsupported: the scope proof: a runtime requirement that the core does not read", "gaps": {"no_decided_rule": 1}, "refusal": null}}
       ]
     },
     "python-newer-syntax-demo": {
       "language": "python",
       "runs": [
-      {"name": "python-newer-syntax-demo", "root": "python-newer-syntax-demo", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile python has no collector in the core process yet"}}}
+      {"name": "python-newer-syntax-demo", "root": "python-newer-syntax-demo", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 1}, "scope": "incomplete scope: the profile cannot decide CALL-PURGE-MAINTENANCE-ONLY", "gaps": {"rule_kind_not_ported": 1}, "refusal": null}}
       ]
     },
     "python-stdlib-demo": {
       "language": "python",
       "runs": [
-      {"name": "python-stdlib-demo", "root": "python-stdlib-demo", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "missing input: no valid collector reply", "gaps": {"collect": 1, "other": 1, "reply_absent": 1}, "refusal": {"kind": "collection_refused", "message": "collect: unsupported: profile: the profile python has no collector in the core process yet"}}}
+      {"name": "python-stdlib-demo", "root": "python-stdlib-demo", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the profile cannot decide STDLIB-TYPES-DECLARED", "gaps": {"rule_kind_not_ported": 1}, "refusal": null}}
       ]
     }
   }

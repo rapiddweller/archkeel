@@ -14,7 +14,7 @@ use ruff_python_ast::visitor::source_order::{SourceOrderVisitor, TraversalSignal
 use ruff_python_ast::{AnyNodeRef, ModModule};
 
 /// `_ast_depth` of the module: the root has depth 1.
-pub fn depth(module: &ModModule) -> usize {
+pub(super) fn depth(module: &ModModule) -> usize {
     let mut children = Children { nodes: Vec::new() };
     let mut stack = vec![Entry {
         node: AnyNodeRef::from(module),
