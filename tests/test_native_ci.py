@@ -45,6 +45,30 @@ def test_the_pr_gate_runs_only_the_linux_rust_checks() -> None:
     assert "run: make native-check\n" in native
 
 
+_TOOLCHAIN_STEP = "run: rustup toolchain install\n"
+
+
+@pytest.mark.parametrize(
+    ("workflow", "job", "first_make"),
+    [
+        ("ci.yml", "lint", "run: make ci-pr-static"),
+        ("ci.yml", "tests", "run: make pr-test"),
+        ("ci.yml", "native", "run: make cargo-deny-install"),
+        ("full-verification.yml", "full-suite-and-reports", "run: make ci-core-check"),
+        ("full-verification.yml", "tests", "run: make full-test"),
+        ("full-verification.yml", "shell-compat", "run: make shell-compat"),
+    ],
+)
+def test_the_pinned_toolchain_installs_once_before_any_parallel_step(
+    workflow: str, job: str, first_make: str
+) -> None:
+    # Parallel pytest workers that find no toolchain each start to install it and break each other.
+    body = _jobs(workflow)[job]
+    assert body.count(_TOOLCHAIN_STEP) == 1
+    assert "working-directory: native\n        run: rustup toolchain install" in body
+    assert body.index(_TOOLCHAIN_STEP) < body.index(first_make)
+
+
 # A parent make (`make pr-test`) passes MAKELEVEL on, and GNU make 4 then prints "Leaving directory"
 # after the commands of the child. The child must not know that it runs inside a make.
 _MAKE_ENV = {k: v for k, v in os.environ.items() if k not in {"MAKEFLAGS", "MFLAGS", "MAKELEVEL"}}

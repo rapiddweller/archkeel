@@ -45,6 +45,10 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
+      - name: Install the pinned Rust toolchain once, before any parallel step
+        working-directory: native
+        run: rustup toolchain install
+
       - name: Check architecture, lint, types, build, installed CLI and generated assets
         run: make ci-core-check SKIP_TESTS=1
 
@@ -105,6 +109,10 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
+      - name: Install the pinned Rust toolchain once, before any parallel step
+        working-directory: native
+        run: rustup toolchain install
+
       - name: Show the runner CPU
         run: lscpu | grep -E '^(Model name|CPU\(s\)):'
 
@@ -144,6 +152,10 @@ jobs:
 
       - name: Install locked package
         run: uv sync --locked --python 3.12.10
+
+      - name: Install the pinned Rust toolchain once, before any parallel step
+        working-directory: native
+        run: rustup toolchain install
 
       - name: Verify the shell of the core on this Python
         shell: bash
