@@ -12,7 +12,13 @@
 //! - a hop whose binding is not unique in its module (`stable_bindings`), a cycle, or an alias
 //!   with two targets (4.0.1 `reexport_candidate`);
 //! - a hop in a module whose `__all__` is not one literal list of strings (dynamic, augmented,
-//!   imported or only read), because the names that the module publishes are unknown.
+//!   imported or only read), because the names that the module publishes are unknown;
+//! - a binding that is not the one plain statement of its module (`bound.rs`): an import in a
+//!   function, a class body or a compound statement binds no module name, or another statement
+//!   binds the name too;
+//! - a hop in a module that another module writes to (`writes.rs`);
+//! - a package name that may be the attribute or the submodule (`from pkg import name` where
+//!   the package body binds `name` in any form), and a guarded import that passes a re-export.
 //!
 //! 4.0.1 follows a route past an unproven hop and judges it `UNKNOWN` only when no hop is public.
 //! This survey withholds it at once, so it is never less strict.
@@ -38,6 +44,8 @@ pub(crate) fn resolve(
     imports: &mut [Record<ImportFact>],
     files: &[FileFact],
     opaque: &HashSet<String>,
+    sole: &HashSet<String>,
+    ambiguous: &HashSet<String>,
 ) {
     let stable: HashMap<&str, HashSet<&str>> = files
         .iter()
@@ -47,7 +55,10 @@ pub(crate) fn resolve(
         })
         .collect();
     let unique = |module: &str, name: &str| stable.get(module).is_none_or(|set| set.contains(name));
-    let links: Vec<Option<Link>> = imports.iter().map(|record| link(record, &unique)).collect();
+    let links: Vec<Option<Link>> = imports
+        .iter()
+        .map(|record| link(record, &unique, sole))
+        .collect();
     let mut aliases = Aliases::new();
     let mut uncertain = HashSet::new();
     for item in links.iter().flatten() {
@@ -72,6 +83,7 @@ pub(crate) fn resolve(
         }
     }
     for record in imports.iter_mut() {
+        let skipped = ambiguous.contains(record.id.as_str());
         let data = record.data.data_mut();
         let Some(symbol) = data.symbol.as_deref().filter(|symbol| *symbol != "*") else {
             continue;
@@ -86,12 +98,20 @@ pub(crate) fn resolve(
                     .rsplit_once('.')
                     .is_some_and(|(module, _)| opaque.contains(module))
         });
-        data.reexport_chain = Some(if withheld { Vec::new() } else { chain });
+        // A route under `TYPE_CHECKING` that passes a re-export is not proven for the model,
+        // which reads the first hop of a guarded import only (the TypeScript type rule).
+        let guarded = data.under_type_checking && chain.len() > 1;
+        let open = withheld || guarded || skipped;
+        data.reexport_chain = Some(if open { Vec::new() } else { chain });
     }
 }
 
 /// The re-export that one import states, when it states one with a binding and a symbol.
-fn link(record: &Record<ImportFact>, unique: &impl Fn(&str, &str) -> bool) -> Option<Link> {
+fn link(
+    record: &Record<ImportFact>,
+    unique: &impl Fn(&str, &str) -> bool,
+    sole: &HashSet<String>,
+) -> Option<Link> {
     let data = record.data.data();
     let (symbol, binding) = (data.symbol.as_deref()?, data.binding.as_deref()?);
     let candidate = data.reexport_candidate == Some(true);
@@ -102,7 +122,10 @@ fn link(record: &Record<ImportFact>, unique: &impl Fn(&str, &str) -> bool) -> Op
     Some(Link {
         binding: format!("{source}.{binding}"),
         target: format!("{target}.{symbol}"),
-        proven: !candidate && unique(source, binding) && unique(target, symbol),
+        proven: !candidate
+            && sole.contains(record.id.as_str())
+            && unique(source, binding)
+            && unique(target, symbol),
     })
 }
 

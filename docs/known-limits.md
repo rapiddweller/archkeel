@@ -103,6 +103,17 @@ A configured `filter.<x>.clean` can execute a command during status. Do not scan
 Disabling repository-configured execution is deferred to slice 5; the fixed executable does not prevent it.
 See [AD-422](architecture/decisions/ad-422-core-only-validation-renders-the-scan-frame.md).
 
+## Open false PASS, not accepted (Python `interface_boundary`, AD-504)
+
+The core gives PASS where Python binds something else at import time, for two forms. 4.0.1 gives
+PASS for both. They are open defects, pinned by plants in `tests/python_interface_plants.py`:
+
+- `import app.lib` then `app.lib._priv.secret()` with public `app.lib`: the rule judges imports,
+  and a use of a private module through a public module object is no import.
+- A write to a package from a C extension, or through `globals()` of another module, after its
+  statements ran. A write through `sys.modules` or a computed `importlib.import_module` is a survey
+  gap, so the rule is UNKNOWN.
+
 ## Before claiming PASS
 
 A rule needs applicable subjects, complete relevant coverage and sufficient evidence.
