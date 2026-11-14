@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The check request of the shell (AD-390): the production request kind of the core.
+//! The check request of the shell (AD-390). The shell sends `scan` now (AD-406), so this kind is
+//! compiled in test builds and with the feature `harness` only (#1095).
 //!
 //! The shell sends the root contract and its inside contracts, the collector reply, the scan
 //! roots and the namespace of the configuration. The request has no producer, pin, profile or
@@ -31,15 +32,11 @@ use archkeel_store::Ingested;
 
 use crate::base::Base;
 use crate::dual_run::{self, Answered, BaseOf, InsideJson, ReplyBytes, Run, Trust};
+use crate::scan::{CODE_DIGEST, PRODUCER_NOT_VERIFIED};
 
 /// The protocol of the check request.
 /// Version 2 removes `baseline` and adds `base` (AD-399).
 const PROTOCOL: &str = "archkeel-core-check-2";
-/// The code digest of this build: the digest of each native collector of the same source. It is
-/// public text, so it detects a stale build and proves no producer (AD-390).
-pub(crate) const CODE_DIGEST: &str = env!("ARCHKEEL_CODE_DIGEST");
-/// The first words of the reason of a reply that the core cannot verify. The shell counts it.
-pub(crate) const PRODUCER_NOT_VERIFIED: &str = "producer not verified";
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

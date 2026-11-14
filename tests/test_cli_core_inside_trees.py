@@ -118,6 +118,8 @@ def test_two_mount_levels_keep_each_verdict_and_exit(
         "missing",
         "malformed",
         "bytes",
+        "backslash",
+        "other-case",
     ],
 )
 def test_an_invalid_mount_never_gives_pass(release_core: Path, tmp_path: Path, fault: str) -> None:
@@ -129,6 +131,7 @@ def test_an_invalid_mount_never_gives_pass(release_core: Path, tmp_path: Path, f
             "outside": "../outside.json",
             "absolute": str(tmp_path / "outside.json"),
             "colon": "unsafe:name.json",
+            "backslash": "sub\\deep.json",
             "cycle": "architecture-contract.json",
         }.get(fault, "deep.json")
         document["components"][0]["inside"] = reference
@@ -146,6 +149,10 @@ def test_an_invalid_mount_never_gives_pass(release_core: Path, tmp_path: Path, f
                 leaf.symlink_to(target)
         elif fault == "missing":
             leaf.unlink()
+        elif fault == "other-case":
+            # On a case-insensitive disk the path still opens; its resolved name differs from the
+            # mount text, so the core refuses it. On a case-sensitive disk the file is missing.
+            leaf.rename(root / "Deep.json")
         elif fault == "malformed":
             leaf.write_text("{")
         elif fault == "bytes":
@@ -287,3 +294,24 @@ def test_the_binding_refuses_incomplete_or_changed_file_identity(
         result = json.loads(capsys.readouterr().out)
         assert result["status"] == "UNKNOWN"
         assert result["refusal"]["kind"] == "request_mismatch"
+
+
+def test_a_tree_of_two_mount_levels_starts_one_core_process(
+    release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#1067: the core reads the inside contracts itself, so a tree is one request, not one run
+    for each level (300 levels took 9.2 s when the shell sent each level again)."""
+    calls: list[str] = []
+    real = core_only.exchange
+
+    def counted(binary: str, kind: str, request: bytes) -> tuple[bytes, int]:
+        calls.append(kind)
+        return real(binary, kind, request)
+
+    with case_root(HONEST) as root:
+        tree(root)
+        monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+        monkeypatch.setattr(core_only, "exchange", counted)
+        code, result = run("validate", "--root", str(root))
+    assert (code, result["status"]) == (0, "PASS"), result
+    assert calls == ["scan"]

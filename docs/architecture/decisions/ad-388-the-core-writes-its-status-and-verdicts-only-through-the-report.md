@@ -51,6 +51,13 @@ bytes; the core verifies nothing about the producer. An external collector, pinn
 no PASS in the core. A decision in a model (`Decision`) cannot hold a PASS with a reason or an
 UNKNOWN without one (`model/src/verdict.rs`); the ruling checks both again.
 
+**Limit (#1095).** The path that trusts the reply of the bundled collector (`dual_run::producer`,
+`check::stage_one_shell_trust`) belongs to the `dual-run` and `check` request kinds. These kinds are
+compiled in test builds and with the cargo feature `harness` only; a release binary and a wheel have
+neither, and a user-facing request must not use them. The one production path to a trusted producer
+is the scan request, because the core ran the collector itself (`scan::in_process`, AD-406).
+`tests/test_native_core.py` pins both facts.
+
 **Tests.** `native/report/src/ruling_tests.rs`; R5 to R12 of `native/report/src/lib.rs`;
 `native/core/src/hostile_tests.rs`, `main_tests.rs`; `native/model/src/settings_tests.rs`,
 `verdict_tests.rs`; `native/store/src/standard.rs`; `tests/test_native_standard_library.py`;

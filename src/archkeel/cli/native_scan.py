@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 from typing import Final
 
+from .core_binary import confirm
 from .core_frame import read_refusal
 from .core_json import CoreError
 
@@ -70,7 +71,8 @@ def identity(root: Path) -> tuple[str, bool] | None:
 
 def exchange(binary: str, kind: str, request: bytes) -> tuple[bytes, int]:
     """Run the core with one encoded request and a time limit, and give its standard output and exit
-    code. Exit 2 (no frame) is a `CoreError`."""
+    code. Exit 2 (no frame) is a `CoreError`. A bundled core is checked again just before it starts."""
+    confirm(Path(binary))
     try:
         done = subprocess.run(
             [binary, kind],

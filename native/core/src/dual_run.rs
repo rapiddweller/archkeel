@@ -12,7 +12,9 @@
 
 use std::collections::BTreeMap;
 
-use archkeel_model::{Producer, Settings};
+#[cfg(any(test, feature = "harness"))]
+use archkeel_model::Producer;
+use archkeel_model::Settings;
 use archkeel_store::Ingested;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
@@ -33,13 +35,17 @@ use frame_parts::{ContractCheck, Parts, ReplyCheck, SelfTest, UnsupportedParts, 
 /// Version 3 adds `insides`: the inside contracts that the shell read (AD-379).
 /// Version 4 adds `roots`: the scan roots of the configuration (AD-384).
 /// Version 5 removes `pinned`: the core takes no trust statement from a request (AD-388).
+#[cfg(any(test, feature = "harness"))]
 const PROTOCOL: &str = "archkeel-dual-run-5";
 /// The longest `collector_argv` that a test request can name (AD-378 point 4: the producer of the
 /// dual-run request is the word of a test caller, not evidence).
+#[cfg(any(test, feature = "harness"))]
 const ARGV_LIMIT: usize = 64;
 /// The decompressed size limit of a reply in the dual run.
+#[cfg(any(test, feature = "harness"))]
 pub(crate) const INFLATE_LIMIT: u64 = 1 << 32;
 
+#[cfg(any(test, feature = "harness"))]
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DualRunRequest {
@@ -75,6 +81,7 @@ struct DualRunRequest {
 
 /// One inside contract of a request: the reference of the mount, the repository-relative path
 /// that the shell resolved it to, and the bytes in hex.
+#[cfg(any(test, feature = "harness"))]
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct InsideJson {
@@ -89,6 +96,7 @@ struct Head {
     protocol: String,
 }
 
+#[cfg(any(test, feature = "harness"))]
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ReplyBytes {
@@ -107,6 +115,7 @@ pub(crate) fn decode<T: DeserializeOwned>(input: &[u8], protocol: &str) -> Resul
 }
 
 /// The frame of one request. An error is a request that the core cannot read.
+#[cfg(any(test, feature = "harness"))]
 pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
     let request: DualRunRequest = decode(input, PROTOCOL)?;
     bounded(&request)?;
@@ -148,12 +157,15 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
 /// The reply of a run: none, the bytes of a request, or the reply of the collector that the core
 /// ran in its own process (AD-406). Only the scan request makes the last one.
 pub(crate) enum ReplyInput {
+    #[cfg(any(test, feature = "harness"))]
     Absent,
+    #[cfg(any(test, feature = "harness"))]
     Bytes(Vec<u8>),
     Collected(Box<Result<Ingested, String>>),
 }
 
 impl ReplyInput {
+    #[cfg(any(test, feature = "harness"))]
     pub(crate) fn bytes(reply: Option<Vec<u8>>) -> ReplyInput {
         reply.map_or(ReplyInput::Absent, ReplyInput::Bytes)
     }
@@ -195,6 +207,8 @@ pub(crate) struct Run {
 pub(crate) type BaseOf = Box<dyn FnOnce(Option<&Ingested>, Shared) -> Option<String>>;
 
 /// The inputs of the candidate that the base shares: the namespace, the contract and the roots.
+// Only the check request of a test build reads the base (`base.rs`).
+#[cfg_attr(not(any(test, feature = "harness")), expect(dead_code))]
 pub(crate) struct Shared {
     pub(crate) namespace: String,
     pub(crate) input: ContractInput,
@@ -335,6 +349,7 @@ pub(crate) fn settings_of(
 }
 
 /// The request refused by name when its `collector_argv` is longer than the limit.
+#[cfg(any(test, feature = "harness"))]
 fn bounded(request: &DualRunRequest) -> Result<(), String> {
     match &request.collector_argv {
         Some(argv) if argv.len() > ARGV_LIMIT => Err(format!(
@@ -349,6 +364,7 @@ fn bounded(request: &DualRunRequest) -> Result<(), String> {
 /// cannot verify the pin of an external collector from anything that the caller cannot write, so
 /// an external collector is never trusted, pinned or not (AD-388, L-35c). The model also needs
 /// the reply to name the collector of its own profile (`Settings::bound`).
+#[cfg(any(test, feature = "harness"))]
 fn producer(collector_argv: Option<&Vec<String>>) -> Producer {
     if collector_argv.is_none() {
         Producer::Trusted
@@ -379,10 +395,12 @@ fn named(contract: &ContractState, baseline: bool, engine: &Engine, path: &str) 
 /// What the engine knows of the reply of the request, after it ingests the reply.
 fn ingest(engine: &mut Engine, reply: ReplyInput) -> Result<ReplyCheck, String> {
     let request = match reply {
+        #[cfg(any(test, feature = "harness"))]
         ReplyInput::Absent => {
             let absent = "the request carries no collector reply".to_owned();
             return Ok(ReplyCheck::Absent(absent));
         }
+        #[cfg(any(test, feature = "harness"))]
         ReplyInput::Bytes(bytes) => Request::Ingest {
             reply: bytes,
             inflate_limit: INFLATE_LIMIT,
@@ -399,6 +417,7 @@ fn ingest(engine: &mut Engine, reply: ReplyInput) -> Result<ReplyCheck, String> 
 /// The inside contracts of the request, decoded. The whole request is already read, so the
 /// bounds of the count and the size are checked in `contract::answer` and give a named refusal
 /// (exit 3), not an unreadable request (AD-379).
+#[cfg(any(test, feature = "harness"))]
 pub(crate) fn insides(files: Vec<InsideJson>) -> Result<Vec<InsideFile>, String> {
     files
         .into_iter()
@@ -413,6 +432,7 @@ pub(crate) fn insides(files: Vec<InsideJson>) -> Result<Vec<InsideFile>, String>
 }
 
 /// The bytes of a hex text.
+#[cfg(any(test, feature = "harness"))]
 pub(crate) fn hex(text: &str) -> Result<Vec<u8>, String> {
     let digits = text.as_bytes();
     if !digits.len().is_multiple_of(2) {

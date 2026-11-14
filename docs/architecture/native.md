@@ -94,8 +94,9 @@ The store still refuses Python replies; recorded-input unit tests do not change 
 
 > **History.** The Python engine, `make dual-run` and the harness `tools/dual_run*.py` are deleted
 > ([AD-432](decisions/ad-432-the-rust-core-is-the-only-decision-path.md)). The text about them below is the record of how the
-> core was compared with that engine. The subcommand `archkeel-core dual-run` and
-> `tools/dual_run_schema.json` stay, because the Rust tests use them.
+> core was compared with that engine. The request kinds `archkeel-core dual-run` and `check`
+> and `tools/dual_run_schema.json` stay for the Rust tests. A release binary has neither kind: they
+> are compiled in test builds and with the cargo feature `harness` only (#1095).
 
 The Rust model and evaluator (WP6 of #880) had to give the verdicts and rows of the Python engine.
 `make dual-run` compared a candidate engine with the recorded oracles in `tests/dual_run/`
@@ -142,8 +143,10 @@ make dual-run DUAL_RUN_ARGS="--sections violations,dependency_edges \
 ```
 
 A root that mounts inside contracts names the paths that it needs in `self_test.contract.missing`.
-The harness reads them (`tools/dual_run_tree.py`) and sends the request again with the files,
-until the tree assembles or a named error stays
+The `scan` request reads them itself, in one core process for the whole tree (`core/src/scan.rs`,
+AD-438); the old harness `tools/dual_run_tree.py` is deleted. It reads each path through its
+resolved name: a mount with a backslash, a drive letter, a link or a spelling in another case than
+its file is refused (UNKNOWN), never mounted. The core assembles the tree, or a named error stays
 ([AD-379](decisions/ad-379-the-core-asks-the-shell-for-the-inside-contracts-and-decides-the-root-rules-of-a-tree.md)).
 The model makes one model for each contract of the tree, with the source domain of its mount and
 one scope state for the whole tree, so each rule of the tree has its verdict
@@ -157,17 +160,16 @@ is in `beyond`, and the harness shows it as `core decides, Python does not`
 
 ## The check request
 
-`archkeel-core check` is the request kind of the shell
+`archkeel-core check` was the request kind of the shell. The shell sends only `scan` now, and the
+kind exists in test builds and with the feature `harness` only (#1095)
 ([AD-390](decisions/ad-390-a-user-run-takes-its-verdict-from-the-core-when-the-core-decides-every-rule.md)).
 It carries the contract, the inside contracts, the collector reply, the scan roots and the
 namespace, and no trust field. The core reads the profile from the reply and takes the pinned
 standard library of that profile. The `code_digest` of a reply is public text that the caller can
 write: `check::stage_one_shell_trust` catches a stale build, not a forgery. In stage 1 the trust
 root is the shell, which starts only bundled binaries with their recorded digests, and Python
-decides the same run, so a difference exits 2. Stage 2 (Python no longer runs) must not start
-before the core runs the native collectors itself in its own process, so that no reply passes
-through a caller (#1095). With `--native-core`, a user run shows the verdict of the core when the
-frame names no part.
+decides the same run, so a difference exits 2. That stage and the Python engine are gone: the core
+runs the native collectors itself in its own process, so no reply passes through a caller.
 
 Protocol `archkeel-core-check-2` adds `base` for `archkeel check`: the reply of the accepted
 commit ([AD-399](decisions/ad-399-archkeel-check-takes-its-rule-verdicts-from-the-core-with-the-base-reply.md)).

@@ -69,6 +69,7 @@ def honest_source(language: str, shape: str, size: int) -> str:
 
 
 def unguarded_frame(built: Path, core: Path, frame: dict) -> dict:
+    """The frame of the same reply through the `check` request of the harness build (#1095)."""
     request = frame["self_test"]["collect"]["request"]
     language = request["resolver"]["language"]
     reply = subprocess.run(
@@ -106,7 +107,13 @@ def unguarded_frame(built: Path, core: Path, frame: dict) -> dict:
 @pytest.mark.parametrize("shape", ["functions", "table"])
 @pytest.mark.parametrize("language", ["typescript", "rust"])
 def test_large_honest_source_has_the_unguarded_frame(
-    built: Path, release_core: Path, tmp_path: Path, language: str, shape: str, size: int
+    built: Path,
+    release_core: Path,
+    harness_core: Path,
+    tmp_path: Path,
+    language: str,
+    shape: str,
+    size: int,
 ) -> None:
     root = tmp_path / "project"
     request = project(root, 0, 0, language)
@@ -119,14 +126,14 @@ def test_large_honest_source_has_the_unguarded_frame(
     assert code == 0, frame["unsupported"]
     assert frame["rules"]["LARGE-COMPLETE"][1] == "PASS"
     assert "request" in frame["self_test"]["collect"], frame
-    plain = unguarded_frame(built, release_core, frame)
+    plain = unguarded_frame(built, harness_core, frame)
     frame["self_test"].pop("collect")
     frame.pop("status")
     assert frame == plain
 
 
 def test_repeated_package_reads_do_not_refuse_a_small_distinct_project(
-    built: Path, release_core: Path, tmp_path: Path
+    built: Path, release_core: Path, harness_core: Path, tmp_path: Path
 ) -> None:
     root = tmp_path / "project"
     request = project(root, 0, 0)
@@ -152,7 +159,7 @@ def test_repeated_package_reads_do_not_refuse_a_small_distinct_project(
     frame = json.loads(stdout)
     assert code == 0, frame["unsupported"]
     assert "request" in frame["self_test"]["collect"], frame
-    plain = unguarded_frame(built, release_core, frame)
+    plain = unguarded_frame(built, harness_core, frame)
     frame["self_test"].pop("collect")
     frame.pop("status")
     assert frame == plain
@@ -209,7 +216,13 @@ def chain_source(language: str, shape: str, count: int) -> str:
     ],
 )
 def test_flat_chains_keep_the_unguarded_frame(
-    built: Path, release_core: Path, tmp_path: Path, language: str, shape: str, count: int
+    built: Path,
+    release_core: Path,
+    harness_core: Path,
+    tmp_path: Path,
+    language: str,
+    shape: str,
+    count: int,
 ) -> None:
     root = tmp_path / "project"
     request = project(root, 0, 0, language)
@@ -219,7 +232,7 @@ def test_flat_chains_keep_the_unguarded_frame(
     stdout, code = native_scan.exchange(str(release_core), "scan", json.dumps(request).encode())
     frame = json.loads(stdout)
     assert code == 0, frame["unsupported"]
-    plain = unguarded_frame(built, release_core, frame)
+    plain = unguarded_frame(built, harness_core, frame)
     frame["self_test"].pop("collect")
     frame.pop("status")
     assert frame == plain
