@@ -282,7 +282,7 @@ MEMBERS: dict[str, Plant] = {
         "PASS",
     ),
     "enum-ignore": pl(
-        "from enum import Enum\n\n\nclass E(Enum):\n    _ignore_ = ['R']\n    R = 1\n",
+        "from enum import Enum\n\n\nclass E(Enum):\n    _ignore_ = 'R'\n    R = 1\n",
         [Want("enum", "E"), Want("enum_literal", "E.R")],
         "DIFF",
     ),
