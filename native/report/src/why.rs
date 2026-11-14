@@ -47,7 +47,7 @@ impl WhyUnknown {
         match reason {
             Reason::Unsupported(part) => unsupported(part),
             Reason::NotComplete(cause) => not_complete(cause),
-            Reason::Interface(_) => WhyUnknown::Undecided,
+            Reason::Interface(_) | Reason::Hygiene(_) => WhyUnknown::Undecided,
             // AD-470: the reference engine gives the UML target `no_receipt` without a complete
             // comparison, and the core has no comparison.
             Reason::NoSubjects | Reason::UncitedChild(_) | Reason::Uml(_) => WhyUnknown::NoReceipt,
@@ -68,7 +68,9 @@ fn unsupported(part: &Unsupported) -> WhyUnknown {
         | Unsupported::Report
         | Unsupported::InsideTree
         | Unsupported::Baseline
-        | Unsupported::TreeScope => WhyUnknown::ScopeIncomplete,
+        | Unsupported::TreeScope
+        | Unsupported::Hygiene(_)
+        | Unsupported::HygieneInput => WhyUnknown::ScopeIncomplete,
     }
 }
 

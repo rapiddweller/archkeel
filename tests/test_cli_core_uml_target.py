@@ -152,9 +152,14 @@ def _missing_provenance(contract: dict[str, Any]) -> None:
 )
 def test_a_wrong_uml_target_never_passes(tmp_path: Path, plant: Plant) -> None:
     code, envelope = run("validate", "--root", str(_copy(tmp_path, "H-uml-typescript", plant)))
+    assert (code, envelope["status"]) == (2, "UNKNOWN")
+    if plant is _missing_provenance:
+        # AD-466: a cited file that the core cannot read refuses the whole contract.
+        refusal = envelope["frame"]["unsupported"]["rules"]
+        assert refusal.startswith("contract hygiene reference.provenance"), refusal
+        return
     assert _rows(envelope)[ROW] == ["uml_target", "UNKNOWN"]
     assert envelope["frame"]["explained"][ROW].startswith("the UML target: the core does not")
-    assert (code, envelope["status"]) == (2, "UNKNOWN")
 
 
 def test_an_empty_uml_target_names_that_it_declares_nothing(tmp_path: Path) -> None:

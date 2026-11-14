@@ -139,6 +139,8 @@ fn attribute_repository(name: &str) -> PathBuf {
         ("crates/Cargo.toml", "[workspace]\nmembers = [\"example\", \"mac\"]\nresolver = \"2\"\n"),
         ("crates/example/Cargo.toml", "[package]\nname = \"example\"\nversion = \"0.0.0\"\nedition = \"2021\"\n[dependencies]\nmac = { path = \"../mac\" }\n"),
         ("crates/example/src/lib.rs", "pub mod a; pub mod b;\n"),
+        // AD-466: the cited provenance page holds the one marked graph; one component draws no edge.
+        ("docs/a.md", "<!-- archkeel-component-graph -->\n```mermaid\nflowchart LR\n```\n"),
         ("crates/example/src/a.rs", "pub fn x() {}\n"),
         ("crates/example/src/b.rs", "#[mac::hide] pub fn y() {}\n"),
         ("crates/mac/Cargo.toml", "[package]\nname = \"mac\"\nversion = \"0.0.0\"\nedition = \"2021\"\n[lib]\nproc-macro = true\n"),

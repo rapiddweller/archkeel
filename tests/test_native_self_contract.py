@@ -13,12 +13,11 @@ that does not fail at its planted file fails here.
 from __future__ import annotations
 
 import json
-import shutil
 from pathlib import Path
 from typing import Any
 
 import pytest
-from core_support import run
+from core_support import copy_native, run
 from corpus_support import commit_tree
 from frozen_native import frozen_root as frozen_root
 
@@ -229,7 +228,7 @@ def runs(
     found: dict[str, Any] = {}
     for name, plant in (("code", _code_forms), ("requires", _with_requires)):
         root = tmp_path_factory.mktemp(name)
-        shutil.copytree(frozen_root / "native", root / "native")
+        copy_native(root, frozen_root)
         plants = plant(root / "native")
         found[name] = (plants, _run(root, core_binary))
     return found
