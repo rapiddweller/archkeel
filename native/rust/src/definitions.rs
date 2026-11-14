@@ -82,7 +82,7 @@ pub(crate) struct ImplBlock {
     pub exact: bool,
 }
 
-/// An `impl Trait for T` block at any depth (AD-514): each path that its head writes (the trait,
+/// An `impl Trait for T` block at any depth (AD-516): each path that its head writes (the trait,
 /// the type and the arguments of both; a type parameter of the block is none), the inline modules
 /// and the blocks (their ends) that enclose it, and its place.
 #[derive(Clone, Debug, PartialEq)]
@@ -93,7 +93,7 @@ pub(crate) struct TraitImpl {
     pub site: Site,
 }
 
-/// What the scan keeps for the pair gaps of trait impls in a third module (AD-514): the trait
+/// What the scan keeps for the pair gaps of trait impls in a third module (AD-516): the trait
 /// impls, and each struct, enum, union and trait that a block declares, with the end of its block.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct OrphanFacts {

@@ -43,7 +43,7 @@ a FAIL that may be false. (c) Drop a pair gap for one component without the cycl
 edge can close a module cycle, and `no_component_cycles` would PASS. (d) Read the type of `x`: the
 scan reads no types.
 
-**Limit.** The scan reads no types, so a pair gap may be a name collision of the same arity. AD-514 closes a trait `impl` in another module than its trait and its type. Open
+**Limit.** The scan reads no types, so a pair gap may be a name collision of the same arity. AD-516 closes a trait `impl` in another module than its trait and its type. Open
 false PASS, not accepted: a trait of a crate outside the workspace that a glob brings in (#1004), and a member that a macro generates
 (#1020).
 

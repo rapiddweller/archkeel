@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! A trait impl in a third module (#1004, AD-514). An impl of a trait for a type runs wherever
+//! A trait impl in a third module (#1004, AD-516). An impl of a trait for a type runs wherever
 //! the types fit, and no `use` brings it in: `y.into()`, `?`, `a + b`, `x.to_string()`, `for i in
 //! x`, `==`, `Drop`, and `fn f<T: Tr>(t: T)` all run an `impl` that the caller never names. The
 //! scan reads no types, so it cannot tell which caller runs which impl.

@@ -20,7 +20,7 @@ const LEAF_TRAIT_IMPL: &str =
 const ORPHAN: &str = "defines neither its trait nor its type";
 
 /// The method-call pair gaps of `app -> mid -> leaf`, where `mid` is `mid_lib` and `app.a` is `a`.
-/// `LEAF_TRAIT_IMPL` is an orphan-module impl: its gaps (AD-514) are in `orphans`.
+/// `LEAF_TRAIT_IMPL` is an orphan-module impl: its gaps (AD-516) are in `orphans`.
 fn pairs(mid_lib: &str, a: &str) -> Vec<(String, String)> {
     gaps(mid_lib, a, false)
 }
@@ -124,7 +124,7 @@ fn a_method_call_on_a_generic_parameter_names_the_member() {
 
 /// A trait method of a trait `impl` (`impl Trait` return, `Box<dyn Trait>`) has no member
 /// candidate. The impl is an orphan of `leaf.t`: every module of `leaf`, `mid` and `app` gets a
-/// pair gap to it (AD-514, #1004).
+/// pair gap to it (AD-516, #1004).
 #[test]
 fn a_trait_method_through_impl_trait_or_dyn_gives_the_orphan_pair_gap_1004() {
     let all = [

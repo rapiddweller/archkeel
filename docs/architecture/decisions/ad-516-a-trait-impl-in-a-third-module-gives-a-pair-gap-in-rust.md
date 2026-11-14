@@ -1,4 +1,4 @@
-# AD-514 A trait impl in a third module gives a pair gap in Rust
+# AD-516 A trait impl in a third module gives a pair gap in Rust
 
 **Status.** Proposed. Part of #880. Closes the main class of #1004 and its row in #1075. It
 extends AD-357.

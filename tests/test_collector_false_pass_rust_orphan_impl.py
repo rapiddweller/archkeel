@@ -1,12 +1,12 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""#1004: a trait impl in a third module gives no false PASS (AD-514).
+"""#1004: a trait impl in a third module gives no false PASS (AD-516).
 
 Consumer: `archkeel validate` with the native Rust collector. Module `a` runs code of module `b`
 without a `use`, a path or a method name that the scan can read: `b` holds an impl of a trait for a
 type, and `b` defines neither. Cargo fails in `a` when `mod b;` is deleted (E0277, E0369, E0599),
-so the edge `a -> b` is real. Each plant is one use form. On the code before AD-514 each plant
+so the edge `a -> b` is real. Each plant is one use form. On the code before AD-516 each plant
 gave PASS for the rule `a` must not use `b`. Now each gives UNKNOWN: the pair gap `a -> b`.
 
 - Control: an impl in the module of its type or of its trait keeps its verdict (PASS).
@@ -328,7 +328,7 @@ def test_a_trait_impl_in_a_module_of_a_crate_gives_a_pair_gap_to_a_crate_that_de
     assert _verdict(result, "NO-A-TO-B") == "UNKNOWN", claims(result)
 
 
-# Open false PASS, not accepted (AD-514): `a` gets a value of a type of `b` from `c`. The impl is
+# Open false PASS, not accepted (AD-516): `a` gets a value of a type of `b` from `c`. The impl is
 # in the module of that type, so no module is an orphan, and `a` never names `b`. The scan reads
 # no types of values (the class of a method on a value of a type that the caller does not name).
 OPEN: dict[str, dict[str, str]] = {

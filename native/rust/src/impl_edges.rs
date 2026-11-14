@@ -309,7 +309,7 @@ impl Builder {
     }
 }
 
-/// A trait impl in a third module gives a pair gap (AD-514).
+/// A trait impl in a third module gives a pair gap (AD-516).
 #[path = "orphan_impls.rs"]
 mod orphans;
 

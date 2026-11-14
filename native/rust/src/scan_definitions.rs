@@ -258,7 +258,7 @@ pub(super) fn foreign_name(item: &syn::ForeignItem) -> Option<String> {
     Some(plain(ident))
 }
 
-// What the scan keeps for the pair gaps of trait impls in a third module (AD-514).
+// What the scan keeps for the pair gaps of trait impls in a third module (AD-516).
 
 /// The paths of a head, except an absolute path and a type parameter of the block.
 struct Heads<'a> {

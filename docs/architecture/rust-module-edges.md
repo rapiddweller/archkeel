@@ -38,5 +38,5 @@ Amendment of [AD-335](decisions/ad-335-archkeel-checks-the-rust-of-native-with-i
   108 modules of `native/` had no missed edge, except where `rustc` blames a macro definition for
   the error of a call; it is not part of the gate. A file with `E0599` for a method of an `impl`
   in `m` has an edge into `m` or a pair gap to it (AD-357). A trait `impl` in a third module is a pair
-  gap from each module that may reach it (AD-514). Open false PASS (#1004): a value of a type that
+  gap from each module that may reach it (AD-516). Open false PASS (#1004): a value of a type that
   an impl anchors in its own module, and a glob trait of a crate outside the workspace. Open false PASS (#1020): an item that a macro generates (`docs/known-limits.md`).
