@@ -142,7 +142,7 @@ CONTRACT = {
             "packages": ["app.src"],
             "responsibilities": ["Own the source."],
             "forbidden_responsibilities": [],
-            "provenance": ["tsconfig.json"],
+            "provenance": ["tsconfig.json", "architecture.md"],
             "requires": [],
             "decided_by": "architect",
         }
@@ -157,6 +157,11 @@ CONTRACT = {
         }
     ],
 }
+
+
+GRAPH = (
+    "# Architecture\n\n<!-- archkeel-component-graph -->\n```mermaid\nflowchart LR\n    app\n```\n"
+)
 
 
 def commit(root: Path) -> None:
@@ -176,6 +181,8 @@ def commands() -> None:
         (root / "src/a.ts").write_text("export const a = 1;\n")
         (root / "tsconfig.json").write_text('{"include": ["src"]}\n')
         (root / "architecture-contract.json").write_text(json.dumps(CONTRACT) + "\n")
+        # AD-466: contract hygiene asks for one marked component graph in a provenance document.
+        (root / "architecture.md").write_text(GRAPH)
         (root / "archkeel.toml").write_text(
             '[scan]\nlanguage = "typescript"\nroots = ["src"]\nnamespace = "app"\n'
             'contract = "architecture-contract.json"\ntsconfig = "tsconfig.json"\n'

@@ -56,10 +56,19 @@ fn the_refused_fixture_has_one_golden_static_page() {
             "reply": {"absent": "fixture refused"}, "collect": {"refused": "fixture refused"}}
     })).unwrap().into_bytes();
     let frame: Value = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(
-        frame["html"]["document"].as_str().unwrap(),
-        include_str!("../testdata/refused.html")
-    );
+    // AD-496: the style (fonts, tokens, components) and the theme script are files of the design
+    // system; their bytes are checked by their own tests. The golden keeps the rest of the page.
+    let page = frame["html"]["document"].as_str().unwrap();
+    let cut = |text: &str, open: &str, close: &str| {
+        let (head, rest) = text.split_once(open).unwrap();
+        let (_, tail) = rest.split_once(close).unwrap();
+        format!(
+            "{head}{open}[{}]{close}{tail}",
+            open.trim_matches(|c| c == '<' || c == '>')
+        )
+    };
+    let skeleton = cut(&cut(page, "<script>", "</script>"), "<style>", "</style>");
+    assert_eq!(skeleton, include_str!("../testdata/refused.html"));
 }
 
 #[test]
