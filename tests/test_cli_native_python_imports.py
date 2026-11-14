@@ -133,6 +133,8 @@ def test_a_clean_project_passes_each_import_rule(
         "try:\n    import app.service\nexcept ImportError:\n    pass\n",
         "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    import app.service\n",
         "def later():\n    import app.service\n",
+        "import importlib\nload = lambda: importlib.import_module('app.service')\n",
+        "__import__('app.service')\n",
     ],
 )
 def test_a_forbidden_import_fails_and_names_its_file_and_line(
@@ -205,7 +207,7 @@ def test_an_external_dependency_matches_by_module_scope(
 
 GAPS = {
     "dynamic_import": {"src/app/client.py": "import importlib\nimportlib.import_module(name)\n"},
-    "dynamic_import ": {"src/app/client.py": "__import__('app.service')\n"},
+    "dynamic_import ": {"src/app/client.py": "__import__('app.' + name)\n"},
     "dynamic_import  ": {"src/app/client.py": "exec('import app.service')\n"},
     "import_system_change": {"src/app/client.py": "import sys\nsys.path.insert(0, 'x')\n"},
     "project_module_not_found": {
@@ -220,7 +222,16 @@ GAPS = {
     "relative_import_beyond_top": {"src/app/client.py": "from ... import other\n"},
     "exception_gap": {"src/app/client.py": "def broken(:\n"},
     "exception_gap ": {"src/app/client.py": b"x = '\xff'\n"},
-    "stub_or_compiled_module": {"src/app/client.pyi": "x: int\n"},
+    "stub_or_compiled_module": {"src/app/extra.pyi": "x: int\n"},
+    "dynamic_import#submodule": {
+        "src/app/client.py": "import importlib.util\nimportlib.import_module('app.service')\n"
+    },
+    "dynamic_import#from": {
+        "src/app/client.py": "from importlib import import_module\nimport_module('app.service')\n"
+    },
+    "dynamic_import#computed": {
+        "src/app/client.py": "import importlib\nimportlib.import_module('app.' + name)\n"
+    },
     "stub_or_compiled_module ": {"src/app/fast.cpython-311-darwin.so": "\0"},
     "duplicate_module": {"lib/app/service.py": "VALUE = 2\n"},
     "module_outside_layout": {"src/app/inner/app/deep.py": ""},
@@ -360,3 +371,53 @@ def test_a_component_outside_the_namespace_gives_no_pass(
     result = verdict(release_core, root)
     assert "PASS" not in rows(result).values(), result
     assert "outside the namespace" in result["frame"]["scope"], result
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        {"src/app/client.py": "import importlib\nimportlib.import_module('app')\n"},
+        {"src/app/client.pyi": "VALUE: int\n", "src/app/__init__.pyi": ""},
+    ],
+)
+def test_a_proven_literal_call_or_a_stub_beside_its_source_passes(
+    release_core: Path, tmp_path: Path, files: dict[str, str]
+) -> None:
+    result = verdict(release_core, project(tmp_path, {**BASE, **files}))
+    assert set(rows(result).values()) == {"PASS"}, result
+
+
+def test_a_poetry_caret_requirement_is_read(release_core: Path, tmp_path: Path) -> None:
+    root = project(tmp_path, BASE)
+    (root / "pyproject.toml").write_text('[tool.poetry.dependencies]\npython = "^3.9"\n')
+    subprocess.run(
+        ["git", "-C", str(root), "commit", "-qam", "poetry"],
+        check=True,
+        env={
+            **os.environ,
+            "GIT_AUTHOR_NAME": "t",
+            "GIT_AUTHOR_EMAIL": "t@t",
+            "GIT_COMMITTER_NAME": "t",
+            "GIT_COMMITTER_EMAIL": "t@t",
+        },
+    )
+    result = verdict(release_core, root)
+    assert set(rows(result).values()) == {"PASS"}, result
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "__import__('app.service')\n",
+        "import importlib\nimportlib.import_module('app.service')\n",
+        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    __import__('app.service')\n",
+    ],
+)
+def test_a_literal_call_is_a_runtime_edge_for_a_rule_without_type_checking(
+    release_core: Path, tmp_path: Path, source: str
+) -> None:
+    # AD-472: the guard proof covers import statements only, so a call is never type-only.
+    files = {**BASE, "src/app/client.py": source}
+    contract = rules(type_checking=False)
+    result = verdict(release_core, project(tmp_path, files, contract_rules=contract))
+    assert rows(result)["FORBID"] == "FAIL", result
