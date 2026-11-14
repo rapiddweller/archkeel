@@ -52,7 +52,7 @@ fn a_file_fact_cites_its_first_line_or_line_zero() {
     ];
     let built = build(&discovery(sources, Vec::new()), &["lib".to_owned()]);
     let files = serde_json::to_value(&built.files).unwrap();
-    // The ids are checked against the Python collector by `tests/test_collector_native_dart_discovery.py`.
+    // The ids equaled those of the Python collector of release 4.0.1; its test is deleted.
     assert_eq!(files[0]["module"], json!("shop.a"));
     assert_eq!(files[0]["package"], json!("shop"));
     assert_eq!(files[0]["blank"], json!(false));

@@ -19,13 +19,13 @@ flowchart LR
 ```
 
 Requests identify immutable source and resolver inputs. They contain no contract,
-baseline or verdict. The shared [protocol](../../src/archkeel/ir/protocol.py) and
-[codecs](../../src/archkeel/ir/facts_codec.py) enforce message versions, identities,
+baseline or verdict. The shared protocol and
+codecs enforce message versions, identities,
 references and coverage. Adapter-local ASTs never cross the port. Diagnostics use
 stderr; stdout carries one response. The process boundary is not an OS sandbox.
 
 Adapters cannot import each other or Core evaluation. Active
-[contracts](contracts/) govern the dependency boundaries. Python retains specialist
+contracts govern the dependency boundaries. Python retains specialist
 collectors; Dart targets a Python-hosted parser and bounded resolver
 ([AD-214](decisions/ad-214-dart-collector-runs-without-sdk.md)). TypeScript is a
 tree-sitter frontend with its own resolver, run as a process collector like the others

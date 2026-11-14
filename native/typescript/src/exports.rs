@@ -27,6 +27,121 @@ pub(crate) struct ExportBinding {
     pub(crate) export: Span,
 }
 
+/// Type publications stay separate from the existing value witnesses.
+#[derive(Default)]
+pub(crate) struct TypeExports {
+    pub(crate) direct: Vec<ExportBinding>,
+    pub(crate) hops: Vec<ExportBinding>,
+    pub(crate) declared: HashSet<String>,
+}
+
+/// Count root declarations in both name spaces. A second declaration can change a type.
+fn root_declarations<'t>(cx: &Cx, top: &[Node<'t>]) -> Vec<Node<'t>> {
+    top.iter()
+        .flat_map(|statement| {
+            let mut node = *statement;
+            while matches!(
+                cx.k(node),
+                K::ExportStatement | K::AmbientDeclaration | K::ExpressionStatement
+            ) {
+                let Some(inner) = node.named_child(0) else {
+                    break;
+                };
+                node = inner;
+            }
+            declaration_nodes(cx, Some(node))
+        })
+        .collect()
+}
+
+/// Only a unique, merge-free declaration or a named type hop can publish a type here.
+pub(crate) fn type_exports(cx: &Cx, root: Node, top: &[Node], frames: &Frames) -> TypeExports {
+    let declarations = root_declarations(cx, top);
+    let mut counts = HashMap::<String, usize>::new();
+    for node in &declarations {
+        if let Some(name) = cx.field(*node, F::Name) {
+            let name = cx.text(name);
+            let root = name.split('.').next().unwrap_or(&name);
+            *counts.entry(root.to_owned()).or_default() += 1;
+        }
+    }
+    let mut found = TypeExports {
+        declared: counts.keys().cloned().collect(),
+        ..TypeExports::default()
+    };
+    if root.has_error() || frames.is_ambiguous(ROOT) {
+        return found;
+    }
+    let mut published = HashMap::<String, usize>::new();
+    for statement in top
+        .iter()
+        .copied()
+        .filter(|n| cx.k(*n) == K::ExportStatement)
+    {
+        if cx.has_child(statement, K::Default) {
+            return TypeExports {
+                declared: found.declared,
+                ..TypeExports::default()
+            };
+        }
+        if let Some(node) = cx.field(statement, F::Declaration) {
+            let Some(name) = cx.field(node, F::Name) else {
+                continue;
+            };
+            let name = cx.text(name);
+            *published.entry(name.clone()).or_default() += 1;
+            if matches!(
+                cx.k(node),
+                K::InterfaceDeclaration | K::TypeAliasDeclaration
+            ) {
+                found.direct.push(ExportBinding {
+                    name,
+                    declaration: cx.span(node),
+                    export: cx.span(statement),
+                });
+            }
+            continue;
+        }
+        let Some(clause) = named_children(statement)
+            .into_iter()
+            .find(|n| cx.k(*n) == K::ExportClause)
+        else {
+            return TypeExports {
+                declared: found.declared,
+                ..TypeExports::default()
+            };
+        };
+        for specifier in named_children(clause) {
+            let Some(name) = cx.field(specifier, F::Name) else {
+                continue;
+            };
+            let name = cx.text(name);
+            let alias = cx.field(specifier, F::Alias);
+            let published_name = alias.map_or_else(|| name.clone(), |a| cx.text(a));
+            *published.entry(published_name).or_default() += 1;
+            if cx.field(statement, F::Source).is_some()
+                && alias.is_none()
+                && (cx.has_child(statement, K::Type) || cx.has_child(specifier, K::Type))
+            {
+                found.hops.push(ExportBinding {
+                    name,
+                    declaration: cx.span(specifier),
+                    export: cx.span(statement),
+                });
+            }
+        }
+    }
+    let unique =
+        |b: &ExportBinding| published.get(&b.name) == Some(&1) && frames.count(ROOT, &b.name) == 0;
+    found
+        .direct
+        .retain(|b| unique(b) && counts.get(&b.name) == Some(&1));
+    found
+        .hops
+        .retain(|b| unique(b) && !counts.contains_key(&b.name));
+    found
+}
+
 /// `_module_exports`: the runtime and visible local exports, and whether they are certain.
 pub(crate) struct ModuleExports {
     pub module_syntax: bool,

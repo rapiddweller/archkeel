@@ -74,6 +74,61 @@ fn expanding_imports_keeps_a_proven_script_global_name() {
 }
 
 #[test]
+fn type_publication_preserves_complete_value_and_overload_records() {
+    for (before, after) in [
+        ("\nexport const Published = 1;", "export type Published = number;\nexport const Published = 1;"),
+        ("export function Published(x: number): number;\nexport function Published(x: number) { return x; }",
+         "export function Published(x: number): number;\nexport function Published(x: number) { return x; }\nexport interface Other {}"),
+    ] {
+        let read = |source: &str| {
+            let tree = Tree::new(&[("tsconfig.json", CONFIG), ("src/a.ts", source),
+                ("src/b.ts", "import { Published } from './a';")]);
+            let (_, rows) = records(&request(&tree), provenance()).unwrap();
+            assert!(rows.imports.iter().all(|r| r.data.data().symbols_known));
+            assert_eq!(rows.witnesses.len(), 1);
+            serde_json::to_value((&rows.imports, &rows.witnesses)).unwrap()
+        };
+        assert_eq!(read(before), read(after));
+    }
+}
+
+#[test]
+fn a_type_hop_cites_each_publication_and_an_unread_type_stays_unknown() {
+    for api in [
+        "export type { Published } from './a';",
+        "export * from './a';",
+    ] {
+        let tree = Tree::new(&[
+            ("tsconfig.json", CONFIG),
+            ("src/a.ts", "export interface Published {}"),
+            ("src/api.ts", api),
+            ("src/b.ts", "import type { Published } from './api';"),
+        ]);
+        let (_, rows) = records(&request(&tree), provenance()).unwrap();
+        let import = rows
+            .imports
+            .iter()
+            .find(|r| r.data.data().symbol.as_deref() == Some("Published"))
+            .unwrap();
+        let proven = !api.contains('*');
+        assert_eq!(import.data.data().symbols_known, proven);
+        assert_eq!(import.fact_ids.len(), if proven { 2 } else { 0 });
+        for id in &import.fact_ids {
+            let witness = rows.witnesses.iter().find(|r| &r.id == id).unwrap();
+            assert_eq!(
+                serde_json::to_value(witness).unwrap()["data"]["name"],
+                "Published"
+            );
+            assert_eq!(witness.evidence_ids.len(), 2);
+        }
+        assert_eq!(
+            import.data.data().reexport_chain.as_ref().unwrap().len(),
+            if proven { 2 } else { 0 }
+        );
+    }
+}
+
+#[test]
 fn the_linked_reply_states_its_profile_limits_but_wire_bytes_cannot_carry_them() {
     use archkeel_facts::envelope::{LimitSupport, Reply};
     for source in ["export const one = 1;", "const one = 1;"] {

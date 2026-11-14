@@ -17,6 +17,8 @@ first limit of AD-432. The lookup and the refusals of AD-432 do not change.
 5. The installed shell runs only the binary of its own package, and only when the digest file is
    equal to the SHA-256 of the binary. A missing binary or digest is `core_binary_not_found`.
    A wrong digest and a binary that cannot start are `core_error`. Each is exit 2, never a verdict.
+   The build output of a checkout is used only when the package is below `src/` of a directory
+   with `pyproject.toml` and `native/core/Cargo.toml`. An installed package never uses it.
 6. `make native-wheel` builds the wheel, checks its tag, content and SBOM, and installs it alone in
    a new environment outside the checkout. The installed `archkeel validate` must give the result
    of the core of the checkout: PASS and FAIL for a Rust project, UNKNOWN for a TypeScript project.
@@ -45,6 +47,8 @@ The core is 9,300,528 bytes. The installed `validate` takes 0.1 to 0.3 seconds f
 - A check of the executable bit in the lookup. The start of the binary already gives `core_error`.
 
 **Limits.**
+- The digest finds a damaged file and a wrong file. It does not stop a party that can write the
+  binary and the digest file. The binary can also change between the check and its start.
 - Windows gives no verdict. The correction is in `native/collect`; this change does not make it.
   The release opens when Windows gives a verdict or when the owner removes it from the matrix.
 - An install from the Git URL needs `ARCHKEEL_BUNDLE_NATIVE=1`, cargo and `cargo-auditable`.
@@ -57,7 +61,8 @@ The core is 9,300,528 bytes. The installed `validate` takes 0.1 to 0.3 seconds f
 No release from this line exists, so no published package changes.
 
 **Tests.** `tests/test_cli_installed_wheel.py` installs the wheel alone and checks the verdicts,
-each refusal and that a binary in the project, the current directory or `PATH` never runs.
+each refusal and that a binary in the project, the current directory, `PATH` or a build output
+beside the environment never runs.
 `tests/test_collector_native_wheel.py` checks the hook, the refusal of a build without the core
 and the content of the built wheel. `tests/test_native_ci.py` checks the guard, the flag rule and
 `tools/release_core.py`. `tests/test_publish_release.py` checks the set of release assets.

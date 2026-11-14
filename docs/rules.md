@@ -316,14 +316,14 @@ UNKNOWN. Older contracts retain their bytes and reject unsupported new fields.
 Revision checks compare counts, exact ratios and semantic fingerprints under
 comparable inputs. Stable counts can hide replacements; fingerprints cover
 supported changes, not design quality. Existing UNKNOWN remains UNKNOWN even if
-nothing regresses. See [reference](reference.md#regression-checks) for the protocol.
+nothing regresses. `check` runs them; it is not on `main` ([state of `main`](reference.md#state-of-main)).
 
 `measurement_budgets` select available scalars for baseline validation. Rises fail;
 falls require baseline cleanup. Facade/coupling budgets constrain names, so swaps
 cannot hide behind stable counts. Over-target accepted names are debt; unavailable
 name enumeration cannot PASS. Missing measurements exit 2.
 
-Use the [target-first loop](target-first.md) to preserve intent, baseline debt and
+Use the [target-first loop of release 4.0.1](https://github.com/rapiddweller/archkeel/blob/4.0.1/docs/target-first.md) to preserve intent, baseline debt and
 gate widening. New permissions, removed restrictions and unclassified changes
 need an amendment bound to the exact contract/baseline pair. Baselines do not
 hide diagnostics or UNKNOWN evidence.
@@ -333,8 +333,7 @@ hide diagnostics or UNKNOWN evidence.
 Declarations record context and independently authored intent. Their presence,
 references and provenance can be checked; truth and responsibility fulfillment
 cannot. `public_api` promises external consumers names and exposed types, without
-an unused-consumer check. [The API reference](reference.md#reading-a-reports-violations)
-names the supported external surface.
+an unused-consumer check.
 
 `declarations.compat` records permanent or migration shims. A shim has only imports
 and literal exports resolving to its target; product imports must avoid it.

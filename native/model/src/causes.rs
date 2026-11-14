@@ -14,6 +14,7 @@ pub enum InterfaceGap {
     UnreadBinding,
     PublicationRoute,
     PublicationSurface,
+    TypePublication,
 }
 
 impl fmt::Display for InterfaceGap {
@@ -22,6 +23,7 @@ impl fmt::Display for InterfaceGap {
             Self::UnreadBinding => "interface_boundary: unread import binding",
             Self::PublicationRoute => "interface_boundary: unproven publication route",
             Self::PublicationSurface => "interface_boundary: incomplete publication surface",
+            Self::TypePublication => "interface_boundary: unproven named type publication",
         })
     }
 }

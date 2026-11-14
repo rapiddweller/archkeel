@@ -109,7 +109,7 @@ configuration and `archkeel.api` exports retain their interfaces.
 
 See [dependency evidence](docs/architecture/python-dynamic-dependencies.md),
 [call ownership](docs/architecture/decisions/ad-241-call-ownership-policy.md),
-[compatibility](docs/reference.md#compatibility) and [known limits](docs/known-limits.md).
+[compatibility](docs/reference.md) and [known limits](docs/known-limits.md).
 
 ---
 
@@ -180,7 +180,7 @@ snapshots. Saved reports retain their original evidence.
 
 Static evidence still does not establish compiler parity, runtime correctness or
 complete language coverage. See [known limits](docs/known-limits.md),
-[dependency rules](docs/rules.md) and the [compatibility policy](docs/reference.md#compatibility).
+[dependency rules](docs/rules.md) and the [compatibility policy](docs/reference.md).
 
 # ArchKeel 3.0.1 — Scoped proof and quieter reports
 
@@ -392,7 +392,7 @@ or modify the scanned project. Building or running a Flutter app still requires 
 
 The Dart migration intentionally drops the legacy `archkeel-dart-directives` producer.
 Re-observe both revisions with 1.1.0 before comparing Dart snapshots. This is an explicit
-exception to the [1.x compatibility policy](docs/reference.md#compatibility-in-1x).
+exception to the [1.x compatibility policy](docs/reference.md).
 Schemas now accept Dart `mixin` entities and `mixes_in` relationships, while retaining
 their existing version identifiers. Update strict enum consumers and pin the CLI,
 collectors and bundled schemas together; do not mix the old and new Dart evidence.

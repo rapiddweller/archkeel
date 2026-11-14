@@ -4,8 +4,10 @@
 """Find the core of this install, never a binary selected by the scanned repository.
 
 The lookup reads only the directory of this package: the bundled binary with its digest, else the
-build output of the checkout that holds this package. It never reads the scanned project, the
-current directory or `PATH` (AD-432). A platform wheel bundles the binary and its digest (AD-436).
+build output of the checkout that holds this package below `src/`. An installed package has no
+checkout. The lookup never reads the scanned project, the current directory or `PATH` (AD-432).
+A platform wheel bundles the binary and its digest (AD-436). The digest finds a damaged or wrong
+file. It does not stop a party that can write both files, or a change after the check.
 """
 
 import hashlib
@@ -36,7 +38,8 @@ def locate_core(package: Path | None = None) -> Path:
             raise CoreError(f"the installed core binary digest does not match: {bundled}")
         return bundled
     checkout = package.parent.parent
-    if (checkout / "native" / "core" / "Cargo.toml").is_file():
+    in_checkout = package.parent.name == "src" and (checkout / "pyproject.toml").is_file()
+    if in_checkout and (checkout / "native" / "core" / "Cargo.toml").is_file():
         for profile in ("release", "debug"):
             binary = checkout / "native" / "target" / profile / name
             if binary.is_file():

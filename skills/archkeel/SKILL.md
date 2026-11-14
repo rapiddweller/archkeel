@@ -174,7 +174,7 @@ an answer, and so does every component whose `public` list it drafted. It refuse
 first; foundation is not the default owner for domain enums or models. Record the architect's
 choice with the existing `symbol_placement` rule: set `source` to the package, `class_kinds` to
 the types it owns, and `exact_sources` to the chosen module (or `allowed_sources` to a package
-subtree). Follow the ownership example in the target-first guide. Run `archkeel validate` after
+subtree). Follow the ownership example in the [target-first guide of release 4.0.1](https://github.com/rapiddweller/archkeel/blob/4.0.1/docs/target-first.md). Run `archkeel validate` after
 adding it; a misplaced matching class is a `rule.violated`.
 
 For TypeScript, use `archkeel init --language typescript --source src --namespace app
@@ -398,7 +398,7 @@ a real change.
 Never widen the contract in the same change that removes the violation it names: fix the code,
 or ask the architect for an amendment. The full loop — gating, widening, picking a slice of the
 backlog and landing a planned interface — is worked end to end on the shop sample in
-https://github.com/rapiddweller/archkeel/blob/main/docs/target-first.md.
+https://github.com/rapiddweller/archkeel/blob/4.0.1/docs/target-first.md.
 
 ## Retiring local dependency gates
 

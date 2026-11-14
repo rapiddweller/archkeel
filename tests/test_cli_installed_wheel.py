@@ -188,11 +188,12 @@ def _of_the_checkout(reference: Path, root: Path) -> tuple[int, dict[str, Any]]:
         return run("validate", "--root", str(root))
 
 
-def test_the_wheel_carries_the_core_of_the_checkout(
-    wheel: Path, installed: Installed, reference: Path
+def test_the_installed_core_has_the_digest_that_the_wheel_records(
+    wheel: Path, installed: Installed
 ) -> None:
+    # The bytes of a later build of the checkout can differ, so the test reads only the wheel.
+    # The verdict test compares the code digest and the frame with the core of the checkout.
     carried = hashlib.sha256(installed.core.read_bytes()).hexdigest()
-    assert carried == hashlib.sha256(reference.read_bytes()).hexdigest()
     assert installed.digest.read_text(encoding="ascii") == carried
     assert WINDOWS or os.access(installed.core, os.X_OK)
     version = installed.run("--version")
@@ -290,3 +291,19 @@ def test_the_lookup_never_runs_a_binary_of_the_project_the_directory_or_the_path
         result = json.loads(done.stdout)
         assert done.returncode == 2 and "frame" not in result, result
         assert result["refusal"]["kind"] == "core_binary_not_found", result
+
+
+def test_an_installed_package_never_runs_a_build_output_beside_its_environment(
+    changed: Installed, reference: Path, crate: Path
+) -> None:
+    """The checkout lookup is for a package below `src/` of a checkout, not for an install."""
+    beside = changed.core.parents[3]
+    (beside / "native/core").mkdir(parents=True)
+    (beside / "native/core/Cargo.toml").write_text('[package]\nname = "archkeel-core"\n')
+    (beside / "pyproject.toml").write_text('[project]\nname = "archkeel"\n')
+    _plant(reference, beside / "native/target/release", beside / "native/target/debug")
+    shutil.rmtree(changed.core.parent)
+
+    refusal = changed.refusal(crate)
+    assert refusal["kind"] == "core_binary_not_found", refusal
+    assert "install a platform wheel of archkeel" in refusal["message"]

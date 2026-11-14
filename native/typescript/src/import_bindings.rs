@@ -19,6 +19,7 @@ pub(crate) struct ImportBinding {
     pub namespace: bool,
     pub type_only: bool,
     pub source_unique: bool,
+    pub aliased: bool,
 }
 
 fn binding(span: &Span, imported: String, local: String, type_only: bool) -> ImportBinding {
@@ -29,6 +30,7 @@ fn binding(span: &Span, imported: String, local: String, type_only: bool) -> Imp
         namespace: false,
         type_only,
         source_unique: false,
+        aliased: false,
     }
 }
 
@@ -59,7 +61,9 @@ pub(crate) fn of_statement(cx: &Cx, statement: Node) -> Vec<ImportBinding> {
             let local = cx.field(item, F::Alias).or(imported);
             if let (Some(imported), Some(local)) = (imported, local) {
                 let type_only = statement_type || cx.has_child(item, K::Type);
-                result.push(binding(&span, cx.text(imported), cx.text(local), type_only));
+                let mut found = binding(&span, cx.text(imported), cx.text(local), type_only);
+                found.aliased = cx.field(item, F::Alias).is_some();
+                result.push(found);
             }
         }
     }
