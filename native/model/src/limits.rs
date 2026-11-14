@@ -136,34 +136,32 @@ fn symbol_limit(observed: &Observed, subject: &str) -> Option<Limit> {
     }
 }
 
-/// The limits of one rule, in the order of `profile_failures`.
-fn rule_limits(rule: &Rule, observed: &Observed, found: &mut Vec<Limit>) {
-    let symbols = |subject: &str| symbol_limit(observed, subject);
-    let id = archkeel_contract::head_of(rule).id().as_text();
+/// What the evaluation of one rule reads besides the module-level import edges (AD-474).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Reads {
+    /// No store-accepted profile decides the kind (`unsupported_rules`).
+    Undecided,
+    /// The source constructs (`forbidden_construct`).
+    Constructs,
+    /// The `target_symbol` of the rule itself (`direction::forbidden`).
+    OwnSymbol,
+    /// The `through` ports of each component (`direction::crossings`).
+    Ports,
+    /// The module interface: the `public` entries of each component and the verdicts of each
+    /// `target_symbol` rule (`interface::assess`, `interface::interface_crossings`).
+    Interface,
+    /// Only the module-level import edges.
+    Edges,
+}
+
+/// What one rule reads. The match has no catch-all arm: a new rule kind does not compile until
+/// it states what it reads, so it cannot forget a limit.
+fn reads(rule: &Rule) -> Reads {
     match rule {
-        Rule::InterfaceBoundary(_) => {
-            match observed
-                .profile_limits
-                .map(|limits| limits.interface_boundary)
-            {
-                // AD-474: `interface::receipt` refuses this rule alone without the feature.
-                Some(LimitSupport::Supported | LimitSupport::Unsupported) => {}
-                None => found.push(Limit::Unread(id.to_owned())),
-            }
-        }
-        Rule::ForbiddenConstruct(rule) => {
-            let examined: HashSet<&str> = observed.constructs.iter().map(String::as_str).collect();
-            let unexamined = rule
-                .constructs()
-                .iter()
-                .any(|kind| !examined.contains(word(kind).as_str()));
-            if unexamined || (rule.selector().is_some() && !observed.construct_selectors) {
-                found.push(Limit::Certain(id.to_owned()));
-            }
-        }
-        Rule::ForbiddenDependency(rule) if rule.target_symbol().is_some() => {
-            found.extend(symbols(id));
-        }
+        Rule::InterfaceBoundary(_) => Reads::Interface,
+        Rule::ForbiddenConstruct(_) => Reads::Constructs,
+        Rule::ForbiddenDependency(rule) if rule.target_symbol().is_some() => Reads::OwnSymbol,
+        Rule::CompleteRequires(_) => Reads::Ports,
         Rule::CallOwner(_)
         | Rule::ForbiddenCallArgument(_)
         | Rule::CatalogArgument(_)
@@ -173,18 +171,47 @@ fn rule_limits(rule: &Rule, observed: &Observed, found: &mut Vec<Limit>) {
         | Rule::SymbolPlacement(_)
         | Rule::BoundaryTypes(_)
         | Rule::BoundedNumericOperand(_)
-        | Rule::ProtocolDeclarations(_) => found.push(Limit::Certain(id.to_owned())),
-        // No store-accepted profile limits these kinds (`profile_failures`).
+        | Rule::ProtocolDeclarations(_) => Reads::Undecided,
         Rule::ForbiddenDependency(_)
         | Rule::AllowedDependency(_)
         | Rule::ExternalDependencyScope(_)
         | Rule::CompleteAssignment(_)
         | Rule::RootLayout(_)
         | Rule::CompleteExternalScope(_)
-        | Rule::CompleteRequires(_)
         | Rule::LayerOrder(_)
         | Rule::NoComponentCycles(_)
-        | Rule::SiblingIsolation(_) => {}
+        | Rule::SiblingIsolation(_) => Reads::Edges,
+    }
+}
+
+/// The limits of one rule, in the order of `profile_failures`.
+fn rule_limits(rule: &Rule, observed: &Observed, found: &mut Vec<Limit>) {
+    let id = archkeel_contract::head_of(rule).id().as_text();
+    match (reads(rule), rule) {
+        (Reads::Interface, _) => {
+            match observed
+                .profile_limits
+                .map(|limits| limits.interface_boundary)
+            {
+                // AD-474: `interface::receipt` refuses this rule alone without the feature.
+                Some(LimitSupport::Supported | LimitSupport::Unsupported) => {}
+                None => found.push(Limit::Unread(id.to_owned())),
+            }
+        }
+        (Reads::Constructs, Rule::ForbiddenConstruct(rule)) => {
+            let examined: HashSet<&str> = observed.constructs.iter().map(String::as_str).collect();
+            let unexamined = rule
+                .constructs()
+                .iter()
+                .any(|kind| !examined.contains(word(kind).as_str()));
+            if unexamined || (rule.selector().is_some() && !observed.construct_selectors) {
+                found.push(Limit::Certain(id.to_owned()));
+            }
+        }
+        (Reads::OwnSymbol, _) => found.extend(symbol_limit(observed, id)),
+        (Reads::Undecided, _) => found.push(Limit::Certain(id.to_owned())),
+        // No store-accepted profile limits these kinds (`profile_failures`).
+        (Reads::Constructs | Reads::Ports | Reads::Edges, _) => {}
     }
 }
 
@@ -198,17 +225,9 @@ pub(crate) fn stated_hold(contract: &Contract, rule: &Rule, observed: &Observed)
         .flatten()
 }
 
-/// The first symbol selector of the contract that the evaluation of `rule` reads, by its subject.
-///
-/// The match has no catch-all arm: a new rule kind does not compile until it states what it
-/// reads. Each arm names the code that reads the selector:
-///
-/// - `direction::forbidden` reads the `target_symbol` of its own rule;
-/// - `direction::crossings` reads the `through` symbol ports of every component;
-/// - `interface::assess` reads the `public` symbol entries of every component, and
-///   `interface::interface_crossings` reads the verdicts of every `target_symbol` rule.
-///
-/// No other rule reads a symbol fact: each one reads module-level import edges only.
+/// The first symbol selector of the contract that the evaluation of `rule` reads (`reads`), by
+/// its subject: a `target_symbol` rule, a component with a `through` symbol port or a component
+/// with a `public` symbol entry. Each other kind reads no symbol fact.
 pub(crate) fn symbol_reader(contract: &Contract, rule: &Rule) -> Option<String> {
     let components = contract.components();
     let symbolic = |entry: &str| entry.contains(':');
@@ -231,40 +250,17 @@ pub(crate) fn symbol_reader(contract: &Contract, rule: &Rule) -> Option<String> 
             .map(|c| c.id().as_text().to_owned())
     };
     let selectors = || {
-        contract.rules().iter().filter_map(|other| match other {
-            Rule::ForbiddenDependency(r) if r.target_symbol().is_some() => {
-                Some(archkeel_contract::head_of(other).id().as_text().to_owned())
-            }
-            _ => None,
-        })
+        contract
+            .rules()
+            .iter()
+            .filter(|other| reads(other) == Reads::OwnSymbol)
+            .map(|other| archkeel_contract::head_of(other).id().as_text().to_owned())
     };
-    match rule {
-        Rule::ForbiddenDependency(r) if r.target_symbol().is_some() => {
-            Some(archkeel_contract::head_of(rule).id().as_text().to_owned())
-        }
-        Rule::CompleteRequires(_) => ports().next(),
-        Rule::InterfaceBoundary(_) => publics().chain(selectors()).next(),
-        Rule::ForbiddenDependency(_)
-        | Rule::AllowedDependency(_)
-        | Rule::ExternalDependencyScope(_)
-        | Rule::CompleteAssignment(_)
-        | Rule::RootLayout(_)
-        | Rule::CompleteExternalScope(_)
-        | Rule::LayerOrder(_)
-        | Rule::NoComponentCycles(_)
-        | Rule::SiblingIsolation(_)
-        | Rule::ForbiddenConstruct(_) => None,
-        // `rule_limits` holds these kinds for every profile, so they never pass.
-        Rule::CallOwner(_)
-        | Rule::ForbiddenCallArgument(_)
-        | Rule::CatalogArgument(_)
-        | Rule::CatalogUse(_)
-        | Rule::ForbiddenEffectUnderCondition(_)
-        | Rule::SourceOwnership(_)
-        | Rule::SymbolPlacement(_)
-        | Rule::BoundaryTypes(_)
-        | Rule::BoundedNumericOperand(_)
-        | Rule::ProtocolDeclarations(_) => None,
+    match reads(rule) {
+        Reads::OwnSymbol => Some(archkeel_contract::head_of(rule).id().as_text().to_owned()),
+        Reads::Ports => ports().next(),
+        Reads::Interface => publics().chain(selectors()).next(),
+        Reads::Undecided | Reads::Constructs | Reads::Edges => None,
     }
 }
 

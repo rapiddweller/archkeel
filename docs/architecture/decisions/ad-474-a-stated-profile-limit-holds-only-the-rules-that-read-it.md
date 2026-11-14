@@ -22,10 +22,11 @@ No other rule kind reads a symbol, `public` or `through` fact. `pair_gaps` reads
 
 **Decision.**
 1. A stated `Unsupported` feature is no longer a limit of the run (`limits.rs`).
-2. `limits::symbol_reader` gives the symbol selector that a rule reads. Its match has no catch-all
-   arm, so a new rule kind does not compile until it states what it reads.
-   `Scope::complete` holds a rule with a reader when the collector states `dependency_symbols` as
-   `Unsupported`. The cause is the same `ProfileLimit` with the subject of the selector.
+2. `limits::reads` states for each rule kind what it reads besides the module-level edges. Its
+   match has no catch-all arm, so a new rule kind does not compile until it states what it reads.
+   `rule_limits` and `limits::symbol_reader` both read it. `Scope::complete` holds a rule with a
+   symbol reader when the collector states `dependency_symbols` as `Unsupported`. The cause is the
+   same `ProfileLimit` with the subject of the selector.
 3. `interface::receipt` already refuses an `interface_boundary` rule without a `Supported` statement,
    on the evaluation path of that rule. It is the only check for this feature.
 4. A missing statement (a wire reply) and a `Supported` statement keep their AD-426 behavior.

@@ -405,12 +405,19 @@
     "reason": "code_list! calls list the values of a schema code list as name and text pairs. They are data.",
     "tokens": 71
   },
-  "model/src/limits.rs|model/src/limits.rs|644e3ad373": {
+  "model/src/limits.rs|model/src/limits.rs|00b17b8443": {
     "files": [
       "model/src/limits.rs"
     ],
-    "reason": "AD-378 (review of #1066, finding 5): each match of the scope proof lists every rule kind with no default arm, so a new kind does not compile until its doubt sources are stated. The lists of kinds repeat by design.",
-    "tokens": 71
+    "reason": "AD-474: `limits::reads` lists every rule kind with no default arm, so a new kind does not compile until it states what it reads. Its two lists of kinds repeat by design (AD-378).",
+    "tokens": 78
+  },
+  "model/src/limits.rs|model/src/limits.rs|31355fc48f": {
+    "files": [
+      "model/src/limits.rs"
+    ],
+    "reason": "AD-474: `limits::reads` lists every rule kind with no default arm, so a new kind does not compile until it states what it reads. Its two lists of kinds repeat by design (AD-378).",
+    "tokens": 83
   },
   "model/src/limits.rs|model/src/scope.rs|4106bb7efc": {
     "files": [
@@ -427,14 +434,6 @@
     ],
     "reason": "AD-378 (review of #1066, finding 5): each match of the scope proof lists every rule kind with no default arm, so a new kind does not compile until its doubt sources are stated. The lists of kinds repeat by design.",
     "tokens": 71
-  },
-  "model/src/limits.rs|model/src/subjects.rs|4fdbc1be9a": {
-    "files": [
-      "model/src/limits.rs",
-      "model/src/subjects.rs"
-    ],
-    "reason": "AD-378 (review of #1066, finding 5): each match of the scope proof lists every rule kind with no default arm, so a new kind does not compile until its doubt sources are stated. The lists of kinds repeat by design.",
-    "tokens": 70
   },
   "model/src/scope.rs|model/src/subjects.rs|00b17b8443": {
     "files": [
