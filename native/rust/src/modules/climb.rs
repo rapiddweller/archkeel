@@ -6,7 +6,7 @@
 
 /// Climb one module for each `super` that starts `names` at `at`: the module, the number of
 /// steps and the index after the last `super`. `Err` says why a step leaves the crate.
-pub(crate) fn climb(
+pub(crate) fn ascend(
     root: &str,
     from: &str,
     names: &[String],

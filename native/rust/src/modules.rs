@@ -24,7 +24,7 @@ mod climb;
 mod filled;
 mod outcome;
 use alias::Aliases;
-use climb::climb;
+use climb::ascend;
 pub(crate) use outcome::{Edge, Outcome, TypeOf};
 
 /// The deepest chain of `use` bindings and globs that the resolver follows.
@@ -271,7 +271,7 @@ impl<'a> Index<'a> {
             }
             "self" | "super" => {
                 let start = usize::from(first == "self");
-                match climb(frame.root, &cur, names, start) {
+                match ascend(frame.root, &cur, names, start) {
                     Ok((above, ups, at)) => {
                         (cur, level) = (above, level + ups);
                         at
