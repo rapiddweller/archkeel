@@ -16,9 +16,9 @@ blocks each proof of a script global (AD-460). They add no PASS.
 2. **Key call.** A call, `new`, tagged template, `call`, `apply` or `bind` (name or literal key) of
    `o[k]` with a run-time key, also through parentheses, `as`, `!`, `await`, a comma, a condition
    and `||`, `&&`, `??`. Exempt: `Math`, `JSON`, `Atomics`, `Intl`, `console`, and data: a literal
-   object or array that a name binds once, with no `__proto__` or computed key, spread, method or
-   `this`-binding function, no write or `delete` through the name, no argument, store, alias or
-   `export`. Nothing changes the prototype of data, so it reaches no `Function`.
+   object or array that a name binds once, with no `__proto__` or computed key, spread, or method
+   or function that reads `this`, no write or `delete` through the name, no argument, store,
+   alias or `export`. Nothing changes the prototype of data, so it reaches no `Function`.
 3. **Reflection.** `getOwnPropertyDescriptors`; `getOwnPropertyDescriptor` and `Reflect.get` with a
    key that is no literal or names `eval`, `Function` or `constructor`; a run-time method on
    `Object` or `Reflect`; each of these members used as a value (stored, passed, `call`).

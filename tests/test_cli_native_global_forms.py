@@ -150,7 +150,14 @@ REVIEW_DATA = {
         "table[k as 'a'](t);"
     ),
     "exported": "export const table = { a: 1 };\ntable[k as 'a'](t);",
-    "method": "const table = { m() { return 1; } };\ntable[k as 'm'](t);",
+    "method": (
+        "const table: any = { m() { (this as any).__proto__ = () => 1; } };\n"
+        "table.m();\ntable[k](t)();"
+    ),
+    "function-value": (
+        "const table: any = { f: function () { (this as any).__proto__ = () => 1; } };\n"
+        "table.f();\ntable[k](t)();"
+    ),
     "spread": "const table = { ...x };\ntable[k](t);",
     "passed": "const table = { a: 1 };\ng(table);\ntable[k as 'a'](t);",
     "inline-proto": "({ __proto__: () => 1 } as any)[k](t);",
@@ -214,6 +221,7 @@ CLOSED = {
 PRECISION = {
     "namespace-key": "Math[k as 'abs'](1);",
     "data-key": "const table = { a: () => 1 };\ntable[k as 'a']();",
+    "method-without-this": "const table = { a() { return 1; } };\ntable[k as 'a']();",
     "array-index": "const xs = [1, 2];\nexport const y = xs[0];",
     "array-call": "const fns = [() => 1];\nfns[0]();\nfns.map((q) => q());",
     "plain-pattern": "const { name, value } = e;\nexport const z = name + value;",

@@ -337,7 +337,7 @@ in a pattern (`const { [k]: v } = e`); and DOM code from text outside the named 
 AD-508 closed these forms: a write with a run-time key through `this` of a class method, through
 `super` or through a name bound once to such a `this`; a call, `new`, tagged template, `call`,
 `apply` or `bind` of a member with a run-time key (also through a comma, a condition, a logical
-operator or `await`) on a value that is no plain literal object or array (no `__proto__`, method,
+operator or `await`) on a value that is no plain literal object or array (no `__proto__`, method that reads `this`,
 write, argument or export) and no `Math`, `JSON`, `Atomics`, `Intl` or `console`; a reflection with a
 run-time key (`getOwnPropertyDescriptor(s)`, `Reflect.get`, also stored or passed); a navigation with a
 value that is no literal (`location.*`, `location = x`, a pattern or `for…of` target, `open(x, …)` with

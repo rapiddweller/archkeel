@@ -5,7 +5,8 @@
 //! The data exemption of the run-time key call (AD-508): a value that reaches no `Function`.
 //!
 //! A literal object or array that a name binds once is data, when nothing changes its prototype:
-//! no `__proto__` key, no method, no write through the name, no argument, no store and no export.
+//! no `__proto__` key, no method that reads `this`, no write through the name, no argument, no
+//! store and no export.
 
 use tree_sitter::Node;
 
@@ -68,8 +69,8 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         }
     }
 
-    /// An object or array without a `__proto__` key, a computed key, a spread, a method, an
-    /// accessor or a function that binds its own `this`: nothing in it changes its prototype.
+    /// An object or array without a `__proto__` key, a computed key, a spread, or a member that
+    /// reads its own `this`: nothing in it changes its prototype.
     fn plain_literal(&self, literal: Node<'t>) -> bool {
         let tree = self.tree;
         crate::tree::nodes::named_children(literal)
@@ -105,17 +106,27 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 | "call_expression"
                 | "subscript_expression"
                 | "parenthesized_expression"
+                | "method_definition"
                 | "as_expression" => !self.binds_this(member),
                 _ => false,
             })
     }
 
-    /// A function, a class or a generator that binds its own `this`.
+    /// A class, or a function, generator or method whose body reads `this`: called as a member of
+    /// the literal, it can change the prototype of the literal. A body without `this` cannot.
     fn binds_this(&self, node: Node<'t>) -> bool {
-        matches!(
-            self.tree.cx.unwrapped(node).kind(),
-            "function_expression" | "generator_function" | "class" | "method_definition"
-        )
+        let node = self.tree.cx.unwrapped(node);
+        match node.kind() {
+            "class" => true,
+            "function_expression" | "generator_function" | "method_definition" => {
+                let inside = |this: &Node<'t>| {
+                    this.start_byte() >= node.start_byte() && this.end_byte() <= node.end_byte()
+                };
+                let mut found = self.tree.nodes.iter().filter(|n| n.kind() == "this");
+                found.any(inside)
+            }
+            _ => false,
+        }
     }
 
     /// The declaration is below an `export`: another file can write through the name.
