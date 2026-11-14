@@ -72,6 +72,8 @@ pub(crate) struct Observed {
     pub(crate) layout: Layout,
     /// Whether a cycle rule can have its receipt (AD-496).
     pub(crate) cycle_scope: bool,
+    /// The language name of the profile, as a UML target entity names it (AD-494).
+    pub(crate) language: &'static str,
     /// Whether the host drops an allowed pair gap of the profile (slice S7).
     pub(crate) pair_gap_drop: PairGapDrop,
     /// The host can accept a dependency scope proof from the runtime of the reply (AD-418).
@@ -155,6 +157,7 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
         inventory_complete: inventory_complete(facts),
         layout: facts.profile.layout(),
         cycle_scope: facts.profile.proves_cycle_scope(),
+        language: facts.profile.language(),
         pair_gap_drop: facts.profile.pair_gap_drop(),
         scope_receipt: facts.runtime.carries_scope_proof(),
         owned_files: facts

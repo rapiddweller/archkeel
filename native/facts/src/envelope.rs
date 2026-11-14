@@ -103,12 +103,13 @@ impl Profile {
         }
     }
 
-    /// Whether a cycle rule can have its receipt: the collector proves that it sees each local
-    /// package (`_cycle_scan_coverage`). The Dart survey does not prove it (AD-496).
-    pub fn proves_cycle_scope(self) -> bool {
+    /// The language name that a UML target entity gives for a fact of this profile (AD-494).
+    pub fn language(self) -> &'static str {
         match self {
-            Profile::TypeScript | Profile::Rust | Profile::Python => true,
-            Profile::Dart => false,
+            Profile::Python => "python",
+            Profile::Dart => "dart",
+            Profile::TypeScript => "typescript",
+            Profile::Rust => "rust",
         }
     }
 
@@ -486,6 +487,9 @@ pub fn source_digest(inputs: &[Input]) -> String {
         .collect();
     sha256_hex(format!("[{}]", rows.join(",")).as_bytes())
 }
+
+#[path = "envelope_cycle.rs"]
+mod cycle;
 
 // The constructors of the envelope types; a child module that uses this one, never the reverse.
 #[path = "envelope_build.rs"]
