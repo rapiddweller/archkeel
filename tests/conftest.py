@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from core_support import built as built
 from core_support import core_binary as core_binary
+from core_support import ensure_target_dir
 from core_support import release_core as release_core
 from filelock import FileLock
 
@@ -28,7 +29,7 @@ def install_rust_toolchain(cargo: str) -> None:
     fail to rename the same download, so a test that runs `cargo` without the lock calls this first.
     """
     native = ROOT / "native"
-    (native / "target").mkdir(exist_ok=True)
+    ensure_target_dir(native)
     with FileLock(str(native / "target" / ".pytest-native-build.lock")):
         done = subprocess.run(
             [cargo, "--version"], cwd=native, capture_output=True, text=True, check=False
@@ -63,7 +64,7 @@ def build_native_copy(
         command += ["--features", ",".join(features), "--target-dir", str(target)]
     name = binary + (".exe" if os.name == "nt" else "")
     copy = factory.mktemp(label) / name
-    (native / "target").mkdir(exist_ok=True)
+    ensure_target_dir(native)
     with FileLock(str(native / "target" / ".pytest-native-build.lock")):
         for attempt in (1, 2):
             built = subprocess.run(
