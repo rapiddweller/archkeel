@@ -157,3 +157,21 @@ def test_a_declaration_of_the_scope_that_holds_the_path_still_resolves_without_a
 
     assert statuses(result).get("NO-X-TO-B") == "PASS", claims(result)
     assert result["status"] == "PASS", claims(result)
+
+
+def test_a_glob_over_a_macro_that_defines_only_a_type_keeps_its_verdict(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # The macro declares no module name or `use`, so the glob cannot bring in a module through it.
+    types = "macro_rules! mk { () => { pub struct T; }; }\nmk!();\n"
+    sources = {
+        SRC + "lib.rs": WITH_Y,
+        SRC + "b.rs": B,
+        SRC + "c.rs": C,
+        SRC + "y.rs": types,
+        SRC + "x.rs": "use crate::y::*;\npub fn f() -> T { T }\n",
+    }
+    rules = (*CRATE_RULES, forbid("native.app.x", "native.app.b"))
+    result = validate(repository(tmp_path, core_binary, sources, rules=rules), capsys)
+
+    assert result["status"] == "PASS", claims(result)
