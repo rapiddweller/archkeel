@@ -6,7 +6,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test merge-check pr-report-test ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build smoke release-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check core native-check self-validate-native native-report native-tools cargo-deny-install native-wheel golden-record
+.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test merge-check pr-report-test ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build smoke release-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check core native-check self-validate-native native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check
@@ -125,7 +125,7 @@ cargo-deny-install:
 		install -m 0755 "$$work/$$name/cargo-deny" "$${CARGO_HOME:-$$HOME/.cargo}/bin/cargo-deny"
 
 LINT_PATHS := src tests tools/mermaid_blocks.py tools/package_plugin.py \
-	tools/browser_runtime.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py \
+	tools/browser_runtime.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py \
 	native/hatch_build.py
 
 lint:
@@ -136,7 +136,7 @@ lint:
 HATCHLING_VERSION := 1.33.0
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py
+	$(UV) run --locked mypy src/archkeel tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py
 	$(UV) run --locked --with hatchling==$(HATCHLING_VERSION) mypy --strict native/hatch_build.py
 
 flutter-demo-check:
