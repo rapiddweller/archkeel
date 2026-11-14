@@ -24,6 +24,9 @@ pub(crate) enum Written {
 /// The members whose value is a window on any object: only a document or a frame has them.
 const WINDOW_MEMBERS: [&str; 3] = ["defaultView", "contentWindow", "parentWindow"];
 
+/// The members of an event that the platform sets to a window, beside the window names.
+const PLATFORM_MEMBERS: [&str; 3] = ["source", "view", "currentTarget"];
+
 /// The names that run text as code, and the member that reaches `Function` from any function.
 pub(crate) const CODE_NAMES: [&str; 3] = ["eval", "Function", "constructor"];
 
@@ -56,6 +59,8 @@ pub(crate) fn cooked(text: &str) -> Option<String> {
             continue;
         }
         match chars.next()? {
+            // A line continuation: JavaScript drops the backslash and the line end.
+            '\n' | '\r' | '\u{2028}' | '\u{2029}' => return None,
             'u' if chars.peek() == Some(&'{') => {
                 chars.next();
                 let digits: String = chars.by_ref().take_while(|c| *c != '}').collect();
@@ -63,6 +68,12 @@ pub(crate) fn cooked(text: &str) -> Option<String> {
             }
             'u' => out.push(hex_char(&mut chars, 4)?),
             'x' => out.push(hex_char(&mut chars, 2)?),
+            'n' => out.push('\n'),
+            't' => out.push('\t'),
+            'r' => out.push('\r'),
+            'b' => out.push('\u{8}'),
+            'f' => out.push('\u{c}'),
+            'v' => out.push('\u{b}'),
             other if other.is_ascii_alphanumeric() => return None,
             other => out.push(other),
         }
@@ -253,7 +264,11 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 }
                 let name = tree.text(node);
                 if tree.binding_scope(node, &name).is_some() {
-                    return self.is_alias(self.wrapper_of(node), &name);
+                    // A local binding is no global; only a wrapper parameter names the window.
+                    let wrapper = self
+                        .wrapper_of(node)
+                        .and_then(|w| self.wrappers.get(&w.id()));
+                    return wrapper.is_some_and(|info| info.names.contains(&name));
                 }
                 cooked(&name).is_none_or(|name| is_window_name(&name))
             }
@@ -267,23 +282,43 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                     return false;
                 };
                 let name = cooked(&tree.text(property));
-                if name
-                    .as_deref()
-                    .is_none_or(|name| WINDOW_MEMBERS.contains(&name))
-                {
+                let Some(name) = name else {
+                    return true;
+                };
+                if WINDOW_MEMBERS.contains(&name.as_str()) {
                     return true;
                 }
-                // A window name is a window only as a member of a window: `box.top` is data.
-                let object = tree.field(node, F::Object).map(|o| tree.cx.unwrapped(o));
-                name.is_some_and(|name| is_window_name(&name))
-                    && object.is_some_and(|object| {
-                        self.window_leaf(object)
-                            || (object.kind() == "subscript_expression"
-                                && self.window_value(object))
-                    })
+                // The platform hands out a window through these members of an event or a
+                // window. Only an object that the file makes as data cannot hold one.
+                let platform = is_window_name(&name) || PLATFORM_MEMBERS.contains(&name.as_str());
+                platform
+                    && !tree
+                        .field(node, F::Object)
+                        .is_some_and(|object| self.data_base(object))
             }
             _ => false,
         }
+    }
+
+    /// The base of a member chain is data that the file makes: a name bound once, never written,
+    /// to an object or array literal or to `Object.create(null)`. The platform gives no such value,
+    /// and a window stored into it later escapes and writes an unknown name.
+    pub(crate) fn data_base(&self, object: Node<'t>) -> bool {
+        let tree = self.tree;
+        let mut base = tree.cx.unwrapped(object);
+        while let Some(inner) = tree.field(base, F::Object) {
+            base = tree.cx.unwrapped(inner);
+        }
+        base.kind() == "identifier"
+            && self
+                .sole_value(base)
+                .is_some_and(|value| match value.kind() {
+                    "object" | "array" => true,
+                    "call_expression" => {
+                        tree.text(value).replace(char::is_whitespace, "") == "Object.create(null)"
+                    }
+                    _ => false,
+                })
     }
 
     /// What binds the `this` at a node. A computed name of a class member is read outside it.

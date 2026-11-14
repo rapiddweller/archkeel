@@ -46,6 +46,55 @@ CODE = {
 }
 
 
+# Review of #1161: each form gave PASS on its head and must stay a gap (B1, B2, D1, F2).
+REVIEW_DECLARATIONS = "declare const k: string, x: any, g: any, el: any, e: any, t: string;\n"
+REVIEW = {
+    "b1-logical-parent": "(x || document.defaultView).parent[k] = 1;",
+    "b1-ternary-top": "(x ? el.contentWindow : x).top[k] = 1;",
+    "b1-sequence-top": "(0, document.defaultView).top[k] = 1;",
+    "b1-escape-parent": "g((x || document.defaultView).parent);",
+    "b1-parent-eval": "(x || document.defaultView).parent.eval('open = 1');",
+    "b2-continuation": "el.innerHTML = '<details open o\\\nntoggle=open=1>';",
+    "b2-template": "el.innerHTML = `<details open o\\\nntoggle=open=1>`;",
+    "b2-crlf": "el.innerHTML = '<details open o\\\r\nntoggle=open=1>';",
+    "b2-separator": "el.innerHTML = '<details open o\\\u2028ntoggle=open=1>';",
+    "b2-fragment": "el.createContextualFragment('<scr\\\nipt>open = 1</script>');",
+    "d1-source-key": "e.source[k] = 1;",
+    "d1-view-key": "e.view[k] = 1;",
+    "d1-view-escape": "g(e.view);",
+    "d1-view-assign": "Object.assign(e.view, { [k]: 1 });",
+    "d1-source-top": "e.source.top[k] = 1;",
+    "d1-opener-key": "x.opener[k] = 1;",
+    "d1-view-eval": "e.view.eval(t);",
+    "d1-source-function": "e.source.Function(t)();",
+    "d1-target-eval": "e.currentTarget.eval(t);",
+    "d1-new-function": "new x.Function(t);",
+    "d1-eval-call": "x.eval.call(null, t);",
+    "d1-function-alias": "declare const Level: any;\nconst F = Level.Function;\nF(t)();",
+    "d1-method-eval": (
+        'class C { m(this: any) { this.eval(t); } }\naddEventListener("load", new C().m);'
+    ),
+    "f2-comment-html": (
+        "el.insertAdjacentHTML(/* c */ 'beforeend', '<details open ontoggle=open=1>');"
+    ),
+    "f2-comment-attribute": "el.setAttributeNS(/* c */ 'x', 'onclick', t);",
+    "f2-comment-element": "document.createElementNS(/* c */ 'x', 'script');",
+    "f2-html-key": "el['innerHTML'] = t;",
+    "f2-html-pattern": "[el.innerHTML] = [t];",
+    "f2-eval-key": "x['eval'](t);",
+    "f2-function-pattern": "const { Function: F } = x;\nF(t)();",
+    "f2-tab-scheme": "el.src = 'java\\tscript:open=1';",
+    "f2-raw-tab-scheme": "el.src = 'java\tscript:open=1';",
+}
+
+
+@pytest.mark.parametrize("name", sorted(REVIEW))
+def test_a_review_form_of_1161_gives_no_pass(tmp_path: Path, release_core: Path, name: str) -> None:
+    write = MODULE + REVIEW_DECLARATIONS + REVIEW[name]
+    code, document = _verdict(_project(tmp_path, write, "window.open();\n"), release_core)
+    assert (code, document["status"]) != (0, "PASS"), name
+
+
 # Each markup literal that the write check refuses (AD-460): every one can run or load code.
 MARKUP = {
     "upper-case-handler": "<IMG SRC=x ONERROR=y>",

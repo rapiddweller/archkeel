@@ -72,10 +72,10 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
     fn key_is_code(&self, key: Node<'t>) -> bool {
         match key.kind() {
-            "property_identifier" => self.name_is(key, &["constructor"]),
+            "property_identifier" => self.name_is(key, &CODE_NAMES),
             "computed_property_name" => true,
             _ => crate::script_window::string_text(self, key)
-                .is_none_or(|text| text == "constructor"),
+                .is_none_or(|text| CODE_NAMES.contains(&text.as_str())),
         }
     }
 
@@ -98,12 +98,12 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         if member.is_none() && tree.binding_scope(node, &tree.text(node)).is_some() {
             return false;
         }
-        // A member `eval` or `Function` is the global only on a window value: another object
-        // holds it only after a store of the global, which escapes and writes an unknown name.
-        // A `constructor` member of any function is `Function`, so it stays.
+        // A member `eval` or `Function` of data that the file makes is a property that the file
+        // sets: a store of the global escapes and writes an unknown name. On any other object it
+        // can be the global of a window that the platform hands out. `constructor` always stays.
         let local_property = member
             .and_then(|member| tree.field(member, F::Object))
-            .is_some_and(|object| !self.window_value(object))
+            .is_some_and(|object| self.data_base(object))
             && self.name_is(node, &["eval", "Function"]);
         let code = self.name_is(node, &CODE_NAMES)
             && (member.is_some() || !self.name_is(node, &["constructor"]))
@@ -191,6 +191,14 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     fn computed_code(&self, node: Node<'t>) -> bool {
         let tree = self.tree;
         let index = tree.field(node, F::Index);
+        let named = index.and_then(|index| crate::script_window::string_text(self, index));
+        if let Some(name) = named.filter(|name| CODE_NAMES.contains(&name.as_str())) {
+            let data = name != "constructor"
+                && tree
+                    .field(node, F::Object)
+                    .is_some_and(|o| self.data_base(o));
+            return !data && self.used(node);
+        }
         if literal(index, tree.cx.source).is_some() || index.is_some_and(|i| i.kind() == "number") {
             return false;
         }
@@ -221,13 +229,11 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         }
         match node.kind() {
             "string" | "template_string" => crate::script_window::string_text(self, node)
-                .is_some_and(|text| {
-                    text.trim_start()
-                        .to_ascii_lowercase()
-                        .starts_with("javascript:")
-                }),
+                .is_some_and(|text| url_text(&text).starts_with("javascript:")),
             "call_expression" => self.injecting_call(node),
-            "assignment_expression" | "augmented_assignment_expression" => self.html_write(node),
+            "assignment_expression" | "augmented_assignment_expression" | "for_in_statement" => {
+                self.html_write(node)
+            }
             _ => false,
         }
     }
@@ -235,16 +241,30 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// A write of HTML text into an element, unless the text is a literal without markup.
     fn html_write(&self, node: Node<'t>) -> bool {
         let tree = self.tree;
-        let target = tree
+        let left = tree
             .field(node, F::Left)
             .map(|left| tree.cx.unwrapped(left));
-        let html = target
-            .filter(|t| t.kind() == "member_expression")
-            .and_then(|t| {
-                tree.field(t, F::Property)
-                    .map(|p| HTML_MEMBERS.contains(&tree.text(p).as_str()))
-            });
-        html == Some(true) && !self.plain_text(tree.field(node, F::Right))
+        let targets = tree.script_targets(node);
+        let html = targets
+            .iter()
+            .any(|target| self.html_member(tree.cx.unwrapped(*target)));
+        // Only a plain assignment of one member has a value that this check can read.
+        let plain = node.kind() == "assignment_expression"
+            && left.is_some_and(|left| self.html_member(left));
+        html && !(plain && self.plain_text(tree.field(node, F::Right)))
+    }
+
+    /// A member `innerHTML`, `outerHTML` or `srcdoc`, also with a literal key.
+    fn html_member(&self, target: Node<'t>) -> bool {
+        let tree = self.tree;
+        let name = match target.kind() {
+            "member_expression" => tree.field(target, F::Property).map(|p| tree.text(p)),
+            "subscript_expression" => tree
+                .field(target, F::Index)
+                .and_then(|index| crate::script_window::string_text(self, index)),
+            _ => None,
+        };
+        name.is_some_and(|name| HTML_MEMBERS.contains(&name.as_str()))
     }
 
     /// A literal text whose markup holds no handler, script, frame or code link.
@@ -261,7 +281,10 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let arguments: Vec<Node<'t>> = tree
             .field(call, F::Arguments)
             .map(crate::tree::nodes::named_children)
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|argument| argument.kind() != "comment")
+            .collect();
         let text_of = |at: usize| {
             arguments
                 .get(at)
@@ -367,6 +390,7 @@ const CODE_PARTS: [&str; 12] = [
 /// reference). Text without `<` holds no element.
 fn inert_markup(text: &str) -> bool {
     let lower = text.to_ascii_lowercase();
+    let url = url_text(text);
     if !lower.contains('<') {
         return true;
     }
@@ -384,7 +408,7 @@ fn inert_markup(text: &str) -> bool {
             .collect();
         CODE_ELEMENTS.contains(&name.as_str())
     });
-    !handler && !element && !CODE_PARTS.iter().any(|part| lower.contains(part))
+    !handler && !element && !CODE_PARTS.iter().any(|part| url.contains(part))
 }
 
 /// An attribute name `on…` at `at`: after any byte that is no letter or digit, before `=`.
@@ -398,4 +422,15 @@ fn handler_at(bytes: &[u8], at: usize) -> bool {
         .map_or(bytes.len(), |n| at + n);
     let rest = bytes.get(name_end..).unwrap_or(&[]);
     starts && rest.iter().find(|b| !b.is_ascii_whitespace()) == Some(&b'=')
+}
+
+/// The text as a browser reads a URL scheme: lower case, without tab, line feed and carriage
+/// return, and without leading control characters and spaces.
+fn url_text(text: &str) -> String {
+    let kept: String = text
+        .chars()
+        .filter(|c| !matches!(c, '\t' | '\n' | '\r'))
+        .collect();
+    kept.trim_start_matches(|c: char| c <= ' ')
+        .to_ascii_lowercase()
 }

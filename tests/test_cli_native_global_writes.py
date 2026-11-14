@@ -136,9 +136,14 @@ SCRIPT_WRITES = {
 # Forms that do not write onto the global object: a strict `this`, a local name, a type, a read.
 EXACT = {
     "module-top-this": MODULE + "export const t = this;",
-    "data-source": MODULE + "export const f = (item: any, g: any) => g(item.source, item.view);",
-    "data-window-names": MODULE + "export const f = (box: any, g: any) => g(box.top, box.parent);",
-    "member-function": MODULE + "declare const Level: any;\nexport const x = [Level.Function];",
+    "data-source": MODULE
+    + "declare const g: any;\nconst item = { source: 1, view: 2 };\ng(item.source, item.view);",
+    "data-window-names": MODULE
+    + "declare const g: any;\nconst box = Object.create(null);\ng(box.top, box.parent);",
+    "member-function": MODULE
+    + 'const Level = { Function: "f" } as const;\nexport const x = [Level.Function];',
+    "local-frames": MODULE
+    + "declare const g: any;\nconst frames = Object.create(null);\ng(frames);",
     "literal-markup": MODULE
     + "export const f = (e: any) => { e.innerHTML = '<p class=\"k\">x</p>'; };",
     "typeof-timer": MODULE + 'export const t = typeof setTimeout === "function";',
