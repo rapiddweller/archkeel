@@ -359,9 +359,14 @@ fn a_name_that_the_file_declares_hides_the_alias_or_is_unknown() {
 
 #[test]
 fn an_alias_that_only_a_nested_module_binds_is_no_prelude_name() {
-    let root = "mod a;\nmod b;\n";
-    assert_eq!(
-        aliased(root, "fn t() { me::a::f(); }", "me::a::f"),
-        Outcome::None
-    );
+    let all = [
+        (
+            "Cargo.toml",
+            "[package]\nname = \"app\"\nedition = \"2021\"\n",
+        ),
+        ("src/lib.rs", "mod a;\nmod b;\n"),
+        ("src/a.rs", "extern crate self as me;\npub fn f() {}"),
+        ("src/b.rs", "fn t() { me::a::f(); }"),
+    ];
+    assert_eq!(outcome_in(&all, "ns.app.b", "me::a::f"), Outcome::None);
 }
