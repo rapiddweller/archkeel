@@ -79,21 +79,21 @@ struct Records {
 
 impl Records {
     fn produce(self, writer: &mut impl SectionSink) -> std::io::Result<Tail> {
-        let Self {
-            imports,
-            unknowns,
-            symbols,
-            coverage,
-            evidence,
-        } = self;
-        writer.write_typed_section::<ImportFact>(|emit| imports.iter().for_each(emit))?;
-        writer.write_typed_section::<GapFact>(|emit| unknowns.iter().for_each(emit))?;
-        writer.write_typed_section::<SymbolFact>(|emit| symbols.iter().for_each(emit))?;
+        writer.write_typed_section::<ImportFact>(|emit| self.imports.iter().for_each(emit))?;
+        writer.write_typed_section::<GapFact>(|emit| self.unknowns.iter().for_each(emit))?;
+        writer.write_typed_section::<SymbolFact>(|emit| self.symbols.iter().for_each(emit))?;
+        self.tail()
+    }
+
+    /// The tail of the stream: the coverage counts, the gaps and the evidence.
+    fn tail(self) -> std::io::Result<Tail> {
+        let files_read =
+            usize::try_from(self.coverage.files_read).map_err(std::io::Error::other)?;
         Ok(Tail {
-            selected_files: coverage.selected_files,
-            files_read: usize::try_from(coverage.files_read).map_err(std::io::Error::other)?,
-            gaps: coverage.gaps,
-            evidence,
+            selected_files: self.coverage.selected_files,
+            files_read,
+            gaps: self.coverage.gaps,
+            evidence: self.evidence,
         })
     }
 }

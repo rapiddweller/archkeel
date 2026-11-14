@@ -101,7 +101,8 @@ SHAPES: dict[str, Plant] = {
     "wrong-kind": pl("class f:\n    pass\n", [fn()], "DIFF"),
     "enum-as-class": pl("from enum import Enum\n\n\nclass A(Enum):\n    R = 1\n", [C], "DIFF"),
     "protocol-subclass": pl(
-        "from typing import Protocol\n\n\nclass P(Protocol):\n    pass\n\n\nclass A(P):\n    pass\n",
+        "from typing import Protocol\n\n\nclass P(Protocol):\n    pass\n\n\n"
+        "class A(P):\n    pass\n",
         [Want("interface", "P"), Want("interface", "A")],
         "DIFF",
     ),
@@ -181,7 +182,8 @@ DECORATED: dict[str, Plant] = {
         "PASS",
     ),
     "shadowed-staticmethod": pl(
-        "staticmethod = lambda fn: 5\n\n\nclass A:\n    @staticmethod\n    def s():\n        pass\n",
+        "staticmethod = lambda fn: 5\n\n\n"
+        "class A:\n    @staticmethod\n    def s():\n        pass\n",
         [C, Want("method", "A.s", STATIC)],
         "DIFF",
     ),
@@ -215,7 +217,8 @@ CLASSES: dict[str, Plant] = {
         "DIFF",
     ),
     "generic-base": pl(
-        "from typing import Generic, TypeVar\n\nT = TypeVar('T')\n\n\nclass A(Generic[T]):\n    pass\n",
+        "from typing import Generic, TypeVar\n\nT = TypeVar('T')\n\n\n"
+        "class A(Generic[T]):\n    pass\n",
         [C],
         "PASS",
     ),
@@ -273,7 +276,8 @@ MEMBERS: dict[str, Plant] = {
         "class A:\n    pass\n\n\nA.x = 1\n", [C, Want("attribute", "A.x")], "PASS"
     ),
     "enum-open-body": pl(
-        "from enum import Enum\n\n\ndef make():\n    return 1\n\n\nclass E(Enum):\n    R = make()\n",
+        "from enum import Enum\n\n\ndef make():\n    return 1\n\n\n"
+        "class E(Enum):\n    R = make()\n",
         [Want("enum", "E"), Want("enum_literal", "E.R")],
         "PASS",
     ),

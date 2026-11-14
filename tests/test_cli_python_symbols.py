@@ -24,7 +24,7 @@ ROWS = json.loads((Path(__file__).parent / "python_symbol_rows.json").read_text(
 STRICTER = {("PASS", "UNKNOWN"), ("FAIL", "UNKNOWN")}
 # 4.0.1 PASS, 4.0.1 FAIL and core row counts: (equal, PASS to UNKNOWN, FAIL to UNKNOWN, plants).
 COUNTS = (43, 25, 5, 73)
-# 4.0.1 gives FAIL where Python binds what the target plans (a false FAIL), or PASS where it does not.
+# Release 4.0.1 gives FAIL where Python binds what the target plans: a false FAIL.
 FALSE_FAIL = {"globals-write", "dict-instance", "nested-function"}
 
 
