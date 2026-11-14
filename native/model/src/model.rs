@@ -141,6 +141,13 @@ impl Model {
         self.pairs.kept.len()
     }
 
+    /// The module pairs `(source, target)` of the pair gaps that the drop rule dropped because the
+    /// contract allows the edge. The code may use the edge: it is only not resolved.
+    pub fn dropped_pair_gaps(&self) -> impl Iterator<Item = (&str, &str)> {
+        let gaps = self.pairs.dropped.iter();
+        gaps.map(|gap| (gap.source.as_str(), gap.target.as_str()))
+    }
+
     /// The reply part of the model.
     pub fn graph(&self) -> &Graph {
         &self.graph

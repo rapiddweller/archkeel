@@ -42,6 +42,11 @@ mod topology_projection;
 
 /// The exit code of a frame that names an unsupported or refused part.
 const NAMES_A_GAP: u8 = 3;
+/// The bytes of a scan request: the root, the config and a few flags. The core reads the files.
+const SCAN_REQUEST_LIMIT: u64 = 1 << 20;
+/// The bytes of a request that carries a collector reply as hex text (the harness and the check
+/// request): twice the largest reply that the store accepts.
+const REPLY_REQUEST_LIMIT: u64 = 1 << 30;
 
 use std::io::{self, Read, Write};
 use std::process::ExitCode;
@@ -51,10 +56,16 @@ fn main() -> ExitCode {
     // Three request kinds and one engine path: the dual run of the harness (AD-360), the check
     // request of the shell (AD-390) and the scan request, for which the core runs the collector in
     // its own process (AD-406).
-    let answer: Answer = match arguments.as_slice() {
-        [kind] if kind == "dual-run" => |input| dual_run::answer(input).map_err(Into::into),
-        [kind] if kind == "check" => |input| check::answer(input).map_err(Into::into),
-        [kind] if kind == "scan" => scan::answer,
+    let (answer, limit): (Answer, u64) = match arguments.as_slice() {
+        [kind] if kind == "dual-run" => (
+            |input| dual_run::answer(input).map_err(Into::into),
+            REPLY_REQUEST_LIMIT,
+        ),
+        [kind] if kind == "check" => (
+            |input| check::answer(input).map_err(Into::into),
+            REPLY_REQUEST_LIMIT,
+        ),
+        [kind] if kind == "scan" => (scan::answer, SCAN_REQUEST_LIMIT),
         _ => {
             eprintln!(
                 "usage: archkeel-core dual-run|check|scan  (a JSON request on stdin, AD-360, AD-390, \
@@ -63,16 +74,44 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let mut input = Vec::new();
-    if let Err(error) = io::stdin().lock().read_to_end(&mut input) {
-        eprintln!("archkeel-core: {error}");
-        return ExitCode::FAILURE;
-    }
+    let input = match read_request(io::stdin().lock(), limit) {
+        Ok(input) => input,
+        Err(Unread::Over) => {
+            eprintln!("archkeel-core: the request is larger than {limit} bytes");
+            return ExitCode::from(2);
+        }
+        Err(Unread::Io(error)) => {
+            eprintln!("archkeel-core: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
     let (code, message) = respond_with(answer, &input, &mut io::stdout().lock());
     if let Some(message) = message {
         eprintln!("{message}");
     }
     ExitCode::from(code)
+}
+
+/// Why a request was not read.
+#[derive(Debug)]
+enum Unread {
+    /// More than the limit: the rest of stdin is never read.
+    Over,
+    Io(io::Error),
+}
+
+/// Read the request, at most `limit` bytes. The read stops one byte after the limit, so the memory
+/// of a refused request is bounded by the limit and not by the size of stdin.
+fn read_request(input: impl Read, limit: u64) -> Result<Vec<u8>, Unread> {
+    let mut bytes = Vec::new();
+    input
+        .take(limit + 1)
+        .read_to_end(&mut bytes)
+        .map_err(Unread::Io)?;
+    if bytes.len() as u64 > limit {
+        return Err(Unread::Over);
+    }
+    Ok(bytes)
 }
 
 /// The answer of one request kind: the frame and whether it names a gap, or why the core cannot

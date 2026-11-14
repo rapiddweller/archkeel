@@ -44,6 +44,28 @@ pub(crate) fn observed(contract: &Contract, graph: &Graph) -> BTreeSet<Pair> {
         .collect()
 }
 
+/// The component edges that only a dropped pair gap names (#1021): the contract allows the pair
+/// and the collector could not tell whether the call reaches it. Such an edge is neither observed
+/// nor absent. The value is the module of the call. An edge that the code also observes is not in
+/// the map.
+pub(crate) fn unconfirmed<'a>(
+    contract: &Contract,
+    observed: &BTreeSet<Pair>,
+    dropped: impl Iterator<Item = (&'a str, &'a str)>,
+) -> BTreeMap<Pair, String> {
+    let components = contract.components();
+    let mut held = BTreeMap::new();
+    for (source, target) in dropped {
+        if let (Some(from), Some(to)) = (owner(components, source), owner(components, target)) {
+            let pair = (from.to_owned(), to.to_owned());
+            if from != to && !observed.contains(&pair) {
+                held.entry(pair).or_insert_with(|| source.to_owned());
+            }
+        }
+    }
+    held
+}
+
 /// The pair that a whole-package rule decides (`component_pair`).
 fn pair(components: &[Component], source: &str, target: &str) -> Option<Pair> {
     let labels = |name: &str| -> BTreeSet<&str> {

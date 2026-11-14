@@ -263,7 +263,13 @@ impl Walked {
             return;
         }
         let test = self.test_scope(parent, child, &rel);
-        if !self.claimed.insert(rel.clone()) {
+        let taken = !self.claimed.insert(rel.clone());
+        if taken && test {
+            // A test target that the request leaves out is no second owner of a file that
+            // another module loaded: nothing of it enters the reply.
+            return;
+        }
+        if taken {
             let reason = format!("The file {rel} is the file of two modules");
             self.both(&reason, &rel, &parent.rel);
             return;

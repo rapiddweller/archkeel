@@ -8,7 +8,6 @@
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::references::literal;
 use crate::script_syntax::Producer;
 use crate::script_window::{cooked, Written, CODE_NAMES, TIMERS};
 
@@ -38,7 +37,8 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         }
         let unknown = self.runs_code(node)
             || self.injects_code(node)
-            || (self.window_leaf(node) && self.escapes(node, true));
+            || (self.window_leaf(node) && self.escapes(node, true))
+            || self.open_form(node);
         unknown.then_some(Written::Unknown)
     }
 
@@ -184,13 +184,17 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let tree = self.tree;
         let index = tree.field(node, F::Index);
         let named = index.and_then(|index| crate::script_window::string_text(self, index));
-        if named.is_some_and(|name| CODE_NAMES.contains(&name.as_str())) {
+        if named
+            .as_ref()
+            .is_some_and(|name| CODE_NAMES.contains(&name.as_str()))
+        {
             return self.used(node);
         }
-        if literal(index, tree.cx.source).is_some() || index.is_some_and(|i| i.kind() == "number") {
-            return false;
+        // A literal key names the member as the dotted form does: `x['setTimeout'](t)`.
+        if named.is_some_and(|name| TIMERS.contains(&name.as_str())) {
+            return self.timer_runs_text(node);
         }
-        let Some(object) = tree.field(node, F::Object).map(|o| tree.cx.unwrapped(o)) else {
+        let Some(object) = self.runtime_object(node) else {
             return false;
         };
         let reaches = match object.kind() {
