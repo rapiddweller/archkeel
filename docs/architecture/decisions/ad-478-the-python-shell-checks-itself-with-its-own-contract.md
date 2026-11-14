@@ -1,4 +1,4 @@
-# AD-474 The Python shell checks itself with its own contract
+# AD-478 The Python shell checks itself with its own contract
 
 **Status.** Proposed. Part of #880. It extends AD-335, AD-432 and AD-450.
 

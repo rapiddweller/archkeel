@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-432, AD-474: a self-check target fails without the pinned result of the core."""
+"""AD-432, AD-478: a self-check target fails without the pinned result of the core."""
 
 import os
 import subprocess

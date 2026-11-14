@@ -132,7 +132,7 @@ A result that differs from the pin, a refusal or no result fails the target.
 The full result is in ignored `test-artifacts/validation-native/result.json`.
 `make self-validate-shell` checks the Python shell of `src/archkeel` with the contract
 `docs/architecture/target/shell-contract.json` against the pinned rows of
-`docs/architecture/target/shell-expected.json` ([shell](docs/architecture/shell.md), AD-474).
+`docs/architecture/target/shell-expected.json` ([shell](docs/architecture/shell.md), AD-478).
 `make self-validate` runs both checks. The tools have no architecture contract.
 
 ## A behaviour change carries its decision

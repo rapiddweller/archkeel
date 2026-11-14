@@ -14,29 +14,8 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
-env:
-  # AD-436: each platform wheel carries the core. The release stays closed while a platform of the
-  # matrix gives no verdict: `NO_VERDICT` in `tools/release_core.py` names each one. Only "true"
-  # opens the release, and then `tools/release_core.py` must pass on the wheels.
-  PUBLISH_NATIVE_WHEELS: "false"
-
 jobs:
-  core-in-wheel:
-    name: Refuse a release while a wheel of the matrix gives no verdict
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions: {}
-    steps:
-      - name: Stop before Full verification while the release is closed
-        run: |
-          set -euo pipefail
-          [[ "$PUBLISH_NATIVE_WHEELS" == true ]] || {
-            echo "::error::No release from this line: the wheel of win_amd64 carries archkeel-core and gives no verdict, because the core refuses each root on Windows (AD-436). Release 4.0.1 is the last release that decides."
-            exit 2
-          }
-
   verify:
-    needs: core-in-wheel
     uses: ./.github/workflows/full-verification.yml
     # The upper limit for the jobs of Full: a called job cannot ask for more than its caller gives.
     # Only `verified` and `publish-gallery` ask for more than `contents: read`, in their own blocks.
@@ -76,10 +55,9 @@ jobs:
           merge-multiple: true
           path: native-wheels/
 
-      - name: Add the platform wheels only when PUBLISH_NATIVE_WHEELS is true
+      - name: Add the platform wheels that full verification built and ran
         run: |
           set -euo pipefail
-          [[ "$PUBLISH_NATIVE_WHEELS" == true ]] || exit 2
           shopt -s nullglob
           wheels=(native-wheels/*.whl)
           sdists=(dist/*.tar.gz)

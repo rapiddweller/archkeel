@@ -93,7 +93,7 @@ self-validate-native: core
 	$(UV) run --locked python tools/native_expected.py test-artifacts/validation-native/result.json native/expected-gaps.json
 	@echo "Native architecture rules: as pinned in native/expected-gaps.json; full result: test-artifacts/validation-native/result.json"
 
-# AD-474: Archkeel checks the Python shell of src/archkeel with its own core and its own contract.
+# AD-478: Archkeel checks the Python shell of src/archkeel with its own core and its own contract.
 # The result must equal the pinned rows of docs/architecture/target/shell-expected.json.
 self-validate-shell: core
 	@mkdir -p test-artifacts/validation-shell
@@ -101,7 +101,7 @@ self-validate-shell: core
 	$(UV) run --locked python tools/native_expected.py test-artifacts/validation-shell/result.json docs/architecture/target/shell-expected.json
 	@echo "Shell architecture rules: as pinned in docs/architecture/target/shell-expected.json; full result: test-artifacts/validation-shell/result.json"
 
-# AD-474: the shell and native/ with their own contracts.
+# AD-478: the shell and native/ with their own contracts.
 self-validate: self-validate-native self-validate-shell
 
 # AD-343: record the golden replies of the TypeScript collector. REASON says why a reply changes.

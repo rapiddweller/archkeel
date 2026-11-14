@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-474: the core decides each rule of the contract of the Python shell (#880).
+"""AD-478: the core decides each rule of the contract of the Python shell (#880).
 
 The tests copy `src/archkeel` and the shell contract into a Git repository, run the default
 `archkeel validate` with the core of this build, and compare the rows with the pinned file

@@ -3,7 +3,7 @@
 The Python shell in `src/archkeel` starts the core binary and prints its frame. It decides nothing
 ([AD-432](decisions/ad-432-the-rust-core-is-the-only-decision-path.md)).
 Archkeel checks the shell with its own core and the contract in
-`docs/architecture/target/shell-contract.json` (AD-474). Run `make self-validate-shell` to check it.
+`docs/architecture/target/shell-contract.json` (AD-478). Run `make self-validate-shell` to check it.
 `make self-validate` checks the shell and `native/`. The pinned rows are in
 `docs/architecture/target/shell-expected.json`.
 
@@ -40,7 +40,7 @@ from the shell to the core. `SHELL-ONLY-LAUNCH-STARTS-A-PROCESS` keeps it in one
 - A rule that a module reads no frame field, or builds no `Status` value: there is no rule kind
   for the use of a name inside a function.
 - A rule that the shell never imports the Rust crates: they are not Python modules, and a
-  mixed-language contract tree is refused (see AD-474).
+  mixed-language contract tree is refused (see AD-478).
 
 <!-- archkeel-component-graph -->
 ```mermaid

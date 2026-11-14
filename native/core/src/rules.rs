@@ -125,5 +125,6 @@ pub(crate) fn named(
         rules,
         contract: None,
         hold: (!whole).then_some(Reason::Unsupported(Unsupported::TreeScope)),
+        uml: None,
     }
 }

@@ -5,9 +5,10 @@
 
 The Python shell decides nothing. A wheel without `archkeel-core` gives a package that refuses each
 run, so the release build runs this check on `dist/` before it uploads a distribution. Each wheel
-must hold the core binary and the digest of that binary, and its platform must not be in
-`NO_VERDICT`. The wheel of the build host, installed alone, must give a verdict of its own core
-for a fixture. Full verification installs the wheel of each other target on that target.
+must hold the core binary and the digest of that binary, and its platform must be one of
+`PLATFORM_TAGS`, each exactly once: Full builds, installs and runs those wheels on their platforms
+(AD-476). The wheel of the build host, installed alone, must give a verdict of its own core for a
+fixture. Full verification installs the wheel of each other target on that target.
 
 Run: `python -m tools.release_core <dist> <wheel of this host>`. Exit 0 or 2.
 """
@@ -15,6 +16,7 @@ Run: `python -m tools.release_core <dist> <wheel of this host>`. Exit 0 or 2.
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import subprocess
 import sys
@@ -22,12 +24,13 @@ import zipfile
 from pathlib import Path
 
 MEMBER = "archkeel/_native/archkeel-core"
-# A platform whose wheel carries the core and gives no verdict, with the cause (AD-436).
-NO_VERDICT = {
-    "win_amd64": "the core refuses each root on Windows: it requires the canonical text of the "
-    "root, and Rust gives the canonical path of Windows with the prefix \\\\?\\",
-}
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures/H-typescript"
+
+
+def platform_tags() -> tuple[str, ...]:
+    """The platforms of a release. A lazy import: mypy would find the module under two names."""
+    tags: tuple[str, ...] = importlib.import_module("tools.publish_release").PLATFORM_TAGS
+    return tags
 
 
 def carries_core(wheel: Path) -> bool:
@@ -88,11 +91,9 @@ def problems(dist: Path, host: Path) -> list[str]:
         return [f"{dist} holds no wheel"]
     found = [f"{wheel.name} does not carry {MEMBER} and its digest" for wheel in wheels]
     found = [line for line, wheel in zip(found, wheels, strict=True) if not carries_core(wheel)]
-    found += [
-        f"{wheel.name} gives no verdict: {cause}"
-        for wheel in wheels
-        if (cause := NO_VERDICT.get(wheel.stem.rsplit("-", 1)[-1]))
-    ]
+    tags = sorted(wheel.stem.split("-", 2)[2] for wheel in wheels)
+    if tags != sorted(platform_tags()):
+        found.append(f"the wheels {tags} are not exactly the platforms {sorted(platform_tags())}")
     if found:
         return found
     if host.resolve() not in {wheel.resolve() for wheel in wheels}:
