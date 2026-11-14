@@ -2,20 +2,19 @@
 
 **Status.** Proposed. Part of #880. It extends AD-512 to Python. PR 2 of 5 (L-173).
 
-**Reason.** AD-512 gave the model the symbol table and the TypeScript facts. A Python reply had no
-`symbols` section, so the symbol part of a UML target was one named gap. Release 4.0.1 decides it
-from every definition that `ast` shows. Python binds a name when the module runs, so a name that
-two statements bind, a decorator that replaces the object, or a base that changes the kind makes
-the source text a wrong witness.
+**Reason.** A Python reply had no `symbols` section, so the symbol part of a UML target was one
+named gap. Release 4.0.1 decides it from each definition that `ast` shows. Python binds a name when
+the module runs: a second binder, a decorator that replaces the object or a base that changes the
+kind makes the text a wrong witness.
 
 **Decision.**
 1. The reply of the Python survey declares the section `symbols` (store: `imports`, `symbols`,
    `unknowns`). It has one record for each class, function, method and class attribute that
    rule 2 to 7 admit. `Profile::symbol_facts` is true for Python.
 2. **One reader of binders.** `survey/bound.rs` (AD-504) is the one function of "the names that a
-   statement binds" for a module body and for a class body: each target form, pattern, walrus,
-   `for`, `with` and `except` target, import, `del`, star import and `global`. `survey/writes.rs`
-   is the one reader of "the objects that a statement writes to". This change adds no second one.
+   statement binds" for a module body and a class body (each target form, pattern, walrus, `for`,
+   `with`, `except`, import, `del`, star import, `global`); `survey/writes.rs` is the one reader of
+   "the objects that a statement writes to". This change adds no second one.
 3. **Sole binder.** A record is written for a direct statement of a module or class body that is
    the only statement that binds its name and is a `def`, a `class`, `name = value` or
    `name: T`. Any other binder of the name (second `def`, `if`, `try`, `for`, `with`, `del`,
@@ -40,38 +39,31 @@ the source text a wrong witness.
    two member inventories, always `partial`: a base, a metaclass, a decorator or a write after the
    class body (`C.x = v`, `setattr(C, ...)`, `cls.x = v`) can add a member. A module with an
    attribute write whose base is not `self` writes no member. Instances (`self.x` in `__init__`,
-   `setattr(self, ...)`, `__dict__`) are no class member. A module-level value (constant, type
-   alias, binding) and a function inside a function write no record (AD-377: they need the
-   admission of a value).
+   `setattr(self, ...)`, `__dict__`) are no class member. A module-level value and a function
+   inside a function write no record (AD-377: a value needs its admission).
 8. **Sites are not stated.** The Python reply declares no `calls` and no `references`, and a class
    has no `base_declarations`. `Profile::symbol_sites` is false for Python. The model gives
    each relationship (`inherits`, `realizes`, `mixes_in`, `calls`, `references`, `creates`,
    `instance_of`) the cause "the python collector states no symbol sites" and builds no base
    receipt: a FAIL for a missing base is impossible. PR 3 writes the sites.
 
-**Fixture rows.** H-uml stays UNKNOWN (exit 2): its target lists eight relationships. The 21
-entity assessments move from "the python collector states no symbol facts" to PASS for 18; three
-stay UNKNOWN by rule 7 (`item` in a function, `Text`, `VERSION`: module values). The seven
-relationships give the cause of rule 8.
-`fixtures/matrix.json` does not change.
+**Fixture rows.** H-uml stays UNKNOWN (exit 2): its target lists seven site relationships. Of its
+21 entities 18 move from "states no symbol facts" to PASS; `item`, `Text` and `VERSION` stay
+UNKNOWN (rule 7). `fixtures/matrix.json` does not change.
 
-**Plants (75, `tests/test_cli_python_symbols.py`).** Against 4.0.1: 43 equal, 27 PASS to UNKNOWN,
-5 FAIL to UNKNOWN. In 3 of the 5 the release FAIL is false (`globals-write`, `dict-instance`,
-`nested-function`: Python binds what the target plans); 2 lose a true FAIL (`unknown-base`,
-`enum-rebound`). Of the 27 PASS to UNKNOWN, 20 are a release PASS where Python does not bind what the target
-plans (a second binder, `del`, a decorator, a metaclass, a write after the class body); 7 are a
-true PASS that the core withholds (dataclass, `NamedTuple`, `TypedDict`, `Generic`, a module value,
-a number default, a subscript). The core never gives PASS where the truth differs, and never FAIL
-where it agrees.
+**Plants (75, `tests/test_cli_python_symbols.py`).** Against 4.0.1: 43 equal, 27 PASS to UNKNOWN, 5
+FAIL to UNKNOWN (3 release FAILs are false: `globals-write`, `dict-instance`, `nested-function`; 2
+true FAILs are lost: `unknown-base`, `enum-rebound`). Of the 27, 20 are a release PASS where Python
+does not bind what the target plans; 7 are a true PASS that the core withholds (dataclass,
+`NamedTuple`, `TypedDict`, `Generic`, a module value, a number default, a subscript). The core
+never gives PASS where the truth differs, and never FAIL where it agrees.
 
-**Text.** The survey writes the text of a name, a dotted name, `None`, `True` and `False` only.
-`unparse` stays behind the dump: ungated it shows a real recursion between its parts that the
-self-check pins as gaps. A default number, a subscript or a string gives no record (PR 3 may
-widen it when the recursion is cut).
+**Text.** Only a name, a dotted name, `None`, `True` and `False` (`unparse` stays behind the dump:
+ungated, its recursion between files is a self-check FAIL). A number, subscript or string: no record.
 
-**Rejected.** A record for each binder, as TypeScript has it: a name bound by a statement that
-no record shows would pass. A `complete` inventory: no proof of the writes after the class body.
-A gap record for each omitted name: each such run would be partial for every other rule.
+**Rejected.** A record for each binder, as TypeScript has it (a statement that no record shows
+would pass); a `complete` inventory (no proof of writes after the class body); a gap record for
+each omitted name (each such run would be partial for every other rule).
 
 **Open** (`docs/known-limits.md`). A local `self` that holds a class; a C extension or `globals()`
 of another module that writes a class; a member that a base `__init_subclass__` adds.

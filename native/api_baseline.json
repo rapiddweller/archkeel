@@ -1720,6 +1720,7 @@
     "fn pyast::node::cmp_op(op:CmpOp)->(&'static str,&'static str)",
     "fn pyast::node::context(ctx:ExprContext)->&'static str",
     "fn pyast::node::expr(&self)->Option<&'a Expr>",
+    "fn pyast::node::kind(&self)->&'static str",
     "fn pyast::node::operator(op:Operator)->(&'static str,&'static str)",
     "fn pyast::node::type_params(params:Option<&TypeParams>)->&[TypeParam]",
     "fn pyast::node::unary_op(op:UnaryOp)->(&'static str,&'static str)",

@@ -481,6 +481,27 @@
     "reason": "The CPython class name (and source text) of each variant of a closed ruff enum (AD-377). One exhaustive match for each enum keeps the compiler check when ruff adds a variant. They are data, not logic.",
     "tokens": 73
   },
+  "python/src/pyast/node.rs|python/src/pyast/node.rs|2e1ec79a89": {
+    "files": [
+      "python/src/pyast/node.rs"
+    ],
+    "reason": "The CPython class name (and source text) of each variant of a closed ruff enum (AD-377). One exhaustive match for each enum keeps the compiler check when ruff adds a variant. They are data, not logic.",
+    "tokens": 80
+  },
+  "python/src/pyast/node.rs|python/src/pyast/node.rs|5d42269720": {
+    "files": [
+      "python/src/pyast/node.rs"
+    ],
+    "reason": "The CPython class name (and source text) of each variant of a closed ruff enum (AD-377). One exhaustive match for each enum keeps the compiler check when ruff adds a variant. They are data, not logic.",
+    "tokens": 157
+  },
+  "python/src/pyast/node.rs|python/src/pyast/node.rs|5d42269720#2": {
+    "files": [
+      "python/src/pyast/node.rs"
+    ],
+    "reason": "The CPython class name (and source text) of each variant of a closed ruff enum (AD-377). One exhaustive match for each enum keeps the compiler check when ruff adds a variant. They are data, not logic.",
+    "tokens": 71
+  },
   "python/src/pyast/node.rs|python/src/pyast/node.rs|783372cca5": {
     "files": [
       "python/src/pyast/node.rs"
