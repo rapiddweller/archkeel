@@ -4,79 +4,62 @@
 
 //! `archkeel-python-collector`: read one 10.0.0 request on stdin, write one reply (AD-334).
 //!
-//! The reply is the import survey of the Python collector (phase `imports`), never the whole
-//! collection: it declares only the sections of the survey (`reply.rs`, AD-334).
+//! The binary is a thin caller of the library (AD-450). The reply is the import survey of the
+//! Python collector (phase `imports`), never the whole collection.
 
 #![forbid(unsafe_code)]
-
-#[cfg(feature = "dump")]
-mod dump;
-mod reply;
-
-mod survey;
-// AD-377: the definition table and its bases have no caller in the reply yet; the test dump reads
-// them. The slice that writes the section `symbols` builds them into the release binary.
-#[cfg(any(test, feature = "dump"))]
-mod bindings;
-#[cfg(any(test, feature = "dump"))]
-mod symbols;
-#[cfg(any(test, feature = "dump"))]
-mod unparse;
-
-mod module;
-#[cfg(any(test, feature = "dump"))]
-mod pyast;
-
-mod discover;
-mod inputs;
-mod names;
-mod parse;
-mod requirement;
-
-mod source;
 
 use std::io::{Read, Write};
 use std::process::ExitCode;
 
+use archkeel_python_collector as collector;
 use archkeel_wire::request::decode_python;
 
 /// The stack of the work thread. The parser recurses once for each nested expression, and the
 /// token scan bounds that depth before the parse (`stack::MAX_STACK`).
 const STACK_BYTES: usize = 256 * 1024 * 1024;
 
-/// The version and the code digest of this binary (`archkeel-build-support`).
-const BUILD: reply::Build<'static> = reply::Build {
-    version: env!("ARCHKEEL_VERSION"),
-    code_digest: env!("ARCHKEEL_CODE_DIGEST"),
-};
+#[cfg(feature = "dump")]
+fn dump(arguments: &[String]) -> Option<Result<(), String>> {
+    use collector::dump;
+    if let [_, flag, minor] = arguments {
+        if flag == "--dump-printable" {
+            return Some(dump::printable(minor));
+        }
+    }
+    let [_, flag, minor, root] = arguments else {
+        return None;
+    };
+    let (minor, root) = (minor.clone(), root.clone());
+    Some(match flag.as_str() {
+        "--dump" => on_big_stack(move || dump::run(&minor, &root)),
+        "--dump-texts" => on_big_stack(move || dump::texts(&minor, &root)),
+        "--dump-bindings" => on_big_stack(move || dump::bindings(&minor, &root, false)),
+        "--dump-proofs" => on_big_stack(move || dump::bindings(&minor, &root, true)),
+        _ => return None,
+    })
+}
+
+#[cfg(feature = "dump")]
+fn dump_request(request: archkeel_facts::request::PythonRequest) -> Option<Result<(), String>> {
+    use collector::dump;
+    let flag = std::env::args().nth(1)?;
+    let found = match flag.as_str() {
+        "--dump-scope" => dump::scope(&request),
+        "--dump-symbols" => {
+            let witnesses = std::env::args().nth(2).as_deref() == Some("1");
+            on_big_stack(move || dump::symbols(&request, witnesses))
+        }
+        "--dump-survey" => on_big_stack(move || dump::survey(&request)),
+        _ => return None,
+    };
+    Some(found.map(|value| println!("{value}")))
+}
 
 fn run() -> Result<(), String> {
     #[cfg(feature = "dump")]
-    {
-        let arguments: Vec<String> = std::env::args().collect();
-        if let [_, flag, minor] = arguments.as_slice() {
-            if flag == "--dump-printable" {
-                return dump::printable(minor);
-            }
-        }
-        if let [_, flag, minor, root] = arguments.as_slice() {
-            if flag == "--dump" {
-                let (minor, root) = (minor.clone(), root.clone());
-                return on_big_stack(move || dump::run(&minor, &root));
-            }
-            if flag == "--dump-texts" {
-                let (minor, root) = (minor.clone(), root.clone());
-                return on_big_stack(move || dump::texts(&minor, &root));
-            }
-            if flag == "--dump-bindings" {
-                let (minor, root) = (minor.clone(), root.clone());
-                return on_big_stack(move || dump::bindings(&minor, &root, false));
-            }
-            if flag == "--dump-proofs" {
-                let (minor, root) = (minor.clone(), root.clone());
-                return on_big_stack(move || dump::bindings(&minor, &root, true));
-            }
-        }
+    if let Some(done) = dump(&std::env::args().collect::<Vec<_>>()) {
+        return done;
     }
     let mut payload = Vec::new();
     std::io::stdin()
@@ -84,27 +67,10 @@ fn run() -> Result<(), String> {
         .map_err(|error| format!("cannot read the request: {error}"))?;
     let request = decode_python(&payload)?;
     #[cfg(feature = "dump")]
-    if std::env::args().nth(1).as_deref() == Some("--dump-scope") {
-        println!("{}", dump::scope(&request)?);
-        return Ok(());
+    if let Some(done) = dump_request(request.clone()) {
+        return done;
     }
-    #[cfg(feature = "dump")]
-    if std::env::args().nth(1).as_deref() == Some("--dump-symbols") {
-        let witnesses = std::env::args().nth(2).as_deref() == Some("1");
-        let found = on_big_stack(move || dump::symbols(&request, witnesses))?;
-        println!("{found}");
-        return Ok(());
-    }
-    #[cfg(feature = "dump")]
-    if std::env::args().nth(1).as_deref() == Some("--dump-survey") {
-        let found = on_big_stack(move || dump::survey(&request))?;
-        println!("{found}");
-        return Ok(());
-    }
-    let bytes = on_big_stack(move || {
-        let found = survey::survey(&request)?;
-        reply::reply(&request, found, &BUILD)
-    })?;
+    let bytes = on_big_stack(move || collector::reply(&request, &collector::BUILD))?;
     std::io::stdout()
         .write_all(&bytes)
         .map_err(|error| format!("cannot write the reply: {error}"))
@@ -130,40 +96,4 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
-}
-
-#[cfg(test)]
-fn test_minor(number: u32) -> archkeel_facts::pyminor::PyMinor {
-    archkeel_facts::pyminor::PyMinor::decode(&number.to_string()).expect("supported test minor")
-}
-
-#[cfg(test)]
-fn test_module(text: &str, minor: u32) -> module::Module {
-    module::Module::new(
-        "app/probe.py".into(),
-        "app.probe".into(),
-        text.into(),
-        test_tree(text, minor).expect("fixture parses"),
-    )
-}
-
-/// Isolated tree-reader tests also use compiler-invalid ASTs. The request path never calls this.
-#[cfg(test)]
-fn test_tree(text: &str, minor: u32) -> Result<ruff_python_ast::ModModule, String> {
-    use ruff_python_parser::{parse_unchecked, Mode, ParseOptions};
-    let version = ruff_python_ast::PythonVersion {
-        major: 3,
-        minor: test_minor(minor).number(),
-    };
-    let parsed = parse_unchecked(
-        text,
-        ParseOptions::from(Mode::Module).with_target_version(version),
-    );
-    if !parsed.errors().is_empty() || !parsed.unsupported_syntax_errors().is_empty() {
-        return Err("invalid probe syntax".to_owned());
-    }
-    parsed
-        .try_into_module()
-        .map(|module| module.into_syntax())
-        .ok_or_else(|| "not a module".to_owned())
 }

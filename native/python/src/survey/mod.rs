@@ -10,7 +10,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Target};
+use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Target};
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::pyminor::PyMinor;
@@ -43,6 +43,8 @@ pub struct Survey {
     pub unknowns: Vec<Record<GapFact>>,
     pub coverage: Coverage,
     pub evidence: Vec<Evidence>,
+    /// The digest of each file that the survey read, from the bytes that it parsed.
+    pub parsed: Vec<Input>,
 }
 
 /// The parsed modules of a request and their binders, as the survey reads them (the dump of
@@ -114,6 +116,7 @@ pub fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .iter()
         .map(String::as_str)
         .collect();
+    let selected: HashSet<&str> = scope.selected.iter().map(String::as_str).collect();
     let coverage = Coverage {
         files_parsed: modules.len() as u64,
         files_read: parsed.files_read,
@@ -128,6 +131,11 @@ pub fn survey(request: &PythonRequest) -> Result<Survey, String> {
         unknowns,
         coverage,
         evidence: evidence.into_values().collect(),
+        parsed: snapshot
+            .inputs()
+            .into_iter()
+            .filter(|input| selected.contains(input.path.as_str()))
+            .collect(),
     })
 }
 

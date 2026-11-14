@@ -338,6 +338,10 @@
         {
           "component": "rs-entry",
           "rationale": "Run the Rust collector through the same typed library path (AD-406, issue #1095 slice 2)."
+        },
+        {
+          "component": "py-entry",
+          "rationale": "Run the Python import survey through its typed library path and bind its digests to the snapshot (AD-450)."
         }
       ],
       "decided_by": "architect"

@@ -44,7 +44,7 @@ mod construct_consistency_tests;
 use archkeel_facts::Section;
 use serde::Deserialize;
 
-pub use crate::standard::standard_library;
+pub use crate::standard::{standard_library, standard_library_everywhere};
 use crate::stored::Store;
 
 /// A reply that the store decoded and validated once, for a library of the core (WP6, AD-363).
