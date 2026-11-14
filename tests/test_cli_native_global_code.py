@@ -81,7 +81,9 @@ PUBLISHED = {
     ),
     "src/b/b.js": "function run() {}\nwindow.Lib = { run };\n",
     # AD-466: the provenance document draws the observed component edge.
-    "README.md": "# probe\n\n<!-- archkeel-component-graph -->\n```mermaid\nflowchart LR\n    a --> b\n```\n",
+    "README.md": (
+        "# probe\n\n<!-- archkeel-component-graph -->\n```mermaid\nflowchart LR\n    a --> b\n```\n"
+    ),
 }
 CHANGES = {
     "parent": "parent.Lib = { run() {} };",
