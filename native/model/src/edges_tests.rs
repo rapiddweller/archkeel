@@ -432,7 +432,8 @@ fn the_evidence_of_an_import_is_sorted_and_the_gap_site_keeps_the_reply_order() 
 fn only_two_accepted_profiles_have_typed_target_marks() {
     // The reference engine marks an external and a builtin target for two profiles (AD-372). Each
     // other profile that the store accepts must read its targets by module (AD-450).
-    use archkeel_facts::envelope::{Profile, TargetMarks};
+    use archkeel_facts::envelope::Profile;
+    use archkeel_facts::profile_traits::TargetMarks;
     let Some(golden) = golden() else {
         return fail("the golden reply");
     };

@@ -66,7 +66,7 @@ use crate::receipts::{self, GapScope, ScanProof};
 use crate::roots::Roots;
 use crate::selection;
 use crate::verdict::Decision;
-use archkeel_facts::envelope::Layout;
+use archkeel_facts::profile_traits::Layout;
 
 use crate::brand::Brand;
 

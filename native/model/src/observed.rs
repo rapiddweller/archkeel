@@ -23,9 +23,9 @@ use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
 use archkeel_facts::envelope::{
-    ConstructSupport, Dirty, Facts, Layout, PairGapDrop, ProfileLimits, RequirementState, Role,
-    Runtime as RuntimeFact,
+    ConstructSupport, Dirty, Facts, ProfileLimits, RequirementState, Role, Runtime as RuntimeFact,
 };
+use archkeel_facts::profile_traits::{Layout, PairGapDrop};
 use archkeel_facts::sections::{GapFact, Section};
 
 use crate::coverage::data_of;
