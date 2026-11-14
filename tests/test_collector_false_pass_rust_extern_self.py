@@ -43,10 +43,16 @@ def forbid(source: str, target: str, name: str = "NO-X-TO-B") -> dict[str, objec
 # FAIL: the module imports `b`, so the rule that forbids it must FAIL.
 FORMS = {
     "use path": ({"lib.rs": ROOT_ALIAS, "x.rs": USE}, "x"),
-    "use of the module": ({"lib.rs": ROOT_ALIAS, "x.rs": "use me::b;\npub fn f() { b::g(); }\n"}, "x"),
+    "use of the module": (
+        {"lib.rs": ROOT_ALIAS, "x.rs": "use me::b;\npub fn f() { b::g(); }\n"},
+        "x",
+    ),
     "use group": ({"lib.rs": ROOT_ALIAS, "x.rs": "use me::{b::g};\npub fn f() { g(); }\n"}, "x"),
     "use glob": ({"lib.rs": ROOT_ALIAS, "x.rs": "use me::b::*;\npub fn f() { g(); }\n"}, "x"),
-    "use renamed": ({"lib.rs": ROOT_ALIAS, "x.rs": "use me::b::g as h;\npub fn f() { h(); }\n"}, "x"),
+    "use renamed": (
+        {"lib.rs": ROOT_ALIAS, "x.rs": "use me::b::g as h;\npub fn f() { h(); }\n"},
+        "x",
+    ),
     "use in a function": (
         {"lib.rs": ROOT_ALIAS, "x.rs": "pub fn f() { use me::b::g; g(); }\n"},
         "x",
@@ -71,6 +77,20 @@ FORMS = {
         {
             "lib.rs": ROOT_ALIAS.replace("me", "app"),
             "x.rs": "use ::app::b::g;\npub fn f() { g(); }\n",
+        },
+        "x",
+    ),
+    "own crate name, relative use": (
+        {
+            "lib.rs": ROOT_ALIAS.replace("me", "app"),
+            "x.rs": "use app::b::g;\npub fn f() { g(); }\n",
+        },
+        "x",
+    ),
+    "own crate name, relative expression": (
+        {
+            "lib.rs": ROOT_ALIAS.replace("me", "app"),
+            "x.rs": "pub fn f() { app::b::g(); }\n",
         },
         "x",
     ),
@@ -154,7 +174,11 @@ def test_an_alias_in_a_workspace_of_two_crates_names_only_its_own_crate(
     tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     both = {"lib.rs": ROOT_ALIAS, "b.rs": B, "x.rs": USE}
-    sources = {f"crates/{crate}/src/{name}": text for crate in ("app", "base") for name, text in both.items()}
+    sources = {
+        f"crates/{crate}/src/{name}": text
+        for crate in ("app", "base")
+        for name, text in both.items()
+    }
     sources["crates/app/src/x.rs"] = USE
     sources["crates/base/src/x.rs"] = "pub fn f() {}\n"
     rules = (
