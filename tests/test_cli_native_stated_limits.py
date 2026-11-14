@@ -3,9 +3,10 @@
 # SPDX-License-Identifier: MIT
 """AD-500: a stated unsupported feature holds only the rules that read it.
 
-The linked Python collector states that it reads no dependency symbol and no module interface.
-Each plant adds one reader of one feature: that rule stays UNKNOWN, and each rule that reads
-only module-level import edges is decided, also when its edge is a violation.
+A collector that states that it reads no dependency symbol and no module interface (the linked
+TypeScript collector without `script-globals-v1`) gets each reader of one feature UNKNOWN, and each
+rule that reads only module-level import edges is decided, also when its edge is a violation.
+The Python survey states both features as supported since AD-504, so its readers are decided.
 """
 
 from __future__ import annotations
@@ -78,25 +79,26 @@ def planted(root: Path, files: dict[str, str], plant: Callable[[dict[str, Any]],
 
 
 @pytest.mark.parametrize("name", PLANTS)
-def test_a_stated_limit_holds_its_reader_and_no_edge_rule(
+def test_the_python_survey_decides_each_reader_of_a_symbol_or_an_interface(
     release_core: Path, tmp_path: Path, name: str
 ) -> None:
     reader = planted(tmp_path, BASE, PLANTS[name])
     result = verdict(release_core, tmp_path, "report")
     found = rows(result)
-    assert found[reader] == "UNKNOWN", result
+    assert found[reader] == "PASS", result["frame"]["explained"]
     assert {rule: found[rule] for rule in EDGE_RULES} == dict.fromkeys(EDGE_RULES, "PASS")
-    assert result["status"] != "PASS" and result["exit_code"] != 0
+    assert "profile" not in json.dumps(result["frame"]["explained"])
 
 
 @pytest.mark.parametrize("name", PLANTS)
-def test_a_stated_limit_hides_no_edge_violation(
+def test_a_decided_reader_hides_no_edge_violation(
     release_core: Path, tmp_path: Path, name: str
 ) -> None:
     reader = planted(tmp_path, VIOLATION, PLANTS[name])
-    found = rows(verdict(release_core, tmp_path, "report"))
-    assert found[reader] == "UNKNOWN"
+    result = verdict(release_core, tmp_path, "report")
+    found = rows(result)
     assert found["FORBID"] == "FAIL"
+    assert found[reader] in {"PASS", "FAIL"}, result["frame"]["explained"]
 
 
 def test_a_symbol_public_entry_without_a_reader_holds_no_rule(

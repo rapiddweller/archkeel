@@ -19,6 +19,7 @@ use ruff_python_ast::{Stmt, StmtImportFrom};
 use ruff_text_size::{Ranged, TextRange};
 
 use super::binders::{first_part, Binders};
+use super::bound::Bound;
 use super::guard::Guard;
 use super::package_body::{anchor, open_body, own_submodules, shadowing_names};
 use crate::module::{EvidenceMap, Location, Module};
@@ -54,6 +55,9 @@ pub(super) struct Collected {
     /// The ids of each `from pkg import name` where `pkg` can give an attribute or the module
     /// `pkg.name` (AD-450): the package binds the name, or has `__getattr__` or a star import.
     pub ambiguous: HashSet<String>,
+    /// The ids of each import that is the one plain statement binding its name in its module
+    /// (`bound.rs`): the only kind of import that can re-export a name (AD-504).
+    pub sole: HashSet<String>,
 }
 
 /// `collect`, with the ambiguous records.
@@ -78,11 +82,15 @@ pub(super) fn collect_all(
     let mut records = Vec::new();
     let mut aliases = Vec::with_capacity(modules.len());
     let mut ambiguous = HashSet::new();
+    let mut sole = HashSet::new();
     for (module, binders) in modules.iter().zip(binders) {
         let mut found = Aliases::new();
+        let bound = Bound::of(&module.tree.body);
         let mut collector = Collector {
             module,
             binders,
+            bound: &bound,
+            sole: &mut sole,
             unique: binders.unique(),
             names: &names,
             directories: &directories,
@@ -103,6 +111,7 @@ pub(super) fn collect_all(
         records,
         aliases,
         ambiguous,
+        sole,
     }
 }
 
@@ -122,11 +131,14 @@ pub(super) fn literal_records(
         HashMap::new(),
     );
     let (mut records, mut aliases, mut ambiguous) = (Vec::new(), Aliases::new(), HashSet::new());
+    let (bound, mut sole) = (Bound::default(), HashSet::new());
     for (index, range, target) in sites {
         let (module, binders) = (&modules[*index], &binders[*index]);
         let mut collector = Collector {
             module,
             binders,
+            bound: &bound,
+            sole: &mut sole,
             unique: HashSet::new(),
             names: &names,
             directories: &directories,
@@ -184,6 +196,8 @@ fn import_target(alias: &ruff_python_ast::Alias) -> &str {
 struct Collector<'m, 'e> {
     module: &'m Module,
     binders: &'m Binders,
+    bound: &'m Bound,
+    sole: &'e mut HashSet<String>,
     unique: HashSet<String>,
     names: &'m HashSet<&'m str>,
     directories: &'m HashSet<&'m str>,
@@ -406,8 +420,15 @@ impl Collector<'_, '_> {
             Some(symbol) if !symbol.is_empty() => format!("Import {}.{symbol}", b.target),
             _ => format!("Import {}", b.target),
         };
+        let id = stable_id("IMP", &parts);
+        let one = module_level
+            && b.binding
+                .is_some_and(|name| self.bound.sole(name, node.range().start()));
+        if one {
+            self.sole.insert(id.clone());
+        }
         self.records.push(Record {
-            id: FactId::new(stable_id("IMP", &parts)),
+            id: FactId::new(id),
             evidence_class: EvidenceClass::Fact,
             area: Area::Dependencies,
             title,

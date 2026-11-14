@@ -29,6 +29,7 @@ use excluded::Excluded;
 use failures::{early, NOT_FOUND};
 
 pub(crate) mod binders;
+mod bound;
 mod excluded;
 mod failures;
 mod guard;
@@ -38,9 +39,11 @@ mod layout;
 mod literal;
 mod namespace;
 mod package_body;
+pub(crate) mod routes;
 mod stable;
 mod targets;
 mod walks;
+mod writes;
 
 pub(crate) struct Survey {
     pub files: Vec<FileFact>,
@@ -49,6 +52,13 @@ pub(crate) struct Survey {
     pub unknowns: Vec<Record<GapFact>>,
     pub coverage: Coverage,
     pub evidence: Vec<Evidence>,
+    /// The modules whose `__all__` the survey cannot read (`routes`).
+    pub opaque_surface: HashSet<String>,
+    /// The ids of the imports that are the one plain binder of their name (`bound.rs`).
+    pub sole_binders: HashSet<String>,
+    /// The ids of each `from pkg import name` where `pkg` binds `name` or can give it (AD-450):
+    /// the name may be the attribute or the submodule, so no route is written for it.
+    pub ambiguous: HashSet<String>,
     /// The digest of each file that the survey read, from the bytes that it parsed.
     pub parsed: Vec<Input>,
 }
@@ -107,6 +117,8 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     let mut evidence = EvidenceMap::new();
     let collected = imports::collect_all(modules, &binders, namespace, &mut evidence);
     let (mut imports, aliases) = (collected.records, collected.aliases);
+    let sole_binders = collected.sole;
+    let ambiguous = collected.ambiguous.clone();
     // AD-472: a proven literal import call is an import record; each other site is a gap.
     let (mut literals, mut hazards) = (Vec::new(), Vec::new());
     for (index, (module, binders)) in modules.iter().zip(&binders).enumerate() {
@@ -121,6 +133,13 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     let calls = imports::literal_records(modules, &binders, namespace, &mut evidence, &literals);
     imports.extend(calls);
     imports.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
+    let mut opaque_surface: HashSet<String> = modules
+        .iter()
+        .zip(&binders)
+        .filter(|(_, binders)| binders.all_unread)
+        .map(|(module, _)| module.name.clone())
+        .collect();
+    opaque_surface.extend(writes::written(modules, &imports));
     let files: Vec<FileFact> = modules
         .iter()
         .zip(&binders)
@@ -167,6 +186,9 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         unknowns,
         coverage,
         evidence: evidence.into_values().collect(),
+        opaque_surface,
+        sole_binders,
+        ambiguous,
         parsed: snapshot
             .inputs()
             .into_iter()

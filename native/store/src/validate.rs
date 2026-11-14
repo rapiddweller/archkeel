@@ -125,8 +125,10 @@ fn checkable(facts: &Facts) -> Result<(), String> {
     let known: &[&str] = match facts.profile {
         Profile::TypeScript => &TYPESCRIPT_FEATURES,
         Profile::Rust => &RUST_FEATURES,
-        // AD-450, AD-468: the import survey has no resolution feature.
-        Profile::Python | Profile::Dart => &[],
+        // AD-450, AD-468: the import survey has no resolution feature. AD-504: the Python survey
+        // of the linked path states `import-routes-v1`.
+        Profile::Python => &[crate::features::ROUTES_FEATURE],
+        Profile::Dart => &[],
     };
     for feature in &facts.capabilities.resolution_features {
         if !known.contains(&feature.as_str()) {

@@ -5,7 +5,9 @@
 Main supports Rust and TypeScript projects, and the import rules of Python (AD-450) and Dart (AD-468) projects.
 A Python project gets PASS or FAIL only for rules that read the import graph. A dynamic import,
 an import-system change and the other gaps of AD-450 give UNKNOWN for each rule of the run.
-Python rules that read symbols, calls or constructs stay UNKNOWN. A Dart project gets PASS or FAIL
+Python rules that read calls or constructs stay UNKNOWN. `interface_boundary` and symbol-level
+`through` ports are decided from the publication route of each named import (AD-504); the hygiene
+checks `interface.*` are not ported, so the run stays UNKNOWN beside the decided rule rows. A Dart project gets PASS or FAIL
 only for rules that read the import graph; each gap of AD-454 and a part in another component than
 its library give UNKNOWN for each rule of the run. A symbol selector or an `interface_boundary`
 rule holds only the rules that read it (AD-500). A Dart cycle rule (`no_component_cycles`) is
@@ -103,6 +105,17 @@ The core path uses fixed system Git, but `git status` still reads the scanned re
 A configured `filter.<x>.clean` can execute a command during status. Do not scan untrusted Git configuration.
 Disabling repository-configured execution is deferred to slice 5; the fixed executable does not prevent it.
 See [AD-422](architecture/decisions/ad-422-core-only-validation-renders-the-scan-frame.md).
+
+## Open false PASS, not accepted (Python `interface_boundary`, AD-504)
+
+The core gives PASS where Python binds something else at import time, for two forms. 4.0.1 gives
+PASS for both. They are open defects, pinned by plants in `tests/python_interface_plants.py`:
+
+- `import app.lib` then `app.lib._priv.secret()` with public `app.lib`: the rule judges imports,
+  and a use of a private module through a public module object is no import.
+- A write to a package from a C extension, or through `globals()` of another module, after its
+  statements ran. A write through `sys.modules` or a computed `importlib.import_module` is a survey
+  gap, so the rule is UNKNOWN.
 
 ## Before claiming PASS
 
