@@ -18,7 +18,7 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 
-use archkeel_facts::envelope::PairGapDrop;
+use archkeel_facts::profile_traits::PairGapDrop;
 
 use archkeel_contract::{kind_of, Component, Contract, CycleLevel, Rule, RuleKind};
 

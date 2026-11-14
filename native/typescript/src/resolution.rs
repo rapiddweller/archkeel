@@ -148,9 +148,11 @@ impl Resolver<'_> {
         script: Option<&[String]>,
     ) -> Resolved {
         let name = site.name.map(|text| text.decode(&kept.text));
-        let shadowed = name
-            .as_deref()
-            .is_some_and(|name| kept.shadow.shadows(site.shadow.chain, name));
+        // A name that a scope below the module declares is not the module symbol (AD-512).
+        let shadowed = site.local
+            || name
+                .as_deref()
+                .is_some_and(|name| kept.shadow.shadows(site.shadow.chain, name));
         let rebound = name
             .as_deref()
             .is_some_and(|name| kept.rebound.contains(name));

@@ -38,6 +38,7 @@ pub mod ids;
 pub mod nested;
 pub mod nullable;
 mod printable;
+pub mod profile_traits;
 pub mod protocol;
 pub mod pyminor;
 pub mod pyrepr;

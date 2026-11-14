@@ -319,6 +319,8 @@ fn base_record(
     let qualified = format!("{}.{}", entry.module, base.name);
     let candidates = table.classifier_count(&qualified);
     let evidence = cited.cite(entry.rel, &base.span);
+    // A name that a scope below the module declares is not the module symbol (AD-512).
+    let candidates = if base.shadowed { 0 } else { candidates };
     let (status, reason) = match candidates {
         1 => (Status::Resolved, None),
         0 => (
