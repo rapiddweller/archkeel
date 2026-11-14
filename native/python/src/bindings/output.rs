@@ -8,7 +8,7 @@ use std::io::{self, Write};
 
 use serde_json::Value;
 
-pub const MAX_OUTPUT_BYTES: usize = 32 * 1024 * 1024;
+pub(super) const MAX_OUTPUT_BYTES: usize = 32 * 1024 * 1024;
 
 pub(super) struct Output {
     left: usize,
@@ -19,13 +19,13 @@ fn message() -> String {
 }
 
 impl Output {
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             left: MAX_OUTPUT_BYTES,
         }
     }
 
-    pub fn room(&self, bytes: usize) -> Result<(), String> {
+    pub(super) fn room(&self, bytes: usize) -> Result<(), String> {
         if bytes <= self.left {
             Ok(())
         } else {
@@ -33,7 +33,7 @@ impl Output {
         }
     }
 
-    pub fn value(&mut self, value: &Value) -> Result<(), String> {
+    pub(super) fn value(&mut self, value: &Value) -> Result<(), String> {
         serde_json::to_writer(&mut *self, value).map_err(|_| message())
     }
 }
@@ -52,7 +52,7 @@ impl Write for Output {
     }
 }
 
-pub fn check(value: &Value) -> Result<(), String> {
+pub(crate) fn check(value: &Value) -> Result<(), String> {
     let mut output = Output::new();
     output.value(value)?;
     output.write_all(b"\n").map_err(|_| message())

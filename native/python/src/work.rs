@@ -4,9 +4,9 @@
 
 //! Bound the additional CPython validation work for one file.
 
-pub const MAX_WORK: usize = 2_000_000;
+pub(crate) const MAX_WORK: usize = 2_000_000;
 
-pub struct Work {
+pub(crate) struct Work {
     #[cfg(any(test, feature = "dump"))]
     limit: usize,
     left: usize,
@@ -14,11 +14,11 @@ pub struct Work {
 }
 
 impl Work {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::with_limit(MAX_WORK)
     }
 
-    pub fn with_limit(limit: usize) -> Self {
+    pub(crate) fn with_limit(limit: usize) -> Self {
         Self {
             #[cfg(any(test, feature = "dump"))]
             limit,
@@ -27,7 +27,7 @@ impl Work {
         }
     }
 
-    pub fn charge(&mut self, count: usize) -> bool {
+    pub(crate) fn charge(&mut self, count: usize) -> bool {
         match self.left.checked_sub(count) {
             Some(left) => {
                 self.left = left;
@@ -41,13 +41,13 @@ impl Work {
         }
     }
 
-    pub fn failure(&self) -> Option<&'static str> {
+    pub(crate) fn failure(&self) -> Option<&'static str> {
         self.exceeded
             .then_some("CPython validation work limit exceeded")
     }
 
     #[cfg(any(test, feature = "dump"))]
-    pub fn used(&self) -> usize {
+    pub(crate) fn used(&self) -> usize {
         self.limit.saturating_sub(self.left)
     }
 }

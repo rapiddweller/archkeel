@@ -93,6 +93,11 @@ pub(crate) fn state(
     if graph.settings().producer() != crate::settings::Producer::Trusted {
         return cause(Cause::Producer);
     }
+    // AD-450 review: the reference engine refuses a contract that names a module outside the
+    // namespace, so no rule of such a run passes here.
+    if let Some(reference) = outside_namespace(contract, graph.settings().namespace()) {
+        return cause(Cause::OutsideNamespace(reference));
+    }
     let all = names(graph, contract.components(), None);
     if let Some(found) = contract_failures(contract, observed, &all, &mut unread) {
         return cause(found);
@@ -166,6 +171,36 @@ fn contract_failures(
         }
     }
     rule_failures(contract, names, unread)
+}
+
+/// The first module reference of a component outside the namespace: a package, an exact module,
+/// a public, planned or `through` entry (the module part before a colon).
+fn outside_namespace(contract: &Contract, namespace: &str) -> Option<String> {
+    if namespace.is_empty() {
+        return None;
+    }
+    contract
+        .components()
+        .iter()
+        .flat_map(|component| {
+            let through = component
+                .requires()
+                .iter()
+                .flatten()
+                .flat_map(|required| required.through());
+            component
+                .packages()
+                .iter()
+                .chain(component.exact_modules())
+                .map(|entry| entry.as_text())
+                .chain(component.public().iter().flatten().map(|e| e.as_text()))
+                .chain(component.planned().iter().flatten().map(|e| e.as_text()))
+                .chain(through.map(|e| e.as_text()))
+                .collect::<Vec<&str>>()
+        })
+        .map(|entry| entry.split(':').next().unwrap_or(entry))
+        .find(|module| !crate::ownership::in_scope(module, namespace))
+        .map(str::to_owned)
 }
 
 fn cause(cause: Cause) -> State {

@@ -51,7 +51,7 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     # The one failure makes the run a failure; the gaps never let it pass.
     assert (code, result["status"], frame["status"]) == (1, "FAIL", "FAIL")
     assert set(frame["unknown_kinds"]) == {r for r, status in core.items() if status == "UNKNOWN"}
-    kept = "incomplete scope: 119 gaps between two modules that the contract"
+    kept = "incomplete scope: 122 gaps between two modules that the contract"
     assert frame["scope"].startswith(kept), frame["scope"]
 
 
@@ -64,6 +64,8 @@ def test_the_core_decides_each_rule_of_the_self_contract(
 # test, and the row of `core` has to be decided again.
 COLLECT = "native.archkeel_collect"
 TS, RUST = "native.archkeel_typescript_collector", "native.archkeel_rust_collector"
+# AD-450: `BUILD` is the version and code digest text of the Python collector. It stays in collect.
+PY = "native.archkeel_python_collector"
 COLLECT_TO_COLLECTORS = {
     ("native.archkeel_collect", "archkeel_typescript_collector::TEST_FEATURES", TS),
     ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-typescript-collector", TS),
@@ -73,6 +75,10 @@ COLLECT_TO_COLLECTORS = {
     ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-rust-collector", RUST),
     ("native.archkeel_collect.run", "archkeel_rust_collector::provenance", RUST),
     ("native.archkeel_collect.run", "archkeel_rust_collector::typed_reply", RUST),
+    ("native.archkeel_collect", "archkeel_python_collector::TEST_FEATURES", PY),
+    ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-python-collector", PY),
+    ("native.archkeel_collect.run", "archkeel_python_collector::BUILD", PY),
+    ("native.archkeel_collect.run", "archkeel_python_collector::typed_reply", PY),
 }
 
 

@@ -14,22 +14,22 @@
 use std::collections::VecDeque;
 
 mod children;
-pub mod fstring;
+pub(crate) mod fstring;
 mod node;
 
-pub use children::child_nodes;
-pub use fstring::Piece;
-pub use node::{bool_op, cmp_op, operator, unary_op, Node};
+pub(crate) use children::child_nodes;
+pub(crate) use fstring::Piece;
+pub(crate) use node::{bool_op, cmp_op, operator, unary_op, Node};
 
 /// `ast.walk`: the nodes in breadth-first order, the root first.
-pub fn walk<'a>(root: Node<'a>, minor: archkeel_facts::pyminor::PyMinor) -> Walk<'a> {
+pub(crate) fn walk<'a>(root: Node<'a>, minor: archkeel_facts::pyminor::PyMinor) -> Walk<'a> {
     Walk {
         pending: VecDeque::from([root]),
         minor,
     }
 }
 
-pub struct Walk<'a> {
+pub(crate) struct Walk<'a> {
     pending: VecDeque<Node<'a>>,
     minor: archkeel_facts::pyminor::PyMinor,
 }

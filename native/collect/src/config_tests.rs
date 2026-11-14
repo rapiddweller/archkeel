@@ -57,18 +57,21 @@ fn roots_and_contract_take_the_form_of_pure_posix_path() {
 }
 
 #[test]
-fn another_profile_and_a_configured_collector_are_unsupported_by_name() {
-    for (language, name) in [
-        ("", "python"),
-        ("language = \"python\"\n", "python"),
-        ("language = \"dart\"\n", "dart"),
+fn dart_and_a_configured_collector_are_unsupported_by_name() {
+    for (language, profile) in [
+        ("", Profile::Python),
+        ("language = \"python\"\n", Profile::Python),
     ] {
-        let refused = parsed(&format!("{BASE}{language}"));
-        assert!(
-            matches!(&refused, Err(Refused::Unsupported("profile", why)) if why.contains(name)),
-            "{language}: {refused:?}"
+        assert_eq!(
+            parsed(&format!("{BASE}{language}")).unwrap().profile,
+            profile
         );
     }
+    let refused = parsed(&format!("{BASE}language = \"dart\"\n"));
+    assert!(
+        matches!(&refused, Err(Refused::Unsupported("profile", why)) if why.contains("dart")),
+        "{refused:?}"
+    );
     let refused = typescript("collector_argv = [\"/bin/x\"]\n");
     assert!(
         matches!(&refused, Err(Refused::Unsupported("collector", why)) if why.contains("/bin/x")),

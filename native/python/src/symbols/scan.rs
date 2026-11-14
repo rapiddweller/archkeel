@@ -12,7 +12,7 @@ use crate::module::{EvidenceMap, Module};
 use crate::unparse::{self, TextFailure as Failure};
 
 /// The reading of one module: its text, the interpreter and the evidence of the run.
-pub struct Scan<'m> {
+pub(super) struct Scan<'m> {
     pub module: &'m Module,
     pub minor: archkeel_facts::pyminor::PyMinor,
     pub evidence_map: &'m mut EvidenceMap,
@@ -20,12 +20,12 @@ pub struct Scan<'m> {
 
 impl Scan<'_> {
     /// `annotation_text`.
-    pub fn text(&self, expr: Option<&Expr>) -> Result<Option<String>, Failure> {
+    pub(super) fn text(&self, expr: Option<&Expr>) -> Result<Option<String>, Failure> {
         unparse::annotation_text(expr, self.minor, self.module.text())
     }
 
     /// The value of a string literal; ruff changed a surrogate escape (`Failure::Unseen`).
-    pub fn string(&self, node: &ExprStringLiteral) -> Result<String, Failure> {
+    pub(super) fn string(&self, node: &ExprStringLiteral) -> Result<String, Failure> {
         let value = node.value.to_str();
         let source = self
             .module
@@ -39,7 +39,7 @@ impl Scan<'_> {
     }
 
     /// `add_evidence`.
-    pub fn evidence(&mut self, node: &impl Ranged) -> String {
+    pub(super) fn evidence(&mut self, node: &impl Ranged) -> String {
         self.module.evidence(self.evidence_map, node)
     }
 }

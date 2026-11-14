@@ -19,7 +19,7 @@ pub(super) const MAX_BINDING_WORK: usize = 64_000_000;
 
 pub(super) type Result<T> = std::result::Result<T, String>;
 
-pub struct Table {
+pub(crate) struct Table {
     pub data: Result<serde_json::Value>,
     pub work: usize,
 }
@@ -57,7 +57,7 @@ pub(super) struct Scan {
 }
 
 impl Scan {
-    pub fn new(minor: PyMinor) -> Self {
+    pub(super) fn new(minor: PyMinor) -> Self {
         Self {
             minor,
             work: Work::with_limit(MAX_BINDING_WORK),
@@ -66,7 +66,7 @@ impl Scan {
         }
     }
 
-    pub fn keep(
+    pub(super) fn keep(
         &mut self,
         rows: &mut Vec<serde_json::Value>,
         row: serde_json::Value,
@@ -76,13 +76,13 @@ impl Scan {
         Ok(())
     }
 
-    pub fn owner(&mut self, parent: &str, name: &str) -> Result<Rc<str>> {
+    pub(super) fn owner(&mut self, parent: &str, name: &str) -> Result<Rc<str>> {
         let bytes = parent.len().saturating_add(name.len()).saturating_add(1);
         self.tick(bytes.saturating_mul(2))?;
         Ok(Rc::from(format!("{parent}.{name}")))
     }
 
-    pub fn tick(&mut self, count: usize) -> Result<()> {
+    pub(super) fn tick(&mut self, count: usize) -> Result<()> {
         if self.work.charge(count) {
             Ok(())
         } else {
@@ -90,7 +90,7 @@ impl Scan {
         }
     }
 
-    pub fn walk<'a>(&mut self, root: Node<'a>) -> Result<Vec<Node<'a>>> {
+    pub(super) fn walk<'a>(&mut self, root: Node<'a>) -> Result<Vec<Node<'a>>> {
         let mut nodes = Vec::new();
         for node in walk(root, self.minor) {
             self.tick(1)?;
@@ -99,7 +99,7 @@ impl Scan {
         Ok(nodes)
     }
 
-    pub fn children<'a>(&mut self, node: &Node<'a>) -> Result<Vec<Node<'a>>> {
+    pub(super) fn children<'a>(&mut self, node: &Node<'a>) -> Result<Vec<Node<'a>>> {
         let children = child_nodes(node, self.minor);
         self.tick(children.len())?;
         Ok(children)

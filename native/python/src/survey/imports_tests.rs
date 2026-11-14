@@ -118,7 +118,8 @@ fn a_guarded_or_nested_import_keeps_its_place() {
     assert_eq!(
         rows(&[("app/m.py", "app.m", text)]),
         [
-            row("app.m", "a.b", None, "a", (true, true, false)),
+            // A star import makes the binding count of `typing` unknown: no guard (AD-450).
+            row("app.m", "a.b", None, "a", (false, true, false)),
             row("app.m", "c", None, "c", (false, true, false)),
             row("app.m", "d", None, "e", (false, true, false)),
             row("app.m", "m", Some("*"), "*", (false, false, false)),

@@ -59,6 +59,9 @@ pub enum Cause {
     /// A component of an inside contract claims a package or a module outside its parent: the
     /// parent key of the mount (`inside_source_domain_incomplete`, AD-385).
     InsideSourceDomain(String),
+    /// A component names a module outside the namespace of the settings: the reference engine
+    /// refuses such a contract (AD-450).
+    OutsideNamespace(String),
 }
 
 /// The gaps that hold a rule: the first ones as `a -> b` and the number of all.
@@ -187,6 +190,10 @@ impl fmt::Display for Cause {
             Cause::InsideSourceDomain(parent) => write!(
                 formatter,
                 "a component inside {parent} claims a module outside its parent"
+            ),
+            Cause::OutsideNamespace(reference) => write!(
+                formatter,
+                "the contract names {reference}, which lies outside the namespace"
             ),
         }
     }
