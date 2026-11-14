@@ -25,7 +25,7 @@ use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::{ImportFact, Record};
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{Expr, ExprContext};
+use ruff_python_ast::{Expr, ExprAttribute, ExprContext};
 
 use super::bound::{Bound, Kind};
 use crate::module::Module;
@@ -41,12 +41,15 @@ enum Binding {
     Attribute(String, String),
 }
 
+/// The module and the symbol that an import names.
+type Origin<'m> = (&'m str, Option<&'m str>);
+
 /// The facts that the visitor reads about the scan.
 struct Scan<'m> {
     modules: HashSet<&'m str>,
     bounds: HashMap<&'m str, Bound>,
     /// The imports of each module by bound name: (target module, symbol).
-    imports: HashMap<(&'m str, &'m str), Vec<(&'m str, Option<&'m str>)>>,
+    imports: HashMap<(&'m str, &'m str), Vec<Origin<'m>>>,
 }
 
 impl Scan<'_> {
@@ -194,21 +197,30 @@ impl Uses<'_, '_> {
     }
 }
 
+impl Uses<'_, '_> {
+    /// An attribute of a module binding: true when the use is decided (harmless or escaped).
+    fn attribute(&mut self, node: &ExprAttribute, expr: &Expr) -> bool {
+        let base = self.denotes(&node.value);
+        if base.is_empty() {
+            return false;
+        }
+        let load = node.ctx == ExprContext::Load && !NAMESPACE.contains(&node.attr.as_str());
+        let child = self.denotes(expr);
+        // The one harmless use: a direct load of a name that is no module. A load of a child
+        // module is a bare use of that module; each other use escapes the base.
+        if !load {
+            self.escape(base);
+        } else if !child.is_empty() {
+            self.escape(child);
+        }
+        true
+    }
+}
+
 impl<'a> Visitor<'a> for Uses<'_, '_> {
     fn visit_expr(&mut self, expr: &'a Expr) {
         if let Expr::Attribute(node) = expr {
-            let base = self.denotes(&node.value);
-            if !base.is_empty() {
-                let load =
-                    node.ctx == ExprContext::Load && !NAMESPACE.contains(&node.attr.as_str());
-                let child = self.denotes(expr);
-                // The one harmless use: a direct load of a name that is no module. A load of a
-                // child module is a bare use of that module; each other use escapes the base.
-                match (load, child.is_empty()) {
-                    (true, true) => {}
-                    (true, false) => self.escape(child),
-                    (false, _) => self.escape(base),
-                }
+            if self.attribute(node, expr) {
                 return;
             }
         }
