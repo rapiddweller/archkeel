@@ -83,7 +83,7 @@ def _bind_inside(root: Path, name: str, digest: str, budget: int, started_ns: in
         before = path.stat()
         if not stat.S_ISREG(before.st_mode):
             raise RequestMismatch(f"the nested contract is not a regular file: {name}")
-        if started_ns is not None and max(before.st_mtime_ns, before.st_ctime_ns) > started_ns:
+        if started_ns is not None and before.st_ctime_ns > started_ns:
             raise RequestMismatch(f"the nested contract changed after the request started: {name}")
         with path.open("rb") as stream:
             payload = stream.read(budget + 1)

@@ -26,6 +26,8 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   proved can give a `requires` FAIL beside such a gap.
 - `validate` and `report` read explicit `inside` mounts through the bounded core tree reader.
   Unsafe, linked, missing or invalid mounts stay UNKNOWN. Unproved tree rules keep their named gaps.
+  A safe mount path that is absent, unreadable or not a contained regular file gives
+  "mounts inside contracts that the shell has not sent". This names missing input, not an unported tree rule.
 - Source that nests deeper than the parse work limit is the typed refusal `core_error` with `parse_work_limit`.
 - A `collector_argv` in `archkeel.toml` is refused. The core starts only its own collectors.
 - The survey refuses a root with more than 1 GiB of file bytes or more than 100,000 entries, by name.

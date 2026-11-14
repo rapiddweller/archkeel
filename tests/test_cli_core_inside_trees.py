@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from time import time_ns
 
 import pytest
 from core_support import HONEST, case_root
@@ -166,6 +167,48 @@ def test_a_nested_only_change_refuses_the_frame(
         assert result["refusal"]["kind"] == "request_mismatch"
         assert "deep.json" in result["refusal"]["message"]
         assert (root / "architecture-contract.json").read_bytes() == original
+
+
+@pytest.mark.parametrize("verb", ["validate", "report"])
+@pytest.mark.parametrize("changed", [False, True])
+def test_a_future_mtime_keeps_the_digest_check(
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    verb: str,
+    changed: bool,
+) -> None:
+    with case_root(HONEST) as root:
+        tree(root)
+        monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+        saved: tuple[bytes, int] | None = None
+
+        def remembered(binary: str, kind: str, payload: bytes) -> tuple[bytes, int]:
+            nonlocal saved
+            saved = exchange(binary, kind, payload)
+            return saved
+
+        monkeypatch.setattr(core_only, "exchange", remembered)
+        arguments = [verb, "--root", str(root), "--json"]
+        assert core_only.run(arguments) == 0
+        capsys.readouterr()
+        path = root / "deep.json"
+        if changed:
+            path.write_bytes(path.read_bytes() + b"\n")
+            monkeypatch.setattr(core_only, "exchange", lambda *_: saved)
+        future = time_ns() + 86_400_000_000_000
+        os.utime(path, ns=(future, future))
+        for _ in range(2):
+            assert core_only.run(arguments) == (2 if changed else 0)
+            result = json.loads(capsys.readouterr().out)
+            if changed:
+                assert result["refusal"]["kind"] == "request_mismatch"
+                assert (
+                    "nested contract digest or byte limit differs: deep.json"
+                    in result["refusal"]["message"]
+                )
+            else:
+                assert result["status"] == "PASS"
 
 
 @pytest.mark.parametrize(

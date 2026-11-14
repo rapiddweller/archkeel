@@ -16,8 +16,9 @@
 5. The shell requires the file map for a collected frame and checks the root entry against the
    existing root digest. It reads at most 1,024 nested files and 64 MiB of nested bytes.
    Reject unsafe paths, links in any nested path, missing files and digest differences.
-6. Record the local request start time before the core exchange. Reject a nested file whose
-   modification or metadata-change time is later. Compare identity and times across the binding read.
+6. Record the local request start time before the core exchange. Use only metadata-change time
+   (`ctime`) for the early-write refusal. A future `mtime` must not refuse unchanged bytes forever.
+   Keep the digest check and the identity, `mtime` and `ctime` comparison across the binding read.
    Thus an ordinary write before the core read refuses too, not only a write after that read.
 7. Keep all core bounds: 1,024 inside files, 64 MiB of nested bytes, 900 mount levels and 901 rounds.
    Keep the survey, snapshot, store, path and tree checks. Missing and malformed files, cycles,
@@ -43,5 +44,6 @@ Git configuration and stale-binary limits of AD-422 stay. No new language or rul
 It covers two mount levels, PASS, nested FAIL, root FAIL and UNKNOWN with text/JSON exit agreement.
 It plants unsafe, outside, linked, cyclic, absent, malformed and oversized mounts.
 It changes only a nested file before and after the core read, and replays an old PASS after an edit.
+Future `mtime` tests keep unchanged bytes PASS and refuse changed bytes by their digest.
 The root bytes, HEAD and dirty state remain unchanged in the replay.
 `tests/test_ir_owners.py` checks the shell inventory. Existing native tree tests check the semantics.
