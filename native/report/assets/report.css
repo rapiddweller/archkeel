@@ -80,9 +80,6 @@ body { margin: 0; }
 .rp-dos__head h3 a { text-decoration-color: var(--ink-subtle); }
 .rp-no { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 3px; box-sizing: border-box; background: var(--fail); color: var(--surface-0); border-radius: 10px; font-family: var(--font-mono); font-size: 11px; font-weight: 600; }
 .rp-dos__body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
-.rp-dos__body--ring { grid-template-columns: minmax(0, 440px) minmax(0, 1fr); align-items: center; gap: var(--space-5); }
-.rp-ring { display: block; width: 100%; max-width: 440px; height: auto; }
-.rp-ring text { font-family: var(--font-mono); }
 .rp-rules { margin: var(--space-3) 0 0; padding: 0; list-style: none; color: var(--ink-muted); }
 .rp-rules li { margin: 0; }
 .rp-rules b { color: var(--ink); font-weight: 500; }
@@ -223,7 +220,7 @@ html:not([data-theme]) .ak-seg { display: none; }
 @media (max-width: 760px) {
   .rp-top { padding: var(--space-3) var(--space-4); gap: var(--space-3); }
   .rp-main { padding: 0 var(--space-4) var(--space-7); }
-  .rp-head, .rp-cols, .rp-duo, .rp-dos__body--ring { grid-template-columns: minmax(0, 1fr); }
+  .rp-head, .rp-cols, .rp-duo { grid-template-columns: minmax(0, 1fr); }
   .rp-head { gap: var(--space-4); }
   .rp-sec { margin-top: var(--space-6); }
   .rp-pic { padding: var(--space-3); }

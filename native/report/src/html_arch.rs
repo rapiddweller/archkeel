@@ -142,13 +142,16 @@ impl<'a> Picture<'a> {
         })
     }
 
-    fn small(&self) -> bool {
-        let edges = self
-            .links
+    /// The dependencies between two components: the ones that the picture shows.
+    fn drawn(&self) -> usize {
+        self.links
             .iter()
             .filter(|link| link.from != link.to)
-            .count();
-        self.order.len() <= MAP_COMPONENTS && edges <= MAP_EDGES
+            .count()
+    }
+
+    fn small(&self) -> bool {
+        self.order.len() <= MAP_COMPONENTS && self.drawn() <= MAP_EDGES
     }
 
     /// The top left corner of a node.
@@ -223,7 +226,7 @@ impl<'a> Picture<'a> {
             "<svg class=\"ak-diagram rp-map\" viewBox=\"0 0 {width} {height}\" style=\"max-width:{width}px\" role=\"img\" \
 aria-label=\"Component map: {}, {}.\"><defs>{}</defs>",
             count(self.order.len(), "component"),
-            count(self.links.len(), "dependency"),
+            count(self.drawn(), "dependency"),
             ["ak-arrow", "ak-arrow-fail"]
                 .iter()
                 .map(|id| format!(
@@ -371,7 +374,7 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
 A dashed red arrow, or a red cell, is a place that breaks a rule; its number links to the block.</p></figure></section>\n",
         count(picture.order.len(), "component"),
         count(totals.modules, "module"),
-        count(picture.links.len(), "dependency"),
+        count(picture.drawn(), "dependency"),
         picture.failing.len()
     )
 }

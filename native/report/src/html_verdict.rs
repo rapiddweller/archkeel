@@ -58,10 +58,16 @@ fn next(frame: &Frame, places: &Places) -> String {
                     links.join(", ")
                 ));
             }
-            if frame.rules_with("UNKNOWN") > 0 || status == "UNKNOWN" {
+            if frame.rules_with("UNKNOWN") > 0 {
                 steps.push(format!(
                     "Close the gaps behind the {} so that the run can decide them.",
                     count(frame.rules_with("UNKNOWN"), "unknown rule")
+                ));
+            } else if status == "UNKNOWN" {
+                // No rule row is UNKNOWN: the run itself is open (a refused contract or scan).
+                steps.push(format!(
+                    "Remove the cause that keeps the run open: {}",
+                    escape(&frame.cause)
                 ));
             }
         }

@@ -31,7 +31,7 @@ row! {
     Topology { total: Totals, components: Vec<Component>, modules: Vec<Module>, component_edges: Vec<Edge> }
     Shape { direction: String, source: Vec<String>, target: Vec<String> }
     Step { from: String, to: String, from_component: Option<String>, to_component: Option<String>, evidence: Vec<String>, evidence_total: usize }
-    CyclePath { members: Vec<String>, path: Vec<Step>, steps_total: usize, truncated: bool }
+    CyclePath { index: usize, members: Vec<String>, path: Vec<Step>, steps_total: usize, truncated: bool }
     Cycles { total: usize, items: Vec<CyclePath> }
     Explain { rules: BTreeMap<String, Shape>, cycles: BTreeMap<String, Cycles> }
 }
@@ -46,6 +46,8 @@ pub(super) struct Frame {
     pub(super) topology: Option<Topology>,
     pub(super) explain: Explain,
     pub(super) head: String,
+    /// Why the run is not decided: the refusal or the scope text of the frame.
+    pub(super) cause: String,
 }
 
 fn field<T: DeserializeOwned + Default>(frame: &Value, key: &str) -> T {
@@ -60,7 +62,13 @@ impl Frame {
             .chars()
             .take(9)
             .collect();
+        let text = |value: &Value| value.as_str().map(str::to_owned);
+        let cause = text(&frame["self_test"]["collect"]["refused"])
+            .or_else(|| text(&frame["unsupported"]["rules"]))
+            .or_else(|| text(&frame["scope"]))
+            .unwrap_or_default();
         Frame {
+            cause,
             status: frame["status"].as_str().unwrap_or("unavailable").to_owned(),
             rules: field(frame, "rules"),
             details: field(frame, "details"),

@@ -82,7 +82,8 @@ impl Places {
                     cause: row.cause.clone(),
                 };
                 // A cycle row has its closed path when the frame lists it; else it is one row.
-                let path = listed.and_then(|found| found.items.get(index));
+                let path =
+                    listed.and_then(|found| found.items.iter().find(|item| item.index == index));
                 match path {
                     Some(path) if is_cycle(row) => cycles.push((path.clone(), violated)),
                     _ => imports

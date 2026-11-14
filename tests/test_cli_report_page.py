@@ -79,7 +79,9 @@ def test_the_self_run_page_shows_one_block_for_each_of_its_seven_cycles(self_pag
     cycle = self_page.split('id="x1"', 1)[1].split("</article>", 1)[0]
     assert re.search(r'<span class="rp-code">native/[a-z_/-]+\.rs:\d+</span>', cycle)
     assert "Step 2 returns to step 1." in cycle or "returns to step 1" in cycle
-    assert "55 components" in self_page and 'class="rp-mx"' in self_page
+    # The count comes from the page, which copies the frame: more than 12 components draw a matrix.
+    count = re.search(r"(\d+) components, \d+ modules", self_page)
+    assert count and int(count.group(1)) > 12 and 'class="rp-mx"' in self_page
     # A matrix page has no drawn map: the run has more than 12 components.
     assert 'class="ak-diagram rp-map"' not in self_page
 
@@ -110,3 +112,26 @@ def test_a_page_request_adds_no_topology_to_the_output_of_the_run(
     _, plain = run("report", *config)
     _, paged = run("report", *config, "--output", str(tmp_path / "p.html"))
     assert "topology" not in paged["frame"] and paged == plain
+
+
+# AD-496: the design-system files are copies. The hashes pin their bytes, so that a change of the
+# copy is a reviewed change of the hash too.
+DESIGN_SYSTEM = {
+    "tokens.css": "5c19020e154a136f14a86103a117fcf46c7331b7a18d78a3dab0115afd6f26d2",
+    "bundle.css": "88cf31f2cc4c3d830ab611bcd49f92c67131b2b996e9e8de4132a31443974389",
+    "Geist-Variable.woff2": "19f9c92546aa300c312235e3125af1b81394d8db9a4bc4a425cd5b641d2d54e1",
+    "JetBrainsMono-Variable.woff2": (
+        "18be452724bfdc236c074ca94a249a7f41a86752c7d04ab258ce9ed5651f6a7e"
+    ),
+    "archkeel-theme.js": "ecdc6971d6bc31aff76fd6bdb557f38b69eaec35bcf35bd8bf1ec1f2459d3944",
+}
+
+
+@pytest.mark.parametrize("name", sorted(DESIGN_SYSTEM))
+def test_the_design_system_copy_has_its_pinned_bytes(name: str) -> None:
+    digest = hashlib.sha256((ASSETS / name).read_bytes()).hexdigest()
+    assert digest == DESIGN_SYSTEM[name], f"{name} changed: review it and update the pin"
+
+
+def test_the_local_style_has_no_rule_that_no_page_uses() -> None:
+    assert "rp-ring" not in (ASSETS / "report.css").read_text()

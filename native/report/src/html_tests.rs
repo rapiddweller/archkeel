@@ -179,3 +179,197 @@ fn a_cycle_is_one_block_with_its_closed_path_and_a_cut_list_says_so() {
     let cut = document(&cycle_frame(1, 3));
     assert!(cut.contains("The frame lists 1 of 3 cycles of <span class=\"rp-code\">CY</span>."));
 }
+
+// Review of #1163, finding S1: the direction of a rule comes from the frame and is escaped.
+#[test]
+fn a_forged_direction_is_escaped() {
+    let mut frame = dependency_frame(1);
+    frame["explain"]["rules"]["R"]["direction"] = json!("<i onclick=\"x\">&'");
+    let page = document(&frame);
+    assert!(page.contains("&lt;i onclick=&quot;x&quot;&gt;&amp;&#39;: a"));
+    assert!(!page.contains("<i onclick"));
+}
+
+// S2: a run that is UNKNOWN without an UNKNOWN rule names its cause, not "0 unknown rules".
+#[test]
+fn an_open_run_without_an_unknown_rule_names_its_cause() {
+    let frame = json!({"status": "UNKNOWN", "rules": {}, "scope": "missing input: no valid collector reply",
+        "unsupported": {"rules": "contract <refused>"}});
+    let page = document(&frame);
+    assert!(!page.contains("0 unknown rules"));
+    assert!(page.contains("Remove the cause that keeps the run open: contract &lt;refused&gt;"));
+    let scope = json!({"status": "UNKNOWN", "rules": {}, "scope": "incomplete scope: 3 gaps"});
+    assert!(document(&scope).contains("keeps the run open: incomplete scope: 3 gaps"));
+}
+
+const HOSTILE: &str = "<script>\"&'";
+
+fn hostile_frame(components: usize) -> Value {
+    let mut frame = dependency_frame(1);
+    let list: Vec<Value> = (0..components)
+        .map(|i| json!({"id": format!("COMP-{i}"), "name": format!("{HOSTILE}{i}")}))
+        .collect();
+    frame["topology"]["components"] = json!(list);
+    frame["topology"]["total"]["components"] = json!(components);
+    frame["explain"]["cycles"] = json!({"CY": {"total": 1, "items": [{"index": 1,
+        "members": [HOSTILE], "steps_total": 2, "truncated": false, "path": [
+        {"from": HOSTILE, "to": "m.b", "from_component": "COMP-0", "to_component": "COMP-1",
+            "evidence": [], "evidence_total": 0},
+        {"from": "m.b", "to": HOSTILE, "from_component": "COMP-1", "to_component": "COMP-0",
+            "evidence": [], "evidence_total": 0}]}]}});
+    frame["rules"]["CY"] = json!(["no_component_cycles", "FAIL"]);
+    frame["details"]["CY"] = json!([
+        {"source": "m.a", "target": "m.b", "cause": "forbidden dependency", "evidence": []},
+        {"source": HOSTILE, "target": "m.b", "cause": "dependency cycle", "evidence": []}]);
+    frame
+}
+
+// S4: a hostile component or module name reaches no markup, in the map and in the matrix.
+#[test]
+fn hostile_names_are_escaped_in_the_map_the_matrix_and_the_cycle_rows() {
+    for components in [2, 13] {
+        let page = document(&hostile_frame(components));
+        let safe = escape(HOSTILE);
+        assert!(page.contains(&safe), "{components} components");
+        assert!(!page.contains("<script>\""), "{components} components");
+        assert_eq!(page.matches("<script>").count(), 1);
+        assert!(page.contains("class=\"rp-mx\""));
+        assert_eq!(
+            page.contains("class=\"ak-diagram rp-map\""),
+            components <= 12
+        );
+        assert!(page.contains(&format!("<title>{safe}0")) || components > 12);
+        assert!(page.contains(&format!("title=\"{safe}0")) || components <= 12);
+        let cycle = page.split("Cycle of 1 member").nth(1).unwrap();
+        assert!(cycle.contains(&format!("<td class=\"code\">{safe}")));
+    }
+}
+
+// The pairing of a cycle with its row follows the `index` of the frame: a rule that has an import
+// row before its cycle row keeps both.
+#[test]
+fn a_rule_with_an_import_row_and_a_cycle_row_pairs_each_with_its_own_row() {
+    let page = document(&hostile_frame(2));
+    assert_eq!(page.matches("class=\"rp-dos\"").count(), 3);
+    assert!(page.contains("Cycle of 1 member"));
+    assert!(page.contains("m.a imports m.b"));
+    // The cycle row is not shown a second time as an import place.
+    assert!(!page.contains(&format!("{} imports m.b", escape(HOSTILE))));
+}
+
+/// The boxes `(x, y, width, height)` and the paths of the edges of the map.
+fn drawing(page: &str) -> (Vec<[f64; 4]>, Vec<String>) {
+    let number = |chunk: &str, key: &str| -> f64 {
+        let at = chunk.split(&format!("{key}=\"")).nth(1).unwrap();
+        at.split('"').next().unwrap().parse().unwrap()
+    };
+    let boxes = page
+        .split("<rect class=\"ak-node__box\"")
+        .skip(1)
+        .map(|chunk| ["x", "y", "width", "height"].map(|key| number(chunk, key)))
+        .collect();
+    let paths = page
+        .split("<path class=\"ak-edge")
+        .skip(1)
+        .map(|chunk| {
+            chunk
+                .split("d=\"")
+                .nth(1)
+                .unwrap()
+                .split('"')
+                .next()
+                .unwrap()
+                .to_owned()
+        })
+        .collect();
+    (boxes, paths)
+}
+
+/// The points of a path of the map in order: a curve counts with its two control points.
+fn points(path: &str) -> Vec<(f64, f64)> {
+    let mut found: Vec<(f64, f64)> = Vec::new();
+    let mut tokens: Vec<String> = Vec::new();
+    let mut word = String::new();
+    for c in path.chars() {
+        if c.is_ascii_alphabetic() {
+            if !word.is_empty() {
+                tokens.push(std::mem::take(&mut word));
+            }
+            tokens.push(c.to_string());
+        } else if c == ' ' {
+            if !word.is_empty() {
+                tokens.push(std::mem::take(&mut word));
+            }
+        } else {
+            word.push(c);
+        }
+    }
+    tokens.push(word);
+    let (mut x, mut y) = (0.0, 0.0);
+    let mut at = 0;
+    while at < tokens.len() {
+        let value = |i: usize| tokens[i].parse::<f64>().unwrap();
+        match tokens[at].as_str() {
+            "M" => (x, y, at) = (value(at + 1), value(at + 2), at + 3),
+            "H" => (x, at) = (value(at + 1), at + 2),
+            "V" => (y, at) = (value(at + 1), at + 2),
+            "C" => {
+                found.push((value(at + 1), value(at + 2)));
+                found.push((value(at + 3), value(at + 4)));
+                (x, y, at) = (value(at + 5), value(at + 6), at + 7);
+            }
+            other => panic!("unknown path command {other}"),
+        }
+        found.push((x, y));
+    }
+    found
+}
+
+// S5: no edge segment crosses the inside of a box. A box is the end of an edge only at its border.
+#[test]
+fn no_edge_of_the_map_crosses_a_box() {
+    let edges = [
+        (0, 1),
+        (1, 2),
+        (0, 2),
+        (0, 3),
+        (3, 1),
+        (2, 0),
+        (4, 5),
+        (5, 4),
+        (3, 3),
+        (0, 5),
+        (1, 4),
+    ];
+    let page = document(&json!({"status": "PASS", "topology": components(6, &edges)}));
+    let (boxes, paths) = drawing(&page);
+    assert_eq!(boxes.len(), 6);
+    assert_eq!(
+        paths.len(),
+        10,
+        "the edge of a component to itself is not drawn"
+    );
+    for path in &paths {
+        let line = points(path);
+        for pair in line.windows(2) {
+            let (low_x, high_x) = (pair[0].0.min(pair[1].0), pair[0].0.max(pair[1].0));
+            let (low_y, high_y) = (pair[0].1.min(pair[1].1), pair[0].1.max(pair[1].1));
+            for [x, y, w, h] in &boxes {
+                let inside = low_x < x + w - 1.0
+                    && high_x > x + 1.0
+                    && low_y < y + h - 1.0
+                    && high_y > y + 1.0;
+                assert!(!inside, "{path} crosses the box at {x},{y}");
+            }
+        }
+    }
+}
+
+// S6: the number of dependencies is the number that the map draws.
+#[test]
+fn the_count_of_dependencies_leaves_out_the_edges_to_the_component_itself() {
+    let page =
+        document(&json!({"status": "PASS", "topology": components(3, &[(0, 1), (1, 1), (2, 2)])}));
+    assert!(page.contains("1 dependency between components"));
+    assert!(page.contains("Component map: 3 components, 1 dependency."));
+}

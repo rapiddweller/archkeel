@@ -121,7 +121,11 @@ fn sides(frame: &Frame, names: &Names<'_>, rule: &str) -> String {
                 count(shape.source.len(), "component")
             )
         }
-        (direction, false) => format!(" &#183; {direction}: {}", escape(&list(&shape.source))),
+        (direction, false) => format!(
+            " &#183; {}: {}",
+            escape(direction),
+            escape(&list(&shape.source))
+        ),
     }
 }
 
