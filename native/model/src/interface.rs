@@ -96,7 +96,14 @@ fn assess(
     target: &Component,
     import: &Import,
 ) -> Result<bool, InterfaceGap> {
-    if !import.symbols_known() || import.symbol() == Some("*") || import.under_type_checking() {
+    if import.under_type_checking()
+        && (!import.symbols_known()
+            || import.symbol().is_none_or(|n| n == "*" || n == "default")
+            || !(1..=2).contains(&import.reexport_chain().len()))
+    {
+        return Err(InterfaceGap::TypePublication);
+    }
+    if !import.symbols_known() || import.symbol() == Some("*") {
         return Err(InterfaceGap::UnreadBinding);
     }
     let public: Vec<&str> = target

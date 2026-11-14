@@ -84,8 +84,7 @@ def test_a_known_profile_limit_does_not_hold_an_unrelated_rule(built: Path, case
     assert "limit of some profiles" not in json.dumps(frame["unsupported"])
     if case_id.startswith("s4/a-symbol"):
         assert frame["rules"]["SYMBOL"] == "PASS"
-    # AD-428: the core decides the import verdict of `interface_boundary`. The rule is no profile
-    # limit, and it gets no PASS here: one case has two private imports, one has an unread binding.
+    # AD-428 keeps the private imports FAIL; AD-434 proves the named type publications.
     if "interface" in case_id:
         assert frame["rules"]["BOUNDARY"] == "FAIL", frame
         assert "BOUNDARY" not in frame["unsupported"]["rules"]
@@ -96,9 +95,9 @@ def test_a_known_profile_limit_does_not_hold_an_unrelated_rule(built: Path, case
             (MAIN, "shop.src.presentation.page_x2e_ts:page", PRIVATE),
         }
     if case_id.startswith("probe/"):
-        assert frame["rules"]["PROBE"] == "UNKNOWN", frame
+        assert frame["rules"]["PROBE"] == "PASS", frame
         assert "PROBE" not in frame["unsupported"]["rules"]
-        assert "unread import binding" in frame["explained"]["PROBE"], frame
+        assert "PROBE" not in frame["explained"], frame
         assert "PROBE" not in frame["details"], frame
 
 

@@ -22,3 +22,8 @@
 | 2026-11-10 | synthetic-package-maps | a26f9be5 | First recording of an import-form case (G3 of #880) |
 | 2026-11-11 | synthetic-script-namespace | 97cee4f6f | First recording of a script namespace case (F2 of #989) (cpython 3.11.12) |
 | 2026-11-13 | synthetic-esm-forms | 206694130 | AD-428 (#1130): the static side-effect import IMP-b86070d06c297152 binds no name, so only data.symbols_known changes from false to true (cpython 3.11.12) |
+| 2026-11-14 | h-typescript | d4a001757 | AD-434: add only named type publication proof fields, export binding witnesses and their evidence; preserve all other rows. (cpython 3.11.12) |
+| 2026-11-14 | excalidraw-math | d4a001757 | AD-434: add only named type publication proof fields, export binding witnesses and their evidence; preserve all other rows. (cpython 3.11.12) |
+| 2026-11-14 | excalidraw-laser-pointer | d4a001757 | AD-434: add only named type publication proof fields, export binding witnesses and their evidence; preserve all other rows. (cpython 3.11.12) |
+| 2026-11-14 | synthetic-tsx-paths | d4a001757 | AD-434: add only named type publication proof fields, export binding witnesses and their evidence; preserve all other rows. (cpython 3.11.12) |
+| 2026-11-14 | synthetic-esm-forms | d4a001757 | AD-434: add only named type publication proof fields, export binding witnesses and their evidence; preserve all other rows. (cpython 3.11.12) |
