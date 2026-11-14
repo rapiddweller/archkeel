@@ -1422,7 +1422,6 @@
       "packages": [
         "native.archkeel_rust_collector.tree",
         "native.archkeel_rust_collector.modules",
-        "native.archkeel_rust_collector.modules_alias",
         "native.archkeel_rust_collector.resolve",
         "native.archkeel_rust_collector.derive_identity"
       ],

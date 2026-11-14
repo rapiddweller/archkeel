@@ -16,10 +16,11 @@ use std::collections::BTreeMap;
 
 use crate::crates::{Crate, Workspace};
 use crate::definitions::{Form, Owner};
-use crate::modules_alias::Aliases;
 use crate::resolve::classify;
 use crate::scan::Reference;
 use crate::tree::Module;
+mod alias;
+use alias::Aliases;
 
 /// The deepest chain of `use` bindings and globs that the resolver follows.
 const MAX_HOPS: usize = 8;
