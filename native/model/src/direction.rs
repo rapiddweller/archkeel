@@ -51,10 +51,16 @@ pub fn forbidden<'m>(model: &'m Model, rule: &'m ForbiddenDependency) -> Vec<(&'
                 && !(import.under_type_checking() && !rule.include_type_checking())
         })
         .map(|import| {
+            // AD-434: named type publication does not lift dependency symbol limits.
             let judged = match rule.target_symbol() {
                 None => Judged::Fail,
                 Some(symbol) if import.symbol() == Some(symbol.as_str()) => Judged::Fail,
-                Some(_) if import.symbols_known() => Judged::Pass,
+                Some(_)
+                    if import.symbols_known()
+                        && (!import.under_type_checking() || import.symbol().is_none()) =>
+                {
+                    Judged::Pass
+                }
                 Some(_) => Judged::Undecided,
             };
             (import, judged)
@@ -151,7 +157,9 @@ fn symbol_port(source: &Component, target: &Component) -> bool {
 
 /// `requires_import_assessment`: a wildcard import cannot prove an exact symbol port.
 fn assessment(source: &Component, target: &Component, import: &Import) -> Judged {
-    let named = import.symbols_known() && import.symbol() != Some("*");
+    let named = import.symbols_known()
+        && (!import.under_type_checking() || import.symbol().is_none())
+        && import.symbol() != Some("*");
     let symbol = if named { import.symbol() } else { None };
     let module = import.target_module();
     let entries = || {

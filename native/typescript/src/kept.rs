@@ -7,7 +7,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::definitions::{Definition, Scopes};
-use crate::exports::ExportBinding;
+use crate::exports::{ExportBinding, TypeExports};
 use crate::import_bindings::ImportBinding;
 use crate::kept_script::ScriptFile;
 use crate::parse::Parsed;
@@ -30,6 +30,7 @@ pub(crate) struct Kept {
     /// The exports of the module by name: `(declaration, export)`. Python scans the whole list for
     /// each bound name; a map keeps a file with n exports and n imports linear.
     pub exports: HashMap<String, Vec<(Span, Span)>>,
+    pub type_exports: TypeExports,
     /// The sites of the file and the scopes that hold them (PR 4.3a-3c).
     pub sites: Sites,
     pub scopes: Scopes,
@@ -75,6 +76,7 @@ impl Kept {
             &syntax.module_exports,
         );
         kept.rebound = syntax.rebound_names.iter().cloned().collect();
+        kept.type_exports = std::mem::take(&mut syntax.type_exports);
         kept.sites = std::mem::take(&mut syntax.sites);
         kept.scopes = std::mem::take(&mut syntax.scopes);
         kept.shadow = kept.sites.names.index(text.as_bytes());
@@ -115,6 +117,7 @@ impl Kept {
             comparisons,
             bindings,
             exports,
+            type_exports: TypeExports::default(),
             sites: Sites::default(),
             scopes: Scopes::default(),
             rebound: HashSet::new(),
