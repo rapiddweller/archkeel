@@ -11,12 +11,13 @@
 //! cases. A gap would make the whole scan incomplete, so the limit is in the member receipts of
 //! each class (`symbols.rs`) and in AD-351.
 
+use syn::visit::{self, Visit};
 use syn::{Ident, Item, ItemImpl, ItemTrait, Signature, Type};
 
 use super::receivers::{exact_path, inert, kind_of, type_inert};
 use super::Walker;
 use crate::attrs::{impl_item_attributes, is_test_attributes};
-use crate::definitions::{Access, Definition, Form, Holder, ImplBlock, Member, Owner};
+use crate::definitions::{Access, Definition, Form, Holder, ImplBlock, Member, Owner, TraitImpl};
 use crate::tokens::plain;
 
 fn access(vis: &syn::Visibility) -> Access {
@@ -120,7 +121,7 @@ impl Walker<'_> {
     /// Read an inherent `impl` block at any depth (#953): the path of its type and its members.
     pub(super) fn impl_block(&mut self, item: &ItemImpl) {
         if item.trait_.is_some() {
-            return;
+            return self.trait_impl(item);
         }
         let path = match &*item.self_ty {
             Type::Path(path) if path.qself.is_none() && path.path.leading_colon.is_none() => {
@@ -162,6 +163,7 @@ impl Walker<'_> {
 
     /// Keep a struct or an enum at module level that every configuration has (AD-383).
     pub(super) fn exact_type(&mut self, item: &Item) {
+        self.block_type(item);
         let (ident, attrs) = match item {
             Item::Struct(found) => (&found.ident, &found.attrs),
             Item::Enum(found) => (&found.ident, &found.attrs),
@@ -254,4 +256,64 @@ pub(super) fn foreign_name(item: &syn::ForeignItem) -> Option<String> {
         _ => return None,
     };
     Some(plain(ident))
+}
+
+// What the scan keeps for the pair gaps of trait impls in a third module (AD-514).
+
+/// The paths of a head, except an absolute path and a type parameter of the block.
+struct Heads<'a> {
+    params: Vec<&'a syn::Ident>,
+    found: Vec<Vec<String>>,
+}
+
+impl<'ast> Visit<'ast> for Heads<'_> {
+    fn visit_path(&mut self, path: &'ast syn::Path) {
+        let parameter = path
+            .get_ident()
+            .is_some_and(|ident| self.params.contains(&ident));
+        if path.leading_colon.is_none() && !parameter {
+            self.found
+                .push(path.segments.iter().map(|s| plain(&s.ident)).collect());
+        }
+        visit::visit_path(self, path);
+    }
+}
+
+impl Walker<'_> {
+    /// Keep an `impl Trait for T` at any depth.
+    pub(super) fn trait_impl(&mut self, item: &ItemImpl) {
+        let mut heads = Heads {
+            params: item
+                .generics
+                .type_params()
+                .map(|param| &param.ident)
+                .collect(),
+            found: Vec::new(),
+        };
+        if let Some((path, _)) = &item.trait_ {
+            heads.visit_path(path);
+        }
+        heads.visit_type(&item.self_ty);
+        let found = TraitImpl {
+            anchors: heads.found,
+            scope: self.inline.clone(),
+            blocks: self.block_ends.clone(),
+            site: self.site(item.impl_token.span),
+        };
+        self.out.orphans.impls.push(found);
+    }
+
+    /// Keep the end of the block that declares a struct, an enum, a union or a trait.
+    pub(super) fn block_type(&mut self, item: &Item) {
+        let ident = match item {
+            Item::Struct(found) => &found.ident,
+            Item::Enum(found) => &found.ident,
+            Item::Union(found) => &found.ident,
+            Item::Trait(found) => &found.ident,
+            _ => return,
+        };
+        if let Some(end) = self.block_ends.last() {
+            self.out.orphans.block_types.push((plain(ident), *end));
+        }
+    }
 }

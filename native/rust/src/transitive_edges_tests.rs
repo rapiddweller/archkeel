@@ -15,8 +15,20 @@ const LEAF_TYPE: &str = "pub struct S;\nimpl S {\n    pub fn own(&self) -> u8 {\
 const LEAF_IMPL: &str = "impl crate::S {\n    pub fn m(&self) -> u8 {\n        1\n    }\n}\n\
     impl crate::Tr for crate::S {\n    fn t(&self) -> u8 {\n        2\n    }\n}\n";
 
-/// The pair gaps of `app -> mid -> leaf`, where `mid` is `mid_lib` and `app.a` is `a`.
+const ORPHAN: &str = "defines neither its trait nor its type";
+
+/// The method-call pair gaps of `app -> mid -> leaf`, where `mid` is `mid_lib` and `app.a` is `a`.
+/// `LEAF_IMPL` holds an orphan-module impl: its gaps (AD-514) are in `orphans`.
 fn pairs(mid_lib: &str, a: &str) -> Vec<(String, String)> {
+    gaps(mid_lib, a, false)
+}
+
+/// The pair gaps of the orphan-module impl of `leaf.b`.
+fn orphans(mid_lib: &str, a: &str) -> Vec<(String, String)> {
+    gaps(mid_lib, a, true)
+}
+
+fn gaps(mid_lib: &str, a: &str, orphan: bool) -> Vec<(String, String)> {
     let files = [
         (
             "crates/Cargo.toml",
@@ -45,10 +57,14 @@ fn pairs(mid_lib: &str, a: &str) -> Vec<(String, String)> {
     let facts = run(&files, false);
     let mut found: Vec<(String, String)> = (facts.gaps.iter())
         .filter_map(|gap| match &gap.data {
-            GapFact::CollectionGap(d) => Some((
-                d.source_module.as_ref()?.as_str().to_owned(),
-                d.module.as_ref()?.as_str().to_owned(),
-            )),
+            GapFact::CollectionGap(d)
+                if d.reason.as_deref().is_some_and(|r| r.contains(ORPHAN)) == orphan =>
+            {
+                Some((
+                    d.source_module.as_ref()?.as_str().to_owned(),
+                    d.module.as_ref()?.as_str().to_owned(),
+                ))
+            }
             _ => None,
         })
         .collect();
@@ -103,21 +119,31 @@ fn a_method_call_on_a_generic_parameter_names_the_member() {
     assert_eq!(found, leaf());
 }
 
-/// A trait method of a trait `impl` (`impl Trait` return, `Box<dyn Trait>`) is the open class
-/// #1004: the scan lists no trait `impl` member as a candidate, with or without a direct
-/// dependency. The test pins the limit that `docs/known-limits.md` names.
+/// A trait method of a trait `impl` (`impl Trait` return, `Box<dyn Trait>`) has no member
+/// candidate. The impl is an orphan of `leaf.b`: every module of `leaf`, `mid` and `app` gets a
+/// pair gap to it (AD-514, #1004).
 #[test]
-fn a_trait_method_through_impl_trait_or_dyn_is_the_named_open_class_1004() {
-    let impl_trait = pairs(
+fn a_trait_method_through_impl_trait_or_dyn_gives_the_orphan_pair_gap_1004() {
+    let all = [
+        ("ns.app", "ns.leaf.b"),
+        ("ns.app.a", "ns.leaf.b"),
+        ("ns.leaf", "ns.leaf.b"),
+        ("ns.mid", "ns.leaf.b"),
+    ];
+    let all: Vec<(String, String)> = (all.iter())
+        .map(|(from, to)| ((*from).to_owned(), (*to).to_owned()))
+        .collect();
+    let impl_trait = orphans(
         "pub fn get() -> impl leaf::Tr {\n    leaf::S\n}\n",
         "pub fn f() -> u8 {\n    mid::get().t()\n}\n",
     );
-    assert_eq!(impl_trait, vec![]);
-    let boxed = pairs(
+    assert_eq!(impl_trait, all);
+    let boxed = orphans(
         "pub fn get() -> Box<dyn leaf::Tr> {\n    Box::new(leaf::S)\n}\n",
         "pub fn f() -> u8 {\n    mid::get().t()\n}\n",
     );
-    assert_eq!(boxed, vec![]);
+    assert_eq!(boxed, all);
+    assert_eq!(pairs("", "pub fn f() {}\n"), vec![]);
 }
 
 /// A member of a block in the file of its type is no candidate: the scan takes the edge to the

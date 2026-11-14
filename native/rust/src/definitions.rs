@@ -82,6 +82,25 @@ pub(crate) struct ImplBlock {
     pub exact: bool,
 }
 
+/// An `impl Trait for T` block at any depth (AD-514): each path that its head writes (the trait,
+/// the type and the arguments of both; a type parameter of the block is none), the inline modules
+/// and the blocks (their ends) that enclose it, and its place.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct TraitImpl {
+    pub anchors: Vec<Vec<String>>,
+    pub scope: Vec<String>,
+    pub blocks: Vec<(i64, i64)>,
+    pub site: Site,
+}
+
+/// What the scan keeps for the pair gaps of trait impls in a third module (AD-514): the trait
+/// impls, and each struct, enum, union and trait that a block declares, with the end of its block.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct OrphanFacts {
+    pub impls: Vec<TraitImpl>,
+    pub block_types: Vec<(String, (i64, i64))>,
+}
+
 /// The `self` parameter of a method as written: `self`, `&self` or `&mut self` (with any lifetime
 /// and `mut`). A typed `self: X` is no kind: the scan does not read types.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

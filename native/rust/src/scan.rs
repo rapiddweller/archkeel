@@ -115,6 +115,7 @@ pub(crate) struct Scan {
     /// The inherent `impl` blocks at any depth, and the method calls (#953).
     pub impls: Vec<ImplBlock>,
     pub method_calls: Vec<MethodCall>,
+    pub orphans: crate::definitions::OrphanFacts,
     /// The structs and enums at module level that are in every configuration (AD-383).
     pub exact_types: BTreeSet<String>,
     /// An inner attribute of the file may remove the module in some configuration.

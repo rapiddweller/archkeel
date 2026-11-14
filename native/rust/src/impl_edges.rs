@@ -19,8 +19,9 @@ use archkeel_facts::ImportFact;
 use crate::builder::Builder;
 use crate::crates::Workspace;
 use crate::definitions::{Access, ImplBlock, Member, MethodCall};
-use crate::impl_globs::{crate_path, Reached};
+use crate::impl_globs::{crate_path, depends, Reached};
 use crate::modules::{inside, Edge, Frame, Index, TypeOf};
+use crate::orphan_impls::orphan_impl_gaps;
 use crate::plant;
 use crate::scan::Via;
 use crate::tree::Module;
@@ -132,38 +133,6 @@ fn visible(
     }
 }
 
-/// Whether the crate of `caller` reaches the crate of `target` through its dependencies. A value
-/// of a crate that the caller reaches only through another crate can carry a method call into it
-/// (review B2 of #1121), so the walk follows the dependencies of each crate of the workspace.
-fn depends(workspace: &Workspace, caller: &Module, target: &Module) -> bool {
-    let (Some(from), Some(to)) = (
-        workspace.crates.get(caller.crate_index),
-        workspace.crates.get(target.crate_index),
-    ) else {
-        return false;
-    };
-    let mut seen: BTreeSet<&str> = BTreeSet::new();
-    let mut work: Vec<&str> = from
-        .manifest
-        .dependencies
-        .values()
-        .map(String::as_str)
-        .collect();
-    while let Some(name) = work.pop() {
-        if name == to.ident {
-            return true;
-        }
-        if !seen.insert(name) {
-            continue;
-        }
-        let next = workspace.crates.iter().filter(|krate| krate.ident == name);
-        work.extend(
-            next.flat_map(|krate| krate.manifest.dependencies.values().map(String::as_str)),
-        );
-    }
-    false
-}
-
 impl Builder {
     /// The edges and the pair gaps of the methods of foreign `impl` blocks and of glob traits.
     pub(crate) fn impl_members(
@@ -177,6 +146,7 @@ impl Builder {
             .map(|module| self.member_paths(index, module, &found))
             .collect();
         let edges = self.module_pairs();
+        orphan_impl_gaps(self, (workspace, index, modules), &edges);
         for (module, unresolved) in modules.iter().zip(paths) {
             let mut calls = self.calls_of(workspace, index, module);
             calls.extend(unresolved);
@@ -248,7 +218,7 @@ impl Builder {
     }
 
     /// The pairs of modules that an `import` or `reexport` record joins.
-    fn module_pairs(&self) -> BTreeSet<(String, String)> {
+    pub(crate) fn module_pairs(&self) -> BTreeSet<(String, String)> {
         let data = self.imports.iter().filter_map(|record| match &record.data {
             ImportFact::Import(data) | ImportFact::Reexport(data) => Some(data),
             _ => None,
