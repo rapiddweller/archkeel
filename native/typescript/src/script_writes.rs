@@ -12,7 +12,8 @@ use tree_sitter::Node;
 
 use crate::kinds::{F, K};
 use crate::references::literal;
-use crate::script_scope::{is_callable_value, is_root, Tree};
+use crate::script_scope::{is_callable_value, is_root};
+use crate::script_tree::Tree;
 use crate::script_types::Write;
 use crate::source::Span;
 

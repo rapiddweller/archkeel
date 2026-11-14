@@ -80,6 +80,7 @@ mod script_records;
 mod script_refs;
 mod script_scope;
 mod script_syntax;
+mod script_tree;
 mod script_types;
 mod script_vendor;
 mod script_window;

@@ -378,7 +378,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 }
 
 /// `a || b`, `a && b` and `a ?? b` give one of their operands.
-fn logical<'t>(tree: &crate::script_scope::Tree<'_, 't>, node: Node<'t>) -> bool {
+fn logical<'t>(tree: &crate::script_tree::Tree<'_, 't>, node: Node<'t>) -> bool {
     tree.field(node, F::Operator)
         .is_some_and(|operator| matches!(operator.kind(), "||" | "&&" | "??"))
 }

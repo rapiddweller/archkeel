@@ -9,7 +9,8 @@ use std::collections::HashMap;
 
 use tree_sitter::Node;
 
-use crate::script_scope::{Names, ScopeEntry, Tree, IN_AMBIGUOUS, NONE};
+use crate::layout::{IN_AMBIGUOUS, NONE};
+use crate::script_tree::{Names, ScopeEntry, Tree};
 
 /// The last scope of the list that holds a scope that ends at `end`: the last scope, or the first
 /// of its links that ends at or after `end`.

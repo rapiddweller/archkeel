@@ -11,8 +11,9 @@ use std::collections::{HashMap, HashSet};
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::script_scope::{is_receiver_scope, Tree};
+use crate::script_scope::is_receiver_scope;
 use crate::script_syntax::{unique, Producer};
+use crate::script_tree::Tree;
 use crate::script_types::{Member, ScriptGlobal, Write};
 use crate::source::Span;
 use crate::tree::nodes::named_children;

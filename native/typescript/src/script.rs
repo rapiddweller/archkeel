@@ -12,8 +12,8 @@ use std::rc::Rc;
 use tree_sitter::Node;
 
 use crate::layout::Layout;
-use crate::script_scope::Tree;
 use crate::script_syntax::Producer;
+use crate::script_tree::Tree;
 use crate::script_types::Script;
 use crate::source::Span;
 use crate::tree::cx::Cx;

@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::script_scope::Tree;
+use crate::script_tree::Tree;
 
 /// A declaration of a name, by the scope that binds it: `(scope id, name)`.
 pub(crate) type Key = (usize, String);

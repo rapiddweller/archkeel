@@ -12,7 +12,8 @@ use tree_sitter::Node;
 use crate::import_bindings::ImportBinding;
 use crate::kinds::{F, K};
 use crate::scope::assignment_targets;
-use crate::script_scope::{is_callable_value, is_function, is_scope, is_var_scope, Tree};
+use crate::script_scope::{is_callable_value, is_function, is_scope, is_var_scope};
+use crate::script_tree::Tree;
 use crate::tree::nodes::named_children;
 
 /// A scope and the pattern that it binds.

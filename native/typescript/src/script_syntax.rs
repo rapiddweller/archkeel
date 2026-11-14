@@ -11,9 +11,11 @@ use tree_sitter::Node;
 
 use crate::definitions::{Definition, Scopes};
 use crate::kinds::{F, K};
+use crate::layout::{is_function_like, NONE};
 use crate::script_index::DeclIndex;
 use crate::script_refs::References;
-use crate::script_scope::{is_function_like, is_root, Tree, Wrapper, NONE};
+use crate::script_scope::is_root;
+use crate::script_tree::{Tree, Wrapper};
 use crate::source::Span;
 use crate::tree::nodes::named_children;
 use crate::umd::Templates;
