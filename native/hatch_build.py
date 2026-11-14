@@ -1,12 +1,12 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Put the native collectors into a platform wheel when a build asks for them (AD-317, AD-335).
+"""Put the core into a platform wheel, and refuse a wheel without it (AD-317, AD-436).
 
-`ARCHKEEL_BUNDLE_NATIVE` selects the binaries: `1` builds both collectors (TypeScript and Rust)
-with `cargo auditable` from `native/` and adds a CycloneDX SBOM of the crates of each. An absolute
-path to a prebuilt binary bundles that one TypeScript binary only. Without the variable the hook
-does nothing, so an sdist, an editable install and the default wheel never run cargo.
+`ARCHKEEL_BUNDLE_NATIVE` selects the binary. `1` builds `archkeel-core` with `cargo auditable`
+from `native/` and adds a CycloneDX SBOM of its crates. An absolute path bundles that prebuilt
+core. Without the variable the hook refuses the build: a package without the core refuses each
+run. An editable install bundles nothing, because the shell finds the build output of the checkout.
 """
 
 from __future__ import annotations
@@ -26,13 +26,18 @@ from typing import Any
 Checksums = dict[tuple[str, str], str]
 
 REQUEST = "ARCHKEEL_BUNDLE_NATIVE"
-BINARY = "archkeel-typescript-collector"
-BINARIES = (BINARY, "archkeel-rust-collector")
+# The core links each collector, so it is the only binary of the package (AD-406, AD-436).
+BINARY = "archkeel-core"
 PACKAGE_DATA = "archkeel/_native"
 # The minimum macOS of a binary is the default deployment target of Rust for its architecture.
 MACOS = {"x86_64": "10.12", "arm64": "11.0"}
 LINUX = re.compile(r"(manylinux_\d+_\d+_(?:x86_64|aarch64)|musllinux_\d+_\d+_x86_64)")
 SUPPORTED = "macOS x86_64 and arm64, manylinux x86_64 and aarch64, musllinux x86_64, win_amd64"
+NO_CORE = (
+    f"A wheel of archkeel must carry the core binary {BINARY}, and this build has none. "
+    f"Install a platform wheel ({SUPPORTED}). Or build the core from the Git tag "
+    f"(cargo build --release -p {BINARY} in native/) and set {REQUEST} to its absolute path."
+)
 
 
 def _wheel_platform(platform: str) -> str | None:
@@ -46,7 +51,7 @@ def _wheel_platform(platform: str) -> str | None:
 
 
 def _unsupported(platform: str) -> ValueError:
-    return ValueError(f"No native TypeScript collector for {platform}. Supported: {SUPPORTED}.")
+    return ValueError(f"No {BINARY} for {platform}. Supported: {SUPPORTED}.")
 
 
 def wheel_tag(platform: str) -> str:
@@ -80,35 +85,33 @@ def _platform_tags() -> Iterator[str]:
 def bundle(
     root: Path, version: str, request: str, build_data: dict[str, Any], platform: str = ""
 ) -> None:
-    """Change `build_data` of hatchling so that the wheel carries the binary."""
+    """Change `build_data` of hatchling so that the wheel carries the core and its digest."""
     if not request:
-        return
+        raise ValueError(NO_CORE)
     tag = wheel_tag(platform or host_platform(_platform_tags()))
-    suffix = ".exe" if tag.endswith("win_amd64") else ""
+    name = BINARY + (".exe" if tag.endswith("win_amd64") else "")
     if request == "1":
-        release = _cargo_build(root, version, tag)
-        binaries = {name: release / f"{name}{suffix}" for name in BINARIES}
-        for name, binary in binaries.items():
-            build_data["sbom_files"].append(
-                str(_write_sbom(root / "native", binary, version, name))
-            )
+        binary = _cargo_build(root, version, tag) / name
+        build_data["sbom_files"].append(str(_write_sbom(root / "native", binary, version)))
     else:
-        binaries = {BINARY: _prebuilt(request)}
+        binary = _prebuilt(request)
     build_data["pure_python"] = False
     build_data["tag"] = tag
-    for name, binary in binaries.items():
-        build_data["force_include"][str(binary)] = f"{PACKAGE_DATA}/{name}{suffix}"
-        # The host starts the binary only when its file has this digest (AD-344, AD-352).
-        digest = _write_digest(root, binary, f"{name}{suffix}")
-        build_data["force_include"][str(digest)] = f"{PACKAGE_DATA}/{name}{suffix}.sha256"
+    build_data["force_include"][str(binary)] = f"{PACKAGE_DATA}/{name}"
+    # The shell starts the binary only when its file has this digest (AD-432).
+    digest = _write_digest(root, binary)
+    build_data["force_include"][str(digest)] = f"{PACKAGE_DATA}/{name}.sha256"
 
 
-def _write_digest(root: Path, binary: Path, filename: str) -> Path:
+def _write_digest(root: Path, binary: Path) -> Path:
     """Write the SHA-256 of a binary, in hexadecimal, to a file that the wheel carries."""
+    digest = hashlib.sha256(binary.read_bytes()).hexdigest()
     directory = root / "native" / ".digests"
     directory.mkdir(parents=True, exist_ok=True)
-    record = directory / f"{filename}.sha256"
-    record.write_text(hashlib.sha256(binary.read_bytes()).hexdigest(), encoding="ascii")
+    # The digest names the file, so two builds at the same time cannot change the record of each
+    # other.
+    record = directory / f"{digest}.sha256"
+    record.write_text(digest, encoding="ascii")
     return record
 
 
@@ -140,11 +143,11 @@ def _cargo_build(root: Path, version: str, tag: str) -> Path:
     if not (native / "Cargo.toml").is_file():
         raise ValueError(
             f"{REQUEST}=1 builds from a checkout, and {root} has no native/Cargo.toml. "
-            "Give the absolute path of a prebuilt binary."
+            "Give the absolute path of a prebuilt core."
         )
     cargo = shutil.which("cargo")
     if cargo is None:
-        raise ValueError(f"{REQUEST}=1 needs cargo. Install Rust or give a prebuilt binary.")
+        raise ValueError(f"{REQUEST}=1 needs cargo. Install Rust or give a prebuilt core.")
     if shutil.which("cargo-auditable") is None:
         raise ValueError(f"{REQUEST}=1 needs cargo-auditable. Run make native-tools.")
     environment = build_environment(version, tag)
@@ -152,7 +155,8 @@ def _cargo_build(root: Path, version: str, tag: str) -> Path:
     # The working directory selects the toolchain that native/rust-toolchain.toml pins.
     # cargo auditable records the crates in the `.dep-v0` section for `cargo audit bin`.
     subprocess.run(
-        [cargo, "auditable", "build", "--release", "--locked", "--target-dir", str(target)],
+        [cargo, "auditable", "build", "--release", "--locked", "--target-dir", str(target)]
+        + ["-p", BINARY],
         cwd=native,
         env=environment,
         stdout=sys.stderr,
@@ -161,7 +165,7 @@ def _cargo_build(root: Path, version: str, tag: str) -> Path:
     return target / "release"
 
 
-def _write_sbom(native: Path, binary: Path, version: str, name: str) -> Path:
+def _write_sbom(native: Path, binary: Path, version: str) -> Path:
     cargo = shutil.which("cargo") or "cargo"
     host = _run([cargo, "-vV"], native).split("host: ", 1)[1].split()[0]
     # The crates of the build host only: a crate for another platform is not in the binary.
@@ -177,8 +181,8 @@ def _write_sbom(native: Path, binary: Path, version: str, name: str) -> Path:
         for crate in lock["package"]
         if "checksum" in crate
     }
-    sbom = binary.with_name(f"{name}.cdx.json")
-    text = json.dumps(cyclonedx(metadata, checksums, version, name), indent=2, sort_keys=True)
+    sbom = binary.with_name(f"{BINARY}.cdx.json")
+    text = json.dumps(cyclonedx(metadata, checksums, version), indent=2, sort_keys=True)
     sbom.write_text(text + "\n", encoding="utf-8")
     return sbom
 
@@ -190,9 +194,7 @@ def _run(command: list[str], cwd: Path) -> str:
     ).stdout
 
 
-def cyclonedx(
-    metadata: dict[str, Any], checksums: Checksums, version: str, binary: str = BINARY
-) -> dict[str, Any]:
+def cyclonedx(metadata: dict[str, Any], checksums: Checksums, version: str) -> dict[str, Any]:
     """Give a CycloneDX 1.6 SBOM of the crates that the binary links (PEP 770).
 
     The SBOM follows the normal dependencies from the binary: build and test crates are not in it.
@@ -207,7 +209,7 @@ def cyclonedx(
         )
         for node in metadata["resolve"]["nodes"]
     }
-    (root,) = (key for key, package in packages.items() if package["name"] == binary)
+    (root,) = (key for key, package in packages.items() if package["name"] == BINARY)
     linked, pending = {root}, [root]
     while pending:
         for dependency in edges[pending.pop()]:
@@ -270,11 +272,11 @@ def get_build_hook() -> type:
     from hatchling.builders.config import BuilderConfig
     from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 
-    class NativeCollectorHook(BuildHookInterface[BuilderConfig]):
+    class CoreHook(BuildHookInterface[BuilderConfig]):
         def initialize(self, version: str, build_data: dict[str, Any]) -> None:
             # An editable install never builds or bundles the binary.
             if version != "editable":
                 request = os.environ.get(REQUEST, "")
                 bundle(Path(self.root), self.metadata.version, request, build_data)
 
-    return NativeCollectorHook
+    return CoreHook

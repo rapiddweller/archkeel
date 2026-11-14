@@ -63,7 +63,7 @@ inventory requires an explicit reviewed change for a new workflow.
 
 ## Where things run
 
-No job has a condition, so no job shows as skipped. Each aggregate runs `always()`: a skipped
+Only `publish-gallery` has a condition. No other job has one, so no other job shows as skipped. Each aggregate runs `always()`: a skipped
 aggregate would count as passed.
 
 | Workflow and job | Runs on | Command to reproduce |
@@ -78,6 +78,7 @@ aggregate would count as passed.
 | Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |
 | Full: Linux: shell and package on Python 3.12 | same as above | `make shell-compat`, then `make build smoke` |
 | Full: Native wheel: `<target>` (six targets) | same as above | `make native-wheel NATIVE_TAG=<tag>` on the target |
+| Full: Publish the fixture report gallery | nightly, and dispatch on `main` | `make report-gallery` |
 | Full: All Full checks passed | same as above | none: it needs every Full job |
 | Release: Full, build, publish and gallery refresh | each version tag | `make build plugin-release VERSION=<version>` |
 
@@ -92,9 +93,14 @@ still gives each area its files and matches the Full job matrix. A change to a `
 (`UV`, `TEST_WORKERS`) does not start Full: the nightly run covers it. Full on `main` checks it
 after the merge. Name a new test file so that an area pattern matches it.
 
-No workflow publishes a report site. The Pages workflow and `make report-pages` are deleted with
-the Python engine (AD-432). The [published architecture report](https://rapiddweller.github.io/archkeel/)
-is the last one of that engine. The Windows wheel job also runs the disk-root Rust tests and
+The nightly Full run publishes the fixture report gallery to GitHub Pages
+([AD-462](docs/architecture/decisions/ad-462-fixture-results-are-pinned-and-the-nightly-run-publishes-a-gallery.md)).
+The job `publish-gallery` runs `make report-gallery` and deploys `test-artifacts/gallery`. It is not
+in the needs of `All Full checks passed`, so a Pages error never fails Full. The Pages source of the
+repository must be set to GitHub Actions. `fixtures/matrix.json` pins the result of the core for each
+fixture; a test fails when the result changes. Update the pin in the same change.
+The Python engine built the older gallery and its Pages workflow (`pages.yml`); AD-432 deleted both.
+The Windows wheel job builds and checks the wheel. It also runs the disk-root Rust tests and
 `tests/test_cli_windows_root.py` through the release core. It does not run the full shell suite.
 
 ## Browser assets
@@ -145,8 +151,8 @@ The Python shell and the tools have no architecture contract.
   `make native-check` ([AD-316](docs/architecture/decisions/ad-316-native-collectors-live-in-native-and-reply-with-protocol-8.md)).
   Without `cargo`, the native tests are skipped locally. CI always has `cargo`, so they
   fail there when it is missing. `make native-wheel` builds the platform wheel of your host with
-  the binary and its SBOM, then installs it and runs the binary
-  ([AD-317](docs/architecture/decisions/ad-317-a-platform-wheel-carries-the-native-typescript-collector.md)).
+  the core and its SBOM, then installs it alone and reads the verdicts of its core
+  ([AD-436](docs/architecture/decisions/ad-436-a-platform-wheel-carries-the-core-and-no-other-wheel-is-built.md)).
 - **A performance change earns at least 10 %.** Compare the median of three interleaved runs,
    before and after, on the supported project that the change targets.
   Below 10 % the change is discarded; record the measurement on the issue instead.
