@@ -57,12 +57,16 @@ def _build(*arguments: str, timeout: int = 1200) -> None:
 
 
 @pytest.fixture(scope="session")
-def built() -> Path:
-    """The directory of the debug core and of both collector binaries, in its own target."""
+def built(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A private copy of the debug binaries; another worker can relink the shared build."""
     target = NATIVE / "target" / "shell"
     packages = [argument for name in COLLECTORS for argument in ("-p", name)]
     _build(*packages, "--target-dir", str(target))
-    return target / "debug"
+    copied = tmp_path_factory.mktemp("core-binaries")
+    with FileLock(str(NATIVE / "target" / ".pytest-native-build.lock")):
+        for name in ("archkeel-core", *COLLECTORS):
+            shutil.copy2(target / "debug" / f"{name}{SUFFIX}", copied)
+    return copied
 
 
 @pytest.fixture(scope="session")
