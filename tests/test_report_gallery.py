@@ -75,52 +75,54 @@ def _build(tmp_path: Path, matrix: Path) -> tuple[int, Path]:
     return code, out
 
 
-def test_index_lists_every_matrix_entry_with_commit_and_time(tmp_path: Path) -> None:
+def test_the_showcase_lists_every_matrix_entry_with_commit_and_time(tmp_path: Path) -> None:
     code, out = _build(tmp_path, report_gallery.MATRIX)
-    page = (out / "index.html").read_text()
+    page = (out / "showcase" / "index.html").read_text()
     names = [run["name"] for run in report_gallery.load_runs()]
     assert code == 0
     assert all(f"<td>{name}</td>" in page for name in names)
     assert "abc123" in page
     assert "2026-11-14 02:17 UTC" in page
     assert "<script" not in page
+    assert 'href="../index.html"' in page
 
 
 def test_a_served_row_shows_the_counts_and_links_to_both_reports(tmp_path: Path) -> None:
     matrix = _matrix(tmp_path / "m.json", [_run("served-one", "served-one")])
     code, out = _build(tmp_path, matrix)
-    page = (out / "index.html").read_text()
+    page = (out / "showcase" / "index.html").read_text()
     assert code == 0
     assert "<td>FAIL</td><td>1</td><td>1</td><td>0</td><td>none</td>" in page
     for form in ("html", "json"):
-        assert f'href="served-one/report.{form}"' in page
+        assert f'href="../served-one/report.{form}"' in page
         assert (out / "served-one" / f"report.{form}").is_file()
 
 
 def test_a_refused_row_has_its_reason_and_no_dead_link(tmp_path: Path) -> None:
     matrix = _matrix(tmp_path / "m.json", [_run("refused-one", "refused-one")])
     code, out = _build(tmp_path, matrix)
-    page = (out / "index.html").read_text()
+    page = (out / "showcase" / "index.html").read_text()
     assert code == 0
     assert "refused: &lt;b&gt;profile&lt;/b&gt; refused" in page
     assert "<b>" not in page
-    assert "href=" not in page.split("<h2>Fixture reports</h2>")[1]
+    assert "href=" not in page.split("<tbody>")[1]
     assert not (out / "refused-one" / "report.html").exists()
 
 
 def test_every_link_points_at_a_file_that_exists(tmp_path: Path) -> None:
     runs = [_run("served-a", "served-a"), _run("refused-b", "refused-b")]
     code, out = _build(tmp_path, _matrix(tmp_path / "m.json", runs))
-    links = re.findall(r'href="([^"]+)"', (out / "index.html").read_text())
+    folder = out / "showcase"
+    links = re.findall(r'href="([^"]+)"', (folder / "index.html").read_text())
     assert code == 0
     assert links
-    assert all((out / link).is_file() for link in links)
+    assert all((folder / link).resolve().is_file() for link in links)
 
 
 def test_a_run_without_an_envelope_gets_a_row_and_fails_the_build(tmp_path: Path) -> None:
     runs = [_run("garbage-one", "garbage-one"), _run("served-two", "served-two")]
     code, out = _build(tmp_path, _matrix(tmp_path / "m.json", runs))
-    page = (out / "index.html").read_text()
+    page = (out / "showcase" / "index.html").read_text()
     assert code == 1
     assert "no result: " in page
     assert "<td>garbage-one</td>" in page
@@ -143,7 +145,7 @@ def test_dynamic_text_is_escaped_in_the_index() -> None:
     assert "x&lt;y" in page
     assert "a&amp;b" in page
     assert "sha&lt;1&gt;" in page
-    assert 'href="p&quot;q/report.html"' in page
+    assert 'href="../p&quot;q/report.html"' in page
 
 
 @pytest.mark.parametrize("run", report_gallery.load_runs(), ids=lambda run: run["name"])
@@ -152,21 +154,21 @@ def test_each_matrix_run_names_a_folder_that_the_builder_can_make(run: dict) -> 
     assert (report_gallery.ROOT / "fixtures" / run["root"]).is_dir()
 
 
-def test_the_self_section_comes_first_with_stable_paths_and_links(tmp_path: Path) -> None:
+def test_the_entry_is_the_product_page_and_the_self_reports_keep_their_paths(
+    tmp_path: Path,
+) -> None:
     code, out = _build(tmp_path, _matrix(tmp_path / "m.json", [_run("served-a", "served-a")]))
     page = (out / "index.html").read_text()
     assert code == 0
-    assert (
-        page.index("ArchKeel checks itself")
-        < page.index("Fixture reports")
-        < page.index("served-a")
-    )
+    assert "ArchKeel as a product: 2 parts, 2 runs, worst verdict FAIL" in page
+    assert 'href="showcase/index.html"' in page
+    assert "served-a" not in page
     for name in ("core", "shell"):
         for ext in ("html", "json"):
-            assert f'href="self/{name}.{ext}"' in page
+            assert f'href="self/{name}.{ext}"' in page or ext == "json"
             assert (out / "self" / f"{name}.{ext}").is_file()
         assert (out / "self" / f"{name}-badge.json").is_file()
-    assert "Rust core (native/)" in page and "Python shell (src/archkeel)" in page
+    assert "Rust core" in page and "Python shell" in page
 
 
 def test_a_self_badge_shows_the_counts_and_the_colour_of_the_status(tmp_path: Path) -> None:

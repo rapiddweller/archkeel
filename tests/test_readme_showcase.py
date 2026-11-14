@@ -58,6 +58,7 @@ def test_each_link_to_the_site_names_a_path_that_the_gallery_writes(tmp_path: Pa
     }
     endpoint = re.findall(r"endpoint\?url=" + re.escape(SITE) + r"([^&)]+)", README)
     assert len(urls) >= 3 and len(endpoint) == 2
+    assert any(url.endswith("/showcase/index.html") for url in urls)
     for url in urls:
         path = urlparse(url).path.removeprefix("/archkeel/")
         assert (path or "index.html") in written, url

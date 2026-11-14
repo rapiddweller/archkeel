@@ -11,6 +11,18 @@ their `.json` files and the shield files `self/core-badge.json`, `self/shell-bad
 repository `<repo>`. The job runs on its own runner, in parallel to the other jobs. Estimate: about 5 minutes (the core build
 took 2 min 19 s in CI; `make report-gallery` took 32 s on a laptop).
 
+**Amended.** The product page (#880) makes `index.html` of the site the entry "ArchKeel as a product":
+one card for the Python shell and one for the Rust core, each from its own self run, with the process
+boundary drawn between them as a stated relation that no frame checks, and the verdict block of each part
+with its exceptions as links into `self/shell.html` and `self/core.html` (only ids that the written report
+holds: `#x<n>`, `#violations`, `#arch`). The page has no joint verdict: its heading names the worst status of
+the two runs. Every count, name and state comes from the two envelopes (rule rows, `topology`,
+`explain.cycles`, `details`, `collection_gaps`); the tool asks the core for the topology in one more
+run whose file it throws away, so the published `.json` files do not change. The fixture table moves to
+`showcase/index.html`. The page uses the files of AD-496 (fonts, tokens, theme script) and is at most 4,000
+visible characters (`tests/test_report_product_page.py`). Point 3 reads: the tool writes `index.html` (the
+product page) and `showcase/index.html` (the fixture table).
+
 **Decision.**
 1. `fixtures/matrix.json` is the table of every project under `fixtures/`. One key is one fixture directory.
    Each key has one language and one or more runs. A run has a name, a root, an optional config,
