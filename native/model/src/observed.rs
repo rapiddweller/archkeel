@@ -190,9 +190,11 @@ fn inventory_complete(facts: &Facts) -> bool {
         && coverage.files_parsed == count
 }
 
-/// The runtime check of `runtime_diagnostic` for the one form that the core reads: a declared
-/// requirement `>=X` and a version, both numeric releases. A missing requirement is a mismatch in
-/// the reference engine for every runtime; each other form is not read, so it gives no PASS.
+/// The runtime check of `runtime_diagnostic` for the forms that the core reads: a declared
+/// requirement of clauses `>=X` and `<X`, joined by commas, and a version, all numeric releases
+/// (AD-472: a caret requirement `^3.9` is written as `>=3.9,<4.0`). A missing requirement is a
+/// mismatch in the reference engine for every runtime; each other form is not read, so it gives
+/// no PASS.
 pub(crate) fn runtime(runtime: &RuntimeFact) -> Runtime {
     if runtime.requirement_state != RequirementState::Declared {
         return Runtime::Unread;
@@ -200,14 +202,27 @@ pub(crate) fn runtime(runtime: &RuntimeFact) -> Runtime {
     let Some(required) = &runtime.required else {
         return Runtime::Mismatch;
     };
-    let bound = required.trim().strip_prefix(">=").map(str::trim);
-    match (bound.and_then(release), release(&runtime.version)) {
-        (Some(bound), Some(version)) if compare(&version, &bound) == Ordering::Less => {
-            Runtime::Mismatch
+    let Some(version) = release(&runtime.version) else {
+        return Runtime::Unread;
+    };
+    let mut found = Runtime::Satisfied;
+    for clause in required.split(',').map(str::trim) {
+        let (bound, wanted) = match clause.strip_prefix(">=") {
+            Some(bound) => (bound, [Ordering::Greater, Ordering::Equal]),
+            // `<=X` leaves `=X`, which is no release: the clause stays unread.
+            None => match clause.strip_prefix('<') {
+                Some(bound) => (bound, [Ordering::Less, Ordering::Less]),
+                None => return Runtime::Unread,
+            },
+        };
+        let Some(bound) = release(bound.trim()) else {
+            return Runtime::Unread;
+        };
+        if !wanted.contains(&compare(&version, &bound)) {
+            found = Runtime::Mismatch;
         }
-        (Some(_), Some(_)) => Runtime::Satisfied,
-        _ => Runtime::Unread,
     }
+    found
 }
 
 /// The parts of a numeric release (`1.97.0`), without leading zeros, or `None`.
@@ -233,3 +248,7 @@ fn compare(left: &[&str], right: &[&str]) -> Ordering {
     }
     Ordering::Equal
 }
+
+#[cfg(test)]
+#[path = "observed_tests.rs"]
+mod tests;

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 use super::*;
+use crate::survey::package_body::resolve;
 
 fn modules(files: &[(&str, &str, &str)]) -> Vec<Module> {
     files
