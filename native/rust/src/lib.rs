@@ -29,7 +29,6 @@ mod module_edges;
 mod modules;
 mod nesting;
 mod net;
-mod orphan_impls;
 mod paths;
 mod plant;
 mod registry;

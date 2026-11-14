@@ -21,10 +21,10 @@ use crate::crates::Workspace;
 use crate::definitions::{Access, ImplBlock, Member, MethodCall};
 use crate::impl_globs::{crate_path, depends, Reached};
 use crate::modules::{inside, Edge, Frame, Index, TypeOf};
-use crate::orphan_impls::orphan_impl_gaps;
 use crate::plant;
 use crate::scan::Via;
 use crate::tree::Module;
+use orphans::orphan_impl_gaps;
 use receivers::Typed;
 
 /// A member of an inherent `impl` block that is not in the file of its type.
@@ -308,6 +308,10 @@ impl Builder {
         }
     }
 }
+
+/// A trait impl in a third module gives a pair gap (AD-514).
+#[path = "orphan_impls.rs"]
+mod orphans;
 
 /// The resolution of a call on a plain `self` (AD-383).
 #[path = "impl_receivers.rs"]

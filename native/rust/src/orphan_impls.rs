@@ -63,7 +63,7 @@ fn callers<'a>(
 }
 
 /// A pair gap from each module that may reach an orphan-module impl to the module of the impl.
-pub(crate) fn orphan_impl_gaps(
+pub(super) fn orphan_impl_gaps(
     builder: &mut Builder,
     (workspace, index, modules): (&Workspace, &Index<'_>, &[Module]),
     edges: &BTreeSet<(String, String)>,

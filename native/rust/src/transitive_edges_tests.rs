@@ -11,19 +11,21 @@ use archkeel_facts::GapFact;
 
 use crate::collect::tests::run;
 
-const LEAF_TYPE: &str = "pub struct S;\nimpl S {\n    pub fn own(&self) -> u8 {\n        3\n    }\n}\npub trait Tr {\n    fn t(&self) -> u8;\n}\nmod b;\n";
-const LEAF_IMPL: &str = "impl crate::S {\n    pub fn m(&self) -> u8 {\n        1\n    }\n}\n\
-    impl crate::Tr for crate::S {\n    fn t(&self) -> u8 {\n        2\n    }\n}\n";
+const LEAF_TYPE: &str = "pub struct S;\nimpl S {\n    pub fn own(&self) -> u8 {\n        3\n    }\n}\npub trait Tr {\n    fn t(&self) -> u8;\n}\nmod b;\nmod t;\n";
+const LEAF_IMPL: &str = "impl crate::S {\n    pub fn m(&self) -> u8 {\n        1\n    }\n}\n";
+/// The trait impl is in its own module `t`: an orphan impl, as `b` is the home of the method.
+const LEAF_TRAIT_IMPL: &str =
+    "impl crate::Tr for crate::S {\n    fn t(&self) -> u8 {\n        2\n    }\n}\n";
 
 const ORPHAN: &str = "defines neither its trait nor its type";
 
 /// The method-call pair gaps of `app -> mid -> leaf`, where `mid` is `mid_lib` and `app.a` is `a`.
-/// `LEAF_IMPL` holds an orphan-module impl: its gaps (AD-514) are in `orphans`.
+/// `LEAF_TRAIT_IMPL` is an orphan-module impl: its gaps (AD-514) are in `orphans`.
 fn pairs(mid_lib: &str, a: &str) -> Vec<(String, String)> {
     gaps(mid_lib, a, false)
 }
 
-/// The pair gaps of the orphan-module impl of `leaf.b`.
+/// The pair gaps of the orphan-module impl of `leaf.t`.
 fn orphans(mid_lib: &str, a: &str) -> Vec<(String, String)> {
     gaps(mid_lib, a, true)
 }
@@ -40,6 +42,7 @@ fn gaps(mid_lib: &str, a: &str, orphan: bool) -> Vec<(String, String)> {
         ),
         ("crates/leaf/src/lib.rs", LEAF_TYPE),
         ("crates/leaf/src/b.rs", LEAF_IMPL),
+        ("crates/leaf/src/t.rs", LEAF_TRAIT_IMPL),
         (
             "crates/mid/Cargo.toml",
             "[package]\nname = \"mid\"\nedition = \"2021\"\n\
@@ -120,15 +123,16 @@ fn a_method_call_on_a_generic_parameter_names_the_member() {
 }
 
 /// A trait method of a trait `impl` (`impl Trait` return, `Box<dyn Trait>`) has no member
-/// candidate. The impl is an orphan of `leaf.b`: every module of `leaf`, `mid` and `app` gets a
+/// candidate. The impl is an orphan of `leaf.t`: every module of `leaf`, `mid` and `app` gets a
 /// pair gap to it (AD-514, #1004).
 #[test]
 fn a_trait_method_through_impl_trait_or_dyn_gives_the_orphan_pair_gap_1004() {
     let all = [
-        ("ns.app", "ns.leaf.b"),
-        ("ns.app.a", "ns.leaf.b"),
-        ("ns.leaf", "ns.leaf.b"),
-        ("ns.mid", "ns.leaf.b"),
+        ("ns.app", "ns.leaf.t"),
+        ("ns.app.a", "ns.leaf.t"),
+        ("ns.leaf", "ns.leaf.t"),
+        ("ns.leaf.b", "ns.leaf.t"),
+        ("ns.mid", "ns.leaf.t"),
     ];
     let all: Vec<(String, String)> = (all.iter())
         .map(|(from, to)| ((*from).to_owned(), (*to).to_owned()))
