@@ -1,6 +1,7 @@
 # AD-492: The browser assets are pinned until their HTML sinks are rewritten
 
 Status: accepted by lead decisions L-167, L-171 and L-176. Part of #880. It amends AD-460.
+Amended by AD-498: a destructured window member is a window now.
 
 ## Context
 

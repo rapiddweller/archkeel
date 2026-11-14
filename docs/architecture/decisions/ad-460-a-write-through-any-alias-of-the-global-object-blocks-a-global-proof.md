@@ -1,6 +1,8 @@
 # AD-460: A write through any alias of the global object blocks a global proof
 
 Status: accepted. Part of #880. Refs #740.
+Amended by AD-498: the forms of the limits that need no value flow (a run-time key on `this` of a
+method, a run-time key call, a reflection, a navigation, a window pattern) are closed.
 
 ## Context
 

@@ -293,12 +293,21 @@ A write through them (`top.x = 1`) publishes nothing, but it blocks each proof o
 A write `o.x = …` blocks the global `x` unless `o` is a local new value or the `this` of a
 constructor, a field or a static block. An unknown key on a window value, a window value that
 escapes, and code from a text block every global proof of the project.
-Open false PASS, not accepted (AD-460): a window value that reaches a computed write through a
-parameter, a call result or a property (`function f(w) { w[k] = v; }` with `f(document.defaultView)`);
-an extracted class method that writes `this[k]` and runs as a callback; a computed call with a key
-built at run time on a parameter, an import, a property or a global function (`Object[k](text)` with
-`k` equal to `constructor`); a reflection call with a run-time key; and DOM code from
-text outside the named triggers (for example a `src` or `href` of `javascript:` built at run time).
+Open false PASS, not accepted (AD-460, AD-498): a window value that reaches a computed write through
+a parameter, a call result or a property (`function f(w) { w[k] = v; }` with
+`f(document.defaultView)`); the `this` of a class method that a callback receives and that the method
+passes on (`g(this)`); a value of a run-time key that the file stores before it calls it
+(`const f = o[k]; f(text)`) or that it reaches through an alias of `Reflect` (`const R = Reflect`);
+a computed key read in a pattern (`const { [k]: v } = e`); and DOM code from text outside the named
+triggers (a `src` or `href` that is no literal and a click on the element).
+AD-498 closed these forms: a write with a run-time key through `this` of a class method; a call,
+`new`, tagged template, `call`, `apply` or `bind` of a member with a run-time key on a value that is
+no literal object, array or plain namespace (`Math`, `JSON`, `Atomics`, `Intl`, `console`); a
+reflection with a run-time key (`Object` and `Reflect`: `get`, `getOwnPropertyDescriptor`,
+`getOwnPropertyDescriptors`); a navigation with a value that is no literal (`location.assign`,
+`replace`, `href`, `location = x`, `open(x, y)` with a target other than a literal `_blank`); and a
+destructuring pattern that takes a window member out of a value (`const { source } = e`, a
+parameter, `for…of` and `catch` pattern).
 Older classes stay open too: a prototype change through a call
 (`Object.defineProperty(EventTarget.prototype, …)`), a member patch of a platform object that is no
 window (`JSON.parse = …`, `document.open = …`), a use through `opener` or
@@ -308,11 +317,15 @@ A member `source`, `view`, `currentTarget` or a window name is a window, and a m
 ([AD-492](architecture/decisions/ad-492-the-browser-assets-are-pinned-until-their-html-sinks-are-rewritten.md)).
 An exemption for data that the file makes is later work: a literal can carry an event.
 A markup literal is text only when it holds no handler, code element, URL attribute, style, code
-scheme, `&` or `\\`. A destructured member (`const { source } = e`) stays open, as on `main`.
+scheme, `&` or `\\`.
 `docs/architecture/browser.toml` is UNKNOWN with 881 gaps from 115 sites: 41 HTML, element or
 attribute sinks in `flow.js` and `report-canvas.js`, and 74 platform window members. A rewrite of the sinks alone does not reach PASS. The Studio UI contract is
 UNKNOWN with 269 gaps from 22 sites (9 `Level.Function`, 13 `source` and `view` members). Both
 results are pinned in `docs/architecture/target/`; the pins only go down.
+AD-498 adds 6 sites to the browser contract (5 `location.href = …` in `flow.js` and
+`report-canvas.js`, and the pattern `{ frames }` in `report-layout.js`) and 1 to the Studio UI
+contract (the pattern `{ left, top } = MAP_CARD` in `map-layout.ts`). The gap lists do not change:
+each global already had an unknown write.
 The native TypeScript collector reads a file up to 4 MiB. Above that size it gives UNKNOWN for
 the file, where the Python collector reads the file and can give FAIL. The two collectors give
 the same facts only for files under the limit.
