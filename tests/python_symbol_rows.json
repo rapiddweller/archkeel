@@ -1,0 +1,367 @@
+{
+ "added-attribute": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "all-list": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "annotated-attribute": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "assigned-attribute": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "async-function": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "attribute-over-method": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "attribute-twice": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "augmented": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "builtin-base": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "class": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "class-redefined": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "classmethod": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "classmethod-write": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "comprehension-attribute": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "conditional": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "dataclass": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "decorated-class": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "decorator-replaces": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "def-then-assign": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "deleted": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "dict-instance": [
+  "FAIL",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "enum-annotated": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "enum-as-class": [
+  "FAIL",
+  "FAIL",
+  "recorded entity kind differs"
+ ],
+ "enum-ignore": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "enum-literal": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "enum-open-body": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "enum-rebound": [
+  "FAIL",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "enum-through-base": [
+  "FAIL",
+  "FAIL",
+  "recorded entity kind differs"
+ ],
+ "except-target": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "exec-def": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "for-target": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "function": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "function-signature": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "function-signature-differs": [
+  "FAIL",
+  "FAIL",
+  "parameter count differs"
+ ],
+ "generic-base": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "global-write": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "globals-write": [
+  "FAIL",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "import-over-def": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "init-attribute": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "local-base": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "loop-attribute": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "match-capture": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "metaclass-inherited": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "metaclass-replaces": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "method": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "module-getattr": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "module-value": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "namedtuple": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "nested-class": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "nested-function": [
+  "FAIL",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "overload": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "private-attribute": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "property": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "protocol": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "protocol-subclass": [
+  "FAIL",
+  "FAIL",
+  "recorded entity kind differs"
+ ],
+ "qualified-enum": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "redefined": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "setattr-class": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "setattr-instance": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "shadowed-staticmethod": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "slots": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "star-import": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "staticmethod": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "try-except": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "type-checking": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "typeddict": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "unknown-base": [
+  "FAIL",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "walrus": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "with-target": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "wraps": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "write-after-class": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "write-from-other": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "wrong-kind": [
+  "FAIL",
+  "FAIL",
+  "recorded entity kind differs"
+ ]
+}
