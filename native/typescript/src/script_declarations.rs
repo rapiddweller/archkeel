@@ -54,6 +54,11 @@ impl<'t> Gathered<'t> {
             .last()
             .is_some_and(|last| last.0 == name && last.1 == span)
         {
+            // The source write of a target with no static path holds no path of its own, so an
+            // unknown name still gives the empty path that blocks every proof (AD-460).
+            if name.is_none() {
+                self.paths.push(Vec::new());
+            }
             return;
         }
         self.writes.push((name.clone(), span.clone()));

@@ -46,6 +46,12 @@ pub(crate) enum Receiver {
     Bound,
 }
 
+/// A member name that holds or gives a window on any object (AD-492): a window name, a window
+/// member or a platform member.
+pub(crate) fn window_member_name(name: &str) -> bool {
+    WINDOW_MEMBERS.contains(&name) || PLATFORM_MEMBERS.contains(&name) || is_window_name(name)
+}
+
 /// The text of a name or a string without its escapes; `None` for an escape that is not plain.
 pub(crate) fn cooked(text: &str) -> Option<String> {
     if !text.contains('\\') {
