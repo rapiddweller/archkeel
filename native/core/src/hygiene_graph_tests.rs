@@ -4,7 +4,7 @@
 
 //! The marked graphs of AD-466 against the rules of the reference engine.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::{findings, text, Pair};
 
@@ -32,7 +32,7 @@ fn codes(
         .map(|(path, body)| ((*path).to_owned(), body.clone()))
         .collect();
     let observed = pairs(observed);
-    findings(&documents, (&observed, &observed), &pairs(permitted))
+    findings(&documents, (&observed, &BTreeMap::new()), &pairs(permitted))
         .into_iter()
         .map(|(code, subject, _)| format!("{code} {subject}"))
         .collect()
@@ -199,38 +199,71 @@ fn only_a_mermaid_fence_opens_a_block() {
     assert!(codes(&[("d.md", page)], &[], &[]).is_empty());
 }
 
-fn with_possible(page: String, observed: &[(&str, &str)], possible: &[(&str, &str)]) -> usize {
+fn held(page: String, observed: &[(&str, &str)], unconfirmed: &[(&str, &str)]) -> Vec<String> {
     let documents = [("d.md".to_owned(), page)];
-    let (observed, possible) = (pairs(observed), pairs(possible));
-    findings(&documents, (&observed, &possible), &BTreeSet::new()).len()
+    let observed = pairs(observed);
+    let unconfirmed: BTreeMap<Pair, String> = unconfirmed
+        .iter()
+        .map(|(a, b)| (((*a).to_owned(), (*b).to_owned()), format!("ns.{a}")))
+        .collect();
+    let edges = (&observed, &unconfirmed);
+    findings(&documents, edges, &BTreeSet::new())
+        .into_iter()
+        .map(|(_, _, claim)| claim)
+        .collect()
 }
 
 #[test]
-fn a_drawn_edge_that_the_code_may_use_is_no_drift_of_the_component_graph() {
-    // #1021: the pair gap `a -> b` was dropped because the contract allows it.
+fn a_drawn_edge_that_only_a_dropped_gap_names_is_held_with_its_own_text() {
+    // #1021: the pair gap `a -> b` was dropped because the contract allows it. The edge is neither
+    // observed nor absent: the finding stays, with a text that does not say "not found".
     let page = block(COMPONENT, "    a --> c\n    a --> b\n");
-    assert_eq!(with_possible(page.clone(), &[("a", "c")], &[("a", "c")]), 1);
+    let claims = held(page.clone(), &[("a", "c")], &[("a", "b")]);
     assert_eq!(
-        with_possible(page, &[("a", "c")], &[("a", "c"), ("a", "b")]),
-        0
+        claims,
+        [
+            "Drawn edge a -> b can be neither confirmed nor refuted: the call in ns.a may or may \
+          not reach b."
+        ]
     );
+    let claims = held(page, &[("a", "c")], &[]);
+    assert!(
+        claims[0].contains("drawn and not found: a->b"),
+        "{claims:?}"
+    );
+}
+
+#[test]
+fn an_absent_edge_and_a_held_edge_are_named_apart() {
+    let page = block(COMPONENT, "    a --> b\n    a --> d\n");
+    let claims = held(page, &[("a", "c")], &[("a", "b")]);
+    assert!(claims[0].contains("drawn and not found: a->d; found and not drawn: a->c"));
+    assert_eq!(claims.len(), 1);
+    assert!(claims[0].contains(". Drawn edge a -> b can be neither confirmed nor refuted"));
 }
 
 #[test]
 fn an_observed_edge_that_is_not_drawn_stays_a_drift_whatever_may_be_used() {
     let page = block(COMPONENT, "    a --> b\n");
-    assert_eq!(
-        with_possible(page, &[("a", "b"), ("a", "c")], &[("a", "b")]),
-        1
-    );
+    let claims = held(page, &[("a", "b"), ("a", "c")], &[]);
+    assert_eq!(claims.len(), 1);
+    assert!(claims[0].contains("found and not drawn: a->c"));
 }
 
 #[test]
-fn the_target_graph_does_not_excuse_an_unpermitted_edge() {
+fn the_target_graph_holds_no_edge() {
     let page = block(TARGET, "    a --> b\n");
     let documents = [("d.md".to_owned(), page)];
-    let possible = pairs(&[("a", "b")]);
-    let found = findings(&documents, (&BTreeSet::new(), &possible), &BTreeSet::new());
-    let drift = found.iter().filter(|(code, ..)| *code == "graph.drift");
-    assert_eq!(drift.count(), 1);
+    let unconfirmed = BTreeMap::from([(("a".to_owned(), "b".to_owned()), "ns.a".to_owned())]);
+    let found = findings(
+        &documents,
+        (&BTreeSet::new(), &unconfirmed),
+        &BTreeSet::new(),
+    );
+    let drift: Vec<_> = found
+        .iter()
+        .filter(|(code, ..)| *code == "graph.drift")
+        .collect();
+    assert_eq!(drift.len(), 1);
+    assert!(drift[0].2.contains("drawn and not found: a->b"));
 }

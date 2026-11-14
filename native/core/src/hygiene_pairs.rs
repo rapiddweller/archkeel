@@ -44,25 +44,26 @@ pub(crate) fn observed(contract: &Contract, graph: &Graph) -> BTreeSet<Pair> {
         .collect()
 }
 
-/// The component edges that the code may use and the collector did not resolve: the observed
-/// edges and the pairs of the pair gaps that the drop rule dropped as allowed (#1021). A drawn
-/// edge in this set is not a drift of the component graph.
-pub(crate) fn possibly_observed<'a>(
+/// The component edges that only a dropped pair gap names (#1021): the contract allows the pair
+/// and the collector could not tell whether the call reaches it. Such an edge is neither observed
+/// nor absent. The value is the module of the call. An edge that the code also observes is not in
+/// the map.
+pub(crate) fn unconfirmed<'a>(
     contract: &Contract,
     observed: &BTreeSet<Pair>,
     dropped: impl Iterator<Item = (&'a str, &'a str)>,
-) -> BTreeSet<Pair> {
+) -> BTreeMap<Pair, String> {
     let components = contract.components();
-    let mut possible = observed.clone();
+    let mut held = BTreeMap::new();
     for (source, target) in dropped {
-        if let (Some(source), Some(target)) = (owner(components, source), owner(components, target))
-        {
-            if source != target {
-                possible.insert((source.to_owned(), target.to_owned()));
+        if let (Some(from), Some(to)) = (owner(components, source), owner(components, target)) {
+            let pair = (from.to_owned(), to.to_owned());
+            if from != to && !observed.contains(&pair) {
+                held.entry(pair).or_insert_with(|| source.to_owned());
             }
         }
     }
-    possible
+    held
 }
 
 /// The pair that a whole-package rule decides (`component_pair`).

@@ -148,32 +148,62 @@ INHERITING_APP = APP.replace('base-crate = { path = "../base" }', "base-crate.wo
 UNUSED = {"crates/app/src/lib.rs": "pub fn run() {}\n"}
 UNDECLARED = "native.app.cargo_toml -> native.base_crate: undeclared component dependency"
 
+PATCH = '[patch.crates-io]\nbase-crate = { path = "base" }\n'
+POINTING_APP = REGISTRY_APP.replace('name = "app"', 'name = "app"\nworkspace = "../ws"')
+ROOT_OF_APP = '[workspace]\nmembers = ["../app"]\n'
+CONFIGS = {
+    "a config of the crate": {"crates/app/.cargo/config.toml": PATCH},
+    "a config of a directory above": {"crates/.cargo/config.toml": PATCH},
+    "a config of the repository root": {".cargo/config.toml": PATCH},
+    "the old name of a config": {".cargo/config": PATCH},
+    "a paths override": {".cargo/config.toml": 'paths = ["crates/base"]\n'},
+    "a source replacement": {".cargo/config.toml": '[source.crates-io]\nreplace-with = "v"\n'},
+}
+HARMLESS = {".cargo/config.toml": "[build]\njobs = 2\n"}
+
 DEPENDENCY_PROBES = {
-    "a registry version": (REGISTRY_APP, None, "PASS"),
+    "a registry version": (REGISTRY_APP, None, {}, "PASS"),
     "a git entry": (
         APP.replace(
             'base-crate = { path = "../base" }',
             'base-crate = { git = "https://example.invalid/b.git" }',
         ),
         None,
+        {},
         "PASS",
     ),
     "a workspace entry that is a registry version": (
         INHERITING_APP,
         WORKSPACE_WITH.format(entry='base-crate = "1.0"'),
+        {},
         "PASS",
     ),
-    "a path entry": (APP, None, "FAIL"),
+    "a path entry": (APP, None, {}, "FAIL"),
     "a workspace entry with a path": (
         INHERITING_APP,
         WORKSPACE_WITH.format(entry='base-crate = { path = "base" }'),
+        {},
         "FAIL",
     ),
+    "a config without a redirect": (REGISTRY_APP, None, HARMLESS, "PASS"),
+    "a root named by package.workspace without a patch": (
+        POINTING_APP,
+        None,
+        {"crates/ws/Cargo.toml": ROOT_OF_APP},
+        "PASS",
+    ),
+    "a root named by package.workspace with a patch": (
+        POINTING_APP,
+        None,
+        {"crates/ws/Cargo.toml": ROOT_OF_APP + PATCH.replace('"base"', '"../base"')},
+        "FAIL",
+    ),
+    **{name: (REGISTRY_APP, None, files, "FAIL") for name, files in CONFIGS.items()},
 }
 
 
 @pytest.mark.parametrize(
-    ("manifest", "workspace", "expected"),
+    ("manifest", "workspace", "extra", "expected"),
     DEPENDENCY_PROBES.values(),
     ids=DEPENDENCY_PROBES.keys(),
 )
@@ -183,9 +213,10 @@ def test_a_dependency_is_an_edge_to_a_crate_of_the_workspace_only_with_a_path(
     capsys: pytest.CaptureFixture[str],
     manifest: str,
     workspace: str | None,
+    extra: dict[str, str],
     expected: str,
 ) -> None:
-    files = {"crates/app/Cargo.toml": manifest, **UNUSED}
+    files = {"crates/app/Cargo.toml": manifest, **UNUSED, **extra}
     if workspace:
         files["crates/Cargo.toml"] = workspace
     result = validate(repository(tmp_path, core_binary, files, components=NO_REQUIRES), capsys)
@@ -193,6 +224,37 @@ def test_a_dependency_is_an_edge_to_a_crate_of_the_workspace_only_with_a_path(
     assert statuses(result).get("REQUIRES") == expected, claims(result)
     named = any(UNDECLARED in claim for claim in claims(result))
     assert named == (expected == "FAIL"), claims(result)
+
+
+UNREAD_PLACES = {
+    "a root named by package.workspace that is not in the repository": (
+        {"crates/app/Cargo.toml": POINTING_APP},
+        "cannot be read",
+    ),
+    "a root named by package.workspace above the scan root": (
+        {"crates/app/Cargo.toml": POINTING_APP.replace("../ws", "../../../up")},
+        "lies outside the scan root",
+    ),
+    "a config that cannot be parsed": (
+        {"crates/app/Cargo.toml": REGISTRY_APP, ".cargo/config.toml": "= nope"},
+        "Cannot read .cargo/config.toml",
+    ),
+}
+
+
+@pytest.mark.parametrize(("files", "reason"), UNREAD_PLACES.values(), ids=UNREAD_PLACES.keys())
+def test_a_place_that_can_redirect_a_dependency_and_is_not_read_gives_a_gap(
+    tmp_path: Path,
+    core_binary: Path,
+    capsys: pytest.CaptureFixture[str],
+    files: dict[str, str],
+    reason: str,
+) -> None:
+    sources = {**UNUSED, **files}
+    result = validate(repository(tmp_path, core_binary, sources, components=NO_REQUIRES), capsys)
+
+    assert result["status"] != "PASS", claims(result)
+    assert any(reason in claim for claim in claims(result)), claims(result)
 
 
 def test_a_patch_table_keeps_the_name_of_the_workspace_as_an_edge(

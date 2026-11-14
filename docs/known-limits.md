@@ -346,6 +346,12 @@ the same facts only for files under the limit.
 
 ## Rust profile
 
+Open false PASS, not accepted (AD-502): a registry or git dependency named like a crate of the
+workspace is no edge only after the collector read the manifests, the `package.workspace` root and
+each `.cargo/config.toml` below the scan root and found no redirect. A redirect that the collector
+does not read gives PASS where the edge is real: `$CARGO_HOME/config.toml`, a config above the scan
+root, the `CARGO_*` environment, and a `git` entry that points at the same repository.
+
 The native Rust collector reads the crate edges: a `use` path or a qualified path whose first
 segment names another crate, and the module edges inside a crate: a path that starts at `crate`,
 `self`, `super`, a child `mod`, a `use` binding or a glob `use` and names another module. A path

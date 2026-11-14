@@ -13,14 +13,15 @@ use std::rc::Rc;
 use crate::manifest::{self, ident, Manifest, Target, TargetKind};
 use crate::manifest_lines::LineIndex;
 use crate::paths::normalize;
+use crate::redirects::{self, Redirect};
 use crate::source::read_text;
 use crate::toml::{self, Table};
 use archkeel_snapshot::paths::{dirname, join};
 use archkeel_snapshot::Snapshot;
 
 /// One manifest, read once: its table and its text.
-struct Parsed {
-    table: Table,
+pub(crate) struct Parsed {
+    pub(crate) table: Table,
     text: String,
     dir: String,
 }
@@ -102,7 +103,7 @@ fn is_manifest(file: &str) -> bool {
 }
 
 /// The manifest of `dir`, read and parsed once; `Ok(None)` when the directory has none.
-fn manifest_table(
+pub(crate) fn manifest_table(
     source: &mut Snapshot,
     tables: &mut BTreeMap<String, Option<Rc<Parsed>>>,
     dir: &str,
@@ -170,11 +171,22 @@ impl Workspace {
         let Some(mut read) = manifest::read(&parsed.table, &dependencies) else {
             return;
         };
-        // A `[patch]` or `[replace]` table can point a registry name at a path: the old rule
-        // (a name of the workspace is an edge) stays for such a manifest.
-        let patched = |table: &Table| table.contains_key("patch") || table.contains_key("replace");
-        if patched(&parsed.table) || above.as_ref().is_some_and(|above| patched(&above.table)) {
-            read.remote.clear();
+        // A registry name is no crate of the workspace unless a place that can redirect it says so
+        // or cannot be read (`redirects`): then the old rule (a name of the workspace is an edge)
+        // stays, and an unread place is a gap.
+        if !read.remote.is_empty() {
+            let place = (dir, &parsed.table);
+            match redirects::of(source, tables, place, above.as_deref()) {
+                Redirect::None => {}
+                Redirect::Possible => read.remote.clear(),
+                Redirect::Unread(reason) => {
+                    read.remote.clear();
+                    self.problems.push(Problem {
+                        reason,
+                        file: join(dir, "Cargo.toml"),
+                    });
+                }
+            }
         }
         if read.edition.is_none() {
             read.edition = above
