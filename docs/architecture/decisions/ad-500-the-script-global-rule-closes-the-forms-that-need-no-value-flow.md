@@ -1,4 +1,4 @@
-# AD-498: The script-global rule closes the forms that need no value flow
+# AD-500: The script-global rule closes the forms that need no value flow
 
 Status: accepted. Part of #880. It amends AD-460 and AD-492.
 

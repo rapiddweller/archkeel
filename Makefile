@@ -104,6 +104,12 @@ self-validate-shell: core
 # AD-478: the shell and native/ with their own contracts.
 self-validate: self-validate-native self-validate-shell
 
+# AD-462: one report pair for each run of fixtures/matrix.json, in test-artifacts/gallery. The
+# shell decides nothing; the job `publish-gallery` of CI publishes this directory.
+report-gallery: core
+	rm -rf test-artifacts/gallery
+	$(UV) run --locked python -m tools.report_gallery --out test-artifacts/gallery --archkeel "$(UV) run --locked archkeel"
+
 # AD-343: record the golden replies of the TypeScript collector. REASON says why a reply changes.
 # The source must be committed, or set ALLOW_DIRTY=1 to log the commit as +dirty.
 golden-record:
@@ -136,7 +142,7 @@ cargo-deny-install:
 		install -m 0755 "$$work/$$name/cargo-deny" "$${CARGO_HOME:-$$HOME/.cargo}/bin/cargo-deny"
 
 LINT_PATHS := src tests tools/mermaid_blocks.py tools/package_plugin.py \
-	tools/browser_runtime.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py \
+	tools/browser_runtime.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_product.py tools/report_product_page.py \
 	native/hatch_build.py
 
 lint:

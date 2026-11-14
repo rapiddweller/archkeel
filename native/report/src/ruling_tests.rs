@@ -5,7 +5,7 @@
 //! The engine frame of the core takes its status and its rule verdicts only from `rule` (AD-388,
 //! #1073 item 4). The model comes from the frozen H-typescript reply (`run_tests`).
 
-use archkeel_model::{Input, Reason, UmlGap, Unsupported};
+use archkeel_model::{Input, Reason, UmlGap, UmlTarget, Unsupported};
 use serde_json::{json, Value};
 
 use super::{fits, rule, Named, RuleReasons};
@@ -56,10 +56,19 @@ fn the_refused_fixture_has_one_golden_static_page() {
             "reply": {"absent": "fixture refused"}, "collect": {"refused": "fixture refused"}}
     })).unwrap().into_bytes();
     let frame: Value = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(
-        frame["html"]["document"].as_str().unwrap(),
-        include_str!("../testdata/refused.html")
-    );
+    // AD-496: the style (fonts, tokens, components) and the theme script are files of the design
+    // system; their bytes are checked by their own tests. The golden keeps the rest of the page.
+    let page = frame["html"]["document"].as_str().unwrap();
+    let cut = |text: &str, open: &str, close: &str| {
+        let (head, rest) = text.split_once(open).unwrap();
+        let (_, tail) = rest.split_once(close).unwrap();
+        format!(
+            "{head}{open}[{}]{close}{tail}",
+            open.trim_matches(|c| c == '<' || c == '>')
+        )
+    };
+    let skeleton = cut(&cut(page, "<script>", "</script>"), "<style>", "</style>");
+    assert_eq!(skeleton, include_str!("../testdata/refused.html"));
 }
 
 #[test]
@@ -304,7 +313,7 @@ const COMPARED: UmlGap = UmlGap::NotCompared {
 
 fn uml(gap: UmlGap) -> Named {
     Named {
-        uml: Some((UML.to_owned(), gap)),
+        uml: Some((UML.to_owned(), UmlTarget::Gap(gap))),
         ..Named::default()
     }
 }
@@ -370,7 +379,7 @@ fn a_uml_target_without_a_decided_model_is_a_gap_and_never_a_row() {
 fn a_uml_target_with_the_id_of_a_rule_is_refused() {
     let model = model(&contract(&BOTH), true);
     let named = Named {
-        uml: Some(("ASSIGNMENT".to_owned(), COMPARED)),
+        uml: Some(("ASSIGNMENT".to_owned(), UmlTarget::Gap(COMPARED))),
         ..Named::default()
     };
     let refused = Err(BuildError::DuplicateRule {

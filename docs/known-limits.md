@@ -42,8 +42,14 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 - `report --output PATH` writes one static HTML page or the JSON frame (`--format json`). It has no graph.
   The parent must exist. Safe file output needs POSIX directory handles; Windows refuses `--output` with exit 2 (`io_error`), writes no file and keeps the frame.
 - A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`. The run exits 2.
-- The core does not compare `declarations.uml` with the source facts. The UML target row is always
-  UNKNOWN (`no_receipt`), so the run exits 2. A conflict that 4.0.1 shows as FAIL is UNKNOWN (AD-470).
+- The core compares only the module and import part of `declarations.uml` (AD-494): module entities,
+  `imports` relationships between modules, open scopes and closed scopes over modules and imports.
+  A symbol entity or relationship, a target in an inside contract and an external import target keep
+  the UML row UNKNOWN (`no_receipt`), so a target that 4.0.1 passes with symbol facts exits 2.
+  A FAIL for an extra element of a closed scope is true whatever the coverage, so it stays in an
+  incomplete run; a closed scope without an extra element stays UNKNOWN. A dropped pair gap that
+  touches a module of the target holds the UML row. A Rust UML row has no 4.0.1 comparison and
+  rests on the scope proof alone (AD-494).
 - A collection gap makes each rule UNKNOWN whose reading it can change. A manifest edge that the core
   proved can give a `requires` FAIL beside such a gap.
 - `validate` and `report` read explicit `inside` mounts through the bounded core tree reader.
@@ -293,14 +299,14 @@ A write through them (`top.x = 1`) publishes nothing, but it blocks each proof o
 A write `o.x = …` blocks the global `x` unless `o` is a local new value or the `this` of a
 constructor, a field or a static block. An unknown key on a window value, a window value that
 escapes, and code from a text block every global proof of the project.
-Open false PASS, not accepted (AD-460, AD-498): a window value that reaches a computed write through
+Open false PASS, not accepted (AD-460, AD-500): a window value that reaches a computed write through
 a parameter, a call result or a property (`function f(w) { w[k] = v; }` with
 `f(document.defaultView)`); the `this` of a class method that a callback receives and that the method
 passes on (`g(this)`); a value of a run-time key that the file stores before it calls it
 (`const f = o[k]; f(text)`) or that it reaches through an alias of `Reflect` (`const R = Reflect`);
 a computed key read in a pattern (`const { [k]: v } = e`); and DOM code from text outside the named
 triggers (a `src` or `href` that is no literal and a click on the element).
-AD-498 closed these forms: a write with a run-time key through `this` of a class method; a call,
+AD-500 closed these forms: a write with a run-time key through `this` of a class method; a call,
 `new`, tagged template, `call`, `apply` or `bind` of a member with a run-time key on a value that is
 no literal object, array or plain namespace (`Math`, `JSON`, `Atomics`, `Intl`, `console`); a
 reflection with a run-time key (`Object` and `Reflect`: `get`, `getOwnPropertyDescriptor`,
@@ -322,7 +328,7 @@ scheme, `&` or `\\`.
 attribute sinks in `flow.js` and `report-canvas.js`, and 74 platform window members. A rewrite of the sinks alone does not reach PASS. The Studio UI contract is
 UNKNOWN with 269 gaps from 22 sites (9 `Level.Function`, 13 `source` and `view` members). Both
 results are pinned in `docs/architecture/target/`; the pins only go down.
-AD-498 adds 6 sites to the browser contract (5 `location.href = …` in `flow.js` and
+AD-500 adds 6 sites to the browser contract (5 `location.href = …` in `flow.js` and
 `report-canvas.js`, and the pattern `{ frames }` in `report-layout.js`) and 1 to the Studio UI
 contract (the pattern `{ left, top } = MAP_CARD` in `map-layout.ts`). The gap lists do not change:
 each global already had an unknown write.

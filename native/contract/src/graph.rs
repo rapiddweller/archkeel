@@ -191,8 +191,9 @@ fn wrap_texts(values: &[crate::model::Selector]) -> Vec<String> {
 fn intent_checks(target: &Target) -> Parsed<()> {
     for entity in &target.entities {
         let planned = entity.presence == PresenceKind::Planned;
-        if entity.kind == EntityKind::Component && !planned {
-            return Err(invalid("UML component owners need planned intent"));
+        // The components of the contract are the owners; a target cannot declare one again.
+        if entity.kind == EntityKind::Component {
+            return Err(invalid("UML cannot redeclare an existing component owner"));
         }
         let independent = planned || entity.presence == PresenceKind::Referenced;
         if !independent || !entity.record_ids.is_empty() {

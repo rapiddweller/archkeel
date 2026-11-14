@@ -9,6 +9,7 @@ import errno
 import html
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -86,19 +87,16 @@ def test_files_keep_the_frame_and_exit(
     else:
         text = target.read_text()
         assert f"<h1>Verdict: {found['status']}</h1>" in text
-        for heading in (
-            "Counts",
-            "Rules",
-            "Violations",
-            "Gaps",
-            "Unsupported",
-            "Request identity",
-            "Tool",
-        ):
-            assert f"<h2>{heading}</h2>" in text
-        assert "<script" not in text and "src=" not in text and "href=" not in text
+        # AD-498: the Counts, Rules, Gaps, Unsupported, Identity and Tool parts are gone.
+        for old in ("Counts", "Rules", "Gaps", "Unsupported", "Request identity", "Tool"):
+            assert f"<h2>{old}</h2>" not in text
+        assert "<footer" in text and "<pre" not in text
+        # AD-496: one script (the theme switch, admitted by hash) and links inside the page only.
+        assert text.count("<script>") == 1 and "src=" not in text
+        assert not re.findall(r'href="(?!#)', text)
+        # A rule that fails has its block; the page lists no other rule.
         for identifier, (_, verdict) in found["frame"]["rules"].items():
-            assert f"<td>{identifier}</td>" in text and f"<td>{verdict}</td>" in text
+            assert (html.escape(identifier, quote=True) in text) == (verdict == "FAIL"), identifier
 
 
 def test_report_file_options_are_explicit_and_validate_stays_refused() -> None:
@@ -238,7 +236,8 @@ def test_escaping_reaches_the_release_core_and_default_cli(
     assert done.returncode == 0, done.stdout + done.stderr
     frame = json.loads(done.stdout)["frame"]
     document = target.read_text()
-    assert html.escape(json.dumps(str(root)), quote=True) in document
+    # AD-498: the page names no path of the machine that made it, so it can be shared.
+    assert str(root) not in document
     assert '<script>"&project' not in document
     assert f"<h1>Verdict: {frame['status']}</h1>" in document
 
@@ -277,8 +276,11 @@ def test_a_long_hostile_rule_name_is_not_truncated_or_executed(
     code, found = run("report", "--root", str(root), "--output", str(target))
     assert code == 0, found
     document = target.read_text()
-    assert html.escape(plant, quote=True).replace("&#x27;", "&#39;") in document
-    assert "<script>" not in document
+    # AD-498: a rule that holds is not on the page; a hostile name is escaped where it is shown
+    # (the block tests of `native/report` plant it in each block). Here it must reach no markup.
+    assert plant not in document
+    # AD-496: the page has its one theme script; the planted text adds none.
+    assert document.count("<script>") == 1 and '<script>"' not in document
 
 
 def test_an_invalid_utf8_name_cannot_publish_a_success_page(
@@ -302,7 +304,8 @@ def test_an_invalid_utf8_name_cannot_publish_a_success_page(
     code, found = run("report", "--root", str(root), "--output", str(target))
     assert code == 2, found
     assert "<h1>Verdict: UNKNOWN</h1>" in target.read_text()
-    assert "<script>" not in target.read_text()
+    # AD-496: the page holds one script, the theme switch. The file name adds no second one.
+    assert target.read_text().count("<script") == 1
 
 
 @pytest.mark.parametrize(
@@ -323,7 +326,8 @@ def test_document_verdict_mismatch_refuses_before_writing(
 ) -> None:
     root = project(tmp_path / "project", release_core, "rust", "FAIL")
     monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
-    _, real = run("report", "--root", str(root))
+    # AD-496: a page request also asks for the topology, so the frame that the core gives holds it.
+    _, real = run("report", "--root", str(root), "--topology")
     frame = real["frame"]
     assert frame["status"] == "FAIL"
     frame["html"] = {"protocol": "archkeel-core-html-1", "status": "FAIL", "document": document}
@@ -421,9 +425,12 @@ def test_compact_report_has_evidence_locations_and_an_honest_tool_identity(
     code, found = run("report", "--root", str(root), "--output", str(target))
     assert code == 1 and found["status"] == "FAIL"
     document = target.read_text()
-    violations = document.split("<h2>Violations</h2>", 1)[1].split("<h2>Gaps</h2>", 1)[0]
-    assert "<pre>" not in violations and "<dl>" in violations
-    assert "<table>" in violations and "crates/app/Cargo.toml" in violations
+    # AD-496: one block for each violated place, with the path down to its file and line.
+    violations = document.split('id="violations">Violations</h2>', 1)[1].split(
+        "<h2>Counts</h2>", 1
+    )[0]
+    assert "<pre>" not in violations and 'class="rp-dos"' in violations
+    assert "crates/app/Cargo.toml" in violations and "Evidence path" in violations
     assert "Core code digest" in document and found["core"]["code_digest"] in document
     assert "&quot;version&quot;" not in document and "0.0.0" not in document
 
@@ -473,6 +480,6 @@ def test_tool_identity_does_not_claim_the_crate_version_is_the_package_version(
     target = tmp_path / "report.html"
     code, found = run("report", "--root", str(root), "--output", str(target))
     assert code == 0
-    tool = target.read_text().split("<h2>Tool</h2>", 1)[1]
-    assert "version" not in tool and "0.0.0" not in tool
-    assert "Core code digest" in tool and found["core"]["code_digest"] in tool
+    footer = target.read_text().split("<footer", 1)[1]
+    assert "version" not in footer and "0.0.0" not in footer
+    assert "Core code digest" in footer and found["core"]["code_digest"] in footer

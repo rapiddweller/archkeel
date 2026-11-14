@@ -1,11 +1,11 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The open forms of the script-global rule give no PASS (#880, AD-498).
+"""The open forms of the script-global rule give no PASS (#880, AD-500).
 
 Consumer: `archkeel validate` on a TypeScript project, through the release core. A module file of
 `b` holds one form, and `a` calls `window.open()`: the form can replace `open` or run code, so
-the rule must give UNKNOWN. Each plant gave PASS before AD-498, except the group `PINNED`, which
+the rule must give UNKNOWN. Each plant gave PASS before AD-500, except the group `PINNED`, which
 was a gap already and stays one. The group `PRECISION` must keep its PASS: the closure is not a
 blanket refusal of computed keys, patterns, `this` or `location`.
 """
@@ -88,7 +88,7 @@ PATTERN = {
     "window-name": "const { top } = e;\ntop[k] = 1;",
 }
 
-# Group 6: a gap before AD-498, kept as a gap (a pin and no code).
+# Group 6: a gap before AD-500, kept as a gap (a pin and no code).
 PINNED = {
     "html-string-key": "el['innerHTML'] = t;",
     "html-template-key": "el[`innerHTML`] = t;",

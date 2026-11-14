@@ -7,7 +7,10 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
-| AD-498 | [The script-global rule closes the forms that need no value flow](ad-498-the-script-global-rule-closes-the-forms-that-need-no-value-flow.md) |
+| AD-500 | [The script-global rule closes the forms that need no value flow](ad-500-the-script-global-rule-closes-the-forms-that-need-no-value-flow.md) |
+| AD-498 | [The report page is short and has no dump of the frame](ad-498-the-report-page-is-short-and-has-no-dump-of-the-frame.md) |
+| AD-496 | [The report page uses the design system and one script that the policy admits by hash](ad-496-the-report-page-is-the-design-system-with-one-admitted-script.md) |
+| AD-494 | [The core compares the module and import part of a UML target](ad-494-the-core-compares-the-module-and-import-part-of-a-uml-target.md) |
 | AD-492 | [The browser assets are pinned until their HTML sinks are rewritten](ad-492-the-browser-assets-are-pinned-until-their-html-sinks-are-rewritten.md) |
 | AD-484 | [The frame names rule sides, cycle paths and gap holds](ad-484-the-frame-names-rule-sides-cycle-paths-and-gap-holds.md) |
 | AD-482 | [The topology types an import by its target, not by the rule view](ad-482-the-topology-types-an-import-by-its-target-and-not-by-the-rule-view.md) |

@@ -59,11 +59,12 @@ def test_html_report_keeps_tree_binding_and_lists_escaped_contract_file_identity
         }
         page = target.read_text()
         assert page.count(f"<h1>Verdict: {result['frame']['status']}</h1>") == 1
-        identity = page.split("<h2>Request identity</h2>", 1)[1].split("<h2>Tool</h2>", 1)[0]
+        identity = page.split("Request identity</summary>", 1)[1].split("</footer>", 1)[0]
         for name, digest in files.items():
-            assert html.escape(json.dumps(name), quote=True) in identity
+            assert html.escape(name, quote=True) in identity
             assert digest in identity
-        assert "<script>" not in page
+        # AD-496: the page has its one theme script; the planted name adds none.
+        assert page.count("<script>") == 1 and "deep<script>" not in page
 
 
 @pytest.mark.parametrize("verb", ["validate", "report"])

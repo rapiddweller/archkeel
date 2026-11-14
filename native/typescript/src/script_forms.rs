@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The open forms of AD-460 and AD-492 that the write check can close without a value flow (AD-498).
+//! The open forms of AD-460 and AD-492 that the write check can close without a value flow (AD-500).
 //!
 //! Each form below can reach `Function`, `eval` or a window through a key, a pattern or a URL that
 //! the file builds at run time. The check adds one unknown write for each such node. It adds no
