@@ -21,6 +21,7 @@
 use std::collections::BTreeMap;
 use std::iter;
 
+use archkeel_contract::policy::InsideMount;
 use archkeel_contract::{Contract, Rule};
 use archkeel_model::{in_scope, Graph, Hygiene, ModelTree, Reason, Unsupported};
 
@@ -122,14 +123,12 @@ pub(crate) fn check(
         }
         let has = |test: fn(&Rule) -> bool| contract.rules().iter().any(test);
         if has(|rule| matches!(rule, Rule::InterfaceBoundary(_))) {
-            match models {
-                Ok(tree) => {
-                    for finding in hygiene_interface::findings(tree, inside, index) {
-                        found.defect(place, finding);
-                    }
-                }
-                Err(_) => found.gap(place, "interface", INTERFACE),
-            }
+            interface(
+                &mut found,
+                place,
+                models.as_ref().ok().copied(),
+                (inside, index),
+            );
         }
         if place != path && has(|rule| matches!(rule, Rule::AllowedDependency(_))) {
             found.gap(place, "inside", INSIDE);
@@ -137,6 +136,23 @@ pub(crate) fn check(
     }
     root(&mut found, documents, &usable.root, models, path);
     found
+}
+
+/// The interface lifecycle rows of one contract: from the models when there are some (AD-514), else
+/// the named gap of the family.
+fn interface(
+    found: &mut Found,
+    place: &str,
+    tree: Option<&ModelTree>,
+    (inside, index): (&[InsideMount], Option<usize>),
+) {
+    let Some(tree) = tree else {
+        found.gap(place, "interface", INTERFACE);
+        return;
+    };
+    for finding in hygiene_interface::findings(tree, inside, index) {
+        found.defect(place, finding);
+    }
 }
 
 /// The checks of the root contract alone, as the reference engine runs them.

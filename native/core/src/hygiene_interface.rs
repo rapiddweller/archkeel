@@ -72,14 +72,15 @@ pub(crate) fn findings(
                  interface."
                     .to_owned(),
             )),
-            Some(entries) => {
-                for (item, entry) in entries.iter().enumerate() {
-                    if !used(entry.as_text(), records) {
-                        let pointer = format!("{place}/public/{item}");
-                        found.push(unknown(pointer, entry.as_text()));
-                    }
-                }
-            }
+            Some(entries) => found.extend(
+                entries
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, entry)| !used(entry.as_text(), records))
+                    .map(|(item, entry)| {
+                        unknown(format!("{place}/public/{item}"), entry.as_text())
+                    }),
+            ),
             None => {}
         }
         for (item, entry) in component.planned().iter().flatten().enumerate() {
@@ -121,15 +122,7 @@ fn uses<'m>(
     index: Option<usize>,
     model: &'m Model,
 ) -> HashMap<String, Vec<&'m Import>> {
-    let owner_of = |module: &str, of: &Model| -> Option<String> {
-        let (id, _) = of
-            .graph()
-            .modules()
-            .iter()
-            .find(|(_, m)| m.name() == module)?;
-        let owner = of.owner(id)?;
-        Some(of.components().get(owner)?.label().as_text().to_owned())
-    };
+    let owner_of = |module: &str, of: &Model| owner_name(of, module);
     let mut found: HashMap<String, Vec<&Import>> = HashMap::new();
     for import in model.graph().imports() {
         let (source, target) = (import.source_module(), import.target_module());
@@ -153,21 +146,44 @@ fn uses<'m>(
             for to in owners.into_iter().filter(|to| *to != from) {
                 found.entry(to).or_default().push(import);
             }
-        } else if let Some(at) = index {
-            if model.selects(target) && published(tree, mounts, at, import) {
-                if let Some(to) = reached(model, import, owner_of(target, model)) {
-                    found.entry(to).or_default().push(import);
-                }
-            }
+        } else if let Some(to) = index.and_then(|at| outside(tree, mounts, at, model, import)) {
+            found.entry(to).or_default().push(import);
         }
     }
     found
 }
 
+/// The component that an import from outside the domain of the mount `at` reaches, when each
+/// boundary publishes it.
+fn outside(
+    tree: &ModelTree,
+    mounts: &[InsideMount],
+    at: usize,
+    model: &Model,
+    import: &Import,
+) -> Option<String> {
+    let target = import.target_module();
+    let published = model.selects(target) && published(tree, mounts, at, import);
+    published
+        .then(|| owner_name(model, target))
+        .flatten()
+        .and_then(|owner| reached(model, import, owner))
+}
+
+/// The label of the component that owns a module of the model.
+fn owner_name(model: &Model, module: &str) -> Option<String> {
+    let (id, _) = model
+        .graph()
+        .modules()
+        .iter()
+        .find(|(_, m)| m.name() == module)?;
+    let owner = model.owner(id)?;
+    Some(model.components().get(owner)?.label().as_text().to_owned())
+}
+
 /// The component of the mount that an outside import reaches through a public entry or a planned
 /// entry, or `None` (`_inside_imports_by_target`, the second loop).
-fn reached(model: &Model, import: &Import, target: Option<String>) -> Option<String> {
-    let label = target?;
+fn reached(model: &Model, import: &Import, label: String) -> Option<String> {
     let id = model.component(&label)?;
     let component = model.components().get(id)?;
     let owned: Vec<String> = import
