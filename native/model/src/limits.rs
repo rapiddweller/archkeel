@@ -16,6 +16,10 @@
 //!   reads such selectors.
 //!
 //! No profile has `crate_edges_only` today, so the crate scope limits of `root_limits` are empty.
+//!
+//! AD-474: a feature that the linked collector states as unsupported is not a limit of the run.
+//! It holds only each rule that reads it: `symbol_reader` gives the symbol selector that a rule
+//! reads, and `interface::receipt` refuses each `interface_boundary` rule without the feature.
 
 use std::collections::HashSet;
 
@@ -119,14 +123,14 @@ pub(crate) fn limits(contract: &Contract, observed: &Observed) -> Vec<Limit> {
     found
 }
 
-/// A limit of a store-accepted profile for one rule.
+/// A limit of a store-accepted profile for one rule. A stated unsupported feature is not a limit
+/// of the run: `stated_hold` holds each rule that reads the selector (AD-474).
 fn symbol_limit(observed: &Observed, subject: &str) -> Option<Limit> {
     match observed
         .profile_limits
         .map(|limits| limits.dependency_symbols)
     {
-        Some(LimitSupport::Supported) => None,
-        Some(LimitSupport::Unsupported) => Some(Limit::Certain(subject.to_owned())),
+        Some(LimitSupport::Supported | LimitSupport::Unsupported) => None,
         None if observed.symbol_feature => Some(Limit::Unread(subject.to_owned())),
         None => Some(Limit::Certain(subject.to_owned())),
     }
@@ -142,8 +146,8 @@ fn rule_limits(rule: &Rule, observed: &Observed, found: &mut Vec<Limit>) {
                 .profile_limits
                 .map(|limits| limits.interface_boundary)
             {
-                Some(LimitSupport::Supported) => {}
-                Some(LimitSupport::Unsupported) => found.push(Limit::Certain(id.to_owned())),
+                // AD-474: `interface::receipt` refuses this rule alone without the feature.
+                Some(LimitSupport::Supported | LimitSupport::Unsupported) => {}
                 None => found.push(Limit::Unread(id.to_owned())),
             }
         }
@@ -184,6 +188,86 @@ fn rule_limits(rule: &Rule, observed: &Observed, found: &mut Vec<Limit>) {
     }
 }
 
+/// The symbol selector that holds one rule when the linked collector states that it reads no
+/// dependency symbol (AD-474), or `None` when the rule reads none. The interface statement has
+/// one reader only, and `interface::receipt` reads it on the evaluation path of that rule.
+pub(crate) fn stated_hold(contract: &Contract, rule: &Rule, observed: &Observed) -> Option<String> {
+    let stated = observed.profile_limits?.dependency_symbols;
+    (stated == LimitSupport::Unsupported)
+        .then(|| symbol_reader(contract, rule))
+        .flatten()
+}
+
+/// The first symbol selector of the contract that the evaluation of `rule` reads, by its subject.
+///
+/// The match has no catch-all arm: a new rule kind does not compile until it states what it
+/// reads. Each arm names the code that reads the selector:
+///
+/// - `direction::forbidden` reads the `target_symbol` of its own rule;
+/// - `direction::crossings` reads the `through` symbol ports of every component;
+/// - `interface::assess` reads the `public` symbol entries of every component, and
+///   `interface::interface_crossings` reads the verdicts of every `target_symbol` rule.
+///
+/// No other rule reads a symbol fact: each one reads module-level import edges only.
+pub(crate) fn symbol_reader(contract: &Contract, rule: &Rule) -> Option<String> {
+    let components = contract.components();
+    let symbolic = |entry: &str| entry.contains(':');
+    let ports = || {
+        components
+            .iter()
+            .filter(|c| {
+                c.requires()
+                    .iter()
+                    .flatten()
+                    .flat_map(|required| required.through())
+                    .any(|port| symbolic(port.as_text()))
+            })
+            .map(|c| c.id().as_text().to_owned())
+    };
+    let publics = || {
+        components
+            .iter()
+            .filter(|c| c.public().iter().flatten().any(|e| symbolic(e.as_text())))
+            .map(|c| c.id().as_text().to_owned())
+    };
+    let selectors = || {
+        contract.rules().iter().filter_map(|other| match other {
+            Rule::ForbiddenDependency(r) if r.target_symbol().is_some() => {
+                Some(archkeel_contract::head_of(other).id().as_text().to_owned())
+            }
+            _ => None,
+        })
+    };
+    match rule {
+        Rule::ForbiddenDependency(r) if r.target_symbol().is_some() => {
+            Some(archkeel_contract::head_of(rule).id().as_text().to_owned())
+        }
+        Rule::CompleteRequires(_) => ports().next(),
+        Rule::InterfaceBoundary(_) => publics().chain(selectors()).next(),
+        Rule::ForbiddenDependency(_)
+        | Rule::AllowedDependency(_)
+        | Rule::ExternalDependencyScope(_)
+        | Rule::CompleteAssignment(_)
+        | Rule::RootLayout(_)
+        | Rule::CompleteExternalScope(_)
+        | Rule::LayerOrder(_)
+        | Rule::NoComponentCycles(_)
+        | Rule::SiblingIsolation(_)
+        | Rule::ForbiddenConstruct(_) => None,
+        // `rule_limits` holds these kinds for every profile, so they never pass.
+        Rule::CallOwner(_)
+        | Rule::ForbiddenCallArgument(_)
+        | Rule::CatalogArgument(_)
+        | Rule::CatalogUse(_)
+        | Rule::ForbiddenEffectUnderCondition(_)
+        | Rule::SourceOwnership(_)
+        | Rule::SymbolPlacement(_)
+        | Rule::BoundaryTypes(_)
+        | Rule::BoundedNumericOperand(_)
+        | Rule::ProtocolDeclarations(_) => None,
+    }
+}
+
 /// The components of a `layer_order` rule whose layer is absent or outside its order.
 pub(crate) fn layer_gaps<'a>(contract: &'a Contract, rule: &LayerOrder) -> Vec<&'a Component> {
     crate::selection::layer_components(contract, rule)
@@ -203,3 +287,7 @@ pub(crate) fn word<T: serde::Serialize>(value: &T) -> String {
         .and_then(|value| value.as_str().map(str::to_owned))
         .unwrap_or_default()
 }
+
+#[cfg(test)]
+#[path = "limits_tests.rs"]
+mod tests;
