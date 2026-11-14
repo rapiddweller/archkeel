@@ -36,7 +36,10 @@ fn project() -> Tree {
             "[project]\nrequires-python = \">=3.11\"\n",
         ),
         ("src/app/__init__.py", ""),
-        ("src/app/client.py", "import app.service\n"),
+        (
+            "src/app/client.py",
+            "import app.service\nimport requests\nimport os\n",
+        ),
         ("src/app/service.py", "VALUE = 1\n"),
     ])
 }
@@ -117,7 +120,7 @@ fn the_store_accepts_a_complete_survey_and_refuses_each_planted_claim() {
     assert_eq!(limits.interface_boundary, LimitSupport::Unsupported);
 
     type Change = fn(&mut Reply);
-    let cases: [(&str, Change); 7] = [
+    let cases: [(&str, Change); 8] = [
         ("only the Python import survey", |r| {
             r.facts.profile = Profile::TypeScript
         }),
@@ -148,16 +151,29 @@ fn the_store_accepts_a_complete_survey_and_refuses_each_planted_claim() {
                 };
             }
         }),
-        ("builtin target", |r| {
-            let local = r
+        ("a builtin target must be standard", |r| {
+            let found = r
                 .facts
                 .imports
                 .iter_mut()
-                .find(|t| matches!(t, Target::Local { .. }));
-            if let Some(target) = local {
+                .find(|t| matches!(t, Target::External { .. }));
+            if let Some(target) = found {
                 *target = Target::Builtin {
                     import_id: target.import_id().clone(),
-                    name: "app.service".to_owned(),
+                    name: "requests".to_owned(),
+                };
+            }
+        }),
+        ("an external target must be a package", |r| {
+            let found = r
+                .facts
+                .imports
+                .iter_mut()
+                .find(|t| matches!(t, Target::Builtin { .. }));
+            if let Some(target) = found {
+                *target = Target::External {
+                    import_id: target.import_id().clone(),
+                    package: PackageName::new("os"),
                 };
             }
         }),

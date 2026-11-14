@@ -142,3 +142,13 @@ fn a_coverage_that_the_stream_cannot_write_is_no_reply() {
         "the coverage of the reply differs from the coverage of the survey"
     );
 }
+
+#[test]
+fn a_file_that_changes_after_its_parse_gives_no_reply() {
+    let tree = Tree::new(&[("src/app/__init__.py", ""), ("src/app/a.py", "import os\n")]);
+    let request = request(&tree.path());
+    let survey = crate::survey::survey(&request).unwrap();
+    std::fs::write(tree.root.join("src/app/a.py"), "import app\n").unwrap();
+    let error = typed(&request, survey, &BUILD).unwrap_err();
+    assert_eq!(error, "the source changed during the scan: src/app/a.py");
+}

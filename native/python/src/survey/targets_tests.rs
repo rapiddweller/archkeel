@@ -15,7 +15,15 @@ use crate::survey::Survey;
 
 /// The survey of a tree with the roots `roots` and the namespace `app`.
 pub(crate) fn surveyed_in(files: &[(&str, &str)], roots: &[&str], namespace: &str) -> Survey {
-    let tree = Tree::new(files);
+    survey_of(&Tree::new(files), roots, namespace)
+}
+
+/// The survey of an existing tree with the roots `src` and the namespace `app`.
+pub(crate) fn surveyed_at(tree: &Tree) -> Survey {
+    survey_of(tree, &["src"], "app")
+}
+
+fn survey_of(tree: &Tree, roots: &[&str], namespace: &str) -> Survey {
     let raw = json!({
         "protocol_version": "10.0.0",
         "snapshot": {"root": tree.path(), "git_head": "a".repeat(40), "dirty": false},

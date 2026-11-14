@@ -7,7 +7,7 @@
 // read must each be a gap.
 
 use super::*;
-use crate::survey::targets::tests::{reasons, surveyed, surveyed_in};
+use crate::survey::targets::tests::{reasons, surveyed, surveyed_at, surveyed_in};
 
 #[test]
 fn a_module_of_two_files_is_a_gap_for_each_and_no_module() {
@@ -100,6 +100,11 @@ fn an_unreadable_directory_is_a_gap() {
         return;
     }
     assert_eq!(scope.selected, ["src/app/__init__.py"]);
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+    let found = surveyed_at(&tree);
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let wanted = format!("{UNREADABLE}: Unreadable source directory: src/app/locked");
+    assert!(reasons(&found).contains(&wanted), "{:?}", reasons(&found));
     let gaps: Vec<String> = problems(&snapshot.problems)
         .iter()
         .map(|gap| gap.title.clone())
