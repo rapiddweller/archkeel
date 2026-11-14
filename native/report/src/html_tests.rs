@@ -408,9 +408,59 @@ fn the_verdict_names_the_largest_causes_in_one_line() {
             "A": {"kind": "coverage_gaps", "total": 5}, "B": {"kind": "coverage_gaps", "total": 5},
             "C": {"kind": "pair_gaps", "total": 7}}}}});
     let page = document(&frame);
-    assert!(page.contains(
-        "Unknown because of 3 causes. 2 rules: 5 coverage gaps in the scan; \
-1 rule: other &lt;b&gt;; 1 rule: 7 gaps between two modules."
-    ));
+    let code = |id: &str| format!("<span class=\"rp-code\">{id}</span>");
+    assert!(page.contains(&format!(
+        "Unknown because of 3 causes. 2 rules: 5 coverage gaps in the scan ({}, {}); \
+1 rule: other &lt;b&gt; ({}); 1 rule: 7 gaps between two modules ({}).",
+        code("A"),
+        code("B"),
+        code("D"),
+        code("C")
+    )));
     assert!(page.contains("4 unknown rules: 3 causes hold them."));
+}
+
+// Red main (#1169): a page of an UNKNOWN run says why, with the code of the cause, and which rules
+// are held: at most five ids by name, then the number of the others.
+#[test]
+fn a_named_gap_without_a_rule_row_shows_its_code_on_the_page() {
+    let frame = json!({"status": "UNKNOWN", "rules": {"P": ["layer_order", "PASS"]},
+        "unsupported": {"rules": {"hygiene:graph.count:a": "contract hygiene graph.count: expected <1>"}}});
+    let page = document(&frame);
+    assert!(page.contains("contract hygiene graph.count: expected &lt;1&gt;"));
+    assert!(page.contains("1 named gap: contract hygiene graph.count"));
+    assert!(page.contains("Remove the causes named under the verdict."));
+}
+
+#[test]
+fn every_unknown_run_names_a_cause_and_the_rules_it_holds_with_a_bound() {
+    for held in [1usize, 5, 6, 40] {
+        let rules: serde_json::Map<String, Value> = (0..held)
+            .map(|i| (format!("R{i:02}"), json!(["k", "UNKNOWN"])))
+            .collect();
+        let explained: serde_json::Map<String, Value> = (0..held)
+            .map(|i| (format!("R{i:02}"), json!("why")))
+            .collect();
+        let frame = json!({"status": "UNKNOWN", "rules": rules, "explained": explained});
+        let page = document(&frame);
+        let card = page
+            .split("Unknown because of")
+            .nth(1)
+            .unwrap()
+            .split("</p>")
+            .next()
+            .unwrap();
+        for index in 0..held.min(5) {
+            assert!(
+                card.contains(&format!("R{index:02}")),
+                "{held}: R{index:02}"
+            );
+        }
+        if held > 5 {
+            assert!(card.contains(&format!("+{} more", held - 5)), "{held}");
+            assert!(!card.contains("R05"), "the sixth id stays in the JSON");
+        }
+    }
+    let empty = document(&json!({"status": "UNKNOWN", "scope": "missing input"}));
+    assert!(empty.contains("keeps the run open: missing input"));
 }

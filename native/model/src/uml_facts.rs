@@ -32,7 +32,7 @@ pub(crate) struct Facts<'m> {
     pub(crate) language: &'static str,
     /// The qualified names of the module entities of the target: the modules that it reads.
     pub(crate) read: &'m [&'m str],
-    /// The profile keeps a type namespace apart from a value namespace (AD-502).
+    /// The profile keeps a type namespace apart from a value namespace (AD-508).
     pub(crate) namespaces: bool,
 }
 
@@ -47,7 +47,7 @@ impl<'m> Facts<'m> {
         }
     }
 
-    /// The symbol table of the run, or the cause that it decides nothing (AD-502).
+    /// The symbol table of the run, or the cause that it decides nothing (AD-508).
     pub(crate) fn symbols(&self) -> Result<&'m crate::symbols::Symbols, String> {
         if !self.model.graph().observed().symbol_facts {
             return Err(format!(

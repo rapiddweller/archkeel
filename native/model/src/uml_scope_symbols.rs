@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The symbol part of a closed scope of a UML target (AD-502): each defined symbol of a listed
+//! The symbol part of a closed scope of a UML target (AD-508): each defined symbol of a listed
 //! kind and each resolved site of a listed kind inside the scope that the target does not list.
 //!
 //! Reference engine: `check/uml_compare.py` `_scope_assessments`, `_closed_relationship_assessments`

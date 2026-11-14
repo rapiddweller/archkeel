@@ -7,8 +7,14 @@ A Python project gets PASS or FAIL only for rules that read the import graph. A 
 an import-system change and the other gaps of AD-450 give UNKNOWN for each rule of the run.
 Python rules that read symbols, calls or constructs stay UNKNOWN. A Dart project gets PASS or FAIL
 only for rules that read the import graph; each gap of AD-454 and a part in another component than
-its library give UNKNOWN for each rule of the run. A contract with a symbol selector or an
-`interface_boundary` rule is a profile limit: each Dart rule is UNKNOWN (AD-468).
+its library give UNKNOWN for each rule of the run. A symbol selector or an `interface_boundary`
+rule holds only the rules that read it (AD-500). A Dart cycle rule (`no_component_cycles`) is
+always UNKNOWN: the survey does not prove that it sees each local package, and 4.0.1 gives no Dart
+cycle receipt either. A proof that releases it: the survey resolves each `package:` URI from a
+complete package map that it reads (each `pubspec.yaml` of the project and its path and workspace
+members), and a test plants each YAML form of a local package. The `pubspec.yaml` reader has no
+YAML parser: each word `path`, `workspace` or `resolution` and each backslash is a gap, also in a
+value or a description (AD-500).
 
 **Open false-PASS class (Python, shared with 4.0.1).** A third-party function can import a module
 from a string, for example a plugin loader, a framework that reads a dotted path from settings, or
@@ -47,7 +53,7 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   The parent must exist. Safe file output needs POSIX directory handles; Windows refuses `--output` with exit 2 (`io_error`), writes no file and keeps the frame.
 - A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`. The run exits 2.
 - The core compares the module and import part of `declarations.uml` (AD-494) and the symbol part
-  for TypeScript (AD-502). Python, Dart and Rust give no symbol facts, so a symbol entity or
+  for TypeScript (AD-508). Python, Dart and Rust give no symbol facts, so a symbol entity or
   relationship of such a target keeps the UML row UNKNOWN (`no_receipt`) with a named gap. A target
   in an inside contract and an external import target keep it UNKNOWN too. A target that 4.0.1
   passes with symbol facts (H-uml, H-uml-dart) exits 2. A FAIL for a conflict, a missing base or an

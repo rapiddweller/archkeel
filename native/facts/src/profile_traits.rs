@@ -67,7 +67,7 @@ impl Profile {
     }
 
     /// True when a name of this profile can be a type and a value at the same time, so a UML
-    /// target entity of a type kind never matches a value and the other way (AD-502).
+    /// target entity of a type kind never matches a value and the other way (AD-508).
     pub fn separates_type_namespace(self) -> bool {
         match self {
             Profile::TypeScript => true,
@@ -77,7 +77,7 @@ impl Profile {
 
     /// True when the collector of this profile states the symbol, call and reference facts of
     /// the modules that it reads. For any other profile the symbol part of a UML target is a
-    /// named gap: the core never reads a missing section as an empty one (AD-502).
+    /// named gap: the core never reads a missing section as an empty one (AD-508).
     pub fn symbol_facts(self) -> bool {
         match self {
             Profile::TypeScript => true,

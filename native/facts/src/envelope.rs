@@ -417,6 +417,9 @@ pub fn source_digest(inputs: &[Input]) -> String {
     sha256_hex(format!("[{}]", rows.join(",")).as_bytes())
 }
 
+#[path = "envelope_cycle.rs"]
+pub mod cycle;
+
 // The constructors of the envelope types; a child module that uses this one, never the reverse.
 #[path = "envelope_build.rs"]
 mod build;

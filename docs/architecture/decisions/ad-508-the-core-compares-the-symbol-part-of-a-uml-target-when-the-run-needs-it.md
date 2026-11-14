@@ -1,4 +1,4 @@
-# AD-502 The core compares the symbol part of a UML target when the run needs it
+# AD-508 The core compares the symbol part of a UML target when the run needs it
 
 **Status.** Proposed. Part of #880. It extends AD-494. PR 1 of 5 (L-173).
 

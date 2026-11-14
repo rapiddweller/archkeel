@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The value bindings of call results and the construction sites of the symbol table (AD-502).
+//! The value bindings of call results and the construction sites of the symbol table (AD-508).
 //!
 //! Reference engine: `ir/source_graph.py` `_value_bindings`, `_reconcile_result_binding` and
 //! `_construction_sites` at release 4.0.1. A construction gives one `creates` edge from the

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The symbol table of a reply (AD-502): the entities of the modules and symbol records, then the
+//! The symbol table of a reply (AD-508): the entities of the modules and symbol records, then the
 //! edges of the call, reference and base records. The entities (`symbols.rs`) and the edges
 //! (`symbol_sites.rs`) do not know this driver.
 

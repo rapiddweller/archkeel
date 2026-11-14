@@ -70,11 +70,13 @@ pub(crate) struct Observed {
     pub(crate) inventory_complete: bool,
     /// How the modules of the profile lie in the scan roots (slice S7).
     pub(crate) layout: Layout,
+    /// Whether a cycle rule can have its receipt (AD-500).
+    pub(crate) cycle_scope: bool,
     /// The language name of the profile, as a UML target entity names it (AD-494).
     pub(crate) language: &'static str,
-    /// The profile keeps a type namespace apart from a value namespace (AD-502).
+    /// The profile keeps a type namespace apart from a value namespace (AD-508).
     pub(crate) namespaces: bool,
-    /// The collector of the profile states symbol facts (AD-502).
+    /// The collector of the profile states symbol facts (AD-508).
     pub(crate) symbol_facts: bool,
     /// Whether the host drops an allowed pair gap of the profile (slice S7).
     pub(crate) pair_gap_drop: PairGapDrop,
@@ -158,6 +160,7 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
             .any(|feature| feature == SYMBOL_FEATURE),
         inventory_complete: inventory_complete(facts),
         layout: facts.profile.layout(),
+        cycle_scope: archkeel_facts::envelope::cycle::proves_cycle_scope(facts.profile),
         language: facts.profile.language_name(),
         namespaces: facts.profile.separates_type_namespace(),
         symbol_facts: facts.profile.symbol_facts(),

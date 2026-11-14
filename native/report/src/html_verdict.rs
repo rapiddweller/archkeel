@@ -67,11 +67,15 @@ fn next(frame: &Frame, places: &Places) -> String {
                     count(held, "cause")
                 ));
             } else if status == "UNKNOWN" {
-                // No rule row is UNKNOWN: the run itself is open (a refused contract or scan).
-                steps.push(format!(
-                    "Remove the cause that keeps the run open: {}",
-                    escape(&frame.cause)
-                ));
+                // No rule row is UNKNOWN: a named gap or the run itself keeps it open.
+                steps.push(if causes::grouped(frame).is_empty() {
+                    format!(
+                        "Remove the cause that keeps the run open: {}",
+                        escape(&frame.cause)
+                    )
+                } else {
+                    "Remove the causes named under the verdict.".to_owned()
+                });
             }
         }
     }
@@ -88,23 +92,38 @@ fn next(frame: &Frame, places: &Places) -> String {
     )
 }
 
+/// One cause as a phrase: how many rules it holds, what it is, and at most five rule ids by name.
+fn cause_line(cause: &causes::Cause<'_>) -> String {
+    let title = escape(&causes::title(cause));
+    if cause.rules.is_empty() {
+        return format!("{}: {title}", count(cause.named, "named gap"));
+    }
+    let ids: Vec<String> = cause
+        .rules
+        .iter()
+        .take(5)
+        .map(|id| format!("<span class=\"rp-code\">{}</span>", escape(id)))
+        .collect();
+    let more = cause.rules.len().saturating_sub(5);
+    let tail = if more > 0 {
+        format!(", +{more} more")
+    } else {
+        String::new()
+    };
+    format!(
+        "{}: {title} ({}{tail})",
+        count(cause.rules.len(), "rule"),
+        ids.join(", ")
+    )
+}
+
 /// One line under the verdict: the three largest causes of the UNKNOWN rules, text only.
 fn top_causes(frame: &Frame) -> String {
     let all = causes::grouped(frame);
     if all.is_empty() {
         return String::new();
     }
-    let shown: Vec<String> = all
-        .iter()
-        .take(3)
-        .map(|cause| {
-            format!(
-                "{}: {}",
-                count(cause.rules.len(), "rule"),
-                escape(&causes::title(cause))
-            )
-        })
-        .collect();
+    let shown: Vec<String> = all.iter().take(3).map(|cause| cause_line(cause)).collect();
     let more = all.len().saturating_sub(3);
     let tail = if more > 0 {
         format!("; and {}", count(more, "more cause"))

@@ -19,6 +19,8 @@ pub(super) struct Cause<'a> {
     /// The number of gaps that hold each rule of the cause.
     pub(super) total: usize,
     pub(super) unnamed: usize,
+    /// Named gaps of this cause that are no rule of the contract (for example a hygiene code).
+    pub(super) named: usize,
 }
 
 /// The causes of the UNKNOWN rules of a frame, the cause with most rules first.
@@ -42,12 +44,27 @@ pub(super) fn grouped(frame: &Frame) -> Vec<Cause<'_>> {
                 rules: Vec::new(),
                 total,
                 unnamed: held.map_or(0, |h| h.unnamed_imports),
+                named: 0,
             })
             .rules
             .push(rule);
     }
+    // A named gap has no rule row; its reason is its cause, and equal reasons are one cause.
+    for reason in frame.named.values() {
+        causes
+            .entry(("named", reason.as_str(), 0))
+            .or_insert_with(|| Cause {
+                kind: "named",
+                reason,
+                rules: Vec::new(),
+                total: 0,
+                unnamed: 0,
+                named: 0,
+            })
+            .named += 1;
+    }
     let mut list: Vec<Cause<'_>> = causes.into_values().collect();
-    list.sort_by(|a, b| b.rules.len().cmp(&a.rules.len()).then(a.kind.cmp(b.kind)));
+    list.sort_by(|a, b| (b.rules.len() + b.named, a.kind).cmp(&(a.rules.len() + a.named, b.kind)));
     list
 }
 
