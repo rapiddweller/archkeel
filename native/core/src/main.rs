@@ -17,10 +17,6 @@
 //! unsupported or refused part, 2 for a request that the core cannot read or a frame whose
 //! status has no explaining row (no frame is written), 1 for an I/O error.
 
-#[cfg(any(test, feature = "harness"))]
-mod base;
-#[cfg(any(test, feature = "harness"))]
-mod check;
 mod contract;
 mod dual_run;
 mod engine;
@@ -50,6 +46,12 @@ const REPLY_REQUEST_LIMIT: u64 = 1 << 30;
 
 use std::io::{self, Read, Write};
 use std::process::ExitCode;
+
+// The request kinds that carry a reply (#1095): test builds and the feature `harness` only.
+#[cfg(any(test, feature = "harness"))]
+mod base;
+#[cfg(any(test, feature = "harness"))]
+mod check;
 
 fn main() -> ExitCode {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
