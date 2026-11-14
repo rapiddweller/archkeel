@@ -28,8 +28,8 @@ from .core_json import CoreError as CoreError
 from .core_json import Gap as Gap
 from .core_json import GapKind as GapKind
 from .core_json import _count, _fields, _object, _text, _texts
-from .core_topology import Topology, frame_topology, require_topology
 from .core_output import read_html
+from .core_topology import Topology, frame_topology, require_topology
 
 
 class Status(StrEnum):
