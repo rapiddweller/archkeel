@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from core_support import run
+from core_support import EMPTY_GRAPH, run
 from corpus_support import commit_tree
 
 from archkeel.cli import core_only
@@ -68,7 +68,7 @@ BASE = {
         'contract = "architecture-contract.json"\ntsconfig = "tsconfig.json"\n'
     ),
     "architecture-contract.json": json.dumps(CONTRACT),
-    "README.md": "# probe\n",
+    "README.md": EMPTY_GRAPH,
     "src/b/t.ts": "export type T = number;\n",
 }
 ALIASES = '{"compilerOptions":{"allowJs":true,"baseUrl":".","paths":{"@b/*":["src/b/*"]}}}'

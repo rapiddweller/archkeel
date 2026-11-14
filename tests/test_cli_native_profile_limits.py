@@ -147,10 +147,12 @@ def test_a_symbol_public_interface_releases_no_actual_gap(built: Path) -> None:
         component = next(c for c in contract["components"] if c["label"] == "data")
         component["public"] = ["shop.src.data.local_x2e_ts:local"]
         contract["declarations"] = {}
-        contract["rules"] = [r for r in contract["rules"] if r["id"] == "DOMAIN-NO-DATA"]
+        # AD-466: `complete_requires` decides each pair; without it 4.0.1 names open decisions.
+        kept = {"DOMAIN-NO-DATA", "REQUIRES"}
+        contract["rules"] = [r for r in contract["rules"] if r["id"] in kept]
         path.write_text(json.dumps(contract))
         before = scan(built, root)
-        assert before["rules"] == {"DOMAIN-NO-DATA": "PASS"}, before
+        assert before["rules"] == {"DOMAIN-NO-DATA": "PASS", "REQUIRES": "PASS"}, before
         assert before["status"] == "PASS", before
         source = root / "src/domain/order.ts"
         source.write_text(source.read_text() + '\nimport(globalThis["forbiddenModule"]);\n')

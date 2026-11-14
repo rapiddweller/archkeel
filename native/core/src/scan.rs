@@ -101,6 +101,8 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
 /// The run of a scan that `archkeel-collect` completed.
 fn decide(scanned: Scanned, html: bool, topology: bool) -> Result<Answered, String> {
     let insides = tree(&scanned)?;
+    // AD-466: the core reads and binds each provenance document of the tree.
+    let documents = crate::provenance::read(&scanned, &insides, MAX_BYTES)?;
     let contract_files: std::collections::BTreeMap<_, _> = std::iter::once((
         scanned.contract.0.clone(),
         archkeel_facts::identity::sha256_hex(&scanned.contract.1),
@@ -111,6 +113,7 @@ fn decide(scanned: Scanned, html: bool, topology: bool) -> Result<Answered, Stri
             archkeel_facts::identity::sha256_hex(&file.bytes),
         )
     }))
+    .chain(documents.bound())
     .collect();
     let Scanned {
         profile,
@@ -137,6 +140,7 @@ fn decide(scanned: Scanned, html: bool, topology: bool) -> Result<Answered, Stri
         base: None,
         trust: in_process(profile),
         collect: Some(json!({ "request": request, "contract_files": contract_files })),
+        documents: Some(documents),
     })
 }
 
@@ -157,7 +161,8 @@ fn in_process(profile: Profile) -> TrustOf {
                 gap: None,
             };
         };
-        let standard_library = archkeel_store::standard_library(profile)
+        // AD-450: only a name that is standard in each version of the profile.
+        let standard_library = archkeel_store::standard_library_everywhere(profile)
             .into_iter()
             .map(str::to_owned)
             .collect();

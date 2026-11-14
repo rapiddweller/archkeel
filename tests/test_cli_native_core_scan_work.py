@@ -14,7 +14,8 @@ import sys
 from pathlib import Path
 
 import pytest
-from core_support import HONEST, ROOT, case_root, run
+from core_support import EMPTY_GRAPH, HONEST, ROOT, case_root, ensure_target_dir, run
+from filelock import FileLock
 
 from archkeel.cli import core_only, native_scan
 from archkeel.cli.core_frame import CoreError, GapKind
@@ -142,25 +143,28 @@ def test_release_scans_refuse_without_a_frame_under_the_rss_bound(
 
 def input_measurement(root: Path, manifest: Path) -> dict:
     manifest.write_text(json.dumps([("at-bound", str(canonical(root)), "archkeel.toml")]))
-    done = subprocess.run(
-        [
-            "cargo",
-            "test",
-            "--locked",
-            "-p",
-            "archkeel-collect",
-            "--lib",
-            "measure_scan_input_from_public_corpus_roots",
-            "--",
-            "--nocapture",
-        ],
-        cwd=ROOT / "native",
-        env={**os.environ, "ARCHKEEL_SCAN_INPUT_ROOTS": str(manifest)},
-        capture_output=True,
-        text=True,
-        timeout=180,
-        check=False,
-    )
+    ensure_target_dir(ROOT / "native")
+    # The build lock of all workers: cargo must not build in the shared target at the same time.
+    with FileLock(str(ROOT / "native/target/.pytest-native-build.lock")):
+        done = subprocess.run(
+            [
+                "cargo",
+                "test",
+                "--locked",
+                "-p",
+                "archkeel-collect",
+                "--lib",
+                "measure_scan_input_from_public_corpus_roots",
+                "--",
+                "--nocapture",
+            ],
+            cwd=ROOT / "native",
+            env={**os.environ, "ARCHKEEL_SCAN_INPUT_ROOTS": str(manifest)},
+            capture_output=True,
+            text=True,
+            timeout=180,
+            check=False,
+        )
     assert done.returncode == 0, done.stdout + done.stderr
     [row] = [
         json.loads(line.removeprefix("SCAN_INPUT "))
@@ -223,11 +227,12 @@ def test_a_forbidden_edge_after_the_cut_cannot_leave_a_rule_pass(
             "target": target,
             "include_type_checking": True,
             "rationale": "The later edge must not escape the refusal.",
-            "provenance": ["test"],
+            "provenance": ["docs/architecture/shop.md"],
             "decided_by": "architect",
         }
     ]
     contract_path.write_text(json.dumps(contract))
+    (root / "docs/architecture/shop.md").write_text(EMPTY_GRAPH)
     suffix = "ts" if language == "typescript" else "rs"
     count = 70 if scope == "scan" else 1
     for index in range(count):

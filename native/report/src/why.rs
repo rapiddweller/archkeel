@@ -47,8 +47,10 @@ impl WhyUnknown {
         match reason {
             Reason::Unsupported(part) => unsupported(part),
             Reason::NotComplete(cause) => not_complete(cause),
-            Reason::Interface(_) => WhyUnknown::Undecided,
-            Reason::NoSubjects | Reason::UncitedChild(_) => WhyUnknown::NoReceipt,
+            Reason::Interface(_) | Reason::Hygiene(_) => WhyUnknown::Undecided,
+            // AD-470: the reference engine gives the UML target `no_receipt` without a complete
+            // comparison, and the core has no comparison.
+            Reason::NoSubjects | Reason::UncitedChild(_) | Reason::Uml(_) => WhyUnknown::NoReceipt,
             Reason::TooManyRows(_)
             | Reason::MissingInput(_)
             | Reason::Incomplete(_)
@@ -65,9 +67,10 @@ fn unsupported(part: &Unsupported) -> WhyUnknown {
         | Unsupported::Section(_)
         | Unsupported::Report
         | Unsupported::InsideTree
-        | Unsupported::UmlTarget
         | Unsupported::Baseline
-        | Unsupported::TreeScope => WhyUnknown::ScopeIncomplete,
+        | Unsupported::TreeScope
+        | Unsupported::Hygiene(_)
+        | Unsupported::HygieneInput => WhyUnknown::ScopeIncomplete,
     }
 }
 
@@ -84,6 +87,9 @@ fn not_complete(cause: &Cause) -> WhyUnknown {
         | Cause::LayerMetadata(_)
         | Cause::NoRuleSubjects(_)
         // A claim of a mount outside its parent is a coverage failure of the run (AD-385).
-        | Cause::InsideSourceDomain(_) => WhyUnknown::ScopeIncomplete,
+        | Cause::InsideSourceDomain(_)
+        | Cause::OutsideNamespace(_)
+        // A file whose owner has another component than its path (AD-468).
+        | Cause::OwnedFileOwner(_) => WhyUnknown::ScopeIncomplete,
     }
 }

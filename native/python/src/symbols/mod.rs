@@ -30,13 +30,13 @@ mod writes;
 use scan::Scan;
 
 /// What one module gives: its records, or the gap that names why it has none.
-pub enum Table {
+pub(crate) enum Table {
     Records(Vec<Value>),
     Gap { file: String, reason: String },
 }
 
 /// The definition table of one module. `witnesses` is `include_member_write_witnesses`.
-pub fn table(
+pub(crate) fn table(
     module: &Module,
     all_exports: &HashSet<String>,
     minor: archkeel_facts::pyminor::PyMinor,

@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from frozen_native import frozen_root as frozen_root
 
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
@@ -190,8 +191,8 @@ def test_a_missing_or_old_format_entry_fails(tmp_path: Path) -> None:
     assert "no library" in api.problems(native, {"lib-one": ["fn a()"], "ghost": []})[0]
 
 
-def test_the_real_libraries_match_their_baseline() -> None:
-    native = ROOT / "native"
+def test_the_real_libraries_match_their_baseline(frozen_root: Path) -> None:
+    native = frozen_root / "native"
     baseline = json.loads((native / "api_baseline.json").read_text(encoding="utf-8"))
     assert api.problems(native, baseline) == []
 

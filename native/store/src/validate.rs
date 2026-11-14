@@ -103,15 +103,9 @@ fn decoder_checks(facts: &Facts) -> Result<(), String> {
     Ok(())
 }
 
-/// A 10.0.0 reply comes only from the native Python collector, which cannot give PASS before
-/// PR 5 slice 8 (AD-334): the store refuses it, as the Python codec does.
-pub(crate) fn version(version: ProtocolVersion) -> Result<(), String> {
-    match version {
-        ProtocolVersion::V8 | ProtocolVersion::V9 => Ok(()),
-        ProtocolVersion::V10 => {
-            Err("the store does not read protocol 10.0.0 replies yet (AD-334)".to_owned())
-        }
-    }
+/// The protocol of the reply agrees with its profile (AD-450, `python.rs`).
+pub(crate) fn version(version: ProtocolVersion, profile: Profile) -> Result<(), String> {
+    crate::python::version(version, profile)
 }
 
 /// The value invariants of each record (`Record::invariants`): the gaps of the coverage and the
@@ -131,12 +125,8 @@ fn checkable(facts: &Facts) -> Result<(), String> {
     let known: &[&str] = match facts.profile {
         Profile::TypeScript => &TYPESCRIPT_FEATURES,
         Profile::Rust => &RUST_FEATURES,
-        Profile::Python | Profile::Dart => {
-            return Err(format!(
-                "the store does not check {} replies yet",
-                facts.profile.as_str()
-            ))
-        }
+        // AD-450, AD-468: the import survey has no resolution feature.
+        Profile::Python | Profile::Dart => &[],
     };
     for feature in &facts.capabilities.resolution_features {
         if !known.contains(&feature.as_str()) {
@@ -249,7 +239,13 @@ pub(crate) fn envelope(facts: &Facts, names: &[&str]) -> Result<(), String> {
     evidence_checks(facts, &inputs)?;
     capability_checks(facts, names)?;
     // `evaluate_source` checks the registered sets after the generic checks (L-35a).
-    crate::registered::registered(facts)
+    crate::registered::registered(facts)?;
+    match facts.profile {
+        Profile::Python => crate::python::survey(facts)?,
+        Profile::Dart => crate::dart::survey(facts)?,
+        Profile::TypeScript | Profile::Rust => {}
+    }
+    Ok(())
 }
 
 fn evidence_checks(facts: &Facts, inputs: &HashSet<&str>) -> Result<(), String> {

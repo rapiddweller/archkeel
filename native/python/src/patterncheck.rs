@@ -9,7 +9,7 @@ use ruff_python_ast::{Expr, MatchCase, Number, Pattern};
 use ruff_text_size::Ranged;
 use std::collections::HashSet;
 
-pub fn capture(node: &Pattern) -> Option<&str> {
+pub(super) fn capture(node: &Pattern) -> Option<&str> {
     match node {
         Pattern::MatchAs(node) => node.name.as_ref().map(|name| name.as_str()),
         Pattern::MatchStar(node) => node.name.as_ref().map(|name| name.as_str()),
@@ -18,7 +18,7 @@ pub fn capture(node: &Pattern) -> Option<&str> {
     }
 }
 
-pub fn check(cases: &[MatchCase], work: &mut Work) -> Option<&'static str> {
+pub(super) fn check(cases: &[MatchCase], work: &mut Work) -> Option<&'static str> {
     let mut terminal = false;
     for case in cases {
         if !work.charge(1) {

@@ -20,7 +20,7 @@ mod classes;
 mod methods;
 mod types;
 
-pub fn table(module: &Module, minor: PyMinor) -> Table {
+pub(crate) fn table(module: &Module, minor: PyMinor) -> Table {
     super::scan::table(module, minor, collect)
 }
 

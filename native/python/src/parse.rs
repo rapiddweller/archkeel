@@ -45,7 +45,7 @@ pub(crate) mod work;
 
 /// Why a file has no tree: the class name of the Python exception, its line and its message.
 #[derive(Clone, Debug, PartialEq)]
-pub struct ParseFailure {
+pub(crate) struct ParseFailure {
     pub exception: ExceptionName,
     pub line: usize,
     pub message: String,
@@ -64,7 +64,7 @@ impl From<Problem> for ParseFailure {
 const NULL_BYTES: &str = "source code string cannot contain null bytes";
 
 /// The tree of `text` for Python 3.`minor`, or the failure that the Python collector reports.
-pub fn parse(text: &str, minor: PyMinor) -> Result<ModModule, ParseFailure> {
+pub(crate) fn parse(text: &str, minor: PyMinor) -> Result<ModModule, ParseFailure> {
     if text.contains('\0') {
         return Err(failure(ExceptionName::SyntaxError, 1, NULL_BYTES));
     }

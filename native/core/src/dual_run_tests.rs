@@ -46,15 +46,15 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
         Some(&reply),
         &["metrics", "evidence", "violations"],
     ));
-    // The native rules select no module of the H-typescript reply: the subject check of the
-    // reference engine fails, so the scope is not complete and each decided rule is UNKNOWN
-    // with its reason (AD-378).
+    // The native contract names modules outside the namespace `shop` of the H-typescript reply:
+    // the reference engine refuses such a contract, so the scope is not complete and each
+    // decided rule is UNKNOWN with its reason (AD-378, AD-450).
     let decided = got["rules"].as_object().cloned().unwrap_or_default();
     assert_eq!(decided.len(), 83);
     assert!(decided.values().all(|value| value[1] == "UNKNOWN"));
     assert_eq!(
         got["explained"]["NATIVE-EXTERNAL-SYN"],
-        "incomplete scope: the rule NATIVE-PY-SYMBOLS-NO-SURVEY selects no module"
+        "incomplete scope: the contract names native.archkeel_facts, which lies outside the namespace"
     );
     assert_eq!(got["status"], "UNKNOWN");
     assert_eq!(got["violations"], json!({}));
@@ -76,7 +76,9 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
         .as_object()
         .map_or(0, |rules| rules.len());
     // Slice S7 decides the two cycle rules too: no rule of the native contract is unsupported.
-    assert_eq!(rules, 0);
+    // AD-466: the one row is the hygiene that a request without documents cannot check.
+    assert_eq!(rules, 1);
+    assert!(got["unsupported"]["rules"]["hygiene:request"].is_string());
 }
 
 #[test]
@@ -114,9 +116,10 @@ fn a_frame_without_rules_is_unknown_even_with_a_complete_scope() {
         (got["status"].clone(), got["scope"].clone()),
         (json!("UNKNOWN"), json!("complete"))
     );
-    assert_eq!(
-        got["unsupported"]["rules"],
-        "unsupported: contract has no decided rule"
+    // AD-466: the hygiene row of a request without documents holds the run as the gap.
+    assert!(
+        got["unsupported"]["rules"]["hygiene:request"].is_string(),
+        "{got}"
     );
     empty["collector_argv"] = json!(["collector"]);
     let got = frame(&empty);
@@ -386,4 +389,8 @@ fn a_declaration_has_its_word_and_a_layer_row_cites_the_contract_file() {
         got["rules"]["ALLOW"],
         json!(["allowed_dependency", "DECLARATION"])
     );
+    // AD-466: each rule passes, and the run still cannot pass: the request reads no provenance
+    // document, so its hygiene is a named gap. A later caller of this path cannot open the hole.
+    assert_eq!(got["status"], "UNKNOWN", "{got}");
+    assert!(got["unsupported"]["rules"]["hygiene:request"].is_string());
 }

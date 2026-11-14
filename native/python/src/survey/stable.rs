@@ -22,7 +22,7 @@ use crate::module::Module;
 use archkeel_facts::pyminor::PyMinor;
 
 /// The stable bindings of one module, sorted. `minor` is the minor version of the interpreter.
-pub fn bindings(
+pub(super) fn bindings(
     module: &Module,
     binders: &Binders,
     aliases: &Aliases,

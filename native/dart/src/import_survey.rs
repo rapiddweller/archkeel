@@ -29,7 +29,7 @@ use archkeel_snapshot::Snapshot;
 use crate::discover::{discover, scan_roots, Discovery};
 use crate::parse::DartParser;
 use crate::pytext::is_blank;
-use crate::records::{discovery_gaps, file_evidence, inputs, parse_gaps, pattern};
+use crate::records::{discovery_gaps, file_evidence, inputs, parse_gaps};
 use crate::syntax::DirectiveKind;
 use index::{Index, Kind};
 pub use names::{GapName, NamedGap};
@@ -43,6 +43,8 @@ pub struct PartOwner {
     pub part: String,
     pub library: String,
     pub module: ModuleName,
+    /// The module that the path of the part would name if it were a library.
+    pub part_module: ModuleName,
 }
 
 /// The typed result of the survey. `unknowns` and `coverage.gaps` hold the same records.
@@ -85,12 +87,13 @@ pub fn survey(request: &DartRequest) -> Result<Survey, String> {
     let owners = parts::owners(&mut snapshot, &index, &mut gaps);
     let built = edges::edges(&mut snapshot, &index, &owners, &mut gaps);
     let files = file_facts(&index, &mut gaps);
-    let parts = owners
+    let parts: Vec<PartOwner> = owners
         .iter()
         .map(|(part, library)| PartOwner {
             part: found.sources[*part].rel_path.clone(),
             library: found.sources[*library].rel_path.clone(),
             module: ModuleName::new(&found.sources[*library].module),
+            part_module: ModuleName::new(&found.sources[*part].module),
         })
         .collect();
     let unknowns: Vec<Record<GapFact>> = gaps.records.into_values().collect();
@@ -103,11 +106,17 @@ pub fn survey(request: &DartRequest) -> Result<Survey, String> {
         })
         .collect();
     let selected: Vec<String> = found.sources.iter().map(|s| s.rel_path.clone()).collect();
-    let read = selected.len() + usize::from(found.pubspec_digest.is_some());
+    // AD-468: the selected sources that the survey read; a part counts as a parsed file.
+    let read = selected.len();
     Ok(Survey {
         inputs: with_config(inputs(&found), config),
-        scope: roots.iter().map(|root| pattern(root)).collect(),
-        coverage: Coverage::of((read, files.len()), selected, unknowns.clone()),
+        // AD-468: the scope label of a root is `<root>/**`, as the model binds it to the roots.
+        scope: roots.iter().map(|root| format!("{root}/**")).collect(),
+        coverage: Coverage::of(
+            (read, files.len() + parts.len()),
+            selected,
+            unknowns.clone(),
+        ),
         files,
         parts,
         imports: built.imports,

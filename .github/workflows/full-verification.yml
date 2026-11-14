@@ -52,8 +52,8 @@ jobs:
       - name: Check architecture, lint, types, build, installed CLI and generated assets
         run: make ci-core-check SKIP_TESTS=1
 
-      - name: Check the Rust of native/ with the core against its pinned result
-        run: make self-validate-native
+      - name: Check native/ and the Python shell with the core against their pinned results
+        run: make self-validate
 
       - name: Check documentation diagrams
         run: make mermaid

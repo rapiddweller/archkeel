@@ -58,10 +58,7 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
                 Err("source sections do not match the registered profile".to_owned())
             }
         }
-        Profile::Python | Profile::Dart => Err(format!(
-            "the store does not check {} replies yet",
-            facts.profile.as_str()
-        )),
+        Profile::Python | Profile::Dart => crate::python::registered(facts),
     }
 }
 

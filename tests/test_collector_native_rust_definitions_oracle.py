@@ -29,8 +29,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from frozen_native import frozen_root as frozen_root
 
-ROOT = Path(__file__).parents[1]
 CRATE = "native.archkeel_rust_collector"
 KINDS = {
     "function": "function",
@@ -46,10 +46,10 @@ KINDS = {
 Row = tuple[str, str, str, str, str | None]
 
 
-def _collector_rows(binary: Path) -> set[Row]:
+def _collector_rows(binary: Path, root: Path) -> set[Row]:
     request = {
         "protocol_version": "9.0.0",
-        "snapshot": {"root": str(ROOT), "git_head": "0" * 40, "dirty": False},
+        "snapshot": {"root": str(root), "git_head": "0" * 40, "dirty": False},
         "scope": {"roots": ["native"], "namespace": "native", "exclude_test_sources": True},
         "resolver": {"language": "rust"},
     }
@@ -76,7 +76,7 @@ def _collector_rows(binary: Path) -> set[Row]:
     return rows
 
 
-def _rustdoc(target: Path, library: bool) -> dict[str, Any]:
+def _rustdoc(root: Path, target: Path, library: bool) -> dict[str, Any]:
     selection = ["--lib"] if library else ["--bin", "archkeel-rust-collector"]
     done = subprocess.run(
         [
@@ -93,7 +93,7 @@ def _rustdoc(target: Path, library: bool) -> dict[str, Any]:
             "json",
             "--document-private-items",
         ],
-        cwd=ROOT / "native",
+        cwd=root / "native",
         capture_output=True,
         text=True,
         env={**os.environ, "RUSTC_BOOTSTRAP": "1", "CARGO_TARGET_DIR": str(target)},
@@ -174,14 +174,14 @@ class _Docs:
 
 @pytest.fixture(scope="module")
 def compared(
-    rust_binary: Path, tmp_path_factory: pytest.TempPathFactory
+    rust_binary: Path, tmp_path_factory: pytest.TempPathFactory, frozen_root: Path
 ) -> tuple[set[Row], set[Row]]:
     if shutil.which("cargo") is None:
         pytest.skip("cargo is not installed; install Rust to run the oracle.")
     target = tmp_path_factory.mktemp("rustdoc")
-    rows = _Docs(_rustdoc(target, library=True)).rows()
-    rows |= _Docs(_rustdoc(target, library=False)).rows()
-    return _collector_rows(rust_binary), rows
+    rows = _Docs(_rustdoc(frozen_root, target, library=True)).rows()
+    rows |= _Docs(_rustdoc(frozen_root, target, library=False)).rows()
+    return _collector_rows(rust_binary, frozen_root), rows
 
 
 def test_the_only_definition_that_rustdoc_lacks_is_the_build_script(

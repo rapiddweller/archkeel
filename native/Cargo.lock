@@ -28,7 +28,9 @@ dependencies = [
 name = "archkeel-collect"
 version = "0.0.0"
 dependencies = [
+ "archkeel-dart-collector",
  "archkeel-facts",
+ "archkeel-python-collector",
  "archkeel-rust-collector",
  "archkeel-snapshot",
  "archkeel-store",

@@ -16,7 +16,8 @@ from pathlib import Path
 import pytest
 from core_support import run
 from corpus_support import commit_tree
-from rust_repository import component, repository, rule
+from frozen_native import frozen_root as frozen_root
+from rust_repository import CRATE_RULES, GRAPH_PAGE, component, repository, rule
 
 from archkeel.cli import core_only, core_output
 
@@ -28,8 +29,13 @@ def project(root: Path, binary: Path, profile: str, status: str) -> Path:
     rules = None
     if status == "UNKNOWN":
         rules = (rule("UNPORTED", "symbol_placement", source="native"),)
-    root = repository(root, binary, components=parts, **({"rules": rules} if rules else {}))
+    # AD-466: the marked graph draws the observed edge also when no `requires` entry allows it.
+    drawn = "    app --> base"
+    root = repository(
+        root, binary, components=parts, drawn=drawn, **({"rules": rules} if rules else {})
+    )
     if profile == "typescript":
+        (root / "docs/target.md").write_text(GRAPH_PAGE.format(edges="    app"))
         (root / "src").mkdir()
         (root / "src/index.ts").write_text("export const value = 1;\n")
         (root / "tsconfig.json").write_text(
@@ -263,7 +269,8 @@ def test_a_long_hostile_rule_name_is_not_truncated_or_executed(
     root = repository(
         tmp_path / "project",
         release_core,
-        rules=(rule(plant, "complete_assignment", source="native"),),
+        # AD-466: `complete_requires` decides each pair; without it the pairs stay open.
+        rules=(rule(plant, "complete_assignment", source="native"), *CRATE_RULES[1:2]),
     )
     monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
     target = tmp_path / "report.html"
@@ -439,13 +446,18 @@ def test_native_static_page_stays_below_the_review_size_budget(
     tmp_path: Path,
     release_core: Path,
     monkeypatch: pytest.MonkeyPatch,
+    frozen_root: Path,
 ) -> None:
-    from core_support import ROOT
-
     monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
     target = tmp_path / "native.html"
     code, found = run(
-        "report", "--root", str(ROOT), "--config", "native/archkeel.toml", "--output", str(target)
+        "report",
+        "--root",
+        str(frozen_root),
+        "--config",
+        "native/archkeel.toml",
+        "--output",
+        str(target),
     )
     assert code == 1 and found["status"] == "FAIL", found
     assert target.stat().st_size < 600_000

@@ -429,31 +429,34 @@ fn the_evidence_of_an_import_is_sorted_and_the_gap_site_keeps_the_reply_order() 
 }
 
 #[test]
-fn the_store_accepts_the_replies_of_two_profiles_only() {
-    // The marks of an external and a builtin target apply to every accepted reply; the reference
-    // engine marks them for two profiles (AD-372, limit). A third accepted profile must fail here.
+fn only_two_accepted_profiles_have_typed_target_marks() {
+    // The reference engine marks an external and a builtin target for two profiles (AD-372). Each
+    // other profile that the store accepts must read its targets by module (AD-450).
+    use archkeel_facts::envelope::{Profile, TargetMarks};
     let Some(golden) = golden() else {
         return fail("the golden reply");
     };
-    let refused: Vec<&str> = archkeel_facts::envelope::Profile::ALL
+    let accepted: Vec<Profile> = Profile::ALL
         .iter()
-        .map(|profile| profile.as_str())
-        .filter(|name| {
+        .copied()
+        .filter(|profile| {
             let mut reply = golden.clone();
-            reply.facts.profile =
-                archkeel_facts::envelope::Profile::parse(name).unwrap_or(golden.facts.profile);
+            reply.facts.profile = *profile;
             let text = serde_json::to_string(&reply).unwrap_or_default();
             let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
             let _ = encoder.write_all(text.as_bytes());
             let bytes = encoder.finish().unwrap_or_default();
-            archkeel_store::ingest_reply(&bytes, 1 << 30)
+            let name = profile.as_str();
+            !archkeel_store::ingest_reply(&bytes, 1 << 30)
                 .err()
                 .is_some_and(|message| message.contains(&format!("does not check {name} replies")))
         })
         .collect();
-    assert_eq!(
-        refused.len() + 2,
-        archkeel_facts::envelope::Profile::ALL.len(),
-        "{refused:?}"
-    );
+    let typed = accepted
+        .iter()
+        .filter(|profile| profile.target_marks() == TargetMarks::Typed)
+        .count();
+    assert_eq!(typed, 2, "{accepted:?}");
+    // AD-468: the store also checks Dart replies; Python and Dart read targets by module.
+    assert_eq!(accepted.len(), 4, "{accepted:?}");
 }

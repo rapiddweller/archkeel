@@ -18,7 +18,7 @@ use crate::module::namespace_tables::{CONTAINERS, GLOBAL, GLOBALS, LOCAL};
 
 /// `resolve_static_name` of a name or a name-rooted attribute. Any other node has the text of
 /// `ast.unparse`, which never equals one of the names above, so it is `None`.
-pub fn resolve(expr: &Expr, aliases: &Aliases) -> Option<String> {
+pub(super) fn resolve(expr: &Expr, aliases: &Aliases) -> Option<String> {
     match expr {
         Expr::Attribute(node) => resolve_attribute(node, aliases),
         Expr::Name(node) => Some(alias_of(&node.id, aliases).to_owned()),
@@ -51,7 +51,7 @@ fn resolve_attribute(node: &ExprAttribute, aliases: &Aliases) -> Option<String> 
 /// How a node exposes the namespace (`exposes_dynamic_namespace` with `local_namespace` false
 /// and true, `include_import_effects` true).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Exposure {
+pub(super) enum Exposure {
     None,
     /// An exposure in each scope.
     Global,
@@ -59,7 +59,7 @@ pub enum Exposure {
     Local,
 }
 
-pub fn exposure(node: AnyNodeRef, aliases: &Aliases) -> Exposure {
+pub(super) fn exposure(node: AnyNodeRef, aliases: &Aliases) -> Exposure {
     let (target, reads) = match node {
         AnyNodeRef::ExprCall(call) => (&*call.func, call.arguments.args.is_empty()),
         AnyNodeRef::StmtAssign(assign) if is_reference(&assign.value) => (&*assign.value, true),
@@ -107,7 +107,7 @@ fn classify(name: &str, reads: bool) -> Exposure {
 
 /// The node that `_namespace_may_rebind` judges, and its parents: the call of a callee, else the
 /// node itself. `parents` ends with the parent of `node`.
-pub fn reads_only<'a>(
+pub(super) fn reads_only<'a>(
     node: AnyNodeRef<'a>,
     parents: &[AnyNodeRef<'a>],
     aliases: &Aliases,

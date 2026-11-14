@@ -93,9 +93,17 @@ pub(crate) fn state(
     if graph.settings().producer() != crate::settings::Producer::Trusted {
         return cause(Cause::Producer);
     }
+    // AD-450 review: the reference engine refuses a contract that names a module outside the
+    // namespace, so no rule of such a run passes here.
+    if let Some(reference) = outside_namespace(contract, graph.settings().namespace()) {
+        return cause(Cause::OutsideNamespace(reference));
+    }
     let all = names(graph, contract.components(), None);
     if let Some(found) = contract_failures(contract, observed, &all, &mut unread) {
         return cause(found);
+    }
+    if let Some(path) = split_owner(contract.components(), observed) {
+        return cause(Cause::OwnedFileOwner(path));
     }
     // `_inside_rule_results`: the clip, the limits and the subject check of each mount are
     // coverage failures of the whole run.
@@ -103,12 +111,33 @@ pub(crate) fn state(
         if mount.outside {
             return cause(Cause::InsideSourceDomain(mount.parent_id.to_owned()));
         }
+        if let Some(path) = split_owner(mount.contract.components(), observed) {
+            return cause(Cause::OwnedFileOwner(path));
+        }
         let scoped = names(graph, mount.contract.components(), Some(&mount.domain));
         if let Some(found) = contract_failures(mount.contract, observed, &scoped, &mut unread) {
             return cause(found);
         }
     }
     unread.map_or(State::Complete, State::Unread)
+}
+
+/// The first file without a module of its own whose path module and owner module have other
+/// claiming components (AD-468). A rule reads the facts of such a file as facts of its owner, so
+/// a rule of the component of its path would miss them: the scope is not complete.
+fn split_owner(components: &[Component], observed: &crate::observed::Observed) -> Option<String> {
+    let claimants = |module: &str| -> Vec<&str> {
+        components
+            .iter()
+            .filter(|component| crate::ownership::claims(component, module))
+            .map(|component| component.id().as_text())
+            .collect()
+    };
+    observed
+        .owned_files
+        .iter()
+        .find(|(_, module, owner)| claimants(module) != claimants(owner))
+        .map(|(path, _, _)| path.clone())
 }
 
 /// The names that the subject check of one contract reads: the source subjects (the domain of a
@@ -166,6 +195,36 @@ fn contract_failures(
         }
     }
     rule_failures(contract, names, unread)
+}
+
+/// The first module reference of a component outside the namespace: a package, an exact module,
+/// a public, planned or `through` entry (the module part before a colon).
+fn outside_namespace(contract: &Contract, namespace: &str) -> Option<String> {
+    if namespace.is_empty() {
+        return None;
+    }
+    contract
+        .components()
+        .iter()
+        .flat_map(|component| {
+            let through = component
+                .requires()
+                .iter()
+                .flatten()
+                .flat_map(|required| required.through());
+            component
+                .packages()
+                .iter()
+                .chain(component.exact_modules())
+                .map(|entry| entry.as_text())
+                .chain(component.public().iter().flatten().map(|e| e.as_text()))
+                .chain(component.planned().iter().flatten().map(|e| e.as_text()))
+                .chain(through.map(|e| e.as_text()))
+                .collect::<Vec<&str>>()
+        })
+        .map(|entry| entry.split(':').next().unwrap_or(entry))
+        .find(|module| !crate::ownership::in_scope(module, namespace))
+        .map(str::to_owned)
 }
 
 fn cause(cause: Cause) -> State {

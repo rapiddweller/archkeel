@@ -30,7 +30,7 @@ fn address(node: AnyNodeRef) -> usize {
 
 /// The facts of the whole walk.
 #[derive(Default)]
-pub struct Whole {
+pub(super) struct Whole {
     pub globals: HashSet<String>,
     /// An exposure in any scope that does more than read the names of the module.
     pub rebinds: bool,
@@ -45,7 +45,7 @@ pub struct Whole {
 }
 
 impl Whole {
-    pub fn of(tree: &ModModule, aliases: &Aliases, binders: &Binders) -> Self {
+    pub(super) fn of(tree: &ModModule, aliases: &Aliases, binders: &Binders) -> Self {
         let mut walk = WholeWalk {
             aliases,
             binders,
@@ -152,7 +152,7 @@ impl<'a> Visitor<'a> for Roots<'_> {
 }
 
 /// The facts of the module scope walk.
-pub struct Scope<'a> {
+pub(super) struct Scope<'a> {
     /// `Counter(scope_bound_names)`.
     pub counts: HashMap<&'a str, usize>,
     pub star: bool,
@@ -161,7 +161,7 @@ pub struct Scope<'a> {
 }
 
 impl<'a> Scope<'a> {
-    pub fn of(tree: &'a ModModule, local: &HashSet<usize>) -> Self {
+    pub(super) fn of(tree: &'a ModModule, local: &HashSet<usize>) -> Self {
         let mut walk = ScopeWalk {
             local,
             found: Scope {

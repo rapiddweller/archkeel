@@ -140,6 +140,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
             gap: None,
         }),
         collect: None,
+        documents: None,
     })
 }
 
@@ -182,6 +183,8 @@ pub(crate) struct Run {
     pub(crate) trust: TrustOf,
     /// The `collect` part of the self-test of a scan request (AD-406); `None` for the others.
     pub(crate) collect: Option<serde_json::Value>,
+    /// The provenance documents that a scan request read (AD-466); `None` for the others.
+    pub(crate) documents: Option<crate::provenance::Documents>,
 }
 
 /// How a check request reads its base reply: from the validated candidate reply and the inputs
@@ -224,6 +227,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         };
         base(engine.reply(), shared)
     });
+    let namespace = run.namespace.clone();
     let trust = (run.trust)(run.namespace, engine.reply());
     let settings = settings_of(trust.settings, &input, run.roots);
     let locations = frame_parts::locations(engine.reply(), &input.path, &input.bytes, &settings);
@@ -245,8 +249,18 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         Answer::Report(reason) => Err(reason.to_string()),
         other => Err(format!("unexpected answer {other:?}")),
     };
+    // AD-466: a request without documents names the hygiene that it cannot check.
+    let hygiene = {
+        let (usable, models) = engine.inputs();
+        match run.documents.as_ref() {
+            Some(documents) => crate::hygiene::check(documents, usable, models, &namespace, &path),
+            None => crate::hygiene::unread(usable),
+        }
+    };
     let mut named = named(&contract, run.baseline, &engine, &path);
     named.contract = named.contract.or(trust.gap).or(base);
+    named.contract = named.contract.or(hygiene.refusal);
+    named.rules.extend(hygiene.rules);
     let ruled = if run.topology {
         engine.rule(named, true)
     } else {
@@ -332,8 +346,9 @@ fn producer(collector_argv: Option<&Vec<String>>) -> Producer {
 }
 
 /// The gaps of the request: a baseline or a contract that the core cannot use names the whole
-/// contract, and a UML target names its row. A refused or absent reply gives no model, so the
-/// report writes no PASS. The report adds the gaps of the model and writes the status (AD-388).
+/// contract, and a UML target has its UNKNOWN row (AD-470). A refused or absent reply gives no
+/// model, so the report writes no PASS. The report adds the gaps of the model and writes the
+/// status (AD-388).
 fn named(contract: &ContractState, baseline: bool, engine: &Engine, path: &str) -> Named {
     let whole = match contract {
         _ if baseline => Some(Reason::Unsupported(Unsupported::Baseline).to_string()),
@@ -342,11 +357,10 @@ fn named(contract: &ContractState, baseline: bool, engine: &Engine, path: &str) 
         ContractState::Refused(message) => Some(format!("refused: {message}")),
     };
     Named {
-        rules: crate::contract::uml_reason(engine.usable(), path)
-            .into_iter()
-            .collect(),
+        rules: BTreeMap::new(),
         contract: whole,
         hold: None,
+        uml: crate::contract::uml_row(engine.usable(), path),
     }
 }
 

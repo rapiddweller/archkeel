@@ -13,18 +13,18 @@ use std::rc::Rc;
 use ruff_python_ast::{ElifElseClause, ExceptHandler, MatchCase, Stmt};
 use ruff_text_size::{Ranged, TextRange, TextSize};
 
-pub use crate::module::definition::Def;
+pub(super) use crate::module::definition::Def;
 
 /// One control-flow context of a definition (`DefinitionFrame`).
 #[derive(Clone)]
-pub struct Context {
+pub(super) struct Context {
     pub kind: &'static str,
     pub branch: &'static str,
     /// The range of the site: the statement, the `except` handler or the pattern of a case.
     pub site: TextRange,
 }
 
-pub struct Site<'a> {
+pub(super) struct Site<'a> {
     pub def: Def<'a>,
     /// The index of the lexical parent in the list of sites.
     pub parent: Option<usize>,
@@ -45,7 +45,7 @@ struct Work<'a> {
 }
 
 /// The definition sites of a module body, in the order of `definition_sites`.
-pub fn sites(body: &[Stmt]) -> Vec<Site<'_>> {
+pub(super) fn sites(body: &[Stmt]) -> Vec<Site<'_>> {
     let mut found = Vec::new();
     let mut stack: Vec<Work<'_>> = Vec::new();
     let empty: Rc<[Context]> = Rc::from(Vec::new());

@@ -5,7 +5,7 @@
 //! The engine frame of the core takes its status and its rule verdicts only from `rule` (AD-388,
 //! #1073 item 4). The model comes from the frozen H-typescript reply (`run_tests`).
 
-use archkeel_model::{Input, Reason, Unsupported};
+use archkeel_model::{Input, Reason, UmlGap, Unsupported};
 use serde_json::{json, Value};
 
 use super::{fits, rule, Named, RuleReasons};
@@ -161,6 +161,7 @@ fn a_fail_rule_writes_its_violations_and_a_gap_does_not_hide_it() {
         )]
         .into(),
         hold: None,
+        uml: None,
     };
     let value = frame(&rule(Ok(&model), named).unwrap());
     assert_eq!(value["status"], "FAIL");
@@ -292,4 +293,88 @@ fn the_frame_writes_the_keys_of_the_ruling_one_time() {
         );
     }
     assert_eq!(ruling.frame(&json!([1])), Err(FrameError::NotAnObject));
+}
+
+const UML: &str = "UML-TARGET-a2e40c5592b1b06a";
+const COMPARED: UmlGap = UmlGap::NotCompared {
+    entities: 2,
+    relationships: 1,
+    scopes: 0,
+};
+
+fn uml(gap: UmlGap) -> Named {
+    Named {
+        uml: Some((UML.to_owned(), gap)),
+        ..Named::default()
+    }
+}
+
+/// AD-470: the UML target row is UNKNOWN with its cause and `no_receipt`. It holds back the PASS
+/// of a run whose rules pass, and it is a row, not a gap of the frame.
+#[test]
+fn a_uml_target_is_an_unknown_row_that_holds_back_a_pass() {
+    let model = model(&contract(&BOTH), true);
+    let ruling = rule(Ok(&model), uml(COMPARED)).unwrap();
+    assert_eq!(ruling.decided().status(), Status::Unknown);
+    assert!(ruling.decided().pass().is_none());
+    assert_eq!(ruling.decided().rule(UML), None);
+    let value = frame(&ruling);
+    assert_eq!(value["rules"][UML], json!(["uml_target", "UNKNOWN"]));
+    assert_eq!(value["rules"]["ASSIGNMENT"][1], "PASS");
+    assert_eq!(
+        value["explained"][UML],
+        "the UML target: the core does not compare 2 entities, 1 relationships and 0 scopes \
+         with the source facts"
+    );
+    assert_eq!(value["unknown_kinds"][UML], "no_receipt");
+    assert_eq!(ruling.unsupported(), &RuleReasons::Each(Default::default()));
+}
+
+/// A contract with only a UML target has one row that explains its UNKNOWN status, so the core
+/// does not name the contract as one without a decided rule.
+#[test]
+fn a_contract_with_only_a_uml_target_has_its_row_and_no_contract_gap() {
+    let model = model(&contract(&[]), true);
+    let ruling = rule(Ok(&model), uml(UmlGap::Empty)).unwrap();
+    let value = frame(&ruling);
+    assert_eq!(value["status"], "UNKNOWN");
+    assert_eq!(value["rules"], json!({UML: ["uml_target", "UNKNOWN"]}));
+    assert_eq!(
+        value["explained"][UML],
+        "the UML target: it declares no entity, relationship or scope"
+    );
+    assert_eq!(ruling.unsupported(), &RuleReasons::Each(Default::default()));
+}
+
+/// Without a model, the UML target names the reason of the run as a gap; with a reason for the
+/// whole contract, the frame has no row at all.
+#[test]
+fn a_uml_target_without_a_decided_model_is_a_gap_and_never_a_row() {
+    let reason = Reason::MissingInput(Input::Reply);
+    let ruling = rule(Err(&reason), uml(COMPARED)).unwrap();
+    assert_eq!(frame(&ruling)["rules"], json!({}));
+    let expected = [(UML.to_owned(), reason.to_string())].into();
+    assert_eq!(ruling.unsupported(), &RuleReasons::Each(expected));
+    let model = model(&contract(&BOTH), true);
+    let whole = Named {
+        contract: Some("refused: no contract".to_owned()),
+        ..uml(COMPARED)
+    };
+    let ruling = rule(Ok(&model), whole).unwrap();
+    assert_eq!(frame(&ruling)["rules"], json!({}));
+    assert_eq!(ruling.decided().status(), Status::Unknown);
+}
+
+/// A UML target id that a rule of the contract also has is refused, as a repeated rule is.
+#[test]
+fn a_uml_target_with_the_id_of_a_rule_is_refused() {
+    let model = model(&contract(&BOTH), true);
+    let named = Named {
+        uml: Some(("ASSIGNMENT".to_owned(), COMPARED)),
+        ..Named::default()
+    };
+    let refused = Err(BuildError::DuplicateRule {
+        rule: "ASSIGNMENT".to_owned(),
+    });
+    assert_eq!(rule(Ok(&model), named).map(|_| ()), refused);
 }

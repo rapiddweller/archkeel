@@ -74,6 +74,8 @@ pub(crate) struct Observed {
     pub(crate) pair_gap_drop: PairGapDrop,
     /// The host can accept a dependency scope proof from the runtime of the reply (AD-418).
     pub(crate) scope_receipt: bool,
+    /// Each file without a module of its own: its path, the module of its path and its owner.
+    pub(crate) owned_files: Vec<(String, String, String)>,
 }
 
 /// One dynamic import limit of the `unknowns` section (`dynamic_dependency_limits`).
@@ -152,6 +154,18 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
         layout: facts.profile.layout(),
         pair_gap_drop: facts.profile.pair_gap_drop(),
         scope_receipt: facts.runtime.carries_scope_proof(),
+        owned_files: facts
+            .owned_files
+            .iter()
+            .map(|file| {
+                let module = file.module.as_str().to_owned();
+                (
+                    file.rel_path.clone(),
+                    module,
+                    file.owner.as_str().to_owned(),
+                )
+            })
+            .collect(),
     }
 }
 

@@ -20,7 +20,9 @@
 #![deny(unreachable_pub)]
 
 mod config;
+mod dart;
 mod git;
+mod python;
 mod refusal;
 mod repository;
 mod run;
@@ -77,11 +79,14 @@ impl Scanned {
 
 /// The test features of the linked collectors. A build with one cannot give an accepted reply.
 pub fn test_features() -> &'static [&'static str] {
-    if archkeel_rust_collector::TEST_FEATURES.is_empty() {
-        archkeel_typescript_collector::TEST_FEATURES
-    } else {
-        archkeel_rust_collector::TEST_FEATURES
-    }
+    [
+        archkeel_rust_collector::TEST_FEATURES,
+        archkeel_python_collector::TEST_FEATURES,
+        archkeel_dart_collector::TEST_FEATURES,
+    ]
+    .into_iter()
+    .find(|features| !features.is_empty())
+    .unwrap_or(archkeel_typescript_collector::TEST_FEATURES)
 }
 
 /// Scan the repository of `identity` with the collector of its profile. `contract_budget` bounds
@@ -128,6 +133,12 @@ pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Re
     let bytes =
         serde_json::to_vec(&request).map_err(|error| refused("request", error.to_string()))?;
     let reply = run::collect(config.profile, &bytes)?;
+    let bound = match config.profile {
+        Profile::Python => python::bound(&root, reply.reply()),
+        Profile::Dart => dart::bound(&root, reply.reply()),
+        Profile::TypeScript | Profile::Rust => Ok(()),
+    };
+    bound.map_err(|why| refused("collector", why))?;
     let contract = match root.read(&config.contract, contract_budget) {
         Ok(Some((_, bytes))) => bytes,
         Ok(None) => return Err(refused("contract", "the core cannot read the contract")),
@@ -203,10 +214,14 @@ fn read_config(root: &repository::Root, path: &str) -> Result<config::Config, Re
 }
 
 /// The request that the shell sends to a bundled collector (`observer_for`,
-/// `collection_request`, `ProcessCollector`): 8.0.0, or 9.0.0 with the test scope.
+/// `collection_request`, `ProcessCollector`): 8.0.0, or 9.0.0 with the test scope. A Python
+/// request is 10.0.0 and always states its test scope (AD-450).
 fn request(identity: &Identity<'_>, config: &config::Config) -> Value {
     let mut scope = json!({"roots": config.roots, "namespace": config.namespace});
-    let version = if config.exclude_test_sources {
+    let version = if config.profile == Profile::Python {
+        scope["exclude_test_sources"] = Value::Bool(config.exclude_test_sources);
+        "10.0.0"
+    } else if config.exclude_test_sources {
         scope["exclude_test_sources"] = Value::Bool(true);
         "9.0.0"
     } else {
@@ -214,6 +229,8 @@ fn request(identity: &Identity<'_>, config: &config::Config) -> Value {
     };
     let mut resolver = match config.profile {
         Profile::Rust => json!({"language": "rust"}),
+        Profile::Python => python::resolver(),
+        Profile::Dart => dart::resolver(),
         _ => json!({"language": "typescript", "tsconfig": config.tsconfig}),
     };
     if config.bundler {

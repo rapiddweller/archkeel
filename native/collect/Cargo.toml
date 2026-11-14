@@ -21,6 +21,8 @@ archkeel-snapshot.workspace = true
 archkeel-store = { path = "../store" }
 archkeel-typescript-collector = { path = "../typescript" }
 archkeel-rust-collector = { path = "../rust" }
+archkeel-python-collector = { path = "../python" }
+archkeel-dart-collector = { path = "../dart" }
 archkeel-wire.workspace = true
 serde_json.workspace = true
 toml.workspace = true

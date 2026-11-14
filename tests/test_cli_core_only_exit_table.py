@@ -25,8 +25,9 @@ ENUMS = rule(
     allowed_sources=["native.base_crate"],
 )
 # A config without `language` selects the Python profile.
-PYTHON = (
-    '[scan]\nroots = ["crates"]\nnamespace = "native"\ncontract = "architecture-contract.json"\n'
+DART = (
+    '[scan]\nlanguage = "dart"\nroots = ["crates"]\nnamespace = "native"\n'
+    'contract = "architecture-contract.json"\n'
 )
 # name: (changes of the fixture, exit code, status, a text that the result must name)
 TABLE: dict[str, tuple[dict[str, Any], int, str, str]] = {
@@ -49,11 +50,12 @@ TABLE: dict[str, tuple[dict[str, Any], int, str, str]] = {
         "UNKNOWN",
         "rule_kind_not_ported: ENUMS-IN-BASE",
     ),
-    "a profile that the core does not collect": (
-        {"config": PYTHON},
+    # AD-468: the core collects Dart; a tree without `pubspec.yaml` is a named gap, never PASS.
+    "a Dart scan without a package": (
+        {"config": DART},
         2,
         "UNKNOWN",
-        "python",
+        "no pubspec.yaml at the snapshot root",
     ),
 }
 

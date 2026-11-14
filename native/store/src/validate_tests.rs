@@ -153,10 +153,11 @@ fn a_changed_reply_fails_with_the_message_of_the_python_check() {
                 }
             },
         ),
-        ("does not check archkeel-python-analyzer replies", |v| {
+        ("a Python reply must be the 10.0.0 import survey", |v| {
             v["facts"]["profile"] = json!("archkeel-python-analyzer");
         }),
-        ("does not check archkeel-dart-analyzer replies", |v| {
+        // AD-468: a Dart reply is the import survey; it has no resolution feature.
+        ("does not check the resolution feature", |v| {
             v["facts"]["profile"] = json!("archkeel-dart-analyzer");
         }),
         // A Rust reply may claim only the feature of the Rust collector.
@@ -192,13 +193,13 @@ fn the_store_reads_only_a_complete_compressed_reply() {
 }
 
 #[test]
-fn a_reply_of_protocol_10_is_refused_until_a_native_python_reply_can_pass() {
+fn a_typescript_reply_of_protocol_10_is_refused() {
     let mut value = reply();
     value["protocol_version"] = json!("10.0.0");
     let error = error_of(&value);
     assert_eq!(
         error,
-        "the store does not read protocol 10.0.0 replies yet (AD-334)"
+        "protocol 10.0.0 is only the Python import survey (AD-450)"
     );
 }
 
@@ -219,7 +220,7 @@ fn the_typed_door_accepts_the_frozen_reply_and_refuses_a_planted_record() {
     value["protocol_version"] = json!("10.0.0");
     assert_eq!(
         typed_error_of(&value),
-        "the store does not read protocol 10.0.0 replies yet (AD-334)"
+        "protocol 10.0.0 is only the Python import survey (AD-450)"
     );
 }
 
@@ -269,7 +270,7 @@ fn each_decode_time_refusal_that_a_typed_value_can_hold_is_refused_by_both_doors
             },
         ),
         (
-            "the store does not read protocol 10.0.0 replies yet (AD-334)",
+            "protocol 10.0.0 is only the Python import survey (AD-450)",
             |reply| reply.protocol_version = ProtocolVersion::V10,
         ),
     ];

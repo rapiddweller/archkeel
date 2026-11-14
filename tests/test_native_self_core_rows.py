@@ -20,6 +20,7 @@ from typing import Any
 
 import pytest
 from core_support import NATIVE, ROOT, SUFFIX, run
+from frozen_native import frozen_root as frozen_root
 
 from archkeel.cli import core_only
 
@@ -28,11 +29,11 @@ from native_expected import problems  # noqa: E402
 
 
 @pytest.fixture(scope="module")
-def checked(built: Path) -> tuple[int, dict[str, Any]]:
+def checked(built: Path, frozen_root: Path) -> tuple[int, dict[str, Any]]:
     """One default run on `native/` for the tests of this file: the exit code and the result."""
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(core_only, "locate_core", lambda: built / f"archkeel-core{SUFFIX}")
-        return run("validate", "--root", str(ROOT), "--config", "native/archkeel.toml")
+        return run("validate", "--root", str(frozen_root), "--config", "native/archkeel.toml")
 
 
 def test_the_core_decides_each_rule_of_the_self_contract(
@@ -50,7 +51,7 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     # The one failure makes the run a failure; the gaps never let it pass.
     assert (code, result["status"], frame["status"]) == (1, "FAIL", "FAIL")
     assert set(frame["unknown_kinds"]) == {r for r, status in core.items() if status == "UNKNOWN"}
-    kept = "incomplete scope: 119 gaps between two modules that the contract"
+    kept = "incomplete scope: 122 gaps between two modules that the contract"
     assert frame["scope"].startswith(kept), frame["scope"]
 
 
@@ -63,6 +64,10 @@ def test_the_core_decides_each_rule_of_the_self_contract(
 # test, and the row of `core` has to be decided again.
 COLLECT = "native.archkeel_collect"
 TS, RUST = "native.archkeel_typescript_collector", "native.archkeel_rust_collector"
+# AD-450: `BUILD` is the version and code digest text of the Python collector. It stays in collect.
+PY = "native.archkeel_python_collector"
+# AD-468: the Dart items return a `Reply`, a `Provenance` and text, all facts types.
+DART = "native.archkeel_dart_collector"
 COLLECT_TO_COLLECTORS = {
     ("native.archkeel_collect", "archkeel_typescript_collector::TEST_FEATURES", TS),
     ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-typescript-collector", TS),
@@ -72,6 +77,14 @@ COLLECT_TO_COLLECTORS = {
     ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-rust-collector", RUST),
     ("native.archkeel_collect.run", "archkeel_rust_collector::provenance", RUST),
     ("native.archkeel_collect.run", "archkeel_rust_collector::typed_reply", RUST),
+    ("native.archkeel_collect", "archkeel_python_collector::TEST_FEATURES", PY),
+    ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-python-collector", PY),
+    ("native.archkeel_collect.run", "archkeel_python_collector::BUILD", PY),
+    ("native.archkeel_collect.run", "archkeel_python_collector::typed_reply", PY),
+    ("native.archkeel_collect", "archkeel_dart_collector::TEST_FEATURES", DART),
+    ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-dart-collector", DART),
+    ("native.archkeel_collect.run", "archkeel_dart_collector::provenance", DART),
+    ("native.archkeel_collect.run", "archkeel_dart_collector::typed_reply", DART),
 }
 
 

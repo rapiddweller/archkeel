@@ -286,9 +286,14 @@ def _decide(options: Options, as_json: bool) -> int:
         request["html"] = True
     binary = locate_core()
     started_ns = time_ns()
-    stdout, code = exchange(str(binary), "scan", json.dumps(request).encode())
+    stdout, status_code = exchange(str(binary), "scan", json.dumps(request).encode())
     frame = read_frame(
-        stdout, code, scan=True, require_protocol=True, request=request, started_ns=started_ns
+        stdout,
+        status_code,
+        scan=True,
+        require_protocol=True,
+        request=request,
+        started_ns=started_ns,
     )
     document = json.loads(stdout)
     document.pop("html", None)

@@ -107,6 +107,15 @@ pub(crate) fn parse(payload: &[u8], name: &str) -> Result<Config, Refused> {
     let profile = match language {
         "typescript" => Profile::TypeScript,
         "rust" => Profile::Rust,
+        "python" => Profile::Python,
+        // AD-468: the Dart survey reads no test scope, so a test exclusion is refused by name.
+        "dart" if exclude_test_sources => {
+            return Err(Refused::Unsupported(
+                "scan",
+                "scan.exclude_test_sources is not supported for a Dart project".to_owned(),
+            ));
+        }
+        "dart" => Profile::Dart,
         _ => {
             // AD-406: each other profile stays on stage 1 by name.
             return Err(Refused::Unsupported(

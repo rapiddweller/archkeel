@@ -2,6 +2,7 @@
 # (`make full-test`) and never this list, so Full does not watch this file. Add a test here
 # without a change to the Makefile.
 PR_TEST_FILES := \
+	tests/test_cli_core_contract_hygiene.py \
 	tests/test_cli_core_inside_trees.py \
 	tests/test_cli_core_only.py \
 	tests/test_cli_core_only_boundary.py \
@@ -9,6 +10,7 @@ PR_TEST_FILES := \
 	tests/test_cli_core_only_exit_table.py \
 	tests/test_cli_core_only_review.py \
 	tests/test_cli_core_only_scan.py \
+	tests/test_cli_core_uml_target.py \
 	tests/test_cli_installed_wheel.py \
 	tests/test_cli_report_output.py \
 	tests/test_cli_native_core_scan.py \
@@ -17,6 +19,7 @@ PR_TEST_FILES := \
 	tests/test_native_core.py \
 	tests/test_native_expected_gaps.py \
 	tests/test_native_self_core_rows.py \
+	tests/test_cli_shell_self_check.py \
 	tests/test_native_self_rules.py \
 	tests/test_native_self_contract.py \
 	tests/test_native_report.py \
@@ -24,6 +27,7 @@ PR_TEST_FILES := \
 	tests/test_ci_daily.py \
 	tests/test_collector_native_catalog.py \
 	tests/test_make_gate.py \
+	tests/test_make_self_check.py \
 	tests/test_ci_budget.py \
 	tests/test_native_ci.py \
 	tests/test_native_contract_rules.py \
