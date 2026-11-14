@@ -17,7 +17,8 @@ import pytest
 from rust_repository import APP, BASE, CRATE_RULES, claims, repository, statuses, validate
 from test_collector_false_pass_rust_extern_self import B, ROOT_ALIAS, SRC, forbid
 
-PUB_ALIAS = "extern crate self as me;\npub mod b;\npub mod c;\nmod x;\nmod y;\n"
+PUB_ALIAS = "extern crate self as me;\npub mod b;\npub mod c;\nmod x;\n"
+WITH_Y = PUB_ALIAS + "mod y;\n"
 C = "pub struct S;\n"
 MACRO_FILLED = "macro_rules! mk { () => { pub use crate::b; }; }\nmk!();\n"
 USE_G = "pub fn f() -> u8 { b::g(); 1 }\n"
@@ -28,11 +29,11 @@ FAIL, HELD = {"FAIL"}, {"UNKNOWN", "FAIL"}
 CASES = {
     # S1: the glob goes through a module that a macro call fills.
     "S1 glob through the alias over a macro item": (
-        {"lib.rs": PUB_ALIAS, "y.rs": MACRO_FILLED, "x.rs": "use me::y::*;\n" + USE_G},
+        {"lib.rs": WITH_Y, "y.rs": MACRO_FILLED, "x.rs": "use me::y::*;\n" + USE_G},
         HELD,
     ),
     "S1 control glob through crate over a macro item": (
-        {"lib.rs": PUB_ALIAS, "y.rs": MACRO_FILLED, "x.rs": "use crate::y::*;\n" + USE_G},
+        {"lib.rs": WITH_Y, "y.rs": MACRO_FILLED, "x.rs": "use crate::y::*;\n" + USE_G},
         HELD,
     ),
     # S2: a glob of the alias itself.
@@ -142,15 +143,15 @@ def test_an_edition_2015_use_path_starts_at_the_alias_of_the_root_not_at_a_local
     [
         "use crate::c as me;\npub fn f() -> me::S { me::S }\n",
         "mod me { pub mod b { pub fn g() {} } }\npub fn f() { me::b::g(); }\n",
-        "pub fn f() { println!(\"{}\", 1); }\n",
+        'pub fn f() { println!("{}", 1); }\n',
     ],
     ids=["use in the same scope", "mod in the same scope", "an expression macro"],
 )
 def test_a_declaration_of_the_scope_that_holds_the_path_still_resolves_without_a_gap(
     tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], text: str
 ) -> None:
-    sources = {SRC + "lib.rs": PUB_ALIAS, SRC + "b.rs": B, SRC + "c.rs": C, SRC + "x.rs": text}
-    sources[SRC + "y.rs"] = "pub fn p() { println!(\"y\"); }\n"
+    sources = {SRC + "lib.rs": WITH_Y, SRC + "b.rs": B, SRC + "c.rs": C, SRC + "x.rs": text}
+    sources[SRC + "y.rs"] = 'pub fn p() { println!("y"); }\n'
     rules = (*CRATE_RULES, forbid("native.app.x", "native.app.b"))
     result = validate(repository(tmp_path, core_binary, sources, rules=rules), capsys)
 
