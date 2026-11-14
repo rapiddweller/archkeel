@@ -12,91 +12,27 @@ use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::Value;
 
-#[derive(Clone, Debug, Default, Deserialize)]
-pub(super) struct Location {
-    pub(super) path: String,
-    pub(super) line: i64,
+/// A row of the frame that the page reads: a struct of public fields that reads as empty.
+macro_rules! row {
+    ($($name:ident { $($field:ident: $kind:ty),* $(,)? })*) => {$(
+        #[derive(Clone, Debug, Default, Deserialize)]
+        pub(super) struct $name { $(pub(super) $field: $kind),* }
+    )*};
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
-pub(super) struct Detail {
-    pub(super) source: String,
-    pub(super) target: Option<String>,
-    pub(super) cause: String,
-    pub(super) evidence: Vec<String>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize)]
-pub(super) struct Component {
-    pub(super) id: String,
-    pub(super) name: String,
-}
-
-#[derive(Clone, Debug, Default, Deserialize)]
-pub(super) struct Module {
-    pub(super) name: String,
-    pub(super) path: String,
-    pub(super) component: Option<String>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize)]
-pub(super) struct Edge {
-    pub(super) source: String,
-    pub(super) target: String,
-    pub(super) resolution: String,
-    pub(super) count: usize,
-}
-
-#[derive(Clone, Debug, Default, Deserialize)]
-pub(super) struct Totals {
-    pub(super) components: usize,
-    pub(super) modules: usize,
-    pub(super) component_edges: usize,
-}
-
-#[derive(Clone, Debug, Default, Deserialize)]
-pub(super) struct Topology {
-    pub(super) total: Totals,
-    pub(super) components: Vec<Component>,
-    pub(super) modules: Vec<Module>,
-    pub(super) component_edges: Vec<Edge>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize)]
-pub(super) struct Shape {
-    pub(super) direction: String,
-    pub(super) source: Vec<String>,
-    pub(super) target: Vec<String>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize)]
-pub(super) struct Step {
-    pub(super) from: String,
-    pub(super) to: String,
-    pub(super) from_component: Option<String>,
-    pub(super) to_component: Option<String>,
-    pub(super) evidence: Vec<String>,
-    pub(super) evidence_total: usize,
-}
-
-#[derive(Clone, Debug, Default, Deserialize)]
-pub(super) struct CyclePath {
-    pub(super) members: Vec<String>,
-    pub(super) path: Vec<Step>,
-    pub(super) steps_total: usize,
-    pub(super) truncated: bool,
-}
-
-#[derive(Clone, Debug, Default, Deserialize)]
-pub(super) struct Cycles {
-    pub(super) total: usize,
-    pub(super) items: Vec<CyclePath>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize)]
-pub(super) struct Explain {
-    pub(super) rules: BTreeMap<String, Shape>,
-    pub(super) cycles: BTreeMap<String, Cycles>,
+row! {
+    Location { path: String, line: i64 }
+    Detail { source: String, target: Option<String>, cause: String, evidence: Vec<String> }
+    Component { id: String, name: String }
+    Module { name: String, path: String, component: Option<String> }
+    Edge { source: String, target: String, resolution: String, count: usize }
+    Totals { components: usize, modules: usize, component_edges: usize }
+    Topology { total: Totals, components: Vec<Component>, modules: Vec<Module>, component_edges: Vec<Edge> }
+    Shape { direction: String, source: Vec<String>, target: Vec<String> }
+    Step { from: String, to: String, from_component: Option<String>, to_component: Option<String>, evidence: Vec<String>, evidence_total: usize }
+    CyclePath { members: Vec<String>, path: Vec<Step>, steps_total: usize, truncated: bool }
+    Cycles { total: usize, items: Vec<CyclePath> }
+    Explain { rules: BTreeMap<String, Shape>, cycles: BTreeMap<String, Cycles> }
 }
 
 /// The parts of the frame that the page shows.
