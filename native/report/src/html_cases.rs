@@ -41,7 +41,7 @@ impl<'a> Names<'a> {
         Some((id, *self.components.get(id)?))
     }
 
-    fn file(&self, module: &str) -> Option<&'a str> {
+    pub(super) fn file(&self, module: &str) -> Option<&'a str> {
         self.modules.get(module).map(|m| m.path.as_str())
     }
 
@@ -73,12 +73,9 @@ fn row(level: &str, name: &str, link: Option<&str>) -> String {
 fn tower(names: &Names<'_>, module: &str, file: Option<&str>, label: &str) -> (String, usize) {
     let mut rows = String::new();
     let mut levels = 0;
-    if let Some((id, name)) = names.component(module) {
-        rows.push_str(&row(
-            "component",
-            name,
-            Some(&super::markup::anchor("c-", id)),
-        ));
+    if let Some((_, name)) = names.component(module) {
+        // A component has no block to link to yet: its name is text (no link without a target).
+        rows.push_str(&row("component", name, None));
         levels += 1;
     }
     rows.push_str(&row("module", module, None));
@@ -109,18 +106,13 @@ fn sides(frame: &Frame, names: &Names<'_>, rule: &str) -> String {
         format!("{}{tail}", shown.join(", "))
     };
     match (shape.direction.as_str(), shape.source.is_empty()) {
-        ("none", _) | (_, true) => String::new(),
+        // A cycle is between members of the rule; the sides would say "all components".
+        ("none" | "acyclic", _) | (_, true) => String::new(),
         (direction @ ("forbids" | "allows"), false) => format!(
             " &#183; {direction}: {} to {}",
             escape(&list(&shape.source)),
             escape(&list(&shape.target))
         ),
-        ("acyclic", false) if shape.source.len() > 4 => {
-            format!(
-                " &#183; acyclic among all {}",
-                count(shape.source.len(), "component")
-            )
-        }
         (direction, false) => format!(
             " &#183; {}: {}",
             escape(direction),
@@ -149,19 +141,44 @@ fn violated(frame: &Frame, names: &Names<'_>, rules: &[Violated]) -> String {
     list
 }
 
-fn evidence_line(frame: &Frame, ids: &[String], shown: usize) -> String {
-    let places: Vec<String> = ids.iter().filter_map(|id| frame.place(id)).collect();
-    let more = places.len().saturating_sub(shown);
-    let mut text = places
+/// The places of some evidence ids as `file:line`, equal places once with their number.
+fn counted(frame: &Frame, ids: &[String]) -> Vec<(String, usize)> {
+    let mut found: Vec<(String, usize)> = Vec::new();
+    for place in ids.iter().filter_map(|id| frame.place(id)) {
+        match found.iter_mut().find(|(seen, _)| *seen == place) {
+            Some((_, number)) => *number += 1,
+            None => found.push((place, 1)),
+        }
+    }
+    found
+}
+
+/// The places as markup: `file:line`, `x3` for a place that the evidence names three times, and
+/// the number of places that the frame holds and the page leaves out.
+fn places_text(frame: &Frame, ids: &[String], shown: usize, total: usize) -> String {
+    let found = counted(frame, ids);
+    let mut text = found
         .iter()
         .take(shown)
-        .map(|place| format!("<span class=\"rp-code\">{}</span>", escape(place)))
+        .map(|(place, number)| {
+            let times = if *number > 1 {
+                format!(" &#215;{number}")
+            } else {
+                String::new()
+            };
+            format!("<span class=\"rp-code\">{}</span>{times}", escape(place))
+        })
         .collect::<Vec<_>>()
         .join(", ");
+    let more = total.saturating_sub(ids.len()) + found.len().saturating_sub(shown);
     if more > 0 {
         text.push_str(&format!(" <span class=\"rp-at\">and {more} more</span>"));
     }
     text
+}
+
+fn evidence_line(frame: &Frame, ids: &[String], shown: usize) -> String {
+    places_text(frame, ids, shown, ids.len())
 }
 
 fn head(number: usize, title: &str) -> String {
@@ -206,41 +223,52 @@ fn import_block(
     )
 }
 
+/// A module as people read it: its file first, the long id only in the `title`.
+fn file_cell(names: &Names<'_>, module: &str) -> String {
+    let shown = names.file(module).unwrap_or(module);
+    format!(
+        "<span title=\"{}\">{}</span>",
+        escape(module),
+        escape(shown)
+    )
+}
+
 fn step_row(frame: &Frame, names: &Names<'_>, index: usize, step: &super::frame::Step) -> String {
-    let of = |module: &str, id: &Option<String>| {
-        let named = id.as_deref().map(|id| names.name(id));
-        match named {
-            Some(name) => format!(
-                "{} <span class=\"rp-at\">({})</span>",
-                escape(module),
-                escape(name)
-            ),
-            None => escape(module),
-        }
-    };
-    let shown: Vec<&String> = step.evidence.iter().collect();
-    let places: Vec<String> = shown.iter().filter_map(|id| frame.place(id)).collect();
-    let more = step.evidence_total.saturating_sub(places.len());
-    let mut cited = places
-        .iter()
-        .map(|place| format!("<span class=\"rp-code\">{}</span>", escape(place)))
-        .collect::<Vec<_>>()
-        .join(", ");
-    if more > 0 {
-        cited.push_str(&format!(" <span class=\"rp-at\">and {more} more</span>"));
-    }
+    let cited = places_text(frame, &step.evidence, 2, step.evidence_total);
     format!(
         "<tr><td class=\"code ak-num\">{}</td><td class=\"code\">{}</td><td class=\"code\">{}</td>\
 <td class=\"caption\">{}</td></tr>",
         index + 1,
-        of(&step.from, &step.from_component),
-        of(&step.to, &step.to_component),
+        file_cell(names, &step.from),
+        file_cell(names, &step.to),
         cited
     )
 }
 
+/// The sentence that closes the path: the last step imports the start of the first step.
+fn closing(names: &Names<'_>, cycle: &CyclePath) -> String {
+    match (cycle.path.first(), cycle.path.last()) {
+        (Some(_), Some(last)) if !cycle.truncated => format!(
+            "Step {} imports {}, where step 1 starts.",
+            cycle.path.len(),
+            file_cell(names, &last.to)
+        ),
+        _ => String::new(),
+    }
+}
+
 fn cycle_block(frame: &Frame, names: &Names<'_>, place: &Place, cycle: &CyclePath) -> String {
-    let title = format!("Cycle of {}", count(cycle.members.len(), "member"));
+    let owners: std::collections::BTreeSet<&str> = cycle
+        .path
+        .iter()
+        .flat_map(|step| [&step.from_component, &step.to_component])
+        .flatten()
+        .map(|id| names.name(id))
+        .collect();
+    let title = match owners.iter().collect::<Vec<_>>().as_slice() {
+        [one] => format!("Cycle of {} in {one}", count(cycle.members.len(), "member")),
+        _ => format!("Cycle of {}", count(cycle.members.len(), "member")),
+    };
     let rows: String = cycle
         .path
         .iter()
@@ -258,14 +286,15 @@ fn cycle_block(frame: &Frame, names: &Names<'_>, place: &Place, cycle: &CyclePat
     };
     format!(
         "<article class=\"rp-dos\" id=\"x{n}\">{}<div class=\"rp-dos__body\"><div class=\"rp-scroll\">\
-<table class=\"rp-mini\"><caption class=\"caption\">One closed path through the members. Step {last} \
-returns to step 1.</caption><thead><tr><th class=\"caption ak-num\">Step</th><th class=\"caption\">From</th>\
+<table class=\"rp-mini\"><caption class=\"caption\">{members} are in this cycle. Shortest closed path shown: {steps}. {closing}</caption><thead><tr><th class=\"caption ak-num\">Step</th><th class=\"caption\">From</th>\
 <th class=\"caption\">To</th><th class=\"caption\">Imports</th></tr></thead><tbody>{rows}</tbody></table></div>\
 {cut}</div>{}</article>",
         head(place.number, &title),
         violated(frame, names, &place.rules),
         n = place.number,
-        last = cycle.path.len()
+        members = count(cycle.members.len(), "member"),
+        steps = count(cycle.path.len(), "step"),
+        closing = closing(names, cycle)
     )
 }
 

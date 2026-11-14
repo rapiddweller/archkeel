@@ -24,21 +24,6 @@ pub(super) fn escape(text: &str) -> String {
     safe
 }
 
-/// The id of an HTML anchor from a component id: lower case, letters and digits only.
-pub(super) fn anchor(prefix: &str, id: &str) -> String {
-    let tail: String = id
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() {
-                c.to_ascii_lowercase()
-            } else {
-                '-'
-            }
-        })
-        .collect();
-    format!("{prefix}{tail}")
-}
-
 /// The word `1 module` or `2 modules`.
 pub(super) fn count(number: usize, singular: &str) -> String {
     let plural = match singular.strip_suffix('y') {
@@ -103,9 +88,8 @@ mod tests {
     }
 
     #[test]
-    fn a_count_has_its_plural_and_an_anchor_has_no_unsafe_character() {
+    fn a_count_has_its_plural() {
         assert_eq!(count(1, "module"), "1 module");
         assert_eq!(count(2, "dependency"), "2 dependencies");
-        assert_eq!(anchor("c-", "COMP <x>"), "c-comp--x-");
     }
 }

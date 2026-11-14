@@ -6,6 +6,7 @@
 
 use serde_json::{json, Value};
 
+use super::markup::escape;
 use super::*;
 
 fn document(frame: &Value) -> String {
@@ -174,7 +175,8 @@ fn a_cycle_is_one_block_with_its_closed_path_and_a_cut_list_says_so() {
     let page = document(&cycle_frame(2, 2));
     assert_eq!(page.matches("class=\"rp-dos\"").count(), 2);
     assert!(page.contains("Cycle of 2 members"));
-    assert!(page.contains("Step 2 returns to step 1."));
+    assert!(page.contains("2 members are in this cycle. Shortest closed path shown: 2 steps."));
+    assert!(page.contains("Step 2 imports <span title=\"m.a\">m.a</span>, where step 1 starts."));
     assert!(page.contains("src/m.rs:9") && page.contains("and 2 more"));
     let cut = document(&cycle_frame(1, 3));
     assert!(cut.contains("The frame lists 1 of 3 cycles of <span class=\"rp-code\">CY</span>."));
@@ -241,7 +243,7 @@ fn hostile_names_are_escaped_in_the_map_the_matrix_and_the_cycle_rows() {
         assert!(page.contains(&format!("<title>{safe}0")) || components > 12);
         assert!(page.contains(&format!("title=\"{safe}0")) || components <= 12);
         let cycle = page.split("Cycle of 1 member").nth(1).unwrap();
-        assert!(cycle.contains(&format!("<td class=\"code\">{safe}")));
+        assert!(cycle.contains(&format!("<span title=\"{safe}\">{safe}</span>")));
     }
 }
 
@@ -372,4 +374,43 @@ fn the_count_of_dependencies_leaves_out_the_edges_to_the_component_itself() {
         document(&json!({"status": "PASS", "topology": components(3, &[(0, 1), (1, 1), (2, 2)])}));
     assert!(page.contains("1 dependency between components"));
     assert!(page.contains("Component map: 3 components, 1 dependency."));
+}
+
+// B1: equal places are shown once with their number, and the page has no link without a target.
+#[test]
+fn an_equal_place_is_shown_once_with_its_number_and_no_link_lacks_a_target() {
+    let mut frame = cycle_frame(1, 1);
+    frame["locations"]["F"] = json!({"path": "src/m.rs", "line": 9});
+    frame["explain"]["cycles"]["CY"]["items"][0]["path"][0]["evidence"] = json!(["E", "F", "E"]);
+    frame["explain"]["cycles"]["CY"]["items"][0]["path"][0]["evidence_total"] = json!(3);
+    let page = document(&frame);
+    assert!(page.contains("src/m.rs:9</span> &#215;3"));
+    assert!(!page.contains("src/m.rs:9</span>, <span class=\"rp-code\">src/m.rs:9"));
+    let dead = dependency_frame(1);
+    let page = document(&dead);
+    assert!(
+        !page.contains("href=\"#c-"),
+        "a component has no block to link to"
+    );
+    for link in page.split("href=\"#").skip(1) {
+        let id = link.split('"').next().unwrap();
+        assert!(page.contains(&format!("id=\"{id}\"")), "{id} has no target");
+    }
+}
+
+// B1: the causes show under the verdict as one line, the three largest, with the rule counts.
+#[test]
+fn the_verdict_names_the_largest_causes_in_one_line() {
+    let frame = json!({"status": "UNKNOWN",
+        "rules": {"A": ["k", "UNKNOWN"], "B": ["k", "UNKNOWN"], "C": ["k", "UNKNOWN"], "D": ["k", "UNKNOWN"]},
+        "explained": {"C": "pair text", "D": "other <b>"},
+        "explain": {"holds": {"rules": {
+            "A": {"kind": "coverage_gaps", "total": 5}, "B": {"kind": "coverage_gaps", "total": 5},
+            "C": {"kind": "pair_gaps", "total": 7}}}}});
+    let page = document(&frame);
+    assert!(page.contains(
+        "Unknown because of 3 causes. 2 rules: 5 coverage gaps in the scan; \
+1 rule: other &lt;b&gt;; 1 rule: 7 gaps between two modules."
+    ));
+    assert!(page.contains("4 unknown rules: 3 causes hold them."));
 }
