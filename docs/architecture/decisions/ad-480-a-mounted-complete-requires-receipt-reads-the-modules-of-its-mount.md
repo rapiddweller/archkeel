@@ -17,8 +17,10 @@ as release 4.0.1 does (`rules.py` `_inside_rule_scope_is_complete`, `rule_evalua
 5. The edges are unchanged: an import counts only when its source is a module of the mount and
    both ends have an inside component (`_requires_import_verdicts`). An edge to a module outside
    the mount is the business of the parent contract.
-6. The root model holds every module, so a root receipt does not change. The interface receipt
-   shares this ownership proof, as in 4.0.1.
+6. The root model holds every module, so the ownership of a root receipt does not change. The
+   `interface_boundary` receipt, root and mounted, needs the same scan check (point 4) and
+   ownership proof, as in 4.0.1 (`receipt_scope_complete`). Before, a root interface row had no
+   scan check and could PASS where 4.0.1 gives UNKNOWN.
 
 `Scope::complete`, `Scope::pass_run` and `ModelTree::pass_run` stay the only PASS makers. The
 model, the evaluator and the report name no language.
@@ -34,7 +36,10 @@ it stays UNKNOWN there (stricter). No fixture row of `main` moves: its other mou
 UNKNOWN for other causes. With the Dart wiring (#1148), the five mounted rows of
 `fixtures/I-flutter-shop` become PASS, as in 4.0.1.
 
-**Tests.** `tests/test_cli_core_mounted_receipt.py` plants seven TypeScript trees with a mount:
+**Tests.** `tests/test_cli_core_interface_receipt.py` runs the nine interface trees of the
+review (seven mounted, two root): each row is UNKNOWN, as in 4.0.1. `receipts_mount_tests.rs`
+reads the guards of no subject, an incomplete inventory and a planned component of a mount.
+`tests/test_cli_core_mounted_receipt.py` plants seven TypeScript trees with a mount:
 PASS, FAIL, an unowned module and a doubly owned module inside the mount, an edge across the mount
 boundary, a parent exact module outside the roots and a parent package without a file. Each
 expected row is the row of 4.0.1 on the same tree.

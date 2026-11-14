@@ -16,6 +16,12 @@ an object deserializer. The survey does not know such a function, so it does not
 A forbidden or cyclic dependency that only such a call makes can give PASS. Release 4.0.1 has the
 same hole. This is an open defect, not an accepted limit. The survey covers the names of AD-450
 point 7: the standard-library doors, the import state and the builtins that run text.
+
+**Open false-PASS class (TypeScript, shared with 4.0.1).** A `.ts` file below a scan root that the
+`tsconfig.json` drops with `exclude`, a narrow `include` or `files` is not read. Its imports are
+not edges, so an undeclared or forbidden dependency that only such a file makes can give PASS.
+Plant: `src/a/y/hidden.ts` imports `src/a/x/one.ts`, and `"exclude": ["src/a/y/hidden.ts"]`;
+both engines give PASS. This is an open defect, not an accepted limit.
 The Rust core is the only decision path (AD-432). There is no Python fallback.
 Saved results do not carry host verification; dependency scope proofs replay as UNKNOWN with `dependency_scope_runtime_unverified`.
 Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD have no shipped binary.

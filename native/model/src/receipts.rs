@@ -164,8 +164,26 @@ pub(crate) fn requires(
             Cause::Receipt("the collector did not read and parse each selected file").into(),
         );
     }
-    // AD-480: the scan roots must also hold the packages and exact modules of the parent of a
-    // mount (`source_roots`, `source_exact_modules`); a root has none.
+    covered(model, &roots)?;
+    ownership(model)
+}
+
+/// The receipt of an `interface_boundary` rule: the scan roots hold each component domain and
+/// one component owns each module of the domain (`receipt_scope_complete` and
+/// `_inside_rule_scope_is_complete` of 4.0.1, which `complete_requires` shares, AD-480).
+pub(crate) fn interface(
+    model: &Model,
+    scan: Result<ScanProof<'_, '_>, Reason>,
+) -> Result<(), Reason> {
+    let ScanProof { brand: _, roots } = scan?;
+    covered(model, &roots)?;
+    ownership(model)
+}
+
+/// The scan roots hold the packages and the exact modules of each component, and, for a mount,
+/// of its parent component (`source_roots`, `source_exact_modules`, AD-480).
+fn covered(model: &Model, roots: &Roots<'_>) -> Result<(), Reason> {
+    let contract = model.contract();
     let (parent_packages, parent_exact) = model.parent_scopes();
     let packages: Vec<&str> = parent_packages
         .iter()
@@ -192,7 +210,7 @@ pub(crate) fn requires(
     if !roots.covers(&packages, &exact) {
         return Err(Cause::Receipt("a component domain lies outside the scan roots").into());
     }
-    ownership(model)
+    Ok(())
 }
 
 /// The one ownership-completeness proof shared by dependency and interface receipts. It reads
@@ -259,3 +277,7 @@ impl From<Cause> for Reason {
 #[cfg(test)]
 #[path = "receipts_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "receipts_mount_tests.rs"]
+mod mount_tests;
