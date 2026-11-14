@@ -1,0 +1,12 @@
+commerce.adapters.diagnostics.receipt_formatter import commerce.ordering.domain.orders.order
+commerce.adapters.memory.in_memory_order_repository import commerce.ordering.domain.orders.order
+commerce.adapters.memory.in_memory_order_repository import commerce.ordering.ports.order_repository
+commerce.main import commerce.adapters.memory.in_memory_order_repository
+commerce.main import commerce.ordering.application.checkout_service
+commerce.main import commerce.ordering.domain.orders.order
+commerce.main import commerce.presentation.controller
+commerce.ordering.application.checkout_service import commerce.ordering.domain.orders.order
+commerce.ordering.application.checkout_service import commerce.ordering.ports.order_repository
+commerce.ordering.ports.order_repository import commerce.ordering.domain.orders.order
+commerce.presentation.controller import commerce.ordering.application.checkout_service
+commerce.presentation.controller import commerce.ordering.domain.orders.order

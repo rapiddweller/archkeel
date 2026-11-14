@@ -550,6 +550,67 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-DART-SURVEY",
+      "label": "dart-survey",
+      "role": "component",
+      "packages": [
+        "native.archkeel_dart_collector.import_survey",
+        "native.archkeel_dart_collector.import_survey.budget",
+        "native.archkeel_dart_collector.import_survey.config",
+        "native.archkeel_dart_collector.import_survey.edges",
+        "native.archkeel_dart_collector.import_survey.index",
+        "native.archkeel_dart_collector.import_survey.names",
+        "native.archkeel_dart_collector.import_survey.package",
+        "native.archkeel_dart_collector.import_survey.parts",
+        "native.archkeel_dart_collector.import_survey.reply",
+        "native.archkeel_dart_collector.import_survey.uri"
+      ],
+      "responsibilities": [
+        "The import survey of one Dart package (AD-454): resolve each directive URI, find the owner of each part, write the import records with their targets and name each case that it does not prove as a gap, and assemble the typed reply with the sections imports and unknowns."
+      ],
+      "forbidden_responsibilities": [
+        "Selecting one branch of a conditional import, reading a package outside the snapshot root, and writing a reply on stdout."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-454-the-native-dart-import-survey-resolves-one-package-and-names-each-gap.md"
+      ],
+      "requires": [
+        {
+          "component": "facts",
+          "rationale": "Write the typed import, gap, file and coverage facts (AD-345)."
+        },
+        {
+          "component": "snapshot",
+          "rationale": "Open the snapshot, read pubspec.yaml and find a file that is not selected, through the one owner of reads."
+        },
+        {
+          "component": "wire",
+          "rationale": "Decode the Dart request and assemble the typed reply with the shared wire (AD-406)."
+        },
+        {
+          "component": "pytext",
+          "rationale": "Split pubspec.yaml into lines where Python str.splitlines splits."
+        },
+        {
+          "component": "dart-text",
+          "rationale": "Name the module of a path, check a package name and strip a line."
+        },
+        {
+          "component": "dart-discover",
+          "rationale": "Select and read the sources and the package files of the request."
+        },
+        {
+          "component": "dart-parse",
+          "rationale": "Parse the directives and the concerns of each source."
+        },
+        {
+          "component": "dart-records",
+          "rationale": "Write the inputs, the evidence and the gap records as the discovery sections do."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-DART-DUMP",
       "label": "dart-dump",
       "role": "component",
@@ -557,7 +618,7 @@
         "native.archkeel_dart_collector.dump"
       ],
       "responsibilities": [
-        "The development dump of the discovery sections and of the syntax of each file as JSON, for the parity tools, until slice 5 writes a reply."
+        "The development dump of the discovery sections, of the syntax of each file and of the import survey counts as JSON, for the parity tools, until the wiring of #880 writes a reply."
       ],
       "forbidden_responsibilities": [
         "Holding a rule of the discovery or of a record."
@@ -585,6 +646,10 @@
         {
           "component": "dart-parse",
           "rationale": "Parse each source for the sections and for the syntax dump."
+        },
+        {
+          "component": "dart-survey",
+          "rationale": "Run the import survey for the survey dump (AD-454)."
         }
       ],
       "decided_by": "architect"
@@ -596,11 +661,12 @@
       "packages": [],
       "exact_modules": [
         "native.archkeel_dart_collector",
+        "native.archkeel_dart_collector.bin_archkeel_dart_collector",
         "native.archkeel_dart_collector.build_script",
         "native.archkeel_dart_collector.cargo_toml"
       ],
       "responsibilities": [
-        "The binary of the Dart collector: decode the Dart request, which gives no reply before slice 5 of #880, and run the dump; the build script and the manifest of the crate."
+        "The library root and the binary of the Dart collector: publish the import survey (AD-454), decode the Dart request, which gives no reply before the wiring of #880, and run the dump; the build script and the manifest of the crate."
       ],
       "forbidden_responsibilities": [
         "Reading Dart source."
@@ -629,6 +695,10 @@
         {
           "component": "dart-dump",
           "rationale": "Run the dump."
+        },
+        {
+          "component": "dart-survey",
+          "rationale": "Publish the survey and the typed reply as the library API (AD-454)."
         },
         {
           "component": "pytext",
