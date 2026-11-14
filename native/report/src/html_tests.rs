@@ -318,7 +318,7 @@ fn points(path: &str) -> Vec<(f64, f64)> {
                 found.push((value(at + 3), value(at + 4)));
                 (x, y, at) = (value(at + 5), value(at + 6), at + 7);
             }
-            other => panic!("unknown path command {other}"),
+            other => assert!(other.is_empty(), "unknown path command {other}"),
         }
         found.push((x, y));
     }
