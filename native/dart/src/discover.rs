@@ -46,7 +46,18 @@ pub(crate) struct Discovery {
     /// The SHA-256 of `pubspec.yaml`, when it exists.
     pub(crate) pubspec_digest: Option<String>,
     pub(crate) problems: Vec<Problem>,
+    /// Each package file of `PACKAGE_FILES` that the walk saw below a scan root (AD-450).
+    pub(crate) package_files: Vec<String>,
 }
+
+/// The files that can change the package of a URI. The import survey names each one that the
+/// walk sees, because it resolves URIs from the root `pubspec.yaml` alone (AD-450).
+pub(crate) const PACKAGE_FILES: [&str; 4] = [
+    "pubspec.yaml",
+    "pubspec_overrides.yaml",
+    "package_config.json",
+    ".packages",
+];
 
 // `.dart_tool`, `pubcache` and `.pub-cache` hold generated and cached files, never project code.
 const EXCLUDED: [&str; 3] = [".dart_tool", "pubcache", ".pub-cache"];
@@ -58,6 +69,7 @@ struct Walk<'a> {
     seen: BTreeSet<String>,
     sources: Vec<Source>,
     problems: Vec<Problem>,
+    package_files: Vec<String>,
 }
 
 /// Read each selected `.dart` file once. An error is a failure of the whole collection, as a
@@ -73,6 +85,7 @@ pub(crate) fn discover(
         seen: BTreeSet::new(),
         sources: Vec::new(),
         problems: Vec::new(),
+        package_files: Vec::new(),
     };
     for root in roots {
         walk.root(root);
@@ -82,6 +95,7 @@ pub(crate) fn discover(
         snapshot,
         mut sources,
         mut problems,
+        package_files,
         ..
     } = walk;
     if pubspec_digest.is_none() {
@@ -111,6 +125,7 @@ pub(crate) fn discover(
         sdk_state: pubspec.state,
         pubspec_digest,
         problems,
+        package_files,
     })
 }
 
@@ -200,6 +215,7 @@ impl Walk<'_> {
             _ if name.ends_with(".dart") && self.seen.insert(rel.clone()) => {
                 self.file(root, &rel, entry);
             }
+            _ if PACKAGE_FILES.contains(&name) => self.package_files.push(rel),
             _ => {}
         }
         None

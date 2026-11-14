@@ -40,10 +40,25 @@ impl DartParser {
         })
     }
 
-    /// `parse(content)`: the syntax of one source.
-    pub(crate) fn parse(&mut self, content: &[u8]) -> Syntax {
+    /// The directives, the concerns and the language version of one source, without the
+    /// definitions and the sites: the import survey reads no more (AD-450).
+    pub(crate) fn directives(&mut self, content: &[u8]) -> Syntax {
         let source = Source::new(content);
         self.work_permille = 0;
+        match self.front(content, &source) {
+            Ok(front) => finish(
+                Vec::new(),
+                front.directives,
+                Vec::new(),
+                front.concerns,
+                front.language_version,
+            ),
+            Err(stopped) => *stopped,
+        }
+    }
+
+    /// The parse up to the directives, or the syntax of a source that is not parsed.
+    fn front(&mut self, content: &[u8], source: &Source<'_>) -> Result<Front, Box<Syntax>> {
         // Tree-sitter keeps about a kilobyte for each open bracket: a source of 2.5 million `(`
         // takes 3 GB before one rule runs, so a source with too many openers is not parsed (AD-376).
         if let Some(at) = crate::nesting::openers_overflow(content) {
@@ -51,25 +66,61 @@ impl DartParser {
                 "Dart source holds more than {} opening brackets; it is not parsed.",
                 crate::nesting::MAX_OPENERS
             );
-            let concern = syntax_concern(&source, at, at.saturating_add(1), &message);
-            return finish(Vec::new(), Vec::new(), Vec::new(), vec![concern], None);
+            let concern = syntax_concern(source, at, at.saturating_add(1), &message);
+            return Err(Box::new(finish(
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                vec![concern],
+                None,
+            )));
         }
         let Some(tree) = self.parser.parse(content, None) else {
             // Tree-sitter returns no tree only after a cancel or a timeout, and this parser sets
             // neither. The concern keeps the file out of the facts if that changes.
-            let concern = syntax_concern(&source, 0, content.len(), INCOMPLETE);
-            return finish(Vec::new(), Vec::new(), Vec::new(), vec![concern], None);
+            let concern = syntax_concern(source, 0, content.len(), INCOMPLETE);
+            return Err(Box::new(finish(
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                vec![concern],
+                None,
+            )));
         };
         let root = tree.root_node();
-        let (mut concerns, deep) = tree_concerns(root, &source);
+        let (mut concerns, deep) = tree_concerns(root, source);
         if let Some(start) = unclosed_block_comment(content) {
             let message = "Dart source ends inside a nested block comment.";
-            concerns.push(syntax_concern(&source, start, content.len(), message));
+            concerns.push(syntax_concern(source, start, content.len(), message));
         }
-        concerns.extend(encoding_concern(content, &source));
-        let language_version = language_version(&source, &mut concerns);
-        let directives = directives(root, &source, &mut concerns);
-        concerns.extend(unsupported_concerns(root, &source));
+        concerns.extend(encoding_concern(content, source));
+        let language_version = language_version(source, &mut concerns);
+        let directives = directives(root, source, &mut concerns);
+        concerns.extend(unsupported_concerns(root, source));
+        Ok(Front {
+            tree,
+            deep,
+            concerns,
+            directives,
+            language_version,
+        })
+    }
+
+    /// `parse(content)`: the syntax of one source.
+    pub(crate) fn parse(&mut self, content: &[u8]) -> Syntax {
+        let source = Source::new(content);
+        self.work_permille = 0;
+        let Front {
+            tree,
+            deep,
+            mut concerns,
+            directives,
+            language_version,
+        } = match self.front(content, &source) {
+            Ok(front) => front,
+            Err(stopped) => return *stopped,
+        };
+        let root = tree.root_node();
         // One work counter and one limit for the definitions and the sites of a source (AD-376).
         let work = Work::new(work_limit(content.len()));
         let definitions = match definitions(root, &source, &work) {
@@ -107,6 +158,15 @@ impl DartParser {
         self.work_permille = work.permille();
         finish(definitions, directives, found, concerns, language_version)
     }
+}
+
+/// The parse of one source up to its directives.
+struct Front {
+    tree: tree_sitter::Tree,
+    deep: bool,
+    concerns: Vec<Concern>,
+    directives: Vec<Directive>,
+    language_version: Option<String>,
 }
 
 fn finish(
