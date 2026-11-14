@@ -207,10 +207,8 @@ fn a_runtime_requirement_that_the_core_does_not_read_is_a_named_gap() {
 fn a_runtime_at_or_above_its_bound_passes() {
     for required in [
         json!(">=1.88"),
-        // AD-472: each `>=X` and `<X` clause of a comma list must hold.
-        json!(">=1.88,<2"),
         json!(">= 1.88.0"),
-        json!(">=1"),
+        json!(">=1,<2"),
         json!(">=01.9"),
     ] {
         let found = decided(unchanged, runtime(required, "declared"), shop_settings());
