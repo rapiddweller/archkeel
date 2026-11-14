@@ -6,15 +6,15 @@
 //! and `_str_literal_helper`, which picks the quotes of a string with the fewest escapes.
 
 use archkeel_facts::pyminor::PyMinor;
-pub use archkeel_facts::pyrepr::printable;
+pub(crate) use archkeel_facts::pyrepr::printable;
 
 /// `sys.get_int_max_str_digits()` of an isolated interpreter: `repr` of a longer `int` raises.
 const MAX_STR_DIGITS: usize = 4300;
 /// More significant bits than this always give more than `MAX_STR_DIGITS` decimal digits.
 const MAX_INT_BITS: usize = 14_300;
 
-pub const MULTI_QUOTES: [&str; 2] = ["\"\"\"", "'''"];
-pub const ALL_QUOTES: [&str; 4] = ["'", "\"", "\"\"\"", "'''"];
+pub(crate) const MULTI_QUOTES: [&str; 2] = ["\"\"\"", "'''"];
+pub(crate) const ALL_QUOTES: [&str; 4] = ["'", "\"", "\"\"\"", "'''"];
 
 /// `c.encode("unicode_escape").decode("ascii")` of one character.
 fn unicode_escape(c: char, out: &mut String) {
@@ -34,14 +34,14 @@ fn unicode_escape(c: char, out: &mut String) {
 }
 
 /// `repr()` of a `str` in the Python of `minor` (`unicode_repr`).
-pub fn repr_str(text: &str, minor: PyMinor) -> String {
+pub(crate) fn repr_str(text: &str, minor: PyMinor) -> String {
     let mut out = String::with_capacity(text.len() + 2);
     archkeel_facts::pyrepr::string_with(text, &mut out, minor);
     out
 }
 
 /// `repr()` of a `bytes` value.
-pub fn repr_bytes(bytes: &[u8]) -> String {
+pub(crate) fn repr_bytes(bytes: &[u8]) -> String {
     let quote = if bytes.contains(&b'\'') && !bytes.contains(&b'"') {
         b'"'
     } else {
@@ -68,7 +68,7 @@ pub fn repr_bytes(bytes: &[u8]) -> String {
 }
 
 /// `repr()` of an `int` literal: the decimal digits, or `None` (`ValueError`) over 4 300 digits.
-pub fn repr_int(token: &str) -> Option<String> {
+pub(crate) fn repr_int(token: &str) -> Option<String> {
     let lower = token.to_ascii_lowercase();
     let (radix, digits) = match lower.get(..2) {
         Some("0x") => (16, &lower[2..]),
@@ -132,7 +132,7 @@ fn decimal(digits: &[u32], radix: u32) -> String {
 }
 
 /// `repr()` of a finite or infinite `float`, then the `1e309` of `ast.unparse` for infinity.
-pub fn repr_float(value: f64, add_dot_zero: bool) -> String {
+pub(crate) fn repr_float(value: f64, add_dot_zero: bool) -> String {
     if value.is_infinite() {
         return "1e309".to_owned();
     }
@@ -193,17 +193,17 @@ fn fixed(digits: &str, point: i32, add_dot_zero: bool) -> String {
 }
 
 /// `repr()` of the `complex` value of an imaginary literal: its real part is 0.
-pub fn repr_complex(imag: f64) -> String {
+pub(crate) fn repr_complex(imag: f64) -> String {
     format!("{}j", repr_float(imag, false))
 }
 
 /// `_str_literal_helper`: the escaped text and the quotes that can hold it, best first.
-pub struct Quotes {
+pub(crate) struct Quotes {
     pub text: String,
     pub quotes: Vec<&'static str>,
 }
 
-pub fn literal_helper(
+pub(crate) fn literal_helper(
     text: &str,
     quote_types: &[&'static str],
     escape_special_whitespace: bool,
@@ -259,7 +259,11 @@ pub fn literal_helper(
 }
 
 /// `_write_str_avoiding_backslashes`.
-pub fn avoiding_backslashes(text: &str, quote_types: &[&'static str], minor: PyMinor) -> String {
+pub(crate) fn avoiding_backslashes(
+    text: &str,
+    quote_types: &[&'static str],
+    minor: PyMinor,
+) -> String {
     let Quotes { text, quotes } = literal_helper(text, quote_types, false, minor);
     let quote = quotes.first().copied().unwrap_or("'");
     format!("{quote}{text}{quote}")

@@ -29,11 +29,11 @@ const MAX_STRINGS: usize = 150;
 /// `sys.get_int_max_str_digits()` of an interpreter that `-I` starts.
 const MAX_DIGITS: usize = 4_300;
 /// `MAX_AST_DEPTH` of the Python collector (`source.py`).
-pub const MAX_AST_DEPTH: usize = 5_000;
+pub(crate) const MAX_AST_DEPTH: usize = 5_000;
 
 /// One error of CPython: its exception, its line and its message.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Problem {
+pub(crate) struct Problem {
     pub exception: ExceptionName,
     pub line: usize,
     pub message: String,
@@ -44,7 +44,7 @@ pub struct Problem {
 /// What the scan found: the first tokenizer error, the first error that the CPython parser gives
 /// and ruff does not, the stack bound, and the innermost bracket that is open at the end of the
 /// file (its character and its line).
-pub struct Scan {
+pub(crate) struct Scan {
     pub problem: Option<Problem>,
     pub parser: Option<Problem>,
     pub stack: usize,
@@ -66,7 +66,7 @@ enum Context {
 }
 
 /// Scan `text` for the minor version `minor` of Python 3.
-pub fn scan(text: &str, lines: &Lines, minor: PyMinor) -> Scan {
+pub(crate) fn scan(text: &str, lines: &Lines, minor: PyMinor) -> Scan {
     let mut work = super::work::Work::new();
     // Charge the byte scans once and then each token. Stack pops are bounded by token pushes.
     if !work.charge(text.len()) {

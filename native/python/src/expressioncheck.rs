@@ -12,7 +12,7 @@ use ruff_python_ast::{
 };
 use std::collections::HashSet;
 
-pub fn parameters(parameters: Option<&Parameters>, work: &mut Work) -> Option<&'static str> {
+pub(super) fn parameters(parameters: Option<&Parameters>, work: &mut Work) -> Option<&'static str> {
     let parameters = parameters?;
     let mut seen = HashSet::new();
     for parameter in parameters.iter() {
@@ -29,7 +29,7 @@ pub fn parameters(parameters: Option<&Parameters>, work: &mut Work) -> Option<&'
     None
 }
 
-pub fn check(
+pub(super) fn check(
     expr: &Expr,
     in_class: bool,
     debug_attribute: bool,
@@ -55,7 +55,7 @@ pub fn check(
     comprehension(generators, &values, in_class, work)
 }
 
-pub fn comprehension_parts(expr: &Expr) -> Option<(&[Comprehension], Vec<&Expr>)> {
+pub(super) fn comprehension_parts(expr: &Expr) -> Option<(&[Comprehension], Vec<&Expr>)> {
     Some(match expr {
         Expr::ListComp(node) => (&node.generators, vec![node.elt.as_ref()]),
         Expr::SetComp(node) => (&node.generators, vec![node.elt.as_ref()]),
@@ -72,7 +72,12 @@ pub fn comprehension_parts(expr: &Expr) -> Option<(&[Comprehension], Vec<&Expr>)
     })
 }
 
-pub fn target(expr: &Expr, sequence: bool, work: &mut Work, depth: usize) -> Option<&'static str> {
+pub(super) fn target(
+    expr: &Expr,
+    sequence: bool,
+    work: &mut Work,
+    depth: usize,
+) -> Option<&'static str> {
     if !work.charge(1) {
         return Some("CPython validation work limit exceeded");
     }
@@ -88,7 +93,7 @@ pub fn target(expr: &Expr, sequence: bool, work: &mut Work, depth: usize) -> Opt
     }
 }
 
-pub fn assignment(items: &[Expr], work: &mut Work) -> Option<&'static str> {
+pub(super) fn assignment(items: &[Expr], work: &mut Work) -> Option<&'static str> {
     for item in items {
         if !work.charge(1) {
             return Some("CPython validation work limit exceeded");
@@ -222,7 +227,7 @@ impl<'a> Visitor<'a> for ComprehensionCheck<'_> {
     }
 }
 
-pub fn grouped_star(source: &str, work: &mut Work) -> bool {
+pub(super) fn grouped_star(source: &str, work: &mut Work) -> bool {
     use ruff_python_ast::token::TokenKind as T;
     let mut lexer = ruff_python_parser::lexer::lex(source, ruff_python_parser::Mode::Expression);
     let mut opened = false;

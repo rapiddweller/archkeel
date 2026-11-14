@@ -13,7 +13,7 @@ use toml::{Table, Value};
 use crate::inputs::PYPROJECT;
 
 /// The requirement and its state.
-pub fn requirement(snapshot: &mut Snapshot) -> (Option<String>, RequirementState) {
+pub(crate) fn requirement(snapshot: &mut Snapshot) -> (Option<String>, RequirementState) {
     if !snapshot.is_file(PYPROJECT) {
         // A link out of the snapshot or a directory is not valid metadata; nothing is missing.
         let invalid = snapshot.is_link(PYPROJECT) || snapshot.is_dir(PYPROJECT);

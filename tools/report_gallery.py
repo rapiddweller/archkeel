@@ -46,7 +46,8 @@ def summarize(envelope: Mapping[str, Any]) -> dict[str, Any]:
     frame = envelope.get("frame") or {}
     counts = dict.fromkeys(STATUSES, 0)
     for entry in frame.get("rules", {}).values():
-        counts[entry[1]] += 1
+        # A DECLARATION row (an `allowed_dependency` rule) is no verdict; it gets its own count.
+        counts[entry[1]] = counts.get(entry[1], 0) + 1
     gaps = Counter(gap["kind"] for gap in envelope.get("gaps", []))
     return {
         "exit": envelope["exit_code"],

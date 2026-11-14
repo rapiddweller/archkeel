@@ -86,7 +86,11 @@ pub fn reply_of(profile: Profile, request: &[u8]) -> Result<Reply, String> {
                 reply_version(request.protocol_version),
             )
         }
-        Profile::Python | Profile::Dart => Err(format!(
+        Profile::Python => {
+            let request = archkeel_wire::request::decode_python(request)?;
+            archkeel_python_collector::typed_reply(&request, &archkeel_python_collector::BUILD)
+        }
+        Profile::Dart => Err(format!(
             "the profile {} has no collector in the core process yet",
             profile.as_str()
         )),

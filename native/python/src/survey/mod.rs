@@ -8,9 +8,9 @@
 //!
 //! The `stable_bindings` of a file fact are `source._stable_direct_module_bindings` (`stable`).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
-use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Target};
+use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Target};
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::pyminor::PyMinor;
@@ -28,27 +28,33 @@ use binders::Binders;
 use excluded::Excluded;
 use failures::{early, NOT_FOUND};
 
-pub mod binders;
+pub(crate) mod binders;
 mod excluded;
 mod failures;
+mod guard;
+mod hazards;
 mod imports;
+mod layout;
 mod namespace;
 mod stable;
+mod targets;
 mod walks;
 
-pub struct Survey {
+pub(crate) struct Survey {
     pub files: Vec<FileFact>,
     pub imports: Vec<Record<ImportFact>>,
     pub targets: Vec<Target>,
     pub unknowns: Vec<Record<GapFact>>,
     pub coverage: Coverage,
     pub evidence: Vec<Evidence>,
+    /// The digest of each file that the survey read, from the bytes that it parsed.
+    pub parsed: Vec<Input>,
 }
 
 /// The parsed modules of a request and their binders, as the survey reads them (the dump of
 /// the definition table, AD-377).
 #[cfg(feature = "dump")]
-pub struct Modules {
+pub(crate) struct Modules {
     pub minor: PyMinor,
     pub modules: Vec<Module>,
     pub binders: Vec<Binders>,
@@ -56,7 +62,7 @@ pub struct Modules {
 }
 
 #[cfg(feature = "dump")]
-pub fn modules(request: &PythonRequest) -> Result<Modules, String> {
+pub(crate) fn modules(request: &PythonRequest) -> Result<Modules, String> {
     let minor = request.resolver.interpreter.version.minor();
     let mut snapshot = Snapshot::new(&request.snapshot.root);
     let scope = discover::scope(
@@ -78,7 +84,7 @@ pub fn modules(request: &PythonRequest) -> Result<Modules, String> {
     })
 }
 
-pub fn survey(request: &PythonRequest) -> Result<Survey, String> {
+pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     let interpreter = &request.resolver.interpreter;
     let minor = interpreter.version.minor();
     let mut snapshot = Snapshot::new(&request.snapshot.root);
@@ -86,14 +92,19 @@ pub fn survey(request: &PythonRequest) -> Result<Survey, String> {
     let roots = &request.scope.roots;
     let exclude = request.excludes_test_sources();
     let scope = discover::scope(&mut snapshot, roots, exclude);
-    let parsed = parse_unshadowed(&mut snapshot, &scope, namespace, minor);
+    let mut parsed = parse_unshadowed(&mut snapshot, &scope, namespace, minor);
+    let mut found = layout::duplicates(&mut parsed.modules);
+    found.extend(layout::outside(&parsed.modules, roots));
+    found.extend(layout::foreign(&scope.foreign));
+    found.extend(layout::linked(&scope.linked));
     let modules = &parsed.modules;
     let binders: Vec<Binders> = modules
         .iter()
         .map(|module| Binders::of(&module.tree))
         .collect();
     let mut evidence = EvidenceMap::new();
-    let (imports, aliases) = imports::collect(modules, &binders, namespace, &mut evidence);
+    let collected = imports::collect_all(modules, &binders, namespace, &mut evidence);
+    let (imports, aliases) = (collected.records, collected.aliases);
     let files: Vec<FileFact> = modules
         .iter()
         .zip(&binders)
@@ -114,6 +125,19 @@ pub fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .iter()
         .map(String::as_str)
         .collect();
+    let resolved = targets::resolve(&imports, &files, &stdlib, namespace, &collected.ambiguous);
+    let mut sites = resolved.gaps;
+    for module in modules {
+        for site in hazards::sites(&module.tree) {
+            let id = module.evidence(&mut evidence, &site.range);
+            let (key, gap) = targets::site_gap(site.kind, &site.detail, &module.name, &id);
+            sites.insert(key, gap);
+        }
+    }
+    unknowns.extend(found);
+    unknowns.extend(sites.into_values());
+    unknowns.extend(layout::problems(&snapshot.problems));
+    let selected: HashSet<&str> = scope.selected.iter().map(String::as_str).collect();
     let coverage = Coverage {
         files_parsed: modules.len() as u64,
         files_read: parsed.files_read,
@@ -122,12 +146,17 @@ pub fn survey(request: &PythonRequest) -> Result<Survey, String> {
         selected_files: scope.selected.clone(),
     };
     Ok(Survey {
-        targets: targets(&imports, &files, &stdlib),
+        targets: resolved.targets,
         files,
         imports,
         unknowns,
         coverage,
         evidence: evidence.into_values().collect(),
+        parsed: snapshot
+            .inputs()
+            .into_iter()
+            .filter(|input| selected.contains(input.path.as_str()))
+            .collect(),
     })
 }
 
@@ -216,6 +245,10 @@ fn parsed_module(
     namespace: &str,
     minor: PyMinor,
 ) -> Result<Module, Failure> {
+    crate::source::declared_encoding(raw).map_err(|name| {
+        let message = format!("source_encoding: the file declares the encoding {name}");
+        early(ExceptionName::SyntaxError, &message)
+    })?;
     let decode_error = || early(ExceptionName::UnicodeDecodeError, "UnicodeDecodeError");
     let text = newlines(decode(raw).ok_or_else(decode_error)?);
     let tree = parse(&text, minor)?;
@@ -245,51 +278,4 @@ fn file_fact(
         blank: module.tree.body.is_empty(),
         evidence_id: EvidenceId::new(module.file_evidence(evidence)),
     }
-}
-
-/// `collect._import_targets`: a selected module, a module of the standard library of the
-/// interpreter in the request, an external package, or unresolved.
-fn targets(
-    imports: &[Record<ImportFact>],
-    files: &[FileFact],
-    stdlib: &HashSet<&str>,
-) -> Vec<Target> {
-    let by_module: HashMap<&str, &str> = files
-        .iter()
-        .map(|file| (file.module.as_str(), file.rel_path.as_str()))
-        .collect();
-    imports
-        .iter()
-        .map(|import| {
-            let data = import.data.data();
-            let import_id = import.id.clone();
-            let module = data.target_module.as_str();
-            let package = data.target_package.as_str();
-            if let Some(file) = by_module.get(module) {
-                Target::Local {
-                    import_id,
-                    module: data.target_module.clone(),
-                    file: (*file).to_owned(),
-                    runtime_file: None,
-                    declaration_file: None,
-                }
-            } else if stdlib.contains(module) || module == "builtins" {
-                Target::Builtin {
-                    import_id,
-                    name: module.to_owned(),
-                }
-            } else if !package.is_empty() {
-                Target::External {
-                    import_id,
-                    package: data.target_package.clone(),
-                }
-            } else {
-                Target::Unresolved {
-                    import_id,
-                    specifier: module.to_owned(),
-                    reason: "module source not found".to_owned(),
-                }
-            }
-        })
-        .collect()
 }

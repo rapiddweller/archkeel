@@ -32,7 +32,11 @@ struct Check<'a> {
     reason: Option<(usize, &'static str)>,
 }
 
-pub fn check(module: &ModModule, source: &str, minor: PyMinor) -> Option<(usize, &'static str)> {
+pub(super) fn check(
+    module: &ModModule,
+    source: &str,
+    minor: PyMinor,
+) -> Option<(usize, &'static str)> {
     let mut check = Check {
         source,
         minor,

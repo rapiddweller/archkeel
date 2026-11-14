@@ -17,15 +17,15 @@ use ruff_text_size::Ranged;
 
 #[path = "definition.rs"]
 #[cfg(any(test, feature = "dump"))]
-pub mod definition;
+pub(crate) mod definition;
 
 use crate::names::package_for;
 use crate::source::Lines;
 
 #[path = "namespace_tables.rs"]
-pub mod namespace_tables;
+pub(crate) mod namespace_tables;
 
-pub struct Module {
+pub(crate) struct Module {
     pub rel: String,
     pub name: String,
     pub package: String,
@@ -35,10 +35,10 @@ pub struct Module {
 }
 
 /// The evidence of a scan by its id, sorted as the Python collector sorts it.
-pub type EvidenceMap = BTreeMap<String, Evidence>;
+pub(crate) type EvidenceMap = BTreeMap<String, Evidence>;
 
 #[cfg(any(test, feature = "dump"))]
-pub fn direct(module: &Module, node: &impl Ranged) -> bool {
+pub(crate) fn direct(module: &Module, node: &impl Ranged) -> bool {
     module
         .tree
         .body
@@ -47,7 +47,7 @@ pub fn direct(module: &Module, node: &impl Ranged) -> bool {
 }
 
 /// `source._import_bindings`: the names that one import statement binds.
-pub fn import_bindings(statement: &Stmt) -> Vec<String> {
+pub(crate) fn import_bindings(statement: &Stmt) -> Vec<String> {
     let (names, dotted) = match statement {
         Stmt::Import(node) => (&node.names, true),
         Stmt::ImportFrom(node) => (&node.names, false),
@@ -68,18 +68,18 @@ fn alias_binding(alias: &Alias, dotted: bool) -> String {
     }
 }
 
-pub fn first_part(dotted: &str) -> &str {
+pub(crate) fn first_part(dotted: &str) -> &str {
     dotted.split('.').next().unwrap_or(dotted)
 }
 
-pub struct Location {
+pub(crate) struct Location {
     pub line: i64,
     pub end_line: i64,
     pub column: i64,
 }
 
 impl Module {
-    pub fn new(rel: String, name: String, text: String, tree: ModModule) -> Self {
+    pub(crate) fn new(rel: String, name: String, text: String, tree: ModModule) -> Self {
         let lines = Lines::new(&text);
         let package = package_for(&name);
         Self {
@@ -94,13 +94,13 @@ impl Module {
 
     /// The source text of the module.
     #[cfg(any(test, feature = "dump"))]
-    pub fn text(&self) -> &str {
+    pub(crate) fn text(&self) -> &str {
         &self.text
     }
 
     /// `"\n".join(module.lines[line - 1 : end_line])`, or `None` outside the file.
     #[cfg(any(test, feature = "dump"))]
-    pub fn excerpt(&self, line: i64, end_line: i64) -> Option<String> {
+    pub(crate) fn excerpt(&self, line: i64, end_line: i64) -> Option<String> {
         let first = usize::try_from(line).ok().filter(|line| *line >= 1)?;
         let last = usize::try_from(end_line).ok()?;
         let mut parts = Vec::new();
@@ -111,12 +111,12 @@ impl Module {
     }
 
     /// `module.path.name == "__init__.py"`.
-    pub fn is_init(&self) -> bool {
+    pub(crate) fn is_init(&self) -> bool {
         self.rel.rsplit('/').next() == Some("__init__.py")
     }
 
     /// The line, the end line and the column of a statement.
-    pub fn location(&self, node: &impl Ranged) -> Location {
+    pub(crate) fn location(&self, node: &impl Ranged) -> Location {
         let start = node.start().to_usize();
         let line = self.lines.line(start).max(1);
         let end_line = self.lines.line(node.end().to_usize());
@@ -129,7 +129,7 @@ impl Module {
     }
 
     /// `add_evidence`: file the location of a statement and return its id.
-    pub fn evidence(&self, evidence: &mut EvidenceMap, node: &impl Ranged) -> String {
+    pub(crate) fn evidence(&self, evidence: &mut EvidenceMap, node: &impl Ranged) -> String {
         let Location {
             line,
             end_line,
@@ -146,7 +146,7 @@ impl Module {
     }
 
     /// `file_evidence`: line 1 when it holds text, else line 0 for the file itself.
-    pub fn file_evidence(&self, evidence: &mut EvidenceMap) -> String {
+    pub(crate) fn file_evidence(&self, evidence: &mut EvidenceMap) -> String {
         let first = rstrip(self.lines.text(&self.text, 1).unwrap_or(""));
         let item = if first.is_empty() {
             Evidence::at(&self.rel, 0, 0, 0, "")
@@ -173,7 +173,7 @@ fn to_i64(value: usize) -> i64 {
 
 /// `str.rstrip()`: Python strips its `isspace` characters, which are the Unicode white space and
 /// the four separators U+001C to U+001F.
-pub use archkeel_pytext::rstrip;
+pub(crate) use archkeel_pytext::rstrip;
 
 #[cfg(test)]
 #[path = "survey/module_tests.rs"]

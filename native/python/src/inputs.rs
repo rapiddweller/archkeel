@@ -13,10 +13,10 @@ use archkeel_facts::identity::sha256_hex;
 use archkeel_snapshot::Snapshot;
 use sha2::{Digest, Sha256};
 
-pub const PYPROJECT: &str = "pyproject.toml";
+pub(crate) const PYPROJECT: &str = "pyproject.toml";
 
 /// The inputs, sorted by path, and the source digest.
-pub fn inputs(snapshot: &mut Snapshot, selected: &[String]) -> (Vec<Input>, String) {
+pub(crate) fn inputs(snapshot: &mut Snapshot, selected: &[String]) -> (Vec<Input>, String) {
     let mut paths: Vec<(&str, Role)> = selected
         .iter()
         .map(|rel| (rel.as_str(), Role::Selected))
