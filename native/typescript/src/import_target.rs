@@ -200,6 +200,11 @@ impl Collection<'_> {
         let (rel, module, reference) = (r.rel, r.module, r.reference);
         let (specifier, source) = (r.specifier, &r.class);
         let path = found.path.clone();
+        // AD-488: a file that the import reaches other than by a `node_modules` search makes its
+        // installed package project source.
+        if !found.external {
+            self.reach.insert(path.clone());
+        }
         let suffix = classify_file(&path);
         let site: Site = (r.evidence.to_owned(), module.to_owned());
         if self.excluded_test(&path) && !installed(&mut self.snapshot, &path) {
