@@ -1,34 +1,18 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-340: the native reply equals the reply of the Python TypeScript collector, decoded.
+"""AD-340: the native TypeScript collector gives the same reply on each run, and never crashes.
 
-Consumer: the host process port. The oracle is the Python collector, unmodified: the decoded
-files, inputs, evidence, targets, capabilities, every section (imports, unknowns, symbols, calls,
-references, bindings, constructs), gaps and coverage must be equal, with no filter; only the
-provenance of the adapter and the runtime differs. The comparison is on decoded content: the key
-order of a record differs.
+Consumer: the core, which starts the collector. A reply must not depend on the order of a hash
+map, and a deep or damaged source must give a reply and not end the process.
 """
 
 from __future__ import annotations
 
-import dataclasses
-import os
-import random
 import subprocess
 from pathlib import Path
 
-from archkeel.analyzer.process import ProcessCollector
-from archkeel.ir.facts import SourceFacts
-from archkeel.ir.facts_codec import encode_request
-from archkeel.ir.protocol import (
-    CollectionError,
-    CollectionRequest,
-    ProtocolVersion,
-    SnapshotInput,
-    SourceScope,
-    TypeScriptSettings,
-)
+from collector_wire import collect, request_bytes
 
 ROOT = Path(__file__).parents[1]
 STUDIO_UI = "src/archkeel/studio/ui"
@@ -41,117 +25,6 @@ FIXTURES = (
 )
 
 
-def _plain(value: object) -> object:
-    """Turn a decoded fact into JSON data, so that a difference prints as text."""
-    if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return {f.name: _plain(getattr(value, f.name)) for f in dataclasses.fields(value)}
-    if isinstance(value, (list, tuple)):
-        return [_plain(item) for item in value]
-    if isinstance(value, (set, frozenset)):
-        return sorted(_plain(item) for item in value)
-    entries = getattr(value, "entries", None)
-    if entries is not None:
-        return {key: _plain(item) for key, item in entries}
-    return getattr(value, "value", value)
-
-
-def _view(facts: SourceFacts) -> dict[str, object]:
-    sections = {section.name.value: section.records for section in facts.sections}
-    coverage = facts.coverage
-    return {
-        "files": _plain(facts.files),
-        "inputs": _plain(facts.inputs),
-        "source_digest": facts.source.source_digest,
-        "scope": _plain(facts.source.scope),
-        "targets": _plain(facts.imports),
-        "sections": {name: _plain(records) for name, records in sections.items()},
-        "capabilities": _plain(facts.capabilities),
-        "gaps": _plain(coverage.gaps),
-        "evidence": _plain(facts.evidence),
-        "selected": list(coverage.selected_files),
-        "read": coverage.files_read,
-        "parsed": coverage.files_parsed,
-        "full_scope": coverage.full_scope,
-    }
-
-
-def _request(
-    root: Path,
-    namespace: str,
-    tsconfig: str,
-    *,
-    roots: tuple[str, ...] = ("src",),
-    version: ProtocolVersion = ProtocolVersion.V8,
-    exclude_test_sources: bool = False,
-    bundler: bool = False,
-) -> CollectionRequest:
-    return CollectionRequest(
-        SnapshotInput(str(root), "a" * 40, False),
-        SourceScope(roots, namespace, exclude_test_sources),
-        TypeScriptSettings(tsconfig, bundler),
-        version,
-    )
-
-
-# One tree for the resolution rules: relative names, `paths`, packages, `exports`, builtins.
-PACKAGES = {
-    "node_modules/pkg-a/package.json": '{"main":"main.js","types":"main.d.ts"}',
-    "node_modules/pkg-a/main.d.ts": "",
-    "node_modules/pkg-a/main.js": "",
-    "node_modules/pkg-a/sub/deep.d.ts": "",
-    "node_modules/pkg-b/package.json": (
-        '{"exports":{".":{"types":"./index.d.ts","import":"./index.mjs","require":"./index.cjs"},'
-        '"./sub":"./sub.js","./asset":"./a.css","./bad":"../x.js","./cond":{"node":"./n.js"}}}'
-    ),
-    "node_modules/pkg-b/index.d.ts": "",
-    "node_modules/pkg-b/sub.d.ts": "",
-    "node_modules/pkg-b/sub.js": "",
-    "node_modules/pkg-b/a.css": "",
-    "node_modules/@types/lodash/index.d.ts": "",
-    "node_modules/@scope/pkg-c/package.json": '{"typesVersions":{"*":{"*":["ts/*"]}}}',
-    "node_modules/@scope/pkg-c/index.d.ts": "",
-    "node_modules/pkg-d/package.json": '{"exports":{"./*":"./*.js"}}',
-    "node_modules/pkg-e/package.json": '{"exports":"./e.js"}',
-    "node_modules/pkg-e/e.js": "",
-    "node_modules/pkg-f/package.json": '{"exports":{"import":"./f.mjs","default":"./f.js"}}',
-    "node_modules/pkg-f/f.mjs": "",
-    "node_modules/pkg-f/f.js": "",
-    "node_modules/pkg-h/package.json": '{"type":"module","main":"h"}',
-    "node_modules/pkg-h/h.js": "",
-    "node_modules/pkg-i/package.json": "{}",
-    "node_modules/pkg-i/index.js": "",
-    "node_modules/pkg-j/package.json": '{"exports":{"./a":null,"./b/*":"./b/*.js"}}',
-    "node_modules/pkg-k/package.json": '{"exports":{".":{"weird":"./k.js"}}}',
-    "node_modules/pkg-m/package.json": '{"exports":{".":"/abs.js","./a":"./a/../b.js"}}',
-    "package.json": '{"name":"app","type":"module","exports":"./x.js"}',
-}
-SOURCES = {
-    "src/util.ts": "",
-    "src/util.js": "export {};\n",
-    "src/dir/index.ts": "",
-    "src/esm.mts": "",
-    "src/cjs.cts": "",
-    "src/pkgdir/package.json": '{"main":"./lib/entry.js"}',
-    "src/pkgdir/lib/entry.ts": "",
-    "src/data.json": "{}",
-    "src/types.d.ts": "",
-    "src/app/x.ts": "",
-    "src/lib/index.ts": "",
-    "src/only.js": "export {};\n",
-    "src/badpkg/package.json": "{nope",
-    "src/tv/package.json": '{"typesVersions":{"*":{"*":["x"]}}}',
-    "src/tv/index.ts": "",
-    "src/tests/helper.ts": "",
-    "src/util.test.ts": "",
-}
-SPECIFIERS = (
-    "./util ./util.js ./util.ts ./dir ./dir/ ./esm.js ./cjs.js ./pkgdir ./data ./data.json ./types "
-    "./missing ../src/util . .. ./only ./badpkg ./tv @app/x @lib ~/util ~/dir pkg-a pkg-a/sub/deep "
-    "pkg-b pkg-b/sub pkg-b/asset pkg-b/bad pkg-b/cond lodash lodash/fp @scope/pkg-c pkg-d/x pkg-e "
-    "pkg-f pkg-h pkg-i pkg-j/a pkg-j/b/z pkg-k pkg-m pkg-m/a fs node:fs fs/promises node:test "
-    "app app/sub #internal /abs/x nope-pkg ./tests/helper ./util.test ./style.css ./w?worker "
-    "./pic.png ~/missing.css pkg-b/a.css"
-).split()
 CONFIGS = {
     "node10": (
         '{"compilerOptions":{"baseUrl":".","paths":{"@app/*":["src/app/*"],"@lib":["src/lib/index.ts"]},'
@@ -172,103 +45,10 @@ CONFIGS = {
 }
 
 
-COMMONJS = '{"compilerOptions":{"module":"commonjs","allowJs":true},"include":["src"]}'
-BUNDLER_SRC = (
-    '{"compilerOptions":{"module":"esnext","moduleResolution":"bundler"},"include":["src"]}'
-)
-
-
-def _imports_of(specifiers: list[str]) -> str:
-    lines: list[str] = []
-    for index, specifier in enumerate(specifiers):
-        lines += [
-            f'import a{index} from "{specifier}";',
-            f'export * from "{specifier}";',
-            f'const r{index} = require("{specifier}");',
-            f'const d{index} = import("{specifier}");',
-            f'type T{index} = import("{specifier}").X;',
-            f'import type {{ Y{index} }} from "{specifier}";',
-        ]
-    return "\n".join(lines) + "\n"
-
-
 def _write(root: Path, files: dict[str, str]) -> None:
     for name, text in files.items():
         (root / name).parent.mkdir(parents=True, exist_ok=True)
         (root / name).write_text(text, encoding="utf-8")
-
-
-# Snippets that a real file holds, and fragments that no grammar accepts.
-PIECES = (
-    'import a from "./util";',
-    "import { b, type C } from './dir';",
-    'import type { D } from "./types";',
-    'import * as ns from "pkg-a";',
-    'import "./side-effect";',
-    'import e = require("./cjs");',
-    'export * from "./esm";',
-    'export { h } from "./util.js";',
-    'export type { I } from "./types";',
-    'const k = await import("./lib");',
-    'type L = import("./app/x").L;',
-    'let m: typeof import("./util");',
-    'const n = require("./only");',
-    "const o = require(variable);",
-    "const q = import(`./q/${r}`);",
-    'import(/* c */ "./util");',
-    'import s2 from "./esc\\u0041";',
-    'import w from "./w" with { "resolution-mode": "require" };',
-    "if (x) { require('./util'); }",
-    "const r = require; r('./util');",
-    "const { require: q2 } = module;",
-    'const m2 = require("module");',
-    "/** @import { T } from './t' */",
-    '/// <reference path="./types.d.ts" />',
-    '/// <reference types="../b/t" />',
-    '/// <reference types="node" />',
-    'declare module "./util" {}',
-    'declare module "express" {}',
-    "self.x();",
-    "self.x = 1;",
-    "/** @type {import('./util').X} */",
-    "function f(x: import('./app/x').T) {}",
-    "const y = z as import('./lib').V;",
-    "const t = <div>{require('./util')}</div>;",
-    "class A<T extends import('./util').B> {}",
-    "export default function () {}",
-    "import { unterminated from './util';",
-    "const ( = ;",
-    "}} {{ ))",
-    'import("',
-    "/* unterminated",
-    "`unterminated ${",
-    "﻿",
-    "😀 import a from './😀';",
-)
-SEPARATORS = ("\n", "\r\n", " ", " ", "\r", "\n\n  ")
-
-
-def _random_source(rng: random.Random) -> str:
-    text = ""
-    for _ in range(rng.randint(1, 8)):
-        text += rng.choice(PIECES) + rng.choice(SEPARATORS)
-    if rng.random() < 0.3:
-        text = text[: rng.randint(0, len(text))]
-    if rng.random() < 0.2:
-        cut = rng.randint(0, len(text))
-        text = (
-            text[:cut] + rng.choice(["\x00", "�", "\\", "'", '"', "`", "{", "(", "<"]) + text[cut:]
-        )
-    return text
-
-
-def _links(root: Path, outside: Path) -> None:
-    os.symlink("real.ts", root / "src/link.ts")
-    os.symlink("dir", root / "src/dirlink")
-    os.symlink("loop.ts", root / "src/loop.ts")
-    os.symlink(outside / "secret.ts", root / "src/escape.ts")
-    os.symlink("../vendor/linked-pkg", root / "node_modules/linked-pkg")
-    os.symlink(outside, root / "node_modules/escaping-pkg")
 
 
 def test_the_reply_is_the_same_bytes_on_every_run(native_binary: Path) -> None:
@@ -276,7 +56,7 @@ def test_the_reply_is_the_same_bytes_on_every_run(native_binary: Path) -> None:
     # process seeds its hashes at random.
     for path, namespace, tsconfig in FIXTURES[3:]:
         scope = (STUDIO_UI,) if path == "." else ("src",)
-        request = encode_request(_request(ROOT / path, namespace, tsconfig, roots=scope))
+        request = request_bytes(ROOT / path, namespace, tsconfig, roots=scope)
         replies = {
             subprocess.run(
                 [str(native_binary)],
@@ -299,10 +79,8 @@ def test_deep_nesting_gives_a_result(tmp_path: Path, native_binary: Path) -> Non
     (tmp_path / "src/deep.ts").write_text(
         'import a from "./a";\nconst x = ' + "[" * depth + "]" * depth + ";\nimport b from './b';\n"
     )
-    native = ProcessCollector((str(native_binary),), protocol_version=ProtocolVersion.V8)
-    facts = native.collect(_request(tmp_path, "app", "tsconfig.json"))
-    assert isinstance(facts, SourceFacts), facts
-    assert len(facts.files) == 1
+    facts = collect(native_binary, request_bytes(tmp_path, "app", "tsconfig.json"))
+    assert len(facts["files"]) == 1
 
 
 def _pathological() -> dict[str, bytes]:
@@ -334,8 +112,5 @@ def test_pathological_sources_do_not_crash_the_native_collector(
     (tmp_path / "src").mkdir()
     for name, data in _pathological().items():
         (tmp_path / "src" / name).write_bytes(data)
-    request = _request(tmp_path, "app", "tsconfig.json")
-    native = ProcessCollector((str(native_binary),), protocol_version=ProtocolVersion.V8)
-    facts = native.collect(request)
-    assert not isinstance(facts, CollectionError), facts
-    assert len(facts.files) == len(_pathological())
+    facts = collect(native_binary, request_bytes(tmp_path, "app", "tsconfig.json"))
+    assert len(facts["files"]) == len(_pathological())

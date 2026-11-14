@@ -11,11 +11,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from test_cli_native_core_scan import SUFFIX, built
-
-from tools.dual_run_corpus import corpus_cases, materialized
-
-__all__ = ["built"]
+from core_support import SUFFIX
+from corpus_support import case as corpus_case
+from corpus_support import commit_tree, materialized
 
 CASES = (
     "s4/a-symbol-selector-is-a-limit-of-some-profiles",
@@ -23,16 +21,15 @@ CASES = (
     "s5/requires-symbol-port-is-judged-with-the-symbol-feature",
     "probe/full-test-a-changed-reply-gives-no-pass-for-each-rule-family-inte",
 )
+MAIN = "shop.src.main_x2e_ts"
+PRIVATE = "import outside the public interface"
 
 
 def scan(built: Path, root: Path) -> dict[str, Any]:
-    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
     request = {
         "protocol": "archkeel-core-scan-1",
         "root": str(root.resolve()),
         "config": "archkeel.toml",
-        "git_head": head,
-        "dirty": True,
     }
     done = subprocess.run(
         [str(built / f"archkeel-core{SUFFIX}"), "scan"],
@@ -49,9 +46,36 @@ def scan(built: Path, root: Path) -> dict[str, Any]:
     return frame
 
 
+@pytest.mark.parametrize("fixture_dirty", [False, True])
+@pytest.mark.parametrize("checkout_dirty", [False, True])
+def test_scan_derives_fixture_state_not_the_callers_checkout(
+    built: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    fixture_dirty: bool,
+    checkout_dirty: bool,
+) -> None:
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    (checkout / "tracked").write_text("base")
+    commit_tree(checkout)
+    if checkout_dirty:
+        (checkout / "untracked").write_text("build output")
+    monkeypatch.chdir(checkout)
+    with materialized(corpus_case(CASES[0])) as root:
+        (root / "tracked-state.txt").write_text("committed fixture")
+        commit_tree(root)
+        if fixture_dirty:
+            (root / "untracked").write_text("fixture change")
+        frame = scan(built, root)
+        snapshot = frame["self_test"]["collect"]["request"]["snapshot"]
+        assert snapshot["root"] == str(root.resolve())
+        assert snapshot["dirty"] is fixture_dirty
+
+
 @pytest.mark.parametrize("case_id", CASES)
 def test_a_known_profile_limit_does_not_hold_an_unrelated_rule(built: Path, case_id: str) -> None:
-    case = next(case for case in corpus_cases() if case.id == case_id)
+    case = corpus_case(case_id)
     with materialized(case) as root:
         frame = scan(built, root)
     assert frame["rules"].get("ASSIGNMENT") == "PASS", frame["unsupported"]
@@ -60,17 +84,29 @@ def test_a_known_profile_limit_does_not_hold_an_unrelated_rule(built: Path, case
     assert "limit of some profiles" not in json.dumps(frame["unsupported"])
     if case_id.startswith("s4/a-symbol"):
         assert frame["rules"]["SYMBOL"] == "PASS"
-    if "interface" in case_id or case_id.startswith("probe/"):
-        rule = "PROBE" if case_id.startswith("probe/") else "BOUNDARY"
-        assert rule not in frame["rules"]
-        assert "InterfaceBoundary" in frame["unsupported"]["rules"][rule]
+    # AD-428: the core decides the import verdict of `interface_boundary`. The rule is no profile
+    # limit, and it gets no PASS here: one case has two private imports, one has an unread binding.
+    if "interface" in case_id:
+        assert frame["rules"]["BOUNDARY"] == "FAIL", frame
+        assert "BOUNDARY" not in frame["unsupported"]["rules"]
+        assert {
+            (row["source"], row["target"], row["cause"]) for row in frame["details"]["BOUNDARY"]
+        } == {
+            (MAIN, "shop.src.data.local_x2e_ts:local", PRIVATE),
+            (MAIN, "shop.src.presentation.page_x2e_ts:page", PRIVATE),
+        }
+    if case_id.startswith("probe/"):
+        assert frame["rules"]["PROBE"] == "UNKNOWN", frame
+        assert "PROBE" not in frame["unsupported"]["rules"]
+        assert "unread import binding" in frame["explained"]["PROBE"], frame
+        assert "PROBE" not in frame["details"], frame
 
 
 @pytest.mark.parametrize("case_id", CASES)
 def test_a_profile_statement_cannot_hide_a_dynamic_forbidden_edge(
     built: Path, case_id: str
 ) -> None:
-    case = next(case for case in corpus_cases() if case.id == case_id)
+    case = corpus_case(case_id)
     with materialized(case) as root:
         before = scan(built, root)
         assert before["rules"].get("DOMAIN-NO-DATA") == "PASS", before["unsupported"]
@@ -83,7 +119,7 @@ def test_a_profile_statement_cannot_hide_a_dynamic_forbidden_edge(
 
 def test_an_unread_symbol_position_stays_unknown(built: Path) -> None:
     case_id = "s5/forbidden-symbol-rule-leaves-a-position-undecided"
-    case = next(case for case in corpus_cases() if case.id == case_id)
+    case = corpus_case(case_id)
     with materialized(case) as root:
         frame = scan(built, root)
     assert frame["rules"].get("ASSIGNMENT") == "PASS", frame["unsupported"]
@@ -93,7 +129,7 @@ def test_an_unread_symbol_position_stays_unknown(built: Path) -> None:
 
 def test_a_namespace_import_has_a_named_unknown_row_not_a_profile_refusal(built: Path) -> None:
     case_id = "s4/a-symbol-selector-is-a-limit-of-some-profiles"
-    case = next(case for case in corpus_cases() if case.id == case_id)
+    case = corpus_case(case_id)
     with materialized(case) as root:
         source = root / "src/presentation/page.ts"
         source.write_text(source.read_text() + '\nimport * as domain from "../domain";\n')
@@ -105,7 +141,7 @@ def test_a_namespace_import_has_a_named_unknown_row_not_a_profile_refusal(built:
 
 
 def test_a_symbol_public_interface_releases_no_actual_gap(built: Path) -> None:
-    case = next(case for case in corpus_cases() if case.id == "fixture/H-typescript")
+    case = corpus_case("fixture/H-typescript")
     with materialized(case) as root:
         path = root / "architecture-contract.json"
         contract = json.loads(path.read_text())

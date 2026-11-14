@@ -12,11 +12,10 @@
 
 use std::collections::BTreeMap;
 
-use archkeel_contract::RuleKind;
 use archkeel_model::{Producer, Settings};
 use archkeel_store::Ingested;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::contract::{ContractInput, ContractState, InsideFile};
 use crate::engine::{Answer, Engine};
@@ -25,13 +24,16 @@ use crate::request::{self, Request};
 use archkeel_model::{Reason, Unsupported};
 use archkeel_report::Named;
 
+#[path = "frame_parts.rs"]
+mod frame_parts;
+pub(crate) use frame_parts::{refused_scan, Answered};
+use frame_parts::{ContractCheck, Parts, ReplyCheck, SelfTest, UnsupportedParts, ENGINE};
+
 /// Version 2 adds the settings of the shell: `namespace` and `standard_library` (AD-372).
 /// Version 3 adds `insides`: the inside contracts that the shell read (AD-379).
 /// Version 4 adds `roots`: the scan roots of the configuration (AD-384).
 /// Version 5 removes `pinned`: the core takes no trust statement from a request (AD-388).
 const PROTOCOL: &str = "archkeel-dual-run-5";
-/// The provenance of this build (`archkeel-build-support`).
-const ENGINE: &str = concat!("archkeel-core ", env!("ARCHKEEL_CODE_DIGEST"));
 /// The longest `collector_argv` that a test request can name (AD-378 point 4: the producer of the
 /// dual-run request is the word of a test caller, not evidence).
 const ARGV_LIMIT: usize = 64;
@@ -91,58 +93,6 @@ struct Head {
 #[serde(deny_unknown_fields)]
 pub(crate) struct ReplyBytes {
     pub(crate) hex: String,
-}
-
-/// The parts that the core adds to the engine frame. The status, the rule verdicts, their
-/// explaining rows, `beyond`, the scope and `unsupported.rules` come only from the `Ruling` of
-/// the report, which writes the frame and refuses a part with one of its keys (AD-388, AD-384
-/// point 4).
-#[derive(Serialize)]
-struct Parts {
-    engine: &'static str,
-    sections: BTreeMap<&'static str, Vec<serde_json::Value>>,
-    unsupported: UnsupportedParts,
-    self_test: SelfTest,
-}
-
-#[derive(Serialize)]
-struct UnsupportedParts {
-    sections: BTreeMap<&'static str, String>,
-    /// The reason that the core has no report v2 payload (slice 0d).
-    report: Option<String>,
-}
-
-#[derive(Serialize)]
-struct SelfTest {
-    contract: ContractCheck,
-    reply: ReplyCheck,
-    /// The scan request only (AD-406): the request that the core derived, or why it has none.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    collect: Option<serde_json::Value>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "snake_case")]
-enum ContractCheck {
-    Rules(BTreeMap<String, RuleKind>),
-    /// The repository paths of the inside contracts that the shell must still send.
-    Missing(Vec<String>),
-    Refused(String),
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "snake_case")]
-enum ReplyCheck {
-    Files(usize),
-    Refused(String),
-    Absent(String),
-}
-
-/// The answer of the core: the frame bytes, and whether the frame names a part that is
-/// unsupported or refused. A caller never sees a frame without verdicts as a plain success.
-pub(crate) struct Answered {
-    pub(crate) frame: Vec<u8>,
-    pub(crate) names_a_gap: bool,
 }
 
 /// A request of one protocol: the protocol is read before the fields that it defines. An error
@@ -270,11 +220,11 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         base(engine.reply(), shared)
     });
     let trust = (run.trust)(run.namespace, engine.reply());
-    engine.answer(Request::Settings(settings_of(
-        trust.settings,
-        &input,
-        run.roots,
-    )));
+    let settings = settings_of(trust.settings, &input, run.roots);
+    let locations = frame_parts::locations(engine.reply(), &input.path, &input.bytes, &settings);
+    let collection_gaps = frame_parts::collection_gaps(engine.reply());
+    let contract_digest = Some(archkeel_facts::identity::sha256_hex(&input.bytes));
+    engine.answer(Request::Settings(settings));
     let path = input.path.clone();
     let contract = match engine.answer(Request::Contract(input)) {
         Answer::Contract(state) => state,
@@ -293,7 +243,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
     let mut named = named(&contract, run.baseline, &engine, &path);
     named.contract = named.contract.or(trust.gap).or(base);
     let ruling = match engine.answer(Request::Rules(named)) {
-        Answer::Rules(ruling) => ruling,
+        Answer::Rules(ruling) => *ruling,
         other => Err(format!("unexpected answer {other:?}")),
     }
     .map_err(|problem| format!("{}: an inconsistent frame: {problem}", run.case))?;
@@ -304,6 +254,8 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         || !matches!(reply, ReplyCheck::Files(_))
         || !matches!(contract, ContractState::Parsed(_));
     let parts = Parts {
+        contract_digest,
+        collection_gaps,
         engine: ENGINE,
         sections: rows,
         unsupported: UnsupportedParts {
@@ -319,6 +271,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
             reply,
             collect: run.collect,
         },
+        locations,
     };
     let frame = ruling
         .frame(&parts)

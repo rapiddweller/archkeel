@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from rust_repository import APP, component, report, repository, rule, statuses, validate
+from rust_repository import APP, claims, component, report, repository, rule, statuses, validate
 
 Capsys = pytest.CaptureFixture[str]
 
@@ -26,12 +26,8 @@ def _verdict(
     return validate(repository(tmp_path, binary, files, **kwargs), capsys)
 
 
-def _claims(result: dict[str, Any]) -> list[str]:
-    return [item["unknown_claim"] for item in result["diagnostics"]]
-
-
 def test_a_proven_serde_helper_edge_fails_the_forbidden_rule(
-    tmp_path: Path, rust_binary: Path, capsys: Capsys
+    tmp_path: Path, core_binary: Path, capsys: Capsys
 ) -> None:
     forbidden = rule(
         "NO-HELPER",
@@ -42,7 +38,7 @@ def test_a_proven_serde_helper_edge_fails_the_forbidden_rule(
     )
     root = repository(
         tmp_path,
-        rust_binary,
+        core_binary,
         {
             "crates/app/Cargo.toml": APP + 'serde = { version = "1.0", features = ["derive"] }\n',
             "crates/Cargo.lock": Path(__file__).with_name("rust_known_derives.lock").read_text(),
@@ -54,8 +50,8 @@ def test_a_proven_serde_helper_edge_fails_the_forbidden_rule(
         rules=(forbidden,),
     )
     result = report(root, capsys)
-    assert statuses(result)["NO-HELPER"] == "FAIL", _claims(result)
-    assert result["coverage"]["failures"] == []
+    assert statuses(result)["NO-HELPER"] == "FAIL", claims(result)
+    assert result["frame"]["collection_gaps"] == []
 
 
 OWN_IMPORT = [
@@ -72,28 +68,28 @@ FOREIGN_IMPORT = [
 
 @pytest.mark.parametrize("source", OWN_IMPORT, ids=range(len(OWN_IMPORT)))
 def test_a_name_that_only_its_own_crate_provides_keeps_the_edge(
-    tmp_path: Path, rust_binary: Path, capsys: Capsys, source: str
+    tmp_path: Path, core_binary: Path, capsys: Capsys, source: str
 ) -> None:
     parts = (component("base", "base_crate"), component("app", "app"))
     result = _verdict(
-        tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
+        tmp_path, core_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
     )
 
     assert statuses(result)["REQUIRES"] == "FAIL"
-    assert not any("A local name equals a crate name" in claim for claim in _claims(result))
+    assert not any("A local name equals a crate name" in claim for claim in claims(result))
 
 
 @pytest.mark.parametrize("source", FOREIGN_IMPORT, ids=range(len(FOREIGN_IMPORT)))
 def test_a_name_from_another_source_stays_unknown(
-    tmp_path: Path, rust_binary: Path, capsys: Capsys, source: str
+    tmp_path: Path, core_binary: Path, capsys: Capsys, source: str
 ) -> None:
     parts = (component("base", "base_crate"), component("app", "app"))
     result = _verdict(
-        tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
+        tmp_path, core_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
     )
 
     assert statuses(result).get("REQUIRES") != "PASS"
-    assert any("A local name equals a crate name: base_crate" in c for c in _claims(result))
+    assert any("A local name equals a crate name: base_crate" in c for c in claims(result))
 
 
 HIDDEN = [
@@ -125,11 +121,11 @@ QUIET = [
 
 @pytest.mark.parametrize("source", HIDDEN, ids=range(len(HIDDEN)))
 def test_a_hidden_use_of_a_crate_name_is_an_edge_or_unknown_never_pass(
-    tmp_path: Path, rust_binary: Path, capsys: Capsys, source: str
+    tmp_path: Path, core_binary: Path, capsys: Capsys, source: str
 ) -> None:
     parts = (component("base", "base_crate"), component("app", "app"))
     result = _verdict(
-        tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
+        tmp_path, core_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
     )
 
     assert statuses(result).get("REQUIRES") != "PASS"
@@ -137,37 +133,37 @@ def test_a_hidden_use_of_a_crate_name_is_an_edge_or_unknown_never_pass(
 
 @pytest.mark.parametrize("source", NET_ONLY, ids=range(len(NET_ONLY)))
 def test_a_crate_name_in_a_place_nobody_reads_is_unknown_with_the_net_reason(
-    tmp_path: Path, rust_binary: Path, capsys: Capsys, source: str
+    tmp_path: Path, core_binary: Path, capsys: Capsys, source: str
 ) -> None:
     parts = (component("base", "base_crate"), component("app", "app"))
     result = _verdict(
-        tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
+        tmp_path, core_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
     )
 
     reason = "The crate name base_crate appears in a place the collector does not read"
-    assert any(reason in claim for claim in _claims(result))
+    assert any(reason in claim for claim in claims(result))
 
 
 @pytest.mark.parametrize("source", QUIET, ids=range(len(QUIET)))
 def test_a_crate_name_in_a_comment_or_a_message_gives_no_unknown(
-    tmp_path: Path, rust_binary: Path, capsys: Capsys, source: str
+    tmp_path: Path, core_binary: Path, capsys: Capsys, source: str
 ) -> None:
     parts = (component("base", "base_crate"), component("app", "app"))
     result = _verdict(
-        tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
+        tmp_path, core_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
     )
 
-    assert not any("appears in a place" in claim for claim in _claims(result))
+    assert not any("appears in a place" in claim for claim in claims(result))
 
 
 def test_a_closure_parameter_named_like_a_crate_keeps_the_edge_of_its_path(
-    tmp_path: Path, rust_binary: Path, capsys: Capsys
+    tmp_path: Path, core_binary: Path, capsys: Capsys
 ) -> None:
     parts = (component("base", "base_crate"), component("app", "app"))
     source = "pub fn run() { let f = |base_crate: u8| base_crate::x(base_crate); f(1); }\n"
     result = _verdict(
-        tmp_path, rust_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
+        tmp_path, core_binary, capsys, {"crates/app/src/lib.rs": source}, components=parts
     )
 
     assert statuses(result).get("REQUIRES") != "PASS"
-    assert not any("appears in a place" in claim for claim in _claims(result))
+    assert not any("appears in a place" in claim for claim in claims(result))

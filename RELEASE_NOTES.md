@@ -9,6 +9,11 @@ The future Rust Python and Dart collectors stay under `native/`. Support returns
 TypeScript has no Python fallback. Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD lack shipped binaries.
 Those platforms cannot scan TypeScript without a native build and fail closed with exit 2.
 
+The Rust core `archkeel-core` is the only decision path on `main` (AD-432). The Python engine is deleted.
+`validate` and `report` (text and JSON) print the frame of the core: PASS exits 0, FAIL exits 1, UNKNOWN exits 2.
+`check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
+No package carries the core binary yet. Run `main` from a source checkout after `make core`.
+
 Declare component responsibilities, exact interfaces and invocation ownership, with
 native source evidence and conservative UNKNOWNs.
 
@@ -242,7 +247,7 @@ they do not acquire missing native proofs by being opened with the new CLI.
 Compass and Nest demos retain source gaps and dynamic behavior as UNKNOWN. The
 release does not establish compiler parity, runtime correctness or complete UML
 conformance. See [known limits](docs/known-limits.md), the
-[report guide](docs/report-visual-system.md) and [demo catalog](docs/architecture-demo.md).
+[report guide](docs/report-visual-system.md) and [demo catalog](https://github.com/rapiddweller/archkeel/blob/4.0.1/docs/architecture-demo.md).
 
 # ArchKeel 2.0.0 — ArchQ Explorer and exact permissions
 
@@ -398,7 +403,7 @@ Static analysis does not prove runtime dispatch, live object identity or complet
 coverage. Compass still has source-resolution gaps; Python RealWorld retains incomplete
 class and inheritance evidence; Nest retains unresolved dynamic imports and framework
 semantics. The demos show these limits, not compiler parity or verified Flutter execution.
-See [demo evidence](docs/architecture-demo.md) and [known limits](docs/known-limits.md).
+See [demo evidence](https://github.com/rapiddweller/archkeel/blob/4.0.1/docs/architecture-demo.md) and [known limits](docs/known-limits.md).
 
 # Older releases
 

@@ -11,8 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
-from tests.test_cli_native_core_scan import built as built  # noqa: F401
+from rust_repository import repository
 
 
 def scan(
@@ -291,23 +290,6 @@ def test_an_unproved_export_cannot_use_a_module_object_grant(
     assert "unread import binding" in frame["explained"]["INTERFACE"], frame
 
 
-def test_an_exact_module_object_grant_goes_beyond_the_python_profile(
-    built: Path, tmp_path: Path
-) -> None:
-    from archkeel.check.evaluation.rules import profile_failures
-    from archkeel.ir.codec import parse_contract
-    from archkeel.ir.profiles import TYPESCRIPT
-
-    frame = scan(built, tmp_path, 'import "./impl";', grant="app.client")
-    assert frame["rules"]["INTERFACE"][1] == "PASS", frame
-    contract = parse_contract(json.loads((tmp_path / "architecture-contract.json").read_text()))
-    failures = profile_failures(contract, TYPESCRIPT, ())
-    assert any(
-        r["kind"] == "rule-unsupported-by-profile" and r["rule_ids"] == ["INTERFACE"]
-        for r in failures
-    )
-
-
 def test_a_symbol_selector_cannot_hide_a_forbidden_side_effect_import(
     built: Path, tmp_path: Path
 ) -> None:
@@ -332,9 +314,7 @@ def test_a_symbol_selector_cannot_hide_a_forbidden_side_effect_import(
 
 
 def test_rust_names_its_missing_publication_surface(built: Path, tmp_path: Path) -> None:
-    from tests.test_cli_native_core_scan import _rust_repository
-
-    root = _rust_repository(built, tmp_path)
+    root = repository(tmp_path / "project", built / "archkeel-core")
     path = root / "architecture-contract.json"
     contract = json.loads(path.read_text())
     contract["rules"] = [
@@ -372,3 +352,15 @@ def test_non_subject_imports_do_not_fail(built: Path, tmp_path: Path, case: str)
     path.write_text(json.dumps(contract))
     expected = "UNKNOWN" if case.startswith("unowned") else "PASS"
     assert run_core(built, tmp_path)["rules"]["INTERFACE"][1] == expected
+
+
+def test_a_failed_import_names_its_source_target_symbol_and_location(
+    built: Path, tmp_path: Path
+) -> None:
+    frame = scan(built, tmp_path, 'import { Secret } from "./impl";')
+    assert frame["rules"]["INTERFACE"][1] == "FAIL", frame
+    (row,) = frame["details"]["INTERFACE"]
+    assert (row["source"], row["target"]) == ("app.src.client_x2e_ts", "app.src.impl_x2e_ts:Secret")
+    assert row["cause"] == "import outside the public interface"
+    (evidence,) = row["evidence"]
+    assert frame["locations"][evidence] == {"path": "src/client.ts", "line": 1}

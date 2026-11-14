@@ -17,7 +17,33 @@ use super::*;
 #[path = "scan_attribute_tests.rs"]
 mod attribute_review;
 
-const HEAD: &str = "89abcdef0123456789abcdef0123456789abcdef";
+#[test]
+fn missing_provenance_is_derived_and_a_false_clean_claim_is_refused() {
+    let root = repository("provenance");
+    let mut request = request(&root);
+    request.as_object_mut().unwrap().remove("git_head");
+    request.as_object_mut().unwrap().remove("dirty");
+    let (clean, _) = frame(&request);
+    assert_eq!(
+        clean["self_test"]["collect"]["request"]["snapshot"]["dirty"],
+        false
+    );
+    fs::write(root.join("untracked.txt"), "new file").unwrap();
+    let (dirty, _) = frame(&request);
+    assert_eq!(
+        dirty["self_test"]["collect"]["request"]["snapshot"]["dirty"],
+        true
+    );
+    request["dirty"] = json!(false);
+    let (refused, names) = frame(&request);
+    assert!(names);
+    assert_eq!(refused["status"], "UNKNOWN");
+    assert!(refused["self_test"]["collect"]["refused"]
+        .as_str()
+        .unwrap()
+        .contains("dirty"));
+    assert!(refused["self_test"]["contract"].get("refused").is_none());
+}
 
 fn copy(from: &Path, to: &Path) {
     fs::create_dir_all(to).unwrap();
@@ -39,8 +65,31 @@ pub(super) fn repository(name: &str) -> PathBuf {
     let _ = fs::remove_dir_all(&root);
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/H-typescript");
     copy(&fixture, &root);
-    fs::create_dir_all(root.join(".git")).unwrap();
-    fs::write(root.join(".git/HEAD"), format!("{HEAD}\n")).unwrap();
+    for args in [
+        vec!["init", "-q"],
+        vec!["add", "."],
+        vec![
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-qm",
+            "fixture",
+        ],
+    ] {
+        let git = if cfg!(windows) {
+            "C:/Program Files/Git/cmd/git.exe"
+        } else {
+            "/usr/bin/git"
+        };
+        assert!(std::process::Command::new(git)
+            .args(args)
+            .current_dir(&root)
+            .status()
+            .unwrap()
+            .success());
+    }
     fs::canonicalize(root).unwrap()
 }
 
@@ -49,8 +98,6 @@ pub(super) fn request(root: &Path) -> serde_json::Value {
         "protocol": "archkeel-core-scan-1",
         "root": root.to_str().unwrap(),
         "config": "archkeel.toml",
-        "git_head": HEAD,
-        "dirty": false,
     })
 }
 

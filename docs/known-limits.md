@@ -6,15 +6,52 @@ Main supports Rust and TypeScript projects only during the native-core change (A
 Python and Dart projects are not supported in this version; use archkeel 4.0.1.
 Unsupported profiles give exit 2 before collection, including saved facts and baseline operations.
 The Rust Python and Dart collectors remain in development. Their replies must pass the store before support returns.
-TypeScript needs a native binary. There is no Python fallback.
+The Rust core is the only decision path (AD-432). There is no Python fallback.
 Saved results do not carry host verification; dependency scope proofs replay as UNKNOWN with `dependency_scope_runtime_unverified`.
 Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD have no shipped binary.
 The colocated digest detects file changes. It does not protect against an attacker with install-write access.
 Python and Dart descriptions below apply to 4.0.1, not main.
+Sections that name `check`, `explore`, baselines or the Python engine describe the engine before AD-432.
+
+## The core path on main
+
+- No package carries the core binary. An installed package refuses each run with
+  `core_binary_not_found`, exit 2. Run `main` from a source checkout after `make core`. A release
+  from `main` is closed until each wheel carries the core (`tools/release_core.py`).
+- `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give the typed refusal
+  `not_on_this_development_line`, exit 2. HTML reports, `architecture.json`, saved and focused
+  reports, baselines, amendments and `--write-graph` are refused by option name.
+- A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`. The run exits 2.
+- A collection gap makes each rule UNKNOWN whose reading it can change. A manifest edge that the core
+  proved can give a `requires` FAIL beside such a gap.
+- A contract with `inside` mounts is refused: "collect: unsupported: inside contracts".
+- Source that nests deeper than the parse work limit is the typed refusal `core_error` with `parse_work_limit`.
+- A `collector_argv` in `archkeel.toml` is refused. The core starts only its own collectors.
+- The survey refuses a root with more than 1 GiB of file bytes or more than 100,000 entries, by name.
+  Below a directory with a `CACHEDIR.TAG` file that starts with the standard signature, the survey
+  counts the depth but not the file bytes, and it counts the entries against a separate limit of
+  1,000,000. So Cargo `target/` output does not use the byte limit or the entry limit of the source.
+  A root with more than 1,000,000 entries below such directories is refused by name.
+  A tool that writes build output without this file gets no exclusion.
+- The exclusion selects no source. A Rust module that a `#[path]` attribute places below `target/` or
+  below another tagged directory gives UNKNOWN, exit 2, with "impossible collection coverage counts".
+  An `include!` of a generated file is a `collection_gap`. A TypeScript source below a tagged directory
+  is still collected.
+- The shell trusts the rule rows of the core binary that it located. It checks the root, the commit,
+  the dirty state, the configuration and the contract bytes of the frame against its request.
+- ArchKeel checks only its Rust source in `native/` with the core: 63 rules PASS, 1 FAIL, 19 UNKNOWN,
+  pinned in `native/expected-gaps.json`. The Python shell and the tools have no architecture contract.
 
 Archkeel observes one static snapshot, not runtime behavior, data flow, performance
 or responsibility fulfillment. A rationale proves recorded intent, not truth.
 Determinism is measured for a machine/runtime, not across every platform.
+
+## Git execution of the core path (F4; slice 5)
+
+The core path uses fixed system Git, but `git status` still reads the scanned repository's `.git/config`.
+A configured `filter.<x>.clean` can execute a command during status. Do not scan untrusted Git configuration.
+Disabling repository-configured execution is deferred to slice 5; the fixed executable does not prevent it.
+See [AD-422](architecture/decisions/ad-422-core-only-validation-renders-the-scan-frame.md).
 
 ## Explore without a contract
 
@@ -122,7 +159,7 @@ fresh evidence. Match the analyzed project's Python runtime to avoid `runtime_mi
 ## A facade type position is not always decidable
 
 Supported annotation and re-export forms are defined by
-[boundary tests](../tests/test_boundary_types_facades.py) and [rules](rules.md).
+[boundary tests](https://github.com/rapiddweller/archkeel/blob/4.0.1/tests/test_boundary_types_facades.py) and [rules](rules.md).
 Unproved routes, missing annotations, ambiguous bindings and unsupported shapes
 remain UNKNOWN. An uncertain export cannot hide another private-type violation.
 A name that a class-body statement binds at any place makes its class annotations UNKNOWN on
@@ -442,7 +479,7 @@ methods of `Path` by name), a macro such as `eprintln!` or `include_str!`, or an
 
 ## The Rust core
 
-The Rust core (`archkeel-core`, [AD-378](architecture/decisions/ad-378-a-rule-passes-only-with-the-scope-proof-of-its-own-model.md)) runs in the dual run and, with `--native-core` (off by default, [AD-390](architecture/decisions/ad-390-a-user-run-takes-its-verdict-from-the-core-when-the-core-decides-every-rule.md)), in `report` and `check`. Its scope proof is stricter than Python in these cases, each a named gap, never a PASS:
+The Rust core (`archkeel-core`, [AD-378](architecture/decisions/ad-378-a-rule-passes-only-with-the-scope-proof-of-its-own-model.md)) decides `validate` and `report` on main (AD-432). The comparisons with "Python" below are with the deleted Python engine; they stay as the record of what the core proves differently. Its scope proof is stricter than Python in these cases, each a named gap, never a PASS:
 
 - A gap between two modules that the contract allows: Python drops it for the Rust profile only. The core keeps it for each rule whose reading it can change (UNKNOWN), for example a whole-component side of a `forbidden_dependency` rule that the drop rule does not see. For another profile both engines keep the gap ([AD-384](architecture/decisions/ad-384-the-core-decides-the-cycle-rules-and-scopes-each-pair-gap-to-the-rules-it-can-change.md), [AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
 - `interface_boundary` imports need a known binding and a witnessed publication route ([AD-428](architecture/decisions/ad-428-the-interface-import-verdict-needs-a-known-binding-and-publication-proof.md)). Direct witnessed names and known static module objects can pass. Unread bindings, cross-module publication routes and incomplete publication surfaces remain named gaps. The TypeScript corpus has 12 UNKNOWN rows where Python gives PASS; both engines reject the other interface rule. Public-interface lifecycle validation remains outside this port until D2.

@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 """AD-343: the replies of a source collector are frozen as golden data before its code is deleted.
 
-Consumer: the recorder (`make golden-record`) and each phase that deletes a Python collector.
-Set `ARCHKEEL_GOLDEN_PRODUCER=native` to compare the native binary instead of the Python collector.
+Consumer: the recorder (`make golden-record`) and each change of the native collector. The Python
+collectors are deleted, so `native` is the only producer.
 """
 
 from __future__ import annotations
@@ -312,7 +312,7 @@ def test_the_native_producer_reads_a_compressed_reply(tmp_path: Path) -> None:
     fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
     assert golden_producers.producer("native", fake)(root) == expected
     with pytest.raises(ValueError, match="unsupported golden producer"):
-        golden_producers.producer("python")
+        golden_producers.producer("python", fake)
 
 
 def test_a_full_golden_file_is_canonical_gzip() -> None:

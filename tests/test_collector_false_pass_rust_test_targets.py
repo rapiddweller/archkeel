@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """#880: the Rust collector reads test targets and the macros of function bodies, and hides no edge.
 
-Consumer: the host (`run_report`). A forbidden edge in an integration test, a bench or an example
+Consumer: `archkeel validate`. A forbidden edge in an integration test, a bench or an example
 is FAIL, or the request leaves the target out and says so. A forbidden path in a macro of a
 function body is FAIL. A call that sees two macros of one name is never PASS.
 """
@@ -14,7 +14,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from rust_repository import CRATE_RULES, repository, rule, statuses, validate
+from rust_repository import CRATE_RULES, claims, repository, rule, statuses, validate
 
 USE_BASE = "use base_crate::make;\n"
 NO_BASE = "NO-TEST-TO-BASE"
@@ -52,7 +52,7 @@ def _exclude_tests(root: Path) -> None:
 
 @pytest.mark.parametrize("path", TEST_TARGETS.values(), ids=TEST_TARGETS.keys())
 def test_a_forbidden_edge_in_a_test_target_is_fail(
-    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str], path: str
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], path: str
 ) -> None:
     forbidden = rule(
         NO_BASE,
@@ -61,20 +61,17 @@ def test_a_forbidden_edge_in_a_test_target_is_fail(
         target="native.base_crate",
         include_type_checking=True,
     )
-    root = repository(tmp_path, rust_binary, _files(path), rules=(*CRATE_RULES, forbidden))
+    root = repository(tmp_path, core_binary, _files(path), rules=(*CRATE_RULES, forbidden))
     result = validate(root, capsys)
 
-    assert statuses(result).get(NO_BASE) == "FAIL", result["diagnostics"]
-    reasons = [
-        failure["data"].get("reason", failure["title"])
-        for failure in result["coverage"]["failures"]
-    ]
+    assert statuses(result).get(NO_BASE) == "FAIL", claims(result)
+    reasons = [gap["reason"] for gap in result["frame"]["collection_gaps"]]
     assert not [reason for reason in reasons if "no module tree" in reason], reasons
 
 
 @pytest.mark.parametrize("path", TEST_TARGETS.values(), ids=TEST_TARGETS.keys())
 def test_a_request_that_excludes_tests_leaves_a_test_target_out_without_a_gap(
-    tmp_path: Path, rust_binary: Path, capsys: pytest.CaptureFixture[str], path: str
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], path: str
 ) -> None:
     forbidden = rule(
         NO_BASE,
@@ -83,14 +80,14 @@ def test_a_request_that_excludes_tests_leaves_a_test_target_out_without_a_gap(
         target="native.base_crate",
         include_type_checking=True,
     )
-    root = repository(tmp_path, rust_binary, _files(path), rules=(*CRATE_RULES, forbidden))
+    root = repository(tmp_path, core_binary, _files(path), rules=(*CRATE_RULES, forbidden))
     _exclude_tests(root)
     result = validate(root, capsys)
 
-    # The rule names a module that the request left out: the host refuses it, never PASS.
-    assert statuses(result).get(NO_BASE) is None
-    assert result["diagnostics"][0]["kind"] == "rule_without_subjects", result["diagnostics"]
-    reasons = [f["data"].get("reason", f["title"]) for f in result["coverage"]["failures"]]
+    # The rule names a module that the request left out: the core decides nothing, never PASS.
+    assert set(statuses(result).values()) == {"UNKNOWN"}
+    assert f"{NO_BASE}: incomplete scope: the rule {NO_BASE} selects no module" in claims(result)
+    reasons = [gap["reason"] for gap in result["frame"]["collection_gaps"]]
     assert not [reason for reason in reasons if "no module tree" in reason], reasons
 
 
@@ -148,7 +145,7 @@ MACRO_PROBES = {
 @pytest.mark.parametrize(("files", "expected"), MACRO_PROBES.values(), ids=MACRO_PROBES.keys())
 def test_a_macro_of_a_function_body_never_hides_its_path(
     tmp_path: Path,
-    rust_binary: Path,
+    core_binary: Path,
     capsys: pytest.CaptureFixture[str],
     files: dict[str, str],
     expected: str,
@@ -162,9 +159,9 @@ def test_a_macro_of_a_function_body_never_hides_its_path(
         target="native.app.b",
         include_type_checking=True,
     )
-    root = repository(tmp_path, rust_binary, sources, rules=(*CRATE_RULES, forbidden))
+    root = repository(tmp_path, core_binary, sources, rules=(*CRATE_RULES, forbidden))
     result = validate(root, capsys)
 
     status = statuses(result).get(NO_B)
-    assert status != "PASS", result["diagnostics"]
-    assert (status == expected) if expected else result["declared_rules"] in {"FAIL", "UNKNOWN"}
+    assert status != "PASS", claims(result)
+    assert (status == expected) if expected else result["status"] in {"FAIL", "UNKNOWN"}

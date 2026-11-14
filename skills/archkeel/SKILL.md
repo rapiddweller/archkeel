@@ -11,9 +11,13 @@ PASS, FAIL and UNKNOWN. Rules live in `architecture-contract.json` and its expli
 contracts; nothing is enforced by convention alone.
 
 Python and Dart projects are not supported in this version; use archkeel 4.0.1.
+The Rust core decides `validate` and `report`, and no other command runs in this version.
+`check`, `explore`, `init`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
+Release 4.0.1 has `check` and `init`; no release has the other five commands.
+A refusal is not a result: do not report PASS after one.
 Unsupported profiles give exit 2 before collection, including saved facts and baseline commands.
 Do not report PASS for a supported subset of an unsupported project.
-In a source checkout, run `make typescript-collector`. There is no Python TypeScript fallback.
+In a source checkout, run `make core` to build the core binary. There is no Python fallback.
 
 ## First run on a codebase
 

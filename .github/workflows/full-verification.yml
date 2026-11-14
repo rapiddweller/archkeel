@@ -48,11 +48,11 @@ jobs:
       - name: Check architecture, lint, types, build, installed CLI and generated assets
         run: make ci-core-check SKIP_TESTS=1
 
+      - name: Check the Rust of native/ with the core against its pinned result
+        run: make self-validate-native
+
       - name: Check documentation diagrams
         run: make mermaid
-
-      - name: Check the rendered report in Chromium
-        run: make report-browser-tests
 
       - name: Upload latest report evidence
         if: always()
@@ -62,53 +62,6 @@ jobs:
           path: |
             test-artifacts/pytest/*.xml
             test-artifacts/validation-native/result.json
-          if-no-files-found: warn
-          retention-days: 1
-
-      - name: Upload the current report for Pages
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: current-report
-          path: |
-            test-artifacts/validation-native/architecture.json
-            test-artifacts/validation-native/architecture.report.html
-            test-artifacts/validation-native/architecture.detail*.html
-          if-no-files-found: error
-          retention-days: 1
-
-  demos:
-    name: Demos
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install uv and Python
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          enable-cache: true
-          python-version: "3.11.12"
-          version: "0.12.13"
-
-      - name: Install locked dependencies
-        run: uv sync --locked
-
-      - name: Run every gallery demo and check its expected result
-        run: make demos
-
-      # AD-360: the recorded oracles must equal the Python engine; it builds the Rust collector.
-      - name: Compare the dual-run oracles with the Python engine
-        run: make dual-run
-
-      - name: Upload the demo gallery for Pages
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: report-gallery
-          path: test-artifacts/pages/
           if-no-files-found: warn
           retention-days: 1
 
@@ -122,16 +75,9 @@ jobs:
       matrix:
         # One entry for each area in tests/areas.py.
         area:
-          - demo catalog
-          - boundary types
-          - Python analysis
-          - CLI and Studio
-          - contracts and dependency rules
-          - typed guards
-          - type and wire guards
-          - native TypeScript collector
+          - CLI and core
+          - native collectors
           - collectors
-          - call and catalog rules
           - reports
           - self-check and CI
     steps:
@@ -176,46 +122,12 @@ jobs:
           if-no-files-found: warn
           retention-days: 1
 
-  collector-safety-windows:
-    name: "Windows: collector safety"
-    runs-on: windows-2025
-    # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
-    timeout-minutes: 40
-    env:
-      UV_PYTHON: "3.11.12"
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # Full-history fetches create unrelated refs that Windows cannot store.
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Install Make
-        run: choco install make --version=4.4.1 --yes --no-progress
-
-      - name: Install uv and Python
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          enable-cache: true
-          python-version: "3.11.12"
-          version: "0.12.13"
-
-      - name: Install supported runtimes and locked package
-        run: |
-          uv python install 3.11.12 3.12.10
-          uv sync --locked --python 3.11.12
-
-      - name: Verify native collector safety
-        shell: bash
-        run: make collector-safety SHELL=bash
-
-  language-collectors:
-    name: "Linux: source collectors"
+  shell-compat:
+    name: "Linux: shell and package on Python 3.12"
     runs-on: ubuntu-24.04
     # A hang guard, not a budget (AD-341): about twice the slowest measured job. A slow job never fails a PR.
     timeout-minutes: 40
-    # Python 3.11 is covered by the full Linux suite; repeat compatibility on 3.12 only.
+    # Python 3.11 is covered by the full Linux suite; repeat the shell tests on 3.12 only.
     env:
       UV_PYTHON: "3.12.10"
     steps:
@@ -233,9 +145,9 @@ jobs:
       - name: Install locked package
         run: uv sync --locked --python 3.12.10
 
-      - name: Verify TypeScript collector compatibility
+      - name: Verify the shell of the core on this Python
         shell: bash
-        run: make typescript-native TEST_WORKERS=4 SHELL=bash
+        run: make shell-compat TEST_WORKERS=4 SHELL=bash
 
       - name: Verify package build and installed CLI
         shell: bash
@@ -384,9 +296,7 @@ jobs:
     needs:
       - full-suite-and-reports
       - tests
-      - demos
-      - collector-safety-windows
-      - language-collectors
+      - shell-compat
       - native-wheel-linux
       - native-wheel-macos
       - native-wheel-windows

@@ -46,9 +46,9 @@ completion retain their existing limits.
 Contract 2.1 retains its original bytes and digest; UML requires 2.2. Graph/Target
 format 1.1.0 adds enum literals; 1.0.0 remains readable with its original vocabulary.
 [Shared dataclasses](../../src/archkeel/ir/architecture_graph.py) own the format.
-`make architecture-graph-schema` regenerates its schemas.
+The dataclasses, the schema generator and the demo targets are deleted with the Python engine
+([AD-432](decisions/ad-432-the-rust-core-is-the-only-decision-path.md)); the committed schemas in `schema/` stay.
 
-Replay native-language examples with `make demo-uml OUTPUT=<fresh-directory>`.
 [Demo coverage #339](https://github.com/rapiddweller/archkeel/issues/339) and
 [independent inner Targets #340](https://github.com/rapiddweller/archkeel/issues/340)
 track remaining work. See [adapter ownership](language-adapter-target.md) and

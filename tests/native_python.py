@@ -5,17 +5,14 @@
 
 import json
 import subprocess
+import sysconfig
 from pathlib import Path
 from typing import Any
 
-from archkeel.analyzer.interpreter import interpreter
-from archkeel.ir.protocol import CollectionError
-
 
 def _minor() -> int:
-    block = interpreter()
-    assert not isinstance(block, CollectionError), block
-    return int(block.version.split(".")[1])
+    """The minor version of the interpreter that runs the tests."""
+    return int(sysconfig.get_python_version().split(".")[1])
 
 
 def _native(binary: Path, root: Path, rels: list[str]) -> dict[str, Any]:

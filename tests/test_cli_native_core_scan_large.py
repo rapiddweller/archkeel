@@ -10,12 +10,10 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from test_cli_native_core_scan import SUFFIX, built
-from test_cli_native_core_scan_work import ROOT, input_measurement, project, release_core
+from core_support import ROOT, SUFFIX
+from test_cli_native_core_scan_work import input_measurement, project
 
 from archkeel.cli import native_scan
-
-__all__ = ["built", "release_core"]
 
 
 def complete_contract(root: Path) -> None:

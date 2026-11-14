@@ -1,0 +1,17 @@
+{
+  "name": "Studio UI",
+  "rules": {
+    "UI-ASSIGNMENT": "PASS",
+    "UI-EXTERNAL-COMPLETE": "PASS",
+    "UI-NETWORK-IN-CLIENT": "PASS",
+    "UI-NO-CYCLES": "PASS",
+    "UI-PREACT-ONLY": "PASS",
+    "UI-REQUIRES-COMPLETE": "UNKNOWN",
+    "UI-VIEWS-ISOLATED": "PASS"
+  },
+  "unknown": {
+    "UI-REQUIRES-COMPLETE": "undecided"
+  },
+  "gaps": [],
+  "violations": []
+}

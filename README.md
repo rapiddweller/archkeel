@@ -1,9 +1,18 @@
 # ArchKeel
 
-> Main supports **Rust and TypeScript projects only** during the native-core change.
-> Python and Dart projects are not supported in this version; use archkeel 4.0.1.
-> These profiles give exit 2, including saved facts and baseline commands. No partial scan gives PASS.
-> TypeScript needs the native binary. There is no Python fallback.
+> **State of `main` (issue [#880](https://github.com/rapiddweller/archkeel/issues/880)).**
+> The Rust core `archkeel-core` is the only engine. The Python engine is deleted.
+>
+> - `archkeel validate` and `archkeel report` run through the core, as text or JSON.
+>   PASS exits 0, FAIL exits 1, UNKNOWN and a refusal exit 2.
+> - Only **Rust and TypeScript projects** are supported. Python and Dart profiles give exit 2.
+> - `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
+>   HTML reports, `architecture.json`, baselines and focused reports are not available.
+> - No package carries the core binary yet. Run `main` from a source checkout after `make core`.
+>   An installed package refuses each run with `core_binary_not_found`. There is no Python fallback.
+> - Sections with the mark **Not on `main`** describe the engine before this change.
+>   Release 4.0.1 has `check`, `init` and full reports for Python, Dart and TypeScript projects.
+>   No release has Studio or `explore`.
 
 **See what your code really does. Check it against what you decided.**
 
@@ -44,7 +53,7 @@ into one you choose:
 ```
 
 1. **Understand and show.** Static analysis resolves imports and calls. Studio and the Explorer
-   draw the as-built architecture: components, hubs, cycles, with a guided tour.
+   draw the as-built architecture: components, hubs, cycles, with a guided tour (not on `main`).
 2. **Measure.** Each fact keeps its evidence: the record and the source line. What the analysis
    cannot resolve is counted, not hidden.
 3. **Challenge.** You and your agent discuss the weak spots: violations, cycles, components that
@@ -79,7 +88,7 @@ first, then declare what you want to keep.
 <tr>
 <td width="50%" valign="top">
 
-**🗺️ Studio, a local web app**<br>
+**🗺️ Studio, a local web app** (not on `main`)<br>
 `archkeel studio` serves the map on `127.0.0.1` with a token for each run. It writes nothing
 into your repository and works offline.
 
@@ -117,8 +126,8 @@ A rule passes only with complete evidence. A gap in the analysis shows as `UNKNO
 <td valign="top">
 
 **🤖 Made for coding agents**<br>
-A skill for Claude Code and Codex, focused JSON reports, and a check that compares a submitted
-change with its published expectation.
+A skill for Claude Code and Codex, and JSON results with a typed status. Focused reports and the
+check of a submitted change are not on `main`.
 
 </td>
 </tr>
@@ -133,8 +142,16 @@ uv tool install git+https://github.com/rapiddweller/archkeel
 archkeel --version
 ```
 
-This installs the current `main`, which includes Studio. The release on PyPI (`uv tool install archkeel`)
-does not have `archkeel studio` yet. Run it once without installing: `uvx --from git+https://github.com/rapiddweller/archkeel archkeel studio`.
+This installs the current `main` without the core binary, so each run refuses with exit 2.
+`uv tool install archkeel` installs release 4.0.1 from PyPI, which has the Python engine.
+To run `main`, use a source checkout:
+
+```bash
+git clone https://github.com/rapiddweller/archkeel.git
+cd archkeel
+make core                                         # build archkeel-core with cargo
+uv run archkeel validate --root /path/to/project  # the project needs archkeel.toml and a contract
+```
 
 ### Claude Code
 
@@ -155,41 +172,23 @@ The plugin needs the CLI above; it adds the agent skill.
 
 ## Quick start
 
-1. See the code as it is. No contract needed:
+```bash
+archkeel validate        # check the contract: exit 0, 1 or 2
+archkeel report --text   # the same frame of the core as a report
+```
 
-   ```bash
-   archkeel studio          # opens the map in your browser
-   archkeel explore         # the same observation as files, no browser
-   ```
-
-2. Ask your coding agent to draft the boundaries:
-
-   ```text
-   Set up ArchKeel for this repository. Read the architecture documents,
-   propose the boundaries, and let me decide which dependencies are allowed.
-   ```
-
-   `init` drafts components and interfaces; you decide the target architecture. Existing imports
-   are evidence, not permission. You can delegate decisions to the agent; its authorship is recorded separately.
-
-3. Keep it green:
-
-   ```bash
-   archkeel validate        # check the contract
-   archkeel report          # write architecture.json and the offline HTML report
-   ```
+`validate` and `report` need an `archkeel.toml` with `language = "rust"` or `"typescript"` and a
+contract. `init`, which drafts a contract, is in release 4.0.1 and not on `main`.
 
 Start with the [first-hour guide](docs/getting-started.md) or the [onboarding guide](docs/onboarding.md).
-Read the verdicts: a report can exit `0` with failed or undecided rules. `validate` checks the
-contract; `check` also compares a submitted change with its published expectation. Use
-`archkeel <command> --help` for command options. Validation diagnoses absent or placeholder-only
-responsibilities on components marked `decided_by: "architect"`; substantive prose is not proof that
-the stated responsibility is correct. See the [exact marker syntax and exit behavior](docs/reference.md#exit-codes).
+Both guides describe the engine before this change. Read the verdicts: on `main`, `report` has
+the exit codes of `validate`. `archkeel --help` lists the commands and options.
+See the [exit codes](docs/reference.md#exit-codes).
 
 ## Where Studio is going
 
 > **Target picture.** These images are design targets for ArchKeel Studio, not shipped features.
-> Studio today serves the map and the Explorer ([AD-290](docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md)).
+> Studio is not on `main` ([AD-432](docs/architecture/decisions/ad-432-the-rust-core-is-the-only-decision-path.md)); its design is in ([AD-290](docs/architecture/decisions/ad-290-archkeel-studio-is-a-local-web-application.md)).
 > The work is tracked in [#822](https://github.com/rapiddweller/archkeel/issues/822).
 
 The goal: an architect opens Studio and understands what the agent built. Every fact is measured.
@@ -219,15 +218,17 @@ The agent writes only the words, and ArchKeel checks each claim.
   <img src="docs/assets/archkeel-self-check.png" alt="ArchKeel's report of its own code: 126 rules PASS, 0 UNKNOWN, findings with source lines, and the Target view with component responsibilities" width="1000">
 </p>
 
-ArchKeel checks itself: 126 rules `PASS`, 0 `UNKNOWN`, every finding with its source line, and the
-declared Target with the responsibility of each component.
+**Not on `main`.** This is the HTML report of the engine before this change, on its own Python
+code: 126 rules `PASS`, 0 `UNKNOWN`, every finding with its source line, and the declared Target
+with the responsibility of each component. On `main`, ArchKeel checks its Rust code with the core.
 [Open the live report](https://rapiddweller.github.io/archkeel/architecture.report.html?content=components&view=target&theme=dark).
 
 <p>
   <img src="docs/assets/archkeel-compass-target.png" alt="ArchQ Explorer embedded in the report: Compass Flutter Target with components, responsibilities and declared dependencies" width="1000">
 </p>
 
-The static report is still the artifact for CI and Pages: one offline file, the same Explorer.
+The static report was the artifact for CI and Pages: one offline file, the same Explorer.
+The published pages are the last ones; `main` does not publish new ones.
 [Explore Compass Flutter's declared architecture](https://rapiddweller.github.io/archkeel/demos/uml-compass-project/architecture.report.html?content=components&view=target&theme=dark),
 see [ArchKeel's current Main report](https://rapiddweller.github.io/archkeel/), or browse the
 [Python, Dart and TypeScript demo reports](https://rapiddweller.github.io/archkeel/demos/) with UML PASS, FAIL and UNKNOWN examples.
@@ -239,6 +240,8 @@ The gallery leads with three complete source projects: [Compass booking](https:/
 <p>
   <img src="docs/assets/archkeel-python-module-target.png" alt="ArchQ Explorer in fullscreen: Python RealWorld Target with nested article, comment and tag modules" width="1000">
 </p>
+
+**Not on `main`:** the HTML report, the Explorer and the focused reports (`--only`, `--input`).
 
 Fullscreen Explorer: drill down to Python RealWorld's article, comment and tag modules.
 [Explore this Target](https://rapiddweller.github.io/archkeel/demos/uml-python-realworld-project/architecture.report.html?scope=Product%20and%20wire%20contracts%3Acontracts-publishing&content=modules&view=target&theme=dark).
@@ -284,42 +287,9 @@ schema 9. Current Python observations require an explicit call-binding proof or 
 for every call. See the [compatibility policy](docs/reference.md#compatibility)
 before upgrading collectors or saved-report consumers.
 
-## Start with a forbidden import
-
-The runnable [Shop forbidden-pair fixture](fixtures/demo_catalog_dependencies.py) adds
-`shop.render.text -> shop.store` at `shop/render/text.py:9`. It reports
-`DEP-RENDER-NO-STORE`, `rule.violated` and `closed_world.observed_forbidden`:
-
-```bash
-make demo-architecture VARIANT=class-a-forbidden-dependency-pair OUTPUT=build/forbidden.json
-```
-
-The replay writes its report, then exits 2 because validation cannot accept the observed
-whole-pair ban. Remove the crossing or revisit the declared boundary with its owner; do not
-allow the forbidden pair just to make validation pass.
-
-## Catch changes that finding diffs miss
-
-The runnable [call coverage regression fixture](fixtures/reproduce_milestone1.py) shows a
-change that adds no forbidden import or cycle but makes a call harder to resolve:
-
-```diff
- def run(key: str) -> int:
--    return first() + second()
-+    handlers = {"first": first, "second": second}
-+    return handlers[key]()
-```
-
-`make demo` runs this fixture. Resolved calls drop from 2 of 2 to 0 of 1 while new finding
-fingerprints stay at zero; ArchKeel rejects the candidate because unresolved calls increase
-from 0 to 1.
-
-`check` compares the accepted and candidate commits, checks the contract, and verifies the
-candidate against an expectation published before submission. Publication order needs trusted
-host records. A local replay checks supplied records without authenticating them.
-The [reference](docs/reference.md) explains the commit protocol and its limits.
-
 ## Keep a target the code has not reached
+
+**Not on `main`:** baselines are in release 4.0.1. `main` refuses these options with exit 2.
 
 Record existing violations, review the file, then reject new ones in CI:
 
@@ -332,26 +302,13 @@ Known violations remain `FAIL`. After fixing them, rewrite the baseline in the s
 New or increased violations require explicit `--accept-new`; do not use it to hide a regression.
 See the [target-first guide](docs/target-first.md) for the full workflow.
 
-## Try a reproducible example
-
-```bash
-git clone https://github.com/rapiddweller/archkeel.git
-cd archkeel
-make demo
-make demo-onboarding
-```
-
-`make demo` rejects a coverage regression and a late expectation, then shows a passing candidate.
-`make demo-onboarding` replays setup on a two-level shop using committed decision fixtures;
-it performs no live approvals. More cases are in the [demo catalog](docs/architecture-demo.md).
-
 ## FAQ
 
 **Does ArchKeel use an LLM to check my code?** No. Checks are deterministic static analysis and run
 locally. The agent in your harness explains and proposes; its text is a claim, never a proof.
 
-**Does Studio change my repository?** No. It runs `explore` into a private cache folder and deletes
-the folder when it stops. Only `init` writes a contract, and only when you ask for it.
+**Does ArchKeel change my repository?** `validate` and `report` write nothing. `skill install`
+writes one skill file.
 
 **Does a clean graph mean a good design?** No. `PASS` means the required rules have complete evidence
 and no decided violation. It does not prove runtime behavior or the quality of a design decision.
@@ -374,25 +331,19 @@ Read the [docs](docs/README.md).
 
 ## Development
 
-The shell needs Python. The Rust and TypeScript collectors need the shipped native binaries.
-In a source checkout, build TypeScript with `make typescript-collector`.
-Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD have no shipped TypeScript binary.
-Without a native binary, scanning fails closed with exit 2. There is no Python fallback.
+The shell needs Python 3.11+. The core needs a Rust toolchain: `make core` builds
+`native/target/release/archkeel-core`, and the shell finds it in the checkout.
+Without the core binary, each run refuses with exit 2. There is no Python fallback.
 
 ```bash
-make check              # lint, types, logic tests
-make gate               # also build and isolated installs
-make self-validate-native # Rust self-check with pinned gaps
-make report-browser-tests # Chromium tests of the rendered report
+make check                # lint, types, browser code check, tests
+make gate                 # also build and isolated installs
+make native-check         # Rust format, lints, tests, and the self-check
+make self-validate-native # the core checks native/ against its pinned result
 ```
 
-PR CI checks report data and JavaScript logic without Chromium. Full verification also runs
-the Chromium tests: findings, keyboard navigation, unsafe-content escaping, the first screen and
-reaching a component.
-Use the Nightly gallery for manual visual review.
-
-ArchKeel checks its Rust source with `make self-validate-native`.
-The Python self-check stops until the native Python collector and store support its replies (AD-430).
+ArchKeel checks its Rust source with `make self-validate-native`: 63 rules PASS, 1 FAIL and
+19 UNKNOWN, each pinned in `native/expected-gaps.json` with its cause.
 See [CONTRIBUTING.md](https://github.com/rapiddweller/archkeel/blob/main/CONTRIBUTING.md).
 
 MIT © 2026 Rapiddweller Asia Co., Ltd. Maintained by [Alexander Kell](https://github.com/ake2l).

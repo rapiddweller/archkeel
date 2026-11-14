@@ -3,7 +3,8 @@
 The Rust workspace in `native/` holds the collectors that read source for Archkeel.
 Archkeel checks this workspace with its own Rust collector and the contract in
 `native/architecture-contract.json` ([AD-335](decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md)).
-Run `make self-validate-native` to check it.
+Run `make self-validate-native` to check it. The target runs the default `archkeel validate`,
+which the core decides ([AD-432](decisions/ad-432-the-rust-core-is-the-only-decision-path.md)).
 
 The contract has two levels. The crates are the base (`facts`, `wire`, `snapshot`, `store`, `contract`, `build`, `pytext`) and the core after the collector (`model`, `report`, `core`, AD-359). Each
 collector crate is split into components by responsibility, and an arrow points down only:
@@ -89,8 +90,13 @@ A known occurrence can FAIL with incomplete coverage. Absence needs the existing
 a matching receipt and a complete construct capability. A partial capability remains UNKNOWN.
 The store still refuses Python replies; recorded-input unit tests do not change that boundary.
 
-The Rust model and evaluator (WP6 of #880) must give the verdicts and rows of the Python engine.
-`make dual-run` compares a candidate engine with the recorded oracles in `tests/dual_run/`
+> **History.** The Python engine, `make dual-run` and the harness `tools/dual_run*.py` are deleted
+> ([AD-432](decisions/ad-432-the-rust-core-is-the-only-decision-path.md)). The text about them below is the record of how the
+> core was compared with that engine. The subcommand `archkeel-core dual-run` and
+> `tools/dual_run_schema.json` stay, because the Rust tests use them.
+
+The Rust model and evaluator (WP6 of #880) had to give the verdicts and rows of the Python engine.
+`make dual-run` compared a candidate engine with the recorded oracles in `tests/dual_run/`
 ([AD-360](decisions/ad-360-a-second-engine-is-compared-with-recorded-oracles-per-section-and-rule-family.md)).
 A slice names what it owns:
 

@@ -1,6 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+# ruff: noqa: E402
 """The native import survey equals the survey of the Python collector (AD-334, slice 1c-2a).
 
 The oracle is the unmodified `collect.collect` in the phase `imports`, encoded as the facts of
@@ -20,9 +21,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from first_difference import same
-from python_refusal_probes import compiler_checked_collect
-from test_collector_native_python_scope import _FIXTURES
+from oracle_support import ORACLE_UNAVAILABLE
+
+# The comparison with the Python collector is suspended, as in the other oracle files.
+pytest.skip(ORACLE_UNAVAILABLE, allow_module_level=True)
 
 from archkeel.analyzer.interpreter import interpreter, python_request
 from archkeel.cli.config import load_config
@@ -36,6 +38,9 @@ from archkeel.ir.protocol import (
     SnapshotInput,
     SourceScope,
 )
+from first_difference import same
+from python_refusal_probes import compiler_checked_collect
+from test_collector_native_python_scope import _FIXTURES
 
 ROOT = Path(__file__).parents[1]
 

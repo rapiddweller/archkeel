@@ -1,7 +1,9 @@
 # Decision archive
 
 Internal reasons and proof references. Later records can amend earlier ones.
-For current behavior, use the [contract](../../../architecture-contract.json), source and tests.
+For current behavior, use the [contract of `native/`](../../../native/architecture-contract.json), source and tests.
+Records before AD-432 can link to source and tests of the Python engine. AD-432 deleted these files, so
+such a link has no target on `main`. The files are in the Git history before that change (commit `c838a00cb`).
 
 | Decision | Title |
 |---|---|
@@ -400,5 +402,7 @@ For current behavior, use the [contract](../../../architecture-contract.json), s
 | AD-408 | [The core decides forbidden constructs from the original facts](ad-408-the-core-decides-forbidden-constructs-from-the-original-facts.md) |
 | AD-416 | [The core names a run without decisions and the product keeps its result](ad-416-the-core-names-an-empty-contract-and-the-product-keeps-its-result.md) |
 | AD-418 | [A dropped pair gap holds the rules it can change, and a scoped requires needs its runtime](ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md) |
+| AD-422 | [Core-only validation](ad-422-core-only-validation-renders-the-scan-frame.md) |
 | AD-424 | [Known registry derives need identity and helper proofs](ad-424-known-registry-derives-need-identity-and-helper-proofs.md) |
 | AD-426 | [The linked collector states profile limits before the scope proof](ad-426-the-linked-collector-states-profile-limits-before-the-scope-proof.md) |
+| AD-432 | [The Rust core is the only decision path](ad-432-the-rust-core-is-the-only-decision-path.md) |

@@ -3,35 +3,17 @@
 # SPDX-License-Identifier: MIT
 """AD-335: the check of the Rust binary of a platform wheel.
 
-Consumer: `test_collector_native_wheel.py`. It runs the bundled Rust collector on a small crate,
-and runs the installed host with its default Rust collector on the same crate.
+Consumer: `test_collector_native_wheel.py`. It runs the bundled Rust collector on a small crate.
+The wheel does not carry the core yet, so the installed `archkeel validate` on the same crate must
+refuse with the typed `core_binary_not_found` and exit 2 (AD-432). It must never print a verdict.
 """
 
 from __future__ import annotations
 
 import json
-import os
 import subprocess
-import sysconfig
 import zlib
 from pathlib import Path
-
-# The installed host runs the bundled Rust binary through its default collector.
-HOST_RUN = """
-import json
-import sys
-
-from archkeel.cli.observe import observer_for
-from archkeel.ir.facts import Language
-from archkeel.ir.protocol import CollectionRequest, RustSettings, SnapshotInput, SourceScope
-
-request = CollectionRequest(
-    SnapshotInput(sys.argv[1], "a" * 40, False), SourceScope(("crates",), "shop"), RustSettings()
-)
-facts = observer_for(Language.RUST).collector.collect(request)
-print(json.dumps([type(facts).__name__, facts.adapter.name, facts.adapter.version,
-                  [item.module for item in facts.files]]))
-"""
 
 
 def check_rust_binary(tmp_path: Path, python: Path, binary: str, version: str) -> None:
@@ -57,17 +39,22 @@ def check_rust_binary(tmp_path: Path, python: Path, binary: str, version: str) -
     # The Rust binary has no test-only mode (AD-323 keeps `dump` out of the TypeScript binary).
     dumped = subprocess.run([binary, "--dump"], input=b"", capture_output=True)
     assert dumped.returncode != 0 and dumped.stdout == b""
-    host = subprocess.run(
-        [str(python), "-c", HOST_RUN, str(root)],
-        env={**os.environ, "PYTHONPATH": sysconfig.get_paths()["purelib"]},
-        capture_output=True,
-        text=True,
-        check=False,
+    (root / "architecture-contract.json").write_text(
+        '{"schema_version": "2.1.0", "components": [], "rules": []}\n'
     )
-    assert host.returncode == 0, host.stderr
-    assert json.loads(host.stdout) == [
-        "SourceFacts",
-        "archkeel-rust-imports",
-        version,
-        ["shop.demo.cargo_toml", "shop.demo"],
-    ]
+    (root / "archkeel.toml").write_text(
+        '[scan]\nlanguage = "rust"\nroots = ["crates"]\nnamespace = "shop"\n'
+        'contract = "architecture-contract.json"\n'
+    )
+    for command in ("validate", "report"):
+        host = subprocess.run(
+            [str(python), "-m", "archkeel.cli", command, "--root", str(root), "--json"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert host.returncode == 2, host.stdout + host.stderr
+        result = json.loads(host.stdout)
+        assert set(result) == {"status", "exit_code", "refusal"}, result
+        assert result["status"] == "UNKNOWN" and result["exit_code"] == 2, result
+        assert result["refusal"]["kind"] == "core_binary_not_found", result

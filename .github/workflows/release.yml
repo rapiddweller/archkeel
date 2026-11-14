@@ -15,11 +15,27 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # AD-430: native-only collection requires platform wheels at the next owner release.
-  PUBLISH_NATIVE_WHEELS: "true"
+  # AD-432: no wheel carries the core, so an installed package refuses each run. The release is
+  # closed. Only "true" opens it, and then `tools/release_core.py` must pass on the wheels.
+  PUBLISH_NATIVE_WHEELS: "false"
 
 jobs:
+  core-in-wheel:
+    name: Refuse a release while no wheel carries the core
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Stop before Full verification while the release is closed
+        run: |
+          set -euo pipefail
+          [[ "$PUBLISH_NATIVE_WHEELS" == true ]] || {
+            echo "::error::No release from this line: no wheel carries archkeel-core, so an installed package refuses each run (AD-432). Release 4.0.1 is the last release that decides."
+            exit 2
+          }
+
   verify:
+    needs: core-in-wheel
     uses: ./.github/workflows/full-verification.yml
     permissions:
       contents: read
@@ -72,6 +88,9 @@ jobs:
           published=(dist/*.whl)
           distributions=(dist/*)
           [[ ${#published[@]} -eq 6 && ${#distributions[@]} -eq 7 ]] || exit 2
+
+      - name: Refuse wheels that do not carry a core that decides
+        run: python3 -m tools.release_core dist dist/archkeel-*-py3-none-manylinux_2_17_x86_64.whl
 
       - name: Build and verify the plugin archive separately
         env:

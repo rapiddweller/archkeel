@@ -10,8 +10,6 @@ import tomllib
 from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
 
-from archkeel.ir.lock import LOCK_PATH
-
 ROOT = Path(__file__).parents[1]
 HEADER = "\n".join(
     (
@@ -56,104 +54,7 @@ SOURCES = tuple(
 LONG_FUNCTION_LINES = 80
 MAX_FILE_LINES = 500
 FILE_SIZE_BASELINE = ROOT / "tests/file_size_baseline.json"
-ALLOWED_LONG_FUNCTIONS = {
-    "src/archkeel/check/delta.py::require_comparable_runtime": (
-        "One profile boundary retains legacy Python provenance while checking explicit runtimes."
-    ),
-    "src/archkeel/check/evaluation/boundary_types.py::_direct_generic_candidate_types": (
-        "The existing generic candidate walk retains uncertain usage without claiming closure."
-    ),
-    "src/archkeel/check/evaluation/boundary_types.py::_public_api_base": (
-        "One base proof joins type, binding and member evidence before substitution."
-    ),
-    ("src/archkeel/check/declarations.py::project_rule_declaration"): (
-        "One output record is built per declared rule kind."
-    ),
-    ("src/archkeel/check/declarations.py::project_declarations"): (
-        "One output pass projects each root declaration from the same observation."
-    ),
-    ("src/archkeel/check/evaluation/evaluate.py::_evaluate_inside_contract"): (
-        "One inside evaluation keeps local declarations and their parent scope together."
-    ),
-    ("src/archkeel/check/evaluation/evaluate.py::_inside_rule_results"): (
-        "One pass gathers evaluator receipts for each inside rule."
-    ),
-    ("src/archkeel/check/evaluation/evaluate.py::evaluate_source"): (
-        "One composition pass carries source facts through evaluation and coverage."
-    ),
-    ("src/archkeel/check/evaluation/boundary_types.py::_boundary_rule_positions"): (
-        "One traversal retains direct, inherited and undecidable positions for the same rule."
-    ),
-    ("src/archkeel/check/evaluation/boundary_types.py::_boundary_type_verdict"): (
-        "One decision path preserves proven, failed and unknown type outcomes."
-    ),
-    ("src/archkeel/check/evaluation/boundary_types.py::_boundary_types_violations"): (
-        "One position pass applies the same rule and allowance policy to every facade."
-    ),
-    ("src/archkeel/check/evaluation/boundary_types.py::_scoped_facade_signature_types"): (
-        "One nested pass ties inherited types to their contract mount and publisher."
-    ),
-    ("src/archkeel/check/evaluation/boundary_types.py::facade_signature_types"): (
-        "One publication pass preserves resolved and uncertain types per facade."
-    ),
-    ("src/archkeel/check/evaluation/boundary_types.py::public_api_exposed_types"): (
-        "One type walk serves every declared public API entry."
-    ),
-    ("src/archkeel/check/evaluation/rules.py::rule_violations"): (
-        "One ordered pass retains each rule result and its evidence receipt."
-    ),
-    ("src/archkeel/check/evaluation/rules.py::_collect_rule_violations"): (
-        "One ordered composition keeps the rule families and their shared evidence together."
-    ),
-    ("src/archkeel/check/evaluation/state.py::evaluate_contexts"): (
-        "One context pass joins state facts with their exact receiver and mutation evidence."
-    ),
-    ("src/archkeel/check/observation.py::_metrics"): (
-        "One projection records the overview metrics from the same evaluated facts."
-    ),
-    ("src/archkeel/check/observation.py::assemble_observation"): (
-        "One assembly keeps coverage, declarations and evaluator results on one source snapshot."
-    ),
-    ("src/archkeel/check/onboarding.py::run_init"): (
-        "One onboarding flow observes inputs, drafts the three files and "
-        "returns its open decisions."
-    ),
-    ("src/archkeel/check/observe.py::_observe"): (
-        "One observer boundary validates request, contract, facts and "
-        "completeness before publication."
-    ),
-    ("src/archkeel/ir/facts_validation.py::validate_source_facts"): (
-        "One fail-closed validation pass checks references across all fact sections."
-    ),
-    ("src/archkeel/check/delta.py::_compare_records"): (
-        "Exact, relocated and changed stages share the unmatched record pools."
-    ),
-    ("src/archkeel/check/delta.py::build_architecture_delta"): (
-        "Shared, coverage and availability reasons are decided in one place per dimension."
-    ),
-    ("src/archkeel/check/run.py::run_check"): (
-        "Sequences authentication, git and host order, both snapshots and "
-        "evaluation; one with-block owns the snapshot lifetimes."
-    ),
-    ("src/archkeel/check/validation/__init__.py::run_validate"): (
-        "Sequences baseline, contract, observation and artifact decisions; the "
-        "branches are the validation protocol."
-    ),
-    ("src/archkeel/cli/__init__.py::build_parser"): (
-        "Declarative argparse setup, one subparser per command; help text is the length."
-    ),
-    ("src/archkeel/cli/__init__.py::main"): (
-        "Composition root; one error boundary maps every command to a result."
-    ),
-    ("src/archkeel/ir/codec_contract.py::parse_contract"): (
-        "Field lists plus one parser per kind; the duplicate-id check spans all groups."
-    ),
-    ("src/archkeel/ir/codec_delta.py::parse_delta"): (
-        "Checks the delta envelope in wire order and assembles five named part "
-        "parsers into one value."
-    ),
-    ("src/archkeel/render/html.py::render_html"): ("One template with its bindings."),
-}
+ALLOWED_LONG_FUNCTIONS: dict[str, str] = {}
 
 
 # A `git add -A` after running `archkeel report` to measure something committed `r.json`,
@@ -172,9 +73,6 @@ ROOT_FILES = frozenset(
         "Makefile",
         "README.md",
         "RELEASE_NOTES.md",
-        "architecture-baseline.json",
-        "architecture-contract.json",
-        "archkeel.toml",
         "plugin.json",
         "pyproject.toml",
         "uv.lock",
@@ -304,7 +202,7 @@ def test_file_size_limit_covers_code_and_not_data() -> None:
     assert _is_size_limited("src/archkeel/render/assets/flow.js")
     assert _is_size_limited("src/archkeel/render/assets/archkeel-report.css")
     assert _is_size_limited("src/archkeel/studio/ui/workbench.tsx")
-    assert _is_size_limited("tools/against.py")
+    assert _is_size_limited("tools/native_expected.py")
     assert _is_size_limited("tools/browser-runtime/bundle.cjs")
     assert _is_size_limited("tests/browser_runtime_ast.cjs")
     assert _is_size_limited("fixtures/capture_typescript_config_reference.cjs")
@@ -382,41 +280,6 @@ def test_long_functions_have_a_named_reason() -> None:
     assert sorted(ALLOWED_LONG_FUNCTIONS.keys() - long_functions) == []
 
 
-def test_every_analyzer_collector_is_a_declared_peer() -> None:
-    """AD-25: a peer the contract never names is a peer nothing isolates.
-
-    One-directional by design: every module defining a `collect_*` entry point must be
-    declared, while a declared member need not follow that naming — `violations` exposes
-    `rule_violations`. The second assertion catches a member left behind by a rename.
-    """
-    contract = json.loads((ROOT / "architecture-contract.json").read_bytes())
-    declared = {
-        member
-        for rule in contract["rules"]
-        if rule["kind"] == "sibling_isolation"
-        for member in rule["members"]
-    }
-    python_root = ROOT / "src/archkeel/analyzer/python"
-    collectors = {
-        f"archkeel.analyzer.python.{path.relative_to(python_root).with_suffix('')}".replace(
-            "/", "."
-        )
-        for path in python_root.rglob("*.py")
-        if any(
-            isinstance(node, ast.FunctionDef) and node.name.startswith("collect_")
-            for node in ast.parse(path.read_bytes()).body
-        )
-    }
-
-    assert sorted(collectors - declared) == []
-    assert [
-        member
-        for member in sorted(declared)
-        if not (ROOT / f"src/{member.replace('.', '/')}.py").is_file()
-    ] == []
-    assert list((ROOT / "src/archkeel/analyzer/embedded").rglob("*.py")) == []
-
-
 def test_sdist_ships_library_and_build_inputs_only() -> None:
     """The sdist promises a runnable test suite only if it ships one that can run.
 
@@ -459,10 +322,7 @@ def test_decision_index_matches_decision_files() -> None:
 
 def test_plans_and_evidence_stay_out_of_the_repository() -> None:
     """AD-282: a work record under docs/superpowers or docs/evidence needs a contract citation."""
-    contracts = (
-        ROOT / "architecture-contract.json",
-        *(ROOT / "docs/architecture/contracts").glob("*.json"),
-    )
+    contracts = (ROOT / "native/architecture-contract.json",)
     cited = {
         match
         for contract in contracts
@@ -480,8 +340,7 @@ def test_plans_and_evidence_stay_out_of_the_repository() -> None:
 def test_repository_root_holds_no_stray_file() -> None:
     """Generated output is invisible to every other guard: it is valid text at a plausible path."""
     tracked = frozenset(path.name for path in TRACKED if path.parent == ROOT)
-    # CI adds the accepted lock after source approval.
-    assert sorted(tracked - ROOT_FILES - {LOCK_PATH}) == []
+    assert sorted(tracked - ROOT_FILES) == []
     assert sorted(ROOT_FILES - tracked) == []
 
 
@@ -609,51 +468,3 @@ def test_absolute_path_detection_requires_a_root_boundary() -> None:
     )
     for text, expected in cases:
         assert _contains_local_absolute_path(text) is expected
-
-
-def _is_language_member(node: ast.expr) -> bool:
-    return (
-        isinstance(node, ast.Attribute)
-        and isinstance(node.value, ast.Name)
-        and node.value.id == "Language"
-    )
-
-
-def _language_identity_lines(source: str) -> list[int]:
-    """Line numbers of the Language operands in `is` and `is not` comparisons."""
-    lines: list[int] = []
-    for node in ast.walk(ast.parse(source)):
-        if not isinstance(node, ast.Compare):
-            continue
-        if not any(isinstance(op, (ast.Is, ast.IsNot)) for op in node.ops):
-            continue
-        for operand in (node.left, *node.comparators):
-            if _is_language_member(operand):
-                lines.append(operand.lineno)
-    return lines
-
-
-def test_language_is_compared_by_value_in_source() -> None:
-    """A language can arrive as a plain string, so `is` on a Language member is a bug."""
-    found = [
-        f"{path.relative_to(ROOT)}:{line}"
-        for path in sorted((ROOT / "src").rglob("*.py"))
-        for line in _language_identity_lines(path.read_text(encoding="utf-8"))
-    ]
-    assert found == [], f"compare Language with == or !=, not is: {found}"
-
-
-def test_language_identity_checker_finds_each_spelling_and_ignores_text() -> None:
-    hits = (
-        "if language  is  Language.PYTHON:\n    pass\n",
-        "value = (\n    language\n    is\n    Language.DART\n)\n",
-        "if language is (Language.TYPESCRIPT):\n    pass\n",
-    )
-    for source in hits:
-        assert _language_identity_lines(source), source
-    text_only = (
-        "# language is Language.PYTHON\n"
-        "text = 'language is Language.PYTHON'\n"
-        "ok = language == Language.PYTHON\n"
-    )
-    assert _language_identity_lines(text_only) == []
