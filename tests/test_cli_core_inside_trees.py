@@ -4,13 +4,14 @@
 """The release core serves mounted trees through the default command path."""
 
 import hashlib
+import html
 import json
 import os
 from pathlib import Path
 from time import time_ns
 
 import pytest
-from core_support import HONEST, case_root
+from core_support import HONEST, case_root, run
 from test_cli_core_only_scan import command
 
 from archkeel.cli import core_only
@@ -33,6 +34,36 @@ def tree(root: Path) -> None:
     component = {**component, "id": "LEAF", "label": "leaf"}
     component.pop("inside")
     write(root / "deep.json", {**document, "components": [component], "rules": [rule]})
+
+
+def test_html_report_keeps_tree_binding_and_lists_escaped_contract_file_identity(
+    release_core: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with case_root(HONEST) as root:
+        tree(root)
+        leaf = 'deep<script>"&.json'
+        (root / "deep.json").rename(root / leaf)
+        inside = json.loads((root / "inside.json").read_text())
+        inside["components"][0]["inside"] = leaf
+        write(root / "inside.json", inside)
+        monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+        target = tmp_path / "tree.html"
+        code, result = run("report", "--root", str(root), "--output", str(target))
+        assert (code, result["status"], result["frame"]["status"]) == (0, "PASS", "PASS"), result
+        files = result["frame"]["self_test"]["collect"]["contract_files"]
+        assert files == {
+            name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+            for name in ("architecture-contract.json", "inside.json", leaf)
+        }
+        page = target.read_text()
+        assert page.count(f"<h1>Verdict: {result['frame']['status']}</h1>") == 1
+        identity = page.split("<h2>Request identity</h2>", 1)[1].split("<h2>Tool</h2>", 1)[0]
+        for name, digest in files.items():
+            assert html.escape(json.dumps(name), quote=True) in identity
+            assert digest in identity
+        assert "<script>" not in page
 
 
 @pytest.mark.parametrize("verb", ["validate", "report"])
