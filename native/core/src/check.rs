@@ -31,8 +31,9 @@ use archkeel_model::{Producer, Settings};
 use archkeel_store::Ingested;
 
 use crate::base::Base;
+use crate::dual_run::CODE_DIGEST;
 use crate::dual_run::{self, Answered, BaseOf, InsideJson, ReplyBytes, Run, Trust};
-use crate::scan::{CODE_DIGEST, PRODUCER_NOT_VERIFIED};
+use crate::scan::PRODUCER_NOT_VERIFIED;
 
 /// The protocol of the check request.
 /// Version 2 removes `baseline` and adds `base` (AD-399).

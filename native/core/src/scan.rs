@@ -28,11 +28,8 @@ use archkeel_model::{Producer, Settings};
 use archkeel_store::Ingested;
 
 use crate::contract::{ContractInput, ContractState, InsideFile, MAX_INSIDE_FILES};
-use crate::dual_run::{self, Answered, ReplyInput, Run, Trust, TrustOf};
+use crate::dual_run::{self, Answered, ReplyInput, Run, Trust, TrustOf, CODE_DIGEST};
 
-/// The code digest of this build: the digest of each native collector of the same source. It is
-/// public text, so it detects a stale build and proves no producer (AD-390).
-pub(crate) const CODE_DIGEST: &str = env!("ARCHKEEL_CODE_DIGEST");
 /// The first words of the reason of a reply that the core cannot verify. The shell counts it.
 pub(crate) const PRODUCER_NOT_VERIFIED: &str = "producer not verified";
 

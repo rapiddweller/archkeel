@@ -13,6 +13,9 @@ use archkeel_report::Named;
 use archkeel_store::Ingested;
 use serde::Serialize;
 
+/// The code digest of this build: the digest of each native collector of the same source. It is
+/// public text, so it detects a stale build and proves no producer (AD-390).
+pub(crate) const CODE_DIGEST: &str = env!("ARCHKEEL_CODE_DIGEST");
 pub(super) const ENGINE: &str = concat!("archkeel-core ", env!("ARCHKEEL_CODE_DIGEST"));
 
 #[derive(Serialize)]
