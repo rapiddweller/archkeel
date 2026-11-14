@@ -54,6 +54,11 @@ impl<'t> Gathered<'t> {
             .last()
             .is_some_and(|last| last.0 == name && last.1 == span)
         {
+            // The source write of a target with no static path holds no path of its own, so an
+            // unknown name still gives the empty path that blocks every proof (AD-460).
+            if name.is_none() {
+                self.paths.push(Vec::new());
+            }
             return;
         }
         self.writes.push((name.clone(), span.clone()));
@@ -157,6 +162,8 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             while let Some((_, target)) = targets.next_if(|(owner, _)| owner.id() == node.id()) {
                 self.declared_target(node, *target, &mut found);
                 found.check(self.global_write(*target), tree.span(node));
+                found.check(self.method_key_write(*target), tree.span(node));
+                found.check(self.location_target(node, *target), tree.span(node));
                 found.check(self.changed_global(*target), tree.span(node));
             }
             if let Some((span, object)) = self.published_object(node) {

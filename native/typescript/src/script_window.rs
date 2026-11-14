@@ -35,7 +35,7 @@ pub(crate) const TIMERS: [&str; 3] = ["setTimeout", "setInterval", "setImmediate
 
 /// What binds `this`, as far as a write through it is concerned.
 #[derive(PartialEq, Eq)]
-enum Receiver {
+pub(crate) enum Receiver {
     /// The top level of the file.
     Top,
     /// A plain function or an object method: a caller can give it the window.
@@ -44,6 +44,12 @@ enum Receiver {
     Method,
     /// A constructor, a field initializer or a static block: a new object or the class.
     Bound,
+}
+
+/// A member name that holds or gives a window on any object (AD-492): a window name, a window
+/// member or a platform member.
+pub(crate) fn window_member_name(name: &str) -> bool {
+    WINDOW_MEMBERS.contains(&name) || PLATFORM_MEMBERS.contains(&name) || is_window_name(name)
 }
 
 /// The text of a name or a string without its escapes; `None` for an escape that is not plain.
@@ -297,7 +303,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// What binds the `this` at a node. A computed name of a class member is read outside it.
-    fn receiver(&self, this: Node<'t>) -> Receiver {
+    pub(crate) fn receiver(&self, this: Node<'t>) -> Receiver {
         let tree = self.tree;
         let mut skip_member = false;
         for node in tree.ancestors(this) {
