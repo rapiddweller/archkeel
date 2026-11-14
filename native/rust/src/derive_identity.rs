@@ -11,6 +11,7 @@ use crate::attrs::{
 };
 use crate::crates::{Crate, Workspace};
 use crate::definitions::Form;
+use crate::derive_imports::Local;
 use crate::modules::{Index, Outcome};
 use crate::scan::{Concern, Reference, Via};
 use crate::tree::Module;
@@ -19,10 +20,11 @@ use std::collections::BTreeSet;
 pub(crate) fn proven(
     workspace: &Workspace,
     index: &Index<'_>,
-    module: &Module,
+    local: &Local<'_>,
     concern: &Concern,
     modules: &[Module],
 ) -> bool {
+    let module = local.module;
     let (Some(proof), Some(scope), Some(krate)) = (
         &concern.proof,
         &concern.source,
@@ -34,32 +36,38 @@ pub(crate) fn proven(
         Proof::Attribute(usage) => prelude(
             workspace,
             index,
-            module,
+            local,
             scope,
             usage,
             &usage.path[0],
             modules,
         ),
         Proof::Derive(usage) => {
-            prelude(workspace, index, module, scope, usage, "derive", modules)
-                && (known(workspace, krate, module, scope, usage).is_some()
-                    || builtin(workspace, index, module, scope, usage, modules))
+            prelude(workspace, index, local, scope, usage, "derive", modules)
+                && (known(workspace, krate, local, scope, usage).is_some()
+                    || builtin(workspace, index, local, scope, usage, modules))
         }
         Proof::Helper {
             namespace,
             candidates,
         } => candidates.iter().any(|usage| {
-            prelude(workspace, index, module, scope, usage, "derive", modules)
-                && (known(workspace, krate, module, scope, usage)
+            prelude(workspace, index, local, scope, usage, "derive", modules)
+                && (known(workspace, krate, local, scope, usage)
                     .is_some_and(|model| model.helpers.contains(&namespace.as_str()))
                     || (namespace == "default"
                         && usage.path.last().is_some_and(|name| name == "Default")
-                        && builtin(workspace, index, module, scope, usage, modules)))
+                        && builtin(workspace, index, local, scope, usage, modules)))
         }),
     }
 }
 
-fn binding(module: &Module, scope: &[String], path: &[String], hops: usize) -> Option<Vec<String>> {
+fn binding(
+    local: &Local<'_>,
+    scope: &[String],
+    path: &[String],
+    hops: usize,
+) -> Option<Vec<String>> {
+    let module = local.module;
     if hops > 8 {
         return None;
     }
@@ -68,19 +76,14 @@ fn binding(module: &Module, scope: &[String], path: &[String], hops: usize) -> O
     if count > 1 {
         return None;
     }
-    let found = module.scan.references.iter().find(|r| {
-        r.scope == scope
-            && matches!(&r.via,
-        Via::Use { binding: Some(name), block: false, .. } if name == first)
-    });
-    match found {
+    match local.binding(scope, first) {
         Some(reference) if reference.names != [first.clone()] => {
             let mut resolved = reference.names.clone();
             resolved.extend_from_slice(&path[1..]);
             if reference.absolute {
                 Some(resolved)
             } else {
-                binding(module, scope, &resolved, hops + 1)
+                binding(local, scope, &resolved, hops + 1)
             }
         }
         Some(_) => Some(path.to_vec()),
@@ -92,14 +95,15 @@ fn binding(module: &Module, scope: &[String], path: &[String], hops: usize) -> O
 fn known(
     workspace: &Workspace,
     krate: &Crate,
-    module: &Module,
+    local: &Local<'_>,
     scope: &[String],
     usage: &Usage,
 ) -> Option<&'static Known> {
+    let module = local.module;
     if !usage.complete || krate.manifest.legacy() || !module.scan.extern_crates.is_empty() {
         return None;
     }
-    let glob = module.scan.references.iter().any(|r| {
+    let glob = local.globs.iter().any(|r| {
         r.scope == scope && matches!(r.via, Via::Glob { block, .. } if !block || usage.block)
     });
     if glob && !usage.absolute {
@@ -108,7 +112,7 @@ fn known(
     let path = if usage.absolute {
         usage.path.clone()
     } else {
-        binding(module, scope, &usage.path, 0)?
+        binding(local, scope, &usage.path, 0)?
     };
     let [root, name] = path.as_slice() else {
         return None;
@@ -134,11 +138,12 @@ fn known(
 fn builtin(
     workspace: &Workspace,
     index: &Index<'_>,
-    module: &Module,
+    local: &Local<'_>,
     scope: &[String],
     usage: &Usage,
     modules: &[Module],
 ) -> bool {
+    let module = local.module;
     let Some(krate) = workspace.crates.get(module.crate_index) else {
         return false;
     };
@@ -160,7 +165,7 @@ fn builtin(
     prelude(
         workspace,
         index,
-        module,
+        local,
         scope,
         usage,
         &usage.path[0],
@@ -171,12 +176,13 @@ fn builtin(
 fn prelude(
     workspace: &Workspace,
     index: &Index<'_>,
-    module: &Module,
+    local: &Local<'_>,
     scope: &[String],
     usage: &Usage,
     name: &str,
     modules: &[Module],
 ) -> bool {
+    let module = local.module;
     if !usage.prelude
         || module.scan.names.contains(name)
         || modules.iter().any(|parent| {
@@ -191,11 +197,10 @@ fn prelude(
     {
         return false;
     }
-    module
-        .scan
-        .references
+    local
+        .globs
         .iter()
-        .filter(|r| matches!(r.via, Via::Glob { .. }) && scope.starts_with(&r.scope))
+        .filter(|r| scope.starts_with(&r.scope))
         .all(|glob| {
             if matches!(glob.via, Via::Glob { block: true, .. }) && !usage.block {
                 return true;
