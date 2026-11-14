@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 from pathlib import Path
 
@@ -37,8 +36,9 @@ def release() -> Path:
                 "-p",
                 "archkeel-rust-collector",
             ],
+            # No `ARCHKEEL_VERSION` here: `tests/core_support.py` builds the same release binary
+            # without it, and a different value would relink the file while another worker runs it.
             cwd=native,
-            env={**os.environ, "ARCHKEEL_VERSION": "0.0.0"},
             check=True,
         )
     return native / "target/release"
