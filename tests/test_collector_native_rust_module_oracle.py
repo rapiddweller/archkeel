@@ -23,8 +23,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from frozen_native import frozen_root as frozen_root
 
-ROOT = Path(__file__).parents[1]
 RESOLUTION_ERRORS = {
     "E0432",
     "E0433",
@@ -47,10 +47,10 @@ MODULES = [
 ]
 
 
-def _facts(binary: Path) -> dict[str, Any]:
+def _facts(binary: Path, root: Path) -> dict[str, Any]:
     request = {
         "protocol_version": "9.0.0",
-        "snapshot": {"root": str(ROOT), "git_head": "0" * 40, "dirty": False},
+        "snapshot": {"root": str(root), "git_head": "0" * 40, "dirty": False},
         "scope": {"roots": ["native"], "namespace": "native", "exclude_test_sources": True},
         "resolver": {"language": "rust"},
     }
@@ -76,10 +76,10 @@ def _without_declaration(text: str, name: str) -> str:
 
 
 @pytest.fixture(scope="module")
-def facts(rust_binary: Path) -> dict[str, Any]:
+def facts(rust_binary: Path, frozen_root: Path) -> dict[str, Any]:
     if shutil.which("cargo") is None:
         pytest.skip("cargo is not installed; install Rust to run the oracle.")
-    return _facts(rust_binary)
+    return _facts(rust_binary, frozen_root)
 
 
 @pytest.fixture(scope="module")
@@ -90,7 +90,7 @@ def target(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 @pytest.mark.parametrize("name", MODULES)
 def test_the_files_with_an_edge_into_a_module_are_the_files_that_fail_without_it(
-    name: str, facts: dict[str, Any], tmp_path: Path, target: Path
+    name: str, facts: dict[str, Any], tmp_path: Path, target: Path, frozen_root: Path
 ) -> None:
     module = f"native.{name}"
     files = {item["module"]: item["rel_path"] for item in facts["files"]}
@@ -108,7 +108,7 @@ def test_the_files_with_an_edge_into_a_module_are_the_files_that_fail_without_it
     }
     parent = module.rsplit(".", 1)[0]
     work = tmp_path / "work"
-    shutil.copytree(ROOT / "native", work / "native", ignore=shutil.ignore_patterns("target"))
+    shutil.copytree(frozen_root / "native", work / "native")
     declared = work / files[parent]
     declared.write_text(_without_declaration(declared.read_text(), module.rsplit(".", 1)[1]))
     checked = subprocess.run(
