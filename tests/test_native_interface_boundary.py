@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from core_support import EMPTY_GRAPH
 from rust_repository import repository
 
 
@@ -21,6 +22,8 @@ def scan(
     (root / "src/client.ts").write_text(source)
     (root / "src/api.ts").write_text("export const Published = 1; export const _private = 2;\n")
     (root / "src/impl.ts").write_text("export const Secret = 1;\n")
+    # AD-458: the rules cite the page `p`; a cited file that does not exist refuses the contract.
+    (root / "p").write_text(EMPTY_GRAPH)
     (root / "tsconfig.json").write_text(
         (Path(__file__).parents[1] / "fixtures/H-typescript/tsconfig.json").read_text()
     )
@@ -31,7 +34,9 @@ def scan(
     for label, modules in (("client", ["app.client"]), ("service", ["app.api", "app.impl"])):
         component = {**template["components"][0], "id": f"COMP-{label.upper()}", "label": label}
         component.update(
-            packages=[m.replace("app.", "app.src.") + "_x2e_ts" for m in modules], requires=[]
+            packages=[m.replace("app.", "app.src.") + "_x2e_ts" for m in modules],
+            requires=[],
+            provenance=["p"],
         )
         component.pop("public", None)
         if label == "service":
@@ -327,6 +332,7 @@ def test_rust_names_its_missing_publication_surface(built: Path, tmp_path: Path)
         }
     ]
     path.write_text(json.dumps(contract))
+    (root / "p").write_text(EMPTY_GRAPH)
     frame = run_core(built, root)
     assert frame["rules"]["INTERFACE"][1] == "UNKNOWN", frame
     assert "interface_boundary: incomplete publication surface" in json.dumps(frame), frame
