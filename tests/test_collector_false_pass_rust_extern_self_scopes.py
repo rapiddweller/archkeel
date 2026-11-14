@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 from rust_repository import APP, BASE, CRATE_RULES, claims, repository, statuses, validate
-from test_collector_false_pass_rust_extern_self import B, ROOT_ALIAS, SRC, forbid
+from test_collector_false_pass_rust_extern_self import ROOT_ALIAS, SRC, B, forbid
 
 PUB_ALIAS = "extern crate self as me;\npub mod b;\npub mod c;\nmod x;\n"
 WITH_Y = PUB_ALIAS + "mod y;\n"
