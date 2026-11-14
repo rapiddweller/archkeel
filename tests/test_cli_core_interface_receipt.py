@@ -16,7 +16,6 @@ from pathlib import Path
 import pytest
 from test_cli_core_only_scan import command
 
-
 # The plants of the proof review of #1155: each tree maps a path to its text, and `expected`
 # gives the rule and the row of release 4.0.1 on it.
 DATA = json.loads(
