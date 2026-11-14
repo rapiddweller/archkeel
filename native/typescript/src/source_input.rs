@@ -13,6 +13,10 @@ pub(crate) const HOST_NAMES: [&str; 6] =
 /// `syntax.WALK_ROOTS`: roots that the file walk can publish through.
 pub(crate) const WALK_ROOTS: [&str; 4] = ["window", "globalThis", "self", "frames"];
 
+/// `ScriptRoot.TOP` and `ScriptRoot.PARENT`: the window outside a frame. A use and a write read
+/// them as roots; a publication does not.
+pub(crate) const FRAME_ROOTS: [&str; 2] = ["top", "parent"];
+
 pub(crate) fn is_script_root(text: &[u8]) -> bool {
     WALK_ROOTS.iter().any(|root| root.as_bytes() == text)
 }

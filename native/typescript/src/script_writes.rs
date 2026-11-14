@@ -36,6 +36,15 @@ pub(crate) fn is_effect_name(name: &str) -> bool {
     )
 }
 
+/// The intrinsic names that run text as code (`constructor` reaches `Function`).
+const CODE_NAMES: [&str; 5] = [
+    "eval",
+    "Function",
+    "constructor",
+    "setTimeout",
+    "setInterval",
+];
+
 /// The name that a path writes: the member of an alias of the global object, or the first name.
 fn written_name(path: &[String], alias: bool) -> Option<String> {
     if alias {
@@ -125,6 +134,22 @@ impl<'a, 't> Tree<'a, 't> {
 
     /// `_script_intrinsic_effect`.
     fn intrinsic_effect(&self, node: Node<'t>) -> bool {
+        self.effect_name(node).is_some()
+    }
+
+    /// The node runs text as code: `eval`, `Function`, a `constructor` that can reach `Function`,
+    /// or a timer without a function. That code can write any global, also in a module file.
+    pub(crate) fn runs_code(&self, node: Node<'t>) -> bool {
+        let name = if self.k(node) == K::SubscriptExpression {
+            literal(self.field(node, F::Index), self.cx.source)
+        } else {
+            self.effect_name(node)
+        };
+        name.is_some_and(|name| CODE_NAMES.contains(&name.as_str())) && !self.in_type(node)
+    }
+
+    /// The name of an intrinsic effect at the node.
+    fn effect_name(&self, node: Node<'t>) -> Option<String> {
         let kind = self.k(node);
         let parent = self.parent(node);
         let named = matches!(
@@ -135,11 +160,11 @@ impl<'a, 't> Tree<'a, 't> {
                 self.k(parent) == K::Pair && self.is_field_of_parent(node, F::Key)
             });
         if !named {
-            return false;
+            return None;
         }
         let text = self.text(node);
         if !is_effect_name(&text) {
-            return false;
+            return None;
         }
         let target = match parent {
             Some(parent)
@@ -167,7 +192,7 @@ impl<'a, 't> Tree<'a, 't> {
                     K::FunctionExpression | K::GeneratorFunction | K::ArrowFunction
                 )
             });
-        !timer
+        (!timer).then_some(text)
     }
 
     /// `_script_opaque_writes`: the places where a script writes a name that is not known.

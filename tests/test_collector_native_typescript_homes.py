@@ -13,7 +13,7 @@ import pytest
 SOURCE = Path(__file__).parents[1] / "native/typescript/src"
 HOMES = (
     ("walk roots", ("window", "globalThis", "self", "frames"), "source_input.rs"),
-    ("frame roots", ("top", "parent"), "script_deps.rs"),
+    ("frame roots", ("top", "parent"), "source_input.rs"),
     ("config directory", ("${configDir}",), "layer.rs"),
     ("visibility names", ("public", "protected", "private"), "members.rs"),
     ("site kind names", ("call", "new", "reference"), "site_types.rs"),
