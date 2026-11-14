@@ -101,6 +101,20 @@ impl Walker<'_> {
             let site = self.site(span);
             self.out.extern_crates.push((plain(&node.ident), site));
         }
+        // A `cfg` may remove the alias, so a path that starts with its name may name the alias
+        // or a crate of that name: the scan cannot say which.
+        let gated = node
+            .attrs
+            .iter()
+            .any(|a| a.path().is_ident("cfg") || a.path().is_ident("cfg_attr"));
+        if let (true, Some((_, rename)), true) = (node.ident == "self", &node.rename, gated) {
+            let reason = format!(
+                "The alias {} of the crate has a cfg: a path that starts with it may name the alias or a crate",
+                plain(rename)
+            );
+            self.concern(reason, span);
+            return;
+        }
         if let (true, Some((_, rename))) = (node.ident == "self", &node.rename) {
             self.via = Via::Use {
                 binding: Some(plain(rename)),
@@ -109,6 +123,11 @@ impl Walker<'_> {
             };
             self.refer(&["crate".to_owned()], span);
             self.via = Via::Path;
+            if self.blocks == 0 {
+                self.out
+                    .self_aliases
+                    .push((self.inline.clone(), plain(rename)));
+            }
         }
     }
 }
