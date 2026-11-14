@@ -106,6 +106,10 @@ fn a_door_in_any_position_other_than_the_exempt_callee_is_a_gap() {
         "getattr(thing, '__import__')('app.service')\n",
         "breakpoint()\n",
         "import sys\nsys.__getattribute__('modules')\n",
+        "names = vars()\n",
+        "owner = len.__self__\n",
+        "names = globals()\n",
+        "names = locals()\n",
     ] {
         let kinds: Vec<&str> = found(source).into_iter().map(|(kind, _)| kind).collect();
         assert!(
