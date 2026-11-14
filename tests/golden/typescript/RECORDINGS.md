@@ -29,3 +29,4 @@
 | 2026-11-14 | synthetic-esm-forms | d4a001757 | AD-434: add only named type publication proof fields, export binding witnesses and their evidence; preserve all other rows. (cpython 3.11.12) |
 | 2026-11-14 | synthetic-gaps | 50df0ef52 | AD-460: the write check gives an unknown write at the place of window[nameOf()], so its runtime effect merges into the gap of that place (cpython 3.11.12) |
 | 2026-11-14 | l-nest-realworld | 27f65592e | AD-488: three spec files that the TSConfig excludes under src are coverage gaps (cpython 3.11.12) |
+| 2026-11-14 | excalidraw-math | d786ccfb3 | AD-512: a site whose name a scope below the module declares is no longer resolved to the module symbol (cpython 3.11.12) |
