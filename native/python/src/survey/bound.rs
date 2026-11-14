@@ -18,7 +18,9 @@ use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{ExceptHandler, Expr, ExprContext, Parameter, Pattern, Stmt, StmtImportFrom};
 use ruff_text_size::{Ranged, TextSize};
 
-use super::binders::{bind_handler, bind_pattern, declared, import_bindings, Bind};
+use super::binders::{
+    bind_handler, bind_handler_and_pattern, bind_pattern, declared, import_bindings, Bind,
+};
 
 /// One statement that binds a name at module scope.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -188,13 +190,7 @@ impl<'a> Visitor<'a> for Walk {
 
     fn visit_parameter(&mut self, _: &'a Parameter) {}
 
-    fn visit_except_handler(&mut self, handler: &'a ExceptHandler) {
-        bind_handler(self, handler);
-    }
-
-    fn visit_pattern(&mut self, pattern: &'a Pattern) {
-        bind_pattern(self, pattern);
-    }
+    bind_handler_and_pattern!();
 }
 
 impl<'a> Bind<'a> for Walk {

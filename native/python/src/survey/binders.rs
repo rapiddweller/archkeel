@@ -156,13 +156,7 @@ impl<'a> Visitor<'a> for Walk {
         visitor::walk_parameter(self, parameter);
     }
 
-    fn visit_except_handler(&mut self, handler: &'a ExceptHandler) {
-        bind_handler(self, handler);
-    }
-
-    fn visit_pattern(&mut self, pattern: &'a Pattern) {
-        bind_pattern(self, pattern);
-    }
+    bind_handler_and_pattern!();
 }
 
 impl<'a> Bind<'a> for Walk {
@@ -170,6 +164,21 @@ impl<'a> Bind<'a> for Walk {
         self.bind(name);
     }
 }
+
+/// The visitor methods that bind the name of an `except` handler and of a pattern. The walks of
+/// `binders.rs` and `bound.rs` share them.
+macro_rules! bind_handler_and_pattern {
+    () => {
+        fn visit_except_handler(&mut self, handler: &'a ExceptHandler) {
+            bind_handler(self, handler);
+        }
+
+        fn visit_pattern(&mut self, pattern: &'a Pattern) {
+            bind_pattern(self, pattern);
+        }
+    };
+}
+pub(super) use bind_handler_and_pattern;
 
 /// A visitor that counts the names that binders bind.
 pub(crate) trait Bind<'a>: Visitor<'a> {
