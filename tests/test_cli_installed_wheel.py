@@ -92,9 +92,9 @@ class Installed:
         self.environment = {
             key: value for key, value in os.environ.items() if key not in {"PYTHONPATH", "PATH"}
         }
-        self.environment["PATH"] = os.pathsep.join(
-            str(Path(path)) for path in ("/usr/bin", "/bin") if Path(path).is_dir()
-        )
+        system = Path(os.environ.get("SystemRoot", "")) / "System32"
+        places = (system,) if WINDOWS else (Path("/usr/bin"), Path("/bin"))
+        self.environment["PATH"] = os.pathsep.join(str(path) for path in places if path.is_dir())
 
     def run(
         self, *arguments: str, cwd: Path | None = None, path: Path | None = None
