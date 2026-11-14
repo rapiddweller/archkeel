@@ -20,7 +20,7 @@ pub(crate) type Reach<'r> = dyn Fn(&[String]) -> Option<(String, String)> + 'r;
 /// Whether a call at module level of `target` may declare a module name. A call is safe only
 /// when all of these hold:
 ///
-/// 1. its tokens hold no `mod`, `use`, `extern` and no macro call by a path;
+/// 1. its tokens hold no `mod`, `use` or `extern`;
 /// 2. no file of the crate has a `#[macro_use] extern crate`;
 /// 3. it is a plain call, and the file of the call has no glob `use` and no `use` that binds
 ///    the name; or it is `crate::a::m!()`, and the module `a` binds `m` by one `use m;` only;
