@@ -2,6 +2,15 @@
 
 **Status.** Proposed. Part of #880. This extends AD-422, AD-432 and AD-440.
 
+**Amended.** The README showcase (#880) moves the job `publish-gallery` from Full to CI, where it runs on
+each push to `main` and on a dispatch on `main`. Point 5 reads as follows: the job has the condition
+`github.ref == 'refs/heads/main'`, `continue-on-error: true` and no `needs`, and it is not in the needs of
+`All checks passed`. Full has no Pages permission. `make report-gallery` is in the `Makefile`. The gallery adds a
+first section with two self runs (Rust core, Python shell) at the stable paths `self/core.html`, `self/shell.html`,
+their `.json` files and the shield files `self/core-badge.json`, `self/shell-badge.json`. A written file names the
+repository `<repo>`. The job runs on its own runner, in parallel to the other jobs. Estimate: about 5 minutes (the core build
+took 2 min 19 s in CI; `make report-gallery` took 32 s on a laptop).
+
 **Decision.**
 1. `fixtures/matrix.json` is the table of every project under `fixtures/`. One key is one fixture directory.
    Each key has one language and one or more runs. A run has a name, a root, an optional config,
