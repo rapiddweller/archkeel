@@ -21,6 +21,7 @@ use crate::scan::Reference;
 use crate::tree::Module;
 mod alias;
 mod climb;
+mod filled;
 mod outcome;
 use alias::Aliases;
 use climb::climb;
@@ -472,7 +473,10 @@ impl Index<'_> {
                 match self.bare(target, names, (edge.lexical.as_str(), true), hops + 1, true) {
                     // A macro call of the module may define the name (`mk!();` for `pub use`).
                     Outcome::None
-                        if target.module.scan.macro_calls.iter().any(|c| !c.expression) =>
+                        if filled::may_fill(
+                            target.module,
+                            self.frames.values().map(|f| f.module),
+                        ) =>
                     {
                         let reason = format!(
                             "A glob may bring in {} from a module that a macro call fills",

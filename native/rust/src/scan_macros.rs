@@ -11,7 +11,7 @@ use proc_macro2::Span;
 use syn::{ItemMacro, Macro};
 
 use super::Walker;
-use crate::definitions::MethodCall;
+use crate::definitions::{Holder, MethodCall};
 use crate::net;
 use crate::plant;
 use crate::site::Site;
@@ -33,6 +33,8 @@ pub(crate) struct MacroDef {
     /// `impl` block that the scan does not see (AD-383).
     pub members: BTreeSet<String>,
     pub unknowns: Vec<String>,
+    /// The body holds `mod`, `use` or `extern`: an expansion may declare a module name.
+    pub declares: bool,
     /// A definition in a function body is visible only in the rest of that body.
     pub local: Option<Local>,
 }
@@ -61,8 +63,11 @@ pub(crate) struct MacroCall {
     pub name: String,
     pub site: Site,
     pub placed: bool,
-    /// The macro is one of the standard expression macros, which define no item.
-    pub expression: bool,
+    /// The call is at module level and is no standard expression macro: it may define a name of
+    /// the module, which a glob `use` of the module then brings in.
+    pub fills: bool,
+    /// The tokens of the call hold `mod`, `use` or `extern`: they may declare a module name.
+    pub declares: bool,
 }
 
 /// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path
@@ -102,6 +107,17 @@ const KNOWN_MACROS: [&str; 33] = [
     "cfg",
     "json",
 ];
+
+/// Whether the tokens hold `mod`, `use` or `extern` at any depth.
+fn declares(tokens: proc_macro2::TokenStream) -> bool {
+    tokens.into_iter().any(|tree| match tree {
+        proc_macro2::TokenTree::Ident(id) => {
+            matches!(id.to_string().as_str(), "mod" | "use" | "extern")
+        }
+        proc_macro2::TokenTree::Group(group) => declares(group.stream()),
+        _ => false,
+    })
+}
 
 impl Walker<'_> {
     /// A `macro_rules!` definition. Its expansion stays in this crate, so its body is read as code
@@ -174,6 +190,7 @@ impl Walker<'_> {
             methods,
             members,
             unknowns,
+            declares: declares(node.mac.tokens.clone()),
             local,
         });
         for attr in &node.attrs {
@@ -195,17 +212,19 @@ impl Walker<'_> {
                 ["crate", "self", "super"].contains(&first.ident.to_string().as_str())
             });
         let site = self.site(span);
+        let module_level = self.blocks == 0 && matches!(self.holder, Holder::Module);
         let call = MacroCall {
             name: name.clone(),
             site,
             placed: local,
-            expression: KNOWN_MACROS.contains(&name.as_str()),
+            fills: module_level && !KNOWN_MACROS.contains(&name.as_str()),
+            declares: declares(node.tokens.clone()),
         };
         // The tokens of a macro are not code that the scan reads: a call in them is not placed.
         let mut inner = BTreeSet::new();
         macro_names(node.tokens.clone(), 0, &mut inner);
         let hidden = inner.into_iter().map(|name| MacroCall {
-            expression: KNOWN_MACROS.contains(&name.as_str()),
+            fills: module_level && !KNOWN_MACROS.contains(&name.as_str()),
             name,
             placed: false,
             ..call.clone()
