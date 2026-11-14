@@ -9,7 +9,10 @@ import sysconfig
 from pathlib import Path
 
 import pytest
+from core_support import run
+from rust_repository import repository
 
+from archkeel.cli import core_only
 from archkeel.cli.core_binary import confirm, locate_core
 from archkeel.cli.core_json import CoreError
 from archkeel.cli.native_scan import exchange
@@ -31,14 +34,20 @@ def bundle(package: Path, content: bytes = SCRIPT) -> Path:
 
 
 def test_a_bundled_core_that_changes_after_the_lookup_is_refused_at_the_start(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     binary = bundle(tmp_path / "package")
-    found = locate_core(tmp_path / "package")
-    assert found == binary
-    binary.write_bytes(b"#!/bin/sh\necho changed\n")
-    with pytest.raises(CoreError, match="digest does not match"):
-        exchange(str(found), "scan", b"{}")
+    assert locate_core(tmp_path / "package") == binary
+    root = repository(tmp_path / "project", binary)
+
+    def changed_after_the_lookup() -> Path:
+        binary.write_bytes(b"#!/bin/sh\necho changed\n")
+        return binary
+
+    monkeypatch.setattr(core_only, "locate_core", changed_after_the_lookup)
+    code, result = run("validate", "--root", str(root))
+    assert code == 2 and result["status"] == "UNKNOWN"
+    assert "digest does not match" in result["refusal"]["message"], result
 
 
 def test_confirm_refuses_a_bundled_core_whose_digest_file_is_gone(tmp_path: Path) -> None:
