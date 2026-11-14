@@ -7,7 +7,9 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-506 | [A forbidden SDK library is no reference outside the namespace](ad-506-a-forbidden-sdk-library-is-no-reference-outside-the-namespace.md) |
 | AD-502 | [A registry or git dependency is no edge to a crate of the workspace](ad-502-a-registry-or-git-dependency-is-no-edge-to-a-crate-of-the-workspace.md) |
+| AD-500 | [A stated profile limit holds only the rules that read it](ad-500-a-stated-profile-limit-holds-only-the-rules-that-read-it.md) |
 | AD-498 | [The report page is short and has no dump of the frame](ad-498-the-report-page-is-short-and-has-no-dump-of-the-frame.md) |
 | AD-496 | [The report page uses the design system and one script that the policy admits by hash](ad-496-the-report-page-is-the-design-system-with-one-admitted-script.md) |
 | AD-494 | [The core compares the module and import part of a UML target](ad-494-the-core-compares-the-module-and-import-part-of-a-uml-target.md) |

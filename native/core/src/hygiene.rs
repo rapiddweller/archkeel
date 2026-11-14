@@ -86,6 +86,7 @@ pub(crate) fn check(
     usable: Option<&Usable>,
     models: Result<&ModelTree, Reason>,
     namespace: &str,
+    sdk: &[String],
     path: &str,
 ) -> Found {
     let mut found = Found::default();
@@ -107,7 +108,7 @@ pub(crate) fn check(
         .chain(mounts.map(|mount| (mount.path().as_str(), mount.contract())));
     for (place, contract) in contracts {
         let findings = [
-            hygiene_refs::namespace(contract, namespace),
+            hygiene_refs::namespace(contract, namespace, sdk),
             hygiene_refs::public(contract),
             hygiene_refs::responsibility(contract),
         ];

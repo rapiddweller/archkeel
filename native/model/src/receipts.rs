@@ -81,6 +81,13 @@ pub(crate) fn cycle(
             .as_ref()
             .is_none_or(|labels| labels.iter().any(|l| l.as_text() == label))
     };
+    // AD-500: without a proof that the reply sees each local package, a cycle can close through
+    // a package that it does not see.
+    if !model.graph().observed().cycle_scope {
+        return Err(
+            Cause::Receipt("the collector does not prove that it sees each local package").into(),
+        );
+    }
     let modules = model.graph().modules();
     match rule.level() {
         CycleLevel::Component => {

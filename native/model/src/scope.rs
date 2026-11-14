@@ -115,6 +115,11 @@ impl<'id, 'm> Scope<'id, 'm> {
             State::Unread(part) => Some(part.clone()),
             State::Complete => None,
         };
+        // AD-500: a feature that the collector states as unsupported holds each rule that reads it.
+        let observed = self.model.graph().observed();
+        if let Some(subject) = crate::limits::stated_hold(self.model.contract(), rule, observed) {
+            return Err(Reason::NotComplete(Cause::ProfileLimit(subject)));
+        }
         // Slice S7 (AD-384): a kept pair gap holds only the rules whose reading it can change;
         // AD-418: so does a gap that the drop rule drops.
         let gaps = self
