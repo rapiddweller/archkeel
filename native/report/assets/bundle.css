@@ -1,0 +1,99 @@
+/* ArchKeel components. Plain CSS, no framework. Load tokens.css first, then this file.
+   Theme = data-theme="dark|light" on <html> (or any ancestor). Every colour comes from a token. */
+:root { color-scheme: dark; }
+[data-theme="light"] { color-scheme: light; }
+
+.ak-root { background: var(--surface-0); color: var(--ink); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+.ak-muted { color: var(--ink-muted); }
+.ak-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.ak-t-pass { color: var(--pass-text); }
+.ak-t-fail { color: var(--fail-text); }
+.ak-t-unknown { color: var(--unknown-text); }
+.ak-icon { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+/* focus: one solid ring for every control */
+.ak-btn:focus-visible, .ak-input:focus-visible, .ak-seg__btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Button */
+.ak-btn { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); border: 1px solid transparent; border-radius: var(--radius-md); font-family: var(--font-sans); text-decoration: none; cursor: pointer; }
+.ak-btn--primary { background: var(--accent); color: var(--on-accent); }
+.ak-btn--primary:hover { background: var(--accent-hover); }
+.ak-btn--secondary { background: var(--surface-1); color: var(--ink); border-color: var(--line-strong); }
+.ak-btn--secondary:hover { background: var(--surface-2); }
+.ak-btn--secondary:active { background: var(--surface-3); }
+.ak-btn--ghost { background: transparent; color: var(--ink-muted); }
+.ak-btn--ghost:hover { background: var(--surface-2); color: var(--ink); }
+.ak-btn--ghost:active { background: var(--surface-3); }
+.ak-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+/* Segmented control (theme switch) */
+.ak-seg { box-sizing: border-box; display: inline-flex; gap: 2px; padding: 2px; background: var(--surface-1); border: 1px solid var(--line-strong); border-radius: var(--radius-md); }
+.ak-seg__btn { box-sizing: border-box; display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); background: transparent; color: var(--ink-muted); border: 1px solid transparent; border-radius: var(--radius-sm); font-family: var(--font-sans); cursor: pointer; }
+.ak-seg__btn:hover { color: var(--ink); }
+.ak-seg__btn[aria-pressed="true"] { background: var(--surface-3); color: var(--ink); border-color: var(--line-strong); }
+
+/* Input */
+.ak-field { display: flex; flex-direction: column; gap: var(--space-1); }
+.ak-label { color: var(--ink-muted); }
+.ak-input { box-sizing: border-box; width: 100%; padding: var(--space-2) var(--space-3); background: var(--surface-2); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius-md); font-family: var(--font-sans); }
+.ak-input::placeholder { color: var(--ink-subtle); }
+.ak-input:hover { border-color: var(--ink-subtle); }
+.ak-input:focus-visible { border-color: var(--focus); }
+.ak-input[aria-invalid="true"] { border-color: var(--fail); }
+.ak-help { display: flex; align-items: center; gap: var(--space-1); margin: 0; color: var(--ink-muted); }
+.ak-help--error { color: var(--fail-text); }
+
+/* Status badge */
+.ak-badge { box-sizing: border-box; display: inline-flex; align-items: center; gap: var(--space-1); padding: 2px var(--space-2); background: var(--surface-2); color: var(--ink-muted); border: 1px solid var(--line-strong); border-radius: var(--radius-sm); text-transform: uppercase; white-space: nowrap; }
+.ak-badge .ak-icon { width: 12px; height: 12px; }
+.ak-badge--pass { background: var(--pass-subtle); color: var(--pass-text); border-color: var(--pass); }
+.ak-badge--fail { background: var(--fail-subtle); color: var(--fail-text); border-color: var(--fail); }
+.ak-badge--unknown { background: var(--unknown-subtle); color: var(--unknown-text); border-color: var(--unknown); }
+
+/* Card */
+.ak-card { box-sizing: border-box; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-5); }
+.ak-card__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3); }
+.ak-card__title { margin: 0; }
+.ak-card__body { margin: 0; color: var(--ink-muted); }
+.ak-card__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
+
+/* Table */
+.ak-table-wrap { box-sizing: border-box; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: auto; }
+.ak-table { width: 100%; border-collapse: collapse; text-align: left; }
+.ak-table th { padding: var(--space-3) var(--space-4); color: var(--ink-muted); border-bottom: 1px solid var(--line-strong); white-space: nowrap; font-weight: 500; }
+.ak-table td { padding: var(--space-3) var(--space-4); color: var(--ink); border-bottom: 1px solid var(--line); vertical-align: middle; }
+.ak-table tbody tr:last-child td { border-bottom: 0; }
+.ak-table tbody tr:hover { background: var(--surface-2); }
+.ak-table tr[aria-selected="true"] { background: var(--accent-subtle); }
+.ak-table th.ak-num, .ak-table td.ak-num { text-align: right; }
+
+/* Verdict */
+.ak-verdict { box-sizing: border-box; display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); margin: 0 0 var(--space-4); padding: var(--space-5); background: var(--surface-1); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius-lg); }
+.ak-verdict--pass { background: var(--pass-subtle); border-color: var(--pass); }
+.ak-verdict--fail { background: var(--fail-subtle); border-color: var(--fail); }
+.ak-verdict--unknown { background: var(--unknown-subtle); border-color: var(--unknown); }
+.ak-verdict__title { margin: 0; }
+.ak-verdict__note { margin: 0; color: var(--ink-muted); }
+.ak-verdict__stats { display: flex; gap: var(--space-6); margin: 0; }
+.ak-verdict__stat { display: flex; flex-direction: column; gap: var(--space-1); }
+.ak-verdict__stat dt { color: var(--ink-muted); }
+
+/* Code */
+.ak-code { padding: 1px 6px; background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.ak-code-block { box-sizing: border-box; margin: 0; padding: var(--space-4); background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius-md); overflow: auto; white-space: pre; }
+
+/* Diagram */
+.ak-diagram { display: block; width: 100%; max-width: 460px; height: auto; }
+.ak-node__box { fill: var(--surface-1); stroke: var(--line-strong); stroke-width: 1.5; }
+.ak-node--fail .ak-node__box { stroke: var(--fail); stroke-width: 2; }
+.ak-node--unknown .ak-node__box { stroke: var(--unknown); stroke-width: 2; stroke-dasharray: 6 4; }
+.ak-node__title { fill: var(--ink); }
+.ak-node__path { fill: var(--ink-muted); }
+.ak-node__icon { fill: none; stroke: currentColor; }
+.ak-node__tag-fail { color: var(--fail-text); fill: var(--fail-text); }
+.ak-node__tag-unknown { color: var(--unknown-text); fill: var(--unknown-text); }
+.ak-node__tag { text-transform: uppercase; }
+.ak-edge { fill: none; stroke: var(--ink-muted); stroke-width: 1.5; }
+.ak-edge--violation { stroke: var(--fail); stroke-width: 2; stroke-dasharray: 6 4; }
+.ak-arrowhead { fill: var(--ink-muted); }
+.ak-arrowhead--fail { fill: var(--fail); }

@@ -1,0 +1,314 @@
+// Archkeel
+// Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+// SPDX-License-Identifier: MIT
+
+//! The block of each violated place (AD-496): the path from the component to the file, the
+//! relation with its line, the rules that fail there with their sides, and for a cycle the closed
+//! path with the evidence of each step. A cut states both numbers.
+
+use std::collections::BTreeMap;
+
+use super::frame::{CyclePath, Frame, Module};
+use super::markup::{count, escape, level_icon};
+use super::places::{Kind, Place, Places, Violated};
+
+/// The names of the modules and the components of the topology.
+pub(super) struct Names<'a> {
+    modules: BTreeMap<&'a str, &'a Module>,
+    components: BTreeMap<&'a str, &'a str>,
+}
+
+impl<'a> Names<'a> {
+    pub(super) fn of(frame: &'a Frame) -> Names<'a> {
+        let topology = frame.topology.as_ref();
+        Names {
+            modules: topology
+                .into_iter()
+                .flat_map(|t| &t.modules)
+                .map(|m| (m.name.as_str(), m))
+                .collect(),
+            components: topology
+                .into_iter()
+                .flat_map(|t| &t.components)
+                .map(|c| (c.id.as_str(), c.name.as_str()))
+                .collect(),
+        }
+    }
+
+    /// The component id and name that own a module.
+    pub(super) fn component(&self, module: &str) -> Option<(&'a str, &'a str)> {
+        let id = self.modules.get(module)?.component.as_deref()?;
+        Some((id, *self.components.get(id)?))
+    }
+
+    fn file(&self, module: &str) -> Option<&'a str> {
+        self.modules.get(module).map(|m| m.path.as_str())
+    }
+
+    /// The name of a component id, or the id.
+    pub(super) fn name(&self, id: &'a str) -> &'a str {
+        self.components.get(id).copied().unwrap_or(id)
+    }
+}
+
+const ARROW: &str = "<svg width=\"56\" height=\"14\" viewBox=\"0 0 56 14\" aria-hidden=\"true\" \
+style=\"color:var(--fail)\"><path class=\"rp-line rp-line--fail\" d=\"M1 7H47\"/>\
+<path class=\"rp-fill\" d=\"M47 3L55 7L47 11z\"/></svg>";
+
+fn row(level: &str, name: &str, link: Option<&str>) -> String {
+    let name = match link {
+        Some(anchor) => format!(
+            "<a href=\"#{anchor}\"><span class=\"code rp-row__name\">{}</span></a>",
+            escape(name)
+        ),
+        None => format!("<span class=\"code rp-row__name\">{}</span>", escape(name)),
+    };
+    format!(
+        "<li class=\"rp-row\"><span class=\"rp-row__box\">{}<span class=\"tag\">{level}</span>{name}</span></li>",
+        level_icon(level)
+    )
+}
+
+/// The rows of one tower: the component, the module and the file, as far as the frame holds them.
+fn tower(names: &Names<'_>, module: &str, file: Option<&str>, label: &str) -> (String, usize) {
+    let mut rows = String::new();
+    let mut levels = 0;
+    if let Some((id, name)) = names.component(module) {
+        rows.push_str(&row(
+            "component",
+            name,
+            Some(&super::markup::anchor("c-", id)),
+        ));
+        levels += 1;
+    }
+    rows.push_str(&row("module", module, None));
+    levels += 1;
+    if let Some(file) = file.or_else(|| names.file(module)) {
+        rows.push_str(&row("file", file, None));
+        levels += 1;
+    }
+    (
+        format!("<ol class=\"rp-tower\" aria-label=\"{label}\">{rows}</ol>"),
+        levels,
+    )
+}
+
+/// The words of what a rule says about its two sides, from `explain.rules`.
+fn sides(frame: &Frame, names: &Names<'_>, rule: &str) -> String {
+    let Some(shape) = frame.explain.rules.get(rule) else {
+        return String::new();
+    };
+    let list = |ids: &[String]| {
+        let shown: Vec<&str> = ids.iter().take(4).map(|id| names.name(id)).collect();
+        let more = ids.len().saturating_sub(shown.len());
+        let tail = if more > 0 {
+            format!(" and {more} more")
+        } else {
+            String::new()
+        };
+        format!("{}{tail}", shown.join(", "))
+    };
+    match (shape.direction.as_str(), shape.source.is_empty()) {
+        ("none", _) | (_, true) => String::new(),
+        (direction @ ("forbids" | "allows"), false) => format!(
+            " &#183; {direction}: {} to {}",
+            escape(&list(&shape.source)),
+            escape(&list(&shape.target))
+        ),
+        ("acyclic", false) if shape.source.len() > 4 => {
+            format!(
+                " &#183; acyclic among all {}",
+                count(shape.source.len(), "component")
+            )
+        }
+        (direction, false) => format!(
+            " &#183; {}: {}",
+            escape(direction),
+            escape(&list(&shape.source))
+        ),
+    }
+}
+
+fn violated(frame: &Frame, names: &Names<'_>, rules: &[Violated]) -> String {
+    let mut list = String::from("<ul class=\"rp-rules\">");
+    for found in rules {
+        let kind = frame
+            .rules
+            .get(&found.rule)
+            .map(|row| row.0.replace('_', " "))
+            .unwrap_or_default();
+        list.push_str(&format!(
+            "<li class=\"body-sm\">Violates <b class=\"rp-code\">{}</b> &#183; {} &#183; cause: {}{}</li>",
+            escape(&found.rule),
+            escape(&kind),
+            escape(&found.cause),
+            sides(frame, names, &found.rule)
+        ));
+    }
+    list.push_str("</ul>");
+    list
+}
+
+fn evidence_line(frame: &Frame, ids: &[String], shown: usize) -> String {
+    let places: Vec<String> = ids.iter().filter_map(|id| frame.place(id)).collect();
+    let more = places.len().saturating_sub(shown);
+    let mut text = places
+        .iter()
+        .take(shown)
+        .map(|place| format!("<span class=\"rp-code\">{}</span>", escape(place)))
+        .collect::<Vec<_>>()
+        .join(", ");
+    if more > 0 {
+        text.push_str(&format!(" <span class=\"rp-at\">and {more} more</span>"));
+    }
+    text
+}
+
+fn head(number: usize, title: &str) -> String {
+    format!(
+        "<div class=\"rp-dos__head\"><span class=\"rp-no\" aria-label=\"Violation {number}\">{number}</span>\
+<h3 class=\"h3\">{}</h3></div>",
+        escape(title)
+    )
+}
+
+fn import_block(
+    frame: &Frame,
+    names: &Names<'_>,
+    place: &Place,
+    (source, target, evidence): (&str, Option<&str>, &[String]),
+) -> String {
+    let first = evidence.first().and_then(|id| frame.locations.get(id));
+    let from_file = first.map(|at| at.path.as_str());
+    let (from, mut levels) = tower(names, source, from_file, "From");
+    let title = match target {
+        Some(target) => format!("{source} imports {target}"),
+        None => source.to_owned(),
+    };
+    let mut path = from;
+    if let Some(target) = target {
+        let (to, to_levels) = tower(names, target, None, "To");
+        levels = levels.max(to_levels);
+        let line = first.map_or_else(String::new, |at| format!("line {}", at.line));
+        path.push_str(&format!(
+            "<ul class=\"rp-rels\" aria-label=\"Relation\"><li class=\"rp-rel rp-r{levels} rp-rel--fail\">\
+<span class=\"tag\">IMPORTS</span><span class=\"caption\">{line}</span>{ARROW}</li></ul>{to}"
+        ));
+    }
+    format!(
+        "<article class=\"rp-dos\" id=\"x{n}\">{}<div class=\"rp-dos__body\">\
+<div class=\"rp-path rp-path--{levels}\" role=\"group\" aria-label=\"Evidence path\">{path}</div>\
+<p class=\"caption rp-at\">Evidence: {}</p></div>{}</article>",
+        head(place.number, &title),
+        evidence_line(frame, evidence, 5),
+        violated(frame, names, &place.rules),
+        n = place.number
+    )
+}
+
+fn step_row(frame: &Frame, names: &Names<'_>, index: usize, step: &super::frame::Step) -> String {
+    let of = |module: &str, id: &Option<String>| {
+        let named = id.as_deref().map(|id| names.name(id));
+        match named {
+            Some(name) => format!(
+                "{} <span class=\"rp-at\">({})</span>",
+                escape(module),
+                escape(name)
+            ),
+            None => escape(module),
+        }
+    };
+    let shown: Vec<&String> = step.evidence.iter().collect();
+    let places: Vec<String> = shown.iter().filter_map(|id| frame.place(id)).collect();
+    let more = step.evidence_total.saturating_sub(places.len());
+    let mut cited = places
+        .iter()
+        .map(|place| format!("<span class=\"rp-code\">{}</span>", escape(place)))
+        .collect::<Vec<_>>()
+        .join(", ");
+    if more > 0 {
+        cited.push_str(&format!(" <span class=\"rp-at\">and {more} more</span>"));
+    }
+    format!(
+        "<tr><td class=\"code ak-num\">{}</td><td class=\"code\">{}</td><td class=\"code\">{}</td>\
+<td class=\"caption\">{}</td></tr>",
+        index + 1,
+        of(&step.from, &step.from_component),
+        of(&step.to, &step.to_component),
+        cited
+    )
+}
+
+fn cycle_block(frame: &Frame, names: &Names<'_>, place: &Place, cycle: &CyclePath) -> String {
+    let title = format!("Cycle of {}", count(cycle.members.len(), "member"));
+    let rows: String = cycle
+        .path
+        .iter()
+        .enumerate()
+        .map(|(index, step)| step_row(frame, names, index, step))
+        .collect();
+    let cut = if cycle.truncated || cycle.steps_total > cycle.path.len() {
+        format!(
+            "<p class=\"caption rp-note\">The path has {} steps; the page shows {}.</p>",
+            cycle.steps_total,
+            cycle.path.len()
+        )
+    } else {
+        String::new()
+    };
+    format!(
+        "<article class=\"rp-dos\" id=\"x{n}\">{}<div class=\"rp-dos__body\"><div class=\"rp-scroll\">\
+<table class=\"rp-mini\"><caption class=\"caption\">One closed path through the members. Step {last} \
+returns to step 1.</caption><thead><tr><th class=\"caption ak-num\">Step</th><th class=\"caption\">From</th>\
+<th class=\"caption\">To</th><th class=\"caption\">Imports</th></tr></thead><tbody>{rows}</tbody></table></div>\
+{cut}</div>{}</article>",
+        head(place.number, &title),
+        violated(frame, names, &place.rules),
+        n = place.number,
+        last = cycle.path.len()
+    )
+}
+
+/// The section of the violated places, or nothing when no rule fails.
+pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> String {
+    if places.total == 0 {
+        return String::new();
+    }
+    let rules = frame.rules_with("FAIL");
+    let mut page = format!(
+        "<section class=\"rp-sec\" aria-labelledby=\"violations\"><h2 class=\"h2\" id=\"violations\">Violations</h2>\
+<p class=\"body-sm rp-lede\">{} in the code, {} broken. One block for each place; a place lists each rule that fails there.</p>",
+        count(places.total, "place"),
+        count(rules, "rule")
+    );
+    for place in &places.shown {
+        page.push_str(&match &place.kind {
+            Kind::Import {
+                source,
+                target,
+                evidence,
+            } => import_block(frame, names, place, (source, target.as_deref(), evidence)),
+            Kind::Cycle(cycle) => cycle_block(frame, names, place, cycle),
+        });
+    }
+    for (rule, cycles) in &frame.explain.cycles {
+        if cycles.total > cycles.items.len() {
+            page.push_str(&format!(
+                "<p class=\"caption rp-note\">The frame lists {} of {} cycles of <span class=\"rp-code\">{}</span>.</p>",
+                cycles.items.len(),
+                cycles.total,
+                escape(rule)
+            ));
+        }
+    }
+    if places.total > places.shown.len() {
+        page.push_str(&format!(
+            "<p class=\"caption rp-note\">The page shows {} of {} places. Every row: \
+<span class=\"rp-code\">archkeel report --output report.json --format json</span></p>",
+            places.shown.len(),
+            places.total
+        ));
+    }
+    page.push_str("</section>\n");
+    page
+}

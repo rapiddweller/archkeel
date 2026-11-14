@@ -18,13 +18,10 @@ jobs:
   verify:
     uses: ./.github/workflows/full-verification.yml
     # The upper limit for the jobs of Full: a called job cannot ask for more than its caller gives.
-    # Only `verified` and `publish-gallery` ask for more than `contents: read`, in their own blocks.
-    # `publish-gallery` has a condition that is false for a release call (AD-462).
+    # Only `verified` asks for more than `contents: read`, in its own block.
     permissions:
       contents: read
       actions: read
-      pages: write
-      id-token: write
 
   build:
     needs: verify
