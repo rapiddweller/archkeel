@@ -60,10 +60,12 @@ def test_a_known_profile_limit_does_not_hold_an_unrelated_rule(built: Path, case
     assert "limit of some profiles" not in json.dumps(frame["unsupported"])
     if case_id.startswith("s4/a-symbol"):
         assert frame["rules"]["SYMBOL"] == "PASS"
-    if "interface" in case_id or case_id.startswith("probe/"):
-        rule = "PROBE" if case_id.startswith("probe/") else "BOUNDARY"
-        assert rule not in frame["rules"]
-        assert "InterfaceBoundary" in frame["unsupported"]["rules"][rule]
+    if "interface" in case_id:
+        assert frame["rules"]["BOUNDARY"] == "FAIL", frame
+        assert "BOUNDARY" not in frame["unsupported"]["rules"]
+    if case_id.startswith("probe/"):
+        assert frame["rules"]["PROBE"] == "PASS", frame
+        assert "PROBE" not in frame["explained"], frame
 
 
 @pytest.mark.parametrize("case_id", CASES)
