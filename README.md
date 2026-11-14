@@ -9,20 +9,21 @@
 [![CI](https://github.com/rapiddweller/archkeel/actions/workflows/ci.yml/badge.svg)](https://github.com/rapiddweller/archkeel/actions/workflows/ci.yml)
 [![core self-check](https://img.shields.io/endpoint?url=https://rapiddweller.github.io/archkeel/self/core-badge.json&labelColor=141414)](https://rapiddweller.github.io/archkeel/self/core.html)
 [![shell self-check](https://img.shields.io/endpoint?url=https://rapiddweller.github.io/archkeel/self/shell-badge.json&labelColor=141414)](https://rapiddweller.github.io/archkeel/self/shell.html)
-![verdict: PASS, FAIL or UNKNOWN](https://img.shields.io/badge/verdict-PASS%20%C2%B7%20FAIL%20%C2%B7%20UNKNOWN-5EEAD4?labelColor=141414)
-![no LLM in the verdict](https://img.shields.io/badge/LLM%20in%20the%20verdict-none-C5F82A?labelColor=141414)
+![verdict: PASS, FAIL or UNKNOWN](https://img.shields.io/badge/verdict-PASS%20%C2%B7%20FAIL%20%C2%B7%20UNKNOWN-46bfd0?labelColor=141414)
+![no LLM in the verdict](https://img.shields.io/badge/LLM%20in%20the%20verdict-none-e8805d?labelColor=141414)
 
-![engine: Rust](https://img.shields.io/badge/engine-Rust-DEA584?labelColor=141414)
-![checks Rust and TypeScript](https://img.shields.io/badge/checks-Rust%20%C2%B7%20TypeScript-5EEAD4?labelColor=141414)
+![engine: Rust](https://img.shields.io/badge/engine-Rust-e8805d?labelColor=141414)
+![checks Rust and TypeScript](https://img.shields.io/badge/checks-Rust%20%C2%B7%20TypeScript-46bfd0?labelColor=141414)
 [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-D97757?labelColor=141414)](#claude-code)
 [![Codex plugin](https://img.shields.io/badge/Codex-plugin-8A8A8A?labelColor=141414)](#codex)
-[![MIT](https://img.shields.io/badge/license-MIT-C5F82A?labelColor=141414)](https://github.com/rapiddweller/archkeel/blob/main/LICENSE)
+[![MIT](https://img.shields.io/badge/license-MIT-a8a8ab?labelColor=141414)](https://github.com/rapiddweller/archkeel/blob/main/LICENSE)
 
 **See it live.** ArchKeel checks itself, and these reports follow the current `main`:
 [the Rust core](https://rapiddweller.github.io/archkeel/self/core.html) ·
 [the Python shell](https://rapiddweller.github.io/archkeel/self/shell.html) ·
 [the fixture showcase](https://rapiddweller.github.io/archkeel/).
 The self reports show each FAIL and each UNKNOWN row as it is. Each one has its cause pinned in the repository.
+The showcase has Python, Dart and TypeScript projects; the Rust core is the first self report. Every showcase row is UNKNOWN today: most name a gap in the contract checks, and some name a rule kind that the core does not read yet.
 
 [Install](#install) · [Quick start](#quick-start) · [Why](#why-archkeel) · [Compared](#archkeel-floorplan-or-understand-anything) · [Features](#features) · [FAQ](#faq)
 

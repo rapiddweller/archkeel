@@ -50,8 +50,8 @@ SELF_RUNS: tuple[dict[str, str], ...] = (
         "label": "shell self-check",
     },
 )
-# Shields endpoint colours: green, red and amber. A run without a result is grey.
-COLORS = {"PASS": "brightgreen", "FAIL": "red", "UNKNOWN": "f0a500"}
+# Shields endpoint colours (design-system palette): pass, fail and unknown. No result is grey.
+COLORS = {"PASS": "46bfd0", "FAIL": "f2606b", "UNKNOWN": "ecb64a"}
 
 
 def load_runs(matrix: Path = MATRIX) -> list[dict[str, Any]]:

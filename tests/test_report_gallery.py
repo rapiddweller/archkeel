@@ -177,7 +177,7 @@ def test_a_self_badge_shows_the_counts_and_the_colour_of_the_status(tmp_path: Pa
         "schemaVersion": 1,
         "label": "core self-check",
         "message": "1 PASS · 1 FAIL · 0 UNKNOWN",
-        "color": "red",
+        "color": "f2606b",
     }
     assert (
         json.loads((out / "self" / "shell-badge.json").read_text())["label"] == "shell self-check"
@@ -185,7 +185,7 @@ def test_a_self_badge_shows_the_counts_and_the_colour_of_the_status(tmp_path: Pa
 
 
 @pytest.mark.parametrize(
-    ("status", "color"), [("PASS", "brightgreen"), ("FAIL", "red"), ("UNKNOWN", "f0a500")]
+    ("status", "color"), [("PASS", "46bfd0"), ("FAIL", "f2606b"), ("UNKNOWN", "ecb64a")]
 )
 def test_the_badge_colour_follows_the_status(status: str, color: str) -> None:
     counts = {"PASS": 2, "FAIL": 0, "UNKNOWN": 1}
