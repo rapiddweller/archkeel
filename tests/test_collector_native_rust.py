@@ -441,7 +441,7 @@ def test_a_module_chain_deeper_than_the_limit_is_unknown(
     assert any("Modules nest deeper than 64 levels" in claim for claim in claims(result))
 
 
-def test_a_contract_inside_a_component_is_unknown_and_never_pass(
+def test_a_contract_inside_a_component_decides_its_own_requires(
     tmp_path: Path, core_binary: Path, capsys: Capsys
 ) -> None:
     app = component("app", "app", ("base",))
@@ -455,10 +455,16 @@ def test_a_contract_inside_a_component_is_unknown_and_never_pass(
     parts = (component("base", "base_crate"), app)
     result = _verdict(tmp_path, core_binary, capsys, files, components=parts)
 
-    # The core does not read an inside contract (#880), so it decides no rule of the project.
-    assert (result["status"], result["exit_code"]) == ("UNKNOWN", 2)
-    assert statuses(result) == {}
-    assert any("inside contracts: docs/app-inside.json" in claim for claim in claims(result))
+    assert (result["status"], result["exit_code"]) == ("FAIL", 1)
+    assert statuses(result) == {
+        "ASSIGNED": "PASS",
+        "REQUIRES": "PASS",
+        "NO-CYCLES": "PASS",
+        "app:INNER-REQUIRES": "FAIL",
+    }
+    assert claims(result) == [
+        "app:INNER-REQUIRES: native.app.a -> native.app.b: undeclared component dependency"
+    ]
 
 
 def test_a_local_module_does_not_hide_a_path_that_starts_with_two_colons(

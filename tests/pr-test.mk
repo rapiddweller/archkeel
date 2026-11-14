@@ -2,6 +2,7 @@
 # (`make full-test`) and never this list, so Full does not watch this file. Add a test here
 # without a change to the Makefile.
 PR_TEST_FILES := \
+	tests/test_cli_core_inside_trees.py \
 	tests/test_cli_core_only.py \
 	tests/test_cli_core_only_boundary.py \
 	tests/test_cli_core_only_build_output.py \
@@ -9,6 +10,7 @@ PR_TEST_FILES := \
 	tests/test_cli_core_only_review.py \
 	tests/test_cli_core_only_scan.py \
 	tests/test_cli_installed_wheel.py \
+	tests/test_cli_report_output.py \
 	tests/test_cli_native_core_scan.py \
 	tests/test_cli_native_core_scan_rust.py \
 	tests/test_cli_native_core_scan_work.py \

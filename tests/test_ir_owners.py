@@ -25,10 +25,12 @@ SHELL = frozenset(
         "cli/__init__.py",
         "cli/__main__.py",
         "cli/core_binary.py",
+        "cli/core_binding.py",
         "cli/core_evidence.py",
         "cli/core_frame.py",
         "cli/core_json.py",
         "cli/core_only.py",
+        "cli/core_output.py",
         "cli/native_scan.py",
         "cli/skill.py",
     )

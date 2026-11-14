@@ -15,6 +15,54 @@ use crate::{BuildError, FrameError, RuleVerdict, Status, Unexplained};
 const BOTH: [&str; 2] = ["ASSIGNMENT", "LAYOUT"];
 
 #[test]
+fn static_html_keeps_each_status_of_its_typed_ruling() {
+    let passed = model(&contract(&BOTH), true);
+    let unknown = model(&contract(&BOTH), false);
+    let reply = reply_with(undeclared_import);
+    let failed = model_of(&contract(&["EXTERNAL-COMPLETE"]), &reply, true);
+    for (tree, status) in [(&passed, "PASS"), (&failed, "FAIL"), (&unknown, "UNKNOWN")] {
+        let ruling = rule(Ok(tree), Named::default()).unwrap().with_html(true);
+        let frame = ruling.frame(&json!({})).unwrap().into_bytes();
+        let frame: Value = serde_json::from_slice(&frame).unwrap();
+        assert_eq!(frame["html"]["status"], frame["status"]);
+        assert_eq!(frame["status"], status);
+        assert!(frame["html"]["document"]
+            .as_str()
+            .unwrap()
+            .contains(&format!("<h1>Verdict: {status}</h1>")));
+        assert_eq!(
+            ruling.frame(&json!({"html": "forged"})),
+            Err(FrameError::RulingKey("html".to_owned()))
+        );
+    }
+}
+
+#[test]
+fn the_refused_fixture_has_one_golden_static_page() {
+    let reason = Reason::MissingInput(Input::Reply);
+    let ruling = rule(
+        Err(&reason),
+        Named {
+            contract: Some("fixture refused".to_owned()),
+            ..Named::default()
+        },
+    )
+    .unwrap()
+    .with_html(true);
+    let bytes = ruling.frame(&json!({
+        "engine": "archkeel-core CODE-DIGEST", "locations": {}, "collection_gaps": [],
+        "contract_digest": null, "sections": {}, "unsupported": {"sections": {}, "report": null},
+        "self_test": {"contract": {"not_read": "fixture refused"},
+            "reply": {"absent": "fixture refused"}, "collect": {"refused": "fixture refused"}}
+    })).unwrap().into_bytes();
+    let frame: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(
+        frame["html"]["document"].as_str().unwrap(),
+        include_str!("../testdata/refused.html")
+    );
+}
+
+#[test]
 fn a_frame_without_rules_is_unknown_and_names_the_contract() {
     for trusted in [true, false] {
         let model = model(&contract(&[]), trusted);

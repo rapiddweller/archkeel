@@ -228,6 +228,25 @@ def test_the_installed_wheel_gives_the_verdict_of_its_core(
     assert statuses == expected if expected else "PASS" in statuses, result
 
 
+@pytest.mark.parametrize("form", ["json", "html"])
+def test_the_installed_wheel_writes_a_report_file_of_its_core(
+    installed: Installed, crate: Path, decides: bool, form: str, tmp_path: Path
+) -> None:
+    """AD-440: the report file of the installed core keeps the ruling of the frame."""
+    if not decides:
+        pytest.skip("the core of this platform gives no verdict (AD-436)")
+    target = tmp_path / f"report.{form}"
+    done = installed.run(
+        *("report", "--root", str(crate), "--output", str(target), "--format", form, "--json")
+    )
+    result = json.loads(done.stdout)
+    assert done.returncode == 0 and result["status"] == "PASS", (done.stdout, done.stderr)
+    if form == "json":
+        assert json.loads(target.read_bytes()) == result["frame"]
+    else:
+        assert "<h1>Verdict: PASS</h1>" in target.read_text()
+
+
 def test_a_wheel_without_its_binary_or_digest_refuses(changed: Installed, crate: Path) -> None:
     saved = changed.digest.read_bytes()
     changed.digest.unlink()

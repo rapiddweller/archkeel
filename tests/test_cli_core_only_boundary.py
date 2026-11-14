@@ -77,9 +77,10 @@ def frame(status: Status = Status.PASS) -> bytes:
                 "contract": {"rules": {"R1": "forbidden_dependency"}},
                 "reply": {"files": 2},
                 "collect": {
+                    "contract_files": {"contract.json": hashlib.sha256(b"contract").hexdigest()},
                     "request": {
                         "snapshot": {"root": str(Path.cwd()), "git_head": HEAD, "dirty": False}
-                    }
+                    },
                 },
             },
         }
@@ -294,8 +295,15 @@ def test_each_mandatory_merge_check_is_named_without_a_scan(
     assert kind in result["refusal"]["message"] and "#1103" in result["refusal"]["message"]
 
 
-@pytest.mark.parametrize("command", ["validate", "report"])
-@pytest.mark.parametrize("option", sorted(core_only.REMOVED_OPTIONS))
+@pytest.mark.parametrize(
+    ("command", "option"),
+    [
+        (command, option)
+        for command in ("validate", "report")
+        for option in sorted(core_only.REMOVED_OPTIONS)
+        if (command, option) != ("report", "--output")
+    ],
+)
 def test_each_option_of_the_release_line_refuses_by_name(
     command: str,
     option: str,

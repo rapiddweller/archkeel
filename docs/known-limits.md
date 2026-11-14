@@ -20,12 +20,17 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 - The core refuses each root on Windows, so the Windows wheel gives no verdict. A release from
   `main` is closed until each wheel of the matrix gives a verdict (`tools/release_core.py`, AD-436).
 - `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give the typed refusal
-  `not_on_this_development_line`, exit 2. HTML reports, `architecture.json`, saved and focused
+  `not_on_this_development_line`, exit 2. Interactive reports, `architecture.json`, saved and focused
   reports, baselines, amendments and `--write-graph` are refused by option name.
+- `report --output PATH` writes one static HTML page or the JSON frame (`--format json`). It has no graph.
+  The parent must exist. Safe file output needs POSIX directory handles; other platforms refuse with exit 2.
 - A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`. The run exits 2.
 - A collection gap makes each rule UNKNOWN whose reading it can change. A manifest edge that the core
   proved can give a `requires` FAIL beside such a gap.
-- A contract with `inside` mounts is refused: "collect: unsupported: inside contracts".
+- `validate` and `report` read explicit `inside` mounts through the bounded core tree reader.
+  Unsafe, linked, missing or invalid mounts stay UNKNOWN. Unproved tree rules keep their named gaps.
+  A safe mount path that is absent, unreadable or not a contained regular file gives
+  "mounts inside contracts that the shell has not sent". This names missing input, not an unported tree rule.
 - Source that nests deeper than the parse work limit is the typed refusal `core_error` with `parse_work_limit`.
 - A `collector_argv` in `archkeel.toml` is refused. The core starts only its own collectors.
 - The survey refuses a root with more than 1 GiB of file bytes or more than 100,000 entries, by name.
@@ -39,7 +44,8 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   An `include!` of a generated file is a `collection_gap`. A TypeScript source below a tagged directory
   is still collected.
 - The shell trusts the rule rows of the core binary that it located. It checks the root, the commit,
-  the dirty state, the configuration and the contract bytes of the frame against its request.
+  the dirty state, the configuration and all contract file digests against its request (AD-438).
+  A nested file changed since the request started is refused. Keep the snapshot unchanged during a run.
 - ArchKeel checks only its Rust source in `native/` with the core: 63 rules PASS, 1 FAIL, 19 UNKNOWN,
   pinned in `native/expected-gaps.json`. The Python shell and the tools have no architecture contract.
 

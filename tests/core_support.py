@@ -42,11 +42,30 @@ def _cargo() -> str:
     return cargo
 
 
+CACHE_TAG = (
+    "Signature: 8a477f597d28d172789f06886806bc55\n"
+    "# This file is a cache directory tag created by cargo.\n"
+)
+
+
+def ensure_target_dir(native: Path) -> None:
+    """Give `native/target` the `CACHEDIR.TAG` that cargo writes when it creates the directory.
+
+    A test that makes the directory first for the build lock leaves it untagged, and so does an
+    older checkout. The core then counts the build output as source and refuses a scan of this
+    checkout over its work budget. A missing tag is added; an existing tag is kept.
+    """
+    target = native / "target"
+    target.mkdir(exist_ok=True)
+    with contextlib.suppress(FileExistsError), (target / "CACHEDIR.TAG").open("x") as tag:
+        tag.write(CACHE_TAG)
+
+
 COLLECTORS = ("archkeel-typescript-collector", "archkeel-rust-collector")
 
 
 def _build(*arguments: str, timeout: int = 1200) -> None:
-    (NATIVE / "target").mkdir(exist_ok=True)
+    ensure_target_dir(NATIVE)
     command = [_cargo(), "build", "--locked", "-q", "-p", "archkeel-core", *arguments]
     # All workers of all test sessions on this checkout share one build lock.
     with FileLock(str(NATIVE / "target" / ".pytest-native-build.lock")):
@@ -57,12 +76,16 @@ def _build(*arguments: str, timeout: int = 1200) -> None:
 
 
 @pytest.fixture(scope="session")
-def built() -> Path:
-    """The directory of the debug core and of both collector binaries, in its own target."""
+def built(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A private copy of the debug binaries; another worker can relink the shared build."""
     target = NATIVE / "target" / "shell"
     packages = [argument for name in COLLECTORS for argument in ("-p", name)]
     _build(*packages, "--target-dir", str(target))
-    return target / "debug"
+    copied = tmp_path_factory.mktemp("core-binaries")
+    with FileLock(str(NATIVE / "target" / ".pytest-native-build.lock")):
+        for name in ("archkeel-core", *COLLECTORS):
+            shutil.copy2(target / "debug" / f"{name}{SUFFIX}", copied)
+    return copied
 
 
 @pytest.fixture(scope="session")
