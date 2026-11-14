@@ -2263,10 +2263,12 @@
     "fn ingest_typed(reply:archkeel_facts::envelope::Reply)->Result<Ingested,String>",
     "fn reply(&self)->&archkeel_facts::envelope::Reply",
     "fn session::run(input:&mut impl Read,output:&mut impl Write,inflate_limit:u64)->io::Result<()>",
+    "fn standard::sdk_libraries(profile:Profile)->Vec<&'static str>",
     "fn standard::standard_library(profile:Profile)->Vec<&'static str>",
     "fn standard::standard_library_everywhere(profile:Profile)->Vec<&'static str>",
     "mod session",
     "struct Ingested",
+    "use sdk_libraries",
     "use standard_library",
     "use standard_library_everywhere"
   ],
