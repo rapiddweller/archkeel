@@ -33,16 +33,43 @@ pub type Aliases = HashMap<String, Alias>;
 
 /// The import records of all modules, sorted by id, and the aliases of each module.
 /// `binders` has one entry for each module.
+#[cfg(test)]
 pub fn collect(
     modules: &[Module],
     binders: &[Binders],
     namespace: &str,
     evidence: &mut EvidenceMap,
 ) -> (Vec<Record<ImportFact>>, Vec<Aliases>) {
+    let found = collect_all(modules, binders, namespace, evidence);
+    (found.records, found.aliases)
+}
+
+/// What the import walk finds: the records, the aliases and the ambiguous records.
+pub struct Collected {
+    pub records: Vec<Record<ImportFact>>,
+    pub aliases: Vec<Aliases>,
+    /// The ids of each `from pkg import name` where `pkg` can give an attribute or the module
+    /// `pkg.name` (AD-450): the package binds the name, or has `__getattr__` or a star import.
+    pub ambiguous: HashSet<String>,
+}
+
+/// `collect`, with the ambiguous records.
+pub fn collect_all(
+    modules: &[Module],
+    binders: &[Binders],
+    namespace: &str,
+    evidence: &mut EvidenceMap,
+) -> Collected {
     let names: HashSet<&str> = modules.iter().map(|module| module.name.as_str()).collect();
     let bindings = package_bindings(modules);
+    let open: HashSet<&str> = modules
+        .iter()
+        .filter(|module| module.is_init() && open_body(module))
+        .map(|module| module.name.as_str())
+        .collect();
     let mut records = Vec::new();
     let mut aliases = Vec::with_capacity(modules.len());
+    let mut ambiguous = HashSet::new();
     for (module, binders) in modules.iter().zip(binders) {
         let mut found = Aliases::new();
         let mut collector = Collector {
@@ -51,16 +78,31 @@ pub fn collect(
             unique: binders.unique(),
             names: &names,
             bindings: &bindings,
+            open: &open,
             namespace,
             evidence: &mut *evidence,
             records: &mut records,
             aliases: &mut found,
+            ambiguous: &mut ambiguous,
         };
         collector.body(&module.tree.body, true, false);
         aliases.push(found);
     }
     records.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
-    (records, aliases)
+    Collected {
+        records,
+        aliases,
+        ambiguous,
+    }
+}
+
+/// A package body that can give any name: a top-level `__getattr__` or a star import.
+fn open_body(module: &Module) -> bool {
+    module.tree.body.iter().any(|statement| match statement {
+        Stmt::FunctionDef(node) => node.name.as_str() == "__getattr__",
+        Stmt::ImportFrom(node) => node.names.iter().any(|alias| alias.name.as_str() == "*"),
+        _ => false,
+    })
 }
 
 /// `collect_package_bindings`: for each package, the names that its body binds ahead of a
@@ -179,10 +221,12 @@ struct Collector<'m, 'e> {
     unique: HashSet<String>,
     names: &'m HashSet<&'m str>,
     bindings: &'m HashMap<&'m str, HashSet<String>>,
+    open: &'m HashSet<&'m str>,
     namespace: &'m str,
     evidence: &'e mut EvidenceMap,
     records: &'e mut Vec<Record<ImportFact>>,
     aliases: &'e mut Aliases,
+    ambiguous: &'e mut HashSet<String>,
 }
 
 /// What one import binding is: the target, the symbol, the binding and the relative level.
@@ -294,7 +338,9 @@ impl Collector<'_, '_> {
                 .bindings
                 .get(anchor.as_str())
                 .is_some_and(|names| names.contains(name));
-            let local = !shadowed && self.names.contains(submodule.as_str());
+            let exists = self.names.contains(submodule.as_str());
+            let local = !shadowed && exists;
+            let ambiguous = exists && (shadowed || self.open.contains(anchor.as_str()));
             let binding = alias.asname.as_ref().map_or(name, |a| a.as_str());
             let target = if local {
                 submodule.clone()
@@ -309,6 +355,9 @@ impl Collector<'_, '_> {
                 level: node.level,
             };
             self.record(place, &found);
+            let last = self.records.last().filter(|_| ambiguous);
+            self.ambiguous
+                .extend(last.map(|record| record.id.as_str().to_owned()));
         }
     }
 

@@ -23,6 +23,7 @@ mod decode;
 mod inventory;
 mod pyjson;
 mod pyrepr;
+mod python;
 mod record_identity;
 mod records;
 mod registered;
@@ -78,7 +79,7 @@ fn ingest(payload: &[u8], inflate_limit: u64) -> Result<Store, String> {
 /// The one validation of a reply after its decode: the version, the envelope, the registered
 /// sets, the records and their bindings. Both front doors (`ingest_reply`, `ingest_typed`) end here.
 fn validated(reply: archkeel_facts::envelope::Reply) -> Result<Store, String> {
-    validate::version(reply.protocol_version)?;
+    validate::version(reply.protocol_version, reply.facts.profile)?;
     validate::invariants(&reply.facts)?;
     let names: Vec<&str> = reply.facts.sections.iter().map(Section::name).collect();
     validate::envelope(&reply.facts, &names)?;

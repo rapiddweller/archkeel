@@ -47,12 +47,19 @@ impl Unseen {
 pub struct Scope {
     pub selected: Vec<String>,
     pub unseen: Vec<Unseen>,
+    /// The stub and compiled module files below the roots: the survey cannot read them as
+    /// source, and Python can import them (AD-450).
+    pub foreign: Vec<String>,
 }
+
+/// The suffixes of a module file that is not Python source.
+const FOREIGN: [&str; 4] = [".pyi", ".so", ".pyd", ".pyc"];
 
 /// The scope of the roots: the selected files and the unseen entries.
 pub fn scope(snapshot: &mut Snapshot, roots: &[String], exclude_tests: bool) -> Scope {
     let mut found = Vec::new();
     let mut unseen = Vec::new();
+    let mut foreign = Vec::new();
     for root in roots {
         if !snapshot.is_dir(root) {
             continue;
@@ -61,11 +68,9 @@ pub fn scope(snapshot: &mut Snapshot, roots: &[String], exclude_tests: bool) -> 
         while let Some(directory) = pending.pop() {
             let (files, directories) = snapshot.entries(&directory);
             let names = files.iter().chain(directories.iter());
-            found.extend(
-                names
-                    .filter(|name| name.ends_with(".py"))
-                    .map(|name| join(&directory, name)),
-            );
+            for name in names {
+                place(join(&directory, name), &mut found, &mut foreign);
+            }
             let children = directories.iter().map(|name| join(&directory, name));
             pending.extend(children.filter(|child| !snapshot.is_link(child)));
             hidden(snapshot, &directory, exclude_tests, &mut unseen);
@@ -78,9 +83,21 @@ pub fn scope(snapshot: &mut Snapshot, roots: &[String], exclude_tests: bool) -> 
     }));
     found.sort_by(|left, right| left.split('/').cmp(right.split('/')));
     found.dedup();
+    foreign.retain(|rel| keep(snapshot, rel, exclude_tests));
+    foreign.sort();
     Scope {
         selected: found,
         unseen,
+        foreign,
+    }
+}
+
+/// Put a listed path into the source files or the stub and compiled module files.
+fn place(rel: String, found: &mut Vec<String>, foreign: &mut Vec<String>) {
+    if rel.ends_with(".py") {
+        found.push(rel);
+    } else if FOREIGN.iter().any(|suffix| rel.ends_with(suffix)) {
+        foreign.push(rel);
     }
 }
 

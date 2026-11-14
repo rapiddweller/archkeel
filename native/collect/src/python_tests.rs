@@ -91,3 +91,117 @@ fn a_planted_digest_or_a_changed_file_refuses_the_reply() {
         .unwrap_err()
         .contains("cannot be read again"));
 }
+
+/// The store refusal of a changed copy of a real survey, or an empty text.
+fn refusal(reply: Reply) -> String {
+    archkeel_store::ingest_typed(reply)
+        .err()
+        .unwrap_or_default()
+}
+
+#[test]
+fn the_store_accepts_a_complete_survey_and_refuses_each_planted_claim() {
+    use archkeel_facts::envelope::{LimitSupport, ProtocolVersion, Target};
+    use archkeel_facts::ids::PackageName;
+
+    let tree = project();
+    let original = reply(&tree);
+    assert!(
+        original.facts.coverage.full_scope,
+        "{:?}",
+        original.facts.coverage
+    );
+    assert_eq!(refusal(original.clone()), "");
+    let limits = original.facts.profile_limits.unwrap();
+    assert_eq!(limits.dependency_symbols, LimitSupport::Unsupported);
+    assert_eq!(limits.interface_boundary, LimitSupport::Unsupported);
+
+    type Change = fn(&mut Reply);
+    let cases: [(&str, Change); 7] = [
+        ("only the Python import survey", |r| {
+            r.facts.profile = Profile::TypeScript
+        }),
+        ("10.0.0 import survey", |r| {
+            r.protocol_version = ProtocolVersion::V9
+        }),
+        ("resolution feature", |r| {
+            r.facts
+                .capabilities
+                .resolution_features
+                .push("static-imports".to_owned());
+        }),
+        ("no symbol or interface rule", |r| {
+            if let Some(limits) = r.facts.profile_limits.as_mut() {
+                limits.interface_boundary = LimitSupport::Supported;
+            }
+        }),
+        ("external target", |r| {
+            let local = r
+                .facts
+                .imports
+                .iter_mut()
+                .find(|t| matches!(t, Target::Local { .. }));
+            if let Some(target) = local {
+                *target = Target::External {
+                    import_id: target.import_id().clone(),
+                    package: PackageName::new("app"),
+                };
+            }
+        }),
+        ("builtin target", |r| {
+            let local = r
+                .facts
+                .imports
+                .iter_mut()
+                .find(|t| matches!(t, Target::Local { .. }));
+            if let Some(target) = local {
+                *target = Target::Builtin {
+                    import_id: target.import_id().clone(),
+                    name: "app.service".to_owned(),
+                };
+            }
+        }),
+        ("a Python import has no specifier", |r| {
+            if let Some(archkeel_facts::Section::Imports(records)) = r.facts.sections.first_mut() {
+                if let archkeel_facts::ImportFact::Import(data) = &mut records[0].data {
+                    data.type_only = Some(false);
+                }
+            }
+        }),
+    ];
+    for (reason, change) in cases {
+        let mut changed = original.clone();
+        change(&mut changed);
+        let refused = refusal(changed);
+        assert!(refused.contains(reason), "{reason}: {refused}");
+    }
+}
+
+#[test]
+fn a_survey_with_a_gap_is_incomplete_and_its_gaps_must_be_its_unknowns() {
+    use archkeel_facts::Section;
+
+    let tree = project();
+    fs::write(
+        tree.root.join("src/app/client.py"),
+        "import importlib\nimportlib.import_module(name)\n",
+    )
+    .unwrap();
+    let original = reply(&tree);
+    assert!(!original.facts.coverage.full_scope);
+    assert_eq!(refusal(original.clone()), "");
+
+    let mut partial = original.clone();
+    for section in &mut partial.facts.sections {
+        if let Section::Unknowns(records) = section {
+            records.push(records[0].clone());
+            records[1].id = archkeel_facts::ids::FactId::new("UNKNOWN-planted");
+        }
+    }
+    assert!(!refusal(partial).is_empty());
+
+    let mut hidden = original.clone();
+    hidden.facts.coverage.gaps.clear();
+    hidden.facts.coverage.full_scope = true;
+    assert!(!refusal(hidden).is_empty());
+}

@@ -102,7 +102,8 @@ fn parts(
             .scope
             .roots
             .iter()
-            .map(|root| format!("{root}/**/*.py"))
+            // The label of a scan root that the model binds to its settings (AD-450).
+            .map(|root| format!("{root}/**"))
             .collect(),
         sections: SURVEY_SECTIONS.to_vec(),
         features: Vec::new(),

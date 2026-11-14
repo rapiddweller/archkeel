@@ -1989,6 +1989,7 @@
       "packages": [],
       "exact_modules": [
         "native.archkeel_python_collector",
+        "native.archkeel_python_collector.bin_archkeel_python_collector",
         "native.archkeel_python_collector.build_script",
         "native.archkeel_python_collector.cargo_toml"
       ],
@@ -2433,6 +2434,7 @@
         "native.archkeel_python_collector.parse.stack",
         "native.archkeel_python_collector.parse.depth",
         "native.archkeel_python_collector.survey.binders",
+        "native.archkeel_python_collector.survey.hazards",
         "native.archkeel_python_collector.survey.imports",
         "native.archkeel_python_collector.module",
         "native.archkeel_python_collector.survey.namespace",
@@ -2513,7 +2515,8 @@
         "native.archkeel_python_collector.unparse.hazard",
         "native.archkeel_python_collector.symbols.class",
         "native.archkeel_python_collector.symbols.scan",
-        "native.archkeel_python_collector.symbols.sites"
+        "native.archkeel_python_collector.symbols.sites",
+        "native.archkeel_python_collector.survey.hazards"
       ],
       "rationale": "Only the survey module and the CPython view, the string check and the definition table of the Python collector read the text ranges of the Python parser (AD-377).",
       "provenance": [

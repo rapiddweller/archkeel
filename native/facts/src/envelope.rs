@@ -84,11 +84,12 @@ impl Profile {
         }
     }
 
-    /// How the modules of this profile lie in the scan roots.
+    /// How the modules of this profile lie in the scan roots. A Python module that is not its
+    /// path below a scan root is a gap of the survey, so the parent rule holds (AD-450).
     pub fn layout(self) -> Layout {
         match self {
-            Profile::TypeScript | Profile::Rust => Layout::ProjectFiles,
-            Profile::Python | Profile::Dart => Layout::Other,
+            Profile::TypeScript | Profile::Rust | Profile::Python => Layout::ProjectFiles,
+            Profile::Dart => Layout::Other,
         }
     }
 }

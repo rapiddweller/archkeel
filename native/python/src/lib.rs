@@ -36,7 +36,7 @@ mod requirement;
 
 mod source;
 
-use archkeel_facts::envelope::Reply;
+use archkeel_facts::envelope::{LimitSupport, ProfileLimits, Reply};
 use archkeel_facts::request::PythonRequest;
 
 pub use crate::reply::Build;
@@ -55,13 +55,19 @@ pub const BUILD: Build<'static> = Build {
 };
 
 /// The compressed reply of the subprocess path.
-pub fn reply(request: &PythonRequest, build: &Build<'_>) -> Result<Vec<u8>, String> {
+pub fn compressed_reply(request: &PythonRequest, build: &Build<'_>) -> Result<Vec<u8>, String> {
     reply::reply(request, survey::survey(request)?, build)
 }
 
-/// The same survey through the typed sink, without reply bytes from a caller.
+/// The same survey through the typed sink, without reply bytes from a caller. The linked reply
+/// states that the survey reads no symbol selector and no module interface (AD-426, AD-450).
 pub fn typed_reply(request: &PythonRequest, build: &Build<'_>) -> Result<Reply, String> {
-    reply::typed(request, survey::survey(request)?, build)
+    let mut reply = reply::typed(request, survey::survey(request)?, build)?;
+    reply.facts.profile_limits = Some(ProfileLimits {
+        dependency_symbols: LimitSupport::Unsupported,
+        interface_boundary: LimitSupport::Unsupported,
+    });
+    Ok(reply)
 }
 
 #[cfg(test)]

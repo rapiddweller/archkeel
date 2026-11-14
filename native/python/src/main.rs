@@ -20,11 +20,10 @@ use archkeel_wire::request::decode_python;
 const STACK_BYTES: usize = 256 * 1024 * 1024;
 
 #[cfg(feature = "dump")]
-fn dump(arguments: &[String]) -> Option<Result<(), String>> {
-    use collector::dump;
+fn dump_flags(arguments: &[String]) -> Option<Result<(), String>> {
     if let [_, flag, minor] = arguments {
         if flag == "--dump-printable" {
-            return Some(dump::printable(minor));
+            return Some(collector::dump::printable(minor));
         }
     }
     let [_, flag, minor, root] = arguments else {
@@ -32,25 +31,24 @@ fn dump(arguments: &[String]) -> Option<Result<(), String>> {
     };
     let (minor, root) = (minor.clone(), root.clone());
     Some(match flag.as_str() {
-        "--dump" => on_big_stack(move || dump::run(&minor, &root)),
-        "--dump-texts" => on_big_stack(move || dump::texts(&minor, &root)),
-        "--dump-bindings" => on_big_stack(move || dump::bindings(&minor, &root, false)),
-        "--dump-proofs" => on_big_stack(move || dump::bindings(&minor, &root, true)),
+        "--dump" => on_big_stack(move || collector::dump::run(&minor, &root)),
+        "--dump-texts" => on_big_stack(move || collector::dump::texts(&minor, &root)),
+        "--dump-bindings" => on_big_stack(move || collector::dump::bindings(&minor, &root, false)),
+        "--dump-proofs" => on_big_stack(move || collector::dump::bindings(&minor, &root, true)),
         _ => return None,
     })
 }
 
 #[cfg(feature = "dump")]
 fn dump_request(request: archkeel_facts::request::PythonRequest) -> Option<Result<(), String>> {
-    use collector::dump;
     let flag = std::env::args().nth(1)?;
     let found = match flag.as_str() {
-        "--dump-scope" => dump::scope(&request),
+        "--dump-scope" => collector::dump::scope(&request),
         "--dump-symbols" => {
             let witnesses = std::env::args().nth(2).as_deref() == Some("1");
-            on_big_stack(move || dump::symbols(&request, witnesses))
+            on_big_stack(move || collector::dump::symbols(&request, witnesses))
         }
-        "--dump-survey" => on_big_stack(move || dump::survey(&request)),
+        "--dump-survey" => on_big_stack(move || collector::dump::survey(&request)),
         _ => return None,
     };
     Some(found.map(|value| println!("{value}")))
@@ -58,7 +56,7 @@ fn dump_request(request: archkeel_facts::request::PythonRequest) -> Option<Resul
 
 fn run() -> Result<(), String> {
     #[cfg(feature = "dump")]
-    if let Some(done) = dump(&std::env::args().collect::<Vec<_>>()) {
+    if let Some(done) = dump_flags(&std::env::args().collect::<Vec<_>>()) {
         return done;
     }
     let mut payload = Vec::new();
@@ -70,7 +68,7 @@ fn run() -> Result<(), String> {
     if let Some(done) = dump_request(request.clone()) {
         return done;
     }
-    let bytes = on_big_stack(move || collector::reply(&request, &collector::BUILD))?;
+    let bytes = on_big_stack(move || collector::compressed_reply(&request, &collector::BUILD))?;
     std::io::stdout()
         .write_all(&bytes)
         .map_err(|error| format!("cannot write the reply: {error}"))

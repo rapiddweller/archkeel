@@ -334,6 +334,21 @@
     ],
     [
       "collection_gap",
+      "native.archkeel_python_collector.survey.layout",
+      "A method call may reach the method at of an impl block in native.archkeel_facts.envelope.build"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_python_collector.survey.layout",
+      "A method call may reach the method at of an impl block in native.archkeel_facts.gap"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_python_collector.survey.targets",
+      "A method call may reach the method resolution of an impl block in native.archkeel_facts.gap"
+    ],
+    [
+      "collection_gap",
       "native.archkeel_python_collector.unparse",
       "A method call may reach the method compound of an impl block in native.archkeel_python_collector.unparse.operators"
     ],

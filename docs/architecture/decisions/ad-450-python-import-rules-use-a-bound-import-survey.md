@@ -18,8 +18,9 @@
    coverage gaps must be the `unknowns` section. A project target cannot be builtin or external.
    A builtin must be standard, and an external package must not be standard or a project name.
    The linked reply states that symbol selectors and interfaces are not supported (AD-426).
-6. Layout: a module name must be its path below its scan root. Then the parent rule of
-   `Layout::ProjectFiles` holds for Python, and the scan receipt can decide. Else a gap.
+6. Layout: the file of a module must be its module path, and its top package directory must be
+   a scan root or lie below one. Then the parent rule of `Layout::ProjectFiles` holds for
+   Python, and the scan receipt can decide. Else a gap. A reply scope label is `<root>/**`.
 7. Each case below is a named coverage gap. A gap makes the scope incomplete: every rule is UNKNOWN.
    - A call of `__import__`, `import_module`, `load_module`, `exec_module`, `module_from_spec`,
      `spec_from_file_location`, `run_module`, `run_path`, `exec` or `eval`: a dynamic import.
@@ -30,6 +31,7 @@
      and the module `pkg.name` exists. The runtime can give either one.
    - A relative import above the top package.
    - A syntax error, a file that is not UTF-8, a file or directory that cannot be read (#1043).
+     The repository survey of `collect` refuses a directory that it cannot list before this.
    - A `.pyi` file or a compiled module (`.so`, `.pyd`) below a scan root.
    - One module name in two files, also across scan roots (#1000).
 8. An import under `if TYPE_CHECKING:` or another condition is an edge. The record keeps

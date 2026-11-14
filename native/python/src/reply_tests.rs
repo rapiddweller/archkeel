@@ -111,7 +111,7 @@ fn the_source_digest_is_the_digest_of_the_python_collector() {
     let (_, expected) = inputs::inputs(&mut snapshot, &selected);
     let (reply, _) = decoded(&SHOP);
     assert_eq!(reply.facts.source.source_digest, expected);
-    assert_eq!(reply.facts.source.scope, ["src/**/*.py"]);
+    assert_eq!(reply.facts.source.scope, ["src/**"]);
 }
 
 #[test]
