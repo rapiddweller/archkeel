@@ -38,15 +38,10 @@ pub enum Direction {
 impl Direction {
     /// The word of the frame.
     pub fn word(self) -> &'static str {
-        match self {
-            Direction::Forbids => "forbids",
-            Direction::Allows => "allows",
-            Direction::Requires => "requires",
-            Direction::Isolates => "isolates",
-            Direction::Orders => "orders",
-            Direction::Acyclic => "acyclic",
-            Direction::None => "none",
-        }
+        const WORDS: [&str; 7] = [
+            "forbids", "allows", "requires", "isolates", "orders", "acyclic", "none",
+        ];
+        WORDS.get(self as usize).copied().unwrap_or("none")
     }
 }
 

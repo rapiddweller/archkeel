@@ -107,10 +107,7 @@ fn cyclic(
 ) -> Violation {
     let mut parts = vec![Part::Text(rule)];
     parts.extend(members.iter().map(|member| Part::Text(member)));
-    let mut facts: Vec<String> = imports.iter().map(|i| i.id().to_owned()).collect();
-    facts.sort();
-    let mut evidence: Vec<String> = imports.iter().flat_map(|i| i.evidence().to_vec()).collect();
-    evidence.sort();
+    let (facts, evidence) = cited(imports.iter().copied());
     Violation::Cycle(Box::new(Cyclic {
         id: stable_id("VIO", &parts),
         rule: rule.to_owned(),
@@ -120,6 +117,18 @@ fn cyclic(
         edges,
         path,
     }))
+}
+
+/// The sorted ids of some imports and the sorted evidence of them, with each repeat.
+fn cited<'a>(imports: impl Iterator<Item = &'a Import>) -> (Vec<String>, Vec<String>) {
+    let (mut facts, mut evidence) = (Vec::new(), Vec::new());
+    for import in imports {
+        facts.push(import.id().to_owned());
+        evidence.extend(import.evidence().iter().cloned());
+    }
+    facts.sort();
+    evidence.sort();
+    (facts, evidence)
 }
 
 /// The ordered path through a cycle, from the links between its members (AD-484). The model finds
@@ -153,16 +162,7 @@ fn steps(model: &Model, links: &[Link], by_label: bool) -> Vec<CycleStep> {
     cycle_path(&members, links)
         .into_iter()
         .map(|step| {
-            let cited: Vec<&Import> = step
-                .imports
-                .iter()
-                .filter_map(|&i| imports.get(i))
-                .collect();
-            let mut facts: Vec<String> = cited.iter().map(|i| i.id().to_owned()).collect();
-            facts.sort();
-            let mut evidence: Vec<String> =
-                cited.iter().flat_map(|i| i.evidence().to_vec()).collect();
-            evidence.sort();
+            let (facts, evidence) = cited(step.imports.iter().filter_map(|&i| imports.get(i)));
             CycleStep {
                 from_component: component_of(&step.from),
                 to_component: component_of(&step.to),

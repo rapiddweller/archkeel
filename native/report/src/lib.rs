@@ -115,7 +115,7 @@
 //!         rules: Default::default(), details: Default::default(), unknown_kinds: Default::default(),
 //!         explained: Default::default(), violations: Default::default(),
 //!         beyond: Default::default(), scope: "complete".into(),
-//!         unsupported: RuleReasons::All(String::new()) }
+//!         unsupported: RuleReasons::All(String::new()), explain: Default::default() }
 //! }
 //! ```
 //!
@@ -177,7 +177,6 @@ mod check_structure;
 mod codes;
 mod edge_links;
 mod engine_frame;
-mod explain;
 mod frame;
 mod frame_rules;
 mod head;
@@ -198,7 +197,6 @@ pub use codes::{
     NOT_CARRIED,
 };
 pub use engine_frame::{EngineFrame, FrameError};
-pub use explain::Explain;
 pub use frame::build;
 pub use head::{
     Component, Counts, Coverage, GapRow, NotRanked, PayloadBudget, RuleReason, RuleResult,
@@ -216,7 +214,7 @@ pub(crate) use payload::Payload;
 pub use payload::{DecodeError, MAX_BYTES, SCHEMA_VERSION};
 pub use problem::Problem;
 pub use report::{Decided, ReadError, Recorded, Report};
-pub use ruling::{rule, rule_with_edge_links, Named, RuleReasons, Ruling};
+pub use ruling::{rule, rule_with_edge_links, Explain, Named, RuleReasons, Ruling};
 #[cfg(test)]
 pub(crate) use status::{status_of, unexplained};
 pub use status::{Unexplained, PASS_NEEDS};

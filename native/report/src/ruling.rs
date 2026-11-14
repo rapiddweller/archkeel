@@ -27,6 +27,10 @@ use archkeel_model::{
 };
 use serde::Serialize;
 
+#[path = "explain.rs"]
+mod explain;
+pub use explain::Explain;
+
 use crate::{
     build_error::BuildError,
     engine_frame::{EngineFrame, FrameError},
@@ -98,7 +102,7 @@ pub struct Ruling {
     unsupported: RuleReasons,
     /// What the `explain` part copies; the core adds the coverage gaps of the reply (AD-484).
     #[serde(skip)]
-    explain: crate::explain::Collected,
+    explain: explain::Collected,
 }
 
 impl Ruling {
@@ -110,7 +114,7 @@ impl Ruling {
 
     /// The `explain` part of the frame (AD-484): the shape of each rule, the path of each cycle
     /// and the gaps that hold each rule. It copies what the decision states and decides nothing.
-    pub fn explain(&self, gaps: &[archkeel_model::CoverageGap]) -> crate::explain::Explain {
+    pub fn explain(&self, gaps: &[archkeel_model::CoverageGap]) -> explain::Explain {
         self.explain.clone().finish(gaps)
     }
 
@@ -243,7 +247,7 @@ struct Rows {
     unknown_kinds: BTreeMap<String, WhyUnknown>,
     beyond: BTreeMap<String, String>,
     decisions: Vec<(String, Option<Decision>)>,
-    explain: crate::explain::Collected,
+    explain: explain::Collected,
 }
 
 impl Rows {
