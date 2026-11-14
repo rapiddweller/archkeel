@@ -89,7 +89,12 @@ PATTERN = {
 }
 
 # Group 6: a gap before AD-508, kept as a gap (a pin and no code).
+# Sound data exemption: follow-up. A computed lookup and call on a local literal is a gap like
+# any other (AD-508): the exemption failed its proof twice and was removed.
 PINNED = {
+    "data-literal": "const table = { a: () => 1 };\ntable[k as 'a']();",
+    "data-method": "const table = { a() { return 1; } };\ntable[k as 'a']();",
+    "data-call": "const on: any = { a() {} };\nexport const go = (key: string) => on[key]();",
     "html-string-key": "el['innerHTML'] = t;",
     "html-template-key": "el[`innerHTML`] = t;",
     "html-outer-key": "el['outerHTML'] = t;",
@@ -162,6 +167,36 @@ REVIEW_DATA = {
     "passed": "const table = { a: 1 };\ng(table);\ntable[k as 'a'](t);",
     "inline-proto": "({ __proto__: () => 1 } as any)[k](t);",
 }
+REVIEW_DATA_AGAIN = {
+    "inherited-sort": "const xs: any = [() => 1];\nxs.sort().__proto__ = () => 1;\nxs[k](t)();",
+    "value-of-set-prototype": (
+        "const table = { a: 1 };\nObject.setPrototypeOf(table.valueOf(), () => 1);\n"
+        "table[k as 'a'](t);"
+    ),
+    "value-of-write": (
+        "const table: any = { a: 1 };\ntable.valueOf().__proto__ = () => 1;\ntable[k](t)();"
+    ),
+    "result-passed": "const table: any = { a: 1 };\ng(table[k]());\ntable[k](t)();",
+    "super-write": (
+        "const table: any = { m() { super.__proto__ = () => 1; } };\ntable.m();\ntable[k](t)();"
+    ),
+    "super-getter": (
+        "const table: any = { get g() { super.__proto__ = () => 1; return 1; } };\n"
+        "table.g;\ntable[k](t)();"
+    ),
+    "super-arrow": (
+        "const table: any = { m() { return () => { super.__proto__ = () => 1; }; } };\n"
+        "table.m()();\ntable[k](t)();"
+    ),
+    "super-return": (
+        "const table: any = { m() { return super.valueOf(); } };\ng(table.m());\ntable[k](t)();"
+    ),
+    "escaped-string-key": "const table: any = { '\\u005f_proto__': () => 1 };\ntable[k](t)();",
+    "escaped-identifier-key": "const table: any = { \\u005f_proto__: () => 1 };\ntable[k](t)();",
+    "escaped-brace-key": "const table: any = { '\\u{5f}_proto__': () => 1 };\ntable[k](t)();",
+    "export-clause": "const table = { a: 1 };\nexport { table };\ntable[k as 'a'](t);",
+    "export-default": "const table = { a: 1 };\nexport { table as default };\ntable[k as 'a'](t);",
+}
 REVIEW_SUPER = {
     "super-key": "class B {}\nclass C extends B { m() { (super[k as 'x'] as any) = 1; } }" + LISTEN,
     "this-alias": "class C { m() { const self: any = this; self[k] = 1; } }" + LISTEN,
@@ -211,6 +246,7 @@ CLOSED = {
     **{f"pattern-{name}": text for name, text in PATTERN.items()},
     **{f"open-{name}": text for name, text in REVIEW_OPEN.items()},
     **{f"data-{name}": text for name, text in REVIEW_DATA.items()},
+    **{f"data-again-{name}": text for name, text in REVIEW_DATA_AGAIN.items()},
     **{f"super-{name}": text for name, text in REVIEW_SUPER.items()},
     **{f"callee-{name}": text for name, text in REVIEW_CALLEE.items()},
     **{f"reflection-{name}": text for name, text in REVIEW_REFLECTION.items()},
@@ -220,8 +256,6 @@ CLOSED = {
 # The closure is a rule about run-time keys, `this` of a method, `location` and window members.
 PRECISION = {
     "namespace-key": "Math[k as 'abs'](1);",
-    "data-key": "const table = { a: () => 1 };\ntable[k as 'a']();",
-    "method-without-this": "const table = { a() { return 1; } };\ntable[k as 'a']();",
     "array-index": "const xs = [1, 2];\nexport const y = xs[0];",
     "array-call": "const fns = [() => 1];\nfns[0]();\nfns.map((q) => q());",
     "plain-pattern": "const { name, value } = e;\nexport const z = name + value;",

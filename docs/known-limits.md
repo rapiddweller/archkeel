@@ -331,14 +331,15 @@ Open false PASS, not accepted (AD-460, AD-508): any alias of `this`, `super`, `O
 function that is stored, passed or an argument (`const f = o[k]`, `Function.prototype.call.call(o[k])`);
 a window value that reaches a computed write through a parameter, a call result or a property
 (`function f(w) { w[k] = v; }` with `f(document.defaultView)`); `g(this)` in a class method that a
-callback receives; `ev.target[k] = 1` (the target of a `message` event is a window); a computed key
-in a pattern (`const { [k]: v } = e`); and DOM code from text outside the named triggers (a `src` or
-`href` that is no literal, and a click on the element).
+callback receives; `ev.target[k] = 1` or `ev.srcElement[k]` (an event member that is a window); a computed key
+in a pattern (`const { [k]: v } = e`); any global that navigates or opens (`open('', '_self')`,
+`document.open`); a destructured or aliased `setTimeout`; and DOM code from text outside the named
+triggers (a `src` or `href` that is no literal, and a click on the element).
 AD-508 closed these forms: a write with a run-time key through `this` of a class method, through
 `super` or through a name bound once to such a `this`; a call, `new`, tagged template, `call`,
 `apply` or `bind` of a member with a run-time key (also through a comma, a condition, a logical
-operator or `await`) on a value that is no plain literal object or array (no `__proto__`, method that reads `this`,
-write, argument or export) and no `Math`, `JSON`, `Atomics`, `Intl` or `console`; a reflection with a
+operator or `await`) on any value but `Math`, `JSON`, `Atomics`, `Intl` and `console` (a local
+object literal is no exception: the data exemption failed its proof and is removed, AD-508); a reflection with a
 run-time key (`getOwnPropertyDescriptor(s)`, `Reflect.get`, also stored or passed); a navigation with a
 value that is no literal (`location.*`, `location = x`, a pattern or `for…of` target, `open(x, …)` with
 any target); a free `Object`, `Reflect`, `location` or `open` that is passed, stored or returned; and a
@@ -350,16 +351,17 @@ window (`JSON.parse = …`, `document.open = …`), a use through `opener` or
 A member `source`, `view`, `currentTarget` or a window name is a window, and a member `eval` or
 `Function` is the global, on every object
 ([AD-492](architecture/decisions/ad-492-the-browser-assets-are-pinned-until-their-html-sinks-are-rewritten.md)).
-An exemption for data that the file makes is later work: a literal can carry an event.
+An exemption for data that the file makes is follow-up work: a literal can carry an event or a prototype.
 A markup literal is text only when it holds no handler, code element, URL attribute, style, code
 scheme, `&` or `\\`.
 `docs/architecture/browser.toml` is UNKNOWN with 881 gaps from 115 sites: 41 HTML, element or
 attribute sinks in `flow.js` and `report-canvas.js`, and 74 platform window members. A rewrite of the sinks alone does not reach PASS. The Studio UI contract is
-UNKNOWN with 269 gaps from 22 sites (9 `Level.Function`, 13 `source` and `view` members). Both
+UNKNOWN with 270 gaps from 22 sites (9 `Level.Function`, 13 `source` and `view` members). Both
 results are pinned in `docs/architecture/target/`; the pins only go down.
 AD-508 adds 6 sites to the browser contract (5 `location.href = …` in `flow.js` and
-`report-canvas.js`, and the pattern `{ frames }` in `report-layout.js`) and 1 to the Studio UI
-contract (the pattern `{ left, top } = MAP_CARD` in `map-layout.ts`). The gap lists do not change:
+`report-canvas.js`, and the pattern `{ frames }` in `report-layout.js`) and 2 to the Studio UI
+contract (the pattern `{ left, top } = MAP_CARD` in `map-layout.ts` and `arrows[event.key]?.()` in
+`navigation.tsx`). The gap lists do not change:
 each global already had an unknown write.
 The native TypeScript collector reads a file up to 4 MiB. Above that size it gives UNKNOWN for
 the file, where the Python collector reads the file and can give FAIL. The two collectors give

@@ -103,7 +103,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// `o[k](…)` with a key that is not a literal, on a value that is not data or a namespace.
     fn runtime_key_call(&self, node: Node<'t>) -> bool {
         let object = self.runtime_object(node);
-        object.is_some_and(|object| self.called(node) && !self.data_object(object))
+        object.is_some_and(|object| self.called(node) && !self.namespace(object))
     }
 
     /// The value is called, constructed or tagged, also through `call`, `apply` or `bind` (with a

@@ -159,7 +159,6 @@ EXACT = {
     "instanceof-function": MODULE + "export const f = (x: unknown) => x instanceof Function;",
     "function-prototype": MODULE + "export const call = Function.prototype.call;",
     "empty-html": MODULE + "export const clear = (e: any) => { e.innerHTML = ''; };",
-    "data-call": MODULE + "const on: any = { a() {} }; export const go = (k: string) => on[k]();",
 }
 USES = {"window-call": "window.open();\n", "bare-call": "open();\n"}
 
