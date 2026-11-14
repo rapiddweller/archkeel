@@ -52,4 +52,6 @@ Public-interface lifecycle checks and facade signatures remain outside this impo
 `tests/test_cli_native_type_publication.py` plants direct types, one-hop types and unproved forms in the release core.
 It also checks private types, same-name types in separate modules and unowned sources.
 Collector tests retain exact value, overload and script-global records.
+Five named golden cases add only the new type proof fields, witnesses and evidence.
+The profile probe now expects PASS for its witnessed public types.
 The native self-row and expected-gap tests retain their unchanged pins.

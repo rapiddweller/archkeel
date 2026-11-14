@@ -28,22 +28,22 @@
   "rest": {
     "counts": {
       "candidate_evidence": 0,
-      "evidence": 2477,
+      "evidence": 2493,
       "files": 16,
       "imports": 228,
       "inputs": 17,
       "type_shapes": 0,
       "uncertain_reexports": 0
     },
-    "sha256": "00ca428c01e1ec49c77fb4d1fcfc013a40c9d050638f0c04c19f9e40d4c8a5f7"
+    "sha256": "86bb20b9f99067116afa09595955578654c95bad42d0089e520d6cff6bfe1b5b"
   },
   "sections": {
     "bindings": {
       "kinds": {
-        "bindings": 25
+        "bindings": 41
       },
-      "records": 25,
-      "sha256": "a388118ca498aff07164bc6e259ea5c64368ecffde2c205a48e45ba7cc8bca74"
+      "records": 41,
+      "sha256": "40bccfb67c2bdc5fe16ef174dbcdc6147c4ec27e8cf21709f790a74d6fa58388"
     },
     "calls": {
       "kinds": {
@@ -66,7 +66,7 @@
         "script_global": 117
       },
       "records": 228,
-      "sha256": "5b8acae5230e27f4b8642d02a84554ecbce8a12b42ce1655f2e3d9fdfc35caca"
+      "sha256": "979f4400332ba49bd25aeae378b99e5dbff3e16665dc758886d7f0304484f5b4"
     },
     "references": {
       "kinds": {
@@ -92,5 +92,6 @@
       "sha256": "265a2bc5c381e497a01d54ce7cb61f9dbd3122702d38b3533cd29287e2521b08"
     }
   },
-  "sha256": "9632d762b408530f1669572948ab36b88ea8c73ec3deaa9b99235a7b9d54334e"
+  "sha256": "40fb458fb4e18289b84107e4f3e1bb42ce76b37210784d8c137b353d33454c2f",
+  "sha256_at_3": "c49445a42169934cdc275b7dfffd688a7444d0aca88377628fede6cc09c90516"
 }
