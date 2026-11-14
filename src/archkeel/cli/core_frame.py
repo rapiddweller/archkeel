@@ -397,18 +397,6 @@ def _check_rows(
         raise CoreError("the core frame gives violation details to a rule without violations")
 
 
-def _explain(
-    frame: Mapping[str, object], rules: Mapping[str, object], violations: Mapping[str, int]
-) -> Explain | None:
-    """The `explain` part, which can name a rule that the frame holds as a named gap."""
-    if "explain" not in frame:
-        return None
-    named = _object(frame["unsupported"], "unsupported")["rules"]
-    # One reason for the whole contract is a text; each rule with a reason is an object key.
-    held = _object(named, "unsupported.rules") if isinstance(named, dict) else {}
-    return read_explain(frame["explain"], {*rules, *held}, violations)
-
-
 def read_frame(
     stdout: bytes,
     exit_code: int,
@@ -482,6 +470,6 @@ def read_frame(
         unknown_kinds=unknown_kinds,
         collection_gaps=_collection_gaps(frame.get("collection_gaps", [])),
         topology=frame_topology(frame, rules),
-        explain=_explain(frame, rules, violations),
+        explain=read_explain(frame["explain"], violations) if "explain" in frame else None,
         html=read_html(frame, status, request),
     )

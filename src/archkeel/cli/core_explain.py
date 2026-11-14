@@ -8,7 +8,7 @@ or a gap. Each list has a budget, and a list over its budget is cut with `trunca
 exact total.
 """
 
-from collections.abc import Mapping, Set
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final, TypeVar
@@ -265,8 +265,11 @@ def _gap(value: object, where: str) -> GapHolds:
     )
 
 
-def read_explain(value: object, rules: Set[str], violations: Mapping[str, int]) -> Explain:
-    """The decoded part. A cycle list names a rule of the frame with that many violations."""
+def read_explain(value: object, violations: Mapping[str, int]) -> Explain:
+    """The decoded part. A cycle list names a rule of the frame with that many violations.
+
+    A hold can name a row that is no rule of the contract: a named gap or the UML target row.
+    """
     row = _fields(value, "explain", frozenset({"version", "budgets", "rules", "cycles", "holds"}))
     if _count(row["version"], "explain.version") != 1:
         raise CoreError("the core frame field explain has an unknown version")
@@ -297,8 +300,6 @@ def read_explain(value: object, rules: Set[str], violations: Mapping[str, int]) 
     cut = gaps_holding > BUDGETS["gaps"]
     if len(gaps) != min(gaps_holding, BUDGETS["gaps"]) or gaps_truncated != cut:
         raise CoreError("the core frame field explain.holds has an inconsistent gap count")
-    if unknown := sorted(set(per_rule) - set(shapes) - set(rules)):
-        raise CoreError(f"the core frame field explain.holds names no rule: {unknown[0]}")
     return Explain(
         shapes,
         cycles,
