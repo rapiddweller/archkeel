@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from core_support import ROOT, SUFFIX, run
+from core_support import ROOT, SUFFIX, copy_cited, run
 from corpus_support import commit_tree
 
 from archkeel.cli import core_only
@@ -56,6 +56,7 @@ def shell_tree(tmp_path: Path) -> Iterator[Path]:
     for name in (CONFIG, CONTRACT, "native/architecture-contract.json", "pyproject.toml"):
         (root / name).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / name, root / name)
+    copy_cited(root, ROOT, CONTRACT)
     yield root
 
 
@@ -105,6 +106,7 @@ def test_a_contract_of_native_mounted_in_the_python_scan_decides_nothing(
 ) -> None:
     """One scan has one profile and one namespace: the Rust packages of `native/` lie outside the
     Python namespace, so the mount makes the whole run UNKNOWN and no mounted row can PASS."""
+    copy_cited(shell_tree, ROOT, "native/architecture-contract.json")
     path = shell_tree / CONTRACT
     document = json.loads(path.read_text())
     document["components"].append(

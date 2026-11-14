@@ -415,3 +415,22 @@ reliability; resolve material findings before acceptance.
 Record revision-bound LOCAL VERIFIED and CI-ONLY VERIFICATION evidence in the PR.
 Retained runtime gaps and unresolved calls are not a runtime guarantee. Required
 UNKNOWNs, missing scope or failed budgets prevent complete target acceptance.
+
+## Component graph
+
+The arrows are the edges that the browser contract allows and the code uses.
+
+<!-- archkeel-component-graph -->
+```mermaid
+flowchart LR
+    n_0["atlas-deviations"]
+    n_1["explorer"]
+    n_2["graph-scene"]
+    n_3["layout"]
+    n_4["report-scene"]
+    n_0 --> n_2
+    n_1 --> n_3
+    n_1 --> n_4
+    n_4 --> n_0
+    n_4 --> n_2
+```
