@@ -6,33 +6,35 @@
 //!
 //! The TSConfig selects the files that the collector reads (`files`, `include`, `exclude`,
 //! `allowJs`). A file that the TSConfig drops can hold an import, so a file of this list that the
-//! collection does not read is a coverage gap. The list leaves out what is not project source:
-//! - a file under `node_modules`, `bower_components` or `jspm_packages`;
-//! - a file under the `outDir` or `declarationDir` of the TSConfig;
-//! - a file that a source of the same stem shadows, as `a.js` or `a.d.ts` beside `a.ts`: the
-//!   compiler writes these files next to their source when no `outDir` is set;
-//! - a file whose suffix is not TypeScript, a declaration or JavaScript.
+//! collection does not read is a coverage gap. A name or a directory does not prove that a file
+//! is generated, so emitted names and build output directories are project source too.
+//!
+//! One directory is not project source: an installed-package directory (`node_modules`,
+//! `jspm_packages` beside a `package.json`, `bower_components` beside a `bower.json`) that the
+//! package manager owns. The project reaches its code only as an external package, which the
+//! external rules read. The directory is project source again when the TSConfig selects a file in
+//! it, or when an import that the collector read resolves to a local file in it.
 
 use std::collections::BTreeSet;
 
-use crate::source_input::{classify_file, shadowed, Suffix};
+use crate::source_input::{classify_file, SourceKind, Suffix};
 use archkeel_snapshot::paths::{join, within};
 use archkeel_snapshot::Snapshot;
 
-/// The directory names that hold installed packages, never project source.
-const INSTALLED: [&str; 3] = ["node_modules", "bower_components", "jspm_packages"];
+/// An installed-package directory name and the manifest of the package manager beside it.
+const INSTALLED: [(&str, &str); 3] = [
+    ("node_modules", "package.json"),
+    ("jspm_packages", "package.json"),
+    ("bower_components", "bower.json"),
+];
 
-/// Each project source file under `roots`, sorted. `outputs` are the build output directories.
+/// Each project source file under `roots`, sorted. `used` are the files that the TSConfig selects
+/// or that a read import resolves to: an installed-package directory that holds one is walked.
 pub(crate) fn project_sources(
     snapshot: &mut Snapshot,
     roots: &[String],
-    outputs: &[String],
+    used: &BTreeSet<String>,
 ) -> Vec<String> {
-    // An output directory that holds a scan root does not hide that root: the roots name the source.
-    let outputs: Vec<&String> = outputs
-        .iter()
-        .filter(|out| !roots.iter().any(|root| within(out, root)))
-        .collect();
     let mut found = BTreeSet::new();
     let mut seen = BTreeSet::new();
     for root in roots {
@@ -44,11 +46,12 @@ pub(crate) fn project_sources(
         }
         let mut pending = vec![root.clone()];
         while let Some(directory) = pending.pop() {
-            let fresh = snapshot
+            // An exempt directory is skipped before this point, so it marks no real path as seen.
+            if snapshot
                 .real(&directory)
-                .is_some_and(|real| seen.insert(real));
-            if fresh && !outputs.iter().any(|out| within(out, &directory)) {
-                pending.extend(visit(snapshot, &directory, &mut found));
+                .is_some_and(|real| seen.insert(real))
+            {
+                pending.extend(visit(snapshot, &directory, used, &mut found));
             }
         }
     }
@@ -56,25 +59,36 @@ pub(crate) fn project_sources(
 }
 
 /// Add the source files of `directory` to `found`; give the child directories to walk.
-fn visit(snapshot: &mut Snapshot, directory: &str, found: &mut BTreeSet<String>) -> Vec<String> {
+fn visit(
+    snapshot: &mut Snapshot,
+    directory: &str,
+    used: &BTreeSet<String>,
+    found: &mut BTreeSet<String>,
+) -> Vec<String> {
     let (files, children) = snapshot.entries(directory);
-    let names: BTreeSet<&str> = files.iter().map(String::as_str).collect();
-    let emitted = |name: &str| shadowed(name, &|other| names.contains(other));
-    for name in files.iter().filter(|name| source(name) && !emitted(name)) {
+    for name in files.iter().filter(|name| source(name)) {
         found.insert(join(directory, name));
     }
+    let manifests: BTreeSet<&str> = files.iter().map(String::as_str).collect();
     children
         .into_iter()
-        .filter(|child| !INSTALLED.contains(&child.as_str()))
+        .filter(|child| {
+            let path = join(directory, child);
+            !INSTALLED.iter().any(|(name, manifest)| {
+                child == name
+                    && manifests.contains(manifest)
+                    && !used.iter().any(|file| within(&path, file))
+            })
+        })
         .map(|child| join(directory, &child))
         .collect()
 }
 
-/// True for a TypeScript, declaration or JavaScript file name.
+/// True for a TypeScript, declaration or JavaScript file name, in any letter case.
 fn source(name: &str) -> bool {
-    classify_file(name)
+    classify_file(&name.to_ascii_lowercase())
         .and_then(Suffix::source_kind)
-        .is_some_and(|kind| !matches!(kind, crate::source_input::SourceKind::Json))
+        .is_some_and(|kind| !matches!(kind, SourceKind::Json))
 }
 
 #[cfg(test)]

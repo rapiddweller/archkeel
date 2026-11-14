@@ -10,7 +10,7 @@
 //! bindings and the constructs follow in the same reply, with the capability `inner-uml-v1`
 //! (AD-340). The script globals belong to a later phase. It invents no evidence.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::io::Write;
 
 use archkeel_facts::envelope::Target;
@@ -130,7 +130,7 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         && resolver.blocked.is_none()
         && resolver.options.resolution() == Resolution::Bundler;
     let partial = config.partial;
-    let outputs = config.outputs;
+    let installed = config.installed;
     let script = config.script;
     let listed = config.files;
     let mut collection = Collection {
@@ -181,7 +181,7 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         collection.file(&rel);
         index += 1;
     }
-    collection.unselected(&outputs);
+    collection.unselected(installed);
     let (script, dependency_scope) = collection.script_dependencies(partial);
     let problems: Vec<String> = collection.snapshot.problems.iter().cloned().collect();
     for problem in problems {
@@ -250,10 +250,24 @@ impl Collection<'_> {
 
     /// AD-488: each project source under the scan roots that the collection did not read is a
     /// coverage gap. The TSConfig can drop a file that holds an import, so silence could pass a
-    /// rule. A test source that a 9.0.0 request removes is not a gap (AD-313).
-    fn unselected(&mut self, outputs: &[String]) {
+    /// rule. A test source that a 9.0.0 request removes is not a gap (AD-313). `installed` are the
+    /// files that the TSConfig selects in an installed-package directory.
+    fn unselected(&mut self, installed: Vec<String>) {
+        let mut used: BTreeSet<String> = installed.into_iter().collect();
+        for target in &self.targets {
+            if let Target::Local {
+                file,
+                runtime_file,
+                declaration_file,
+                ..
+            } = target
+            {
+                used.insert(file.clone());
+                used.extend(runtime_file.iter().chain(declaration_file).cloned());
+            }
+        }
         let roots = self.roots.clone();
-        for rel in crate::unselected::project_sources(&mut self.snapshot, &roots, outputs) {
+        for rel in crate::unselected::project_sources(&mut self.snapshot, &roots, &used) {
             if self.queued.contains(&rel) || self.excluded_test(&rel) {
                 continue;
             }
