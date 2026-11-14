@@ -44,6 +44,27 @@ pub(crate) fn observed(contract: &Contract, graph: &Graph) -> BTreeSet<Pair> {
         .collect()
 }
 
+/// The component edges that the code may use and the collector did not resolve: the observed
+/// edges and the pairs of the pair gaps that the drop rule dropped as allowed (#1021). A drawn
+/// edge in this set is not a drift of the component graph.
+pub(crate) fn possibly_observed<'a>(
+    contract: &Contract,
+    observed: &BTreeSet<Pair>,
+    dropped: impl Iterator<Item = (&'a str, &'a str)>,
+) -> BTreeSet<Pair> {
+    let components = contract.components();
+    let mut possible = observed.clone();
+    for (source, target) in dropped {
+        if let (Some(source), Some(target)) = (owner(components, source), owner(components, target))
+        {
+            if source != target {
+                possible.insert((source.to_owned(), target.to_owned()));
+            }
+        }
+    }
+    possible
+}
+
 /// The pair that a whole-package rule decides (`component_pair`).
 fn pair(components: &[Component], source: &str, target: &str) -> Option<Pair> {
     let labels = |name: &str| -> BTreeSet<&str> {

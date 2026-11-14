@@ -74,7 +74,12 @@ impl Builder {
                 rel: &rel,
                 form: Form::Declared,
             };
-            let named = Named::Package(dependency.package.clone());
+            let package = dependency.package.clone();
+            let named = if krate.manifest.remote.contains(&package) {
+                Named::Registry(package)
+            } else {
+                Named::Package(package)
+            };
             self.import(workspace, None, from, &reference, &named);
         }
     }

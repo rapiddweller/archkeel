@@ -170,6 +170,12 @@ impl Workspace {
         let Some(mut read) = manifest::read(&parsed.table, &dependencies) else {
             return;
         };
+        // A `[patch]` or `[replace]` table can point a registry name at a path: the old rule
+        // (a name of the workspace is an edge) stays for such a manifest.
+        let patched = |table: &Table| table.contains_key("patch") || table.contains_key("replace");
+        if patched(&parsed.table) || above.as_ref().is_some_and(|above| patched(&above.table)) {
+            read.remote.clear();
+        }
         if read.edition.is_none() {
             read.edition = above
                 .as_ref()

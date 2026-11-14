@@ -138,3 +138,89 @@ def test_an_extern_crate_that_no_manifest_declares_gives_no_pass(
 
     assert statuses(result).get("REQUIRES") != "PASS", claims(result)
     assert result["status"] in {"FAIL", "UNKNOWN"}
+
+
+# #946: Cargo takes a name from the registry or from git unless the entry has a `path` (or inherits
+# one with `workspace = true`). A crate of the workspace with the same name is then no target.
+REGISTRY_APP = APP.replace('base-crate = { path = "../base" }', 'base-crate = "1.0"')
+WORKSPACE_WITH = '[workspace]\nmembers = ["base", "app"]\n[workspace.dependencies]\n{entry}\n'
+INHERITING_APP = APP.replace('base-crate = { path = "../base" }', "base-crate.workspace = true")
+UNUSED = {"crates/app/src/lib.rs": "pub fn run() {}\n"}
+UNDECLARED = "native.app.cargo_toml -> native.base_crate: undeclared component dependency"
+
+DEPENDENCY_PROBES = {
+    "a registry version": (REGISTRY_APP, None, "PASS"),
+    "a git entry": (
+        APP.replace(
+            'base-crate = { path = "../base" }',
+            'base-crate = { git = "https://example.invalid/b.git" }',
+        ),
+        None,
+        "PASS",
+    ),
+    "a workspace entry that is a registry version": (
+        INHERITING_APP,
+        WORKSPACE_WITH.format(entry='base-crate = "1.0"'),
+        "PASS",
+    ),
+    "a path entry": (APP, None, "FAIL"),
+    "a workspace entry with a path": (
+        INHERITING_APP,
+        WORKSPACE_WITH.format(entry='base-crate = { path = "base" }'),
+        "FAIL",
+    ),
+}
+
+
+@pytest.mark.parametrize(
+    ("manifest", "workspace", "expected"),
+    DEPENDENCY_PROBES.values(),
+    ids=DEPENDENCY_PROBES.keys(),
+)
+def test_a_dependency_is_an_edge_to_a_crate_of_the_workspace_only_with_a_path(
+    tmp_path: Path,
+    core_binary: Path,
+    capsys: pytest.CaptureFixture[str],
+    manifest: str,
+    workspace: str | None,
+    expected: str,
+) -> None:
+    files = {"crates/app/Cargo.toml": manifest, **UNUSED}
+    if workspace:
+        files["crates/Cargo.toml"] = workspace
+    result = validate(repository(tmp_path, core_binary, files, components=NO_REQUIRES), capsys)
+
+    assert statuses(result).get("REQUIRES") == expected, claims(result)
+    named = any(UNDECLARED in claim for claim in claims(result))
+    assert named == (expected == "FAIL"), claims(result)
+
+
+def test_a_patch_table_keeps_the_name_of_the_workspace_as_an_edge(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # `[patch.crates-io]` can point the registry name at the path of the crate: not known to be remote.
+    patch = '[workspace]\nmembers = ["base", "app"]\n[patch.crates-io]\nbase-crate = { path = "base" }\n'
+    files = {"crates/app/Cargo.toml": REGISTRY_APP, "crates/Cargo.toml": patch, **UNUSED}
+    result = validate(repository(tmp_path, core_binary, files, components=NO_REQUIRES), capsys)
+
+    assert statuses(result).get("REQUIRES") == "FAIL", claims(result)
+
+
+def test_a_workspace_dependency_that_the_workspace_does_not_list_gives_a_gap(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    files = {"crates/app/Cargo.toml": INHERITING_APP, **UNUSED}
+    result = validate(repository(tmp_path, core_binary, files, components=NO_REQUIRES), capsys)
+
+    # The edge stays (the source is not known), and the crate has a named gap: never PASS.
+    assert result["status"] != "PASS", claims(result)
+    assert any("has no entry in [workspace.dependencies]: base-crate" in c for c in claims(result))
+
+
+def test_a_byte_order_mark_at_the_start_of_a_manifest_is_read(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    base = "﻿[package]\nname = \"base-crate\"\nversion = \"0.0.0\"\nedition = \"2021\"\n"
+    result = validate(repository(tmp_path, core_binary, {"crates/base/Cargo.toml": base}), capsys)
+
+    assert result["status"] == "PASS", claims(result)

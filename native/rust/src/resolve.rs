@@ -28,6 +28,9 @@ pub(crate) enum Named {
     Sysroot(String),
     /// A dependency: the package name as source writes it.
     Package(String),
+    /// A dependency that a registry or git entry names: external, also when a crate of the
+    /// workspace has the same name.
+    Registry(String),
 }
 
 /// What a first segment is.
@@ -60,7 +63,11 @@ pub(crate) fn classify(
         if package == &krate.ident {
             return None;
         }
-        Named::Package(package.clone())
+        if krate.manifest.remote.contains(package) {
+            Named::Registry(package.clone())
+        } else {
+            Named::Package(package.clone())
+        }
     };
     Some(if !absolute && names.contains(root) {
         Found::Shadowed

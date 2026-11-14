@@ -235,6 +235,16 @@ fn two_inputs_with_one_path_are_rejected() {
 }
 
 #[test]
+fn a_nul_in_an_input_path_is_unsafe_and_not_unmounted() {
+    let result = run(&leaf("a"), &[("b\0.json", leaf("x"))]);
+    let expected = TreeError::Source(SourceProblem::Unsafe, vec!["b\0.json".to_owned()]);
+    assert_eq!(result.unwrap_err(), expected);
+    let root = parse(&bytes(&leaf("a"))).unwrap();
+    let result = assemble_tree("a\0.json", root, &[]);
+    assert_eq!(result.unwrap_err(), TreeError::UnsafeRootPath);
+}
+
+#[test]
 fn an_unsafe_root_path_gives_no_tree() {
     let root = parse(&bytes(&leaf("a"))).unwrap();
     let result = assemble_tree("../a.json", root, &[]);

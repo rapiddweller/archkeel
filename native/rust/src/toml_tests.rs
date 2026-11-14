@@ -124,3 +124,9 @@ fn a_multi_line_string_that_does_not_end_is_an_error() {
     assert!(name_of("k = \"\"\"abc\n").is_err());
     assert!(name_of("k = \"\"\"a\"\"\"\"\"\"\n").is_err());
 }
+
+#[test]
+fn a_byte_order_mark_at_the_start_is_no_part_of_the_text() {
+    let table = parse("\u{feff}[package]\nname = \"a\"\n").unwrap();
+    assert!(table.contains_key("package"));
+}

@@ -31,7 +31,8 @@ fn codes(
         .iter()
         .map(|(path, body)| ((*path).to_owned(), body.clone()))
         .collect();
-    findings(&documents, &pairs(observed), &pairs(permitted))
+    let observed = pairs(observed);
+    findings(&documents, (&observed, &observed), &pairs(permitted))
         .into_iter()
         .map(|(code, subject, _)| format!("{code} {subject}"))
         .collect()
@@ -196,4 +197,40 @@ fn only_a_mermaid_fence_opens_a_block() {
     }
     let page = format!("{COMPONENT}\n````mermaid\nflowchart LR\n````\n");
     assert!(codes(&[("d.md", page)], &[], &[]).is_empty());
+}
+
+fn with_possible(page: String, observed: &[(&str, &str)], possible: &[(&str, &str)]) -> usize {
+    let documents = [("d.md".to_owned(), page)];
+    let (observed, possible) = (pairs(observed), pairs(possible));
+    findings(&documents, (&observed, &possible), &BTreeSet::new()).len()
+}
+
+#[test]
+fn a_drawn_edge_that_the_code_may_use_is_no_drift_of_the_component_graph() {
+    // #1021: the pair gap `a -> b` was dropped because the contract allows it.
+    let page = block(COMPONENT, "    a --> c\n    a --> b\n");
+    assert_eq!(with_possible(page.clone(), &[("a", "c")], &[("a", "c")]), 1);
+    assert_eq!(
+        with_possible(page, &[("a", "c")], &[("a", "c"), ("a", "b")]),
+        0
+    );
+}
+
+#[test]
+fn an_observed_edge_that_is_not_drawn_stays_a_drift_whatever_may_be_used() {
+    let page = block(COMPONENT, "    a --> b\n");
+    assert_eq!(
+        with_possible(page, &[("a", "b"), ("a", "c")], &[("a", "b")]),
+        1
+    );
+}
+
+#[test]
+fn the_target_graph_does_not_excuse_an_unpermitted_edge() {
+    let page = block(TARGET, "    a --> b\n");
+    let documents = [("d.md".to_owned(), page)];
+    let possible = pairs(&[("a", "b")]);
+    let found = findings(&documents, (&BTreeSet::new(), &possible), &BTreeSet::new());
+    let drift = found.iter().filter(|(code, ..)| *code == "graph.drift");
+    assert_eq!(drift.count(), 1);
 }

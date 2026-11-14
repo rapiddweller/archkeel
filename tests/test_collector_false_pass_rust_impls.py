@@ -137,6 +137,14 @@ OBSERVED_GLOB = "    root --> b\n    root --> base\n    a --> root"
         pytest.param(
             IMPL_METHOD, ("b", "c"), "PASS", OBSERVED_IMPL, id="FP-29 the contract allows a -> b"
         ),
+        # #1021: the dropped pair gap is a possibly used edge: drawing it is no drift.
+        pytest.param(
+            IMPL_METHOD,
+            ("b", "c"),
+            "PASS",
+            OBSERVED_IMPL + "\n    a --> b",
+            id="FP-29 the graph draws the allowed a -> b that only a gap names",
+        ),
         pytest.param(GLOB_TRAIT, (), "UNKNOWN", None, id="FP-30 the contract forbids a -> b"),
         pytest.param(
             GLOB_TRAIT, ("b",), "PASS", OBSERVED_GLOB, id="FP-30 the contract allows a -> b"

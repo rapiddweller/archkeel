@@ -171,7 +171,10 @@ fn root(
         texts.push((reference, text));
     }
     let permitted: std::collections::BTreeSet<Pair> = hygiene_pairs::permitted(contract);
-    for (code, subject, claim) in hygiene_graph::findings(&texts, &observed, &permitted) {
+    let dropped = models.root().dropped_pair_gaps();
+    let possible = hygiene_pairs::possibly_observed(contract, &observed, dropped);
+    let edges = (&observed, &possible);
+    for (code, subject, claim) in hygiene_graph::findings(&texts, edges, &permitted) {
         found.defect(path, (code, "/components".to_owned(), subject, claim));
     }
 }
