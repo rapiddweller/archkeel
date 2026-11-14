@@ -24,11 +24,11 @@ fn ambient_module_ts_has_the_syntax_of_the_python_parser() {
 }
 
 #[test]
+// AD-512 departs from the Python parser here: a constant of a namespace and a function of a
+// `module` block are no definitions of the file.
 fn namespace_ts_has_the_syntax_of_the_python_parser() {
     let got = facts("namespace.ts", "namespace Outer { export class InNs {} const k = 1; }\nmodule Legacy { function innerFn() {} }\nclass After {}\n");
     let want = [
-        "D k constant None 1:46 ex=False vis=None top=False st=False ab=False as=False dec=False mc=True ov=False sc=True ann=None ret=None pl=None:None P[] B[] M[]",
-        "D innerFn function None 2:17 ex=False vis=None top=False st=False ab=False as=False dec=False mc=True ov=False sc=True ann=None ret=None pl=None:None P[] B[] M[]",
         "D After class None 3:1 ex=False vis=None top=True st=False ab=False as=False dec=False mc=True ov=False sc=True ann=None ret=None pl=None:None P[] B[] M[]",
         "R ",
         "G ",
