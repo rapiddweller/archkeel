@@ -4,8 +4,11 @@
 """Install the Archkeel coding-agent skill into a repository."""
 
 from enum import StrEnum
-from importlib.resources import files
 from pathlib import Path
+
+# The asset lies beside this module, as `core_binary.locate_core` finds the bundled core: the
+# wheel installs the package unpacked. Reading a path imports no package by name (AD-472).
+_ASSETS = Path(__file__).resolve().parent / "assets"
 
 
 class InstallationAgent(StrEnum):
@@ -19,7 +22,7 @@ class _LegacyMarker(StrEnum):
 
 
 def _skill_text() -> str:
-    return files("archkeel.cli").joinpath("assets", "SKILL.md").read_text(encoding="utf-8")
+    return (_ASSETS / "SKILL.md").read_text(encoding="utf-8")
 
 
 def install_skill(root: Path, agent: InstallationAgent | str) -> Path:

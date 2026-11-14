@@ -1,10 +1,10 @@
 # AD-450 Python import rules use a bound import survey
 
-**Status.** Proposed. Part of #880. It extends AD-334, AD-388, AD-406 and AD-426.
+**Status.** Proposed. Part of #880. It extends AD-334, AD-388, AD-406 and AD-426. AD-472 narrows
+the gaps of a direct literal import call and of a stub beside its source.
 
 **Decision.**
-1. `native/python` has a library. `archkeel-collect` links it and takes the typed reply.
-   The binary reads stdin and writes bytes of the same survey. The store and model are unchanged paths.
+1. `native/python` has a library that `archkeel-collect` links; the binary writes the same survey.
 2. The request is 10.0.0. The core runs no Python interpreter. The grammar is that of 3.14.
    A name is standard when each pinned list of 3.11 to 3.14 has it (AD-388). The core settings
    use the same list. A name of some minors only, such as `distutils`, is an external package.
@@ -24,12 +24,15 @@
    a scan root or lie below one. Then the parent rule of `Layout::ProjectFiles` holds for
    Python, and the scan receipt can decide. Else a gap. A reply scope label is `<root>/**`.
 7. Each case below is a named coverage gap. A gap makes the scope incomplete: every rule is UNKNOWN.
-   - A reference to a standard-library door is a `dynamic_import`: a call, an alias, a value or an
-     attribute of `__import__`, `exec`, `eval`, `compile`, `importlib` loaders, `pkgutil`, `pydoc`,
-     `runpy`, `imp`, `zipimport`, `code`, `codeop`, `timeit`, `doctest`, `pickle`, `marshal`,
-     `shelve`, `dill`, `cloudpickle`, `ctypes.pythonapi`, `types.FunctionType`/`CodeType` and
-     `unittest.mock.patch` (`hazards.rs`). Names resolve through import aliases. `sys`,
-     `importlib` or `builtins` used as a value (`getattr(sys, ...)`) is a door too.
+   - A reference to a door, in any position, is a `dynamic_import`: `importlib` and `builtins`
+     as whole modules, `__builtins__`, `__import__`, `exec`, `eval`, `compile`, `globals`,
+     `locals`, `vars()`, `breakpoint`, `__loader__`, `__spec__`, the attributes `__self__`,
+     `__globals__` and `__subclasses__` of any value, a dunder attribute of a door module, a
+     string that names a door, and `pkgutil`, `pydoc`, `runpy`, `imp`, `zipimport`, `code`,
+     `codeop`, `timeit`, `doctest`, `pickle`, `marshal`, `shelve`, `dill`, `cloudpickle`,
+     `ctypes.pythonapi`, `types.FunctionType`/`CodeType` and `unittest.mock.patch` (`hazards.rs`).
+     Names resolve through import aliases; a module above a door used as a value is a door.
+     AD-472 exempts the callee of one exact literal call form.
    - A reference to `sys.path`, `sys.meta_path`, `sys.path_hooks`, `sys.path_importer_cache`,
      `sys.modules` or `site`, or a write to `__path__`, is an `import_system_change`.
    - A project name without a selected module, also through `from pkg import name` when `pkg/name/`
@@ -52,18 +55,16 @@ graph, the module files and the scan roots. Each case of point 7 is a named gap.
 function that imports from a string stays open (docs/known-limits.md).
 
 **Rejected.** Running an interpreter for its standard library: the result depends on the host.
-The union of the minor lists: a project on 3.12 can install `distutils` as a package.
-A gap for each module only: a dynamic import can reach any module of the project.
+The union of the minor lists: a project on 3.12 can install `distutils` as a package. A gap for
+each module only: a dynamic import can reach any module of the project.
 
 **Limits.** The rules that read symbols, calls or constructs stay UNKNOWN (AD-426 limits).
-#1072: the parser accepts some files that CPython refuses. Such a file adds edges, never removes one.
-The discovery walk of the collector in the core process makes the file list (AD-406); the repository
-survey of `collect` lists the whole tree first and refuses what it cannot list. The store cannot see a missing file.
-A namespace package that a test or another distribution extends is outside the scan roots.
-A directly imported namespace package without `__init__.py` is UNKNOWN, not decided.
-A file that changes during the scan refuses the run. This is not an atomic snapshot.
+#1072: the parser accepts some files that CPython refuses; such a file only adds edges. The
+collector walk in the core process makes the file list (AD-406); the repository survey of `collect`
+lists the tree first and refuses what it cannot list. The store cannot see a missing file. A
+namespace package that another distribution extends, or that is imported directly, is UNKNOWN.
+A file that changes during the scan refuses the run; this is not an atomic snapshot.
 
-**Tests.** `tests/test_cli_native_python_imports.py` runs the release core and the default shell:
-PASS, forbidden import FAIL with file and line, cycle FAIL and each named gap UNKNOWN.
-`native/collect/src/python_tests.rs` plants digests. `native/store` tests plant each refused
-claim. `native/python` tests cover each gap condition.
+**Tests.** `tests/test_cli_native_python_imports.py` runs the release core and the default shell
+(PASS, FAIL with file and line, cycle, each gap). `native/collect`, `native/store` and
+`native/python` tests plant digests, refused claims and each gap condition.
