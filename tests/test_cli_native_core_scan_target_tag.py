@@ -57,3 +57,15 @@ def test_an_untagged_target_directory_is_refused_with_the_remedy(
     _fill(tmp_path / "target")
     collect = _scan(built / f"archkeel-core{SUFFIX}", tmp_path)
     assert "CACHEDIR.TAG" in str(collect.get("refused")), collect
+
+
+def test_a_helper_adds_the_tag_to_an_existing_untagged_directory(
+    built: Path, tmp_path: Path
+) -> None:
+    _project(tmp_path)
+    commit_tree(tmp_path)
+    (tmp_path / "target").mkdir()
+    ensure_target_dir(tmp_path)
+    _fill(tmp_path / "target")
+    collect = _scan(built / f"archkeel-core{SUFFIX}", tmp_path)
+    assert "request" in collect, collect

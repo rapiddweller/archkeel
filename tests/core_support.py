@@ -49,18 +49,16 @@ CACHE_TAG = (
 
 
 def ensure_target_dir(native: Path) -> None:
-    """Make `native/target` the way cargo does: with its `CACHEDIR.TAG`.
+    """Give `native/target` the `CACHEDIR.TAG` that cargo writes when it creates the directory.
 
-    Cargo writes the tag only when it creates the directory itself. A test that makes the
-    directory first for the build lock leaves it untagged. The core then counts the build output
-    as source and refuses a scan of this checkout over its work budget.
+    A test that makes the directory first for the build lock leaves it untagged, and so does an
+    older checkout. The core then counts the build output as source and refuses a scan of this
+    checkout over its work budget. A missing tag is added; an existing tag is kept.
     """
     target = native / "target"
-    try:
-        target.mkdir()
-    except FileExistsError:
-        return
-    (target / "CACHEDIR.TAG").write_text(CACHE_TAG)
+    target.mkdir(exist_ok=True)
+    with contextlib.suppress(FileExistsError), (target / "CACHEDIR.TAG").open("x") as tag:
+        tag.write(CACHE_TAG)
 
 
 COLLECTORS = ("archkeel-typescript-collector", "archkeel-rust-collector")
