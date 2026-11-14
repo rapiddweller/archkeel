@@ -72,6 +72,7 @@ pub enum Cause {
 pub struct Held {
     shown: Vec<String>,
     count: usize,
+    pairs: Vec<(String, String)>,
 }
 
 /// The largest number of gaps that a reason shows.
@@ -82,19 +83,30 @@ impl Held {
     /// not a proof: it can only make a rule UNKNOWN.
     pub fn of<'a>(gaps: impl Iterator<Item = (&'a str, &'a str)>) -> Option<Held> {
         let mut shown = Vec::new();
+        let mut pairs = Vec::new();
         let mut count = 0;
         for (source, target) in gaps {
             if shown.len() < HELD_SHOWN {
                 shown.push(format!("{source} -> {target}"));
             }
+            pairs.push((source.to_owned(), target.to_owned()));
             count += 1;
         }
-        (count > 0).then_some(Held { shown, count })
+        (count > 0).then_some(Held {
+            shown,
+            count,
+            pairs,
+        })
     }
 
     /// The number of gaps.
     pub fn count(&self) -> usize {
         self.count
+    }
+
+    /// Each gap `(source, target)` that holds the rule (AD-484).
+    pub fn pairs(&self) -> &[(String, String)] {
+        &self.pairs
     }
 
     /// The gaps that the reason shows, as `a -> b`.

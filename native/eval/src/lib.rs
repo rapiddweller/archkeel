@@ -68,7 +68,7 @@ mod layout_citation_tests;
 use archkeel_contract::{head_of, kind_of, Rule, RuleKind};
 use archkeel_model::{Decision, Model, ModelTree, Part, Reason, Unsupported, Verdict};
 
-pub use violation::{Cited, ConstructViolation, Cyclic, Layered, Violation};
+pub use violation::{Cited, ConstructViolation, CycleStep, Cyclic, Layered, Violation};
 
 /// The result of one rule.
 #[derive(Clone, Debug, PartialEq, Eq)]

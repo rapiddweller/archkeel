@@ -16,7 +16,7 @@ Archkeel checks the shell with its own core and the contract in
 | `locate` | `core_binary` | Find the core binary of this install. |
 | `launch` | `native_scan` | Build the scan request, start the core and return its bytes. |
 | `frame` | `core_frame` | Read one frame into typed values. The only part that reads a verdict. |
-| `display` | `core_evidence`, `core_topology` | Decode evidence and topology as display values. They give no verdict. |
+| `display` | `core_evidence`, `core_explain`, `core_topology` | Decode evidence, the explain part and topology as display values. They give no verdict. |
 | `binding` | `core_binding` | Bind a frame to the request identity and the contract file bytes. |
 | `output` | `core_output` | Read the presentation of the core and write the received bytes to one file. |
 | `json` | `core_json` | Checked readers and the shared error type. |

@@ -182,10 +182,11 @@
       "packages": [],
       "exact_modules": [
         "archkeel.cli.core_evidence",
+        "archkeel.cli.core_explain",
         "archkeel.cli.core_topology"
       ],
       "responsibilities": [
-        "Decode the evidence metadata and the optional topology as typed display values."
+        "Decode the evidence metadata, the optional topology and the explain part as typed display values."
       ],
       "forbidden_responsibilities": [
         "Supply a verdict, a status or a scope proof."
