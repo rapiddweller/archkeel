@@ -355,13 +355,55 @@ PLANTS: dict[str, tuple[dict[str, str], dict, str, str]] = {
         "UNKNOWN",
         "UNKNOWN",
     ),
+    "global-name-is-no-definition": (
+        FILES,
+        more({**sym("string", "class", "x", parent=None), "qualified_name": "String"}),
+        "UNKNOWN",
+        "UNKNOWN",
+    ),
+    "symbol-named-as-module": (
+        FILES,
+        more({**sym("named", "class", "x", parent=None), "qualified_name": ONE}),
+        "UNKNOWN",
+        "UNKNOWN",
+    ),
+    "missing-base-inner-unresolved": (
+        edit(
+            "run(value: number): string { return helper(value); }",
+            "run(value: number): string { class Inner extends (globalThis as any).B {} "
+            "return helper(value); }",
+        ),
+        target(relationships=[*RELATIONSHIPS, edge("inherits", "client", "unit")]),
+        "UNKNOWN",
+        "UNKNOWN",
+    ),
+    "closed-kind-differs": (
+        FILES,
+        target(
+            change("helper", kind="class", signature=None), scopes=[closed("one", ["function"], [])]
+        ),
+        "FAIL",
+        "FAIL",
+    ),
+    "closed-calls-kind-differs": (
+        FILES,
+        target(
+            relationships=[
+                edge("references", "run", "helper"),
+                edge("calls", "build", "unit"),
+            ],
+            scopes=[closed("one", [], ["calls"])],
+        ),
+        "FAIL",
+        "FAIL",
+    ),
     "pass-incomplete": ({**FILES, **BROKEN}, target(), "UNKNOWN", "UNKNOWN"),
 }
 
 
 # The named cause of each row that is not PASS: a part of the reason of an UNKNOWN row, or of the
 # cause of a FAIL detail. A row with another cause is another defect.
-CAUSES = {
+CAUSES: dict[str, str | tuple[str, ...]] = {
     "kind-differs": "recorded entity kind differs",
     "parent-differs": "lexical parent differs",
     "return-differs": "return annotation differs",
@@ -385,6 +427,14 @@ CAUSES = {
     "closed-method-extra": "closed scope holds an unlisted definition",
     "closed-method-listed": "closed scope completeness",
     "referenced-absent": "relationship endpoints cannot be identified uniquely",
+    "global-name-is-no-definition": "absent symbol",
+    "symbol-named-as-module": "absent symbol",
+    "missing-base-inner-unresolved": "inherits inventory is not complete",
+    "closed-kind-differs": (
+        "recorded entity kind differs",
+        "closed scope holds an unlisted definition",
+    ),
+    "closed-calls-kind-differs": "closed scope holds an unlisted relationship",
     "pass-incomplete": "the scope of the run is not complete",
 }
 
@@ -407,15 +457,16 @@ def test_the_symbol_row_is_the_pinned_row(release_core: Path, tmp_path: Path, na
     result = json.loads(done.stdout)
     assert "refusal" not in result, result
     assert result["frame"]["rules"][ROW] == ["uml_target", expected], result["frame"]["explained"]
-    cause = CAUSES.get(name, "")
+    causes = CAUSES.get(name, "")
+    causes = (causes,) if isinstance(causes, str) else causes
     if expected == "FAIL":
-        details = result["frame"]["details"][ROW]
-        assert details and all(cause in item["cause"] for item in details), details
+        found = {item["cause"] for item in result["frame"]["details"][ROW]}
+        assert found == set(causes), found
         assert done.returncode == 1
     if expected == "PASS":
         assert result["status"] == "PASS" and done.returncode == 0, result["frame"]
         assert name not in CAUSES
     if expected == "UNKNOWN":
-        assert cause in result["frame"]["explained"][ROW], result["frame"]["explained"][ROW]
+        assert causes[0] in result["frame"]["explained"][ROW], result["frame"]["explained"][ROW]
         assert result["frame"]["unknown_kinds"][ROW] == "no_receipt"
         assert done.returncode == 2
