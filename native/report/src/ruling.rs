@@ -23,7 +23,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_eval::{evaluate, Outcome};
 use archkeel_model::{
-    Decision, Model, ModelTree, Reason, UmlGap, Unsupported, Verdict as ModelVerdict,
+    Decision, Model, ModelTree, Reason, UmlGap, UmlOutcome, UmlTarget, Unsupported,
+    Verdict as ModelVerdict,
 };
 use serde::Serialize;
 
@@ -53,9 +54,9 @@ pub struct Named {
     pub contract: Option<String>,
     /// A reason that holds back each PASS of the run (the scope of a contract tree).
     pub hold: Option<Reason>,
-    /// The UML target row of the tree, by its id (AD-470). The cause has no verdict, so the row
-    /// is UNKNOWN: it cannot pass and it cannot fail.
-    pub uml: Option<(String, UmlGap)>,
+    /// The UML target row of the tree, by its id (AD-470): the target that the model compares,
+    /// or the cause that keeps the row UNKNOWN (AD-494).
+    pub uml: Option<(String, UmlTarget)>,
 }
 
 /// The reasons of the rules without a decision: one for each rule, or one for the contract.
@@ -175,7 +176,7 @@ pub fn rule_with_edge_links(
             }
         }
     }
-    let uml = rows.uml(named.uml, decided.is_some(), models.err(), &mut gaps)?;
+    let uml = rows.uml(named.uml, decided, models.err(), &mut gaps)?;
     for (id, reason) in &gaps {
         rows.explain.unknown(id, reason);
     }
@@ -330,33 +331,62 @@ impl Rows {
 }
 
 impl Rows {
-    /// The UML target row (AD-470): an UNKNOWN row with its cause when the model decides the
-    /// rules, and a gap with the reason of the run when no model decides them. It never enters
-    /// `decisions`, so it takes no part in a run proof. True when the row is written.
+    /// The UML target row (AD-470, AD-494). Without a model the row is a gap with the reason of
+    /// the run. With a model, the root model compares the target: PASS only with the scope proof
+    /// of the run (`Decision::passes`), FAIL with each differing fact, else UNKNOWN with its
+    /// cause. The row never enters `decisions`, so the run proof reads only the rules.
     fn uml(
         &mut self,
-        target: Option<(String, UmlGap)>,
-        decided: bool,
+        target: Option<(String, UmlTarget)>,
+        decided: Option<&ModelTree>,
         run: Option<&Reason>,
         gaps: &mut BTreeMap<String, Reason>,
     ) -> Result<bool, BuildError> {
-        let Some((id, gap)) = target else {
+        let Some((id, target)) = target else {
             return Ok(false);
         };
         if !self.seen.insert(id.clone()) {
             return Err(BuildError::DuplicateRule { rule: id });
         }
-        if !decided {
+        let Some(tree) = decided else {
+            let gap = match target {
+                UmlTarget::Gap(gap) => gap,
+                UmlTarget::Compare(found) => UmlGap::NotCompared {
+                    entities: found.entities().len(),
+                    relationships: found.relationships().len(),
+                    scopes: found.scopes().len(),
+                },
+            };
             gaps.insert(id, run.cloned().unwrap_or(Reason::Uml(gap)));
             return Ok(false);
-        }
-        let reason = Reason::Uml(gap);
-        self.explain.unknown(&id, &reason);
-        self.explained.insert(id.clone(), reason.to_string());
-        self.unknown_kinds
-            .insert(id.clone(), WhyUnknown::of(&reason));
-        self.rules
-            .insert(id, ("uml_target".to_owned(), RuleVerdict::Unknown));
+        };
+        let outcome = match target {
+            UmlTarget::Gap(gap) => UmlOutcome::Unknown(gap),
+            UmlTarget::Compare(found) => archkeel_model::compare_uml(tree.root(), &found, &id),
+        };
+        let verdict = match outcome {
+            UmlOutcome::Pass(decision) if decision.passes(tree.root(), &id) => RuleVerdict::Pass,
+            UmlOutcome::Pass(_) => {
+                return Err(BuildError::Unexplained(vec![
+                    Unexplained::UnknownWithoutRow,
+                ]))
+            }
+            UmlOutcome::Fail(diffs) => {
+                self.violations.insert(id.clone(), diffs.len());
+                self.details
+                    .insert(id.clone(), diffs.iter().map(ViolationDetail::uml).collect());
+                RuleVerdict::Fail
+            }
+            UmlOutcome::Unknown(gap) => {
+                let reason = Reason::Uml(gap);
+                self.explain.unknown(&id, &reason);
+                self.explained.insert(id.clone(), reason.to_string());
+                self.unknown_kinds
+                    .insert(id.clone(), WhyUnknown::of(&reason));
+                RuleVerdict::Unknown
+            }
+        };
+        self.rules.insert(id, ("uml_target".to_owned(), verdict));
         Ok(true)
     }
 }

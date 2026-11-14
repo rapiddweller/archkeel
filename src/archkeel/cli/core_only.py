@@ -16,6 +16,7 @@ import json
 import sys
 import traceback
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from pathlib import Path
 from time import time_ns
 from typing import Final, NoReturn
@@ -280,9 +281,12 @@ def _decide(options: Options, as_json: bool) -> int:
     }
     if (claim := identity(root)) is not None:
         request["git_head"], request["dirty"] = claim
-    if options.topology:
+    # AD-496: the page draws the architecture, so the core also builds the topology for it. The
+    # section is transport for the page: stdout shows it only when the user asked for it.
+    page = options.output is not None and options.format == "html"
+    if options.topology or page:
         request["topology"] = True
-    if options.output is not None and options.format == "html":
+    if page:
         request["html"] = True
     binary = locate_core()
     started_ns = time_ns()
@@ -297,6 +301,9 @@ def _decide(options: Options, as_json: bool) -> int:
     )
     document = json.loads(stdout)
     document.pop("html", None)
+    if page and not options.topology:
+        document.pop("topology", None)
+        frame = replace(frame, topology=None)
     exit_code = EXIT_CODES[frame.status]
     result: dict[str, object] = {
         "command": options.command,

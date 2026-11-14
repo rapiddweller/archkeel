@@ -19,6 +19,7 @@ from tools import report_gallery
 # rows, `refused` gives a refusal and writes no file, `garbage` prints no envelope.
 STUB = """
 import json, sys
+ROOT_PATH = %r
 args = sys.argv[1:]
 root = args[args.index("--root") + 1]
 if "garbage" in root:
@@ -26,13 +27,13 @@ if "garbage" in root:
     sys.exit(2)
 if "refused" not in root:
     with open(args[args.index("--output") + 1], "w") as handle:
-        handle.write("{}")
+        handle.write(json.dumps({"root": ROOT_PATH}))
 envelope = {"command": "report", "status": "UNKNOWN", "exit_code": 2, "gaps": []}
 if "refused" in root:
     envelope["frame"] = {"rules": {}, "scope": "missing input"}
     envelope["refusal"] = {"kind": "collection_refused", "message": "<b>profile</b> refused"}
 else:
-    envelope["status"] = "FAIL"
+    envelope["status"] = "UNKNOWN" if "unknown" in root else "FAIL"
     envelope["exit_code"] = 1
     envelope["frame"] = {"rules": {"A": ["x", "PASS"], "B": ["x", "FAIL"]}, "scope": "complete"}
 print(json.dumps(envelope))
@@ -51,7 +52,7 @@ def _matrix(path: Path, runs: list[dict]) -> Path:
 
 def _stub(tmp_path: Path) -> str:
     script = tmp_path / "stub.py"
-    script.write_text(STUB)
+    script.write_text(STUB % str(report_gallery.ROOT))
     return f"{shlex.quote(sys.executable)} {shlex.quote(str(script))}"
 
 
@@ -103,7 +104,7 @@ def test_a_refused_row_has_its_reason_and_no_dead_link(tmp_path: Path) -> None:
     assert code == 0
     assert "refused: &lt;b&gt;profile&lt;/b&gt; refused" in page
     assert "<b>" not in page
-    assert "href=" not in page
+    assert "href=" not in page.split("<h2>Fixture reports</h2>")[1]
     assert not (out / "refused-one" / "report.html").exists()
 
 
@@ -149,3 +150,59 @@ def test_dynamic_text_is_escaped_in_the_index() -> None:
 def test_each_matrix_run_names_a_folder_that_the_builder_can_make(run: dict) -> None:
     assert "/" not in run["name"]
     assert (report_gallery.ROOT / "fixtures" / run["root"]).is_dir()
+
+
+def test_the_self_section_comes_first_with_stable_paths_and_links(tmp_path: Path) -> None:
+    code, out = _build(tmp_path, _matrix(tmp_path / "m.json", [_run("served-a", "served-a")]))
+    page = (out / "index.html").read_text()
+    assert code == 0
+    assert (
+        page.index("ArchKeel checks itself")
+        < page.index("Fixture reports")
+        < page.index("served-a")
+    )
+    for name in ("core", "shell"):
+        for ext in ("html", "json"):
+            assert f'href="self/{name}.{ext}"' in page
+            assert (out / "self" / f"{name}.{ext}").is_file()
+        assert (out / "self" / f"{name}-badge.json").is_file()
+    assert "Rust core (native/)" in page and "Python shell (src/archkeel)" in page
+
+
+def test_a_self_badge_shows_the_counts_and_the_colour_of_the_status(tmp_path: Path) -> None:
+    code, out = _build(tmp_path, _matrix(tmp_path / "m.json", [_run("served-a", "served-a")]))
+    assert code == 0
+    badge = json.loads((out / "self" / "core-badge.json").read_text())
+    assert badge == {
+        "schemaVersion": 1,
+        "label": "core self-check",
+        "message": "1 PASS · 1 FAIL · 0 UNKNOWN",
+        "color": "f2606b",
+    }
+    assert (
+        json.loads((out / "self" / "shell-badge.json").read_text())["label"] == "shell self-check"
+    )
+
+
+@pytest.mark.parametrize(
+    ("status", "color"), [("PASS", "46bfd0"), ("FAIL", "f2606b"), ("UNKNOWN", "ecb64a")]
+)
+def test_the_badge_colour_follows_the_status(status: str, color: str) -> None:
+    counts = {"PASS": 2, "FAIL": 0, "UNKNOWN": 1}
+    row = {"summary": {"status": status, "counts": counts, "refusal": None}}
+    made = report_gallery.badge(row, "x")
+    assert made["color"] == color and made["message"] == "2 PASS · 0 FAIL · 1 UNKNOWN"
+
+
+def test_a_self_run_without_a_result_gets_a_grey_badge_and_fails_the_build() -> None:
+    assert report_gallery.badge({"error": "boom"}, "x")["color"] == "lightgrey"
+    refused = {"summary": {"status": "UNKNOWN", "counts": {}, "refusal": {"message": "m"}}}
+    assert report_gallery.badge(refused, "x")["message"] == "no result"
+
+
+def test_a_written_report_does_not_name_the_path_of_the_runner(tmp_path: Path) -> None:
+    code, out = _build(tmp_path, _matrix(tmp_path / "m.json", [_run("served-a", "served-a")]))
+    assert code == 0
+    for path in [out / "self" / "core.json", out / "served-a" / "report.json"]:
+        text = path.read_text()
+        assert str(report_gallery.ROOT) not in text and "<repo>" in text

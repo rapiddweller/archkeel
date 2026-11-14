@@ -15,7 +15,7 @@ use std::collections::BTreeMap;
 
 use archkeel_contract::policy::{assemble_tree, ContractTree};
 use archkeel_contract::{head_of, kind_of, uml_target_id, Contract, ParsedContract, RuleKind};
-use archkeel_model::{Reason, UmlGap, Unsupported};
+use archkeel_model::{Reason, UmlGap, UmlTarget, Unsupported};
 
 /// The most inside contracts of one request. The reference engine has no bound (AD-379).
 pub(crate) const MAX_INSIDE_FILES: usize = 1024;
@@ -72,8 +72,8 @@ pub(crate) struct Usable {
     pub(crate) tree: Option<ContractTree>,
     /// The scoped id and kind of each rule of each mount, in the order of the mounts.
     pub(crate) inside: Vec<(String, RuleKind)>,
-    /// The cause of the UML target row when a contract of the tree has `declarations.uml`.
-    pub(crate) uml: Option<UmlGap>,
+    /// The UML target row input when a contract of the tree has `declarations.uml`.
+    pub(crate) uml: Option<UmlTarget>,
 }
 
 /// The state of the contract input, and the contract when the core can use it.
@@ -87,7 +87,7 @@ pub(crate) fn answer(input: ContractInput) -> (ContractState, Option<Usable>) {
     };
     let usable = match parsed {
         ParsedContract::Complete(contract) if input.insides.is_empty() => {
-            let uml = uml_gap([&contract]);
+            let uml = uml_target(&contract, std::iter::empty());
             Usable {
                 root: contract,
                 tree: None,
@@ -160,7 +160,7 @@ fn usable(tree: ContractTree) -> Usable {
         .map(|rule| (head_of(rule).id().as_text().to_owned(), kind_of(rule)))
         .collect();
     let mounts = tree.mounts().iter().map(|mount| mount.contract());
-    let uml = uml_gap(std::iter::once(tree.root()).chain(mounts));
+    let uml = uml_target(tree.root(), mounts);
     Usable {
         root: tree.root().clone(),
         inside,
@@ -169,30 +169,29 @@ fn usable(tree: ContractTree) -> Usable {
     }
 }
 
-/// The cause of the one UML target row of a tree: the reference engine names one target for the
-/// declared intent of all its contracts (AD-470). `None` when no contract has `declarations.uml`.
-fn uml_gap<'a>(contracts: impl IntoIterator<Item = &'a Contract>) -> Option<UmlGap> {
-    let targets: Vec<_> = contracts
+/// The input of the one UML target row of a tree: the reference engine names one target for the
+/// declared intent of all its contracts (AD-470). The core compares a root target; a target of an
+/// inside contract keeps the row UNKNOWN (AD-494). `None` when no contract has `declarations.uml`.
+fn uml_target<'a>(
+    root: &'a Contract,
+    mounts: impl IntoIterator<Item = &'a Contract>,
+) -> Option<UmlTarget> {
+    let target = |contract: &'a Contract| contract.declarations().as_ref()?.uml().as_ref();
+    let mounted = mounts
         .into_iter()
-        .filter_map(|contract| contract.declarations().as_ref()?.uml().as_ref())
-        .collect();
-    if targets.is_empty() {
-        return None;
-    }
-    let count = |part: fn(&archkeel_contract::Target) -> usize| -> usize {
-        targets.iter().map(|target| part(target)).sum()
+        .any(|contract| target(contract).is_some());
+    let Some(found) = target(root) else {
+        return mounted.then_some(UmlTarget::Gap(UmlGap::Mounted));
     };
-    let entities = count(|target| target.entities().len());
-    let relationships = count(|target| target.relationships().len());
-    let scopes = count(|target| target.scopes().len());
-    Some(if entities == 0 && relationships == 0 && scopes == 0 {
-        UmlGap::Empty
+    let empty = found.entities().is_empty()
+        && found.relationships().is_empty()
+        && found.scopes().is_empty();
+    Some(if mounted {
+        UmlTarget::Gap(UmlGap::Mounted)
+    } else if empty {
+        UmlTarget::Gap(UmlGap::Empty)
     } else {
-        UmlGap::NotCompared {
-            entities,
-            relationships,
-            scopes,
-        }
+        UmlTarget::Compare(Box::new(found.clone()))
     })
 }
 
@@ -206,10 +205,10 @@ pub(crate) fn missing_reason(paths: &[String]) -> String {
 }
 
 /// The UML target row of a tree with `declarations.uml` in any of its contracts, at `path`: its
-/// id and the cause that keeps it UNKNOWN (AD-470).
-pub(crate) fn uml_row(contract: Option<&Usable>, path: &str) -> Option<(String, UmlGap)> {
-    let gap = contract?.uml?;
-    Some((uml_target_id(path).as_text().to_owned(), gap))
+/// id and its input (AD-470, AD-494).
+pub(crate) fn uml_row(contract: Option<&Usable>, path: &str) -> Option<(String, UmlTarget)> {
+    let target = contract?.uml.clone()?;
+    Some((uml_target_id(path).as_text().to_owned(), target))
 }
 
 #[cfg(test)]
