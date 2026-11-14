@@ -305,6 +305,17 @@ impl<'a, 't> Tree<'a, 't> {
             .is_some_and(|parent| self.flag(parent, IN_AMBIGUOUS))
     }
 
+    /// The scope that binds `name` at `node`: the readers of a write ask the scope module.
+    pub(crate) fn binding_scope(&self, node: Node<'t>, name: &str) -> Option<Node<'t>> {
+        self.bound_scope(node, name)
+    }
+
+    /// The scope that binds `name` at `node` exactly once.
+    pub(crate) fn sole_binding_scope(&self, node: Node<'t>, name: &str) -> Option<Node<'t>> {
+        self.bound_scope(node, name)
+            .filter(|scope| self.count(*scope, name) == 1)
+    }
+
     /// `_script_free`: the root of the path of `target` is not bound by a scope above `node`.
     pub(crate) fn script_free(&self, target: Node<'t>, node: Node<'t>) -> bool {
         self.script_free_in(target, node, true)

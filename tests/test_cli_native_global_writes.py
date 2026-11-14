@@ -126,6 +126,8 @@ SCRIPT_WRITES = {
 # Forms that do not write onto the global object: a strict `this`, a local name, a type, a read.
 EXACT = {
     "module-top-this": MODULE + "export const t = this;",
+    "typeof-timer": MODULE + 'export const t = typeof setTimeout === "function";',
+    "window-member-read": MODULE + "export const w = () => document.defaultView!.innerWidth;",
     "module-top-this-write": MODULE + "(this as any).open = 1;",
     "class-constructor-this": "class C { constructor() { (this as any).open = 1; } }",
     "class-static-this": "class D { static { (this as any).open = 1; } }",

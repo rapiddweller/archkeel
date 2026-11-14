@@ -107,7 +107,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         match tree.k(target) {
             K::Identifier | K::ShorthandPropertyIdentifierPattern => {
                 let name = tree.text(target);
-                let free = tree.bound_scope(target, &name).is_none() && !tree.in_type(target);
+                let free = tree.binding_scope(target, &name).is_none() && !tree.in_type(target);
                 free.then(|| named(cooked(&name)))
             }
             K::MemberExpression => {
@@ -167,18 +167,6 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         }
     }
 
-    /// The unknown write that a node that is not a target makes: code from text, a window value
-    /// that escapes, or a declaration of a script that binds a global.
-    pub(crate) fn node_write(&self, node: Node<'t>) -> Option<Written> {
-        if let Some(name) = self.script_declaration(node) {
-            return Some(Written::Name(name));
-        }
-        let unknown = self.runs_code(node)
-            || self.injects_code(node)
-            || (self.window_value(node) && self.escapes(node));
-        unknown.then_some(Written::Unknown)
-    }
-
     /// A value that cannot be a window: a local binding of a new value, or `this` that a
     /// constructor, a field or a static block binds, or `this` at the top of a module.
     fn proven_local(&self, object: Node<'t>) -> bool {
@@ -199,9 +187,9 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     pub(crate) fn sole_declaration(&self, name: Node<'t>) -> Option<Node<'t>> {
         let tree = self.tree;
         let text = tree.text(name);
-        let scope = tree.bound_scope(name, &text)?;
+        let scope = tree.sole_binding_scope(name, &text)?;
         let key = (scope.id(), text);
-        if tree.count(scope, &key.1) != 1 || self.index.written.contains(&key) {
+        if self.index.written.contains(&key) {
             return None;
         }
         match self.index.declared.get(&key).map(Vec::as_slice) {
@@ -243,7 +231,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 if tree.in_type(node) {
                     return false;
                 }
-                if tree.bound_scope(node, &name).is_some() {
+                if tree.binding_scope(node, &name).is_some() {
                     return self.is_alias(self.wrapper_of(node), &name);
                 }
                 cooked(&name).is_none_or(|name| is_window_name(&name))
@@ -323,7 +311,10 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 | "sequence_expression" => at = parent,
                 "binary_expression" if logical(tree, parent) => at = parent,
                 "binary_expression" | "unary_expression" => return false,
-                _ => return tree.script_escape(at),
+                "member_expression" | "subscript_expression" => {
+                    return !tree.is_field_of_parent(at, F::Object)
+                }
+                _ => return true,
             }
         }
     }
@@ -355,6 +346,6 @@ fn new_value(kind: K) -> bool {
     )
 }
 
-fn named(name: Option<String>) -> Written {
+pub(crate) fn named(name: Option<String>) -> Written {
     name.map_or(Written::Unknown, Written::Name)
 }

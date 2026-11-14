@@ -10,7 +10,7 @@ use tree_sitter::Node;
 use crate::kinds::{F, K};
 use crate::references::literal;
 use crate::script_syntax::Producer;
-use crate::script_window::{cooked, CODE_NAMES, TIMERS};
+use crate::script_window::{cooked, Written, CODE_NAMES, TIMERS};
 
 /// The members of a function that call it with other arguments.
 const CALLERS: [&str; 3] = ["call", "apply", "bind"];
@@ -30,6 +30,18 @@ const HTML_CALLS: [(&str, usize); 4] = [
 ];
 
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
+    /// The unknown write that a node that is not a target makes: code from text, a window value
+    /// that escapes, or a declaration of a script that binds a global.
+    pub(crate) fn node_write(&self, node: Node<'t>) -> Option<Written> {
+        if let Some(name) = self.script_declaration(node) {
+            return Some(Written::Name(name));
+        }
+        let unknown = self.runs_code(node)
+            || self.injects_code(node)
+            || (self.window_value(node) && self.escapes(node));
+        unknown.then_some(Written::Unknown)
+    }
+
     /// `eval`, `Function`, a `constructor` member or a timer that can receive a text, used as more
     /// than a read; the text `constructor`; a computed call that can reach `Function`.
     pub(crate) fn runs_code(&self, node: Node<'t>) -> bool {
@@ -78,7 +90,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             p.kind() == "member_expression" && tree.is_field_of_parent(node, F::Property)
         });
         let expression = member.unwrap_or(node);
-        if member.is_none() && tree.bound_scope(node, &tree.text(node)).is_some() {
+        if member.is_none() && tree.binding_scope(node, &tree.text(node)).is_some() {
             return false;
         }
         let code = self.name_is(node, &CODE_NAMES)
