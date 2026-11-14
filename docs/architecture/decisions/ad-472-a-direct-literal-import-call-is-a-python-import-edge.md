@@ -10,11 +10,19 @@
    The call has one argument and no keyword: a plain string literal with an absolute dotted name.
    The binding counts are those of `binders.rs`; a star import or a type parameter list makes them
    unknown. A module that names `globals`, `vars` or `locals` proves nothing.
-2. Only the callee of that exact call is exempt from the reference rule of AD-450. Each other
-   reference to `importlib.import_module` or `__import__` stays a `dynamic_import` gap.
-3. `from importlib import import_module` stays a door: its import statement is a reference to it.
-   A relative name, a `package` argument, a computed argument, an alias, a value use and `getattr`
-   stay gaps.
+2. Only the callee of that exact call is exempt. Each other reference to a door is a
+   `dynamic_import` gap, in any position: a plain name, the root of an attribute chain or of a
+   subscript, a value, an argument. The doors are `importlib` as a whole module (only a plain
+   `import importlib` statement binds it without a gap), `builtins`, `__builtins__`,
+   `__import__`, `exec`, `eval`, `compile`, `globals`, `locals`, `vars()`, `breakpoint`,
+   `__loader__` and `__spec__`, the attributes `__self__`, `__globals__`, `__subclasses__`,
+   `__loader__` and `__spec__` of any value, any dunder attribute of a door module, and a string
+   that names a door (`"__import__"`, `"import_module"`, `"__builtins__"`). So
+   `importlib.metadata.version("x")` is a gap too.
+3. `from importlib import import_module` stays a door. A relative name, a `package` argument, a
+   computed argument, an alias, a value use and `getattr` stay gaps. A literal call record is
+   never `under_type_checking`, also in an `if TYPE_CHECKING:` body: the guard proof covers
+   import statements only.
 4. The record has no binding, is not at module level and re-exports nothing. Its target follows
    AD-450: a project module, a standard name or an external package.
 5. A `.pyi` stub beside its selected `.py` is no gap. Python imports the `.py`; a gap of that file

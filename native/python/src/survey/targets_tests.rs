@@ -214,3 +214,21 @@ fn a_proven_literal_call_is_a_local_edge_without_a_gap() {
     );
     assert!(!computed.unknowns.is_empty());
 }
+
+#[test]
+fn a_literal_call_record_is_a_runtime_edge_also_under_a_guard() {
+    // AD-472: the guard proof covers import statements only, so a literal call record is never
+    // `under_type_checking`, also in the body of `if TYPE_CHECKING:` (the stricter reading).
+    for source in [
+        "__import__('app.service')\n",
+        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    __import__('app.service')\n",
+    ] {
+        let found = client(source, "");
+        let call = found
+            .imports
+            .iter()
+            .find(|r| r.data.data().target_module.as_str() == "app.service");
+        let data = call.expect("the call is an import record").data.data();
+        assert!(!data.under_type_checking, "{source}");
+    }
+}

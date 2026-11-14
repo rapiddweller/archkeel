@@ -38,13 +38,9 @@ pub(super) const LITERAL: &str = "literal_import";
 /// The doors, as one list of qualified names: a reference to one of them, or to a name below
 /// it, is a dynamic import.
 const DOORS: &str = "\
-    builtins.__import__ builtins.exec builtins.eval builtins.compile builtins.__dict__ \
-    importlib.import_module importlib.__import__ importlib.reload importlib.util \
-    importlib.machinery importlib._bootstrap importlib._bootstrap_external \
-    importlib.metadata.entry_points importlib.metadata.EntryPoint importlib.metadata.EntryPoints \
-    ctypes.pythonapi types.FunctionType types.CodeType unittest.mock.patch mock.patch \
-    pytest.importorskip sys.__dict__ __builtins__ pkgutil pydoc runpy imp zipimport code codeop \
-    timeit doctest marshal pickle _pickle shelve dill cloudpickle";
+    builtins importlib __builtins__ ctypes.pythonapi types.FunctionType types.CodeType \
+    unittest.mock.patch mock.patch pytest.importorskip sys.__dict__ pkgutil pydoc runpy imp \
+    zipimport code codeop timeit doctest marshal pickle _pickle shelve dill cloudpickle";
 
 /// Each door as one qualified name.
 fn doors() -> impl Iterator<Item = &'static str> {
@@ -61,8 +57,32 @@ const STATE: [&str; 6] = [
     "sys.modules",
 ];
 
-/// The builtins that are doors as a plain name.
-const BUILTIN_DOORS: [&str; 5] = ["__import__", "exec", "eval", "compile", "__builtins__"];
+/// The builtin names that are doors in any position: a plain name, the root of an attribute
+/// chain or of a subscript, a value. `globals` and `locals` reach `__builtins__`, and
+/// `breakpoint` imports the module that its hook names.
+const BUILTIN_DOORS: [&str; 10] = [
+    "__import__",
+    "exec",
+    "eval",
+    "compile",
+    "__builtins__",
+    "__loader__",
+    "__spec__",
+    "globals",
+    "locals",
+    "breakpoint",
+];
+
+/// The string values that name a door: `getattr(x, "__import__")` and `d["__builtins__"]`.
+const DOOR_STRINGS: [&str; 7] = [
+    "__import__",
+    "__builtins__",
+    "import_module",
+    "__subclasses__",
+    "__globals__",
+    "__self__",
+    "__loader__",
+];
 
 /// The names of import functions: a door as a plain name or as an attribute of any value.
 const IMPORT_FUNCTIONS: [&str; 9] = [
@@ -77,9 +97,15 @@ const IMPORT_FUNCTIONS: [&str; 9] = [
     "resolve_name",
 ];
 
-/// The attributes that are hazards on any value: state of the import system and modules that
-/// another module can re-export (`os.sys`).
-const ANY_ATTRIBUTE: [&str; 7] = [
+/// The attributes that are hazards on any value: the attributes that reach the builtins, a
+/// loader or the importer classes (`f.__globals__`, `len.__self__`, `object.__subclasses__`),
+/// the state of the import system, and modules that another module can re-export (`os.sys`).
+const ANY_ATTRIBUTE: [&str; 12] = [
+    "__self__",
+    "__globals__",
+    "__subclasses__",
+    "__loader__",
+    "__spec__",
     "meta_path",
     "path_hooks",
     "path_importer_cache",
@@ -183,7 +209,14 @@ fn bound(stmt: &Stmt) -> Vec<(String, String)> {
 /// module of `import a.b`, and each name of `from m import n`. A star import names its module.
 fn imported(stmt: &Stmt) -> Vec<String> {
     match stmt {
-        Stmt::Import(node) => node.names.iter().map(|a| a.name.to_string()).collect(),
+        // A plain `import importlib` binds the module of the accepted literal call (AD-472);
+        // each use of the name is still read. Each other import of `importlib` is a reference.
+        Stmt::Import(node) => node
+            .names
+            .iter()
+            .filter(|a| a.asname.is_some() || a.name.as_str() != "importlib")
+            .map(|a| a.name.to_string())
+            .collect(),
         Stmt::ImportFrom(node) if node.level == 0 => {
             let module = node.module.as_ref().map_or("", |module| module.as_str());
             node.names
@@ -262,9 +295,21 @@ impl Walk {
         let Expr::Name(root) = base else {
             return self.visit_expr(base);
         };
-        for origin in self.origins(root.id.as_str()) {
-            if let Some((kind, name)) = first_hazard(origin, &attributes) {
+        let id = root.id.as_str();
+        if BUILTIN_DOORS.contains(&id) || IMPORT_FUNCTIONS.contains(&id) {
+            return self.push(DYNAMIC, id, expr);
+        }
+        let dunder = attributes
+            .iter()
+            .any(|a| a.starts_with("__") && a.ends_with("__"));
+        for origin in self.origins(id) {
+            let door = dunder && (hazard(&origin).is_some() || above(&origin));
+            if let Some((kind, name)) = first_hazard(origin.clone(), &attributes) {
                 return self.push(kind, &name, expr);
+            }
+            if door {
+                // A dunder attribute of a door module, such as `sys.__getattribute__`.
+                return self.push(DYNAMIC, &origin, expr);
             }
         }
     }
@@ -304,9 +349,19 @@ impl<'a> Visitor<'a> for Walk {
             // string literal, so nothing below the call is left to read.
             Expr::Call(call) => match self.proof.target(call) {
                 Some(target) => self.push(LITERAL, &target, expr),
-                None => visitor::walk_expr(self, expr),
+                None => {
+                    // `vars()` without an argument is the namespace of the caller.
+                    let bare = matches!(&*call.func, Expr::Name(f) if f.id.as_str() == "vars");
+                    if bare && call.arguments.is_empty() {
+                        self.push(DYNAMIC, "vars", expr);
+                    }
+                    visitor::walk_expr(self, expr);
+                }
             },
             Expr::Attribute(_) => self.chain(expr),
+            Expr::StringLiteral(node) if DOOR_STRINGS.contains(&node.value.to_str()) => {
+                self.push(DYNAMIC, node.value.to_str(), expr);
+            }
             Expr::Name(node) if node.id.as_str() == "__path__" => {
                 if node.ctx != ExprContext::Load {
                     self.push(IMPORT_SYSTEM, "__path__", expr);

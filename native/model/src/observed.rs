@@ -175,8 +175,9 @@ fn inventory_complete(facts: &Facts) -> bool {
 
 /// The runtime check of `runtime_diagnostic` for the forms that the core reads: a declared
 /// requirement of clauses `>=X` and `<X`, joined by commas, and a version, all numeric releases
-/// (AD-472: Poetry writes `^3.9` as `>=3.9,<4.0`). A missing requirement is a mismatch in the
-/// reference engine for every runtime; each other form is not read, so it gives no PASS.
+/// (AD-472: a caret requirement `^3.9` is written as `>=3.9,<4.0`). A missing requirement is a
+/// mismatch in the reference engine for every runtime; each other form is not read, so it gives
+/// no PASS.
 pub(crate) fn runtime(runtime: &RuntimeFact) -> Runtime {
     if runtime.requirement_state != RequirementState::Declared {
         return Runtime::Unread;

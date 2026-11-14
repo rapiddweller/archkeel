@@ -75,3 +75,51 @@ fn a_proven_call_exempts_only_its_own_callee() {
     let kinds: Vec<&str> = found(source).into_iter().map(|(kind, _)| kind).collect();
     assert_eq!(kinds, [LITERAL, DYNAMIC]);
 }
+
+#[test]
+fn a_door_in_any_position_other_than_the_exempt_callee_is_a_gap() {
+    for source in [
+        "__import__.__call__('app.service')\n",
+        "exec.__call__('import app.service')\n",
+        "eval.__call__('x')\n",
+        "compile.__call__(text, 'f', 'exec')\n",
+        "__import__.__self__.__dict__['__import__']('app.service')\n",
+        "import importlib\nimportlib.__dict__['import_module']('app.service')\n",
+        "import importlib\nimportlib.__getattribute__('import_module')('app.service')\n",
+        "import importlib\nvars(importlib)['import_module']('app.service')\n",
+        "import importlib\ntype(importlib).__getattribute__(importlib, 'import_module')\n",
+        "import importlib\nuse(importlib)\n",
+        "import importlib\nitems = [importlib]\n",
+        "import importlib\nimportlib.import_module.__call__('app.service')\n",
+        "import builtins\nbuiltins.__dict__['__import__']('app.service')\n",
+        "__builtins__['__import__']('app.service')\n",
+        "__builtins__.__import__('app.service')\n",
+        "import sys\nsys.modules['builtins'].__import__('app.service')\n",
+        "globals()['__import__']('app.service')\n",
+        "locals()['__builtins__']\n",
+        "vars()['__builtins__']\n",
+        "len.__self__.__import__('app.service')\n",
+        "handler.__globals__['__builtins__']\n",
+        "().__class__.__base__.__subclasses__()\n",
+        "__loader__.load_module('app.service')\n",
+        "loader = __spec__.loader\n",
+        "getattr(thing, '__import__')('app.service')\n",
+        "breakpoint()\n",
+        "import sys\nsys.__getattribute__('modules')\n",
+    ] {
+        let kinds: Vec<&str> = found(source).into_iter().map(|(kind, _)| kind).collect();
+        assert!(
+            kinds.iter().any(|kind| *kind != LITERAL),
+            "{source}: {kinds:?}"
+        );
+    }
+    let exact = "import importlib\nimportlib.import_module('app.service')\n";
+    assert_eq!(found(exact), [(LITERAL, "app.service".to_owned())]);
+}
+
+#[test]
+fn a_locals_call_proves_nothing() {
+    let source = "import importlib\nlocals()\nimportlib.import_module('app.service')\n";
+    let kinds: Vec<&str> = found(source).into_iter().map(|(kind, _)| kind).collect();
+    assert!(!kinds.contains(&LITERAL), "{kinds:?}");
+}

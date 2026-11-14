@@ -27,6 +27,12 @@ fn each_clause_of_a_read_requirement_must_hold() {
     assert_eq!(checked(Some(">=3.15"), "3.14.0"), Runtime::Mismatch);
     assert_eq!(checked(Some(">=3.9,<3.14"), "3.14.0"), Runtime::Mismatch);
     assert_eq!(checked(None, "3.14.0"), Runtime::Mismatch);
+    // A leading zero does not change a part: `3.010` is `3.10`.
+    assert_eq!(
+        checked(Some(">=03.09,<3.015"), "3.14.0"),
+        Runtime::Satisfied
+    );
+    assert_eq!(checked(Some(">=3.9,<3.010"), "3.14.0"), Runtime::Mismatch);
 }
 
 #[test]

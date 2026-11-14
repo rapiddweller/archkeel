@@ -69,6 +69,8 @@ fn each_standard_library_door_is_a_dynamic_import() {
         "from unittest.mock import patch\n",
         "import zipimport\n",
         "import imp\n",
+        "import importlib.metadata\nimportlib.metadata.version('x')\n",
+        "from importlib import resources\nresources.files('x')\n",
     ] {
         assert!(has(source, DYNAMIC), "{source}");
     }
@@ -112,8 +114,6 @@ fn an_unrelated_name_is_no_site() {
         "import os\nos.path.join(a, b)\n",
         "import re\nre.compile(text)\n",
         "import json\njson.loads(text)\n",
-        "import importlib.metadata\nimportlib.metadata.version('x')\n",
-        "import importlib.resources\nimportlib.resources.files('x')\n",
         "import sys\nsys.exit(1)\nsys.argv\n",
         "x = pkg.__path__\n",
         "from os import path\npath.join(a, b)\n",

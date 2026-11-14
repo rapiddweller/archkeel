@@ -396,3 +396,21 @@ def test_a_poetry_caret_requirement_is_read(release_core: Path, tmp_path: Path) 
     )
     result = verdict(release_core, root)
     assert set(rows(result).values()) == {"PASS"}, result
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "__import__('app.service')\n",
+        "import importlib\nimportlib.import_module('app.service')\n",
+        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    __import__('app.service')\n",
+    ],
+)
+def test_a_literal_call_is_a_runtime_edge_for_a_rule_without_type_checking(
+    release_core: Path, tmp_path: Path, source: str
+) -> None:
+    # AD-472: the guard proof covers import statements only, so a call is never type-only.
+    files = {**BASE, "src/app/client.py": source}
+    contract = rules(type_checking=False)
+    result = verdict(release_core, project(tmp_path, files, contract_rules=contract))
+    assert rows(result)["FORBID"] == "FAIL", result
