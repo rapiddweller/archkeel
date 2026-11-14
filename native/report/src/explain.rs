@@ -120,26 +120,27 @@ struct Held {
     unnamed_imports: usize,
 }
 
+/// The kind of hold that a reason states, the pairs that it names and the unnamed imports.
+fn kind_of(reason: &Reason) -> (HoldKind, Vec<(String, String)>, usize) {
+    if let Reason::Incomplete(incomplete) = reason {
+        return match incomplete {
+            Incomplete::CoverageGaps(_) => (HoldKind::CoverageGaps, Vec::new(), 0),
+            Incomplete::UnknownImports(count) => (HoldKind::UnknownImports, Vec::new(), *count),
+            Incomplete::NoSourceFiles => (HoldKind::NoSourceFiles, Vec::new(), 0),
+        };
+    }
+    if let Reason::NotComplete(Cause::PairGaps(held)) = reason {
+        return (HoldKind::PairGaps, held.pairs().to_vec(), 0);
+    }
+    if let Reason::NotComplete(Cause::AllowedPairGaps(held)) = reason {
+        return (HoldKind::AllowedPairGaps, held.pairs().to_vec(), 0);
+    }
+    (HoldKind::Other, Vec::new(), 0)
+}
+
 impl Held {
     fn of(reason: &Reason) -> Held {
-        let (kind, pairs, unnamed_imports) = match reason {
-            Reason::Incomplete(Incomplete::CoverageGaps(_)) => {
-                (HoldKind::CoverageGaps, Vec::new(), 0)
-            }
-            Reason::Incomplete(Incomplete::UnknownImports(count)) => {
-                (HoldKind::UnknownImports, Vec::new(), *count)
-            }
-            Reason::Incomplete(Incomplete::NoSourceFiles) => {
-                (HoldKind::NoSourceFiles, Vec::new(), 0)
-            }
-            Reason::NotComplete(Cause::PairGaps(held)) => {
-                (HoldKind::PairGaps, held.pairs().to_vec(), 0)
-            }
-            Reason::NotComplete(Cause::AllowedPairGaps(held)) => {
-                (HoldKind::AllowedPairGaps, held.pairs().to_vec(), 0)
-            }
-            _ => (HoldKind::Other, Vec::new(), 0),
-        };
+        let (kind, pairs, unnamed_imports) = kind_of(reason);
         Held {
             cause: WhyUnknown::of(reason),
             kind,
@@ -187,9 +188,12 @@ impl Collected {
             .violations()
             .iter()
             .enumerate()
-            .filter_map(|(index, violation)| match violation {
-                Violation::Cycle(cycle) => Some(cycle_path(index, cycle)),
-                _ => None,
+            .filter_map(|(index, violation)| {
+                if let Violation::Cycle(cycle) = violation {
+                    Some(cycle_path(index, cycle))
+                } else {
+                    None
+                }
             })
             .collect();
         if !cycles.is_empty() {
