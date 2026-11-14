@@ -113,3 +113,44 @@ def test_a_symbol_public_entry_without_a_reader_holds_no_rule(
     # AD-466 hygiene can still hold the status; no profile limit may hold it.
     assert result["frame"]["scope"] == "complete", result
     assert "profile" not in json.dumps(result["frame"]["unsupported"])
+
+
+def test_typescript_without_the_symbol_feature_holds_only_the_symbol_rule(
+    release_core: Path, tmp_path: Path
+) -> None:
+    """A CommonJS file cannot use a browser global and a bare import names no symbol, so the reply has no `script-globals-v1` and states
+    `dependency_symbols` as unsupported. Before AD-496 that held each rule of the run."""
+    from test_cli_core_mounted_receipt import RULE as TS_RULE
+    from test_cli_core_mounted_receipt import component as ts_component
+    from test_cli_core_only_scan import command
+
+    files = {
+        "README.md": "x\n",
+        "tsconfig.json": '{"compilerOptions": {"strict": true}}\n',
+        "src/a/one.cts": "export const one = 1;\nexport const other = 2;\n",
+        "src/b/two.cts": "import '../a/one.cjs';\nexport const two = 2;\n",
+        "archkeel.toml": '[scan]\nlanguage = "typescript"\nroots = ["src"]\nnamespace = "app"\n'
+        'contract = "architecture-contract.json"\ntsconfig = "tsconfig.json"\n',
+    }
+    symbol = {"source": "app.src.b", "target": "app.src.a", "target_symbol": "other"}
+    symbol["include_type_checking"] = True
+    contract = {
+        "schema_version": "2.2.0",
+        "components": [ts_component("a", ["app.src.a"]), ts_component("b", ["app.src.b"], ("a",))],
+        "rules": [
+            {**TS_RULE, "id": "SYMBOL", "kind": "forbidden_dependency", **symbol},
+            {**TS_RULE, "id": "ASSIGN", "kind": "complete_assignment", "source": "app"},
+        ],
+    }
+    files["architecture-contract.json"] = json.dumps(contract)
+    for name, text in files.items():
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text(text)
+    names = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t"}
+    env = {**os.environ, **names, "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+    for step in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "init"]):
+        subprocess.run(["git", "-C", str(tmp_path), *step], check=True, env=env)
+    result = json.loads(command(release_core, tmp_path, "--json").stdout)
+    found = {rule: row[1] for rule, row in result["frame"]["rules"].items()}
+    assert found == {"SYMBOL": "UNKNOWN", "ASSIGN": "PASS"}, result["frame"]["explained"]
+    assert "the profile cannot decide SYMBOL" in result["frame"]["explained"]["SYMBOL"]

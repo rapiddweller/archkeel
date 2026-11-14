@@ -80,6 +80,11 @@ def _commit(root: Path) -> None:
         subprocess.run(["git", "-C", str(root), *step], check=True, env=env)
 
 
+def decided() -> dict[str, str]:
+    """Each rule PASS but the cycle rule, which has no receipt for a Dart reply (AD-496)."""
+    return {**dict.fromkeys(RULES, "PASS"), "CYCLES": "UNKNOWN"}
+
+
 def all_unknown(result: dict[str, Any]) -> None:
     assert rows(result) == dict.fromkeys(RULES, "UNKNOWN"), result["frame"]["explained"]
     assert result["status"] == "UNKNOWN" and result["exit_code"] == 2
@@ -90,8 +95,11 @@ def test_a_clean_dart_project_passes_each_import_rule(
     release_core: Path, tmp_path: Path, verb: str
 ) -> None:
     result = verdict(release_core, project(tmp_path, BASE), verb)
-    assert rows(result) == dict.fromkeys(RULES, "PASS"), result["frame"]["explained"]
-    assert result["status"] == "PASS" and result["exit_code"] == 0
+    assert rows(result) == decided(), result["frame"]["explained"]
+    # AD-496: the survey does not prove that it sees each local package, so a cycle rule and the
+    # run stay UNKNOWN.
+    assert "sees each local package" in result["frame"]["explained"]["CYCLES"]
+    assert result["status"] == "UNKNOWN" and result["exit_code"] == 2
 
 
 def test_a_forbidden_dart_import_fails_with_its_file(release_core: Path, tmp_path: Path) -> None:
@@ -111,7 +119,7 @@ def test_a_part_in_the_component_of_its_library_passes(release_core: Path, tmp_p
         "lib/data/repo_part.dart": "part of 'repo.dart';\n",
     }
     result = verdict(release_core, project(tmp_path, files))
-    assert rows(result) == dict.fromkeys(RULES, "PASS"), result["frame"]["explained"]
+    assert rows(result) == decided(), result["frame"]["explained"]
 
 
 def test_a_part_in_another_component_makes_each_rule_unknown(
