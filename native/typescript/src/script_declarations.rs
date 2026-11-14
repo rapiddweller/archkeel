@@ -13,6 +13,7 @@ use crate::kinds::{F, K};
 use crate::script_scope::is_root;
 use crate::script_syntax::{unique, Producer};
 use crate::script_types::{Member, Write};
+use crate::script_window::Written;
 use crate::source::Span;
 
 /// What `_script_declarations` returns.
@@ -21,6 +22,8 @@ pub(crate) struct Declarations {
     pub writes: Vec<Write>,
     pub paths: Vec<Vec<String>>,
     pub top_level_paths: Vec<Vec<String>>,
+    /// The writes of the one check (AD-460); the script writes take them too.
+    pub checked: Vec<Write>,
 }
 
 /// What the producer finds while it reads the nodes in order.
@@ -32,9 +35,32 @@ struct Gathered<'t> {
     writes: Vec<Write>,
     paths: Vec<Vec<String>>,
     top_level: Vec<Vec<String>>,
+    checked: Vec<Write>,
 }
 
 impl<'t> Gathered<'t> {
+    /// A write of the one check at the place of `span`: a write and a path of its name, or a
+    /// write and a path of an unknown name. Call it after the source write of the same target.
+    fn check(&mut self, written: Option<Written>, span: Span) {
+        let (name, path) = match written {
+            Some(Written::Name(name)) => (Some(name.clone()), vec![name]),
+            Some(Written::Unknown) => (None, Vec::new()),
+            None => return,
+        };
+        // The write of the target that the source writes just took: the script writes and the
+        // paths hold it already.
+        if self
+            .writes
+            .last()
+            .is_some_and(|last| last.0 == name && last.1 == span)
+        {
+            return;
+        }
+        self.writes.push((name.clone(), span.clone()));
+        self.checked.push((name, span));
+        self.paths.push(path);
+    }
+
     /// `objects[span] = object`: a later object of the same span replaces the earlier one.
     fn put(&mut self, span: Span, object: Node<'t>) {
         match self.at.get(&span) {
@@ -127,8 +153,11 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let mut targets = self.targets.iter().peekable();
         for node in tree.nodes.iter().copied() {
             found.writes.extend(tree.declaration_write(node));
+            found.check(self.node_write(node), tree.span(node));
             while let Some((_, target)) = targets.next_if(|(owner, _)| owner.id() == node.id()) {
                 self.declared_target(node, *target, &mut found);
+                found.check(self.global_write(*target), tree.span(node));
+                found.check(self.changed_global(*target), tree.span(node));
             }
             if let Some((span, object)) = self.published_object(node) {
                 found.put(span, object);
@@ -144,6 +173,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             writes: unique(found.writes),
             paths: unique(found.paths),
             top_level_paths: unique(found.top_level),
+            checked: unique(found.checked),
         }
     }
 }

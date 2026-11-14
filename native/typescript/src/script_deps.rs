@@ -14,6 +14,7 @@ use std::collections::{HashMap, HashSet};
 use crate::kept::Kept;
 use crate::script_project::{stable_publication, Project, Publisher, Write, WriteIndex};
 use crate::source::FileSiteKey;
+use crate::source_input::FRAME_ROOTS;
 use archkeel_facts::identity::{evidence_id, stable_id, Part};
 
 use crate::script_records::{Effect, Sink, SiteKey};
@@ -28,9 +29,6 @@ use crate::source::Span;
 pub(crate) fn is_root(name: &str) -> bool {
     crate::source_input::is_script_root(name.as_bytes()) || FRAME_ROOTS.contains(&name)
 }
-
-/// `ScriptRoot.TOP` and `ScriptRoot.PARENT`: dependency roots, not publication roots.
-const FRAME_ROOTS: [&str; 2] = ["top", "parent"];
 
 /// `ScriptRoot.unrooted`: how many leading names of a path name the global object, so that
 /// `window.self.x` is `x` (#1007).
