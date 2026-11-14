@@ -26,6 +26,7 @@ mod manifest;
 mod manifest_lines;
 mod module_edges;
 mod modules;
+mod modules_alias;
 mod nesting;
 mod net;
 mod paths;

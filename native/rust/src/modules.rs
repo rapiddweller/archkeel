@@ -16,6 +16,7 @@ use std::collections::BTreeMap;
 
 use crate::crates::{Crate, Workspace};
 use crate::definitions::{Form, Owner};
+use crate::modules_alias::Aliases;
 use crate::resolve::classify;
 use crate::scan::Reference;
 use crate::tree::Module;
@@ -71,14 +72,14 @@ pub(crate) struct Index<'a> {
     lexical: BTreeMap<String, &'a str>,
     frames: BTreeMap<&'a str, Frame<'a>>,
     /// The names that `extern crate self as name;` binds to a crate root.
-    aliases: alias::Aliases,
+    aliases: Aliases,
 }
 
 pub(crate) fn index<'a>(workspace: &'a Workspace, modules: &'a [Module]) -> Index<'a> {
     let mut built = Index {
         lexical: BTreeMap::new(),
         frames: BTreeMap::new(),
-        aliases: alias::Aliases::default(),
+        aliases: Aliases::default(),
     };
     for module in modules {
         let Some(krate) = workspace.crates.get(module.crate_index) else {
@@ -307,7 +308,7 @@ impl<'a> Index<'a> {
             return self.follow(frame.root, 0, names);
         }
         if absolute {
-            return self.absolute(frame, names);
+            return self.prelude_edge(frame, names).unwrap_or(Outcome::None);
         }
         let (mut cur, mut level) = (lexical.to_owned(), 1);
         let at = match first {
@@ -338,6 +339,13 @@ impl<'a> Index<'a> {
         }
     }
 
+    /// What `names` names when its first name is in the extern prelude (`extern crate self as me;`).
+    fn prelude_edge(&self, frame: &Frame<'_>, names: &[String]) -> Option<Outcome> {
+        let first = names.first()?;
+        let alias = self.aliases.in_prelude(frame.root, first);
+        alias.then(|| self.follow(frame.root, 0, &names[1..]))
+    }
+
     /// From the module `start`, down each segment that names a child module.
     fn follow(&self, start: &str, level: i64, rest: &[String]) -> Outcome {
         let mut cur = start.to_owned();
@@ -347,7 +355,6 @@ impl<'a> Index<'a> {
             if self.lexical.contains_key(&next) {
                 cur = next;
             } else if let Some(root) = self.aliases.member(&cur, part) {
-                // `crate::me::b`: the alias of `extern crate self as me;` names the root again.
                 cur = root.to_owned();
             } else {
                 break;
@@ -389,12 +396,14 @@ impl<'a> Index<'a> {
             }
             return Outcome::None;
         }
-        if !local {
-            return self.declared_over_alias(frame, first);
+        let hides = !local && self.aliases.in_prelude(frame.root, first);
+        if !local && !hides {
+            return Outcome::None;
         }
-        if count != 1 {
-            let reason =
-                format!("A name that the file declares more than once may name a module: {first}");
+        if count != 1 || hides {
+            let reason = format!(
+                "A name that the file declares more than once, or over the alias of the crate, may name a module: {first}"
+            );
             return Outcome::Unknown(reason);
         }
         match bound {
@@ -427,14 +436,13 @@ impl<'a> Index<'a> {
     ) -> Option<Outcome> {
         let first = &names[0];
         let primary = frame.krate.primary.as_ref();
-        let aliased = self.aliases.in_prelude(frame, first);
+        let aliased = self.aliases.in_prelude(frame.root, first);
         if *first == frame.krate.ident && !aliased {
             let lib = primary.filter(|root| root.module != frame.root)?;
             return Some(self.follow(&lib.module, 0, &names[1..]));
         }
         let none = std::collections::BTreeSet::new();
-        // A glob of an inline module reaches only the names in that module and below. A glob
-        // that starts with the alias (`use me::b::*`) does not bring the alias in.
+        // A glob of an inline module reaches only its module and below; `use me::b::*` is no alias.
         let reaching: Vec<&&Reference> = frame
             .globs
             .iter()
@@ -485,9 +493,6 @@ impl Index<'_> {
         }
     }
 }
-
-#[path = "modules_alias.rs"]
-mod alias;
 
 #[cfg(test)]
 #[path = "modules_tests.rs"]
