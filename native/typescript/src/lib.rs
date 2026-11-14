@@ -98,6 +98,7 @@ mod tree;
 mod umd;
 #[cfg_attr(not(feature = "dump"), allow(dead_code))]
 mod umd_publication;
+mod unselected;
 mod walk;
 
 use archkeel_facts::envelope::{Profile, Provenance, Reply};

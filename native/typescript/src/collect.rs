@@ -46,6 +46,10 @@ pub(crate) const FEATURES: [&str; 4] = [
 // What the compiler's `trim()` removes (`collect._WHITESPACE`).
 const COMPILER_SPACE: &str = " \t\n\u{b}\u{c}\r\u{a0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200a}\u{2028}\u{2029}\u{202f}\u{205f}\u{3000}\u{feff}";
 
+/// The reason of a project source under the scan roots that the TSConfig does not select.
+pub(crate) const UNSELECTED: &str =
+    "Source file under the scan roots is not selected by the TSConfig";
+
 enum GapKind {
     Collection,
     Resolution,
@@ -126,6 +130,7 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         && resolver.blocked.is_none()
         && resolver.options.resolution() == Resolution::Bundler;
     let partial = config.partial;
+    let outputs = config.outputs;
     let script = config.script;
     let listed = config.files;
     let mut collection = Collection {
@@ -176,6 +181,7 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         collection.file(&rel);
         index += 1;
     }
+    collection.unselected(&outputs);
     let (script, dependency_scope) = collection.script_dependencies(partial);
     let problems: Vec<String> = collection.snapshot.problems.iter().cloned().collect();
     for problem in problems {
@@ -240,6 +246,21 @@ impl Collection<'_> {
                     .snapshot
                     .real(rel)
                     .is_some_and(|real| is_test_source(&real)))
+    }
+
+    /// AD-488: each project source under the scan roots that the collection did not read is a
+    /// coverage gap. The TSConfig can drop a file that holds an import, so silence could pass a
+    /// rule. A test source that a 9.0.0 request removes is not a gap (AD-313).
+    fn unselected(&mut self, outputs: &[String]) {
+        let roots = self.roots.clone();
+        for rel in crate::unselected::project_sources(&mut self.snapshot, &roots, outputs) {
+            if self.queued.contains(&rel) || self.excluded_test(&rel) {
+                continue;
+            }
+            let module = module_identity(self.namespace, &rel).unwrap_or_default();
+            let reason = format!("{UNSELECTED}: {rel}");
+            self.gap(&reason, None, &module, GapKind::Collection);
+        }
     }
 
     fn file(&mut self, rel: &str) {

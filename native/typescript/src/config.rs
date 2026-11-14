@@ -29,6 +29,8 @@ pub(crate) struct Config {
     /// The snapshot-relative files that the config selects inside the requested roots, sorted.
     pub files: Vec<String>,
     pub partial: bool,
+    /// The build output directories of the TSConfig (`outDir`, `declarationDir`), snapshot-relative.
+    pub outputs: Vec<String>,
     /// The script host and the vendored libraries that the project declares.
     pub script: crate::script_environment::ScriptEnvironment,
 }
@@ -118,10 +120,12 @@ pub(crate) fn load_config(snapshot: &mut Snapshot, tsconfig: &str, roots: &[Stri
         problems.push("No selected source files".to_owned());
     }
     snapshot.problems.extend(problems);
+    let outputs = layer.outputs.values().flatten().cloned().collect();
     Config {
         options,
         files: chosen.into_iter().collect(),
         partial: layer.partial || options_partial,
+        outputs,
         script,
     }
 }

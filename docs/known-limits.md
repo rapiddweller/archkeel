@@ -230,6 +230,14 @@ standing scan disclaimers retain their separate meanings.
 
 ## TypeScript profile
 
+A TypeScript, declaration or JavaScript file under the scan roots that the TSConfig does not
+select (`files`, `include`, `exclude`, `allowJs`) is a coverage gap that names the file, so no
+rule of the run can PASS. Files under `node_modules`, `bower_components`, `jspm_packages`, the
+`outDir` or `declarationDir`, emitted files beside their source, and test sources that
+`exclude_test_sources` removes are not gaps. The gap holds every rule of the run, not only the
+rules that read the file. Narrow the scan roots, or select the file in the TSConfig
+([AD-488](architecture/decisions/ad-488-a-source-file-that-the-tsconfig-drops-is-a-coverage-gap.md)).
+
 Import graphs, ownership, externals, cycles and layout are measured. Lexical UML
 declarations, members, signatures and proven local relationships are available;
 they do not provide compiler type checking or Python-style symbol/type rules.
