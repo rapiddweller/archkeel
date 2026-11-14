@@ -256,3 +256,62 @@ jobs:
             [[ "$result" == success ]] || { echo "A check job did not succeed: $result" >&2; exit 1; }
           done
           [[ -n "$RESULTS" ]] || { echo "No job results" >&2; exit 1; }
+
+  # AD-462: publish the report gallery on each push to main. This job is not in `check`, and it
+  # has continue-on-error: a Pages setting that is off, or a deploy error, must not change the
+  # verdict of CI. It is the only job with a condition and the only job with Pages permissions.
+  # The condition keeps a dispatch on another branch from publishing. A newer run cancels an older one.
+  publish-gallery:
+    name: Publish the report gallery
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    continue-on-error: true
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Install locked dependencies
+        run: uv sync --locked
+
+      - name: Install the pinned Rust toolchain once, before any parallel step
+        working-directory: native
+        run: rustup toolchain install
+
+      - name: Build the report of each fixture with the core
+        run: make report-gallery
+
+      - name: Upload the gallery
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: test-artifacts/gallery/
+          retention-days: 1
+
+      - name: Deploy the gallery
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

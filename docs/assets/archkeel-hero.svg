@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 130 1774 730" width="1774" height="730" role="img" aria-label="ArchKeel: see what your code really does, check it against what you decided. PASS, FAIL or UNKNOWN.">
+<defs>
+<radialGradient id="g1" cx="0" cy="0" r="0.75"><stop offset="0" stop-color="#2a1a12" stop-opacity=".85"/><stop offset="1" stop-color="#0c0c0d" stop-opacity="0"/></radialGradient>
+<radialGradient id="g2" cx="1" cy="1" r="0.7"><stop offset="0" stop-color="#2b1b15" stop-opacity=".9"/><stop offset="1" stop-color="#0c0c0d" stop-opacity="0"/></radialGradient>
+<marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1L9 5L1 9" fill="none" stroke="#f1eee6" stroke-width="1.6"/></marker>
+</defs>
+<rect width="1774" height="887" fill="#0c0c0d"/><rect width="1774" height="887" fill="url(#g1)"/><rect width="1774" height="887" fill="url(#g2)"/>
+<g stroke="#e8805d" stroke-width="4" stroke-linecap="round"><path d="M114 346H186M88 369H162"/></g>
+<path d="M186 382V352H212V330H270V300H336V330H394V346H482L440 382Z" fill="#0c0c0d" stroke="#f1eee6" stroke-width="4" stroke-linejoin="miter"/>
+<path d="M270 330V382M336 330V382" stroke="#f1eee6" stroke-width="4"/>
+<g fill="#a8a8ab"><rect x="224" y="344" width="15" height="15"/><rect x="284" y="313" width="14" height="14"/><rect x="349" y="344" width="15" height="15"/></g>
+<path d="M284 339h40M284 347h40M284 355h32" stroke="#a8a8ab" stroke-width="3"/>
+<path d="M116 399Q270 407 428 405L449 387H410V396H380V387H330V396H300V387H246V396H216V387H186V397Q150 399 116 399Z" fill="#e8805d"/>
+<text x="504" y="379" font-family="Geist" font-weight="700" font-size="92" letter-spacing="-2" fill="#f1eee6">ArchKeel<tspan fill="#e8805d">.</tspan></text>
+<text font-family="Geist" font-weight="400" font-size="45" fill="#d6d3cc"><tspan x="114" y="487">See what your code really does.</tspan><tspan x="114" y="546">Check it against what you decided.</tspan></text>
+<text x="104" y="782" font-family="JetBrains Mono" font-size="24" fill="#8b8c92">Deterministic architecture checks. No LLM in the verdict.</text>
+<rect x="975" y="247" width="458" height="338" fill="none" stroke="#e8805d" stroke-width="3.5"/>
+<rect x="1020" y="294" width="137" height="87" rx="3" fill="#141416" stroke="#c9c7c1" stroke-width="2.5"/>
+<path d="M1042 321h56M1042 339h38M1042 357h64" stroke="#a8a8ab" stroke-width="3.5" stroke-linecap="round"/><rect x="1251" y="294" width="137" height="87" rx="3" fill="#141416" stroke="#c9c7c1" stroke-width="2.5"/>
+<path d="M1273 321h56M1273 339h38M1273 357h64" stroke="#a8a8ab" stroke-width="3.5" stroke-linecap="round"/><rect x="1020" y="455" width="137" height="87" rx="3" fill="#141416" stroke="#c9c7c1" stroke-width="2.5"/>
+<path d="M1042 482h56M1042 500h38M1042 518h64" stroke="#a8a8ab" stroke-width="3.5" stroke-linecap="round"/><rect x="1251" y="455" width="137" height="87" rx="3" fill="#141416" stroke="#c9c7c1" stroke-width="2.5"/>
+<path d="M1273 482h56M1273 500h38M1273 518h64" stroke="#a8a8ab" stroke-width="3.5" stroke-linecap="round"/>
+<g stroke="#f1eee6" stroke-width="2.5" marker-end="url(#a)"><path d="M1164 338H1241"/><path d="M1164 499H1241"/><path d="M1088 389V445"/><path d="M1320 389V445"/></g>
+<path d="M1434 310H1472M1514 310H1550" stroke="#46bfd0" stroke-width="3" stroke-dasharray="11 8"/>
+<g stroke="#46bfd0" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="translate(1493 310)"><path d="M-13 1L-4 10L13 -9"/></g>
+<rect x="1552" y="279" width="140" height="62" rx="4" fill="#111113" stroke="#c9c7c1" stroke-width="2.5"/>
+<text x="1570" y="319" font-family="JetBrains Mono" font-weight="700" font-size="25" letter-spacing="1.5" fill="#f1eee6">PASS</text>
+<path d="M1434 416H1472M1514 416H1550" stroke="#f2606b" stroke-width="3" stroke-dasharray="11 8"/>
+<g stroke="#f2606b" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="translate(1493 416)"><path d="M-11 -11L11 11M11 -11L-11 11"/></g>
+<rect x="1552" y="385" width="140" height="62" rx="4" fill="#111113" stroke="#c9c7c1" stroke-width="2.5"/>
+<text x="1570" y="425" font-family="JetBrains Mono" font-weight="700" font-size="25" letter-spacing="1.5" fill="#f1eee6">FAIL</text>
+<path d="M1434 522H1472M1514 522H1550" stroke="#ecb64a" stroke-width="3" stroke-dasharray="11 8"/>
+<g stroke="#ecb64a" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="translate(1493 522)"><path d="M-8 -7Q-8 -15 0 -15Q9 -15 9 -7Q9 -1 0 2V6"/><path d="M0 14V14.5"/></g>
+<rect x="1552" y="491" width="190" height="62" rx="4" fill="#111113" stroke="#c9c7c1" stroke-width="2.5"/>
+<text x="1570" y="531" font-family="JetBrains Mono" font-weight="700" font-size="25" letter-spacing="1.5" fill="#f1eee6">UNKNOWN</text>
+</svg>

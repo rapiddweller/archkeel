@@ -104,6 +104,12 @@ self-validate-shell: core
 # AD-478: the shell and native/ with their own contracts.
 self-validate: self-validate-native self-validate-shell
 
+# AD-462: one report pair for each run of fixtures/matrix.json, in test-artifacts/gallery. The
+# shell decides nothing; the job `publish-gallery` of CI publishes this directory.
+report-gallery: core
+	rm -rf test-artifacts/gallery
+	$(UV) run --locked python -m tools.report_gallery --out test-artifacts/gallery --archkeel "$(UV) run --locked archkeel"
+
 # AD-343: record the golden replies of the TypeScript collector. REASON says why a reply changes.
 # The source must be committed, or set ALLOW_DIRTY=1 to log the commit as +dirty.
 golden-record:
