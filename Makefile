@@ -6,14 +6,14 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test merge-check pr-report-test ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build smoke release-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check core native-check self-validate-native native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
+.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test merge-check pr-report-test ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build smoke release-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check core native-check self-validate self-validate-native self-validate-shell native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check
 
 ci: ci-check mermaid
 
-ci-check: ci-artifacts-clean ci-core-check self-validate-native
+ci-check: ci-artifacts-clean ci-core-check self-validate-native self-validate-shell
 
 ci-pr-check: ci-pr-static pr-test
 
@@ -92,6 +92,17 @@ self-validate-native: core
 	@$(UV) run --locked archkeel validate --config native/archkeel.toml --json > test-artifacts/validation-native/result.json || true
 	$(UV) run --locked python tools/native_expected.py test-artifacts/validation-native/result.json native/expected-gaps.json
 	@echo "Native architecture rules: as pinned in native/expected-gaps.json; full result: test-artifacts/validation-native/result.json"
+
+# AD-478: Archkeel checks the Python shell of src/archkeel with its own core and its own contract.
+# The result must equal the pinned rows of docs/architecture/target/shell-expected.json.
+self-validate-shell: core
+	@mkdir -p test-artifacts/validation-shell
+	@$(UV) run --locked archkeel validate --config docs/architecture/shell.toml --json > test-artifacts/validation-shell/result.json || true
+	$(UV) run --locked python tools/native_expected.py test-artifacts/validation-shell/result.json docs/architecture/target/shell-expected.json
+	@echo "Shell architecture rules: as pinned in docs/architecture/target/shell-expected.json; full result: test-artifacts/validation-shell/result.json"
+
+# AD-478: the shell and native/ with their own contracts.
+self-validate: self-validate-native self-validate-shell
 
 # AD-343: record the golden replies of the TypeScript collector. REASON says why a reply changes.
 # The source must be committed, or set ALLOW_DIRTY=1 to log the commit as +dirty.
