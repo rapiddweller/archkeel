@@ -29,8 +29,11 @@ def test_the_core_gives_the_verdict_of_4_0_1_or_unknown_never_a_weaker_one(
     result = verdict(release_core, build(root, plant))
     core = rows(result)["BOUNDARY"]
     assert core in plant.core, (plant.name, core, result["frame"]["explained"])
-    # The differential: PASS only where 4.0.1 passes, FAIL only where 4.0.1 fails.
+    # The differential: PASS only where 4.0.1 passes, FAIL only where 4.0.1 or the truth fails.
     assert core != "PASS" or plant.four == "PASS", plant.name
-    assert core != "FAIL" or plant.four == "FAIL", plant.name
+    assert core != "FAIL" or plant.four == "FAIL" or plant.truth == "FAIL", plant.name
     if core != plant.four:
-        assert core == "UNKNOWN" and plant.why, plant.name
+        assert core == "UNKNOWN" and plant.why or core == "FAIL" and plant.truth, plant.name
+    # What Python binds at import time: a plant that fails in truth is never PASS, unless the
+    # documents name it as an open false PASS and this test pins it.
+    assert (core == "PASS" and plant.truth == "FAIL") == plant.open_pass, plant.name

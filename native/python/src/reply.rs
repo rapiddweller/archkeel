@@ -55,7 +55,13 @@ pub(crate) fn typed(
 ) -> Result<Reply, String> {
     // AD-504: the linked path also writes the publication routes that `interface_boundary` reads.
     // The subprocess reply stays the frozen survey of the phase `imports`.
-    routes::resolve(&mut survey.imports, &survey.files, &survey.opaque_surface);
+    routes::resolve(
+        &mut survey.imports,
+        &survey.files,
+        &survey.opaque_surface,
+        &survey.sole_binders,
+        &survey.ambiguous,
+    );
     let (head, records) = parts(request, survey, build)?;
     assemble(reply_version(request.protocol_version), head, |writer| {
         records.produce(writer)

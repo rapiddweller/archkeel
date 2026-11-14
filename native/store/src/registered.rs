@@ -20,8 +20,7 @@ use std::collections::BTreeSet;
 
 use archkeel_facts::envelope::{ConstructSupport, Facts, LimitSupport, Profile};
 
-/// The feature of the Python survey that writes the symbol and the route of each named import.
-pub(crate) const ROUTES_FEATURE: &str = "import-routes-v1";
+use crate::features::ROUTES_FEATURE;
 
 const NATIVE_IMPORTS: [&str; 4] = [
     "literal-imports",

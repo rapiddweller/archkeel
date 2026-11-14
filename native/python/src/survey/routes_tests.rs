@@ -12,7 +12,13 @@ use crate::survey::targets::tests::surveyed;
 /// The route of the import of `symbol` in `source`, after the resolution of the routes.
 fn route(files: &[(&str, &str)], source: &str, symbol: &str) -> Option<Vec<String>> {
     let mut found = surveyed(files);
-    resolve(&mut found.imports, &found.files, &found.opaque_surface);
+    resolve(
+        &mut found.imports,
+        &found.files,
+        &found.opaque_surface,
+        &found.sole_binders,
+        &found.ambiguous,
+    );
     found.imports.iter().find_map(|record| {
         let data = record.data.data();
         (data.source_module.as_str() == source && data.symbol.as_deref() == Some(symbol))
@@ -83,6 +89,56 @@ fn a_binding_that_is_not_unique_withholds_the_route() {
     ] {
         assert_eq!(through(init), Some(Vec::new()), "{init}");
     }
+}
+
+#[test]
+fn an_import_that_is_not_a_plain_statement_of_the_body_is_no_reexport() {
+    for init in [
+        "def f(): pass\ndef _lazy():\n    from app.pkg.impl import f\n",
+        "def f(): pass\nclass K:\n    from app.pkg.impl import f\n",
+        "def f(): pass\ndef _lazy():\n    from .impl import f\n",
+        "def f(): pass\ndef _lazy():\n    from app.pkg.impl import f as f\n",
+        "def _lazy():\n    from app.pkg.impl import f\n    return f\ndef f(): pass\n",
+        "try:\n    from app.pkg.impl import f\nexcept ImportError:\n    pass\n",
+        "if True:\n    from app.pkg.impl import f\n",
+        "from app.pkg.impl import f\nfor f in []:\n    pass\n",
+    ] {
+        assert_eq!(through(init), Some(Vec::new()), "{init}");
+    }
+}
+
+#[test]
+fn a_write_from_another_module_withholds_the_route() {
+    let found = route(
+        &[
+            ("src/app/__init__.py", ""),
+            (INIT, "from app.pkg.impl import f\nimport app.pkg._patch\n"),
+            ("src/app/pkg/_patch.py", "from app import pkg\npkg.f = 1\n"),
+            IMPL,
+            USER,
+        ],
+        "app.user",
+        "f",
+    );
+    assert_eq!(found, Some(Vec::new()));
+}
+
+#[test]
+fn a_guarded_import_that_passes_a_reexport_has_no_route() {
+    let guarded = route(
+        &[
+            ("src/app/__init__.py", ""),
+            (INIT, "from app.pkg.impl import f\n"),
+            IMPL,
+            (
+                "src/app/user.py",
+                "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from app.pkg import f\n",
+            ),
+        ],
+        "app.user",
+        "f",
+    );
+    assert_eq!(guarded, Some(Vec::new()));
 }
 
 #[test]

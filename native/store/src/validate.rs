@@ -127,7 +127,7 @@ fn checkable(facts: &Facts) -> Result<(), String> {
         Profile::Rust => &RUST_FEATURES,
         // AD-450, AD-468: the import survey has no resolution feature. AD-504: the Python survey
         // of the linked path states `import-routes-v1`.
-        Profile::Python => &[crate::registered::ROUTES_FEATURE],
+        Profile::Python => &[crate::features::ROUTES_FEATURE],
         Profile::Dart => &[],
     };
     for feature in &facts.capabilities.resolution_features {

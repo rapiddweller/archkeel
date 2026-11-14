@@ -39,6 +39,10 @@ class Plant:
     core: tuple[str, ...] = ("PASS",)
     why: str = ""
     planned: tuple[str, ...] = ()
+    # What Python binds at import time, when it is not what 4.0.1 says, and whether the core still
+    # gives PASS for it (an open false PASS that the documents name, pinned as such).
+    truth: str = ""
+    open_pass: bool = False
 
 
 def plants() -> list[Plant]:
@@ -192,6 +196,219 @@ def plants() -> list[Plant]:
             {LIB: "", IMPL: DEFINES},
             four="FAIL",
             core=("FAIL",),
+        ),
+    ] + attacks()
+
+
+PUB = "src/app/lib/pub.py"
+PATCH = "src/app/lib/_patch.py"
+GUARD = "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n"
+LAZY = "def f(): pass\ndef _lazy():\n    from app.lib.pub import f\n"
+
+
+def attacks() -> list[Plant]:
+    """The forms where a re-export is not what the survey would read (AD-504, review of #1178)."""
+    p = Plant
+    pub = {PUB: "def f(): pass\ndef g(): pass\n"}
+    # B1: Python binds the private `app.lib.f`; the import in a nested scope binds a local name.
+    nested = {
+        "import in a function": ("lib.f", LAZY),
+        "import in a class body": (
+            "lib.f",
+            "def f(): pass\nclass K:\n    from app.lib.pub import f\n",
+        ),
+        "aliased import in a function": (
+            "lib.f",
+            "def f(): pass\ndef _lazy():\n    from app.lib.pub import g as f\n",
+        ),
+        "relative import in a function": (
+            "lib.f",
+            "def f(): pass\ndef _lazy():\n    from .pub import f\n",
+        ),
+        "import in a lazy factory": (
+            "lib.f",
+            "def make():\n    from app.lib.pub import f\n    return f\nf = make()\n",
+        ),
+    }
+    found = [
+        p(
+            f"nested re-export: {name}",
+            "from app.lib import f\n",
+            ("app.lib.pub",),
+            {LIB: init, **pub},
+            core=("UNKNOWN",),
+            why="Python binds the private name of the package; this import is a local one",
+            truth="FAIL",
+        )
+        for name, (_, init) in nested.items()
+    ]
+    found.append(
+        p(
+            "nested re-export: exact entry",
+            "from app.lib import f\n",
+            ("app.lib.pub:f",),
+            {LIB: LAZY, **pub},
+            core=("UNKNOWN",),
+            why="Python binds the private name of the package; this import is a local one",
+            truth="FAIL",
+        )
+    )
+    found.append(
+        p(
+            "nested re-export: in the target module",
+            "from app.lib.mod import f\n",
+            ("app.lib.pub",),
+            {LIB: "", "src/app/lib/mod.py": LAZY, **pub},
+            four="FAIL",
+            core=("FAIL", "UNKNOWN"),
+            truth="FAIL",
+        )
+    )
+    # B2: a package attribute bound by any statement wins over the submodule of the same name.
+    bodies = {
+        "try and except": "try:\n    from app.lib import _native as speedups\n"
+        "except ImportError:\n    from app.lib import _pure as speedups\n",
+        "for target": "for speedups in []:\n    pass\n",
+        "with target": "with open(__file__) as speedups:\n    pass\n",
+        "tuple target": "(speedups, other) = (1, 2)\n",
+        "walrus": "(speedups := 1)\n",
+        "global in a function": "def _go():\n    global speedups\n    speedups = 1\n",
+        "def in an if": "if True:\n    def speedups(): pass\n",
+    }
+    files = {
+        "src/app/lib/speedups.py": "def fast(): pass\n",
+        "src/app/lib/_native.py": "",
+        "src/app/lib/_pure.py": "",
+    }
+    found.extend(
+        p(
+            f"shadowed submodule: {name}",
+            "from app.lib import speedups\n",
+            ("app.lib.speedups",),
+            {LIB: body, **files},
+            core=("UNKNOWN",),
+            why="the package attribute may or may not be the submodule; the survey cannot say",
+            truth="FAIL",
+        )
+        for name, body in bodies.items()
+    )
+    # B3: another module writes to the package after its statements ran.
+    patched = {
+        "attribute write": (
+            "from app.lib.pub import f\nimport app.lib._patch\n",
+            "lib.f = secret\n",
+            "f",
+        ),
+        "new attribute": ("from app.lib.pub import f\nimport app.lib._patch\n", "lib.f = 1\n", "f"),
+        "all removed": (
+            "from app.lib.pub import f, g\n__all__ = ['f', 'g']\nimport app.lib._patch\n",
+            "lib.__all__.remove('g')\n",
+            "g",
+        ),
+        "all replaced": (
+            "from app.lib.pub import f, g\n__all__ = ['f', 'g']\nimport app.lib._patch\n",
+            "lib.__all__ = ['f']\n",
+            "g",
+        ),
+    }
+    found.extend(
+        p(
+            f"write from another module: {name}",
+            f"from app.lib import {used}\n",
+            ("app.lib",),
+            {LIB: init, PATCH: "from app import lib\nsecret = 1\n" + write, **pub},
+            core=("UNKNOWN",),
+            why="another module changes the namespace after the statements of the package ran",
+            truth="FAIL",
+        )
+        for name, (init, write, used) in patched.items()
+    )
+    # S1: a guarded import that passes a re-export, and a guarded private module.
+    found.append(
+        p(
+            "guarded import through a re-export",
+            GUARD + "    from app.lib import f\n",
+            ("app.lib.pub",),
+            {LIB: "from app.lib.pub import f\n", **pub},
+            core=("UNKNOWN",),
+            why="a guarded route that passes a re-export is not proven",
+        )
+    )
+    found.append(
+        p(
+            "guarded import of a private module",
+            GUARD + "    import app.lib._priv\n",
+            ("app.lib",),
+            {LIB: "", "src/app/lib/_priv.py": "def secret(): pass\n"},
+            four="FAIL",
+            core=("UNKNOWN",),
+            why="a guarded module import is a named type-publication gap (UNKNOWN, never PASS)",
+        )
+    )
+    return found + names() + opens()
+
+
+def names() -> list[Plant]:
+    """S3: private and special names, and a port that names a submodule."""
+    p = Plant
+    return [
+        p(
+            "private name listed in __all__",
+            "from app.lib import _h\n",
+            ("app.lib",),
+            {LIB: "def _h(): pass\n__all__ = ['_h']\n"},
+            four="FAIL",
+            core=("FAIL",),
+        ),
+        p(
+            "exact entry of a private name",
+            "from app.lib import _h\n",
+            ("app.lib:_h",),
+            {LIB: "def _h(): pass\n"},
+            four="FAIL",
+            core=("FAIL",),
+        ),
+        p(
+            "dunder name",
+            "from app.lib import __version__\n",
+            ("app.lib",),
+            {LIB: "__version__ = '1'\n"},
+            four="FAIL",
+            core=("FAIL",),
+        ),
+        p(
+            "port that names a submodule",
+            "from app.lib import mod\n",
+            ("app.lib:mod",),
+            {LIB: "", "src/app/lib/mod.py": "def f(): pass\n"},
+            four="FAIL",
+            core=("FAIL",),
+        ),
+    ]
+
+
+def opens() -> list[Plant]:
+    """The open false PASS forms: truth is FAIL, 4.0.1 says PASS, the core still says PASS."""
+    p = Plant
+    private = {LIB: "from app.lib import _priv\n", "src/app/lib/_priv.py": "def secret(): pass\n"}
+    return [
+        p(
+            "open: private submodule used through the public module object",
+            "import app.lib\napp.lib._priv.secret()\n",
+            ("app.lib",),
+            private,
+            truth="FAIL",
+            open_pass=True,
+            why="the rule judges imports, and a use through a public module object is no import",
+        ),
+        p(
+            "open: write through sys.modules",
+            "import sys\nsys.modules['app.lib'].f = 1\n",
+            ("app.lib",),
+            {LIB: "def f(): pass\n"},
+            core=("UNKNOWN",),
+            truth="FAIL",
+            why="sys.modules is an import-system gap of the survey (AD-450)",
         ),
     ]
 
