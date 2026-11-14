@@ -310,9 +310,11 @@ def _places(frame: CoreFrame, evidence: Sequence[str]) -> str:
 def render_text(command: Command, frame: CoreFrame) -> None:
     print(f"{command}: {frame.status}")
     if (topology := frame.topology) is not None:
-        print(f"Topology: {len(topology.modules)}/{topology.total['modules']} modules, "
-              f"{len(topology.edges)}/{topology.total['edges']} edges; "
-              f"complete: {topology.complete}; truncated: {topology.truncated}")
+        print(
+            f"Topology: {len(topology.modules)}/{topology.total['modules']} modules, "
+            f"{len(topology.edges)}/{topology.total['edges']} edges; "
+            f"complete: {topology.complete}; truncated: {topology.truncated}"
+        )
     if not frame.complete_scope:
         print(f"Scope: {frame.scope}")
         print("Action: Resolve the named scope gap and run again.")

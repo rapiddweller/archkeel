@@ -12,8 +12,11 @@ from .core_evidence import Location
 from .core_json import CoreError, _count, _fields, _object, _text
 
 LIMITS: Final = {
-    "components": 4096, "modules": 10_000, "edges": 20_000,
-    "component_edges": 20_000, "evidence_per_edge": 5,
+    "components": 4096,
+    "modules": 10_000,
+    "edges": 20_000,
+    "component_edges": 20_000,
+    "evidence_per_edge": 5,
 }
 
 
@@ -94,8 +97,12 @@ def _strings(value: object) -> tuple[str, ...]:
 def _component(value: object) -> Component:
     row = _fields(value, "topology.component", frozenset(Component.__dataclass_fields__))
     return Component(
-        _text(row["id"], "id"), _text(row["name"], "name"), _optional(row["parent"]),
-        _strings(row["packages"]), _strings(row["exact_modules"]), _bool(row["planned"]),
+        _text(row["id"], "id"),
+        _text(row["name"], "name"),
+        _optional(row["parent"]),
+        _strings(row["packages"]),
+        _strings(row["exact_modules"]),
+        _bool(row["planned"]),
     )
 
 
@@ -124,35 +131,72 @@ def _edge(value: object, rules: Mapping[str, object]) -> Edge:
     count = _count(row["count"], "count")
     total = _count(row["evidence_total"], "evidence_total")
     linked = _strings(row["rules"])
-    if count == 0 or len(evidence) != min(total, LIMITS["evidence_per_edge"]) or not set(linked) <= rules.keys():
+    if (
+        count == 0
+        or len(evidence) != min(total, LIMITS["evidence_per_edge"])
+        or not set(linked) <= rules.keys()
+    ):
         raise CoreError("topology: inconsistent edge counts or rule links")
     return Edge(
-        _text(row["id"], "id"), _text(row["source"], "source"), _text(row["target"], "target"),
-        resolution, count, tuple(evidence), total, linked,
+        _text(row["id"], "id"),
+        _text(row["source"], "source"),
+        _text(row["target"], "target"),
+        resolution,
+        count,
+        tuple(evidence),
+        total,
+        linked,
     )
 
 
 def read_topology(value: object, scope: str, rules: Mapping[str, object]) -> Topology:
-    row = _fields(value, "topology", frozenset({
-        "version", "complete", "gaps", "truncated", "budgets", "total",
-        "components", "modules", "edges", "component_edges",
-    }))
+    row = _fields(
+        value,
+        "topology",
+        frozenset(
+            {
+                "version",
+                "complete",
+                "gaps",
+                "truncated",
+                "budgets",
+                "total",
+                "components",
+                "modules",
+                "edges",
+                "component_edges",
+            }
+        ),
+    )
     if _count(row["version"], "topology.version") != 1:
         raise CoreError("topology: unsupported version")
     budgets = _object(row["budgets"], "topology.budgets")
     if budgets != LIMITS or any(isinstance(v, bool) for v in budgets.values()):
         raise CoreError("topology: unknown budgets")
-    total = {key: _count(value, key) for key, value in _fields(row["total"], "topology.total", frozenset(LIMITS)).items()}
+    total = {
+        key: _count(value, key)
+        for key, value in _fields(row["total"], "topology.total", frozenset(LIMITS)).items()
+    }
     complete, truncated = _bool(row["complete"]), _bool(row["truncated"])
     gaps = _strings(row["gaps"])
-    lists = {key: _list(row[key], LIMITS[key]) for key in ("components", "modules", "edges", "component_edges")}
+    lists = {
+        key: _list(row[key], LIMITS[key])
+        for key in ("components", "modules", "edges", "component_edges")
+    }
     if any(len(items) != min(total[key], LIMITS[key]) for key, items in lists.items()):
         raise CoreError("topology: inconsistent list counts")
     over = any(total[key] > limit for key, limit in LIMITS.items())
-    if truncated != over or complete != (not gaps and not truncated) or (scope != "complete" and scope not in gaps):
+    if (
+        truncated != over
+        or complete != (not gaps and not truncated)
+        or (scope != "complete" and scope not in gaps)
+    ):
         raise CoreError("topology: inconsistent completeness")
     topology = Topology(
-        complete, truncated, gaps, total,
+        complete,
+        truncated,
+        gaps,
+        total,
         tuple(_component(item) for item in lists["components"]),
         tuple(_module(item) for item in lists["modules"]),
         tuple(_edge(item, rules) for item in lists["edges"]),
@@ -163,3 +207,14 @@ def read_topology(value: object, scope: str, rules: Mapping[str, object]) -> Top
         if len(set(keys)) != len(keys):
             raise CoreError("topology: repeated identity")
     return topology
+
+
+def frame_topology(
+    frame: Mapping[str, object], request: Mapping[str, object] | None, rules: Mapping[str, object]
+) -> Topology | None:
+    """The decoded section of a frame. A requested section that is absent is a refusal."""
+    if "topology" not in frame:
+        if request is not None and request.get("topology"):
+            raise CoreError("the core did not produce the requested topology section")
+        return None
+    return read_topology(frame["topology"], _text(frame["scope"], "scope"), rules)
