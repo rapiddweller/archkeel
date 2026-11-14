@@ -46,7 +46,9 @@ def _files(path: str) -> dict[str, str]:
 def _exclude_tests(root: Path) -> None:
     with (root / "archkeel.toml").open("a") as config:
         config.write("exclude_test_sources = true\n")
-    for args in (["add", "-A"], ["-c", "commit.gpgsign=false", "commit", "-q", "-m", "exclude"]):
+    identity = ["-c", "user.name=QA", "-c", "user.email=qa@example.invalid"]
+    commit = [*identity, "-c", "commit.gpgsign=false", "commit", "-q", "-m", "exclude"]
+    for args in (["add", "-A"], commit):
         subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
 
 
