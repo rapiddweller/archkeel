@@ -11,14 +11,9 @@
 //! read gives a named gap. A place outside the scan root (`$CARGO_HOME/config.toml`, a root
 //! above the scan root) and the `CARGO_*` environment stay unread: `docs/known-limits.md`.
 
-use std::collections::BTreeMap;
-use std::rc::Rc;
-
-use super::{manifest_table, Parsed};
-use crate::manifest::get;
 use crate::source::read_text;
 use crate::toml::{self, Table};
-use archkeel_snapshot::paths::{dirname, is_outside, join};
+use archkeel_snapshot::paths::{dirname, join};
 use archkeel_snapshot::Snapshot;
 
 /// The tables that redirect a dependency.
@@ -38,6 +33,15 @@ pub(crate) enum Redirect {
     Unread(String),
 }
 
+/// The root that `package.workspace` names, as the crate reader found it.
+pub(crate) enum Named<'t> {
+    /// The manifest names no root.
+    No,
+    Table(&'t Table),
+    /// The root is outside the scan root or has no manifest: the reason.
+    Unread(String),
+}
+
 fn redirects(table: &Table) -> bool {
     REDIRECTS.iter().any(|key| table.contains_key(*key)) || table.contains_key("source")
 }
@@ -46,35 +50,22 @@ fn redirects(table: &Table) -> bool {
 /// root that `package.workspace` names, and the cargo configs from `dir` up to the scan root.
 pub(crate) fn of(
     source: &mut Snapshot,
-    tables: &mut BTreeMap<String, Option<Rc<Parsed>>>,
     (dir, table): (&str, &Table),
-    above: Option<&Parsed>,
+    (above, named): (Option<&Table>, Named<'_>),
 ) -> Redirect {
     let manifests = |table: &Table| {
         ["patch", "replace"]
             .iter()
             .any(|key| table.contains_key(*key))
     };
-    if manifests(table) || above.is_some_and(|above| manifests(&above.table)) {
+    if manifests(table) || above.is_some_and(manifests) {
         return Redirect::Possible;
     }
-    if let Some(pointer) = get(table, &["package", "workspace"]).and_then(|v| v.text()) {
-        let root = join(dir, pointer);
-        let root = if root == "." { String::new() } else { root };
-        if is_outside(&root) {
-            return Redirect::Unread(format!(
-                "The workspace root {pointer} of the crate in {dir} lies outside the scan root"
-            ));
-        }
-        match manifest_table(source, tables, &root) {
-            Ok(Some(named)) if manifests(&named.table) => return Redirect::Possible,
-            Ok(Some(_)) => {}
-            Ok(None) | Err(_) => {
-                return Redirect::Unread(format!(
-                    "The workspace root {root} of the crate in {dir} cannot be read"
-                ))
-            }
-        }
+    match named {
+        Named::No => {}
+        Named::Table(root) if manifests(root) => return Redirect::Possible,
+        Named::Table(_) => {}
+        Named::Unread(reason) => return Redirect::Unread(reason),
     }
     configs(source, dir)
 }

@@ -10,9 +10,12 @@ use archkeel_snapshot::test_tree::Tree;
 const APP: &str = "[package]\nname = \"app\"\n[dependencies]\nbase-crate = \"1\"\n";
 
 fn run(files: &[(&str, &str)], dir: &str) -> Redirect {
+    run_with(files, dir, Named::No)
+}
+
+fn run_with(files: &[(&str, &str)], dir: &str, named: Named<'_>) -> Redirect {
     let root = Tree::new(files);
     let mut source = Snapshot::new(&root.path());
-    let mut tables = BTreeMap::new();
     let text = std::fs::read_to_string(
         std::path::Path::new(&root.path())
             .join(dir)
@@ -20,7 +23,7 @@ fn run(files: &[(&str, &str)], dir: &str) -> Redirect {
     )
     .unwrap();
     let table = toml::parse(&text).unwrap();
-    of(&mut source, &mut tables, (dir, &table), None)
+    of(&mut source, (dir, &table), (None, named))
 }
 
 #[test]
@@ -75,32 +78,25 @@ fn a_cargo_config_that_cannot_be_parsed_is_a_gap() {
 
 #[test]
 fn a_workspace_root_that_package_workspace_names_is_read() {
-    let app = format!(
-        "[package]\nname = \"app\"\nworkspace = \"../ws\"\n{}",
-        &APP[APP.find("[dep").unwrap()..]
+    let files = [("crates/app/Cargo.toml", APP)];
+    let patched =
+        toml::parse("[workspace]\n[patch.crates-io]\nbase-crate = { path = \"../base\" }\n")
+            .unwrap();
+    assert_eq!(
+        run_with(&files, "crates/app", Named::Table(&patched)),
+        Redirect::Possible
     );
-    let patched = "[workspace]\n[patch.crates-io]\nbase-crate = { path = \"../base\" }\n";
-    let files = [
-        ("crates/app/Cargo.toml", app.as_str()),
-        ("crates/ws/Cargo.toml", patched),
-    ];
-    assert_eq!(run(&files, "crates/app"), Redirect::Possible);
-    let files = [
-        ("crates/app/Cargo.toml", app.as_str()),
-        ("crates/ws/Cargo.toml", "[workspace]\n"),
-    ];
-    assert_eq!(run(&files, "crates/app"), Redirect::None);
+    let plain = toml::parse("[workspace]\n").unwrap();
+    assert_eq!(
+        run_with(&files, "crates/app", Named::Table(&plain)),
+        Redirect::None
+    );
 }
 
 #[test]
-fn a_workspace_root_that_is_missing_or_outside_the_scan_root_is_a_gap() {
-    let missing = APP.replace("name = \"app\"", "name = \"app\"\nworkspace = \"../ws\"");
-    let files = [("crates/app/Cargo.toml", missing.as_str())];
-    assert!(matches!(run(&files, "crates/app"), Redirect::Unread(_)));
-    let outside = APP.replace(
-        "name = \"app\"",
-        "name = \"app\"\nworkspace = \"../../../up\"",
-    );
-    let files = [("crates/app/Cargo.toml", outside.as_str())];
-    assert!(matches!(run(&files, "crates/app"), Redirect::Unread(_)));
+fn a_workspace_root_that_cannot_be_read_is_a_gap() {
+    let files = [("crates/app/Cargo.toml", APP)];
+    let reason = "outside".to_owned();
+    let found = run_with(&files, "crates/app", Named::Unread(reason.clone()));
+    assert_eq!(found, Redirect::Unread(reason));
 }
