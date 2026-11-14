@@ -165,7 +165,7 @@ def plants() -> list[Plant]:
                 "except ImportError:\n    from app.lib.impl import g as f\n",
                 IMPL: DEFINES,
             },
-            core=("PASS", "UNKNOWN"),
+            core=("UNKNOWN",),
             why="an alias with two targets is not a proven route",
         ),
         p(
