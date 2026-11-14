@@ -9,7 +9,10 @@ use archkeel_contract::{
     CompletenessMode, Entity, EntityKind, RelationshipKind, Target, TargetScope,
 };
 
-use crate::uml_facts::{entity, word, Assessed, Facts, UmlDiff};
+use crate::symbols::module_id;
+use crate::uml_scope_symbols::Observed;
+
+use crate::uml_facts::{entity, Assessed, Facts, UmlDiff};
 
 /// The assessments of one scope.
 pub(crate) fn scope(facts: &Facts<'_>, target: &Target, item: &TargetScope) -> Vec<Assessed> {
@@ -17,37 +20,32 @@ pub(crate) fn scope(facts: &Facts<'_>, target: &Target, item: &TargetScope) -> V
         return vec![Assessed::Unknown("scope entity".to_owned())];
     };
     let name = owner.qualified_name();
-    let module = match owner.kind() {
-        EntityKind::Module => true,
-        EntityKind::Component | EntityKind::Package => false,
-        other => {
-            return vec![Assessed::Unknown(format!(
-                "scope of a {} entity",
-                word(other)
-            ))]
-        }
+    let observed = match observed(facts, owner) {
+        Ok(observed) => observed,
+        Err(cause) => return vec![Assessed::Unknown(cause)],
     };
-    if found(facts, owner, module) != 1 {
-        return vec![Assessed::Unknown(
-            "scope without one module or package".to_owned(),
-        )];
-    }
     if *item.mode() == CompletenessMode::Open {
         return vec![Assessed::Pass];
     }
-    let kinds_known = item
+    let module = *owner.kind() == EntityKind::Module;
+    let symbol_kinds: Vec<EntityKind> = item
         .entity_kinds()
         .iter()
-        .all(|kind| *kind == EntityKind::Module)
-        && item
-            .relationship_kinds()
-            .iter()
-            .all(|kind| *kind == RelationshipKind::Imports);
-    if !kinds_known {
-        return vec![Assessed::Unknown("closed scope of other kinds".to_owned())];
-    }
+        .copied()
+        .filter(|kind| !matches!(kind, EntityKind::Module | EntityKind::Package))
+        .collect();
+    let site_kinds: Vec<RelationshipKind> = item
+        .relationship_kinds()
+        .iter()
+        .copied()
+        .filter(|kind| *kind != RelationshipKind::Imports)
+        .collect();
+    let symbol_owner = !matches!(
+        owner.kind(),
+        EntityKind::Module | EntityKind::Component | EntityKind::Package
+    );
     let mut extras = Vec::new();
-    if item.entity_kinds().contains(&EntityKind::Module) {
+    if item.entity_kinds().contains(&EntityKind::Module) && !symbol_owner {
         extras.extend(extra_modules(
             facts,
             target,
@@ -56,10 +54,10 @@ pub(crate) fn scope(facts: &Facts<'_>, target: &Target, item: &TargetScope) -> V
             module,
         ));
     }
-    if item
+    let imports = item
         .relationship_kinds()
-        .contains(&RelationshipKind::Imports)
-    {
+        .contains(&RelationshipKind::Imports);
+    if imports && !symbol_owner {
         extras.extend(extra_edges(
             facts,
             target,
@@ -68,11 +66,50 @@ pub(crate) fn scope(facts: &Facts<'_>, target: &Target, item: &TargetScope) -> V
             module,
         ));
     }
+    let scoped = (owner, &observed);
+    if !symbol_kinds.is_empty() {
+        match crate::uml_scope_symbols::extra_symbols(facts, target, scoped, &symbol_kinds) {
+            Ok(found) => extras.extend(found),
+            Err(cause) => return vec![Assessed::Unknown(cause)],
+        }
+    }
+    if !site_kinds.is_empty() {
+        match crate::uml_scope_symbols::extra_sites(facts, target, scoped, &site_kinds) {
+            Ok(found) => extras.extend(found),
+            Err(cause) => return vec![Assessed::Unknown(cause)],
+        }
+    }
     if extras.is_empty() {
-        // 4.0.1 proves no complete module inventory for a closed scope.
+        // 4.0.1 proves no complete module or symbol inventory for a closed scope.
         return vec![Assessed::Unknown("closed scope completeness".to_owned())];
     }
     extras.into_iter().map(Assessed::Fail).collect()
+}
+
+/// `_scope`: the one observed entity of a scope, or the cause that there is not one.
+fn observed(facts: &Facts<'_>, owner: &Entity) -> Result<Observed, String> {
+    let name = owner.qualified_name();
+    let module = match owner.kind() {
+        EntityKind::Module => true,
+        EntityKind::Component | EntityKind::Package => false,
+        _ => {
+            let found = crate::uml_symbols::matches(facts, owner)?;
+            return match found.as_slice() {
+                [actual] => Ok(Observed::Parent(actual.id.clone())),
+                _ => Err("scope without one definition".to_owned()),
+            };
+        }
+    };
+    if found(facts, owner, module) != 1 {
+        return Err("scope without one module or package".to_owned());
+    }
+    let packages = facts.model.graph().packages();
+    let package = !module && packages.iter().any(|(_, package)| package.name() == name);
+    Ok(if package {
+        Observed::Prefix(name.to_owned())
+    } else {
+        Observed::Parent(module_id(name))
+    })
 }
 
 /// `_scope`: the number of observed entities of a scope. A module scope counts the modules of

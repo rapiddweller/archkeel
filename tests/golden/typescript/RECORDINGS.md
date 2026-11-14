@@ -29,3 +29,9 @@
 | 2026-11-14 | synthetic-esm-forms | d4a001757 | AD-434: add only named type publication proof fields, export binding witnesses and their evidence; preserve all other rows. (cpython 3.11.12) |
 | 2026-11-14 | synthetic-gaps | 50df0ef52 | AD-460: the write check gives an unknown write at the place of window[nameOf()], so its runtime effect merges into the gap of that place (cpython 3.11.12) |
 | 2026-11-14 | l-nest-realworld | 27f65592e | AD-488: three spec files that the TSConfig excludes under src are coverage gaps (cpython 3.11.12) |
+| 2026-11-14 | excalidraw-math | d786ccfb3 | AD-512: a site whose name a scope below the module declares is no longer resolved to the module symbol (cpython 3.11.12) |
+| 2026-11-14 | l-nest-realworld | e5296ee3f | AD-512: a name that a pattern, a declarator or a for head binds gives the reason 'lexical binding may shadow the name' (cpython 3.11.12) |
+| 2026-11-14 | excalidraw-math | e5296ee3f | AD-512: a name that a pattern, a declarator or a for head binds gives the reason 'lexical binding may shadow the name' (cpython 3.11.12) |
+| 2026-11-14 | excalidraw-laser-pointer | e5296ee3f | AD-512: a name that a pattern, a declarator or a for head binds gives the reason 'lexical binding may shadow the name' (cpython 3.11.12) |
+| 2026-11-14 | synthetic-tsx-paths | e5296ee3f | AD-512: a name that a pattern, a declarator or a for head binds gives the reason 'lexical binding may shadow the name' (cpython 3.11.12) |
+| 2026-11-14 | synthetic-esm-forms | e5296ee3f | AD-512: a name that a pattern, a declarator or a for head binds gives the reason 'lexical binding may shadow the name' (cpython 3.11.12) |
