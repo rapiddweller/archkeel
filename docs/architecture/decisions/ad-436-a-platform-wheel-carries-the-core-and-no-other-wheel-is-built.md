@@ -33,8 +33,8 @@ first limit of AD-432. The lookup and the refusals of AD-432 do not change.
 such a package must not be built. A refusal at build time names the remedy once; a pure wheel
 would install on each platform and refuse each run. One binary has one digest and one SBOM.
 
-Measured on macOS arm64: the wheel grows from 3,400,053 bytes (two collectors) to 4,397,593 bytes.
-The core is 9,300,528 bytes. The eight tests of the installed wheel take 4 seconds.
+Measured on macOS arm64: the wheel grows from 3,400,053 bytes (two collectors) to 4,397,661 bytes.
+The core is 9,300,528 bytes. The installed `validate` takes 0.1 to 0.3 seconds for a fixture.
 
 **Rejected.**
 - cargo in a build from the sdist. The sdist must then carry `native/`, the install must download
