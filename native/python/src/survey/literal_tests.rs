@@ -61,6 +61,7 @@ fn each_neighbour_form_stays_a_dynamic_import() {
         "def __import__(name):\n    return name\n__import__('app.service')\n",
         "import importlib\nload = importlib.import_module\nload('app.service')\n",
         "import importlib\ngetattr(importlib, 'import_module')('app.service')\n",
+        "import importlib\nother.import_module('app.service')\n",
     ] {
         let kinds: Vec<&str> = found(source).into_iter().map(|(kind, _)| kind).collect();
         assert!(kinds.contains(&DYNAMIC), "{source}: {kinds:?}");

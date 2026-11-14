@@ -191,10 +191,8 @@ pub(crate) fn runtime(runtime: &RuntimeFact) -> Runtime {
     for clause in required.split(',').map(str::trim) {
         let (bound, wanted) = match clause.strip_prefix(">=") {
             Some(bound) => (bound, [Ordering::Greater, Ordering::Equal]),
-            None => match clause
-                .strip_prefix('<')
-                .filter(|rest| !rest.starts_with('='))
-            {
+            // `<=X` leaves `=X`, which is no release: the clause stays unread.
+            None => match clause.strip_prefix('<') {
                 Some(bound) => (bound, [Ordering::Less, Ordering::Less]),
                 None => return Runtime::Unread,
             },
