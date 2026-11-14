@@ -290,3 +290,78 @@ fn a_leaf_with_the_name_of_its_first_segment_stays_unknown_when_a_glob_may_bring
         Outcome::Unknown(_)
     ));
 }
+
+// The alias of `extern crate self as me;` in the crate root names the root from every module
+// (the extern prelude), from a `::` path, and as `crate::me` where the root binds it.
+fn aliased(root: &str, text: &str, path: &str) -> Outcome {
+    let tree = [
+        ("src/lib.rs", root),
+        ("src/a.rs", "pub fn f() {}"),
+        ("src/b.rs", text),
+    ];
+    let mut all = vec![(
+        "Cargo.toml",
+        "[package]\nname = \"app\"\nedition = \"2021\"\n",
+    )];
+    all.extend_from_slice(&tree);
+    outcome_in(&all, "ns.app.b", path)
+}
+
+const ALIAS_ROOT: &str = "extern crate self as me;\nmod a;\nmod b;\n";
+
+#[test]
+fn the_alias_of_the_root_names_the_root_from_another_module() {
+    let want = edge("ns.app.a", Some("f"), 0);
+    assert_eq!(
+        aliased(ALIAS_ROOT, "fn t() { me::a::f(); }", "me::a::f"),
+        want
+    );
+    assert_eq!(
+        aliased(ALIAS_ROOT, "fn t() { ::me::a::f(); }", "me::a::f"),
+        want
+    );
+    let own = "extern crate self as app;\nmod a;\nmod b;\n";
+    assert_eq!(aliased(own, "fn t() { ::app::a::f(); }", "app::a::f"), want);
+}
+
+#[test]
+fn the_alias_of_the_root_is_a_name_of_the_root_module_too() {
+    let root = "pub extern crate self as me;\nmod a;\nmod b;\n";
+    let want = edge("ns.app.a", Some("f"), 0);
+    assert_eq!(
+        aliased(root, "fn t() { crate::me::a::f(); }", "crate::me::a::f"),
+        want
+    );
+    assert_eq!(
+        aliased(root, "fn t() { super::me::a::f(); }", "super::me::a::f"),
+        edge("ns.app.a", Some("f"), 2)
+    );
+}
+
+#[test]
+fn a_name_that_the_file_declares_hides_the_alias_or_is_unknown() {
+    let text = "fn me() {}\nfn t() { me::a::f(); }";
+    assert!(matches!(
+        aliased(ALIAS_ROOT, text, "me::a::f"),
+        Outcome::Unknown(_)
+    ));
+    let local = "mod me { pub mod a { pub fn f() {} } }\nfn t() { me::a::f(); }";
+    assert_eq!(
+        aliased(ALIAS_ROOT, local, "me::a::f"),
+        Outcome::Edge(Edge {
+            module: "ns.app.b".to_owned(),
+            lexical: "ns.app.b.me.a".to_owned(),
+            symbol: Some("f".to_owned()),
+            level: 1,
+        })
+    );
+}
+
+#[test]
+fn an_alias_that_only_a_nested_module_binds_is_no_prelude_name() {
+    let root = "mod a;\nmod b;\n";
+    assert_eq!(
+        aliased(root, "fn t() { me::a::f(); }", "me::a::f"),
+        Outcome::None
+    );
+}

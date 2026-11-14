@@ -414,6 +414,14 @@ refuses with `core_binary_not_found`
   `Cargo.toml` is UNKNOWN, never PASS. It compiles only when a `build.rs` prints
   `cargo:rustc-link-search=crate=...`. Such a link is not read
   ([AD-356](architecture/decisions/ad-356-a-call-or-crate-that-a-producer-cannot-see-is-a-gap.md)).
+- **`extern crate self as name;`** binds `name` to the root of the own crate. In the crate root it
+  joins the extern prelude: `name::b::g`, `use name::b::g;` and `::name::b::g` in any module of
+  that crate are an edge to `b`, and so is `crate::name::b::g` where a module binds the alias. An
+  alias in a function body is read in its own file only. A file that declares the name itself, or a
+  glob that may bring it in, makes the path UNKNOWN. Not seen, and the verdict can be PASS: the
+  alias through a `pub use` of the root (`pub use crate::name as other;`), the same class as any
+  other path through a re-export of the root. An alias that a macro generates is a macro
+  expansion gap.
 - **An attribute name in a macro body** is read as a derive helper, not as a crate name
   ([AD-335](architecture/decisions/ad-335-archkeel-checks-the-rust-of-native-with-its-own-contract.md),
   amendment (b)). A crate that a macro reaches through such a name is seen only when the manifest
