@@ -468,3 +468,12 @@ def test_absolute_path_detection_requires_a_root_boundary() -> None:
     )
     for text, expected in cases:
         assert _contains_local_absolute_path(text) is expected
+
+
+# A fixture run wrote `test-artifacts/architecture/*.html` beside six fixtures and a `git add -A`
+# committed 25 MB of reports, so the repository counted as an HTML project. A report is output.
+def test_no_run_output_directory_is_tracked() -> None:
+    tracked = subprocess.check_output(["git", "ls-files", "--cached", "-z"], cwd=ROOT, text=True)
+    stray = sorted(name for name in tracked.split("\0") if "test-artifacts/" in name)
+
+    assert stray == []

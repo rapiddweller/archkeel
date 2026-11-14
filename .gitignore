@@ -12,6 +12,8 @@ fixtures/D-self/*.html
 # `archkeel report` writes beside the working directory; the root is not a scratch space.
 /*.report.html
 /test-artifacts/
+# A fixture run writes its reports here; they are output, not fixture data.
+**/test-artifacts/
 fixtures/D-self/architecture.json
 **/.dart_tool/
 **/build/
