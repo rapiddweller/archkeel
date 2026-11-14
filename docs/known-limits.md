@@ -26,9 +26,8 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 - No release carries the core binary. A platform wheel of `main` carries it (`make native-wheel`),
   and a build without the core refuses. Run `main` from a source checkout after `make core`.
 - The core decides on Windows since AD-442, and the installed Windows wheel must equal the core of
-  the checkout. A release from `main` stays closed: the release guard (`NO_VERDICT` in
-  `tools/release_core.py`, `PUBLISH_NATIVE_WHEELS` in `release.yml`) still lists `win_amd64`.
-  A later change lifts it (AD-436).
+  the checkout. A release from `main` is open (AD-476): it publishes the sdist and the six platform
+  wheels that Full builds and runs. The Windows wheel writes no report file (see `report --output`).
 - `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give the typed refusal
   `not_on_this_development_line`, exit 2. Interactive reports, `architecture.json`, saved and focused
   reports, baselines, amendments and `--write-graph` are refused by option name.
