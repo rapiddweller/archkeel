@@ -34,7 +34,7 @@
    images pinned by digest, macOS 15 and Windows 2025. Each job checks the tag and the SBOM,
    installs the wheel and runs the binary. `tools/publish_release.py` accepts the pure wheel,
    the sdist and none or all six platform wheels. The release copies the platform wheels into
-   `dist/` only when `PUBLISH_NATIVE_WHEELS` in `release.yml` is `"true"`.
+   `dist/` after Full passes (AD-476 removed the flag `PUBLISH_NATIVE_WHEELS`).
 
 **Reason.** Tools that read untrusted code, for example ruff, uv, ty and pyrefly, ship a Rust
 binary in platform wheels and start it as a subprocess. The binary has no Python ABI, so one wheel
