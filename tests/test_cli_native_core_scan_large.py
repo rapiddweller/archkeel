@@ -92,7 +92,12 @@ def unguarded_frame(built: Path, core: Path, frame: dict) -> dict:
         "base": None,
     }
     stdout, _ = native_scan.exchange(str(core), "check", json.dumps(payload).encode())
-    return json.loads(stdout)
+    plain = json.loads(stdout)
+    # AD-466: a check request reads no provenance document. It names that gap and never passes.
+    hygiene = plain["unsupported"]["rules"].pop("hygiene:request")
+    assert hygiene.startswith("unsupported: the contract hygiene of the request"), hygiene
+    assert plain.pop("status") != "PASS"
+    return plain
 
 
 @pytest.mark.parametrize("size", [100_000, 1_000_000, (4 << 20) - 1])
@@ -114,6 +119,7 @@ def test_large_honest_source_has_the_unguarded_frame(
     assert "request" in frame["self_test"]["collect"], frame
     plain = unguarded_frame(built, release_core, frame)
     frame["self_test"].pop("collect")
+    frame.pop("status")
     assert frame == plain
 
 
@@ -146,6 +152,7 @@ def test_repeated_package_reads_do_not_refuse_a_small_distinct_project(
     assert "request" in frame["self_test"]["collect"], frame
     plain = unguarded_frame(built, release_core, frame)
     frame["self_test"].pop("collect")
+    frame.pop("status")
     assert frame == plain
 
 
@@ -212,6 +219,7 @@ def test_flat_chains_keep_the_unguarded_frame(
     assert code == 0, frame["unsupported"]
     plain = unguarded_frame(built, release_core, frame)
     frame["self_test"].pop("collect")
+    frame.pop("status")
     assert frame == plain
 
 
