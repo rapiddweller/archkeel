@@ -19,6 +19,9 @@ const NODE_W: usize = 160;
 const NODE_H: usize = 80;
 const COLUMN: usize = 220;
 const ROW: usize = 110;
+/// The space left of the first column, for the edges that return to it.
+const LEFT: usize = 50;
+const LANE: usize = 10;
 
 /// A dependency between two components of the contract, with the places that break it.
 struct Link<'a> {
@@ -153,26 +156,69 @@ impl<'a> Picture<'a> {
         positions.get(id).copied().unwrap_or((20, 20))
     }
 
-    fn positions(&self) -> (BTreeMap<&'a str, (usize, usize)>, usize, usize) {
+    fn positions(&self, top: usize) -> (BTreeMap<&'a str, (usize, usize)>, usize, usize) {
         let mut column_count: BTreeMap<usize, usize> = BTreeMap::new();
         let mut positions = BTreeMap::new();
         for id in &self.order {
             let column = self.rank[id];
             let row = column_count.entry(column).or_default();
-            positions.insert(*id, (20 + column * COLUMN, 20 + *row * ROW));
+            positions.insert(*id, (LEFT + column * COLUMN, top + *row * ROW));
             *row += 1;
         }
         let columns = column_count.keys().next_back().map_or(1, |last| last + 1);
         let rows = column_count.values().copied().max().unwrap_or(1);
         (
             positions,
-            40 + (columns - 1) * COLUMN + NODE_W,
-            40 + (rows - 1) * ROW + NODE_H,
+            LEFT + 20 + (columns - 1) * COLUMN + NODE_W,
+            top + 20 + (rows - 1) * ROW + NODE_H,
         )
     }
 
+    /// Whether an edge runs in a lane around the boxes: it spans more than one column or goes back.
+    fn lane(&self, link: &Link<'a>) -> Option<bool> {
+        let (from, to) = (self.rank[link.from], self.rank[link.to]);
+        if to == from + 1 {
+            None
+        } else {
+            Some(to > from)
+        }
+    }
+
+    /// The path of an edge and the point where its mark sits. A lane edge leaves to the right, runs
+    /// along a lane above or below all boxes and enters from the left: it crosses no box.
+    fn route(
+        &self,
+        link: &Link<'a>,
+        positions: &BTreeMap<&str, (usize, usize)>,
+        content: usize,
+        (above, below): (&mut usize, &mut usize),
+    ) -> (String, usize, usize) {
+        let (fx, fy) = self.at(positions, link.from);
+        let (tx, ty) = self.at(positions, link.to);
+        let (x1, y1, x2, y2) = (fx + NODE_W, fy + NODE_H / 2, tx, ty + NODE_H / 2);
+        let Some(up) = self.lane(link) else {
+            let curve = format!("M{x1} {y1}C{} {y1} {} {y2} {x2} {y2}", x1 + 40, x2 - 40);
+            return (curve, (x1 + x2) / 2, (y1 + y2) / 2);
+        };
+        let used = if up { above } else { below };
+        *used += 1;
+        let lane = if up {
+            10 + (*used - 1) * LANE
+        } else {
+            content + 10 + (*used - 1) * LANE
+        };
+        let gap = 12 + (*used % 4) * 8;
+        let path = format!("M{x1} {y1}H{}V{lane}H{}V{y2}H{x2}", x1 + gap, x2 - gap);
+        (path, (x1 + x2) / 2, lane)
+    }
+
     fn map(&self, names: &Names<'a>) -> String {
-        let (positions, width, height) = self.positions();
+        let edges: Vec<&Link<'a>> = self.links.iter().filter(|l| l.from != l.to).collect();
+        let top = edges.iter().filter(|l| self.lane(l) == Some(true)).count();
+        let bottom = edges.iter().filter(|l| self.lane(l) == Some(false)).count();
+        let offset = if top > 0 { 20 + top * LANE } else { 20 };
+        let (positions, width, content) = self.positions(offset);
+        let height = content + if bottom > 0 { bottom * LANE + 10 } else { 0 };
         let mut svg = format!(
             "<svg class=\"ak-diagram rp-map\" viewBox=\"0 0 {width} {height}\" style=\"max-width:{width}px\" role=\"img\" \
 aria-label=\"Component map: {}, {}.\"><defs>{}</defs>",
@@ -187,38 +233,19 @@ aria-label=\"Component map: {}, {}.\"><defs>{}</defs>",
                 ))
                 .collect::<String>()
         );
-        for link in self.links.iter().filter(|link| link.from != link.to) {
-            let (fx, fy) = self.at(&positions, link.from);
-            let (tx, ty) = self.at(&positions, link.to);
-            let forward = tx > fx;
-            let (x1, y1) = if forward {
-                (fx + NODE_W, fy + NODE_H / 2)
-            } else {
-                (fx + NODE_W / 2, fy + NODE_H)
-            };
-            let (x2, y2) = if forward {
-                (tx, ty + NODE_H / 2)
-            } else {
-                (tx + NODE_W / 2, ty + NODE_H)
-            };
-            let bend = if forward { 0 } else { 70 };
-            let (c1, c2) = if forward {
-                ((x1 + 40, y1), (x2 - 40, y2))
-            } else {
-                ((x1, y1 + bend), (x2, y2 + bend))
-            };
+        let (mut above, mut below) = (0, 0);
+        for link in edges {
+            let (d, mx, my) = self.route(link, &positions, content, (&mut above, &mut below));
             let fail = !link.marks.is_empty();
             svg.push_str(&format!(
-                "<path class=\"ak-edge{}\" d=\"M{x1} {y1}C{} {} {} {} {x2} {y2}\" marker-end=\"url(#ak-arrow{})\"><title>{} imports {}: {}</title></path>",
+                "<path class=\"ak-edge{}\" d=\"{d}\" marker-end=\"url(#ak-arrow{})\"><title>{} imports {}: {}</title></path>",
                 if fail { " ak-edge--violation" } else { "" },
-                c1.0, c1.1, c2.0, c2.1,
                 if fail { "-fail" } else { "" },
                 escape(names.name(link.from)),
                 escape(names.name(link.to)),
                 count(link.imports, "import")
             ));
             if let Some(first) = link.marks.first() {
-                let (mx, my) = ((x1 + x2) / 2, (y1 + y2) / 2 + bend * 3 / 4);
                 svg.push_str(&format!(
                     "<a href=\"#x{first}\"><g class=\"rp-callout\"><circle cx=\"{mx}\" cy=\"{my}\" r=\"10\"/><text x=\"{mx}\" y=\"{}\">{first}</text></g></a>",
                     my + 4
