@@ -83,6 +83,8 @@ Clippy, `cargo deny` and the file size rule stay outside the contract
 The linked collector states its profile limits in the typed in-process reply
 ([AD-426](decisions/ad-426-the-linked-collector-states-profile-limits-before-the-scope-proof.md)).
 The model reads these statements before the existing scope proof. They remove no actual source gap.
+A stated unsupported feature holds only the rules that read it, not the run
+([AD-500](decisions/ad-500-a-stated-profile-limit-holds-only-the-rules-that-read-it.md)).
 The statements are not serialized. The wire path keeps its conservative profile refusals.
 
 Slice S11 decides `forbidden_construct` from construct and typing-signal facts (AD-408).
@@ -408,7 +410,6 @@ flowchart LR
     n_54 --> n_4
     n_54 --> n_14
     n_54 --> n_30
-    n_54 --> n_43
     n_54 --> n_32
     n_54 --> n_33
     n_54 --> n_42
