@@ -101,6 +101,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         roots: request.roots,
         baseline: false,
         report: false,
+        html: false,
         base,
         trust: Box::new(stage_one_shell_trust),
         collect: None,

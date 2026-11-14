@@ -111,7 +111,7 @@
 //! ```compile_fail,E0451
 //! use archkeel_report::{Decided, RuleReasons, Ruling, Status};
 //! fn ruling(decided: Decided) -> Ruling {
-//!     Ruling { decided, protocol: "archkeel-core-frame-1", status: Status::Pass,
+//!     Ruling { decided, protocol: "archkeel-core-frame-1", html: false, status: Status::Pass,
 //!         rules: Default::default(), details: Default::default(), unknown_kinds: Default::default(),
 //!         explained: Default::default(), violations: Default::default(),
 //!         beyond: Default::default(), scope: "complete".into(),

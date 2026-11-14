@@ -1773,6 +1773,7 @@
     "fn ruling::rule(models:Result<&ModelTree,&Reason>,named:Named)->Result<Ruling,BuildError>",
     "fn ruling::rule_with_edge_links(models:Result<&ModelTree,&Reason>,named:Named,keep_links:bool,)->Result<(Ruling,BTreeMap<String,BTreeSet<String>>),BuildError>",
     "fn ruling::unsupported(&self)->&RuleReasons",
+    "fn ruling::with_html(mut self,html:bool)->Self",
     "fn tables::opt_gap(cell:OptGap)->Option<Code<Gap>>",
     "fn why::of(reason:&Reason)->WhyUnknown",
     "struct codes::Code",

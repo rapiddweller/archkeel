@@ -9,6 +9,7 @@ PR_TEST_FILES := \
 	tests/test_cli_core_only_exit_table.py \
 	tests/test_cli_core_only_review.py \
 	tests/test_cli_core_only_scan.py \
+	tests/test_cli_report_output.py \
 	tests/test_cli_native_core_scan.py \
 	tests/test_cli_native_core_scan_rust.py \
 	tests/test_cli_native_core_scan_work.py \

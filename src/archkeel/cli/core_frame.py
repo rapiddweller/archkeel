@@ -29,6 +29,7 @@ from .core_json import Gap as Gap
 from .core_json import GapKind as GapKind
 from .core_json import _count, _fields, _object, _text, _texts
 from .core_topology import Topology, frame_topology, require_topology
+from .core_output import read_html
 
 
 class Status(StrEnum):
@@ -150,6 +151,7 @@ _EVIDENCE_FIELDS: Final = frozenset(
         "collection_gaps",
         "contract_digest",
         "topology",
+        "html",
     }
 )
 _UNSUPPORTED: Final = frozenset({"rules", "sections", "report"})
@@ -214,6 +216,7 @@ class CoreFrame:
     unknown_kinds: Mapping[str, UnknownKind] = field(default_factory=dict)
     collection_gaps: tuple[CollectionGap, ...] = ()
     topology: Topology | None = None
+    html: str | None = None
 
     @property
     def complete_scope(self) -> bool:
@@ -393,8 +396,7 @@ def read_frame(
     request: Mapping[str, object] | None = None,
     started_ns: int | None = None,
 ) -> CoreFrame:
-    """The typed frame of one run of the core, or `CoreError`. `scan` reads the frame of a scan
-    request, whose self-test has the `collect` part (AD-406)."""
+    """Read one bound frame; scan frames also carry the collection self-test (AD-406)."""
     if exit_code not in (DECIDED_EXIT, NAMES_A_GAP_EXIT):
         signal = f" (signal {-exit_code})" if exit_code < 0 else ""
         raise CoreError(f"the core exits with {exit_code}{signal}")
@@ -458,4 +460,5 @@ def read_frame(
         unknown_kinds=unknown_kinds,
         collection_gaps=_collection_gaps(frame.get("collection_gaps", [])),
         topology=frame_topology(frame, rules),
+        html=read_html(frame, status, request),
     )

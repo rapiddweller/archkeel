@@ -55,6 +55,8 @@ struct ScanRequest {
     #[serde(default)]
     discover_root: bool,
     #[serde(default)]
+    html: bool,
+    #[serde(default)]
     topology: bool,
 }
 
@@ -77,24 +79,27 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
                     insides: Vec::new(),
                 };
                 if let ContractState::Missing(paths) = crate::contract::answer(input).0 {
-                    return dual_run::refused_scan(&format!(
-                        "collect: unsupported: inside contracts: {}",
-                        paths.join(", ")
-                    ))
+                    return dual_run::refused_scan(
+                        &format!(
+                            "collect: unsupported: inside contracts: {}",
+                            paths.join(", ")
+                        ),
+                        request.html,
+                    )
                     .map_err(Into::into);
                 }
             }
-            decide(scanned, request.topology).map_err(Into::into)
+            decide(scanned, request.html, request.topology).map_err(Into::into)
         }
         Err(refusal) if refusal.kind == RefusalKind::ParseWork => {
             Err(crate::refusal::Error::Refused(refusal))
         }
-        Err(refusal) => refused(&refusal).map_err(Into::into),
+        Err(refusal) => refused(&refusal, request.html).map_err(Into::into),
     }
 }
 
 /// The run of a scan that `archkeel-collect` completed.
-fn decide(scanned: Scanned, topology: bool) -> Result<Answered, String> {
+fn decide(scanned: Scanned, html: bool, topology: bool) -> Result<Answered, String> {
     let insides = tree(&scanned)?;
     let contract_files: std::collections::BTreeMap<_, _> = std::iter::once((
         scanned.contract.0.clone(),
@@ -127,6 +132,7 @@ fn decide(scanned: Scanned, topology: bool) -> Result<Answered, String> {
         roots,
         baseline: false,
         report: false,
+        html,
         topology,
         base: None,
         trust: in_process(profile),
@@ -136,8 +142,8 @@ fn decide(scanned: Scanned, topology: bool) -> Result<Answered, String> {
 
 /// The frame of a scan that `archkeel-collect` refused: no reply and no contract, and the
 /// `collect` part names why. The frame decides nothing, so the shell gives UNKNOWN.
-fn refused(refusal: &Refusal) -> Result<Answered, String> {
-    dual_run::refused_scan(&refusal.to_string())
+fn refused(refusal: &Refusal, html: bool) -> Result<Answered, String> {
+    dual_run::refused_scan(&refusal.to_string(), html)
 }
 
 /// The trust of the scan request: the reply comes from the collector that this process ran.
