@@ -13,10 +13,11 @@ or resolved site. A table that 4.0.1 refuses (`ValueError`) decides nothing.
    UML target that the core compares gives `Need::UmlTarget`. A new reason is one more `Need`.
 2. Without a need, no symbol table exists. The reply part, the frame and the report are the same
    bytes as before. The collector request does not change in this PR.
-3. `native/model/src/symbols.rs`, `symbol_sites.rs` and `symbol_values.rs` build the table from
-   the `SymbolFact`, `CallFact`, `ReferenceFact` and `BindingFact` records. They name no
-   language. A profile states its own traits in `native/facts/src/profile_traits.rs`:
-   `symbol_facts` (a gap, not an empty table, when false) and `namespaces`.
+3. `native/model/src/symbol_table.rs` builds the table from the `SymbolFact`, `CallFact`,
+   `ReferenceFact` and `BindingFact` records with `symbols.rs`, `symbol_sites.rs` and
+   `symbol_values.rs`. They name no language. A profile states its own traits in
+   `native/facts/src/profile_traits.rs`: `symbol_facts` (a gap, not an empty table, when false)
+   and `separates_type_namespace`.
 4. A profile without symbol facts (Python, Dart and Rust today) gives the named gap "the
    `<language>` collector states no symbol facts". A module that the collector cannot read keeps
    the coverage gaps of the run. The core never reads a missing section as an empty one.

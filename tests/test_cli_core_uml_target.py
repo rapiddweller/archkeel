@@ -101,7 +101,8 @@ def test_the_report_file_holds_the_same_unknown_uml_row(tmp_path: Path) -> None:
     assert (code, envelope["status"]) == (2, "UNKNOWN")
     page = tmp_path / "report.html"
     code, _ = run("report", "--root", str(root), "--output", str(page))
-    assert ROW in page.read_text(encoding="utf-8")
+    # The page of the product design names the cause of the row, not its identifier.
+    assert "the UML target: 3 assessments cannot be decided" in page.read_text(encoding="utf-8")
     assert code == 2
 
 
