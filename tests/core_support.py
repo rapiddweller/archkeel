@@ -36,23 +36,29 @@ HONEST = "probe/sources-test-an-honest-project-gives-pass-in-both-producers-hone
 EMPTY_GRAPH = "# Provenance\n\n<!-- archkeel-component-graph -->\n```mermaid\nflowchart LR\n```\n"
 
 
-def copy_native(root: Path, source: Path = ROOT) -> None:
-    """Copy `native/` of `source` without its build, and each document that its contract cites.
+def copy_cited(root: Path, source: Path, contract: str) -> None:
+    """Copy each document that the contract `contract` of `source` cites as provenance.
 
-    AD-466: a scan of the native contract reads its cited documents. Pass the frozen tree as
-    `source` (`frozen_native.frozen_root`), which holds both.
+    AD-466: a scan reads its cited documents, so a copy of a tree that a test scans must hold them.
     """
-    native = source / "native"
-    shutil.copytree(native, root / "native", ignore=shutil.ignore_patterns("target"))
-    contract = json.loads((native / "architecture-contract.json").read_text(encoding="utf-8"))
+    document = json.loads((source / contract).read_text(encoding="utf-8"))
     cited = {
         path
-        for item in [*contract["components"], *contract["rules"]]
+        for item in [*document["components"], *document["rules"]]
         for path in item.get("provenance", [])
     }
     for path in cited:
         (root / path).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source / path, root / path)
+
+
+def copy_native(root: Path, source: Path = ROOT) -> None:
+    """Copy `native/` of `source` without its build, and each document that its contract cites.
+
+    Pass the frozen tree as `source` (`frozen_native.frozen_root`), which holds both.
+    """
+    shutil.copytree(source / "native", root / "native", ignore=shutil.ignore_patterns("target"))
+    copy_cited(root, source, "native/architecture-contract.json")
 
 
 def _cargo() -> str:

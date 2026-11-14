@@ -34,6 +34,8 @@ PR_TEST_FILES := \
 	tests/test_native_interface_boundary.py \
 	tests/test_cli_native_type_publication.py \
 	tests/test_cli_native_profile_limits.py \
+	tests/test_cli_native_global_writes.py \
+	tests/test_cli_native_global_code.py \
 	tests/test_pr_test_node_ids.py \
 	tests/test_native_versions.py \
 	tests/test_collector_native_python_first_difference.py \

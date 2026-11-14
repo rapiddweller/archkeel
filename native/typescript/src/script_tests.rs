@@ -89,5 +89,6 @@ fn a_module_publishes_nothing_but_its_writes_are_known() {
 fn a_call_through_a_computed_name_is_an_unknown_write() {
     let found = script("a.js", "window[k] = 1;\neval('x');\n");
     assert!(names(&found.writes).iter().all(Option::is_none));
-    assert_eq!(found.writes.len(), 3);
+    // AD-460 adds the unknown write of the assignment through the window with an unknown key.
+    assert_eq!(found.writes.len(), 4);
 }
