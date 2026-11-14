@@ -22,7 +22,7 @@
     "G-dart": {
       "language": "dart",
       "runs": [
-      {"name": "G-dart", "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 8, "FAIL": 0, "UNKNOWN": 2}, "scope": "complete", "gaps": {"contract_hygiene_not_ported": 1, "reference.namespace": 1}, "refusal": null}}
+      {"name": "G-dart", "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 8, "FAIL": 0, "UNKNOWN": 2}, "scope": "complete", "gaps": {"contract_hygiene_not_ported": 1}, "refusal": null}}
       ]
     },
     "H-typescript": {

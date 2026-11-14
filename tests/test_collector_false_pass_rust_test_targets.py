@@ -167,3 +167,27 @@ def test_a_macro_of_a_function_body_never_hides_its_path(
     status = statuses(result).get(NO_B)
     assert status != "PASS", claims(result)
     assert (status == expected) if expected else result["status"] in {"FAIL", "UNKNOWN"}
+
+
+TEST_TARGET_INTO_SRC = {"crates/app/tests/t.rs": '#[path = "../src/lib.rs"]\nmod p;\n'}
+TWO_MODULES = "is the file of two modules"
+
+
+def test_a_test_target_that_the_request_leaves_out_is_no_second_owner_of_a_production_file(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = repository(tmp_path, core_binary, TEST_TARGET_INTO_SRC)
+    _exclude_tests(root)
+    result = validate(root, capsys)
+
+    assert not [c for c in claims(result) if TWO_MODULES in c], claims(result)
+    assert result["status"] == "PASS", claims(result)
+
+
+def test_a_test_target_that_the_request_keeps_is_still_a_second_owner_of_a_production_file(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    result = validate(repository(tmp_path, core_binary, TEST_TARGET_INTO_SRC), capsys)
+
+    assert [c for c in claims(result) if TWO_MODULES in c], claims(result)
+    assert result["status"] == "UNKNOWN"

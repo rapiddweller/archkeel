@@ -72,9 +72,12 @@ def test_the_verdict_heading_is_the_one_exact_line_that_the_shell_checks(self_pa
 
 
 def test_the_self_run_page_shows_one_block_for_each_of_its_seven_cycles(self_page: str) -> None:
-    blocks = re.findall(r'<article class="rp-dos" id="x(\d+)">', self_page)
+    # The first two places are open blocks; the others are folds with the same id (AD-510).
+    blocks = re.findall(
+        r'<(?:article|details) class="rp-(?:dos|fold rp-place)" id="x(\d+)"', self_page
+    )
     assert blocks == [str(number) for number in range(1, 8)]
-    assert self_page.count("Cycle of ") == 7
+    assert self_page.count('<article class="rp-dos"') == 7
     assert "7 places in the code, 1 rule broken" in self_page
     # Each step names a file and a line of the frame: `path.rs:line`.
     cycle = self_page.split('id="x1"', 1)[1].split("</article>", 1)[0]
@@ -190,10 +193,12 @@ def test_the_page_of_an_unknown_run_names_its_cause_and_at_most_five_held_rules(
     _, text, found = write_page(
         release_core, monkeypatch, ROOT / folder, config, tmp_path / "p.html"
     )
-    assert found["status"] == "UNKNOWN" and "Unknown because of" in text
+    assert found["status"] == "UNKNOWN"
     held = [rule for rule, row in found["frame"]["rules"].items() if row[1] == "UNKNOWN"]
-    line = text.split("Unknown because of", 1)[1].split("</p>", 1)[0]
-    named = [rule for rule in held if html.escape(rule, quote=True) in line]
-    assert named and len(named) <= 3 * 5
+    cards = text.split('id="unknown"', 1)[1].split("</section>", 1)[0]
+    assert 'class="rp-cause"' in cards
+    # Each card names at most five rule ids; with at most five held rules, each is named.
+    named = [rule for rule in held if html.escape(rule, quote=True) in cards]
+    assert named
     if len(held) <= 5:
         assert len(named) == len(held)

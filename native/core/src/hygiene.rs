@@ -86,6 +86,7 @@ pub(crate) fn check(
     usable: Option<&Usable>,
     models: Result<&ModelTree, Reason>,
     namespace: &str,
+    sdk: &[String],
     path: &str,
 ) -> Found {
     let mut found = Found::default();
@@ -107,7 +108,7 @@ pub(crate) fn check(
         .chain(mounts.map(|mount| (mount.path().as_str(), mount.contract())));
     for (place, contract) in contracts {
         let findings = [
-            hygiene_refs::namespace(contract, namespace),
+            hygiene_refs::namespace(contract, namespace, sdk),
             hygiene_refs::public(contract),
             hygiene_refs::responsibility(contract),
         ];
@@ -171,7 +172,10 @@ fn root(
         texts.push((reference, text));
     }
     let permitted: std::collections::BTreeSet<Pair> = hygiene_pairs::permitted(contract);
-    for (code, subject, claim) in hygiene_graph::findings(&texts, &observed, &permitted) {
+    let dropped = models.root().dropped_pair_gaps();
+    let unconfirmed = hygiene_pairs::unconfirmed(contract, &observed, dropped);
+    let edges = (&observed, &unconfirmed);
+    for (code, subject, claim) in hygiene_graph::findings(&texts, edges, &permitted) {
         found.defect(path, (code, "/components".to_owned(), subject, claim));
     }
 }

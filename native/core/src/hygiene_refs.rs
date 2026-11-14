@@ -72,7 +72,7 @@ fn list(value: &Value) -> &[Value] {
 
 /// Each held module reference of the contract: its pointer and its value (`module_references`
 /// with `held`). A `forbidden_dependency` target of another target kind is not held.
-fn held(contract: &Contract) -> Vec<(String, String)> {
+fn held(contract: &Contract, sdk: &[String]) -> Vec<(String, String)> {
     let Ok(root) = serde_json::from_slice::<Value>(&canonical_bytes(contract)) else {
         return Vec::new();
     };
@@ -88,21 +88,28 @@ fn held(contract: &Contract) -> Vec<(String, String)> {
         }
     }
     for (index, rule) in list(&root["rules"]).iter().enumerate() {
-        rule_references(&mut found, index, rule);
+        rule_references(&mut found, index, rule, sdk);
     }
     declaration_references(&mut found, &root["declarations"]);
     found.0
 }
 
 /// The held fields of one rule, by its kind.
-fn rule_references(found: &mut Held, index: usize, rule: &Value) {
+fn rule_references(found: &mut Held, index: usize, rule: &Value, sdk: &[String]) {
     let kind = rule["kind"].as_str().unwrap_or_default();
     let at = |field: &str| format!("/rules/{index}/{field}");
     if SOURCE_KINDS.contains(&kind) {
         found.add(at("source"), &rule["source"], true);
     }
     let module_target = rule.get("target_kind").is_none_or(|kind| kind == "module");
-    if kind == "allowed_dependency" || (kind == "forbidden_dependency" && module_target) {
+    // A forbidden SDK library is a real target outside every namespace (release 4.0.1).
+    let sdk_target = kind == "forbidden_dependency"
+        && rule["target"]
+            .as_str()
+            .is_some_and(|name| sdk.iter().any(|library| library == name));
+    if kind == "allowed_dependency"
+        || (kind == "forbidden_dependency" && module_target && !sdk_target)
+    {
         found.add(at("target"), &rule["target"], true);
     }
     if ALLOWED_SOURCE_KINDS.contains(&kind) {
@@ -148,8 +155,8 @@ fn declaration_references(found: &mut Held, declarations: &Value) {
 }
 
 /// The held references outside the namespace of the configuration (`reference.namespace`).
-pub(crate) fn namespace(contract: &Contract, namespace: &str) -> Vec<Finding> {
-    held(contract)
+pub(crate) fn namespace(contract: &Contract, namespace: &str, sdk: &[String]) -> Vec<Finding> {
+    held(contract, sdk)
         .into_iter()
         .filter(|(_, value)| !in_scope(value.split(':').next().unwrap_or_default(), namespace))
         .map(|(pointer, value)| {

@@ -25,13 +25,13 @@ fn relative(value: &str) -> bool {
 /// `_contract_identity`.
 pub(crate) fn identity(value: &str) -> Option<String> {
     let parts = parts(value);
-    (relative(value) && !parts.is_empty()).then(|| parts.join("/"))
+    (relative(value) && !value.contains('\0') && !parts.is_empty()).then(|| parts.join("/"))
 }
 
 /// Python `_safe_inside_reference`: a reference that a mount can read. Its test for `""`, `.` and
 /// `..` is not here: `identity` refuses each of them.
 pub(crate) fn safe(value: &str) -> bool {
-    identity(value).is_some() && !value.contains(['\0', ':'])
+    identity(value).is_some() && !value.contains(':')
 }
 
 /// A text as Python `repr` writes it, for the texts of a reason.

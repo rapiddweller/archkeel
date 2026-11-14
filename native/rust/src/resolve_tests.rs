@@ -21,8 +21,10 @@ fn krate() -> Crate {
             ("json_dep".to_owned(), "json_dep".to_owned()),
             ("renamed".to_owned(), "real_name".to_owned()),
             ("my_app".to_owned(), "my_app".to_owned()),
+            ("registry_dep".to_owned(), "registry_dep".to_owned()),
         ]),
         declared: Vec::new(),
+        remote: BTreeSet::from(["registry_dep".to_owned()]),
         unknown: Vec::new(),
         features: BTreeSet::new(),
         edition: Some("2021".to_owned()),
@@ -53,6 +55,14 @@ fn edge(package: &str) -> Option<Found> {
 fn a_dependency_and_a_renamed_dependency_are_edges() {
     assert_eq!(found("json_dep", &[], false), edge("json_dep"));
     assert_eq!(found("renamed", &[], false), edge("real_name"));
+}
+
+#[test]
+fn a_registry_dependency_is_an_edge_to_a_registry_package_and_not_to_a_workspace_crate() {
+    assert_eq!(
+        found("registry_dep", &[], false),
+        Some(Found::Edge(Named::Registry("registry_dep".to_owned())))
+    );
 }
 
 #[test]

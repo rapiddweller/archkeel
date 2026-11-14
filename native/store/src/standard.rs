@@ -20,6 +20,40 @@ use archkeel_facts::envelope::Profile;
 
 const TABLE: &str = include_str!("standard_library.txt");
 
+/// The SDK libraries that a contract can forbid by name although no scan lists them as a module
+/// (`dart.io`). They are the `sdk_libraries` of the Dart profile of release 4.0.1 (`ir/profiles.py`),
+/// and a profile without such libraries has none. A name that is not in the list is not exempt.
+pub fn sdk_libraries(profile: Profile) -> Vec<&'static str> {
+    const DART: [&str; 22] = [
+        "dart.async",
+        "dart.collection",
+        "dart.convert",
+        "dart.core",
+        "dart.developer",
+        "dart.ffi",
+        "dart.html",
+        "dart.io",
+        "dart.isolate",
+        "dart.js",
+        "dart.js_interop",
+        "dart.js_interop_unsafe",
+        "dart.js_util",
+        "dart.math",
+        "dart.mirrors",
+        "dart.typed_data",
+        "dart.ui",
+        "dart.ui_web",
+        "dart.indexed_db",
+        "dart.svg",
+        "dart.web_audio",
+        "dart.web_gl",
+    ];
+    match profile {
+        Profile::Dart => DART.to_vec(),
+        Profile::Python | Profile::TypeScript | Profile::Rust => Vec::new(),
+    }
+}
+
 /// The pinned standard library of a profile: the names of each of its versions, in sorted order
 /// and without a duplicate.
 pub fn standard_library(profile: Profile) -> Vec<&'static str> {

@@ -18,9 +18,8 @@ use archkeel_facts::envelope::{Evidence, Profile, Reply, Target};
 use archkeel_facts::{FactData, Record, Section};
 use serde_json::{Map, Value};
 
-/// The keys that the observation removes from a resolved import (`strip_internal_reexport_facts`).
-/// This projection copies `evaluate.py:evaluate_source` for now: the PR after #941 deletes the
-/// Python copies (WP4).
+/// The keys that the projection removes from a resolved import. This list is the one home of that
+/// projection: the Python engine that it once copied is deleted (AD-432).
 const BOOKKEEPING: [&str; 5] = [
     "ordinary_module",
     "origin_binding_unique",

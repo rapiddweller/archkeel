@@ -8,9 +8,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use super::cases::Names;
+use super::cases::{one_line, Names};
+use super::components;
 use super::frame::{Frame, Topology};
-use super::markup::{count, escape, status_icon};
+use super::markup::{anchor, count, escape, status_icon};
 use super::places::{Kind, Places};
 
 const MAP_COMPONENTS: usize = 12;
@@ -39,6 +40,8 @@ struct Picture<'a> {
     links: Vec<Link<'a>>,
     failing: BTreeSet<String>,
     modules: BTreeMap<&'a str, usize>,
+    /// The components that have a block on the page: only these names are links.
+    linked: BTreeSet<String>,
 }
 
 /// The rank of each component: the longest path from a component that nothing depends on. An edge
@@ -139,6 +142,7 @@ impl<'a> Picture<'a> {
             links,
             failing,
             modules,
+            linked: BTreeSet::new(),
         })
     }
 
@@ -270,7 +274,7 @@ aria-label=\"Component map: {}, {}.\"><defs>{}</defs>",
             } else {
                 String::new()
             };
-            svg.push_str(&format!(
+            let node = format!(
                 "<g class=\"ak-node{}\"><title>{name}{}</title><rect class=\"ak-node__box\" x=\"{x}\" y=\"{y}\" width=\"{NODE_W}\" height=\"{NODE_H}\" rx=\"8\"/>\
 <text class=\"ak-node__title ui\" x=\"{}\" y=\"{}\">{name}</text><text class=\"ak-node__path code\" x=\"{}\" y=\"{}\">{modules}</text>{tag}</g>",
                 if fail { " ak-node--fail" } else { "" },
@@ -279,10 +283,25 @@ aria-label=\"Component map: {}, {}.\"><defs>{}</defs>",
                 y + 26,
                 x + 16,
                 y + 44
-            ));
+            );
+            if self.linked.contains(*id) {
+                svg.push_str(&format!("<a href=\"#{}\">{node}</a>", anchor("c-", id)));
+            } else {
+                svg.push_str(&node);
+            }
         }
         svg.push_str("</svg>");
         svg
+    }
+
+    /// The name of a component, a link to its block when it has one.
+    fn label(&self, names: &Names<'a>, id: &str) -> String {
+        let name = escape(names.name(id));
+        if self.linked.contains(id) {
+            format!("<a href=\"#{}\">{name}</a>", anchor("c-", id))
+        } else {
+            name
+        }
     }
 
     fn matrix(&self, names: &Names<'a>) -> String {
@@ -312,7 +331,7 @@ aria-label=\"Component map: {}, {}.\"><defs>{}</defs>",
             body.push_str(&format!(
                 "<tr><th scope=\"row\"><span class=\"rp-p\">{}</span> {}{state}</th><td class=\"rp-n\">{}</td>",
                 index[from],
-                escape(names.name(from)),
+                self.label(names, from),
                 self.modules.get(from).copied().unwrap_or(0)
             ));
             for to in &self.order {
@@ -341,20 +360,25 @@ aria-label=\"Component map: {}, {}.\"><defs>{}</defs>",
 
 /// The section of the picture, or nothing when the frame has no topology.
 pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> String {
-    let Some(picture) = Picture::of(frame, places, names) else {
+    let Some(mut picture) = Picture::of(frame, places, names) else {
         return String::new();
     };
+    let exceptions = components::exceptions(frame, places, names);
+    picture.linked = exceptions.iter().map(|e| e.id.clone()).collect();
     let totals = &picture.topology.total;
     let drawn = if picture.small() {
         format!(
-            "<div class=\"rp-map-only\"><div class=\"rp-pic__scroll\">{}</div></div><div class=\"rp-mx-only\">{}</div>",
+            "<div class=\"rp-map-only\"><div class=\"rp-pic__scroll\">{}</div></div><div class=\"rp-mx-only\">{}</div>{LEGEND}",
             picture.map(names),
             picture.matrix(names)
         )
     } else {
-        // A matrix of many components is a table to look up, not a picture: it is folded.
+        // Many components: the picture names the components with an exception and counts the
+        // rest. The matrix is a table to look up, so it is folded.
         format!(
-            "<details class=\"rp-fold\"><summary class=\"caption\">Matrix of {}, {}: a row depends on the marked columns</summary>{}</details>",
+            "{}{}<details class=\"rp-fold\"><summary class=\"caption\">Matrix of {}, {}: a row depends on the marked columns</summary>{}{LEGEND}</details>",
+            tiles(&exceptions, picture.order.len()),
+            exception_list(places, names),
             count(picture.order.len(), "component"),
             count(picture.drawn(), "dependency"),
             picture.matrix(names)
@@ -374,11 +398,76 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
     format!(
         "<section class=\"rp-sec\" aria-labelledby=\"arch\"><h2 class=\"h2\" id=\"arch\">Architecture</h2>\
 <p class=\"body-sm rp-lede\">{}, {}, {} between components. {} with a violation.{cut}</p>\
-<figure class=\"rp-pic\">{drawn}<p class=\"caption rp-note\">Read a component: it depends on what its arrows or marked columns show. \
-A dashed red arrow, or a red cell, is a place that breaks a rule; its number links to the block.</p></figure></section>\n",
+<figure class=\"rp-pic\">{drawn}</figure></section>\n",
         count(picture.order.len(), "component"),
         count(totals.modules, "module"),
         count(picture.drawn(), "dependency"),
         picture.failing.len()
     )
+}
+
+const MAX_TILES: usize = 8;
+
+/// How to read the picture; it sits with the picture that it explains.
+const LEGEND: &str = "<p class=\"caption rp-note\">Read a component: it depends on what its arrows or marked columns show. \
+A dashed red arrow, or a red cell, is a place that breaks a rule; its number links to the block.</p>";
+const MAX_LISTED: usize = 9;
+
+/// The components with a violation or a gap, named; the others counted.
+fn tiles(exceptions: &[components::Exception], all: usize) -> String {
+    let tile = |e: &components::Exception| {
+        let (class, icon, note) = if e.violations > 0 {
+            ("fail", "FAIL", count(e.violations, "violation"))
+        } else {
+            ("unknown", "UNKNOWN", count(e.gaps, "gap"))
+        };
+        format!(
+            "<li><a class=\"rp-tile rp-tile--{class}\" href=\"#{}\">{}{} &#183; {note}</a></li>",
+            anchor("c-", &e.id),
+            status_icon(icon),
+            escape(&e.name)
+        )
+    };
+    let shown: String = exceptions.iter().take(MAX_TILES).map(tile).collect();
+    let (failing, gapped) = (
+        exceptions.iter().filter(|e| e.violations > 0).count(),
+        exceptions.iter().filter(|e| e.violations == 0).count(),
+    );
+    let more = exceptions.len().saturating_sub(MAX_TILES);
+    let tail = if more > 0 {
+        format!("<li class=\"rp-tile rp-tile--count\">+{more} more with an exception</li>")
+    } else {
+        String::new()
+    };
+    format!(
+        "<ul class=\"rp-tiles\" aria-label=\"Components with an exception\">{shown}{tail}\
+<li class=\"rp-tile rp-tile--count\">{failing} with a violation &#183; {gapped} with gaps &#183; {} without an exception</li></ul>",
+        all.saturating_sub(exceptions.len())
+    )
+}
+
+/// The violated places as one line each, so that the first screen names them.
+fn exception_list(places: &Places, names: &Names<'_>) -> String {
+    if places.total == 0 {
+        return String::new();
+    }
+    let lines: String = places
+        .shown
+        .iter()
+        .take(MAX_LISTED)
+        .map(|place| {
+            format!(
+                "<li class=\"body-sm\"><a href=\"#x{n}\"><span class=\"rp-no\">{n}</span> {}</a></li>",
+                escape(&one_line(names, place)),
+                n = place.number
+            )
+        })
+        .collect();
+    let more = places.total.saturating_sub(MAX_LISTED);
+    let tail = if more > 0 {
+        format!("<li class=\"body-sm\"><a href=\"#violations\">+{more} more</a></li>")
+    } else {
+        String::new()
+    };
+    format!("<ol class=\"rp-ev\" aria-label=\"Violated places\">{lines}{tail}</ol>")
 }

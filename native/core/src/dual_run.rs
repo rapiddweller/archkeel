@@ -141,6 +141,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         }),
         collect: None,
         documents: None,
+        sdk_libraries: Vec::new(),
     })
 }
 
@@ -185,6 +186,8 @@ pub(crate) struct Run {
     pub(crate) collect: Option<serde_json::Value>,
     /// The provenance documents that a scan request read (AD-466); `None` for the others.
     pub(crate) documents: Option<crate::provenance::Documents>,
+    /// The SDK libraries of the profile that a contract can forbid by name (`reference.namespace`).
+    pub(crate) sdk_libraries: Vec<String>,
 }
 
 /// How a check request reads its base reply: from the validated candidate reply and the inputs
@@ -253,7 +256,14 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
     let hygiene = {
         let (usable, models) = engine.inputs();
         match run.documents.as_ref() {
-            Some(documents) => crate::hygiene::check(documents, usable, models, &namespace, &path),
+            Some(documents) => crate::hygiene::check(
+                documents,
+                usable,
+                models,
+                &namespace,
+                &run.sdk_libraries,
+                &path,
+            ),
             None => crate::hygiene::unread(usable),
         }
     };

@@ -63,6 +63,7 @@ fn hygiene(bytes: Vec<u8>, documents: &Documents) -> super::Found {
         usable.as_ref(),
         Err(missing),
         "app",
+        &[],
         "architecture-contract.json",
     )
 }
