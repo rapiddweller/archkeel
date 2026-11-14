@@ -99,7 +99,7 @@ fn possible_tokens(content: &[u8]) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{bracket_depth, possible_tokens, Budget, MAX_DEPTH};
+    use super::*;
 
     #[test]
     fn a_source_deeper_than_the_tree_limit_is_not_parsed() {
