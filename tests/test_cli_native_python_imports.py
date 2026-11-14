@@ -217,18 +217,57 @@ GAPS = {
     "stub_or_compiled_module ": {"src/app/fast.cpython-311-darwin.so": "\0"},
     "duplicate_module": {"lib/app/service.py": "VALUE = 2\n"},
     "module_outside_layout": {"src/app/inner/app/deep.py": ""},
+    # Proof review of #1141: each plant must stay UNKNOWN.
+    "dynamic_import#alias": {
+        "src/app/client.py": "from importlib import import_module as load\nload('app.service')\n"
+    },
+    "dynamic_import#value": {
+        "src/app/client.py": (
+            "import importlib\nload = importlib.import_module\nload('app.service')\n"
+        )
+    },
+    "dynamic_import#getattr": {
+        "src/app/client.py": "import importlib\ngetattr(importlib, 'import_' + 'module')('x')\n"
+    },
+    "dynamic_import#builtins": {"src/app/client.py": "import builtins\nbuiltins.exec('x')\n"},
+    "dynamic_import#runner": {"src/app/client.py": "run = exec\nrun('import app.service')\n"},
+    "dynamic_import#dunder": {"src/app/client.py": "f = __import__\nf('app.service')\n"},
+    "dynamic_import#pickle": {"src/app/client.py": "import pickle\npickle.loads(data)\n"},
+    "dynamic_import#patch": {
+        "src/app/client.py": "from unittest import mock\nmock.patch('app.service.VALUE')\n"
+    },
+    "dynamic_import#compile": {"src/app/client.py": "compile(text, 'f', 'exec')\n"},
+    "dynamic_import#setattr": {"src/app/client.py": "import sys\nsetattr(sys, 'path', [])\n"},
+    "import_system_change#alias": {"src/app/client.py": "import sys as s\ns.path.insert(0, 'x')\n"},
+    "import_system_change#from": {
+        "src/app/client.py": "from sys import path\npath.insert(0, 'x')\n"
+    },
+    "import_system_change#sort": {"src/app/client.py": "import sys\nsys.path.sort()\n"},
+    "import_system_change#loop": {
+        "src/app/client.py": "import sys\nfor sys.path in [['x']]:\n    pass\n"
+    },
+    "exception_gap#encoding": {"src/app/client.py": "# coding: utf-7\nimport os\n"},
+    "project_module_not_found#from": {
+        "src/app/client.py": "from app import space\n",
+        "src/app/space/inner.py": "",
+    },
+    "project_module_not_found#relative": {
+        "src/app/client.py": "from . import space\n",
+        "src/app/space/inner.py": "",
+    },
+    "stub_or_compiled_module#pyw": {"src/app/window.pyw": "import app.service\n"},
 }
 
 
 @pytest.mark.parametrize("gap", sorted(GAPS))
 def test_each_named_gap_gives_unknown(release_core: Path, tmp_path: Path, gap: str) -> None:
-    roots = '["src", "lib"]' if gap == "duplicate_module" else '["src"]'
-    if gap == "module_outside_layout":
+    roots = '["src", "lib"]' if gap.startswith("duplicate_module") else '["src"]'
+    if gap.startswith("module_outside_layout"):
         roots = '["src/app/inner"]'
     result = verdict(release_core, project(tmp_path, {**BASE, **GAPS[gap]}, roots=roots))
     assert set(rows(result).values()) == {"UNKNOWN"}, result
     assert result["exit_code"] == 2
-    assert gap.strip() in json.dumps(result["frame"]), result
+    assert gap.split("#")[0].strip() in json.dumps(result["frame"]), result
 
 
 @pytest.mark.skipif(
@@ -251,3 +290,66 @@ def test_an_unreadable_entry_gives_no_pass(release_core: Path, tmp_path: Path, e
     else:
         # The repository survey refuses a directory that it cannot list, before the collector.
         assert result["refusal"]["kind"] == "collection_refused", result
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "TYPE_CHECKING = False\nif TYPE_CHECKING:\n    import app.service\n",
+        "from config import TYPE_CHECKING\nif TYPE_CHECKING:\n    import app.service\n",
+        "from typing import TYPE_CHECKING\nif not TYPE_CHECKING:\n    import app.service\n",
+        (
+            "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    pass\n"
+            "else:\n    import app.service\n"
+        ),
+    ],
+)
+def test_a_look_alike_type_checking_guard_is_a_runtime_edge(
+    release_core: Path, tmp_path: Path, source: str
+) -> None:
+    files = {**BASE, "src/app/client.py": source}
+    contract = rules(type_checking=False)
+    result = verdict(release_core, project(tmp_path, files, contract_rules=contract))
+    assert rows(result)["FORBID"] == "FAIL", result
+
+
+@pytest.mark.skipif(os.name != "posix", reason="needs POSIX links")
+def test_a_linked_package_directory_gives_unknown(release_core: Path, tmp_path: Path) -> None:
+    files = {
+        **BASE,
+        "src/app/client/__init__.py": "",
+        "elsewhere/sub/__init__.py": "import app.service\n",
+    }
+    files.pop("src/app/client.py")
+    root = tmp_path / "repo"
+    root.mkdir()
+    for name, text in files.items():
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text(text)
+    (root / "src/app/client/sub").symlink_to("../../../elsewhere/sub")
+    result = verdict(release_core, project(root, {}))
+    assert set(rows(result).values()) == {"UNKNOWN"}, result
+    assert "linked_source" in json.dumps(result["frame"]), result
+
+
+def test_a_component_outside_the_namespace_gives_no_pass(
+    release_core: Path, tmp_path: Path
+) -> None:
+    root = project(tmp_path, BASE)
+    contract = json.loads((root / "architecture-contract.json").read_text())
+    contract["components"].append(component("outside", ["zzz.other"]))
+    (root / "architecture-contract.json").write_text(json.dumps(contract))
+    subprocess.run(
+        ["git", "-C", str(root), "commit", "-qam", "outside"],
+        check=True,
+        env={
+            **os.environ,
+            "GIT_AUTHOR_NAME": "t",
+            "GIT_AUTHOR_EMAIL": "t@t",
+            "GIT_COMMITTER_NAME": "t",
+            "GIT_COMMITTER_EMAIL": "t@t",
+        },
+    )
+    result = verdict(release_core, root)
+    assert "PASS" not in rows(result).values(), result
+    assert "outside the namespace" in result["frame"]["scope"], result

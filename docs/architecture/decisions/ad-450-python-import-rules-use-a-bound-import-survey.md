@@ -24,25 +24,32 @@
    a scan root or lie below one. Then the parent rule of `Layout::ProjectFiles` holds for
    Python, and the scan receipt can decide. Else a gap. A reply scope label is `<root>/**`.
 7. Each case below is a named coverage gap. A gap makes the scope incomplete: every rule is UNKNOWN.
-   - A call of `__import__`, `import_module`, `load_module`, `exec_module`, `module_from_spec`,
-     `spec_from_file_location`, `run_module`, `run_path`, `exec` or `eval`: a dynamic import.
-   - A write to `sys.path` or a call of `site.addsitedir`.
-   - An import of a project name that has no selected module, as a namespace package.
+   - A reference to a standard-library door is a `dynamic_import`: a call, an alias, a value or an
+     attribute of `__import__`, `exec`, `eval`, `compile`, `importlib` loaders, `pkgutil`, `pydoc`,
+     `runpy`, `imp`, `zipimport`, `code`, `codeop`, `timeit`, `doctest`, `pickle`, `marshal`,
+     `shelve`, `dill`, `cloudpickle`, `ctypes.pythonapi`, `types.FunctionType`/`CodeType` and
+     `unittest.mock.patch` (`hazards.rs`). Names resolve through import aliases. `sys`,
+     `importlib` or `builtins` used as a value (`getattr(sys, ...)`) is a door too.
+   - A reference to `sys.path`, `sys.meta_path`, `sys.path_hooks`, `sys.path_importer_cache`,
+     `sys.modules` or `site`, or a write to `__path__`, is an `import_system_change`.
+   - A project name without a selected module, also through `from pkg import name` when `pkg/name/`
+     is a directory without `__init__.py`.
    - A star import of a project module: `__all__` can import submodules.
    - `from pkg import name` when the module `pkg.name` exists and `pkg` binds `name`, or has
      `__getattr__` or a star import and does not import `pkg.name` itself. Either can be given.
-   - A relative import above the top package.
-   - A syntax error, a file that is not UTF-8, a file or directory that cannot be read (#1043).
-     The repository survey of `collect` refuses a directory that it cannot list before this.
-   - A `.pyi` file or a compiled module (`.so`, `.pyd`) below a scan root.
-   - One module name in two files, also across scan roots (#1000).
-8. An import under `if TYPE_CHECKING:` or another condition is an edge. The record keeps
-   `under_type_checking`. A rule reads such an edge as it reads a TypeScript type-only import.
+   - A relative import above the top package. One module name in two files (#1000).
+   - A syntax error, a file that is not UTF-8, an encoding declaration other than UTF-8 or ASCII
+     (PEP 263), an unreadable file or directory (#1043), and a linked directory below a root.
+   - A `.pyi` file, a `.pyw` file or a compiled module (`.so`, `.pyd`, `.pyc`) below a scan root.
+   - A component that names a module outside the namespace (the reference engine refuses it).
+8. An import in any branch is an edge. Only the body of `if <guard>:` is `under_type_checking`.
+   The guard is a `TYPE_CHECKING` that only an import from `typing` or `typing_extensions` binds.
 9. `ScopeComplete`, `Scope::complete`, `Scope::pass_run` and `ModelTree::pass_run` stay the
    only PASS makers. The model, the evaluator and the report name no language.
 
 **Reason.** Python projects had no verdict on the core. The import rules need only the import
-graph, the module files and the scan roots. Each case that can hide an edge is a named gap.
+graph, the module files and the scan roots. Each case of point 7 is a named gap. A third-party
+function that imports from a string stays open (docs/known-limits.md).
 
 **Rejected.** Running an interpreter for its standard library: the result depends on the host.
 The union of the minor lists: a project on 3.12 can install `distutils` as a package.
@@ -50,7 +57,8 @@ A gap for each module only: a dynamic import can reach any module of the project
 
 **Limits.** The rules that read symbols, calls or constructs stay UNKNOWN (AD-426 limits).
 #1072: the parser accepts some files that CPython refuses. Such a file adds edges, never removes one.
-The core trusts the collector in its process for a complete file list (AD-406).
+The discovery walk of the collector in the core process makes the file list (AD-406); the repository
+survey of `collect` lists the whole tree first and refuses what it cannot list. The store cannot see a missing file.
 A namespace package that a test or another distribution extends is outside the scan roots.
 A directly imported namespace package without `__init__.py` is UNKNOWN, not decided.
 A file that changes during the scan refuses the run. This is not an atomic snapshot.

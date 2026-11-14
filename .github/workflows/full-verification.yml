@@ -298,6 +298,13 @@ jobs:
         shell: bash
         run: make native-wheel NATIVE_TAG=py3-none-win_amd64 SHELL=bash
 
+      - name: Check disk path components and real Windows containment
+        working-directory: native
+        run: cargo test --locked -p archkeel-collect disk_
+
+      - name: Check disk roots through the release core and shell
+        run: uv run --locked python -m pytest -q -n 0 tests/test_cli_windows_root.py
+
       - name: Upload the platform wheel
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

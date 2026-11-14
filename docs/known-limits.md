@@ -2,13 +2,20 @@
 
 ## Supported projects on main
 
-Main supports Rust and TypeScript projects, and the import rules of Python projects (AD-450).
+Main supports Rust and TypeScript projects, and the import rules of Python (AD-450) and Dart (AD-468) projects.
 A Python project gets PASS or FAIL only for rules that read the import graph. A dynamic import,
 an import-system change and the other gaps of AD-450 give UNKNOWN for each rule of the run.
 Python rules that read symbols, calls or constructs stay UNKNOWN. A Dart project gets PASS or FAIL
 only for rules that read the import graph; each gap of AD-454 and a part in another component than
 its library give UNKNOWN for each rule of the run. A contract with a symbol selector or an
 `interface_boundary` rule is a profile limit: each Dart rule is UNKNOWN (AD-468).
+
+**Open false-PASS class (Python, shared with 4.0.1).** A third-party function can import a module
+from a string, for example a plugin loader, a framework that reads a dotted path from settings, or
+an object deserializer. The survey does not know such a function, so it does not see that edge.
+A forbidden or cyclic dependency that only such a call makes can give PASS. Release 4.0.1 has the
+same hole. This is an open defect, not an accepted limit. The survey covers the names of AD-450
+point 7: the standard-library doors, the import state and the builtins that run text.
 The Rust core is the only decision path (AD-432). There is no Python fallback.
 Saved results do not carry host verification; dependency scope proofs replay as UNKNOWN with `dependency_scope_runtime_unverified`.
 Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD have no shipped binary.

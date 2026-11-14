@@ -2509,6 +2509,7 @@
         "native.archkeel_python_collector.parse.stack",
         "native.archkeel_python_collector.parse.depth",
         "native.archkeel_python_collector.survey.binders",
+        "native.archkeel_python_collector.survey.guard",
         "native.archkeel_python_collector.survey.hazards",
         "native.archkeel_python_collector.survey.imports",
         "native.archkeel_python_collector.module",

@@ -146,3 +146,29 @@ fn a_name_that_can_be_an_attribute_or_a_submodule_is_a_gap() {
         .unknowns
         .is_empty());
 }
+
+#[test]
+fn a_package_directory_without_init_is_a_gap_in_each_import_form() {
+    for source in [
+        "import app.space\n",
+        "from app import space\n",
+        "from . import space\n",
+    ] {
+        let found = surveyed(&[
+            ("src/app/__init__.py", ""),
+            ("src/app/client.py", source),
+            ("src/app/space/inner.py", ""),
+        ]);
+        assert_eq!(
+            reasons(&found),
+            [format!("{NOT_FOUND}: app.space")],
+            "{source}"
+        );
+    }
+    // A name of the package body that no directory has stays an attribute of the package.
+    let attribute = surveyed(&[
+        ("src/app/__init__.py", "space = 1\n"),
+        ("src/app/client.py", "from app import space\n"),
+    ]);
+    assert!(attribute.unknowns.is_empty(), "{:?}", reasons(&attribute));
+}

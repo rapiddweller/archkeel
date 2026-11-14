@@ -31,6 +31,7 @@ use failures::{early, NOT_FOUND};
 pub(crate) mod binders;
 mod excluded;
 mod failures;
+mod guard;
 mod hazards;
 mod imports;
 mod layout;
@@ -95,6 +96,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     let mut found = layout::duplicates(&mut parsed.modules);
     found.extend(layout::outside(&parsed.modules, roots));
     found.extend(layout::foreign(&scope.foreign));
+    found.extend(layout::linked(&scope.linked));
     let modules = &parsed.modules;
     let binders: Vec<Binders> = modules
         .iter()
@@ -243,6 +245,10 @@ fn parsed_module(
     namespace: &str,
     minor: PyMinor,
 ) -> Result<Module, Failure> {
+    crate::source::declared_encoding(raw).map_err(|name| {
+        let message = format!("source_encoding: the file declares the encoding {name}");
+        early(ExceptionName::SyntaxError, &message)
+    })?;
     let decode_error = || early(ExceptionName::UnicodeDecodeError, "UnicodeDecodeError");
     let text = newlines(decode(raw).ok_or_else(decode_error)?);
     let tree = parse(&text, minor)?;

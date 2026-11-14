@@ -5,8 +5,8 @@
 //! The static imports of the selected modules (`imports.ImportCollector`, `collect_imports`).
 //!
 //! An import inside a function or a class is a record too; only a statement outside of each
-//! definition is a module-level import. The body of `if TYPE_CHECKING:` (a name or an attribute)
-//! marks its imports `under_type_checking`.
+//! definition is a module-level import. The body of `if <guard>:` (`guard.rs`: a `TYPE_CHECKING`
+//! bound only by an import from `typing`) marks its imports `under_type_checking`.
 
 use std::collections::{HashMap, HashSet};
 
@@ -18,6 +18,7 @@ use archkeel_facts::{ImportFact, Record};
 use ruff_python_ast::{Expr, Stmt, StmtImportFrom};
 
 use super::binders::{first_part, import_bindings, Binders};
+use super::guard::Guard;
 use crate::module::{EvidenceMap, Location, Module};
 use crate::names::package_for;
 
@@ -61,6 +62,11 @@ pub(super) fn collect_all(
     evidence: &mut EvidenceMap,
 ) -> Collected {
     let names: HashSet<&str> = modules.iter().map(|module| module.name.as_str()).collect();
+    // AD-450: a dotted prefix of a module is a package directory, also without `__init__.py`.
+    let directories: HashSet<&str> = names
+        .iter()
+        .flat_map(|name| name.match_indices('.').map(move |(at, _)| &name[..at]))
+        .collect();
     let bindings = package_bindings(modules);
     let open: HashMap<&str, HashSet<String>> = modules
         .iter()
@@ -77,6 +83,8 @@ pub(super) fn collect_all(
             binders,
             unique: binders.unique(),
             names: &names,
+            directories: &directories,
+            guard: Guard::of(&module.tree, binders),
             bindings: &bindings,
             open: &open,
             namespace,
@@ -230,20 +238,13 @@ fn import_target(alias: &ruff_python_ast::Alias) -> &str {
     }
 }
 
-/// `_is_type_checking_test`: the name `TYPE_CHECKING` or any attribute of that name.
-fn is_type_checking(test: &Expr) -> bool {
-    match test {
-        Expr::Name(node) => node.id.as_str() == "TYPE_CHECKING",
-        Expr::Attribute(node) => node.attr.as_str() == "TYPE_CHECKING",
-        _ => false,
-    }
-}
-
 struct Collector<'m, 'e> {
     module: &'m Module,
     binders: &'m Binders,
     unique: HashSet<String>,
     names: &'m HashSet<&'m str>,
+    directories: &'m HashSet<&'m str>,
+    guard: Guard,
     bindings: &'m HashMap<&'m str, HashSet<String>>,
     open: &'m HashMap<&'m str, HashSet<String>>,
     namespace: &'m str,
@@ -273,9 +274,12 @@ impl Collector<'_, '_> {
         match statement {
             Stmt::Import(_) | Stmt::ImportFrom(_) => self.import(statement, level, guarded),
             Stmt::If(node) => {
-                self.body(&node.body, level, guarded || is_type_checking(&node.test));
+                self.body(&node.body, level, guarded || self.guard.holds(&node.test));
                 for clause in &node.elif_else_clauses {
-                    let test = clause.test.as_ref().is_some_and(is_type_checking);
+                    let test = clause
+                        .test
+                        .as_ref()
+                        .is_some_and(|test| self.guard.holds(test));
                     self.body(&clause.body, level, guarded || test);
                 }
             }
@@ -362,7 +366,10 @@ impl Collector<'_, '_> {
                 .bindings
                 .get(anchor.as_str())
                 .is_some_and(|names| names.contains(name));
-            let exists = self.names.contains(submodule.as_str());
+            // A submodule or a package directory: `from app import service` imports it as
+            // `import app.service` does, and a directory without a module file is a gap.
+            let exists = self.names.contains(submodule.as_str())
+                || self.directories.contains(submodule.as_str());
             let local = !shadowed && exists;
             let open = self
                 .open

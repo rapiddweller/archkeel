@@ -133,7 +133,7 @@ fn the_store_accepts_a_complete_survey_and_refuses_each_planted_claim() {
                 .resolution_features
                 .push("static-imports".to_owned());
         }),
-        ("no symbol or interface rule", |r| {
+        ("no interface rule", |r| {
             if let Some(limits) = r.facts.profile_limits.as_mut() {
                 limits.interface_boundary = LimitSupport::Supported;
             }

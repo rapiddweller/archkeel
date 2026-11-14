@@ -179,3 +179,45 @@ def test_a_dart_test_exclusion_is_refused_by_name(release_core: Path, tmp_path: 
     result = json.loads(done.stdout)
     assert result["exit_code"] == 2
     assert "exclude_test_sources is not supported for a Dart project" in json.dumps(result)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="symbolic links need privileges on Windows")
+def test_a_linked_directory_below_a_scan_root_makes_each_rule_unknown(
+    release_core: Path, tmp_path: Path
+) -> None:
+    outside = tmp_path / "outside"
+    (outside / "lib").mkdir(parents=True)
+    (outside / "lib" / "hidden.dart").write_text("import 'package:shop/data/repo.dart';\n")
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "lib" / "domain").mkdir(parents=True)
+    (root / "lib" / "domain" / "linked").symlink_to(outside / "lib", target_is_directory=True)
+    result = verdict(release_core, project(root, BASE))
+    all_unknown(result)
+    assert "source directory is a symlink" in json.dumps(result["frame"]["collection_gaps"])
+
+
+def test_a_component_outside_the_namespace_makes_each_rule_unknown(
+    release_core: Path, tmp_path: Path
+) -> None:
+    root = project(tmp_path, BASE)
+    path = root / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    contract["components"].append(component("other", ["other.pkg"]))
+    path.write_text(json.dumps(contract))
+    _commit_change(root)
+    result = verdict(release_core, root)
+    assert set(rows(result).values()) <= {"UNKNOWN"}, rows(result)
+    assert "outside the namespace" in json.dumps(result["frame"])
+
+
+def _commit_change(root: Path) -> None:
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@t",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@t",
+    }
+    for step in (["add", "-A"], ["commit", "-qm", "change"]):
+        subprocess.run(["git", "-C", str(root), *step], check=True, env=env)
