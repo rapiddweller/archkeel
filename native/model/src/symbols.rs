@@ -17,7 +17,7 @@ use archkeel_contract::{ResolutionKind, VisibilityBasis, VisibilityKind};
 use archkeel_facts::data::{CallableData, ClassData, ValueData};
 use archkeel_facts::nested::{DefinitionContext, Parameter, VisibilityDetail};
 use archkeel_facts::nullable::Nullable;
-use archkeel_facts::vocab::Status;
+use archkeel_facts::vocab::{ClassKind, MethodKind, Status, SymbolCategory};
 use archkeel_facts::{FactData, Record, SymbolFact};
 
 /// The visibility of an entity, as the record states it.
@@ -311,21 +311,29 @@ fn kind(record: &Record<SymbolFact>) -> Option<EntityKind> {
         SymbolFact::Function(data) | SymbolFact::Method(data) => Some(data.symbol_category),
         other => value(other).and_then(|data| data.symbol_category),
     };
-    let word = category.map_or_else(|| record.data.kind().as_str(), |found| found.as_str());
-    let kind = match word {
-        "static_constant" => EntityKind::Constant,
-        "dynamic_binding" => EntityKind::Binding,
+    let kind = match category {
         // The 4.0.1 graph has no macro kind.
-        "macro" => return None,
-        other => parse(other)?,
+        Some(SymbolCategory::Macro) => return None,
+        Some(SymbolCategory::Class) => EntityKind::Class,
+        Some(SymbolCategory::Constant) => EntityKind::Constant,
+        Some(SymbolCategory::DynamicBinding) => EntityKind::Binding,
+        Some(SymbolCategory::Function) => EntityKind::Function,
+        Some(SymbolCategory::Method) => EntityKind::Method,
+        Some(SymbolCategory::TypeAlias) => EntityKind::TypeAlias,
+        None => match &record.data {
+            SymbolFact::StaticConstant(_) => EntityKind::Constant,
+            SymbolFact::DynamicBinding(_) => EntityKind::Binding,
+            SymbolFact::Macro(_) => return None,
+            other => parse(other.kind().as_str())?,
+        },
     };
     let class_kind = match &record.data {
-        SymbolFact::Class(data) => data.class_kind.map(|found| found.as_str()),
+        SymbolFact::Class(data) => data.class_kind,
         _ => None,
     };
     Some(match (kind, class_kind) {
-        (EntityKind::Class, Some("protocol")) => EntityKind::Interface,
-        (EntityKind::Class, Some("enum")) => EntityKind::Enum,
+        (EntityKind::Class, Some(ClassKind::Protocol)) => EntityKind::Interface,
+        (EntityKind::Class, Some(ClassKind::Enum)) => EntityKind::Enum,
         _ => kind,
     })
 }
@@ -372,9 +380,9 @@ fn callable<'d>(entity: &mut Entity, data: &'d CallableData) -> Detail<'d> {
     if data.is_async == Some(true) {
         entity.modifiers.push(ModifierKind::Async);
     }
-    match data.method_kind.map(|found| found.as_str()) {
-        Some("static") => entity.modifiers.push(ModifierKind::Static),
-        Some("class") => entity.modifiers.push(ModifierKind::Class),
+    match data.method_kind {
+        Some(MethodKind::Static) => entity.modifiers.push(ModifierKind::Static),
+        Some(MethodKind::Class) => entity.modifiers.push(ModifierKind::Class),
         _ => {}
     }
     entity.annotation = nullable(&data.annotation);

@@ -214,6 +214,8 @@ impl<'a, 't> Walk<'a, 't> {
         let mut flags = if error { ERROR_ABOVE } else { 0 };
         flags |= match kind {
             K::InternalModule => INSIDE_NAMESPACE | IN_FUNCTION_LIKE,
+            // The members of an ambient module belong to that module, not to this file (AD-512).
+            K::Module => INSIDE_NAMESPACE,
             K::FunctionDeclaration | K::MethodDefinition | K::ArrowFunction => {
                 IN_REBOUND_FUNCTION | IN_FUNCTION_LIKE
             }

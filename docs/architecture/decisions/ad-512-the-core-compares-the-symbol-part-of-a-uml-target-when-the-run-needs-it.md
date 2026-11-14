@@ -1,7 +1,6 @@
 # AD-512 The core compares the symbol part of a UML target when the run needs it
 
 **Status.** Proposed. Part of #880. It extends AD-494. PR 1 of 5 (L-173).
-
 **What 4.0.1 compares** (`ir/source_graph.py`, `check/uml_compare.py`): each symbol entity of a
 target against the symbol table of the source: kind, lexical parent, signature, visibility,
 modifiers, annotation and initializer. Each call, reference, base, `creates` and `instance_of`
@@ -30,36 +29,42 @@ or resolved site. A table that 4.0.1 refuses (`ValueError`) decides nothing.
    count below the targets, an unresolved site with candidates, a construction that conflicts
    with its call) is `broken`: each symbol assessment is UNKNOWN.
 
-**Stricter than 4.0.1 (the core is UNKNOWN, 4.0.1 passes).**
-- A closed scope without an unlisted element (the `closed-method-listed` plant). 4.0.1 reads
-  complete member inventories of TypeScript; the core proves no complete symbol inventory.
-- A call that is absent is UNKNOWN. 4.0.1 marks calls complete when the profile measures them,
-  and it could give FAIL. It gives UNKNOWN on the `missing-call` plant, so no plant differs.
-- Fixture rows H-uml and H-uml-dart (4.0.1 PASS): the Python and Dart collectors give no symbols.
+**Where the core differs from 4.0.1 (61 plants: 44 equal, 12 PASS to UNKNOWN, 5 FAIL to UNKNOWN).**
+- Wrong 4.0.1 PASS (11 plants). A scope below the module that declares the name of a site hides
+  the module symbol. This holds for a function, class, interface, type alias, enum, type
+  parameter or catch binding, and for `var`, parameter and declarator names. One index
+  (`site_local.rs`, `NameIndex::locally`) serves each site kind and each base. A site, or a base,
+  with such a name is unresolved: UNKNOWN with the cause "unresolved ... site". A binding of a
+  variable that is written twice or typed `any` or `unknown` gets no result binding (UNKNOWN). A
+  member of an ambient module or a namespace is no symbol of the file.
+- A closed scope without an unlisted element is UNKNOWN (`closed-method-listed`; 4.0.1 PASS).
+- FAIL to UNKNOWN (5 plants, `member-*`): a planned member that the matched class lacks is FAIL
+  in 4.0.1 and "absent symbol" in the core: a plain constructor parameter, a `#x` field, an enum
+  literal, a member that a decorator makes, a method of a class and namespace merge. The core
+  states no member that the collector cannot name. It could give FAIL with a complete member
+  table of the class: the collector must prove that no syntax of the class makes a member that it
+  does not name (computed names, decorators, merges), as `members_complete` does for the count.
+- H-uml and H-uml-dart (4.0.1 PASS): the Python and Dart collectors give no symbols.
 
 **Fixture rows (PR 1 moves none to PASS).** Core / 4.0.1: H-typescript UNKNOWN (9 undecided) /
 UNKNOWN (9). H-uml-typescript UNKNOWN (3) / UNKNOWN (3). H-uml UNKNOWN / PASS. H-uml-dart UNKNOWN
 (mounted) / PASS. I-flutter-shop, J-compass, K-python-realworld and L-nest-realworld UNKNOWN
 (mounted target) / UNKNOWN.
 
-**Cost** (release core, median of 9 runs, own throwaway root target, inside targets removed).
-Without a need and with the root target: L-nest-realworld 68 ms and 23.0 MiB, then 76 ms and
-24.9 MiB; H-uml-typescript 32 ms and 15.9 MiB, then 34 ms and 16.6 MiB; K-python-realworld
-50 ms and 10.0 MiB, then 55 ms and 12.7 MiB. The `native/` self run has no symbol facts, so the
-need adds no table: 0.7 s and 93 MiB in both cases. The reply does not change; the frame grows
-by about 350 bytes for the row.
+**Cost** (release core, median of 9, throwaway root target): L-nest-realworld 68 ms and 23.0 MiB
+without a need, 76 ms and 24.9 MiB with it; K-python-realworld 50 to 55 ms; H-uml-typescript 32 to
+34 ms. The `native/` self run builds no table (0.7 s and 93 MiB). The frame grows by 350 bytes.
 
-**Reason.** The row was UNKNOWN for each symbol entity. TypeScript targets can now give FAIL for
-a true conflict. PR 2 to 5 add the Python and Dart facts and the `dependency_symbols` selector.
+**Rejected.** A new record kind for symbols. A flag for each reason (one `Needs` value). A PASS
+where 4.0.1 passes on partial coverage. A FAIL for a member that the collector does not name.
 
-**Rejected.** A new record kind for symbols (the five record kinds exist). A flag for each
-reason (one `Needs` value). A PASS where 4.0.1 passes on partial coverage.
+**Limits.** No Python or Dart symbol is compared. Two guards have no TypeScript plant: a
+placeholder entity (`refscope`) that is no definition, and the `broken` table. A table is built
+for each run with the need. Named, not fixed: an undrawn extra in a closed scope stays UNKNOWN
+for a call through `this`, an alias, a decorator, a computed member, `new` through a variable,
+an arrow field, a class expression or a default-export function.
 
-**Limits.** No Python or Dart symbol is compared. Three guards have no TypeScript plant: a
-placeholder entity (`refscope`) that is no definition, the `broken` table, and the call of the
-base receipt (its function has Rust unit tests). A table is built for each run with the need.
-
-**Tests.** `tests/test_cli_core_uml_symbols.py` (36 plants with the 4.0.1 row and the cause of
-each row), `tests/test_cli_core_uml_needs.py` (a run with a target differs from a run without
-only by the row), `tests/test_cli_core_uml_target.py`, and the Rust tests of `contract_tests.rs`
-and `uml_symbols_tests.rs`.
+**Tests.** `tests/uml_symbol_plants.py` with `tests/test_cli_core_uml_symbols.py` (61 plants, the
+4.0.1 row and the cause of each row), `tests/test_cli_core_uml_needs.py` (a target adds only its
+row), `test_cli_core_uml_target.py`, and the Rust tests of `contract_tests.rs`,
+`uml_symbols_tests.rs` and `site_names_tests.rs`.

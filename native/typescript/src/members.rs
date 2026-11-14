@@ -120,6 +120,10 @@ pub(crate) struct Base {
     pub name: String,
     pub realizes: bool,
     pub span: Span,
+    /// The byte where the name of the base starts.
+    pub start: usize,
+    /// A scope below the module declares the name, so it is not the module symbol (AD-512).
+    pub shadowed: bool,
 }
 
 /// `_static_member_name`: the name without its quotes, or `None` when it holds an escape.
@@ -348,6 +352,8 @@ impl Cx<'_> {
                         name: self.text(candidate),
                         realizes: self.k(clause) == K::ImplementsClause,
                         span: self.span(candidate),
+                        start: candidate.start_byte(),
+                        shadowed: false,
                     });
                 }
             }

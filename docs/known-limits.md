@@ -58,7 +58,8 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   in an inside contract and an external import target keep it UNKNOWN too. A target that 4.0.1
   passes with symbol facts (H-uml, H-uml-dart) exits 2. A FAIL for a conflict, a missing base or an
   extra element of a closed scope is true whatever the coverage, so it stays in an incomplete run.
-  A missing symbol, call or reference is UNKNOWN, never FAIL. A closed scope without an extra
+  A missing symbol, call or reference is UNKNOWN, never FAIL. A planned member that the matched class lacks is
+  UNKNOWN too, where 4.0.1 gives FAIL (AD-512): the collector states no complete member table. A closed scope without an extra
   element stays UNKNOWN, also where 4.0.1 passes it from a member inventory. A dropped pair gap that
   touches a module of the target holds the UML row. A Rust UML row has no 4.0.1 comparison and
   rests on the scope proof alone.

@@ -80,6 +80,18 @@ impl Kept {
         kept.sites = std::mem::take(&mut syntax.sites);
         kept.scopes = std::mem::take(&mut syntax.scopes);
         kept.shadow = kept.sites.names.index(text.as_bytes());
+        for site in &mut kept.sites.sites {
+            let named = site.name.filter(|_| site.receiver.is_none());
+            site.local = named.is_some_and(|name| {
+                kept.shadow
+                    .locally(&name.decode(text.as_bytes()), name.start)
+            });
+        }
+        for (definition, _) in &mut kept.definitions {
+            for base in &mut definition.bases {
+                base.shadowed = kept.shadow.locally(&base.name, base.start);
+            }
+        }
         kept.text = kept.sites.retain_text(text.as_bytes());
         kept.script = script;
         kept
