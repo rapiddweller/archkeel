@@ -1,13 +1,11 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-317, AD-335: a platform wheel carries the native TypeScript and Rust collectors.
+"""AD-317, AD-436: the wheel hook puts the core into a platform wheel, and refuses without it.
 
-Consumer: the release build, which sets `ARCHKEEL_BUNDLE_NATIVE`. The wheel does not carry the
-core yet (AD-432), so the installed shell refuses each run. The test finds the two collector
-binaries with `importlib.resources` itself and runs them directly. The test marked
-`native_wheel` needs a Rust toolchain: `make native-wheel` runs it on each target of the wheel
-matrix in Full verification.
+Consumer: the release build, which sets `ARCHKEEL_BUNDLE_NATIVE`. The test marked `native_wheel`
+needs a Rust toolchain: `make native-wheel` runs it on each target of the wheel matrix in Full
+verification. `test_cli_installed_wheel.py` installs the wheel and reads its verdicts.
 """
 
 from __future__ import annotations
@@ -21,20 +19,16 @@ import subprocess
 import sys
 import tomllib
 import zipfile
-import zlib
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from types import ModuleType
 from typing import Any
 
 import pytest
-from native_wheel_rust import check_rust_binary
 from packaging.tags import platform_tags, sys_tags
 
 ROOT = Path(__file__).parents[1]
-MEMBER = "archkeel/_native/archkeel-typescript-collector"
-RUST_MEMBER = "archkeel/_native/archkeel-rust-collector"
-RUST_BINARY = "archkeel-rust-collector"
+MEMBER = "archkeel/_native/archkeel-core"
 VERSION = "0.0.0"
 
 
@@ -87,7 +81,7 @@ def test_each_target_platform_has_one_wheel_tag(platform: str, tag: str) -> None
     ["linux_x86_64", "musllinux_1_2_aarch64", "win_arm64", "macosx_14_0_universal2", "any"],
 )
 def test_an_unknown_platform_is_a_clear_error(platform: str) -> None:
-    with pytest.raises(ValueError, match=f"No native TypeScript collector for {platform!r}"):
+    with pytest.raises(ValueError, match=f"No archkeel-core for {platform!r}"):
         hook.wheel_tag(platform)
 
 
@@ -120,7 +114,7 @@ def test_the_host_platform_is_its_first_supported_tag(tags: list[str], platform:
 )
 def test_a_host_without_a_supported_tag_is_a_clear_error(tags: list[str]) -> None:
     first = repr(tags[0]) if tags else "this host"
-    with pytest.raises(ValueError, match=f"No native TypeScript collector for {first}"):
+    with pytest.raises(ValueError, match=f"No archkeel-core for {first}"):
         hook.host_platform(tags)
 
 
@@ -128,9 +122,11 @@ def _data() -> dict[str, Any]:
     return {"pure_python": True, "infer_tag": False, "force_include": {}}
 
 
-def test_without_a_request_the_wheel_stays_pure(tmp_path: Path) -> None:
+def test_without_a_request_the_hook_refuses_the_wheel(tmp_path: Path) -> None:
+    # A wheel without the core gives a package that refuses each run (AD-436).
     data = _data()
-    hook.bundle(tmp_path, VERSION, "", data)
+    with pytest.raises(ValueError, match="must carry the core binary archkeel-core"):
+        hook.bundle(tmp_path, VERSION, "", data)
     assert data == _data()
 
 
@@ -141,23 +137,24 @@ def _executable(path: Path) -> Path:
 
 
 def test_a_prebuilt_binary_goes_into_the_package_data(tmp_path: Path) -> None:
-    binary = _executable(tmp_path / "collector")
+    binary = _executable(tmp_path / "core")
     data = _data()
     hook.bundle(tmp_path, VERSION, str(binary), data, platform="manylinux_2_17_x86_64")
-    digests = tmp_path / "native/.digests"
-    record = digests / f"{hook.BINARY}.sha256"
+    digest = hashlib.sha256(b"binary").hexdigest()
+    record = tmp_path / "native/.digests" / f"{digest}.sha256"
     assert data == {
         "pure_python": False,
         "infer_tag": False,
         "tag": "py3-none-manylinux_2_17_x86_64",
         "force_include": {str(binary): MEMBER, str(record): f"{MEMBER}.sha256"},
     }
-    # The host starts the binary only when its file has the digest that the wheel records (AD-352).
-    assert record.read_text() == hashlib.sha256(b"binary").hexdigest()
+    # The shell starts the binary only when its file has the digest that the wheel records (AD-432).
+    assert record.read_text() == digest
     hook.bundle(tmp_path, VERSION, str(binary), data, platform="win_amd64")
-    assert data["force_include"][str(binary)] == f"{MEMBER}.exe"
-    exe_record = digests / f"{hook.BINARY}.exe.sha256"
-    assert data["force_include"][str(exe_record)] == f"{MEMBER}.exe.sha256"
+    assert data["force_include"] == {
+        str(binary): f"{MEMBER}.exe",
+        str(record): f"{MEMBER}.exe.sha256",
+    }
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Windows has no executable bit")
@@ -165,7 +162,7 @@ def test_a_prebuilt_binary_must_be_an_absolute_executable_file(tmp_path: Path) -
     plain = tmp_path / "plain"
     plain.write_bytes(b"binary")
     for request, message in (
-        ("collector", "must be an absolute path"),
+        ("core", "must be an absolute path"),
         (str(tmp_path / "missing"), "is not an executable file"),
         (str(plain), "is not an executable file"),
     ):
@@ -289,7 +286,7 @@ def _tool(name: str) -> str:
     return found
 
 
-def _build_wheel(output: Path, **environment: str) -> Path:
+def _build(output: Path, *arguments: str, **environment: str) -> subprocess.CompletedProcess[str]:
     uv = _tool("uv")
     env = {
         key: value
@@ -298,31 +295,29 @@ def _build_wheel(output: Path, **environment: str) -> Path:
     }
     env.update(SETUPTOOLS_SCM_PRETEND_VERSION=VERSION, SOURCE_DATE_EPOCH="315532800")
     env.update(environment)
-    built = subprocess.run(
-        [uv, "build", "--wheel", "--no-sources", "--out-dir", str(output), str(ROOT)],
+    return subprocess.run(
+        [uv, "build", "--no-sources", "--out-dir", str(output), *arguments],
         env=env,
         capture_output=True,
         text=True,
         check=False,
     )
+
+
+def test_a_wheel_build_without_the_core_refuses_from_the_checkout_and_from_the_sdist(
+    tmp_path: Path,
+) -> None:
+    refused = _build(tmp_path / "wheel", "--wheel", str(ROOT))
+    assert refused.returncode != 0 and hook.NO_CORE in refused.stderr, refused.stderr
+    # The sdist has no native sources: it builds without the core, and its wheel needs the core.
+    built = _build(tmp_path / "sdist", "--sdist", str(ROOT))
     assert built.returncode == 0, built.stderr
-    (wheel,) = output.glob("*.whl")
-    return wheel
-
-
-def _listing(wheel: Path) -> list[tuple[str, int]]:
-    with zipfile.ZipFile(wheel) as archive:
-        return [(item.filename, item.external_attr >> 16) for item in archive.infolist()]
-
-
-def test_the_default_wheel_is_the_pure_wheel_without_the_hook(tmp_path: Path) -> None:
-    default = _build_wheel(tmp_path / "default")
-    without_hook = _build_wheel(tmp_path / "without-hook", HATCH_BUILD_NO_HOOKS="true")
-
-    assert default.name == f"archkeel-{VERSION}-py3-none-any.whl"
-    assert default.name == without_hook.name
-    assert _listing(default) == _listing(without_hook)
-    assert default.read_bytes() == without_hook.read_bytes()
+    (sdist,) = (tmp_path / "sdist").glob("archkeel-*.tar.gz")
+    refused = _build(tmp_path / "wheel", "--wheel", str(sdist))
+    assert refused.returncode != 0 and hook.NO_CORE in refused.stderr, refused.stderr
+    cargo = _build(tmp_path / "wheel", "--wheel", str(sdist), ARCHKEEL_BUNDLE_NATIVE="1")
+    assert cargo.returncode != 0 and "has no native/Cargo.toml" in cargo.stderr, cargo.stderr
+    assert not list((tmp_path / "wheel").glob("*.whl"))
 
 
 def _bundled_wheel(output: Path) -> Path:
@@ -332,7 +327,10 @@ def _bundled_wheel(output: Path) -> Path:
         return Path(given).resolve()
     _tool("cargo")
     _tool("cargo-auditable")
-    return _build_wheel(output, ARCHKEEL_BUNDLE_NATIVE="1")
+    built = _build(output, "--wheel", str(ROOT), ARCHKEEL_BUNDLE_NATIVE="1")
+    assert built.returncode == 0, built.stderr
+    (wheel,) = output.glob("*.whl")
+    return wheel
 
 
 def _checksums() -> dict[tuple[str, str], str]:
@@ -345,8 +343,7 @@ def _checksums() -> dict[tuple[str, str], str]:
 
 
 @pytest.mark.native_wheel
-def test_a_bundled_wheel_installs_and_its_binary_replies(tmp_path: Path) -> None:
-    uv = _tool("uv")
+def test_a_bundled_wheel_carries_the_core_its_digest_and_its_sbom(tmp_path: Path) -> None:
     wheel = _bundled_wheel(tmp_path / "dist")
     version = wheel.name.split("-")[1]
 
@@ -357,99 +354,32 @@ def test_a_bundled_wheel_installs_and_its_binary_replies(tmp_path: Path) -> None
     windows = tag.endswith("win_amd64")
     member = MEMBER + (".exe" if windows else "")
     with zipfile.ZipFile(wheel) as archive:
+        names = archive.namelist()
         dist_info = f"archkeel-{version}.dist-info"
         assert "Root-Is-Purelib: false" in archive.read(f"{dist_info}/WHEEL").decode()
+        # The core links each collector, so it is the only binary of the wheel (AD-436).
+        native = sorted(name for name in names if name.startswith("archkeel/_native/"))
+        assert native == [member, member + ".sha256"]
         if not windows:
             assert stat.S_IMODE(archive.getinfo(member).external_attr >> 16) == 0o755
-        # cargo auditable puts the dependency list into a section of the binary.
-        assert b".dep-v0" in archive.read(member)
-        recorded = archive.read(member + ".sha256").decode()
-        assert recorded == hashlib.sha256(archive.read(member)).hexdigest()
-        sbom_member = f"{dist_info}/sboms/{hook.BINARY}.cdx.json"
-        sbom = json.loads(archive.read(sbom_member))
-        assert f"{sbom_member}," in archive.read(f"{dist_info}/RECORD").decode()
-        # AD-335: the Rust collector is the third binary of the wheel, with its own SBOM.
-        rust_member = RUST_MEMBER + (".exe" if windows else "")
-        if not windows:
-            assert stat.S_IMODE(archive.getinfo(rust_member).external_attr >> 16) == 0o755
-        assert b".dep-v0" in archive.read(rust_member)
-        rust_sbom_member = f"{dist_info}/sboms/{RUST_BINARY}.cdx.json"
-        rust_sbom = json.loads(archive.read(rust_sbom_member))
-        assert f"{rust_sbom_member}," in archive.read(f"{dist_info}/RECORD").decode()
-    rust_linked = {item["name"] for item in rust_sbom["components"]}
-    assert rust_sbom["metadata"]["component"]["name"] == RUST_BINARY
-    assert {"archkeel-wire", "syn", "proc-macro2", "serde_json"} <= rust_linked
-    assert "tree-sitter" not in rust_linked
+        binary = archive.read(member)
+        assert archive.read(member + ".sha256").decode() == hashlib.sha256(binary).hexdigest()
+        sboms = [name for name in names if name.startswith(f"{dist_info}/sboms/")]
+        assert sboms == [f"{dist_info}/sboms/{hook.BINARY}.cdx.json"]
+        sbom = json.loads(archive.read(sboms[0]))
+        assert f"{sboms[0]}," in archive.read(f"{dist_info}/RECORD").decode()
+    # cargo auditable puts the dependency list into a section of the binary.
+    assert b".dep-v0" in binary
+    # AD-323: the test-only `dump` feature is not in the binary that the wheel ships.
+    assert b"dump request is not JSON" not in binary
+    assert sbom["metadata"]["component"]["name"] == hook.BINARY
     assert sbom["metadata"]["component"]["version"] == version
     linked = {item["name"]: item for item in sbom["components"]}
-    assert {"archkeel-wire", "flate2", "serde_json", "sha2"} <= linked.keys()
+    collectors = {"archkeel-typescript-collector", "archkeel-rust-collector", "archkeel-collect"}
+    assert collectors | {"archkeel-eval", "tree-sitter", "syn", "serde_json", "sha2"} <= set(linked)
     assert linked["flate2"]["hashes"] == [
         {"alg": "SHA-256", "content": _checksums()["flate2", linked["flate2"]["version"]]}
     ]
-
-    venv = tmp_path / "venv"
-    for command in (
-        [uv, "venv", "--offline", "--python", sys.executable, str(venv)],
-        [uv, "pip", "install", "--offline", "--no-deps", "--python", str(venv), str(wheel)],
-    ):
-        result = subprocess.run(command, capture_output=True, text=True, check=False)
-        assert result.returncode == 0, result.stderr
-    python = venv / ("Scripts/python.exe" if windows else "bin/python")
-    # The package has no dependencies, so the new environment needs only the wheel.
-    lookup = subprocess.run(
-        [str(python), "-c", LOOKUP], capture_output=True, text=True, check=False
-    )
-    assert lookup.returncode == 0, lookup.stderr
-    package, installed, executable, rust, rust_executable = json.loads(lookup.stdout)
-    assert Path(package).is_relative_to(venv)
-    assert Path(installed) == Path(package) / member.removeprefix("archkeel/")
-    assert executable and rust_executable
-    # The Rust binary replies, and the installed shell refuses without the core.
-    check_rust_binary(tmp_path, python, rust, version)
-
-    reply = subprocess.run(
-        [str(installed)], input=json.dumps(_request(tmp_path)).encode(), capture_output=True
-    )
-    assert reply.returncode == 0, reply.stderr
-    decoded = json.loads(zlib.decompress(reply.stdout))
-    assert decoded["protocol_version"] == "9.0.0"
-    assert decoded["facts"]["adapter"]["version"] == version
-    assert decoded["facts"]["coverage"]["selected_files"] == ["src/app.ts"]
-    # AD-323: the test-only `dump` feature is not in the binary that the wheel ships. With the
-    # feature, `--dump` would read file names on stdin and print JSON. Here it is an ignored
-    # argument: the binary reads a collection request, finds none, and fails without output.
-    dumped = subprocess.run([str(installed), "--dump"], input=b"", capture_output=True)
-    assert dumped.returncode != 0
-    assert dumped.stdout == b""
-    assert b"dump request is not JSON" not in Path(installed).read_bytes()
-
-
-# The two collector binaries of the installed package (AD-317, AD-335).
-LOOKUP = """
-import json
-import os
-import sysconfig
-from importlib.resources import files
-
-package = files("archkeel")
-suffix = sysconfig.get_config_var("EXE") or ""
-binary = package / "_native" / ("archkeel-typescript-collector" + suffix)
-rust = package / "_native" / ("archkeel-rust-collector" + suffix)
-executable = [item.is_file() and os.access(item, os.X_OK) for item in (binary, rust)]
-print(json.dumps([str(package), str(binary), executable[0], str(rust), executable[1]]))
-"""
-
-
-def _request(root: Path) -> dict[str, Any]:
-    (root / "src").mkdir()
-    (root / "src/app.ts").write_text("export const value = 1;\n")
-    (root / "tsconfig.json").write_text("{}")
-    return {
-        "protocol_version": "9.0.0",
-        "snapshot": {"root": str(root), "git_head": "a" * 40, "dirty": False},
-        "scope": {"roots": ["src"], "namespace": "shop", "exclude_test_sources": False},
-        "resolver": {"language": "typescript", "tsconfig": "tsconfig.json"},
-    }
 
 
 def test_the_build_hook_reads_cargo_output_as_utf8_on_any_locale() -> None:

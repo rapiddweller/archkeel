@@ -199,7 +199,7 @@ def _needs(body: str) -> set[str]:
 
 
 def test_each_release_job_runs_after_full_verification() -> None:
-    """AD-280 decision 3: a release runs Full first. Only the gate of AD-432 is before Full."""
+    """AD-280 decision 3: a release runs Full first. Only the gate of AD-436 is before Full."""
     jobs = _jobs("release.yml")
     assert "uses: ./.github/workflows/full-verification.yml" in jobs["verify"]
 

@@ -411,3 +411,4 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-424 | [Known registry derives need identity and helper proofs](ad-424-known-registry-derives-need-identity-and-helper-proofs.md) |
 | AD-426 | [The linked collector states profile limits before the scope proof](ad-426-the-linked-collector-states-profile-limits-before-the-scope-proof.md) |
 | AD-432 | [The Rust core is the only decision path](ad-432-the-rust-core-is-the-only-decision-path.md) |
+| AD-436 | [A platform wheel carries the core and no other wheel is built](ad-436-a-platform-wheel-carries-the-core-and-no-other-wheel-is-built.md) |
