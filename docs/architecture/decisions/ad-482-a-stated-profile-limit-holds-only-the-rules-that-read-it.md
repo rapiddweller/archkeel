@@ -1,12 +1,12 @@
-# AD-474 A stated profile limit holds only the rules that read it
+# AD-482 A stated profile limit holds only the rules that read it
 
-**Status.** Proposed. Part of #880. It amends item 3 of AD-426.
+**Status.** Proposed. Part of #880. It amends item 3 of AD-426 and item 6 of AD-468.
 
 **Reason.** The linked collector can state `dependency_symbols` or `interface_boundary` as
-`Unsupported` (Python since AD-450, Dart on the branch of #1148). AD-426 turned each such statement into a
+`Unsupported` (Python in AD-450, Dart in AD-468). AD-426 turned each such statement into a
 certain profile limit, and a profile limit is a coverage failure of the run: each rule of the run
 was UNKNOWN. A symbol or interface fact cannot change a rule that reads only module-level import
-edges. On the Dart branch, G-dart gave 0 PASS, and the released 4.0.1 gives 9.
+edges. G-dart gave 0 PASS, and the released 4.0.1 gives 9.
 
 **Which rule reads which feature.** This comes from the code that reads each fact:
 
@@ -46,10 +46,10 @@ sees the same edges with or without these features.
   collector writes `symbols_known: true` although it states that it reads no symbol.
 - Keep a hold in `Scope::run`. `run_complete` needs every rule PASS, so no test can reach it.
 
-**Limits.** On a scratch merge with the Dart branch, G-dart `COMPONENT-NO-CYCLES` becomes core
-PASS while 4.0.1 gives UNKNOWN. 4.0.1 proves a cycle scope only for a profile with project import
-closure or for Python. The Dart branch must fix that receipt before it merges. On `main` no
-fixture row changes: each Python row is held by a different cause.
+**Limits.** G-dart goes from 0/0/10 to 9/0/1 and H-uml-dart from 0/0/4 to 1/0/3. One new PASS
+has no PASS in 4.0.1: G-dart `COMPONENT-NO-CYCLES` (4.0.1: UNKNOWN). 4.0.1 proves a cycle scope only
+for a profile with project import closure or for Python. The core gives the Dart receipt by the
+layout of AD-468 item 5. The profile limit hid that difference before. No other fixture row changes.
 
 **Tests.** `tests/test_cli_native_stated_limits.py` (release core and default CLI: each feature
 and reader gives UNKNOWN on its reader and PASS on each edge rule; a forbidden edge stays FAIL; a

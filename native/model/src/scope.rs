@@ -115,7 +115,7 @@ impl<'id, 'm> Scope<'id, 'm> {
             State::Unread(part) => Some(part.clone()),
             State::Complete => None,
         };
-        // AD-474: a feature that the collector states as unsupported holds each rule that reads it.
+        // AD-482: a feature that the collector states as unsupported holds each rule that reads it.
         let observed = self.model.graph().observed();
         if let Some(subject) = crate::limits::stated_hold(self.model.contract(), rule, observed) {
             return Err(Reason::NotComplete(Cause::ProfileLimit(subject)));

@@ -22,7 +22,7 @@
     "G-dart": {
       "language": "dart",
       "runs": [
-      {"name": "G-dart", "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 10}, "scope": "incomplete scope: the profile cannot decide INTERFACE-BOUNDARY", "gaps": {"contract_hygiene_not_ported": 1, "reference.namespace": 1}, "refusal": null}}
+      {"name": "G-dart", "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 9, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {"contract_hygiene_not_ported": 1, "reference.namespace": 1}, "refusal": null}}
       ]
     },
     "H-typescript": {
@@ -40,7 +40,7 @@
     "H-uml-dart": {
       "language": "dart",
       "runs": [
-      {"name": "H-uml-dart", "root": "H-uml-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 5}, "scope": "incomplete scope: the profile cannot decide presentation:controller", "gaps": {}, "refusal": null}}
+      {"name": "H-uml-dart", "root": "H-uml-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 1, "FAIL": 0, "UNKNOWN": 4}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "H-uml-typescript": {

@@ -17,7 +17,7 @@
 //!
 //! No profile has `crate_edges_only` today, so the crate scope limits of `root_limits` are empty.
 //!
-//! AD-474: a feature that the linked collector states as unsupported is not a limit of the run.
+//! AD-482: a feature that the linked collector states as unsupported is not a limit of the run.
 //! It holds only each rule that reads it: `symbol_reader` gives the symbol selector that a rule
 //! reads, and `interface::receipt` refuses each `interface_boundary` rule without the feature.
 
@@ -124,7 +124,7 @@ pub(crate) fn limits(contract: &Contract, observed: &Observed) -> Vec<Limit> {
 }
 
 /// A limit of a store-accepted profile for one rule. A stated unsupported feature is not a limit
-/// of the run: `stated_hold` holds each rule that reads the selector (AD-474).
+/// of the run: `stated_hold` holds each rule that reads the selector (AD-482).
 fn symbol_limit(observed: &Observed, subject: &str) -> Option<Limit> {
     match observed
         .profile_limits
@@ -136,7 +136,7 @@ fn symbol_limit(observed: &Observed, subject: &str) -> Option<Limit> {
     }
 }
 
-/// What the evaluation of one rule reads besides the module-level import edges (AD-474).
+/// What the evaluation of one rule reads besides the module-level import edges (AD-482).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Reads {
     /// No store-accepted profile decides the kind (`unsupported_rules`).
@@ -193,7 +193,7 @@ fn rule_limits(rule: &Rule, observed: &Observed, found: &mut Vec<Limit>) {
                 .profile_limits
                 .map(|limits| limits.interface_boundary)
             {
-                // AD-474: `interface::receipt` refuses this rule alone without the feature.
+                // AD-482: `interface::receipt` refuses this rule alone without the feature.
                 Some(LimitSupport::Supported | LimitSupport::Unsupported) => {}
                 None => found.push(Limit::Unread(id.to_owned())),
             }
@@ -216,7 +216,7 @@ fn rule_limits(rule: &Rule, observed: &Observed, found: &mut Vec<Limit>) {
 }
 
 /// The symbol selector that holds one rule when the linked collector states that it reads no
-/// dependency symbol (AD-474), or `None` when the rule reads none. The interface statement has
+/// dependency symbol (AD-482), or `None` when the rule reads none. The interface statement has
 /// one reader only, and `interface::receipt` reads it on the evaluation path of that rule.
 pub(crate) fn stated_hold(contract: &Contract, rule: &Rule, observed: &Observed) -> Option<String> {
     let stated = observed.profile_limits?.dependency_symbols;
