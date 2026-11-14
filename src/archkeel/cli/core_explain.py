@@ -8,7 +8,7 @@ or a gap. Each list has a budget, and a list over its budget is cut with `trunca
 exact total.
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Set
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final, TypeVar
@@ -265,9 +265,7 @@ def _gap(value: object, where: str) -> GapHolds:
     )
 
 
-def read_explain(
-    value: object, rules: Mapping[str, object], violations: Mapping[str, int]
-) -> Explain:
+def read_explain(value: object, rules: Set[str], violations: Mapping[str, int]) -> Explain:
     """The decoded part. A cycle list names a rule of the frame with that many violations."""
     row = _fields(value, "explain", frozenset({"version", "budgets", "rules", "cycles", "holds"}))
     if _count(row["version"], "explain.version") != 1:
