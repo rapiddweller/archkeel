@@ -38,7 +38,8 @@ same PASS (exit 0).
 `s4/a-test-file-without-the-exclusion-passes`, whose excluded test file imports the undeclared
 package `left-pad`. The browser contract keeps its 881 gaps. The Studio UI contract gets one gap:
 `src/archkeel/studio/ui/studio.js`, the checked-in bundle that its TSConfig does not select. The
-bundle is code that no rule read, so its pin must name the gap.
+bundle is code that no rule read, so `docs/architecture/target/studio-ui-expected.json` names
+the gap (269 to 270 pinned gaps).
 
 **Limits.** The gap holds every rule of the run, not only the rules that read the file. A built
 `dist` or emitted files under a scan root are gaps: narrow the scan roots to the source. Code in an
