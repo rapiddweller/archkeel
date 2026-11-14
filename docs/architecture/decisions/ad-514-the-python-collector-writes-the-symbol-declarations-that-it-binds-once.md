@@ -49,19 +49,29 @@ the source text a wrong witness.
    `instance_of`) the cause "the python collector states no symbol sites" and builds no base
    receipt: a FAIL for a missing base is impossible. PR 3 writes the sites.
 
-**Fixture rows.** H-uml stays UNKNOWN (exit 2): its target lists eight relationships. The entity
-assessments move from "the python collector states no symbol facts" to PASS (13 of 21 entities);
-the other eight stay UNKNOWN by rule 7 (module values, a function inside a function).
+**Fixture rows.** H-uml stays UNKNOWN (exit 2): its target lists eight relationships. The 21
+entity assessments move from "the python collector states no symbol facts" to PASS for 18; three
+stay UNKNOWN by rule 7 (`item` in a function, `Text`, `VERSION`: module values). The seven
+relationships give the cause of rule 8.
 `fixtures/matrix.json` does not change.
 
-**Plants.** `tests/test_cli_python_symbols.py` (the count of each class is in the test and in
-`docs/known-limits.md`). The core never gives PASS where the truth differs.
+**Plants (75, `tests/test_cli_python_symbols.py`).** Against 4.0.1: 43 equal, 27 PASS to UNKNOWN,
+5 FAIL to UNKNOWN. In 3 of the 5 the release FAIL is false (`globals-write`, `dict-instance`,
+`nested-function`: Python binds what the target plans); 2 lose a true FAIL (`unknown-base`,
+`enum-rebound`). Of the 27 PASS to UNKNOWN, 20 are a release PASS where Python does not bind what the target
+plans (a second binder, `del`, a decorator, a metaclass, a write after the class body); 7 are a
+true PASS that the core withholds (dataclass, `NamedTuple`, `TypedDict`, `Generic`, a module value,
+a number default, a subscript). The core never gives PASS where the truth differs, and never FAIL
+where it agrees.
 
-**Rejected.** A record for each binder, with the model counting them (TypeScript): a name bound by
-a statement that no record shows would pass. A `complete` inventory: no proof of the writes after
-the class body exists. A gap record for each omitted name: it would make each such run partial for
-every other rule.
+**Text.** The survey writes the text of a name, a dotted name, `None`, `True` and `False` only.
+`unparse` stays behind the dump: ungated it shows a real recursion between its parts that the
+self-check pins as gaps. A default number, a subscript or a string gives no record (PR 3 may
+widen it when the recursion is cut).
 
-**Open.** A local `self` that holds a class (`self = C; self.x = 1`); a C extension or
-`globals()` of another module that writes a class; a class attribute that a base `__init_subclass__`
-adds. Each is listed in `docs/known-limits.md`.
+**Rejected.** A record for each binder, as TypeScript has it: a name bound by a statement that
+no record shows would pass. A `complete` inventory: no proof of the writes after the class body.
+A gap record for each omitted name: each such run would be partial for every other rule.
+
+**Open** (`docs/known-limits.md`). A local `self` that holds a class; a C extension or `globals()`
+of another module that writes a class; a member that a base `__init_subclass__` adds.

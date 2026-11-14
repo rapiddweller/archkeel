@@ -294,6 +294,8 @@ MEMBERS: dict[str, Plant] = {
     "nested-function": pl(
         "def outer():\n    def inner():\n        pass\n", [fn("outer.inner")], "PASS"
     ),
+    "number-default": pl("def f(a: int = 1):\n    pass\n", [fn()], "PASS"),
+    "subscript-annotation": pl("def f(a: list[int]):\n    pass\n", [fn()], "PASS"),
     "module-value": pl("VERSION = 1\n", [Want("constant", "VERSION")], "PASS"),
 }
 

@@ -249,6 +249,11 @@
   "UNKNOWN",
   "absent symbol: the symbol inventory is not complete"
  ],
+ "number-default": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
  "overload": [
   "UNKNOWN",
   "UNKNOWN",
@@ -313,6 +318,11 @@
   "PASS",
   "PASS",
   ""
+ ],
+ "subscript-annotation": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
  ],
  "try-except": [
   "UNKNOWN",
