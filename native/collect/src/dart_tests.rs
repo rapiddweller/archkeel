@@ -143,3 +143,29 @@ fn a_dart_test_exclusion_is_refused_by_the_configuration() {
     let refused = crate::config::parse(config.as_bytes(), "archkeel.toml").unwrap_err();
     assert!(format!("{refused:?}").contains("exclude_test_sources is not supported"));
 }
+
+#[test]
+fn coverage_gaps_that_are_not_the_unknowns_are_refused() {
+    let tree = Tree::new(&[
+        ("pubspec.yaml", "name: shop\nenvironment:\n  sdk: ^3.4.0\n"),
+        ("lib/a.dart", "import 'gone.dart';\n"),
+    ]);
+    let mut reply = reply(&tree);
+    assert!(!reply.facts.coverage.gaps.is_empty());
+    for section in &mut reply.facts.sections {
+        if let Section::Unknowns(records) = section {
+            records.clear();
+        }
+    }
+    assert!(refused(reply).contains("the coverage gaps must be the unknowns of the survey"));
+}
+
+#[test]
+fn a_part_with_two_owners_is_refused() {
+    let tree = project();
+    let mut reply = reply(&tree);
+    let mut second = reply.facts.owned_files[0].clone();
+    second.owner = ModuleName::new("shop.b");
+    reply.facts.owned_files.push(second);
+    assert!(refused(reply).contains("no unique owner"));
+}
