@@ -251,6 +251,7 @@ def test_the_python_uml_fixture_has_an_unknown_row_and_never_passes(tmp_path: Pa
     code, envelope = run("validate", "--root", str(_copy(tmp_path, "H-uml")))
     assert _rows(envelope) == {ROW: ["uml_target", "UNKNOWN"]}
     assert "assessments cannot be decided" in envelope["frame"]["explained"][ROW]
+    assert "the python collector states no symbol facts" in envelope["frame"]["explained"][ROW]
     assert envelope["gaps"] == []
     assert (code, envelope["status"], envelope["frame"]["status"]) == (2, "UNKNOWN", "UNKNOWN")
 

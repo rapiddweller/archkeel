@@ -57,7 +57,8 @@ impl Graph {
     }
 
     /// Derive the reply part for a run with `needs`: a need that reads the symbols adds the
-    /// symbol table (AD-498). Without one, the reply part is the same as `derive` gives.
+    /// symbol table (AD-498), when the collector of the profile states symbol facts. Without a need,
+    /// the reply part is the same as `derive` gives.
     pub fn derive_for(
         reply: &Ingested,
         settings: Settings,
@@ -65,7 +66,7 @@ impl Graph {
     ) -> Result<Graph, Reason> {
         let facts = admitted(reply, &settings)?;
         let mut graph = Self::from_facts(facts, settings)?;
-        if needs.symbols() {
+        if needs.symbols() && graph.observed.symbol_facts {
             graph.symbols = Some(crate::symbols::Symbols::derive(facts, &graph.modules));
         }
         Ok(graph)

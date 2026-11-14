@@ -38,7 +38,7 @@ impl Needs {
     }
 
     /// True when a need of the run reads the symbol facts.
-    pub(crate) fn symbols(&self) -> bool {
+    pub fn symbols(&self) -> bool {
         self.0.iter().any(|need| need.symbols())
     }
 }

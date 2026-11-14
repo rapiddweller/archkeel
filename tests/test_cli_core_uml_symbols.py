@@ -337,7 +337,55 @@ PLANTS: dict[str, tuple[dict[str, str], dict, str, str]] = {
         "UNKNOWN",
         "UNKNOWN",
     ),
+    "missing-base-unresolved": (
+        edit(
+            "export class Client implements",
+            "export class Client extends (globalThis as any).Base implements",
+        ),
+        target(relationships=[*RELATIONSHIPS, edge("inherits", "client", "unit")]),
+        "UNKNOWN",
+        "UNKNOWN",
+    ),
+    "missing-base-external": (
+        edit(
+            "export class Client implements",
+            "import { Ext } from 'external-lib';\nexport class Client extends Ext implements",
+        ),
+        target(relationships=[*RELATIONSHIPS, edge("inherits", "client", "unit")]),
+        "UNKNOWN",
+        "UNKNOWN",
+    ),
     "pass-incomplete": ({**FILES, **BROKEN}, target(), "UNKNOWN", "UNKNOWN"),
+}
+
+
+# The named cause of each row that is not PASS: a part of the reason of an UNKNOWN row, or of the
+# cause of a FAIL detail. A row with another cause is another defect.
+CAUSES = {
+    "kind-differs": "recorded entity kind differs",
+    "parent-differs": "lexical parent differs",
+    "return-differs": "return annotation differs",
+    "parameter-name-differs": "parameter name or order differs",
+    "parameter-count-differs": "parameter count differs",
+    "visibility-differs": "visibility or its basis differs",
+    "annotation-differs": "annotation differs",
+    "initializer-differs": "initializer syntax differs",
+    "absent-symbol": "absent symbol",
+    "ambiguous-name": "several definitions share a declared name",
+    "namespace-class": "several definitions share a declared name",
+    "missing-call": "unresolved calls site",
+    "closed-calls": "closed scope holds an unlisted relationship",
+    "closed-calls-listed": "closed scope completeness",
+    "unresolved-call-site": "closed scope completeness",
+    "missing-base": "declared base is absent",
+    "missing-base-incomplete": "inherits inventory is not complete",
+    "missing-base-unresolved": "unresolved inherits site",
+    "missing-base-external": "unresolved inherits site",
+    "closed-function": "closed scope holds an unlisted definition",
+    "closed-method-extra": "closed scope holds an unlisted definition",
+    "closed-method-listed": "closed scope completeness",
+    "referenced-absent": "relationship endpoints cannot be identified uniquely",
+    "pass-incomplete": "the scope of the run is not complete",
 }
 
 
@@ -359,12 +407,15 @@ def test_the_symbol_row_is_the_pinned_row(release_core: Path, tmp_path: Path, na
     result = json.loads(done.stdout)
     assert "refusal" not in result, result
     assert result["frame"]["rules"][ROW] == ["uml_target", expected], result["frame"]["explained"]
+    cause = CAUSES.get(name, "")
     if expected == "FAIL":
-        assert result["frame"]["details"][ROW], result["frame"]
+        details = result["frame"]["details"][ROW]
+        assert details and all(cause in item["cause"] for item in details), details
         assert done.returncode == 1
     if expected == "PASS":
         assert result["status"] == "PASS" and done.returncode == 0, result["frame"]
+        assert name not in CAUSES
     if expected == "UNKNOWN":
-        assert result["frame"]["explained"][ROW], result["frame"]
+        assert cause in result["frame"]["explained"][ROW], result["frame"]["explained"][ROW]
         assert result["frame"]["unknown_kinds"][ROW] == "no_receipt"
         assert done.returncode == 2
