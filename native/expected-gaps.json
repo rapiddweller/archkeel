@@ -219,6 +219,11 @@
     ],
     [
       "collection_gap",
+      "native.archkeel_dart_collector.import_survey.config",
+      "A method call may reach the method is_link of an impl block in native.archkeel_snapshot.snapshot.listing"
+    ],
+    [
+      "collection_gap",
       "native.archkeel_dart_collector.import_survey.index",
       "A method call may reach the method is_link of an impl block in native.archkeel_snapshot.snapshot.listing"
     ],

@@ -50,7 +50,7 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     # The one failure makes the run a failure; the gaps never let it pass.
     assert (code, result["status"], frame["status"]) == (1, "FAIL", "FAIL")
     assert set(frame["unknown_kinds"]) == {r for r, status in core.items() if status == "UNKNOWN"}
-    kept = "incomplete scope: 118 gaps between two modules that the contract"
+    kept = "incomplete scope: 119 gaps between two modules that the contract"
     assert frame["scope"].startswith(kept), frame["scope"]
 
 
