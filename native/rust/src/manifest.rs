@@ -111,6 +111,9 @@ pub(crate) struct Manifest {
     pub dependencies: BTreeMap<String, String>,
     /// Each declared dependency, in the order of the sections and of the names.
     pub declared: Vec<Declared>,
+    /// The packages that only a registry or git entry names. Cargo fetches them from elsewhere,
+    /// so a crate of the workspace with the same name is not their target.
+    pub remote: BTreeSet<String>,
     /// What the reader does not know in the dependency tables: each one makes the crate UNKNOWN.
     pub unknown: Vec<String>,
     pub features: BTreeSet<String>,
@@ -166,6 +169,7 @@ pub(crate) fn read(table: &Table, workspace: &Table) -> Option<Manifest> {
     let mut dependencies = BTreeMap::new();
     let mut declared = Vec::new();
     let mut unknown = unknown_tables(table);
+    let (mut local, mut remote) = (BTreeSet::new(), BTreeSet::new());
     for (name, value, kind) in dependency_entries(table) {
         if !matches!(value, Value::Text(_) | Value::Table(_)) {
             unknown.push(format!(
@@ -173,6 +177,16 @@ pub(crate) fn read(table: &Table, workspace: &Table) -> Option<Manifest> {
             ));
         }
         let package = package_of(name, value, workspace);
+        match locality(value, workspace.get(name)) {
+            Locality::Local => local.insert(package.clone()),
+            Locality::Remote => remote.insert(package.clone()),
+            Locality::Missing => {
+                unknown.push(format!(
+                    "A dependency of the workspace has no entry in [workspace.dependencies]: {name}"
+                ));
+                local.insert(package.clone())
+            }
+        };
         dependencies.insert(ident(name), package.clone());
         declared.push(Declared {
             key: name.clone(),
@@ -194,6 +208,7 @@ pub(crate) fn read(table: &Table, workspace: &Table) -> Option<Manifest> {
         package,
         dependencies,
         declared,
+        remote: remote.difference(&local).cloned().collect(),
         unknown,
         features,
         edition: text(table, &["package", "edition"]).map(str::to_owned),
@@ -300,6 +315,33 @@ fn unknown_tables(table: &Table) -> Vec<String> {
         }
     }
     found
+}
+
+/// Where Cargo takes a dependency from.
+enum Locality {
+    /// A `path` entry, own or inherited from `[workspace.dependencies]`.
+    Local,
+    /// A registry entry (a version only) or a git entry.
+    Remote,
+    /// `workspace = true` and no entry of that name in the workspace: the source is not known.
+    Missing,
+}
+
+fn locality(value: &Value, inherited: Option<&Value>) -> Locality {
+    let Some(entry) = value.table() else {
+        return Locality::Remote;
+    };
+    if entry.contains_key("path") {
+        return Locality::Local;
+    }
+    if !entry.contains_key("workspace") {
+        return Locality::Remote;
+    }
+    match inherited {
+        Some(Value::Table(shared)) if shared.contains_key("path") => Locality::Local,
+        Some(_) => Locality::Remote,
+        None => Locality::Missing,
+    }
 }
 
 /// The package behind a dependency name: `package = "x"` renames it, and `workspace = true`

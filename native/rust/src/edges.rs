@@ -128,7 +128,9 @@ impl Builder {
     ) {
         let (target_module, key) = match named {
             Named::Sysroot(name) => (name.clone(), format!("sysroot:{name}")),
-            Named::Package(package) => (package.clone(), format!("package:{package}")),
+            Named::Package(package) | Named::Registry(package) => {
+                (package.clone(), format!("package:{package}"))
+            }
         };
         // One record for each distinct path of a file; the first use is its evidence.
         if !self
@@ -155,6 +157,13 @@ impl Builder {
                 Target::Builtin {
                     import_id,
                     name: name.clone(),
+                },
+                target_module,
+            ),
+            Named::Registry(package) => (
+                Target::External {
+                    import_id,
+                    package: PackageName::new(package.as_str()),
                 },
                 target_module,
             ),

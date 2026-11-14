@@ -257,6 +257,31 @@ fn a_test_module_is_claimed_and_not_a_module_when_the_request_excludes_tests() {
     assert!(found.is_excluded("src/tests.rs") && !found.is_excluded("src/foo_tests.rs"));
 }
 
+const TEST_TARGET_INTO_SRC: [(&str, &str); 3] = [
+    ("Cargo.toml", "[package]\nname = \"app\"\n"),
+    ("src/lib.rs", "pub fn f() {}"),
+    ("tests/t.rs", "#[path = \"../src/lib.rs\"]\nmod p;"),
+];
+
+#[test]
+fn a_test_target_that_the_request_leaves_out_is_no_second_owner_of_a_production_file() {
+    let root = Tree::new(&TEST_TARGET_INTO_SRC);
+    let mut source = Snapshot::new(&root.path());
+    let listed = list_files(&mut source, "");
+    let workspace = discover(&mut source, &listed, "ns");
+    let found = walk(&mut source, &workspace, true);
+    assert_eq!(reasons(&found), Vec::<&str>::new());
+    assert_eq!(modules(&found), [("ns.app", "src/lib.rs")]);
+}
+
+#[test]
+fn a_test_target_that_the_request_keeps_stays_a_second_owner_of_a_production_file() {
+    let found = walked(&TEST_TARGET_INTO_SRC[1..]);
+    assert!(reasons(&found)
+        .iter()
+        .any(|reason| reason.contains("is the file of two modules")));
+}
+
 #[test]
 fn cfg_alternatives_of_one_module_name_keep_both_files_under_distinct_modules() {
     let found = walked(&[

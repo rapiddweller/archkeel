@@ -1373,6 +1373,7 @@
     "fn model::components_of(contract:&Contract)->Result<Table<ComponentId,Component>,Reason>",
     "fn model::contract(&self)->&Contract",
     "fn model::derive(contract:&Contract,reply:&Ingested,settings:Settings,)->Result<Model,Reason>",
+    "fn model::dropped_pair_gaps(&self)->impl Iterator<Item=(&str,&str)>",
     "fn model::graph(&self)->&Graph",
     "fn model::holds(&self,module:ModuleId)->bool",
     "fn model::is_mount(&self)->bool",

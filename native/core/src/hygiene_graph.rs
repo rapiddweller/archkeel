@@ -25,10 +25,12 @@ const CLOSE: &str = "```";
 pub(crate) type Finding = (&'static str, String, String);
 
 /// The findings of both markers over the documents, in path order. `observed` are the component
-/// edges of the code; `permitted` are the pairs that the contract permits.
+/// edges of the code; `unconfirmed` holds the allowed edges that only a dropped pair gap names, with
+/// the module of the call: a drawn edge in it can be neither confirmed nor refuted (#1021);
+/// `permitted` are the pairs that the contract permits.
 pub(crate) fn findings(
     documents: &[(String, String)],
-    observed: &BTreeSet<Pair>,
+    (observed, unconfirmed): (&BTreeSet<Pair>, &BTreeMap<Pair, String>),
     permitted: &BTreeSet<Pair>,
 ) -> Vec<Finding> {
     let mut found = Vec::new();
@@ -49,6 +51,8 @@ pub(crate) fn findings(
         ),
     ];
     for (marker, noun, required, edges, source) in markers {
+        // Only the component graph draws what the code uses; the target graph draws permissions.
+        let held = if required { Some(unconfirmed) } else { None };
         let graphs: Vec<(&str, &str)> = documents
             .iter()
             .flat_map(|(path, text)| {
@@ -70,7 +74,12 @@ pub(crate) fn findings(
         };
         let declared = declared_edges(body);
         let unwritable = unwritable_line(body);
-        if declared == *edges && unwritable.is_none() {
+        let not_found: Vec<&Pair> = declared.difference(edges).collect();
+        let is_held = |pair: &&&Pair| held.is_some_and(|held| held.contains_key(**pair));
+        let (unproven, absent): (Vec<&Pair>, Vec<&Pair>) =
+            not_found.iter().copied().partition(|pair| is_held(&pair));
+        let missing: Vec<&Pair> = edges.difference(&declared).collect();
+        if not_found.is_empty() && missing.is_empty() && unwritable.is_none() {
             continue;
         }
         let list = |pairs: Vec<&Pair>| {
@@ -81,13 +90,25 @@ pub(crate) fn findings(
                 text.join(", ")
             }
         };
-        let claim = format!(
-            "The marked {noun} graph differs from {source}; drawn and not found: {}; found and \
-             not drawn: {}{}.",
-            list(declared.difference(edges).collect()),
-            list(edges.difference(&declared).collect()),
-            unwritable.map_or_else(String::new, |line| format!("; the block holds `{line}`")),
-        );
+        let mut claims = Vec::new();
+        if !absent.is_empty() || !missing.is_empty() || unwritable.is_some() {
+            claims.push(format!(
+                "The marked {noun} graph differs from {source}; drawn and not found: {}; found \
+                 and not drawn: {}{}.",
+                list(absent),
+                list(missing),
+                unwritable.map_or_else(String::new, |line| format!("; the block holds `{line}`")),
+            ));
+        }
+        for (a, b) in unproven {
+            let place = held.and_then(|held| held.get(&(a.clone(), b.clone())));
+            claims.push(format!(
+                "Drawn edge {a} -> {b} can be neither confirmed nor refuted: the call in {} may \
+                 or may not reach {b}.",
+                place.map_or("the code", String::as_str)
+            ));
+        }
+        let claim = claims.join(" ");
         found.push(("graph.drift", format!("{path} ({noun} graph)"), claim));
     }
     found

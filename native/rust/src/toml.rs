@@ -24,7 +24,9 @@ pub(crate) enum Value {
 /// The deepest nesting of arrays and inline tables that the reader follows.
 const MAX_DEPTH: usize = 64;
 
+/// Read a manifest. A UTF-8 byte order mark at the start is no part of the text, as for Cargo.
 pub(crate) fn parse(text: &str) -> Result<Table, String> {
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     let mut reader = Reader {
         bytes: text.as_bytes(),
         at: 0,
