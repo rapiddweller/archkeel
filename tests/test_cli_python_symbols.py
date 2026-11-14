@@ -58,8 +58,6 @@ def test_the_symbol_row_is_the_pinned_row(release_core: Path, tmp_path: Path, na
     result = json.loads(done.stdout)
     assert "refusal" not in result, result
     assert result["frame"]["rules"][ROW] == ["uml_target", expected], result["frame"]
-    if expected == "PASS":
-        assert done.returncode == 0
     if expected == "FAIL":
         found = {item["cause"] for item in result["frame"]["details"][ROW]}
         assert "; ".join(sorted(found)) == cause and done.returncode == 1

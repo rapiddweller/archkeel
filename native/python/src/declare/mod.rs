@@ -393,3 +393,7 @@ fn inventory(kind: MemberKind, definition_ids: Vec<FactId>) -> MemberInventory {
         status: InventoryStatus::Partial,
     }
 }
+
+#[cfg(test)]
+#[path = "declare_tests.rs"]
+mod tests;
