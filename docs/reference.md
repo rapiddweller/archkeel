@@ -138,6 +138,8 @@ Neither stdout form is a complete `architecture.json` or an HTML report.
 `report --topology` adds a bounded `topology` section: components, modules, edges, completeness, budgets
 and the rules that cite each edge (AD-456). Without the option the frame and its time do not change.
 A total over a budget sets `truncated` and keeps the exact total. The section never changes a verdict.
+`topology.complete` means only: the scope is complete and no list is truncated. It is not the verdict
+and does not mean that the run has no gap: an UNKNOWN run can show `complete: true`.
 
 `report --output PATH` writes one static HTML page. `--format json` writes the core frame instead.
 `--format html` is the default and needs `--output`. Without an output path, no file is written.

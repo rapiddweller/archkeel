@@ -5,6 +5,7 @@
 
 import json
 from pathlib import Path
+from typing import Callable
 
 import pytest
 from core_support import HONEST, case_root
@@ -52,6 +53,7 @@ def test_small_typescript_topology_links_the_existing_fail(release_core: Path) -
         original = json.loads(plain.stdout)["frame"]
         topology = frame.pop("topology")
         assert json.dumps(frame) == json.dumps(original)
+        assert without_section(done.stdout) == plain.stdout
         assert [(m["path"], m["component"]) for m in topology["modules"]] == [
             ("src/a/a.ts", "COMP-A"),
             ("src/b/t.ts", "COMP-B"),
@@ -62,6 +64,23 @@ def test_small_typescript_topology_links_the_existing_fail(release_core: Path) -
         ] == [("app.src.a.a_x2e_ts", "app.src.b.t_x2e_ts", "resolved", 1, ["REQUIRES"])]
         assert topology["edges"][0]["evidence"] == [{"path": "src/a/a.ts", "line": 1}]
         assert "topology" not in original
+
+
+def without_section(stdout: str) -> str:
+    """The raw text of a frame without its `topology` member and the comma that joins it."""
+    key = '"topology":'
+    start = stdout.index(key)
+    value = start + len(key)
+    while stdout[value] == " ":
+        value += 1
+    _, end = json.JSONDecoder().raw_decode(stdout, value)
+    if stdout[end] == ",":
+        end += 1
+        while stdout[end] == " ":
+            end += 1
+    elif stdout[start - 1] == ",":
+        start -= 1
+    return stdout[:start] + stdout[end:]
 
 
 def topology_frame(binary: Path, root: Path) -> dict:
@@ -181,3 +200,134 @@ def test_a_requested_but_absent_section_is_refused(release_core: Path) -> None:
         frame.pop("topology")
         with pytest.raises(CoreError, match="requested topology"):
             read_frame(json.dumps(frame).encode(), 0, scan=True, request={"topology": True})
+
+
+def planned_owner(root: Path, document: dict) -> None:
+    document["schema_version"] = "2.4.0"
+    document["components"].append(
+        {
+            "id": "COMP-P",
+            "label": "p",
+            "role": "component",
+            "lifecycle": "planned",
+            "packages": [],
+            "planned": ["app.src.p"],
+            "responsibilities": ["Plan p."],
+            "forbidden_responsibilities": [],
+            "provenance": ["README.md"],
+            "requires": [],
+            "decided_by": "architect",
+        }
+    )
+
+
+def two_claimants(root: Path, document: dict) -> None:
+    second = json.loads(json.dumps(document["components"][0]))
+    second.update(id="COMP-A2", label="a2")
+    document["components"].append(second)
+
+
+def node_import(root: Path, document: dict) -> None:
+    (root / "src/a/a.ts").write_text(
+        'import { readFileSync } from "node:fs";\nexport const a = readFileSync;\n'
+    )
+
+
+def topology_after(binary: Path, change: Callable[[Path, dict], None]) -> dict:
+    with case_root(HONEST) as root:
+        contract = root / "architecture-contract.json"
+        document = json.loads(contract.read_text())
+        change(root, document)
+        contract.write_text(json.dumps(document))
+        return topology_frame(binary, root)
+
+
+def test_a_planned_owner_is_listed_as_planned_and_owns_no_module(release_core: Path) -> None:
+    frame = topology_after(release_core, planned_owner)
+    topology = frame["topology"]
+    assert [(c["id"], c["planned"]) for c in topology["components"]] == [
+        ("COMP-A", False),
+        ("COMP-B", False),
+        ("COMP-P", True),
+    ]
+    assert {m["component"] for m in topology["modules"]} == {"COMP-A", "COMP-B"}
+    # The run is UNKNOWN, and the section still says complete: it covers scope and budgets only.
+    assert frame["status"] == "UNKNOWN" and topology["complete"] and not topology["gaps"]
+
+
+def test_a_module_with_two_claimants_is_ambiguous(release_core: Path) -> None:
+    topology = topology_after(release_core, two_claimants)["topology"]
+    assert [(m["ownership"], m["component"]) for m in topology["modules"]] == [
+        ("ambiguous", None),
+        ("owned", "COMP-B"),
+    ]
+
+
+def test_an_external_import_is_an_external_edge_with_a_pseudo_component_target(
+    release_core: Path,
+) -> None:
+    topology = topology_after(release_core, node_import)["topology"]
+    assert [(e["target"], e["resolution"]) for e in topology["edges"]] == [("node:fs", "external")]
+    assert [(e["source"], e["target"], e["resolution"]) for e in topology["component_edges"]] == [
+        ("COMP-A", "external", "external")
+    ]
+
+
+def test_module_names_are_unique_in_a_real_frame_and_a_repeat_is_refused(
+    release_core: Path,
+) -> None:
+    with case_root(HONEST) as root:
+        tree(root)
+        frame = topology_frame(release_core, root)
+    names = [m["name"] for m in frame["topology"]["modules"]]
+    assert len(names) == len(set(names)) > 1
+    frame["topology"]["modules"].append(dict(frame["topology"]["modules"][0]))
+    frame["topology"]["total"]["modules"] += 1
+    with pytest.raises(CoreError, match="repeated"):
+        read_frame(json.dumps(frame).encode(), 0, scan=True)
+
+
+@pytest.mark.parametrize("level", ["edges", "component_edges"])
+@pytest.mark.parametrize("end", ["source", "target"])
+def test_an_edge_that_names_no_listed_row_is_refused(
+    release_core: Path, level: str, end: str
+) -> None:
+    with case_root(HONEST) as root:
+        (root / "src/a/a.ts").write_text(
+            'import type { T } from "../b/t";\nexport const a: T = 1;\n'
+        )
+        frame = topology_frame(release_core, root)
+    frame["topology"][level][0][end] = "NOT-LISTED"
+    with pytest.raises(CoreError, match="names no listed"):
+        read_frame(json.dumps(frame).encode(), 0, scan=True)
+
+
+def test_an_edge_may_name_a_row_beyond_a_truncated_list(release_core: Path) -> None:
+    with case_root(HONEST) as root:
+        (root / "src/a/a.ts").write_text(
+            'import type { T } from "../b/t";\nexport const a: T = 1;\n'
+        )
+        frame = topology_frame(release_core, root)
+    topology = frame["topology"]
+    limit = topology["budgets"]["modules"]
+    template = topology["modules"][0]
+    topology["modules"] = [
+        {
+            **template,
+            "name": f"m{index}",
+            "path": f"p{index}",
+            "component": None,
+            "ownership": "unowned",
+        }
+        for index in range(limit)
+    ]
+    topology["total"]["modules"] = limit + 1
+    topology["truncated"], topology["complete"] = True, False
+    topology["gaps"] = [] if frame["scope"] == "complete" else [frame["scope"]]
+    topology["edges"][0]["source"] = "cut-away-module"
+    assert read_frame(json.dumps(frame).encode(), 0, scan=True).topology is not None
+    topology["total"]["modules"] = limit
+    topology["truncated"] = False
+    topology["complete"] = not topology["gaps"]
+    with pytest.raises(CoreError, match="names no listed"):
+        read_frame(json.dumps(frame).encode(), 0, scan=True)

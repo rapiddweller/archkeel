@@ -149,6 +149,35 @@ def _edge(value: object, rules: Mapping[str, object]) -> Edge:
     )
 
 
+# A component edge names a component or one of these labels, never a module.
+_OWNER_LABELS: Final = frozenset({"unowned", "ambiguous"})
+_TARGET_LABELS: Final = _OWNER_LABELS | {resolution.value for resolution in Resolution}
+
+
+def _check_references(topology: "Topology") -> None:
+    """Each edge end names a listed row. A list that the budget cut can omit the row.
+
+    A module edge starts at a module; it ends at a module, or at the outside name of an external or
+    unresolved import. A component edge starts at a component or `unowned` or `ambiguous`; it ends at
+    a component or at one of those labels or a resolution name (the fallback of the core)."""
+    components = {item.id for item in topology.components}
+    modules = {item.name for item in topology.modules}
+    cut_components = topology.total["components"] > len(components)
+    cut_modules = topology.total["modules"] > len(modules)
+    for edge in topology.edges:
+        local = edge.resolution is Resolution.RESOLVED
+        if not cut_modules and (
+            edge.source not in modules or (local and edge.target not in modules)
+        ):
+            raise CoreError("topology: a module edge names no listed module")
+    for edge in topology.component_edges:
+        if not cut_components and (
+            edge.source not in components | _OWNER_LABELS
+            or edge.target not in components | _TARGET_LABELS
+        ):
+            raise CoreError("topology: a component edge names no listed component")
+
+
 def read_topology(value: object, scope: str, rules: Mapping[str, object]) -> Topology:
     row = _fields(
         value,
@@ -202,6 +231,7 @@ def read_topology(value: object, scope: str, rules: Mapping[str, object]) -> Top
         tuple(_edge(item, rules) for item in lists["edges"]),
         tuple(_edge(item, rules) for item in lists["component_edges"]),
     )
+    _check_references(topology)
     for items in (topology.components, topology.modules, topology.edges, topology.component_edges):
         keys = [item.name if isinstance(item, Module) else item.id for item in items]
         if len(set(keys)) != len(keys):
