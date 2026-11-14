@@ -41,7 +41,7 @@ fn a_link_out_of_the_root_and_an_unreadable_directory_are_gaps() {
         "scope": {"roots": ["lib"], "namespace": "shop"},
         "resolver": {"language": "dart"},
     });
-    let request = crate::decode(request.to_string().as_bytes()).unwrap();
+    let request = crate::import_survey::reply::decode(request.to_string().as_bytes()).unwrap();
     let found = survey(&request);
     std::fs::set_permissions(&closed, std::fs::Permissions::from_mode(0o755)).unwrap();
     let found = found.unwrap();
@@ -62,7 +62,9 @@ fn a_source_that_is_not_utf8_is_a_gap_and_has_no_module() {
         "scope": {"roots": ["lib"], "namespace": "shop"},
         "resolver": {"language": "dart"},
     });
-    let found = survey(&crate::decode(request.to_string().as_bytes()).unwrap()).unwrap();
+    let found =
+        survey(&crate::import_survey::reply::decode(request.to_string().as_bytes()).unwrap())
+            .unwrap();
     assert_eq!(
         gaps(&found).get("SyntaxError"),
         Some(&1),
@@ -82,6 +84,8 @@ fn a_request_that_excludes_test_sources_is_refused() {
         "scope": {"roots": ["lib"], "namespace": "shop", "exclude_test_sources": true},
         "resolver": {"language": "dart"},
     });
-    let refused = survey(&crate::decode(request.to_string().as_bytes()).unwrap()).unwrap_err();
+    let refused =
+        survey(&crate::import_survey::reply::decode(request.to_string().as_bytes()).unwrap())
+            .unwrap_err();
     assert!(refused.contains("exclude_test_sources"), "{refused}");
 }

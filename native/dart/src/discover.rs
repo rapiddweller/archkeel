@@ -15,6 +15,15 @@ use archkeel_snapshot::{Entry, RootCheck, Snapshot};
 use crate::module::dart_module_name;
 use crate::pubspec::{self, Pubspec, SdkState};
 
+/// The files that can change the package of a URI. The import survey names each one that the
+/// walk sees, because it resolves URIs from the root `pubspec.yaml` alone (AD-450).
+pub(crate) const PACKAGE_FILES: [&str; 4] = [
+    "pubspec.yaml",
+    "pubspec_overrides.yaml",
+    "package_config.json",
+    ".packages",
+];
+
 /// One file or directory that the collector cannot read as a Dart source.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Problem {
@@ -37,6 +46,8 @@ pub(crate) struct Source {
 /// The sources, the package identity and the problems of one request.
 #[derive(Debug)]
 pub(crate) struct Discovery {
+    /// Each package file of `PACKAGE_FILES` that the walk saw below a scan root (AD-450).
+    pub(crate) package_files: Vec<String>,
     /// Sorted by path.
     pub(crate) sources: Vec<Source>,
     /// Empty when the snapshot root has no `pubspec.yaml`.
@@ -46,18 +57,7 @@ pub(crate) struct Discovery {
     /// The SHA-256 of `pubspec.yaml`, when it exists.
     pub(crate) pubspec_digest: Option<String>,
     pub(crate) problems: Vec<Problem>,
-    /// Each package file of `PACKAGE_FILES` that the walk saw below a scan root (AD-450).
-    pub(crate) package_files: Vec<String>,
 }
-
-/// The files that can change the package of a URI. The import survey names each one that the
-/// walk sees, because it resolves URIs from the root `pubspec.yaml` alone (AD-450).
-pub(crate) const PACKAGE_FILES: [&str; 4] = [
-    "pubspec.yaml",
-    "pubspec_overrides.yaml",
-    "package_config.json",
-    ".packages",
-];
 
 // `.dart_tool`, `pubcache` and `.pub-cache` hold generated and cached files, never project code.
 const EXCLUDED: [&str; 3] = [".dart_tool", "pubcache", ".pub-cache"];

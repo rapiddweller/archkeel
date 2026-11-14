@@ -6,18 +6,16 @@
 //! or of an owned part gives one record for each URI: the default URI and each conditional
 //! alternative. A URI that gives no proven target gives a named gap and no record.
 
-use archkeel_facts::data::ImportData;
-use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{package_of, stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::vocab::{Area, EvidenceClass};
-use archkeel_facts::{ImportFact, Record};
+use archkeel_facts::{data::ImportData, envelope::Target, ImportFact, Record};
 use archkeel_snapshot::Snapshot;
 
+use super::index::{Index, Kind, Located, Owners};
 use super::names::{GapName, Gaps, Place};
 use super::parts::{directives, missing};
 use super::uri::{classify, Uri};
-use super::{Index, Kind, Located, Owners};
 use crate::discover::Source;
 use crate::records::cite;
 use crate::syntax::{Directive, DirectiveKind};

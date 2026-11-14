@@ -24,7 +24,9 @@ fn surveyed(fixture: &str, namespace: &str) -> (usize, usize, usize, BTreeMap<St
         "scope": {"roots": ["lib"], "namespace": namespace},
         "resolver": {"language": "dart"},
     });
-    let found = survey(&crate::decode(request.to_string().as_bytes()).unwrap()).unwrap();
+    let found =
+        survey(&crate::import_survey::reply::decode(request.to_string().as_bytes()).unwrap())
+            .unwrap();
     assert_eq!(found.imports.len(), edge_rows(&found).len());
     let gaps = gap_rows(&found);
     (

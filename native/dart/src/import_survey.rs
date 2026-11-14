@@ -11,12 +11,12 @@
 //! `unknowns` only.
 
 mod edges;
+mod index;
 mod names;
 mod package;
 mod parts;
+pub(crate) mod reply;
 mod uri;
-
-use std::collections::{BTreeMap, HashMap};
 
 use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Target};
 use archkeel_facts::ids::{FactId, ModuleName};
@@ -24,11 +24,12 @@ use archkeel_facts::request::DartRequest;
 use archkeel_facts::{GapFact, ImportFact, Record};
 use archkeel_snapshot::Snapshot;
 
-use crate::discover::{discover, scan_roots, Discovery, Source};
+use crate::discover::{discover, scan_roots, Discovery};
 use crate::parse::DartParser;
 use crate::pytext::is_blank;
 use crate::records::{discovery_gaps, file_evidence, inputs, parse_gaps, pattern};
-use crate::syntax::{DirectiveKind, Syntax};
+use crate::syntax::DirectiveKind;
+use index::{Index, Kind};
 pub use names::{GapName, NamedGap};
 use names::{Gaps, Place};
 
@@ -66,44 +67,6 @@ pub struct Survey {
     pub evidence: Vec<Evidence>,
 }
 
-/// What the survey knows of one selected source.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Kind {
-    /// A library with a unique module: it gets a file fact.
-    Library,
-    /// A source with `part of`.
-    Part,
-    /// A source without a proven module: a syntax error, the parse budget or a module collision.
-    Unknown,
-}
-
-/// The selected sources of one survey with their parse and their kind.
-pub(crate) struct Index<'a> {
-    pub(crate) package: &'a str,
-    pub(crate) sources: &'a [Source],
-    pub(crate) syntax: Vec<Option<Syntax>>,
-    pub(crate) kinds: Vec<Kind>,
-    by_rel: HashMap<&'a str, usize>,
-}
-
-/// Where a local path is.
-pub(crate) enum Located {
-    Source(usize),
-    NotSelected,
-    Missing,
-}
-
-impl Index<'_> {
-    /// The selected source at `rel`, or whether a file that is not selected exists there.
-    pub(crate) fn locate(&self, snapshot: &mut Snapshot, rel: &str) -> Located {
-        match self.by_rel.get(rel) {
-            Some(index) => Located::Source(*index),
-            None if snapshot.is_file(rel) || snapshot.is_link(rel) => Located::NotSelected,
-            None => Located::Missing,
-        }
-    }
-}
-
 /// The survey of `request`. An error is a refusal of the whole request, never a partial survey.
 pub fn survey(request: &DartRequest) -> Result<Survey, String> {
     if request.excludes_test_sources() {
@@ -115,7 +78,7 @@ pub fn survey(request: &DartRequest) -> Result<Survey, String> {
     let mut gaps = Gaps::default();
     discovery_gaps(&found, &mut gaps.evidence, &mut gaps.records);
     package::package_gaps(&mut snapshot, &found, &mut gaps);
-    let index = index(&found, &mut gaps)?;
+    let index = parse_sources(&found, &mut gaps)?;
     let owners = parts::owners(&mut snapshot, &index, &mut gaps);
     let built = edges::edges(&mut snapshot, &index, &owners, &mut gaps);
     let files = file_facts(&index, &mut gaps);
@@ -154,7 +117,7 @@ pub fn survey(request: &DartRequest) -> Result<Survey, String> {
 
 /// Parse the directives of each source within the budget and give each source its kind. The
 /// parse gaps are added to `gaps`; a concern of a URI that is not a plain string gets its name.
-fn index<'a>(found: &'a Discovery, gaps: &mut Gaps) -> Result<Index<'a>, String> {
+fn parse_sources<'a>(found: &'a Discovery, gaps: &mut Gaps) -> Result<Index<'a>, String> {
     let mut parser = DartParser::new()?;
     let collided: Vec<&str> = found
         .problems
@@ -258,8 +221,8 @@ pub(crate) fn edge_rows(found: &Survey) -> Vec<String> {
 
 /// The count of the gaps by survey name, or by problem kind for a gap without a name.
 #[cfg(any(test, feature = "dump"))]
-pub(crate) fn gap_rows(found: &Survey) -> BTreeMap<String, usize> {
-    let mut rows = BTreeMap::new();
+pub(crate) fn gap_rows(found: &Survey) -> std::collections::BTreeMap<String, usize> {
+    let mut rows = std::collections::BTreeMap::new();
     for record in &found.unknowns {
         let named = found.named.iter().find(|gap| gap.id == record.id);
         let key = match (named, &record.data) {
@@ -272,17 +235,14 @@ pub(crate) fn gap_rows(found: &Survey) -> BTreeMap<String, usize> {
     rows
 }
 
-/// The owner of each owned part, keyed by the index of the part.
-pub(crate) type Owners = BTreeMap<usize, usize>;
-
 #[cfg(test)]
-#[path = "survey/survey_tests.rs"]
+#[path = "import_survey/survey_tests.rs"]
 mod tests;
 
 #[cfg(test)]
-#[path = "survey/fixture_tests.rs"]
+#[path = "import_survey/fixture_tests.rs"]
 mod fixture_tests;
 
 #[cfg(test)]
-#[path = "survey/plant_tests.rs"]
+#[path = "import_survey/plant_tests.rs"]
 mod plant_tests;

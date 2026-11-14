@@ -5,12 +5,12 @@
 // Consumer: `archkeel-collect`, which will call `typed_reply` in the process of the core as it
 // calls the TypeScript and Rust collectors (AD-406, AD-450).
 
-use archkeel_facts::envelope::{Profile, SectionName};
+use archkeel_facts::envelope::{Profile, Provenance, SectionName};
 use archkeel_snapshot::test_tree::Tree;
 use archkeel_wire::protocol::reply_version;
 use serde_json::json;
 
-use super::{decode, provenance, typed_reply};
+use super::{decode, typed_reply};
 
 fn reply_of(files: &[(&str, &str)]) -> archkeel_facts::envelope::Reply {
     let tree = Tree::new(files);
@@ -21,9 +21,10 @@ fn reply_of(files: &[(&str, &str)]) -> archkeel_facts::envelope::Reply {
         "resolver": {"language": "dart"},
     });
     let request = decode(request.to_string().as_bytes()).unwrap();
+    let provenance = Provenance::native(Profile::Dart, ("0.0.0", "test"), ("rustc", "1.97"));
     typed_reply(
         &request,
-        provenance(),
+        provenance,
         reply_version(request.protocol_version),
     )
     .unwrap()

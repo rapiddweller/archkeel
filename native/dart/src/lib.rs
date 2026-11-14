@@ -29,8 +29,7 @@ mod declarations;
 mod definitions;
 mod directives;
 mod discover;
-#[cfg(feature = "dump")]
-pub mod dump;
+mod import_survey;
 mod members;
 mod module;
 mod nesting;
@@ -41,81 +40,17 @@ mod pytext;
 mod records;
 mod sdk;
 mod sites;
-mod survey;
 mod syntax;
 mod tree;
 mod unicode_tables;
 mod work;
 
-use archkeel_facts::envelope::{Profile, Provenance, Reply};
-use archkeel_facts::request::DartRequest;
-use archkeel_facts::{GapFact, ImportFact};
-use archkeel_wire::protocol::Version;
-use archkeel_wire::stream::{Head, SectionSink, Tail};
+// The test-only dump of the parity tools; the release build has no dump (AD-323).
+#[cfg(feature = "dump")]
+pub mod dump;
 
-pub use survey::{survey, GapName, NamedGap, PartOwner, Survey, PARSE_BUDGET_BYTES};
-
-/// The sections of the survey reply, in their order. No other section is collected.
-pub const SURVEY_SECTIONS: [&str; 2] = ["imports", "unknowns"];
-
-/// The test features of this build. The release build has none.
-pub const TEST_FEATURES: &[&str] = if cfg!(feature = "dump") {
-    &["dump"]
-} else {
-    &[]
-};
-
-/// The provenance of this build: the collector of the Dart profile with the code digest of the
-/// workspace.
-pub fn provenance() -> Provenance {
-    Provenance::native(
-        Profile::Dart,
-        (env!("ARCHKEEL_VERSION"), env!("ARCHKEEL_CODE_DIGEST")),
-        (
-            env!("ARCHKEEL_RUSTC_VERSION"),
-            env!("CARGO_PKG_RUST_VERSION"),
-        ),
-    )
-}
-
-/// Decode a Dart request with the shared wire, as the binary reads it on stdin.
-pub fn decode(payload: &[u8]) -> Result<DartRequest, String> {
-    archkeel_wire::request::decode_dart(payload)
-}
-
-/// The typed reply of one request: the survey with the sections `imports` and `unknowns`.
-pub fn typed_reply(
-    request: &DartRequest,
-    provenance: Provenance,
-    version: Version,
-) -> Result<Reply, String> {
-    let found = survey(request)?;
-    let head = Head {
-        provenance,
-        git_head: request.snapshot.git_head.clone(),
-        dirty: serde_json::to_value(&request.snapshot.dirty).map_err(|error| error.to_string())?,
-        scope: found.scope,
-        sections: SURVEY_SECTIONS.to_vec(),
-        features: Vec::new(),
-        constructs: Vec::new(),
-        inputs: found.inputs,
-        source_digest: None,
-        files: found.files,
-        imports: found.targets,
-    };
-    let imports = found.imports;
-    let tail = Tail {
-        selected_files: found.coverage.selected_files,
-        files_read: usize::try_from(found.coverage.files_read).map_err(|e| e.to_string())?,
-        gaps: found.unknowns,
-        evidence: found.evidence,
-    };
-    archkeel_wire::typed::assemble(version, head, |writer| {
-        writer.write_typed_section::<ImportFact>(|emit| imports.iter().for_each(emit))?;
-        writer.write_typed_section::<GapFact>(|emit| tail.gaps.iter().for_each(emit))?;
-        Ok(tail)
-    })
-}
+pub use import_survey::reply::{decode, typed_reply, SURVEY_SECTIONS};
+pub use import_survey::{survey, GapName, NamedGap, PartOwner, Survey, PARSE_BUDGET_BYTES};
 
 #[cfg(test)]
 #[path = "lib_tests.rs"]

@@ -117,13 +117,13 @@ pub fn survey(arguments: &[String]) -> Result<String, String> {
         "scope": {"roots": roots, "namespace": namespace},
         "resolver": {"language": "dart"},
     });
-    let request = crate::decode(request.to_string().as_bytes())?;
-    let found = crate::survey(&request)?;
+    let request = crate::import_survey::reply::decode(request.to_string().as_bytes())?;
+    let found = crate::import_survey::survey(&request)?;
     let value = json!({
         "files": found.files.len(),
         "parts": found.parts.len(),
-        "edges": crate::survey::edge_rows(&found),
-        "gaps": crate::survey::gap_rows(&found),
+        "edges": crate::import_survey::edge_rows(&found),
+        "gaps": crate::import_survey::gap_rows(&found),
     });
     serde_json::to_string(&value).map_err(|error| error.to_string())
 }

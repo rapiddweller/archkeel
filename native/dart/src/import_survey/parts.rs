@@ -10,9 +10,9 @@ use std::collections::BTreeMap;
 
 use archkeel_snapshot::Snapshot;
 
+use super::index::{Index, Kind, Located, Owners};
 use super::names::{GapName, Gaps, Place};
 use super::uri::{classify, generated, Uri};
-use super::{Index, Kind, Located, Owners};
 use crate::syntax::{Directive, DirectiveKind};
 
 /// The owner of each part that has one. The claims of the libraries are read first.

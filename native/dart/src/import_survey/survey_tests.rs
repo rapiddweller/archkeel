@@ -22,7 +22,7 @@ pub(crate) fn run_roots(files: &[(&str, &str)], roots: &[&str]) -> Survey {
         "scope": {"roots": roots, "namespace": "shop"},
         "resolver": {"language": "dart"},
     });
-    let request = crate::decode(request.to_string().as_bytes()).unwrap();
+    let request = crate::import_survey::reply::decode(request.to_string().as_bytes()).unwrap();
     survey(&request).unwrap()
 }
 
@@ -431,4 +431,17 @@ fn gaps_and_coverage_hold_the_same_records() {
     assert_eq!(found.coverage.gaps, found.unknowns);
     assert_eq!(found.named.len(), 1);
     assert_eq!(found.coverage.selected_files, ["lib/a.dart"]);
+}
+
+#[test]
+fn the_decision_record_names_each_gap() {
+    let record = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+        "../../docs/architecture/decisions/\
+         ad-450-the-native-dart-import-survey-resolves-one-package-and-names-each-gap.md",
+    );
+    let text = std::fs::read_to_string(record).unwrap();
+    for name in super::GapName::ALL {
+        let row = format!("| `{}` |", name.as_str());
+        assert!(text.contains(&row), "{row}");
+    }
 }

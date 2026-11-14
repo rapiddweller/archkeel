@@ -17,9 +17,30 @@ use crate::discover::Source;
 use crate::records::{cite, gap};
 use crate::syntax::Span;
 
-/// Each case that the survey does not prove. A gap keeps the scope UNKNOWN.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum GapName {
+/// The closed vocabulary of the gap names: each name is the text of its variant.
+macro_rules! gap_names {
+    ($($name:ident),+ $(,)?) => {
+        /// Each case that the survey does not prove. A gap keeps the scope UNKNOWN.
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        pub enum GapName {
+            $($name),+
+        }
+
+        impl GapName {
+            /// Each name, in the order of the declaration.
+            pub const ALL: &'static [Self] = &[$(Self::$name),+];
+
+            /// The name as the gap message starts with it.
+            pub fn as_str(self) -> &'static str {
+                match self {
+                    $(Self::$name => stringify!($name)),+
+                }
+            }
+        }
+    };
+}
+
+gap_names! {
     DartTargetMissing,
     DartTargetNotSelected,
     DartTargetOutside,
@@ -39,46 +60,6 @@ pub enum GapName {
 }
 
 impl GapName {
-    pub const ALL: [Self; 16] = [
-        Self::DartTargetMissing,
-        Self::DartTargetNotSelected,
-        Self::DartTargetOutside,
-        Self::DartTargetIsPart,
-        Self::DartTargetUnparsed,
-        Self::DartUnsupportedUri,
-        Self::DartUriNotLiteral,
-        Self::DartMirrors,
-        Self::DartPartUnowned,
-        Self::DartPartNotPart,
-        Self::DartPartConflict,
-        Self::DartWorkspace,
-        Self::DartPathDependency,
-        Self::DartNestedPackage,
-        Self::DartPackageConfig,
-        Self::DartParseBudget,
-    ];
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::DartTargetMissing => "DartTargetMissing",
-            Self::DartTargetNotSelected => "DartTargetNotSelected",
-            Self::DartTargetOutside => "DartTargetOutside",
-            Self::DartTargetIsPart => "DartTargetIsPart",
-            Self::DartTargetUnparsed => "DartTargetUnparsed",
-            Self::DartUnsupportedUri => "DartUnsupportedUri",
-            Self::DartUriNotLiteral => "DartUriNotLiteral",
-            Self::DartMirrors => "DartMirrors",
-            Self::DartPartUnowned => "DartPartUnowned",
-            Self::DartPartNotPart => "DartPartNotPart",
-            Self::DartPartConflict => "DartPartConflict",
-            Self::DartWorkspace => "DartWorkspace",
-            Self::DartPathDependency => "DartPathDependency",
-            Self::DartNestedPackage => "DartNestedPackage",
-            Self::DartPackageConfig => "DartPackageConfig",
-            Self::DartParseBudget => "DartParseBudget",
-        }
-    }
-
     /// The protocol kind of the gap record: the nearest existing Dart problem kind.
     fn exception(self) -> ExceptionName {
         match self {
