@@ -198,8 +198,11 @@ def test_a_dependency_is_an_edge_to_a_crate_of_the_workspace_only_with_a_path(
 def test_a_patch_table_keeps_the_name_of_the_workspace_as_an_edge(
     tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # `[patch.crates-io]` can point the registry name at the path of the crate: not known to be remote.
-    patch = '[workspace]\nmembers = ["base", "app"]\n[patch.crates-io]\nbase-crate = { path = "base" }\n'
+    # `[patch.crates-io]` can point the registry name at the path of the crate.
+    patch = (
+        '[workspace]\nmembers = ["base", "app"]\n'
+        '[patch.crates-io]\nbase-crate = { path = "base" }\n'
+    )
     files = {"crates/app/Cargo.toml": REGISTRY_APP, "crates/Cargo.toml": patch, **UNUSED}
     result = validate(repository(tmp_path, core_binary, files, components=NO_REQUIRES), capsys)
 
@@ -220,7 +223,7 @@ def test_a_workspace_dependency_that_the_workspace_does_not_list_gives_a_gap(
 def test_a_byte_order_mark_at_the_start_of_a_manifest_is_read(
     tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    base = "﻿[package]\nname = \"base-crate\"\nversion = \"0.0.0\"\nedition = \"2021\"\n"
+    base = '﻿[package]\nname = "base-crate"\nversion = "0.0.0"\nedition = "2021"\n'
     result = validate(repository(tmp_path, core_binary, {"crates/base/Cargo.toml": base}), capsys)
 
     assert result["status"] == "PASS", claims(result)
