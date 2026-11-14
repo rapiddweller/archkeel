@@ -222,7 +222,9 @@ GAPS = {
         "src/app/client.py": "from importlib import import_module as load\nload('app.service')\n"
     },
     "dynamic_import#value": {
-        "src/app/client.py": "import importlib\nload = importlib.import_module\nload('app.service')\n"
+        "src/app/client.py": (
+            "import importlib\nload = importlib.import_module\nload('app.service')\n"
+        )
     },
     "dynamic_import#getattr": {
         "src/app/client.py": "import importlib\ngetattr(importlib, 'import_' + 'module')('x')\n"
@@ -296,7 +298,10 @@ def test_an_unreadable_entry_gives_no_pass(release_core: Path, tmp_path: Path, e
         "TYPE_CHECKING = False\nif TYPE_CHECKING:\n    import app.service\n",
         "from config import TYPE_CHECKING\nif TYPE_CHECKING:\n    import app.service\n",
         "from typing import TYPE_CHECKING\nif not TYPE_CHECKING:\n    import app.service\n",
-        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    pass\nelse:\n    import app.service\n",
+        (
+            "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    pass\n"
+            "else:\n    import app.service\n"
+        ),
     ],
 )
 def test_a_look_alike_type_checking_guard_is_a_runtime_edge(
