@@ -1,4 +1,4 @@
-# AD-448 Report topology is an opt-in, bounded display of the same run
+# AD-452 Report topology is an opt-in, bounded display of the same run
 
 **Status.** Proposed. Part of #880. It extends AD-422 and AD-432.
 
