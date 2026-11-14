@@ -83,8 +83,11 @@ def test_the_showcase_lists_every_matrix_entry_with_commit_and_time(tmp_path: Pa
     assert all(f"<td>{name}</td>" in page for name in names)
     assert "abc123" in page
     assert "2026-11-14 02:17 UTC" in page
-    assert "<script" not in page
+    assert page.count("<script>") == 1 and "src=" not in page
+    assert 'data-ak-theme="light"' in page and "--surface-0" in page
     assert 'href="../index.html"' in page
+    assert re.findall(r'<p class="caption">(\d+) runs?</p>', page)
+    assert sum(map(int, re.findall(r'<p class="caption">(\d+) runs?</p>', page))) == len(names)
 
 
 def test_a_served_row_shows_the_counts_and_links_to_both_reports(tmp_path: Path) -> None:
@@ -141,7 +144,7 @@ def test_dynamic_text_is_escaped_in_the_index() -> None:
     row = {"run": {"name": "x<y", "language": "a&b"}, "links": [("HTML", 'p"q/report.html')]}
     row["error"] = "<script>alert(1)</script>"
     page = report_gallery.index([row], "sha<1>", "now&then")
-    assert "<script>" not in page
+    assert "<script>alert" not in page and page.count("<script>") == 1
     assert "x&lt;y" in page
     assert "a&amp;b" in page
     assert "sha&lt;1&gt;" in page

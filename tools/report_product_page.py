@@ -16,7 +16,7 @@ import html
 from collections.abc import Sequence
 from pathlib import Path
 
-from tools.report_product import LISTED_LIMIT, STATUSES, Part, Tile, worst
+from tools.report_product import LISTED_LIMIT, STATUSES, Contract, Part, Tile, worst
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "native" / "report" / "assets"
@@ -255,8 +255,38 @@ def footer(parts: Sequence[Part], commit: str, built_at: str) -> str:
     return f'<footer class="rp-foot"><dl class="rp-kv">{body}</dl></footer>'
 
 
+def contracts_section(contracts: Sequence[Contract]) -> str:
+    """One line for each other own contract: verdict, title and the PASS/FAIL/UNKNOWN counts."""
+    if not contracts:
+        return ""
+    rows = ""
+    for item in contracts:
+        if item.status:
+            numbers = "/".join(str(item.counts[name]) for name in STATUSES)
+            rows += (
+                f'<tr><td>{badge(item.status)}</td><td class="body-sm">{esc(item.title)}</td>'
+                f'<td class="code ak-num">{numbers}</td></tr>'
+            )
+        else:
+            rows += (
+                f"<tr><td>{badge('UNKNOWN', 'NO RESULT')}</td>"
+                f'<td class="body-sm">{esc(item.title)}</td>'
+                f'<td class="body-sm">{esc(item.error)}</td></tr>'
+            )
+    return (
+        '<section class="rp-sec" aria-labelledby="others">'
+        '<h2 class="h2" id="others">Other contracts</h2>'
+        '<p class="body-sm rp-lede">Counts are PASS/FAIL/UNKNOWN.</p>'
+        f'<table class="rp-mini rp-sum"><tbody>{rows}</tbody></table></section>'
+    )
+
+
 def product_page(
-    parts: Sequence[Part], ids: dict[str, frozenset[str]], commit: str, built_at: str
+    parts: Sequence[Part],
+    ids: dict[str, frozenset[str]],
+    commit: str,
+    built_at: str,
+    contracts: Sequence[Contract] = (),
 ) -> str:
     """The product page. `ids` holds, for each part, the ids of the report that the CLI wrote."""
     count = len(parts)
@@ -276,6 +306,7 @@ def product_page(
         '<p class="body-sm rp-lede">The exceptions of each run. A number opens its evidence in '
         "the report of the part.</p>"
         f'<div class="rp-duo">{verdicts}</div></section>'
+        f"{contracts_section(contracts)}"
         f"{footer(parts, commit, built_at)}"
     )
     return shell("ArchKeel as a product", "Report · ArchKeel as a product", body)
