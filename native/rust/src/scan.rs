@@ -71,10 +71,19 @@ pub(crate) fn scan(
         },
     };
     visitor.walker.out.gated_file = !receivers::module_inert(&file.attrs);
+    let safety = path_safety::read(&file, exclude_tests);
+    visitor.walker.out.generic_paths = safety.generic_paths;
+    visitor.walker.out.conditional_use = safety.conditional_use;
+    visitor.walker.out.conditional_bindings = safety.conditional_bindings;
+    visitor.walker.out.conditional_globs = safety.conditional_globs;
+    visitor.walker.out.restricted_bindings = safety.restricted_bindings;
     visitor.visit_file(&file);
     attributes::finish(&mut visitor.walker);
     Ok(visitor.walker.out)
 }
+
+#[path = "scan_path_safety.rs"]
+mod path_safety;
 
 /// The walk of a file: the state that the files below fill, and the visit of the syntax tree.
 struct Visitor<'a> {

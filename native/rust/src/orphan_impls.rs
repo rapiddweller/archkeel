@@ -51,7 +51,7 @@ fn in_blocks(home: &Module, found: &TraitImpl, path: &[String]) -> Option<bool> 
 /// (a struct, enum or union as `Form::Struct` or `Form::Enum`, or a trait).
 fn defined(index: &Index<'_>, home: &Module, found: &TraitImpl, path: &[String]) -> Option<Form> {
     let frame = index.frame(&home.module)?;
-    let TypeOf::Known(lexical, name) = index.type_of(frame, &found.scope, path) else {
+    let TypeOf::Known(lexical, name) = index.local_type_of(frame, &found.scope, path) else {
         return None;
     };
     if index.file_of(&lexical) != Some(home.module.as_str()) {
