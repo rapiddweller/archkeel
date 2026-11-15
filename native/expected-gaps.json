@@ -412,16 +412,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_typescript_collector.definitions",
-      "A method call may reach the method supported_constructor of an impl block in native.archkeel_typescript_collector.constructors"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.exports",
-      "A method call may reach the method valid_unicode_member_name of an impl block in native.archkeel_typescript_collector.constructors"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_typescript_collector.script",
       "A method call may reach the method aliases of an impl block in native.archkeel_typescript_collector.script_alias"
     ],

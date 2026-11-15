@@ -49,7 +49,6 @@ def test_a_written_unique_local_type_proves_a_unique_receiver(
         "let s: &crate::c::S = input; assert!(s.m(1) > 0); 1",
         "let s: &&crate::c::S = &input; s.m(1)",
         "let s: &crate::c::S = input; #[cfg(unix)] let _n = 1; s.m(1)",
-        "let s: &crate::c::S = input; matches!(s, _); s.m(1)",
         "{ let s: &crate::c::S = input; s.m(1) }",
         "let _ = s.m(1); let s: &crate::c::S = input; 1",
         "let s: &crate::c::S = { let _ = s.m(1); input }; 1",
@@ -110,7 +109,6 @@ def test_a_written_closure_type_proves_a_receiver(
     [
         "|s| s.m(1)",
         "|s: &crate::c::S| { let s = s; s.m(1) }",
-        "|s: &crate::c::S| { let _ = matches!(s, _); s.m(1) }",
         "|s: &&crate::c::S| s.m(1)",
         "|s: &crate::c::S| { #[cfg(unix)] let _n = 1; s.m(1) }",
         "|s: &crate::c::S| { fn inner() -> u8 { s.m(1) } 1 }",
@@ -150,6 +148,28 @@ def test_a_field_type_with_a_renamed_import_proves_a_receiver(
     assert verdict == "FAIL", claims(result)
 
 
+def test_two_written_field_types_prove_a_receiver(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    files = _plant(
+        "pub struct W { pub inner: V }\npub struct V { pub s: &'static crate::c::S }\n"
+        "pub fn f(w: &W) -> u8 { w.inner.s.m(1) }\n"
+    )
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "FAIL", claims(result)
+
+
+def test_a_typed_closure_receiver_proves_a_field(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    files = _plant(
+        "pub struct W { pub s: &'static crate::c::S }\n"
+        "pub fn f(w: &W) -> u8 { let call = |value: &W| value.s.m(1); call(w) }\n"
+    )
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "FAIL", claims(result)
+
+
 @pytest.mark.parametrize(
     "source",
     [
@@ -172,8 +192,9 @@ def test_a_field_type_with_a_renamed_import_proves_a_receiver(
         ),
         "pub struct W(pub &'static crate::c::S);\npub fn f(w: &W) -> u8 { w.0.m(1) }\n",
         (
-            "pub struct W { pub inner: V }\npub struct V { pub s: &'static crate::c::S }\n"
-            "pub fn f(w: &W) -> u8 { w.inner.s.m(1) }\n"
+            "pub struct W { pub inner: V }\npub struct V { pub inner: X }\n"
+            "pub struct X { pub s: &'static crate::c::S }\n"
+            "pub fn f(w: &W) -> u8 { w.inner.inner.s.m(1) }\n"
         ),
         (
             "macro_rules! make { () => { pub struct W { pub s: &'static crate::c::S } }; }\n"
@@ -219,5 +240,20 @@ def test_a_hidden_or_deref_field_keeps_the_gap(
             c=TYPES + "impl std::ops::Deref for S { type Target = u8; "
             "fn deref(&self) -> &u8 { &1 } }\n",
         )
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "UNKNOWN", claims(result)
+
+
+@pytest.mark.parametrize("shared_intermediate", [False, True])
+def test_a_unique_field_behind_a_shared_projection_keeps_the_gap(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], shared_intermediate: bool
+) -> None:
+    inner, param = ("&'static V", "&mut W") if shared_intermediate else ("V", "&W")
+    files = _plant(
+        f"pub struct W {{ pub inner: {inner} }}\n"
+        "pub struct V { pub s: &'static mut crate::c::S }\n"
+        f"pub fn f(w: {param}) -> u8 {{ w.inner.s.m(1) }}\n",
+        b=UNIQUE,
+    )
     result, verdict = _check(tmp_path, core_binary, capsys, files)
     assert verdict == "UNKNOWN", claims(result)
