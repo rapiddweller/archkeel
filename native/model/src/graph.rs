@@ -23,6 +23,7 @@ use crate::ids::{Id, ModuleId, PackageId, Table};
 use crate::imports::{self, Import};
 use crate::modules::{self, Module, Package};
 use crate::needs::Needs;
+use crate::gap_effects::{self, Class};
 use crate::observed::{self, Observed};
 use crate::reason::Reason;
 use crate::settings::Settings;
@@ -96,12 +97,20 @@ impl Graph {
             (&module_measured, &module_edges),
             (&package_measured, &package_edges),
         );
+        // AD-564: each gap has one class; the state, the gap rows and the scope facts read it.
+        let names: std::collections::HashSet<&str> =
+            modules.iter().map(|(_, module)| module.name()).collect();
+        let classes = gap_effects::classes(&facts.coverage, |name| names.contains(name));
+        let whole = classes.iter().filter(|c| **c == Class::Whole).count();
+        let observed = observed::observed(facts, &classes);
+        let gaps = crate::gaps::coverage_gaps(&facts.coverage, &classes);
+        drop(names);
         Ok(Graph {
             symbol_counts: symbol_counts(facts, &modules),
             modules,
             packages,
-            incomplete: coverage::incomplete(&facts.coverage, split.unknown),
-            gaps: crate::gaps::coverage_gaps(&facts.coverage),
+            incomplete: coverage::incomplete(&facts.coverage, whole, split.unknown),
+            gaps,
             settings,
             imports: split.imports,
             module_edges,
@@ -109,7 +118,7 @@ impl Graph {
             module_measures: module_measured.measures,
             package_measures: package_measured.measures,
             cycles,
-            observed: observed::observed(facts),
+            observed,
             builtins: builtins(facts),
             constructs: Constructs::derive(facts)?,
             symbols: None,
