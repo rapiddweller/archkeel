@@ -69,6 +69,30 @@ struct Binding {
     sites: Option<BTreeSet<(usize, usize)>>,
 }
 
+impl Binding {
+    fn new(
+        name: &str,
+        (path, kind): (Vec<String>, SelfKind),
+        scope: &[String],
+        bound: &Bound,
+        after: Option<(usize, usize)>,
+        sites: Option<BTreeSet<(usize, usize)>>,
+    ) -> Self {
+        Self {
+            receiver: OnSelf {
+                name: name.to_owned(),
+                path,
+                scope: scope.to_vec(),
+                kind: Some(kind),
+                macros: bound.macros.iter().cloned().collect(),
+                fields: Vec::new(),
+            },
+            after,
+            sites,
+        }
+    }
+}
+
 /// The bindings of one `fn` that have a proof, by name.
 #[derive(Debug, Default)]
 pub(super) struct Params(BTreeMap<String, Binding>);
@@ -268,22 +292,8 @@ pub(super) fn read(
         };
         let generic = path.first().is_some_and(|first| hidden.contains(first));
         if plain_pattern && once && !generic {
-            let on_self = OnSelf {
-                name: name.clone(),
-                path,
-                scope: scope.to_vec(),
-                kind: Some(kind),
-                macros: bound.macros.iter().cloned().collect(),
-                fields: Vec::new(),
-            };
-            found.insert(
-                name,
-                Binding {
-                    receiver: on_self,
-                    after: None,
-                    sites: None,
-                },
-            );
+            let binding = Binding::new(&name, (path, kind), scope, &bound, None, None);
+            found.insert(name, binding);
         }
     }
     read_locals(block, &bound, &hidden, scope, &mut found);
@@ -333,22 +343,15 @@ fn read_locals(
             continue;
         }
         let end = local.semi_token.spans[0].end();
-        let on_self = OnSelf {
-            name: name.clone(),
-            path,
-            scope: scope.to_vec(),
-            kind: Some(kind),
-            macros: bound.macros.iter().cloned().collect(),
-            fields: Vec::new(),
-        };
-        found.insert(
-            name,
-            Binding {
-                receiver: on_self,
-                after: Some((end.line, end.column)),
-                sites: None,
-            },
+        let binding = Binding::new(
+            &name,
+            (path, kind),
+            scope,
+            bound,
+            Some((end.line, end.column)),
+            None,
         );
+        found.insert(name, binding);
     }
 }
 
@@ -433,22 +436,15 @@ impl<'ast> Visit<'ast> for Closures<'_> {
             let Some(places) = sites.0.remove(&name) else {
                 continue;
             };
-            let receiver = OnSelf {
-                name: name.clone(),
-                path,
-                scope: self.scope.to_vec(),
-                kind: Some(kind),
-                macros: self.bound.macros.iter().cloned().collect(),
-                fields: Vec::new(),
-            };
-            self.found.insert(
-                name,
-                Binding {
-                    receiver,
-                    after: None,
-                    sites: Some(places),
-                },
+            let binding = Binding::new(
+                &name,
+                (path, kind),
+                self.scope,
+                self.bound,
+                None,
+                Some(places),
             );
+            self.found.insert(name, binding);
         }
         visit::visit_expr_closure(self, node);
     }
