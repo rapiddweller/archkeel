@@ -83,9 +83,11 @@ j <= n; j++)`; `i += k` with `k` unknown, `i = k` and `for (i in o)` are refused
   `constructor`) and a proof that `.length` is a number. Neither is in this record.
 - hono and zod keep their gaps: a real host entry (`document`, `globalThis` passed on) and a direct
   form (`new Function`).
-- The scope text of a report does not yet state the premise. The text of `scope` is `complete` or a
-  reason, and many readers compare it. A new field of the collector reply is needed (a follow-up
-  slice).
+- The premise is stated on each TypeScript page of the report (`html_verdict.rs`, under the verdict
+  note: "Stated assumption: code outside the scan roots hands in no global or platform object."). The
+  `scope` word of the frame stays `complete`: the shell requires that word for a PASS and reads a
+  fixed list of frame keys. A machine-readable premise needs a new frame key and a shell change; it
+  is a follow-up.
 
 ## Price
 - A scan that has only inert names, contained uses and amplifier forms gives a complete scope where

@@ -68,6 +68,8 @@ pub(super) struct Frame {
     pub(super) identity: Identity,
     /// Why the run is not decided: the refusal or the scope text of the frame.
     pub(super) cause: String,
+    /// The language of the collector, as the request of the run states it.
+    pub(super) language: String,
 }
 
 fn field<T: DeserializeOwned + Default>(frame: &Value, key: &str) -> T {
@@ -109,6 +111,8 @@ impl Frame {
             named: serde_json::from_value(frame["unsupported"]["rules"].clone())
                 .unwrap_or_default(),
             cause,
+            language: text(&frame["self_test"]["collect"]["request"]["resolver"]["language"])
+                .unwrap_or_default(),
             status: frame["status"].as_str().unwrap_or("unavailable").to_owned(),
             rules: field(frame, "rules"),
             details: field(frame, "details"),
