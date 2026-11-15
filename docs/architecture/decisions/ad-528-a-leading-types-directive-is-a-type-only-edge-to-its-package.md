@@ -28,8 +28,9 @@ turn each honored directive into a type-only reference (`import_type`) at the co
 **Not done.** `path` and `lib` forms (AD-353). Reading `typeRoots` outside `node_modules`.
 
 **Price.** Against `main`: an installed package turns PASS into FAIL for a rule that forbids it, and
-each unproven leading directive turns PASS into UNKNOWN. The 151 corpus cases keep all 1172
-verdicts; the fixture matrix and both architecture pins do not move. 4.0.1 against the core on
+each unproven leading directive turns PASS into UNKNOWN. The golden reply `synthetic-esm-forms`
+gains one gap and its evidence (`types="node"`), re-recorded with a reason. The 151 corpus cases
+keep all 1172 verdicts; the fixture matrix and both architecture pins do not move. 4.0.1 against the core on
 23 plants: no row is PASS in the core where 4.0.1 is FAIL or UNKNOWN for a leading directive; the
 core is FAIL where 4.0.1 is UNKNOWN (an installed package) and where 4.0.1 missed the upper-case tag.
 
