@@ -1359,6 +1359,7 @@
     "fn ids::is_empty(&self)->bool",
     "fn ids::iter(&self)->impl Iterator<Item=(I,&T)>",
     "fn ids::len(&self)->usize",
+    "fn imports::call_form(&self)->bool",
     "fn imports::evidence(&self)->&[String]",
     "fn imports::id(&self)->&str",
     "fn imports::reexport_chain(&self)->&[String]",
