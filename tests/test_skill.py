@@ -99,6 +99,37 @@ def test_codex_rejects_malformed_markers_before_writing(tmp_path: Path, markers:
     assert not (tmp_path / ".agents").exists()
 
 
+@pytest.mark.parametrize(
+    ("name", "files"), [("explore", EXPLORE_FILES), ("explain-flow", FLOW_FILES)]
+)
+def test_a_shipped_note_skill_has_its_frontmatter_and_its_interface_keys(
+    name: str, files: tuple[str, str]
+) -> None:
+    body = (ROOT / files[0]).read_text(encoding="utf-8")
+    assert body.startswith(f"---\nname: {name}\ndescription: ")
+    assert body.split("\n---\n")[0].count("\n") == 2
+    assert len(body.splitlines()) < 60
+    keys = [
+        line.split(":")[0].strip()
+        for line in (ROOT / files[1]).read_text(encoding="utf-8").splitlines()
+    ]
+    assert keys == ["interface", "display_name", "short_description", "default_prompt"]
+
+
+def test_offline_schema_guidance_matches_installed_files() -> None:
+    """The local schema path is shipped in the distribution."""
+    from importlib.metadata import distribution
+
+    installed = distribution("archkeel")
+    schema = next(
+        path
+        for path in installed.files or ()
+        if str(path) == "archkeel/schema/view-spec.schema.json"
+    )
+    assert installed.locate_file(schema).is_file()
+    assert (ROOT / "schema/view-spec.schema.json").is_file()
+
+
 def test_plugin_package_uses_the_canonical_skill_and_refuses_overwrite(tmp_path: Path) -> None:
     # Codex's plugin loader skips linked SKILL.md files.
     assert not (ROOT / "skills/archkeel/SKILL.md").is_symlink()

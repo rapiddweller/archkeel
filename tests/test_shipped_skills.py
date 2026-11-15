@@ -40,20 +40,49 @@ def test_a_skill_names_only_commands_that_the_shell_serves(path: Path) -> None:
     assert named <= SERVED, f"{path.name} teaches {sorted(named - SERVED)} as if it worked"
 
 
-@pytest.mark.parametrize("path", SKILLS, ids=_name)
-def test_each_command_line_of_a_skill_is_accepted_by_the_shell(path: Path) -> None:
-    text = path.read_text(encoding="utf-8")
-    lines = re.findall(r"`archkeel ([^`]+)`", text)
-    assert lines or path.parent.name != "archkeel"
-    for line in lines:
-        argv = shlex.split(re.sub(r"<[^>]+>|\[[^\]]*\]|\{[^}]*\}", "x", line))
+def _problems(text: str) -> list[str]:
+    """Each `archkeel ...` line of the text that the real parser of the shell does not accept.
+
+    Optional parts in brackets are dropped and a placeholder gets the value `x`. A served command
+    with an unknown option, a missing value or a refusal is a problem.
+    """
+    found = []
+    for line in re.findall(r"`archkeel ([^`]+)`", text):
+        argv = shlex.split(re.sub(r"<[^>]+>", "x", re.sub(r"\[[^\]]*\]", "", line)))
         try:
             parse(argv)
-        except NotOnThisLine as error:
-            pytest.fail(f"{path.name}: `archkeel {line}` is refused: {error}")
-        except ValueError:
-            # A prefix such as `skill install claude` needs its own arguments; none is unknown.
-            assert argv[0] in SERVED, line
+        except (NotOnThisLine, ValueError) as error:
+            found.append(f"`archkeel {line}`: {error}")
+    return found
+
+
+@pytest.mark.parametrize("path", SKILLS, ids=_name)
+def test_each_command_line_of_a_skill_is_accepted_by_the_real_parser(path: Path) -> None:
+    text = path.read_text(encoding="utf-8")
+    assert _problems(text) == []
+    assert path.parent.name != "archkeel" or re.search(r"`archkeel report --output ", text)
+
+
+def test_the_parser_check_fails_on_an_unknown_option_a_refusal_and_a_bad_form() -> None:
+    assert _problems("`archkeel report --bogus`")
+    assert _problems("`archkeel validate --root`")
+    assert _problems("`archkeel explore`")
+    assert _problems("`archkeel report --output r.json --format yaml`")
+    good = "`archkeel report --output r.json --format json` `archkeel validate [--root PATH]`"
+    assert _problems(good) == []
+
+
+@pytest.mark.parametrize("path", SKILLS, ids=_name)
+def test_a_format_option_in_a_skill_always_comes_with_an_output(path: Path) -> None:
+    for span in re.findall(r"`([^`]+)`", path.read_text(encoding="utf-8")):
+        assert "--format" not in span or "--output" in span, f"{path.name}: `{span}`"
+
+
+def test_the_skill_quotes_the_language_block_of_the_known_limits_unchanged() -> None:
+    limits = (ROOT / "docs/known-limits.md").read_text(encoding="utf-8")
+    block = limits.split("<!-- tiers:start -->\n")[1].split("<!-- tiers:end -->")[0]
+    assert "interface_boundary" in block and block.strip()
+    assert block in (ROOT / "skills/archkeel/SKILL.md").read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize("path", SKILLS, ids=_name)

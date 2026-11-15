@@ -17,8 +17,9 @@ run `make core` to build the core binary first.
 - `archkeel validate [--root PATH] [--config PATH] [--json | --text]` checks the contract.
   PASS exits 0, FAIL exits 1, UNKNOWN and a refusal exit 2.
 - `archkeel report` prints the same frame with the same exit codes. Add `--topology` for the bounded
-  topology. Add `--output PATH` to write one static HTML page, and `--format json` for the frame.
-  No file is written by default. The parent of `PATH` must exist.
+  topology. `--output PATH` writes one static HTML page; `--output PATH --format json` writes the
+  frame instead: `archkeel report --output report.json --format json`. Without `--output`, the
+  format option is refused. No file is written by default. The parent of `PATH` must exist.
 - `archkeel skill install claude` or `archkeel skill install codex` writes this skill file.
 
 `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` are refused with exit 2 and the
@@ -29,10 +30,8 @@ and never run a refused command in a loop. Tell the owner and use release 4.0.1 
 
 ## Which projects get a verdict
 
-- Rust and TypeScript: the rules of the core are decided.
-- Python and Dart: only rules that read the import graph are decided. A gap gives UNKNOWN for each
-  rule of the run. A Dart `no_component_cycles` rule is always UNKNOWN.
-- A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`.
+Rust and TypeScript projects: each rule kind that the core has ported is decided; a rule kind without a port is UNKNOWN.
+Python and Dart projects: the rules that read the import graph are decided, and Python also decides `interface_boundary` (AD-504); a Dart cycle rule is always UNKNOWN, and every other rule of both is UNKNOWN.
 
 Do not report PASS for a supported subset of a project. Per-language limits are in
 [known limits](https://github.com/rapiddweller/archkeel/blob/main/docs/known-limits.md).
