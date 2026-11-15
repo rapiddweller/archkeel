@@ -21,7 +21,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::builder::Builder;
-use crate::definitions::{Access, ImplBlock, Member, MethodCall, SelfKind};
+use crate::definitions::{Access, ImplBlock, Member, MethodCall, Owner, SelfKind};
 use crate::modules::{inside, Edge, Frame, Index, TypeOf};
 use crate::scan::{Reference, Via};
 use crate::tokens::NO_BIND_MACROS;
@@ -49,6 +49,8 @@ pub(super) struct Typed<'a> {
     shadowed_macros: bool,
     /// The names of the `macro_rules!` of the workspace.
     macro_names: BTreeSet<&'a str>,
+    /// The names of the members of the traits of the workspace.
+    trait_members: BTreeSet<&'a str>,
 }
 
 impl<'a> Typed<'a> {
@@ -63,6 +65,9 @@ impl<'a> Typed<'a> {
                 self.derefs.insert(ty);
             }
         }
+        let traits = scan.definitions.iter();
+        let traits = traits.filter(|d| matches!(d.owner, Owner::Trait(_)));
+        self.trait_members.extend(traits.map(|d| d.name.as_str()));
         let defs = scan.macro_defs.iter().map(|def| def.name.as_str());
         self.macro_names.extend(defs);
         let bound = scan.references.iter().filter_map(|r| match &r.via {
@@ -100,17 +105,61 @@ impl<'a> Typed<'a> {
     }
 }
 
-/// Whether the member is visible at the call for certain. A `pub(in path)` is not read.
-fn certainly_visible(caller: &Module, at: &str, candidate: &Candidate<'_>) -> bool {
-    let same_crate = caller.crate_index == candidate.module.crate_index;
-    match &candidate.member.access {
+impl<'a> Typed<'a> {
+    /// Whether a macro call of a silent name of `std` may be another macro (AD-524).
+    pub(super) fn shadowed(&self) -> bool {
+        self.shadowed_macros
+    }
+
+    /// The one member that a path `T::name` at `at` reaches, for a type that the scan follows
+    /// through explicit paths (AD-544): the module and the lexical module of its block. An
+    /// inherent member that the caller can use wins over each trait member. The path keeps its
+    /// gaps when the type or the block is not exact, when a second member of the name is read,
+    /// when a block of an unplaced type or a trait of the workspace has the name, and when an
+    /// attribute is on the member.
+    pub(super) fn sole(
+        &self,
+        index: &Index<'_>,
+        (caller, at): (&Module, &str),
+        (lexical, ty): (&str, &str),
+        name: &str,
+    ) -> Option<(&'a Module, &str)> {
+        if self.unplaced.contains(name)
+            || self.trait_members.contains(name)
+            || !exact_type(index, lexical, ty)
+        {
+            return None;
+        }
+        let members = self.by_type.get(&(lexical.to_owned(), ty.to_owned()))?;
+        let mut named = members.iter().filter(|c| c.member.name == name);
+        let (candidate, None) = (named.next()?, named.next()) else {
+            return None;
+        };
+        let place = (candidate.module, candidate.lexical.as_str());
+        let certain = candidate.exact
+            && candidate.member.inert
+            && certainly_visible(caller, at, place, &candidate.member.access);
+        certain.then_some(place)
+    }
+}
+
+/// Whether a member of a block in `lexical` of `module` is visible at the call for certain. A
+/// `pub(in path)` is not read.
+pub(super) fn certainly_visible(
+    caller: &Module,
+    at: &str,
+    (module, lexical): (&Module, &str),
+    access: &Access,
+) -> bool {
+    let same_crate = caller.crate_index == module.crate_index;
+    match access {
         Access::Public => true,
         Access::Package(text) if text == "pub(crate)" => same_crate,
         Access::Package(text) if text == "pub(super)" => {
-            let parent = candidate.lexical.rsplit_once('.').map(|(up, _)| up);
+            let parent = lexical.rsplit_once('.').map(|(up, _)| up);
             same_crate && parent.is_some_and(|parent| inside(at, parent))
         }
-        Access::Private => same_crate && inside(at, &candidate.lexical),
+        Access::Private => same_crate && inside(at, lexical),
         Access::Package(_) => false,
     }
 }
@@ -228,7 +277,9 @@ impl Builder {
         let certain = |c: &Candidate<'_>| {
             let fits = form
                 .is_none_or(|(kind, arity)| c.member.kind == Some(kind) && c.member.arity == arity);
-            c.exact && fits && certainly_visible(module, &at, c)
+            c.exact
+                && fits
+                && certainly_visible(module, &at, (c.module, &c.lexical), &c.member.access)
         };
         // Rust allows one member `m` per type: two read members mean a case that is not certain.
         let [candidate] = candidates.as_slice() else {

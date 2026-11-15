@@ -159,6 +159,8 @@ pub(crate) struct Member {
     pub kind: Option<SelfKind>,
     /// The parameters besides `self`.
     pub arity: usize,
+    /// Only inert attributes are on the member: every configuration has it as written.
+    pub inert: bool,
 }
 
 /// A method call `x.m(..)` or `x.m::<..>(..)`, or a path `T::m` into another crate: the name, the

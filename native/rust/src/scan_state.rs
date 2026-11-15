@@ -121,6 +121,11 @@ pub(crate) struct Scan {
     pub conditional_globs: BTreeSet<(i64, i64)>,
     /// Names bound by a use that is not public outside the crate.
     pub restricted_bindings: BTreeSet<String>,
+    /// A macro call in statement place, or in item place, that is no silent macro of `std`: it
+    /// can give any name of its block or module. The last: any macro call in such a place.
+    pub body_macros: bool,
+    pub module_macros: bool,
+    pub placed_macros: bool,
     /// The second count of the tree, for the invariant of the extraction.
     pub tally: Tally,
 }

@@ -88,6 +88,12 @@ def test_a_path_to_an_inherent_member_is_an_edge(tmp_path: Path, release_core: P
     assert statuses(result).get("NO-APP-TO-IMPL") == "FAIL", claims(result)
 
 
+def test_a_path_in_a_silent_macro_of_std_is_an_edge(tmp_path: Path, release_core: Path) -> None:
+    caller = "use base_crate::S;\npub fn run() -> Vec<u8> { vec![S::m()] }\n"
+    result = _plant(tmp_path, release_core, caller)
+    assert statuses(result).get("NO-APP-TO-IMPL") == "FAIL", claims(result)
+
+
 def test_a_typed_receiver_from_another_crate_is_an_edge(tmp_path: Path, release_core: Path) -> None:
     result = _plant(
         tmp_path,
@@ -98,7 +104,7 @@ def test_a_typed_receiver_from_another_crate_is_an_edge(tmp_path: Path, release_
     assert statuses(result).get("NO-APP-TO-IMPL") == "FAIL", claims(result)
 
 
-def test_a_direct_cross_crate_module_path_keeps_its_gap(tmp_path: Path, release_core: Path) -> None:
+def test_a_direct_cross_crate_module_path_is_an_edge(tmp_path: Path, release_core: Path) -> None:
     result = _plant(
         tmp_path,
         release_core,
@@ -106,7 +112,7 @@ def test_a_direct_cross_crate_module_path_keeps_its_gap(tmp_path: Path, release_
         base_source="pub mod model { pub struct S; } mod implementation;\n",
         implementation="impl crate::model::S { pub fn m(&self) -> u8 { 2 } }\n",
     )
-    assert statuses(result).get("NO-APP-TO-IMPL") == "UNKNOWN", claims(result)
+    assert statuses(result).get("NO-APP-TO-IMPL") == "FAIL", claims(result)
 
 
 def test_a_typed_receiver_through_a_reexport_is_an_edge(tmp_path: Path, release_core: Path) -> None:
@@ -198,7 +204,8 @@ def test_a_conditional_inherent_member_can_leave_a_trait_call(
             id="conditional-use",
         ),
         pytest.param(
-            "use base_crate::S;\npub fn run() -> Vec<u8> { vec![S::m()] }\n",
+            "macro_rules! id { ($e:expr) => { $e }; }\n"
+            "use base_crate::S;\npub fn run() -> u8 { id!(S::m()) }\n",
             id="call-in-macro",
         ),
         pytest.param(

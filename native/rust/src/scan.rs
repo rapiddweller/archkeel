@@ -77,6 +77,9 @@ pub(crate) fn scan(
     visitor.walker.out.conditional_bindings = safety.conditional_bindings;
     visitor.walker.out.conditional_globs = safety.conditional_globs;
     visitor.walker.out.restricted_bindings = safety.restricted_bindings;
+    visitor.walker.out.body_macros = safety.body_macros;
+    visitor.walker.out.module_macros = safety.module_macros;
+    visitor.walker.out.placed_macros = safety.placed_macros;
     visitor.visit_file(&file);
     attributes::finish(&mut visitor.walker);
     Ok(visitor.walker.out)
