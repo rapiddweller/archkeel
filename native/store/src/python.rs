@@ -29,7 +29,7 @@ pub(crate) fn version(version: ProtocolVersion, profile: Profile) -> Result<(), 
 }
 
 /// The registered set of an import survey (Python, AD-450; Dart, AD-468): the sections `imports` and
-/// `unknowns`, and for Python also `symbols` (AD-518); no construct, and no statement that
+/// `unknowns`, and for Python also `symbols`, `calls` and `references` (AD-518, AD-520); no construct, and no statement that
 /// interfaces are supported. `validate::checkable` refuses each resolution feature
 /// of a Python reply, and `registered.rs` binds the symbol statement to its feature.
 pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
@@ -41,7 +41,7 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
         .collect();
     sections.sort_unstable();
     let registered: &[&str] = match facts.profile {
-        Profile::Python => &["imports", "symbols", "unknowns"],
+        Profile::Python => &["calls", "imports", "references", "symbols", "unknowns"],
         _ => &["imports", "unknowns"],
     };
     if sections != registered || !facts.capabilities.constructs.is_empty() {

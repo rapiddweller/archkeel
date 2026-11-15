@@ -15,7 +15,7 @@ use archkeel_facts::envelope::{
     Adapter, Coverage, Evidence, Input, Profile, Provenance, Reply, Runtime,
 };
 use archkeel_facts::request::PythonRequest;
-use archkeel_facts::{GapFact, ImportFact, Record, SymbolFact};
+use archkeel_facts::{CallFact, GapFact, ImportFact, Record, ReferenceFact, SymbolFact};
 use archkeel_snapshot::Snapshot;
 use archkeel_wire::protocol::reply_version;
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
@@ -26,7 +26,8 @@ use crate::{inputs, requirement};
 
 /// The sections of the survey, in their order. No other section is collected (AD-518 adds
 /// `symbols`; the 4.0.1 survey has the first two).
-pub(crate) const SURVEY_SECTIONS: [&str; 3] = ["imports", "unknowns", "symbols"];
+pub(crate) const SURVEY_SECTIONS: [&str; 5] =
+    ["imports", "unknowns", "symbols", "calls", "references"];
 
 /// The version and the code digest of this binary (`archkeel-build-support`).
 pub struct Build<'a> {
@@ -73,6 +74,8 @@ struct Records {
     imports: Vec<Record<ImportFact>>,
     unknowns: Vec<Record<GapFact>>,
     symbols: Vec<Record<SymbolFact>>,
+    calls: Vec<Record<CallFact>>,
+    references: Vec<Record<ReferenceFact>>,
     coverage: Coverage,
     evidence: Vec<Evidence>,
 }
@@ -82,6 +85,9 @@ impl Records {
         writer.write_typed_section::<ImportFact>(|emit| self.imports.iter().for_each(emit))?;
         writer.write_typed_section::<GapFact>(|emit| self.unknowns.iter().for_each(emit))?;
         writer.write_typed_section::<SymbolFact>(|emit| self.symbols.iter().for_each(emit))?;
+        writer.write_typed_section::<CallFact>(|emit| self.calls.iter().for_each(emit))?;
+        writer
+            .write_typed_section::<ReferenceFact>(|emit| self.references.iter().for_each(emit))?;
         self.tail()
     }
 
@@ -134,6 +140,8 @@ fn parts(
         imports: survey.imports,
         unknowns: survey.unknowns,
         symbols: survey.symbols,
+        calls: survey.calls,
+        references: survey.references,
         coverage: survey.coverage,
         evidence: survey.evidence,
     };
