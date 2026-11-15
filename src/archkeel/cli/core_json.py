@@ -46,6 +46,10 @@ class GapKind(StrEnum):
     RATIONALE_REPEATED = "rationale.repeated"
     RESPONSIBILITY_MISSING = "responsibility.missing"
     API_SURFACE_MISSING = "api_surface.missing"
+    # AD-514: the core proves a use from the imports and reads no declared facade signature.
+    INTERFACE_UNDECLARED = "interface.undeclared"
+    INTERFACE_USAGE_UNKNOWN = "interface.usage_unknown"
+    INTERFACE_PLANNED_BUILT = "interface.planned_built"
     HYGIENE_NOT_PORTED = "contract_hygiene_not_ported"
     HYGIENE_NOT_READ = "contract_hygiene_not_read"
 

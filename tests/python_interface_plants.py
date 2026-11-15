@@ -31,13 +31,14 @@ class Plant:
 
     name: str
     consumer: str
-    public: tuple[str, ...]
+    public: tuple[str, ...] | None
     files: dict[str, str] = field(default_factory=dict)
     # The verdict of 4.0.1 and the verdicts that the core may give (the same, or a documented
     # stricter one). A core PASS is allowed only where 4.0.1 gives PASS.
     four: str = "PASS"
     core: tuple[str, ...] = ("PASS",)
     why: str = ""
+    planned: tuple[str, ...] = ()
     # What Python binds at import time, when it is not what 4.0.1 says, and whether the core still
     # gives PASS for it (an open false PASS that the documents name, pinned as such).
     truth: str = ""
@@ -460,7 +461,12 @@ def contract(plant: Plant) -> dict[str, Any]:
         "components": [
             part("root", packages=[], exact_modules=["app"]),
             part("consumer", packages=[], exact_modules=["app.consumer"]),
-            part("lib", packages=["app.lib"], public=list(plant.public)),
+            part(
+                "lib",
+                packages=["app.lib"],
+                **({} if plant.public is None else {"public": list(plant.public)}),
+                **({"planned": list(plant.planned)} if plant.planned else {}),
+            ),
         ],
         "rules": [
             {

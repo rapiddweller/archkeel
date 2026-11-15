@@ -9,7 +9,7 @@
     "F-architecture": {
       "language": "python",
       "runs": [
-      {"name": "F-architecture", "root": "F-architecture", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 32, "DECLARATION": 6}, "scope": "incomplete scope: the profile cannot decide CALL-DESCRIBE-NO-MAINTENANCE", "gaps": {"contract_hygiene_not_ported": 1, "rule_kind_not_ported": 10}, "refusal": null}},
+      {"name": "F-architecture", "root": "F-architecture", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 32, "DECLARATION": 6}, "scope": "incomplete scope: the profile cannot decide CALL-DESCRIBE-NO-MAINTENANCE", "gaps": {"rule_kind_not_ported": 10}, "refusal": null}},
       {"name": "F-architecture-tests", "root": "F-architecture", "command": "report", "config": "archkeel-tests.toml", "contract": ["tests/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 5}, "scope": "incomplete scope: the profile cannot decide TESTS-HELPERS-IN-SUPPORT", "gaps": {"rule_kind_not_ported": 1}, "refusal": null}}
       ]
     },
@@ -22,7 +22,7 @@
     "G-dart": {
       "language": "dart",
       "runs": [
-      {"name": "G-dart", "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 8, "FAIL": 0, "UNKNOWN": 2}, "scope": "complete", "gaps": {"contract_hygiene_not_ported": 1}, "refusal": null}}
+      {"name": "G-dart", "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 8, "FAIL": 0, "UNKNOWN": 2}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "H-typescript": {
@@ -76,7 +76,7 @@
     "M-review-workflow": {
       "language": "python",
       "runs": [
-      {"name": "M-review-workflow", "root": "M-review-workflow", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 12, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"contract_hygiene_not_ported": 3}, "refusal": null}}
+      {"name": "M-review-workflow", "root": "M-review-workflow", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 0, "status": "PASS", "counts": {"PASS": 12, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "golden-python": {
