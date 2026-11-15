@@ -225,11 +225,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_dart_collector.members",
-      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_dart_collector.records",
       "A method call may reach the method at of an impl block in native.archkeel_facts.gap"
     ],
@@ -237,16 +232,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.records",
       "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.sites.bindings",
-      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.sites.calls",
-      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
     ],
     [
       "collection_gap",
@@ -490,16 +475,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_typescript_collector.script_declarations",
-      "A method call may reach the method only_returned_object of an impl block in native.archkeel_typescript_collector.script_wrapper"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_declarations",
-      "A method call may reach the method target_write of an impl block in native.archkeel_typescript_collector.script_writes"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_typescript_collector.script_declare",
       "A method call may reach the method valid_unicode_member_name of an impl block in native.archkeel_typescript_collector.constructors"
     ],
@@ -507,16 +482,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_factory",
       "A method call may reach the method valid_unicode_member_name of an impl block in native.archkeel_typescript_collector.constructors"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_publish",
-      "A method call may reach the method only_returned_object of an impl block in native.archkeel_typescript_collector.script_wrapper"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_publish",
-      "A method call may reach the method opaque_writes of an impl block in native.archkeel_typescript_collector.script_writes"
     ],
     [
       "collection_gap",
