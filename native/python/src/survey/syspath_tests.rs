@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 // Consumer: a write to `sys.path` is a gap of the whole run unless it provably adds no name that
-// the scan imports (AD-522). The control is the form of K-python-realworld; each other form keeps
+// the scan imports (AD-528). The control is the form of K-python-realworld; each other form keeps
 // the gap.
 
 use crate::survey::targets::tests::{reasons, surveyed_in};

@@ -133,7 +133,7 @@ pub(super) fn sites(tree: &ModModule, proof: Proof, binders: &Binders) -> Vec<Si
         proof,
     };
     for stmt in &tree.body {
-        // AD-522: an expression statement of the module body that appends a directory of the
+        // AD-528: an expression statement of the module body that appends a directory of the
         // snapshot to `sys.path` is a candidate; the survey settles it with the whole scan.
         match syspath::levels(stmt, tree, binders) {
             Some(count) => walk.found.push(Site {

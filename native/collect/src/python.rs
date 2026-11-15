@@ -61,9 +61,9 @@ pub(crate) fn reread(
     let mut inputs: Vec<&Input> = reply.facts.inputs.iter().collect();
     inputs.sort_by(|left, right| left.path.cmp(&right.path));
     for input in inputs {
-        // AD-522: the path of a listing input ends with `/`; its bytes are the sorted names.
+        // AD-528: the path of a listing input ends with `/`; its bytes are the sorted names.
         let bytes = if input.path.ends_with('/') {
-            let text = root.listing(&input.path);
+            let text = root.names_of(&input.path);
             text.map(String::into_bytes)
                 .ok_or_else(|| format!("the input {} cannot be read again", input.path))?
         } else {
