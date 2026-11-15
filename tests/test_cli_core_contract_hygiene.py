@@ -298,7 +298,9 @@ REFUSED = frozenset(
     }
 )
 # A family that applies and that the core does not port: a named gap.
-NOT_PORTED = frozenset({"interface", "compat", "measurement-budget", "inside-allows-forbidden"})
+NOT_PORTED = frozenset({"compat", "measurement-budget", "inside-allows-forbidden"})
+# AD-514: the core names an interface entry that no import reaches `interface.usage_unknown`.
+USAGE_UNKNOWN = frozenset({"interface"})
 # The core holds these runs by a gap that it already had: a profile limit, a refused contract or
 # the domain of a mount. The hygiene check is not reached, as in 4.0.1, which also stops earlier.
 EARLIER = frozenset({"facade-budget", "coupling-budget", "inside-claims-outside"})
@@ -323,6 +325,8 @@ def test_each_hygiene_defect_keeps_the_run_from_pass(
             elif name in NOT_PORTED:
                 assert "contract_hygiene_not_ported" in kinds, result["gaps"]
                 assert code_name.split(".")[0] in json.dumps(result["frame"]["unsupported"])
+            elif name in USAGE_UNKNOWN:
+                assert "interface.usage_unknown" in kinds, result["gaps"]
             elif name not in EARLIER:
                 # The gap kind is the code of release 4.0.1, typed by the shell.
                 assert code_name in kinds, result["gaps"]

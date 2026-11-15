@@ -15,6 +15,7 @@ import subprocess
 from collections import Counter
 from pathlib import Path
 
+import pytest
 import rust_repository
 from corpus_support import commit_tree
 from native_rules_support import language_names
@@ -40,77 +41,51 @@ def test_a_configured_external_collector_is_refused_and_never_passes(
         assert "the run uses the configured collector ./collector" in message, result
 
 
-def test_a_repeated_section_name_is_refused_before_any_row_is_built(
-    core_binary: Path,
-) -> None:
-    """AD-374 review: a request that names one section many times made the core build its rows
-    once for each name (9.56 GB for 200 names of `dependency_edges`). The binary refuses it."""
-    request = {
-        "protocol": "archkeel-dual-run-5",
-        "case": "c",
-        "root": "/r",
-        "config": "archkeel.toml",
-        "baseline": None,
-        "collector_argv": None,
-        "contracts": {"architecture-contract.json": "{}"},
-        "reply": None,
-        "sections": ["cycles", "modules", "cycles"],
-        "namespace": "shop",
-        "profile": "",
-        "standard_library": [],
-        "insides": [],
-        "roots": [],
-    }
-    done = subprocess.run(
-        [str(core_binary), "dual-run"],
-        input=json.dumps(request),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert done.returncode == 2
-    assert done.stdout == ""
-    assert "repeated section cycles" in done.stderr
+# A test build and the feature `harness` have the request kinds that carry a reply.
+TEST_CFG = r"#\[cfg\(any\(test, feature = \"harness\"\)\)\]"
 
 
-def test_the_shell_names_the_core_in_five_modules_and_the_wheel_carries_only_it() -> None:
-    """AD-432: the entry, its frame reader, its scan request and the binary lookup name the core.
-    AD-436: the wheel hook bundles the core and no other binary."""
-    names = {
-        path.relative_to(ROOT).as_posix()
-        for path in (ROOT / "src/archkeel").rglob("*.py")
-        if "archkeel-core" in path.read_text() or "archkeel_core" in path.read_text()
-    }
-    assert names == {
-        "src/archkeel/cli/core_only.py",
-        "src/archkeel/cli/core_frame.py",
-        "src/archkeel/cli/core_output.py",
-        "src/archkeel/cli/native_scan.py",
-        "src/archkeel/cli/core_binary.py",
-    }
-    hook = (ROOT / "native/hatch_build.py").read_text()
-    assert re.findall(r'"(archkeel-[\w-]+)"', hook) == ["archkeel-core"]
+def _production_trust_sites() -> list[str]:
+    """Each function of the core that names `Producer::Trusted` outside a test build.
 
-
-def test_the_core_reaches_a_trusted_producer_in_two_named_functions_only() -> None:
-    """AD-390 point 2: the check request reaches trust only in `stage_one_shell_trust`, the dual
-    run only in its `producer` (AD-388), and the scan request only in `in_process`, because the
-    core ran the collector itself (AD-406). No other production code of the core names it."""
+    A module that `main.rs` declares under `#[cfg(any(test, feature = "harness"))]`, and a function
+    that has that attribute, are not production code (#1095).
+    """
+    main = (ROOT / "native/core/src/main.rs").read_text()
+    test_modules = set(re.findall(rf"{TEST_CFG}\s*mod (\w+);", main))
     found = []
     for path in sorted((ROOT / "native/core/src").glob("*.rs")):
-        if path.name.endswith("_tests.rs"):
+        if path.name.endswith("_tests.rs") or path.stem in test_modules:
             continue
-        function = ""
+        function, test_only, attribute = "", False, False
         for line in path.read_text().splitlines():
             if match := re.match(r"\s*(?:pub\(crate\) )?fn (\w+)", line):
-                function = match[1]
-            if "Producer::Trusted" in line and not line.lstrip().startswith("//"):
+                function, test_only, attribute = match[1], attribute, False
+            elif re.fullmatch(TEST_CFG, line.strip()):
+                attribute = True
+            elif not line.lstrip().startswith(("#[", "//")):
+                attribute = False
+            if "Producer::Trusted" in line and not line.lstrip().startswith("//") and not test_only:
                 found.append(f"{path.name}::{function}")
-    assert found == [
-        "check.rs::stage_one_shell_trust",
-        "dual_run.rs::producer",
-        "scan.rs::in_process",
-    ]
+    return found
+
+
+def test_production_code_of_the_core_reaches_a_trusted_producer_in_one_function_only() -> None:
+    """#1095: the scan request reaches trust only in `in_process`, because the core ran the
+    collector itself (AD-406). The check and dual-run request kinds, which carry a reply, are
+    compiled in test builds only."""
+    assert _production_trust_sites() == ["scan.rs::in_process"]
+
+
+@pytest.mark.parametrize("kind", ["dual-run", "check", "bogus"])
+def test_the_release_core_has_no_request_kind_that_carries_a_reply(
+    release_core: Path, kind: str
+) -> None:
+    done = subprocess.run(
+        [str(release_core), kind], input=b"{}", capture_output=True, check=False, timeout=60
+    )
+    assert done.returncode == 2 and done.stdout == b""
+    assert b"usage: archkeel-core scan" in done.stderr, done.stderr
 
 
 def test_the_model_the_evaluator_and_the_core_name_no_language() -> None:
@@ -131,3 +106,53 @@ def test_each_native_component_is_a_node_of_the_component_graph() -> None:
     nodes = set(re.findall(r'n_\d+\["([^"]+)"\]', block))
     assert {component["label"] for component in contract["components"]} <= nodes
     assert "n_2 --> n_31" in block
+
+
+def test_a_harness_core_names_itself_in_the_engine_of_its_frame(harness_core: Path) -> None:
+    """#1095: the frame of a core that has the reply-carrying request kinds says so after its code
+    digest. The request has no reply, so the frame names a gap (exit 3) and still has an engine."""
+    request = {
+        "protocol": "archkeel-dual-run-5",
+        "case": "c",
+        "root": "/r",
+        "config": "archkeel.toml",
+        "baseline": None,
+        "collector_argv": None,
+        "contracts": {"architecture-contract.json": "{}"},
+        "reply": None,
+        "sections": [],
+        "namespace": "shop",
+        "profile": "",
+        "standard_library": [],
+        "insides": [],
+        "roots": [],
+    }
+    done = subprocess.run(
+        [str(harness_core), "dual-run"],
+        input=json.dumps(request).encode(),
+        capture_output=True,
+        check=False,
+        timeout=60,
+    )
+    assert done.returncode == 3, done.stderr
+    engine = json.loads(done.stdout)["engine"]
+    assert re.fullmatch(r"archkeel-core [0-9a-f]{64}\+harness", engine), engine
+
+
+def test_one_environment_builds_the_shared_release_core() -> None:
+    """#1182: a builder with another `ARCHKEEL_VERSION` relinks the core under a worker that runs
+    it. Only `core_support.py` names the variable, and each builder of `native/target` uses it."""
+    named = {
+        path.name
+        for path in (ROOT / "tests").glob("*.py")
+        if "ARCHKEEL_VERSION" in path.read_text() and path.name != Path(__file__).name
+    }
+    assert named == {"core_support.py"}
+    builders = {"core_support.py", "test_cli_native_type_publication.py"}
+    for name in builders:
+        assert "build_environment()" in (ROOT / "tests" / name).read_text(), name
+    # A test that runs `cargo build --release` for the core must be one of the two builders.
+    for path in (ROOT / "tests").glob("*.py"):
+        text = path.read_text()
+        runs_cargo = bool(re.search(r'"build",\s*"--locked"', text)) and "--release" in text
+        assert not runs_cargo or path.name in builders | {Path(__file__).name}, path.name

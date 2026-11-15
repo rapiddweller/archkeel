@@ -53,14 +53,22 @@ def workspace(tmp_path: Path, frozen_root: Path) -> Path:
     return _copy(frozen_root, tmp_path)
 
 
-def _digest(workspace: Path) -> str:
+def _digest(workspace: Path, features: tuple[str, ...] = ()) -> str:
     """Build the collector in `workspace` and return the digest that its build script emitted.
 
     Cargo hashes a path package by its path relative to the workspace root, so copies share one
     build directory. Each copy therefore gets its own target directory, or its fingerprints mix.
     """
     built = subprocess.run(
-        ["cargo", "build", "--locked", "-p", PACKAGE, "--message-format=json"],
+        [
+            "cargo",
+            "build",
+            "--locked",
+            "-p",
+            PACKAGE,
+            "--message-format=json",
+            *(["--features", ",".join(features)] if features else []),
+        ],
         cwd=workspace,
         env={**os.environ, "CARGO_TARGET_DIR": str(workspace.parent / "target")},
         capture_output=True,
@@ -86,6 +94,13 @@ def test_an_unchanged_tree_keeps_its_digest(workspace: Path) -> None:
     first = _digest(workspace)
     second = _digest(workspace)
     assert first == second
+
+
+def test_the_test_feature_dump_changes_the_digest(workspace: Path) -> None:
+    """#1095: a collector built with `dump` must not carry the digest of the one without it."""
+    plain = _digest(workspace)
+    assert _digest(workspace, ("dump",)) != plain
+    assert _digest(workspace) == plain
 
 
 def _edit_dependency_source(workspace: Path) -> None:

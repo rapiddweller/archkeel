@@ -105,10 +105,36 @@ fn a_tree_without_mounts_has_the_digests_of_its_root() {
 
 #[test]
 fn an_unsafe_reference_is_an_issue() {
-    for path in ["a/../b.json", "/b.json", "b\\c.json", "b:c.json", "./", "."] {
+    let spelled = [
+        "./b.json",
+        "a//b.json",
+        "a/./b.json",
+        "b.json/",
+        "a/b.json/",
+    ];
+    for path in [
+        "a/../b.json",
+        "/b.json",
+        "b\\c.json",
+        "b:c.json",
+        "./",
+        ".",
+        "b\0.json",
+    ]
+    .into_iter()
+    .chain(spelled)
+    {
         let insides = [("b.json", leaf("x"))];
         let found = kinds(run(&one_mount(path), &insides));
         assert_eq!(found, vec![IssueKind::UnsafePath], "{path}");
+    }
+}
+
+#[test]
+fn a_reference_in_its_own_spelling_is_a_mount() {
+    for path in ["b.json", "a/b.json", "a/b/c.json"] {
+        let insides = [(path, leaf("x"))];
+        assert!(run(&one_mount(path), &insides).is_ok(), "{path}");
     }
 }
 
@@ -134,7 +160,7 @@ fn a_reference_to_the_root_or_above_is_a_cycle() {
 fn a_second_reference_to_one_path_is_a_duplicate_mount() {
     let root = contract(vec![
         component("a", Some("a.json")),
-        component("b", Some("./a.json")),
+        component("b", Some("a.json")),
     ]);
     let found = kinds(run(&root, &[("a.json", leaf("x"))]));
     assert_eq!(found, vec![IssueKind::DuplicateMount]);

@@ -17,6 +17,11 @@ publish.workspace = true
 name = "archkeel-core"
 path = "src/main.rs"
 
+[features]
+# Test only: the `dual-run` and `check` request kinds, which carry a collector reply and trust it.
+# Not in the release binary and not in the wheel (#1095).
+harness = []
+
 [dependencies]
 archkeel-collect = { path = "../collect" }
 archkeel-contract = { path = "../contract" }

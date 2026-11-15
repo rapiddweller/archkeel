@@ -6,12 +6,11 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 from pathlib import Path
 
 import pytest
-from core_support import ensure_target_dir
+from core_support import build_environment, ensure_target_dir
 from filelock import FileLock
 
 from tests.test_native_interface_boundary import run_core, scan
@@ -38,7 +37,7 @@ def release() -> Path:
                 "archkeel-rust-collector",
             ],
             cwd=native,
-            env={**os.environ, "ARCHKEEL_VERSION": "0.0.0"},
+            env=build_environment(),
             check=True,
         )
     return native / "target/release"

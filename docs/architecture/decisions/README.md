@@ -9,6 +9,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 |---|---|
 | AD-520 | [The Python collector writes the symbol sites that its scopes prove](ad-520-the-python-collector-writes-the-symbol-sites-that-its-scopes-prove.md) |
 | AD-518 | [The Python collector writes the symbol declarations that it binds once](ad-518-the-python-collector-writes-the-symbol-declarations-that-it-binds-once.md) |
+| AD-516 | [A trait impl in a third module gives a pair gap in Rust](ad-516-a-trait-impl-in-a-third-module-gives-a-pair-gap-in-rust.md) |
 | AD-512 | [The core compares the symbol part of a UML target when the run needs it](ad-512-the-core-compares-the-symbol-part-of-a-uml-target-when-the-run-needs-it.md) |
 | AD-510 | [The report page shows the exceptions first and folds the rest](ad-510-the-report-page-shows-the-exceptions-first-and-folds-the-rest.md) |
 | AD-508 | [The script-global rule closes the forms that need no value flow](ad-508-the-script-global-rule-closes-the-forms-that-need-no-value-flow.md) |
@@ -186,7 +187,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-140 | [Rule evidence measurements (retired by AD-281)](ad-140-measure-rule-evidence-without-inventing-passes.md) |
 | AD-141 | [Bounded GitHub observations (retired by AD-281)](ad-141-github-events-are-bounded-observations.md) |
 | AD-142 | [Exact opaque-map values](ad-142-opaque-map-values-need-exact-decisions.md) |
-| AD-143 | [Initial PR causal receipt (producer retired by AD-281; check stays until issue #767)](ad-143-initial-pr-head-proves-scoped-order.md) |
+| AD-143 | [Initial PR causal receipt (producer retired by AD-281; the check and its schema part are gone, #767)](ad-143-initial-pr-head-proves-scoped-order.md) |
 | AD-144 | [Diff scope navigation](ad-144-diff-retains-navigation-scope.md) |
 | AD-145 | [Effective inherited methods](ad-145-local-inherited-methods-use-the-existing-base-proof.md) |
 | AD-146 | [Analyzer profile identity](ad-146-analyzer-identity-selects-observation-profile.md) |
@@ -375,7 +376,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-338 | [Core validates a decoded collection once and remembers each reference verdict](ad-338-core-validates-a-decoded-collection-once-and-remembers-each-reference-verdict.md) |
 | AD-339 | [The host computes each per-run result once](ad-339-the-host-computes-each-per-run-result-once.md) |
 | AD-340 | [The native records are built behind the dump and reach the wire last](ad-340-the-native-records-are-built-behind-the-dump-and-reach-the-wire-last.md) |
-| AD-342 | [The Dart grammar is vendored from the Python release and gated by tree parity](ad-342-the-dart-grammar-is-vendored-from-the-python-release-and-gated-by-tree-parity.md) |
+| AD-342 | [The Dart grammar is vendored from the Python release and gated by a test of its bytes](ad-342-the-dart-grammar-is-vendored-from-the-python-release-and-gated-by-a-test-of-its-bytes.md) |
 | AD-343 | [A collector reply is frozen as golden data before its code is deleted](ad-343-a-collector-reply-is-frozen-as-golden-data-before-its-code-is-deleted.md) |
 | AD-341 | [CI has a time budget, and a test runs on any free worker](ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md) |
 | AD-344 | [Only a producer that the host trusts can give PASS](ad-344-only-a-producer-that-the-host-trusts-can-give-pass.md) |
@@ -440,3 +441,4 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-432 | [The Rust core is the only decision path](ad-432-the-rust-core-is-the-only-decision-path.md) |
 | AD-436 | [A platform wheel carries the core and no other wheel is built](ad-436-a-platform-wheel-carries-the-core-and-no-other-wheel-is-built.md) |
 | AD-504 | [The Python survey writes the publication route of each named import](ad-504-the-python-survey-writes-the-publication-route-of-each-named-import.md) |
+| AD-514 | [The core proves a use of a public entry from imports and names the rest](ad-514-the-core-proves-a-use-of-a-public-entry-from-imports-and-names-the-rest.md) |
