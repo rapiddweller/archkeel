@@ -11,9 +11,9 @@ The entry page `index.html` is the product page (`tools/report_product_page.py`)
 the two self runs, ArchKeel on its Python shell and on its Rust core. The fixture table is at
 `showcase/index.html`. The self runs have stable paths (`self/core.html`, `self/core.json`,
 `self/shell.html`, `self/shell.json`) and one shield endpoint file each (`self/core-badge.json`,
-`self/shell-badge.json`), so a README can link them for good. The badge colour comes from the
-status of the envelope. A written file names the repository as `<repo>`: the path of the runner
-is not published.
+`self/shell-badge.json`). The system of both has `self/index.html` and `self/badge.json`, so a
+README can link them for good. The badge colour comes from the status of the envelope. A
+written file names the repository as `<repo>`: the path of the runner is not published.
 
 Run: `python -m tools.report_gallery --out DIR [--archkeel "uv run --locked archkeel"]`.
 """
@@ -30,11 +30,19 @@ import sys
 import tempfile
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from tools.report_product import Contract, Part, contract_of, part_of
+from tools.report_product import (
+    Contract,
+    Part,
+    contract_of,
+    part_of,
+    summed,
+    worst,
+)
 from tools.report_product_page import product_page, shell
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -167,6 +175,20 @@ def badge(row: Mapping[str, Any], label: str) -> dict[str, Any]:
         "label": label,
         "message": message,
         "color": COLORS.get(summary["status"], "lightgrey"),
+    }
+
+
+def system_badge(parts: Sequence[Part]) -> dict[str, Any]:
+    """The one shields endpoint document of the system: the weakest status, the counts added up."""
+    label = "ArchKeel self-check"
+    if not parts or not all(part.decided for part in parts):
+        return {"schemaVersion": 1, "label": label, "message": "no result", "color": "lightgrey"}
+    counts = summed(part.counts for part in parts)
+    return {
+        "schemaVersion": 1,
+        "label": label,
+        "message": " · ".join(f"{counts[name]} {name}" for name in STATUSES),
+        "color": COLORS[worst(parts)],
     }
 
 
@@ -314,6 +336,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parts: list[Part] = [row["part"] for row in self_rows]
     ids = {row["part"].key: row["ids"] for row in self_rows}
     (args.out / "index.html").write_text(product_page(parts, ids, sha, built_at, others))
+    # The same page of the system sits in self/, where the part reports are its neighbours.
+    near = [replace(part, report=Path(part.report).name) for part in parts]
+    (args.out / "self" / "index.html").write_text(
+        product_page(near, ids, sha, built_at, others, showcase="../showcase/index.html")
+    )
+    (args.out / "self" / "badge.json").write_text(
+        json.dumps(system_badge(parts), ensure_ascii=False) + "\n", encoding="utf-8"
+    )
     (args.out / "showcase").mkdir()
     (args.out / "showcase" / "index.html").write_text(index(rows, sha, built_at))
     failed = [row["run"]["name"] for row in [*self_rows, *rows] if "error" in row]

@@ -19,9 +19,13 @@ from tools import report_gallery
 from tools.report_product import (
     ALL_NAMED_LIMIT,
     MAX_PLACES,
+    SYSTEM_TITLE,
     Part,
     contract_of,
     part_of,
+    summed,
+    system_line,
+    weakest,
     worst,
 )
 from tools.report_product_page import product_page
@@ -116,7 +120,9 @@ def test_a_part_without_an_envelope_shows_its_error_and_no_verdict() -> None:
     page = _page([part, _part(CORE, _frame())])
     assert not part.decided and "No result: boom" in page
     assert worst([part]) == "UNKNOWN"
-    assert "worst verdict FAIL" in page
+    # The system is as weak as its weakest part: a part without a result is UNKNOWN, not PASS.
+    assert worst([part, _part(CORE, _frame(), "PASS")]) == "UNKNOWN"
+    assert f"{SYSTEM_TITLE}: FAIL" in page
 
 
 def test_a_refused_part_shows_the_reason_of_the_core_escaped() -> None:
@@ -131,9 +137,9 @@ def test_the_page_is_small_has_no_pre_and_no_json_and_states_the_boundary_as_sta
     text = _visible(page)
     assert len(text) <= MAX_VISIBLE
     assert "<pre" not in page and '{"' not in text
-    assert "2 parts, 2 runs, worst verdict FAIL" in text
+    assert f"{SYSTEM_TITLE}: FAIL" in text
     assert "Stated, not verified" in text and "request on stdin, frame on stdout" in text
-    assert text.count("joint verdict") == 1
+    assert text.count("weakest verdict") == 2
     assert page.count("<script>") == 1 and "src=" not in page
 
 
@@ -216,3 +222,26 @@ def test_another_contract_is_one_line_with_its_counts_and_a_failure_shows_no_cou
     assert "UNKNOWN Studio UI 0/0/1" in text
     assert "NO RESULT Browser assets boom" in text
     assert len(text) <= MAX_VISIBLE
+
+
+def test_the_system_is_the_weakest_verdict_of_its_parts_with_the_counts_added_up() -> None:
+    assert weakest(["PASS", "UNKNOWN"]) == "UNKNOWN"
+    assert weakest(["UNKNOWN", "FAIL", "PASS"]) == "FAIL"
+    assert weakest(["PASS", "PASS"]) == "PASS"
+    assert weakest(["PASS", ""]) == "UNKNOWN" and weakest([]) == "UNKNOWN"
+    assert summed([{"PASS": 63, "UNKNOWN": 20}, {"PASS": 22}]) == {
+        "PASS": 85,
+        "FAIL": 0,
+        "UNKNOWN": 20,
+    }
+    line = system_line(["PASS", "UNKNOWN"], [{"PASS": 22}, {"PASS": 63, "UNKNOWN": 20}])
+    assert line == f"{SYSTEM_TITLE}: UNKNOWN: 85 PASS · 0 FAIL · 20 UNKNOWN"
+
+
+def test_the_card_of_the_system_comes_first_and_is_never_a_green_pass_over_an_unknown() -> None:
+    unknown = _part(CORE, {**_frame(), "rules": {"R": ["x", "UNKNOWN"]}}, "UNKNOWN")
+    passing = _part(SHELL, {**_frame(), "rules": {"R": ["x", "PASS"]}}, "PASS")
+    page = _page([passing, unknown])
+    first = page.split("Verdict of the system")[1][:600]
+    assert "ak-verdict--unknown" in page.split("Verdict of the system")[0][-120:]
+    assert "cannot be decided" in first and "UNKNOWN is not a pass" in first

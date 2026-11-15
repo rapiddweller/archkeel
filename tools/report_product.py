@@ -13,7 +13,7 @@ that the CLI wrote holds that id.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -222,7 +222,31 @@ def contract_of(envelope: Mapping[str, Any] | None, title: str, error: str = "")
     return Contract(title, envelope["status"], {name: counts.get(name, 0) for name in STATUSES})
 
 
+# The one system of ArchKeel: the Python shell and the Rust core. One scan has one profile, so
+# each part is one run (AD-478); the verdict of the system is the weakest verdict of its parts.
+SYSTEM_TITLE = "ArchKeel (Python shell + Rust core)"
+ORDER = ("FAIL", "UNKNOWN", "PASS")
+
+
+def weakest(statuses: Iterable[str]) -> str:
+    """FAIL before UNKNOWN before PASS. An unknown word, or no part at all, is UNKNOWN."""
+    seen = {status if status in ORDER else "UNKNOWN" for status in statuses} or {"UNKNOWN"}
+    return next(status for status in ORDER if status in seen)
+
+
 def worst(parts: Sequence[Part]) -> str:
-    """The worst status among the parts. It is a heading word, not a joint verdict."""
-    seen = {part.status for part in parts if part.decided}
-    return next((s for s in ("FAIL", "UNKNOWN", "PASS") if s in seen), "UNKNOWN")
+    """The verdict of the system: the weakest of its parts. A part without a result is UNKNOWN."""
+    return weakest(part.status if part.decided else "UNKNOWN" for part in parts)
+
+
+def summed(counts: Iterable[Mapping[str, int]]) -> dict[str, int]:
+    """The rule counts of the parts added up, by PASS, FAIL and UNKNOWN."""
+    rows = list(counts)
+    return {name: sum(row.get(name, 0) for row in rows) for name in STATUSES}
+
+
+def system_line(statuses: Sequence[str], counts: Sequence[Mapping[str, int]]) -> str:
+    """The one line that `make self-validate` shows for the system."""
+    total = summed(counts)
+    words = " · ".join(f"{total[name]} {name}" for name in STATUSES)
+    return f"{SYSTEM_TITLE}: {weakest(statuses)}: {words}"
