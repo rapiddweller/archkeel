@@ -54,8 +54,8 @@ pub use amendment::{
 };
 pub use baseline::parse_baseline;
 pub use baseline_value::{
-    AcceptedUnknown, BaselineBudget, BaselineError, BaselineFingerprint, BaselineRole, BaselineViolation,
-    NameBudgetKind, ValidationBaseline, MAX_BASELINE_BYTES,
+    AcceptedUnknown, BaselineBudget, BaselineError, BaselineFingerprint, BaselineRole,
+    BaselineViolation, NameBudgetKind, ValidationBaseline, MAX_BASELINE_BYTES,
 };
 pub use baseline_write::{baseline_bytes, baseline_digest};
 pub use binding::{bind, Baselines, BindError, Binding, GateStatus, OldContract, Verdict};

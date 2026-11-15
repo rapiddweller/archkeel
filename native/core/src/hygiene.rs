@@ -77,7 +77,10 @@ impl Found {
     }
 
     fn refuse(&mut self, code: &'static str, detail: String) {
-        self.refusal = Some((code, Reason::Hygiene(Hygiene::new(code, detail)).to_string()));
+        self.refusal = Some((
+            code,
+            Reason::Hygiene(Hygiene::new(code, detail)).to_string(),
+        ));
     }
 }
 

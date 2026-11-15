@@ -125,7 +125,11 @@ pub(super) fn refusals(
         }
         crate::contract::ContractState::Refused(why) => found.push(format!("contract: {why}")),
     }
-    found.extend(sections.iter().map(|(name, why)| format!("section {name}: {why}")));
+    found.extend(
+        sections
+            .iter()
+            .map(|(name, why)| format!("section {name}: {why}")),
+    );
     found.extend(report.map(|why| format!("report: {why}")));
     found
 }

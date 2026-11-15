@@ -58,7 +58,7 @@ def test_every_unknown_accepted_keeps_status_unknown_and_exit_2(built: Path) -> 
     assert part["state"] == "current" and part["new"] == [] and part["gone"] == []
     assert part["accepted_unknowns"] >= 1
     assert text.returncode == 2
-    assert "accepted UNKNOWN entries" in text.stdout and "UNKNOWN" in text.stdout
+    assert "accepted UNKNOWN entries" in text.stdout and "stays UNKNOWN" in text.stdout
     assert "PASS" not in text.stdout.splitlines()[0]
 
 

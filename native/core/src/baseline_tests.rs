@@ -13,7 +13,11 @@ use serde_json::{json, Value};
 use super::{compare, Budgets, Observed, Violation};
 use crate::gap_key::{Gaps, Key};
 
-fn file(unknowns: Value, violations: Value, budgets: Value) -> archkeel_contract::policy::ValidationBaseline {
+fn file(
+    unknowns: Value,
+    violations: Value,
+    budgets: Value,
+) -> archkeel_contract::policy::ValidationBaseline {
     let document = json!({
         "schema_version": "1.4.0", "violations": violations, "budgets": budgets,
         "unknowns": unknowns,
@@ -48,21 +52,34 @@ fn run(keys: &[(&str, &str, &str, u64)]) -> Observed {
         .collect();
     Observed {
         unknown_status: !keys.is_empty(),
-        gaps: Gaps { keys, unacceptable: Vec::new() },
+        gaps: Gaps {
+            keys,
+            unacceptable: Vec::new(),
+        },
         ..Observed::default()
     }
 }
 
 fn accepted() -> Value {
     json!([
-        entry("source_resolution_gap", "pkg.a", "dynamic_import: pickle", 2),
+        entry(
+            "source_resolution_gap",
+            "pkg.a",
+            "dynamic_import: pickle",
+            2
+        ),
         entry("source_resolution_gap", "pkg.b", "dynamic_import: eval", 1),
     ])
 }
 
 fn same() -> Observed {
     run(&[
-        ("source_resolution_gap", "pkg.a", "dynamic_import: pickle", 2),
+        (
+            "source_resolution_gap",
+            "pkg.a",
+            "dynamic_import: pickle",
+            2,
+        ),
         ("source_resolution_gap", "pkg.b", "dynamic_import: eval", 1),
     ])
 }
@@ -99,7 +116,12 @@ fn a_new_gap_that_is_not_accepted_is_red() {
 
 #[test]
 fn an_accepted_gap_that_vanished_is_stale_and_red() {
-    let now = run(&[("source_resolution_gap", "pkg.a", "dynamic_import: pickle", 2)]);
+    let now = run(&[(
+        "source_resolution_gap",
+        "pkg.a",
+        "dynamic_import: pickle",
+        2,
+    )]);
     let found = compare(&file(accepted(), json!([]), json!({})), &now);
     assert_eq!((found.state, found.exit_code), ("drift", 1));
     assert_eq!(found.gone.len(), 1);
@@ -109,7 +131,12 @@ fn an_accepted_gap_that_vanished_is_stale_and_red() {
 #[test]
 fn a_changed_reason_is_one_new_and_one_stale_entry() {
     let now = run(&[
-        ("source_resolution_gap", "pkg.a", "dynamic_import: pickle", 2),
+        (
+            "source_resolution_gap",
+            "pkg.a",
+            "dynamic_import: pickle",
+            2,
+        ),
         ("source_resolution_gap", "pkg.b", "dynamic_import: exec", 1),
     ]);
     let found = compare(&file(accepted(), json!([]), json!({})), &now);
@@ -122,14 +149,24 @@ fn a_changed_reason_is_one_new_and_one_stale_entry() {
 #[test]
 fn a_higher_count_is_new_and_a_lower_count_is_stale() {
     let up = run(&[
-        ("source_resolution_gap", "pkg.a", "dynamic_import: pickle", 3),
+        (
+            "source_resolution_gap",
+            "pkg.a",
+            "dynamic_import: pickle",
+            3,
+        ),
         ("source_resolution_gap", "pkg.b", "dynamic_import: eval", 1),
     ]);
     let found = compare(&file(accepted(), json!([]), json!({})), &up);
     assert_eq!((found.state, found.exit_code), ("drift", 1));
     assert_eq!((found.new[0].run, found.new[0].file), (3, 2));
     let down = run(&[
-        ("source_resolution_gap", "pkg.a", "dynamic_import: pickle", 1),
+        (
+            "source_resolution_gap",
+            "pkg.a",
+            "dynamic_import: pickle",
+            1,
+        ),
         ("source_resolution_gap", "pkg.b", "dynamic_import: eval", 1),
     ]);
     let found = compare(&file(accepted(), json!([]), json!({})), &down);
@@ -183,9 +220,15 @@ fn an_accepted_violation_keeps_exit_0_without_unknown_and_a_stale_one_is_red() {
     assert_eq!(found.gone[0].what, "violation");
     // One fewer: stale. One more: new.
     *now.violations.values_mut().next().unwrap() = 1;
-    assert_eq!(compare(&file(json!([]), debt.clone(), json!({})), &now).exit_code, 1);
+    assert_eq!(
+        compare(&file(json!([]), debt.clone(), json!({})), &now).exit_code,
+        1
+    );
     *now.violations.values_mut().next().unwrap() = 3;
-    assert_eq!(compare(&file(json!([]), debt, json!({})), &now).exit_code, 1);
+    assert_eq!(
+        compare(&file(json!([]), debt, json!({})), &now).exit_code,
+        1
+    );
 }
 
 #[test]
@@ -210,16 +253,28 @@ fn a_violation_in_the_other_direction_is_not_the_accepted_one() {
 fn a_budget_above_the_file_is_red_and_below_is_stale() {
     let budgets = json!({"cycle_edges": 2, "private_crossings": 0});
     let at = |cycles, crossings| Observed {
-        budgets: Budgets { cycle_edges: Some(cycles), private_crossings: Some(crossings) },
+        budgets: Budgets {
+            cycle_edges: Some(cycles),
+            private_crossings: Some(crossings),
+        },
         ..Observed::default()
     };
     let base = file(json!([]), json!([]), budgets);
     assert_eq!(compare(&base, &at(2, 0)).exit_code, 0);
     let above = compare(&base, &at(3, 0));
-    assert_eq!((above.state, above.exit_code, above.new[0].reason.as_str()), ("drift", 1, "above the baseline"));
+    assert_eq!(
+        (above.state, above.exit_code, above.new[0].reason.as_str()),
+        ("drift", 1, "above the baseline")
+    );
     let below = compare(&base, &at(1, 0));
-    assert_eq!((below.state, below.exit_code, below.gone[0].reason.as_str()), ("drift", 1, "below the baseline"));
-    assert_eq!(compare(&base, &at(2, 1)).new[0].subject, "private_crossings");
+    assert_eq!(
+        (below.state, below.exit_code, below.gone[0].reason.as_str()),
+        ("drift", 1, "below the baseline")
+    );
+    assert_eq!(
+        compare(&base, &at(2, 1)).new[0].subject,
+        "private_crossings"
+    );
 }
 
 #[test]
@@ -232,7 +287,11 @@ fn a_budget_that_the_run_does_not_measure_is_a_named_gap_with_exit_2() {
 
 #[test]
 fn a_budget_that_this_core_cannot_measure_is_never_read_as_zero_or_held() {
-    for name in ["calls_unresolved", "typing_positions", "untyped_private_accesses"] {
+    for name in [
+        "calls_unresolved",
+        "typing_positions",
+        "untyped_private_accesses",
+    ] {
         let base = file(json!([]), json!([]), json!({ name: 0 }));
         let found = compare(&base, &Observed::default());
         assert_eq!((found.state, found.exit_code), ("current", 2), "{name}");
@@ -242,16 +301,24 @@ fn a_budget_that_this_core_cannot_measure_is_never_read_as_zero_or_held() {
 
 #[test]
 fn an_older_schema_names_the_budgets_of_another_analyzer_and_compares_the_rest() {
-    let base = older(json!({"calls_unresolved": 1429, "typing_positions": 178, "cycle_edges": 2,
-        "private_crossings": 0, "untyped_private_accesses": 0}));
+    let base = older(
+        json!({"calls_unresolved": 1429, "typing_positions": 178, "cycle_edges": 2,
+        "private_crossings": 0, "untyped_private_accesses": 0}),
+    );
     let mut now = run(&[("k", "s", "r", 1)]);
-    now.budgets = Budgets { cycle_edges: Some(2), private_crossings: Some(0) };
+    now.budgets = Budgets {
+        cycle_edges: Some(2),
+        private_crossings: Some(0),
+    };
     let found = compare(&base, &now);
     // The UNKNOWN compare is off: the new key is not red. Three named gaps hold exit 2.
     assert_eq!((found.state, found.exit_code), ("current", 2));
     assert!(found.new.is_empty());
     assert_eq!(found.gaps.len(), 3);
-    assert!(found.gaps.iter().all(|gap| gap.kind == "baseline.budget_of_older_schema"));
+    assert!(found
+        .gaps
+        .iter()
+        .all(|gap| gap.kind == "baseline.budget_of_older_schema"));
     now.budgets.cycle_edges = Some(3);
     assert_eq!(compare(&base, &now).exit_code, 1);
 }

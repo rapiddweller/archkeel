@@ -104,8 +104,7 @@ pub(crate) fn compare(file: &ValidationBaseline, run: &Observed) -> Compared {
     budgets(file, run, &mut found);
     unknowns(file, run, &mut found);
     let drift = !found.new.is_empty() || !found.gone.is_empty();
-    let unknown =
-        !run.gaps.keys.is_empty() || !found.gaps.is_empty() || run.unknown_status;
+    let unknown = !run.gaps.keys.is_empty() || !found.gaps.is_empty() || run.unknown_status;
     found.state = if drift { "drift" } else { "current" };
     found.exit_code = match (drift, unknown) {
         (true, _) => 1,
@@ -116,17 +115,20 @@ pub(crate) fn compare(file: &ValidationBaseline, run: &Observed) -> Compared {
 }
 
 fn violations(file: &ValidationBaseline, run: &Observed, found: &mut Compared) {
-    let accepted: BTreeMap<(&[String], &[String]), (u64, &[archkeel_contract::policy::BaselineRole])> =
-        file.violations()
-            .iter()
-            .map(|item| {
-                let print = item.fingerprint();
-                (
-                    (print.rules().as_slice(), print.subjects().as_slice()),
-                    (*item.count(), item.roles().as_slice()),
-                )
-            })
-            .collect();
+    let accepted: BTreeMap<
+        (&[String], &[String]),
+        (u64, &[archkeel_contract::policy::BaselineRole]),
+    > = file
+        .violations()
+        .iter()
+        .map(|item| {
+            let print = item.fingerprint();
+            (
+                (print.rules().as_slice(), print.subjects().as_slice()),
+                (*item.count(), item.roles().as_slice()),
+            )
+        })
+        .collect();
     let mut seen = Vec::new();
     for (item, count) in &run.violations {
         let print = (item.rules.as_slice(), item.subjects.as_slice());
@@ -186,7 +188,9 @@ fn budgets(file: &ValidationBaseline, run: &Observed, found: &mut Compared) {
         let word = word(name);
         match measured {
             Some(Some(value)) => compare_budget(word, value, ceiling, found),
-            Some(None) => found.gaps.push(unmeasured(word, "the run does not measure it")),
+            Some(None) => found
+                .gaps
+                .push(unmeasured(word, "the run does not measure it")),
             None if !current && OTHER_ANALYZER.contains(&name) => found.gaps.push(Named {
                 kind: "baseline.budget_of_older_schema",
                 subject: word.to_owned(),
@@ -194,7 +198,9 @@ fn budgets(file: &ValidationBaseline, run: &Observed, found: &mut Compared) {
                          with --write-baseline"
                     .to_owned(),
             }),
-            None => found.gaps.push(unmeasured(word, "this core does not measure it")),
+            None => found
+                .gaps
+                .push(unmeasured(word, "this core does not measure it")),
         }
     }
 }

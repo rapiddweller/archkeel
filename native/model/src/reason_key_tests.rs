@@ -36,10 +36,16 @@ fn the_count_of_imports_that_no_gap_names_is_the_multiplicity() {
 
 #[test]
 fn each_pair_of_a_pair_gap_is_one_entry_and_a_swap_changes_the_key() {
-    let first = stable(&Reason::NotComplete(Cause::PairGaps(held(&[("a", "b"), ("c", "d")]))));
+    let first = stable(&Reason::NotComplete(Cause::PairGaps(held(&[
+        ("a", "b"),
+        ("c", "d"),
+    ]))));
     assert_eq!(first.len(), 2);
     assert_eq!(first[0].reason, "a -> b");
-    let swapped = stable(&Reason::NotComplete(Cause::PairGaps(held(&[("a", "b"), ("c", "e")]))));
+    let swapped = stable(&Reason::NotComplete(Cause::PairGaps(held(&[
+        ("a", "b"),
+        ("c", "e"),
+    ]))));
     assert_ne!(first, swapped);
     let more = Reason::NotComplete(Cause::PairGaps(held(&[("a", "b"), ("c", "d"), ("e", "f")])));
     assert_eq!(stable(&more).len(), 3);
@@ -47,9 +53,16 @@ fn each_pair_of_a_pair_gap_is_one_entry_and_a_swap_changes_the_key() {
 
 #[test]
 fn a_scope_proof_part_and_a_rule_kind_have_their_own_code() {
-    let part = stable(&Reason::Unsupported(Unsupported::ScopeProof(Part::ScopedRequires)));
-    assert_eq!((part[0].kind.as_str(), part[0].reason.as_str()), ("scope_proof", "scoped_requires"));
-    let rule = stable(&Reason::Unsupported(Unsupported::Rule(RuleKind::BoundaryTypes)));
+    let part = stable(&Reason::Unsupported(Unsupported::ScopeProof(
+        Part::ScopedRequires,
+    )));
+    assert_eq!(
+        (part[0].kind.as_str(), part[0].reason.as_str()),
+        ("scope_proof", "scoped_requires")
+    );
+    let rule = stable(&Reason::Unsupported(Unsupported::Rule(
+        RuleKind::BoundaryTypes,
+    )));
     assert_eq!(rule[0].kind, "rule_kind_not_ported");
     assert_eq!(rule[0].reason, "BoundaryTypes");
     assert_eq!(rule[0].subject, None);
@@ -59,9 +72,17 @@ fn a_scope_proof_part_and_a_rule_kind_have_their_own_code() {
 fn a_hygiene_row_has_the_file_as_subject_and_ignores_the_pointer_in_its_text() {
     let make = |pointer: &str| {
         let detail = format!("c.json{pointer} entry: claim 3");
-        Reason::Hygiene(Hygiene::keyed("graph.drift", detail, "c.json", vec!["entry".to_owned()]))
+        Reason::Hygiene(Hygiene::keyed(
+            "graph.drift",
+            detail,
+            "c.json",
+            vec!["entry".to_owned()],
+        ))
     };
-    assert_eq!(stable(&make("/components/1")), stable(&make("/components/9")));
+    assert_eq!(
+        stable(&make("/components/1")),
+        stable(&make("/components/9"))
+    );
     let found = stable(&make("/components/1"));
     assert_eq!(found[0].kind, "hygiene.graph.drift");
     assert_eq!(found[0].subject.as_deref(), Some("c.json"));
@@ -71,11 +92,33 @@ fn a_hygiene_row_has_the_file_as_subject_and_ignores_the_pointer_in_its_text() {
 #[test]
 fn the_shell_kinds_are_the_words_that_the_text_prefixes_gave() {
     let kind = |reason: Reason| gap_kind(&reason);
-    assert_eq!(kind(Reason::Unsupported(Unsupported::ScopeProof(Part::ForeignRule))), "scope_proof");
-    assert_eq!(kind(Reason::Unsupported(Unsupported::Rule(RuleKind::BoundaryTypes))), "rule_kind_not_ported");
-    assert_eq!(kind(Reason::Unsupported(Unsupported::NoRules)), "no_decided_rule");
-    assert_eq!(kind(Reason::Unsupported(Unsupported::Hygiene("a"))), "contract_hygiene_not_ported");
-    assert_eq!(kind(Reason::Unsupported(Unsupported::HygieneInput)), "contract_hygiene_not_read");
-    assert_eq!(kind(Reason::Hygiene(Hygiene::new("graph.drift", String::new()))), "graph.drift");
+    assert_eq!(
+        kind(Reason::Unsupported(Unsupported::ScopeProof(
+            Part::ForeignRule
+        ))),
+        "scope_proof"
+    );
+    assert_eq!(
+        kind(Reason::Unsupported(Unsupported::Rule(
+            RuleKind::BoundaryTypes
+        ))),
+        "rule_kind_not_ported"
+    );
+    assert_eq!(
+        kind(Reason::Unsupported(Unsupported::NoRules)),
+        "no_decided_rule"
+    );
+    assert_eq!(
+        kind(Reason::Unsupported(Unsupported::Hygiene("a"))),
+        "contract_hygiene_not_ported"
+    );
+    assert_eq!(
+        kind(Reason::Unsupported(Unsupported::HygieneInput)),
+        "contract_hygiene_not_read"
+    );
+    assert_eq!(
+        kind(Reason::Hygiene(Hygiene::new("graph.drift", String::new()))),
+        "graph.drift"
+    );
     assert_eq!(kind(Reason::NoSubjects), "other");
 }

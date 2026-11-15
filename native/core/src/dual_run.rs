@@ -315,8 +315,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
     let (rows, sections) = crate::sections::split(rows);
     let gaps = crate::baseline_frame::gap_rows(&ruling);
     let baseline = run.accept.map(|input| {
-        let refusals =
-            frame_parts::refusals(&reply, &contract, &sections, report.as_ref().err());
+        let refusals = frame_parts::refusals(&reply, &contract, &sections, report.as_ref().err());
         let seen =
             crate::baseline_frame::observed(&ruling, engine.reply(), engine.graph(), refusals);
         crate::baseline_frame::build(input, &seen)
@@ -413,7 +412,9 @@ fn named(contract: &ContractState, baseline: bool, engine: &Engine, path: &str) 
             "inside_contract_missing",
             crate::contract::missing_reason(paths),
         )),
-        ContractState::Refused(message) => Some(("contract_refused", format!("refused: {message}"))),
+        ContractState::Refused(message) => {
+            Some(("contract_refused", format!("refused: {message}")))
+        }
     };
     Named {
         rules: BTreeMap::new(),

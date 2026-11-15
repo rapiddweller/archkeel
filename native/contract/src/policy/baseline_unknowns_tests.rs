@@ -38,7 +38,11 @@ fn a_sorted_list_with_counts_reads_and_writes_the_same_bytes() {
     let bytes = baseline_bytes(&baseline);
     let text = String::from_utf8(bytes.clone()).unwrap();
     assert!(text.contains("\"schema_version\": \"1.4.0\""));
-    assert_eq!(text.matches("\"count\"").count(), 1, "a count of 1 is not written");
+    assert_eq!(
+        text.matches("\"count\"").count(),
+        1,
+        "a count of 1 is not written"
+    );
     assert_eq!(baseline_bytes(&parse_baseline(&bytes).unwrap()), bytes);
 }
 
@@ -48,7 +52,9 @@ fn a_count_of_one_is_read_and_written_without_the_field() {
     one["count"] = json!(1);
     let baseline = parse(&document(json!([one]))).unwrap();
     assert_eq!(*baseline.unknowns().as_ref().unwrap()[0].count(), 1);
-    assert!(!String::from_utf8(baseline_bytes(&baseline)).unwrap().contains("\"count\""));
+    assert!(!String::from_utf8(baseline_bytes(&baseline))
+        .unwrap()
+        .contains("\"count\""));
 }
 
 #[test]
@@ -73,17 +79,26 @@ fn a_duplicate_an_unsorted_entry_an_unknown_field_and_a_count_of_zero_are_refuse
     );
     let mut extra = entry("a", "s", "r");
     extra["line"] = json!(4);
-    assert_eq!(error(&document(json!([extra]))), "baseline.unknowns[0] fields mismatch");
+    assert_eq!(
+        error(&document(json!([extra]))),
+        "baseline.unknowns[0] fields mismatch"
+    );
     let mut zero = entry("a", "s", "r");
     zero["count"] = json!(0);
-    assert_eq!(error(&document(json!([zero]))), "baseline.unknowns[0].count must be at least 1");
+    assert_eq!(
+        error(&document(json!([zero]))),
+        "baseline.unknowns[0].count must be at least 1"
+    );
     let mut text = entry("a", "s", "r");
     text["count"] = json!("2");
     assert_eq!(
         error(&document(json!([text]))),
         "baseline.unknowns[0].count must be a non-negative integer"
     );
-    assert_eq!(error(&document(json!({}))), "baseline.unknowns must be an array");
+    assert_eq!(
+        error(&document(json!({}))),
+        "baseline.unknowns must be an array"
+    );
 }
 
 #[test]
@@ -111,7 +126,10 @@ fn a_run_baseline_is_sorted_and_has_no_zero_count() {
     let make = |kind: &str| AcceptedUnknown::new(kind.into(), "s".into(), "r".into(), 2).unwrap();
     let baseline = ValidationBaseline::of_run(
         Vec::new(),
-        vec![BaselineBudget::Scalar { name: crate::BudgetName::CycleEdges, value: 2 }],
+        vec![BaselineBudget::Scalar {
+            name: crate::BudgetName::CycleEdges,
+            value: 2,
+        }],
         vec![make("b"), make("a")],
     );
     let text = String::from_utf8(baseline_bytes(&baseline)).unwrap();

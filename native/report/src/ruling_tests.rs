@@ -247,7 +247,10 @@ fn the_ruling_keeps_the_typed_reason_of_each_gap_and_the_violation_rows() {
         contract_kind: kind,
         ..Named::default()
     };
-    let kinds = [(Some("contract_refused"), "contract_refused"), (None, "other")];
+    let kinds = [
+        (Some("contract_refused"), "contract_refused"),
+        (None, "other"),
+    ];
     for (given, expected) in kinds {
         let ruling = rule(Ok(&model), whole(given)).unwrap();
         assert_eq!(ruling.contract_kind(), Some(expected));
@@ -256,7 +259,9 @@ fn the_ruling_keeps_the_typed_reason_of_each_gap_and_the_violation_rows() {
     let failing = model_of(&contract(&["EXTERNAL-COMPLETE"]), &reply, true);
     let ruling = rule(Ok(&failing), Named::default()).unwrap();
     let rows = ruling.violation_rows();
-    assert!(rows.iter().all(|(rule, source, _)| *rule == "EXTERNAL-COMPLETE" && !source.is_empty()));
+    assert!(rows
+        .iter()
+        .all(|(rule, source, _)| *rule == "EXTERNAL-COMPLETE" && !source.is_empty()));
     assert!(!rows.is_empty());
 }
 

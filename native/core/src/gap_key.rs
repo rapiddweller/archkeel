@@ -49,7 +49,8 @@ impl Gaps {
 pub(crate) fn of_run(ruling: &Ruling, reply: Option<&Ingested>) -> Gaps {
     let mut gaps = Gaps::default();
     if let RuleReasons::All(text) = ruling.unsupported() {
-        gaps.unacceptable.push(format!("the whole contract: {text}"));
+        gaps.unacceptable
+            .push(format!("the whole contract: {text}"));
     }
     for (rule, reason) in ruling.causes() {
         for entry in archkeel_model::stable(reason) {
@@ -61,7 +62,9 @@ pub(crate) fn of_run(ruling: &Ruling, reply: Option<&Ingested>) -> Gaps {
             gaps.add(key, entry.count);
         }
     }
-    let records = reply.into_iter().flat_map(|reply| &reply.reply().facts.coverage.gaps);
+    let records = reply
+        .into_iter()
+        .flat_map(|reply| &reply.reply().facts.coverage.gaps);
     for record in records {
         gaps.add(collector(record), 1);
     }
@@ -80,7 +83,12 @@ fn collector(record: &Record<GapFact>) -> Key {
         .map(|module| module.as_str().to_owned())
         .filter(|name| !name.is_empty())
         .or_else(|| data.file.clone().filter(|file| !file.is_empty()))
-        .or_else(|| record.subjects.first().map(|name| strip_line(name).to_owned()))
+        .or_else(|| {
+            record
+                .subjects
+                .first()
+                .map(|name| strip_line(name).to_owned())
+        })
         .unwrap_or_default();
     let reason = data
         .reason

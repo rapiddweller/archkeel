@@ -146,6 +146,10 @@ def read_baseline(value: object, status: str) -> BaselineResult:
 def lines(result: BaselineResult) -> Sequence[str]:
     """The text lines of the part. An accepted UNKNOWN keeps its word: it says "accepted"."""
     out = [f"Baseline: {result.state}; accepted UNKNOWN entries: {result.accepted_unknowns}"]
+    if result.accepted_unknowns:
+        out.append(
+            "Each accepted UNKNOWN stays UNKNOWN: it is known, not decided, and the run exits 2."
+        )
     for side, rows in (("new", result.new), ("stale", result.gone)):
         for row in rows:
             out.append(

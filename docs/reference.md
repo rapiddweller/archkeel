@@ -177,6 +177,8 @@ review the file, and keep it in the repository.
 | A refused part of the run (reply, contract, section, report) | `not_compared` | 2 |
 
 The file lists each accepted UNKNOWN as `kind`, `subject` and `reason`, with a `count` above 1.
+A rule row has the rule id as subject, so a new rule that is UNKNOWN for an accepted cause is a new
+entry: write the file again and review the diff.
 There is no line, evidence id or digest, so an unrelated edit does not change an entry. An accepted
 UNKNOWN stays UNKNOWN: the rule row, the run status and the exit code keep the word, and the text
 says `accepted UNKNOWN entries`. UNKNOWN never exits 0. Accepted violations are known debt: they do

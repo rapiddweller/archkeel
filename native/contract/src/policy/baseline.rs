@@ -30,7 +30,9 @@ pub fn parse_baseline(bytes: &[u8]) -> Result<ValidationBaseline, BaselineError>
     })?;
     let document = object(&value, "baseline")?;
     let version = match field(document, "schema_version") {
-        Some(Json::Text(text)) if ["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0"].contains(&text.as_str()) => {
+        Some(Json::Text(text))
+            if ["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0"].contains(&text.as_str()) =>
+        {
             text.as_str()
         }
         other => return Err(BaselineError::UnsupportedSchema(schema_repr(other))),

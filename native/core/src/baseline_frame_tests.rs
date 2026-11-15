@@ -10,7 +10,10 @@ use std::path::Path;
 
 use serde_json::{json, Value};
 
-use crate::scan::{answer, tests::{repository, request}};
+use crate::scan::{
+    answer,
+    tests::{repository, request},
+};
 
 fn frame(root: &Path, extra: Value) -> Value {
     let mut request = request(root);
@@ -23,7 +26,10 @@ fn frame(root: &Path, extra: Value) -> Value {
 
 fn written(root: &Path) -> String {
     let found = frame(root, json!({"write_baseline": true}));
-    found["baseline"]["file"].as_str().expect("the bytes").to_owned()
+    found["baseline"]["file"]
+        .as_str()
+        .expect("the bytes")
+        .to_owned()
 }
 
 fn rewrite(root: &Path, change: impl FnOnce(&mut Value)) {
@@ -91,7 +97,10 @@ fn an_entry_that_the_run_lacks_is_stale_and_one_that_the_file_lacks_is_new() {
         list.push(json!({"kind": "zz", "subject": "gone", "reason": "gone"}));
     });
     let found = part(&root);
-    assert_eq!((found["state"].as_str(), found["exit_code"].as_u64()), (Some("drift"), Some(1)));
+    assert_eq!(
+        (found["state"].as_str(), found["exit_code"].as_u64()),
+        (Some("drift"), Some(1))
+    );
     assert_eq!(found["gone"][0]["subject"], "gone");
     rewrite(&root, |document| {
         let list = document["unknowns"].as_array_mut().unwrap();
@@ -100,11 +109,18 @@ fn an_entry_that_the_run_lacks_is_stale_and_one_that_the_file_lacks_is_new() {
         }
     });
     let first = written(&root);
-    if serde_json::from_str::<Value>(&first).unwrap()["unknowns"].as_array().unwrap().is_empty() {
+    if serde_json::from_str::<Value>(&first).unwrap()["unknowns"]
+        .as_array()
+        .unwrap()
+        .is_empty()
+    {
         return;
     }
     let found = part(&root);
-    assert_eq!((found["state"].as_str(), found["exit_code"].as_u64()), (Some("drift"), Some(1)));
+    assert_eq!(
+        (found["state"].as_str(), found["exit_code"].as_u64()),
+        (Some("drift"), Some(1))
+    );
     assert_eq!(found["new"].as_array().unwrap().len(), 1);
 }
 
@@ -115,16 +131,51 @@ fn a_damaged_baseline_is_red_with_its_entry_and_never_a_silent_nothing_accepted(
     let entry = json!({"kind": "a", "subject": "b", "reason": "c"});
     let cases = [
         ("not json", "{".to_owned(), "b.json"),
-        ("duplicate", with(&good, |d| d["unknowns"] = json!([entry, entry])), "repeats"),
+        (
+            "duplicate",
+            with(&good, |d| d["unknowns"] = json!([entry, entry])),
+            "repeats",
+        ),
         (
             "unsorted",
-            with(&good, |d| d["unknowns"] = json!([{"kind": "b", "subject": "b", "reason": "c"}, entry])),
+            with(&good, |d| {
+                d["unknowns"] = json!([{"kind": "b", "subject": "b", "reason": "c"}, entry])
+            }),
             "not sorted",
         ),
-        ("unknown field", with(&good, |d| d["unknowns"] = json!([{"kind": "a", "subject": "b", "reason": "c", "line": 4}])), "fields mismatch"),
-        ("count 0", with(&good, |d| d["unknowns"] = json!([{"kind": "a", "subject": "b", "reason": "c", "count": 0}])), "at least 1"),
-        ("no unknowns field", with(&good, |d| { d.as_object_mut().unwrap().remove("unknowns"); }), "fields mismatch"),
-        ("schema", with(&good, |d| d["schema_version"] = json!("1.5.0")), "cannot be read"),
+        (
+            "unknown field",
+            with(
+                &good,
+                |d| {
+                    d["unknowns"] = json!([{"kind": "a", "subject": "b", "reason": "c", "line": 4}])
+                },
+            ),
+            "fields mismatch",
+        ),
+        (
+            "count 0",
+            with(
+                &good,
+                |d| {
+                    d["unknowns"] =
+                        json!([{"kind": "a", "subject": "b", "reason": "c", "count": 0}])
+                },
+            ),
+            "at least 1",
+        ),
+        (
+            "no unknowns field",
+            with(&good, |d| {
+                d.as_object_mut().unwrap().remove("unknowns");
+            }),
+            "fields mismatch",
+        ),
+        (
+            "schema",
+            with(&good, |d| d["schema_version"] = json!("1.5.0")),
+            "cannot be read",
+        ),
     ];
     for (name, text, needle) in cases {
         fs::write(root.join("b.json"), text).unwrap();
@@ -147,7 +198,11 @@ fn a_missing_baseline_or_one_outside_the_repository_is_red() {
     let root = repository("base-missing");
     for path in ["absent.json", "../outside.json"] {
         let found = frame(&root, json!({"baseline": path}))["baseline"].clone();
-        assert_eq!((found["state"].as_str(), found["exit_code"].as_u64()), (Some("invalid"), Some(1)), "{path}");
+        assert_eq!(
+            (found["state"].as_str(), found["exit_code"].as_u64()),
+            (Some("invalid"), Some(1)),
+            "{path}"
+        );
     }
 }
 

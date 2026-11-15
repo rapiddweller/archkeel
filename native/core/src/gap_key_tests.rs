@@ -34,7 +34,12 @@ fn key(kind: &str, subject: &str, reason: &str) -> Key {
 #[test]
 fn a_file_failure_keeps_its_key_when_its_line_moves() {
     let data = |message: &str| json!({"file": "pkg/a.py", "message": message});
-    let first = collector(&record("SyntaxError", 4, data("invalid syntax"), "pkg/a.py"));
+    let first = collector(&record(
+        "SyntaxError",
+        4,
+        data("invalid syntax"),
+        "pkg/a.py",
+    ));
     let moved = collector(&record("SyntaxError", 40, data("another text"), "pkg/a.py"));
     assert_eq!(first, moved);
     assert_eq!(first, key("SyntaxError", "pkg/a.py", "SyntaxError"));
@@ -43,12 +48,21 @@ fn a_file_failure_keeps_its_key_when_its_line_moves() {
 #[test]
 fn a_collector_gap_is_keyed_by_its_module_and_reason_and_not_by_its_line() {
     let data = json!({"module": "pkg.mod", "reason": "dynamic_import: pickle.loads"});
-    let first = collector(&record("source_resolution_gap", 3, data.clone(), "pkg/mod.py"));
+    let first = collector(&record(
+        "source_resolution_gap",
+        3,
+        data.clone(),
+        "pkg/mod.py",
+    ));
     let moved = collector(&record("source_resolution_gap", 90, data, "pkg/mod.py"));
     assert_eq!(first, moved);
     assert_eq!(
         first,
-        key("source_resolution_gap", "pkg.mod", "dynamic_import: pickle.loads")
+        key(
+            "source_resolution_gap",
+            "pkg.mod",
+            "dynamic_import: pickle.loads"
+        )
     );
 }
 
@@ -65,10 +79,15 @@ fn the_same_reason_in_another_module_or_another_reason_is_another_key() {
 
 #[test]
 fn a_position_at_the_end_of_a_reason_is_not_in_the_key() {
-    assert_eq!(strip_line("Syntax error in a.ts: unparseable construct at line 12"),
-        "Syntax error in a.ts: unparseable construct");
+    assert_eq!(
+        strip_line("Syntax error in a.ts: unparseable construct at line 12"),
+        "Syntax error in a.ts: unparseable construct"
+    );
     assert_eq!(strip_line("lib/a.dart:7"), "lib/a.dart");
-    assert_eq!(strip_line("dynamic_import: pickle"), "dynamic_import: pickle");
+    assert_eq!(
+        strip_line("dynamic_import: pickle"),
+        "dynamic_import: pickle"
+    );
     assert_eq!(strip_line("module 12"), "module 12");
     assert_eq!(strip_line("7"), "7");
 }

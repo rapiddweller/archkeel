@@ -63,7 +63,10 @@ pub(crate) fn gap_rows(ruling: &Ruling) -> Vec<GapRow> {
         RuleReasons::Each(rules) => rules
             .iter()
             .map(|(rule, text)| GapRow {
-                kind: ruling.causes().get(rule).map_or("other", archkeel_model::gap_kind),
+                kind: ruling
+                    .causes()
+                    .get(rule)
+                    .map_or("other", archkeel_model::gap_kind),
                 subject: rule.clone(),
                 reason: text.clone(),
             })
@@ -89,7 +92,9 @@ pub(crate) fn budgets(graph: &Graph, reply: &Ingested) -> Budgets {
         .imports()
         .iter()
         .filter(|import| {
-            import.symbol().is_some_and(|symbol| symbol.starts_with('_'))
+            import
+                .symbol()
+                .is_some_and(|symbol| symbol.starts_with('_'))
                 && import.source_package() != import.target_package()
         })
         .count();
@@ -217,7 +222,12 @@ fn written(run: &Observed) -> String {
         (BudgetName::PrivateCrossings, run.budgets.private_crossings),
     ]
     .into_iter()
-    .filter_map(|(name, value)| Some(BaselineBudget::Scalar { name, value: value? }))
+    .filter_map(|(name, value)| {
+        Some(BaselineBudget::Scalar {
+            name,
+            value: value?,
+        })
+    })
     .collect();
     let unknowns = run
         .gaps
