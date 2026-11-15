@@ -89,6 +89,12 @@ impl ViolationDetail {
                 cause: "forbidden construct",
                 evidence: row.evidence.clone(),
             },
+            Violation::BoundaryType(row) => Self {
+                source: row.subject.clone(),
+                target: Some(row.text.clone()),
+                cause: "written type outside the boundary types",
+                evidence: row.evidence.clone(),
+            },
             // AD-428: the target names the imported symbol in the selector form `module:name`.
             Violation::PrivateImport { cited, symbol, .. } => Self {
                 source: cited.source_module.clone(),

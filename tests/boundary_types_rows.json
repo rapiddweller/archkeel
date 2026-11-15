@@ -1,0 +1,277 @@
+{
+ "a-builtin-name-is-not-hidden-by-a-parameter": [
+  "FAIL",
+  "UNKNOWN",
+  "unresolved_name"
+ ],
+ "alias": [
+  "PASS",
+  "UNKNOWN",
+  "unresolved_name"
+ ],
+ "alias-of-a-dict": [
+  "FAIL",
+  "UNKNOWN",
+  "unresolved_name"
+ ],
+ "alias-of-a-literal": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "alias"
+ ],
+ "allowance-exact-for-object": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "allowance-for-a-bare-dict": [
+  "PASS",
+  "UNKNOWN",
+  "allowance_not_read"
+ ],
+ "allowance-for-a-nested-object-needs-a-depth": [
+  "FAIL",
+  "FAIL",
+  ""
+ ],
+ "allowance-for-another-position": [
+  "FAIL",
+  "FAIL",
+  ""
+ ],
+ "allowance-with-a-depth": [
+  "PASS",
+  "UNKNOWN",
+  "allowance_not_read"
+ ],
+ "allowance-with-a-field-path": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "allowance-with-a-wrong-text": [
+  "FAIL",
+  "FAIL",
+  "stale_allowance"
+ ],
+ "any-type": [
+  "PASS",
+  "UNKNOWN",
+  "any_type"
+ ],
+ "bare-dict": [
+  "FAIL",
+  "FAIL",
+  ""
+ ],
+ "bare-object": [
+  "FAIL",
+  "FAIL",
+  ""
+ ],
+ "callable-type-with-a-dict": [
+  "FAIL",
+  "UNKNOWN",
+  "generic"
+ ],
+ "collections": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "dataclass-dto": [
+  "FAIL",
+  "UNKNOWN",
+  "no_record; unresolved_name"
+ ],
+ "declared-dto": [
+  "FAIL",
+  "UNKNOWN",
+  "field_walk; member_no_record"
+ ],
+ "decorated-function": [
+  "PASS",
+  "UNKNOWN",
+  "no_record"
+ ],
+ "dict-in-a-list": [
+  "FAIL",
+  "FAIL",
+  ""
+ ],
+ "dict-in-a-union": [
+  "FAIL",
+  "FAIL",
+  ""
+ ],
+ "dict-in-optional": [
+  "FAIL",
+  "FAIL",
+  ""
+ ],
+ "dict-method": [
+  "FAIL",
+  "FAIL",
+  ""
+ ],
+ "dict-return": [
+  "FAIL",
+  "FAIL",
+  ""
+ ],
+ "dict-with-arguments": [
+  "FAIL",
+  "FAIL",
+  ""
+ ],
+ "dotted-chain": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "dotted_name"
+ ],
+ "dotted-name": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "external_type"
+ ],
+ "dynamic-exports": [
+  "PASS",
+  "UNKNOWN",
+  "dynamic_exports"
+ ],
+ "enum-parameter": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "explicit-entry-needs-no-all": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "external-type": [
+  "PASS",
+  "UNKNOWN",
+  "external_type"
+ ],
+ "facade-without-a-literal-all": [
+  "PASS",
+  "UNKNOWN",
+  "dynamic_exports"
+ ],
+ "forward-reference": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "forward_reference"
+ ],
+ "inherited-surface": [
+  "FAIL",
+  "UNKNOWN",
+  "inherited_surface"
+ ],
+ "init-has-no-return-position": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "literal-and-annotated": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "literal-of-a-member": [
+  "PASS",
+  "UNKNOWN",
+  "other"
+ ],
+ "method-receiver-is-no-position": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "missing-annotation": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "missing_annotation"
+ ],
+ "optional-and-union": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "primitives": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "private-names-are-not-the-surface": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "property-member": [
+  "FAIL",
+  "UNKNOWN",
+  "member_no_record"
+ ],
+ "quoted-builtin": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "forward_reference"
+ ],
+ "rebound-builtin": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "unresolved_name"
+ ],
+ "reexport-of-a-clean-function": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "reexport-through-the-facade": [
+  "FAIL",
+  "FAIL",
+  ""
+ ],
+ "stale-allowance": [
+  "PASS",
+  "PASS",
+  "stale_allowance"
+ ],
+ "star-import-in-scope": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "no_record"
+ ],
+ "type-checking-import": [
+  "FAIL",
+  "UNKNOWN",
+  "unresolved_name"
+ ],
+ "undeclared-class": [
+  "FAIL",
+  "FAIL",
+  ""
+ ],
+ "unresolved-facade-entry": [
+  "PASS",
+  "UNKNOWN",
+  "unresolved_facade_entry"
+ ],
+ "user-generic": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "generic"
+ ],
+ "variadics-with-annotations": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "variadics-without-annotations": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "missing_annotation"
+ ]
+}
