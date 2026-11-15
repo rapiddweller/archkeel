@@ -47,20 +47,7 @@ impl DartParser {
         self.work_permille = 0;
         match self.front(content, &source) {
             Ok(front) => {
-                let mut loader = None;
-                let mut mirrors = None;
-                for node in walk(front.tree.root_node()) {
-                    if !matches!(node.kind(), "identifier" | "type_identifier") {
-                        continue;
-                    }
-                    match content.get(node.byte_range()) {
-                        Some(b"spawnUri") if loader.is_none() => loader = Some(source.span(node)),
-                        Some(
-                            b"currentMirrorSystem" | b"reflect" | b"reflectClass" | b"reflectType",
-                        ) if mirrors.is_none() => mirrors = Some(source.span(node)),
-                        _ => {}
-                    }
-                }
+                let (loader, mirrors) = token_spans(front.tree.root_node(), &source);
                 (
                     finish(
                         Vec::new(),
@@ -178,6 +165,26 @@ impl DartParser {
         self.work_permille = work.permille();
         finish(definitions, directives, found, concerns, language_version)
     }
+}
+
+fn token_spans(root: Node<'_>, source: &Source<'_>) -> (Option<Span>, Option<Span>) {
+    let mut loader = None;
+    let mut mirrors = None;
+    for node in walk(root) {
+        if !matches!(node.kind(), "identifier" | "type_identifier") {
+            continue;
+        }
+        match source.data.get(node.byte_range()) {
+            Some(b"spawnUri") if loader.is_none() => loader = Some(source.span(node)),
+            Some(b"currentMirrorSystem" | b"reflect" | b"reflectClass" | b"reflectType")
+                if mirrors.is_none() =>
+            {
+                mirrors = Some(source.span(node))
+            }
+            _ => {}
+        }
+    }
+    (loader, mirrors)
 }
 
 /// The parse of one source up to its directives.
