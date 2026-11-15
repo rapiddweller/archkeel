@@ -145,6 +145,9 @@ impl Bound {
     }
 
     pub(super) fn inert_typing_arg(&self, expr: &Expr) -> bool {
+        if scalar_literal(expr) {
+            return true;
+        }
         match expr {
             Expr::Name(name) => {
                 matches!(
@@ -152,11 +155,6 @@ impl Bound {
                     "int" | "str" | "float" | "bool" | "bytes" | "object"
                 ) && self.unbound(name.id.as_str())
             }
-            Expr::NumberLiteral(_)
-            | Expr::StringLiteral(_)
-            | Expr::BytesLiteral(_)
-            | Expr::BooleanLiteral(_)
-            | Expr::NoneLiteral(_) => true,
             Expr::Tuple(tuple) => tuple.elts.iter().all(|item| self.inert_typing_arg(item)),
             _ => false,
         }
@@ -387,6 +385,17 @@ impl<'a> Visitor<'a> for Walk {
     bind_handler_and_pattern!();
 }
 
+fn scalar_literal(value: &Expr) -> bool {
+    matches!(
+        value,
+        Expr::NumberLiteral(_)
+            | Expr::StringLiteral(_)
+            | Expr::BytesLiteral(_)
+            | Expr::BooleanLiteral(_)
+            | Expr::NoneLiteral(_)
+    )
+}
+
 /// The builtin types whose call makes an instance of that type, never another object.
 const BUILTIN_VALUES: [&str; 10] = [
     "list",
@@ -445,19 +454,12 @@ fn plain_kind(value: &Expr) -> Kind {
             }
         }
     }
-    if matches!(
-        value,
-        Expr::NumberLiteral(_)
-            | Expr::StringLiteral(_)
-            | Expr::BytesLiteral(_)
-            | Expr::BooleanLiteral(_)
-            | Expr::NoneLiteral(_)
-            | Expr::Tuple(_)
-            | Expr::List(_)
-            | Expr::Dict(_)
-            | Expr::Set(_)
-            | Expr::FString(_)
-    ) {
+    if scalar_literal(value)
+        || matches!(
+            value,
+            Expr::Tuple(_) | Expr::List(_) | Expr::Dict(_) | Expr::Set(_) | Expr::FString(_)
+        )
+    {
         Kind::Value
     } else {
         Kind::Other
