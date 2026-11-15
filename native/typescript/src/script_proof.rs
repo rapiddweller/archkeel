@@ -8,9 +8,9 @@
 use archkeel_facts::data::BindingData;
 use archkeel_facts::identity::{stable_id, Part};
 
-use crate::script_deps::{leading_roots, Probe, Run};
 use crate::script_project::stable_publication;
 use crate::script_records::binding;
+use crate::script_state::{leading_roots, Probe, Run};
 use crate::script_types::ScriptAlias;
 use crate::sites::SiteKind;
 use crate::source::Span;

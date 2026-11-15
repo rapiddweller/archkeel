@@ -13,7 +13,9 @@ use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId};
 use archkeel_facts::nested::{AttributeDeclaration, VisibilityDetail};
 use archkeel_facts::vocab::MethodKind;
-use ruff_python_ast::{Expr, Stmt, StmtClassDef, StmtFunctionDef, UnaryOp};
+use std::collections::HashSet;
+
+use ruff_python_ast::{Expr, Number, Stmt, StmtClassDef, StmtFunctionDef, UnaryOp};
 use ruff_text_size::Ranged;
 
 use super::kind::Kind;
@@ -38,14 +40,17 @@ pub(super) fn attributes(
 ) -> Result<Attributes, Unwritable> {
     let enumeration = kind == Kind::Enum;
     let mut found = Vec::new();
+    let mut keys = HashSet::new();
     for statement in &node.body {
         let start = statement.range().start();
         let (names, annotation) = match statement {
-            Stmt::AnnAssign(assign) => match &*assign.target {
-                Expr::Name(name) if !enumeration => {
+            // A bare annotation binds nothing at run time, and a value of no proven kind may be a
+            // function or a class: only `name: T = literal` is an attribute.
+            Stmt::AnnAssign(assign) => match (&*assign.target, assign.value.as_deref()) {
+                (_, _) if enumeration => return Ok(open()),
+                (Expr::Name(name), Some(value)) if constant(value) => {
                     (vec![name.id.as_str()], scan.text(Some(&assign.annotation))?)
                 }
-                _ if enumeration => return Ok(open()),
                 _ => continue,
             },
             Stmt::Assign(assign) => {
@@ -54,8 +59,12 @@ pub(super) fn attributes(
                 if enumeration && !(plain && enum_literal(assign, &names)) {
                     return Ok(open());
                 }
-                if !plain {
+                if !plain || (!enumeration && !constant(&assign.value)) {
                     continue;
+                }
+                let key = value_key(&assign.value);
+                if enumeration && !key.is_some_and(|key| keys.insert(key)) {
+                    return Ok(open());
                 }
                 (names, None)
             }
@@ -67,6 +76,12 @@ pub(super) fn attributes(
             }
         };
         for name in names {
+            if mangled(name) && enumeration {
+                return Ok(open());
+            }
+            if mangled(name) {
+                continue;
+            }
             if bound.sole(name, start) {
                 found.push(declaration(scan, statement, name, annotation.clone()));
             } else if enumeration {
@@ -90,6 +105,34 @@ pub(super) fn open() -> Attributes {
     }
 }
 
+/// `__x` is `_A__x` at run time: the name is no member of the class under its written name.
+pub(super) fn mangled(name: &str) -> bool {
+    name.starts_with("__") && !name.ends_with("__")
+}
+
+/// The value of an enum literal, so that `R = 1; S = 1` is seen as an alias. Only a string and an
+/// integer have a key: `1`, `1.0` and `True` are one value, so a float, a bool, bytes, `None` and
+/// a tuple leave the enum open.
+fn value_key(value: &Expr) -> Option<String> {
+    match value {
+        Expr::StringLiteral(node) => Some(format!("s:{}", node.value.to_str())),
+        Expr::NumberLiteral(node) => int_key(&node.value, ""),
+        Expr::UnaryOp(node) => match (&node.op, &*node.operand) {
+            (UnaryOp::USub, Expr::NumberLiteral(inner)) => int_key(&inner.value, "-"),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn int_key(number: &Number, sign: &str) -> Option<String> {
+    match number {
+        Number::Int(value) if value.to_string() == "0" => Some("i:0".to_owned()),
+        Number::Int(value) => Some(format!("i:{sign}{value}")),
+        _ => None,
+    }
+}
+
 fn plain_name(target: &Expr) -> Option<&str> {
     match target {
         Expr::Name(name) => Some(name.id.as_str()),
@@ -109,7 +152,7 @@ fn inert(statement: &Stmt) -> bool {
 
 /// `NAME = constant`: a member (not a descriptor, not a private or special name).
 fn enum_literal(assign: &ruff_python_ast::StmtAssign, names: &[&str]) -> bool {
-    names.len() == 1 && !names[0].starts_with('_') && constant(&assign.value)
+    names.len() == 1 && !names[0].starts_with('_') && names[0] != "mro" && constant(&assign.value)
 }
 
 fn constant(value: &Expr) -> bool {
@@ -175,10 +218,15 @@ fn declaration(
 /// the function (rule 5). `staticmethod` and `classmethod` count only as the builtins.
 pub(super) fn method_kind(node: &StmtFunctionDef, binders: &Binders) -> Option<MethodKind> {
     let [decorator] = node.decorator_list.as_slice() else {
+        // `__new__` is a static method, and the two hooks are class methods, without a decorator.
         return node
             .decorator_list
             .is_empty()
-            .then_some(MethodKind::Instance);
+            .then(|| match node.name.as_str() {
+                "__new__" => MethodKind::Static,
+                "__init_subclass__" | "__class_getitem__" => MethodKind::Class,
+                _ => MethodKind::Instance,
+            });
     };
     match &decorator.expression {
         Expr::Name(name) if binders.builtin_visible(name.id.as_str()) => match name.id.as_str() {

@@ -26,6 +26,7 @@ use super::reader::Reader;
 use super::scope::{self, Stored, Uses};
 use super::{Found, Source};
 use crate::module::{EvidenceMap, Module};
+use crate::survey::binders::Binders;
 use crate::survey::bound::Bound;
 
 /// What a name of the module body is, for a site.
@@ -122,7 +123,7 @@ impl Context {
 
 /// The sites of the sources of one module.
 pub(crate) fn sites(
-    module: &Module,
+    (module, binders): (&Module, &Binders),
     found: &Found<'_>,
     context: &Context,
     evidence: &mut EvidenceMap,
@@ -130,6 +131,7 @@ pub(crate) fn sites(
     let mut reader = Reader {
         module,
         evidence_map: evidence,
+        shadowed: Reader::shadowed(binders),
     };
     let (mut calls, mut references) = (Vec::new(), Vec::new());
     for source in &found.sources {

@@ -15,6 +15,7 @@ use ruff_python_ast::Expr;
 use ruff_text_size::Ranged;
 
 use crate::module::{EvidenceMap, Module};
+use crate::survey::binders::Binders;
 
 /// An expression whose text this reader does not write.
 #[derive(Debug, PartialEq, Eq)]
@@ -23,12 +24,44 @@ pub(super) struct Unwritable;
 pub(super) struct Reader<'m, 'e> {
     pub module: &'m Module,
     pub evidence_map: &'e mut EvidenceMap,
+    /// The builtin type names that the module binds somewhere: their text names something else.
+    pub shadowed: Vec<&'static str>,
+}
+
+/// The builtin names that an annotation or a default reads as a type or a value.
+const BUILTINS: [&str; 18] = [
+    "int",
+    "str",
+    "float",
+    "bool",
+    "bytes",
+    "bytearray",
+    "complex",
+    "list",
+    "dict",
+    "set",
+    "frozenset",
+    "tuple",
+    "object",
+    "type",
+    "range",
+    "slice",
+    "memoryview",
+    "property",
+];
+
+impl Reader<'_, '_> {
+    /// The builtin names that `binders` shows bound in the module.
+    pub(super) fn shadowed(binders: &Binders) -> Vec<&'static str> {
+        let hidden = |name: &&str| !binders.builtin_visible(name);
+        BUILTINS.iter().copied().filter(hidden).collect()
+    }
 }
 
 impl Reader<'_, '_> {
     /// The text of an optional expression.
     pub(super) fn text(&self, expr: Option<&Expr>) -> Result<Option<String>, Unwritable> {
-        expr.map(plain).transpose()
+        expr.map(|expr| plain(expr, &self.shadowed)).transpose()
     }
 
     /// `add_evidence`.
@@ -37,14 +70,19 @@ impl Reader<'_, '_> {
     }
 }
 
-fn plain(expr: &Expr) -> Result<String, Unwritable> {
+fn plain(expr: &Expr, shadowed: &[&str]) -> Result<String, Unwritable> {
     match expr {
+        Expr::Name(node) if shadowed.contains(&node.id.as_str()) => Err(Unwritable),
         Expr::Name(node) => Ok(node.id.to_string()),
-        Expr::Attribute(node) => Ok(format!("{}.{}", plain(&node.value)?, node.attr.as_str())),
+        Expr::Attribute(node) => Ok(format!(
+            "{}.{}",
+            plain(&node.value, shadowed)?,
+            node.attr.as_str()
+        )),
         Expr::Call(node)
             if node.arguments.args.is_empty() && node.arguments.keywords.is_empty() =>
         {
-            Ok(format!("{}()", plain(&node.func)?))
+            Ok(format!("{}()", plain(&node.func, shadowed)?))
         }
         Expr::NoneLiteral(_) => Ok("None".to_owned()),
         Expr::BooleanLiteral(node) => Ok(if node.value { "True" } else { "False" }.to_owned()),

@@ -9,7 +9,9 @@
 //! release 4.0.1. A detail that the record does not state is UNKNOWN; a stated detail that
 //! differs is FAIL. A modifier that the record does not state is UNKNOWN, never FAIL.
 
-use archkeel_contract::{Entity, ParameterKind, Signature, VisibilityBasis, VisibilityKind};
+use archkeel_contract::{
+    Entity, EntityKind, ModifierKind, ParameterKind, Signature, VisibilityBasis, VisibilityKind,
+};
 
 use crate::symbols;
 use crate::uml_facts::{Assessed, UmlDiff};
@@ -53,6 +55,20 @@ pub(crate) fn details(wanted: &Entity, actual: &symbols::Entity) -> Vec<Assessed
         } else {
             fail("visibility or its basis differs", actual.name.clone())
         });
+    }
+    // A drawn operation with no modifier is read as a plain one: a static or class method of the
+    // code is not that, so the row stays undecided (AD-518).
+    let operation = matches!(wanted.kind(), EntityKind::Method | EntityKind::Function);
+    let marked = [ModifierKind::Static, ModifierKind::Class];
+    if operation
+        && wanted.modifiers().is_empty()
+        && marked
+            .iter()
+            .any(|modifier| actual.modifiers.contains(modifier))
+    {
+        result.push(Assessed::Unknown(
+            "a static or class method is drawn without a modifier".to_owned(),
+        ));
     }
     if !wanted.modifiers().is_empty() {
         let recorded = wanted

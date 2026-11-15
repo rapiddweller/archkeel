@@ -4,16 +4,19 @@
 
 //! The publications of a script: an object that it assigns to the global object or returns from a
 //! function that it calls once (`_script_assignment_publication`, `_script_return_publication`,
-//! `_script_members`).
+//! `_script_members`), and the writes and publications of a script (`_script_globals`).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::script_scope::Tree;
-use crate::script_syntax::Producer;
-use crate::script_types::{Member, ScriptGlobal};
+use crate::script_names;
+use crate::script_scope::is_receiver_scope;
+use crate::script_syntax::{unique, Producer};
+use crate::script_tree::Tree;
+use crate::script_types::{Member, ScriptGlobal, Write};
+use crate::source::Span;
 use crate::tree::nodes::named_children;
 
 /// The `(published name, local name)` pairs and the keys of an object literal.
@@ -100,9 +103,9 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         }
         // The wrapper is the only scope above the node that binds the name: it is the nearest, and
         // none is above it.
-        let nearest = tree.bound_scope(node, name);
+        let nearest = script_names::bound_scope(tree, node, name);
         let only = nearest.is_some_and(|scope| scope.id() == wrapper.id())
-            && tree.bound_scope(wrapper, name).is_none();
+            && script_names::bound_scope(tree, wrapper, name).is_none();
         only && tree.count(wrapper, name) == 1
             && !tree.in_ambiguous_scope(node)
             && self.free_arguments(wrapper)
@@ -192,4 +195,102 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             availability: Vec::new(),
         })
     }
+}
+
+/// The writes and publications that `_script_globals` finds while it reads the nodes in order.
+#[derive(Default)]
+struct Found {
+    publications: Vec<ScriptGlobal>,
+    writes: Vec<Write>,
+    /// Each `this` with the span of the function or class that it belongs to.
+    receivers: Vec<(Option<Span>, Span)>,
+}
+
+impl<'x, 'a, 't> Producer<'x, 'a, 't> {
+    /// What the node adds to the writes and publications of the file.
+    fn visit(&self, node: Node<'t>, roots: &HashSet<&str>, found: &mut Found) {
+        let tree = self.tree;
+        let kind = tree.k(node);
+        let opaque = tree.opaque_writes(node, &self.callables);
+        found
+            .writes
+            .extend(opaque.into_iter().map(|span| (None, span)));
+        if kind == K::This {
+            let owner = tree
+                .ancestors(node)
+                .find(|ancestor| is_receiver_scope(tree.k(*ancestor)));
+            found
+                .receivers
+                .push((owner.map(|owner| tree.span(owner)), tree.span(node)));
+            if tree.script_escape(node) {
+                found.writes.push((None, tree.span(node)));
+            }
+        }
+        let name = matches!(kind, K::Identifier | K::ShorthandPropertyIdentifier)
+            && roots.contains(tree.text(node).as_str());
+        if name && !tree.declaration_name(node) && tree.script_escape(node) {
+            found.writes.push((None, tree.span(node)));
+        }
+        if !self.module_syntax {
+            found.writes.extend(tree.declaration_write(node));
+        }
+    }
+
+    /// The assignment that `node` makes to `target`: a write, and maybe a publication.
+    fn assign(&self, node: Node<'t>, target: Node<'t>, found: &mut Found) {
+        let tree = self.tree;
+        let wrapper = self.wrapper_of(node);
+        let alias = |name: &str| self.is_alias(wrapper, name);
+        found.writes.push(tree.target_write(node, target, &alias));
+        let path = tree.static_path(target);
+        if path.first().is_some_and(|first| alias(first)) {
+            let published = self.assignment_publication(node, target, wrapper);
+            found.publications.extend(published);
+        }
+    }
+}
+
+/// `_script_globals`: the publications of the file and the writes that a script may make.
+pub(crate) fn globals<'t>(producer: &Producer<'_, '_, 't>) -> (Vec<ScriptGlobal>, Vec<Write>) {
+    let tree = producer.tree;
+    let mut found = Found::default();
+    let wrapper_calls: HashSet<usize> = producer.wrappers.values().map(|w| w.call.id()).collect();
+    let mut roots: HashSet<&str> = crate::source_input::WALK_ROOTS.into_iter().collect();
+    roots.extend(
+        producer
+            .wrappers
+            .values()
+            .flat_map(|w| w.aliases.iter())
+            .map(String::as_str),
+    );
+    let mut targets = producer.targets.iter().peekable();
+    for node in tree.nodes.iter().copied() {
+        producer.visit(node, &roots, &mut found);
+        while let Some((_, target)) = targets.next_if(|(owner, _)| owner.id() == node.id()) {
+            producer.assign(node, *target, &mut found);
+        }
+        found.writes.extend(tree.call_writes(node, &wrapper_calls));
+        let call = producer.wrappers.get(&node.id()).map(|info| info.call);
+        let returned = call.and_then(|call| producer.return_publication(node, call));
+        if let Some(publication) = returned {
+            found
+                .writes
+                .push((Some(publication.name.clone()), publication.span.clone()));
+            found.publications.push(publication);
+        }
+    }
+    let published: HashSet<&Span> = found
+        .publications
+        .iter()
+        .flat_map(|item| item.members.iter().map(|(_, _, span)| span))
+        .collect();
+    let open = |owner: &Option<Span>| owner.as_ref().is_none_or(|o| published.contains(o));
+    let writes = found
+        .receivers
+        .iter()
+        .filter(|(owner, _)| open(owner))
+        .map(|(_, span)| (None, span.clone()))
+        .collect::<Vec<_>>();
+    found.writes.extend(writes);
+    (found.publications, unique(found.writes))
 }

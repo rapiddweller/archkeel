@@ -27,13 +27,13 @@ use serde_json::{Map, Value};
 
 use super::binders::Binders;
 use super::bound::Bound;
-use super::writes;
 use crate::declare::{definition_id, signature, visibility};
 use crate::module::definition::Def;
 use crate::module::{EvidenceMap, Module};
 use kind::{BaseSite, Kind, Local, Reading};
 use reader::{Reader, Unwritable};
 
+mod escapes;
 mod kind;
 mod members;
 mod reader;
@@ -42,6 +42,8 @@ mod sites;
 mod values;
 
 pub(crate) use sites::{sites, Context};
+
+pub(in crate::survey) use escapes::{all as scan_escapes, Escapes};
 
 /// Why a member list is never complete: a base, a metaclass, a decorator and a write after the
 /// class body can add a member that the body does not show.
@@ -72,6 +74,7 @@ pub(crate) struct Found<'m> {
 pub(crate) fn records<'m>(
     module: &'m Module,
     binders: &Binders,
+    escapes: Escapes,
     evidence: &mut EvidenceMap,
 ) -> Found<'m> {
     let mut scratch = EvidenceMap::new();
@@ -79,12 +82,11 @@ pub(crate) fn records<'m>(
         scan: Reader {
             module,
             evidence_map: &mut scratch,
+            shadowed: Reader::shadowed(binders),
         },
         binders,
-        // An attribute write whose base is not `self` can add or replace a member of any class.
-        open: writes::bases(&module.tree.body)
-            .iter()
-            .any(|base| !matches!(base, Expr::Name(name) if name.id.as_str() == "self")),
+        open: escapes.open,
+        escaped: escapes.escaped,
         out: Vec::new(),
         sources: Vec::new(),
         constructible: HashSet::new(),
@@ -147,12 +149,15 @@ struct Frame<'a> {
     qualname: String,
     id: String,
     bound: Bound,
+    /// The members of the class are withheld, and so are its nested classes.
+    open: bool,
 }
 
 struct Writer<'m, 'b> {
     scan: Reader<'m, 'b>,
     binders: &'b Binders,
     open: bool,
+    escaped: HashSet<String>,
     out: Vec<Record<SymbolFact>>,
     sources: Vec<Source<'m>>,
     constructible: HashSet<String>,
@@ -187,7 +192,12 @@ impl<'m> Writer<'m, '_> {
         while let Some(frame) = pending.pop() {
             let reading = Reading::top((&module.name, body), &bound, self.binders, &local)
                 .within(&frame.bound);
-            for node in nested(&frame) {
+            let inside = if frame.open {
+                Vec::new()
+            } else {
+                nested(&frame)
+            };
+            for node in inside {
                 let found = self.class(node, &reading, Some(&frame))?;
                 pending.extend(found.map(|(next, _)| next));
             }
@@ -287,7 +297,10 @@ impl<'m> Writer<'m, '_> {
         let qualname = format!("{holder}.{name}");
         let id = definition_id(module, Def::Class(node), &qualname);
         let bound = Bound::of(&node.body);
-        let (attributes, methods) = if self.open {
+        let open = self.open
+            || owner.is_some_and(|frame| frame.open)
+            || (owner.is_none() && self.escaped.contains(name));
+        let (attributes, methods) = if open {
             (members::open(), Vec::new())
         } else {
             let attributes = members::attributes(&mut self.scan, node, &bound, class_kind)?;
@@ -332,6 +345,7 @@ impl<'m> Writer<'m, '_> {
             qualname,
             id,
             bound,
+            open,
         };
         if owner.is_none() && constructible {
             self.constructible.insert(frame.qualname.clone());
@@ -400,7 +414,7 @@ impl<'m> Writer<'m, '_> {
                 continue;
             };
             let name = function.name.as_str();
-            if !bound.sole(name, statement.range().start()) {
+            if members::mangled(name) || !bound.sole(name, statement.range().start()) {
                 continue;
             }
             let Some(method) = members::method_kind(function, self.binders) else {

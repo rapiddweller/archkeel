@@ -62,11 +62,13 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   or class attribute that one plain statement binds once; a second binder (`if`, `try`, `for`,
   `with`, `del`, `global`, walrus, `match`, star import), a decorator other than the builtin
   `staticmethod` or `classmethod`, a keyword or an unproven base, a hazard site or a write from
-  another module gives no record, so the name is absent (UNKNOWN). A module-level value, a function
-  inside a function and a text other than a name, a dotted name, `None`, `True` or `False` in an
-  annotation or a default give none. Open: a local `self` that holds a class, a write from a C
-  extension or through `globals()` of another module, and a member that a base `__init_subclass__`
-  adds. Every Python member list is `partial`. A target
+  another module gives no record, so the name is absent (UNKNOWN). A class that a base which may be
+  a class writes to (`type.__setattr__`, `cls.x = v`, `self` of a metaclass), or whose name is
+  passed, stored or returned, keeps no member. A bare annotation, a value that is no literal and
+  a mangled `__x` are no attribute. A module-level value, a function inside a function and a
+  text other than a name, a dotted name, `None`, `True` or `False` in an annotation or a default
+  give none. Open: a write from a C extension or through `globals()` of another module.
+  Every Python member list is `partial`. A target
   in an inside contract and an external import target keep it UNKNOWN too. A target that 4.0.1
   passes with symbol facts (H-uml, H-uml-dart) exits 2. A FAIL for a conflict, a missing base or an
   extra element of a closed scope is true whatever the coverage, so it stays in an incomplete run.
@@ -102,7 +104,7 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 - The shell trusts the rule rows of the core binary that it located. It checks the root, the commit,
   the dirty state, the configuration and all contract file digests against its request (AD-438).
   A nested file changed since the request started is refused. Keep the snapshot unchanged during a run.
-- ArchKeel checks only its Rust source in `native/` with the core: 63 rules PASS, 1 FAIL, 19 UNKNOWN,
+- ArchKeel checks only its Rust source in `native/` with the core: 63 rules PASS, 0 FAIL, 20 UNKNOWN, 0 violations,
   pinned in `native/expected-gaps.json`. The Python shell and the tools have no architecture contract.
 
 Archkeel observes one static snapshot, not runtime behavior, data flow, performance
@@ -118,13 +120,14 @@ See [AD-422](architecture/decisions/ad-422-core-only-validation-renders-the-scan
 
 ## Open false PASS, not accepted (Python `interface_boundary`, AD-504)
 
-The core gives PASS where Python binds something else at import time, for two forms. 4.0.1 gives
+The core gives PASS where Python binds something else at import time, for three forms. 4.0.1 gives
 PASS for both. They are open defects, pinned by plants in `tests/python_interface_plants.py`:
 
 - `import app.lib` then `app.lib._priv.secret()` with public `app.lib`: the rule judges imports,
   and a use of a private module through a public module object is no import.
-- A write to a package from a C extension, or through `globals()` of another module, after its
-  statements ran. A write through `sys.modules` or a computed `importlib.import_module` is a survey
+- A write to a package from a module outside the scan roots (`conftest.py`, `sitecustomize`, an
+  installed package, a script), from a C extension, or through `globals()` of another module,
+  after its statements ran. A write through `sys.modules` or a computed `importlib.import_module` is a survey
   gap, so the rule is UNKNOWN.
 
 ## Before claiming PASS

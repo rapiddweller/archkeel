@@ -43,8 +43,8 @@ mod package_body;
 pub(crate) mod routes;
 mod stable;
 mod targets;
+mod uses;
 mod walks;
-pub(crate) mod writes;
 
 pub(crate) struct Survey {
     pub files: Vec<FileFact>,
@@ -101,6 +101,10 @@ pub(crate) fn modules(request: &PythonRequest) -> Result<Modules, String> {
     })
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "the survey is one pipeline of passes; AD-520 adds the site pass to it"
+)]
 pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     let interpreter = &request.resolver.interpreter;
     let minor = interpreter.version.minor();
@@ -120,7 +124,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .map(|module| Binders::of(&module.tree))
         .collect();
     let mut evidence = EvidenceMap::new();
-    let collected = imports::collect_all(modules, &binders, namespace, &mut evidence);
+    let (collected, written) = collect(modules, &binders, namespace, &mut evidence);
     let (mut imports, aliases) = (collected.records, collected.aliases);
     let sole_binders = collected.sole;
     let ambiguous = collected.ambiguous.clone();
@@ -135,15 +139,18 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .filter(|(_, binders)| binders.all_unread)
         .map(|(module, _)| module.name.clone())
         .collect();
-    opaque_surface.extend(writes::written(modules, &imports));
-    let hazardous: HashSet<usize> = hazards.iter().map(|(index, _)| *index).collect();
+    opaque_surface.extend(written);
+    opaque_surface.extend(uses::escaped(modules, &imports));
     let symbols = declarations(
         modules,
         &binders,
         &imports,
         (&sole_binders, &ambiguous),
         &mut evidence,
-        |index, module| !hazardous.contains(&index) && !opaque_surface.contains(&module.name),
+        |index, module| {
+            !hazards.iter().any(|(site, _)| *site == index)
+                && !opaque_surface.contains(&module.name)
+        },
     );
     let files: Vec<FileFact> = modules
         .iter()
@@ -224,9 +231,11 @@ fn declarations(
     admitted: impl Fn(usize, &Module) -> bool,
 ) -> Symbols {
     let mut found = Vec::new();
+    let mut escapes = declared::scan_escapes(modules, binders, imports).into_iter();
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
+        let own = escapes.next().unwrap_or_default();
         if admitted(index, module) {
-            let mut item = declared::records(module, binders, evidence);
+            let mut item = declared::records(module, binders, own, evidence);
             item.index = index;
             found.push(item);
         }
@@ -234,7 +243,12 @@ fn declarations(
     let context = declared::Context::of(&found, imports, sets);
     let (mut calls, mut references) = (Vec::new(), Vec::new());
     for item in &found {
-        let (more, other) = declared::sites(&modules[item.index], item, &context, evidence);
+        let (more, other) = declared::sites(
+            (&modules[item.index], &binders[item.index]),
+            item,
+            &context,
+            evidence,
+        );
         calls.extend(more);
         references.extend(other);
     }
@@ -244,6 +258,22 @@ fn declarations(
         calls,
         references,
     }
+}
+
+/// The import records, after a first pass that names the modules that another module may change
+/// (`uses.rs`, AD-504): such a module may bind a name of its own to a package attribute that hides
+/// a submodule, so the second pass reads the written modules.
+fn collect(
+    modules: &[Module],
+    binders: &[Binders],
+    namespace: &str,
+    evidence: &mut EvidenceMap,
+) -> (imports::Collected, HashSet<String>) {
+    let scratch = &mut EvidenceMap::new();
+    let first = imports::collect_all(modules, binders, namespace, scratch, &HashSet::new());
+    let written = uses::escaped(modules, &first.records);
+    let collected = imports::collect_all(modules, binders, namespace, evidence, &written);
+    (collected, written)
 }
 
 struct Parsed {
