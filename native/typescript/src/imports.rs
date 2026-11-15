@@ -7,7 +7,7 @@
 //! A reference that cannot be proven is an UNKNOWN gap, never a PASS: a computed specifier, a
 //! setting that is not observed, a target that no rule covers.
 
-use super::{Collection, GapKind};
+use crate::collection::{Collection, GapKind};
 use crate::kept::Kept;
 use crate::kept_script::ScriptFile;
 use crate::manifest::Lookup;
@@ -15,6 +15,7 @@ use crate::options::ModuleKind;
 use crate::parse::{parse_for, Parsed};
 use crate::plant;
 use crate::references::Form;
+use crate::resolve::format_of;
 use crate::source_input::{classify_file, ModuleFormat, SourceKind};
 
 impl Collection<'_> {
@@ -45,7 +46,7 @@ impl Collection<'_> {
                 GapKind::Collection,
             );
         }
-        let format = self.resolver.format_of(&mut self.snapshot, rel);
+        let format = format_of(&mut self.resolver, &mut self.snapshot, rel);
         let explicit = self.resolver.options.module;
         // `collect._global_dependency_scope`: a file that is neither a declaration nor CommonJS.
         let suffix = classify_file(rel);

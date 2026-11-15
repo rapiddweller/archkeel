@@ -10,7 +10,8 @@ use std::collections::HashMap;
 use tree_sitter::Node;
 
 use crate::kinds::K;
-use crate::script_scope::{is_function, is_root, Tree};
+use crate::script_scope::{is_function, is_root};
+use crate::script_tree::Tree;
 
 /// The references of a file, found once: the identifiers by name, and where an identifier makes
 /// the aliases of its scope unprovable.

@@ -8,6 +8,7 @@
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
+use crate::script_names::bound_scope;
 use crate::script_syntax::Producer;
 use crate::script_window::{cooked, Written, CODE_NAMES, TIMERS};
 
@@ -95,7 +96,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             p.kind() == "member_expression" && tree.is_field_of_parent(node, F::Property)
         });
         let expression = member.unwrap_or(node);
-        if member.is_none() && tree.binding_scope(node, &tree.text(node)).is_some() {
+        if member.is_none() && bound_scope(tree, node, &tree.text(node)).is_some() {
             return false;
         }
         let code = self.name_is(node, &CODE_NAMES)

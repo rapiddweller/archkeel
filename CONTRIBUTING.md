@@ -124,7 +124,7 @@ different existing root installation is preserved and rejected.
 ## Inspect the native self-check
 
 ArchKeel checks the Rust source of `native/` with its own core (AD-432).
-The pinned result is in `native/expected-gaps.json`: 63 rules PASS, 1 FAIL and 19 UNKNOWN, with each gap and violation.
+The pinned result is in `native/expected-gaps.json`: 63 rules PASS, 0 FAIL and 20 UNKNOWN, with each gap and violation.
 
 ```bash
 make self-validate-native
