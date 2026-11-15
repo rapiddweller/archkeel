@@ -28,3 +28,14 @@ pub(crate) struct Layer {
     /// A setting that changes resolution could not be read.
     pub partial: bool,
 }
+
+impl Layer {
+    /// `allowJs`, or `checkJs` when `allowJs` is absent.
+    pub(crate) fn allow_js(&self) -> bool {
+        let flag = match self.compiler.get("allowJs") {
+            Some(Value::Null) | None => self.compiler.get("checkJs"),
+            found => found,
+        };
+        flag == Some(&Value::Bool(true))
+    }
+}

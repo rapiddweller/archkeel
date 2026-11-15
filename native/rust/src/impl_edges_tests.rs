@@ -50,7 +50,8 @@ fn pair() -> Vec<(String, String)> {
     vec![("ns.app.a".to_owned(), "ns.app.b".to_owned())]
 }
 
-const CALL: &str = "pub fn f(s: &crate::c::S) {\n    s.m(1);\n}\n";
+// The name `s` is bound twice: the scan proves no type for the receiver (AD-524).
+const CALL: &str = "pub fn f(s: &crate::c::S) {\n    let s = s;\n    s.m(1);\n}\n";
 
 #[test]
 fn a_path_to_a_member_of_a_foreign_impl_is_an_edge_to_its_module() {
