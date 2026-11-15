@@ -12,7 +12,7 @@ use archkeel_wire::protocol::Version;
 use super::*;
 use archkeel_snapshot::test_tree::Tree;
 
-fn request(tree: &Tree, exclude_test_sources: bool) -> TypeScriptRequest {
+pub(crate) fn request(tree: &Tree, exclude_test_sources: bool) -> TypeScriptRequest {
     TypeScriptRequest {
         protocol_version: Version::V9,
         snapshot: SnapshotRequest {
@@ -32,7 +32,7 @@ fn request(tree: &Tree, exclude_test_sources: bool) -> TypeScriptRequest {
     }
 }
 
-fn provenance() -> Provenance {
+pub(crate) fn provenance() -> Provenance {
     Provenance::native(
         Profile::TypeScript,
         ("0+unknown", &"0".repeat(64)),

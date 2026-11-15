@@ -14,7 +14,7 @@ use crate::kinds::F;
 use crate::references::literal;
 use crate::script_names::bound_scope;
 use crate::script_syntax::Producer;
-use crate::script_window::{Receiver, Written};
+use crate::script_window::{Reach, Receiver, Written};
 
 /// The globals whose value gives reflection, a navigation or a window of another origin. A free
 /// name of them that is called, passed, stored or returned is an alias of the class.
@@ -48,7 +48,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             "identifier" => self.sole_value(object).is_some_and(method),
             _ => false,
         };
-        (key && aliased).then_some(Written::Unknown)
+        (key && aliased).then_some(Written::Amplified)
     }
 
     /// A write to `location`, to its `href`, or through a run-time key on it, from any target:
@@ -67,18 +67,22 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         (!literal_value).then_some(Written::Unknown)
     }
 
-    /// A node of an open form that writes an unknown name.
-    pub(crate) fn open_form(&self, node: Node<'t>) -> bool {
-        match node.kind() {
+    /// A node of an open form that writes an unknown name, and its kind (AD-540): a window
+    /// pattern is an amplifier, each other form is direct.
+    pub(crate) fn open_form(&self, node: Node<'t>) -> Option<Reach> {
+        let direct = match node.kind() {
             "subscript_expression" => self.runtime_key_call(node) || self.member_use(node),
             "member_expression" => self.member_use(node) || self.location_value(node),
             "identifier" | "shorthand_property_identifier" => self.alias_escape(node),
             "call_expression" => {
                 self.runtime_reflection(node) || self.location_call(node) || self.open_call(node)
             }
-            "shorthand_property_identifier_pattern" | "pair_pattern" => self.window_pattern(node),
+            "shorthand_property_identifier_pattern" | "pair_pattern" => {
+                return self.window_pattern(node);
+            }
             _ => false,
-        }
+        };
+        direct.then_some(Reach::Direct)
     }
 
     /// The operands that a callee can give: a sequence gives its last, a condition and a logical
@@ -298,20 +302,26 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
     /// A destructuring pattern that takes a window member or a window name out of a value: the
     /// binding is then a window, and no later read of the name sees it.
-    fn window_pattern(&self, node: Node<'t>) -> bool {
+    fn window_pattern(&self, node: Node<'t>) -> Option<Reach> {
         let tree = self.tree;
         let key = match node.kind() {
             "pair_pattern" => tree.field(node, F::Key),
             _ => Some(node),
-        };
-        let Some(key) = key else { return false };
+        }?;
         let name = match key.kind() {
             "string" => self.text_of(key),
-            "computed_property_name" => return false,
+            "computed_property_name" => return None,
             _ => crate::script_window::cooked(&tree.text(key)),
         };
-        !tree.in_type(node)
-            && name.is_none_or(|name| crate::script_window::window_member_name(&name))
+        if tree.in_type(node) {
+            return None;
+        }
+        match name {
+            None => Some(Reach::Direct),
+            Some(name) => {
+                crate::script_window::window_member_name(&name).then_some(Reach::Amplified)
+            }
+        }
     }
 
     /// `open(x, …)` or `window.open(x, …)`, also through a comma, a condition or a wrapper, with a

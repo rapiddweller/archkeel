@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-540 | [An amplifier form writes a global only when the scan has a host entry](ad-540-an-amplifier-form-writes-a-global-only-when-the-scan-has-a-host-entry.md) |
 | AD-543 | [A written local type proves a Rust receiver](ad-543-a-written-local-type-proves-a-rust-receiver.md) |
 | AD-542 | [Dart isolate and package keys need evidence](ad-542-dart-isolate-and-package-keys-need-evidence.md) |
 | AD-535 | [Conditional lints and matches keep a Rust receiver proof](ad-535-conditional-lints-do-not-gate-a-rust-receiver-proof.md) |
