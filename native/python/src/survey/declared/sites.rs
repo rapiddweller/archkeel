@@ -148,10 +148,10 @@ pub(crate) fn site_records(
         };
         let uses = Uses::of(source.node);
         let stored = scope::stored(source.node, &reader, &params);
-        for call in &uses.calls {
-            calls.push(call_record(&mut reader, &reading, call, &stored));
+        for (call, dead) in &uses.calls {
+            calls.push(call_record(&mut reader, &reading, (call, *dead), &stored));
         }
-        for name in &uses.names {
+        for (name, _) in uses.names.iter().filter(|(_, dead)| !dead) {
             references.extend(reference(&mut reader, &reading, name));
         }
         references.extend(annotations(&mut reader, &reading));
@@ -168,6 +168,16 @@ struct Reading<'a> {
 }
 
 impl Reading<'_> {
+    /// The symbol that `name` means here. In a method a name that starts with `__` and does not
+    /// end with it is mangled with the class name, so it is no symbol of the module.
+    fn lookup(&self, name: &str, hidden: &HashSet<String>) -> Option<(String, &Sym)> {
+        let mangled = name.starts_with("__") && !name.ends_with("__");
+        if mangled && self.source.class_names.is_some() {
+            return None;
+        }
+        self.context.resolve(name, self.module, hidden)
+    }
+
     fn scope(&self) -> (ModuleName, String) {
         (ModuleName::new(self.module), self.source.qualname.clone())
     }
@@ -208,7 +218,7 @@ fn record<D>(
 fn call_record(
     reader: &mut Reader<'_, '_>,
     reading: &Reading<'_>,
-    call: &ExprCall,
+    (call, dead): (&ExprCall, bool),
     stored: &HashMap<TextSize, Stored<'_>>,
 ) -> Record<CallFact> {
     let expression = reader
@@ -216,12 +226,9 @@ fn call_record(
         .ok()
         .flatten()
         .unwrap_or_else(|| "<call>".to_owned());
+    // A call that Python never runs is no met edge (AD-520).
     let target = match &*call.func {
-        Expr::Name(name) => {
-            reading
-                .context
-                .resolve(name.id.as_str(), reading.module, reading.hidden)
-        }
+        Expr::Name(name) if !dead => reading.lookup(name.id.as_str(), reading.hidden),
         _ => None,
     };
     let callee = target.filter(|(_, sym)| sym.class || sym.function);
@@ -233,6 +240,9 @@ fn call_record(
     data.source_definition_id = Nullable::Value(FactId::new(reading.source.id.as_str()));
     data.reason = Some(match &callee {
         Some(_) => "plain name with a stable direct binding".to_owned(),
+        None if dead => {
+            "the call is under a constant-false test or after a statement that leaves".to_owned()
+        }
         None => "callee is not a plain name of one symbol with a record".to_owned(),
     });
     if let Some((name, sym)) = callee.filter(|(_, sym)| sym.class) {
@@ -335,16 +345,14 @@ fn annotations(reader: &mut Reader<'_, '_>, reading: &Reading<'_>) -> Vec<Record
     let written = all
         .filter_map(|parameter| parameter.annotation.as_deref())
         .chain(node.returns.as_deref());
-    let held = reading.source.class_names.clone().unwrap_or_default();
+    let mut held = reading.source.class_names.clone().unwrap_or_default();
+    held.extend(scope::type_names(node));
     let mut found = Vec::new();
     for expression in written {
         let Expr::Name(name) = expression else {
             continue;
         };
-        let Some((target, _)) = reading
-            .context
-            .resolve(name.id.as_str(), reading.module, &held)
-        else {
+        let Some((target, _)) = reading.lookup(name.id.as_str(), &held) else {
             continue;
         };
         let context = (Use::Type, ReferenceContext::Annotation);

@@ -22,8 +22,8 @@ from test_cli_core_only_scan import command
 ROW = "UML-TARGET-a2e40c5592b1b06a"
 ROWS = json.loads((Path(__file__).parent / "python_site_rows.json").read_text())
 STRICTER = {("PASS", "UNKNOWN"), ("FAIL", "UNKNOWN")}
-# (equal, PASS to UNKNOWN, FAIL to UNKNOWN, plants). Each release FAIL here is a true FAIL.
-COUNTS = (38, 3, 3, 44)
+# (equal, PASS to UNKNOWN, FAIL to UNKNOWN, plants). A release FAIL is true, but for `closed-dead-if-false`.
+COUNTS = (41, 12, 5, 58)
 
 
 def test_every_plant_has_a_pinned_row() -> None:
@@ -37,7 +37,7 @@ def test_the_core_row_is_sound_and_never_weaker_than_the_release(name: str) -> N
     assert four == core or (four, core) in STRICTER
     assert core != "PASS" or truth == "PASS"
     assert core != "FAIL" or truth == "DIFF"
-    assert not (four == "FAIL" and truth == "PASS")
+    assert (four == "FAIL" and truth == "PASS") == (name == "closed-dead-if-false")
 
 
 def test_the_difference_between_the_release_and_the_core_is_counted() -> None:

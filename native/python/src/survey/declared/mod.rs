@@ -301,8 +301,11 @@ impl<'m> Writer<'m, '_> {
         ];
         data.attribute_declarations = attributes.declarations;
         data.base_declarations = self.bases(&id, class_kind, &found.bases)?;
-        let constructible =
-            class_kind == Kind::Plain && found.constructible && !bound.names().contains("__new__");
+        // A class that a write or an escape can change may get a `__new__` outside its body.
+        let constructible = class_kind == Kind::Plain
+            && found.constructible
+            && !open
+            && !bound.names().contains("__new__");
         self.push(Def::Class(node), (holder, name), SymbolFact::Class(data))?;
         for (record, _) in methods {
             self.out.push(record);

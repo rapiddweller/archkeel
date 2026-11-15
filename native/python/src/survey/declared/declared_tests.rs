@@ -201,3 +201,46 @@ fn a_mangled_name_a_bare_annotation_and_an_alias_are_no_member() {
     };
     assert!(data.enum_members.is_none() && data.attribute_declarations.is_empty());
 }
+
+/// The call and reference sites of a module that needs Python 3.12.
+fn sites_of(text: &str) -> (Vec<archkeel_facts::Record<archkeel_facts::CallFact>>, usize) {
+    let module = crate::test_module(text, 12);
+    let binders = Binders::of(&module.tree);
+    let escapes = escapes::all(
+        std::slice::from_ref(&module),
+        std::slice::from_ref(&binders),
+        &[],
+    )
+    .remove(0);
+    let mut evidence = EvidenceMap::new();
+    let found = records(&module, &binders, escapes, &mut evidence);
+    let none = std::collections::HashSet::new();
+    let context = Context::collect(std::slice::from_ref(&found), &[], (&none, &none));
+    let (calls, references) = site_records((&module, &binders), &found, &context, &mut evidence);
+    (calls, references.len())
+}
+
+fn resolved(calls: &[archkeel_facts::Record<archkeel_facts::CallFact>]) -> usize {
+    calls
+        .iter()
+        .filter(|record| match &record.data {
+            archkeel_facts::CallFact::Calls(data) => {
+                data.status == archkeel_facts::vocab::Status::Resolved
+            }
+            _ => false,
+        })
+        .count()
+}
+
+#[test]
+fn a_type_parameter_hides_the_module_symbol_in_its_body_and_its_annotations() {
+    let hidden = "def helper():\n    pass\n\n\ndef run[helper]():\n    helper()\n";
+    let (calls, _) = sites_of(hidden);
+    assert_eq!((calls.len(), resolved(&calls)), (1, 0));
+    let plain = "def helper():\n    pass\n\n\ndef run():\n    helper()\n";
+    assert_eq!(resolved(&sites_of(plain).0), 1);
+    let ann = "class U:\n    pass\n\n\ndef build[U]() -> U:\n    pass\n";
+    assert_eq!(sites_of(ann).1, 0);
+    let free = "class U:\n    pass\n\n\ndef build() -> U:\n    pass\n";
+    assert_eq!(sites_of(free).1, 1);
+}

@@ -201,4 +201,54 @@ BASES = {
     ),
 }
 
-PLANTS: dict[str, Plant] = {**HIDDEN, **CONSTRUCTION, **BASES}
+REVIEW = {
+    "ctl-absent": calls("def run():\n    pass\n", "DIFF"),
+    "mangled-call": Plant(
+        "def __helper(*a, **k):\n    return None\n\n\n"
+        "class A:\n    def m(self):\n        __helper()\n",
+        (Want("function", "__helper"), Want("class", "A"), Want("method", "A.m")),
+        "DIFF",
+        edges=(("calls", "A.m", "__helper"),),
+    ),
+    "new-class-attr-written": made(
+        "class N:\n    pass\n\n\nN.__new__ = lambda cls: 5\n\n\n"
+        "def build():\n    item = N()\n    return item\n",
+        "DIFF",
+        ("instance_of", "build.item", "N"),
+        (Want("class", "N"), BUILD, Want("binding", "build.item", {"initializer": "N()"})),
+    ),
+    "new-setattr-written": made(
+        "class N:\n    pass\n\n\nsetattr(N, '__new__', lambda cls: 5)\n\n\n"
+        "def build():\n    item = N()\n    return item\n",
+        "DIFF",
+        ("instance_of", "build.item", "N"),
+        (Want("class", "N"), BUILD, Want("binding", "build.item", {"initializer": "N()"})),
+    ),
+    "dead-if-false": calls("def run():\n    if False:\n        helper()\n", "DIFF"),
+    "dead-if-zero": calls("def run():\n    if 0:\n        helper()\n", "DIFF"),
+    "dead-while-false": calls("def run():\n    while False:\n        helper()\n", "DIFF"),
+    "dead-after-return": calls("def run():\n    return None\n    helper()\n", "DIFF"),
+    "dead-after-raise": calls("def run():\n    raise ValueError\n    helper()\n", "DIFF"),
+    "dead-after-break": calls(
+        "def run():\n    for _ in [1]:\n        break\n        helper()\n", "DIFF"
+    ),
+    "dead-type-checking": calls(
+        "from typing import TYPE_CHECKING\n\n\n"
+        "def run():\n    if TYPE_CHECKING:\n        helper()\n",
+        "DIFF",
+    ),
+    "dead-else-branch-lives": calls(
+        "def run():\n    if False:\n        pass\n    else:\n        helper()\n", "PASS"
+    ),
+    "dead-return-in-branch-lives": calls(
+        "def run(a):\n    if a:\n        return None\n    helper()\n", "PASS"
+    ),
+    "closed-dead-if-false": Plant(
+        HELPER + "def run():\n    if False:\n        helper()\n",
+        (F, RUN),
+        "PASS",
+        closed=("calls",),
+    ),
+}
+
+PLANTS: dict[str, Plant] = {**HIDDEN, **CONSTRUCTION, **BASES, **REVIEW}

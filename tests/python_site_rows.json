@@ -119,6 +119,11 @@
   "UNKNOWN",
   "closed scope completeness"
  ],
+ "closed-dead-if-false": [
+  "FAIL",
+  "UNKNOWN",
+  "closed scope completeness"
+ ],
  "creates": [
   "PASS",
   "PASS",
@@ -128,6 +133,56 @@
   "UNKNOWN",
   "UNKNOWN",
   "creates inventory is not complete"
+ ],
+ "ctl-absent": [
+  "FAIL",
+  "UNKNOWN",
+  "calls inventory is not complete"
+ ],
+ "dead-after-break": [
+  "PASS",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "dead-after-raise": [
+  "PASS",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "dead-after-return": [
+  "PASS",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "dead-else-branch-lives": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "dead-if-false": [
+  "PASS",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "dead-if-zero": [
+  "PASS",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "dead-return-in-branch-lives": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "dead-type-checking": [
+  "PASS",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "dead-while-false": [
+  "PASS",
+  "UNKNOWN",
+  "unresolved calls site"
  ],
  "inherits": [
   "PASS",
@@ -194,8 +249,23 @@
   "UNKNOWN",
   "absent symbol: the symbol inventory is not complete, relationship endpoints cannot be identified uniquely"
  ],
+ "mangled-call": [
+  "PASS",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "new-class-attr-written": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "unresolved instance_of site"
+ ],
  "new-returns-other": [
   "UNKNOWN",
+  "UNKNOWN",
+  "unresolved instance_of site"
+ ],
+ "new-setattr-written": [
+  "PASS",
   "UNKNOWN",
   "unresolved instance_of site"
  ],

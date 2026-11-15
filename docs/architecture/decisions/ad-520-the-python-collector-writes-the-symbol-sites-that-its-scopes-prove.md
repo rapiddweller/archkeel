@@ -43,6 +43,8 @@ twice has no one result. PR #1166 found both on TypeScript; they are rules here 
    `static_constant`; `X: TypeAlias = <name>` with `TypeAlias` from one plain `typing` import
    writes a `type_alias` with the alias text (4.0.1 admits these two; any other value: none).
 
+**Dead sites.** A call under a constant-false test (`False`, `0`, `None`, `""`, `TYPE_CHECKING`; `if`, `elif`, `while`) or after a `return`, `raise`, `continue` or `break` of its block is an unresolved site with a named reason, and a read there is no reference: Python never runs it. 4.0.1 meets the edge, so a met-edge PASS and a closed-scope FAIL both become UNKNOWN (`closed-dead-if-false`). A documented limit never hides a false PASS, also one that 4.0.1 has. Type parameters (PEP 695) hide like parameters; a name `__x` in a method is mangled and no symbol; a class that a write or an escape can change is not `constructible` (rule 5).
+
 **Plants** (`tests/test_cli_python_sites.py`, pinned against 4.0.1, truth PASS or DIFF each): a
 callee hidden by a parameter, local, `for`, `with`, walrus, comprehension, lambda parameter,
 nested def, `except`, `match`, local import, `global`, `del`; a second binder of the module
