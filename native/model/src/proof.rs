@@ -20,7 +20,8 @@
 //!
 //! A cause that holds in every profile is `Cause` (a fact: the reference engine gives UNKNOWN). A
 //! cause that the core cannot read is `Part` (a named gap: the reference engine can give PASS).
-//! A fact comes first: with one, the verdict is UNKNOWN in both engines.
+//! A fact comes first. The dependency scope cause of AD-418 holds a rule when the core cannot
+//! replay the former host proof; it does not claim that the former host gave UNKNOWN.
 
 use archkeel_contract::{Component, Contract, Rule};
 
