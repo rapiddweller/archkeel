@@ -288,7 +288,8 @@ impl Builder {
     ) -> Option<Edge> {
         let (member, ty) = reference.names.split_last()?;
         // A macro of the name of a silent macro of `std` can give a name of its tokens again.
-        let doubt = frame.module.gated || reference.absolute || found.typed.shadowed();
+        let opaque_gate = frame.module.gated && frame.module.gates.is_none();
+        let doubt = opaque_gate || reference.absolute || found.typed.shadowed();
         if *local != TypeOf::Unknown || doubt {
             return None;
         }

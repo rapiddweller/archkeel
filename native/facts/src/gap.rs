@@ -33,6 +33,7 @@ impl GapData {
             path: None,
             source_module: None,
             under_type_checking: None,
+            effect: None,
         }
     }
 }

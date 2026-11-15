@@ -124,9 +124,16 @@ impl<'a> Typed<'a> {
         (lexical, ty): (&str, &str),
         name: &str,
     ) -> Option<(&'a Module, &str)> {
+        let target = index.frame(index.file_of(lexical)?)?.module;
+        let gated_caller = caller.gated && caller.gates.is_some();
+        let proof_caller = if gated_caller && !target.gated {
+            target
+        } else {
+            caller
+        };
         if self.unplaced.contains(name)
             || self.trait_members.contains(name)
-            || !exact_type(index, caller, lexical, ty)
+            || !exact_type(index, proof_caller, lexical, ty)
         {
             return None;
         }
@@ -137,7 +144,7 @@ impl<'a> Typed<'a> {
         };
         let place = (candidate.module, candidate.lexical.as_str());
         let certain = candidate.exact
-            && same_gates(caller, candidate.module)
+            && (same_gates(caller, candidate.module) || gated_caller && !candidate.module.gated)
             && candidate.member.inert
             && certainly_visible(caller, at, place, &candidate.member.access);
         certain.then_some(place)

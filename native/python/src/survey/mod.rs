@@ -37,6 +37,7 @@ mod guard;
 mod hazards;
 mod imports;
 mod layout;
+mod lazy;
 mod literal;
 mod namespace;
 mod package_body;
@@ -46,6 +47,7 @@ mod stable;
 mod syspath;
 mod targets;
 mod uses;
+mod uses_scan;
 mod walks;
 
 pub(crate) struct Survey {
@@ -132,7 +134,11 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     let (mut imports, aliases) = (collected.records, collected.aliases);
     let (sole_binders, ambiguous) = (collected.sole, collected.ambiguous.clone());
     // AD-472: a proven literal import call is an import record; each other site is a gap.
-    let (literals, hazards) = hazards::split(modules, &binders);
+    let (literals, hazards) = hazards::split(
+        modules,
+        &binders,
+        Some(&lazy::find(modules, &binders, namespace)),
+    );
     let calls = imports::literal_records(modules, &binders, namespace, &mut evidence, &literals);
     imports.extend(calls);
     imports.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));

@@ -98,6 +98,57 @@ fn a_call_on_self_with_the_same_self_form_is_an_edge_to_the_member_and_no_gap() 
 }
 
 #[test]
+fn a_proven_derive_helper_keeps_the_written_type() {
+    let manifest = "[package]\nname = \"app\"\nversion = \"0.0.0\"\nedition = \"2021\"\n[dependencies]\nserde = \"1.0\"\nschemars = \"=1.2.3\"\n";
+    let files = [
+        ("crates/app/Cargo.toml", manifest),
+        (
+            "crates/app/Cargo.lock",
+            include_str!("../../../tests/rust_known_derives.lock"),
+        ),
+        (
+            "crates/app/src/c.rs",
+            "#[derive(serde::Serialize)] #[serde(deny_unknown_fields)] pub struct S;",
+        ),
+    ];
+    assert_eq!(
+        outcome(
+            &member("pub fn m(&self) {}"),
+            &caller("&self", "self.m();"),
+            &files
+        ),
+        resolved()
+    );
+}
+
+#[test]
+fn an_unproved_helper_or_attribute_macro_keeps_the_receiver_gaps() {
+    let manifest = "[package]\nname = \"app\"\nversion = \"0.0.0\"\nedition = \"2021\"\n[dependencies]\nserde = \"1.0\"\nschemars = \"=1.2.3\"\n";
+    for ty in [
+        "#[serde(deny_unknown_fields)] pub struct S;",
+        "#[derive(mac::Serialize)] #[serde(deny_unknown_fields)] pub struct S;",
+        "#[derive(serde::Serialize)] #[serde(deny_unknown_fields)] #[mac::rewrite] pub struct S;",
+    ] {
+        assert_eq!(
+            outcome(
+                &member("pub fn m(&self) {}"),
+                &caller("&self", "self.m();"),
+                &[
+                    ("crates/app/Cargo.toml", manifest),
+                    (
+                        "crates/app/Cargo.lock",
+                        include_str!("../../../tests/rust_known_derives.lock")
+                    ),
+                    ("crates/app/src/c.rs", ty),
+                ]
+            ),
+            kept(),
+            "{ty}"
+        );
+    }
+}
+
+#[test]
 fn equal_module_cfgs_keep_the_self_receiver_proof() {
     let root = (
         "crates/app/src/lib.rs",

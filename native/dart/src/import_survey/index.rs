@@ -44,7 +44,9 @@ impl Index<'_> {
     pub(crate) fn locate(&self, snapshot: &mut Snapshot, rel: &str) -> Located {
         match self.by_rel.get(rel) {
             Some(index) => Located::Source(*index),
-            None if snapshot.is_file(rel) || snapshot.is_link(rel) => Located::NotSelected,
+            None if snapshot.is_file(rel) || Snapshot::is_link(snapshot, rel) => {
+                Located::NotSelected
+            }
             None => Located::Missing,
         }
     }

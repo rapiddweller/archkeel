@@ -20,14 +20,14 @@
 //!   it, else `interface.usage_unknown`; a module that was not scanned has no finding.
 //!
 //! For a mount, an import from outside its domain counts only when each boundary publishes it.
-//! This module proves that for a mount of the root; a deeper mount counts only local imports, so
-//! it can only give more `usage_unknown` rows than 4.0.1 gives diagnostics. A row holds back a PASS.
+//! This module walks every owner of a mount up to the root, as 4.0.1 does (AD-514, amended).
+//! A row holds back a PASS.
 
 use std::collections::{HashMap, HashSet};
 
 use archkeel_contract::policy::InsideMount;
 use archkeel_contract::Component;
-use archkeel_model::{publishes, Import, Model, ModelTree};
+use archkeel_model::{publishes, ComponentId, Import, Model, ModelTree};
 
 use crate::hygiene_refs::Finding;
 
@@ -217,37 +217,70 @@ fn reached(model: &Model, import: &Import, label: String) -> Option<String> {
     (public || planned).then_some(label)
 }
 
-/// An outside import is published when the component that holds the mount publishes it at the
-/// root (`_import_published_through_ancestors`, one boundary): the root owns the source, and the
-/// public entries of the parent cover the imported name. A deeper mount publishes nothing here.
+/// An outside import is published when every boundary that it crosses publishes it
+/// (`_import_published_through_ancestors`). From the mount `at` the walk goes up one owner at a
+/// time: the owner contract must own the target in the component that holds the mount, and the
+/// `public` entries of that component must cover the imported name. The walk ends at the first
+/// owner whose domain holds the source (both modules need an owner in its contract), or at the
+/// root (the source needs an owner there). An owner mount that is not in the tree publishes
+/// nothing.
 fn published(tree: &ModelTree, mounts: &[InsideMount], at: usize, import: &Import) -> bool {
-    let Some(mount) = mounts.get(at).filter(|mount| mount.owner_id().is_empty()) else {
-        return false;
-    };
-    let root = tree.root();
-    let owned = |module: &str| -> Option<archkeel_model::ComponentId> {
-        let (id, _) = root
+    let (source, target) = (import.source_module(), import.target_module());
+    let hop = import.symbol().map(|name| vec![format!("{target}.{name}")]);
+    let owned = |model: &Model, module: &str| -> Option<ComponentId> {
+        let (id, _) = model
             .graph()
             .modules()
             .iter()
             .find(|(_, m)| m.name() == module)?;
-        root.owner(id)
+        model.owner(id)
     };
-    let parent: &Component = mount.parent();
-    let Some(parent_id) = root.component(parent.label().as_text()) else {
-        return false;
-    };
-    let (source, target) = (import.source_module(), import.target_module());
-    let hop = import.symbol().map(|name| vec![format!("{target}.{name}")]);
-    owned(target) == Some(parent_id)
-        && owned(source).is_some()
-        && publishes(
-            root,
-            parent,
-            target,
-            import.symbol(),
-            hop.as_deref().unwrap_or(&[]),
-        )
+    let mut ancestor = at;
+    // The walk visits each mount at most once: the owner chain of a tree is finite.
+    for _ in 0..=mounts.len() {
+        let Some(mount) = mounts.get(ancestor) else {
+            return false;
+        };
+        if ancestor != at {
+            let Some(local) = tree.mounts().get(ancestor) else {
+                return false;
+            };
+            if local.selects(source) {
+                return owned(local, source).is_some() && owned(local, target).is_some();
+            }
+        }
+        let owner = mount.owner_id();
+        let upper = (!owner.is_empty()).then(|| mounts.iter().position(|m| m.parent_id() == owner));
+        let model = match upper {
+            None => tree.root(),
+            Some(Some(index)) => match tree.mounts().get(index) {
+                Some(model) => model,
+                None => return false,
+            },
+            Some(None) => return false,
+        };
+        let parent: &Component = mount.parent();
+        let Some(parent_id) = model.component(parent.label().as_text()) else {
+            return false;
+        };
+        if !model.selects(target)
+            || owned(model, target) != Some(parent_id)
+            || !publishes(
+                model,
+                parent,
+                target,
+                import.symbol(),
+                hop.as_deref().unwrap_or(&[]),
+            )
+        {
+            return false;
+        }
+        match upper {
+            None => return owned(model, source).is_some(),
+            Some(index) => ancestor = index.unwrap_or(usize::MAX),
+        }
+    }
+    false
 }
 
 /// `_entry_used`: a name of the route reaches the entry, or the import names the entry's module
