@@ -297,7 +297,7 @@ fn an_invalid_inside_contract_or_an_invalid_root_is_refused() {
 }
 
 #[test]
-fn a_uml_target_in_an_inside_contract_names_the_target_of_the_tree() {
+fn an_empty_uml_target_in_an_inside_contract_names_the_target_of_the_tree() {
     let root = contract(vec![component("a", Some("a.json"))], vec![]);
     let inside = json!({"schema_version": "3.14.0", "components": [], "rules": [],
         "declarations": {"uml": {"schema_version": "1.1.0"}}});
@@ -309,7 +309,7 @@ fn a_uml_target_in_an_inside_contract_names_the_target_of_the_tree() {
         row,
         Some((
             "UML-TARGET-a2e40c5592b1b06a".to_owned(),
-            UmlTarget::Gap(UmlGap::Mounted)
+            UmlTarget::Gap(UmlGap::Empty)
         ))
     );
     let (_, plain) = answer(input(&contract(vec![component("a", None)], vec![]), vec![]));
@@ -441,14 +441,35 @@ fn a_root_uml_target_row_carries_its_target_for_the_comparison() {
     assert!(matches!(state, ContractState::Parsed(_)), "{state:?}");
     let row = super::uml_row(usable.as_ref(), ROOT);
     let counts = row.as_ref().and_then(|(_, target)| match target {
-        UmlTarget::Compare(found) => Some((
-            found.entities().len(),
-            found.relationships().len(),
-            found.scopes().len(),
-        )),
+        UmlTarget::Compare(found) => Some(found.counts()),
         UmlTarget::Gap(_) => None,
     });
     assert_eq!(counts, Some((21, 13, 2)));
+}
+
+/// AD-526: the targets of the root and of a mount are one declared intent for the comparison.
+#[test]
+fn a_uml_target_in_an_inside_contract_is_compared_with_the_target_of_the_root() {
+    let root = contract(vec![component("a", Some("a.json"))], vec![]);
+    let inside = json!({"schema_version": "3.14.0", "components": [], "rules": [],
+        "declarations": {"uml": {"schema_version": "1.1.0", "entities": [
+            {"id": "m", "kind": "module", "qualified_name": "a.b", "language": "python",
+             "presence": "planned", "provenance": ["docs/target.md"], "responsibilities": ["x"]}]}}});
+    let bytes = serde_json::to_vec(&inside).unwrap_or_default();
+    let (state, usable) = answer(input(&root, vec![file("a.json", "a.json", &bytes)]));
+    assert!(matches!(state, ContractState::Parsed(_)), "{state:?}");
+    let row = super::uml_row(usable.as_ref(), ROOT);
+    let parts = row.as_ref().and_then(|(_, target)| match target {
+        UmlTarget::Compare(found) => Some(
+            found
+                .parts
+                .iter()
+                .map(|part| part.mount)
+                .collect::<Vec<_>>(),
+        ),
+        UmlTarget::Gap(_) => None,
+    });
+    assert_eq!(parts, Some(vec![Some(0)]));
 }
 
 /// AD-512: only a UML target that the core compares gives a need. A contract without a target
