@@ -134,6 +134,17 @@ pub(crate) struct OnSelf {
     /// The macros that the `fn` of a parameter calls and that are no silent macro of `std`: a
     /// path as written for a macro with a path, else its name (AD-524).
     pub macros: Vec<String>,
+    /// One named field of the receiver, when the call is on `receiver.field`.
+    pub field: Option<String>,
+}
+
+/// One named field of a non-generic, exact struct.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Field {
+    pub scope: Vec<String>,
+    pub path: Vec<String>,
+    pub kind: SelfKind,
+    pub access: Access,
 }
 
 /// A member of an inherent `impl` block. Only a `fn` with a `self` parameter can be called as
