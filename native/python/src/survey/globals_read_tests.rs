@@ -110,6 +110,12 @@ fn a_dict_given_to_a_function_of_the_scan_follows_the_parameter() {
     assert!(!case(lookup, "look", ", 'x'"));
     assert!(!case(&format!("{lookup}{relay}"), "relay", ""));
     assert!(case(walk, "walk", ""));
+    // A parameter that the callee writes again is not the dict.
+    assert!(case(
+        "def put(g):\n    g = {}\n    return g.get('x')\n",
+        "put",
+        ""
+    ));
     // A cycle, and a chain longer than the bound, are not inert.
     assert!(case(
         "def a(g):\n    return b(g)\ndef b(g):\n    return a(g)\n",
