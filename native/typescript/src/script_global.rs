@@ -39,7 +39,7 @@ impl<'a, 'p> Run<'a, 'p> {
 
     /// A standard global that only the named direct forms of the project keep from a proof: its
     /// gap is one of the gaps that the report states once under those forms (AD-540).
-    pub(crate) fn behind_named_blockers(&self, name: &str, publishers: &[Publisher]) -> bool {
+    pub(crate) fn behind_named_blockers(&mut self, name: &str, publishers: &[Publisher]) -> bool {
         let paths = &self.project.paths;
         paths.blockers_named()
             && self.standard.contains(name)
