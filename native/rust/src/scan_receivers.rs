@@ -16,6 +16,7 @@ use syn::{Attribute, GenericParam, ItemImpl, ReceiverKind, Signature};
 
 use crate::definitions::{OnSelf, SelfKind};
 use crate::tokens::plain;
+pub(in crate::scan) use params::item_name;
 use params::{plain_path, Params};
 
 /// The attributes that change no item and remove it in no configuration: an `impl` block or a

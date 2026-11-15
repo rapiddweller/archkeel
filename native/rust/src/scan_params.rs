@@ -19,7 +19,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use proc_macro2::{TokenStream, TokenTree};
 use syn::visit::{self, Visit};
-use syn::{FnArg, GenericArgument, GenericParam, Pat, PathArguments, Signature, Type};
+use syn::{FnArg, GenericArgument, GenericParam, Item, Pat, PathArguments, Signature, Type};
 
 use crate::definitions::{OnSelf, SelfKind};
 use crate::tokens::{plain, NO_BIND_MACROS};
@@ -118,7 +118,7 @@ impl<'ast> Visit<'ast> for Bound {
         match node {
             syn::Item::Use(found) => self.leaves(&found.tree),
             other => {
-                if let Some(name) = declared(other) {
+                if let Some(name) = item_name(other) {
                     self.count(name);
                 }
             }
@@ -138,20 +138,21 @@ impl<'ast> Visit<'ast> for Bound {
     }
 }
 
-/// The name that an item declares in the value namespace or any other.
-fn declared(item: &syn::Item) -> Option<String> {
+/// The name that an item declares. Every kind counts, whatever its namespace.
+pub(in crate::scan) fn item_name(item: &Item) -> Option<String> {
     let ident = match item {
-        syn::Item::Fn(found) => &found.sig.ident,
-        syn::Item::Struct(found) => &found.ident,
-        syn::Item::Enum(found) => &found.ident,
-        syn::Item::Union(found) => &found.ident,
-        syn::Item::Trait(found) => &found.ident,
-        syn::Item::Type(found) => &found.ident,
-        syn::Item::Const(found) => &found.ident,
-        syn::Item::Static(found) => &found.ident,
-        syn::Item::Mod(found) => &found.ident,
-        syn::Item::Macro(found) => found.ident.as_ref()?,
-        syn::Item::ExternCrate(found) => found.rename.as_ref().map_or(&found.ident, |r| &r.1),
+        Item::Fn(item) => &item.sig.ident,
+        Item::Struct(item) => &item.ident,
+        Item::Enum(item) => &item.ident,
+        Item::Union(item) => &item.ident,
+        Item::Trait(item) => &item.ident,
+        Item::TraitAlias(item) => &item.ident,
+        Item::Type(item) => &item.ident,
+        Item::Const(item) => &item.ident,
+        Item::Static(item) => &item.ident,
+        Item::Mod(item) => &item.ident,
+        Item::Macro(item) => item.ident.as_ref()?,
+        Item::ExternCrate(item) => item.rename.as_ref().map_or(&item.ident, |(_, name)| name),
         _ => return None,
     };
     Some(plain(ident))

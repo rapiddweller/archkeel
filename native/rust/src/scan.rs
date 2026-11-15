@@ -28,10 +28,10 @@ use crate::tokens::{attribute_chains, plain, read_value, LINTS, MESSAGE_KEYS};
 use attributes::{attribute_strings, concern, expansion, helper_strings};
 use define::{
     define_impl_item, define_item, define_trait_item, enter_impl, enter_trait, exact_type,
-    foreign_name, impl_block, item_name,
+    foreign_name, impl_block,
 };
 use macros::{macro_call, macro_rules};
-use receivers::Selves;
+use receivers::{item_name, Selves};
 use use_items::{bind, extern_crate, use_item};
 
 /// Scan one file. A syntax error is `Err` with its line. With `exclude_tests`, an item that only
