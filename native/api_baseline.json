@@ -2567,6 +2567,7 @@
     "use shape",
     "use uml::UmlDiff",
     "variant causes::Cause::AllowedPairGaps",
+    "variant causes::Cause::DependencyScopeUnproven",
     "variant causes::Cause::DynamicImport",
     "variant causes::Cause::InsideSourceDomain",
     "variant causes::Cause::LayerMetadata",
