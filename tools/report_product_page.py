@@ -1,11 +1,13 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The entry page of the site: ArchKeel as a product, two parts and two runs (AD-462).
+"""The entry page of the site: ArchKeel as one system of parts and their runs (AD-462).
 
 It uses the files of the report page (AD-496): the fonts, the tokens, the components, the local
 rules and the one theme script, so the two look the same. The page copies the facts of
-`report_product.Part`. It joins no verdict: the heading names the worst status of the two runs.
+`report_product.Part`. The verdict of the system is the weakest verdict of its runs
+(FAIL, then UNKNOWN, then PASS).
+It is a join of two words, not a decision: the frame of each part holds the decision.
 """
 
 from __future__ import annotations
@@ -16,7 +18,16 @@ import html
 from collections.abc import Sequence
 from pathlib import Path
 
-from tools.report_product import LISTED_LIMIT, STATUSES, Contract, Part, Tile, worst
+from tools.report_product import (
+    LISTED_LIMIT,
+    STATUSES,
+    Contract,
+    Part,
+    Tile,
+    Verdict,
+    system,
+    worst,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "native" / "report" / "assets"
@@ -147,7 +158,8 @@ def card(part: Part, ids: frozenset[str], commit: str) -> str:
     tiles = "".join(tile(part, item, ids) for item in part.tiles)
     foot = (
         f"{plural(part.components, 'component')}, {plural(part.modules, 'module')} &#183; "
-        f"{part.failing} FAIL &#183; {part.unknown} UNKNOWN &#183; "
+        f"{plural(part.failing, 'component')} with a violation &#183; "
+        f"{plural(part.unknown, 'component')} with gaps &#183; "
         f'<a href="{esc(part.report)}">Open the report of this part</a>'
     )
     tiles = f'<ul class="rp-tiles">{tiles}</ul>' if tiles else ""
@@ -157,17 +169,14 @@ def card(part: Part, ids: frozenset[str], commit: str) -> str:
     )
 
 
-def wall(binary: str) -> str:
-    runs = "The shell runs the core as a binary"
-    if binary:
-        runs = f'The shell runs the binary <span class="rp-code">{esc(binary)}</span>'
+def wall() -> str:
+    """The place between two parts. The page states the relation and does not verify it."""
     return (
-        '<div class="rp-wall" role="group" aria-label="Process boundary"><div class="rp-wall__in">'
-        '<span class="tag">PROCESS BOUNDARY</span>'
-        '<span class="ui rp-wall__word">starts process</span>'
-        f'{ARROW}<span class="caption">{runs}: request on stdin, frame on stdout</span>'
-        '<span class="caption">Stated, not verified: no frame holds this relation and no frame '
-        "checks it.</span></div></div>"
+        '<div class="rp-wall" role="group" aria-label="Relation between parts">'
+        '<div class="rp-wall__in"><span class="tag">BETWEEN PARTS</span>'
+        f"{ARROW}"
+        '<span class="caption">Stated, not verified: no frame holds a relation between these '
+        "parts and no frame checks it.</span></div></div>"
     )
 
 
@@ -218,24 +227,17 @@ def _exceptions(part: Part, ids: frozenset[str]) -> str:
 
 
 def verdict(part: Part, ids: frozenset[str]) -> str:
+    """The counts and the exceptions of one part. The card of the system holds the verdict."""
     if not part.decided:
         return f'<div><h3 class="h3">{esc(part.title)}</h3><p class="body-sm">No result.</p></div>'
-    stats = "".join(
-        f'<div class="ak-verdict__stat"><dt class="caption">{name}</dt>'
-        f'<dd class="ak-num h2">{part.counts[name]}</dd></div>'
-        for name in STATUSES
-    )
+    words = " &#183; ".join(f"{part.counts[name]} {name}" for name in STATUSES)
     return (
-        f'<div><h3 class="h3">{esc(part.title)}</h3>'
-        f'<section class="ak-verdict ak-verdict--{part.status.lower()}" '
-        f'aria-label="Verdict of {esc(part.title)}">{badge(part.status)}'
-        f'<p class="h2 ak-verdict__title">{esc(headline(part))}</p>'
-        f'<p class="body-sm ak-verdict__note">{NOTES[part.status]}</p>'
-        f'<dl class="ak-verdict__stats">{stats}</dl></section>{_exceptions(part, ids)}</div>'
+        f'<div><h3 class="h3">{esc(part.title)} {badge(part.status)}</h3>'
+        f'<p class="caption">{esc(headline(part))} &#183; {words}</p>{_exceptions(part, ids)}</div>'
     )
 
 
-def footer(parts: Sequence[Part], commit: str, built_at: str) -> str:
+def footer(parts: Sequence[Part], commit: str, built_at: str, showcase: str = SHOWCASE) -> str:
     rows = [("Commit", f'<span class="rp-code">{esc(commit)}</span> &#183; built {esc(built_at)}')]
     for part in parts:
         if part.engine:
@@ -244,12 +246,13 @@ def footer(parts: Sequence[Part], commit: str, built_at: str) -> str:
             rows.append((f"{part.title} run", f"{engine} &#183; contract {contract}"))
     rows.append(
         (
-            "Joined by",
-            "this page. The frame has no field for a product of several parts, and no fact "
-            "records a process start.",
+            "System verdict",
+            "Interim. This page joins the verdicts of the parts outside the core: the weakest "
+            "verdict wins. A system contract, with a verdict by the core, replaces it. The frame "
+            "has no field for a system of several parts, and no fact records a process start.",
         )
     )
-    link = f'<a href="{SHOWCASE}">One run for each project of fixtures/</a>'
+    link = f'<a href="{showcase}">One run for each project of fixtures/</a>'
     rows.append(("Fixtures", link))
     body = "".join(f'<dt class="caption">{k}</dt><dd class="body-sm">{v}</dd>' for k, v in rows)
     return f'<footer class="rp-foot"><dl class="rp-kv">{body}</dl></footer>'
@@ -281,32 +284,75 @@ def contracts_section(contracts: Sequence[Contract]) -> str:
     )
 
 
+def headline_of(verdict: Verdict) -> str:
+    """The title of the card of the system, from the status and the summed counts."""
+    counts = verdict.counts
+    if verdict.status == "PASS":
+        return f"All {plural(counts['PASS'], 'rule')} of both parts hold"
+    if counts["FAIL"]:
+        return f"{plural(counts['FAIL'], 'rule')} violated, {counts['UNKNOWN']} unknown"
+    if counts["UNKNOWN"]:
+        return f"{plural(counts['UNKNOWN'], 'rule')} cannot be decided"
+    return "The system cannot be decided"
+
+
+def system_note(verdict: Verdict, parts: Sequence[Part]) -> str:
+    """The sentence under the verdict. It follows the verdict, never a part that is better."""
+    undecided = [part.title for part in parts if not part.decided]
+    sentences = [NOTES[verdict.status]]
+    if undecided:
+        sentences.insert(0, f"No result for {', '.join(undecided)}.")
+    if verdict.cause:
+        sentences.append(f"{verdict.cause[0].upper()}{verdict.cause[1:]}.")
+    sentences.append("The system has the weakest verdict of its parts.")
+    return " ".join(sentences)
+
+
+def system_card(parts: Sequence[Part]) -> str:
+    """The one verdict of the system: the weakest of its parts, with the counts added up."""
+    verdict = system(parts)
+    stats = "".join(
+        f'<div class="ak-verdict__stat"><dt class="caption">{name}</dt>'
+        f'<dd class="ak-num h2">{verdict.counts[name]}</dd></div>'
+        for name in STATUSES
+    )
+    return (
+        f'<section class="ak-verdict ak-verdict--{verdict.status.lower()}" '
+        'aria-label="Verdict of the system">'
+        f'{badge(verdict.status)}<p class="h2 ak-verdict__title">{esc(headline_of(verdict))}</p>'
+        f'<p class="body-sm ak-verdict__note">{esc(system_note(verdict, parts))}</p>'
+        f'<dl class="ak-verdict__stats">{stats}</dl></section>'
+    )
+
+
 def product_page(
+    name: str,
     parts: Sequence[Part],
     ids: dict[str, frozenset[str]],
     commit: str,
     built_at: str,
     contracts: Sequence[Contract] = (),
+    showcase: str = SHOWCASE,
 ) -> str:
-    """The product page. `ids` holds, for each part, the ids of the report that the CLI wrote."""
-    count = len(parts)
-    heading = f"ArchKeel as a product: {count} parts, {count} runs, worst verdict {worst(parts)}"
-    binary = next((part.binary for part in parts if part.binary), "")
-    cards = wall(binary).join(card(part, ids[part.key], commit) for part in parts)
+    """The system page. `ids` holds, for each part, the ids of the report that the CLI wrote."""
+    heading = f"{name}: {worst(parts)}"
+    cards = wall().join(card(part, ids[part.key], commit) for part in parts)
     verdicts = "".join(verdict(part, ids[part.key]) for part in parts)
     body = (
         '<section class="rp-sec" style="margin-top:0" aria-labelledby="product">'
         f'<h1 class="h2 rp-h1" id="product">{esc(heading)}</h1>'
-        '<p class="body-sm rp-lede">Each part is one run with its own contract and its own '
-        "verdict. The page puts the two runs side by side. No frame joins them, so the page "
-        "gives no joint verdict.</p>"
+        f"{system_card(parts)}"
+        '<p class="body-sm rp-lede">ArchKeel is one system. One scan has one language, so each '
+        "part has its own run, its own contract and its own report. A system verdict covers "
+        "the declared rules of each part. Relations between the parts are stated, not "
+        "verified. Open a part for its evidence.</p>"
         f'<div class="rp-parts">{cards}</div>{legend()}</section>'
         '<section class="rp-sec" aria-labelledby="verdicts">'
-        '<h2 class="h2" id="verdicts">Verdict of each part</h2>'
+        '<h2 class="h2" id="verdicts">Exceptions of each part</h2>'
         '<p class="body-sm rp-lede">The exceptions of each run. A number opens its evidence in '
         "the report of the part.</p>"
         f'<div class="rp-duo">{verdicts}</div></section>'
         f"{contracts_section(contracts)}"
-        f"{footer(parts, commit, built_at)}"
+        f"{footer(parts, commit, built_at, showcase)}"
     )
-    return shell("ArchKeel as a product", "Report · ArchKeel as a product", body)
+    return shell("ArchKeel system report", "Report · ArchKeel system", body)
