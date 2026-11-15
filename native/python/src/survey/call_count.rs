@@ -410,4 +410,51 @@ mod tests {
         assert_eq!(found.coverage.measures.unwrap().len(), 1);
         assert_eq!(found.coverage.files_parsed, 1);
     }
+
+    #[test]
+    fn each_call_class_has_one_count() {
+        let found = crate::survey::targets::tests::surveyed(&[
+            ("src/app/__init__.py", ""),
+            ("src/app/one.py", "def make():\n    pass\n"),
+            (
+                "src/app/two.py",
+                "import app.one as mod\nfrom app.one import make\nimport json\ndef f(value):\n    make()\n    mod.make()\n    json.dumps({})\n    len(value)\n    value.method()\n    self.method()\n    value[0]()\n    factory()()\n",
+            ),
+        ]);
+        let rows = found.coverage.measures.unwrap();
+        let row = rows.iter().find(|row| row.module == "app.two").unwrap();
+        assert_eq!(
+            (
+                row.calls_total,
+                row.calls_resolved,
+                row.calls_external,
+                row.calls_builtin
+            ),
+            (9, 2, 1, 1)
+        );
+        assert_eq!(
+            (
+                row.calls_unresolved,
+                row.unresolved_self,
+                row.unresolved_attribute,
+                row.unresolved_name,
+                row.unresolved_dynamic
+            ),
+            (5, 1, 1, 1, 2)
+        );
+    }
+
+    #[test]
+    fn a_partial_construction_keeps_its_own_class() {
+        let found = crate::survey::targets::tests::surveyed(&[
+            ("src/app/__init__.py", ""),
+            (
+                "src/app/one.py",
+                "class C:\n    def __new__(cls):\n        pass\ndef f():\n    return C()\n",
+            ),
+        ]);
+        let rows = found.coverage.measures.unwrap();
+        let row = rows.iter().find(|row| row.module == "app.one").unwrap();
+        assert_eq!((row.calls_total, row.calls_partial), (1, 1));
+    }
 }
