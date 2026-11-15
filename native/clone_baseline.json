@@ -13,6 +13,14 @@
     "reason": "The facade budget and the coupling budget read the same field kinds in one shape, as their Python parsers do. They are data, not logic.",
     "tokens": 85
   },
+  "contract/src/declarations.rs|facts/src/data/symbols.rs|429e052eb3": {
+    "files": [
+      "contract/src/declarations.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "The `use` lists of two crates have one shape. Imports are not logic and the crates cannot share them.",
+    "tokens": 70
+  },
   "contract/src/graph.rs|contract/src/python_rules.rs|6ff88f9ff0": {
     "files": [
       "contract/src/graph.rs",
@@ -28,6 +36,14 @@
     ],
     "reason": "Field lists of neighbouring contract types have one shape, as the Python dataclasses do. No logic repeats.",
     "tokens": 82
+  },
+  "contract/src/policy/amendment.rs|model/src/boundary_judge.rs|647e3eb145": {
+    "files": [
+      "contract/src/policy/amendment.rs",
+      "model/src/boundary_judge.rs"
+    ],
+    "reason": "One word for each variant of a closed enum, written as a match arm. The enums are of different crates and own different words. No logic repeats.",
+    "tokens": 79
   },
   "contract/src/policy/printable.rs|facts/src/pyrepr_tests.rs|3d85e546b4": {
     "files": [
@@ -318,19 +334,28 @@
     "reason": "code_list! calls list the values of a schema code list as name and text pairs. They are data.",
     "tokens": 71
   },
-  "model/src/limits.rs|model/src/limits.rs|00b17b8443": {
+  "model/src/boundary_judge.rs|model/src/section.rs|731dd53e1a": {
     "files": [
-      "model/src/limits.rs"
+      "model/src/boundary_judge.rs",
+      "model/src/section.rs"
     ],
-    "reason": "AD-500: `limits::reads` lists every rule kind with no default arm, so a new kind does not compile until it states what it reads. Its two lists of kinds repeat by design (AD-378).",
-    "tokens": 78
+    "reason": "One word for each variant of a closed enum, written as a match arm. The enums own different words. No logic repeats.",
+    "tokens": 84
   },
-  "model/src/limits.rs|model/src/limits.rs|31355fc48f": {
+  "model/src/boundary_judge.rs|model/src/section.rs|79d7dd25d5": {
+    "files": [
+      "model/src/boundary_judge.rs",
+      "model/src/section.rs"
+    ],
+    "reason": "One word for each variant of a closed enum, written as a match arm. The enums own different words. No logic repeats.",
+    "tokens": 71
+  },
+  "model/src/limits.rs|model/src/limits.rs|2918b64354": {
     "files": [
       "model/src/limits.rs"
     ],
-    "reason": "AD-500: `limits::reads` lists every rule kind with no default arm, so a new kind does not compile until it states what it reads. Its two lists of kinds repeat by design (AD-378).",
-    "tokens": 83
+    "reason": "One arm for each rule kind. The match has no catch-all arm on purpose: a new rule kind must state what it reads, so it cannot forget a limit.",
+    "tokens": 92
   },
   "model/src/limits.rs|model/src/scope.rs|4106bb7efc": {
     "files": [
@@ -347,22 +372,6 @@
     ],
     "reason": "AD-378 (review of #1066, finding 5): each match of the scope proof lists every rule kind with no default arm, so a new kind does not compile until its doubt sources are stated. The lists of kinds repeat by design.",
     "tokens": 71
-  },
-  "model/src/scope.rs|model/src/subjects.rs|00b17b8443": {
-    "files": [
-      "model/src/scope.rs",
-      "model/src/subjects.rs"
-    ],
-    "reason": "AD-378 (review of #1066, finding 5): each match of the scope proof lists every rule kind with no default arm, so a new kind does not compile until its doubt sources are stated. The lists of kinds repeat by design.",
-    "tokens": 73
-  },
-  "model/src/scope.rs|model/src/subjects.rs|4106bb7efc": {
-    "files": [
-      "model/src/scope.rs",
-      "model/src/subjects.rs"
-    ],
-    "reason": "AD-378 (review of #1066, finding 5): each match of the scope proof lists every rule kind with no default arm, so a new kind does not compile until its doubt sources are stated. The lists of kinds repeat by design.",
-    "tokens": 70
   },
   "model/src/section.rs|report/src/kind.rs|79d7dd25d5": {
     "files": [
@@ -435,6 +444,22 @@
     ],
     "reason": "The CPython class name (and source text) of each variant of a closed ruff enum (AD-377). One exhaustive match for each enum keeps the compiler check when ruff adds a variant. They are data, not logic.",
     "tokens": 74
+  },
+  "python/src/survey/declared/shapes.rs|typescript/src/kinds.rs|6bb9d25070": {
+    "files": [
+      "python/src/survey/declared/shapes.rs",
+      "typescript/src/kinds.rs"
+    ],
+    "reason": "Two tables of (text, value) rows, one of Python collection names and one of grammar node kinds. They are data of different languages.",
+    "tokens": 84
+  },
+  "python/src/survey/declared/shapes.rs|typescript/src/kinds.rs|8e190273d6": {
+    "files": [
+      "python/src/survey/declared/shapes.rs",
+      "typescript/src/kinds.rs"
+    ],
+    "reason": "Two tables of (text, value) rows, one of Python collection names and one of grammar node kinds. They are data of different languages.",
+    "tokens": 78
   },
   "report/src/build_tables.rs|report/src/build_tables.rs|372b10f04f": {
     "files": [

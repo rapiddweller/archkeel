@@ -104,6 +104,20 @@ impl<'a, 't> Tree<'a, 't> {
         self.cx.span(node)
     }
 
+    /// Whether `member` is `reference.name`: the reference is its object, the path has two names
+    /// and the name is a valid member name.
+    pub(crate) fn is_plain_member(
+        &self,
+        reference: Node<'t>,
+        member: Node<'t>,
+        property: Option<Node<'t>>,
+    ) -> bool {
+        self.k(member) == K::MemberExpression
+            && self.is_field_of_parent(reference, F::Object)
+            && self.static_path(member).len() == 2
+            && property.is_some_and(|property| Cx::valid_unicode_member_name(&self.cx, property))
+    }
+
     /// Whether `node` is the field `field` of its parent.
     pub(crate) fn is_field_of_parent(&self, node: Node<'t>, field: F) -> bool {
         self.parent(node)

@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use archkeel_facts::envelope::Evidence;
 use archkeel_facts::identity::evidence_id;
-use ruff_python_ast::{Alias, ModModule, Stmt};
+use ruff_python_ast::{Alias, Expr, ModModule, Stmt};
 use ruff_text_size::Ranged;
 
 #[path = "definition.rs"]
@@ -176,3 +176,11 @@ pub(crate) use archkeel_pytext::rstrip;
 #[cfg(test)]
 #[path = "survey/module_tests.rs"]
 mod tests;
+
+/// The identifier of an expression that is a plain name.
+pub(crate) fn plain_name(expr: &Expr) -> Option<&str> {
+    match expr {
+        Expr::Name(name) => Some(name.id.as_str()),
+        _ => None,
+    }
+}
