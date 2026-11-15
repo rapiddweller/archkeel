@@ -12,14 +12,11 @@
 //! A resolution must hold in every configuration. So `cfg` and `cfg_attr` are never inert: an
 //! item, a block or a module under them is not exact, and neither is an `impl` block in a body.
 
-use syn::{
-    Attribute, GenericArgument, GenericParam, ItemImpl, PathArguments, ReceiverKind, Signature,
-    Type,
-};
+use syn::{Attribute, GenericParam, ItemImpl, ReceiverKind, Signature};
 
 use crate::definitions::{OnSelf, SelfKind};
 use crate::tokens::plain;
-use params::Params;
+use params::{plain_path, Params};
 
 /// The attributes that change no item and remove it in no configuration: an `impl` block or a
 /// `fn` with only these is as written. Any other attribute can be a macro that rewrites the item,
@@ -85,33 +82,6 @@ pub(super) fn kind_of(sig: &Signature) -> Option<SelfKind> {
         // A typed `self: X`, and any form that a later syn adds (`&pin self`): no kind.
         _ => None,
     }
-}
-
-/// Whether a generic argument binds a type or a const: a lifetime does not change which
-/// inherent methods a type has.
-fn binds_type(argument: &GenericArgument) -> bool {
-    !matches!(argument, GenericArgument::Lifetime(_))
-}
-
-/// The segments of a plain relative type path: no qualified self, no leading `::`, and no type
-/// or const argument (a lifetime does not change which inherent methods a type has).
-pub(super) fn plain_path(ty: &Type) -> Option<Vec<String>> {
-    let Type::Path(path) = ty else {
-        return None;
-    };
-    if path.qself.is_some() || path.path.leading_colon.is_some() {
-        return None;
-    }
-    let mut names = Vec::new();
-    for segment in &path.path.segments {
-        match &segment.arguments {
-            PathArguments::None => {}
-            PathArguments::AngleBracketed(list) if !list.args.iter().any(binds_type) => {}
-            _ => return None,
-        }
-        names.push(plain(&segment.ident));
-    }
-    Some(names)
 }
 
 /// The path of the type of an `impl` block when the block is exact: a plain relative path with

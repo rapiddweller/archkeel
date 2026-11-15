@@ -19,11 +19,37 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use proc_macro2::{TokenStream, TokenTree};
 use syn::visit::{self, Visit};
-use syn::{FnArg, GenericParam, Pat, Signature, Type};
+use syn::{FnArg, GenericArgument, GenericParam, Pat, PathArguments, Signature, Type};
 
-use super::plain_path;
 use crate::definitions::{OnSelf, SelfKind};
 use crate::tokens::{plain, NO_BIND_MACROS};
+
+/// Whether a generic argument binds a type or a const: a lifetime does not change which
+/// inherent methods a type has.
+fn binds_type(argument: &GenericArgument) -> bool {
+    !matches!(argument, GenericArgument::Lifetime(_))
+}
+
+/// The segments of a plain relative type path: no qualified self, no leading `::`, and no type
+/// or const argument (a lifetime does not change which inherent methods a type has).
+pub(super) fn plain_path(ty: &Type) -> Option<Vec<String>> {
+    let Type::Path(path) = ty else {
+        return None;
+    };
+    if path.qself.is_some() || path.path.leading_colon.is_some() {
+        return None;
+    }
+    let mut names = Vec::new();
+    for segment in &path.path.segments {
+        match &segment.arguments {
+            PathArguments::None => {}
+            PathArguments::AngleBracketed(list) if !list.args.iter().any(binds_type) => {}
+            _ => return None,
+        }
+        names.push(plain(&segment.ident));
+    }
+    Some(names)
+}
 
 /// The name of a type or const parameter. A lifetime has none.
 pub(super) fn generic_name(param: &GenericParam) -> Option<String> {
