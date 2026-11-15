@@ -24,6 +24,7 @@ use crate::builder::Builder;
 use crate::definitions::{Access, ImplBlock, Member, MethodCall};
 use crate::modules::{inside, Edge, Frame, Index, TypeOf};
 use crate::scan::{Reference, Via};
+use crate::tokens::NO_BIND_MACROS;
 use crate::tree::Module;
 
 /// A member of an inherent `impl` block of a placed type.
@@ -41,9 +42,31 @@ pub(super) struct Typed<'a> {
     by_type: BTreeMap<(String, String), Vec<Candidate<'a>>>,
     /// The names of the members of the blocks whose type the scan cannot place.
     unplaced: BTreeSet<&'a str>,
+    /// The last name of each type with a `Deref` or `DerefMut` impl in the workspace.
+    derefs: BTreeSet<&'a str>,
+    /// A macro of the workspace has the name of a macro of `std` that binds nothing (AD-518).
+    shadowed_macros: bool,
 }
 
 impl<'a> Typed<'a> {
+    /// Note what a module says of the types and the macros of the workspace (AD-518).
+    pub(super) fn note(&mut self, module: &'a Module) {
+        let scan = &module.scan;
+        for found in &scan.orphans.impls {
+            let last = |path: &'a Option<Vec<String>>| path.as_ref()?.last().map(String::as_str);
+            if let (Some("Deref" | "DerefMut"), Some(ty)) =
+                (last(&found.trait_path), last(&found.self_path))
+            {
+                self.derefs.insert(ty);
+            }
+        }
+        let silent = scan
+            .macro_defs
+            .iter()
+            .any(|d| NO_BIND_MACROS.contains(&d.name.as_str()));
+        self.shadowed_macros |= silent;
+    }
+
     /// Keep each member of a block by its type, or its name when the type is not placed.
     /// `lexical` is the lexical module of the block.
     pub(super) fn place(
@@ -113,6 +136,15 @@ impl Builder {
             (None, None, true) => None,
             _ => return false,
         };
+        // A parameter has a written type; the workspace must give no reason to doubt it (AD-518).
+        let parameter = !matches!(on_self.name.as_str(), "self" | "Self");
+        let deref = on_self
+            .path
+            .last()
+            .is_some_and(|ty| found.derefs.contains(ty.as_str()));
+        if parameter && (deref || found.shadowed_macros) {
+            return false;
+        }
         let TypeOf::Known(lexical, ty) = index.type_of(frame, &on_self.scope, &on_self.path) else {
             return false;
         };
@@ -137,9 +169,10 @@ impl Builder {
         if !certain(candidate) {
             return false;
         }
-        let (root, path) = match call.path {
-            true => ("Self", format!("Self::{}", call.name)),
-            false => ("self", format!("self.{}", call.name)),
+        let root = on_self.name.as_str();
+        let path = match call.path {
+            true => format!("{root}::{}", call.name),
+            false => format!("{root}.{}", call.name),
         };
         let reference = Reference {
             root: root.to_owned(),

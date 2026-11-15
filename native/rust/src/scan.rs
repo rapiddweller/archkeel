@@ -179,8 +179,9 @@ impl<'ast> Visit<'ast> for Visitor<'_> {
             self.walker
                 .selves
                 .enter_impl(found, &self.walker.inline, self.walker.blocks);
-        } else if let Item::Fn(_) = item {
-            self.walker.selves.enter_opaque();
+        } else if let Item::Fn(found) = item {
+            let at = (&self.walker.inline[..], self.walker.blocks);
+            self.walker.selves.enter_function(found, at);
         }
         exact_type(&mut self.walker, item);
         let outer = match item {
@@ -211,7 +212,8 @@ impl<'ast> Visit<'ast> for Visitor<'_> {
         if !(self.walker.exclude_tests && is_test_attributes(impl_item_attributes(item))) {
             define_impl_item(&mut self.walker, item);
             if let syn::ImplItem::Fn(method) = item {
-                self.walker.selves.enter_method(&method.sig, &method.attrs);
+                let at = (&self.walker.inline[..], self.walker.blocks);
+                self.walker.selves.enter_method(method, at);
             }
             visit::visit_impl_item(self, item);
             if let syn::ImplItem::Fn(_) = item {
