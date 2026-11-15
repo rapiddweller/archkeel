@@ -80,6 +80,16 @@ impl Profile {
     /// named gap: the core never reads a missing section as an empty one (AD-512).
     pub fn symbol_facts(self) -> bool {
         match self {
+            Profile::TypeScript | Profile::Python => true,
+            Profile::Dart | Profile::Rust => false,
+        }
+    }
+
+    /// True when the collector of this profile also states the sites of the symbols: the calls,
+    /// the references and the bases. Without them a relationship of a UML target is a named gap,
+    /// and no class has a base receipt (AD-518).
+    pub fn symbol_sites(self) -> bool {
+        match self {
             Profile::TypeScript => true,
             Profile::Python | Profile::Dart | Profile::Rust => false,
         }
