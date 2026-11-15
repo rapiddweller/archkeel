@@ -61,6 +61,7 @@ impl Collected {
                 imports,
                 symbols,
                 tail: Tail {
+                    measures: None,
                     selected_files,
                     files_read,
                     gaps,

@@ -30,6 +30,7 @@ use failures::{early, NOT_FOUND};
 
 pub(crate) mod binders;
 pub(crate) mod bound;
+mod call_count;
 mod declared;
 mod excluded;
 mod failures;
@@ -43,6 +44,7 @@ mod package_body;
 pub(crate) mod routes;
 mod stable;
 mod targets;
+mod typing_count;
 mod uses;
 mod walks;
 
@@ -184,11 +186,31 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     unknowns.extend(sites.into_values());
     unknowns.extend(layout::problems(&snapshot.problems));
     let selected: HashSet<&str> = scope.selected.iter().map(String::as_str).collect();
+    let count_context = call_count::Context::new(
+        &imports,
+        &resolved.targets,
+        &sole_binders,
+        &ambiguous,
+        &symbols.records,
+    );
     let coverage = Coverage {
         files_parsed: modules.len() as u64,
         files_read: parsed.files_read,
         full_scope: modules.len() == scope.selected.len() && unknowns.is_empty(),
         gaps: unknowns.clone(),
+        measures: Some(
+            modules
+                .iter()
+                .zip(&binders)
+                .map(|(module, binders)| {
+                    let mut row =
+                        call_count::count(module, binders, &symbols.calls, &count_context);
+                    (row.typing_positions, row.untyped_private_accesses) =
+                        typing_count::count(module, binders);
+                    row
+                })
+                .collect(),
+        ),
         selected_files: scope.selected.clone(),
     };
     Ok(Survey {

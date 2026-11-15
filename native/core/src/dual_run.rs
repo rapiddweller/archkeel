@@ -248,7 +248,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
     let trust = (run.trust)(run.namespace, engine.reply());
     let settings = settings_of(trust.settings, &input, run.roots);
     let locations = frame_parts::locations(engine.reply(), &input.path, &input.bytes, &settings);
-    let collection_gaps = frame_parts::collection_gaps(engine.reply());
+    let (collection_gaps, measures) = frame_parts::collection_metadata(engine.reply());
     let contract_digest = Some(archkeel_facts::identity::sha256_hex(&input.bytes));
     engine.answer(Request::Settings(settings));
     let path = input.path.clone();
@@ -260,7 +260,6 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         Answer::Sections(rows) => rows,
         _ => Vec::new(),
     };
-    // The report holds a reason until slice 0d writes the payload, so it is a named gap.
     let report: Result<(), String> = match engine.answer(Request::Report) {
         _ if !run.report => Ok(()),
         Answer::Report(reason) => Err(reason.to_string()),
@@ -282,8 +281,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         }
     };
     let mut named = named(&contract, run.baseline, &engine, &path);
-    named.contract = named.contract.or(trust.gap).or(base);
-    named.contract = named.contract.or(hygiene.refusal);
+    named.contract = named.contract.or(trust.gap).or(base).or(hygiene.refusal);
     named.rules.extend(hygiene.rules);
     let ruled = if run.topology {
         engine.rule(named, true)
@@ -304,6 +302,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         || !matches!(reply, ReplyCheck::Files(_))
         || !matches!(contract, ContractState::Parsed(_));
     let parts = Parts {
+        measures,
         topology,
         explain,
         contract_digest,

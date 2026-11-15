@@ -154,12 +154,31 @@ _EVIDENCE_FIELDS: Final = frozenset(
         "topology",
         "explain",
         "html",
+        "measures",
     }
 )
 _UNSUPPORTED: Final = frozenset({"rules", "sections", "report"})
 _SELF_TEST: Final = frozenset({"contract", "reply"})
 # AD-406: the self-test of a scan frame has the `collect` part too.
 _SCAN: Final = frozenset({"collect"})
+_CALL_CLASSES = "calls_resolved calls_partial calls_builtin calls_external calls_unresolved".split()
+_CALL_CAUSES = "unresolved_self unresolved_attribute unresolved_name unresolved_dynamic".split()
+_MEASURE_FIELDS = frozenset(
+    (*_CALL_CLASSES, *_CALL_CAUSES, "calls_total", "typing_positions", "untyped_private_accesses")
+)
+
+
+def _check_measures(value: object) -> None:
+    if value is None:
+        return
+    fields = _fields(value, "measures", _MEASURE_FIELDS)
+    counts = {name: _count(item, f"measures.{name}") for name, item in fields.items()}
+    if counts["calls_total"] != sum(counts[name] for name in _CALL_CLASSES) or counts[
+        "calls_unresolved"
+    ] != sum(counts[name] for name in _CALL_CAUSES):
+        raise CoreError("the core frame has inconsistent call measures")
+
+
 # The first words of each reason of the core (`native/model/src/reason.rs`, `core/src/check.rs`,
 # `core/src/base.rs`).
 # They classify a gap for the fall-back note and the measurement; they decide nothing.
@@ -431,6 +450,7 @@ def read_frame(
     }
     _check_rows(require_protocol, unknown_kinds, explained, violations, details)
     _object(frame["sections"], "sections")
+    _check_measures(frame.get("measures"))
     gaps, missing, derived = _gaps(frame, scan)
     if request is not None and derived is not None:
         bind_request(frame, request, derived, started_ns)

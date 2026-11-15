@@ -25,6 +25,7 @@ pub(super) const ENGINE: &str = concat!("archkeel-core ", env!("ARCHKEEL_CODE_DI
 
 #[derive(Serialize)]
 pub(super) struct Parts {
+    pub(super) measures: Option<archkeel_model::Measures>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) topology: Option<crate::topology_projection::Topology>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -62,6 +63,13 @@ pub(super) fn collection_gaps(reply: Option<&Ingested>) -> Vec<CollectionGap> {
                 .collect(),
         })
         .collect()
+}
+
+pub(super) fn collection_metadata(
+    reply: Option<&Ingested>,
+) -> (Vec<CollectionGap>, Option<archkeel_model::Measures>) {
+    let measures = reply.and_then(|reply| archkeel_model::measure_facts(&reply.reply().facts));
+    (collection_gaps(reply), measures)
 }
 
 #[derive(Serialize)]
@@ -156,6 +164,7 @@ pub(crate) fn refused_scan(reason: &str, html: bool) -> Result<Answered, String>
     )
     .map_err(|error| error.to_string())?;
     let parts = Parts {
+        measures: None,
         topology: None,
         explain: None,
         engine: ENGINE,

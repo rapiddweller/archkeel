@@ -345,6 +345,8 @@ object! {
         pub files_read: u64,
         pub full_scope: bool,
         pub gaps: Vec<Record<GapFact>>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub measures: Option<Vec<crate::measures::FileMeasures>>,
         pub selected_files: Vec<String>,
     }
 }
