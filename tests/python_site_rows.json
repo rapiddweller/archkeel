@@ -1,0 +1,222 @@
+{
+ "call-alias": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "call-class-attribute-hides-nothing": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "call-comprehension": [
+  "FAIL",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "call-decorated-target": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete, relationship endpoints cannot be identified uniquely"
+ ],
+ "call-deleted": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "call-except": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "call-for": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "call-getattr": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "call-global": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete, relationship endpoints cannot be identified uniquely"
+ ],
+ "call-in-method": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "call-lambda": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "call-local": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "call-local-import": [
+  "FAIL",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "call-match": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "call-method": [
+  "PASS",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "call-nested-def": [
+  "FAIL",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "call-of-call": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "call-param": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "call-plain": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "call-redefined": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete, relationship endpoints cannot be identified uniquely"
+ ],
+ "call-walrus": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "call-with": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "unresolved calls site"
+ ],
+ "closed-calls-extra": [
+  "FAIL",
+  "FAIL",
+  "closed scope holds an unlisted relationship"
+ ],
+ "closed-calls-param": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "closed scope completeness"
+ ],
+ "creates": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "creates-hidden": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "creates inventory is not complete"
+ ],
+ "inherits": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "inherits-alias": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete, relationship endpoints cannot be identified uniquely"
+ ],
+ "inherits-conditional": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete, relationship endpoints cannot be identified uniquely"
+ ],
+ "inherits-missing": [
+  "FAIL",
+  "FAIL",
+  "declared base is absent"
+ ],
+ "instance-conditional-value": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete, relationship endpoints cannot be identified uniquely"
+ ],
+ "instance-global": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete, relationship endpoints cannot be identified uniquely"
+ ],
+ "instance-of": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "instance-parameter": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete, relationship endpoints cannot be identified uniquely"
+ ],
+ "instance-tuple": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete, relationship endpoints cannot be identified uniquely"
+ ],
+ "instance-twice": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete, relationship endpoints cannot be identified uniquely"
+ ],
+ "instance-walrus": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete, relationship endpoints cannot be identified uniquely"
+ ],
+ "instance-with": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete, relationship endpoints cannot be identified uniquely"
+ ],
+ "instance-with-arguments": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete, relationship endpoints cannot be identified uniquely"
+ ],
+ "new-returns-other": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "unresolved instance_of site"
+ ],
+ "realizes": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "references-annotation": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "references-hidden-by-class": [
+  "UNKNOWN",
+  "UNKNOWN",
+  "references inventory is not complete"
+ ],
+ "references-value": [
+  "PASS",
+  "PASS",
+  ""
+ ]
+}
