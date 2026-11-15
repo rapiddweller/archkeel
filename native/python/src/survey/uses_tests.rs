@@ -10,6 +10,8 @@ use crate::survey::targets::tests::surveyed;
 
 #[path = "uses_construct_tests.rs"]
 mod construct;
+#[path = "uses_typing_guard_tests.rs"]
+mod typing_guard;
 
 /// The modules that the survey cannot prove a route through, for a writer module.
 fn named(writer: &str) -> Vec<String> {
@@ -343,6 +345,11 @@ fn typing_factories_prove_values_only_when_their_bindings_are_unmodified() {
         ),
         (
             "from typing import Annotated\nVALUE = Annotated[int, metadata()]\n",
+            "",
+            false,
+        ),
+        (
+            "from typing import Union\nVALUE = Union[int, metadata()]\n",
             "",
             true,
         ),

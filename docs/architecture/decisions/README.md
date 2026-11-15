@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-568 | [Narrow the typing factory proof to the statements that can replace a factory](ad-568-narrow-the-typing-factory-proof-to-the-statements-that-can-replace-a-factory.md) |
 | AD-576 | [A read of a host name that nothing writes is no gap](ad-576-a-read-of-a-host-name-that-nothing-writes-is-no-gap.md) |
 | AD-566 | [A call of a bare class or a builtin value type is no module](ad-566-a-call-of-a-bare-class-or-a-builtin-value-type-is-no-module.md) |
 | AD-562 | [Inert door attributes keep the module import gap](ad-562-inert-door-attributes-keep-the-module-import-gap.md) |
