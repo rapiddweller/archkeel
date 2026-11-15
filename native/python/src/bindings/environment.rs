@@ -6,6 +6,7 @@
 
 use super::scan::{Result, Scan};
 use super::{class, names, namespace};
+use crate::module::plain_name;
 use crate::module::Module;
 use ruff_python_ast::{Expr, Stmt};
 use std::collections::{BTreeSet, HashSet};
@@ -20,12 +21,8 @@ pub(super) struct Env<'a> {
 
 pub(super) fn root(expr: &Expr) -> Option<&str> {
     match expr {
-        Expr::Name(n) => Some(n.id.as_str()),
-        Expr::Attribute(n) => match &*n.value {
-            Expr::Name(n) => Some(n.id.as_str()),
-            _ => None,
-        },
-        _ => None,
+        Expr::Attribute(attribute) => plain_name(&attribute.value),
+        other => plain_name(other),
     }
 }
 

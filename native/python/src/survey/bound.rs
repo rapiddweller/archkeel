@@ -24,6 +24,7 @@ use super::binders::{
     bind_handler, bind_handler_and_pattern, bind_pattern, declared, import_bindings, Bind,
 };
 use super::value::{value_deps, Deps};
+use crate::module::plain_name;
 
 /// One statement that binds a name at module scope.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -237,13 +238,10 @@ impl Walk {
             .decorator_list
             .iter()
             .map(|item| match &item.expression {
-                Expr::Name(name) => Some(name.id.to_string()),
-                Expr::Call(call) => match &*call.func {
-                    Expr::Name(name) => Some(name.id.to_string()),
-                    _ => None,
-                },
-                _ => None,
+                Expr::Call(call) => plain_name(&call.func),
+                other => plain_name(other),
             })
+            .map(|name| name.map(str::to_owned))
             .collect();
         let class = Class {
             bare,
