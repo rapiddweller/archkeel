@@ -38,7 +38,6 @@ impl Text {
     }
 
     /// `str(data[start:end], "utf-8", "replace")`.
-    #[cfg_attr(not(feature = "dump"), allow(dead_code))]
     pub(crate) fn decode(self, data: &[u8]) -> String {
         decode(data.get(self.start..self.end).unwrap_or(&[])).into_owned()
     }
@@ -96,7 +95,6 @@ impl Paths {
     }
 
     /// The names of a path, from the first to the last.
-    #[cfg_attr(not(feature = "dump"), allow(dead_code))]
     pub(crate) fn names(&self, path: u32, data: &[u8]) -> Vec<String> {
         let mut names = Vec::new();
         let mut next = Some(path);
