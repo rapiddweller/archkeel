@@ -198,6 +198,15 @@ impl<'a> Visitor<'a> for Walk {
                 self.bound.globals.extend(names);
                 self.bound.getattr |= self.bound.globals.contains("__getattr__");
             }
+            Stmt::TypeAlias(node) => {
+                if let Expr::Name(name) = &*node.name {
+                    self.site(name.id.as_str(), start, true, Kind::Value);
+                }
+                if let Some(params) = &node.type_params {
+                    self.visit_type_params(params);
+                }
+                self.visit_expr(&node.value);
+            }
             Stmt::Assign(node) => {
                 for target in &node.targets {
                     match target {

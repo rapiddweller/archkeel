@@ -15,8 +15,8 @@
 //! comprehension target, and an import of `__dict__` or `__all__` from the module. An escaped
 //! module and each module below it withhold every route through them.
 //!
-//! An imported name of unknown kind is harmless when its origin is a `def` or a `class`
-//! (`from app.lib import f` where `f` is a function): a call `f(...)` then writes no namespace.
+//! An imported name is harmless when its origin is a `def`, a `class`, a literal or a display.
+//! These values are not modules, so their use cannot directly change a module namespace.
 //! A write through `sys.modules`, a computed import, `globals()` of another module, a writer
 //! outside the scan roots and a C extension are not seen here: the first two are survey gaps
 //! (AD-450); the rest is listed in `docs/known-limits.md`.
@@ -54,7 +54,7 @@ struct Scan<'m> {
 }
 
 impl Scan<'_> {
-    /// True when `name` of `module` is a function or a class, following plain re-exports.
+    /// True when `name` is not a module, following plain re-exports.
     fn callable(&self, module: &str, name: &str, depth: usize) -> bool {
         let Some(bound) = self.bounds.get(module).filter(|bound| {
             depth < 8
@@ -179,7 +179,7 @@ impl Uses<'_, '_> {
         }
     }
 
-    /// The modules that a binding may denote; an imported name of a function or a class none.
+    /// The modules that a binding may denote; a proven non-module denotes none.
     fn name(&self, kind: &Binding) -> Option<String> {
         match kind {
             Binding::Module(module) => Some(module.clone()),

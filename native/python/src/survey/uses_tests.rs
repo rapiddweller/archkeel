@@ -200,3 +200,16 @@ fn a_package_name_that_is_also_a_submodule_stays_escaped() {
     ]);
     assert!(found.opaque_surface.contains("app.lib"));
 }
+
+#[test]
+fn a_type_statement_makes_a_type_alias_not_a_module() {
+    let found = surveyed(&[
+        ("src/app/__init__.py", ""),
+        ("src/app/lib.py", "type VALUE = int\n"),
+        (
+            "src/app/writer.py",
+            "from app.lib import VALUE\nuse(VALUE)\n",
+        ),
+    ]);
+    assert!(!found.opaque_surface.contains("app.lib"));
+}
