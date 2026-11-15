@@ -24,7 +24,7 @@ pub(crate) enum Written {
     /// A name that a direct form writes: it blocks every global (AD-460).
     Unknown,
     /// A name that an amplifier form writes: it blocks every global only when the scan has a
-    /// host entry (AD-535).
+    /// host entry (AD-540).
     Amplified,
 }
 
@@ -247,7 +247,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// The value can be a window: a window name, a window member, an element of such a value, a
     /// branch of a condition, or `this` that a plain function or the top of a script receives.
     /// A direct leaf names the global object, an amplifier leaf only says that the value may be
-    /// one (AD-535). The walk uses a list, not a recursion, so a deep expression costs no stack.
+    /// one (AD-540). The walk uses a list, not a recursion, so a deep expression costs no stack.
     pub(crate) fn window_gate(&self, node: Node<'t>) -> Option<Reach> {
         let tree = self.tree;
         let mut found = None;
@@ -272,7 +272,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
     /// `window_leaf` with its kind. A free root name and a wrapper alias name the global object
     /// (direct). A member such as `source`, and `this` of a function, only say that a value may
-    /// be a window (amplifier): they need a host entry to be one (AD-535).
+    /// be a window (amplifier): they need a host entry to be one (AD-540).
     pub(crate) fn leaf_gate(&self, node: Node<'t>) -> Option<Reach> {
         let tree = self.tree;
         match node.kind() {

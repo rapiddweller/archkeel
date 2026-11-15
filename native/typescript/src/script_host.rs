@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The host-entry rule of the script globals (AD-535).
+//! The host-entry rule of the script globals (AD-540).
 //!
 //! An AMPLIFIER form says that a value may be the global object: a member `source` or `parent`, the
 //! `this` of a function, a window name in a pattern. It writes an unknown global only when the
@@ -141,7 +141,7 @@ const DEPTH: u8 = 4;
 pub(crate) type NumericNames = std::cell::RefCell<HashMap<(usize, String), bool>>;
 
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
-    /// The file gives the scan a host entry (conditions 1 and 3 of AD-535): it is no ES module,
+    /// The file gives the scan a host entry (conditions 1 and 3 of AD-540): it is no ES module,
     /// or it names a free value of the host.
     pub(crate) fn host_entry(&self) -> bool {
         let tree = self.tree;

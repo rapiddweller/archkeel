@@ -222,7 +222,11 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         // A key that can name `constructor` on a function reaches `Function` with no free name:
         // only a window key is an amplifier.
         let window = self.window_gate(object);
-        if reaches { Some(Reach::Direct) } else { window }
+        if reaches {
+            Some(Reach::Direct)
+        } else {
+            window
+        }
     }
 
     /// Code that a page runs from a text: `document.write`, an `on…` attribute, a `script`

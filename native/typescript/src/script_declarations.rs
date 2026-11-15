@@ -25,7 +25,7 @@ pub(crate) struct Declarations {
     pub top_level_paths: Vec<Vec<String>>,
     /// The writes of the one check (AD-460); the script writes take them too.
     pub checked: Vec<Write>,
-    /// Some node writes an unknown name through an amplifier form (AD-535).
+    /// Some node writes an unknown name through an amplifier form (AD-540).
     pub amplified: bool,
 }
 
@@ -39,7 +39,7 @@ struct Gathered<'t> {
     paths: Vec<Vec<String>>,
     top_level: Vec<Vec<String>>,
     checked: Vec<Write>,
-    /// A node of an amplifier form wrote an unknown name (AD-535).
+    /// A node of an amplifier form wrote an unknown name (AD-540).
     amplified: bool,
 }
 

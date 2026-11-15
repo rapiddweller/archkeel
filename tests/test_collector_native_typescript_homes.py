@@ -109,7 +109,7 @@ def test_each_script_global_decision_reads_the_one_write_check() -> None:
     project = (SOURCE / "script_project.rs").read_text()
     stable = (SOURCE / "script_global.rs").read_text()
     assert "writes.sole(name)" in project
-    assert "paths.any_empty" in stable and "paths.singles.contains_key(name)" in stable
+    assert "paths.blocks_all()" in stable and "paths.singles.contains_key(name)" in stable
     # The one check fills all three: one helper pushes each written name to each of them.
     declarations = (SOURCE / "script_declarations.rs").read_text()
     for call in ("self.global_write(", "self.changed_global(", "self.node_write("):
@@ -120,3 +120,35 @@ def test_each_script_global_decision_reads_the_one_write_check() -> None:
         assert field in check, field
     script = re.sub(r"\s+", "", (SOURCE / "script.rs").read_text())
     assert "declared.checked.iter()" in script and "writes.extend(checked)" in script
+
+
+# AD-540: an amplifier form blocks a proof only when the scan has a host entry. The kind of each
+# form is decided in one of three files, and each reader of the empty path reads `blocks_all`.
+AMPLIFIER_HOMES = {
+    "Reach::Amplified": {"script_host.rs", "script_window.rs", "script_forms.rs"},
+    "Written::Amplified": {
+        "script_host.rs",
+        "script_forms.rs",
+        "script_declarations.rs",
+    },
+}
+
+
+@pytest.mark.parametrize("marker", sorted(AMPLIFIER_HOMES))
+def test_amplifier_kind_has_known_homes(marker: str) -> None:
+    found = {
+        path.name
+        for path in SOURCE.glob("script*.rs")
+        if not path.stem.endswith("_tests") and marker in path.read_text()
+    }
+    assert found == AMPLIFIER_HOMES[marker], (marker, found)
+
+
+def test_only_the_project_reads_the_empty_path_and_the_host_entry() -> None:
+    readers = {
+        path.name
+        for path in SOURCE.glob("script*.rs")
+        if not path.stem.endswith("_tests")
+        and re.search(r"paths\.any_empty|\.host_entry|any_amplified", path.read_text())
+    }
+    assert readers == {"script_project.rs", "script.rs"}, readers

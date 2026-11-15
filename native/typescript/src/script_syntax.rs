@@ -42,7 +42,7 @@ pub(crate) struct Producer<'x, 'a, 't> {
     pub(crate) free_arguments: RefCell<HashMap<usize, bool>>,
     /// The nearest wrapper above each node, by the position of the node.
     wrapper_above: Vec<u32>,
-    /// The names that were proved numeric (AD-535), by scope and name.
+    /// The names that were proved numeric (AD-540), by scope and name.
     pub(crate) numeric: crate::script_host::NumericNames,
 }
 

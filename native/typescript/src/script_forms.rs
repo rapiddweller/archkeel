@@ -68,7 +68,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         (!literal_value).then_some(Written::Unknown)
     }
 
-    /// A node of an open form that writes an unknown name, and its kind (AD-535): a window
+    /// A node of an open form that writes an unknown name, and its kind (AD-540): a window
     /// pattern is an amplifier, each other form is direct.
     pub(crate) fn open_form(&self, node: Node<'t>) -> Option<Reach> {
         let direct = match node.kind() {
