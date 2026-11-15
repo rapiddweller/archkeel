@@ -373,7 +373,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-338 | [Core validates a decoded collection once and remembers each reference verdict](ad-338-core-validates-a-decoded-collection-once-and-remembers-each-reference-verdict.md) |
 | AD-339 | [The host computes each per-run result once](ad-339-the-host-computes-each-per-run-result-once.md) |
 | AD-340 | [The native records are built behind the dump and reach the wire last](ad-340-the-native-records-are-built-behind-the-dump-and-reach-the-wire-last.md) |
-| AD-342 | [The Dart grammar is vendored from the Python release and gated by tree parity](ad-342-the-dart-grammar-is-vendored-from-the-python-release-and-gated-by-tree-parity.md) |
+| AD-342 | [The Dart grammar is vendored from the Python release and gated by a test of its bytes](ad-342-the-dart-grammar-is-vendored-from-the-python-release-and-gated-by-a-test-of-its-bytes.md) |
 | AD-343 | [A collector reply is frozen as golden data before its code is deleted](ad-343-a-collector-reply-is-frozen-as-golden-data-before-its-code-is-deleted.md) |
 | AD-341 | [CI has a time budget, and a test runs on any free worker](ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md) |
 | AD-344 | [Only a producer that the host trusts can give PASS](ad-344-only-a-producer-that-the-host-trusts-can-give-pass.md) |

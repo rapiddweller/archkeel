@@ -2,7 +2,7 @@
 
 The files in this directory are copied without change from the PyPI sdist of
 `tree-sitter-dart` 0.1.0 (AD-342). Do not edit them. To change the grammar, vendor a new
-release, update `uv.lock` and run `tools/dart_grammar_parity.py` in the same PR.
+release, update the table below, update `uv.lock` and run `tools/dart_grammar_parity.py` once in the same PR.
 
 - Source: `https://files.pythonhosted.org/packages/79/57/e6d2294ab6f5c8fe5dd031837361ac256fecb7a285f06f665cafd6bf0a31/tree_sitter_dart-0.1.0.tar.gz`
 - sdist SHA-256: `5d1566e150f5ad8cd79ae225ff89db3eaf4a5e4cbbc667839578aee0512c3fdd`
