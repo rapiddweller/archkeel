@@ -15,6 +15,7 @@ use tree_sitter::Node;
 use crate::definitions::Definition;
 use crate::kinds::{F, K};
 use crate::script_index::Key;
+use crate::script_names::bound_scope;
 use crate::script_scope::{is_function, is_root};
 use crate::script_syntax::Producer;
 use crate::script_types::Member;
@@ -44,7 +45,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     ) -> Option<(Option<&'x Definition>, Node<'t>)> {
         let tree = self.tree;
         let name = tree.text(value);
-        let scope = tree.bound_scope(value, &name)?;
+        let scope = bound_scope(tree, value, &name)?;
         if tree.count(scope, &name) != 1 || !tree.cx.valid_unicode_member_name(value) {
             return None;
         }
@@ -215,7 +216,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         if !tree.cx.valid_unicode_member_name(receiver) {
             return declarations.map(|_| Vec::new());
         }
-        let Some(scope) = tree.bound_scope(receiver, first) else {
+        let Some(scope) = bound_scope(tree, receiver, first) else {
             let skip = usize::from(is_root(first));
             return Some(path.iter().skip(skip).cloned().collect());
         };

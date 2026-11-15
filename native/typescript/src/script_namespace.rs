@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
+use crate::script_names::bound_scope;
 use crate::script_scope::is_root;
 use crate::script_syntax::Producer;
 use crate::script_types::ScriptNamespace;
@@ -65,8 +66,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             let route = tree.static_path(*target);
             match route.as_slice() {
                 [name]
-                    if tree
-                        .bound_scope(*target, name)
+                    if bound_scope(tree, *target, name)
                         .is_some_and(|scope| scope.id() == tree.root.id()) =>
                 {
                     by_name.entry(name.clone()).or_default().push(*node);

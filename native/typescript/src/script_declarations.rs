@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
+use crate::script_names::bound_scope;
 use crate::script_scope::is_root;
 use crate::script_syntax::{unique, Producer};
 use crate::script_types::{Member, Write};
@@ -94,9 +95,8 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             found.paths.push(route.iter().skip(skip).cloned().collect());
             return;
         }
-        let at_top = tree
-            .bound_scope(target, first)
-            .is_some_and(|scope| scope.id() == tree.root.id());
+        let at_top =
+            bound_scope(tree, target, first).is_some_and(|scope| scope.id() == tree.root.id());
         if at_top {
             found.top_level.push(route.to_vec());
         }

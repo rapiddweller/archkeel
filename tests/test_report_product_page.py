@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 from core_support import run as run_cli
-from frozen_native import frozen_root as frozen_root
+from planted_cycle import cycle_root as cycle_root
 
 from archkeel.cli import core_only
 from tools import report_gallery
@@ -177,16 +177,16 @@ print(json.dumps(envelope))
 """
 
 
-def test_the_anchors_of_the_real_core_report_exist_and_match_the_number_of_places(
+def test_the_anchors_of_a_real_core_report_exist_and_match_the_number_of_places(
     release_core: Path,
-    frozen_root: Path,
+    cycle_root: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The numbers of the page are the ids `x1..xN` of the report that the same run writes."""
     monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
     target = tmp_path / "core.html"
-    arguments = ["--root", str(frozen_root), "--config", "native/archkeel.toml"]
+    arguments = ["--root", str(cycle_root), "--config", "archkeel.toml"]
     code, envelope = run_cli("report", *arguments, "--output", str(target), "--topology")
     assert code == 1
     part = part_of(envelope, CORE, "self/core.html")

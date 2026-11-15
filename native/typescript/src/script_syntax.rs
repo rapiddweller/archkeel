@@ -2,8 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The state that the producers of the script facts share, and the writes and publications of a
-//! script (`_script_globals`).
+//! The state that the producers of the script facts share.
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -12,10 +11,11 @@ use tree_sitter::Node;
 
 use crate::definitions::{Definition, Scopes};
 use crate::kinds::{F, K};
+use crate::layout::{is_function_like, NONE};
 use crate::script_index::DeclIndex;
 use crate::script_refs::References;
-use crate::script_scope::{is_function_like, is_receiver_scope, is_root, Tree, Wrapper, NONE};
-use crate::script_types::{ScriptGlobal, Write};
+use crate::script_scope::is_root;
+use crate::script_tree::{Tree, Wrapper};
 use crate::source::Span;
 use crate::tree::nodes::named_children;
 use crate::umd::Templates;
@@ -42,15 +42,6 @@ pub(crate) struct Producer<'x, 'a, 't> {
     pub(crate) free_arguments: RefCell<HashMap<usize, bool>>,
     /// The nearest wrapper above each node, by the position of the node.
     wrapper_above: Vec<u32>,
-}
-
-/// The writes and publications that `_script_globals` finds while it reads the nodes in order.
-#[derive(Default)]
-struct Found {
-    publications: Vec<ScriptGlobal>,
-    writes: Vec<Write>,
-    /// Each `this` with the span of the function or class that it belongs to.
-    receivers: Vec<(Option<Span>, Span)>,
 }
 
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
@@ -151,92 +142,6 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// `_script_reaches`: no `return` comes before the node.
     pub(crate) fn reaches(&self, node: Node<'t>, wrapper: Option<Node<'t>>) -> bool {
         self.prior_returns(node, wrapper).is_empty()
-    }
-
-    /// What the node adds to the writes and publications of the file.
-    fn visit(&self, node: Node<'t>, roots: &HashSet<&str>, found: &mut Found) {
-        let tree = self.tree;
-        let kind = tree.k(node);
-        let opaque = tree.opaque_writes(node, &self.callables);
-        found
-            .writes
-            .extend(opaque.into_iter().map(|span| (None, span)));
-        if kind == K::This {
-            let owner = tree
-                .ancestors(node)
-                .find(|ancestor| is_receiver_scope(tree.k(*ancestor)));
-            found
-                .receivers
-                .push((owner.map(|owner| tree.span(owner)), tree.span(node)));
-            if tree.script_escape(node) {
-                found.writes.push((None, tree.span(node)));
-            }
-        }
-        let name = matches!(kind, K::Identifier | K::ShorthandPropertyIdentifier)
-            && roots.contains(tree.text(node).as_str());
-        if name && !tree.declaration_name(node) && tree.script_escape(node) {
-            found.writes.push((None, tree.span(node)));
-        }
-        if !self.module_syntax {
-            found.writes.extend(tree.declaration_write(node));
-        }
-    }
-
-    /// The assignment that `node` makes to `target`: a write, and maybe a publication.
-    fn assign(&self, node: Node<'t>, target: Node<'t>, found: &mut Found) {
-        let tree = self.tree;
-        let wrapper = self.wrapper_of(node);
-        let alias = |name: &str| self.is_alias(wrapper, name);
-        found.writes.push(tree.target_write(node, target, &alias));
-        let path = tree.static_path(target);
-        if path.first().is_some_and(|first| alias(first)) {
-            let published = self.assignment_publication(node, target, wrapper);
-            found.publications.extend(published);
-        }
-    }
-
-    /// `_script_globals`: the publications of the file and the writes that a script may make.
-    pub(crate) fn globals(&self) -> (Vec<ScriptGlobal>, Vec<Write>) {
-        let tree = self.tree;
-        let mut found = Found::default();
-        let wrapper_calls: HashSet<usize> = self.wrappers.values().map(|w| w.call.id()).collect();
-        let mut roots: HashSet<&str> = crate::source_input::WALK_ROOTS.into_iter().collect();
-        roots.extend(
-            self.wrappers
-                .values()
-                .flat_map(|w| w.aliases.iter())
-                .map(String::as_str),
-        );
-        let mut targets = self.targets.iter().peekable();
-        for node in tree.nodes.iter().copied() {
-            self.visit(node, &roots, &mut found);
-            while let Some((_, target)) = targets.next_if(|(owner, _)| owner.id() == node.id()) {
-                self.assign(node, *target, &mut found);
-            }
-            found.writes.extend(tree.call_writes(node, &wrapper_calls));
-            let call = self.wrappers.get(&node.id()).map(|info| info.call);
-            let returned = call.and_then(|call| self.return_publication(node, call));
-            if let Some(publication) = returned {
-                found
-                    .writes
-                    .push((Some(publication.name.clone()), publication.span.clone()));
-                found.publications.push(publication);
-            }
-        }
-        let published: HashSet<&Span> = found
-            .publications
-            .iter()
-            .flat_map(|item| item.members.iter().map(|(_, _, span)| span))
-            .collect();
-        let open = |owner: &Option<Span>| owner.as_ref().is_none_or(|o| published.contains(o));
-        let writes = found
-            .receivers
-            .iter()
-            .filter(|(owner, _)| open(owner))
-            .map(|(_, span)| (None, span.clone()))
-            .collect::<Vec<_>>();
-        found.writes.extend(writes);
-        (found.publications, unique(found.writes))
     }
 }
 
