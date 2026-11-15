@@ -17,6 +17,7 @@ Archkeel checks the shell with its own core and the contract in
 | `launch` | `native_scan` | Build the scan request, start the core and return its bytes. |
 | `frame` | `core_frame` | Read one frame into typed values. The only part that reads a verdict. |
 | `display` | `core_evidence`, `core_explain`, `core_topology` | Decode evidence, the explain part and topology as display values. They give no verdict. |
+| `baseline` | `core_baseline` | Read the baseline part of a frame and copy the exit code that the core decided (AD-546). |
 | `binding` | `core_binding` | Bind a frame to the request identity and the contract file bytes. |
 | `output` | `core_output` | Read the presentation of the core and write the received bytes to one file. |
 | `json` | `core_json` | Checked readers and the shared error type. |
@@ -45,32 +46,36 @@ from the shell to the core. `SHELL-ONLY-LAUNCH-STARTS-A-PROCESS` keeps it in one
 <!-- archkeel-component-graph -->
 ```mermaid
 flowchart LR
-    n_0["binding"]
-    n_1["commands"]
-    n_2["display"]
-    n_3["entry"]
-    n_4["frame"]
-    n_5["json"]
-    n_6["launch"]
-    n_7["locate"]
-    n_8["output"]
-    n_9["skill"]
-    n_0 --> n_5
-    n_1 --> n_0
-    n_1 --> n_4
-    n_1 --> n_5
+    n_0["baseline"]
+    n_1["binding"]
+    n_2["commands"]
+    n_3["display"]
+    n_4["entry"]
+    n_5["frame"]
+    n_6["json"]
+    n_7["launch"]
+    n_8["locate"]
+    n_9["output"]
+    n_10["skill"]
+    n_0 --> n_6
     n_1 --> n_6
-    n_1 --> n_7
-    n_1 --> n_8
-    n_1 --> n_9
+    n_2 --> n_0
+    n_2 --> n_1
     n_2 --> n_5
-    n_3 --> n_1
-    n_4 --> n_0
+    n_2 --> n_6
+    n_2 --> n_7
+    n_2 --> n_8
+    n_2 --> n_9
+    n_2 --> n_10
+    n_3 --> n_6
     n_4 --> n_2
-    n_4 --> n_5
-    n_4 --> n_8
-    n_6 --> n_4
-    n_6 --> n_5
+    n_5 --> n_0
+    n_5 --> n_1
+    n_5 --> n_3
+    n_5 --> n_6
+    n_5 --> n_9
     n_7 --> n_5
-    n_8 --> n_5
+    n_7 --> n_6
+    n_8 --> n_6
+    n_9 --> n_6
 ```

@@ -47,9 +47,94 @@ pub enum BaselineBudget {
 }
 
 record!(pub(crate),
-    /// Checked baseline content, sorted as Python sorts it. No rule or staleness check occurs.
-    ValidationBaseline { violations: Vec<BaselineViolation>, budgets: Vec<BaselineBudget> }
+    /// One accepted UNKNOWN (schema 1.4.0, AD-546): what it is, not where it is. There is no line,
+    /// evidence id or digest. The count is how many equal entries the run has; 1 is not written.
+    AcceptedUnknown { kind: String, subject: String, reason: String, count: u64 }
 );
+
+impl AcceptedUnknown {
+    /// An entry with at least one occurrence.
+    pub fn new(
+        kind: String,
+        subject: String,
+        reason: String,
+        count: u64,
+    ) -> Result<AcceptedUnknown, BaselineError> {
+        if count == 0 {
+            return Err(BaselineError::ZeroCount("accepted unknown".into()));
+        }
+        Ok(AcceptedUnknown {
+            kind,
+            subject,
+            reason,
+            count,
+        })
+    }
+
+    /// The order and identity of an entry: kind, subject, reason.
+    pub fn identity(&self) -> (&str, &str, &str) {
+        (&self.kind, &self.subject, &self.reason)
+    }
+}
+
+record!(pub(crate),
+    /// Checked baseline content, sorted as Python sorts it. No rule or staleness check occurs.
+    /// `unknowns` is `None` for schema 1.0.0 to 1.3.0: such a file accepts no UNKNOWN (AD-546).
+    ValidationBaseline {
+        violations: Vec<BaselineViolation>,
+        budgets: Vec<BaselineBudget>,
+        unknowns: Option<Vec<AcceptedUnknown>>,
+    }
+);
+
+impl BaselineViolation {
+    /// A violation entry of a run. The lists are sorted as the reader sorts them.
+    pub fn new(
+        mut rules: Vec<String>,
+        mut subjects: Vec<String>,
+        count: u64,
+        mut roles: Vec<BaselineRole>,
+    ) -> BaselineViolation {
+        rules.sort();
+        subjects.sort();
+        roles.sort_by(|a, b| (&a.source, &a.target).cmp(&(&b.source, &b.target)));
+        roles.dedup();
+        BaselineViolation {
+            fingerprint: BaselineFingerprint { rules, subjects },
+            count,
+            roles,
+        }
+    }
+}
+
+impl BaselineRole {
+    /// The direction of one violation.
+    pub fn new(source: String, target: String) -> BaselineRole {
+        BaselineRole { source, target }
+    }
+}
+
+impl ValidationBaseline {
+    /// The baseline that a run writes: schema 1.4.0 with its accepted UNKNOWN entries. The
+    /// entries are sorted by (kind, subject, reason) and by fingerprint, so one run gives one byte
+    /// string (AD-546).
+    pub fn of_run(
+        mut violations: Vec<BaselineViolation>,
+        budgets: Vec<BaselineBudget>,
+        mut unknowns: Vec<AcceptedUnknown>,
+    ) -> ValidationBaseline {
+        violations.sort_by(|a, b| {
+            (&a.fingerprint.rules, &a.fingerprint.subjects)
+                .cmp(&(&b.fingerprint.rules, &b.fingerprint.subjects))
+        });
+        unknowns.sort_by(|a, b| a.identity().cmp(&b.identity()));
+        ValidationBaseline {
+            violations,
+            budgets,
+            unknowns: Some(unknowns),
+        }
+    }
+}
 
 /// A baseline validation failure. Labels are paths into the input, not unchecked field maps.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -75,6 +160,12 @@ pub enum BaselineError {
     },
     UnsupportedBudget(String),
     UnsortedNames(String),
+    /// An accepted UNKNOWN that repeats an earlier entry, or does not follow it in order.
+    UnorderedUnknown {
+        index: usize,
+        repeated: bool,
+        name: String,
+    },
 }
 
 impl fmt::Display for BaselineError {
@@ -84,7 +175,9 @@ impl fmt::Display for BaselineError {
             Self::TooLarge => write!(out, "baseline exceeds the {MAX_BASELINE_BYTES}-byte limit"),
             Self::IntegerRange(label) => write!(out, "{label} exceeds the unsigned 64-bit integer range"),
             Self::NotObject(label) => write!(out, "{label} must be an object"),
-            Self::UnsupportedSchema(value) => write!(out, "baseline schema {value} cannot be read as 1.0.0, 1.1.0, 1.2.0, 1.3.0"),
+            Self::UnsupportedSchema(value) => write!(out, "baseline schema {value} cannot be read as 1.0.0, 1.1.0, 1.2.0, 1.3.0, 1.4.0"),
+            Self::UnorderedUnknown { index, repeated: true, name } => write!(out, "baseline.unknowns[{index}] repeats an earlier entry, {name}; give it one count instead"),
+            Self::UnorderedUnknown { index, repeated: false, name } => write!(out, "baseline.unknowns[{index}], {name}, is not sorted by kind, subject and reason"),
             Self::FieldsMismatch(label) => write!(out, "{label} fields mismatch"),
             Self::NotArray(label) => write!(out, "{label} must be an array"),
             Self::NotString(label) => write!(out, "{label} must be a string"),

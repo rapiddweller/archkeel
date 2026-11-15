@@ -68,6 +68,17 @@ def honest_source(language: str, shape: str, size: int) -> str:
     return text + " " * (size - len(text))
 
 
+def drop_premise(frame: dict) -> None:
+    """AD-540: the linked TypeScript collector states one assumption as text; the wire reply of
+    the harness carries none. Check that it is a non-empty string before it is left out."""
+    language = frame["self_test"]["collect"]["request"]["resolver"]["language"]
+    if language == "typescript":
+        assert isinstance(frame["premise"], str) and frame["premise"], frame.get("premise")
+    else:
+        assert "premise" not in frame
+    frame.pop("premise", None)
+
+
 def unguarded_frame(built: Path, core: Path, frame: dict) -> dict:
     """The frame of the same reply through the `check` request of the harness build (#1095)."""
     request = frame["self_test"]["collect"]["request"]
@@ -100,6 +111,10 @@ def unguarded_frame(built: Path, core: Path, frame: dict) -> dict:
     # AD-466: a check request reads no provenance document. It names that gap and never passes.
     hygiene = plain["unsupported"]["rules"].pop("hygiene:request")
     assert hygiene.startswith("unsupported: the contract hygiene of the request"), hygiene
+    # AD-546: the list of gaps with their kinds names the same row once more.
+    row = plain["gaps"].pop()
+    assert (row["kind"], row["subject"]) == ("contract_hygiene_not_read", "hygiene:request")
+    assert row["reason"] == hygiene and plain["gaps"] == []
     # AD-484: the part `explain` names the same cause once more, without a gap.
     assert plain["explain"]["holds"]["rules"].pop("hygiene:request")["kind"] == "other"
     assert plain.pop("status") != "PASS"
@@ -130,10 +145,9 @@ def test_large_honest_source_has_the_unguarded_frame(
     assert frame["rules"]["LARGE-COMPLETE"][1] == "PASS"
     assert "request" in frame["self_test"]["collect"], frame
     plain = unguarded_frame(built, harness_core, frame)
+    drop_premise(frame)
     frame["self_test"].pop("collect")
     frame.pop("status")
-    # AD-540: the premise is a statement of the linked collector; the wire reply carries none.
-    frame.pop("premise", None)
     assert frame == plain
 
 
@@ -165,10 +179,9 @@ def test_repeated_package_reads_do_not_refuse_a_small_distinct_project(
     assert code == 0, frame["unsupported"]
     assert "request" in frame["self_test"]["collect"], frame
     plain = unguarded_frame(built, harness_core, frame)
+    drop_premise(frame)
     frame["self_test"].pop("collect")
     frame.pop("status")
-    # AD-540: the premise is a statement of the linked collector; the wire reply carries none.
-    frame.pop("premise", None)
     assert frame == plain
 
 
@@ -240,10 +253,9 @@ def test_flat_chains_keep_the_unguarded_frame(
     frame = json.loads(stdout)
     assert code == 0, frame["unsupported"]
     plain = unguarded_frame(built, harness_core, frame)
+    drop_premise(frame)
     frame["self_test"].pop("collect")
     frame.pop("status")
-    # AD-540: the premise is a statement of the linked collector; the wire reply carries none.
-    frame.pop("premise", None)
     assert frame == plain
 
 

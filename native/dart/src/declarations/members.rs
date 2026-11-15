@@ -4,12 +4,12 @@
 
 //! Class members and resolved parameter records, without a second resolver.
 
+use super::assembly::{identity, number, parameter_kind, Assembly};
 use super::types::{
     Attribute, Category, ClassKind, Constructor, Detail, File, Inventory, InventoryKind, Kind,
     Parameter, Problem, ProblemKind, VisibilityDetail,
 };
 use super::work::Stop;
-use super::{identity, number, parameter_kind, Assembly};
 use crate::syntax::{Definition, DefinitionKind, Member, MemberKind, Modifier, Span, Visibility};
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::FactId;

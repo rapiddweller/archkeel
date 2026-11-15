@@ -141,6 +141,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         namespace: request.namespace,
         roots: request.roots,
         baseline: request.baseline.is_some(),
+        accept: None,
         report: true,
         html: false,
         base: None,
@@ -183,8 +184,10 @@ pub(crate) struct Run {
     pub(crate) sections: Vec<archkeel_model::Section>,
     pub(crate) namespace: String,
     pub(crate) roots: Vec<String>,
-    /// A baseline changes what a run reports; no slice reads it yet, so it is refused by name.
+    /// A baseline of the dual-run harness is refused by name; the scan request uses `accept`.
     pub(crate) baseline: bool,
+    /// The baseline of a scan request: the checked file and whether to write one (AD-546).
+    pub(crate) accept: Option<crate::baseline_frame::Input>,
     /// True when the frame names the report payload part (the dual run).
     pub(crate) report: bool,
     /// Request a static presentation of the same ruling in the frame.
@@ -266,22 +269,14 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         other => Err(format!("unexpected answer {other:?}")),
     };
     // AD-466: a request without documents names the hygiene that it cannot check.
-    let hygiene = {
-        let (usable, models) = engine.inputs();
-        match run.documents.as_ref() {
-            Some(documents) => crate::hygiene::check(
-                documents,
-                usable,
-                models,
-                &namespace,
-                &run.sdk_libraries,
-                &path,
-            ),
-            None => crate::hygiene::unread(usable),
-        }
-    };
+    let hygiene = frame_parts::hygiene_of(
+        &mut engine,
+        (run.documents.as_ref(), &run.sdk_libraries),
+        &namespace,
+        &path,
+    );
     let mut named = named(&contract, run.baseline, &engine, &path);
-    named.contract = named.contract.or(trust.gap).or(base).or(hygiene.refusal);
+    frame_parts::hold_contract(&mut named, trust.gap, base, hygiene.refusal);
     named.rules.extend(hygiene.rules);
     let ruled = if run.topology {
         engine.rule(named, true)
@@ -296,6 +291,13 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
     let topology = run.topology.then(|| engine.topology(&ruling, &links));
     let explain = Some(engine.explain(&ruling));
     let (rows, sections) = crate::sections::split(rows);
+    let gaps = crate::baseline_frame::gap_rows(&ruling);
+    let refused = frame_parts::refusals(&reply, &contract, &sections, report.as_ref().err());
+    let baseline = run.accept.map(|input| {
+        let seen =
+            crate::baseline_frame::observed(&ruling, engine.reply(), engine.graph(), refused);
+        crate::baseline_frame::build(input, &seen)
+    });
     let names_a_gap = report.is_err()
         || !ruling.unsupported().is_empty()
         || !sections.is_empty()
@@ -307,6 +309,8 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         explain,
         contract_digest,
         collection_gaps,
+        gaps,
+        baseline,
         engine: ENGINE,
         sections: rows,
         unsupported: UnsupportedParts {
@@ -378,14 +382,23 @@ fn producer(collector_argv: Option<&Vec<String>>) -> Producer {
 /// status (AD-388).
 fn named(contract: &ContractState, baseline: bool, engine: &Engine, path: &str) -> Named {
     let whole = match contract {
-        _ if baseline => Some(Reason::Unsupported(Unsupported::Baseline).to_string()),
+        _ if baseline => Some((
+            "baseline",
+            Reason::Unsupported(Unsupported::Baseline).to_string(),
+        )),
         ContractState::Parsed(_) => None,
-        ContractState::Missing(paths) => Some(crate::contract::missing_reason(paths)),
-        ContractState::Refused(message) => Some(format!("refused: {message}")),
+        ContractState::Missing(paths) => Some((
+            "inside_contract_missing",
+            crate::contract::missing_reason(paths),
+        )),
+        ContractState::Refused(message) => {
+            Some(("contract_refused", format!("refused: {message}")))
+        }
     };
     Named {
         rules: BTreeMap::new(),
-        contract: whole,
+        contract_kind: whole.as_ref().map(|(kind, _)| *kind),
+        contract: whole.map(|(_, text)| text),
         hold: None,
         uml: crate::contract::uml_row(engine.usable(), path),
     }

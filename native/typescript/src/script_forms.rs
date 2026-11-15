@@ -48,7 +48,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             "identifier" => self.sole_value(object).is_some_and(method),
             _ => false,
         };
-        (key && aliased).then_some(Written::Amplified)
+        (key && aliased).then_some(Written::Unknown)
     }
 
     /// A write to `location`, to its `href`, or through a run-time key on it, from any target:

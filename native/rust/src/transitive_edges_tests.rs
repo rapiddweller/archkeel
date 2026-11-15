@@ -89,10 +89,10 @@ fn a_method_call_on_a_value_that_a_dependency_returns_names_the_member_of_its_de
 }
 
 #[test]
-fn a_method_call_on_a_type_that_a_dependency_re_exports_names_the_member() {
+fn a_shadowed_receiver_of_a_reexported_type_keeps_the_member_gap() {
     let found = pairs(
         "pub use leaf::S;\n",
-        "pub fn f(s: &mid::S) -> u8 {\n    s.m()\n}\n",
+        "pub fn f(s: &mid::S) -> u8 {\n    let s = s;\n    s.m()\n}\n",
     );
     assert_eq!(found, leaf());
 }

@@ -4,7 +4,9 @@
 
 //! Duplicate names and final inventory status. A duplicate never becomes a unique binding.
 
-use super::{decl, file_span, Builder, Stop};
+use super::builder::{file_span, Builder};
+use crate::declarations::types as decl;
+use crate::declarations::work::Stop;
 use archkeel_facts::ids::EvidenceId;
 use archkeel_facts::vocab::{ExceptionName, InventoryStatus};
 use std::collections::{BTreeMap, BTreeSet};

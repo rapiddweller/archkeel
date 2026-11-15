@@ -86,6 +86,25 @@ pub(super) fn module_inert(attrs: &[Attribute]) -> bool {
     only(attrs, &MODULE)
 }
 
+/// The exact `cfg` chain of a file module, or no proof for another module attribute.
+pub(super) fn module_cfg(attrs: &[Attribute]) -> Option<Vec<String>> {
+    let mut gates = Vec::new();
+    for attr in attrs {
+        if attr.path().is_ident("cfg") {
+            let Meta::List(list) = &attr.meta else {
+                return None;
+            };
+            if list.tokens.is_empty() {
+                return None;
+            }
+            gates.push(list.tokens.to_string());
+        } else if attr.path().is_ident("cfg_attr") || !inert(std::slice::from_ref(attr)) {
+            return None;
+        }
+    }
+    Some(gates)
+}
+
 /// Whether a struct or an enum keeps its type as written in every configuration.
 pub(super) fn type_inert(attrs: &[Attribute]) -> bool {
     only(attrs, &TYPE)
@@ -121,6 +140,24 @@ pub(super) fn self_member(node: &syn::ExprPath) -> Option<&syn::Ident> {
         .last()
         .filter(|_| segments.len() == 2 && node.qself.is_none())?;
     (first.arguments.is_none()).then_some(&last.ident)
+}
+
+/// The base and at most two named fields of a receiver.
+fn field_chain(receiver: &syn::Expr) -> Option<(&syn::Expr, Vec<String>)> {
+    let mut current = receiver;
+    let mut fields = Vec::new();
+    while let syn::Expr::Field(field) = current {
+        let syn::Member::Named(name) = &field.member else {
+            return None;
+        };
+        if !field.attrs.is_empty() || fields.len() == 2 {
+            return None;
+        }
+        fields.push(plain(name));
+        current = &field.base;
+    }
+    fields.reverse();
+    Some((current, fields))
 }
 
 /// A frame of the walk that decides what a plain `self` and `Self` are.
@@ -210,7 +247,7 @@ impl Selves {
                 scope,
                 kind,
                 macros: Vec::new(),
-                field: None,
+                fields: Vec::new(),
             })
         });
         self.frames
@@ -224,15 +261,10 @@ impl Selves {
     /// The proof of a call whose receiver is `receiver`: a plain `self` path has the type of its
     /// block, and a plain parameter name has its written type (AD-524).
     pub(super) fn of(&self, receiver: &syn::Expr) -> Option<OnSelf> {
-        if let syn::Expr::Field(field) = receiver {
-            let syn::Member::Named(name) = &field.member else {
-                return None;
-            };
-            if !field.attrs.is_empty() || !matches!(&*field.base, syn::Expr::Path(_)) {
-                return None;
-            }
-            let mut base = self.of(&field.base)?;
-            base.field = Some(plain(name));
+        if matches!(receiver, syn::Expr::Field(_)) {
+            let (current, fields) = field_chain(receiver)?;
+            let mut base = self.of(current)?;
+            base.fields = fields;
             return Some(base);
         }
         let syn::Expr::Path(path) = receiver else {
@@ -268,7 +300,7 @@ impl Selves {
                 scope: scope.clone(),
                 kind: None,
                 macros: Vec::new(),
-                field: None,
+                fields: Vec::new(),
             }),
             _ => None,
         }

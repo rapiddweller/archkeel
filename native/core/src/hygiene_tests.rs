@@ -103,7 +103,8 @@ fn an_unread_document_refuses_the_whole_contract() {
         bytes(vec![component("a", &[])], Vec::new(), None),
         &documents,
     );
-    let refusal = found.refusal.unwrap_or_default();
+    let (kind, refusal) = found.refusal.unwrap_or_default();
+    assert_eq!(kind, "reference.provenance");
     assert!(
         refusal.contains("reference.provenance") && refusal.contains("d.md"),
         "{refusal}"

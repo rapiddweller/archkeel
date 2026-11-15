@@ -74,6 +74,7 @@ pub(crate) struct Child {
     pub test: bool,
     /// The declaration, or an inline module that holds it, may be removed by a `cfg` (AD-383).
     pub gated: bool,
+    pub gates: Option<Vec<String>>,
     pub site: Site,
 }
 
@@ -111,6 +112,21 @@ pub(crate) struct Scan {
     pub fields: BTreeMap<(String, String), Vec<Field>>,
     /// An inner attribute of the file may remove the module in some configuration.
     pub gated_file: bool,
+    /// Expression paths whose first name can be hidden by a generic parameter in this file.
+    pub generic_paths: BTreeSet<(i64, i64)>,
+    /// A `use` may be removed or rewritten by an attribute.
+    pub conditional_use: bool,
+    /// Names that a conditional `use` may fail to bind.
+    pub conditional_bindings: BTreeSet<String>,
+    /// Conditional glob leaves, by their source position.
+    pub conditional_globs: BTreeSet<(i64, i64)>,
+    /// Names bound by a use that is not public outside the crate.
+    pub restricted_bindings: BTreeSet<String>,
+    /// A macro call in statement place, or in item place, that is no silent macro of `std`: it
+    /// can give any name of its block or module. The last: any macro call in such a place.
+    pub body_macros: bool,
+    pub module_macros: bool,
+    pub placed_macros: bool,
     /// The second count of the tree, for the invariant of the extraction.
     pub tally: Tally,
 }

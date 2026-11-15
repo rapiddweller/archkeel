@@ -134,8 +134,8 @@ pub(crate) struct OnSelf {
     /// The macros that the `fn` of a parameter calls and that are no silent macro of `std`: a
     /// path as written for a macro with a path, else its name (AD-524).
     pub macros: Vec<String>,
-    /// One named field of the receiver, when the call is on `receiver.field`.
-    pub field: Option<String>,
+    /// Up to two named fields of the receiver.
+    pub fields: Vec<String>,
 }
 
 /// One named field of a non-generic, exact struct.
@@ -159,6 +159,8 @@ pub(crate) struct Member {
     pub kind: Option<SelfKind>,
     /// The parameters besides `self`.
     pub arity: usize,
+    /// Only inert attributes are on the member: every configuration has it as written.
+    pub inert: bool,
 }
 
 /// A method call `x.m(..)` or `x.m::<..>(..)`, or a path `T::m` into another crate: the name, the

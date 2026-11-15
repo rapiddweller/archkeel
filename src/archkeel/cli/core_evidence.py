@@ -28,6 +28,8 @@ class CollectionGap:
     subjects: tuple[str, ...]
     reason: str
     evidence: tuple[str, ...]
+    # The collector's free text beside the reason; no part of the gap key (AD-540).
+    detail: str | None = None
 
 
 def _list(value: object, where: str) -> list[object]:
@@ -71,13 +73,17 @@ def _locations(value: object) -> dict[str, Location]:
 def _collection_gaps(value: object) -> tuple[CollectionGap, ...]:
     gaps: list[CollectionGap] = []
     for row in _list(value, "collection_gaps"):
-        item = _fields(row, "collection gap", frozenset({"kind", "subjects", "reason", "evidence"}))
+        names = frozenset({"kind", "subjects", "reason", "evidence"})
+        item = _fields(
+            row, "collection gap", names | _object(row, "collection gap").keys() & {"detail"}
+        )
         gaps.append(
             CollectionGap(
                 _text(item["kind"], "collection gap.kind"),
                 _strings(item["subjects"], "collection gap.subjects"),
                 _text(item["reason"], "collection gap.reason"),
                 _strings(item["evidence"], "collection gap.evidence"),
+                _text(item["detail"], "collection gap.detail") if "detail" in item else None,
             )
         )
     return tuple(gaps)

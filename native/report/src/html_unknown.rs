@@ -101,6 +101,29 @@ fn gaps_table(frame: &Frame, names: &Names<'_>) -> String {
     )
 }
 
+/// The gaps that the collector states once for many uses (AD-540): where the first evidence is,
+/// the reason and the count that the collector wrote beside it. The page names no language.
+fn stated_once(frame: &Frame) -> String {
+    let items: String = frame
+        .collection_gaps
+        .iter()
+        .filter_map(|gap| Some((gap, gap.detail.as_ref()?)))
+        .map(|(gap, detail)| {
+            let place = gap.evidence.first().and_then(|id| frame.place(id));
+            format!(
+                "<li class=\"body-sm\"><span class=\"rp-code\">{}</span> {} &#8212; {}</li>",
+                escape(&place.unwrap_or_default()),
+                escape(&gap.reason),
+                escape(detail)
+            )
+        })
+        .collect();
+    if items.is_empty() {
+        return String::new();
+    }
+    format!("<p class=\"caption\">Stated once</p><ul>{items}</ul>")
+}
+
 /// The kinds of the scan gaps, counted: what the collector could not read.
 fn kinds_table(frame: &Frame) -> String {
     let mut kinds: BTreeMap<&str, usize> = BTreeMap::new();
@@ -120,6 +143,16 @@ fn kinds_table(frame: &Frame) -> String {
         "<table class=\"rp-mini\"><caption class=\"caption\">What: the kinds of the gaps</caption>\
 <thead><tr><th class=\"caption\">Kind</th><th class=\"caption ak-num\">Gaps</th></tr></thead><tbody>{body}</tbody></table>"
     )
+}
+
+/// A rule id. A row that the baseline accepts says so: it stays UNKNOWN and is not a pass (AD-546).
+fn rule_id(frame: &Frame, id: &str) -> String {
+    let mark = if frame.accepted.contains(id) {
+        " <span class=\"caption rp-acc\">(accepted by the baseline, still UNKNOWN)</span>"
+    } else {
+        ""
+    };
+    format!("<span class=\"rp-code\">{}</span>{mark}", escape(id))
 }
 
 fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
@@ -144,7 +177,7 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
             .rules
             .iter()
             .take(MAX_IDS)
-            .map(|id| format!("<span class=\"rp-code\">{}</span>", escape(id)))
+            .map(|id| rule_id(frame, id))
             .collect();
         html.push_str(&format!(
             "<p class=\"body-sm rp-at\">Holds {}</p>",
@@ -158,7 +191,7 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
                 .iter()
                 .skip(MAX_IDS)
                 .take(MAX_LISTED_IDS - MAX_IDS)
-                .map(|id| format!("<span class=\"rp-code\">{}</span>", escape(id)))
+                .map(|id| rule_id(frame, id))
                 .collect();
             let tail = match held.saturating_sub(MAX_LISTED_IDS) {
                 0 => String::new(),
@@ -176,6 +209,9 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
             "<details class=\"rp-fold\"><summary class=\"caption\">What the core says</summary><p class=\"rp-fold__body\">{}</p></details>",
             escape(found.reason)
         ));
+    }
+    if found.kind == "coverage_gaps" {
+        html.push_str(&stated_once(frame));
     }
     let tables = match found.kind {
         "coverage_gaps" if !frame.collection_gaps.is_empty() => format!(

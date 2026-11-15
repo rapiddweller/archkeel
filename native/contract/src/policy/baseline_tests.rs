@@ -41,7 +41,7 @@ fn baseline_keeps_each_entry_and_repeated_fingerprint_members() {
 }
 
 #[test]
-fn baseline_reads_all_four_versions_and_writes_the_current_version() {
+fn baseline_reads_the_four_python_versions_and_writes_the_form_that_has_no_list_as_1_3_0() {
     for version in ["1.0.0", "1.1.0", "1.2.0", "1.3.0"] {
         let mut value = document();
         value["schema_version"] = json!(version);
@@ -56,13 +56,13 @@ fn baseline_reads_all_four_versions_and_writes_the_current_version() {
     assert_eq!(error(&json!([])), "baseline must be an object");
     assert_eq!(
         error(&json!({})),
-        "baseline schema None cannot be read as 1.0.0, 1.1.0, 1.2.0, 1.3.0"
+        "baseline schema None cannot be read as 1.0.0, 1.1.0, 1.2.0, 1.3.0, 1.4.0"
     );
     let mut value = document();
     value["schema_version"] = json!("1.3.1");
     assert_eq!(
         error(&value),
-        "baseline schema '1.3.1' cannot be read as 1.0.0, 1.1.0, 1.2.0, 1.3.0"
+        "baseline schema '1.3.1' cannot be read as 1.0.0, 1.1.0, 1.2.0, 1.3.0, 1.4.0"
     );
     value["schema_version"] = json!("1.3.0");
     value["extra"] = json!(1);
@@ -277,7 +277,7 @@ fn baseline_rejects_every_unlisted_schema() {
         (0..=5).flat_map(move |minor| (0..=3).map(move |patch| format!("{major}.{minor}.{patch}")))
     });
     for version in versions {
-        if ["1.0.0", "1.1.0", "1.2.0", "1.3.0"].contains(&version.as_str()) {
+        if ["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0"].contains(&version.as_str()) {
             continue;
         }
         let value = json!({"schema_version":version,"violations":[],"budgets":{}});

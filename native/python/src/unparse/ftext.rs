@@ -8,11 +8,16 @@
 //! each part with `_str_literal_helper`, and its fields avoid backslashes: a backslash in the text
 //! of a field raises `ValueError`.
 
+use ruff_python_ast::Expr;
+
 use crate::pyast::{fstring, Piece};
 
 use super::literal::{self, ALL_QUOTES, MULTI_QUOTES};
-use super::outcome::{Prec, TextFailure as Failure};
-use super::{legacy, Writer};
+use super::outcome::TextFailure as Failure;
+use super::writer::{legacy, Writer};
+
+/// The text of an expression of a field, written by the expression writer.
+pub(super) type Render<'a> = &'a dyn Fn(&Expr) -> Result<String, Failure>;
 
 /// The quotes that a field part leaves: a newline needs triple quotes, and a quote that the field
 /// uses is out unless no quote is left.
@@ -33,12 +38,17 @@ fn field_quotes(value: &str, mut quotes: Vec<&'static str>) -> Vec<&'static str>
 }
 
 impl Writer<'_> {
-    pub(super) fn ftext(&mut self, pieces: &[Piece<'_>], prefix: &str) -> Result<(), Failure> {
+    pub(super) fn ftext(
+        &mut self,
+        pieces: &[Piece<'_>],
+        prefix: &str,
+        render: Render<'_>,
+    ) -> Result<(), Failure> {
         self.write(prefix);
         let mut parts: Vec<(String, bool)> = Vec::with_capacity(pieces.len());
         for piece in pieces {
             let mut buffer = String::new();
-            self.inner_piece(piece, false, &mut buffer)?;
+            self.inner_piece(piece, (false, render), &mut buffer)?;
             parts.push((buffer, matches!(piece, Piece::Text(_))));
         }
         if legacy(self.minor) && self.avoid_backslashes {
@@ -53,7 +63,12 @@ impl Writer<'_> {
     }
 
     /// `_write_fstring_inner` of one value.
-    fn inner_piece(&self, piece: &Piece<'_>, spec: bool, out: &mut String) -> Result<(), Failure> {
+    fn inner_piece(
+        &self,
+        piece: &Piece<'_>,
+        (spec, render): (bool, Render<'_>),
+        out: &mut String,
+    ) -> Result<(), Failure> {
         match piece {
             Piece::Text(text) => {
                 out.push_str(&self.text_piece(text, spec));
@@ -67,11 +82,7 @@ impl Writer<'_> {
             } => {
                 let text = match template {
                     Some(field) => fstring::interpolation_text(field, self.source).to_owned(),
-                    None => {
-                        let mut writer = self.inner();
-                        writer.expr(expr, Prec::Or)?;
-                        writer.out
-                    }
+                    None => render(expr)?,
                 };
                 if legacy(self.minor) && text.contains('\\') {
                     return Err(Failure::Invalid);
@@ -91,7 +102,7 @@ impl Writer<'_> {
                 }
                 if let Some(format_spec) = format_spec {
                     out.push(':');
-                    self.spec_pieces(format_spec, out)?;
+                    self.spec_pieces(format_spec, render, out)?;
                 }
                 out.push('}');
                 Ok(())
@@ -99,9 +110,14 @@ impl Writer<'_> {
         }
     }
 
-    fn spec_pieces(&self, pieces: &[Piece<'_>], out: &mut String) -> Result<(), Failure> {
+    fn spec_pieces(
+        &self,
+        pieces: &[Piece<'_>],
+        render: Render<'_>,
+        out: &mut String,
+    ) -> Result<(), Failure> {
         for piece in pieces {
-            self.inner_piece(piece, true, out)?;
+            self.inner_piece(piece, (true, render), out)?;
         }
         Ok(())
     }

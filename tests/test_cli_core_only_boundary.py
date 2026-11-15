@@ -43,15 +43,89 @@ def test_malformed_collection_gap_metadata_refuses(gap: object) -> None:
         read_frame(json.dumps(document).encode(), 0, scan=True, require_protocol=True)
 
 
-def test_a_frame_may_state_the_assumption_of_its_collector() -> None:
+def _read(document: dict) -> object:
     from archkeel.cli.core_frame import read_frame
 
+    return read_frame(json.dumps(document).encode(), 0, scan=True, require_protocol=True)
+
+
+def test_a_frame_may_state_the_assumption_of_its_collector() -> None:
     document = json.loads(frame())
     document["premise"] = "code outside the scan roots hands in no global object"
-    read_frame(json.dumps(document).encode(), 0, scan=True, require_protocol=True)
+    assert _read(document).premise == document["premise"]
     document["premises"] = ["a second word is no field"]
     with pytest.raises(CoreError):
-        read_frame(json.dumps(document).encode(), 0, scan=True, require_protocol=True)
+        _read(document)
+
+
+@pytest.mark.parametrize("value", [1, True, None, ["a"], {"a": "b"}, "", "  "])
+def test_a_premise_that_is_no_text_is_refused(value: object) -> None:
+    document = json.loads(frame())
+    document["premise"] = value
+    with pytest.raises(CoreError):
+        _read(document)
+
+
+def test_a_typescript_scan_frame_must_state_its_premise() -> None:
+    document = json.loads(frame())
+    document["self_test"]["collect"]["request"]["resolver"] = {"language": "typescript"}
+    with pytest.raises(CoreError):
+        _read(document)
+    document["premise"] = "code outside the scan roots hands in no global object"
+    assert _read(document).premise is not None
+
+
+@pytest.mark.parametrize("status", [Status.PASS, Status.FAIL, Status.UNKNOWN])
+def test_the_text_verdict_prints_the_assumption(
+    status: Status, capsys: pytest.CaptureFixture[str]
+) -> None:
+    document = json.loads(frame(status))
+    document["premise"] = "code outside the scan roots hands in no global object"
+    core_only.render_text("validate", _read(document))
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == f"validate: {status}"
+    assert lines[1] == "Assumption: code outside the scan roots hands in no global object"
+
+
+def _stated_once_frame() -> dict:
+    document = json.loads(frame(Status.UNKNOWN))
+    places = {f"E{n}": {"path": f"src/u{n}.ts", "line": n} for n in range(1, 8)}
+    document["locations"].update(places)
+    document["collection_gaps"] = [
+        {
+            "kind": "source_resolution_gap",
+            "subjects": ["app.a"],
+            "reason": "A form that can write any global keeps every free name from a proof",
+            "evidence": list(places),
+            "detail": "7 uses of 2 free standard names depend on it",
+        }
+    ]
+    return document
+
+
+def test_a_collection_gap_may_carry_a_detail_and_the_text_names_it_once(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    core_only.render_text("validate", _read(_stated_once_frame()))
+    lines = [line for line in capsys.readouterr().out.splitlines() if line.startswith("Source gap")]
+    assert len(lines) == 1
+    assert "(7 uses of 2 free standard names depend on it)" in lines[0]
+    assert "src/u1.ts:1, src/u2.ts:2, src/u3.ts:3, +4 more" in lines[0]
+
+
+@pytest.mark.parametrize("detail", [1, ["a"], None, {"a": 1}])
+def test_a_collection_gap_detail_that_is_no_text_is_refused(detail: object) -> None:
+    document = _stated_once_frame()
+    document["collection_gaps"][0]["detail"] = detail
+    with pytest.raises(CoreError):
+        _read(document)
+
+
+def test_a_collection_gap_has_no_other_extra_field() -> None:
+    document = _stated_once_frame()
+    document["collection_gaps"][0]["note"] = "x"
+    with pytest.raises(CoreError):
+        _read(document)
 
 
 def frame(status: Status = Status.PASS) -> bytes:
@@ -84,6 +158,7 @@ def frame(status: Status = Status.PASS) -> bytes:
             "sections": {},
             "unknown_kinds": {"R1": "scope_incomplete"} if status is Status.UNKNOWN else {},
             "unsupported": {"rules": {}, "sections": {}, "report": None},
+            "gaps": [],
             "self_test": {
                 "contract": {"rules": {"R1": "forbidden_dependency"}},
                 "reply": {"files": 2},
@@ -229,7 +304,9 @@ def test_an_unported_rule_names_its_missing_kind(
 ) -> None:
     document = json.loads(frame())
     document["status"] = "UNKNOWN"
-    document["unsupported"]["rules"] = {"R2": "unsupported: rule kind symbol_placement"}
+    reason = "unsupported: rule kind symbol_placement"
+    document["unsupported"]["rules"] = {"R2": reason}
+    document["gaps"] = [{"kind": "rule_kind_not_ported", "subject": "R2", "reason": reason}]
     monkeypatch.setattr(core_only, "locate_core", lambda: Path("core"))
     monkeypatch.setattr(core_only, "exchange", lambda *_: (json.dumps(document).encode(), 3))
     assert core_only.run(["validate", "--text"]) == 2

@@ -75,6 +75,23 @@ fn a_run_that_is_open_without_an_unknown_rule_shows_its_cause() {
     assert!(page.contains("missing &lt;input&gt;"));
 }
 
+// Consumer: AD-540. A gap with a detail is listed once, with its first place, its reason and the
+// detail; a gap without one is not listed.
+#[test]
+fn a_gap_that_the_collector_states_once_is_listed_with_its_detail() {
+    let mut frame = unknown_frame();
+    frame["collection_gaps"] = json!([
+        {"kind": "source_resolution_gap", "subjects": ["m.a"], "reason": "a form blocks",
+         "evidence": ["E1", "E2"], "detail": "5 uses of 2 names depend on it"},
+        {"kind": "collection_gap", "subjects": ["m.b"], "reason": "macro", "evidence": []}]);
+    frame["locations"] = json!({"E1": {"path": "src/a.ts", "line": 7}});
+    let page = document(&frame);
+    assert!(page.contains("src/a.ts:7"));
+    assert!(page.contains("a form blocks &#8212; 5 uses of 2 names depend on it"));
+    assert_eq!(page.matches("Stated once").count(), 1);
+    assert!(!document(&unknown_frame()).contains("Stated once"));
+}
+
 // Consumer: AD-540. A page shows the assumption that the frame states, and none for a frame
 // without one. The page names no language.
 #[test]
@@ -346,4 +363,31 @@ fn the_page_wraps_a_long_term_and_the_folds_print_open() {
     // At 390 px the identity list is one column and a small table scrolls inside itself.
     assert!(css.contains(".rp-kv { grid-template-columns: minmax(0, 1fr); }"));
     assert!(css.contains(".rp-mini { display: block; max-width: 100%; overflow-x: auto; }"));
+}
+
+#[test]
+fn an_accepted_unknown_keeps_the_word_unknown_and_says_accepted() {
+    let mut frame = unknown_frame();
+    frame["baseline"] = json!({"state": "current", "accepted_unknowns": 12});
+    let page = document(&frame);
+    assert!(page.contains("<h1>Verdict: UNKNOWN</h1>"));
+    assert!(page.contains(
+        "Baseline: current. 12 UNKNOWN entries accepted by the baseline; the status stays UNKNOWN, and an accepted UNKNOWN is not a pass."
+    ));
+    assert!(!page.contains("<h1>Verdict: PASS</h1>"));
+    assert!(!document(&unknown_frame()).contains("Baseline:"));
+}
+
+#[test]
+fn a_rule_row_that_the_baseline_accepts_says_accepted_and_the_others_do_not() {
+    let mut frame = unknown_frame();
+    frame["baseline"] = json!({"state": "drift", "accepted_unknowns": 1, "accepted_rules": ["A"]});
+    let page = document(&frame);
+    assert_eq!(
+        page.matches("accepted by the baseline, still UNKNOWN")
+            .count(),
+        1
+    );
+    assert!(page.contains(">A</span> <span class=\"caption rp-acc\">(accepted"));
+    assert!(!document(&unknown_frame()).contains("still UNKNOWN"));
 }
