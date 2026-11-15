@@ -104,10 +104,20 @@ pub(crate) fn budgets(graph: &Graph, reply: &Ingested) -> Budgets {
     }
 }
 
+/// The rule and the sorted subjects of one violation.
+type Identity = (String, Vec<String>);
+
+/// The count of equal violations and the directions that they name.
+#[derive(Default)]
+struct Tally {
+    count: u64,
+    roles: Vec<(String, String)>,
+}
+
 /// The violations of the ruling as the baseline names them: one entry for each identity, with the
 /// count of equal ones and the directions that they name.
 fn violations(ruling: &Ruling) -> BTreeMap<Violation, u64> {
-    let mut found: BTreeMap<(String, Vec<String>), (u64, Vec<(String, String)>)> = BTreeMap::new();
+    let mut found: BTreeMap<Identity, Tally> = BTreeMap::new();
     for (rule, source, target) in ruling.violation_rows() {
         let mut subjects = vec![source.to_owned()];
         let mut role = None;
@@ -117,20 +127,20 @@ fn violations(ruling: &Ruling) -> BTreeMap<Violation, u64> {
         }
         subjects.sort();
         let entry = found.entry((rule.to_owned(), subjects)).or_default();
-        entry.0 += 1;
-        entry.1.extend(role);
+        entry.count += 1;
+        entry.roles.extend(role);
     }
     found
         .into_iter()
-        .map(|((rule, subjects), (count, mut roles))| {
-            roles.sort();
-            roles.dedup();
+        .map(|((rule, subjects), mut tally)| {
+            tally.roles.sort();
+            tally.roles.dedup();
             let item = Violation {
                 rules: vec![rule],
                 subjects,
-                roles,
+                roles: tally.roles,
             };
-            (item, count)
+            (item, tally.count)
         })
         .collect()
 }
@@ -156,7 +166,7 @@ pub(crate) fn observed(
 
 /// The part of the frame for the request.
 pub(crate) fn build(input: Input, run: &Observed) -> Part {
-    let mut compared = match &input.file {
+    let compared = match &input.file {
         Some(Ok(file)) => baseline::compare(file, run),
         Some(Err(why)) => invalid(input.path.as_deref(), why),
         None => Compared {
@@ -164,25 +174,41 @@ pub(crate) fn build(input: Input, run: &Observed) -> Part {
             ..Compared::default()
         },
     };
-    let mut file = None;
-    if input.write {
-        if run.gaps.unacceptable.is_empty() {
-            file = Some(written(run));
-            if input.file.is_none() {
-                // A write without a file compares the run with its own output: no difference, and
-                // the exit code is the one that `--baseline` gives for the same tree.
-                compared.exit_code = if run.gaps.keys.is_empty() && !run.unknown_status {
-                    0
-                } else {
-                    2
-                };
-            }
-        } else {
-            compared = baseline::compare(&empty(), run);
-            compared.state = "not_written";
-        }
+    if !input.write {
+        return Part {
+            compared,
+            file: None,
+        };
     }
-    Part { compared, file }
+    if !run.gaps.unacceptable.is_empty() {
+        let mut refused = baseline::compare(&empty(), run);
+        refused.state = "not_written";
+        return Part {
+            compared: refused,
+            file: None,
+        };
+    }
+    // A write without a file compares the run with its own output: no difference, and the exit
+    // code is the one that `--baseline` gives for the same tree.
+    let compared = match input.file {
+        None => Compared {
+            exit_code: own_exit(run),
+            ..compared
+        },
+        Some(_) => compared,
+    };
+    Part {
+        compared,
+        file: Some(written(run)),
+    }
+}
+
+fn own_exit(run: &Observed) -> u8 {
+    if run.gaps.keys.is_empty() && !run.unknown_status {
+        0
+    } else {
+        2
+    }
 }
 
 fn empty() -> ValidationBaseline {

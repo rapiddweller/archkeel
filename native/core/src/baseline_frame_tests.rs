@@ -77,10 +77,9 @@ fn walk(root: &Path) -> Vec<std::path::PathBuf> {
     while let Some(dir) = pending.pop() {
         for entry in fs::read_dir(dir).unwrap().map(Result::unwrap) {
             let path = entry.path();
-            if path.is_dir() {
-                if entry.file_name() != ".git" && entry.file_name() != "node_modules" {
-                    pending.push(path);
-                }
+            let name = entry.file_name();
+            if path.is_dir() && name != ".git" && name != "node_modules" {
+                pending.push(path);
             } else if path.extension().is_some_and(|ext| ext == "ts") {
                 found.push(path);
             }
@@ -212,6 +211,7 @@ fn the_frame_lists_each_gap_of_the_rules_with_its_kind_from_the_core() {
     let found = frame(&root, json!({}));
     let rules = found["unsupported"]["rules"].clone();
     let gaps = found["gaps"].as_array().expect("a gaps list");
+    assert!(rules.is_object() || rules.is_string(), "unexpected {rules}");
     match rules {
         Value::Object(each) => {
             assert_eq!(gaps.len(), each.len());
@@ -221,7 +221,7 @@ fn the_frame_lists_each_gap_of_the_rules_with_its_kind_from_the_core() {
             }
         }
         Value::String(text) => assert_eq!(gaps[0]["reason"], text),
-        other => panic!("unexpected {other}"),
+        _ => {}
     }
     assert!(found.get("baseline").is_none());
 }

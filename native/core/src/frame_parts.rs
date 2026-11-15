@@ -105,6 +105,46 @@ pub(super) enum ReplyCheck {
     Absent(String),
 }
 
+/// The hygiene of the run (AD-466): the checks of the documents that a scan request read, or the
+/// one named row of a request without documents.
+pub(super) fn hygiene_of(
+    engine: &mut crate::engine::Engine,
+    (documents, sdk): (Option<&crate::provenance::Documents>, &[String]),
+    namespace: &str,
+    path: &str,
+) -> crate::hygiene::Found {
+    let (usable, models) = engine.inputs();
+    match documents {
+        Some(documents) => crate::hygiene::check(documents, usable, models, namespace, sdk, path),
+        None => crate::hygiene::unread(usable),
+    }
+}
+
+/// The `GapKind` word of the reason that holds a reply that the core cannot verify (AD-546).
+const PRODUCER_NOT_VERIFIED_KIND: &str = "producer_not_verified";
+
+/// A reason that names the whole contract: the first of the reply that the core cannot verify, the
+/// base reply and the hygiene refusal, when the request has no such reason yet (AD-546 gives each
+/// its `GapKind` word, so the shell reads no text).
+pub(super) fn hold_contract(
+    named: &mut archkeel_report::Named,
+    trust: Option<String>,
+    base: Option<String>,
+    hygiene: Option<(&'static str, String)>,
+) {
+    if named.contract.is_some() {
+        return;
+    }
+    let held = trust
+        .map(|gap| (PRODUCER_NOT_VERIFIED_KIND, gap))
+        .or(base.map(|base| ("base", base)))
+        .or(hygiene);
+    if let Some((kind, text)) = held {
+        named.contract = Some(text);
+        named.contract_kind = Some(kind);
+    }
+}
+
 /// The parts of a run that no baseline can accept: a refused or absent reply, a contract that
 /// the core could not read, a section or the report that no slice ports (AD-546).
 pub(super) fn refusals(

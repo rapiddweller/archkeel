@@ -31,9 +31,6 @@ mod frame_parts;
 pub(crate) use frame_parts::{refused_scan, Answered, CODE_DIGEST};
 use frame_parts::{ContractCheck, Parts, ReplyCheck, SelfTest, UnsupportedParts, ENGINE};
 
-/// The `GapKind` word of the reason that holds a reply that the core cannot verify (AD-546).
-const PRODUCER_NOT_VERIFIED_KIND: &str = "producer_not_verified";
-
 /// Version 2 adds the settings of the shell: `namespace` and `standard_library` (AD-372).
 /// Version 3 adds `insides`: the inside contracts that the shell read (AD-379).
 /// Version 4 adds `roots`: the scan roots of the configuration (AD-384).
@@ -273,32 +270,14 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         other => Err(format!("unexpected answer {other:?}")),
     };
     // AD-466: a request without documents names the hygiene that it cannot check.
-    let hygiene = {
-        let (usable, models) = engine.inputs();
-        match run.documents.as_ref() {
-            Some(documents) => crate::hygiene::check(
-                documents,
-                usable,
-                models,
-                &namespace,
-                &run.sdk_libraries,
-                &path,
-            ),
-            None => crate::hygiene::unread(usable),
-        }
-    };
+    let hygiene = frame_parts::hygiene_of(
+        &mut engine,
+        (run.documents.as_ref(), &run.sdk_libraries),
+        &namespace,
+        &path,
+    );
     let mut named = named(&contract, run.baseline, &engine, &path);
-    if named.contract.is_none() {
-        let held = trust
-            .gap
-            .map(|gap| (PRODUCER_NOT_VERIFIED_KIND, gap))
-            .or(base.map(|base| ("base", base)))
-            .or(hygiene.refusal);
-        if let Some((kind, text)) = held {
-            named.contract = Some(text);
-            named.contract_kind = Some(kind);
-        }
-    }
+    frame_parts::hold_contract(&mut named, trust.gap, base, hygiene.refusal);
     named.rules.extend(hygiene.rules);
     let ruled = if run.topology {
         engine.rule(named, true)
@@ -314,10 +293,10 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
     let explain = Some(engine.explain(&ruling));
     let (rows, sections) = crate::sections::split(rows);
     let gaps = crate::baseline_frame::gap_rows(&ruling);
+    let refused = frame_parts::refusals(&reply, &contract, &sections, report.as_ref().err());
     let baseline = run.accept.map(|input| {
-        let refusals = frame_parts::refusals(&reply, &contract, &sections, report.as_ref().err());
         let seen =
-            crate::baseline_frame::observed(&ruling, engine.reply(), engine.graph(), refusals);
+            crate::baseline_frame::observed(&ruling, engine.reply(), engine.graph(), refused);
         crate::baseline_frame::build(input, &seen)
     });
     let names_a_gap = report.is_err()

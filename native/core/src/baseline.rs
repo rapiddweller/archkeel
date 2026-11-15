@@ -15,7 +15,7 @@
 
 use std::collections::BTreeMap;
 
-use archkeel_contract::policy::{BaselineBudget, ValidationBaseline};
+use archkeel_contract::policy::{BaselineBudget, BaselineRole, ValidationBaseline};
 use archkeel_contract::BudgetName;
 use serde::Serialize;
 
@@ -46,6 +46,9 @@ pub(crate) struct Observed {
     /// still keep the exit code at 2.
     pub(crate) unknown_status: bool,
 }
+
+/// The violations of the file by identity: the count and the roles.
+type Accepted<'a> = BTreeMap<(&'a [String], &'a [String]), (u64, &'a [BaselineRole])>;
 
 /// One difference between the run and the file.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -115,10 +118,7 @@ pub(crate) fn compare(file: &ValidationBaseline, run: &Observed) -> Compared {
 }
 
 fn violations(file: &ValidationBaseline, run: &Observed, found: &mut Compared) {
-    let accepted: BTreeMap<
-        (&[String], &[String]),
-        (u64, &[archkeel_contract::policy::BaselineRole]),
-    > = file
+    let accepted: Accepted<'_> = file
         .violations()
         .iter()
         .map(|item| {
