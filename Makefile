@@ -6,7 +6,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test merge-check pr-report-test ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build smoke release-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check core native-check self-validate self-validate-native self-validate-shell native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
+.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test merge-check pr-report-test ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build smoke release-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check
@@ -101,8 +101,14 @@ self-validate-shell: core
 	$(UV) run --locked python tools/native_expected.py test-artifacts/validation-shell/result.json docs/architecture/target/shell-expected.json
 	@echo "Shell architecture rules: as pinned in docs/architecture/target/shell-expected.json; full result: test-artifacts/validation-shell/result.json"
 
-# AD-478: the shell and native/ with their own contracts.
-self-validate: self-validate-native self-validate-shell
+# One line for ArchKeel as one system, then one line for each part: the weakest verdict of the parts.
+# The parts are in docs/architecture/architecture-system.json. The pinned result of each part is the
+# gate (above); this line only joins their statuses. Interim: the system contract replaces it (AD-522).
+self-validate-system: core
+	@$(UV) run --locked python -m tools.self_system --archkeel "$(UV) run --locked archkeel"
+
+# AD-478: the shell and native/ with their own contracts, then the system line.
+self-validate: self-validate-native self-validate-shell self-validate-system
 
 # AD-462: one report pair for each run of fixtures/matrix.json, in test-artifacts/gallery. The
 # shell decides nothing; the job `publish-gallery` of CI publishes this directory.
