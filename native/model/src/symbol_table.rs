@@ -15,7 +15,7 @@ use crate::symbols::{module_id, Entity, Symbols};
 use archkeel_contract::EntityKind;
 
 /// The table of the facts of a reply over its modules.
-pub(crate) fn derive(facts: &Facts, modules: &Table<ModuleId, Module>) -> Symbols {
+pub(crate) fn derive(facts: &Facts, modules: &Table<ModuleId, Module>, sites: bool) -> Symbols {
     let mut table = Symbols::default();
     for (_, module) in modules.iter() {
         table.push(Entity::named(
@@ -34,6 +34,8 @@ pub(crate) fn derive(facts: &Facts, modules: &Table<ModuleId, Module>) -> Symbol
         })
         .unwrap_or(&[]);
     table.symbols(records);
-    crate::symbol_sites::sites(&mut table, facts, records);
+    if sites {
+        crate::symbol_sites::sites(&mut table, facts, records);
+    }
     table
 }

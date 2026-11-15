@@ -56,8 +56,20 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   The parent must exist. Safe file output needs POSIX directory handles; Windows refuses `--output` with exit 2 (`io_error`), writes no file and keeps the frame.
 - A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`. The run exits 2.
 - The core compares the module and import part of `declarations.uml` (AD-494) and the symbol part
-  for TypeScript (AD-512). Python, Dart and Rust give no symbol facts, so a symbol entity or
-  relationship of such a target keeps the UML row UNKNOWN (`no_receipt`) with a named gap. A target
+  for TypeScript (AD-512) and, for the declarations only, for Python (AD-518). Dart and Rust give
+  no symbol facts, and Python gives no site (base, call, reference, `creates`, `instance_of`), so a
+  relationship of a Python target is UNKNOWN with the cause "the python collector states no symbol
+  sites" (H-uml stays UNKNOWN). A Python declaration is written only for a class, function, method
+  or class attribute that one plain statement binds once; a second binder (`if`, `try`, `for`,
+  `with`, `del`, `global`, walrus, `match`, star import), a decorator other than the builtin
+  `staticmethod` or `classmethod`, a keyword or an unproven base, a hazard site or a write from
+  another module gives no record, so the name is absent (UNKNOWN). A class that a base which may be
+  a class writes to (`type.__setattr__`, `cls.x = v`, `self` of a metaclass), or whose name is
+  passed, stored or returned, keeps no member. A bare annotation, a value that is no literal and
+  a mangled `__x` are no attribute. A module-level value, a function inside a function and a
+  text other than a name, a dotted name, `None`, `True` or `False` in an annotation or a default
+  give none. Open: a write from a C extension or through `globals()` of another module.
+  Every Python member list is `partial`. A target
   in an inside contract and an external import target keep it UNKNOWN too. A target that 4.0.1
   passes with symbol facts (H-uml, H-uml-dart) exits 2. A FAIL for a conflict, a missing base or an
   extra element of a closed scope is true whatever the coverage, so it stays in an incomplete run.

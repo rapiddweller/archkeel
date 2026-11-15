@@ -1683,6 +1683,7 @@
     "fn profile_traits::pair_gap_drop(self)->PairGapDrop",
     "fn profile_traits::separates_type_namespace(self)->bool",
     "fn profile_traits::symbol_facts(self)->bool",
+    "fn profile_traits::symbol_sites(self)->bool",
     "fn profile_traits::target_marks(self)->TargetMarks",
     "fn protocol::as_str(self)->&'static str",
     "fn protocol::compressed(self)->Option<ProtocolVersion>",
