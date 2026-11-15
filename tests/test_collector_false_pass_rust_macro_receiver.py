@@ -57,7 +57,8 @@ def test_a_macro_can_hide_a_written_type(
         ITEMS + "pub fn f(s: &crate::c::S) -> u8 { items! { let _x = 1; } s.m(1) }\n",
         HIDE
         + "pub fn f(input: &crate::c::S) -> u8 { hide!(); let s: &crate::c::S = input; s.m(1) }\n",
-        'use crate::c::S;\npub fn f(input: &S) -> u8 { println!("ok"); let s: &S = input; s.m(1) }\n',
+        'use crate::c::S;\npub fn f(input: &S) -> u8 { println!("ok"); '
+        "let s: &S = input; s.m(1) }\n",
     ],
 )
 def test_a_safe_macro_keeps_the_receiver_proof(
