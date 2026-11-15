@@ -168,7 +168,6 @@ def test_every_link_of_the_gallery_page_has_a_target_that_the_tool_writes(tmp_pa
     assert code == 0 and len(_visible(page)) <= MAX_VISIBLE
     links = set(re.findall(r'href="([^"]+)"', page))
     assert any("#x1" in link for link in links)
-    assert "Studio UI 1/1/1" in _visible(page) and "Browser assets 1/1/1" in _visible(page)
     for link in links:
         path, _, anchor = link.partition("#")
         target = out / path

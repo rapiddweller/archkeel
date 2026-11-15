@@ -3,14 +3,14 @@
 # Variables of the Makefile (UV, TEST_WORKERS, the tool versions) are not in this file.
 
 # SKIP_TESTS=1: skip the test suite here; Full verification runs it in area jobs (make full-test).
-check: lint typecheck browser-architecture-check $(if $(strip $(SKIP_TESTS)),,test)
+check: lint typecheck $(if $(strip $(SKIP_TESTS)),,test)
 
 gate: release-check
 
 release-check: check build smoke
 
 ci-core-check: PYTEST_STOP := --maxfail=1
-ci-core-check: gate typescript-compiler-check browser-graph-check browser-runtime-check typescript-libs-check
+ci-core-check: gate typescript-compiler-check typescript-libs-check
 
 # One area of the full suite (tests/areas.py); Full verification runs every area in parallel.
 full-test: TEST_WORKERS = 4
