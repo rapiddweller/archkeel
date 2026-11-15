@@ -85,7 +85,8 @@ fn creation<'t>(
         context,
     );
     site.name = type_node.map(|type_node| {
-        let mut parts = vec![source.text(*type_node)];
+        let first = source.text(*type_node);
+        let mut parts = vec![first];
         parts.extend(
             children
                 .iter()

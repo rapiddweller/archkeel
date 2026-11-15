@@ -209,7 +209,7 @@ fn global_write<'t>(
     factory: Node<'t>,
     declared: &Declared<'t>,
 ) -> Option<Option<String>> {
-    let tree = producer.tree;
+    let tree: &Tree<'_, '_> = producer.tree;
     if tree.k(target) == K::Identifier
         && script_names::bound_scope(tree, target, &tree.text(target)).is_some()
     {
@@ -232,7 +232,7 @@ fn global_path<'t>(
     factory: Node<'t>,
     declared: &Declared<'t>,
 ) -> Option<Vec<Option<String>>> {
-    let tree = producer.tree;
+    let tree: &Tree<'_, '_> = producer.tree;
     let mut receiver = tree.unparenthesized(target);
     let mut suffix: Vec<Option<String>> = Vec::new();
     while matches!(

@@ -13,6 +13,7 @@ use crate::kinds::{F, K};
 use crate::script_names::bound_scope;
 use crate::script_scope::is_root;
 use crate::script_syntax::{unique, Producer};
+use crate::script_tree::Tree;
 use crate::script_types::{Member, Write};
 use crate::script_window::Written;
 use crate::source::Span;
@@ -96,7 +97,7 @@ impl<'t> Gathered<'t> {
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// The path that a target writes on the global object, or at the top level of the file.
     fn route_paths(&self, target: Node<'t>, route: &[String], found: &mut Gathered<'t>) {
-        let tree = self.tree;
+        let tree: &Tree<'_, '_> = self.tree;
         let Some(first) = route.first() else {
             return;
         };
@@ -112,12 +113,18 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         }
     }
 
-    /// The paths that an assignment target writes.
-    fn write_paths(&self, node: Node<'t>, target: Node<'t>, found: &mut Gathered<'t>) {
-        let tree = self.tree;
+    /// The write that an assignment makes to `target`, with the aliases of the wrapper of `node`.
+    pub(crate) fn write_of(&self, node: Node<'t>, target: Node<'t>) -> Write {
+        let tree: &Tree<'_, '_> = self.tree;
         let wrapper = self.wrapper_of(node);
         let alias = |name: &str| self.is_alias(wrapper, name);
-        found.writes.push(tree.target_write(node, target, &alias));
+        tree.target_write(node, target, &alias)
+    }
+
+    /// The paths that an assignment target writes.
+    fn write_paths(&self, node: Node<'t>, target: Node<'t>, found: &mut Gathered<'t>) {
+        let tree: &Tree<'_, '_> = self.tree;
+        found.writes.push(self.write_of(node, target));
         let route = tree.static_path(target);
         self.route_paths(target, &route, found);
         if route.len() > 1 {
@@ -129,7 +136,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
     /// The target of an assignment, unless the object that it writes into is a call.
     fn declared_target(&self, node: Node<'t>, target: Node<'t>, found: &mut Gathered<'t>) {
-        let tree = self.tree;
+        let tree: &Tree<'_, '_> = self.tree;
         let mut receiver = target;
         while matches!(
             tree.k(receiver),
@@ -148,7 +155,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// The object that a node publishes: the right side of an assignment, or what a wrapper that
     /// the file calls once returns.
     fn published_object(&self, node: Node<'t>) -> Option<(Span, Node<'t>)> {
-        let tree = self.tree;
+        let tree: &Tree<'_, '_> = self.tree;
         if tree.k(node) == K::AssignmentExpression {
             let value = tree.field(node, F::Right)?;
             return (tree.k(value) == K::Object).then(|| (tree.span(node), value));
@@ -163,7 +170,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// `_script_declarations`: the members that each published object takes from local
     /// definitions, the writes of the file, and the paths that it writes.
     pub(crate) fn declarations(&self) -> Declarations {
-        let tree = self.tree;
+        let tree: &Tree<'_, '_> = self.tree;
         let mut found = Gathered::default();
         let mut targets = self.targets.iter().peekable();
         for node in tree.nodes.iter().copied() {
