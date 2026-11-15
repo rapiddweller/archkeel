@@ -26,9 +26,9 @@ use archkeel_contract::{Entity, EntityKind, PresenceKind, Relationship, Relation
 
 use crate::model::Model;
 use crate::reason::UmlGap;
+use crate::uml_declared::UmlDeclared;
 pub use crate::uml_facts::UmlDiff;
 use crate::uml_facts::{entity, plain, Assessed, Facts};
-use crate::uml_tree::UmlDeclared;
 use crate::verdict::Decision;
 
 /// The input of the target row from the contract tree (AD-470, AD-494).
