@@ -165,7 +165,9 @@ impl Walk<'_> {
         }
         attributes.reverse();
         ranges.reverse();
-        let reads = |at: usize, a: &str| a == "__globals__" && self.inert.contains(&ranges[at]);
+        let reads = |at: usize, a: &str| {
+            matches!(a, "__globals__" | "f_globals") && self.inert.contains(&ranges[at])
+        };
         let hazard_at = attributes.iter().enumerate().find(|(at, a)| {
             let named =
                 ANY_ATTRIBUTE.contains(a) || IMPORT_FUNCTIONS.contains(a) || **a == "__path__";

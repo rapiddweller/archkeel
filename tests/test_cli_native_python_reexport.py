@@ -41,7 +41,11 @@ MOVED = {
     "globals-passed-to-an-external-call",
     "parameter-named-like-a-door-module",
     "literal-getattr-of-a-module-attribute",
+    "setattr-on-a-parameter",
+    "delattr-on-an-attribute-of-a-parameter",
 }
+# The plants where the core is stricter than main was: a frame namespace is a door now.
+STRICTER = {"frame-globals-write-at-import"}
 # How CPython runs an inert read: the call, and the modules that it imports (none).
 CALLS = {
     "globals-read-with-a-literal-key": "c.f(c.f)",
@@ -107,7 +111,7 @@ def test_each_row_that_moves_toward_pass_is_listed_and_is_a_release_pass() -> No
     assert moved == MOVED
     assert all(PLANTS[name].release == "PASS" for name in moved)
     # No plant gets worse than before, and none moves from FAIL.
-    assert all(p.after in {p.before, "PASS"} for p in PLANTS.values())
+    assert all(p.after in {p.before, "PASS"} or n in STRICTER for n, p in PLANTS.items())
 
 
 @pytest.mark.parametrize("name", sorted(CALLS))
