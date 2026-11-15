@@ -13,13 +13,16 @@ gap of AD-357.
 2. The name `x` is bound once in the `fn`, the parameter. A `let`, a pattern of `match`,
    `if let`, `while let` or `for`, a closure or nested `fn` parameter, an item or a `use` that may
    bind it, and any macro call whose tokens name `x` are refusals, except a macro of `std` that
-   binds nothing (`println`, `format`, `write`, `assert`, `vec`, ...). If the workspace defines
-   a macro with such a name, no parameter has a proof.
+   binds nothing (`println`, `format`, `write`, `assert`, `vec`, ...). If a `macro_rules!`, a
+   `use` leaf or rename, or an `extern crate` of the workspace gives such a name to a macro, no
+   parameter has a proof. Any other macro call in the `fn` that is not a `macro_rules!` of the
+   workspace (a macro with a path, a macro of a crate) refuses every parameter of the `fn`.
 3. `T` does not start with a generic parameter of the `fn` or of the `impl`; it is not
    `impl Trait`, `dyn`, `Self`, an alias or a qualified path; it resolves to one struct or enum
    that every configuration has (AD-383 `exact_type`).
-4. The `fn` has only inert attributes, is in no gated module and no block, and is not a trait
-   item. The workspace has no `Deref` or `DerefMut` impl for a type of the same name.
+4. The `fn` and its `impl` have only inert attributes, and so has every statement, expression,
+   arm and block of the `fn`: one `cfg` or unknown attribute in the `fn` refuses all parameters.
+   The `fn` is in no gated module and no block, and is not a trait item. The workspace has no `Deref` or `DerefMut` impl for a type of the same name.
 5. The member is exact, certainly visible, has the arity of the call, and its `self` form is the
    form of the parameter: `T` and `self`, `&T` and `&self`, `&mut T` and `&mut self`.
 
@@ -39,8 +42,9 @@ pattern, macro that rebinds, call inside a macro, macro that names the parameter
 `Deref` impl, shadowed `std` macro, `cfg` on the `fn` and on the parameter, nested `fn`, gated
 module, field of the parameter (slice 3 of the plan).
 
-**Price and gain.** `make self-validate`: native gaps 117 to 110 (7 pairs of the TypeScript
-crate), UNKNOWN 20, FAIL 0, violations 0. The proof found a real cycle: `discover.rs:112` calls
+**Price and gain.** `make self-validate`: native gaps 117 to 113 (4 pairs of the TypeScript
+crate), UNKNOWN 20, FAIL 0, violations 0. Three pairs came back after the proof review: their
+callers hold a macro that the rules refuse. The proof found a real cycle: `discover.rs:112` calls
 `layer.allow_js()`, a method of `Layer` placed in `config.rs`, which imports `discover`; the
 method moved to `layer.rs`, the module of its type. The gain is lower than the plan (about 15)
 because the largest group (`source: &Source<'_>`) names a type that `macro_rules! object` makes,
@@ -53,9 +57,12 @@ show a cycle that the gap hid. Calls on locals, fields, closure parameters and c
 
 **Mutations (each run).** Count of bindings ignored: 7 plants fail. Macro tokens ignored: 2.
 Generic names ignored: 2. Form check dropped: 2. Block check dropped: 1. `Deref` check dropped:
-1. `std` macro shadow check dropped: 1.
+1. `std` macro shadow by a macro, a `use` leaf (2 plants) dropped: 1. Foreign macro of the `fn`
+dropped: 1 (proc macro). Attributes of the body (3 plants) and of the `impl` (2 plants) dropped.
 
-**Plants (38).** 9 fail first on main (`bc41b134f`): the 8 proven forms and the forbidding
-contract (FAIL, not UNKNOWN). The allowing contract and the 28 refusals give the same verdict
-before and after. All 36 sources pass `cargo check`. The tests are in
+**Plants (46).** 17 fail first: 9 on main (`bc41b134f`) and 8 of the proof review on `b6ae50b8f`
+(a `use` rename, a macro of a crate outside the roots, a proc macro, `cfg` on the `impl`, a trait
+impl, a statement, an arm, a block). The allowing contract and 28 refusals give the same verdict
+before and after. All 36 first sources pass `cargo check`; the review plants are in
+`tests/rust_param_review_plants.py`. The tests are in
 `tests/test_collector_false_pass_rust_param_receiver.py`.

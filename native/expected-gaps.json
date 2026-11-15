@@ -511,6 +511,11 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.definitions",
+      "A method call may reach the method declared_members of an impl block in native.archkeel_typescript_collector.class_members"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_typescript_collector.definitions",
       "A method call may reach the method qualified of an impl block in native.archkeel_typescript_collector.script_declare"
     ],
     [
@@ -522,6 +527,11 @@
       "collection_gap",
       "native.archkeel_typescript_collector.dump",
       "A method call may reach the method qualified of an impl block in native.archkeel_typescript_collector.script_declare"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_typescript_collector.exports",
+      "A method call may reach the method count of an impl block in native.archkeel_typescript_collector.script_names"
     ],
     [
       "collection_gap",
@@ -622,6 +632,11 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_writes",
       "A method call may reach the method valid_unicode_member_name of an impl block in native.archkeel_typescript_collector.constructors"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_typescript_collector.sites",
+      "A method call may reach the method type_text of an impl block in native.archkeel_typescript_collector.members"
     ],
     [
       "collection_gap",
