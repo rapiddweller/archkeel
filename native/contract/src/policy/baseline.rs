@@ -7,6 +7,7 @@
 use crate::json::{self, field, Json};
 use crate::policy::amendment::schema_repr;
 use crate::policy::baseline_entries::{budgets, violation};
+use crate::policy::baseline_unknowns::unknowns;
 use crate::policy::baseline_value::{
     exact, object, required, BaselineError, BaselineViolation, ValidationBaseline,
     MAX_BASELINE_BYTES,
@@ -29,12 +30,14 @@ pub fn parse_baseline(bytes: &[u8]) -> Result<ValidationBaseline, BaselineError>
     })?;
     let document = object(&value, "baseline")?;
     let version = match field(document, "schema_version") {
-        Some(Json::Text(text)) if ["1.0.0", "1.1.0", "1.2.0", "1.3.0"].contains(&text.as_str()) => {
+        Some(Json::Text(text)) if ["1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0"].contains(&text.as_str()) => {
             text.as_str()
         }
         other => return Err(BaselineError::UnsupportedSchema(schema_repr(other))),
     };
-    let fields = if version >= "1.2.0" {
+    let fields = if version >= "1.4.0" {
+        vec!["schema_version", "violations", "budgets", "unknowns"]
+    } else if version >= "1.2.0" {
         vec!["schema_version", "violations", "budgets"]
     } else {
         vec!["schema_version", "violations"]
@@ -60,12 +63,18 @@ pub fn parse_baseline(bytes: &[u8]) -> Result<ValidationBaseline, BaselineError>
             .cmp(&(&b.fingerprint.rules, &b.fingerprint.subjects))
     });
     let budgets = match field(document, "budgets") {
-        Some(raw) => budgets(raw, version == "1.3.0")?,
+        Some(raw) => budgets(raw, version >= "1.3.0")?,
         None => Vec::new(),
+    };
+    // Schema 1.4.0 has the list, and an older file has none: it accepts no UNKNOWN (AD-546).
+    let unknowns = match field(document, "unknowns") {
+        Some(raw) => Some(unknowns(raw)?),
+        None => None,
     };
     Ok(ValidationBaseline {
         violations,
         budgets,
+        unknowns,
     })
 }
 

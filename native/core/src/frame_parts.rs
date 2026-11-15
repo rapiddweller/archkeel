@@ -36,6 +36,10 @@ pub(super) struct Parts {
     pub(super) locations: BTreeMap<String, Location>,
     pub(super) collection_gaps: Vec<CollectionGap>,
     pub(super) contract_digest: Option<String>,
+    /// The gaps of the rules without a decision, each with its kind (AD-546).
+    pub(super) gaps: Vec<crate::baseline_frame::GapRow>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) baseline: Option<crate::baseline_frame::Part>,
 }
 
 #[derive(Serialize)]
@@ -101,6 +105,31 @@ pub(super) enum ReplyCheck {
     Absent(String),
 }
 
+/// The parts of a run that no baseline can accept: a refused or absent reply, a contract that
+/// the core could not read, a section or the report that no slice ports (AD-546).
+pub(super) fn refusals(
+    reply: &ReplyCheck,
+    contract: &crate::contract::ContractState,
+    sections: &BTreeMap<&'static str, String>,
+    report: Option<&String>,
+) -> Vec<String> {
+    let mut found = Vec::new();
+    match reply {
+        ReplyCheck::Files(_) => {}
+        ReplyCheck::Refused(why) | ReplyCheck::Absent(why) => found.push(format!("reply: {why}")),
+    }
+    match contract {
+        crate::contract::ContractState::Parsed(_) => {}
+        crate::contract::ContractState::Missing(paths) => {
+            found.push(format!("inside contracts: {}", paths.join(", ")));
+        }
+        crate::contract::ContractState::Refused(why) => found.push(format!("contract: {why}")),
+    }
+    found.extend(sections.iter().map(|(name, why)| format!("section {name}: {why}")));
+    found.extend(report.map(|why| format!("report: {why}")));
+    found
+}
+
 /// Frame bytes and whether the frame names an unsupported or refused part.
 pub(crate) struct Answered {
     pub(crate) frame: Vec<u8>,
@@ -151,6 +180,7 @@ pub(crate) fn refused_scan(reason: &str, html: bool) -> Result<Answered, String>
         Err(&missing),
         Named {
             contract: Some(reason.to_owned()),
+            contract_kind: Some("other"),
             ..Named::default()
         },
     )
@@ -163,6 +193,8 @@ pub(crate) fn refused_scan(reason: &str, html: bool) -> Result<Answered, String>
         locations: BTreeMap::new(),
         collection_gaps: Vec::new(),
         contract_digest: None,
+        gaps: crate::baseline_frame::gap_rows(&ruling),
+        baseline: None,
         unsupported: UnsupportedParts {
             sections: BTreeMap::new(),
             report: None,

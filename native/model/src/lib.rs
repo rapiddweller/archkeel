@@ -70,6 +70,8 @@ mod needs;
 pub use needs::{Need, Needs};
 mod ownership;
 mod reason;
+mod reason_key;
+pub use reason_key::Stable;
 mod scope;
 mod section;
 mod settings;

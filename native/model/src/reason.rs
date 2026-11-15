@@ -87,12 +87,42 @@ pub enum Reason {
 pub struct Hygiene {
     code: &'static str,
     detail: String,
+    /// The contract file and the stable parts of the subject (AD-546). The display detail can
+    /// hold a pointer or a count, so the key reads these.
+    place: String,
+    parts: Vec<String>,
 }
 
 impl Hygiene {
-    /// The defect `code` with its `detail`.
+    /// The defect `code` with its `detail`. It has no stable key of its own.
     pub fn new(code: &'static str, detail: String) -> Hygiene {
-        Hygiene { code, detail }
+        Hygiene {
+            code,
+            detail,
+            place: String::new(),
+            parts: Vec::new(),
+        }
+    }
+
+    /// The defect `code` in the contract file `place`, with one stable `part` for each thing that
+    /// it names.
+    pub fn keyed(code: &'static str, detail: String, place: &str, parts: Vec<String>) -> Hygiene {
+        Hygiene {
+            code,
+            detail,
+            place: place.to_owned(),
+            parts,
+        }
+    }
+
+    /// The code of the reference engine, such as `graph.drift`.
+    pub fn code(&self) -> &'static str {
+        self.code
+    }
+
+    /// The entries of the stable key: one for each part, in the contract file of the defect.
+    pub(crate) fn parts(&self) -> (&str, &[String]) {
+        (&self.place, &self.parts)
     }
 }
 

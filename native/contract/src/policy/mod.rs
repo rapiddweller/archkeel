@@ -16,6 +16,7 @@
 mod amendment;
 mod baseline;
 mod baseline_entries;
+mod baseline_unknowns;
 mod baseline_value;
 mod baseline_write;
 mod binding;
@@ -51,7 +52,7 @@ pub use amendment::{
 };
 pub use baseline::parse_baseline;
 pub use baseline_value::{
-    BaselineBudget, BaselineError, BaselineFingerprint, BaselineRole, BaselineViolation,
+    AcceptedUnknown, BaselineBudget, BaselineError, BaselineFingerprint, BaselineRole, BaselineViolation,
     NameBudgetKind, ValidationBaseline, MAX_BASELINE_BYTES,
 };
 pub use baseline_write::{baseline_bytes, baseline_digest};

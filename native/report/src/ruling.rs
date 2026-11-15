@@ -52,6 +52,8 @@ pub struct Named {
     /// One reason for the whole contract (a baseline, a missing or refused contract). Then the
     /// frame has no rule row.
     pub contract: Option<String>,
+    /// The `GapKind` word of `contract` (AD-546). Empty text is the word `other`.
+    pub contract_kind: Option<&'static str>,
     /// A reason that holds back each PASS of the run (the scope of a contract tree).
     pub hold: Option<Reason>,
     /// The UML target row of the tree, by its id (AD-470): the target that the model compares,
@@ -101,6 +103,13 @@ pub struct Ruling {
     scope: String,
     #[serde(skip)]
     unsupported: RuleReasons,
+    /// The typed reason of each rule without a decision, UNKNOWN rows and named rows alike. The
+    /// baseline key reads these and never the text (AD-546).
+    #[serde(skip)]
+    causes: BTreeMap<String, Reason>,
+    /// The word and the text that name the whole contract, when one reason does.
+    #[serde(skip)]
+    contract_kind: Option<&'static str>,
     /// What the `explain` part copies; the core adds the coverage gaps of the reply (AD-484).
     #[serde(skip)]
     explain: explain::Collected,
@@ -127,6 +136,28 @@ impl Ruling {
     /// The reasons of the rules without a decision.
     pub fn unsupported(&self) -> &RuleReasons {
         &self.unsupported
+    }
+
+    /// Each violation as the rule, the source and the target that it names. The baseline reads
+    /// these rows (AD-546).
+    pub fn violation_rows(&self) -> Vec<(&str, &str, Option<&str>)> {
+        self.details
+            .iter()
+            .flat_map(|(rule, rows)| {
+                rows.iter()
+                    .map(move |row| (rule.as_str(), row.source(), row.target()))
+            })
+            .collect()
+    }
+
+    /// The typed reason of each rule without a decision (AD-546).
+    pub fn causes(&self) -> &BTreeMap<String, Reason> {
+        &self.causes
+    }
+
+    /// The `GapKind` word of the reason of the whole contract, if one reason names it.
+    pub fn contract_kind(&self) -> Option<&'static str> {
+        self.contract_kind
     }
 
     /// The frame of this ruling with the parts of the core: the only maker of `EngineFrame`. It
@@ -180,12 +211,16 @@ pub fn rule_with_edge_links(
     for (id, reason) in &gaps {
         rows.explain.unknown(id, reason);
     }
+    for (id, reason) in &gaps {
+        rows.causes.insert(id.clone(), reason.clone());
+    }
     reasons.extend(
         gaps.into_iter()
             .map(|(id, reason)| (id, reason.to_string())),
     );
     // AD-416: declarations have no decision and cannot make a run PASS by themselves. An UNKNOWN
     // UML row is a row of the run, so the contract has a row that names why it is open.
+    let given = named.contract.is_some();
     let contract = named.contract.or_else(|| {
         (models.is_ok()
             && !uml
@@ -210,6 +245,11 @@ pub fn rule_with_edge_links(
     } else {
         Status::Unknown
     };
+    let contract_kind = match (given, contract.is_some()) {
+        (true, _) => Some(named.contract_kind.unwrap_or("other")),
+        (false, true) => Some("no_decided_rule"),
+        (false, false) => None,
+    };
     let unsupported = match contract {
         Some(reason) => RuleReasons::All(reason),
         None => RuleReasons::Each(reasons),
@@ -232,6 +272,8 @@ pub fn rule_with_edge_links(
         beyond: rows.beyond,
         scope,
         unsupported,
+        causes: rows.causes,
+        contract_kind,
         explain: rows.explain,
     };
     Ok((ruling, edge_links))
@@ -246,6 +288,7 @@ struct Rows {
     violations: BTreeMap<String, usize>,
     details: BTreeMap<String, Vec<ViolationDetail>>,
     unknown_kinds: BTreeMap<String, WhyUnknown>,
+    causes: BTreeMap<String, Reason>,
     beyond: BTreeMap<String, String>,
     decisions: Vec<(String, Option<Decision>)>,
     explain: explain::Collected,
@@ -306,6 +349,7 @@ impl Rows {
                         self.explain.unknown(&id, reason);
                         self.unknown_kinds
                             .insert(id.clone(), WhyUnknown::of(reason));
+                        self.causes.insert(id.clone(), reason.clone());
                     }
                     RuleVerdict::Unknown
                 }
@@ -386,6 +430,7 @@ impl Rows {
                 self.explained.insert(id.clone(), reason.to_string());
                 self.unknown_kinds
                     .insert(id.clone(), WhyUnknown::of(&reason));
+                self.causes.insert(id.clone(), reason);
                 RuleVerdict::Unknown
             }
         };

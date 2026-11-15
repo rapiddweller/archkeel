@@ -7,9 +7,11 @@
 use serde_json::{json, Map, Value};
 
 use crate::model_declarations::BudgetName;
-use crate::policy::baseline_value::{BaselineBudget, NameBudgetKind, ValidationBaseline};
+use crate::policy::baseline_value::{
+    AcceptedUnknown, BaselineBudget, NameBudgetKind, ValidationBaseline,
+};
 
-/// Write schema 1.3.0 with `sort_keys=True`, `indent=2`, `ensure_ascii=False` and a line feed.
+/// Write schema 1.3.0, or 1.4.0 when the baseline has an `unknowns` list, with `sort_keys=True`, `indent=2`, `ensure_ascii=False` and a line feed.
 pub fn baseline_bytes(baseline: &ValidationBaseline) -> Vec<u8> {
     let mut budgets = Map::new();
     let mut keyed: std::collections::BTreeMap<&str, Map<String, Value>> =
@@ -51,11 +53,28 @@ pub fn baseline_bytes(baseline: &ValidationBaseline) -> Vec<u8> {
         .collect();
     let mut value =
         json!({ "schema_version": "1.3.0", "violations": violations, "budgets": budgets });
+    if let Some(unknowns) = &baseline.unknowns {
+        value["schema_version"] = json!("1.4.0");
+        value["unknowns"] = Value::Array(unknowns.iter().map(unknown).collect());
+    }
     value.sort_all_objects();
     let mut out = String::new();
     crate::canonical::write(&mut out, &value, 0);
     out.push('\n');
     out.into_bytes()
+}
+
+/// One entry: `count` only above 1, so one entry has one form (AD-546).
+fn unknown(item: &AcceptedUnknown) -> Value {
+    let mut value = json!({
+        "kind": item.kind,
+        "subject": item.subject,
+        "reason": item.reason,
+    });
+    if item.count > 1 {
+        value["count"] = json!(item.count);
+    }
+    value
 }
 
 fn scalar_key(name: BudgetName) -> &'static str {
