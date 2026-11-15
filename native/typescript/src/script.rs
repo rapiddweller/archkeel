@@ -12,7 +12,7 @@ use std::rc::Rc;
 use tree_sitter::Node;
 
 use crate::layout::Layout;
-use crate::script_host::{contained_reads, needs_host};
+use crate::script_host::needs_host;
 use crate::script_publish::globals;
 use crate::script_syntax::Producer;
 use crate::script_tree::Tree;
@@ -64,7 +64,7 @@ pub(crate) fn read<'t>(
         top_level_write_paths: declared.top_level_paths,
         amplified: declared.amplified,
         host_entry: needs_host(&producer),
-        contained_reads: contained_reads(&producer),
+        contained_reads: crate::script_host::contained_reads(&producer),
         blockers: declared.blockers.clone(),
         unlabelled_empty: declared.unlabelled_empty,
         ..Script::default()
