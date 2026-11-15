@@ -51,7 +51,7 @@ pub(crate) fn package_gaps(
             } else {
                 format!("{dir}/{name}")
             };
-            if snapshot.is_file(&rel) || snapshot.is_link(&rel) {
+            if snapshot.is_file(&rel) || Snapshot::is_link(snapshot, &rel) {
                 files.push(rel);
             }
         }
@@ -189,9 +189,9 @@ fn workspace(
         return false;
     }
     if snapshot.is_file("pubspec.lock")
-        || snapshot.is_link("pubspec.lock")
+        || Snapshot::is_link(snapshot, "pubspec.lock")
         || snapshot.is_file(".dart_tool/package_config.json")
-        || snapshot.is_link(".dart_tool/package_config.json")
+        || Snapshot::is_link(snapshot, ".dart_tool/package_config.json")
     {
         return false;
     }
@@ -219,14 +219,14 @@ fn workspace(
         if roots
             .iter()
             .any(|root| root == "." || root.split('/').next() == Some(dir))
-            || snapshot.is_link(dir)
+            || Snapshot::is_link(snapshot, dir)
             || snapshot.is_file(&format!("{dir}/pubspec_overrides.yaml"))
-            || snapshot.is_link(&format!("{dir}/pubspec_overrides.yaml"))
+            || Snapshot::is_link(snapshot, &format!("{dir}/pubspec_overrides.yaml"))
         {
             return false;
         }
         let path = format!("{dir}/pubspec.yaml");
-        if snapshot.is_link(&path) {
+        if Snapshot::is_link(snapshot, &path) {
             return false;
         }
         let Some(raw) = snapshot.read(&path) else {
