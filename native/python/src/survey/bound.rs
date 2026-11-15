@@ -36,6 +36,8 @@ struct Site {
 pub(super) enum Kind {
     /// A `def` or a `class`: the name is a function or a class, never a module.
     Callable,
+    /// A display or literal makes a value, not a module.
+    Value,
     /// An import: the name is whatever the imported name is.
     Import,
     /// Any other binder: the value is unknown.
@@ -52,6 +54,8 @@ pub(super) struct Bound {
     pub(super) opaque: bool,
     /// A top-level `__getattr__` can give any attribute.
     pub(super) getattr: bool,
+    /// A namespace write through a runtime attribute helper can change a binding.
+    pub(super) attribute_write: bool,
 }
 
 impl Bound {
@@ -197,7 +201,9 @@ impl<'a> Visitor<'a> for Walk {
             Stmt::Assign(node) => {
                 for target in &node.targets {
                     match target {
-                        Expr::Name(name) => self.site(name.id.as_str(), start, true, Kind::Other),
+                        Expr::Name(name) => {
+                            self.site(name.id.as_str(), start, true, value_kind(&node.value))
+                        }
                         other => self.visit_expr(other),
                     }
                 }
@@ -205,7 +211,12 @@ impl<'a> Visitor<'a> for Walk {
             }
             Stmt::AnnAssign(node) => {
                 match &*node.target {
-                    Expr::Name(name) => self.site(name.id.as_str(), start, true, Kind::Other),
+                    Expr::Name(name) => self.site(
+                        name.id.as_str(),
+                        start,
+                        true,
+                        node.value.as_deref().map_or(Kind::Other, value_kind),
+                    ),
                     other => self.visit_expr(other),
                 }
                 self.visit_expr(&node.annotation);
@@ -226,6 +237,14 @@ impl<'a> Visitor<'a> for Walk {
     }
 
     fn visit_expr(&mut self, expr: &'a Expr) {
+        if let Expr::Call(call) = expr {
+            let name = match &*call.func {
+                Expr::Name(name) => Some(name.id.as_str()),
+                Expr::Attribute(attr) => Some(attr.attr.as_str()),
+                _ => None,
+            };
+            self.bound.attribute_write |= matches!(name, Some("setattr" | "delattr"));
+        }
         if let Expr::Name(node) = expr {
             if matches!(node.ctx, ExprContext::Store | ExprContext::Del) {
                 self.site(node.id.as_str(), expr.range().start(), false, Kind::Other);
@@ -243,6 +262,26 @@ impl<'a> Visitor<'a> for Walk {
     }
 
     bind_handler_and_pattern!();
+}
+
+fn value_kind(value: &Expr) -> Kind {
+    if matches!(
+        value,
+        Expr::NumberLiteral(_)
+            | Expr::StringLiteral(_)
+            | Expr::BytesLiteral(_)
+            | Expr::BooleanLiteral(_)
+            | Expr::NoneLiteral(_)
+            | Expr::Tuple(_)
+            | Expr::List(_)
+            | Expr::Dict(_)
+            | Expr::Set(_)
+            | Expr::FString(_)
+    ) {
+        Kind::Value
+    } else {
+        Kind::Other
+    }
 }
 
 impl<'a> Bind<'a> for Walk {

@@ -13,7 +13,7 @@ fn named(writer: &str) -> Vec<String> {
     let found = surveyed(&[
         ("src/app/__init__.py", ""),
         ("src/app/lib.py", "def f(): pass\n__all__ = ['f']\n"),
-        ("src/app/other.py", "VALUE = 1\n"),
+        ("src/app/other.py", "VALUE = factory()\n"),
         ("src/app/writer.py", writer),
     ]);
     let mut names: Vec<String> = found.opaque_surface.into_iter().collect();
@@ -116,4 +116,87 @@ fn a_direct_attribute_load_and_a_call_of_it_are_harmless() {
     ] {
         assert!(named(source).is_empty(), "{source}");
     }
+}
+
+#[test]
+fn literal_bindings_do_not_escape_their_module() {
+    for value in [
+        "1", "'text'", "b'bytes'", "None", "True", "(1, 2)", "[1]", "{1: 2}", "{1}", "f'text'",
+    ] {
+        let source = format!("VALUE = {value}\n");
+        let found = surveyed(&[
+            ("src/app/__init__.py", ""),
+            ("src/app/lib.py", &source),
+            (
+                "src/app/writer.py",
+                "from app.lib import VALUE\nuse(VALUE)\n",
+            ),
+        ]);
+        assert!(!found.opaque_surface.contains("app.lib"), "{value}");
+    }
+}
+
+#[test]
+fn uncertain_bindings_keep_the_escape() {
+    for source in [
+        "VALUE = 1\nVALUE = 2\n",
+        "if flag:\n    VALUE = 1\n",
+        "VALUE = 1\ndel VALUE\n",
+        "VALUE = 1\nVALUE += 1\n",
+        "VALUE = 1\nfrom external import *\n",
+        "VALUE = 1\ndef __getattr__(name): pass\n",
+        "VALUE = 1\nglobals()['VALUE'] = other\n",
+        "VALUE = 1\nsetattr(module, 'VALUE', other)\n",
+        "VALUE = 1\nimport sys\nsys.modules[__name__].VALUE = other\n",
+        "VALUE = factory()\n",
+    ] {
+        let found = surveyed(&[
+            ("src/app/__init__.py", ""),
+            ("src/app/lib.py", source),
+            (
+                "src/app/writer.py",
+                "from app.lib import VALUE\nuse(VALUE)\n",
+            ),
+        ]);
+        assert!(found.opaque_surface.contains("app.lib"), "{source}");
+    }
+}
+
+#[test]
+fn reimports_follow_the_final_value_but_not_a_module() {
+    for (origin, escaped) in [
+        ("VALUE = 1\n", false),
+        ("import app.other as VALUE\n", true),
+    ] {
+        let found = surveyed(&[
+            ("src/app/__init__.py", ""),
+            ("src/app/other.py", ""),
+            ("src/app/origin.py", origin),
+            ("src/app/mid.py", "from app.origin import VALUE\n"),
+            ("src/app/lib.py", "from app.mid import VALUE\n"),
+            (
+                "src/app/writer.py",
+                "from app.lib import VALUE\nuse(VALUE)\n",
+            ),
+        ]);
+        assert_eq!(
+            found.opaque_surface.contains("app.lib"),
+            escaped,
+            "{origin}"
+        );
+    }
+}
+
+#[test]
+fn a_package_name_that_is_also_a_submodule_stays_escaped() {
+    let found = surveyed(&[
+        ("src/app/__init__.py", ""),
+        ("src/app/lib/__init__.py", "VALUE = 1\n"),
+        ("src/app/lib/VALUE.py", ""),
+        (
+            "src/app/writer.py",
+            "import app.lib.VALUE\nfrom app.lib import VALUE\nuse(VALUE)\n",
+        ),
+    ]);
+    assert!(found.opaque_surface.contains("app.lib"));
 }

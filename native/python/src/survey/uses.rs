@@ -48,6 +48,7 @@ type Origin<'m> = (&'m str, Option<&'m str>);
 struct Scan<'m> {
     modules: HashSet<&'m str>,
     bounds: HashMap<&'m str, Bound>,
+    hazardous: HashSet<&'m str>,
     /// The imports of each module by bound name: (target module, symbol).
     imports: HashMap<(&'m str, &'m str), Vec<Origin<'m>>>,
 }
@@ -55,11 +56,17 @@ struct Scan<'m> {
 impl Scan<'_> {
     /// True when `name` of `module` is a function or a class, following plain re-exports.
     fn callable(&self, module: &str, name: &str, depth: usize) -> bool {
-        let Some(bound) = self.bounds.get(module).filter(|_| depth < 8) else {
+        let Some(bound) = self.bounds.get(module).filter(|bound| {
+            depth < 8
+                && !bound.getattr
+                && !bound.attribute_write
+                && !self.hazardous.contains(module)
+                && !self.modules.contains(format!("{module}.{name}").as_str())
+        }) else {
             return false;
         };
         match bound.kind(name) {
-            Some(Kind::Callable) => true,
+            Some(Kind::Callable | Kind::Value) => true,
             Some(Kind::Import) => match self.imports.get(&(module, name)).map(Vec::as_slice) {
                 Some([(target, Some(symbol))]) => self.callable(target, symbol, depth + 1),
                 _ => false,
@@ -81,8 +88,17 @@ impl Scan<'_> {
 
 /// The modules that a use of a module binding in `modules` can change.
 pub(super) fn escaped(modules: &[Module], imports: &[Record<ImportFact>]) -> HashSet<String> {
+    let binders: Vec<_> = modules
+        .iter()
+        .map(|module| super::binders::Binders::of(&module.tree))
+        .collect();
+    let (_, sites) = super::hazards::split(modules, &binders);
     let mut scan = Scan {
         modules: modules.iter().map(|module| module.name.as_str()).collect(),
+        hazardous: sites
+            .iter()
+            .map(|(index, _)| modules[*index].name.as_str())
+            .collect(),
         bounds: modules
             .iter()
             .map(|module| (module.name.as_str(), Bound::of(&module.tree.body)))
