@@ -64,6 +64,8 @@ pub(crate) fn read<'t>(
         top_level_write_paths: declared.top_level_paths,
         amplified: declared.amplified,
         host_entry: needs_host(&producer),
+        blockers: declared.blockers.clone(),
+        unlabelled_empty: declared.unlabelled_empty,
         ..Script::default()
     };
     let mut ambiguous = Vec::new();

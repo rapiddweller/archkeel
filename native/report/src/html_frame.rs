@@ -36,7 +36,7 @@ row! {
     Cycles { total: usize, items: Vec<CyclePath> }
     Pair { source: String, target: String }
     RuleHolds { kind: String, pairs: Vec<Pair>, total: usize, unnamed_imports: usize }
-    CollectionGap { kind: String, subjects: Vec<String>, reason: String }
+    CollectionGap { kind: String, subjects: Vec<String>, reason: String, evidence: Vec<String>, detail: Option<String> }
     Holds { rules: BTreeMap<String, RuleHolds> }
     Explain { rules: BTreeMap<String, Shape>, cycles: BTreeMap<String, Cycles>, holds: Holds }
 }

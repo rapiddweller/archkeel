@@ -48,6 +48,9 @@ pub(super) struct CollectionGap {
     subjects: Vec<String>,
     reason: String,
     evidence: Vec<String>,
+    /// The collector's free text beside the reason, not part of the gap key (AD-540).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    detail: Option<String>,
 }
 
 /// Copy collector coverage gaps for display, without deciding which rules they affect.
@@ -64,6 +67,7 @@ pub(super) fn collection_gaps(reply: Option<&Ingested>) -> Vec<CollectionGap> {
                 .iter()
                 .map(|id| id.as_str().to_owned())
                 .collect(),
+            detail: gap.data.data().message.clone(),
         })
         .collect()
 }

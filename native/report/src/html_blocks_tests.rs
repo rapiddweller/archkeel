@@ -75,6 +75,23 @@ fn a_run_that_is_open_without_an_unknown_rule_shows_its_cause() {
     assert!(page.contains("missing &lt;input&gt;"));
 }
 
+// Consumer: AD-540. A gap with a detail is listed once, with its first place, its reason and the
+// detail; a gap without one is not listed.
+#[test]
+fn a_gap_that_the_collector_states_once_is_listed_with_its_detail() {
+    let mut frame = unknown_frame();
+    frame["collection_gaps"] = json!([
+        {"kind": "source_resolution_gap", "subjects": ["m.a"], "reason": "a form blocks",
+         "evidence": ["E1", "E2"], "detail": "5 uses of 2 names depend on it"},
+        {"kind": "collection_gap", "subjects": ["m.b"], "reason": "macro", "evidence": []}]);
+    frame["locations"] = json!({"E1": {"path": "src/a.ts", "line": 7}});
+    let page = document(&frame);
+    assert!(page.contains("src/a.ts:7"));
+    assert!(page.contains("a form blocks &#8212; 5 uses of 2 names depend on it"));
+    assert_eq!(page.matches("Stated once").count(), 1);
+    assert!(!document(&unknown_frame()).contains("Stated once"));
+}
+
 // Consumer: AD-540. A page shows the assumption that the frame states, and none for a frame
 // without one. The page names no language.
 #[test]
