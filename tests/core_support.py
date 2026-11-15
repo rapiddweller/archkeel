@@ -29,6 +29,18 @@ from archkeel.cli import core_only
 ROOT = Path(__file__).resolve().parents[1]
 NATIVE = ROOT / "native"
 SUFFIX = ".exe" if os.name == "nt" else ""
+
+
+def build_environment() -> dict[str, str]:
+    """The environment of every build of the shared `native/target`, the same for all of them.
+
+    The build script reads `ARCHKEEL_VERSION` and cargo relinks the binary when it changes, so an
+    exported value, or a builder with another value, would replace the core under a worker that
+    runs it. The version is set here, the same as the default of a local build (#1182).
+    """
+    return {**os.environ, "ARCHKEEL_VERSION": "0+unknown"}
+
+
 # A corpus case that the core decides with PASS.
 HONEST = "probe/sources-test-an-honest-project-gives-pass-in-both-producers-honest"
 # A provenance page with one marked component graph and no edge (AD-466): the graph of a contract
@@ -98,7 +110,13 @@ def _build(*arguments: str, timeout: int = 1200) -> None:
     # All workers of all test sessions on this checkout share one build lock.
     with FileLock(str(NATIVE / "target" / ".pytest-native-build.lock")):
         done = subprocess.run(
-            command, cwd=NATIVE, capture_output=True, text=True, check=False, timeout=timeout
+            command,
+            cwd=NATIVE,
+            env=build_environment(),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout,
         )
     assert done.returncode == 0, done.stderr
 

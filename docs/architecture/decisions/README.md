@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-516 | [A trait impl in a third module gives a pair gap in Rust](ad-516-a-trait-impl-in-a-third-module-gives-a-pair-gap-in-rust.md) |
 | AD-512 | [The core compares the symbol part of a UML target when the run needs it](ad-512-the-core-compares-the-symbol-part-of-a-uml-target-when-the-run-needs-it.md) |
 | AD-510 | [The report page shows the exceptions first and folds the rest](ad-510-the-report-page-shows-the-exceptions-first-and-folds-the-rest.md) |
 | AD-508 | [The script-global rule closes the forms that need no value flow](ad-508-the-script-global-rule-closes-the-forms-that-need-no-value-flow.md) |
@@ -437,3 +438,5 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-426 | [The linked collector states profile limits before the scope proof](ad-426-the-linked-collector-states-profile-limits-before-the-scope-proof.md) |
 | AD-432 | [The Rust core is the only decision path](ad-432-the-rust-core-is-the-only-decision-path.md) |
 | AD-436 | [A platform wheel carries the core and no other wheel is built](ad-436-a-platform-wheel-carries-the-core-and-no-other-wheel-is-built.md) |
+| AD-504 | [The Python survey writes the publication route of each named import](ad-504-the-python-survey-writes-the-publication-route-of-each-named-import.md) |
+| AD-514 | [The core proves a use of a public entry from imports and names the rest](ad-514-the-core-proves-a-use-of-a-public-entry-from-imports-and-names-the-rest.md) |

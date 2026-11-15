@@ -5,7 +5,10 @@
 Main supports Rust and TypeScript projects, and the import rules of Python (AD-450) and Dart (AD-468) projects.
 A Python project gets PASS or FAIL only for rules that read the import graph. A dynamic import,
 an import-system change and the other gaps of AD-450 give UNKNOWN for each rule of the run.
-Python rules that read symbols, calls or constructs stay UNKNOWN. A Dart project gets PASS or FAIL
+Python rules that read calls or constructs stay UNKNOWN. `interface_boundary` and symbol-level
+`through` ports are decided from the publication route of each named import (AD-504); the hygiene
+checks `interface.*` prove a use of a `public` entry from the imports and name `interface.usage_unknown`
+where only a declared facade signature could reach it (AD-514). A Dart project gets PASS or FAIL
 only for rules that read the import graph; each gap of AD-454 and a part in another component than
 its library give UNKNOWN for each rule of the run. A symbol selector or an `interface_boundary`
 rule holds only the rules that read it (AD-500). A Dart cycle rule (`no_component_cycles`) is
@@ -72,9 +75,10 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 - The core checks contract hygiene on `validate` and `report` (AD-466). It reads and binds each cited
   provenance file. A file that it cannot read refuses the contract. A missing, repeated or stale marked
   graph, and the reference, rationale, responsibility, closed-world and `public_api` defects of 4.0.1,
-  give a row that keeps the run from PASS. A cited path must be in normal form. A contract with an
-  `interface_boundary` rule, `declarations.compat` or `declarations.measurement_budgets`, and a
-  mounted contract with an `allowed_dependency` rule, get a named gap: these checks are not ported.
+  give a row that keeps the run from PASS. A cited path must be in normal form. An `interface_boundary`
+  rule gets the interface lifecycle rows of AD-514. A contract with `declarations.compat` or
+  `declarations.measurement_budgets`, and a mounted contract with an `allowed_dependency` rule, get
+  a named gap: these checks are not ported.
 - Source that nests deeper than the parse work limit is the typed refusal `core_error` with `parse_work_limit`.
 - A `collector_argv` in `archkeel.toml` is refused. The core starts only its own collectors.
 - The survey refuses a root with more than 1 GiB of file bytes or more than 100,000 entries, by name.
@@ -103,6 +107,18 @@ The core path uses fixed system Git, but `git status` still reads the scanned re
 A configured `filter.<x>.clean` can execute a command during status. Do not scan untrusted Git configuration.
 Disabling repository-configured execution is deferred to slice 5; the fixed executable does not prevent it.
 See [AD-422](architecture/decisions/ad-422-core-only-validation-renders-the-scan-frame.md).
+
+## Open false PASS, not accepted (Python `interface_boundary`, AD-504)
+
+The core gives PASS where Python binds something else at import time, for three forms. 4.0.1 gives
+PASS for both. They are open defects, pinned by plants in `tests/python_interface_plants.py`:
+
+- `import app.lib` then `app.lib._priv.secret()` with public `app.lib`: the rule judges imports,
+  and a use of a private module through a public module object is no import.
+- A write to a package from a module outside the scan roots (`conftest.py`, `sitecustomize`, an
+  installed package, a script), from a C extension, or through `globals()` of another module,
+  after its statements ran. A write through `sys.modules` or a computed `importlib.import_module` is a survey
+  gap, so the rule is UNKNOWN.
 
 ## Before claiming PASS
 
@@ -397,8 +413,18 @@ in another module than its type is an edge when a path names it (`impl crate::c:
 call of a method of a trait that a glob brings in (`use b::T;` in the parent, `use super::*;` and
 `5u8.m()` in the child), give a gap of the pair `a -> b`. A call on a plain `self` in a method of `impl S`, or a path `Self::m`, is an edge to the module of the one inherent member `m` of `S` and gives no gap when that member has the same `self` form (`self`, `&self`, `&mut self`) and no `cfg` or other attribute can change the member, its block, its module, the type or the caller; any other case keeps the gaps (AD-383). The host drops that gap only when the
 contract lets `a` use `b` and the edge closes no cycle that the edges and the other pair gaps may
-close (AD-357). Open false PASS, not accepted (#1004): a trait `impl` in another module than its
-trait and its type, and a trait of a crate outside the workspace that a glob brings in. Open false
+close (AD-357). A trait `impl` that is anchored in no module (neither its self type, read after `&`, nor its trait
+is defined there; a trait argument never anchors; a block name anchors only without a `use`, an inline
+`mod` or a second item of that name) gives a pair gap from each module of its crate and of each crate
+that depends on it (AD-516). The price: one orphan in a crate of N modules gives N-1 gaps, and
+`REQUIRES`, `NO-CYCLES` and the pair rule are UNKNOWN until the contract allows each pair; with one
+component for each module the gap `c -> b` stays when `c` holds the type, because `b -> c` closes a
+cycle. Open false PASS, not accepted (#1004), each a true edge, each pinned: (1) a value of a type
+that `b` defines, which the caller gets from another module, with the impl in `b` (13 forms: a method
+call, `Display`, `Drop`, `==`, `for`, `+`, `?`, `impl Trait`, `dyn`, a field, an alias with
+`Default`, a closure, `into()` into a sink of another module); (2) an impl of a trait of `b` for a
+type of another module, reached through a generic bound, a supertrait, a `dyn` supertrait or a
+re-export of the trait; (3) a trait of a crate outside the workspace that a glob brings in. Open false
 PASS, not accepted (#1020): an item that a function-like macro generates without a recorded path.
 The independent token inventory remains open (#1026); it must detect tokens that a macro reader loses.
 Attribute macros and unproved derives have named expansion gaps on every scanned syntax position.
@@ -559,10 +585,10 @@ The core decides one rule kind set where Python does not ([AD-384](architecture/
 
 - The Rust collector does not mark an external `pub use` as a re-export. So a gap into a module with any external import holds `external_dependency_scope` and `complete_external_scope`.
 - The gap scope reads the edge model of the collector, as Python does. A glob that brings in a trait through a `pub use` chain `b -> d` gives the gap `a -> b`, not `a -> d`, so a rule on `a -> d` passes (review N2 of #1084). With the explicit call both engines record only `a -> b`.
-- A method call can reach a member in another crate through any crate of the Cargo closure of the caller, and the collector lists such candidates. Two forms give no candidate, also inside one crate: a trait method (`impl Trait`, `Box<dyn Trait>`, the class #1004) and a method in the file of its type, called on a value that the caller does not name (for example the return value of a function of another crate). On `native/` the rows `NATIVE-NO-CORE-TO-TYPESCRIPT` and `NATIVE-NO-CORE-TO-RUST` hold only because a test pins the import records of the reply from `collect` to each collector crate. Both are open false PASS classes of the edge model ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
-- A PASS beyond Python is only as strong as the edge model of the collector. The open false-PASS classes #1004 (a trait `impl` in a third module) and #1020 (an item that a macro makes) give no edge and no gap. Where Python gives UNKNOWN only for a kept gap, the Python UNKNOWN hid them; the core PASS does not ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
+- A method call can reach a member in another crate through any crate of the Cargo closure of the caller, and the collector lists such candidates. Two forms give no candidate, also inside one crate: a trait method whose impl is in the module of its trait or of its type (`impl Trait`, `Box<dyn Trait>`, the class #1004; an impl in a third module gives a pair gap, AD-516) and a method in the file of its type, called on a value that the caller does not name (for example the return value of a function of another crate). On `native/` the rows `NATIVE-NO-CORE-TO-TYPESCRIPT` and `NATIVE-NO-CORE-TO-RUST` hold only because a test pins the import records of the reply from `collect` to each collector crate. Both are open false PASS classes of the edge model ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
+- A PASS beyond Python is only as strong as the edge model of the collector. The open false-PASS classes #1004 (a value of a type that an anchored impl serves, when the caller does not name its module) and #1020 (an item that a macro makes) give no edge and no gap. Where Python gives UNKNOWN only for a kept gap, the Python UNKNOWN hid them; the core PASS does not ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
 
-The dual-run request is a test protocol. Its `collector_argv`, `pinned` and `standard_library` fields are the word of the caller, not evidence: a wrong producer or an extra standard library name can give a PASS that Python does not give. The request of M1 must not take them from a caller: the shell starts the pinned collector, checks its digest and fills the producer and the standard library from its own profile table.
+The dual-run request is a test protocol that only test builds and the cargo feature `harness` have (#1095); a release binary refuses it. Its `collector_argv`, `pinned` and `standard_library` fields are the word of the caller, not evidence: a wrong producer or an extra standard library name can give a PASS that Python does not give. The request of M1 must not take them from a caller: the shell starts the pinned collector, checks its digest and fills the producer and the standard library from its own profile table.
 
 ## Scan work bounds are not process-memory bounds
 

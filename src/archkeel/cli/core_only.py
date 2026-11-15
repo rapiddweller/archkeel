@@ -21,7 +21,7 @@ from pathlib import Path
 from time import time_ns
 from typing import Final, NoReturn
 
-from .core_binary import CoreBinaryNotFound, locate_core
+from .core_binary import CoreBinaryNotFound, confirm, locate_core
 from .core_binding import resolve_root
 from .core_frame import (
     CheckKind,
@@ -289,6 +289,7 @@ def _decide(options: Options, as_json: bool) -> int:
     if page:
         request["html"] = True
     binary = locate_core()
+    confirm(binary)  # a bundled core is checked again immediately before it starts (#1095)
     started_ns = time_ns()
     stdout, status_code = exchange(str(binary), "scan", json.dumps(request).encode())
     frame = read_frame(

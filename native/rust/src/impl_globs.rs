@@ -135,6 +135,38 @@ fn globbed(index: &Index<'_>, module: &Module) -> (Vec<(String, String)>, bool) 
     (found, true)
 }
 
+/// Whether the crate of `caller` reaches the crate of `target` through its dependencies. A value
+/// of a crate that the caller reaches only through another crate can carry a method call into it
+/// (review B2 of #1121), so the walk follows the dependencies of each crate of the workspace.
+pub(crate) fn depends(workspace: &Workspace, caller: &Module, target: &Module) -> bool {
+    let (Some(from), Some(to)) = (
+        workspace.crates.get(caller.crate_index),
+        workspace.crates.get(target.crate_index),
+    ) else {
+        return false;
+    };
+    let mut seen: BTreeSet<&str> = BTreeSet::new();
+    let mut work: Vec<&str> = from
+        .manifest
+        .dependencies
+        .values()
+        .map(String::as_str)
+        .collect();
+    while let Some(name) = work.pop() {
+        if name == to.ident {
+            return true;
+        }
+        if !seen.insert(name) {
+            continue;
+        }
+        let next = workspace.crates.iter().filter(|krate| krate.ident == name);
+        work.extend(
+            next.flat_map(|krate| krate.manifest.dependencies.values().map(String::as_str)),
+        );
+    }
+    false
+}
+
 impl Builder {
     /// A pair gap for each trait of another module that a glob of the module may bring in.
     pub(crate) fn glob_trait_gaps(&mut self, workspace: &Workspace, reached: &Reached<'_>) {
@@ -193,11 +225,23 @@ impl Builder {
         why: &str,
     ) {
         let source = reached.module.module.as_str();
-        let pair = (source.to_owned(), target.to_owned());
-        if source == target || reached.edges.contains(&pair) || !self.gapped.insert(pair) {
-            return;
-        }
-        let evidence = self.cite(&reached.module.rel, &call.site);
-        self.pair_gap(why, &evidence, (source, target));
+        let at = (reached.module.rel.as_str(), &call.site);
+        once_gap(self, reached.edges, (source, target), at, why);
     }
+}
+
+/// The pair gap `source -> target` at a site, once, unless an edge joins the pair.
+pub(crate) fn once_gap(
+    builder: &mut Builder,
+    edges: &BTreeSet<(String, String)>,
+    (source, target): (&str, &str),
+    (rel, site): (&str, &crate::site::Site),
+    why: &str,
+) {
+    let pair = (source.to_owned(), target.to_owned());
+    if source == target || edges.contains(&pair) || !builder.gapped.insert(pair) {
+        return;
+    }
+    let evidence = builder.cite(rel, site);
+    builder.pair_gap(why, &evidence, (source, target));
 }

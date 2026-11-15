@@ -16,6 +16,7 @@ pub(crate) enum ReplyState {
 }
 
 /// The state of the reply, and the reply when the store accepts it.
+#[cfg(any(test, feature = "harness"))]
 pub(crate) fn answer(reply: &[u8], inflate_limit: u64) -> (ReplyState, Option<Ingested>) {
     collected(archkeel_store::ingest_reply(reply, inflate_limit))
 }

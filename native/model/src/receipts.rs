@@ -275,12 +275,6 @@ const MODULE_KINDS: [RuleKind; 8] = [
     RuleKind::SymbolPlacement,
 ];
 
-impl From<Cause> for Reason {
-    fn from(cause: Cause) -> Reason {
-        Reason::NotComplete(cause)
-    }
-}
-
 #[cfg(test)]
 #[path = "receipts_tests.rs"]
 mod tests;

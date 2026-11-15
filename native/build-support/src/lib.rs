@@ -25,8 +25,14 @@
 //!   rebuild, which is safe.
 //! - A symbolic link is ignored. It is neither followed nor hashed.
 //!
-//! Not part of the digest: `RUSTFLAGS`, cargo features and the profile. The digest identifies the
-//! source, not the build options.
+//! The enabled cargo features of the crate are part of the digest (`CARGO_FEATURE_*`): a build with
+//! the test feature `dump` has another digest than the build without it (#1095). A build without
+//! a feature hashes the same bytes as before. The feature `harness` of the core is the one
+//! exception: it adds request kinds to the core and changes no collector, and the core must keep
+//! the digest of the collectors that it checks against.
+//!
+//! Not part of the digest: `RUSTFLAGS` and the profile. The digest identifies the source and the
+//! features, not the other build options.
 
 // A build script that fails stops the build, not a scan, so it may expect.
 #![allow(clippy::expect_used)]
@@ -66,6 +72,7 @@ pub fn emit() {
         digest.update(fs::read(path).expect("an input file is readable"));
         digest.update(b"\0");
     }
+    digest.update(feature_bytes(std::env::vars().map(|(name, _)| name)));
     for directory in directories.iter().filter(|directory| **directory != native) {
         println!("cargo:rerun-if-changed={}", directory.display());
     }
@@ -80,6 +87,26 @@ pub fn emit() {
     println!("cargo:rerun-if-env-changed=ARCHKEEL_VERSION");
     let version = std::env::var("ARCHKEEL_VERSION").unwrap_or_else(|_| "0+unknown".to_owned());
     println!("cargo:rustc-env=ARCHKEEL_VERSION={version}");
+}
+
+/// The bytes that the enabled features add to the digest: nothing without a feature, else the
+/// marker, then each feature name in sorted order, each ended by a NUL. `names` are the names of
+/// the environment variables; cargo sets `CARGO_FEATURE_<NAME>` for each enabled feature.
+fn feature_bytes(names: impl Iterator<Item = String>) -> Vec<u8> {
+    let mut features: Vec<String> = names
+        .filter_map(|name| name.strip_prefix("CARGO_FEATURE_").map(str::to_lowercase))
+        .filter(|feature| feature != "harness")
+        .collect();
+    features.sort();
+    if features.is_empty() {
+        return Vec::new();
+    }
+    let mut bytes = b"features\0".to_vec();
+    for feature in features {
+        bytes.extend_from_slice(feature.as_bytes());
+        bytes.push(0);
+    }
+    bytes
 }
 
 /// Collect the inputs and the directories below `directory`, which starts at the root `native`.
@@ -122,4 +149,35 @@ fn rustc_version() -> String {
         .nth(1)
         .expect("rustc version text has a version")
         .to_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::feature_bytes;
+
+    fn names(items: &[&str]) -> impl Iterator<Item = String> {
+        items
+            .iter()
+            .map(|name| (*name).to_owned())
+            .collect::<Vec<_>>()
+            .into_iter()
+    }
+
+    #[test]
+    fn a_build_without_a_feature_adds_nothing_to_the_digest() {
+        assert!(feature_bytes(names(&["PATH", "CARGO_PKG_NAME", "CARGO"])).is_empty());
+    }
+
+    #[test]
+    fn the_feature_harness_of_the_core_adds_nothing() {
+        assert!(feature_bytes(names(&["CARGO_FEATURE_HARNESS"])).is_empty());
+    }
+
+    #[test]
+    fn each_enabled_feature_adds_its_name_in_sorted_order() {
+        let one = feature_bytes(names(&["CARGO_FEATURE_DUMP", "PATH"]));
+        assert_eq!(one, b"features\0dump\0");
+        let two = feature_bytes(names(&["CARGO_FEATURE_ZETA", "CARGO_FEATURE_ALPHA"]));
+        assert_eq!(two, b"features\0alpha\0zeta\0");
+    }
 }

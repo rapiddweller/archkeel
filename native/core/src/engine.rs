@@ -107,6 +107,7 @@ impl Engine {
     pub(crate) fn answer(&mut self, request: Request) -> Answer {
         match request {
             Request::Contract(input) => self.take_contract(input),
+            #[cfg(any(test, feature = "harness"))]
             Request::Ingest {
                 reply,
                 inflate_limit,
