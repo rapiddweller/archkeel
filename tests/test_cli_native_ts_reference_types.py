@@ -35,6 +35,10 @@ SCOPED = {
         '{"name":"@scope/pkg","version":"1.0.0","types":"index.d.ts"}'
     ),
 }
+TYPE_ROOTS_NODE_MODULES = (
+    '{"compilerOptions":{"allowJs":true,"typeRoots":["./node_modules/custom"]},"include":["src"]}'
+)
+TYPE_ROOTS_EMPTY = '{"compilerOptions":{"allowJs":true,"typeRoots":[]},"include":["src"]}'
 PATHS = (
     '{"compilerOptions":{"allowJs":true,"baseUrl":".","paths":{"vite/*":["src/b/*"]}},'
     '"include":["src"]}'
@@ -83,6 +87,10 @@ EDGES = {
         },
         "@types/scope__pkg",
     ),
+    "no-default-lib-false": (
+        {**INSTALLED, "src/a/a.ts": DIRECTIVE.replace(" />", ' no-default-lib="false" />')},
+        "vite",
+    ),
     "control-import-type": (
         {**INSTALLED, "src/a/a.ts": 'import type {} from "vite/client";\nexport const a = 1;\n'},
         "vite",
@@ -101,6 +109,10 @@ SILENT = {
         },
         "vite",
     ),
+    "no-default-lib-true-with-types": (
+        {**INSTALLED, "src/a/a.ts": DIRECTIVE.replace(" />", ' no-default-lib="true" />')},
+        "vite",
+    ),
     "no-default-lib": (
         {
             **INSTALLED,
@@ -110,7 +122,42 @@ SILENT = {
     ),
 }
 # A leading directive that the resolver does not prove, or that names a path: a named gap.
+# The compiler picks `custom/foo`; the collector would record `@types/foo`.
+FOO = {
+    "node_modules/custom/foo/index.d.ts": "declare const c: number;\n",
+    "node_modules/@types/foo/index.d.ts": "declare const t: number;\n",
+    "src/a/a.ts": '/// <reference types="foo" />\nexport const a = 1;\n',
+}
+# `@types/foo` has `typesVersions`, which the resolver does not model; `foo` is installed too.
+TYPES_VERSIONS = {
+    "node_modules/@types/foo/package.json": (
+        '{"name":"@types/foo","version":"1.0.0","types":"index.d.ts",'
+        '"typesVersions":{"*":{"*":["ts4/*"]}}}'
+    ),
+    "node_modules/@types/foo/index.d.ts": "declare const t: number;\n",
+    "node_modules/@types/foo/ts4/index.d.ts": "declare const t4: number;\n",
+    "node_modules/foo/index.d.ts": "declare const f: number;\n",
+    "src/a/a.ts": '/// <reference types="foo" />\nexport const a = 1;\n',
+}
+# `types` names a missing declaration, so tsc reports TS2688; general resolution finds `index.js`.
+MISSING_DECLARATION = {
+    "node_modules/bad/index.js": "exports.x = 1;\n",
+    "node_modules/bad/package.json": (
+        '{"name":"bad","version":"1.0.0","main":"index.js","types":"missing.d.ts"}'
+    ),
+    "src/a/a.ts": '/// <reference types="bad" />\nexport const a = 1;\n',
+}
 GAPS = {
+    "type-roots-set": (
+        {**FOO, "tsconfig.json": TYPE_ROOTS_NODE_MODULES},
+        "@types/foo",
+    ),
+    "type-roots-empty-list": (
+        {**INSTALLED, "tsconfig.json": TYPE_ROOTS_EMPTY, "src/a/a.ts": DIRECTIVE},
+        "vite",
+    ),
+    "types-versions-before-an-installed-fallback": (TYPES_VERSIONS, "@types/foo"),
+    "types-field-names-a-missing-declaration": (MISSING_DECLARATION, "bad"),
     "package-not-installed": ({"src/a/a.ts": DIRECTIVE}, "vite"),
     "builtin-name-without-its-types-package": (
         {"src/a/a.ts": '/// <reference types="node" />\nexport const a = 1;\n'},

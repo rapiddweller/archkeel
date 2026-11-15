@@ -124,7 +124,8 @@ impl Collection<'_> {
             Lookup::Missing => None,
             Lookup::Unknown(_) => return false,
         };
-        if name.is_empty() || reference.mode_override || self.resolver.blocked.is_some() {
+        let rooted = self.resolver.options.type_roots_set;
+        if name.is_empty() || rooted || reference.mode_override || self.resolver.blocked.is_some() {
             return false;
         }
         let mangled = name
@@ -142,10 +143,16 @@ impl Collection<'_> {
                 mode,
                 false,
             );
-            let Lookup::Hit(found) = found else {
-                continue;
+            let found = match found {
+                Lookup::Hit(found) => found,
+                Lookup::Missing => continue,
+                // A candidate that the resolver cannot decide may be the one that the compiler
+                // picks: never fall through to the next one.
+                Lookup::Unknown(_) => return false,
             };
-            if !(found.external && in_node_modules(&found.path)) {
+            let declaration = classify_file(&found.path).and_then(|suffix| suffix.source_kind())
+                == Some(SourceKind::Declaration);
+            if !(found.external && in_node_modules(&found.path) && declaration) {
                 return false;
             }
             let evidence = self.cite(rel, &reference.span);

@@ -183,7 +183,7 @@ pub(crate) fn triple_slash(body: &str, type_roots: bool) -> Option<String> {
 
 /// A leading `/// <reference types="name" />` that the compiler honors (#686): the name and
 /// whether the directive sets a `resolution-mode`. tsc lowercases the tag name and the attribute
-/// names, and a `types` attribute wins over `lib` and `path`; only `no-default-lib` wins over it.
+/// names, and a `types` attribute wins over `lib` and `path`; only `no-default-lib="true"` wins over it (any other value, such as "false", does not).
 /// A name that starts with `.` or `/` names a file: that form is the concern of AD-353, not read
 /// here. Any other value is a name to prove, also an empty one or one with a space.
 pub(crate) fn types_directive(body: &str) -> Option<(String, bool)> {
@@ -203,7 +203,7 @@ pub(crate) fn types_directive(body: &str) -> Option<(String, bool)> {
         |attribute, value| match attribute.to_ascii_lowercase().as_str() {
             "types" if name.is_none() => name = Some(value),
             "resolution-mode" => mode = true,
-            "no-default-lib" => default_lib = true,
+            "no-default-lib" => default_lib = value == "true",
             _ => {}
         },
     );
