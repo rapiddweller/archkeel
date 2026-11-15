@@ -446,5 +446,6 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-436 | [A platform wheel carries the core and no other wheel is built](ad-436-a-platform-wheel-carries-the-core-and-no-other-wheel-is-built.md) |
 | AD-504 | [The Python survey writes the publication route of each named import](ad-504-the-python-survey-writes-the-publication-route-of-each-named-import.md) |
 | AD-514 | [The core proves a use of a public entry from imports and names the rest](ad-514-the-core-proves-a-use-of-a-public-entry-from-imports-and-names-the-rest.md) |
+| AD-538 | [A `sys.path.append` that adds no imported name is no gap](ad-538-a-sys-path-append-that-adds-no-imported-name-is-no-gap.md) |
 | AD-536 | [A Python import call is an edge of the code but not a statement of a UML target](ad-536-a-python-import-call-is-no-statement-edge-of-a-uml-target.md) |
 | AD-526 | [The core compares the UML targets of the inside contracts as one declared intent](ad-526-the-core-compares-the-uml-targets-of-the-inside-contracts-as-one-declared-intent.md) |
