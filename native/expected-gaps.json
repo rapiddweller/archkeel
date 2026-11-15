@@ -195,11 +195,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_dart_collector.directives",
-      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_dart_collector.discover",
       "A method call may reach the method check_root of an impl block in native.archkeel_snapshot.snapshot.listing"
     ],
@@ -261,26 +256,6 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.sites.calls",
-      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.sites.canonical",
-      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.sites.references",
-      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.sites.scopes",
-      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.tree",
       "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
     ],
     [
@@ -512,11 +487,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.definitions",
       "A method call may reach the method declared_members of an impl block in native.archkeel_typescript_collector.class_members"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.definitions",
-      "A method call may reach the method qualified of an impl block in native.archkeel_typescript_collector.script_declare"
     ],
     [
       "collection_gap",

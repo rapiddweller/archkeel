@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-535 | [Conditional lints do not gate a Rust receiver proof](ad-535-conditional-lints-do-not-gate-a-rust-receiver-proof.md) |
 | AD-524 | [A call on a typed parameter is an edge in Rust](ad-524-a-call-on-a-typed-parameter-is-an-edge-in-rust.md) |
 | AD-522 | [ArchKeel shows one system verdict, built from its parts (interim)](ad-522-archkeel-shows-one-system-verdict-built-from-its-two-self-runs.md) |
 | AD-518 | [The Python collector writes the symbol declarations that it binds once](ad-518-the-python-collector-writes-the-symbol-declarations-that-it-binds-once.md) |

@@ -124,10 +124,51 @@ fn a_call_on_self_in_a_trait_impl_or_a_closure_or_with_a_lifetime_resolves_too()
 
 #[test]
 fn a_cfg_attr_on_the_member_keeps_the_gaps() {
-    // AD-383: a resolution must hold in every configuration; `cfg_attr` is never inert.
+    // `inline` is not a lint, so this conditional attribute is not proved inert.
     let gated = member("#[cfg_attr(test, allow(dead_code), inline)]\n    pub fn m(&self) {}");
     let found = outcome(&gated, &caller("&self", "self.m();"), &[]);
     assert_eq!(found, kept());
+}
+
+#[test]
+fn a_conditional_lint_on_the_crate_or_member_keeps_the_receiver_proof() {
+    let m = member("#[cfg_attr(test, allow(dead_code))]\n    pub fn m(&self) {}");
+    let root = (
+        "crates/app/src/lib.rs",
+        "#![cfg_attr(not(feature = \"dump\"), expect(dead_code, reason = \"test\"))]\nmod a;\nmod b;\nmod c;\nmod d;\nmod e;\n",
+    );
+    let call = caller("&self", "self.m();");
+    assert_eq!(outcome(&m, &call, &[]), resolved());
+    assert_eq!(
+        outcome(&member("pub fn m(&self) {}"), &call, &[root]),
+        resolved()
+    );
+    let types = (
+        "crates/app/src/c.rs",
+        "#[cfg_attr(test, allow(dead_code), warn(unused))]\npub struct S;\n",
+    );
+    assert_eq!(outcome(&m, &call, &[types]), resolved());
+}
+
+#[test]
+fn a_conditional_non_lint_keeps_the_receiver_gap() {
+    for attr in [
+        "#[cfg_attr(test, cfg(unix))]",
+        "#[cfg_attr(test, allow(dead_code), cfg(unix))]",
+        "#[cfg_attr(test, cfg_attr(unix, allow(dead_code)))]",
+        "#[cfg_attr(test, rewrite)]",
+        "#[cfg_attr(test, allow::x)]",
+        "#[cfg_attr(test, allow)]",
+        "#[cfg_attr(test, allow(dead_code), 123)]",
+        "#[cfg_attr(test)]",
+    ] {
+        let m = member(&format!("{attr}\n    pub fn m(&self) {{}}"));
+        assert_eq!(
+            outcome(&m, &caller("&self", "self.m();"), &[]),
+            kept(),
+            "{attr}"
+        );
+    }
 }
 
 #[test]
