@@ -25,6 +25,7 @@ use crate::construct_records::{constructs, STRING_LITERAL_COMPARE};
 use crate::kept::Pending;
 use crate::resolution::{local_imports, Imports};
 use crate::script_effects::effect_record;
+use crate::script_host::SCRIPT_PREMISE;
 use crate::site_records::{self, Pass};
 use crate::symbol_table::SymbolTable;
 use crate::symbols;
@@ -196,6 +197,7 @@ pub(crate) fn typed_reply(
         plan.write(sink).map(|(tail, _)| tail)
     })?;
     use archkeel_facts::envelope::{LimitSupport, ProfileLimits};
+    reply.facts.scope_premise = Some(SCRIPT_PREMISE);
     reply.facts.profile_limits = Some(ProfileLimits {
         dependency_symbols: if reply
             .facts

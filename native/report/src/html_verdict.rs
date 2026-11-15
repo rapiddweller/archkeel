@@ -33,17 +33,16 @@ fn title(frame: &Frame, places: &Places) -> String {
     }
 }
 
-/// The premise of the TypeScript script-global rule (AD-540): stated on each TypeScript page, as
-/// the owner decided (L-212). The collector cannot see a caller outside the scan roots.
-const TYPESCRIPT_PREMISE: &str =
-    "Stated assumption: code outside the scan roots hands in no global or platform object.";
-
-/// The stated assumptions of the language of the run, as one line each.
+/// The assumption that the collector states for its proofs, as one line under the verdict note
+/// (AD-540). The core states it for the run; this page names no language.
 fn premise(frame: &Frame) -> String {
-    if frame.language != "typescript" {
+    if frame.premise.is_empty() {
         return String::new();
     }
-    format!("<p class=\"body-sm ak-verdict__note\">{TYPESCRIPT_PREMISE}</p>")
+    format!(
+        "<p class=\"body-sm ak-verdict__note\">Stated assumption: {}</p>",
+        escape(&frame.premise)
+    )
 }
 
 fn note(status: &str) -> &'static str {

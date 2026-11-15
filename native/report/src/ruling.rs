@@ -99,6 +99,10 @@ pub struct Ruling {
     beyond: BTreeMap<String, String>,
     /// Why the scope of the run is not complete, or `complete`.
     scope: String,
+    /// The one assumption that the collector states for its proofs (AD-540). The word of `scope`
+    /// stays `complete`: the shell reads it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    premise: Option<&'static str>,
     #[serde(skip)]
     unsupported: RuleReasons,
     /// What the `explain` part copies; the core adds the coverage gaps of the reply (AD-484).
@@ -158,6 +162,11 @@ pub fn rule_with_edge_links(
             .find_map(|model: &Model| model.scope(|scope| scope.run()).err()),
         Err(reason) => Some(reason.clone()),
     };
+    let premise = models.ok().and_then(|models| {
+        models
+            .models()
+            .find_map(archkeel_model::Model::scope_premise)
+    });
     let complete = scope.is_none();
     let scope = scope.map_or_else(|| "complete".to_owned(), |reason| reason.to_string());
     let mut rows = Rows::default();
@@ -231,6 +240,7 @@ pub fn rule_with_edge_links(
         unknown_kinds: rows.unknown_kinds,
         beyond: rows.beyond,
         scope,
+        premise,
         unsupported,
         explain: rows.explain,
     };
