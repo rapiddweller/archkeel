@@ -197,6 +197,14 @@ fn position(annotation: Option<&Expr>, public: bool) -> u64 {
     let Some(annotation) = annotation else {
         return u64::from(public);
     };
+    if let Expr::StringLiteral(text) = annotation {
+        return u64::from(
+            text.value
+                .to_str()
+                .split(|ch: char| !ch.is_alphanumeric() && ch != '_')
+                .any(|name| matches!(name, "object" | "Any")),
+        );
+    }
     let mut scan = Untyped(false);
     scan.visit_expr(annotation);
     u64::from(scan.0)
@@ -252,5 +260,12 @@ mod tests {
         );
         let binders = Binders::of(&module.tree);
         assert_eq!(count(&module, &binders).0, 1);
+    }
+
+    #[test]
+    fn quoted_builtin_and_any_annotations_are_untyped() {
+        let module = crate::test_module("def f(x: 'object') -> 'typing.Any':\n    pass\n", 11);
+        let binders = Binders::of(&module.tree);
+        assert_eq!(count(&module, &binders).0, 2);
     }
 }

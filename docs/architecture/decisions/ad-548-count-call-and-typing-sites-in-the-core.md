@@ -25,7 +25,8 @@ starting with an underscore are not public. The first parameter of an undecorate
 `self` or `cls` is not a position. A decorated method has no proven receiver. A written call to
 `getattr`, `eval`, or `exec` counts even if a binding may
 hide the builtin. A written `cast` call counts when a plain `typing` import names it. These
-conservative counts can include a site that a more precise scope would exclude.
+conservative counts can include a site that a more precise scope would exclude. A string annotation
+counts when it contains an `object` or `Any` token, even if that token is not a type name.
 
 The private count includes a read of an underscore attribute, including an augmented assignment.
 It excludes a method receiver or a uniquely bound module import. Other profiles have no rows and
