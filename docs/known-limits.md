@@ -413,8 +413,18 @@ in another module than its type is an edge when a path names it (`impl crate::c:
 call of a method of a trait that a glob brings in (`use b::T;` in the parent, `use super::*;` and
 `5u8.m()` in the child), give a gap of the pair `a -> b`. A call on a plain `self` in a method of `impl S`, or a path `Self::m`, is an edge to the module of the one inherent member `m` of `S` and gives no gap when that member has the same `self` form (`self`, `&self`, `&mut self`) and no `cfg` or other attribute can change the member, its block, its module, the type or the caller; any other case keeps the gaps (AD-383). The host drops that gap only when the
 contract lets `a` use `b` and the edge closes no cycle that the edges and the other pair gaps may
-close (AD-357). Open false PASS, not accepted (#1004): a trait `impl` in another module than its
-trait and its type, and a trait of a crate outside the workspace that a glob brings in. Open false
+close (AD-357). A trait `impl` that is anchored in no module (neither its self type, read after `&`, nor its trait
+is defined there; a trait argument never anchors; a block name anchors only without a `use`, an inline
+`mod` or a second item of that name) gives a pair gap from each module of its crate and of each crate
+that depends on it (AD-516). The price: one orphan in a crate of N modules gives N-1 gaps, and
+`REQUIRES`, `NO-CYCLES` and the pair rule are UNKNOWN until the contract allows each pair; with one
+component for each module the gap `c -> b` stays when `c` holds the type, because `b -> c` closes a
+cycle. Open false PASS, not accepted (#1004), each a true edge, each pinned: (1) a value of a type
+that `b` defines, which the caller gets from another module, with the impl in `b` (13 forms: a method
+call, `Display`, `Drop`, `==`, `for`, `+`, `?`, `impl Trait`, `dyn`, a field, an alias with
+`Default`, a closure, `into()` into a sink of another module); (2) an impl of a trait of `b` for a
+type of another module, reached through a generic bound, a supertrait, a `dyn` supertrait or a
+re-export of the trait; (3) a trait of a crate outside the workspace that a glob brings in. Open false
 PASS, not accepted (#1020): an item that a function-like macro generates without a recorded path.
 The independent token inventory remains open (#1026); it must detect tokens that a macro reader loses.
 Attribute macros and unproved derives have named expansion gaps on every scanned syntax position.
@@ -575,8 +585,8 @@ The core decides one rule kind set where Python does not ([AD-384](architecture/
 
 - The Rust collector does not mark an external `pub use` as a re-export. So a gap into a module with any external import holds `external_dependency_scope` and `complete_external_scope`.
 - The gap scope reads the edge model of the collector, as Python does. A glob that brings in a trait through a `pub use` chain `b -> d` gives the gap `a -> b`, not `a -> d`, so a rule on `a -> d` passes (review N2 of #1084). With the explicit call both engines record only `a -> b`.
-- A method call can reach a member in another crate through any crate of the Cargo closure of the caller, and the collector lists such candidates. Two forms give no candidate, also inside one crate: a trait method (`impl Trait`, `Box<dyn Trait>`, the class #1004) and a method in the file of its type, called on a value that the caller does not name (for example the return value of a function of another crate). On `native/` the rows `NATIVE-NO-CORE-TO-TYPESCRIPT` and `NATIVE-NO-CORE-TO-RUST` hold only because a test pins the import records of the reply from `collect` to each collector crate. Both are open false PASS classes of the edge model ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
-- A PASS beyond Python is only as strong as the edge model of the collector. The open false-PASS classes #1004 (a trait `impl` in a third module) and #1020 (an item that a macro makes) give no edge and no gap. Where Python gives UNKNOWN only for a kept gap, the Python UNKNOWN hid them; the core PASS does not ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
+- A method call can reach a member in another crate through any crate of the Cargo closure of the caller, and the collector lists such candidates. Two forms give no candidate, also inside one crate: a trait method whose impl is in the module of its trait or of its type (`impl Trait`, `Box<dyn Trait>`, the class #1004; an impl in a third module gives a pair gap, AD-516) and a method in the file of its type, called on a value that the caller does not name (for example the return value of a function of another crate). On `native/` the rows `NATIVE-NO-CORE-TO-TYPESCRIPT` and `NATIVE-NO-CORE-TO-RUST` hold only because a test pins the import records of the reply from `collect` to each collector crate. Both are open false PASS classes of the edge model ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
+- A PASS beyond Python is only as strong as the edge model of the collector. The open false-PASS classes #1004 (a value of a type that an anchored impl serves, when the caller does not name its module) and #1020 (an item that a macro makes) give no edge and no gap. Where Python gives UNKNOWN only for a kept gap, the Python UNKNOWN hid them; the core PASS does not ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
 
 The dual-run request is a test protocol. Its `collector_argv`, `pinned` and `standard_library` fields are the word of the caller, not evidence: a wrong producer or an extra standard library name can give a PASS that Python does not give. The request of M1 must not take them from a caller: the shell starts the pinned collector, checks its digest and fills the producer and the standard library from its own profile table.
 

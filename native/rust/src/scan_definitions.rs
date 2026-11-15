@@ -16,7 +16,9 @@ use syn::{Ident, Item, ItemImpl, ItemTrait, Signature, Type};
 use super::receivers::{exact_path, inert, kind_of, type_inert};
 use super::state::Walker;
 use crate::attrs::{impl_item_attributes, is_test_attributes};
-use crate::definitions::{Access, Definition, Form, Holder, ImplBlock, Member, Owner};
+use crate::definitions::{
+    Access, BlockItem, Definition, Form, Holder, ImplBlock, Member, Owner, TraitImpl,
+};
 use crate::tokens::plain;
 
 fn access(vis: &syn::Visibility) -> Access {
@@ -124,7 +126,7 @@ pub(super) fn enter_impl(walker: &mut Walker<'_>, item: &ItemImpl) -> Holder {
 /// Read an inherent `impl` block at any depth (#953): the path of its type and its members.
 pub(super) fn impl_block(walker: &mut Walker<'_>, item: &ItemImpl) {
     if item.trait_.is_some() {
-        return;
+        return trait_impl(walker, item);
     }
     let path = match &*item.self_ty {
         Type::Path(path) if path.qself.is_none() && path.path.leading_colon.is_none() => {
@@ -165,6 +167,7 @@ pub(super) fn impl_block(walker: &mut Walker<'_>, item: &ItemImpl) {
 
 /// Keep a struct or an enum at module level that every configuration has (AD-383).
 pub(super) fn exact_type(walker: &mut Walker<'_>, item: &Item) {
+    block_type(walker, item);
     let (ident, attrs) = match item {
         Item::Struct(found) => (&found.ident, &found.attrs),
         Item::Enum(found) => (&found.ident, &found.attrs),
@@ -256,4 +259,64 @@ pub(super) fn foreign_name(item: &syn::ForeignItem) -> Option<String> {
         _ => return None,
     };
     Some(plain(ident))
+}
+
+// What the scan keeps for the pair gaps of trait impls in a third module (AD-516).
+
+/// The path of the outermost nominal type of a self type, after `&`. A type parameter of the
+/// block, a qualified path, an absolute path and any other type give `None`.
+fn self_path(item: &ItemImpl) -> Option<Vec<String>> {
+    let mut ty = &*item.self_ty;
+    while let Type::Reference(inner) = ty {
+        ty = &inner.elem;
+    }
+    let Type::Path(path) = ty else {
+        return None;
+    };
+    let parameter = path.path.get_ident().is_some_and(|ident| {
+        (item.generics.params.iter()).any(|param| match param {
+            syn::GenericParam::Type(found) => found.ident == *ident,
+            syn::GenericParam::Const(found) => found.ident == *ident,
+            syn::GenericParam::Lifetime(_) => false,
+        })
+    });
+    if path.qself.is_some() || path.path.leading_colon.is_some() || parameter {
+        return None;
+    }
+    Some(path.path.segments.iter().map(|s| plain(&s.ident)).collect())
+}
+
+/// Keep an `impl Trait for T` at any depth.
+fn trait_impl(walker: &mut Walker<'_>, item: &ItemImpl) {
+    let trait_path = item.trait_.as_ref().map(|(path, _)| path);
+    let found = TraitImpl {
+        self_path: self_path(item),
+        trait_path: trait_path
+            .filter(|path| path.leading_colon.is_none())
+            .map(|path| path.segments.iter().map(|s| plain(&s.ident)).collect()),
+        scope: walker.inline.clone(),
+        blocks: walker.block_ends.clone(),
+        site: walker.site(item.impl_token.span),
+    };
+    walker.out.orphans.impls.push(found);
+}
+
+/// Keep each item that a block declares, and each `use` of a block.
+fn block_type(walker: &mut Walker<'_>, item: &Item) {
+    let Some(end) = walker.block_ends.last().copied() else {
+        return;
+    };
+    let nominal = matches!(item, Item::Struct(_) | Item::Enum(_) | Item::Union(_));
+    let name = match item {
+        Item::Use(_) => None,
+        other => match item_name(other) {
+            Some(name) => Some(name),
+            None => return,
+        },
+    };
+    walker
+        .out
+        .orphans
+        .block_items
+        .push(BlockItem { name, end, nominal });
 }
