@@ -98,6 +98,43 @@ fn a_call_on_self_with_the_same_self_form_is_an_edge_to_the_member_and_no_gap() 
 }
 
 #[test]
+fn equal_module_cfgs_keep_the_self_receiver_proof() {
+    let root = (
+        "crates/app/src/lib.rs",
+        "#[cfg(feature = \"dump\")] mod a;\n#[cfg(feature = \"dump\")] mod b;\n#[cfg(feature = \"dump\")] mod c;\n#[cfg(feature = \"dump\")] mod d;\n#[cfg(feature = \"dump\")] mod e;\n",
+    );
+    assert_eq!(
+        outcome(
+            &member("pub fn m(&self) {}"),
+            &caller("&self", "self.m();"),
+            &[root]
+        ),
+        resolved()
+    );
+}
+
+#[test]
+fn different_or_opaque_module_gates_keep_the_self_receiver_gaps() {
+    for first in [
+        "#[cfg(feature = \"other\")] mod a;",
+        "#[cfg_attr(feature = \"dump\", cfg(unix))] mod a;",
+        "#[path = \"a.rs\"] #[cfg(feature = \"dump\")] mod a;",
+    ] {
+        let root = format!("{first}\n#[cfg(feature = \"dump\")] mod b;\n#[cfg(feature = \"dump\")] mod c;\n#[cfg(feature = \"dump\")] mod d;\n#[cfg(feature = \"dump\")] mod e;\n");
+        let files = [("crates/app/src/lib.rs", root.as_str())];
+        assert_eq!(
+            outcome(
+                &member("pub fn m(&self) {}"),
+                &caller("&self", "self.m();"),
+                &files
+            ),
+            kept(),
+            "{first}"
+        );
+    }
+}
+
+#[test]
 fn a_member_in_the_file_of_the_type_or_in_the_caller_is_no_edge_and_no_gap() {
     let own = (
         "crates/app/src/c.rs",

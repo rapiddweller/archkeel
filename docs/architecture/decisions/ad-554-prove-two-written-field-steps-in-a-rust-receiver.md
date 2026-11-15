@@ -32,3 +32,9 @@ inside the match arm and guard, not the enclosing function. A receiver call outs
 can use its written type even when its name occurs in the tokens. A call inside those tokens
 keeps the gap. A workspace macro or import that can shadow `matches!` also keeps the gap.
 This amends AD-535. The self-check removes two TypeScript pairs, with no violations.
+
+**Gated modules.** A direct `self` receiver can be proved across file modules whose written
+`cfg` chains are identical in the same crate. The caller, type and member are then present
+together. Different chains, opaque attributes, gated typed parameters and field projections
+keep the gap. The scan does not infer equivalence between different conditions. The earlier
+experiment exposed module cycles; no cycle is exempted and main must measure the result.
