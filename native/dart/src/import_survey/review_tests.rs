@@ -217,6 +217,27 @@ fn an_external_loader_has_the_same_result_with_or_without_isolate() {
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn an_imported_workspace_member_can_link_into_the_scan() {
+    let tree = archkeel_snapshot::test_tree::Tree::new(&[
+        ("pubspec.yaml", "name: shop\nworkspace:\n  - other\n"),
+        ("other/pubspec.yaml", "name: other\nresolution: workspace\n"),
+        ("lib/a.dart", "import 'package:other/b.dart';"),
+        ("lib/b.dart", ""),
+    ]);
+    std::os::unix::fs::symlink("../lib", tree.root.join("other/lib")).unwrap();
+    let request = serde_json::json!({
+        "protocol_version": "8.0.0",
+        "snapshot": {"root": tree.path(), "git_head": "0".repeat(40), "dirty": false},
+        "scope": {"roots": ["lib"], "namespace": "shop"},
+        "resolver": {"language": "dart"},
+    });
+    let decoded = super::reply::decode(request.to_string().as_bytes()).unwrap();
+    let found = super::survey(&decoded).unwrap();
+    only(&found, "DartWorkspace");
+}
+
 #[test]
 fn a_dense_source_below_the_byte_budget_is_over_the_token_budget() {
     let dense = format!("import 'b.dart';\nvar x = [{}];\n", "1,".repeat(200_000));

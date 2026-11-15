@@ -70,7 +70,7 @@ pub(crate) fn package_gaps(
     inputs
 }
 
-/// The key words that the root `pubspec.yaml` holds outside a comment line.
+/// The package keys and the marker for an unreadable document.
 #[derive(Debug, Default, PartialEq, Eq)]
 struct PubspecWords {
     workspace: bool,
@@ -79,8 +79,7 @@ struct PubspecWords {
     escape: bool,
 }
 
-/// Read the words of `text`. A YAML line break is `\n` or `\r`; a comment line has only spaces or
-/// tabs before its `#`, and no part of such a line can be a key of a YAML scalar alone.
+/// Parse one bounded YAML document. Other documents retain a conservative gap.
 fn yaml(text: &str) -> Option<Yaml<'_>> {
     if !text.contains('\\')
         && text.len() <= 65_536
