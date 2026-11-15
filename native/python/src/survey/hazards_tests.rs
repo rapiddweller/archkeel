@@ -57,6 +57,7 @@ fn imported_code_and_ambiguous_bindings_remain_gaps() {
         "class C:\n    code.interact()\n",
         "import provider\nprovider.code.interact()\n",
         "from provider import code as c\nc.interact()\n",
+        "from . import code as c\nc.interact()\n",
         "getattr(importlib, 'import_module')\n",
         "import sys\nsys.modules['x'] = value\n",
     ] {

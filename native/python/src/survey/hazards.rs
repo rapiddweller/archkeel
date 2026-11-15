@@ -378,6 +378,11 @@ fn store(expr: &Expr) -> bool {
 
 impl<'a> Visitor<'a> for Walk {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        if matches!(stmt, Stmt::ImportFrom(node)
+            if node.level > 0 && node.names.iter().any(|alias| alias.name.as_str() == "code"))
+        {
+            self.push(DYNAMIC, "code", stmt);
+        }
         for name in imported(stmt) {
             if name.ends_with(".code") {
                 self.push(DYNAMIC, &name, stmt);
