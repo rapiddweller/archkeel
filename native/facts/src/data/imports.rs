@@ -6,8 +6,7 @@
 
 use crate::ids::{ModuleName, PackageName};
 use crate::nullable::Nullable;
-use crate::reason::ReasonCode;
-use crate::vocab::{ResolutionDimension, Visibility};
+use crate::vocab::Visibility;
 
 facts_data! {
     /// An import: one record for each statement or bound name (TypeScript, Rust), or for each
@@ -39,40 +38,6 @@ facts_data! {
         [read skip] source_member_binding_static: Option<bool>,
         [read skip] symbol_visibility: Nullable<Visibility>,
     }
-}
-
-/// An UNKNOWN gap of the coverage or of the `unknowns` section.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct GapData {
-    #[serde(skip)]
-    pub code: Option<ReasonCode>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub reason: Option<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub module: Option<ModuleName>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub resolution_dimension: Option<ResolutionDimension>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub annotation: Option<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub attribute: Option<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub file: Option<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub function: Option<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub line: Option<i64>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub message: Option<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub parameter: Option<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub path: Option<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub source_module: Option<ModuleName>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub under_type_checking: Option<bool>,
 }
 
 impl ImportData {

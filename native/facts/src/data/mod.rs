@@ -9,6 +9,7 @@
 //! not write is an `Option` that the wire skips. A `[read]` field is in the read-set.
 
 mod constructs;
+pub(crate) mod gap_data;
 mod imports;
 mod sites;
 mod symbols;
@@ -19,7 +20,7 @@ pub use constructs::PlaceholderData;
 pub use constructs::PlainConstructData;
 pub use constructs::SelectorData;
 pub use constructs::SignalData;
-pub use imports::GapData;
+pub use gap_data::GapData;
 pub use imports::ImportData;
 pub use sites::BindingData;
 pub use sites::CallData;
