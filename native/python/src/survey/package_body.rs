@@ -8,53 +8,35 @@
 
 use std::collections::HashSet;
 
-use ruff_python_ast::{Expr, Stmt, StmtImportFrom};
+use ruff_python_ast::{Stmt, StmtImportFrom};
 
-use super::binders::import_bindings;
+use super::bound::{plain_from, Bound};
 use crate::module::Module;
 
-/// `_shadowed_names`: the names that the top-level statements of a package body bind ahead of a
-/// submodule of the same name (AD-53). `__getattr__` or a star import empties the set.
+/// `_shadowed_names`: the names that a package body binds ahead of a submodule of the same name
+/// (AD-53). Since AD-504 the names come from `bound.rs`: each statement of the module scope at any
+/// depth, so `try: from . import _a as name` binds `name` too. `__getattr__` or a star import
+/// empties the set. A plain `from . import name` binds the submodule itself and is no shadow.
 pub(super) fn shadowing_names(module: &Module) -> HashSet<String> {
-    let mut names = HashSet::new();
+    let bound = Bound::of(&module.tree.body);
+    if bound.getattr || bound.opaque {
+        return HashSet::new();
+    }
+    let mut names = bound.names();
     for statement in &module.tree.body {
-        match statement {
-            Stmt::FunctionDef(node) if node.name.as_str() == "__getattr__" => {
-                return HashSet::new()
+        let Stmt::ImportFrom(node) = statement else {
+            continue;
+        };
+        if anchor(node, &module.name).as_deref() != Some(module.name.as_str()) {
+            continue;
+        }
+        for (name, start) in plain_from(node) {
+            if bound.only_at(name, start) {
+                names.remove(name);
             }
-            Stmt::ClassDef(node) if node.name.as_str() == "__getattr__" => return HashSet::new(),
-            Stmt::FunctionDef(node) => drop(names.insert(node.name.id.to_string())),
-            Stmt::ClassDef(node) => drop(names.insert(node.name.id.to_string())),
-            Stmt::Assign(node) => names.extend(node.targets.iter().filter_map(name_of)),
-            Stmt::AnnAssign(node) => names.extend(name_of(&node.target)),
-            Stmt::Import(_) => names.extend(import_bindings(statement)),
-            Stmt::ImportFrom(node) => {
-                if node.names.iter().any(|alias| alias.name.as_str() == "*") {
-                    return HashSet::new();
-                }
-                names.extend(from_bindings(node, &module.name));
-            }
-            _ => {}
         }
     }
     names
-}
-
-/// The names of `from ... import` in the package body of `package`, without the plain
-/// `from . import name` that binds the submodule itself (`_binds_identical_submodule`).
-fn from_bindings<'n>(node: &'n StmtImportFrom, package: &str) -> impl Iterator<Item = String> + 'n {
-    let own = anchor(node, package).as_deref() == Some(package);
-    node.names
-        .iter()
-        .filter(move |alias| !(own && alias.asname.is_none()))
-        .map(|alias| alias.asname.as_ref().unwrap_or(&alias.name).id.to_string())
-}
-
-fn name_of(target: &Expr) -> Option<String> {
-    match target {
-        Expr::Name(node) => Some(node.id.to_string()),
-        _ => None,
-    }
 }
 
 /// The submodules that a package body imports at its top level. The import system binds each
@@ -81,13 +63,11 @@ pub(super) fn own_submodules(module: &Module) -> HashSet<String> {
     found
 }
 
-/// A package body that can give any name: a top-level `__getattr__` or a star import.
+/// A package body that can give any name: any binder of `__getattr__` (a def, an assignment, an
+/// import, a walrus, a `global` write; at any depth) or a star import (`bound.rs`).
 pub(super) fn open_body(module: &Module) -> bool {
-    module.tree.body.iter().any(|statement| match statement {
-        Stmt::FunctionDef(node) => node.name.as_str() == "__getattr__",
-        Stmt::ImportFrom(node) => node.names.iter().any(|alias| alias.name.as_str() == "*"),
-        _ => false,
-    })
+    let bound = Bound::of(&module.tree.body);
+    bound.getattr || bound.opaque
 }
 
 /// `importlib.util.resolve_name` for a name of `level` dots and then `name`. Each failure of it

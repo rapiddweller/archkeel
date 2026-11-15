@@ -17,6 +17,7 @@
 use std::collections::HashMap;
 
 use archkeel_contract::{CompleteRequires, Component, ForbiddenDependency, SiblingIsolation};
+use archkeel_facts::envelope::LimitSupport;
 
 use crate::{
     ids::ComponentId, imports::Import, model::Model, ownership::in_scope, ownership::owner_of,
@@ -111,7 +112,11 @@ pub fn crossings<'m>(model: &'m Model, rule: &CompleteRequires) -> Vec<Crossing<
     let components = model.components();
     // `dependency_symbols`: a profile judges symbol ports only with the symbol feature
     // (`check/evaluation/evaluate.py:1061`).
-    let symbols = model.graph().observed().symbol_feature;
+    let observed = model.graph().observed();
+    let symbols = observed.symbol_feature
+        || observed
+            .profile_limits
+            .is_some_and(|limits| limits.dependency_symbols == LimitSupport::Supported);
     let mut owners: HashMap<&str, Option<ComponentId>> = HashMap::new();
     let mut owner = |module: &'m str| {
         *owners
