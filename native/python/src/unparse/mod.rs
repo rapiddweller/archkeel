@@ -23,17 +23,14 @@ pub(crate) use hazard::{replaced, string_failure};
 use outcome::Prec;
 pub(crate) use outcome::TextFailure;
 use outcome::TextFailure as Failure;
+pub(crate) use outcome::MAX_DEPTH;
 use writer::Writer;
-
-/// The deepest expression that this writer writes: at most 7 Python frames for each level stay
-/// well under the recursion limit of 1 000.
-pub(crate) const MAX_DEPTH: u32 = 100;
 
 /// `ast.unparse(expr)` in the Python of `minor`. `source` is the text of the module after
 /// `source::newlines`.
 pub(crate) fn unparse(expr: &Expr, minor: PyMinor, source: &str) -> Result<String, Failure> {
     let mut writer = Writer::new(minor, source, false);
-    writer.expr(expr, Prec::Test)?;
+    Writer::expr(&mut writer, expr, Prec::Test)?;
     Ok(writer.out)
 }
 

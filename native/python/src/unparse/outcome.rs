@@ -4,6 +4,9 @@
 
 //! Why an expression has no text, and `_Precedence` of the unparser.
 
+/// The deepest expression that this writer writes, well under Python's recursion limit.
+pub(crate) const MAX_DEPTH: u32 = 100;
+
 /// Why an expression has no text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum TextFailure {

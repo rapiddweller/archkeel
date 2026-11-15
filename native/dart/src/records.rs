@@ -20,7 +20,7 @@ use archkeel_facts::ids::{EvidenceId, FactId};
 use archkeel_facts::sections::GapFact;
 use archkeel_facts::vocab::{Area, EvidenceClass, ExceptionName};
 use archkeel_facts::Record;
-use serde_json::json;
+use serde_json::{Map, Value};
 
 use crate::discover::{Discovery, Source};
 use crate::pubspec::SdkState;
@@ -273,8 +273,15 @@ pub(crate) fn listing_digest(inputs: &[Input]) -> String {
         .iter()
         .map(|input| {
             // `preserve_order` keeps the keys in the Python order.
-            json!({"path": input.path, "digest": input.digest, "role": input.role.as_str()})
-                .to_string()
+            Value::Object(Map::from_iter([
+                ("path".to_owned(), Value::String(input.path.clone())),
+                ("digest".to_owned(), Value::String(input.digest.clone())),
+                (
+                    "role".to_owned(),
+                    Value::String(input.role.as_str().to_owned()),
+                ),
+            ]))
+            .to_string()
         })
         .collect();
     sha256_hex(listing.as_bytes())

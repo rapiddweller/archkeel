@@ -48,21 +48,20 @@ pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collecte
                     return Vec::new();
                 }
                 let local = crate::derive_imports::Local::of(module);
+                let prove = |concern| {
+                    crate::derive_identity::proven(
+                        &workspace,
+                        &index,
+                        &local,
+                        concern,
+                        &walked.modules,
+                    )
+                };
                 module
                     .scan
                     .helper_types
                     .iter()
-                    .filter(|(_, concerns)| {
-                        concerns.iter().all(|concern| {
-                            crate::derive_identity::proven(
-                                &workspace,
-                                &index,
-                                &local,
-                                concern,
-                                &walked.modules,
-                            )
-                        })
-                    })
+                    .filter(|(_, concerns)| concerns.iter().all(&prove))
                     .map(|(name, _)| name.clone())
                     .collect()
             })
@@ -91,7 +90,7 @@ pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collecte
     builder_ref.impl_members(&workspace, &modules_index, &walked.modules);
     builder_ref.check_extracted(&walked.modules);
     let taken: BTreeSet<&str> = modules.values().copied().collect();
-    builder_ref.declared(&workspace, &request.scope.namespace, &taken, &mut source);
+    builder_ref.declare_dependencies(&workspace, &request.scope.namespace, &taken, &mut source);
     let mut selected: Vec<String> = files
         .iter()
         .filter(|f| f.ends_with(".rs"))
