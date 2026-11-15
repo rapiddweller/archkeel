@@ -179,7 +179,8 @@ fn declared_names<'t>(
     let mut declared: Declared = HashMap::new();
     for node in nodes {
         let name = tree.field(node, F::Name);
-        if name.is_some_and(|name| !tree.cx.valid_unicode_member_name(name)) {
+        if name.is_some_and(|name| !crate::tree::cx::Cx::valid_unicode_member_name(&tree.cx, name))
+        {
             return None;
         }
         let binds = matches!(

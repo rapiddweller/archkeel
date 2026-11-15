@@ -118,11 +118,13 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         property: Option<Node<'t>>,
     ) -> bool {
         let tree = self.tree;
-        tree.cx.valid_unicode_member_name(reference)
+        crate::tree::cx::Cx::valid_unicode_member_name(&tree.cx, reference)
             && tree.k(member) == K::MemberExpression
             && tree.is_field_of_parent(reference, F::Object)
             && tree.static_path(member).len() == 2
-            && property.is_some_and(|property| tree.cx.valid_unicode_member_name(property))
+            && property.is_some_and(|property| {
+                crate::tree::cx::Cx::valid_unicode_member_name(&tree.cx, property)
+            })
             && !tree.in_ambiguous_scope(reference)
             && !self.optional_chain(member)
     }
@@ -176,7 +178,9 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let proper = tree.k(target) == K::MemberExpression
             && tree.is_field_of_parent(reference, F::Object)
             && tree.static_path(target).len() == 2
-            && property.is_some_and(|property| tree.cx.valid_unicode_member_name(property))
+            && property.is_some_and(|property| {
+                crate::tree::cx::Cx::valid_unicode_member_name(&tree.cx, property)
+            })
             && tree.k(call) == K::CallExpression
             && tree.is_field_of_parent(target, F::Function)
             && !tree.in_ambiguous_scope(reference);
@@ -202,7 +206,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         if tree.k(declaration) != K::LexicalDeclaration
             || !constant
             || tree.k(name) != K::Identifier
-            || !tree.cx.valid_unicode_member_name(name)
+            || !crate::tree::cx::Cx::valid_unicode_member_name(&tree.cx, name)
             || !matches!(tree.k(value), K::MemberExpression | K::CallExpression)
         {
             return None;
@@ -223,7 +227,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             matches!(path.as_slice(), [root, _] if is_root(root))
         };
         if !shape
-            || !tree.cx.valid_unicode_member_name(member)
+            || !crate::tree::cx::Cx::valid_unicode_member_name(&tree.cx, member)
             || tree.binding_count(scope, &spelling) != 1
             || !tree.script_free(target, node)
             || self.optional_chain(target)
