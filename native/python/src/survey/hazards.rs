@@ -26,7 +26,7 @@ use ruff_text_size::{Ranged, TextRange};
 use super::binders::Binders;
 use super::bound::Bound;
 use super::globals_read;
-use super::lazy::Lazy;
+use super::lazy_cover::Lazy;
 use super::literal::{self, Proof};
 use super::syspath;
 use crate::module::Module;

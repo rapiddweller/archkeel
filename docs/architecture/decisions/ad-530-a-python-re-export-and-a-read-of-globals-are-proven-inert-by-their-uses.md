@@ -49,10 +49,10 @@ iterated or passed to an unknown callee keep their gap, where 4.0.1 gives PASS.
 `__builtins__` from it by a computed key, is not seen (the survey does not read library code). A
 value with an external origin may carry a scan module only through code outside the scan.
 
-**Results.** On main `6cc397932` against this change, gaps before to after: FastAPI 0.163.0 6
+**Results.** On main `7170f6736` against this change, gaps before to after: FastAPI 0.163.0 6
 to 2 (the 4 `__globals__` and `types` gaps go; 2 `reexport_ambiguity` stay), pydantic v2.14.3
-321 to 307 (14 `dynamic_import`), DATAMIMIC CE 59 to 59. No rule moves to PASS: each project keeps
-a gap that holds its rules.
+171 to 157, DATAMIMIC CE 46 to 46. No rule moves to PASS: each project keeps a gap that holds
+its rules.
 
 **Tests.** `tests/test_cli_native_python_reexport.py` (33 plants: the row of the core before and
 after, the row of 4.0.1, and a run under CPython), and the Rust tests `uses_tests.rs`,

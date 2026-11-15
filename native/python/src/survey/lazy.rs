@@ -21,30 +21,15 @@ use ruff_text_size::{Ranged, TextRange};
 
 use super::binders::{first_part, Binders};
 use super::hazards;
+pub(super) use super::lazy_cover::Lazy;
+use super::lazy_flow::{self as flow, Call, Callee};
+use super::lazy_table as table;
 use super::literal;
 use crate::module::Module;
-use flow::{Call, Callee};
-
-#[path = "lazy_binds.rs"]
-mod binds;
-#[path = "lazy_flow.rs"]
-mod flow;
-#[path = "lazy_table.rs"]
-mod table;
-#[path = "lazy_writes.rs"]
-mod writes;
 
 #[cfg(test)]
 #[path = "lazy_table_tests.rs"]
 mod tests;
-
-/// What the proof of one module covers: the ranges of the sites that are no gap and the import
-/// targets of the calls.
-#[derive(Default)]
-pub(super) struct Lazy {
-    pub exempt: Vec<TextRange>,
-    pub targets: Vec<(TextRange, String)>,
-}
 
 /// The proof of each module, in the order of `modules`.
 pub(super) fn find(modules: &[Module], binders: &[Binders], namespace: &str) -> Vec<Lazy> {
