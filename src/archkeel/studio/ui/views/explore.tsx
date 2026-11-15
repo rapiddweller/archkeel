@@ -296,7 +296,7 @@ function LensPage(props: { model: Model; symbol: number; chat: ChatState }) {
   return (
     <Workbench
       model={model}
-      where={{ level: Level.Function, id: symbol, pkg: null }}
+      where={{ level: Level.Routine, id: symbol, pkg: null }}
       chat={props.chat}
       symbol={symbol}
       focus={{ active: selected !== null, clear: () => setSelected(null) }}
