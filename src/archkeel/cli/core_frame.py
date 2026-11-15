@@ -188,15 +188,16 @@ def read_refusal(stderr: bytes) -> Gap | None:
 
 def _premise(frame: Mapping[str, object], scan: bool, status: Status) -> str | None:
     """The assumption text of the frame: absent, or a non-empty string. Anything else is refused.
-    A PASS of a TypeScript scan always states it (AD-540): a PASS without one is refused."""
+    A PASS of a TypeScript or a Python scan always states it (AD-530, AD-540): a PASS without one
+    is refused."""
     if "premise" not in frame:
         collect = _object(
             _object(frame.get("self_test", {}), "self_test").get("collect", {}), "collect"
         )
         request = _object(collect.get("request", {}), "request")
         resolver = _object(request.get("resolver", {}), "resolver")
-        if scan and status is Status.PASS and resolver.get("language") == "typescript":
-            raise CoreError("the core frame of a TypeScript scan states no premise")
+        if scan and status is Status.PASS and resolver.get("language") in {"typescript", "python"}:
+            raise CoreError("the core frame of a TypeScript or Python scan states no premise")
         return None
     value = frame["premise"]
     if not isinstance(value, str) or not value.strip():

@@ -92,7 +92,7 @@ impl Scan<'_> {
         self.bounds.get(module).filter(|bound| {
             depth < 8
                 && !bound.getattr
-                && !bound.attribute_write
+                && !bound.foreign_write
                 && !self.hazardous.contains(module)
                 && !self.modules.contains(format!("{module}.{name}").as_str())
         })

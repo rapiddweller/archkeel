@@ -59,6 +59,10 @@ pub const BUILD: Build<'static> = Build {
     code_digest: env!("ARCHKEEL_CODE_DIGEST"),
 };
 
+/// The assumption that the proofs of the survey rest on (AD-530, AD-540). The report states it
+/// with the verdict. The collector cannot see code outside the scan roots.
+const PREMISE: &str = "code outside the scan roots hands in no module object of the scan";
+
 /// The compressed reply of the subprocess path.
 pub fn compressed_reply(request: &PythonRequest, build: &Build<'_>) -> Result<Vec<u8>, String> {
     reply::reply(request, survey::survey(request)?, build)
@@ -73,6 +77,7 @@ pub fn typed_reply(request: &PythonRequest, build: &Build<'_>) -> Result<Reply, 
         dependency_symbols: LimitSupport::Supported,
         interface_boundary: LimitSupport::Supported,
     });
+    reply.facts.scope_premise = Some(PREMISE);
     reply
         .facts
         .capabilities

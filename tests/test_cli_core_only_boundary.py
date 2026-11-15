@@ -66,9 +66,10 @@ def test_a_premise_that_is_no_text_is_refused(value: object) -> None:
         _read(document)
 
 
-def test_a_typescript_scan_frame_must_state_its_premise() -> None:
+@pytest.mark.parametrize("language", ["typescript", "python"])
+def test_a_scan_frame_of_a_language_with_a_premise_must_state_it(language: str) -> None:
     document = json.loads(frame())
-    document["self_test"]["collect"]["request"]["resolver"] = {"language": "typescript"}
+    document["self_test"]["collect"]["request"]["resolver"] = {"language": language}
     with pytest.raises(CoreError):
         _read(document)
     document["premise"] = "code outside the scan roots hands in no global object"

@@ -308,7 +308,9 @@ impl Walk<'_> {
         {
             return;
         }
-        let reads = |at: usize, a: &str| a == "__globals__" && self.reads.contains(&ranges[at]);
+        let reads = |at: usize, a: &str| {
+            matches!(a, "__globals__" | "f_globals") && self.reads.contains(&ranges[at])
+        };
         let door_at = attributes.iter().enumerate().find(|(at, a)| {
             let named =
                 ANY_ATTRIBUTE.contains(a) || IMPORT_FUNCTIONS.contains(a) || **a == "__path__";

@@ -68,6 +68,9 @@ pub(super) struct Bound {
     pub(super) getattr: bool,
     /// A namespace write through a runtime attribute helper can change a binding.
     pub(super) attribute_write: bool,
+    /// `setattr` or `delattr` on an object that is no local name of a function: it can write a
+    /// module of the scan (AD-530, decision 5).
+    pub(super) foreign_write: bool,
     /// The callee of `name = callee(...)`, for the names whose kind is `Kind::Call`.
     callees: HashMap<String, String>,
     /// The class statements of the module scope (AD-566).
@@ -187,6 +190,8 @@ struct Walk {
     scope: usize,
     /// The depth of compound statements at module scope.
     depth: usize,
+    /// The local names of each enclosing function, the innermost last (AD-530).
+    locals: Vec<HashSet<String>>,
 }
 
 impl Walk {
@@ -213,6 +218,20 @@ impl Walk {
         };
         let star = node.names.iter().any(|alias| alias.name.as_str() == "*");
         self.bound.opaque |= star && self.scope == 0;
+    }
+
+    /// True when `expr` is a local name of a function, or an attribute or a subscript of one: a
+    /// write to it is no write to a module of the scan (AD-530, decision 5).
+    fn local(&self, expr: &Expr) -> bool {
+        match expr {
+            Expr::Name(name) => self
+                .locals
+                .iter()
+                .any(|names| names.contains(name.id.as_str())),
+            Expr::Attribute(node) => self.local(&node.value),
+            Expr::Subscript(node) => self.local(&node.value),
+            _ => false,
+        }
     }
 
     /// The body of a definition: the names of its statements bind in a scope of their own.
@@ -300,7 +319,9 @@ impl<'a> Visitor<'a> for Walk {
                     .for_each(|item| self.visit_decorator(item));
                 self.visit_parameters(&node.parameters);
                 node.returns.iter().for_each(|item| self.visit_expr(item));
+                self.locals.push(super::globals_locals::local_names(node));
                 self.body_scope(&node.body);
+                self.locals.pop();
             }
             Stmt::ClassDef(node) => {
                 self.definition(node.name.as_str(), start);
@@ -366,7 +387,13 @@ impl<'a> Visitor<'a> for Walk {
                 Expr::Attribute(attr) => Some(attr.attr.as_str()),
                 _ => None,
             };
-            self.bound.attribute_write |= matches!(name, Some("setattr" | "delattr"));
+            let helper = matches!(name, Some("setattr" | "delattr"));
+            let first = call.arguments.args.first();
+            self.bound.attribute_write |= helper;
+            // A method named `setattr` (`monkeypatch.setattr("app.lib.f", 1)`) can take a path.
+            let builtin = matches!(&*call.func, Expr::Name(_));
+            let local = builtin && first.is_some_and(|expr| self.local(expr));
+            self.bound.foreign_write |= helper && !local;
         }
         if let Expr::Name(node) = expr {
             if matches!(node.ctx, ExprContext::Store | ExprContext::Del) {
