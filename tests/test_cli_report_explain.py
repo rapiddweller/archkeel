@@ -12,6 +12,7 @@ from typing import Any
 import pytest
 from core_support import ROOT, run
 from frozen_native import frozen_root as frozen_root
+from planted_cycle import cycle_root as cycle_root
 
 from archkeel.cli import core_only
 
@@ -27,14 +28,14 @@ def frame_of(
     return code, frame
 
 
-def test_the_self_run_gives_one_closed_path_for_each_of_its_seven_cycles(
-    release_core: Path, monkeypatch: pytest.MonkeyPatch, frozen_root: Path
+def test_a_planted_cycle_gives_one_closed_path(
+    release_core: Path, monkeypatch: pytest.MonkeyPatch, cycle_root: Path
 ) -> None:
-    code, frame = frame_of(release_core, monkeypatch, frozen_root, "native/archkeel.toml")
-    assert code == 1 and frame["rules"]["NATIVE-NO-MODULE-CYCLES"][1] == "FAIL"
-    cycles = frame["explain"]["cycles"]["NATIVE-NO-MODULE-CYCLES"]
-    details = frame["details"]["NATIVE-NO-MODULE-CYCLES"]
-    assert (cycles["total"], cycles["truncated"], len(cycles["items"])) == (7, False, 7)
+    code, frame = frame_of(release_core, monkeypatch, cycle_root, "archkeel.toml")
+    assert code == 1 and frame["rules"]["APP-NO-MODULE-CYCLES"][1] == "FAIL"
+    cycles = frame["explain"]["cycles"]["APP-NO-MODULE-CYCLES"]
+    details = frame["details"]["APP-NO-MODULE-CYCLES"]
+    assert (cycles["total"], cycles["truncated"], len(cycles["items"])) == (1, False, 1)
     for item in cycles["items"]:
         path = item["path"]
         assert not item["truncated"] and item["steps_total"] == len(path) >= 2
@@ -50,7 +51,7 @@ def test_the_self_run_gives_one_closed_path_for_each_of_its_seven_cycles(
             assert step["evidence_total"] >= len(step["evidence"])
             assert set(step["evidence"]) <= set(frame["locations"])
             assert set(step["evidence"]) <= set(row["evidence"])
-    assert [item["index"] for item in cycles["items"]] == list(range(7))
+    assert [item["index"] for item in cycles["items"]] == list(range(1))
 
 
 def test_the_shell_run_gives_the_sides_of_each_of_its_rules(

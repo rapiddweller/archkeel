@@ -467,7 +467,7 @@ def test_native_static_page_stays_below_the_review_size_budget(
         "--output",
         str(target),
     )
-    assert code == 1 and found["status"] == "FAIL", found
+    assert code == 2 and found["status"] == "UNKNOWN", found
     assert target.stat().st_size < 600_000
 
 

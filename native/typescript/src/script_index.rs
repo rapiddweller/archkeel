@@ -10,7 +10,8 @@ use std::collections::{HashMap, HashSet};
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::script_scope::Tree;
+use crate::script_names::bound_scope;
+use crate::script_tree::Tree;
 
 /// A declaration of a name, by the scope that binds it: `(scope id, name)`.
 pub(crate) type Key = (usize, String);
@@ -47,14 +48,14 @@ impl<'t> DeclIndex<'t> {
             return;
         };
         let spelling = tree.text(name);
-        if let Some(scope) = tree.bound_scope(node, &spelling) {
+        if let Some(scope) = bound_scope(tree, node, &spelling) {
             let key = (scope.id(), spelling.clone());
             self.declared.entry(key).or_default().push(node);
         }
         if kind != K::VariableDeclarator || tree.k(name) != K::Identifier {
             return;
         }
-        if let Some(scope) = tree.bound_scope(name, &spelling) {
+        if let Some(scope) = bound_scope(tree, name, &spelling) {
             let key = (scope.id(), spelling);
             self.variables.entry(key).or_default().push(node);
         }
@@ -66,7 +67,7 @@ impl<'t> DeclIndex<'t> {
         let [name] = path.as_slice() else {
             return;
         };
-        if let Some(scope) = tree.bound_scope(target, name) {
+        if let Some(scope) = bound_scope(tree, target, name) {
             self.written.insert((scope.id(), name.clone()));
         }
     }
