@@ -254,3 +254,80 @@ fn an_unrelated_named_hazard_does_not_change_a_literal_binding() {
     assert!(!found.opaque_surface.contains("app.lib"));
     assert!(!found.unknowns.is_empty());
 }
+
+#[test]
+fn typing_factories_prove_values_only_when_their_bindings_are_unmodified() {
+    for (origin, patch, escaped) in [
+        (
+            "from typing import Annotated\nVALUE = Annotated[int, 1]\n",
+            "",
+            false,
+        ),
+        (
+            "from typing import TypeVar\nVALUE = TypeVar('VALUE')\n",
+            "",
+            false,
+        ),
+        (
+            "from typing import Annotated\nVALUE = Annotated[int, 1]\n",
+            "import typing\ntyping.Annotated = other\n",
+            true,
+        ),
+        (
+            "from typing import Annotated\nVALUE = Annotated[int, 1]\n",
+            "from typing import Annotated\nchange(Annotated)\n",
+            true,
+        ),
+        (
+            "from typing import Annotated\nVALUE = Annotated[int, 1]\n",
+            "from typing_extensions import Annotated\nchange(Annotated)\n",
+            true,
+        ),
+        (
+            "from typing import Annotated\nAnnotated = other\nVALUE = Annotated[int, 1]\n",
+            "",
+            true,
+        ),
+        (
+            "from typing import TypeAlias\nVALUE: TypeAlias = other\n",
+            "",
+            true,
+        ),
+    ] {
+        let found = surveyed(&[
+            ("src/app/__init__.py", ""),
+            ("src/app/lib.py", origin),
+            ("src/app/patch.py", patch),
+            (
+                "src/app/writer.py",
+                "from app.lib import VALUE\nuse(VALUE)\n",
+            ),
+        ]);
+        assert_eq!(
+            found.opaque_surface.contains("app.lib"),
+            escaped,
+            "{origin} {patch}"
+        );
+    }
+}
+
+#[test]
+fn a_typing_factory_that_escapes_through_a_reexport_is_not_trusted() {
+    let found = surveyed(&[
+        ("src/app/__init__.py", ""),
+        ("src/app/mid.py", "from typing import Annotated\n"),
+        (
+            "src/app/lib.py",
+            "from app.mid import Annotated\nVALUE = Annotated[int, 1]\n",
+        ),
+        (
+            "src/app/patch.py",
+            "from app.mid import Annotated\nchange(Annotated)\n",
+        ),
+        (
+            "src/app/writer.py",
+            "from app.lib import VALUE\nuse(VALUE)\n",
+        ),
+    ]);
+    assert!(found.opaque_surface.contains("app.lib"));
+}

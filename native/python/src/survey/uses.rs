@@ -25,7 +25,7 @@ use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::{ImportFact, Record};
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{Expr, ExprAttribute, ExprContext};
+use ruff_python_ast::{Expr, ExprAttribute, ExprContext, Stmt};
 
 use super::bound::{Bound, Kind};
 use crate::module::Module;
@@ -49,6 +49,7 @@ struct Scan<'m> {
     modules: HashSet<&'m str>,
     bounds: HashMap<&'m str, Bound>,
     hazardous: HashSet<&'m str>,
+    typing_values: HashSet<(String, String)>,
     /// The imports of each module by bound name: (target module, symbol).
     imports: HashMap<(&'m str, &'m str), Vec<Origin<'m>>>,
 }
@@ -68,6 +69,13 @@ impl Scan<'_> {
         match bound.kind(name) {
             Some(Kind::Callable | Kind::Value) => true,
             Some(Kind::BuiltinGeneric(builtin)) => bound.unbound(builtin),
+            Some(Kind::Other)
+                if self
+                    .typing_values
+                    .contains(&(module.to_owned(), name.to_owned())) =>
+            {
+                true
+            }
             Some(Kind::Import) => match self.imports.get(&(module, name)).map(Vec::as_slice) {
                 Some([(target, Some(symbol))]) => self.callable(target, symbol, depth + 1),
                 _ => false,
@@ -101,6 +109,7 @@ pub(super) fn escaped(modules: &[Module], imports: &[Record<ImportFact>]) -> Has
             .filter(|(_, site)| namespace_hazard(&site.detail))
             .map(|(index, _)| modules[*index].name.as_str())
             .collect(),
+        typing_values: HashSet::new(),
         bounds: modules
             .iter()
             .map(|module| (module.name.as_str(), Bound::of(&module.tree.body)))
@@ -137,6 +146,7 @@ pub(super) fn escaped(modules: &[Module], imports: &[Record<ImportFact>]) -> Has
             .or_default()
             .push(kind);
     }
+    scan.typing_values = typing_values(modules, imports, &scan);
     for module in modules {
         let mut walk = Uses {
             scan: &scan,
@@ -164,6 +174,167 @@ fn namespace_hazard(detail: &str) -> bool {
         || detail.starts_with("builtins.")
         || detail == "sys.modules"
         || detail.starts_with("sys.modules.")
+}
+
+/// A typing factory that is referenced only as a factory cannot be patched by a scanned use.
+type Factory = (String, String);
+
+fn typing_factory(scan: &Scan<'_>, module: &str, name: &str, depth: usize) -> Option<Factory> {
+    let bound = scan.bounds.get(module)?;
+    if depth >= 8
+        || bound.getattr
+        || bound.attribute_write
+        || scan.hazardous.contains(module)
+        || scan.modules.contains(format!("{module}.{name}").as_str())
+        || bound.kind(name) != Some(Kind::Import)
+    {
+        return None;
+    }
+    let [(target, Some(symbol))] = scan.imports.get(&(module, name))?.as_slice() else {
+        return None;
+    };
+    if matches!(*target, "typing" | "typing_extensions") && factory_form(symbol).is_some() {
+        return Some(((*target).to_owned(), (*symbol).to_owned()));
+    }
+    typing_factory(scan, target, symbol, depth + 1)
+}
+
+fn factory_form(name: &str) -> Option<bool> {
+    match name {
+        "Annotated" | "Union" | "Optional" | "Literal" => Some(true),
+        "TypeVar" | "NewType" => Some(false),
+        _ => None,
+    }
+}
+
+fn typing_values(
+    modules: &[Module],
+    imports: &[Record<ImportFact>],
+    scan: &Scan<'_>,
+) -> HashSet<(String, String)> {
+    let mut aliases = HashMap::new();
+    let mut blocked = HashSet::new();
+    let mut blocked_modules = HashSet::new();
+    for record in imports {
+        let data = record.data.data();
+        let target = data.target_module.as_str();
+        if !matches!(target, "typing" | "typing_extensions") {
+            continue;
+        }
+        if data.symbol.as_deref().is_none_or(|symbol| symbol == "*") {
+            blocked_modules.insert(target.to_owned());
+            continue;
+        }
+        let (Some(symbol), Some(binding)) = (data.symbol.as_deref(), data.binding.as_deref())
+        else {
+            continue;
+        };
+        if factory_form(symbol).is_some()
+            && scan
+                .bounds
+                .get(data.source_module.as_str())
+                .and_then(|b| b.kind(binding))
+                != Some(Kind::Import)
+        {
+            blocked.insert((target.to_owned(), symbol.to_owned()));
+        }
+    }
+    for (module, name) in scan.imports.keys() {
+        if let Some(factory) = typing_factory(scan, module, name, 0) {
+            aliases.insert(((*module).to_owned(), (*name).to_owned()), factory);
+        }
+    }
+    for module in modules {
+        let names = aliases
+            .iter()
+            .filter_map(|((owner, name), factory)| {
+                (owner == &module.name).then_some((name.as_str(), factory))
+            })
+            .collect();
+        let mut watch = TypingWatch {
+            names,
+            blocked: &mut blocked,
+        };
+        watch.visit_body(&module.tree.body);
+    }
+    let mut values = HashSet::new();
+    for module in modules {
+        for (name, head, form) in module.tree.body.iter().flat_map(typing_candidates) {
+            let key = (module.name.clone(), head.to_owned());
+            let Some(factory) = aliases.get(&key) else {
+                continue;
+            };
+            if factory_form(&factory.1) == Some(form)
+                && !blocked.iter().any(|(_, name)| name == &factory.1)
+                && blocked_modules.is_empty()
+            {
+                values.insert((module.name.clone(), name.to_owned()));
+            }
+        }
+    }
+    values
+}
+
+fn typing_candidates(stmt: &Stmt) -> Vec<(&str, &str, bool)> {
+    let (targets, value): (Vec<&Expr>, &Expr) = match stmt {
+        Stmt::Assign(node) => (node.targets.iter().collect(), &node.value),
+        Stmt::AnnAssign(node) => match &node.value {
+            Some(value) => (vec![&node.target], value),
+            None => return Vec::new(),
+        },
+        _ => return Vec::new(),
+    };
+    let (head, form) = match value {
+        Expr::Subscript(node) => (&*node.value, true),
+        Expr::Call(node) => (&*node.func, false),
+        _ => return Vec::new(),
+    };
+    let Expr::Name(head) = head else {
+        return Vec::new();
+    };
+    targets
+        .into_iter()
+        .filter_map(|target| match target {
+            Expr::Name(name) => Some((name.id.as_str(), head.id.as_str(), form)),
+            _ => None,
+        })
+        .collect()
+}
+
+struct TypingWatch<'a> {
+    names: HashMap<&'a str, &'a Factory>,
+    blocked: &'a mut HashSet<Factory>,
+}
+
+impl<'a> Visitor<'a> for TypingWatch<'_> {
+    fn visit_expr(&mut self, expr: &'a Expr) {
+        match expr {
+            Expr::Subscript(node) if self.factory(&node.value, true) => {
+                self.visit_expr(&node.slice);
+                return;
+            }
+            Expr::Call(node) if self.factory(&node.func, false) => {
+                self.visit_arguments(&node.arguments);
+                return;
+            }
+            Expr::Name(name) => {
+                if let Some(factory) = self.names.get(name.id.as_str()) {
+                    self.blocked.insert((*factory).clone());
+                }
+            }
+            _ => {}
+        }
+        visitor::walk_expr(self, expr);
+    }
+}
+
+impl TypingWatch<'_> {
+    fn factory(&self, expr: &Expr, form: bool) -> bool {
+        let Expr::Name(name) = expr else { return false };
+        self.names
+            .get(name.id.as_str())
+            .is_some_and(|factory| factory_form(&factory.1) == Some(form))
+    }
 }
 
 struct Uses<'s, 'm> {

@@ -166,6 +166,16 @@ impl Walk {
     fn definition(&mut self, name: &str, start: TextSize) {
         self.site(name, start, true, Kind::Callable);
     }
+
+    fn assignment_target<'a>(&mut self, target: &'a Expr, start: TextSize, kind: Kind)
+    where
+        Self: Visitor<'a>,
+    {
+        match target {
+            Expr::Name(name) => self.site(name.id.as_str(), start, true, kind),
+            other => self.visit_expr(other),
+        }
+    }
 }
 
 impl<'a> Visitor<'a> for Walk {
@@ -215,25 +225,16 @@ impl<'a> Visitor<'a> for Walk {
             }
             Stmt::Assign(node) => {
                 for target in &node.targets {
-                    match target {
-                        Expr::Name(name) => {
-                            self.site(name.id.as_str(), start, true, value_kind(&node.value))
-                        }
-                        other => self.visit_expr(other),
-                    }
+                    self.assignment_target(target, start, value_kind(&node.value));
                 }
                 self.visit_expr(&node.value);
             }
             Stmt::AnnAssign(node) => {
-                match &*node.target {
-                    Expr::Name(name) => self.site(
-                        name.id.as_str(),
-                        start,
-                        true,
-                        node.value.as_deref().map_or(Kind::Other, value_kind),
-                    ),
-                    other => self.visit_expr(other),
-                }
+                self.assignment_target(
+                    &node.target,
+                    start,
+                    node.value.as_deref().map_or(Kind::Other, value_kind),
+                );
                 self.visit_expr(&node.annotation);
                 node.value.iter().for_each(|value| self.visit_expr(value));
             }
