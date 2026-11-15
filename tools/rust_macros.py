@@ -169,8 +169,10 @@ def definitions(tokens: Sequence[Token]) -> tuple[list[Macro], list[Gap]]:
     """Return the `macro_rules!` definitions of one file, and the gaps of those not readable."""
     found: list[Macro] = []
     gaps: list[Gap] = []
-    for at in range(len(tokens) - 3):
+    at = 0
+    while at < len(tokens) - 3:
         if tokens[at].text != "macro_rules" or tokens[at + 1].text != "!":
+            at += 1
             continue
         name = tokens[at + 2].text
         end = group_end(tokens, at + 3)
@@ -180,6 +182,7 @@ def definitions(tokens: Sequence[Token]) -> tuple[list[Macro], list[Gap]]:
             found.append(Macro(name, _rules(body), _exported(tokens, at), text))
         except Unreadable as error:
             gaps.append(Gap(name, str(error)))
+        at = end  # a definition inside this body is read when a call expands it
     return found, gaps
 
 
@@ -407,10 +410,56 @@ def _expand_once(macro: Macro, call: Sequence[Token]) -> list[Token]:
     raise Unreadable("no rule matches the call")
 
 
+def module_names(tokens: Sequence[Token]) -> frozenset[str]:
+    """Return the names of the modules that the tokens declare, inline or in a file."""
+    return frozenset(
+        tokens[at + 1].text
+        for at in range(len(tokens) - 1)
+        if tokens[at].text == "mod" and tokens[at + 1].kind == "name"
+    )
+
+
+def _prefix(tokens: Sequence[Token], at: int) -> tuple[int, str | None]:
+    """Return the tokens of the path before the name at `at`, and its first segment.
+
+    The first segment is `None` without a path and empty for a path that starts with `::`.
+    """
+    start, first = at, None
+    while start >= 2 and tokens[start - 1].text == ":" and tokens[start - 2].text == ":":
+        if start >= 3 and tokens[start - 3].kind == "name":
+            first, start = tokens[start - 3].text, start - 3
+        else:
+            first, start = "", start - 2
+            break
+    return at - start, first
+
+
+def _learn(macros: dict[str, Macro], defined: Sequence[Macro], gaps: list[Gap]) -> None:
+    """Add the macros that an expansion defines; the calls after it see them."""
+    for macro in defined:
+        known = macros.get(macro.name)
+        if known is None:
+            macros[macro.name] = macro
+            if macro.exported:
+                gaps.append(Gap(macro.name, "an exported macro expands in other crates"))
+        elif known.text != macro.text:
+            gaps.append(Gap(macro.name, "two different definitions share the name"))
+            del macros[macro.name]
+
+
 def expand(
-    tokens: Sequence[Token], macros: dict[str, Macro], gaps: list[Gap], depth: int = 0
+    tokens: Sequence[Token],
+    macros: dict[str, Macro],
+    gaps: list[Gap],
+    modules: frozenset[str] = frozenset(),
+    depth: int = 0,
 ) -> list[Token]:
-    """Return the tokens with each call of a macro of `macros` replaced by its expansion."""
+    """Return the tokens with each call of a macro of `macros` replaced by its expansion.
+
+    A call by a path whose last name is in `macros` is expanded when the path starts at `crate`,
+    `self`, `super` or a module that the crate declares. Any other path is a gap: the tool does not
+    know whether it names this macro. The expansion may define macros; they serve its own calls.
+    """
     out: list[Token] = []
     at = 0
     while at < len(tokens):
@@ -421,22 +470,26 @@ def expand(
             and at + 2 < len(tokens)
             and tokens[at + 1].text == "!"
             and tokens[at + 2].text in OPEN
-            and (
-                at == 0
-                or tokens[at - 1].text != ":"
-                or (at >= 3 and tokens[at - 3].text in {"crate", "self", "super"})
-            )
         )
         if not call:
             out.append(token)
             at += 1
             continue
+        length, first = _prefix(tokens, at)
         end = group_end(tokens, at + 2)
         try:
+            if first is not None and first not in {"crate", "self", "super", *modules}:
+                raise Unreadable("the path of the call is not proven to be a path of this crate")
             if depth >= DEPTH:
                 raise Unreadable("the call is nested too deep")
             made = _expand_once(macros[token.text], tokens[at + 3 : end - 1])
-            out += expand(made, macros, gaps, depth + 1)
+            defined, unread = definitions(made)
+            gaps.extend(unread)
+            _learn(macros, defined, gaps)
+            expanded = expand(skip_definitions(made), macros, gaps, modules, depth + 1)
+            if length:
+                del out[-length:]
+            out += expanded
         except Unreadable as error:
             gaps.append(Gap(token.text, str(error)))
             out += tokens[at:end]

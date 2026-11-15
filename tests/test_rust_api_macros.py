@@ -141,6 +141,74 @@ PLANTS: dict[str, tuple[dict[str, str], list[str]]] = {
 }
 
 
+PATHS = (
+    "mod {m} {{\n    macro_rules! m {{ ($n:ident) => {{ pub fn $n() {{}} }} }}\n"
+    "    pub(crate) use m;\n}}\n"
+)
+PLANTS |= {
+    "a call by the path of a module": (
+        {"lib.rs": PATHS.format(m="a") + "a::m!(viapath);\n"},
+        ["fn viapath()"],
+    ),
+    "a call by a path from crate": (
+        {"lib.rs": PATHS.format(m="inner") + "crate::inner::m!(deep);\n"},
+        ["fn deep()"],
+    ),
+    "a call by a path that the tool cannot prove is a gap": (
+        {"lib.rs": PATHS.format(m="a") + "use a as b;\nb::m!(aliased);\n"},
+        ["unexpanded m!: the path of the call is not proven to be a path of this crate"],
+    ),
+    "a macro that defines a macro counts the item once": (
+        {
+            "lib.rs": "macro_rules! outer {\n    () => {\n        macro_rules! inner {\n"
+            "            () => { pub fn gen() {} };\n        }\n        inner!();\n    };\n}\n"
+            "outer!();\n"
+        },
+        ["fn gen()"],
+    ),
+    "a variable of an inner definition is a gap": (
+        {
+            "lib.rs": "macro_rules! outer {\n    ($f:ident) => {\n        macro_rules! inner {\n"
+            "            ($n:ident) => { pub fn $n() {} };\n        }\n        inner!($f);\n"
+            "    };\n}\nouter!(g);\n"
+        },
+        ["unexpanded outer!: the variable n is not bound here"],
+    ),
+    "a test variant ends at its comma": (
+        {
+            "lib.rs": "pub enum E { A, #[cfg(test)] B(u8), #[cfg(test)] D { x: u8 }, C }\n"
+            "impl E { pub fn after_variant() {} pub fn another() {} }\n"
+        },
+        [
+            "enum E",
+            "fn after_variant()",
+            "fn another()",
+            "variant E::A",
+            "variant E::C",
+        ],
+    ),
+    "a test field ends at its comma": (
+        {
+            "lib.rs": "pub struct S { pub a: u8, #[cfg(test)] pub b: Option<(u8, u8)>, pub c: u8 }\n"
+            "pub struct T(pub u8, #[cfg(test)] pub u8, pub u8);\npub fn g() {}\n"
+        },
+        [
+            "field S.a: u8",
+            "field S.c: u8",
+            "field T.0: u8",
+            "field T.1: u8",
+            "fn g()",
+            "struct S",
+            "struct T",
+        ],
+    ),
+    "a test use in a body ends at its semicolon": (
+        {"lib.rs": "pub fn f() { #[cfg(test)] use std::fmt::Debug; }\npub fn g() {}\n"},
+        ["fn f()", "fn g()"],
+    ),
+}
+
+
 def write(root: Path, files: dict[str, str]) -> Path:
     (root / "src").mkdir(parents=True)
     (root / "Cargo.toml").write_text('[package]\nname = "plant"\nedition = "2021"\n')

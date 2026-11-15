@@ -46,7 +46,15 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from rust_macros import Gap, Macro, definitions, expand, skip_definitions, table
+from rust_macros import (
+    Gap,
+    Macro,
+    definitions,
+    expand,
+    module_names,
+    skip_definitions,
+    table,
+)
 from rust_source import (
     Token,
     group_end,
@@ -249,10 +257,11 @@ def public_api(source: Path) -> list[str]:
         lines += [_gap(name, gap) for gap in unread]
     gaps: list[Gap] = []
     macros = table(found, gaps)
+    modules = frozenset().union(*(module_names(tokens) for tokens in files.values()))
     lines += [_gap("", gap) for gap in gaps]
     for name, tokens in files.items():
         local: list[Gap] = []
-        expanded = expand(skip_definitions(tokens), macros, local)
+        expanded = expand(skip_definitions(tokens), dict(macros), local, modules)
         lines += [_gap(name, gap) for gap in local]
         lines += [
             f"{kind} {'::'.join(filter(None, (_module(name), part)))}"

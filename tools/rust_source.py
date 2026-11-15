@@ -129,14 +129,70 @@ def _is_cfg_test(tokens: Sequence[Token], start: int, end: int) -> bool:
     ]
 
 
-def inline_test_mask(tokens: Sequence[Token]) -> list[bool]:
-    """Mark the tokens of each `#[cfg(test)]` item, from its attribute to the item's end.
+def _parents(tokens: Sequence[Token]) -> list[int]:
+    """Return, for each token, the index of the bracket that opens its innermost group, or -1."""
+    pairs = {"(": ")", "[": "]", "{": "}"}
+    result = [-1] * len(tokens)
+    stack: list[int] = []
+    for position, token in enumerate(tokens):
+        if token.kind == "punct" and stack and token.text == pairs[tokens[stack[-1]].text]:
+            stack.pop()
+        result[position] = stack[-1] if stack else -1
+        if token.kind == "punct" and token.text in pairs:
+            stack.append(position)
+    return result
 
-    The item is a `mod name { ... }`, or any other item up to its `;` or its last `}` (see
-    `item_end`). The braces are balanced on tokens, so a brace in a string or a comment does not
-    count.
+
+def _is_list(tokens: Sequence[Token], parents: Sequence[int], opener: int) -> bool:
+    """Whether the group at `opener` holds a comma list of attributed parts, not items.
+
+    That is a `( ... )` or `[ ... ]` group, the body of a `struct`, `union` or `enum`, and a
+    struct-like variant inside the body of an enum.
+    """
+    if opener < 0:
+        return False
+    if tokens[opener].text != "{":
+        return True
+    position = opener - 1
+    while position >= 0 and tokens[position].text not in {";", "{", "}"}:
+        if tokens[position].text in {"enum", "struct", "union"}:
+            return True
+        position -= 1
+    parent = parents[opener]
+    return parent >= 0 and tokens[parent].text == "{" and _is_list(tokens, parents, parent)
+
+
+def _part_end(tokens: Sequence[Token], start: int) -> int:
+    """Return the end of the part that starts at `start` in a comma list: after its `,`, or at the
+    closing bracket of the list. A comma inside `<...>` does not end it."""
+    angle, position = 0, start
+    while position < len(tokens):
+        token = tokens[position]
+        if token.kind == "punct" and token.text in {"(", "[", "{"}:
+            position = group_end(tokens, position)
+            continue
+        if token.kind == "punct" and token.text in {")", "]", "}"}:
+            return position
+        if token.text == "<":
+            angle += 1
+        elif token.text == ">" and tokens[position - 1].text not in {"-", "="}:
+            angle = max(angle - 1, 0)
+        elif token.text == "," and angle == 0:
+            return position + 1
+        position += 1
+    return position
+
+
+def inline_test_mask(tokens: Sequence[Token]) -> list[bool]:
+    """Mark the tokens of each `#[cfg(test)]` part, from its attribute to the part's end.
+
+    The part is a `mod name { ... }`, or any other item up to its `;` or its last `}` (see
+    `item_end`). Inside the body of a `struct`, `union` or `enum`, a tuple or an array, the part
+    is a field or a variant: it ends at its `,` or at the closing bracket. The braces are
+    balanced on tokens, so a brace in a string or a comment does not count.
     """
     mask = [False] * len(tokens)
+    parents = _parents(tokens)
     at = 0
     while at < len(tokens):
         if tokens[at].text != "#" or at + 1 >= len(tokens) or tokens[at + 1].text != "[":
@@ -149,6 +205,11 @@ def inline_test_mask(tokens: Sequence[Token]) -> list[bool]:
         position = end
         while position < len(tokens) and tokens[position].text == "#":
             position = group_end(tokens, position + 1)  # more attributes
+        if _is_list(tokens, parents, parents[at]):
+            stop = _part_end(tokens, position)
+            mask[at:stop] = [True] * (stop - at)
+            at = stop
+            continue
         if position < len(tokens) and tokens[position].text == "pub":
             position += 1
             if position < len(tokens) and tokens[position].text == "(":
