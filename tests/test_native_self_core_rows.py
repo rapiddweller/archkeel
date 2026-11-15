@@ -47,7 +47,7 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     assert len(core) == 83
     # No rule names a part of the scope proof: each one has a decision.
     assert result["gaps"] == []
-    assert Counter(core.values()) == {"PASS": 63, "UNKNOWN": 20}
+    assert Counter(core.values()) == {"PASS": 63, "UNKNOWN": 21}
     # No rule fails: the cycle rule is UNKNOWN, not PASS, while the scope has gaps.
     assert (code, result["status"], frame["status"]) == (2, "UNKNOWN", "UNKNOWN")
     assert set(frame["unknown_kinds"]) == {r for r, status in core.items() if status == "UNKNOWN"}
