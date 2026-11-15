@@ -18,8 +18,8 @@
 //!   the base of an attribute, is a dynamic import too: `getattr(sys, "path")` and `x = importlib`
 //!   reach any name of it. An attribute `sys`, `builtins` or `importlib` of any value is the same.
 //!
-//! The walk finds names, not bindings: a local value with one of these names is a site too,
-//! which is the stricter reading.
+//! Except for `code` (AD-539), the walk finds names, not scoped bindings. A local value with
+//! one of the other names is a site too, which is the stricter reading.
 
 use std::collections::HashMap;
 
@@ -28,9 +28,13 @@ use ruff_python_ast::{Expr, ExprContext, ModModule, Stmt};
 use ruff_text_size::{Ranged, TextRange};
 
 use super::binders::Binders;
+use super::bound::Bound;
 use super::literal::{self, Proof};
 use super::syspath;
 use crate::module::Module;
+
+#[path = "hazards_reflect.rs"]
+mod reflect;
 
 /// The named gaps of the sites.
 pub(super) const DYNAMIC: &str = "dynamic_import";
@@ -130,6 +134,8 @@ pub(super) fn sites(tree: &ModModule, proof: Proof, binders: &Binders) -> Vec<Si
     let mut walk = Walk {
         found: Vec::new(),
         bound: bindings(tree),
+        uncertain_code: Bound::of(&tree.body).opaque || reflect::deleted_code(tree),
+        class_body: false,
         proof,
     };
     for stmt in &tree.body {
@@ -195,6 +201,7 @@ fn bindings(tree: &ModModule) -> HashMap<String, Vec<String>> {
     }
     let mut walk = Imports(HashMap::new());
     walk.visit_body(&tree.body);
+    reflect::aliases(tree, &mut walk.0);
     walk.0
 }
 
@@ -260,6 +267,8 @@ fn imported(stmt: &Stmt) -> Vec<String> {
 struct Walk {
     found: Vec<Site>,
     bound: HashMap<String, Vec<String>>,
+    uncertain_code: bool,
+    class_body: bool,
     proof: Proof,
 }
 
@@ -274,6 +283,13 @@ impl Walk {
 
     /// The qualified origins of a plain name: its import bindings, else the name itself.
     fn origins(&self, name: &str) -> Vec<String> {
+        if name == "code"
+            && !self.uncertain_code
+            && !self.class_body
+            && !self.bound.contains_key(name)
+        {
+            return Vec::new();
+        }
         self.bound
             .get(name)
             .cloned()
@@ -318,6 +334,9 @@ impl Walk {
                 return self.push(kind, name, expr);
             }
         }
+        if attributes.contains(&"code") && reflect::module(base, &self.bound) {
+            return self.push(DYNAMIC, "code", expr);
+        }
         let Expr::Name(root) = base else {
             return self.visit_expr(base);
         };
@@ -361,12 +380,38 @@ fn store(expr: &Expr) -> bool {
 
 impl<'a> Visitor<'a> for Walk {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        if matches!(stmt, Stmt::ImportFrom(node)
+            if node.level > 0 && node.names.iter().any(|alias| alias.name.as_str() == "code"))
+        {
+            self.push(DYNAMIC, "code", stmt);
+        }
         for name in imported(stmt) {
-            if let Some(kind) = hazard(&name) {
+            if name.ends_with(".code") {
+                self.push(DYNAMIC, &name, stmt);
+            } else if let Some(kind) = hazard(&name) {
                 self.push(kind, &name, stmt);
             }
         }
+        let previous = self.class_body;
+        if let Stmt::FunctionDef(node) = stmt {
+            node.decorator_list
+                .iter()
+                .for_each(|item| self.visit_decorator(item));
+            if let Some(params) = &node.type_params {
+                self.visit_type_params(params);
+            }
+            self.visit_parameters(&node.parameters);
+            node.returns.iter().for_each(|item| self.visit_expr(item));
+            self.class_body = false;
+            self.visit_body(&node.body);
+            self.class_body = previous;
+            return;
+        }
+        if matches!(stmt, Stmt::ClassDef(_)) {
+            self.class_body = true;
+        }
         visitor::walk_stmt(self, stmt);
+        self.class_body = previous;
     }
 
     fn visit_expr(&mut self, expr: &'a Expr) {
@@ -374,8 +419,16 @@ impl<'a> Visitor<'a> for Walk {
             // AD-472: only the callee of a proven literal call is exempt; its one argument is a
             // string literal, so nothing below the call is left to read.
             Expr::Call(call) => match self.proof.target(call) {
-                Some(target) => self.push(LITERAL, &target, expr),
+                Some(target) => {
+                    self.push(LITERAL, &target, expr);
+                    if let Some(kind) = hazard(&target) {
+                        self.push(kind, &target, expr);
+                    }
+                }
                 None => {
+                    if reflect::code(expr, &self.bound) {
+                        self.push(DYNAMIC, "code", expr);
+                    }
                     // `vars()` without an argument is the namespace of the caller.
                     let bare = matches!(&*call.func, Expr::Name(f) if f.id.as_str() == "vars");
                     if bare && call.arguments.is_empty() {
@@ -384,6 +437,10 @@ impl<'a> Visitor<'a> for Walk {
                     visitor::walk_expr(self, expr);
                 }
             },
+            Expr::Subscript(_) if reflect::code(expr, &self.bound) => {
+                self.push(DYNAMIC, "code", expr);
+                visitor::walk_expr(self, expr);
+            }
             Expr::Attribute(_) => self.chain(expr),
             Expr::StringLiteral(node) if DOOR_STRINGS.contains(&node.value.to_str()) => {
                 self.push(DYNAMIC, node.value.to_str(), expr);

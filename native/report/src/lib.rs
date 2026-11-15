@@ -114,7 +114,7 @@
 //!     Ruling { decided, protocol: "archkeel-core-frame-1", html: false, status: Status::Pass,
 //!         rules: Default::default(), details: Default::default(), unknown_kinds: Default::default(),
 //!         explained: Default::default(), violations: Default::default(),
-//!         beyond: Default::default(), scope: "complete".into(),
+//!         beyond: Default::default(), scope: "complete".into(), premise: None,
 //!         unsupported: RuleReasons::All(String::new()), explain: Default::default() }
 //! }
 //! ```

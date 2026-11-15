@@ -7,8 +7,14 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-556 | [Cross-crate Rust types need public bindings](ad-556-cross-crate-rust-types-need-public-bindings.md) |
 | AD-554 | [Prove two written field steps in a Rust receiver](ad-554-prove-two-written-field-steps-in-a-rust-receiver.md) |
+| AD-552 | [A literal binding is not a module object](ad-552-a-literal-binding-is-not-a-module-object.md) |
+| AD-550 | [Dart names loader tokens and relative package roots](ad-550-dart-names-loader-tokens-and-relative-package-roots.md) |
+| AD-544 | [A Rust receiver type can follow workspace re-exports](ad-544-a-rust-receiver-type-can-follow-workspace-reexports.md) |
 | AD-543 | [A written local type proves a Rust receiver](ad-543-a-written-local-type-proves-a-rust-receiver.md) |
+| AD-542 | [Dart isolate and package keys need evidence](ad-542-dart-isolate-and-package-keys-need-evidence.md) |
+| AD-540 | [An amplifier form writes a global only when the scan has a host entry](ad-540-an-amplifier-form-writes-a-global-only-when-the-scan-has-a-host-entry.md) |
 | AD-535 | [Conditional lints and matches keep a Rust receiver proof](ad-535-conditional-lints-do-not-gate-a-rust-receiver-proof.md) |
 | AD-534 | [A local enum, a value namespace and `arguments` are bindings in TypeScript](ad-534-a-local-enum-a-value-namespace-and-arguments-are-bindings-in-typescript.md) |
 | AD-528 | [A leading `types` directive is a type-only edge to its package, or a named gap](ad-528-a-leading-types-directive-is-a-type-only-edge-to-its-package.md) |
@@ -451,4 +457,5 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-514 | [The core proves a use of a public entry from imports and names the rest](ad-514-the-core-proves-a-use-of-a-public-entry-from-imports-and-names-the-rest.md) |
 | AD-538 | [A `sys.path.append` that adds no imported name is no gap](ad-538-a-sys-path-append-that-adds-no-imported-name-is-no-gap.md) |
 | AD-536 | [A Python import call is an edge of the code but not a statement of a UML target](ad-536-a-python-import-call-is-no-statement-edge-of-a-uml-target.md) |
+| AD-539 | [A local `code` name is not a module binding](ad-539-a-local-code-name-is-not-a-module-binding.md) |
 | AD-526 | [The core compares the UML targets of the inside contracts as one declared intent](ad-526-the-core-compares-the-uml-targets-of-the-inside-contracts-as-one-declared-intent.md) |
