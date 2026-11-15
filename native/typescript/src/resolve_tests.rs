@@ -383,7 +383,7 @@ fn run(block: &str) {
             assert_eq!(got, reason, "blocked");
         } else if let Some(expected) = line.strip_prefix("format;") {
             let (rel, format) = expected.split_once(';').expect("a format line");
-            let got = render_format(resolver.format_of(&mut snapshot, rel));
+            let got = render_format(format_of(&mut resolver, &mut snapshot, rel));
             assert_eq!(got, format, "format of {rel}");
         } else if line.contains(';') {
             let parts: Vec<&str> = line.splitn(5, ';').collect();

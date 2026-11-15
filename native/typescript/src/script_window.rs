@@ -12,6 +12,8 @@
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
+use crate::script_names::bound_scope;
+use crate::script_scope::sole_binding_scope;
 use crate::script_syntax::Producer;
 use crate::source_input::is_window_name;
 
@@ -118,7 +120,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         match tree.k(target) {
             K::Identifier | K::ShorthandPropertyIdentifierPattern => {
                 let name = tree.text(target);
-                let free = tree.binding_scope(target, &name).is_none() && !tree.in_type(target);
+                let free = bound_scope(tree, target, &name).is_none() && !tree.in_type(target);
                 free.then(|| named(cooked(&name)))
             }
             K::MemberExpression => {
@@ -204,7 +206,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     pub(crate) fn sole_declaration(&self, name: Node<'t>) -> Option<Node<'t>> {
         let tree = self.tree;
         let text = tree.text(name);
-        let scope = tree.sole_binding_scope(name, &text)?;
+        let scope = sole_binding_scope(tree, name, &text)?;
         let key = (scope.id(), text);
         if self.index.written.contains(&key) {
             return None;
@@ -269,7 +271,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                     return false;
                 }
                 let name = tree.text(node);
-                if tree.binding_scope(node, &name).is_some() {
+                if bound_scope(tree, node, &name).is_some() {
                     // A local binding is no global; only a wrapper parameter names the window.
                     let wrapper = self
                         .wrapper_of(node)
@@ -378,7 +380,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 }
 
 /// `a || b`, `a && b` and `a ?? b` give one of their operands.
-fn logical<'t>(tree: &crate::script_scope::Tree<'_, 't>, node: Node<'t>) -> bool {
+fn logical<'t>(tree: &crate::script_tree::Tree<'_, 't>, node: Node<'t>) -> bool {
     tree.field(node, F::Operator)
         .is_some_and(|operator| matches!(operator.kind(), "||" | "&&" | "??"))
 }

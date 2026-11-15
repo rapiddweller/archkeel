@@ -8,12 +8,11 @@
 //! A specifier or a setting outside those rules is `Unknown` with its reason: a resolver that is
 //! more permissive than the compiler would turn an unresolvable import into a proven dependency.
 
-use std::collections::HashSet;
-
 use serde_json::Value;
 
 use crate::manifest::{self, Json, Lookup, Unknown};
-use crate::options::{Options, Resolution};
+use crate::options::Resolution;
+use crate::resolver::{Kinds, Resolver, TS_AND_DECLARATION};
 use crate::source_input::{
     classify_file, classify_specifier, ModuleFormat, SourceKind, Specifier, SpecifierKind, Suffix,
 };
@@ -30,18 +29,6 @@ pub(crate) struct Found {
     pub directory_package: bool,
     /// Matched a `paths` entry, which a bundler alias is assumed to mirror.
     pub via_paths: bool,
-}
-
-type Kinds<'a> = &'a [SourceKind];
-const TS_AND_DECLARATION: Kinds = &[SourceKind::TypeScript, SourceKind::Declaration];
-const DECLARATION: Kinds = &[SourceKind::Declaration];
-
-pub(crate) struct Resolver {
-    pub options: Options,
-    partial: bool,
-    /// A reason that nothing can be resolved: the settings in force are not all understood.
-    pub blocked: Option<Unknown>,
-    reads: HashSet<String>,
 }
 
 /// The directories from the one that holds `rel` up to the snapshot root.
@@ -105,45 +92,32 @@ fn package_subpath<'a>(specifier_path: &'a str, name: &str) -> Option<&'a str> {
     .then_some(subpath)
 }
 
+/// Whether Node loads a file as ESM or CommonJS; `Missing` where no format is defined.
+pub(crate) fn format_of(
+    resolver: &mut Resolver,
+    snapshot: &mut Snapshot,
+    rel: &str,
+) -> Lookup<ModuleFormat> {
+    if !matches!(
+        resolver.options.resolution(),
+        Resolution::Node16 | Resolution::NodeNext
+    ) {
+        return Lookup::Missing;
+    }
+    let suffix = classify_file(rel);
+    if !suffix.is_some_and(Suffix::scoped_format) {
+        return suffix
+            .and_then(Suffix::format_hint)
+            .map_or(Lookup::Missing, Lookup::Hit);
+    }
+    match resolver.scope(snapshot, rel) {
+        Lookup::Unknown(reason) => Lookup::Unknown(reason),
+        Lookup::Hit(manifest) if manifest::is_module(&manifest) => Lookup::Hit(ModuleFormat::Esm),
+        _ => Lookup::Hit(ModuleFormat::Cjs),
+    }
+}
+
 impl Resolver {
-    pub(crate) fn new(options: Options, partial: bool) -> Self {
-        let mut resolver = Self {
-            options,
-            partial,
-            blocked: None,
-            reads: HashSet::new(),
-        };
-        resolver.blocked = resolver.blocked_reason();
-        resolver
-    }
-
-    fn blocked_reason(&self) -> Option<Unknown> {
-        if !self.options.unmodeled.is_empty() {
-            let names = self.options.unmodeled.join(", ");
-            return Some(Unknown::new(format!(
-                "Compiler option is not observed: {names}"
-            )));
-        }
-        if self.partial {
-            return Some(Unknown::new("TSConfig settings are not fully observed"));
-        }
-        (self.options.resolution() == Resolution::Classic)
-            .then(|| Unknown::new("moduleResolution classic is not observed"))
-    }
-
-    fn exports_aware(&self) -> bool {
-        matches!(
-            self.options.resolution(),
-            Resolution::Node16 | Resolution::NodeNext | Resolution::Bundler
-        )
-    }
-
-    fn manifest(&mut self, snapshot: &mut Snapshot, directory: &str) -> Lookup<Json> {
-        let (path, found) = manifest::read(snapshot, directory);
-        self.reads.extend(path);
-        found
-    }
-
     /// The nearest `package.json` above a file, searched up to the filesystem root.
     pub(crate) fn scope(&mut self, snapshot: &mut Snapshot, rel: &str) -> Lookup<Json> {
         let mut chain = ancestors(rel);
@@ -157,29 +131,6 @@ impl Resolver {
             }
         }
         Lookup::Missing
-    }
-
-    /// Whether Node loads a file as ESM or CommonJS; `Missing` where no format is defined.
-    pub(crate) fn format_of(&mut self, snapshot: &mut Snapshot, rel: &str) -> Lookup<ModuleFormat> {
-        if !matches!(
-            self.options.resolution(),
-            Resolution::Node16 | Resolution::NodeNext
-        ) {
-            return Lookup::Missing;
-        }
-        let suffix = classify_file(rel);
-        if !suffix.is_some_and(Suffix::scoped_format) {
-            return suffix
-                .and_then(Suffix::format_hint)
-                .map_or(Lookup::Missing, Lookup::Hit);
-        }
-        match self.scope(snapshot, rel) {
-            Lookup::Unknown(reason) => Lookup::Unknown(reason),
-            Lookup::Hit(manifest) if manifest::is_module(&manifest) => {
-                Lookup::Hit(ModuleFormat::Esm)
-            }
-            _ => Lookup::Hit(ModuleFormat::Cjs),
-        }
     }
 
     /// The snapshot file that `specifier` names, `Missing` when it names none.

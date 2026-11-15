@@ -8,121 +8,31 @@
 //! The scan does not know which names are crates. It records the first segment of each qualified
 //! path, and `resolve.rs` decides which of them name a crate.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use proc_macro2::Span;
 use syn::visit::{self, Visit};
-use syn::{Attribute, Item, ItemExternCrate, ItemMacro, ItemMod, ItemUse, Macro};
+use syn::{
+    Attribute, Expr, ExprLit, Item, ItemExternCrate, ItemMacro, ItemMod, ItemUse, Lit, Macro, Meta,
+};
 
+use crate::attrs::model::KNOWN;
 use crate::attrs::{
     impl_item_attributes, is_test_attributes, item_attributes, path_literal, statement_attributes,
     trait_item_attributes,
 };
-use crate::definitions::{Definition, Holder, ImplBlock, MethodCall, OnSelf};
+use crate::definitions::Holder;
 use crate::net;
-use crate::plant;
 pub(crate) use crate::site::Site;
-use crate::tokens::{plain, Chain};
-use define::{foreign_name, item_name};
+use crate::tokens::{attribute_chains, plain, read_value, LINTS, MESSAGE_KEYS};
+use attributes::{attribute_strings, concern, expansion, helper_strings};
+use define::{
+    define_impl_item, define_item, define_trait_item, enter_impl, enter_trait, exact_type,
+    foreign_name, impl_block, item_name,
+};
+use macros::{macro_call, macro_rules};
 use receivers::Selves;
-
-/// A qualified path, or a `use` leaf: its first segment and the path as written.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub(crate) struct Reference {
-    pub root: String,
-    pub path: String,
-    pub site: Site,
-    /// The path starts with `::`: its first segment is a crate, and no local name hides it.
-    pub absolute: bool,
-    /// The segments of the path. A `use a::b::{self}` leaf is `a::b`.
-    pub names: Vec<String>,
-    /// The inline modules of the file that enclose the path: its lexical module.
-    pub scope: Vec<String>,
-    pub via: Via,
-    /// The name of the `macro_rules!` definition whose body holds the path.
-    pub in_macro: Option<String>,
-    /// The `MacroDef::id` of that definition, in the file of the path.
-    pub macro_id: usize,
-}
-
-/// How a reference comes into the file.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub(crate) enum Via {
-    /// A path in code, in an attribute or in the body of a macro call.
-    #[default]
-    Path,
-    /// A validated derive-helper path, including a bare child-module name.
-    Helper,
-    /// A leaf of a `use` item: the local name that it binds.
-    Use {
-        binding: Option<String>,
-        reexport: bool,
-        block: bool,
-    },
-    /// `use path::*`.
-    Glob { reexport: bool, block: bool },
-}
-
-/// A place that the scan cannot read.
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Concern {
-    pub reason: String,
-    pub site: Site,
-    /// Known source module, relative to the file. The expansion target is unseen.
-    pub source: Option<Vec<String>>,
-    pub proof: Option<crate::attrs::model::Proof>,
-}
-
-/// A `mod name;` declaration: its file is not in this file.
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Child {
-    pub name: String,
-    pub path: Option<String>,
-    /// The names of the inline modules that enclose the declaration.
-    pub inline: Vec<String>,
-    /// A `cfg(test)` on the declaration, or on an item that holds it, marks a test module.
-    pub test: bool,
-    /// The declaration, or an inline module that holds it, may be removed by a `cfg` (AD-383).
-    pub gated: bool,
-    pub site: Site,
-}
-
-#[derive(Debug, Default)]
-pub(crate) struct Scan {
-    pub references: Vec<Reference>,
-    pub concerns: Vec<Concern>,
-    pub children: Vec<Child>,
-    /// Each name that the file declares or imports (any namespace, any depth): a root in it is UNKNOWN.
-    pub names: BTreeSet<String>,
-    /// The names of `names` that can hide a crate. A name is left out only when its single source
-    /// is a `use` leaf of the crate of that name (`use anyhow::anyhow;`): `anyhow::x` is in it.
-    pub shadows: BTreeSet<String>,
-    /// How many times the file declares or imports each name, in any namespace and at any depth.
-    pub counts: BTreeMap<String, usize>,
-    /// The inline modules of the file, each as the names from the file down.
-    pub inlines: Vec<Vec<String>>,
-    pub macro_defs: Vec<MacroDef>,
-    /// The calls of macros in the file, placed or not.
-    pub macro_calls: Vec<MacroCall>,
-    /// Every name that the file writes in any token, for the safety net of `collect.rs`.
-    pub mentioned: BTreeSet<String>,
-    /// The items, the members of the inherent `impl` blocks and the members of the traits.
-    pub definitions: Vec<Definition>,
-    /// The crate of each `extern crate name;` other than `self`, and its place.
-    pub extern_crates: Vec<(String, Site)>,
-    /// Each `extern crate self as name;` outside a function body: its inline modules and `name`.
-    pub self_aliases: Vec<(Vec<String>, String)>,
-    /// The inherent `impl` blocks at any depth, and the method calls (#953).
-    pub impls: Vec<ImplBlock>,
-    pub method_calls: Vec<MethodCall>,
-    pub orphans: crate::definitions::OrphanFacts,
-    /// The structs and enums at module level that are in every configuration (AD-383).
-    pub exact_types: BTreeSet<String>,
-    /// An inner attribute of the file may remove the module in some configuration.
-    pub gated_file: bool,
-    /// The second count of the tree, for the invariant of the extraction.
-    pub tally: Tally,
-}
+use use_items::{bind, extern_crate, use_item};
 
 /// Scan one file. A syntax error is `Err` with its line. With `exclude_tests`, an item that only
 /// a test build compiles gives no fact, except the `mod x;` files below it, which are test scope.
@@ -137,216 +47,197 @@ pub(crate) fn scan(
             error.span().start().line
         )
     })?;
-    let mut walker = Walker {
-        lines: text.split('\n').collect(),
-        features,
-        exclude_tests,
-        inline: Vec::new(),
-        absolute_use: false,
-        public_use: false,
-        blocks: 0,
-        in_macro: None,
-        block_ends: Vec::new(),
-        via: Via::Path,
-        holder: Holder::default(),
-        selves: Selves::default(),
-        helpers: crate::attrs::model::Context::default(),
-        tools: !crate::attrs::kinds::no_tools(&file.attrs),
-        derives: Vec::new(),
-        out: Scan {
-            tally: Tally::of(&file, exclude_tests),
-            ..Scan::default()
+    let mut visitor = Visitor {
+        walker: Walker {
+            lines: text.split('\n').collect(),
+            features,
+            exclude_tests,
+            inline: Vec::new(),
+            absolute_use: false,
+            public_use: false,
+            blocks: 0,
+            in_macro: None,
+            block_ends: Vec::new(),
+            via: Via::Path,
+            holder: Holder::default(),
+            selves: Selves::default(),
+            helpers: crate::attrs::model::Context::default(),
+            tools: !crate::attrs::kinds::no_tools(&file.attrs),
+            derives: Vec::new(),
+            out: Scan {
+                tally: Tally::of(&file, exclude_tests),
+                ..Scan::default()
+            },
         },
     };
-    walker.out.gated_file = !receivers::module_inert(&file.attrs);
-    walker.visit_file(&file);
-    attributes::finish(&mut walker);
-    Ok(walker.out)
+    visitor.walker.out.gated_file = !receivers::module_inert(&file.attrs);
+    visitor.visit_file(&file);
+    attributes::finish(&mut visitor.walker);
+    Ok(visitor.walker.out)
 }
 
-struct Walker<'a> {
-    lines: Vec<&'a str>,
-    features: &'a BTreeSet<String>,
-    exclude_tests: bool,
-    inline: Vec<String>,
-    /// The `use` item that the walk is in starts with `::`.
-    absolute_use: bool,
-    /// The `use` item that the walk is in is `pub`: it re-exports.
-    public_use: bool,
-    /// The depth of the blocks (function bodies) that enclose the walk.
-    blocks: usize,
-    /// The name of the `macro_rules!` definition that the walk is in.
-    in_macro: Option<String>,
-    /// The end of each block that encloses the walk, the inner block last.
-    block_ends: Vec<(i64, i64)>,
-    /// What the next reference is: set by the `use` handling, `Path` otherwise.
-    via: Via,
-    /// What the walk is inside: it decides which members are definitions.
-    holder: Holder,
-    /// What a plain `self` is at the walk (AD-383).
-    selves: Selves,
-    helpers: crate::attrs::model::Context,
-    tools: bool,
-    derives: Vec<Concern>,
-    out: Scan,
+/// The walk of a file: the state that the files below fill, and the visit of the syntax tree.
+struct Visitor<'a> {
+    walker: Walker<'a>,
 }
 
-impl Walker<'_> {
-    fn site(&self, span: Span) -> Site {
-        let (start, end) = (span.start(), span.end());
-        let line = self.lines.get(start.line.saturating_sub(1)).copied();
-        let excerpt: String = line.unwrap_or("").trim().chars().take(200).collect();
-        Site {
-            line: to_i64(start.line),
-            end_line: to_i64(end.line),
-            column: to_i64(start.column),
-            excerpt,
-        }
-    }
-
-    /// A call `x.m(..)` (`path` false), or a path call that the scan cannot resolve (`path` true).
-    fn method_call(&mut self, name: String, span: Span, (path, arity): (bool, Option<usize>)) {
-        self.method_call_on(name, span, (path, arity), None);
-    }
-
-    fn method_call_on(
-        &mut self,
-        name: String,
-        span: Span,
-        (path, arity): (bool, Option<usize>),
-        on_self: Option<OnSelf>,
-    ) {
-        let (site, scope) = (self.site(span), self.inline.clone());
-        if plant::lose("method") {
+impl Visitor<'_> {
+    /// An attribute holds paths in its name, its tokens and its strings.
+    pub(super) fn attribute(&mut self, attr: &Attribute) {
+        expansion(&mut self.walker, &attr.meta, 0);
+        let path = attr.path();
+        // The text of a doc comment is no code. A `doc` with an expression is read below.
+        let text =
+            matches!(&attr.meta, Meta::NameValue(pair) if matches!(pair.value, Expr::Lit(_)));
+        if path.is_ident("doc") && text {
             return;
         }
-        self.out.method_calls.push(MethodCall {
-            name,
-            site,
-            scope,
-            path,
-            arity,
-            on_self,
-        });
-    }
-
-    fn refer(&mut self, names: &[String], span: Span) {
-        self.refer_as(names, span, false);
-    }
-
-    fn refer_as(&mut self, names: &[String], span: Span, absolute: bool) {
-        if let Some(first) = names.first() {
-            if plant::lose("reference") {
-                return;
+        let names: Vec<String> = path.segments.iter().map(|s| plain(&s.ident)).collect();
+        if names.len() > 1 {
+            self.walker.out.tally.unseen += 1;
+            self.walker.refer(
+                &names,
+                path.segments
+                    .first()
+                    .map_or(Span::call_site(), |s| s.ident.span()),
+            );
+        }
+        // A lint attribute holds lint names and a `reason` text, not paths of the file.
+        let lint = LINTS.iter().any(|lint| path.is_ident(lint));
+        if let Meta::List(list) = &attr.meta {
+            net::walk(list.tokens.clone(), &mut self.walker.out.mentioned);
+        }
+        if let (Meta::List(list), false) = (&attr.meta, lint) {
+            match attribute_chains(list.tokens.clone()) {
+                Some(found) => self.walker.refer_chains(found),
+                None => concern(
+                    &mut self.walker,
+                    "An attribute is nested too deep".to_owned(),
+                    list.delimiter.span().join(),
+                ),
             }
-            let site = self.site(span);
-            self.out.references.push(Reference {
-                root: first.clone(),
-                path: names.join("::"),
-                site,
-                absolute,
-                names: names.to_vec(),
-                scope: self.inline.clone(),
-                via: self.via.clone(),
-                in_macro: self.in_macro.clone(),
-                macro_id: self.out.macro_defs.len(),
-            });
+            let helper = !self.walker.helpers.candidates.is_empty()
+                && KNOWN
+                    .iter()
+                    .any(|k| k.helpers.iter().any(|name| path.is_ident(name)));
+            if helper {
+                helper_strings(&mut self.walker, attr, list);
+            } else {
+                attribute_strings(&mut self.walker, list);
+            }
+        }
+        if let (Meta::NameValue(pair), false) = (&attr.meta, lint) {
+            self.name_value(&names, &pair.value);
         }
     }
 
-    fn refer_chains(&mut self, found: Vec<Chain>) {
-        let before = self.out.references.len();
-        for chain in found {
-            self.refer_as(&chain.names, chain.span, chain.absolute);
+    /// The value of `key = value`. A string is read as under any key of a list; another
+    /// expression (`doc = crate_a::readme!()`) is walked like code.
+    fn name_value(&mut self, key: &[String], value: &Expr) {
+        let Expr::Lit(ExprLit { lit, .. }) = value else {
+            self.visit_expr(value);
+            return;
+        };
+        let (Lit::Str(text), Some(name)) = (lit, key.last()) else {
+            return;
+        };
+        if MESSAGE_KEYS.contains(&name.as_str()) {
+            return;
         }
-        self.out.tally.unseen += self.out.references.len() - before;
+        net::note_string(&text.value(), &mut self.walker.out.mentioned);
+        let mut found = Vec::new();
+        if read_value(&text.value(), text.span(), &mut found).is_none() {
+            let reason = "A string in an attribute holds a path that the scan cannot read";
+            concern(&mut self.walker, reason.to_owned(), text.span());
+        }
+        self.walker.refer_chains(found);
     }
 }
 
-fn to_i64(value: usize) -> i64 {
-    i64::try_from(value).unwrap_or(i64::MAX)
-}
-
-impl<'ast> Visit<'ast> for Walker<'_> {
+impl<'ast> Visit<'ast> for Visitor<'_> {
     fn visit_item(&mut self, item: &'ast Item) {
-        if self.exclude_tests && is_test_attributes(item_attributes(item)) {
+        if self.walker.exclude_tests && is_test_attributes(item_attributes(item)) {
             // Keep only the files of `mod x;` below: the tree must claim them as test scope.
-            let kept = std::mem::take(&mut self.out);
-            let derives = self.derives.len();
+            let kept = std::mem::take(&mut self.walker.out);
+            let derives = self.walker.derives.len();
             visit::visit_item(self, item);
-            self.derives.truncate(derives);
-            let found = std::mem::replace(&mut self.out, kept).children;
+            self.walker.derives.truncate(derives);
+            let found = std::mem::replace(&mut self.walker.out, kept).children;
             let tests = found.into_iter().map(|child| Child {
                 test: true,
                 ..child
             });
-            self.out.children.extend(tests);
+            self.walker.out.children.extend(tests);
             return;
         }
         if let Some(name) = item_name(item) {
-            self.bind(name);
+            bind(&mut self.walker, name);
         }
-        self.define(item);
+        define_item(&mut self.walker, item);
         if let Item::Impl(found) = item {
-            self.impl_block(found);
-            self.selves.enter_impl(found, &self.inline, self.blocks);
+            impl_block(&mut self.walker, found);
+            self.walker
+                .selves
+                .enter_impl(found, &self.walker.inline, self.walker.blocks);
         } else if let Item::Fn(_) = item {
-            self.selves.enter_opaque();
+            self.walker.selves.enter_opaque();
         }
-        self.exact_type(item);
+        exact_type(&mut self.walker, item);
         let outer = match item {
-            Item::Impl(item) if self.blocks == 0 => Some(self.enter_impl(item)),
-            Item::Trait(item) if self.blocks == 0 => Some(self.enter_trait(item)),
+            Item::Impl(item) if self.walker.blocks == 0 => Some(enter_impl(&mut self.walker, item)),
+            Item::Trait(item) if self.walker.blocks == 0 => {
+                Some(enter_trait(&mut self.walker, item))
+            }
             _ => None,
         };
-        let tools = self.tools;
-        self.tools &= !crate::attrs::kinds::no_tools(item_attributes(item));
+        let tools = self.walker.tools;
+        self.walker.tools &= !crate::attrs::kinds::no_tools(item_attributes(item));
         let helpers = std::mem::replace(
-            &mut self.helpers,
-            crate::attrs::model::Context::of(item, self.blocks > 0, self.tools),
+            &mut self.walker.helpers,
+            crate::attrs::model::Context::of(item, self.walker.blocks > 0, self.walker.tools),
         );
         visit::visit_item(self, item);
-        self.helpers = helpers;
-        self.tools = tools;
+        self.walker.helpers = helpers;
+        self.walker.tools = tools;
         if let Some(holder) = outer {
-            self.holder = holder;
+            self.walker.holder = holder;
         }
         if matches!(item, Item::Impl(_) | Item::Fn(_)) {
-            self.selves.leave();
+            self.walker.selves.leave();
         }
     }
 
     fn visit_impl_item(&mut self, item: &'ast syn::ImplItem) {
-        if !(self.exclude_tests && is_test_attributes(impl_item_attributes(item))) {
-            self.define_impl_item(item);
+        if !(self.walker.exclude_tests && is_test_attributes(impl_item_attributes(item))) {
+            define_impl_item(&mut self.walker, item);
             if let syn::ImplItem::Fn(method) = item {
-                self.selves.enter_method(&method.sig, &method.attrs);
+                self.walker.selves.enter_method(&method.sig, &method.attrs);
             }
             visit::visit_impl_item(self, item);
             if let syn::ImplItem::Fn(_) = item {
-                self.selves.leave();
+                self.walker.selves.leave();
             }
         }
     }
 
     fn visit_trait_item(&mut self, item: &'ast syn::TraitItem) {
-        if !(self.exclude_tests && is_test_attributes(trait_item_attributes(item))) {
-            self.define_trait_item(item);
-            self.selves.enter_opaque();
+        if !(self.walker.exclude_tests && is_test_attributes(trait_item_attributes(item))) {
+            define_trait_item(&mut self.walker, item);
+            self.walker.selves.enter_opaque();
             visit::visit_trait_item(self, item);
-            self.selves.leave();
+            self.walker.selves.leave();
         }
     }
 
     fn visit_stmt(&mut self, stmt: &'ast syn::Stmt) {
-        if !(self.exclude_tests && is_test_attributes(statement_attributes(stmt))) {
+        if !(self.walker.exclude_tests && is_test_attributes(statement_attributes(stmt))) {
             visit::visit_stmt(self, stmt);
         }
     }
 
     fn visit_foreign_item(&mut self, item: &'ast syn::ForeignItem) {
         if let Some(name) = foreign_name(item) {
-            self.bind(name);
+            bind(&mut self.walker, name);
         }
         visit::visit_foreign_item(self, item);
     }
@@ -359,60 +250,69 @@ impl<'ast> Visit<'ast> for Walker<'_> {
         if path.segments.len() > 1 {
             let names: Vec<String> = path.segments.iter().map(|s| plain(&s.ident)).collect();
             if let Some(first) = path.segments.first() {
-                self.refer_as(&names, first.ident.span(), path.leading_colon.is_some());
+                self.walker
+                    .refer_as(&names, first.ident.span(), path.leading_colon.is_some());
             }
         }
         visit::visit_path(self, path);
     }
 
     fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
-        let (arity, on_self) = (Some(node.args.len()), self.selves.of(&node.receiver));
+        let (arity, on_self) = (Some(node.args.len()), self.walker.selves.of(&node.receiver));
         let name = plain(&node.method);
-        self.method_call_on(name, node.method.span(), (false, arity), on_self);
+        self.walker
+            .method_call_on(name, node.method.span(), (false, arity), on_self);
         visit::visit_expr_method_call(self, node);
     }
 
     /// `<T>::m(..)` names `T` in its qualified self; the scan does not resolve the member (#953).
     fn visit_expr_path(&mut self, node: &'ast syn::ExprPath) {
         if let (Some(_), Some(last)) = (&node.qself, node.path.segments.last()) {
-            self.method_call(plain(&last.ident), last.ident.span(), (true, None));
+            self.walker
+                .method_call(plain(&last.ident), last.ident.span(), (true, None));
         }
         // `Self::m` names a member of the type of the block (AD-383).
         if let Some(last) = receivers::self_member(node) {
-            let on_self = self.selves.of_type();
-            self.method_call_on(plain(last), last.span(), (true, None), on_self);
+            let on_self = self.walker.selves.of_type();
+            self.walker
+                .method_call_on(plain(last), last.span(), (true, None), on_self);
         }
         visit::visit_expr_path(self, node);
     }
 
     fn visit_lit_str(&mut self, text: &'ast syn::LitStr) {
-        net::note_string(&text.value(), &mut self.out.mentioned);
+        net::note_string(&text.value(), &mut self.walker.out.mentioned);
     }
 
     fn visit_macro(&mut self, node: &'ast Macro) {
-        self.macro_call(node);
+        macro_call(&mut self.walker, node);
         visit::visit_macro(self, node);
     }
 
     fn visit_item_macro(&mut self, node: &'ast ItemMacro) {
         if node.mac.path.is_ident("macro_rules") {
-            self.macro_rules(node);
+            macro_rules(&mut self.walker, node);
+            for attr in &node.attrs {
+                self.attribute(attr);
+            }
             return;
         }
         visit::visit_item_macro(self, node);
     }
 
     fn visit_item_extern_crate(&mut self, node: &'ast ItemExternCrate) {
-        self.extern_crate(node);
+        extern_crate(&mut self.walker, node);
     }
 
     fn visit_block(&mut self, node: &'ast syn::Block) {
         let end = node.brace_token.span.close().end();
-        self.block_ends.push((to_i64(end.line), to_i64(end.column)));
-        self.blocks += 1;
+        self.walker
+            .block_ends
+            .push((to_i64(end.line), to_i64(end.column)));
+        self.walker.blocks += 1;
         visit::visit_block(self, node);
-        self.blocks -= 1;
-        self.block_ends.pop();
+        self.walker.blocks -= 1;
+        self.walker.block_ends.pop();
     }
 
     /// `pub(in crate::a)` restricts visibility: it is no use of the module `a`.
@@ -420,32 +320,32 @@ impl<'ast> Visit<'ast> for Walker<'_> {
 
     fn visit_item_use(&mut self, node: &'ast ItemUse) {
         let span = node.use_token.span;
-        attributes::gate(self, &node.attrs, "use", span);
+        attributes::gate(&mut self.walker, &node.attrs, "use", span);
         for attr in &node.attrs {
             self.attribute(attr);
         }
-        self.use_item(node);
+        use_item(&mut self.walker, node);
     }
 
     fn visit_item_mod(&mut self, node: &'ast ItemMod) {
         let span = node.mod_token.span;
-        attributes::gate(self, &node.attrs, "module", span);
+        attributes::gate(&mut self.walker, &node.attrs, "module", span);
         let name = plain(&node.ident);
         if node.content.is_none() {
             match path_literal(&node.attrs) {
                 Ok(path) => {
-                    let site = self.site(node.ident.span());
-                    let inline = self.inline.clone();
-                    self.out.children.push(Child {
+                    let site = self.walker.site(node.ident.span());
+                    let inline = self.walker.inline.clone();
+                    self.walker.out.children.push(Child {
                         name,
                         path,
                         inline,
                         test: is_test_attributes(&node.attrs),
-                        gated: !receivers::module_inert(&node.attrs) || self.selves.gated(),
+                        gated: !receivers::module_inert(&node.attrs) || self.walker.selves.gated(),
                         site,
                     });
                 }
-                Err(reason) => self.concern(reason, span),
+                Err(reason) => concern(&mut self.walker, reason, span),
             }
             for attr in &node.attrs {
                 self.attribute(attr);
@@ -455,18 +355,24 @@ impl<'ast> Visit<'ast> for Walker<'_> {
         for attr in &node.attrs {
             self.attribute(attr);
         }
-        self.inline.push(name);
-        self.out.inlines.push(self.inline.clone());
-        self.selves.enter_module(&node.attrs);
+        self.walker.inline.push(name);
+        self.walker.out.inlines.push(self.walker.inline.clone());
+        self.walker.selves.enter_module(&node.attrs);
         if let Some((_, items)) = &node.content {
             for item in items {
                 self.visit_item(item);
             }
         }
-        self.selves.leave_module();
-        self.inline.pop();
+        self.walker.selves.leave_module();
+        self.walker.inline.pop();
     }
 }
+
+/// The state of the scan: the facts and the walker that holds them.
+#[path = "scan_state.rs"]
+mod state;
+use state::{to_i64, Walker};
+pub(crate) use state::{Child, Concern, MacroCall, MacroDef, Reference, Scan, Via};
 
 /// The read of an attribute: its path, its tokens, its strings and the value of `key = value`.
 #[path = "scan_attributes.rs"]
@@ -475,7 +381,6 @@ mod attributes;
 /// The read of `macro_rules!` definitions and macro calls: what their bodies hold.
 #[path = "scan_macros.rs"]
 mod macros;
-pub(crate) use macros::{MacroCall, MacroDef};
 
 /// The second count of the nodes that must end as an outcome (`edges_extracted.rs`).
 #[path = "scan_extracted.rs"]

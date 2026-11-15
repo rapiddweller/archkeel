@@ -11,9 +11,9 @@ use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{FactId, ModuleName, PackageName};
 
-use crate::script_deps::{Probe, Run};
 use crate::script_project::{Publisher, HOST_NAMES};
 use crate::script_records::{binding, global_id, import_record, Use};
+use crate::script_state::{Probe, Run};
 use crate::script_types::ScriptAlias;
 use crate::source::Span;
 

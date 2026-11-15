@@ -8,7 +8,8 @@
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::script_scope::{is_root, Tree, Wrapper};
+use crate::script_scope::is_root;
+use crate::script_tree::{Tree, Wrapper};
 use crate::tree::nodes::named_children;
 
 impl<'a, 't> Tree<'a, 't> {

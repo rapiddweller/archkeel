@@ -48,7 +48,7 @@
     "NATIVE-NO-MODEL-TO-REPORT": "PASS",
     "NATIVE-NO-MODEL-TO-RUST": "PASS",
     "NATIVE-NO-MODEL-TO-TYPESCRIPT": "PASS",
-    "NATIVE-NO-MODULE-CYCLES": "FAIL",
+    "NATIVE-NO-MODULE-CYCLES": "UNKNOWN",
     "NATIVE-NO-PYTHON-TO-COLLECT": "PASS",
     "NATIVE-NO-PYTHON-TO-CORE": "PASS",
     "NATIVE-NO-PYTHON-TO-EVAL": "PASS",
@@ -104,6 +104,7 @@
     "NATIVE-EXTERNAL-TREE-SITTER-TYPESCRIPT": "scope_incomplete",
     "NATIVE-EXTERNAL-UNICODE-IDENT": "scope_incomplete",
     "NATIVE-NO-COMPONENT-CYCLES": "scope_incomplete",
+    "NATIVE-NO-MODULE-CYCLES": "scope_incomplete",
     "NATIVE-REQUIRES-COMPLETE": "scope_incomplete"
   },
   "gaps": [
@@ -490,17 +491,22 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.collect",
-      "A method call may reach the method at of an impl block in native.archkeel_facts.gap"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.collect",
       "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
     ],
     [
       "collection_gap",
       "native.archkeel_typescript_collector.collect",
       "A method call may reach the method script_dependencies of an impl block in native.archkeel_typescript_collector.collect.script_run"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_typescript_collector.collection",
+      "A method call may reach the method at of an impl block in native.archkeel_facts.envelope.build"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_typescript_collector.collection",
+      "A method call may reach the method at of an impl block in native.archkeel_facts.gap"
     ],
     [
       "collection_gap",
@@ -575,22 +581,12 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_alias",
-      "A method call may reach the method bound_scope of an impl block in native.archkeel_typescript_collector.script_names"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_alias",
       "A method call may reach the method valid_unicode_member_name of an impl block in native.archkeel_typescript_collector.constructors"
     ],
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_bind",
       "A method call may reach the method valid_unicode_member_name of an impl block in native.archkeel_typescript_collector.constructors"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_declarations",
-      "A method call may reach the method bound_scope of an impl block in native.archkeel_typescript_collector.script_names"
     ],
     [
       "collection_gap",
@@ -605,11 +601,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_declare",
-      "A method call may reach the method bound_scope of an impl block in native.archkeel_typescript_collector.script_names"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_declare",
       "A method call may reach the method valid_unicode_member_name of an impl block in native.archkeel_typescript_collector.constructors"
     ],
     [
@@ -620,32 +611,17 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_factory",
-      "A method call may reach the method bound_scope of an impl block in native.archkeel_typescript_collector.script_names"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_factory",
       "A method call may reach the method valid_unicode_member_name of an impl block in native.archkeel_typescript_collector.constructors"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_index",
-      "A method call may reach the method bound_scope of an impl block in native.archkeel_typescript_collector.script_names"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_namespace",
-      "A method call may reach the method bound_scope of an impl block in native.archkeel_typescript_collector.script_names"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_publish",
-      "A method call may reach the method bound_scope of an impl block in native.archkeel_typescript_collector.script_names"
     ],
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_publish",
       "A method call may reach the method only_returned_object of an impl block in native.archkeel_typescript_collector.script_wrapper"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_typescript_collector.script_publish",
+      "A method call may reach the method opaque_writes of an impl block in native.archkeel_typescript_collector.script_writes"
     ],
     [
       "collection_gap",
@@ -670,11 +646,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script_syntax",
-      "A method call may reach the method opaque_writes of an impl block in native.archkeel_typescript_collector.script_writes"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_syntax",
       "A method call may reach the method wrapper of an impl block in native.archkeel_typescript_collector.script_wrapper"
     ],
     [
@@ -691,11 +662,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.umd_publication",
       "A method call may reach the method bind of an impl block in native.archkeel_typescript_collector.script_bind"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.umd_publication",
-      "A method call may reach the method bound_scope of an impl block in native.archkeel_typescript_collector.script_names"
     ],
     [
       "collection_gap",
@@ -728,55 +694,5 @@
       "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
     ]
   ],
-  "violations": [
-    {
-      "rule": "NATIVE-NO-MODULE-CYCLES",
-      "source": "native.archkeel_rust_collector.scan -> native.archkeel_rust_collector.scan.attributes -> native.archkeel_rust_collector.scan.define -> native.archkeel_rust_collector.scan.macros -> native.archkeel_rust_collector.scan.use_items",
-      "target": "native.archkeel_rust_collector.scan",
-      "cause": "dependency cycle",
-      "issue": 1076
-    },
-    {
-      "rule": "NATIVE-NO-MODULE-CYCLES",
-      "source": "native.archkeel_typescript_collector.collect -> native.archkeel_typescript_collector.collect.import_record -> native.archkeel_typescript_collector.collect.import_target -> native.archkeel_typescript_collector.collect.imports -> native.archkeel_typescript_collector.collect.script_run",
-      "target": "native.archkeel_typescript_collector.collect",
-      "cause": "dependency cycle",
-      "issue": 1076
-    },
-    {
-      "rule": "NATIVE-NO-MODULE-CYCLES",
-      "source": "native.archkeel_typescript_collector.constructors -> native.archkeel_typescript_collector.members",
-      "target": "native.archkeel_typescript_collector.constructors",
-      "cause": "dependency cycle",
-      "issue": 1076
-    },
-    {
-      "rule": "NATIVE-NO-MODULE-CYCLES",
-      "source": "native.archkeel_typescript_collector.resolve -> native.archkeel_typescript_collector.resolve.package",
-      "target": "native.archkeel_typescript_collector.resolve",
-      "cause": "dependency cycle",
-      "issue": 1076
-    },
-    {
-      "rule": "NATIVE-NO-MODULE-CYCLES",
-      "source": "native.archkeel_typescript_collector.script_depend -> native.archkeel_typescript_collector.script_deps -> native.archkeel_typescript_collector.script_global -> native.archkeel_typescript_collector.script_proof",
-      "target": "native.archkeel_typescript_collector.script_depend",
-      "cause": "dependency cycle",
-      "issue": 1076
-    },
-    {
-      "rule": "NATIVE-NO-MODULE-CYCLES",
-      "source": "native.archkeel_typescript_collector.script_flags -> native.archkeel_typescript_collector.script_names -> native.archkeel_typescript_collector.script_scope",
-      "target": "native.archkeel_typescript_collector.script_flags",
-      "cause": "dependency cycle",
-      "issue": 1076
-    },
-    {
-      "rule": "NATIVE-NO-MODULE-CYCLES",
-      "source": "native.archkeel_typescript_collector.script_publish -> native.archkeel_typescript_collector.script_syntax",
-      "target": "native.archkeel_typescript_collector.script_publish",
-      "cause": "dependency cycle",
-      "issue": 1076
-    }
-  ]
+  "violations": []
 }

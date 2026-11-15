@@ -6,9 +6,9 @@
 
 use serde_json::Value;
 
-use super::{Resolver, DECLARATION, TS_AND_DECLARATION};
 use crate::manifest::{self, Condition, Json, Lookup, Unknown};
 use crate::options::Resolution;
+use crate::resolver::{Resolver, DECLARATION, TS_AND_DECLARATION};
 use crate::source_input::{
     classify_asset, classify_file, classify_specifier, split_file, SourceKind, Suffix,
 };

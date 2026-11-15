@@ -7,7 +7,8 @@
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::script_scope::{Tree, NONE};
+use crate::layout::NONE;
+use crate::script_tree::Tree;
 
 impl<'a, 't> Tree<'a, 't> {
     /// For each position, the position of the nearest node above it that `pick` accepts, or `NONE`. A parent comes before its
@@ -67,12 +68,5 @@ impl<'a, 't> Tree<'a, 't> {
             }
         }
         answer
-    }
-
-    /// Whether a flag holds for the node.
-    pub(crate) fn flag(&self, node: Node, bit: u8) -> bool {
-        let at = self.pos(node);
-        at.and_then(|at| self.flags.get(at))
-            .is_some_and(|flags| flags & bit != 0)
     }
 }
