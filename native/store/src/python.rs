@@ -104,14 +104,14 @@ pub(crate) fn survey(facts: &Facts) -> Result<(), String> {
 /// A Python import is an import statement, or a literal import call (AD-520), with known symbols,
 /// no specifier and no type flag.
 fn statement(fact: &ImportFact) -> Result<(), String> {
-    if !matches!(fact, ImportFact::Import(_) | ImportFact::DynamicImport(_)) {
+    let (ImportFact::Import(data) | ImportFact::DynamicImport(data)) = fact else {
         return Err("a Python import must be an import statement".to_owned());
+    };
+    let bare = data.specifier.is_none() && data.type_only.is_none();
+    if bare && data.symbols_known {
+        return Ok(());
     }
-    let data = fact.data();
-    if data.specifier.is_some() || data.type_only.is_some() || !data.symbols_known {
-        return Err("a Python import has no specifier and no type flag".to_owned());
-    }
-    Ok(())
+    Err("a Python import has no specifier and no type flag".to_owned())
 }
 
 /// The coverage gaps are the records of the `unknowns` section, each once: a gap that only one
