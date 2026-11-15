@@ -23,6 +23,11 @@
       "collection_gap",
       "studio_ui.src.archkeel.studio.ui.studio_x2e_js",
       "Source file under the scan roots is not selected by the TSConfig: src/archkeel/studio/ui/studio.js"
+    ],
+    [
+      "source_resolution_gap",
+      "studio_ui.src.archkeel.studio.ui.api_x2e_ts",
+      "A form that can write any global keeps every free standard name from a proof: a member that can be the window or can reach code"
     ]
   ],
   "violations": []
