@@ -73,6 +73,10 @@ PROVEN: dict[str, dict[str, str]] = {
     "a macro of std that binds nothing": _plant(
         'pub fn f(s: &crate::c::S) -> u8 {\n    println!("{}", 1);\n    s.m(1)\n}\n'
     ),
+    "matches without the receiver": _plant(
+        "pub fn f(s: &crate::c::S, v: Option<u8>) -> u8 {\n"
+        "    let _ = matches!(v, Some(n) if n > 0);\n    s.m(1)\n}\n"
+    ),
 }
 
 
@@ -122,6 +126,26 @@ REFUSED: dict[str, dict[str, str]] = {
     ),
     "a call inside a macro": _plant(
         "pub fn f(s: &crate::c::S) -> u8 {\n    assert!(s.m(1) > 0);\n    1\n}\n"
+    ),
+    "matches names the receiver": _plant(
+        "pub fn f(s: &crate::c::S) -> u8 {\n    let _ = matches!(s, _);\n    s.m(1)\n}\n"
+    ),
+    "matches pattern binds the receiver name": _plant(
+        "pub fn f(s: &crate::c::S, v: Option<u8>) -> u8 {\n"
+        "    let _ = matches!(v, Some(s) if s > 0);\n    s.m(1)\n}\n"
+    ),
+    "matches guard shadows the receiver": _plant(
+        "pub fn f(s: &crate::c::S, v: Option<&crate::c::S>) -> u8 {\n"
+        "    let _ = matches!(v, Some(s) if s.m(1) > 0);\n    1\n}\n"
+    ),
+    "matches macro is shadowed": _plant(
+        "macro_rules! matches { ($($tt:tt)*) => { let s = crate::c::S; } }\n"
+        "pub fn f(s: &crate::c::S) -> u8 {\n    matches!(1, 2);\n    s.m(1)\n}\n"
+    ),
+    "matches name is imported": _plant(
+        "use crate::c::matches;\npub fn f(s: &crate::c::S) -> u8 {\n"
+        "    let _ = matches!(1, 2);\n    s.m(1)\n}\n",
+        c=TYPES + "pub fn matches() {}\n",
     ),
     "a macro call that names the parameter": _plant(
         "pub fn f(s: &crate::c::S) -> u8 {\n    dbg!(&s);\n    s.m(1)\n}\n"
