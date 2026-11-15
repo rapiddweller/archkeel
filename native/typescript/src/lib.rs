@@ -106,6 +106,7 @@ mod syntax;
 mod test_sources;
 mod tree;
 mod umd;
+#[cfg_attr(not(feature = "dump"), allow(dead_code))]
 mod umd_publication;
 mod unselected;
 mod walk;
