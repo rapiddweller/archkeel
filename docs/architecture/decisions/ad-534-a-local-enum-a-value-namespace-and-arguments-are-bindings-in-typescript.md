@@ -30,13 +30,23 @@ time creates one.
    binding, not a second one.
 6. **Scope.** An `enum` in a block or a function is bound there and not outside.
 
-A top-level `enum` of a script file is bound in the file, as a `var` is. A module that reads that name
-without an import still gives the gap. The change hides no dependency.
+7. **Only in a module.** Rules 1 to 4 apply only to a file that the collector classifies as a module
+   (top-level `import` or `export`, or a module format hint). In a script file an `enum`, a
+   `const enum` and a `namespace` are global and merge with the declarations of the same name in
+   other files. `E.Other` can then name a member that another file supplies, and `tsc` emits that
+   lookup at run time (also for a `const enum` under `isolatedModules`). So a script file keeps the
+   behaviour before: the read stays a read of a global, with its gap. Review plants of #1202:
+   `enum-merge`, `namespace-merge`, `namespace-merge-root`, `const-enum-isolated`, each with a
+   control in a module that is bound.
+8. **`arguments` is the exception.** It is function-scoped and never global, so it binds in both
+   kinds of files.
+
+The change hides no dependency.
 
 ## Price
 - graphql-js 487 gaps become 397. The verdict stays UNKNOWN: the 393 standard globals and 4
   `process` remain. hono 805 become 799, zod 956 become 863. No row of `fixtures/matrix.json` moves.
-- `script_bindings` of the root frame now lists an enum and a value namespace of the file.
+- `script_bindings` of the root frame lists an enum and a value namespace of a module file.
 - `arguments` costs one entry for each function in the name index.
 
 ## Limits
