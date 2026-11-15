@@ -114,6 +114,15 @@ macro_rules! section_facts {
             $($variant($data),)*
         }
 
+        section_traits! { $name in $section { $($variant($data),)* } }
+    };
+}
+
+/// The trait impls of a section data enum: how it joins its section and how it reads and writes
+/// its data. The enum itself is written by the caller (`section_facts!` or a plain `enum` that
+/// has inherent methods).
+macro_rules! section_traits {
+    ($name:ident in $section:ident { $($variant:ident($data:ty),)* }) => {
         impl $crate::sections::IntoSection for $name {
             fn section(records: Vec<$crate::record::Record<Self>>) -> $crate::sections::Section {
                 $crate::sections::Section::$section(records)

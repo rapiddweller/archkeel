@@ -23,18 +23,6 @@ use crate::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use crate::record::Record;
 use crate::sections::{GapFact, Section};
 
-/// A closed object of the envelope: an unknown key is a decode error.
-macro_rules! object {
-    ($(#[$doc:meta])* pub struct $name:ident { $($(#[$attr:meta])* pub $field:ident: $ty:ty,)* }) => {
-        $(#[$doc])*
-        #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-        #[serde(deny_unknown_fields)]
-        pub struct $name {
-            $($(#[$attr])* pub $field: $ty,)*
-        }
-    };
-}
-
 closed! {
     /// The protocol versions of a compressed reply.
     pub enum ProtocolVersion {
@@ -44,13 +32,54 @@ closed! {
     }
 }
 
-closed! {
-    /// The source profile of a reply: the language analyzer that wrote it.
-    pub enum Profile {
-        Python = "archkeel-python-analyzer",
-        Dart = "archkeel-dart-analyzer",
-        TypeScript = "archkeel-typescript-imports",
-        Rust = "archkeel-rust-imports",
+/// The source profile of a reply: the language analyzer that wrote it.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+pub enum Profile {
+    #[serde(rename = "archkeel-python-analyzer")]
+    Python,
+    #[serde(rename = "archkeel-dart-analyzer")]
+    Dart,
+    #[serde(rename = "archkeel-typescript-imports")]
+    TypeScript,
+    #[serde(rename = "archkeel-rust-imports")]
+    Rust,
+}
+
+impl Profile {
+    /// Each value, in the order of the declaration.
+    pub const ALL: &'static [Self] = &[Self::Python, Self::Dart, Self::TypeScript, Self::Rust];
+
+    /// The JSON text of the value.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Python => "archkeel-python-analyzer",
+            Self::Dart => "archkeel-dart-analyzer",
+            Self::TypeScript => "archkeel-typescript-imports",
+            Self::Rust => "archkeel-rust-imports",
+        }
+    }
+
+    /// The value of a JSON text, or `None` when the vocabulary does not hold it.
+    pub fn parse(text: &str) -> Option<Self> {
+        match text {
+            "archkeel-python-analyzer" => Some(Self::Python),
+            "archkeel-dart-analyzer" => Some(Self::Dart),
+            "archkeel-typescript-imports" => Some(Self::TypeScript),
+            "archkeel-rust-imports" => Some(Self::Rust),
+            _ => None,
+        }
     }
 }
 
@@ -133,40 +162,40 @@ impl<'de> Deserialize<'de> for NoEntries {
     }
 }
 
-object! {
-    pub struct Reply {
-        pub protocol_version: ProtocolVersion,
-        pub provider_sources: NoEntries,
-        pub facts: Facts,
-    }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Reply {
+    pub protocol_version: ProtocolVersion,
+    pub provider_sources: NoEntries,
+    pub facts: Facts,
 }
 
-object! {
-    pub struct Facts {
-        pub profile: Profile,
-        /// The linked collector's scope statements. Wire replies carry no live authority.
-        #[serde(skip)]
-        pub profile_limits: Option<ProfileLimits>,
-        /// The linked collector's files that belong to another module (AD-468). Wire replies
-        /// carry none.
-        #[serde(skip)]
-        pub owned_files: Vec<OwnedFile>,
-        pub adapter: Adapter,
-        pub runtime: Runtime,
-        pub source: Source,
-        pub capabilities: Capabilities,
-        pub inputs: Vec<Input>,
-        pub files: Vec<FileFact>,
-        pub imports: Vec<Target>,
-        pub sections: Vec<Section>,
-        pub coverage: Coverage,
-        pub evidence: Vec<Evidence>,
-        pub uncertain_reexports: NoEntries,
-        pub type_shapes: NoEntries,
-        pub state: State,
-        pub candidate_evidence: NoEntries,
-        pub provider_bindings: NoEntries,
-    }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Facts {
+    pub profile: Profile,
+    /// The linked collector's scope statements. Wire replies carry no live authority.
+    #[serde(skip)]
+    pub profile_limits: Option<ProfileLimits>,
+    /// The linked collector's files that belong to another module (AD-468). Wire replies
+    /// carry none.
+    #[serde(skip)]
+    pub owned_files: Vec<OwnedFile>,
+    pub adapter: Adapter,
+    pub runtime: Runtime,
+    pub source: Source,
+    pub capabilities: Capabilities,
+    pub inputs: Vec<Input>,
+    pub files: Vec<FileFact>,
+    pub imports: Vec<Target>,
+    pub sections: Vec<Section>,
+    pub coverage: Coverage,
+    pub evidence: Vec<Evidence>,
+    pub uncertain_reexports: NoEntries,
+    pub type_shapes: NoEntries,
+    pub state: State,
+    pub candidate_evidence: NoEntries,
+    pub provider_bindings: NoEntries,
 }
 
 /// A selected file that has no module of its own: its facts belong to the module `owner`.
@@ -198,21 +227,21 @@ pub struct ProfileLimits {
 // The serde form writes them in the order of the declaration, so the compressed reply of a native
 // collector writes these types as they are. The order of `Facts` does not matter: the stream
 // writes its keys one by one.
-object! {
-    pub struct Adapter {
-        pub code_digest: String,
-        pub name: String,
-        pub version: String,
-    }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Adapter {
+    pub code_digest: String,
+    pub name: String,
+    pub version: String,
 }
 
-object! {
-    pub struct Runtime {
-        pub name: String,
-        pub required: Option<String>,
-        pub requirement_state: RequirementState,
-        pub version: String,
-    }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Runtime {
+    pub name: String,
+    pub required: Option<String>,
+    pub requirement_state: RequirementState,
+    pub version: String,
 }
 
 /// The one runtime whose reply the host accepts a dependency scope proof from
@@ -242,51 +271,51 @@ closed! {
     }
 }
 
-object! {
-    pub struct Source {
-        pub dirty: Dirty,
-        pub git_head: String,
-        pub scope: Vec<String>,
-        pub source_digest: String,
-    }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Source {
+    pub dirty: Dirty,
+    pub git_head: String,
+    pub scope: Vec<String>,
+    pub source_digest: String,
 }
 
-object! {
-    pub struct Capabilities {
-        pub constructs: Vec<ConstructCapability>,
-        pub resolution_features: Vec<String>,
-        pub sections: Vec<SectionName>,
-    }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Capabilities {
+    pub constructs: Vec<ConstructCapability>,
+    pub resolution_features: Vec<String>,
+    pub sections: Vec<SectionName>,
 }
 
-object! {
-    pub struct ConstructCapability {
-        pub name: String,
-        pub status: ConstructSupport,
-    }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ConstructCapability {
+    pub name: String,
+    pub status: ConstructSupport,
 }
 
-object! {
-    pub struct Input {
-        pub digest: String,
-        pub path: String,
-        pub role: Role,
-    }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Input {
+    pub digest: String,
+    pub path: String,
+    pub role: Role,
 }
 
-object! {
-    pub struct FileFact {
-        pub id: FactId,
-        pub rel_path: String,
-        pub module: ModuleName,
-        pub package: PackageName,
-        pub all_exports: Vec<String>,
-        pub all_literal: bool,
-        pub compatibility_logic_free: bool,
-        pub stable_bindings: Vec<String>,
-        pub blank: bool,
-        pub evidence_id: EvidenceId,
-    }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FileFact {
+    pub id: FactId,
+    pub rel_path: String,
+    pub module: ModuleName,
+    pub package: PackageName,
+    pub all_exports: Vec<String>,
+    pub all_literal: bool,
+    pub compatibility_logic_free: bool,
+    pub stable_bindings: Vec<String>,
+    pub blank: bool,
+    pub evidence_id: EvidenceId,
 }
 
 /// The typed resolution of one import. `import_id` is the id of its import record.
@@ -339,25 +368,25 @@ impl Target {
     }
 }
 
-object! {
-    pub struct Coverage {
-        pub files_parsed: u64,
-        pub files_read: u64,
-        pub full_scope: bool,
-        pub gaps: Vec<Record<GapFact>>,
-        pub selected_files: Vec<String>,
-    }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Coverage {
+    pub files_parsed: u64,
+    pub files_read: u64,
+    pub full_scope: bool,
+    pub gaps: Vec<Record<GapFact>>,
+    pub selected_files: Vec<String>,
 }
 
-object! {
-    pub struct Evidence {
-        pub id: EvidenceId,
-        pub file: String,
-        pub line: i64,
-        pub end_line: i64,
-        pub column: i64,
-        pub excerpt: String,
-    }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Evidence {
+    pub id: EvidenceId,
+    pub file: String,
+    pub line: i64,
+    pub end_line: i64,
+    pub column: i64,
+    pub excerpt: String,
 }
 
 /// The state facts of the Python collector. Only an empty state is read yet.

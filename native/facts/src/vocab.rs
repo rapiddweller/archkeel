@@ -6,6 +6,21 @@
 //!
 //! The value sets come from the WP1 inventory of issue #880: the observed values of 148 953 Python,
 //! 1 652 Dart and 1 034 TypeScript records, and the kinds that the collector code builds.
+//!
+//! `Kind`, `ExceptionName` and `Signal` have `impl` blocks of their own, so they are written as
+//! plain enums, each in its own file. The scan of the Rust collector cannot place a type that a
+//! macro defines.
+
+#[path = "vocab_exception.rs"]
+mod exception;
+#[path = "vocab_kind.rs"]
+mod kind;
+#[path = "vocab_signal.rs"]
+mod signal;
+
+pub use exception::ExceptionName;
+pub use kind::Kind;
+pub use signal::Signal;
 
 closed! {
     /// The area of a record. One concept can have two areas: an import is `source` in TypeScript
@@ -26,123 +41,6 @@ closed! {
     pub enum EvidenceClass {
         Fact = "FACT",
         Unknown = "UNKNOWN",
-    }
-}
-
-closed! {
-    /// The kind of a record. The section of the record decides its data type (`sections`).
-    /// `ExceptionGap` replaces the open kind of protocol 9: there, the kind of an analyzer failure
-    /// is the name of the exception class (`SyntaxError`). The name is a field of the record.
-    pub enum Kind {
-        Import = "import",
-        Reexport = "reexport",
-        ImportType = "import_type",
-        ImportEquals = "import_equals",
-        Require = "require",
-        DynamicImport = "dynamic_import",
-        ScriptGlobal = "script_global",
-        MacroBody = "macro_body",
-        Class = "class",
-        Function = "function",
-        Method = "method",
-        Constant = "constant",
-        TypeAlias = "type_alias",
-        Binding = "binding",
-        Alias = "alias",
-        DynamicBinding = "dynamic_binding",
-        StaticConstant = "static_constant",
-        Macro = "macro",
-        Calls = "calls",
-        Call = "call",
-        ResolvedCall = "resolved_call",
-        PartiallyResolvedCall = "partially_resolved_call",
-        UnresolvedCall = "unresolved_call",
-        References = "references",
-        Reference = "reference",
-        ScriptNamespaceEffect = "script_namespace_effect",
-        ValueReference = "value_reference",
-        AttributeReference = "attribute_reference",
-        SourceRole = "source_role",
-        Bindings = "bindings",
-        UnusedParameter = "unused_parameter",
-        UnusedLocal = "unused_local",
-        StringLiteralCompare = "string_literal_compare",
-        BroadExcept = "broad_except",
-        GetattrCall = "getattr_call",
-        HasattrCall = "hasattr_call",
-        SetattrCall = "setattr_call",
-        DelattrCall = "delattr_call",
-        VarsCall = "vars_call",
-        ConstructSelector = "construct_selector",
-        NumericOperand = "numeric_operand",
-        AnyAnnotation = "any_annotation",
-        DictAnyAnnotation = "dict_any_annotation",
-        CallableAnyAnnotation = "callable_any_annotation",
-        ObjectAnnotation = "object_annotation",
-        CastCall = "cast_call",
-        EvalCall = "eval_call",
-        ExecCall = "exec_call",
-        TypeIgnore = "type_ignore",
-        MissingCrossPackageAnnotation = "missing_cross_package_annotation",
-        CollectionGap = "collection_gap",
-        SourceResolutionGap = "source_resolution_gap",
-        DynamicImportLimit = "dynamic_import_limit",
-        PrivateAttributeAccessLimit = "private_attribute_access_limit",
-        ExceptionGap = "exception_gap",
-        AssertStatement = "assert_statement",
-        PlaceholderBody = "placeholder_body",
-        DunderDict = "dunder_dict",
-    }
-}
-
-closed! {
-    /// The protocol 9 kind of an analyzer failure (`Kind::ExceptionGap`). Python writes the class
-    /// name of the exception that stopped a file: `OSError` and the subclasses that a file read can
-    /// raise, `UnicodeDecodeError`, `SyntaxError` and its subclasses, `ValueError` and
-    /// `TooDeepError` (`analyzer/python/source.py`). Dart writes the names of its problem kinds
-    /// (`analyzer/dart/collect.py`, `resolve.py`, `snapshot.py`, `syntax.py`).
-    pub enum ExceptionName {
-        SyntaxError = "SyntaxError",
-        IndentationError = "IndentationError",
-        TabError = "TabError",
-        UnicodeDecodeError = "UnicodeDecodeError",
-        ValueError = "ValueError",
-        TooDeepError = "TooDeepError",
-        OsError = "OSError",
-        FileNotFoundError = "FileNotFoundError",
-        PermissionError = "PermissionError",
-        IsADirectoryError = "IsADirectoryError",
-        NotADirectoryError = "NotADirectoryError",
-        TimeoutError = "TimeoutError",
-        InterruptedError = "InterruptedError",
-        DirectiveError = "DirectiveError",
-        UnsupportedDeclaration = "UnsupportedDeclaration",
-        UnsupportedMember = "UnsupportedMember",
-        UnsupportedParameter = "UnsupportedParameter",
-        LanguageVersionError = "LanguageVersionError",
-        SdkConstraintError = "SdkConstraintError",
-        DuplicateDeclaration = "DuplicateDeclaration",
-        PartError = "PartError",
-        PartOwnershipConflict = "PartOwnershipConflict",
-        DartSourceLink = "DartSourceLink",
-        SnapshotError = "SnapshotError",
-        DartModuleError = "DartModuleError",
-        DartModuleCollision = "DartModuleCollision",
-        SelectedRootError = "SelectedRootError",
-        ContainmentError = "ContainmentError",
-        ExcludedTreeError = "ExcludedTreeError",
-        PubspecMissing = "PubspecMissing",
-        DartSyntaxError = "syntax_error",
-        InvalidEncoding = "invalid_encoding",
-        /// Protocol 10.0.0 only (AD-367): the published 9.0.0 schema does not list it.
-        ShadowedModule = "ShadowedModule",
-    }
-}
-
-impl ExceptionName {
-    /// Whether the published 9.0.0 schema lists the name.
-    pub(crate) fn in_v9(self) -> bool {
-        self != Self::ShadowedModule
     }
 }
 
@@ -309,61 +207,10 @@ closed! {
 }
 
 closed! {
-    /// The typing signal of a record of `typing_signals`; the text equals the kind of the record.
-    pub enum Signal {
-        AnyAnnotation = "any_annotation",
-        DictAnyAnnotation = "dict_any_annotation",
-        CallableAnyAnnotation = "callable_any_annotation",
-        ObjectAnnotation = "object_annotation",
-        CastCall = "cast_call",
-        GetattrCall = "getattr_call",
-        HasattrCall = "hasattr_call",
-        EvalCall = "eval_call",
-        ExecCall = "exec_call",
-        DynamicImport = "dynamic_import",
-        TypeIgnore = "type_ignore",
-        MissingCrossPackageAnnotation = "missing_cross_package_annotation",
-    }
-}
-
-closed! {
     /// How a class relates to a base declaration.
     pub enum RelationshipKind {
         Inherits = "inherits",
         Realizes = "realizes",
-    }
-}
-
-impl Signal {
-    /// The contract construct observed by this signal, if it observes one.
-    pub fn construct(self) -> Option<&'static str> {
-        Kind::parse(self.as_str()).and_then(Kind::construct)
-    }
-}
-
-impl Kind {
-    /// The construct named by the record kind, never by a redundant payload field.
-    pub fn construct(self) -> Option<&'static str> {
-        match self {
-            Self::AssertStatement => Some("assert"),
-            Self::PlaceholderBody => Some("placeholder_body"),
-            Self::BroadExcept => Some("broad_except"),
-            Self::SetattrCall => Some("setattr"),
-            Self::DelattrCall => Some("delattr"),
-            Self::VarsCall => Some("vars"),
-            Self::DunderDict => Some("dunder_dict"),
-            Self::StringLiteralCompare => Some("string_literal_compare"),
-            Self::ConstructSelector => Some("selector"),
-            Self::AnyAnnotation => Some("any_annotation"),
-            Self::CastCall => Some("cast"),
-            Self::GetattrCall => Some("getattr"),
-            Self::HasattrCall => Some("hasattr"),
-            Self::EvalCall => Some("eval"),
-            Self::ExecCall => Some("exec"),
-            Self::DynamicImport => Some("dynamic_import"),
-            Self::TypeIgnore => Some("type_ignore"),
-            _ => None,
-        }
     }
 }
 
