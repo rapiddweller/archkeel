@@ -123,7 +123,7 @@ function Origin(props: { answer: StoryAnswer }) {
   const made = answer.created;
   return (
     <p class="more origin">
-      <Badge evidence={Evidence.Observed}>{answer.source}</Badge>{" "}
+      <Badge evidence={Evidence.Observed}>{answer.origin}</Badge>{" "}
       {made.created === null && made.git_head === null
         ? "No creation data in the spec."
         : `Created ${made.created ?? "at an unknown time"} at ${short(made.git_head)}${made.author_kind === null ? "" : ` by ${made.author_kind}${made.agent === null ? "" : ` ${made.agent}`}`}.`}{" "}
@@ -326,7 +326,7 @@ function List(props: { rows: readonly StoryRow[] }) {
                 </p>
               )}
               <span class="chips">
-                <span class="chip">{row.source === StorySource.Repository ? "repository" : "local"}</span>
+                <span class="chip">{row.origin === StorySource.Repository ? "repository" : "local"}</span>
               </span>
             </a>
           ))}

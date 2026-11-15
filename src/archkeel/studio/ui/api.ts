@@ -91,7 +91,7 @@ export type StoryRow = {
   readonly id: string;
   readonly title: string;
   readonly steps: number;
-  readonly source: StorySource;
+  readonly origin: StorySource;
   readonly created: string | null;
   readonly checked_counts: StoryCounts | null;
 };
@@ -124,7 +124,7 @@ export type StoryStep = {
 };
 /** A link of `steps`, by the index of the story step: the status of the call into that step. */
 export type StepLink = {
-  readonly source: string | null;
+  readonly caller: string | null;
   readonly target: string;
   readonly status: CheckStatus;
   readonly reason: string;
@@ -259,13 +259,31 @@ export async function askChat(
   return answer;
 }
 
+/** The wire form of the story types: the Studio server names the origin and the caller `source`. */
+type WireStoryRow = Omit<StoryRow, "origin"> & { readonly source: StorySource };
+type WireStepLink = Omit<StepLink, "caller"> & { readonly source: string | null };
+type WireStoryAnswer = Omit<StoryAnswer, "origin" | "checked"> & {
+  readonly source: StorySource;
+  readonly checked: Omit<CheckedStory, "steps"> & { readonly steps: readonly WireStepLink[] };
+};
+
+/** The one read of the wire field `source` (SoC: the wire names stay the server's). */
+const wireSource = <T,>(wire: { readonly source: T }): T => wire.source;
+const storyRow = (row: WireStoryRow): StoryRow => ({ ...row, origin: wireSource(row) });
+const stepLink = (link: WireStepLink): StepLink => ({ ...link, caller: wireSource(link) });
+const storyAnswer = (answer: WireStoryAnswer): StoryAnswer => ({
+  ...answer,
+  origin: wireSource(answer),
+  checked: { ...answer.checked, steps: answer.checked.steps.map(stepLink) },
+});
+
 export const readStories = async (): Promise<readonly StoryRow[]> =>
-  (await get<{ api_version: string; stories: readonly StoryRow[] }>("/api/v1/stories")).stories;
+  (await get<{ api_version: string; stories: readonly WireStoryRow[] }>("/api/v1/stories")).stories.map(storyRow);
 
 /** One story: the check against the current snapshot, where the spec lies and where it comes from. */
 export type StoryAnswer = {
   readonly checked: CheckedStory;
-  readonly source: StorySource;
+  readonly origin: StorySource;
   /** The spec named another snapshot and was checked by node name against the current one. */
   readonly rebound: boolean;
   readonly created: {
@@ -285,7 +303,7 @@ export async function readStory(id: string): Promise<StoryAnswer> {
   if (!response.ok) {
     throw new Error((await response.text()).trim() || `GET ${path}: ${response.status}`);
   }
-  return response.json();
+  return storyAnswer(await response.json());
 }
 
 /** A draft spec along the traced path from one function; the server writes nothing. */

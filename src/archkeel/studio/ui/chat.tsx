@@ -277,7 +277,7 @@ function StoryDraftView(props: {
       <ol>
         {checked.steps.map((step, index) => (
           <li key={index}>
-            {step.source === null ? "Start" : step.source} → {step.target}: {" "}
+            {step.caller === null ? "Start" : step.caller} → {step.target}: {" "}
             <ProofMark proof={proofOfCheck(step.status)} />
             {step.reason ? ` · ${step.reason}` : ""}
             {step.note ? (
