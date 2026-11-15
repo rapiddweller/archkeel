@@ -109,6 +109,8 @@ pub(crate) struct Scan {
     pub orphans: crate::definitions::OrphanFacts,
     /// The structs and enums at module level that are in every configuration (AD-383).
     pub exact_types: BTreeSet<String>,
+    /// Written types whose derive-helper identity needs the workspace proof.
+    pub helper_types: Vec<(String, Vec<Concern>)>,
     pub fields: BTreeMap<(String, String), Vec<Field>>,
     /// An inner attribute of the file may remove the module in some configuration.
     pub gated_file: bool,

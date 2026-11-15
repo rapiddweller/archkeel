@@ -31,7 +31,7 @@ complete package map that it reads (each `pubspec.yaml` of the project and its p
 members), and a test plants each YAML form of a local package. The Dart collector reads bounded
 YAML. It keeps a gap for a path key, an unsupported YAML form, and a workspace that it cannot
 prove disjoint from the scan roots (AD-542). Loader and mirror identifiers and non-own relative
-package roots also give gaps (AD-550).
+package roots also give gaps (AD-562).
 
 **Dart import premise (AD-542).** Code outside the scan roots does not load or run scanned code
 from a name passed as data. The current report does not yet print this premise. The stated-premise

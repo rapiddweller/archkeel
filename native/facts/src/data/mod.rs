@@ -10,6 +10,7 @@
 
 mod constructs;
 pub(crate) mod gap_data;
+pub(crate) mod gap_effect;
 mod imports;
 mod sites;
 mod symbols;
@@ -21,6 +22,7 @@ pub use constructs::PlainConstructData;
 pub use constructs::SelectorData;
 pub use constructs::SignalData;
 pub use gap_data::GapData;
+pub use gap_effect::GapEffect;
 pub use imports::ImportData;
 pub use sites::BindingData;
 pub use sites::CallData;

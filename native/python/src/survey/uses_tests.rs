@@ -8,6 +8,9 @@
 
 use crate::survey::targets::tests::surveyed;
 
+#[path = "uses_construct_tests.rs"]
+mod construct;
+
 /// The modules that the survey cannot prove a route through, for a writer module.
 fn named(writer: &str) -> Vec<String> {
     let found = surveyed(&[

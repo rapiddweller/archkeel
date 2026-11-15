@@ -81,7 +81,20 @@ impl Usable {
     /// This is the one owner of the needs of a run: a new reason is one more `Need`.
     pub(crate) fn needs(&self) -> Needs {
         let target = matches!(self.uml, Some(UmlTarget::Compare(_)));
-        Needs::from_reasons(target.then_some(Need::UmlTarget))
+        let typed = |kind: RuleKind| kind == RuleKind::BoundaryTypes;
+        let boundary = self
+            .root
+            .rules()
+            .iter()
+            .map(archkeel_contract::kind_of)
+            .chain(self.inside.iter().map(|(_, kind)| *kind))
+            .any(typed);
+        Needs::from_reasons(
+            target
+                .then_some(Need::UmlTarget)
+                .into_iter()
+                .chain(boundary.then_some(Need::BoundaryTypes)),
+        )
     }
 }
 

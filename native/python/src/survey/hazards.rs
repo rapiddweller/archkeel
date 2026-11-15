@@ -4,10 +4,7 @@
 
 //! The sites that can import a module that no `import` statement names (AD-450).
 //!
-//! A reference to a hazard name is the hazard: a call, an alias import, an attribute read, a
-//! value or a write. A name resolves through the import statements of the module, in any scope:
-//! `import sys as s` makes `s.path` the name `sys.path`. A name that no import binds resolves to
-//! itself, so `sys.path` is `sys.path` also without `import sys`.
+//! A door or state reference is a hazard. A proven inert read keeps its import gap (AD-562).
 //!
 //! - A dynamic import is a reference to a door: a standard-library name that imports a module
 //!   from a value or runs text (`DOORS`), a builtin such as `exec`, or an attribute with the name
@@ -18,11 +15,7 @@
 //!   the base of an attribute, is a dynamic import too: `getattr(sys, "path")` and `x = importlib`
 //!   reach any name of it. An attribute `sys`, `builtins` or `importlib` of any value is the same.
 //!
-//! Except for `code` (AD-539), the walk finds names, not scoped bindings. A name that a function
-//! binds as a parameter or a local, and that no import binds, is a local value and no door
-//! (AD-530). `getattr(module, "name")` with a literal name reads the one attribute `module.name`.
-//! A read of `__globals__` that only a lookup of a literal key reads is no site
-//! (`globals_read.rs`).
+//! Unproved names remain gaps (AD-539).
 
 use std::collections::{HashMap, HashSet};
 
@@ -33,17 +26,16 @@ use ruff_text_size::{Ranged, TextRange};
 use super::binders::Binders;
 use super::bound::Bound;
 use super::globals_read;
+use super::lazy::Lazy;
 use super::literal::{self, Proof};
 use super::syspath;
 use crate::module::Module;
 
-use names::{
-    above, first_hazard, hazard, ANY_ATTRIBUTE, BUILTIN_DOORS, DOOR_STRINGS, IMPORT_FUNCTIONS,
-};
-pub(super) use names::{namespace_hazard, DYNAMIC, IMPORT_SYSTEM};
+use names::{doors, ANY_ATTRIBUTE, BUILTIN_DOORS, DOOR_STRINGS, IMPORT_FUNCTIONS, STATE};
+pub(super) use names::{DYNAMIC, IMPORT_SYSTEM};
 
-#[path = "hazards_binds.rs"]
-mod binds;
+#[path = "hazards_inert.rs"]
+mod inert;
 #[path = "hazards_names.rs"]
 mod names;
 #[path = "hazards_reflect.rs"]
@@ -64,15 +56,18 @@ pub(super) fn sites(
     tree: &ModModule,
     proof: Proof,
     binders: &Binders,
-    inert: &HashSet<TextRange>,
+    reads: &HashSet<TextRange>,
 ) -> Vec<Site> {
+    let bound = bindings(tree);
+    let inert_modules = inert::modules(&bound, &binders.unique());
     let mut walk = Walk {
         found: Vec::new(),
-        bound: binds::bindings(tree),
+        bound,
+        inert_modules,
         uncertain_code: Bound::of(&tree.body).opaque || reflect::deleted_code(tree),
         class_body: false,
         proof,
-        inert,
+        reads,
         locals: Vec::new(),
         getattr_bound: !Bound::of(&tree.body).unbound("getattr"),
     };
@@ -91,14 +86,126 @@ pub(super) fn sites(
     walk.found
 }
 
-struct Walk<'i> {
+/// The names of a door module that cannot import a module by a name given at run time (AD-472).
+/// `importlib.metadata.version` reads the version from the metadata files of an installed
+/// distribution, and `PackageNotFoundError` is an exception class. A reference to one of these
+/// exact names is no gap; any name below it, and each other name of the module, still is.
+const INERT: [&str; 2] = [
+    "importlib.metadata.version",
+    "importlib.metadata.PackageNotFoundError",
+];
+
+/// The gap of a qualified name: a door, the import state, or a name below one of them.
+pub(super) fn hazard(name: &str) -> Option<&'static str> {
+    if INERT.contains(&name) {
+        return None;
+    }
+    let under = |entry: &&str| {
+        name == *entry
+            || name
+                .strip_prefix(*entry)
+                .is_some_and(|rest| rest.starts_with('.'))
+    };
+    if STATE.iter().any(under) {
+        Some(IMPORT_SYSTEM)
+    } else if doors().any(|door| under(&door)) {
+        Some(DYNAMIC)
+    } else {
+        None
+    }
+}
+
+/// True for a module above a hazard name, such as `sys` or `importlib.metadata`.
+fn above(name: &str) -> bool {
+    let prefix = format!("{name}.");
+    doors().chain(STATE).any(|entry| entry.starts_with(&prefix))
+}
+
+/// The qualified names that the import statements of a module bind, in any scope.
+fn bindings(tree: &ModModule) -> HashMap<String, Vec<String>> {
+    struct Imports(HashMap<String, Vec<String>>);
+    impl<'a> Visitor<'a> for Imports {
+        fn visit_stmt(&mut self, stmt: &'a Stmt) {
+            for (name, origin) in bound(stmt) {
+                self.0.entry(name).or_default().push(origin);
+            }
+            visitor::walk_stmt(self, stmt);
+        }
+    }
+    let mut walk = Imports(HashMap::new());
+    walk.visit_body(&tree.body);
+    reflect::aliases(tree, &mut walk.0);
+    walk.0
+}
+
+/// The names that one import statement binds and their qualified origins. A relative import
+/// names a module of the project and binds nothing here.
+fn bound(stmt: &Stmt) -> Vec<(String, String)> {
+    match stmt {
+        Stmt::Import(node) => node
+            .names
+            .iter()
+            .map(|alias| {
+                let name = alias.name.as_str();
+                match &alias.asname {
+                    Some(asname) => (asname.to_string(), name.to_owned()),
+                    None => {
+                        let first = name.split('.').next().unwrap_or(name);
+                        (first.to_owned(), first.to_owned())
+                    }
+                }
+            })
+            .collect(),
+        Stmt::ImportFrom(node) if node.level == 0 => {
+            let module = node.module.as_ref().map_or("", |module| module.as_str());
+            node.names
+                .iter()
+                .map(|alias| {
+                    let name = alias.name.as_str();
+                    let local = alias.asname.as_ref().map_or(name, |asname| asname.as_str());
+                    (local.to_owned(), format!("{module}.{name}"))
+                })
+                .collect()
+        }
+        _ => Vec::new(),
+    }
+}
+
+/// The names that an import statement imports, as qualified names, for the door check: each
+/// module of `import a.b`, and each name of `from m import n`. A star import names its module.
+fn imported(stmt: &Stmt) -> Vec<String> {
+    match stmt {
+        // A plain `import importlib` binds the module of the accepted literal call (AD-472);
+        // each use of the name is still read. Each other import of `importlib` is a reference.
+        Stmt::Import(node) => node
+            .names
+            .iter()
+            .filter(|a| a.asname.is_some() || a.name.as_str() != "importlib")
+            .map(|a| a.name.to_string())
+            .collect(),
+        Stmt::ImportFrom(node) if node.level == 0 => {
+            let module = node.module.as_ref().map_or("", |module| module.as_str());
+            node.names
+                .iter()
+                .map(|alias| match alias.name.as_str() {
+                    "*" => module.to_owned(),
+                    name => format!("{module}.{name}"),
+                })
+                .collect()
+        }
+        _ => Vec::new(),
+    }
+}
+
+struct Walk<'r> {
     found: Vec<Site>,
     bound: HashMap<String, Vec<String>>,
+    inert_modules: HashMap<String, String>,
     uncertain_code: bool,
     class_body: bool,
     proof: Proof,
-    /// The sources of `__globals__` that are inert (`globals_read.rs`).
-    inert: &'i HashSet<TextRange>,
+    /// The sources of `__globals__` that only a literal lookup reads (`globals_read.rs`).
+    reads: &'r HashSet<TextRange>,
     /// The names that each enclosing function binds, the innermost last.
     locals: Vec<HashSet<String>>,
     /// The module binds `getattr` itself: a call of it is no read of an attribute.
@@ -134,6 +241,37 @@ impl Walk<'_> {
         !self.bound.contains_key(id) && self.locals.iter().any(|names| names.contains(id))
     }
 
+    /// `getattr(name, "attr")` and `getattr(name, "attr", default)` with a literal attribute that
+    /// is no door string read the one attribute `name.attr` (AD-530). Any other form is read as
+    /// before.
+    fn literal_getattr(&mut self, call: &ruff_python_ast::ExprCall) -> bool {
+        let args = &call.arguments.args;
+        let named = matches!(&*call.func, Expr::Name(f) if f.id.as_str() == "getattr");
+        let (Some(Expr::Name(root)), Some(Expr::StringLiteral(attr))) = (args.first(), args.get(1))
+        else {
+            return false;
+        };
+        let literal = !DOOR_STRINGS.contains(&attr.value.to_str());
+        let plain = named && literal && (2..=3).contains(&args.len());
+        if !plain
+            || !call.arguments.keywords.is_empty()
+            || self.local("getattr")
+            || self.getattr_bound
+            || self.bound.contains_key("getattr")
+        {
+            return false;
+        }
+        let id = root.id.as_str();
+        if !self.local(id) {
+            let first = |origin: String| first_hazard(origin, &[attr.value.to_str()]);
+            if let Some((kind, name)) = self.origins(id).into_iter().find_map(first) {
+                self.push(kind, &name, call);
+            }
+        }
+        args.iter().skip(2).for_each(|item| self.visit_expr(item));
+        true
+    }
+
     /// A plain name that is not the base of an attribute.
     fn name(&mut self, id: &str, expr: &Expr) {
         if self.local(id) {
@@ -165,13 +303,18 @@ impl Walk<'_> {
         }
         attributes.reverse();
         ranges.reverse();
-        let reads = |at: usize, a: &str| a == "__globals__" && self.inert.contains(&ranges[at]);
-        let hazard_at = attributes.iter().enumerate().find(|(at, a)| {
+        if !store(expr)
+            && matches!(base, Expr::Name(name) if inert::read(&self.inert_modules, name.id.as_str(), &attributes))
+        {
+            return;
+        }
+        let reads = |at: usize, a: &str| a == "__globals__" && self.reads.contains(&ranges[at]);
+        let door_at = attributes.iter().enumerate().find(|(at, a)| {
             let named =
                 ANY_ATTRIBUTE.contains(a) || IMPORT_FUNCTIONS.contains(a) || **a == "__path__";
             named && !reads(*at, a)
         });
-        if let Some((_, name)) = hazard_at {
+        if let Some((_, name)) = door_at {
             let state = ["meta_path", "path_hooks", "path_importer_cache", "__path__"];
             let kind = if state.contains(name) {
                 IMPORT_SYSTEM
@@ -211,47 +354,22 @@ impl Walk<'_> {
     }
 }
 
-impl Walk<'_> {
-    /// `getattr(name, "attr")` and `getattr(name, "attr", default)` with a literal attribute that
-    /// is no door string read the one attribute `name.attr` (AD-530). The site is that attribute's
-    /// hazard, if it has one; the module `name` is not read as a value. Any other form is read as
-    /// before.
-    fn literal_getattr(&mut self, call: &ruff_python_ast::ExprCall) -> bool {
-        let args = &call.arguments.args;
-        let named = matches!(&*call.func, Expr::Name(f) if f.id.as_str() == "getattr");
-        let (Some(Expr::Name(root)), Some(Expr::StringLiteral(attr))) = (args.first(), args.get(1))
-        else {
-            return false;
-        };
-        let literal = !DOOR_STRINGS.contains(&attr.value.to_str());
-        if !(named
-            && literal
-            && (2..=3).contains(&args.len())
-            && call.arguments.keywords.is_empty())
-            || self.local("getattr")
-            || self.getattr_bound
-            || self.bound.contains_key("getattr")
-        {
-            return false;
-        }
-        let id = root.id.as_str();
-        if !self.local(id) {
-            let first = |origin: String| first_hazard(origin, &[attr.value.to_str()]);
-            let found = self.origins(id).into_iter().find_map(first);
-            if let Some((kind, name)) = found {
-                self.push(kind, &name, call);
-            }
-        }
-        args.iter().skip(2).for_each(|item| self.visit_expr(item));
-        true
-    }
-}
-
-/// The names that a function binds: its parameters and its writes, not the names of a nested
-/// scope and not a comprehension variable (AD-530). A name that a `global` or `nonlocal` line
-/// names is not local.
+/// The names that a function binds (AD-530): see `globals_locals.rs`.
 fn bound_in(def: &StmtFunctionDef) -> HashSet<String> {
     super::globals_locals::local_names(def)
+}
+
+/// The first hazard on the names `origin`, `origin.a`, `origin.a.b`, ..., or a module above a
+/// hazard as the value of the whole chain.
+fn first_hazard(origin: String, attributes: &[&str]) -> Option<(&'static str, String)> {
+    let mut name = origin;
+    for attribute in attributes {
+        name = format!("{name}.{attribute}");
+        if let Some(kind) = hazard(&name) {
+            return Some((kind, name));
+        }
+    }
+    above(&name).then_some((DYNAMIC, name))
 }
 
 /// True for an attribute in a write or a delete.
@@ -266,7 +384,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
         {
             self.push(DYNAMIC, "code", stmt);
         }
-        for name in binds::imported(stmt) {
+        for name in imported(stmt) {
             if name.ends_with(".code") {
                 self.push(DYNAMIC, &name, stmt);
             } else if let Some(kind) = hazard(&name) {
@@ -275,7 +393,6 @@ impl<'a> Visitor<'a> for Walk<'_> {
         }
         let previous = self.class_body;
         if let Stmt::FunctionDef(node) = stmt {
-            // The decorators, the defaults and the annotations run in the enclosing scope.
             node.decorator_list
                 .iter()
                 .for_each(|item| self.visit_decorator(item));
@@ -329,7 +446,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
             Expr::Attribute(_) => self.chain(expr),
             Expr::StringLiteral(node)
                 if DOOR_STRINGS.contains(&node.value.to_str())
-                    && !self.inert.contains(&node.range()) =>
+                    && !self.reads.contains(&node.range()) =>
             {
                 self.push(DYNAMIC, node.value.to_str(), expr);
             }
@@ -352,12 +469,24 @@ mod tests;
 /// of its module.
 pub(super) type Split = (Vec<(usize, TextRange, String)>, Vec<(usize, Site)>);
 
-pub(super) fn split(modules: &[Module], binders: &[Binders]) -> Split {
+/// The sites that the lazy import proof covers (`lazy.rs`) are no hazard when `lazy` is given.
+pub(super) fn split(modules: &[Module], binders: &[Binders], lazy: Option<&[Lazy]>) -> Split {
     let (mut literals, mut found) = (Vec::new(), Vec::new());
-    let inert = globals_read::inert_reads(modules);
+    let reads = globals_read::inert_reads(modules);
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
         let proof = literal::Proof::of(&module.tree, binders);
-        for site in sites(&module.tree, proof, binders, &inert[index]) {
+        let covered = lazy.map(|all| &all[index]);
+        for (range, target) in covered.iter().flat_map(|item| &item.targets) {
+            literals.push((index, *range, target.clone()));
+        }
+        for site in sites(&module.tree, proof, binders, &reads[index]) {
+            let exempt = covered.iter().flat_map(|item| &item.exempt);
+            if exempt
+                .into_iter()
+                .any(|range| range.contains_range(site.range))
+            {
+                continue;
+            }
             match site.kind {
                 LITERAL => literals.push((index, site.range, site.detail)),
                 _ => found.push((index, site)),

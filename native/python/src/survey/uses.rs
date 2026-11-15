@@ -28,6 +28,7 @@ use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, ExprAttribute, ExprContext, Stmt};
 
 use super::bound::{Bound, Kind};
+use super::uses_scan::{class_patch, Scan};
 use crate::module::Module;
 
 /// The attributes of a module that are its namespace.
@@ -41,89 +42,22 @@ enum Binding {
     Attribute(String, String),
 }
 
-/// The module and the symbol that an import names.
-type Origin<'m> = (&'m str, Option<&'m str>);
-
-/// The facts that the visitor reads about the scan.
-struct Scan<'m> {
-    modules: HashSet<&'m str>,
-    bounds: HashMap<&'m str, Bound>,
-    hazardous: HashSet<&'m str>,
-    typing_values: HashSet<(String, String)>,
-    /// The imports of each module by bound name: (target module, symbol).
-    imports: HashMap<(&'m str, &'m str), Vec<Origin<'m>>>,
-}
-
-impl Scan<'_> {
-    /// True when `name` of `module` cannot be a module of the scan, nor an alias of one, nor a
-    /// container of one: a function or a class, a value that reads only inert names, or an import
-    /// whose origin lies outside the scan (AD-530). Each re-export is followed to its sole plain
-    /// binder; any other binder keeps the name unknown.
-    fn inert(&self, module: &str, name: &str, depth: usize) -> bool {
-        let Some(bound) = self.bounds.get(module).filter(|bound| {
-            depth < 8
-                && !bound.getattr
-                && !bound.attribute_write
-                && !self.hazardous.contains(module)
-                && !self.modules.contains(format!("{module}.{name}").as_str())
-        }) else {
-            return false;
-        };
-        match bound.kind(name) {
-            Some(Kind::Callable | Kind::Value) => true,
-            Some(Kind::Derived) => bound.deps(name).is_some_and(|deps| {
-                let builtins = deps.builtins.iter().all(|builtin| bound.unbound(builtin));
-                let names = deps.names.iter().all(|read| {
-                    // A name that the module does not bind is a builtin or an error.
-                    bound.unbound(read) || self.inert(module, read, depth + 1)
-                });
-                builtins && names
-            }),
-            Some(Kind::BuiltinGeneric(builtin)) => bound.unbound(builtin),
-            Some(Kind::Other)
-                if self
-                    .typing_values
-                    .contains(&(module.to_owned(), name.to_owned())) =>
-            {
-                true
-            }
-            Some(Kind::Import) => match self.imports.get(&(module, name)).map(Vec::as_slice) {
-                // An object of a module outside the scan; the module itself is no module of the
-                // scan either.
-                Some([(target, _)]) if !self.modules.contains(target) => true,
-                Some([(target, Some(symbol))]) => self.inert(target, symbol, depth + 1),
-                _ => false,
-            },
-            _ => false,
-        }
-    }
-
-    /// The module and each module below it.
-    fn below(&self, module: &str) -> Vec<String> {
-        let child = format!("{module}.");
-        let names = self.modules.iter().copied();
-        names
-            .filter(|name| *name == module || name.starts_with(&child))
-            .map(str::to_owned)
-            .collect()
-    }
-}
-
 /// The modules that a use of a module binding in `modules` can change.
 pub(super) fn escaped(modules: &[Module], imports: &[Record<ImportFact>]) -> HashSet<String> {
     let binders: Vec<_> = modules
         .iter()
         .map(|module| super::binders::Binders::of(&module.tree))
         .collect();
-    let (_, sites) = super::hazards::split(modules, &binders);
+    let (_, sites) = super::hazards::split(modules, &binders, None);
     let mut scan = Scan {
         modules: modules.iter().map(|module| module.name.as_str()).collect(),
         hazardous: sites
             .iter()
-            .filter(|(_, site)| super::hazards::namespace_hazard(&site.detail))
+            .filter(|(_, site)| namespace_hazard(&site.detail))
             .map(|(index, _)| modules[*index].name.as_str())
             .collect(),
         typing_values: HashSet::new(),
+        class_patch: false,
         bounds: modules
             .iter()
             .map(|module| (module.name.as_str(), Bound::of(&module.tree.body)))
@@ -160,6 +94,7 @@ pub(super) fn escaped(modules: &[Module], imports: &[Record<ImportFact>]) -> Has
             .or_default()
             .push(kind);
     }
+    scan.class_patch = class_patch(&scan, modules);
     scan.typing_values = typing_values(modules, imports, &scan);
     for module in modules {
         let mut walk = Uses {
@@ -170,6 +105,24 @@ pub(super) fn escaped(modules: &[Module], imports: &[Record<ImportFact>]) -> Has
         walk.visit_body(&module.tree.body);
     }
     found
+}
+
+fn namespace_hazard(detail: &str) -> bool {
+    matches!(
+        detail,
+        "globals"
+            | "locals"
+            | "vars"
+            | "exec"
+            | "eval"
+            | "compile"
+            | "__globals__"
+            | "__builtins__"
+            | "sys.__dict__"
+    ) || detail == "builtins"
+        || detail.starts_with("builtins.")
+        || detail == "sys.modules"
+        || detail.starts_with("sys.modules.")
 }
 
 /// A typing factory that is referenced only as a factory cannot be patched by a scanned use.
@@ -398,7 +351,7 @@ impl Uses<'_, '_> {
         match kind {
             Binding::Module(module) => Some(module.clone()),
             Binding::Attribute(anchor, symbol) => {
-                (!self.scan.inert(anchor, symbol, 0)).then(|| anchor.clone())
+                (!self.scan.callable(anchor, symbol, 0)).then(|| anchor.clone())
             }
         }
     }

@@ -111,11 +111,11 @@ def test_each_script_global_decision_reads_the_one_write_check() -> None:
     assert "writes.sole(name)" in project
     assert "paths.blocks_all()" in stable and "paths.singles.contains_key(name)" in stable
     # The one check fills all three: one helper pushes each written name to each of them.
-    declarations = (SOURCE / "script_declarations.rs").read_text()
+    declarations = re.sub(r"\s+", "", (SOURCE / "script_declarations.rs").read_text())
     for call in ("self.global_write(", "self.changed_global(", "self.node_write("):
         assert f"found.check({call}" in declarations, call
-    check = declarations[declarations.index("fn check(") :]
-    check = check[: check.index("\n    }\n")]
+    check = declarations[declarations.index("fncheck(") :]
+    check = check[: check.index("}///")]
     for field in ("self.writes.push(", "self.checked.push(", "self.paths.push("):
         assert field in check, field
     script = re.sub(r"\s+", "", (SOURCE / "script.rs").read_text())

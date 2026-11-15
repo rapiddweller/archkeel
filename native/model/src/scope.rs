@@ -338,6 +338,11 @@ fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
             undecided(direction::undecided(judged))?;
             true
         }
+        // AD-550: the rule has its receipt when its surface has no named gap.
+        Rule::BoundaryTypes(rule) => {
+            crate::boundary_positions::receipt(model, rule)?;
+            true
+        }
         // Each kind that no slice decides: its slice states its receipt here (AD-378). A
         // permission declaration (`allowed_dependency`) has no verdict, so it has no receipt.
         other @ (Rule::CallOwner(_)
@@ -349,7 +354,6 @@ fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
         | Rule::SourceOwnership(_)
         | Rule::NoComponentCycles(_)
         | Rule::SymbolPlacement(_)
-        | Rule::BoundaryTypes(_)
         | Rule::BoundedNumericOperand(_)
         | Rule::ProtocolDeclarations(_)) => {
             // `receipts::cycle` gives the receipt of `no_component_cycles` (slice S7).

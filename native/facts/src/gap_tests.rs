@@ -55,3 +55,59 @@ fn the_keys_of_the_data_keep_the_order_of_the_untyped_record() {
         text.ends_with(r#""data":{"reason":"why","module":"m","resolution_dimension":"imports"}}"#)
     );
 }
+
+// AD-560: the effect of a gap. A gap without an effect has no `effect` key, so a reply of a
+// collector that states no effect keeps its bytes and the model reads the whole scope.
+fn with_effect(effect: crate::data::GapEffect) -> serde_json::Value {
+    let mut data = GapData::at("why", "ns.mod");
+    data.effect = Some(effect);
+    serde_json::to_value(&data).unwrap()
+}
+
+#[test]
+fn each_effect_has_one_wire_shape_and_reads_back() {
+    use crate::data::GapEffect;
+    let name = |text: &str| ModuleName::new(text);
+    let cases = [
+        (
+            GapEffect::Edges {
+                sources: vec![name("ns.mod")],
+            },
+            json!({"edges": {"sources": ["ns.mod"]}}),
+        ),
+        (
+            GapEffect::Modules {
+                modules: vec![name("ns.mod"), name("ns.other")],
+            },
+            json!({"modules": {"modules": ["ns.mod", "ns.other"]}}),
+        ),
+        (GapEffect::EveryModule, json!("every_module")),
+    ];
+    for (effect, wire) in cases {
+        let value = with_effect(effect.clone());
+        assert_eq!(value["effect"], wire);
+        let back: GapData = serde_json::from_value(value).unwrap();
+        assert_eq!(back.effect, Some(effect));
+    }
+}
+
+#[test]
+fn a_gap_without_an_effect_has_no_effect_key_and_reads_back_as_none() {
+    let value = serde_json::to_value(GapData::at("why", "ns.mod")).unwrap();
+    assert_eq!(value, json!({"reason": "why", "module": "ns.mod"}));
+    let back: GapData = serde_json::from_value(value).unwrap();
+    assert_eq!(back.effect, None);
+}
+
+#[test]
+fn an_effect_that_the_core_does_not_know_is_refused() {
+    // A new effect must not be read as a narrower one: the reply does not parse.
+    for effect in [
+        json!("no_module"),
+        json!({"edges": {"sources": ["m"], "targets": ["n"]}}),
+        json!({"pair": {"source": "m", "target": "n"}}),
+    ] {
+        let value = json!({"reason": "why", "module": "m", "effect": effect});
+        assert!(serde_json::from_value::<GapData>(value).is_err());
+    }
+}

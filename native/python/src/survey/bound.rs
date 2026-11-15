@@ -15,7 +15,9 @@
 use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{ExceptHandler, Expr, ExprContext, Parameter, Pattern, Stmt, StmtImportFrom};
+use ruff_python_ast::{
+    ExceptHandler, Expr, ExprContext, Parameter, Pattern, Stmt, StmtClassDef, StmtImportFrom,
+};
 use ruff_text_size::{Ranged, TextSize};
 
 use super::binders::{
@@ -41,10 +43,12 @@ pub(super) enum Kind {
     Value,
     /// A subscript of a builtin generic, if the module does not bind that builtin.
     BuiltinGeneric(&'static str),
+    /// A call of a plain name: the value is an instance when that name is a bare class (AD-566).
+    Call,
     /// An import: the name is whatever the imported name is.
     Import,
-    /// A plain assignment of a name or of a builtin constructor call that `value_kind` does not
-    /// take as a value (`value.rs`, AD-530): `Bound::deps` says what it reads.
+    /// A plain assignment of a name, or of a builtin call, that `value_kind` does not take as a
+    /// value (`value.rs`, AD-530): `Bound::deps` says what it reads.
     Derived,
     /// Any other binder: the value is unknown.
     Other,
@@ -56,14 +60,28 @@ pub(super) struct Bound {
     sites: HashMap<String, Vec<Site>>,
     /// Names that a function of the module declares `global` (a write binds the module name).
     globals: HashSet<String>,
-    /// What the value of each plain `name = value` reads (AD-530).
-    values: HashMap<String, Deps>,
     /// A star import binds names that cannot be listed.
     pub(super) opaque: bool,
+    /// What the value of each plain `name = value` reads (AD-530).
+    values: HashMap<String, Deps>,
     /// A top-level `__getattr__` can give any attribute.
     pub(super) getattr: bool,
     /// A namespace write through a runtime attribute helper can change a binding.
     pub(super) attribute_write: bool,
+    /// The callee of `name = callee(...)`, for the names whose kind is `Kind::Call`.
+    callees: HashMap<String, String>,
+    /// The class statements of the module scope (AD-566).
+    classes: HashMap<String, Class>,
+}
+
+/// What a `class` statement of the module scope says about the call of its name.
+struct Class {
+    /// No base class and no keyword: the metaclass is `type`.
+    bare: bool,
+    /// The class body binds `__new__`, which may return any object.
+    new: bool,
+    /// The plain name of each decorator, or `None` for any other decorator form.
+    decorators: Vec<Option<String>>,
 }
 
 impl Bound {
@@ -94,6 +112,21 @@ impl Bound {
             [only] if only.plain => Some(only.kind),
             _ => None,
         }
+    }
+
+    /// The callee of the sole `name = callee(...)` statement, when `name` has that kind.
+    pub(super) fn callee(&self, name: &str) -> Option<&str> {
+        (self.kind(name) == Some(Kind::Call))
+            .then(|| self.callees.get(name).map(String::as_str))
+            .flatten()
+    }
+
+    /// The decorator names of the class that `name` is, when a call of it makes an instance of
+    /// it: no base, no keyword, no `__new__`. A decorator that is not a plain name is `None`.
+    pub(super) fn bare_class(&self, name: &str) -> Option<&[Option<String>]> {
+        let class = self.classes.get(name)?;
+        (self.kind(name) == Some(Kind::Callable) && class.bare && !class.new)
+            .then_some(class.decorators.as_slice())
     }
 
     /// What the value of the sole plain binder of `name` reads, when that binder is `Derived`.
@@ -192,16 +225,45 @@ impl Walk {
         self.scope -= 1;
     }
 
-    /// A target of a plain assignment: a name binds with the kind of its value (`value_kind`), or
-    /// as `Derived` when the value reads only builtins and names; any other target is an expression.
-    fn assigned<'a>(&mut self, target: &'a Expr, start: TextSize, value: Option<&Expr>)
+    fn class(&mut self, node: &StmtClassDef) {
+        if self.scope != 0 {
+            return;
+        }
+        let bare = node
+            .arguments
+            .as_ref()
+            .is_none_or(|arguments| arguments.args.is_empty() && arguments.keywords.is_empty());
+        let mut news = NewWatch(false);
+        news.visit_body(&node.body);
+        let decorators = node
+            .decorator_list
+            .iter()
+            .map(|item| match &item.expression {
+                Expr::Name(name) => Some(name.id.to_string()),
+                Expr::Call(call) => match &*call.func {
+                    Expr::Name(name) => Some(name.id.to_string()),
+                    _ => None,
+                },
+                _ => None,
+            })
+            .collect();
+        let class = Class {
+            bare,
+            new: news.0,
+            decorators,
+        };
+        self.bound.classes.insert(node.name.to_string(), class);
+    }
+
+    fn definition(&mut self, name: &str, start: TextSize) {
+        self.site(name, start, true, Kind::Callable);
+    }
+
+    fn assignment_target<'a>(&mut self, target: &'a Expr, start: TextSize, value: Option<&Expr>)
     where
         Self: Visitor<'a>,
     {
-        let Expr::Name(name) = target else {
-            return self.visit_expr(target);
-        };
-        let mut kind = value.map_or(Kind::Other, value_kind);
+        let (mut kind, callee) = value.map_or((Kind::Other, None), value_kind);
         let mut deps = None;
         if kind == Kind::Other {
             deps = value.and_then(value_deps);
@@ -209,14 +271,20 @@ impl Walk {
                 kind = Kind::Derived;
             }
         }
-        self.site(name.id.as_str(), start, true, kind);
-        if let (0, Some(deps)) = (self.scope, deps) {
-            self.bound.values.insert(name.id.to_string(), deps);
+        match target {
+            Expr::Name(name) => {
+                self.site(name.id.as_str(), start, true, kind);
+                if let (0, Some(deps)) = (self.scope, deps) {
+                    self.bound.values.insert(name.id.to_string(), deps);
+                }
+                if let (Kind::Call, Some(callee)) = (kind, callee) {
+                    self.bound
+                        .callees
+                        .insert(name.id.to_string(), callee.to_owned());
+                }
+            }
+            other => self.visit_expr(other),
         }
-    }
-
-    fn definition(&mut self, name: &str, start: TextSize) {
-        self.site(name, start, true, Kind::Callable);
     }
 }
 
@@ -236,6 +304,7 @@ impl<'a> Visitor<'a> for Walk {
             }
             Stmt::ClassDef(node) => {
                 self.definition(node.name.as_str(), start);
+                self.class(node);
                 // The decorators, the base classes and the keywords run in the enclosing scope.
                 node.decorator_list
                     .iter()
@@ -267,12 +336,12 @@ impl<'a> Visitor<'a> for Walk {
             }
             Stmt::Assign(node) => {
                 for target in &node.targets {
-                    self.assigned(target, start, Some(&node.value));
+                    self.assignment_target(target, start, Some(&node.value));
                 }
                 self.visit_expr(&node.value);
             }
             Stmt::AnnAssign(node) => {
-                self.assigned(&node.target, start, node.value.as_deref());
+                self.assignment_target(&node.target, start, node.value.as_deref());
                 self.visit_expr(&node.annotation);
                 node.value.iter().for_each(|value| self.visit_expr(value));
             }
@@ -318,7 +387,48 @@ impl<'a> Visitor<'a> for Walk {
     bind_handler_and_pattern!();
 }
 
-fn value_kind(value: &Expr) -> Kind {
+/// The builtin types whose call makes an instance of that type, never another object.
+const BUILTIN_VALUES: [&str; 10] = [
+    "list",
+    "dict",
+    "tuple",
+    "set",
+    "frozenset",
+    "int",
+    "str",
+    "float",
+    "bool",
+    "bytes",
+];
+
+/// True for arithmetic over number literals: its value is a number.
+fn number_arithmetic(value: &Expr) -> bool {
+    match value {
+        Expr::NumberLiteral(_) => true,
+        Expr::UnaryOp(node) => number_arithmetic(&node.operand),
+        Expr::BinOp(node) => number_arithmetic(&node.left) && number_arithmetic(&node.right),
+        _ => false,
+    }
+}
+
+/// The kind of the value of an assignment, and the callee name of a call of a plain name.
+fn value_kind(value: &Expr) -> (Kind, Option<&str>) {
+    if let Expr::Call(call) = value {
+        if let Expr::Name(name) = &*call.func {
+            let name = name.id.as_str();
+            if let Some(builtin) = BUILTIN_VALUES.iter().find(|builtin| **builtin == name) {
+                return (Kind::BuiltinGeneric(builtin), None);
+            }
+            return (Kind::Call, Some(name));
+        }
+    }
+    if number_arithmetic(value) && !matches!(value, Expr::NumberLiteral(_)) {
+        return (Kind::Value, None);
+    }
+    (plain_kind(value), None)
+}
+
+fn plain_kind(value: &Expr) -> Kind {
     if let Expr::Subscript(subscript) = value {
         if let Expr::Name(name) = &*subscript.value {
             let builtin = match name.id.as_str() {
@@ -357,6 +467,25 @@ fn value_kind(value: &Expr) -> Kind {
 impl<'a> Bind<'a> for Walk {
     fn bind_name(&mut self, name: &'a str) {
         self.site(name, TextSize::default(), false, Kind::Other);
+    }
+}
+
+/// A class body that binds `__new__`, by a definition or by a name.
+struct NewWatch(bool);
+
+impl<'a> Visitor<'a> for NewWatch {
+    fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        if matches!(stmt, Stmt::FunctionDef(node) if node.name.as_str() == "__new__") {
+            self.0 = true;
+        }
+        visitor::walk_stmt(self, stmt);
+    }
+
+    fn visit_expr(&mut self, expr: &'a Expr) {
+        if matches!(expr, Expr::Name(node) if node.id.as_str() == "__new__") {
+            self.0 = true;
+        }
+        visitor::walk_expr(self, expr);
     }
 }
 
