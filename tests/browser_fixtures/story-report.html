@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; img-src data:; style-src 'unsafe-inline';
+                 script-src 'unsafe-inline'">
+  <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2IiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyI+CiAgPHRpdGxlIGlkPSJ0aXRsZSI+QXJjaGtlZWwgbWFyazwvdGl0bGU+CiAgPGRlc2MgaWQ9ImRlc2MiPlR3byBjb2RlIGJyYWNrZXRzIGJhbGFuY2VkIGFyb3VuZCBhIGNlbnRyYWwgc3RydWN0dXJhbCBrZWVsLjwvZGVzYz4KICA8cGF0aCBmaWxsPSIjQzVGODJBIiBkPSJNMTA4IDI4IDI4IDg4djgwbDgwIDYwdi00N2wtNDAtMzB2LTQ2bDQwLTMwVjI4WiIvPgogIDxwYXRoIGZpbGw9IiM1RUVBRDQiIGQ9Im0xNDggMjggODAgNjB2ODBsLTgwIDYwdi00N2w0MC0zMHYtNDZsLTQwLTMwVjI4WiIvPgogIDxwYXRoIGZpbGw9IiNDNUY4MkEiIGQ9Ik0xMTIgMTEyaDMydjEwNGwtMTYgMjAtMTYtMjBWMTEyWiIvPgo8L3N2Zz4K" type="image/svg+xml">
+  <title>ArchQ Explorer · demo</title>
+  <style>@STYLE@</style>
+</head>
+<body>
+  <header class="report-header">
+    <img class="report-logo report-logo-dark" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA5NDAgMjU2IiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyI+CiAgPHRpdGxlIGlkPSJ0aXRsZSI+QXJjaGtlZWw8L3RpdGxlPgogIDxkZXNjIGlkPSJkZXNjIj5BcmNoa2VlbCBsb2dvIGZvciBkYXJrIHJlcG9ydCBoZWFkZXJzLjwvZGVzYz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgwKSI+CiAgICA8cGF0aCBmaWxsPSIjQzVGODJBIiBkPSJNMTA4IDI4IDI4IDg4djgwbDgwIDYwdi00N2wtNDAtMzB2LTQ2bDQwLTMwVjI4WiIvPgogICAgPHBhdGggZmlsbD0iIzVFRUFENCIgZD0ibTE0OCAyOCA4MCA2MHY4MGwtODAgNjB2LTQ3bDQwLTMwdi00NmwtNDAtMzBWMjhaIi8+CiAgICA8cGF0aCBmaWxsPSIjQzVGODJBIiBkPSJNMTEyIDExMmgzMnYxMDRsLTE2IDIwLTE2LTIwVjExMloiLz4KICA8L2c+CiAgPHRleHQgeD0iMjc2IiB5PSIxNzIiIGZvbnQtZmFtaWx5PSJJbnRlciwgdWktc2Fucy1zZXJpZiwgc3lzdGVtLXVpLCAtYXBwbGUtc3lzdGVtLCBCbGlua01hY1N5c3RlbUZvbnQsICdTZWdvZSBVSScsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTEyIiBmb250LXdlaWdodD0iNTAwIiBsZXR0ZXItc3BhY2luZz0iLTQiPgogICAgPHRzcGFuIGZpbGw9IiNFOEU4RTIiPmFyY2g8L3RzcGFuPjx0c3BhbiBmaWxsPSIjQzVGODJBIj5rZWVsPC90c3Bhbj4KICA8L3RleHQ+Cjwvc3ZnPgo=" alt="ArchKeel">
+    <img class="report-logo report-logo-light" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA5NDAgMjU2IiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyI+CiAgPHRpdGxlIGlkPSJ0aXRsZSI+QXJjaGtlZWw8L3RpdGxlPgogIDxkZXNjIGlkPSJkZXNjIj5BcmNoa2VlbCBsb2dvIGZvciBsaWdodCByZXBvcnQgYW5kIFBERiBoZWFkZXJzLjwvZGVzYz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgwKSI+CiAgICA8cGF0aCBmaWxsPSIjQzVGODJBIiBkPSJNMTA4IDI4IDI4IDg4djgwbDgwIDYwdi00N2wtNDAtMzB2LTQ2bDQwLTMwVjI4WiIvPgogICAgPHBhdGggZmlsbD0iIzVFRUFENCIgZD0ibTE0OCAyOCA4MCA2MHY4MGwtODAgNjB2LTQ3bDQwLTMwdi00NmwtNDAtMzBWMjhaIi8+CiAgICA8cGF0aCBmaWxsPSIjQzVGODJBIiBkPSJNMTEyIDExMmgzMnYxMDRsLTE2IDIwLTE2LTIwVjExMloiLz4KICA8L2c+CiAgPHRleHQgeD0iMjc2IiB5PSIxNzIiIGZpbGw9IiMwRDBEMEQiIGZvbnQtZmFtaWx5PSJJbnRlciwgdWktc2Fucy1zZXJpZiwgc3lzdGVtLXVpLCAtYXBwbGUtc3lzdGVtLCBCbGlua01hY1N5c3RlbUZvbnQsICdTZWdvZSBVSScsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTEyIiBmb250LXdlaWdodD0iNTAwIiBsZXR0ZXItc3BhY2luZz0iLTQiPmFyY2hrZWVsPC90ZXh0Pgo8L3N2Zz4K" alt="ArchKeel">
+    <span class="report-kind">Architecture report</span>
+  </header>
+  <main class="report-shell">
+    <section class="report-heading atlas-heading">
+      <div><span class="eyebrow">ArchQ Explorer</span><h1>demo</h1>
+      <p>2 observed files
+      · 1 whole-contract components</p></div>
+      <button class="theme-toggle" type="button" aria-label="Switch to light theme">☀</button>
+      </section>
+      
+      <p class="verdict-line" data-decision="unknown" aria-label="Decision: UNKNOWN"><span class="decision-symbol" aria-hidden="true">?</span><strong>UNKNOWN</strong> · Rules UNKNOWN · 0 PASS · 0 UNKNOWN · Agent decisions 0/1 · Source observation UNKNOWN · <code>e821021</code></p><section aria-labelledby="findings-heading"><h2 id="findings-heading">Findings</h2><p class="findings-note">Findings are not ranked: the observation is incomplete (1 coverage failure). Nothing was found in the part that was observed. No absence is claimed.</p></section>
+      
+      
+    <section class="report-section flow-section atlas-section" aria-label="ArchQ Explorer">
+      <div id="flow" class="flow" data-atlas="true">
+        <h2 id="flow-heading">Component dependencies</h2>
+        <nav class="flow-views" aria-label="Architecture views" hidden>
+        <div class="flow-view-group" role="group" aria-label="Architecture diagrams">
+          <span class="flow-view-group-label">Architecture</span>
+          <button type="button" data-flow-view="diagram" aria-pressed="true">As-Is</button>
+          <button type="button" data-flow-view="target" aria-pressed="false">Target</button>
+          <button type="button" data-flow-view="diff" aria-pressed="false">Diff</button>
+        </div>
+
+        </nav>
+        <div class="flow-toolbar" hidden><div class="atlas-content-choice" role="group" aria-label="Content" hidden></div>
+          <details class="flow-filters">
+          <summary>Filters</summary><div class="flow-filter-controls">
+          <label class="flow-diagram-control flow-diagram-filter flow-graph-filter"
+                 for="flow-focus">Focus
+            <select id="flow-focus" class="flow-focus"></select>
+          </label>
+          <button type="button"
+                  class="flow-fit flow-reset-filters flow-diagram-control
+                         flow-diagram-filter flow-graph-filter">
+            Reset filters</button>
+          <output class="flow-filter-status flow-diagram-control
+                         flow-diagram-filter flow-graph-filter"
+                  role="status" aria-live="polite">
+            No diagram filters active
+          </output>
+          <label class="flow-violation-focus flow-diagram-control flow-diagram-filter"
+                 for="flow-violations-only" hidden>
+            <input id="flow-violations-only" class="flow-violations-only" type="checkbox"
+                   aria-controls="flow-graph">
+            Violating edges only
+          </label>
+          </div></details>
+          <button type="button" class="flow-fit flow-back flow-navigation-control" hidden>
+            Back to components</button>
+          <nav class="flow-breadcrumb flow-navigation-control"
+               aria-label="Diagram breadcrumb"></nav>
+          <div class="flow-zoom-controls flow-diagram-control" role="group"
+               aria-label="Diagram zoom">
+            <button type="button" class="flow-fit flow-zoom-out" aria-label="Zoom out">−</button>
+            <button type="button" class="flow-fit flow-zoom-100"
+                    aria-label="Reset and fit">Reset and fit</button>
+            <output class="flow-zoom-value" aria-live="polite">100%</output>
+            <button type="button" class="flow-fit flow-zoom-in" aria-label="Zoom in">+</button>
+            <button type="button" class="flow-fit flow-fit-overview">Fit overview</button>
+          </div>
+          <button type="button" class="flow-fit flow-arrange flow-diagram-control"
+                  title="Lay the cards out again">Arrange</button>
+          <button type="button" class="flow-fit flow-open-selected" disabled>Open selected</button>
+          <button type="button" class="flow-fit flow-fullscreen"
+                  aria-label="Fullscreen">Fullscreen</button>
+          <output class="flow-expand-status" role="status" aria-live="polite" hidden></output>
+        </div>
+        
+        <div class="atlas-summary" role="status"></div><div class="flow-layout">
+          <div class="flow-map-column"><div class="flow-canvas" tabindex="0" role="region"
+               aria-label="Pannable component dependencies diagram">
+            
+<svg id="flow-graph" class="flow-graph" role="group" aria-label="Component dependencies diagram">
+  <defs>
+    <marker id="uml-triangle" viewBox="0 0 10 10" refX="10" refY="5"
+            markerWidth="13" markerHeight="13" markerUnits="userSpaceOnUse"
+            orient="auto-start-reverse" overflow="visible">
+      <path d="M0,0 L10,5 L0,10 Z"></path>
+    </marker>
+    <marker id="flow-arrow-declared" class="flow-arrow declared" viewBox="0 0 8 8"
+            refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible"
+            markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5"></path>
+    </marker>
+    <!-- markerUnits defaults to strokeWidth, which made the arrow a multiple of the
+         line: a heavy edge grew a 26px head, a light one 8px, so the size read as
+         weight instead of direction. userSpaceOnUse keeps every head the same. -->
+    <marker id="flow-arrow-conforms" class="flow-arrow conforms" viewBox="0 0 8 8"
+            refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible"
+            markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5"></path>
+    </marker>
+    <marker id="flow-arrow-violation" class="flow-arrow violation" viewBox="0 0 8 8"
+            refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible"
+            markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5"></path>
+    </marker>
+    <marker id="flow-arrow-undecided" class="flow-arrow undecided" viewBox="0 0 8 8"
+            refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible"
+            markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5"></path>
+    </marker>
+    <marker id="flow-arrow-observed" class="flow-arrow observed" viewBox="0 0 8 8"
+            refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible"
+            markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5"></path>
+    </marker>
+  </defs>
+  <g class="flow-viewport">
+    <g class="flow-frames"></g>
+    <g class="flow-edges"></g>
+    <g class="flow-chips"></g>
+    <g class="flow-nodes"></g>
+    <g class="flow-empty"></g>
+  </g>
+</svg>
+          </div>
+          <div class="flow-alternative" hidden></div>
+          <section class="flow-explore" aria-label="Module exploration"><h3>Worth a look</h3></section></div><aside class="flow-inspector" aria-label="Selection details" hidden>
+            <div class="flow-inspector-content"></div>
+          </aside>
+        </div>
+        <details class="flow-legend-panel"><summary>Legend</summary>
+          <div class="flow-legend" role="region" aria-label="Diagram legend"></div>
+        </details>
+      </div>
+      <script id="flow-data" type="application/json">{"atlas":{"architecture_href":"architecture.json","assignments":[[0,7,[7],"PASS",8],[1,7,[7],"PASS",8]],"balance":{"allowed_unused":null,"declared":0,"undeclared":null,"used":null},"cell_permission_reason_ref":9,"cells":[[0,1,1,"UNKNOWN",[0],[],[1]]],"components":[{"decided_by":"architect","id":"COMP-APP","label":"app","layer":null,"not_responsible_for":[],"observed_modules":2,"observed_symbols":3,"parent_id":null,"path":"src","planned":null,"provenance":[5],"public":[6],"reason_ref":4,"requires":[],"responsibilities":["Compose the order flow."],"scope":"app","status":"UNKNOWN","symbols_complete":false,"used_by":[]}],"declared_modules":[],"declared_rules":"UNKNOWN","detail_page":"architecture.detail.html","deviations":[],"findings":[],"levels":[{"balance":{"allowed_unused":null,"declared":0,"undeclared":null,"used":null},"cells":[0],"component_ids":["COMP-APP"],"deviation_ids":[],"edges":[],"finding_ids":[],"import_reason":"Module/import coverage or resolved import-site evidence is incomplete.","import_status":"UNKNOWN","modules":[0,1],"parent_id":null,"questions":[]},{"balance":{"allowed_unused":0,"declared":0,"undeclared":0,"used":0},"cells":[0],"component_ids":[],"deviation_ids":[],"edges":[],"finding_ids":[],"import_reason":"Module/import coverage or resolved import-site evidence is incomplete.","import_status":"UNKNOWN","modules":[0,1],"parent_id":"COMP-APP","questions":[]}],"module_correspondences":[],"module_inventories":[],"modules":[{"evidence_ids":[2],"fan_in":null,"fan_out":null,"id":"MOD-40f6a87d93fa154f","name":"demo.src.index_x2e_ts","path":"src/index.ts","rank":0,"symbol_coverage":0,"symbols":1},{"evidence_ids":[3],"fan_in":null,"fan_out":null,"id":"MOD-194881d3c5a50695","name":"demo.src.app.order_x2e_ts","path":"src/app/order.ts","rank":1,"symbol_coverage":0,"symbols":2}],"observation_complete":"UNKNOWN","questions":[],"ranked_findings":null,"reason":"Missing ownership, decisions or Core evidence remain.","reference_ids":["EVD-55e6c1f87be51c8b","Complete evidence is missing for one or more import sites.","EVD-9a3ae70ec43087de","EVD-8f52fb3636626028","Complete owned module and import evidence is unavailable.","docs/architecture/shop.md","demo.src","COMP-APP","Authenticated component membership.","ArchitectureReport has no authenticated per-module import permission receipt."],"repository":"demo","rule_assessments":[],"source":{"git_head":"e82102170d28ccfe4dc9d34621970a0d41160a30","source_digest":"192e2dffdfbfdeb5b0c1c832f7a671f7cc2a91527ea7fee450353d6a0fc9c1e5"},"status":"UNKNOWN","symbol_coverages":[[{"entity_kinds":["class","interface","enum","mixin","method","function","type_alias","constant","macro"],"reason":"source observation is incomplete","relationship_kinds":[],"scope_id":"","status":"partial"},{"entity_kinds":["binding"],"reason":"the source facts do not certify a complete static binding inventory","relationship_kinds":[],"scope_id":"","status":"unavailable"},{"entity_kinds":["attribute","enum_literal"],"reason":"class-body declarations are recorded; instance assignments remain unmeasured","relationship_kinds":[],"scope_id":"","status":"partial"}]],"symbols_complete":false,"unassigned_detail_href":"?component=unassigned","unknown_count":2,"unknowns":[{"count":1,"reason":"Local alias runtime conditions are not proven: @app/order"},{"count":1,"reason":"Import coverage is incomplete; usage and absence counts are unavailable."}]},"boundary_permissions":{"applied":[],"declared":[]},"navigation":{"main_href":"architecture.report.html","repository":"demo"},"schema_version":"1.0.0"}</script>
+      <script data-elkjs-version="0.12.0">@ELK@</script>      <script data-report-asset="explorer">@EXPLORER@</script>
+    </section>
+      <details class="report-section report-evidence atlas-structure-overview"><summary>Structure overview</summary>
+      <p>Top-level context: 1 declared components and 0 observed cross-component edges. Cross-component edges count distinct directed component pairs.</p>
+      <p>Observed module and import counts describe this snapshot. Incoming and outgoing
+      count module edges crossing each scope; unresolved calls retain analyzed call totals.
+      Architecture boundaries require authored decisions.</p>
+      
+      <div class="table-wrap">
+      <table class="data-table"><thead><tr><th>Scope</th><th>Level</th><th>Modules</th>
+      <th>Edges inside</th><th>Incoming</th><th>Outgoing</th><th>Unresolved calls</th></tr></thead>
+      <tbody><tr><td><a href="?component=COMP-APP" data-atlas-component-route="COMP-APP">app</a></td><td>component</td><td class="numeric">2</td><td class="numeric">1</td><td class="numeric">0</td><td class="numeric">0</td><td class="numeric">n/a</td></tr></tbody></table></div>
+</details>
+      <details class="atlas-source"><summary>Snapshot and audit</summary>
+      <p>Git head <code>e82102170d28ccfe4dc9d34621970a0d41160a30</code>
+      · Source digest <code>192e2dffdfbfdeb5b0c1c832f7a671f7cc2a91527ea7fee450353d6a0fc9c1e5</code>
+      · Dirty False.</p>
+      <p>Scope: src/**</p>
+      
+      <p>Contract <code>architecture-contract.json</code>
+      · c237d5d2c413fcc1e201308f35cebbe2f4bc209ebe569d980029f7ae9799b05f</p>
+      <p><a href="architecture.json">Complete architecture JSON and recorded evidence
+      </a></p>
+      </details>
+    <footer class="report-footer">ArchKeel · deterministic architecture evidence</footer>
+  </main>
+</body>
+</html>

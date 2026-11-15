@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" class="ak-canvas"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  
+  <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2IiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyI+CiAgPHRpdGxlIGlkPSJ0aXRsZSI+QXJjaGtlZWwgbWFyazwvdGl0bGU+CiAgPGRlc2MgaWQ9ImRlc2MiPlR3byBjb2RlIGJyYWNrZXRzIGJhbGFuY2VkIGFyb3VuZCBhIGNlbnRyYWwgc3RydWN0dXJhbCBrZWVsLjwvZGVzYz4KICA8cGF0aCBmaWxsPSIjQzVGODJBIiBkPSJNMTA4IDI4IDI4IDg4djgwbDgwIDYwdi00N2wtNDAtMzB2LTQ2bDQwLTMwVjI4WiIvPgogIDxwYXRoIGZpbGw9IiM1RUVBRDQiIGQ9Im0xNDggMjggODAgNjB2ODBsLTgwIDYwdi00N2w0MC0zMHYtNDZsLTQwLTMwVjI4WiIvPgogIDxwYXRoIGZpbGw9IiNDNUY4MkEiIGQ9Ik0xMTIgMTEyaDMydjEwNGwtMTYgMjAtMTYtMjBWMTEyWiIvPgo8L3N2Zz4K" type="image/svg+xml">
+  <title>ArchQ Explorer · shop</title>
+  <style></style>
+</head>
+<body>
+  <header class="report-header">
+    <img class="report-logo report-logo-dark" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA5NDAgMjU2IiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyI+CiAgPHRpdGxlIGlkPSJ0aXRsZSI+QXJjaGtlZWw8L3RpdGxlPgogIDxkZXNjIGlkPSJkZXNjIj5BcmNoa2VlbCBsb2dvIGZvciBkYXJrIHJlcG9ydCBoZWFkZXJzLjwvZGVzYz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgwKSI+CiAgICA8cGF0aCBmaWxsPSIjQzVGODJBIiBkPSJNMTA4IDI4IDI4IDg4djgwbDgwIDYwdi00N2wtNDAtMzB2LTQ2bDQwLTMwVjI4WiIvPgogICAgPHBhdGggZmlsbD0iIzVFRUFENCIgZD0ibTE0OCAyOCA4MCA2MHY4MGwtODAgNjB2LTQ3bDQwLTMwdi00NmwtNDAtMzBWMjhaIi8+CiAgICA8cGF0aCBmaWxsPSIjQzVGODJBIiBkPSJNMTEyIDExMmgzMnYxMDRsLTE2IDIwLTE2LTIwVjExMloiLz4KICA8L2c+CiAgPHRleHQgeD0iMjc2IiB5PSIxNzIiIGZvbnQtZmFtaWx5PSJJbnRlciwgdWktc2Fucy1zZXJpZiwgc3lzdGVtLXVpLCAtYXBwbGUtc3lzdGVtLCBCbGlua01hY1N5c3RlbUZvbnQsICdTZWdvZSBVSScsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTEyIiBmb250LXdlaWdodD0iNTAwIiBsZXR0ZXItc3BhY2luZz0iLTQiPgogICAgPHRzcGFuIGZpbGw9IiNFOEU4RTIiPmFyY2g8L3RzcGFuPjx0c3BhbiBmaWxsPSIjQzVGODJBIj5rZWVsPC90c3Bhbj4KICA8L3RleHQ+Cjwvc3ZnPgo=" alt="ArchKeel">
+    <img class="report-logo report-logo-light" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA5NDAgMjU2IiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyI+CiAgPHRpdGxlIGlkPSJ0aXRsZSI+QXJjaGtlZWw8L3RpdGxlPgogIDxkZXNjIGlkPSJkZXNjIj5BcmNoa2VlbCBsb2dvIGZvciBsaWdodCByZXBvcnQgYW5kIFBERiBoZWFkZXJzLjwvZGVzYz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgwKSI+CiAgICA8cGF0aCBmaWxsPSIjQzVGODJBIiBkPSJNMTA4IDI4IDI4IDg4djgwbDgwIDYwdi00N2wtNDAtMzB2LTQ2bDQwLTMwVjI4WiIvPgogICAgPHBhdGggZmlsbD0iIzVFRUFENCIgZD0ibTE0OCAyOCA4MCA2MHY4MGwtODAgNjB2LTQ3bDQwLTMwdi00NmwtNDAtMzBWMjhaIi8+CiAgICA8cGF0aCBmaWxsPSIjQzVGODJBIiBkPSJNMTEyIDExMmgzMnYxMDRsLTE2IDIwLTE2LTIwVjExMloiLz4KICA8L2c+CiAgPHRleHQgeD0iMjc2IiB5PSIxNzIiIGZpbGw9IiMwRDBEMEQiIGZvbnQtZmFtaWx5PSJJbnRlciwgdWktc2Fucy1zZXJpZiwgc3lzdGVtLXVpLCAtYXBwbGUtc3lzdGVtLCBCbGlua01hY1N5c3RlbUZvbnQsICdTZWdvZSBVSScsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTEyIiBmb250LXdlaWdodD0iNTAwIiBsZXR0ZXItc3BhY2luZz0iLTQiPmFyY2hrZWVsPC90ZXh0Pgo8L3N2Zz4K" alt="ArchKeel">
+    <span class="report-kind">Architecture report</span>
+  </header>
+  <main class="report-shell">
+    <section class="report-heading atlas-heading">
+      <div><span class="eyebrow">ArchQ Explorer</span><h1>shop</h1>
+      <p>7 observed files
+      · 4 whole-contract components</p></div>
+      
+      </section>
+      
+      <p class="atlas-detail-status">Whole-run rules: UNKNOWN · Source observation: PASS · Symbol inventory: partial · <a href="architecture.report.html">Architecture overview</a></p>
+      
+      
+    <section class="report-section flow-section atlas-section" aria-label="ArchQ Explorer">
+      <div id="flow" class="flow ak-detail" data-atlas="true" data-details-open="false" data-uml-graph="true" data-view="diagram" data-layout-state="ready" data-component-overview="false" data-emphasis="false">
+        <h2 id="flow-heading" tabindex="-1">ArchQ Explorer</h2>
+        
+        <div class="flow-toolbar">
+          
+          
+          
+          
+          
+          
+          
+          <output class="flow-expand-status" role="status" aria-live="polite" hidden=""></output>
+        </div>
+        
+        <div class="atlas-summary ak-scene-summary" role="status">Recorded source scope</div><div class="flow-layout">
+          <div class="flow-map-column"><section class="flow-element-index ak-element-index" hidden=""></section><div class="flow-canvas" tabindex="0" role="region" aria-label="Pannable component dependencies diagram">
+            
+<svg id="flow-graph" class="flow-graph" role="group" aria-label="Component dependencies diagram" viewBox="-2.2857142857142776 4 528.5714285714286 151.42857142857144" style="width: 740px; height: 212px;">
+  <defs>
+    <marker id="uml-triangle" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="13" markerHeight="13" markerUnits="userSpaceOnUse" orient="auto-start-reverse" overflow="visible">
+      <path d="M0,0 L10,5 L0,10 Z"></path>
+    </marker>
+    <marker id="flow-arrow-declared" class="flow-arrow declared" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5"></path>
+    </marker>
+    <!-- markerUnits defaults to strokeWidth, which made the arrow a multiple of the
+         line: a heavy edge grew a 26px head, a light one 8px, so the size read as
+         weight instead of direction. userSpaceOnUse keeps every head the same. -->
+    <marker id="flow-arrow-conforms" class="flow-arrow conforms" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5"></path>
+    </marker>
+    <marker id="flow-arrow-violation" class="flow-arrow violation" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5"></path>
+    </marker>
+    <marker id="flow-arrow-undecided" class="flow-arrow undecided" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5"></path>
+    </marker>
+    <marker id="flow-arrow-observed" class="flow-arrow observed" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5"></path>
+    </marker>
+  <marker id="flow-arrow-uml-calls" class="flow-arrow declared" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5" style="stroke: var(--uml-calls);"></path>
+    </marker><marker id="flow-arrow-uml-imports" class="flow-arrow declared" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5" style="stroke: var(--uml-imports);"></path>
+    </marker><marker id="flow-arrow-uml-references" class="flow-arrow declared" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5" style="stroke: var(--uml-references);"></path>
+    </marker><marker id="flow-arrow-uml-creates" class="flow-arrow declared" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5" style="stroke: var(--uml-creates);"></path>
+    </marker><marker id="flow-arrow-uml-instance_of" class="flow-arrow declared" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5" style="stroke: var(--uml-instance_of);"></path>
+    </marker><marker id="flow-arrow-uml-mixes_in" class="flow-arrow declared" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5" style="stroke: var(--uml-mixes_in);"></path>
+    </marker><marker id="flow-arrow-view-proven" class="flow-arrow declared" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5" style="stroke: var(--view-proven);"></path>
+    </marker><marker id="flow-arrow-view-declared" class="flow-arrow declared" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5" style="stroke: var(--view-declared);"></path>
+    </marker><marker id="flow-arrow-view-claim" class="flow-arrow declared" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5" style="stroke: var(--view-claim);"></path>
+    </marker><marker id="flow-arrow-view-unknown" class="flow-arrow declared" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5" style="stroke: var(--view-unknown);"></path>
+    </marker><marker id="flow-arrow-view-missing" class="flow-arrow declared" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="12" markerHeight="12" overflow="visible" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M-4,4 H7 M0,0.5 L7,4 L0,7.5" style="stroke: var(--view-missing);"></path>
+    </marker></defs>
+  <g class="flow-viewport">
+    <g class="flow-frames"></g>
+    <g class="flow-edges"><g class="edge observed architecture-edge" data-uml-id="references:TSDEF-9a9ca9c91388e6cf&gt;TSDEF-6c4b428bb51b9a4c:resolved" data-uml-kind="dependency" data-uml-source="TSDEF-9a9ca9c91388e6cf" data-uml-target="TSDEF-6c4b428bb51b9a4c" data-relationship-kind="references"><path class="line" d="M228,74 L296,74" stroke-width="2" stroke-dasharray="3.20 2.80" style="stroke-dasharray: 6, 4; marker-end: url(&quot;#flow-arrow-uml-references&quot;);"><title>references: shop.src.domain.repository_x2e_ts.OrderRepository.load → shop.src.domain.order_x2e_ts.Order; 1 source or declaration site.</title></path><path class="pulse" d="M228,74 L296,74"></path><path class="hit" d="M228,74 L296,74" tabindex="0" role="button" aria-label="references: shop.src.domain.repository_x2e_ts.OrderRepository.load → shop.src.domain.order_x2e_ts.Order; 1 source or declaration site." aria-pressed="false"><title>references: shop.src.domain.repository_x2e_ts.OrderRepository.load → shop.src.domain.order_x2e_ts.Order; 1 source or declaration site.</title></path></g></g>
+    <g class="flow-chips"></g>
+    <g class="flow-nodes"><g class="node uml-card method" transform="translate(28,28)" tabindex="0" role="button" aria-label="load" data-uml-id="TSDEF-9a9ca9c91388e6cf" data-uml-kind="method" data-label="load" aria-pressed="false"><rect class="card" width="200" height="92" rx="8"></rect><path class="uml-kind-accent" d="M16,2 H184"></path><text class="stereotype" x="16" y="19">«method»</text><text class="label" x="16" y="37" text-decoration="none"><tspan x="16" dy="0">load</tspan></text><text class="meta" x="16" y="60" text-decoration="none"><tspan x="16" dy="0">+ (): Promise&lt;Order[]&gt;</tspan></text><g class="uml-icon" aria-hidden="true" transform="translate(171,11)"><text x="0" y="15">()</text></g><title>method: shop.src.domain.repository_x2e_ts.OrderRepository.load. defined. </title></g><g class="node uml-card interface" transform="translate(296,28)" tabindex="0" role="button" aria-label="Order" data-uml-id="TSDEF-6c4b428bb51b9a4c" data-uml-kind="interface" data-label="Order" data-outside="true" aria-pressed="false"><rect class="card" width="200" height="92" rx="2"></rect><path class="uml-kind-accent" d="M16,2 H184"></path><text class="stereotype" x="16" y="19">«interface» · outside</text><text class="label" x="16" y="37" text-decoration="none"><tspan x="16" dy="0">Order</tspan></text><text class="meta" x="16" y="60" text-decoration="none"><tspan x="16" dy="0">1 fields · 0 methods</tspan></text><g class="uml-icon" aria-hidden="true" transform="translate(171,11)"><circle cx="11" cy="10" r="8"></circle></g><title>interface: shop.src.domain.order_x2e_ts.Order. defined. </title></g></g>
+    <g class="flow-empty"></g>
+  </g>
+</svg>
+          </div>
+          <div class="flow-alternative" hidden=""><div class="flow-scope-notice" role="status"><h2>Arranging UML relationships</h2><p>Preserving the active graph while its automatic layout is computed.</p></div></div>
+          <section class="flow-explore" aria-label="Module exploration" hidden=""><h3>Worth a look</h3></section></div><aside class="flow-inspector" aria-label="Selection details" id="flow-inspector" hidden="">
+            <div class="flow-inspector-content"><div class="kicker">Observed UML</div>
+      <h2>load</h2>
+      <p class="flow-qualified-name"><code>shop.<wbr>src.<wbr>domain.<wbr>repository_x2e_ts.<wbr>OrderRepository.<wbr>load</code></p>
+      
+      <dl class="kv"><dt>Kind</dt><dd>method</dd>
+        <dt>View group</dt><dd>OrderRepository [interface]</dd>
+        <dt>Code container</dt><dd>shop.src.domain.repository_x2e_ts.OrderRepository [interface]</dd>
+        <dt>Source file</dt><dd><code>src/domain/repository.ts</code></dd>
+        <dt>Language visibility</dt><dd>public · language</dd><dt>Signature or annotation</dt><dd><code>+ load(): Promise&lt;Order[]&gt;</code></dd></dl>
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      <h3>Relationship sites · 1</h3>
+        <ul class="plain" data-inspector-list="0"><li><code>references</code> · resolved<p><code>shop.src.domain.repository_x2e_ts.OrderRepository.load → shop.src.domain.order_x2e_ts.Order</code></p><code>Order</code></li></ul>
+      
+      <h3>Source sites · 2</h3>
+        <ul class="plain" data-inspector-list="1"><li><code>src/domain/repository.ts:6:36</code><pre>load(): Promise&lt;Order[]&gt;</pre></li><li><code>src/domain/repository.ts:6:52</code><pre>Order</pre></li></ul>
+      
+      </div>
+          </aside>
+        </div>
+        
+      <div hidden=""><details class="flow-legend-panel"><summary>Legend</summary>
+          <div class="flow-legend" role="region" aria-label="Diagram legend"><button type="button" class="flow-legend-item flow-fit" data-relationship-kind="" aria-pressed="false" title="Show all relationships in context · 1 connections">All relationships in context · 1</button><button type="button" class="flow-legend-item flow-fit" data-relationship-kind="references" aria-pressed="true" title="Show references relationships in context · 1 connections">⇢ references in context · 1</button><span class="flow-legend-hint">2 visible elements · 1 connections · 9 uncertain sites in graph</span></div>
+        </details></div><div class="ak-bar ak-top-left"><img class="ak-logo" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2IiByb2xlPSJpbWciIGFyaWEtbGFiZWxsZWRieT0idGl0bGUgZGVzYyI+CiAgPHRpdGxlIGlkPSJ0aXRsZSI+QXJjaGtlZWwgbWFyazwvdGl0bGU+CiAgPGRlc2MgaWQ9ImRlc2MiPlR3byBjb2RlIGJyYWNrZXRzIGJhbGFuY2VkIGFyb3VuZCBhIGNlbnRyYWwgc3RydWN0dXJhbCBrZWVsLjwvZGVzYz4KICA8cGF0aCBmaWxsPSIjQzVGODJBIiBkPSJNMTA4IDI4IDI4IDg4djgwbDgwIDYwdi00N2wtNDAtMzB2LTQ2bDQwLTMwVjI4WiIvPgogIDxwYXRoIGZpbGw9IiM1RUVBRDQiIGQ9Im0xNDggMjggODAgNjB2ODBsLTgwIDYwdi00N2w0MC0zMHYtNDZsLTQwLTMwVjI4WiIvPgogIDxwYXRoIGZpbGw9IiNDNUY4MkEiIGQ9Ik0xMTIgMTEyaDMydjEwNGwtMTYgMjAtMTYtMjBWMTEyWiIvPgo8L3N2Zz4K" alt=""><strong class="ak-brand">ArchQ Explorer</strong><nav class="flow-breadcrumb flow-navigation-control" aria-label="Diagram breadcrumb"><a href="architecture.report.html?view=diagram&amp;theme=dark" aria-label="Back to architecture map">shop</a> / <button type="button" data-lexical-depth="1">repository.ts [module]</button> / <button type="button" data-lexical-depth="2">OrderRepository [interface]</button> / <button type="button" data-lexical-depth="3" disabled="">load [method]</button></nav><span class="ak-sep"></span><div class="atlas-content-choice" role="group" aria-label="Content" hidden=""></div></div><div class="ak-bar ak-top-center"><nav class="flow-views" aria-label="Architecture views">
+        <div class="flow-view-group" role="group" aria-label="Architecture diagrams">
+          <span class="flow-view-group-label">Architecture</span>
+          <button type="button" data-flow-view="diagram" aria-pressed="true">As-Is</button>
+          <button type="button" data-flow-view="target" aria-pressed="false">Target</button>
+          <button type="button" data-flow-view="diff" aria-pressed="false">Diff</button>
+        </div>
+
+        </nav></div><div class="ak-bar ak-top-right"><button class="ak-search-btn" aria-label="Search"><span style="display: inline-flex; gap: 8px; align-items: center;"><svg class="ak-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm9 16-4.3-4.3"></path></svg>Search</span><kbd>⌘ K</kbd></button><button type="button" class="flow-fit flow-open-selected" disabled="">Open selected</button><button type="button" class="flow-fit flow-details-toggle" data-flow-details-toggle="" aria-controls="flow-inspector" aria-expanded="false" aria-label="Details closed"><svg class="ak-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v14H4zM14 5v14"></path></svg>Details</button><button class="ak-icon-only" title="Share" aria-label="Share" data-ak-pop=""><svg class="ak-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m0 0L8 7m4-4 4 4M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"></path></svg></button><button class="theme-toggle" type="button" aria-label="Switch to light theme">☀</button><button type="button" class="flow-fit flow-fullscreen" aria-label="Fullscreen">Fullscreen</button></div><div class="ak-bar ak-rail" role="toolbar" aria-label="Panels"><button type="button" class="flow-fit flow-back flow-navigation-control" aria-label="Back to OrderRepository [interface]" aria-expanded="false">Back to OrderRepository [interface]</button><button title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" aria-expanded="false"><svg class="ak-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h18v10H3zM7 11h.01M11 11h.01M15 11h.01M8 14h8"></path></svg></button></div><div class="ak-bar ak-bottom-left"><button data-ak-pop="" title="What the lines mean">Legend</button><details class="flow-filters">
+          <summary>Filters</summary><div class="flow-filter-controls">
+          <label class="flow-diagram-control flow-diagram-filter flow-graph-filter" for="flow-focus">Focus
+            <select id="flow-focus" class="flow-focus"><option value="">All elements</option><option value="TSDEF-9a9ca9c91388e6cf">load · method</option><option value="TSDEF-6c4b428bb51b9a4c">Order · interface · outside</option></select>
+          </label><label class="flow-diagram-control flow-diagram-filter flow-graph-filter">Element kind<select class="flow-focus" aria-label="Element kind"><option value="">All kinds</option><option value="interface">interface · 1</option><option value="method">method · 1</option></select></label>
+          
+          <output class="flow-filter-status flow-diagram-control
+                         flow-diagram-filter flow-graph-filter" role="status" aria-live="polite">Relationships: references · 2 of 2 elements · 1 of 1 connections</output>
+          <label class="flow-violation-focus flow-diagram-control flow-diagram-filter flow-graph-filter" for="flow-violations-only">
+            <input id="flow-violations-only" class="flow-violations-only" type="checkbox" aria-controls="flow-graph">
+            Violating edges only
+          </label>
+          <button type="button" class="flow-fit flow-unassigned-code" hidden="">Unassigned code · 0 modules</button><button type="button" class="flow-fit flow-zoom-100" aria-label="Reset and fit">Reset and fit</button></div></details><div class="ak-detail-actions"><button type="button" class="flow-fit flow-member-previews" aria-pressed="false">Member previews</button><button type="button" class="flow-fit flow-use-summary flow-graph-filter" title="Outside uses: 1 interface" aria-label="Show outside uses: 1 interface" aria-expanded="false" hidden="">Uses: 1 element</button><button type="button" class="flow-fit flow-arrange flow-diagram-control" title="Lay the cards out again">Arrange</button></div></div><div class="ak-bar ak-bottom-right"><button class="ak-icon-only" title="Zoom to selection (Shift C)" aria-label="Zoom to selection"><svg class="ak-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zM12 2v3M12 19v3M2 12h3M19 12h3"></path></svg></button><div class="flow-zoom-controls flow-diagram-control" role="group" aria-label="Diagram zoom">
+            <button type="button" class="flow-fit flow-zoom-out" aria-label="Zoom out">−</button>
+            
+            <output class="flow-zoom-value" aria-live="polite">140%</output>
+            <button type="button" class="flow-fit flow-zoom-in" aria-label="Zoom in">+</button>
+            <button type="button" class="flow-fit flow-fit-overview" aria-label="Reset zoom" title="Reset zoom (Shift 1)"><svg class="ak-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path></svg></button>
+          </div></div></div>
+      <script></script>
+      <script></script>      <script></script>
+<script></script>
+    </section>
+      
+      <details class="atlas-source"><summary>Snapshot and audit</summary>
+      <p>Git head <code>25242329a9f58ce4716d3d4f150d1abe7627e859</code>
+      · Source digest <code>9edcd3c46a43046586273b400d85463b58f390300720d9a09394fb78c66ba370</code>
+      · Dirty False.</p>
+      <p>Scope: src/**</p>
+      
+      <p>Contract <code>architecture-contract.json</code>
+      · 36f999ed04ff823dbec994143543718398093d358fde60d1abed45a2c480b6fc</p>
+      <p><a href="architecture.json">Complete architecture JSON and recorded evidence
+      </a></p>
+      </details>
+    <footer class="report-footer">ArchKeel · deterministic architecture evidence</footer>
+  </main>
+<script></script>
+
+</body></html>
