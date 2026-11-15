@@ -7,9 +7,10 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
-| AD-568 | [Narrow the typing factory proof to the statements that can replace a factory](ad-568-narrow-the-typing-factory-proof-to-the-statements-that-can-replace-a-factory.md) |
+| AD-578 | [Make the remaining self-check calls explicit](ad-578-make-the-remaining-self-check-calls-explicit.md) |
 | AD-576 | [A read of a host name that nothing writes is no gap](ad-576-a-read-of-a-host-name-that-nothing-writes-is-no-gap.md) |
 | AD-574 | [Inert door attributes keep the module import gap](ad-574-inert-door-attributes-keep-the-module-import-gap.md) |
+| AD-568 | [Narrow the typing factory proof to the statements that can replace a factory](ad-568-narrow-the-typing-factory-proof-to-the-statements-that-can-replace-a-factory.md) |
 | AD-566 | [A call of a bare class or a builtin value type is no module](ad-566-a-call-of-a-bare-class-or-a-builtin-value-type-is-no-module.md) |
 | AD-564 | [A gap states its effect and holds only the rules that read it](ad-564-a-gap-states-its-effect-and-holds-only-the-rules-that-read-it.md) |
 | AD-562 | [Dart names loader tokens and relative package roots](ad-562-dart-names-loader-tokens-and-relative-package-roots.md) |

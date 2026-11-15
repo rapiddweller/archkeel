@@ -56,7 +56,7 @@ vocabulary! {
 }
 
 impl Visibility {
-    pub(crate) fn of(name: &str) -> Self {
+    pub(crate) fn from_name(name: &str) -> Self {
         let last = name.rsplit('.').next().unwrap_or(name);
         if last.starts_with('_') {
             Self::Private
@@ -216,7 +216,7 @@ impl Member {
     /// A member with the defaults of the Python dataclass.
     pub(crate) fn new(name: String, kind: MemberKind, span: Span) -> Self {
         Self {
-            visibility: Visibility::of(&name),
+            visibility: Visibility::from_name(&name),
             name,
             kind,
             span,
@@ -266,7 +266,7 @@ impl Definition {
     /// A definition with the defaults of the Python dataclass.
     pub(crate) fn new(name: String, kind: DefinitionKind, span: Span) -> Self {
         Self {
-            visibility: Visibility::of(&name),
+            visibility: Visibility::from_name(&name),
             name,
             kind,
             span,

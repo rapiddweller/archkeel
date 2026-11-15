@@ -51,19 +51,6 @@ pub enum RootCheck {
 }
 
 impl Snapshot {
-    /// Open a snapshot whose root must be a directory and not a symbolic link.
-    pub fn open_root(root: &str) -> Result<Self, String> {
-        let link = fs::symlink_metadata(root).is_ok_and(|found| found.file_type().is_symlink());
-        if link {
-            return Err("snapshot root must not be a symlink".to_owned());
-        }
-        match fs::metadata(root) {
-            Ok(found) if found.is_dir() => Ok(Self::new(root)),
-            Ok(_) => Err("snapshot root is not a directory".to_owned()),
-            Err(error) => Err(format!("cannot resolve snapshot root: {error}")),
-        }
-    }
-
     /// Check the scan root `rel` once, with its real path. A contained root starts a walk.
     pub fn check_root(&mut self, rel: &str) -> RootCheck {
         if is_outside(rel) {

@@ -133,7 +133,7 @@ impl Builder<'_> {
         data.reexport_chain = Some(qualified.iter().cloned().collect());
         data.origin_definition = qualified.map_or(Nullable::Null, Nullable::Value);
         data.symbol_visibility = symbol
-            .map(|name| match Visibility::of(name) {
+            .map(|name| match Visibility::from_name(name) {
                 Visibility::Private => archkeel_facts::vocab::Visibility::Private,
                 Visibility::Public => archkeel_facts::vocab::Visibility::PublicName,
             })

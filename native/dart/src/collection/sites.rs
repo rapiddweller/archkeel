@@ -94,7 +94,7 @@ impl Builder<'_> {
             if site.kind != SiteKind::Binding {
                 continue;
             }
-            let (scope, scope_id) = self.scope(rel, site)?;
+            let (scope, scope_id) = Self::scope(self, rel, site)?;
             let lexical = match &site.scope_span {
                 Some(span) if site.closure_scope => format!("{scope}._closure_{}", span.start_byte),
                 Some(_) | None => scope.clone(),
@@ -129,7 +129,7 @@ impl Builder<'_> {
                 &qualified,
                 Some((&scope, scope_id.as_deref().unwrap_or(""))),
                 decl::Category::DynamicBinding,
-                Visibility::of(name),
+                Visibility::from_name(name),
             )?;
             data.lexical_parent_id = scope_id.as_ref().map(archkeel_facts::ids::FactId::new);
             data.detail = decl::Detail::Binding {
@@ -174,9 +174,10 @@ impl Builder<'_> {
         bindings: &[Bound],
     ) -> Result<(), Stop> {
         let site = &resolved.site;
-        let (mut scope, mut scope_id) = self.scope(rel, site)?;
+        let (mut scope, mut scope_id) = Self::scope(self, rel, site)?;
         let call = matches!(site.kind, SiteKind::Call | SiteKind::Creation);
-        let (target_names, construction, status) = self.site_target_state(rel, resolved, call)?;
+        let (target_names, construction, status) =
+            Self::site_target_state(self, rel, resolved, call)?;
         let use_text = if call {
             ""
         } else {

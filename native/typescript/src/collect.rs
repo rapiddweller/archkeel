@@ -150,7 +150,7 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         index += 1;
     }
     collection.unselected();
-    let (script, dependency_scope) = collection.script_dependencies(partial);
+    let (script, dependency_scope) = Collection::script_dependencies(&mut collection, partial);
     let problems: Vec<String> = collection.snapshot.problems.iter().cloned().collect();
     for problem in problems {
         collection.gap(&problem, None, "", GapKind::Collection);
