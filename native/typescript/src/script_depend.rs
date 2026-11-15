@@ -69,7 +69,9 @@ impl<'a, 'p> Run<'a, 'p> {
             proof = known
                 .then(|| alias_call.zip(entry))
                 .flatten()
-                .and_then(|(alias, entry)| self.factory_proof(alias, target_rel, entry, probe));
+                .and_then(|(alias, entry)| {
+                    Run::factory_proof(self, alias, target_rel, entry, probe)
+                });
             known = proof.is_some();
         }
         let evidence_ids = match alias {

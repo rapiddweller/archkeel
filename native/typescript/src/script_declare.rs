@@ -23,7 +23,7 @@ use crate::tree::nodes::named_children;
 
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// `f"{definition.parent}.{definition.name}" if definition.parent else definition.name`.
-    pub(crate) fn qualified(&self, definition: &Definition) -> String {
+    pub(crate) fn qualified_definition(&self, definition: &Definition) -> String {
         match definition.parent {
             Some(at) => {
                 let parent = self.scopes.qualified(at);
@@ -46,7 +46,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let tree = self.tree;
         let name = tree.text(value);
         let scope = bound_scope(tree, value, &name)?;
-        if tree.count(scope, &name) != 1 || !tree.cx.valid_unicode_member_name(value) {
+        if tree.binding_count(scope, &name) != 1 || !tree.cx.valid_unicode_member_name(value) {
             return None;
         }
         let key = (scope.id(), name);
@@ -127,7 +127,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         if let Some(definition) = definition {
             return Some((
                 published,
-                self.qualified(definition),
+                self.qualified_definition(definition),
                 definition.span.clone(),
             ));
         }
@@ -221,7 +221,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             return Some(path.iter().skip(skip).cloned().collect());
         };
         let listed = self.listed_declarations(&(scope.id(), first.clone()), declarations);
-        if declarations.is_none() && (tree.count(scope, first) != 1 || listed.len() != 1) {
+        if declarations.is_none() && (tree.binding_count(scope, first) != 1 || listed.len() != 1) {
             return None;
         }
         let origins = self.alias_origins(listed, seen, declarations, global_this_owner);
