@@ -17,6 +17,7 @@ use crate::ancestors::{
     Entry, Shadow, ERROR_ABOVE, INSIDE_NAMESPACE, IN_FUNCTION_LIKE, IN_REBOUND_FUNCTION,
     IN_UNMODELED_BLOCK,
 };
+use crate::bind_kinds::{owns_arguments, runtime_name, ARGUMENTS};
 use crate::definitions::{Definition, Defs, Scopes};
 use crate::exports::{
     ambient, export_bindings, module_exports, type_exports, ExportBinding, Named, TypeExports,
@@ -258,6 +259,16 @@ impl<'a, 't> Walk<'a, 't> {
             }
             if let Some(parameter) = cx.field(node, F::Parameter) {
                 self.frames.bind_pattern(&cx, own, parameter);
+            }
+            // A parameter named `arguments` is the one binding (AD-534).
+            if owns_arguments(kind) && self.frames.count(own, ARGUMENTS) == 0 {
+                self.frames.bind(own, ARGUMENTS.to_owned());
+            }
+        }
+        if matches!(kind, K::EnumDeclaration | K::InternalModule | K::Module) {
+            let ambient = self.stack.iter().any(|up| up.kind == K::AmbientDeclaration);
+            if let Some(name) = runtime_name(&cx, node, kind, ambient) {
+                self.frames.bind_pattern(&cx, parent_frame, name);
             }
         }
         match kind {

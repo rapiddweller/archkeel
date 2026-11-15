@@ -226,7 +226,7 @@ fn interface_ts_has_the_syntax_of_the_python_parser() {
         "G ",
         "T ",
         "F module=True declaration=False script=False",
-        "B ",
+        "B E",
     ];
     assert_eq!(got, want, "interface.ts");
 }

@@ -9,6 +9,7 @@ use std::collections::HashSet;
 
 use tree_sitter::Node;
 
+use crate::bind_kinds::{owns_arguments, runtime_name, ARGUMENTS};
 use crate::import_bindings::ImportBinding;
 use crate::kinds::{F, K};
 use crate::scope::assignment_targets;
@@ -32,6 +33,13 @@ impl<'a, 't> Tree<'a, 't> {
         for (scope, pattern) in patterns {
             if seen.insert((scope.id(), pattern.id())) {
                 self.bind_pattern(scope, pattern);
+            }
+        }
+        for node in nodes.iter().copied() {
+            // A parameter named `arguments` is the one binding (AD-534).
+            if owns_arguments(self.k(node)) && self.count(node, ARGUMENTS) == 0 {
+                let names = self.bindings.entry(node.id()).or_default();
+                names.insert(ARGUMENTS.to_owned(), 1);
             }
         }
         let module = self.bindings.entry(self.root.id()).or_default();
@@ -77,6 +85,15 @@ impl<'a, 't> Tree<'a, 't> {
                     .map(|p| (node, p)),
             );
             out.extend(self.field(node, F::Parameter).map(|p| (node, p)));
+        }
+        if matches!(kind, K::EnumDeclaration | K::InternalModule | K::Module) {
+            let ambient = self
+                .ancestors(node)
+                .any(|up| self.k(up) == K::AmbientDeclaration);
+            if let Some(name) = runtime_name(&self.cx, node, kind, ambient) {
+                let scope = self.ancestors(node).find(|up| is_scope(self.k(*up)));
+                out.push((scope.unwrap_or(self.root), name));
+            }
         }
         if kind == K::CatchClause {
             out.extend(self.field(node, F::Parameter).map(|p| (node, p)));
