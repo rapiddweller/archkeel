@@ -17,7 +17,9 @@ use crate::references::literal;
 use crate::script_names;
 use crate::script_syntax::Producer;
 use crate::script_tree::Tree;
-use crate::source::{Source, Span};
+use crate::source::Source;
+#[cfg(feature = "dump")]
+use crate::source::Span;
 use crate::source_input::{classify_file, SourceKind, HOST_NAMES};
 use crate::syntax::Parsers;
 use crate::tree::cx::Cx;
@@ -28,6 +30,7 @@ use crate::umd::Templates;
 /// factory writes on the global object (`None` where the factory may write others).
 pub(crate) struct Publication {
     pub name: String,
+    #[cfg(feature = "dump")]
     pub span: Span,
     pub writes: Option<BTreeSet<String>>,
 }
@@ -88,6 +91,7 @@ pub(crate) fn publication(parsers: &mut Parsers, rel: &str, content: &[u8]) -> O
     let writes = factory_writes(cx, root, factory, &grammar.templates);
     Some(Publication {
         name: cx.text(publication),
+        #[cfg(feature = "dump")]
         span: cx.span(publication),
         writes,
     })
