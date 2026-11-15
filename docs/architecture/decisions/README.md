@@ -9,6 +9,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 |---|---|
 | AD-562 | [Dart names loader tokens and relative package roots](ad-562-dart-names-loader-tokens-and-relative-package-roots.md) |
 | AD-560 | [A lazy import table bounds the import calls of a module `__getattr__`](ad-560-a-lazy-import-table-bounds-the-import-calls-of-a-module-getattr.md) |
+| AD-560 | [A gap states its effect and holds only the rules that read it](ad-560-a-gap-states-its-effect-and-holds-only-the-rules-that-read-it.md) |
 | AD-558 | [An import counts as a use when every boundary up to the root publishes it](ad-558-an-import-counts-as-a-use-when-every-boundary-up-to-the-root-publishes-it.md) |
 | AD-556 | [Cross-crate Rust types need public bindings](ad-556-cross-crate-rust-types-need-public-bindings.md) |
 | AD-554 | [Prove two written field steps in a Rust receiver](ad-554-prove-two-written-field-steps-in-a-rust-receiver.md) |
