@@ -440,3 +440,4 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-436 | [A platform wheel carries the core and no other wheel is built](ad-436-a-platform-wheel-carries-the-core-and-no-other-wheel-is-built.md) |
 | AD-504 | [The Python survey writes the publication route of each named import](ad-504-the-python-survey-writes-the-publication-route-of-each-named-import.md) |
 | AD-514 | [The core proves a use of a public entry from imports and names the rest](ad-514-the-core-proves-a-use-of-a-public-entry-from-imports-and-names-the-rest.md) |
+| AD-520 | [A Python import call is an edge of the code but not a statement of a UML target](ad-520-a-python-import-call-is-no-statement-edge-of-a-uml-target.md) |

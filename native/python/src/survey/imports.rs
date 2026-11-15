@@ -441,7 +441,12 @@ impl Collector<'_, '_> {
             subjects,
             evidence_ids: vec![EvidenceId::new(evidence_id)],
             fact_ids: Vec::new(),
-            data: ImportFact::Import(data),
+            // A literal import call binds no name: it is a call-form import (AD-520).
+            data: if b.binding.is_some() {
+                ImportFact::Import(data)
+            } else {
+                ImportFact::DynamicImport(data)
+            },
         });
     }
 }

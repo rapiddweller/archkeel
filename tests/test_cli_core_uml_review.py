@@ -250,7 +250,8 @@ PLANTS: dict[str, tuple[tuple, str | None, str]] = {
         None,
         "UNKNOWN",
     ),
-    # R1 (ruled): a literal `importlib.import_module` call is an import edge since AD-472.
+    # R1 (closed, AD-520): a call is an import edge (AD-472), but not the statement that the target
+    # declares; 4.0.1 reads statements only, so the core gives its row.
     "r1-python-importlib-declared": (
         (
             PY,
@@ -262,7 +263,7 @@ PLANTS: dict[str, tuple[tuple, str | None, str]] = {
             uml(PY_MODULES, [imports("one", "t")]),
         ),
         "FAIL",
-        "PASS",
+        "FAIL",
     ),
     # R2 (ruled): the `__import__` edge is a true unlisted edge of a closed scope.
     "r2-python-dunder-import-closed": (
@@ -302,9 +303,7 @@ PLANTS: dict[str, tuple[tuple, str | None, str]] = {
         "FAIL",
     ),
 }
-RULED = {"r1-python-importlib-declared", "r2-python-dunder-import-closed"} | {
-    name for name in PLANTS if name.startswith("r3-")
-}
+RULED = {"r2-python-dunder-import-closed"} | {name for name in PLANTS if name.startswith("r3-")}
 
 
 def project(root: Path, plant: tuple) -> Path:

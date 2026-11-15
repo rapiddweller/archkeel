@@ -101,9 +101,10 @@ pub(crate) fn survey(facts: &Facts) -> Result<(), String> {
         .try_for_each(|record| statement(&record.data))
 }
 
-/// A Python import is an import statement with known symbols, no specifier and no type flag.
+/// A Python import is an import statement, or a literal import call (AD-520), with known symbols,
+/// no specifier and no type flag.
 fn statement(fact: &ImportFact) -> Result<(), String> {
-    if !matches!(fact, ImportFact::Import(_)) {
+    if !matches!(fact, ImportFact::Import(_) | ImportFact::DynamicImport(_)) {
         return Err("a Python import must be an import statement".to_owned());
     }
     let data = fact.data();

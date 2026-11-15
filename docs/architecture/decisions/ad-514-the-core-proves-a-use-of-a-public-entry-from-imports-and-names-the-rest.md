@@ -32,7 +32,8 @@ Each finding is a named hygiene row and holds back a PASS. The run can PASS only
 
 **What counts as a use.** A proven import route of AD-504 (`reexport_chain`, any hop; an empty
 route reaches nothing), or a module import without symbols. A call-form import
-(`importlib.import_module("m")`, `import("m")`) binds no name and may not run: it proves no use.
+(`importlib.import_module("m")`, `import("m")`; the record kind `dynamic_import`, AD-520) may not
+run: it proves no use.
 A star import names no symbol, so it
 reaches no `module:name` entry (4.0.1 does the same). For a mount, an import from outside its
 domain counts when the component that holds the mount publishes it at the root

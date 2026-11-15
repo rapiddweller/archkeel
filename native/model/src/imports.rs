@@ -90,9 +90,8 @@ impl Import {
     }
 
     /// True when the collector knows each name that the import uses.
-    /// A call-form import binds no name and is not a statement of the module scope
-    /// (`importlib.import_module("m")`, `import("m")`): it may run, or not, and it proves no use
-    /// of a name of the target (AD-514).
+    /// A call-form import is a call, not a statement (`importlib.import_module("m")`, `import("m")`):
+    /// it may run, or not, and it proves no use of a name of the target (AD-514, AD-520).
     pub fn call_form(&self) -> bool {
         self.call_form
     }
@@ -204,7 +203,7 @@ pub(crate) fn split(facts: &Facts) -> Split {
             under_type_checking: data.under_type_checking,
             symbol: data.symbol.clone(),
             symbols_known: data.symbols_known,
-            call_form: data.binding.is_none() && !data.module_level_import,
+            call_form: matches!(record.data, ImportFact::DynamicImport(_)),
             reexport_chain: data.reexport_chain.clone().unwrap_or_default(),
             relative: data.relative_level != 0,
             resolved,
