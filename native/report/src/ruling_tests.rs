@@ -485,7 +485,10 @@ fn a_gap_with_an_effect_is_named_for_each_rule_that_it_holds_and_for_no_other_ru
     assert_eq!(value["rules"]["DOMAIN-NO-DATA"][1], "UNKNOWN");
     assert_eq!(value["unknown_kinds"]["DOMAIN-NO-DATA"], "scope_incomplete");
     let gaps = model.root().graph().coverage_gaps();
-    assert_eq!(gaps.iter().map(|gap| gap.whole).collect::<Vec<_>>(), [false]);
+    assert_eq!(
+        gaps.iter().map(|gap| gap.whole).collect::<Vec<_>>(),
+        [false]
+    );
     let explain = serde_json::to_value(ruling.explain(gaps)).unwrap_or(Value::Null);
     let holds = &explain["holds"];
     assert_eq!(holds["rules"].as_object().map(|rules| rules.len()), Some(1));

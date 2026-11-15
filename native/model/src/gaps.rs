@@ -4,12 +4,12 @@
 
 //! The coverage gaps of a reply as a reader needs them (AD-484): the id, the kind, the text and
 //! the two modules of a pair gap. `whole` is the answer of the scope proof itself: the same
-//! class as `coverage::incomplete` counts (`gap_effects::Class`), so a page never recomputes it.
+//! class as `coverage::incomplete` counts (`gap_class::Class`), so a page never recomputes it.
 
 use archkeel_facts::envelope::Coverage;
 
 use crate::coverage::data_of;
-use crate::gap_effects::Class;
+use crate::gap_class::Class;
 
 /// One coverage gap of the reply.
 #[derive(Clone, Debug, PartialEq, Eq)]

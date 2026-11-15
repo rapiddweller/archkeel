@@ -2,22 +2,17 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The class of a gap, the read set of each rule kind and the stable key of the cause (AD-564).
+//! The read set of each rule kind (AD-564).
 //! The rules come from the contract of `F-architecture`, which holds a rule of each kind except
 //! `complete_requires`. `reads` takes a module name, so no reply has to hold the modules.
 
 use std::io::Read;
 
 use archkeel_contract::{head_of, Contract, ParsedContract, Rule};
-use archkeel_facts::data::{GapData, GapEffect};
 use archkeel_facts::envelope::Facts;
-use archkeel_facts::ids::ModuleName;
 use serde_json::{json, Value};
 
-use super::{class, reads, Class, Doubt, ReadSet, Scoped};
-use crate::causes::Cause;
-use crate::reason::Reason;
-use crate::reason_key::stable;
+use super::{reads, ReadSet};
 use crate::{Graph, Model, Producer, Settings};
 
 const ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
@@ -33,59 +28,15 @@ const CODE: ReadSet = ReadSet {
     code: true,
 };
 
-fn names(names: &[&str]) -> Vec<ModuleName> {
-    names.iter().map(|name| ModuleName::new(*name)).collect()
-}
-
-fn gap(source: Option<&str>, effect: Option<GapEffect>) -> GapData {
-    let mut data = GapData::at("site", "shop.a");
-    data.source_module = source.map(ModuleName::new);
-    data.effect = effect;
-    data
-}
-
-#[test]
-fn each_doubt_of_a_gap_goes_to_the_wider_class() {
-    let known = |name: &str| name == "shop.a" || name == "shop.b";
-    let edges = |sources: &[&str]| {
-        Some(GapEffect::Edges {
-            sources: names(sources),
-        })
-    };
-    let modules = |modules: &[&str]| {
-        Some(GapEffect::Modules {
-            modules: names(modules),
-        })
-    };
-    let rows = [
-        (gap(None, None), Class::Whole),
-        (gap(Some("shop.b"), None), Class::Pair),
-        // The two names of a pair form are one module: it is no pair (`coverage::droppable`).
-        (gap(Some("shop.a"), None), Class::Whole),
-        (gap(None, edges(&["shop.a"])), Class::Effect),
-        (gap(None, modules(&["shop.a", "shop.b"])), Class::Effect),
-        (gap(None, Some(GapEffect::EveryModule)), Class::Effect),
-        (gap(None, edges(&[])), Class::Whole),
-        (gap(None, modules(&[])), Class::Whole),
-        (gap(None, edges(&["shop.a", "shop.c"])), Class::Whole),
-        (gap(None, modules(&["shop.c"])), Class::Whole),
-        (gap(Some("shop.b"), edges(&["shop.a"])), Class::Whole),
-        (
-            gap(Some("shop.b"), Some(GapEffect::EveryModule)),
-            Class::Whole,
-        ),
-    ];
-    for (data, expected) in rows {
-        assert_eq!(class(&data, &known), expected, "{data:?}");
-    }
-}
-
 fn contract() -> Result<Contract, Box<dyn std::error::Error>> {
     let path = format!("{ROOT}/fixtures/F-architecture/architecture-contract.json");
     let mut value: Value = serde_json::from_slice(&std::fs::read(path)?)?;
     // A mount needs its tree; the rules of the root contract are what this test reads.
     for component in value["components"].as_array_mut().ok_or("components")? {
-        component.as_object_mut().ok_or("component")?.remove("inside");
+        component
+            .as_object_mut()
+            .ok_or("component")?
+            .remove("inside");
     }
     let rules = value["rules"].as_array_mut().ok_or("rules")?;
     let head = json!({"rationale": "r", "provenance": ["p"], "decided_by": "architect"});
@@ -168,12 +119,14 @@ fn each_rule_kind_reads_the_facts_that_its_row_states() -> Result<(), Box<dyn st
     let model = model(&contract)?;
     let rule = |id: &str| -> Option<&Rule> {
         let rules = contract.rules().iter();
-        rules.into_iter().find(|rule| head_of(rule).id().as_text() == id)
+        rules
+            .into_iter()
+            .find(|rule| head_of(rule).id().as_text() == id)
     };
     for (id, expected) in ROWS {
         let rule = rule(id).ok_or(id)?;
-        let found = [None, Some(APP), Some(STORE), Some(LOOSE)]
-            .map(|module| reads(&model, rule, module));
+        let found =
+            [None, Some(APP), Some(STORE), Some(LOOSE)].map(|module| reads(&model, rule, module));
         assert_eq!(found, expected, "{id}");
     }
     // A source that selects no module of the name reads nothing of it.
@@ -188,45 +141,4 @@ fn each_rule_kind_reads_the_facts_that_its_row_states() -> Result<(), Box<dyn st
     assert_eq!(reads(&model, sqlite, Some("shop.app.maintenance")), NONE);
     assert_eq!(reads(&model, sqlite, Some(APP)), EDGES);
     Ok(())
-}
-
-fn scoped(ids: &[&str], doubts: Vec<Doubt>) -> Scoped {
-    Scoped {
-        ids: ids.iter().map(|id| (*id).to_owned()).collect(),
-        doubts,
-    }
-}
-
-#[test]
-fn the_cause_names_the_doubts_and_its_key_holds_no_gap_id() {
-    let doubts = vec![
-        Doubt::Edges("shop.a".to_owned()),
-        Doubt::Code("shop.b".to_owned()),
-        Doubt::EveryModule,
-    ];
-    let first = Reason::NotComplete(Cause::ScopedGaps(scoped(&["U-1", "U-2"], doubts.clone())));
-    assert_eq!(
-        first.to_string(),
-        "incomplete scope: 2 gaps leave unknown what the rule reads: the import edges \
-         of shop.a, the code of shop.b, the code of every module"
-    );
-    let key = stable(&first);
-    let words: Vec<(&str, &str)> = key
-        .iter()
-        .map(|entry| (entry.kind.as_str(), entry.reason.as_str()))
-        .collect();
-    assert_eq!(
-        words,
-        [
-            ("gap_effect", "edges: shop.a"),
-            ("gap_effect", "modules: shop.b"),
-            ("gap_effect", "every_module"),
-        ]
-    );
-    // The same doubts of other gaps are the same key; another doubt is another key.
-    let moved = Reason::NotComplete(Cause::ScopedGaps(scoped(&["U-9"], doubts)));
-    assert_eq!(stable(&moved), key);
-    let other = vec![Doubt::Edges("shop.c".to_owned())];
-    let other = Reason::NotComplete(Cause::ScopedGaps(scoped(&["U-1", "U-2"], other)));
-    assert_ne!(stable(&other), key);
 }

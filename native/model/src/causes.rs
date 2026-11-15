@@ -43,7 +43,7 @@ pub enum Cause {
     AllowedPairGaps(Held),
     /// Gaps that state their effect, and the effect meets what the rule reads (AD-564): or,
     /// for the run, every such gap.
-    ScopedGaps(crate::gap_effects::Scoped),
+    ScopedGaps(crate::gap_class::Scoped),
     /// The host could not read the head or the state of the work tree.
     WorkTree,
     /// The collector runtime does not satisfy its declared requirement.
@@ -187,7 +187,7 @@ impl fmt::Display for Cause {
                 formatter,
                 "gaps between two modules that the contract allows and that can change the rule",
             ),
-            Cause::ScopedGaps(scoped) => scoped.fmt(formatter),
+            Cause::ScopedGaps(scoped) => scoped.write(formatter, HELD_SHOWN),
             Cause::WorkTree => formatter.write_str("the host could not read the work tree"),
             Cause::Runtime => {
                 formatter.write_str("the collector runtime does not satisfy its requirement")

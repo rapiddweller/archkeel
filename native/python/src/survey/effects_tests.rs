@@ -10,7 +10,7 @@ use archkeel_facts::data::GapEffect;
 use archkeel_facts::ids::ModuleName;
 use archkeel_facts::Record;
 
-use super::of;
+use super::{of, AMBIGUOUS, BEYOND_TOP, NOT_FOUND, STAR};
 use crate::survey::targets::tests::{reason, surveyed};
 use crate::survey::Survey;
 use crate::survey::{hazards, layout, syspath, targets};
@@ -28,10 +28,10 @@ fn each_kind_of_site_states_its_effect_and_an_unnamed_kind_states_none() {
     let rows = [
         (hazards::DYNAMIC, Some(GapEffect::EveryModule)),
         (hazards::IMPORT_SYSTEM, Some(GapEffect::EveryModule)),
-        (targets::STAR, code_of(CLIENT)),
-        (targets::AMBIGUOUS, code_of(CLIENT)),
-        (targets::BEYOND_TOP, None),
-        (targets::NOT_FOUND, None),
+        (STAR, code_of(CLIENT)),
+        (AMBIGUOUS, code_of(CLIENT)),
+        (BEYOND_TOP, None),
+        (NOT_FOUND, None),
         (hazards::LITERAL, None),
         (syspath::PATH_WRITE, None),
         (layout::OUTSIDE_LAYOUT, None),
@@ -78,15 +78,15 @@ fn the_gap_of_each_site_of_a_survey_carries_the_effect_of_its_kind() {
             hazards::IMPORT_SYSTEM,
             &every,
         ),
-        ("from app import *\n", "", targets::STAR, &code_of(CLIENT)),
+        ("from app import *\n", "", STAR, &code_of(CLIENT)),
         (
             "from app import service\n",
             "service = 1\n",
-            targets::AMBIGUOUS,
+            AMBIGUOUS,
             &code_of(CLIENT),
         ),
-        ("import app.missing\n", "", targets::NOT_FOUND, &None),
-        ("from ... import other\n", "", targets::BEYOND_TOP, &None),
+        ("import app.missing\n", "", NOT_FOUND, &None),
+        ("from ... import other\n", "", BEYOND_TOP, &None),
     ] {
         let found = effects(source, init);
         let of_kind: Vec<_> = found
@@ -102,8 +102,8 @@ fn the_gap_of_each_site_of_a_survey_carries_the_effect_of_its_kind() {
 
 #[test]
 fn the_effect_is_no_part_of_the_id_of_a_gap() {
-    let (id, record) = targets::site_gap(targets::STAR, "app", CLIENT, "EVIDENCE-1");
-    let reason = format!("{}: app", targets::STAR);
+    let (id, record) = targets::site_gap(STAR, "app", CLIENT, "EVIDENCE-1");
+    let reason = format!("{}: app", STAR);
     let gap = archkeel_facts::GapFact::resolution(&reason, CLIENT);
     let (plain, without) = Record::unknown_gap(&reason, Some("EVIDENCE-1"), CLIENT, gap);
     assert_eq!(id, plain);

@@ -29,7 +29,7 @@ use archkeel_facts::profile_traits::{Layout, PairGapDrop};
 use archkeel_facts::{GapFact, Section};
 
 use crate::coverage::data_of;
-use crate::gap_effects::{self, Class, EffectGap};
+use crate::gap_class::{self, Class, EffectGap};
 
 /// The resolution feature after which the reference engine reads symbol-level selectors of one
 /// profile (`evaluate_source`: `dependency_symbols=True`). The core does not know the profile,
@@ -116,7 +116,7 @@ impl Dynamic {
 
 /// The scope facts of the facts of a reply.
 pub(crate) fn observed(facts: &Facts, classes: &[Class]) -> Observed {
-    // A gap between two modules that states an effect is not a pair gap (`gap_effects::Class`).
+    // A gap between two modules that states an effect is not a pair gap (`gap_class::Class`).
     let pair_gaps = facts
         .coverage
         .gaps
@@ -155,7 +155,7 @@ pub(crate) fn observed(facts: &Facts, classes: &[Class]) -> Observed {
         profile_limits: facts.profile_limits,
         scope_premise: facts.scope_premise,
         pair_gaps,
-        effect_gaps: gap_effects::effect_gaps(&facts.coverage, classes),
+        effect_gaps: gap_class::effect_gaps(&facts.coverage, classes),
         git_unknown: facts.source.git_head == "unknown"
             || matches!(facts.source.dirty, Dirty::Unknown(_)),
         runtime: runtime(&facts.runtime),
