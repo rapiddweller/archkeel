@@ -477,3 +477,14 @@ def test_no_run_output_directory_is_tracked() -> None:
     stray = sorted(name for name in tracked.split("\0") if "test-artifacts/" in name)
 
     assert stray == []
+
+
+# #767: nothing produces or reads the initial-PR evidence since AD-281: no result schema names it.
+def test_no_result_schema_defines_the_initial_pr_evidence() -> None:
+    named = [
+        path.name
+        for path in sorted((ROOT / "schema").glob("command-result*.json"))
+        if re.search(r"initial_?[pP][rR]", path.read_text(encoding="utf-8"))
+    ]
+
+    assert named == []

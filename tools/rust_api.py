@@ -24,14 +24,17 @@ not `pub`, items of a trait, and the files of the tests (`rust_source.test_files
 of the same name in two `impl` blocks of one file are two equal lines, so a move between the
 two blocks does not show.
 
-Macros: the text of a `macro_rules!` body is read as written. A `pub` item in a template counts
-once, and its expansions do not count. A `pub` item in the text of a macro call counts, and a
-visibility token that the call passes on does not.
+Macros: `rust_macros.py` expands each call of a `macro_rules!` macro of the crate before the
+count. The list holds the items that each call builds, under the module of the call, and the
+text of the definition does not count. A visibility that a call passes on counts as written
+(`pub(crate)` is no part of the API). What cannot be expanded is a line `unexpanded
+<module>::<name>!: <reason>` in the list, so the count never gets smaller without a trace: a
+call that no rule matches, a call nested deeper than 128, a matcher that the reader does not
+read, a name that two different definitions share, a call by a path that does not start at
+`crate`, `self`, `super` or a module of the crate, and a `#[macro_export]` definition.
 
-Limit: a declaration macro whose template builds the items (`record!`, `text_type!`,
-`closed_enum!` and `rules!` of `archkeel-contract`) shows once in its template, not once for
-each call. So the list of `archkeel-contract` misses about 90 public types, their accessors and
-their enum variants. A change of a macro call does not show. See `docs/known-limits.md`.
+Limit: a macro of another crate, of the standard library or a proc macro (an attribute or a
+derive) is not expanded. See `docs/known-limits.md`.
 """
 
 from __future__ import annotations
@@ -44,6 +47,15 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
+from rust_macros import (
+    Gap,
+    Macro,
+    definitions,
+    expand,
+    module_names,
+    skip_definitions,
+    table,
+)
 from rust_source import (
     Token,
     group_end,
@@ -230,15 +242,38 @@ def _module(name: str) -> str:
 
 
 def public_api(source: Path) -> list[str]:
-    """Return the sorted public API of the production files of one crate, one line a part."""
+    """Return the sorted public API of the production files of one crate, one line a part.
+
+    A `macro_rules!` call is replaced by its expansion, so each call counts the items that it
+    builds. A call or a definition that `rust_macros` does not read is a line `unexpanded`.
+    """
     sources = read_sources(source)
     marked = test_files(sources)
-    return sorted(
-        f"{kind} {'::'.join(filter(None, (_module(name), part)))}"
-        for name, text in sources.items()
-        if name not in marked
-        for kind, part in public_names(production_tokens(text))
-    )
+    files = {name: production_tokens(text) for name, text in sources.items() if name not in marked}
+    found: list[Macro] = []
+    lines: list[str] = []
+    for name, tokens in files.items():
+        defined, unread = definitions(tokens)
+        found += defined
+        lines += [_gap(name, gap) for gap in unread]
+    gaps: list[Gap] = []
+    macros = table(found, gaps)
+    modules = frozenset().union(*(module_names(tokens) for tokens in files.values()))
+    lines += [_gap("", gap) for gap in gaps]
+    for name, tokens in files.items():
+        local: list[Gap] = []
+        expanded = expand(skip_definitions(tokens), dict(macros), local, modules)
+        lines += [_gap(name, gap) for gap in local]
+        lines += [
+            f"{kind} {'::'.join(filter(None, (_module(name), part)))}"
+            for kind, part in public_names(expanded)
+        ]
+    return sorted(lines)
+
+
+def _gap(name: str, gap: Gap) -> str:
+    """The line of a macro that the list does not expand, with the module of the file."""
+    return f"unexpanded {'::'.join(filter(None, (_module(name), gap.name)))}!: {gap.reason}"
 
 
 def count_public(source: Path) -> tuple[int, int]:

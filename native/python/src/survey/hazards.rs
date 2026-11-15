@@ -27,7 +27,9 @@ use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, ExprContext, ModModule, Stmt};
 use ruff_text_size::{Ranged, TextRange};
 
-use super::literal::Proof;
+use super::binders::Binders;
+use super::literal::{self, Proof};
+use crate::module::Module;
 
 /// The named gaps of the sites.
 pub(super) const DYNAMIC: &str = "dynamic_import";
@@ -388,3 +390,21 @@ impl<'a> Visitor<'a> for Walk {
 #[cfg(test)]
 #[path = "hazards_tests.rs"]
 mod tests;
+
+/// The proven literal import calls of the modules, and their hazard sites, each with the index
+/// of its module.
+pub(super) type Split = (Vec<(usize, TextRange, String)>, Vec<(usize, Site)>);
+
+pub(super) fn split(modules: &[Module], binders: &[Binders]) -> Split {
+    let (mut literals, mut found) = (Vec::new(), Vec::new());
+    for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
+        let proof = literal::Proof::of(&module.tree, binders);
+        for site in sites(&module.tree, proof) {
+            match site.kind {
+                LITERAL => literals.push((index, site.range, site.detail)),
+                _ => found.push((index, site)),
+            }
+        }
+    }
+    (literals, found)
+}

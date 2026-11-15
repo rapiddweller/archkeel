@@ -16,7 +16,6 @@ use ruff_python_ast::{Alias, ModModule, Stmt};
 use ruff_text_size::Ranged;
 
 #[path = "definition.rs"]
-#[cfg(any(test, feature = "dump"))]
 pub(crate) mod definition;
 
 use crate::names::package_for;
@@ -93,7 +92,6 @@ impl Module {
     }
 
     /// The source text of the module.
-    #[cfg(any(test, feature = "dump"))]
     pub(crate) fn text(&self) -> &str {
         &self.text
     }
