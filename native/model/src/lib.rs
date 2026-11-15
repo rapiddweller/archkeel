@@ -65,6 +65,7 @@ mod condensation;
 mod coverage;
 mod cycles;
 mod edges;
+mod gap_effects;
 mod gaps;
 mod graph;
 mod ids;
@@ -148,6 +149,7 @@ mod roots;
 
 pub use closed_path::{cycle_path, Link};
 pub use component_cycles::cycles_of_components;
+pub use gap_effects::{Doubt, Scoped};
 pub use gaps::CoverageGap;
 pub use sides::{shape, Shape};
 

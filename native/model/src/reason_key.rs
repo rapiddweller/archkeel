@@ -204,6 +204,11 @@ fn cause_entries(cause: &Cause) -> Vec<Stable> {
     let (code, value) = match cause {
         Cause::PairGaps(pairs) => return held("pair_gap", pairs),
         Cause::AllowedPairGaps(pairs) => return held("allowed_pair_gap", pairs),
+        // AD-564: one entry for each doubt. The id of a gap moves with its line, so it is no key.
+        Cause::ScopedGaps(scoped) => {
+            let doubts = scoped.doubts().iter();
+            return doubts.map(|d| Stable::of("gap_effect", d.word())).collect();
+        }
         Cause::Undecided(count) => {
             return vec![Stable::of("undecided_imports", "undecided_imports").many(*count)]
         }

@@ -14,9 +14,12 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use archkeel_facts::envelope::{FileFact, Target};
+use archkeel_facts::data::GapData;
+use archkeel_facts::vocab::ResolutionDimension;
 use archkeel_facts::{GapFact, ImportFact, Record};
 
 use super::binders::first_part;
+use super::effects;
 
 /// The prefix of the target of a relative import that `resolve_name` refuses (`imports.rs`).
 const UNRESOLVED: &str = "<unresolved:";
@@ -41,7 +44,11 @@ pub(super) fn site_gap(
     evidence: &str,
 ) -> (String, Record<GapFact>) {
     let reason = format!("{kind}: {detail}");
-    let gap = GapFact::resolution(&reason, module);
+    let mut data = GapData::at(&reason, module);
+    data.resolution_dimension = Some(ResolutionDimension::Imports);
+    // AD-564: what the site leaves unknown. The id of the record does not read it.
+    data.effect = effects::of(kind, module);
+    let gap = GapFact::SourceResolutionGap(data);
     Record::unknown_gap(&reason, Some(evidence), module, gap)
 }
 

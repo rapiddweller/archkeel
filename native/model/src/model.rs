@@ -141,6 +141,12 @@ impl Model {
         self.pairs.kept.len()
     }
 
+    /// The number of gaps that state their effect (AD-564). The reference engine makes each rule
+    /// UNKNOWN for one; the core holds only the rules that read the effect.
+    pub fn effect_gaps(&self) -> usize {
+        self.graph.observed().effect_gaps.len()
+    }
+
     /// The module pairs `(source, target)` of the pair gaps that the drop rule dropped because the
     /// contract allows the edge. The code may use the edge: it is only not resolved.
     pub fn dropped_pair_gaps(&self) -> impl Iterator<Item = (&str, &str)> {

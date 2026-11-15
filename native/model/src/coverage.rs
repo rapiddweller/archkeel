@@ -26,24 +26,26 @@ use archkeel_facts::GapFact;
 pub enum Incomplete {
     /// The collector selected no source file.
     NoSourceFiles,
-    /// The collector reports gaps that no contract can drop (their number).
+    /// The collector reports gaps that leave the whole scope unknown (their number): no
+    /// contract can drop one, and none states an effect (AD-564).
     CoverageGaps(usize),
     /// Imports that the collector cannot resolve and that no gap names (their number).
     UnknownImports(usize),
 }
 
-/// The incompleteness that the coverage of a reply proves, if any.
-pub(crate) fn incomplete(coverage: &Coverage, unknown_imports: usize) -> Option<Incomplete> {
+/// The incompleteness that the coverage of a reply proves, if any. `whole` is the number of the
+/// gaps that leave the whole scope unknown (`gap_effects::Class::Whole`): no contract can drop
+/// one, and none states an effect (AD-564).
+pub(crate) fn incomplete(
+    coverage: &Coverage,
+    whole: usize,
+    unknown_imports: usize,
+) -> Option<Incomplete> {
     if coverage.selected_files.is_empty() {
         return Some(Incomplete::NoSourceFiles);
     }
-    let certain = coverage
-        .gaps
-        .iter()
-        .filter(|gap| !droppable(data_of(&gap.data)))
-        .count();
-    if certain > 0 {
-        return Some(Incomplete::CoverageGaps(certain));
+    if whole > 0 {
+        return Some(Incomplete::CoverageGaps(whole));
     }
     (unknown_imports > 0).then_some(Incomplete::UnknownImports(unknown_imports))
 }
