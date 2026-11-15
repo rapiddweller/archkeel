@@ -34,7 +34,7 @@ fn namespace_ts_has_the_syntax_of_the_python_parser() {
         "G ",
         "T ",
         "F module=False declaration=False script=False",
-        "B After,Legacy,Outer,innerFn",
+        "B After,innerFn",
     ];
     assert_eq!(got, want, "namespace.ts");
 }
@@ -157,7 +157,7 @@ fn members_ts_has_the_syntax_of_the_python_parser() {
         "G ",
         "T ",
         "F module=False declaration=False script=False",
-        "B Plain,Props",
+        "B Props",
     ];
     assert_eq!(got, want, "members.ts");
 }

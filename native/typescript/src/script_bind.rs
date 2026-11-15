@@ -24,10 +24,10 @@ type Pattern<'t> = (Node<'t>, Node<'t>);
 impl<'a, 't> Tree<'a, 't> {
     /// `_script_bindings`: the names that each scope binds, and the scopes that are not statically
     /// known. `nodes` is the whole tree, or the nodes that a closed envelope selects.
-    pub(crate) fn bind(&mut self, nodes: &[Node<'t>], imports: &[ImportBinding]) {
+    pub(crate) fn bind(&mut self, nodes: &[Node<'t>], imports: &[ImportBinding], module: bool) {
         let mut patterns: Vec<Pattern<'t>> = Vec::new();
         for node in nodes.iter().copied() {
-            self.patterns_of(node, &mut patterns);
+            self.patterns_of(node, &mut patterns, module);
         }
         let mut seen: HashSet<(usize, usize)> = HashSet::new();
         for (scope, pattern) in patterns {
@@ -71,7 +71,7 @@ impl<'a, 't> Tree<'a, 't> {
     }
 
     /// The patterns that a node binds, with the scope of each.
-    fn patterns_of(&mut self, node: Node<'t>, out: &mut Vec<Pattern<'t>>) {
+    fn patterns_of(&mut self, node: Node<'t>, out: &mut Vec<Pattern<'t>>, module: bool) {
         let kind = self.k(node);
         if kind == K::WithStatement {
             self.ambiguous.insert(node.id());
@@ -86,7 +86,7 @@ impl<'a, 't> Tree<'a, 't> {
             );
             out.extend(self.field(node, F::Parameter).map(|p| (node, p)));
         }
-        if matches!(kind, K::EnumDeclaration | K::InternalModule | K::Module) {
+        if module && matches!(kind, K::EnumDeclaration | K::InternalModule | K::Module) {
             let ambient = is_ambient(self.ancestors(node).map(|up| self.k(up)));
             if let Some(name) = runtime_name(&self.cx, node, kind, ambient) {
                 let scope = self.ancestors(node).find(|up| is_scope(self.k(*up)));

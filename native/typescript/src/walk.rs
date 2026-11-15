@@ -98,6 +98,9 @@ pub(crate) struct Walk<'a, 't> {
     sites: Sites,
     /// The named nodes in document order, for the script facts (`script_scope.rs`).
     layout: Layout<'t>,
+    /// The names of an `enum` or a namespace with a value, with their frame. They bind only in a
+    /// module, which `finish` knows (AD-534).
+    pending: Vec<(u32, Node<'t>)>,
 }
 
 impl<'a, 't> Walk<'a, 't> {
@@ -107,6 +110,7 @@ impl<'a, 't> Walk<'a, 't> {
             cx,
             layout,
             stack: Vec::new(),
+            pending: Vec::new(),
             frames: Frames::new(),
             defs: Defs::default(),
             imports: Vec::new(),
@@ -316,8 +320,7 @@ impl<'a, 't> Walk<'a, 't> {
         }
         let ambient = is_ambient(self.stack.iter().rev().map(|up| up.kind));
         if let Some(name) = runtime_name(&self.cx, node, kind, ambient) {
-            let cx = self.cx;
-            self.frames.bind_pattern(&cx, parent_frame, name);
+            self.pending.push((parent_frame, name));
         }
     }
 
@@ -385,6 +388,16 @@ impl<'a, 't> Walk<'a, 't> {
         let cx = self.cx;
         let top = named_children(root);
         let exports = module_exports(&cx, &top);
+        let declaration_file =
+            suffix.is_some_and(|s| s.source_kind() == Some(SourceKind::Declaration));
+        let hinted = suffix.is_some_and(|s| s.format_hint().is_some());
+        let module_file = exports.module_syntax || (hinted && !declaration_file);
+        // In a script file an enum or a namespace is global and merges across files: no binding.
+        if module_file {
+            for (frame, name) in std::mem::take(&mut self.pending) {
+                self.frames.bind_pattern(&cx, frame, name);
+            }
+        }
         // A name that an import binds counts in the frame of the file.
         for item in &self.imports {
             self.frames.bind(ROOT, item.local.clone());
@@ -421,17 +434,14 @@ impl<'a, 't> Walk<'a, 't> {
             .filter(|item| !item.type_only)
             .map(|item| item.local.clone())
             .collect();
-        let declaration_file =
-            suffix.is_some_and(|s| s.source_kind() == Some(SourceKind::Declaration));
         let (ambient_globals, ambient_top_level) = ambient(&cx, &top, exports.module_syntax);
-        let hinted = suffix.is_some_and(|s| s.format_hint().is_some());
         let script_mode = suffix.is_some_and(|s| {
             s.source_kind() == Some(SourceKind::JavaScript) && s.format_hint().is_none()
         }) && !exports.module_syntax;
         self.sites.finish(&self.frames, cx.source.data, script_mode);
         let (definitions, scopes) = self.defs.finish(&imported, &exports);
         Syntax {
-            module_file: exports.module_syntax || (hinted && !declaration_file),
+            module_file,
             module_exports: export_bindings(&cx, (root, &top), &self.frames),
             type_exports: type_exports(&cx, root, &top, &self.frames),
             definitions,
