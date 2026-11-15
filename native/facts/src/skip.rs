@@ -5,7 +5,7 @@
 //! The test of a skippable field: the wire omits an `Option` or a `Nullable` that is absent.
 
 /// A field that the wire can skip.
-pub trait Present {
+pub(crate) trait Present {
     fn present(&self) -> bool;
 }
 

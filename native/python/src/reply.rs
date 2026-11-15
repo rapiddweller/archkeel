@@ -114,7 +114,12 @@ fn parts(
 ) -> Result<(Head, Records), String> {
     let mut snapshot = Snapshot::new(&request.snapshot.root);
     let selected = survey.coverage.selected_files.clone();
-    let (inputs, source_digest) = inputs::inputs(&mut snapshot, &selected);
+    let listings: Vec<(String, String)> = survey
+        .listings
+        .iter()
+        .map(|listing| (listing.path.clone(), listing.text.clone()))
+        .collect();
+    let (inputs, source_digest) = inputs::with_listings(&mut snapshot, &selected, &listings);
     same_inputs(&inputs, &survey.parsed)?;
     let head = Head {
         provenance: provenance(request, &mut snapshot, build),

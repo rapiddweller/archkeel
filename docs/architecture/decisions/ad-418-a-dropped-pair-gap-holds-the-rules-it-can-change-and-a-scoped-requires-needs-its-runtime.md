@@ -2,6 +2,8 @@
 
 **Status.** Accepted. Part of #880, goal M2: the core decides the self-contract of `native/`. It changes point 4 of [AD-384](ad-384-the-core-decides-the-cycle-rules-and-scopes-each-pair-gap-to-the-rules-it-can-change.md) and `Part::ScopedRequires` of [AD-380](ad-380-the-core-decides-the-direction-rule-kinds.md).
 
+**Amendment (2026-11-15).** Since #1131 no host carries this proof. For a coverage gap, the core gives a `complete_requires` UNKNOWN row with a cause instead of a refusal. The cause says that the core cannot prove the dependency scope. It does not claim that the former host could not prove it. Pair gaps and unknown imports keep their existing treatment. The corpus result below is history.
+
 **Measurement.** On the self-check of `native/` the core refused 24 of 43 rules: 23 with `Part::AllowedPairGap`, 1 with `Part::ScopedRequires`. Python gives UNKNOWN for all 24.
 
 **Decision.**

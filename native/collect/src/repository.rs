@@ -170,6 +170,24 @@ impl Root {
     }
 
     /// `load_config`: the path is a contained directory, or a file when `file_too`.
+    /// The names of a directory as a listing input records them (AD-538): the sorted names of its
+    /// files and directories (a link counts as what it resolves to), one for each line. `None`
+    /// when the directory cannot be read.
+    pub(crate) fn names_of(&self, relative: &str) -> Option<String> {
+        let path = self.contained(relative.trim_end_matches('/'))?;
+        let mut names = Vec::new();
+        for entry in std::fs::read_dir(path).ok()? {
+            let entry = entry.ok()?;
+            let name = entry.file_name().into_string().ok()?;
+            let kind = std::fs::metadata(entry.path()).ok()?;
+            if kind.is_file() || kind.is_dir() {
+                names.push(name);
+            }
+        }
+        names.sort();
+        Some(names.join("\n"))
+    }
+
     pub(crate) fn is_dir_or_file(&self, relative: &str, file_too: bool) -> bool {
         self.contained(relative)
             .is_some_and(|target| target.is_dir() || (file_too && target.is_file()))
