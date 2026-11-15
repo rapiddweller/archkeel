@@ -27,6 +27,7 @@ mod dual_run;
 mod engine;
 mod hygiene;
 mod hygiene_graph;
+mod hygiene_interface;
 mod hygiene_pairs;
 mod hygiene_refs;
 mod ingest;
