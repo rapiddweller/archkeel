@@ -39,10 +39,14 @@ mod kind;
 mod members;
 mod reader;
 mod scope;
+mod shape_names;
+mod shape_text;
+mod shapes;
 mod sites;
 mod values;
 
 pub(crate) use found::{Found, Source};
+pub(crate) use shapes::attach as attach_shapes;
 pub(crate) use sites::{site_records, Context};
 
 pub(in crate::survey) use escapes::{all as scan_escapes, Escapes};
@@ -220,7 +224,17 @@ impl<'m> Writer<'m, '_> {
         method: Option<archkeel_facts::vocab::MethodKind>,
     ) -> Result<SymbolFact, Unwritable> {
         let mut map = Map::new();
-        signature(&|expr| self.scan.text(expr), node, &mut map)?;
+        // A text that native cannot write leaves the signature unread, not the module: the names
+        // and kinds of the parameters stay, `signature_complete` is false (AD-550) and the written
+        // types ride in the shapes.
+        let complete = signature(&|expr| self.scan.text(expr), node, &mut map).is_ok();
+        if !complete {
+            map.clear();
+            let lenient = |expr: Option<&Expr>| -> Result<Option<String>, Unwritable> {
+                Ok(self.scan.text(expr).ok().flatten())
+            };
+            signature(&lenient, node, &mut map)?;
+        }
         let mut data = CallableData::declared(header, method);
         data.parameters = serde_json::from_value::<Vec<Parameter>>(
             map.remove("parameters").unwrap_or(Value::Null),
@@ -231,7 +245,7 @@ impl<'m> Writer<'m, '_> {
             _ => None,
         };
         data.is_async = node.is_async.then_some(true);
-        data.signature_complete = Some(true);
+        data.signature_complete = Some(complete);
         if let Some(decorator) = node.decorator_list.first() {
             if let Expr::Name(name) = &decorator.expression {
                 data.decorators = vec![name.id.to_string()];

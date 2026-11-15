@@ -241,6 +241,7 @@ fn declarations(
         }
     }
     let context = declared::Context::collect(&found, imports, sets);
+    declared::attach_shapes(&mut found, (modules, binders), imports, sets);
     let (mut calls, mut references) = (Vec::new(), Vec::new());
     for item in &found {
         let (more, other) = declared::site_records(

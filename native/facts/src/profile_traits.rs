@@ -95,6 +95,16 @@ impl Profile {
         }
     }
 
+    /// True when the collector of this profile writes the shape of each written type of a
+    /// signature (AD-550). For any other profile the syntax half of `boundary_types` is a named
+    /// gap: the core never reads a missing shape as a plain one.
+    pub fn type_shapes(self) -> bool {
+        match self {
+            Profile::Python => true,
+            Profile::TypeScript | Profile::Dart | Profile::Rust => false,
+        }
+    }
+
     /// How the modules of this profile lie in the scan roots. A Python module that is not its
     /// path below a scan root is a gap of the survey, so the parent rule holds (AD-450). A Dart
     /// module is the namespace and the path below its scan root (AD-468).

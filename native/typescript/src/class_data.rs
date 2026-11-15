@@ -59,6 +59,7 @@ fn parameter(item: &members::Parameter) -> Parameter {
         default_known: item.default.is_none() && !item.optional,
         kind: if item.rest { "varargs" } else { "positional" }.to_owned(),
         name: item.name.clone(),
+        shape: None,
     }
 }
 
@@ -152,6 +153,7 @@ pub(crate) fn callable_data(core: Core, entry: &Entry) -> CallableData {
         qualified_name: core.qualified_name,
         receiver_parameter: Nullable::Absent,
         returns: definition.returns.clone(),
+        returns_shape: None,
         shape: None,
         shape_nodes: None,
         signature_complete: Some(core.signature_complete),
