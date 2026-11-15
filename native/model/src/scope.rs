@@ -475,8 +475,7 @@ fn rescued(model: &Model, rule: &Rule, reason: &Reason) -> Reason {
     }
     let accepted = matches!(
         reason,
-        Reason::Incomplete(Incomplete::UnknownImports(_))
-            | Reason::NotComplete(Cause::PairGaps(_))
+        Reason::Incomplete(Incomplete::UnknownImports(_)) | Reason::NotComplete(Cause::PairGaps(_))
     );
     let carried = model.graph().observed().scope_receipt;
     if accepted && carried && matches!(rule, Rule::CompleteRequires(_)) {
