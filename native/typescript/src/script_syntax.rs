@@ -42,6 +42,8 @@ pub(crate) struct Producer<'x, 'a, 't> {
     pub(crate) free_arguments: RefCell<HashMap<usize, bool>>,
     /// The nearest wrapper above each node, by the position of the node.
     wrapper_above: Vec<u32>,
+    /// The names that were proved numeric (AD-535), by scope and name.
+    pub(crate) numeric: crate::script_host::NumericNames,
 }
 
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
@@ -82,6 +84,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             returns: wrapper_returns(tree, &wrappers),
             free_arguments: RefCell::new(HashMap::new()),
             wrapper_above: tree.nearest_above(|node| wrappers.contains_key(&node.id())),
+            numeric: Default::default(),
             wrappers,
             by_span,
             bodies: RefCell::new(HashMap::new()),

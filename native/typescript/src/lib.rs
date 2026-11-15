@@ -72,6 +72,7 @@ mod script_factory;
 mod script_flags;
 mod script_forms;
 mod script_global;
+mod script_host;
 mod script_index;
 mod script_keys;
 mod script_names;

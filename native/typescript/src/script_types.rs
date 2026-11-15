@@ -88,4 +88,8 @@ pub(crate) struct Script {
     pub top_level_write_paths: Vec<Vec<String>>,
     pub destructures: Vec<ScriptDestructure>,
     pub namespaces: Vec<ScriptNamespace>,
+    /// Some node writes an unknown global through an amplifier form (AD-535).
+    pub amplified: bool,
+    /// The file gives the scan a host entry (AD-535).
+    pub host_entry: bool,
 }
