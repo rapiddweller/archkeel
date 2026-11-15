@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The bindings of the names of the function `__getattr__` (AD-558).
+//! The bindings of the names of the function `__getattr__` (AD-560).
 
 use std::collections::{HashMap, HashSet};
 

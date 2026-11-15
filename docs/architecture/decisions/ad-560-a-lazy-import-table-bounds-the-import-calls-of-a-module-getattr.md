@@ -1,4 +1,4 @@
-# AD-558 A lazy import table bounds the import calls of a module `__getattr__`
+# AD-560 A lazy import table bounds the import calls of a module `__getattr__`
 
 **Status.** Proposed. Part of #880. This refines AD-472 and AD-450.
 

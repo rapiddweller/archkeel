@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The `__getattr__` of a lazy import module (AD-558): which import calls have arguments that
+//! The `__getattr__` of a lazy import module (AD-560): which import calls have arguments that
 //! only the table gives, and which `globals()` writes only name a key of the table.
 //!
 //! An atom is a name whose every binding in the function unpacks a value that the function reads
