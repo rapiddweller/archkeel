@@ -1498,6 +1498,16 @@
         "returns": {
           "type": "string"
         },
+        "returns_shape": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TypeShape"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "shape": {
           "type": [
             "string",
@@ -1729,6 +1739,17 @@
         },
         "name": {
           "type": "string"
+        },
+        "shape": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TypeShape"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The written type as a tree (AD-550). Absent when the collector does not write shapes."
         }
       },
       "required": [
@@ -1738,6 +1759,427 @@
         "kind",
         "name"
       ]
+    },
+    "TypeShape": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "unannotated"
+            }
+          },
+          "required": [
+            "shape"
+          ],
+          "description": "No type is written."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "nothing"
+            }
+          },
+          "required": [
+            "shape"
+          ],
+          "description": "The type of the one value that means \"nothing\"."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "primitive"
+            },
+            "text": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "shape",
+            "text",
+            "name"
+          ],
+          "description": "A scalar of the language that holds no named data and is not hidden: `int`, `str`."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "dynamic"
+            },
+            "text": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "shape",
+            "text",
+            "name"
+          ],
+          "description": "A type that holds anything: `object`, `Any`. The binding is proven."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "collection"
+            },
+            "text": {
+              "type": "string"
+            },
+            "family": {
+              "$ref": "#/$defs/Family"
+            },
+            "name": {
+              "type": "string"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TypeShape"
+              }
+            },
+            "open_end": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "shape",
+            "text",
+            "family",
+            "name",
+            "args",
+            "open_end"
+          ],
+          "description": "A collection of the language or its standard library, by proven binding. `args` empty is\nthe bare name. `open_end` is a tuple of any length of one element type (`tuple[X, ...]`)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "union"
+            },
+            "text": {
+              "type": "string"
+            },
+            "arms": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TypeShape"
+              }
+            }
+          },
+          "required": [
+            "shape",
+            "text",
+            "arms"
+          ],
+          "description": "One of several types, flattened: `X | Y`, `Union[X, Y]`, `Optional[X]` (`X` and nothing)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "literal"
+            },
+            "text": {
+              "type": "string"
+            },
+            "plain": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "shape",
+            "text",
+            "plain"
+          ],
+          "description": "Constant values as a type. `plain`: each value is a string, a number, a boolean, bytes or\nthe nothing value."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "annotated"
+            },
+            "text": {
+              "type": "string"
+            },
+            "inner": {
+              "$ref": "#/$defs/TypeShape"
+            }
+          },
+          "required": [
+            "shape",
+            "text",
+            "inner"
+          ],
+          "description": "A type with metadata that does not change it: the inner type decides."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "named"
+            },
+            "text": {
+              "type": "string"
+            },
+            "binding": {
+              "$ref": "#/$defs/Binding"
+            }
+          },
+          "required": [
+            "shape",
+            "text",
+            "binding"
+          ],
+          "description": "A name, with its binding."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "applied"
+            },
+            "text": {
+              "type": "string"
+            },
+            "head": {
+              "$ref": "#/$defs/TypeShape"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TypeShape"
+              }
+            }
+          },
+          "required": [
+            "shape",
+            "text",
+            "head",
+            "args"
+          ],
+          "description": "A name applied to arguments that the collector does not model: a user generic."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "forward"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "shape",
+            "text"
+          ],
+          "description": "A type written as a string: the collector does not resolve it."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "shape": {
+              "type": "string",
+              "const": "unreadable"
+            },
+            "text": {
+              "type": "string"
+            },
+            "cause": {
+              "$ref": "#/$defs/Unreadable"
+            }
+          },
+          "required": [
+            "shape",
+            "text",
+            "cause"
+          ],
+          "description": "A form that the collector does not read."
+        }
+      ],
+      "description": "The written type of one position.\n\n`text` is the text of the node in the form that the reference collector writes for it, the text\nthat an exact exception of a rule matches."
+    },
+    "Family": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "sequence",
+          "description": "Elements in order or in a set: `list`, `tuple`, `Sequence`, `Iterable`."
+        },
+        {
+          "type": "string",
+          "const": "mapping",
+          "description": "Keys and values: `dict`, `Mapping`."
+        }
+      ],
+      "description": "How a collection type reads its element types."
+    },
+    "Binding": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "binding": {
+              "type": "string",
+              "const": "builtin"
+            },
+            "target": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "binding",
+            "target"
+          ],
+          "description": "A builtin of the language that no statement of the module hides. `target` is the name in\nthe namespace of the builtins."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "binding": {
+              "type": "string",
+              "const": "defined"
+            },
+            "target": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "binding",
+            "target"
+          ],
+          "description": "One plain statement of the module body binds the name: a class, a function or a value.\n`target` is the qualified name in this module."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "binding": {
+              "type": "string",
+              "const": "imported"
+            },
+            "target": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "binding",
+            "target"
+          ],
+          "description": "One plain import binds the name. `target` is the qualified name that the import reads: a\nname of another module, or an attribute of one module object."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "binding": {
+              "type": "string",
+              "const": "unproven"
+            },
+            "cause": {
+              "$ref": "#/$defs/Unproven"
+            }
+          },
+          "required": [
+            "binding",
+            "cause"
+          ],
+          "description": "The collector does not prove the binding."
+        }
+      ],
+      "description": "What a name is bound to when the module runs."
+    },
+    "Unproven": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "star_import",
+          "description": "A star import in the module can bind any name."
+        },
+        {
+          "type": "string",
+          "const": "hidden",
+          "description": "A name of the enclosing class body or a type parameter hides the name."
+        },
+        {
+          "type": "string",
+          "const": "not_sole",
+          "description": "Another statement binds the name too, or the statement is not directly in the module\nbody (`if`, `try`, `for`, `with`)."
+        },
+        {
+          "type": "string",
+          "const": "unread_import",
+          "description": "The one plain binder is an import that the collector does not follow: a name under\n`TYPE_CHECKING`, a module of the scan that it cannot name."
+        },
+        {
+          "type": "string",
+          "const": "unbound",
+          "description": "No statement of the module binds the name and it is no builtin."
+        },
+        {
+          "type": "string",
+          "const": "dotted",
+          "description": "A chain of attributes that is not one name of one plain module import."
+        }
+      ],
+      "description": "Why the collector does not prove the binding of a name."
+    },
+    "Unreadable": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "not_a_type_form",
+          "description": "A call, a number, a lambda or another form that is no type expression."
+        },
+        {
+          "type": "string",
+          "const": "text_unwritable",
+          "description": "The collector cannot write the text of the form."
+        },
+        {
+          "type": "string",
+          "const": "too_deep",
+          "description": "The expression is nested deeper than the collector reads."
+        }
+      ],
+      "description": "Why a form of a type expression is not read."
     },
     "PropertyBinding": {
       "type": "object",

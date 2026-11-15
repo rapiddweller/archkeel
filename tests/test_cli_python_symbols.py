@@ -23,7 +23,7 @@ ROW = "UML-TARGET-a2e40c5592b1b06a"
 ROWS = json.loads((Path(__file__).parent / "python_symbol_rows.json").read_text())
 STRICTER = {("PASS", "UNKNOWN"), ("FAIL", "UNKNOWN")}
 # 4.0.1 PASS, 4.0.1 FAIL and core row counts: (equal, PASS to UNKNOWN, FAIL to UNKNOWN, plants).
-COUNTS = (45, 55, 8, 108)
+COUNTS = (47, 53, 8, 108)
 # Release 4.0.1 gives FAIL where Python binds what the target plans: a false FAIL.
 FALSE_FAIL = {
     "globals-write",

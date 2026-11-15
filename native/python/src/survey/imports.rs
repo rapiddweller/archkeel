@@ -410,6 +410,9 @@ impl Collector<'_, '_> {
             under_type_checking: guarded,
             reexport: init || (exported && literal_unique),
             module_level_import: module_level,
+            // AD-550: no other statement of the module binds the name, so `boundary_types` can
+            // follow the import from this module to the definition.
+            source_binding_unique: b.binding.map(|name| self.unique.contains(name)),
             ordinary_module: Some(!module.is_init()),
             reexport_candidate: Some(
                 !init && module_level && exported && b.symbol.is_some() && !literal_unique,

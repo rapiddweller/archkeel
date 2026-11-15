@@ -48,6 +48,9 @@ pub struct Graph {
     constructs: Constructs,
     /// The symbol table, when a need of the run reads it (AD-512).
     symbols: Option<crate::symbols::Symbols>,
+    /// The records that `boundary_types` reads, when the run needs them and the collector writes
+    /// shapes (AD-550).
+    boundary: Option<crate::boundary_facts::BoundaryFacts>,
 }
 
 impl Graph {
@@ -72,6 +75,9 @@ impl Graph {
                 &graph.modules,
                 graph.observed.symbol_sites,
             ));
+        }
+        if needs.boundary() && graph.observed.type_shapes {
+            graph.boundary = Some(crate::boundary_facts::BoundaryFacts::derive(facts));
         }
         Ok(graph)
     }
@@ -107,6 +113,7 @@ impl Graph {
             builtins: builtins(facts),
             constructs: Constructs::derive(facts)?,
             symbols: None,
+            boundary: None,
         })
     }
 
@@ -181,6 +188,11 @@ impl Graph {
     }
 
     /// The symbol table, when a need of the run reads it (AD-512).
+    /// The records that `boundary_types` reads, when the run has them (AD-550).
+    pub(crate) fn boundary(&self) -> Option<&crate::boundary_facts::BoundaryFacts> {
+        self.boundary.as_ref()
+    }
+
     pub(crate) fn symbols(&self) -> Option<&crate::symbols::Symbols> {
         self.symbols.as_ref()
     }

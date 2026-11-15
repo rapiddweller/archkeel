@@ -50,6 +50,10 @@ class GapKind(StrEnum):
     INTERFACE_UNDECLARED = "interface.undeclared"
     INTERFACE_USAGE_UNKNOWN = "interface.usage_unknown"
     INTERFACE_PLANNED_BUILT = "interface.planned_built"
+    # AD-550: a position of a public signature that syntax does not decide, and an exception of a
+    # `boundary_types` rule that no position uses.
+    BOUNDARY_TYPE_POSITION = "boundary_type_position"
+    BOUNDARY_TYPE_ALLOWANCE_STALE = "boundary_type_allowance_stale"
     HYGIENE_NOT_PORTED = "contract_hygiene_not_ported"
     HYGIENE_NOT_READ = "contract_hygiene_not_read"
 

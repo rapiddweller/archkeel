@@ -18,7 +18,8 @@ use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId};
 use archkeel_facts::nested::{BaseDeclaration, MemberInventory, Parameter};
 use archkeel_facts::vocab::{
-    Area, ClassKind, EvidenceClass, InventoryStatus, MemberKind, RelationshipKind, Status,
+    Area, ClassKind, EvidenceClass, InventoryStatus, MemberKind, MethodKind, RelationshipKind,
+    Status,
 };
 use archkeel_facts::{Record, SymbolFact};
 use ruff_python_ast::{Expr, Stmt, StmtClassDef, StmtFunctionDef};
@@ -39,10 +40,14 @@ mod kind;
 mod members;
 mod reader;
 mod scope;
+mod shape_names;
+mod shape_text;
+mod shapes;
 mod sites;
 mod values;
 
 pub(crate) use found::{Found, Source};
+pub(crate) use shapes::attach as attach_shapes;
 pub(crate) use sites::{site_records, Context};
 
 pub(in crate::survey) use escapes::{all as scan_escapes, Escapes};
@@ -220,7 +225,17 @@ impl<'m> Writer<'m, '_> {
         method: Option<archkeel_facts::vocab::MethodKind>,
     ) -> Result<SymbolFact, Unwritable> {
         let mut map = Map::new();
-        signature(&|expr| self.scan.text(expr), node, &mut map)?;
+        // A text that native cannot write leaves the signature unread, not the module: the names
+        // and kinds of the parameters stay, `signature_complete` is false (AD-550) and the written
+        // types ride in the shapes.
+        let complete = signature(&|expr| self.scan.text(expr), node, &mut map).is_ok();
+        if !complete {
+            map.clear();
+            let lenient = |expr: Option<&Expr>| -> Result<Option<String>, Unwritable> {
+                Ok(self.scan.text(expr).ok().flatten())
+            };
+            signature(&lenient, node, &mut map)?;
+        }
         let mut data = CallableData::declared(header, method);
         data.parameters = serde_json::from_value::<Vec<Parameter>>(
             map.remove("parameters").unwrap_or(Value::Null),
@@ -231,7 +246,7 @@ impl<'m> Writer<'m, '_> {
             _ => None,
         };
         data.is_async = node.is_async.then_some(true);
-        data.signature_complete = Some(true);
+        data.signature_complete = Some(complete);
         if let Some(decorator) = node.decorator_list.first() {
             if let Expr::Name(name) = &decorator.expression {
                 data.decorators = vec![name.id.to_string()];
@@ -282,6 +297,14 @@ impl<'m> Writer<'m, '_> {
         };
         let mut data = ClassData::declared(header, word);
         data.enum_members = attributes.literals;
+        // Each name that the class body binds, with a record or not: a method with a decorator
+        // that this reader does not admit has no record, and `boundary_types` must not pass it
+        // by (AD-550). A class whose members are withheld states none.
+        data.class_members = (!open).then(|| {
+            let mut names: Vec<String> = bound.names().into_iter().collect();
+            names.sort();
+            names
+        });
         data.member_inventories = vec![
             inventory(
                 MemberKind::Attribute,
@@ -389,6 +412,11 @@ impl<'m> Writer<'m, '_> {
             }
             let Some(method) = members::method_kind(function, self.binders) else {
                 continue;
+            };
+            // The constructor is its own kind: its signature has no return position (AD-550).
+            let method = match (name, method) {
+                ("__init__", MethodKind::Instance) => MethodKind::Constructor,
+                (_, kind) => kind,
             };
             let header = self.header(name, qualname, Some((qualname, id)));
             let fact = self.callable(function, header, Some(method))?;

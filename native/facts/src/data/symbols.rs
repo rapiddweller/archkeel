@@ -11,6 +11,7 @@ use crate::nested::{
     VisibilityDetail,
 };
 use crate::nullable::{Literal, Nullable};
+use crate::type_shape::TypeShape;
 use crate::vocab::{ClassKind, MethodKind, SymbolCategory, Visibility};
 
 facts_data! {
@@ -90,6 +91,7 @@ facts_data! {
         [read] qualified_name: String,
         [read skip] receiver_parameter: Nullable<String>,
         [read required] returns: Option<String>,
+        [read skip] returns_shape: Option<TypeShape>,
         [read skip] shape: Option<String>,
         [read skip] shape_nodes: Option<i64>,
         [read skip] signature_complete: Option<bool>,
@@ -235,6 +237,7 @@ impl CallableData {
             qualified_name: header.qualified_name,
             receiver_parameter: Nullable::Absent,
             returns: None,
+            returns_shape: None,
             shape: None,
             shape_nodes: None,
             signature_complete: Some(false),

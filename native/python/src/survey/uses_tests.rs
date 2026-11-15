@@ -245,7 +245,10 @@ fn builtin_generic_aliases_are_values_only_when_the_builtin_is_unbound() {
 fn an_unrelated_named_hazard_does_not_change_a_literal_binding() {
     let found = surveyed(&[
         ("src/app/__init__.py", ""),
-        ("src/app/lib.py", "VALUE = 1\nimport pickle\npickle.loads(payload)\n"),
+        (
+            "src/app/lib.py",
+            "VALUE = 1\nimport pickle\npickle.loads(payload)\n",
+        ),
         (
             "src/app/writer.py",
             "from app.lib import VALUE\nuse(VALUE)\n",

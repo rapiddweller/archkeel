@@ -160,6 +160,18 @@ fn row(violation: &Violation) -> Value {
         Violation::OuterLayer(layered) => layer_record(layered),
         Violation::Cycle(cyclic) => cycle_record(cyclic),
         Violation::Construct(row) => archkeel_report::construct_row(row),
+        Violation::BoundaryType(found) => record(
+            [&found.id, &found.rule, &found.id],
+            &found.evidence,
+            ["source", "boundary_types"],
+            &[&found.qualified_name, &found.subject],
+            format!(
+                "{} breaks the boundary types: {}",
+                found.subject, found.text
+            ),
+            json!({"qualified_name": found.qualified_name, "position": found.position,
+                   "annotation": found.text, "reasons": found.reasons}),
+        ),
     }
 }
 
@@ -279,6 +291,7 @@ fn direction_record(violation: &Violation) -> Value {
         | Violation::Undeclared { .. }
         | Violation::OuterLayer(_)
         | Violation::Construct(_)
+        | Violation::BoundaryType(_)
         | Violation::Cycle(_) => row(violation),
     }
 }
