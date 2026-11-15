@@ -1,4 +1,4 @@
-# AD-552: A read of a host name that nothing writes is no gap
+# AD-558: A read of a host name that nothing writes is no gap
 
 Status: accepted. Part of #880. It amends AD-460 and AD-540.
 
@@ -36,8 +36,13 @@ dropped.
   `bLength` the text `constructor` the value is `Function`, and `Function <= 'z'` is true, so the
   value leaves. It stays a gap until a proof that `.length` is a number exists.
 
+A read that only the named direct forms of the project keep from this proof (a direct form could
+write the name) is stated under those forms, as the standard globals are (AD-540): no gap for each
+use, and the count of them beside the form.
+
 ## Price
-graphql-js 6 gaps become 2. hono and zod keep their gaps (host entry, syntax errors).
+graphql-js 6 gaps become 2: the two forms above, with 397 uses behind them. hono and zod keep their
+gaps (host entry, syntax errors).
 
 ## Mutation table
 Removing the containment test turns `a_use_that_calls_stores_or_passes_a_host_name_keeps_its_gap`.

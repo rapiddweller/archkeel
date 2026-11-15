@@ -45,7 +45,7 @@ pub(crate) fn needs_host(producer: &Producer) -> bool {
     producer.needs_host_here()
 }
 
-/// The places of the free names whose use is only read (AD-552).
+/// The places of the free names whose use is only read (AD-558).
 pub(crate) fn contained_reads(producer: &Producer) -> Vec<(i64, i64)> {
     let nodes = producer.tree.nodes.iter();
     nodes

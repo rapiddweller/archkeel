@@ -40,12 +40,19 @@ impl<'a, 'p> Run<'a, 'p> {
 
     /// A standard global that only the named direct forms of the project keep from a proof: its
     /// gap is one of the gaps that the report states once under those forms (AD-540).
-    pub(crate) fn behind_named_blockers(&mut self, name: &str, publishers: &[Publisher]) -> bool {
-        let paths = &self.project.paths;
-        paths.blockers_named()
-            && self.standard.contains(name)
+    pub(crate) fn behind_named_blockers(
+        &mut self,
+        (rel, probe): (&str, &Probe),
+        name: &str,
+        publishers: &[Publisher],
+    ) -> bool {
+        let standard =
+            self.standard.contains(name) && !self.project.bound_in_scripts.contains_key(name);
+        // A read of a host name (AD-558) is behind the same forms: they could write the name.
+        let read = self.read_but_for(rel, probe, name);
+        self.project.paths.blockers_named()
+            && (standard || read)
             && self.stable_but_for_blockers(name, publishers)
-            && !self.project.bound_in_scripts.contains_key(name)
     }
 
     /// `_script_standard_global`.
@@ -65,9 +72,14 @@ impl<'a, 'p> Run<'a, 'p> {
     }
 
     /// A name that nothing in the project publishes, writes or binds and that this use only reads
-    /// (AD-552): it is a name of the host, no module of the scan, and the read builds no code. A
+    /// (AD-558): it is a name of the host, no module of the scan, and the read builds no code. A
     /// root, a loader name and a use that is called, passed, stored or keyed keep their gap.
     fn host_read(&self, rel: &str, probe: &Probe, name: &str, publishers: &[Publisher]) -> bool {
+        self.read_but_for(rel, probe, name) && self.global_stable(name, publishers)
+    }
+
+    /// The use only reads a name that is no root, no loader name and no binding of a file.
+    fn read_but_for(&self, rel: &str, probe: &Probe, name: &str) -> bool {
         let file = self.file(rel);
         let at = (probe.span.line, probe.span.column);
         let read = file.is_some_and(|file| file.script.script.contained_reads.contains(&at));
@@ -75,7 +87,6 @@ impl<'a, 'p> Run<'a, 'p> {
             && !HOST_NAMES.contains(&name)
             && !LOADER_NAMES.contains(&name)
             && !self.project.bound_anywhere.contains_key(name)
-            && self.global_stable(name, publishers)
     }
 
     /// `_script_vendor_package`: the package of the one vendor that publishes the name.

@@ -100,6 +100,6 @@ pub(crate) struct Script {
     /// A write with no path has no blocker here, so the report cannot group the gaps behind it.
     pub unlabelled_empty: bool,
     /// The line and column of each free name whose use is only read: the operand of `typeof`,
-    /// `!` or a comparison, the left of `&&`, or a condition (AD-552). It builds no code.
+    /// `!` or a comparison, the left of `&&`, or a condition (AD-558). It builds no code.
     pub contained_reads: Vec<(i64, i64)>,
 }

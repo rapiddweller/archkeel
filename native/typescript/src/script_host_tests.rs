@@ -302,6 +302,18 @@ fn a_contained_read_of_a_host_name_that_nothing_writes_is_no_gap() {
     ];
     for read in reads {
         assert!(!process_gap(&[("src/b.ts", read)]), "a read: {read}");
+        // A direct form of the project could write the name, so the read is stated under it.
+        let with_form = [
+            ("src/b.ts", read),
+            ("src/c.ts", "export function c(k: string) { Function(k); }"),
+        ];
+        let found = titles_of(&with_form);
+        assert!(found
+            .iter()
+            .all(|(title, _)| !title.starts_with("Script global process ")));
+        assert!(found
+            .iter()
+            .any(|(title, _)| title.starts_with("A form that can write")));
     }
 }
 
@@ -332,4 +344,19 @@ fn a_host_name_that_a_file_writes_keeps_its_gap_for_a_read() {
     }
     let script = [("src/b.ts", read), ("src/c.ts", "window.process = {};")];
     assert!(process_gap(&script), "a published name has a publisher");
+}
+
+#[test]
+fn the_instance_of_shape_of_graphql_js_is_no_gap() {
+    let source = "import { inspect } from './inspect';\n\
+        const isProduction =\n  globalThis.process &&\n  // eslint-disable-next-line no-undef\n  process.env.NODE_ENV === 'production';\n\
+        export const f = (v: unknown) => (isProduction ? inspect(v) : v);\n";
+    let files = [
+        ("src/b.ts", source),
+        (
+            "src/inspect.ts",
+            "export const inspect = (v: unknown) => String(v);",
+        ),
+    ];
+    assert!(!process_gap(&files), "{:?}", titles_of(&files));
 }
