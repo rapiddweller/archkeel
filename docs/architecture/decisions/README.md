@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-520 | [The Python collector writes the symbol sites that its scopes prove](ad-520-the-python-collector-writes-the-symbol-sites-that-its-scopes-prove.md) |
 | AD-518 | [The Python collector writes the symbol declarations that it binds once](ad-518-the-python-collector-writes-the-symbol-declarations-that-it-binds-once.md) |
 | AD-512 | [The core compares the symbol part of a UML target when the run needs it](ad-512-the-core-compares-the-symbol-part-of-a-uml-target-when-the-run-needs-it.md) |
 | AD-510 | [The report page shows the exceptions first and folds the rest](ad-510-the-report-page-shows-the-exceptions-first-and-folds-the-rest.md) |
