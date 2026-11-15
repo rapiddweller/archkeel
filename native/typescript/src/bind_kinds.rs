@@ -47,7 +47,7 @@ pub(crate) fn runtime_name<'t>(
         K::EnumDeclaration => cx.field(node, F::Name),
         K::InternalModule | K::Module => {
             let name = first_name(cx, cx.field(node, F::Name)?);
-            (cx.k(name) == K::Identifier && holds_value(cx, node)).then_some(name)
+            (cx.k(name) == K::Identifier && holds_value(cx, node, DEPTH)).then_some(name)
         }
         _ => None,
     }
@@ -64,19 +64,23 @@ fn first_name<'t>(cx: &Cx, mut name: Node<'t>) -> Node<'t> {
     name
 }
 
+/// How deep a namespace inside a namespace is read. A chain of n namespaces would cost n^2 steps
+/// without a limit; beyond it the name counts as no value and stays free.
+const DEPTH: u8 = 8;
+
 /// Whether the body of a namespace has a member that exists at run time.
-fn holds_value(cx: &Cx, namespace: Node) -> bool {
+fn holds_value(cx: &Cx, namespace: Node, depth: u8) -> bool {
     cx.field(namespace, F::Body).is_some_and(|body| {
         named_children(body)
             .into_iter()
-            .any(|item| is_value(cx, item))
+            .any(|item| is_value(cx, item, depth))
     })
 }
 
 /// A statement of a namespace that makes it a run time object. A const enum, an interface, a type
 /// alias, an alias of an import and a `declare` leave no trace. A statement that this list does
 /// not know counts as no value: the name stays free, as before.
-fn is_value(cx: &Cx, statement: Node) -> bool {
+fn is_value(cx: &Cx, statement: Node, depth: u8) -> bool {
     match cx.k(statement) {
         K::LexicalDeclaration
         | K::VariableDeclaration
@@ -89,10 +93,10 @@ fn is_value(cx: &Cx, statement: Node) -> bool {
         | K::ForStatement
         | K::ForInStatement => true,
         K::EnumDeclaration => !cx.has_child(statement, K::Const),
-        K::InternalModule | K::Module => holds_value(cx, statement),
+        K::InternalModule | K::Module => depth > 0 && holds_value(cx, statement, depth - 1),
         K::ExportStatement => cx
             .field(statement, F::Declaration)
-            .is_some_and(|declaration| is_value(cx, declaration)),
+            .is_some_and(|declaration| is_value(cx, declaration, depth)),
         _ => false,
     }
 }

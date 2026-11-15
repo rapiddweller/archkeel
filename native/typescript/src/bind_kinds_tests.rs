@@ -256,3 +256,14 @@ fn a_write_through_a_name_that_nothing_binds_stays_a_write_through_a_global() {
     let arrow = "export const f = () => { arguments.x = 1; };\n";
     assert!(paths("a.ts", arrow).contains(&vec!["arguments".to_owned(), "x".to_owned()]));
 }
+
+#[test]
+fn a_namespace_nested_deeper_than_the_limit_binds_nothing() {
+    let near = "namespace A { namespace B { namespace C { export const x = 1; } } }\nexport const y = A.B;";
+    assert!(!free(near, "A.B"));
+    let mut deep = String::from("export const x = 1;");
+    for name in ["Z", "Y", "X", "W", "V", "U", "T", "S", "R", "Q"] {
+        deep = format!("namespace {name} {{ {deep} }}");
+    }
+    assert!(free(&format!("{deep}\nexport const y = Z.Y;"), "Z.Y"));
+}

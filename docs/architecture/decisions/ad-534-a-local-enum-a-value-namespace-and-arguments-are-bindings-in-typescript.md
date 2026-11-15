@@ -42,6 +42,8 @@ without an import still gives the gap. The change hides no dependency.
 ## Limits
 - A `var arguments` in the body of a function counts as a second binding of the name. The name stays
   bound; a proof that needs exactly one binding does not hold.
+- A value member that lies more than 8 namespaces deep does not count: the name stays free. The
+  limit keeps a chain of namespaces linear.
 - `import x = N.y` in a namespace is not read as a value member.
 - mobx `const computedAnnotation` and the rest-parameter names of rxjs overload signatures may be
   other missing kinds. They are not analysed.
