@@ -458,4 +458,5 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-538 | [A `sys.path.append` that adds no imported name is no gap](ad-538-a-sys-path-append-that-adds-no-imported-name-is-no-gap.md) |
 | AD-536 | [A Python import call is an edge of the code but not a statement of a UML target](ad-536-a-python-import-call-is-no-statement-edge-of-a-uml-target.md) |
 | AD-539 | [A local `code` name is not a module binding](ad-539-a-local-code-name-is-not-a-module-binding.md) |
+| AD-546 | [A baseline accepts an UNKNOWN by what it is and the core compares it in both directions](ad-546-a-baseline-accepts-an-unknown-by-what-it-is-and-the-core-compares-it-both-ways.md) |
 | AD-526 | [The core compares the UML targets of the inside contracts as one declared intent](ad-526-the-core-compares-the-uml-targets-of-the-inside-contracts-as-one-declared-intent.md) |

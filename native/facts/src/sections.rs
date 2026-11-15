@@ -180,7 +180,8 @@ pub enum GapFact {
 }
 
 impl GapFact {
-    fn data(&self) -> &GapData {
+    /// The data of the gap, whatever its kind (AD-546: the baseline key reads it).
+    pub fn data(&self) -> &GapData {
         match self {
             GapFact::CollectionGap(data)
             | GapFact::SourceResolutionGap(data)

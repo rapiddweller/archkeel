@@ -68,6 +68,8 @@ pub(super) struct Frame {
     pub(super) identity: Identity,
     /// Why the run is not decided: the refusal or the scope text of the frame.
     pub(super) cause: String,
+    /// The baseline of the request: its state and the number of accepted UNKNOWN entries (AD-546).
+    pub(super) baseline: Option<(String, u64)>,
     /// The assumption that the collector states for its proofs (AD-540), or empty.
     pub(super) premise: String,
 }
@@ -118,6 +120,10 @@ impl Frame {
             locations: field(frame, "locations"),
             topology: serde_json::from_value(frame["topology"].clone()).ok(),
             explain: field(frame, "explain"),
+            baseline: frame["baseline"]["state"].as_str().map(|state| {
+                let accepted = frame["baseline"]["accepted_unknowns"].as_u64();
+                (state.to_owned(), accepted.unwrap_or_default())
+            }),
             head,
         }
     }

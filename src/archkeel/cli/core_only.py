@@ -17,10 +17,12 @@ import sys
 import traceback
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from time import time_ns
 from typing import Final, NoReturn
 
+from .core_baseline import as_json as baseline_json
+from .core_baseline import lines as baseline_lines
 from .core_binary import CoreBinaryNotFound, confirm, locate_core
 from .core_binding import resolve_root
 from .core_frame import (
@@ -56,7 +58,6 @@ REMOVED_OPTIONS: Final = frozenset(
         "--accept-new",
         "--against",
         "--amendment",
-        "--baseline",
         "--collector-argv",
         "--collector-output-limit-bytes",
         "--collector-timeout-seconds",
@@ -77,7 +78,6 @@ REMOVED_OPTIONS: Final = frozenset(
         "--timings",
         "--tsconfig",
         "--write-amendment",
-        "--write-baseline",
         "--write-graph",
     }
 )
@@ -88,6 +88,7 @@ The Rust core (archkeel-core) decides each run. This shell prints its frame.
 
 commands:
   validate   Check the contract. PASS exits 0, FAIL exits 1, UNKNOWN and a refusal exit 2.
+             With --baseline, a difference from the file exits 1 and an accepted UNKNOWN exits 2.
   report     Print the same frame of the core as a report. The exit codes are the same.
   skill      Install the agent skill: archkeel skill install {{claude,codex}} [--root PATH]
 
@@ -103,6 +104,10 @@ options:
   --topology      Include the bounded topology in report only. Default: no topology work.
   --output PATH   Report only: write one file. No file is written by default.
   --format FORMAT Report only, with --output: html (default) or json. No sidecar files.
+  --baseline PATH Validate only: compare with this baseline file below the root, in both
+                  directions. A new gap or violation, and an accepted item that is gone, exit 1.
+  --write-baseline PATH
+                  Validate only: write the baseline of this run (schema 1.4.0) to this file.
   --core-only     Accepted and ignored: the core is the only path.
   --version       Print the version.
 """
@@ -131,6 +136,8 @@ class Options(argparse.Namespace):
     agent: str = ""
     output: Path | None = None
     format: str = "html"
+    baseline: str | None = None
+    write_baseline: str | None = None
 
 
 class Parser(argparse.ArgumentParser):
@@ -174,6 +181,16 @@ def _output_path(value: str) -> Path:
     return path
 
 
+def _baseline_path(value: str) -> str:
+    """A baseline path below the root, in the form that the core reads (AD-546)."""
+    path = PurePosixPath(value.replace("\\", "/"))
+    if not value or path.is_absolute() or ".." in path.parts or path.name in {"", "."}:
+        raise argparse.ArgumentTypeError(
+            "a baseline path must name a file below the root, not an absolute or parent path"
+        )
+    return path.as_posix()
+
+
 def parse(argv: Sequence[str]) -> Options:
     """The options of a served command. Each other argument is refused by name."""
     command = _command(argv)
@@ -188,6 +205,9 @@ def parse(argv: Sequence[str]) -> Options:
     else:
         parser.add_argument("--core-only", action="store_true")
         parser.add_argument("--config", default="archkeel.toml")
+        if command is Command.VALIDATE:
+            parser.add_argument("--baseline", type=_baseline_path)
+            parser.add_argument("--write-baseline", type=_baseline_path)
         if command is Command.REPORT:
             parser.add_argument("--topology", action="store_true")
             parser.add_argument("--output", type=_output_path)
@@ -199,6 +219,11 @@ def parse(argv: Sequence[str]) -> Options:
             raise NotOnThisLine(f"{command} {name} is {_LINE}; {remedy} (#880)")
     if extra:
         raise ValueError(f"unknown arguments: {' '.join(extra)}; run archkeel --help")
+    if options.baseline is not None and options.baseline == options.write_baseline:
+        raise ValueError(
+            "--baseline and --write-baseline name the same file; "
+            "compare with one file and write another, or use --write-baseline alone"
+        )
     if any(arg == "--format" or arg.startswith("--format=") for arg in argv) and not options.output:
         raise ValueError("--format needs --output; no report file was written")
     return options
@@ -270,9 +295,8 @@ def _install_skill(options: Options, as_json: bool) -> int:
     return 0
 
 
-def _decide(options: Options, as_json: bool) -> int:
-    """Send the scan identity to the core and print the one frame that it gives."""
-    root = resolve_root(options.root or Path.cwd())
+def _request(options: Options, root: Path) -> dict[str, object]:
+    """The scan identity that the core answers, with the parts of the page and the baseline."""
     request: dict[str, object] = {
         "protocol": SCAN_PROTOCOL,
         "root": str(root),
@@ -288,6 +312,42 @@ def _decide(options: Options, as_json: bool) -> int:
         request["topology"] = True
     if page:
         request["html"] = True
+    if options.baseline is not None:
+        request["baseline"] = options.baseline
+    if options.write_baseline is not None:
+        request["write_baseline"] = True
+    return request
+
+
+def _exit_code(options: Options, frame: CoreFrame) -> int:
+    """The status maps to the exit code. With a baseline, the core decided the code (AD-546)."""
+    asked = options.baseline is not None or options.write_baseline is not None
+    collect_refused = any(gap.kind is GapKind.COLLECT for gap in frame.gaps)
+    if asked and frame.baseline is None and not collect_refused:
+        raise CoreError("the core frame lacks the baseline part that the request asked for")
+    if frame.baseline is not None:
+        return frame.baseline.exit_code
+    return EXIT_CODES[frame.status]
+
+
+def _deliver(options: Options, frame: CoreFrame, stdout: bytes, root: Path) -> str | None:
+    """Write each requested file. The message of the last failure, or `None`."""
+    failure: str | None = None
+    try:
+        _write_report(options, frame, stdout)
+    except OSError as error:
+        failure = f"cannot write report file {options.output}: {error}; no report file was written"
+    try:
+        _write_baseline(options, frame, root)
+    except OSError as error:
+        failure = f"cannot write the baseline file {error}; no baseline file was written"
+    return failure
+
+
+def _decide(options: Options, as_json: bool) -> int:
+    """Send the scan identity to the core and print the one frame that it gives."""
+    root = resolve_root(options.root or Path.cwd())
+    request = _request(options, root)
     binary = locate_core()
     confirm(binary)  # a bundled core is checked again immediately before it starts (#1095)
     started_ns = time_ns()
@@ -302,10 +362,12 @@ def _decide(options: Options, as_json: bool) -> int:
     )
     document = json.loads(stdout)
     document.pop("html", None)
-    if page and not options.topology:
+    if isinstance(document.get("baseline"), dict):
+        document["baseline"].pop("file", None)  # the bytes are written, not printed
+    if "topology" in request and not options.topology:
         document.pop("topology", None)
         frame = replace(frame, topology=None)
-    exit_code = EXIT_CODES[frame.status]
+    exit_code = _exit_code(options, frame)
     result: dict[str, object] = {
         "command": options.command,
         "status": frame.status,
@@ -316,16 +378,13 @@ def _decide(options: Options, as_json: bool) -> int:
             {"kind": gap.kind, "subject": gap.subject, "reason": gap.reason} for gap in frame.gaps
         ],
     }
+    if frame.baseline is not None:
+        result["baseline"] = baseline_json(frame.baseline)
     collected = next((gap for gap in frame.gaps if gap.kind is GapKind.COLLECT), None)
     if collected is not None:
         result["refusal"] = {"kind": RefusalKind.COLLECTION_REFUSED, "message": collected.reason}
-    file_error: str | None = None
-    try:
-        _write_report(options, frame, stdout)
-    except OSError as error:
-        file_error = (
-            f"cannot write report file {options.output}: {error}; no report file was written"
-        )
+    file_error = _deliver(options, frame, stdout, root)
+    if file_error is not None:
         exit_code = 2
         result["exit_code"] = exit_code
         result["refusal"] = {"kind": RefusalKind.IO_ERROR, "message": file_error}
@@ -340,6 +399,23 @@ def _decide(options: Options, as_json: bool) -> int:
         if file_error is not None:
             _refused(RefusalKind.IO_ERROR, file_error, False)
     return exit_code
+
+
+def _write_baseline(options: Options, frame: CoreFrame, root: Path) -> None:
+    """Write the bytes that the core gave for `--write-baseline`. The shell adds nothing."""
+    if options.write_baseline is None:
+        return
+    if frame.baseline is None or frame.baseline.file is None:
+        raise CoreError(
+            "the run cannot be written as a baseline: a part of it is refused, and no baseline "
+            "accepts a refused part; no baseline file was written"
+        )
+    base = next((path for path in (root, *root.parents) if (path / ".git").exists()), root)
+    target = base / options.write_baseline
+    try:
+        write_output(target, frame.baseline.file.encode("utf-8"))
+    except OSError as error:
+        raise OSError(f"{options.write_baseline}: {error}") from error
 
 
 def _write_report(options: Options, frame: CoreFrame, stdout: bytes) -> None:
@@ -381,6 +457,9 @@ def render_text(command: Command, frame: CoreFrame) -> None:
             f"{len(topology.edges)}/{topology.total['edges']} edges; "
             f"complete: {topology.complete}; truncated: {topology.truncated}"
         )
+    if frame.baseline is not None:
+        for line in baseline_lines(frame.baseline):
+            print(line)
     if not frame.complete_scope:
         print(f"Scope: {frame.scope}")
         print("Action: Resolve the named scope gap and run again.")
