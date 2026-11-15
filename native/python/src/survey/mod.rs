@@ -16,7 +16,7 @@ use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::request::PythonRequest;
 use archkeel_facts::vocab::ExceptionName;
-use archkeel_facts::{GapFact, ImportFact, Record, SymbolFact};
+use archkeel_facts::{CallFact, GapFact, ImportFact, Record, ReferenceFact, SymbolFact};
 use archkeel_snapshot::Snapshot;
 
 use crate::discover::{self, Unseen};
@@ -62,8 +62,10 @@ pub(crate) struct Survey {
     pub ambiguous: HashSet<String>,
     /// The digest of each file that the survey read, from the bytes that it parsed.
     pub parsed: Vec<Input>,
-    /// The symbol declarations that the modules bind once (AD-518).
+    /// The symbol declarations that the modules bind once (AD-518), and their sites (AD-520).
     pub symbols: Vec<Record<SymbolFact>>,
+    pub calls: Vec<Record<CallFact>>,
+    pub references: Vec<Record<ReferenceFact>>,
 }
 
 /// The parsed modules of a request and their binders, as the survey reads them (the dump of
@@ -99,6 +101,10 @@ pub(crate) fn modules(request: &PythonRequest) -> Result<Modules, String> {
     })
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "the survey is one pipeline of passes; AD-520 adds the site pass to it"
+)]
 pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     let interpreter = &request.resolver.interpreter;
     let minor = interpreter.version.minor();
@@ -135,13 +141,16 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .collect();
     opaque_surface.extend(written);
     opaque_surface.extend(uses::escaped(modules, &imports));
-    let hazardous: HashSet<usize> = hazards.iter().map(|(index, _)| *index).collect();
     let symbols = declarations(
         modules,
         &binders,
         &imports,
+        (&sole_binders, &ambiguous),
         &mut evidence,
-        |index, module| !hazardous.contains(&index) && !opaque_surface.contains(&module.name),
+        |index, module| {
+            !hazards.iter().any(|(site, _)| *site == index)
+                && !opaque_surface.contains(&module.name)
+        },
     );
     let files: Vec<FileFact> = modules
         .iter()
@@ -197,28 +206,58 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
             .into_iter()
             .filter(|input| selected.contains(input.path.as_str()))
             .collect(),
-        symbols,
+        symbols: symbols.records,
+        calls: symbols.calls,
+        references: symbols.references,
     })
 }
 
-/// AD-518: the declarations of each module that `admitted` keeps. A module with a hazard site or
-/// a route that another module can write has none, and each name of it is absent for the model.
+/// The symbol facts of a survey: the declarations and the sites of the functions among them.
+struct Symbols {
+    records: Vec<Record<SymbolFact>>,
+    calls: Vec<Record<CallFact>>,
+    references: Vec<Record<ReferenceFact>>,
+}
+
+/// AD-518, AD-520: the declarations of each module that `admitted` keeps, then their sites. A
+/// module with a hazard site or a route that another module can write has none, and each name of
+/// it is absent for the model.
 fn declarations(
     modules: &[Module],
     binders: &[Binders],
     imports: &[Record<ImportFact>],
+    sets: (&HashSet<String>, &HashSet<String>),
     evidence: &mut EvidenceMap,
     admitted: impl Fn(usize, &Module) -> bool,
-) -> Vec<Record<SymbolFact>> {
+) -> Symbols {
     let mut found = Vec::new();
     let mut escapes = declared::scan_escapes(modules, binders, imports).into_iter();
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
         let own = escapes.next().unwrap_or_default();
         if admitted(index, module) {
-            found.extend(declared::records(module, binders, own, evidence));
+            let mut item = declared::records(module, binders, own, evidence);
+            item.index = index;
+            found.push(item);
         }
     }
-    found
+    let context = declared::Context::collect(&found, imports, sets);
+    let (mut calls, mut references) = (Vec::new(), Vec::new());
+    for item in &found {
+        let (more, other) = declared::site_records(
+            (&modules[item.index], &binders[item.index]),
+            item,
+            &context,
+            evidence,
+        );
+        calls.extend(more);
+        references.extend(other);
+    }
+    let records = found.into_iter().flat_map(|item| item.records).collect();
+    Symbols {
+        records,
+        calls,
+        references,
+    }
 }
 
 /// The import records, after a first pass that names the modules that another module may change

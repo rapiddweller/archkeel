@@ -38,6 +38,10 @@ class Plant:
     core: str = "UNKNOWN"
     files: dict[str, str] = field(default_factory=dict)
     cause: str = ""
+    # The relationships that the target plans: (kind, source name, target name) of two wants.
+    edges: tuple[tuple[str, str, str], ...] = ()
+    # The relationship kinds that the module `demo.m` closes: an unlisted resolved site fails.
+    closed: tuple[str, ...] = ()
 
 
 def entity(identity: str, kind: str, name: str, parent: str, extra: dict) -> dict:
@@ -54,7 +58,8 @@ def entity(identity: str, kind: str, name: str, parent: str, extra: dict) -> dic
     }
 
 
-def contract(wants: tuple[Want, ...]) -> dict:
+def contract(plant: Plant) -> dict:
+    wants = plant.wants
     ids = {want.name: f"e{index}" for index, want in enumerate(wants)}
     entities = [entity("m", "module", "demo.m", "demo-component", {"file_path": "demo/m.py"})]
     for want in wants:
@@ -74,7 +79,32 @@ def contract(wants: tuple[Want, ...]) -> dict:
         "provenance": ["docs/target.md"],
         "decided_by": "architect",
     }
-    uml = {"schema_version": "1.1.0", "entities": entities, "relationships": [], "scopes": []}
+    edges = [
+        {
+            "id": f"r{index}",
+            "kind": kind,
+            "source_id": ids[origin],
+            "target_id": ids[end],
+            "provenance": ["docs/target.md"],
+        }
+        for index, (kind, origin, end) in enumerate(plant.edges)
+    ]
+    scopes = [
+        {
+            "scope_id": "m",
+            "mode": "closed",
+            "rationale": "Keep it closed.",
+            "provenance": ["docs/target.md"],
+            "entity_kinds": [],
+            "relationship_kinds": list(plant.closed),
+        }
+    ] * bool(plant.closed)
+    uml = {
+        "schema_version": "1.1.0",
+        "entities": entities,
+        "relationships": edges,
+        "scopes": scopes,
+    }
     return {
         "schema_version": "2.2.0",
         "components": [component],
@@ -94,7 +124,7 @@ def project(root: Path, plant: Plant) -> Path:
     (root / "pyproject.toml").write_text(
         '[project]\nname = "plant"\nversion = "0.0.0"\nrequires-python = ">=3.11"\n'
     )
-    (root / "architecture-contract.json").write_text(json.dumps(contract(plant.wants)))
+    (root / "architecture-contract.json").write_text(json.dumps(contract(plant)))
     (root / "demo/__init__.py").write_text("")
     (root / "demo/m.py").write_text(plant.source)
     for name, text in plant.files.items():

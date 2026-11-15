@@ -90,8 +90,8 @@ impl Profile {
     /// and no class has a base receipt (AD-518).
     pub fn symbol_sites(self) -> bool {
         match self {
-            Profile::TypeScript => true,
-            Profile::Python | Profile::Dart | Profile::Rust => false,
+            Profile::TypeScript | Profile::Python => true,
+            Profile::Dart | Profile::Rust => false,
         }
     }
 
