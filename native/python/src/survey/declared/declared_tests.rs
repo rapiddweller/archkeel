@@ -128,43 +128,40 @@ fn a_text_that_the_reader_does_not_write_gives_no_record_of_its_declaration() {
     assert_eq!(names(&plain), ["app.probe.h"]);
 }
 
-const M: &str = "    def m(self):\n        pass\n";
+const M: &str = "\n    def m(self):\n        pass\n";
 
 #[test]
 fn a_class_that_a_name_use_escapes_keeps_no_member() {
-    let called = declared(&format!("class A:\n{M}\n\nA()\nA.m\n"), 11);
+    let called = declared(&format!("class A:{M}\n\nA()\nA.m\n"), 11);
     assert_eq!(names(&called), ["app.probe.A", "app.probe.A.m"]);
     let kept = declared(
-        &format!("class A:\n{M}\n\ndef f(a: A) -> A:\n    return A()\n"),
+        &format!("class A:{M}\n\ndef f(a: A) -> A:\n    return A()\n"),
         11,
     );
     assert_eq!(
         names(&kept),
         ["app.probe.A", "app.probe.A.m", "app.probe.f"]
     );
-    let passed = declared(&format!("class A:\n{M}\n\nprint(A)\n"), 11);
+    let passed = declared(&format!("class A:{M}\n\nprint(A)\n"), 11);
     assert_eq!(names(&passed), ["app.probe.A"]);
 }
 
 #[test]
 fn a_write_through_a_base_that_may_be_a_class_opens_the_module() {
     let metaclass = declared(
-        &format!("class M(type):\n    def f(self):\n        self.y = 1\n\n\nclass A:\n{M}"),
+        &format!("class M(type):\n    def f(self):\n        self.y = 1\n\n\nclass A:{M}"),
         11,
     );
     assert_eq!(names(&metaclass), ["app.probe.A"]);
     let hook = declared(
-        &format!("class A:\n{M}\n    def __init_subclass__(self):\n        self.y = 1\n"),
+        &format!("class A:{M}\n    def __init_subclass__(self):\n        self.y = 1\n"),
         11,
     );
     assert_eq!(names(&hook), ["app.probe.A"]);
-    let setter = declared(
-        &format!("class A:\n{M}\n\ntype.__setattr__(A, 'm', 2)\n"),
-        11,
-    );
+    let setter = declared(&format!("class A:{M}\n\ntype.__setattr__(A, 'm', 2)\n"), 11);
     assert_eq!(names(&setter), ["app.probe.A"]);
     let own = declared(
-        &format!("class A:\n{M}\n    def n(self):\n        self.y = 1\n"),
+        &format!("class A:{M}\n    def n(self):\n        self.y = 1\n"),
         11,
     );
     assert_eq!(

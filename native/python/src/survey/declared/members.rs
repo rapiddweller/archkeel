@@ -62,7 +62,8 @@ pub(super) fn attributes(
                 if !plain || (!enumeration && !constant(&assign.value)) {
                     continue;
                 }
-                if enumeration && !keys.insert(value_key(&assign.value).unwrap_or_default()) {
+                let key = value_key(&assign.value);
+                if enumeration && !key.is_some_and(|key| keys.insert(key)) {
                     return Ok(open());
                 }
                 (names, None)
@@ -109,33 +110,26 @@ pub(super) fn mangled(name: &str) -> bool {
     name.starts_with("__") && !name.ends_with("__")
 }
 
-/// The value of an enum literal, so that `R = 1; S = 1` is seen as an alias: equal numbers (also
-/// `1`, `1.0` and `True`) and equal text give one key. A value that has no key leaves the enum open.
+/// The value of an enum literal, so that `R = 1; S = 1` is seen as an alias. Only a string and an
+/// integer have a key: `1`, `1.0` and `True` are one value, so a float, a bool, bytes, `None` and
+/// a tuple leave the enum open.
 fn value_key(value: &Expr) -> Option<String> {
     match value {
         Expr::StringLiteral(node) => Some(format!("s:{}", node.value.to_str())),
-        Expr::BytesLiteral(node) => Some(format!("b:{:?}", node.value.bytes().collect::<Vec<_>>())),
-        Expr::BooleanLiteral(node) => Some(format!("n:{}", i32::from(node.value))),
-        Expr::NoneLiteral(_) => Some("none".to_owned()),
-        Expr::NumberLiteral(node) => number_key(&node.value, false),
+        Expr::NumberLiteral(node) => int_key(&node.value, ""),
         Expr::UnaryOp(node) => match (&node.op, &*node.operand) {
-            (UnaryOp::USub, Expr::NumberLiteral(inner)) => number_key(&inner.value, true),
-            (UnaryOp::UAdd, Expr::NumberLiteral(inner)) => number_key(&inner.value, false),
+            (UnaryOp::USub, Expr::NumberLiteral(inner)) => int_key(&inner.value, "-"),
             _ => None,
         },
         _ => None,
     }
 }
 
-fn number_key(number: &Number, negative: bool) -> Option<String> {
-    let sign = if negative { "-" } else { "" };
+fn int_key(number: &Number, sign: &str) -> Option<String> {
     match number {
-        Number::Int(value) => Some(format!("n:{sign}{value}")),
-        Number::Float(value) if value.fract() == 0.0 && value.abs() < 1e15 => {
-            Some(format!("n:{sign}{}", value.abs() as i64))
-        }
-        Number::Float(value) => Some(format!("n:{sign}{value}")),
-        Number::Complex { .. } => None,
+        Number::Int(value) if value.to_string() == "0" => Some("i:0".to_owned()),
+        Number::Int(value) => Some(format!("i:{sign}{value}")),
+        _ => None,
     }
 }
 
