@@ -240,10 +240,10 @@ fn declarations(
             found.push(item);
         }
     }
-    let context = declared::Context::of(&found, imports, sets);
+    let context = declared::Context::collect(&found, imports, sets);
     let (mut calls, mut references) = (Vec::new(), Vec::new());
     for item in &found {
-        let (more, other) = declared::sites(
+        let (more, other) = declared::site_records(
             (&modules[item.index], &binders[item.index]),
             item,
             &context,

@@ -16,8 +16,7 @@ use ruff_python_ast::{Expr, Stmt};
 use ruff_text_size::Ranged;
 
 use super::kind::{imported, Reading};
-use super::reader::Unwritable;
-use super::Writer;
+use super::reader::{header, Reader};
 use crate::survey::bound::Bound;
 
 /// The value of an `ast.Constant`.
@@ -50,82 +49,81 @@ fn type_alias(annotation: &Expr, reading: &Reading<'_>) -> bool {
     })
 }
 
-impl Writer<'_, '_> {
-    /// The records of one module-body assignment: one for each of its names that it binds alone.
-    pub(super) fn value(
-        &mut self,
-        statement: &Stmt,
-        bound: &Bound,
-        reading: &Reading<'_>,
-    ) -> Result<(), Unwritable> {
-        let start = statement.range().start();
-        let Some((names, category, alias)) = self.admitted(statement, reading) else {
-            return Ok(());
-        };
-        for name in names.into_iter().filter(|name| bound.sole(name, start)) {
-            self.value_record(statement, name, category, alias.clone());
-        }
-        Ok(())
-    }
+/// The records of one module-body assignment: one for each of its names that it binds alone.
+pub(super) fn records(
+    scan: &mut Reader<'_, '_>,
+    statement: &Stmt,
+    bound: &Bound,
+    reading: &Reading<'_>,
+) -> Vec<Record<SymbolFact>> {
+    let start = statement.range().start();
+    let Some((names, category, alias)) = admitted(scan, statement, reading) else {
+        return Vec::new();
+    };
+    let sole = names.into_iter().filter(|name| bound.sole(name, start));
+    sole.map(|name| record(scan, statement, name, (category, alias.clone())))
+        .collect()
+}
 
-    /// The names of an assignment that 4.0.1 admits, with the category and the alias text.
-    fn admitted<'s>(&self, statement: &'s Stmt, reading: &Reading<'_>) -> Option<Admitted<'s>> {
-        match statement {
-            Stmt::Assign(node) if constant(&node.value) => {
-                let names: Vec<&str> = node.targets.iter().filter_map(plain_name).collect();
-                (names.len() == node.targets.len()).then_some((names, None, None))
-            }
-            Stmt::AnnAssign(node) => {
-                let name = plain_name(&node.target)?;
-                let value = node.value.as_deref()?;
-                if !type_alias(&node.annotation, reading) {
-                    return constant(value).then(|| (vec![name], None, None));
-                }
-                let text = self.scan.text(Some(value)).ok().flatten()?;
-                Some((vec![name], Some(SymbolCategory::TypeAlias), Some(text)))
-            }
-            _ => None,
+/// The names of an assignment that 4.0.1 admits, with the category and the alias text.
+fn admitted<'s>(
+    scan: &Reader<'_, '_>,
+    statement: &'s Stmt,
+    reading: &Reading<'_>,
+) -> Option<Admitted<'s>> {
+    match statement {
+        Stmt::Assign(node) if constant(&node.value) => {
+            let names: Vec<&str> = node.targets.iter().filter_map(plain_name).collect();
+            (names.len() == node.targets.len()).then_some((names, None, None))
         }
+        Stmt::AnnAssign(node) => {
+            let name = plain_name(&node.target)?;
+            let value = node.value.as_deref()?;
+            if !type_alias(&node.annotation, reading) {
+                return constant(value).then(|| (vec![name], None, None));
+            }
+            let text = scan.text(Some(value)).ok().flatten()?;
+            Some((vec![name], Some(SymbolCategory::TypeAlias), Some(text)))
+        }
+        _ => None,
     }
+}
 
-    fn value_record(
-        &mut self,
-        statement: &Stmt,
-        name: &str,
-        category: Option<SymbolCategory>,
-        alias: Option<String>,
-    ) {
-        let module = self.scan.module;
-        let qualname = format!("{}.{name}", module.name);
-        let header = self.header(name, &module.name, None);
-        let mut data = ValueData::declared(header, category);
-        data.alias = alias;
-        let fact = match category {
-            Some(_) => SymbolFact::TypeAlias(data),
-            None => SymbolFact::StaticConstant(data),
-        };
-        let crate::module::Location { line, column, .. } = module.location(statement);
-        let id = stable_id(
-            "SYM",
-            &[
-                Part::Text(&qualname),
-                Part::Text(&module.rel),
-                Part::Number(line),
-                Part::Number(column),
-            ],
-        );
-        let evidence = self.scan.evidence(statement);
-        let mut subjects = vec![qualname, module.name.clone()];
-        subjects.sort();
-        self.out.push(Record {
-            id: FactId::new(id),
-            evidence_class: EvidenceClass::Fact,
-            area: Area::RepositoryTopology,
-            title: name.to_owned(),
-            subjects,
-            evidence_ids: vec![EvidenceId::new(evidence)],
-            fact_ids: Vec::new(),
-            data: fact,
-        });
+fn record(
+    scan: &mut Reader<'_, '_>,
+    statement: &Stmt,
+    name: &str,
+    (category, alias): (Option<SymbolCategory>, Option<String>),
+) -> Record<SymbolFact> {
+    let module = scan.module;
+    let qualname = format!("{}.{name}", module.name);
+    let mut data = ValueData::declared(header(module, (name, &module.name), None), category);
+    data.alias = alias;
+    let fact = match category {
+        Some(_) => SymbolFact::TypeAlias(data),
+        None => SymbolFact::StaticConstant(data),
+    };
+    let crate::module::Location { line, column, .. } = module.location(statement);
+    let id = stable_id(
+        "SYM",
+        &[
+            Part::Text(&qualname),
+            Part::Text(&module.rel),
+            Part::Number(line),
+            Part::Number(column),
+        ],
+    );
+    let evidence = scan.evidence(statement);
+    let mut subjects = vec![qualname, module.name.clone()];
+    subjects.sort();
+    Record {
+        id: FactId::new(id),
+        evidence_class: EvidenceClass::Fact,
+        area: Area::RepositoryTopology,
+        title: name.to_owned(),
+        subjects,
+        evidence_ids: vec![EvidenceId::new(evidence)],
+        fact_ids: Vec::new(),
+        data: fact,
     }
 }

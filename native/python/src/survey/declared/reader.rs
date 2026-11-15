@@ -14,6 +14,11 @@
 use ruff_python_ast::Expr;
 use ruff_text_size::Ranged;
 
+use archkeel_facts::data::Declared;
+use archkeel_facts::ids::{FactId, ModuleName, PackageName};
+use archkeel_facts::nested::VisibilityDetail;
+
+use crate::declare::visibility;
 use crate::module::{EvidenceMap, Module};
 use crate::survey::binders::Binders;
 
@@ -87,5 +92,30 @@ fn plain(expr: &Expr, shadowed: &[&str]) -> Result<String, Unwritable> {
         Expr::NoneLiteral(_) => Ok("None".to_owned()),
         Expr::BooleanLiteral(node) => Ok(if node.value { "True" } else { "False" }.to_owned()),
         _ => Err(Unwritable),
+    }
+}
+
+/// The header of a declaration of `module`: `(name, holder)` give its qualified name, and the
+/// visibility is what the name reads (AD-518).
+pub(super) fn header(
+    module: &Module,
+    (name, holder): (&str, &str),
+    parent: Option<(&str, &str)>,
+) -> Declared {
+    let detail =
+        serde_json::from_value::<VisibilityDetail>(visibility(name)).unwrap_or(VisibilityDetail {
+            basis: "convention".to_owned(),
+            kind: "public".to_owned(),
+            spelling: name.to_owned(),
+        });
+    Declared {
+        module: ModuleName::new(&module.name),
+        package: PackageName::new(&module.package),
+        name: name.to_owned(),
+        qualified_name: format!("{holder}.{name}"),
+        parent: parent.map(|(qualname, _)| qualname.to_owned()),
+        lexical_parent_id: parent.map(|(_, id)| FactId::new(id)),
+        unique: true,
+        visibility: detail,
     }
 }

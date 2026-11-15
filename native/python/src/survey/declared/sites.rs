@@ -14,17 +14,19 @@ use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::data::{CallData, ReferenceData};
 use archkeel_facts::identity::{stable_id, Part};
-use archkeel_facts::ids::{EvidenceId, FactId, ModuleName};
-use archkeel_facts::nested::{Construction, ResultBinding};
-use archkeel_facts::nullable::Nullable;
-use archkeel_facts::vocab::{Area, EvidenceClass, ReferenceContext, Status, Use};
-use archkeel_facts::{CallFact, FactData, ImportFact, Record, ReferenceFact, SymbolFact};
+use archkeel_facts::{
+    ids::{EvidenceId, FactId, ModuleName},
+    nested::{Construction, ResultBinding},
+    nullable::Nullable,
+    vocab::{Area, EvidenceClass, ReferenceContext, Status, Use},
+    CallFact, FactData, ImportFact, Record, ReferenceFact, SymbolFact,
+};
 use ruff_python_ast::{Expr, ExprCall, ExprName};
 use ruff_text_size::{Ranged, TextSize};
 
+use super::found::{Found, Source};
 use super::reader::Reader;
 use super::scope::{self, Stored, Uses};
-use super::{Found, Source};
 use crate::module::{EvidenceMap, Module};
 use crate::survey::binders::Binders;
 use crate::survey::bound::Bound;
@@ -58,7 +60,7 @@ pub(crate) struct Context {
 impl Context {
     /// The module-level symbols of `found` and the sole plain imports of `records`
     /// (`sole` and `ambiguous` are the sets of the survey).
-    pub(crate) fn of(
+    pub(crate) fn collect(
         found: &[Found<'_>],
         records: &[Record<ImportFact>],
         (sole, ambiguous): (&HashSet<String>, &HashSet<String>),
@@ -122,7 +124,7 @@ impl Context {
 }
 
 /// The sites of the sources of one module.
-pub(crate) fn sites(
+pub(crate) fn site_records(
     (module, binders): (&Module, &Binders),
     found: &Found<'_>,
     context: &Context,

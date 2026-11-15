@@ -15,8 +15,8 @@ use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::data::{CallableData, ClassData, Declared};
 use archkeel_facts::identity::{stable_id, Part};
-use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
-use archkeel_facts::nested::{BaseDeclaration, MemberInventory, Parameter, VisibilityDetail};
+use archkeel_facts::ids::{EvidenceId, FactId};
+use archkeel_facts::nested::{BaseDeclaration, MemberInventory, Parameter};
 use archkeel_facts::vocab::{
     Area, ClassKind, EvidenceClass, InventoryStatus, MemberKind, RelationshipKind, Status,
 };
@@ -27,13 +27,14 @@ use serde_json::{Map, Value};
 
 use super::binders::Binders;
 use super::bound::Bound;
-use crate::declare::{definition_id, signature, visibility};
+use crate::declare::{definition_id, signature};
 use crate::module::definition::Def;
 use crate::module::{EvidenceMap, Module};
 use kind::{BaseSite, Kind, Local, Reading};
-use reader::{Reader, Unwritable};
+use reader::{header, Reader, Unwritable};
 
 mod escapes;
+mod found;
 mod kind;
 mod members;
 mod reader;
@@ -41,7 +42,8 @@ mod scope;
 mod sites;
 mod values;
 
-pub(crate) use sites::{sites, Context};
+pub(crate) use found::{Found, Source};
+pub(crate) use sites::{site_records, Context};
 
 pub(in crate::survey) use escapes::{all as scan_escapes, Escapes};
 
@@ -49,26 +51,6 @@ pub(in crate::survey) use escapes::{all as scan_escapes, Escapes};
 /// class body can add a member that the body does not show.
 const PARTIAL: &str =
     "a base, a metaclass, a decorator or a write after the class body can add a member";
-
-/// A function or method with a record: the scope of its sites (AD-520).
-pub(crate) struct Source<'m> {
-    pub node: &'m StmtFunctionDef,
-    pub qualname: String,
-    pub id: String,
-    /// The names that the class body of a method binds: its annotations read them first.
-    pub class_names: Option<HashSet<String>>,
-}
-
-/// What one module declares: its records, the sources of its sites and the top-level classes
-/// that `A()` constructs.
-#[derive(Default)]
-pub(crate) struct Found<'m> {
-    /// The index of the module in the survey.
-    pub index: usize,
-    pub records: Vec<Record<SymbolFact>>,
-    pub sources: Vec<Source<'m>>,
-    pub constructible: HashSet<String>,
-}
 
 /// The declarations of one module. A module that native cannot read completely has none.
 pub(crate) fn records<'m>(
@@ -184,7 +166,8 @@ impl<'m> Writer<'m, '_> {
                 }
                 Stmt::Assign(_) | Stmt::AnnAssign(_) => {
                     let reading = Reading::top((&module.name, body), &bound, self.binders, &local);
-                    self.value(statement, &bound, &reading)?;
+                    let found = values::records(&mut self.scan, statement, &bound, &reading);
+                    self.out.extend(found);
                 }
                 _ => {}
             }
@@ -226,23 +209,7 @@ impl<'m> Writer<'m, '_> {
 
     /// The header of a declaration: where it is and how its name reads.
     fn header(&self, name: &str, holder: &str, parent: Option<(&str, &str)>) -> Declared {
-        let module = self.scan.module;
-        Declared {
-            module: ModuleName::new(&module.name),
-            package: PackageName::new(&module.package),
-            name: name.to_owned(),
-            qualified_name: format!("{holder}.{name}"),
-            parent: parent.map(|(qualname, _)| qualname.to_owned()),
-            lexical_parent_id: parent.map(|(_, id)| FactId::new(id)),
-            unique: true,
-            visibility: serde_json::from_value::<VisibilityDetail>(visibility(name)).unwrap_or(
-                VisibilityDetail {
-                    basis: "convention".to_owned(),
-                    kind: "public".to_owned(),
-                    spelling: name.to_owned(),
-                },
-            ),
-        }
+        header(self.scan.module, (name, holder), parent)
     }
 
     /// A function or a method with the text of its signature.
