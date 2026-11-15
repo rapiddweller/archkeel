@@ -9,7 +9,8 @@
 //! from the table, or the requested name after a guard that returns when the table has no entry
 //! for it. The function has no nested scope and no `global` or `nonlocal` statement.
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::cell::RefCell;
+use std::collections::{BTreeSet, HashMap};
 
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
@@ -18,9 +19,9 @@ use ruff_python_ast::{
 };
 use ruff_text_size::{Ranged, TextRange};
 
-use super::binds::{Abs, Binds};
-use super::table::Table;
-use super::writes::Writes;
+use super::lazy_binds::{Abs, Binds};
+use super::lazy_table::Table;
+use super::lazy_writes::Writes;
 
 /// The most strings that one argument or one product may have.
 pub(super) const LIMIT: usize = 4096;
@@ -65,15 +66,10 @@ pub(super) fn analyze(function: &StmtFunctionDef, table: &Table, callee: Callee)
     let Some(param) = only_parameter(function) else {
         return Flow::default();
     };
-    let mut binds = Binds {
-        table: &table.name,
-        map: HashMap::new(),
-        handled: HashSet::new(),
-        entries: Vec::new(),
-        bad: false,
-    };
+    let mut binds = Binds::new(&table.name);
     binds.visit_body(&function.body);
     // A name that an unpacking reads must hold an entry at each of its bindings.
+    let entries_from = binds.entries.clone();
     let entries = binds.entries.iter().all(|name| {
         let all = binds.map.get(name);
         all.is_some_and(|all| all.iter().all(|abs| *abs == Abs::Entry))
@@ -86,10 +82,19 @@ pub(super) fn analyze(function: &StmtFunctionDef, table: &Table, callee: Callee)
         param,
         map: binds.map,
         guard: None,
+        slots: false,
         callee,
+        limits: RefCell::new(Vec::new()),
     };
-    let guard = scope.guard_index(&function.body);
-    let scope = Scope { guard, ..scope };
+    let found = scope.guard_index(&function.body);
+    let held = found.as_ref().and_then(|item| item.1.clone());
+    let slots = held.is_some_and(|name| entries_from.iter().all(|source| *source == name));
+    let guard = found.map(|item| item.0);
+    let scope = Scope {
+        guard,
+        slots,
+        ..scope
+    };
     let mut flow = Flow::default();
     for (index, stmt) in function.body.iter().enumerate() {
         let mut calls = Calls {
@@ -101,7 +106,9 @@ pub(super) fn analyze(function: &StmtFunctionDef, table: &Table, callee: Callee)
         flow.calls.extend(calls.found);
     }
     if !table.keys.iter().any(|key| collides(key, &table.name)) {
-        flow.exempt = Writes::run(&scope, &function.body);
+        flow.exempt = Writes::run(&function.body, scope.guard, &scope.map, &|name, guarded| {
+            scope.atom(name, guarded).is_some()
+        });
     }
     flow
 }
@@ -129,7 +136,11 @@ pub(super) struct Scope<'a> {
     pub map: HashMap<String, Vec<Abs>>,
     /// The index of the statement after which the requested name is a key of the table.
     pub guard: Option<usize>,
+    /// Each unpacked entry is the entry of the requested name: its slots and the name go together.
+    slots: bool,
     callee: Callee,
+    /// The literal tests of the enclosing `if` statements: a name, a literal, equal or not.
+    limits: RefCell<Vec<(String, String, bool)>>,
 }
 
 impl Scope<'_> {
@@ -139,7 +150,7 @@ impl Scope<'_> {
 
     /// The index of the first top-level `if` that returns or raises when the table has no entry
     /// for the requested name.
-    fn guard_index(&self, body: &[Stmt]) -> Option<usize> {
+    fn guard_index(&self, body: &[Stmt]) -> Option<(usize, Option<String>)> {
         body.iter().enumerate().find_map(|(index, stmt)| {
             let Stmt::If(node) = stmt else { return None };
             let leaves = matches!(node.body.last(), Some(Stmt::Return(_) | Stmt::Raise(_)));
@@ -161,7 +172,8 @@ impl Scope<'_> {
                 }
                 _ => false,
             };
-            (leaves && single && proven).then_some(index)
+            let held = matches!(op, CmpOp::Is).then(|| left.id.to_string());
+            (leaves && single && proven).then_some((index, held))
         })
     }
 
@@ -192,25 +204,66 @@ impl Scope<'_> {
     }
 
     /// The strings that a name can have.
+    /// The entries of the table that the enclosing literal tests allow for the entry of the
+    /// requested name: a test on a slot name keeps the entries with (or without) the literal.
+    fn allowed(&self) -> Vec<&(String, Vec<String>)> {
+        let limits = self.limits.borrow();
+        let slot = |name: &str| match self.map.get(name).map(Vec::as_slice) {
+            Some([Abs::Slot(index)]) if self.slots => Some(*index),
+            _ => None,
+        };
+        let tests: Vec<(usize, &str, bool)> = limits
+            .iter()
+            .filter_map(|(name, text, equal)| Some((slot(name)?, text.as_str(), *equal)))
+            .collect();
+        let fits = |items: &Vec<String>| {
+            tests.iter().all(|(index, text, equal)| {
+                items
+                    .get(*index)
+                    .is_some_and(|item| (item == text) == *equal)
+            })
+        };
+        self.table
+            .entries
+            .iter()
+            .filter(|entry| fits(&entry.1))
+            .collect()
+    }
+
     pub(super) fn atom(&self, name: &str, guarded: bool) -> Option<BTreeSet<String>> {
+        let allowed = self.allowed();
         if name == self.param {
-            return (guarded && !self.map.contains_key(name)).then(|| self.table.keys.clone());
+            let keys = allowed.iter().map(|entry| entry.0.clone()).collect();
+            return (guarded && !self.map.contains_key(name)).then_some(keys);
         }
         let mut out = BTreeSet::new();
         for abs in self.map.get(name)? {
             match abs {
                 Abs::Keys => out.extend(self.table.keys.iter().cloned()),
-                Abs::Pos(index) => {
-                    out.extend(
-                        self.table
-                            .positions
-                            .get(*index)
-                            .into_iter()
-                            .flatten()
-                            .cloned(),
-                    );
-                }
+                Abs::Pos(index) => out.extend(
+                    self.table
+                        .positions
+                        .get(*index)
+                        .into_iter()
+                        .flatten()
+                        .cloned(),
+                ),
+                Abs::Slot(index) => out.extend(
+                    allowed
+                        .iter()
+                        .filter_map(|entry| entry.1.get(*index))
+                        .cloned(),
+                ),
                 _ => return None,
+            }
+        }
+        // A test `name == 'x'` or `name != 'x'` of an enclosing `if` narrows the set. The branch
+        // must not bind the name again, so the test still holds at the use (`Calls`).
+        for (_, text, equal) in self.limits.borrow().iter().filter(|item| item.0 == name) {
+            if *equal {
+                out.retain(|item| item == text);
+            } else {
+                out.remove(text);
             }
         }
         Some(out)
@@ -350,7 +403,69 @@ impl Calls<'_> {
     }
 }
 
+/// The test `name == 'x'` (or `!=`) as a name, a literal and whether they are equal.
+fn literal_test(test: &Expr) -> Option<(String, String, bool)> {
+    let compare = test.as_compare_expr()?;
+    let ([Expr::Name(name), Expr::StringLiteral(text)], [op]) =
+        (compare.operands.as_ref(), compare.ops.as_ref())
+    else {
+        return None;
+    };
+    let equal = match op {
+        CmpOp::Eq => true,
+        CmpOp::NotEq => false,
+        _ => return None,
+    };
+    Some((name.id.to_string(), text.value.to_str().to_owned(), equal))
+}
+
+/// True when a statement list binds the name.
+fn binds_name(body: &[Stmt], name: &str) -> bool {
+    let mut binds = Binds::new(name);
+    binds.visit_body(body);
+    binds.map.contains_key(name)
+}
+
+impl<'a> Calls<'_> {
+    /// An `if` with a literal test: the body and a plain `else` run under the test and its
+    /// negation, when the name is not bound again inside.
+    fn branch(&mut self, node: &'a ruff_python_ast::StmtIf) {
+        let test = literal_test(&node.test);
+        let plain = matches!(
+            node.elif_else_clauses.as_slice(),
+            [] | [ruff_python_ast::ElifElseClause { test: None, .. }]
+        );
+        self.visit_expr(&node.test);
+        let limit = test.filter(|(name, _, _)| plain && !binds_name(&node.body, name));
+        self.limited(limit.clone(), &node.body);
+        for clause in &node.elif_else_clauses {
+            clause.test.iter().for_each(|test| self.visit_expr(test));
+            let other = limit
+                .clone()
+                .map(|(name, text, equal)| (name, text, !equal));
+            let other = other.filter(|(name, _, _)| !binds_name(&clause.body, name));
+            self.limited(other, &clause.body);
+        }
+    }
+
+    fn limited(&mut self, limit: Option<(String, String, bool)>, body: &'a [Stmt]) {
+        let pushed = limit.is_some();
+        self.scope.limits.borrow_mut().extend(limit);
+        self.visit_body(body);
+        if pushed {
+            self.scope.limits.borrow_mut().pop();
+        }
+    }
+}
+
 impl<'a> Visitor<'a> for Calls<'_> {
+    fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        match stmt {
+            Stmt::If(node) => self.branch(node),
+            _ => visitor::walk_stmt(self, stmt),
+        }
+    }
+
     fn visit_expr(&mut self, expr: &'a Expr) {
         if let Expr::Call(call) = expr {
             self.found.extend(self.call(call));

@@ -11,11 +11,14 @@ use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, ExprContext, ExprSubscript, Stmt};
 use ruff_text_size::{Ranged, TextRange};
 
-use super::binds::Abs;
-use super::flow::Scope;
+use super::lazy_binds::Abs;
+
+/// Whether a name is an atom of the function (`lazy_flow.rs`): the name and whether the guard holds.
+type AtomOk<'a> = &'a dyn Fn(&str, bool) -> bool;
 
 pub(super) struct Writes<'a> {
-    scope: &'a Scope<'a>,
+    map: &'a HashMap<String, Vec<Abs>>,
+    atom_ok: AtomOk<'a>,
     guarded: bool,
     direct: Vec<TextRange>,
     /// `alias = globals()`: the aliases and the range of the `globals` name.
@@ -27,9 +30,15 @@ pub(super) struct Writes<'a> {
 
 impl Writes<'_> {
     /// The ranges of the `globals` names that only write the keys that the table gives.
-    pub(super) fn run(scope: &Scope<'_>, body: &[Stmt]) -> Vec<TextRange> {
+    pub(super) fn run(
+        body: &[Stmt],
+        guard: Option<usize>,
+        map: &HashMap<String, Vec<Abs>>,
+        atom_ok: AtomOk<'_>,
+    ) -> Vec<TextRange> {
         let mut found = Writes {
-            scope,
+            map,
+            atom_ok,
             guarded: false,
             direct: Vec::new(),
             pending: Vec::new(),
@@ -38,7 +47,7 @@ impl Writes<'_> {
             invalid: HashSet::new(),
         };
         for (index, stmt) in body.iter().enumerate() {
-            found.guarded = scope.guard.is_some_and(|at| index > at);
+            found.guarded = guard.is_some_and(|at| index > at);
             found.visit_stmt(stmt);
         }
         let valid = |name: &String| {
@@ -63,12 +72,12 @@ impl Writes<'_> {
     }
 
     fn alias(&self, name: &str) -> bool {
-        let all = self.scope.map.get(name);
+        let all = self.map.get(name);
         all.is_some_and(|all| all.iter().all(|abs| *abs == Abs::Globals))
     }
 
     fn key_ok(&self, slice: &Expr) -> bool {
-        matches!(slice, Expr::Name(key) if self.scope.atom(key.id.as_str(), self.guarded).is_some())
+        matches!(slice, Expr::Name(key) if (self.atom_ok)(key.id.as_str(), self.guarded))
     }
 
     /// `globals()[key] = value` or `alias[key] = value`.
