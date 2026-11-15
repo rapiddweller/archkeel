@@ -58,6 +58,7 @@ mod targets;
 mod uses;
 mod uses_scan;
 mod value;
+mod uses_typing_guard;
 mod walks;
 
 pub(crate) struct Survey {
