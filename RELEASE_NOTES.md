@@ -14,6 +14,9 @@ The Rust core `archkeel-core` is the only decision path on `main` (AD-432). The 
 `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
 No release carries the core binary yet. Run `main` from a source checkout after `make core`.
 
+The result schemas no longer define the host source `github_initial_pr_head` and its member
+`initial_pr`: nothing produced them after AD-281 (#767).
+
 Declare component responsibilities, exact interfaces and invocation ownership, with
 native source evidence and conservative UNKNOWNs.
 
