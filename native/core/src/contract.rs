@@ -15,7 +15,7 @@ use std::collections::BTreeMap;
 
 use archkeel_contract::policy::{assemble_tree, ContractTree};
 use archkeel_contract::{head_of, kind_of, uml_target_id, Contract, ParsedContract, RuleKind};
-use archkeel_model::{Need, Needs, Reason, UmlGap, UmlTarget, Unsupported};
+use archkeel_model::{Need, Needs, Reason, UmlDeclared, UmlGap, UmlPart, UmlTarget, Unsupported};
 
 /// The most inside contracts of one request. The reference engine has no bound (AD-379).
 pub(crate) const MAX_INSIDE_FILES: usize = 1024;
@@ -179,28 +179,37 @@ fn usable(tree: ContractTree) -> Usable {
 }
 
 /// The input of the one UML target row of a tree: the reference engine names one target for the
-/// declared intent of all its contracts (AD-470). The core compares a root target; a target of an
-/// inside contract keeps the row UNKNOWN (AD-494). `None` when no contract has `declarations.uml`.
+/// declared intent of all its contracts (AD-470). The core compares the targets of the root and of
+/// each mount as one declared intent (AD-526). `None` when no contract has `declarations.uml`.
 fn uml_target<'a>(
     root: &'a Contract,
     mounts: impl IntoIterator<Item = &'a Contract>,
 ) -> Option<UmlTarget> {
     let target = |contract: &'a Contract| contract.declarations().as_ref()?.uml().as_ref();
-    let mounted = mounts
-        .into_iter()
-        .any(|contract| target(contract).is_some());
-    let Some(found) = target(root) else {
-        return mounted.then_some(UmlTarget::Gap(UmlGap::Mounted));
+    let part = |mount: Option<usize>, contract: &'a Contract| {
+        target(contract).map(|found| UmlPart {
+            mount,
+            target: found.clone(),
+        })
     };
-    let empty = found.entities().is_empty()
-        && found.relationships().is_empty()
-        && found.scopes().is_empty();
-    Some(if mounted {
-        UmlTarget::Gap(UmlGap::Mounted)
-    } else if empty {
+    let parts: Vec<UmlPart> = std::iter::once(part(None, root))
+        .chain(
+            mounts
+                .into_iter()
+                .enumerate()
+                .map(|(at, contract)| part(Some(at), contract)),
+        )
+        .flatten()
+        .collect();
+    if parts.is_empty() {
+        return None;
+    }
+    let declared = UmlDeclared { parts };
+    let (entities, relationships, scopes) = declared.counts();
+    Some(if entities + relationships + scopes == 0 {
         UmlTarget::Gap(UmlGap::Empty)
     } else {
-        UmlTarget::Compare(Box::new(found.clone()))
+        UmlTarget::Compare(Box::new(declared))
     })
 }
 

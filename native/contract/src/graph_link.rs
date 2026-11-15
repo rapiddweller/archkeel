@@ -11,7 +11,7 @@ use crate::model::ItemId;
 use crate::model_uml::{Entity, PresenceKind, VisibilityBasis, VisibilityKind};
 
 /// A reference carries only its identity, its owner and its provenance.
-fn bare_reference(entity: &Entity) -> bool {
+pub fn bare_reference(entity: &Entity) -> bool {
     entity.visibility.kind == VisibilityKind::Unknown
         && entity.visibility.basis == VisibilityBasis::Unknown
         && entity.visibility.spelling.is_none()
