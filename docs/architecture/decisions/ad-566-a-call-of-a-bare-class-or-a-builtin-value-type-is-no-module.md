@@ -1,4 +1,4 @@
-# AD-560: A call of a bare class or a builtin value type is no module
+# AD-566: A call of a bare class or a builtin value type is no module
 
 ## Status
 

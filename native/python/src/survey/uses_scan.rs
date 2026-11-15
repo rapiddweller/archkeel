@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The call of a name that makes an instance of a class of the scan (AD-560).
+//! The call of a name that makes an instance of a class of the scan (AD-566).
 //!
 //! An instance is no module object, so a use of it cannot change a module namespace. A call of a
 //! name makes an instance of the class only when Python cannot run another constructor: the class
@@ -28,7 +28,7 @@ pub(super) struct Scan<'m> {
     pub(super) bounds: HashMap<&'m str, Bound>,
     pub(super) hazardous: HashSet<&'m str>,
     pub(super) typing_values: HashSet<(String, String)>,
-    /// A statement of the scan can change the class of a class or its `__new__` (AD-560).
+    /// A statement of the scan can change the class of a class or its `__new__` (AD-566).
     pub(super) class_patch: bool,
     /// The imports of each module by bound name: (target module, symbol).
     pub(super) imports: HashMap<(&'m str, &'m str), Vec<Origin<'m>>>,
@@ -87,7 +87,7 @@ impl Scan<'_> {
         })
     }
 
-    /// True when a call of `name` makes an instance of a class of the scan (AD-560): the name is
+    /// True when a call of `name` makes an instance of a class of the scan (AD-566): the name is
     /// a class without base, keyword or `__new__`, and each decorator is `dataclasses.dataclass`.
     pub(super) fn constructs(&self, module: &str, name: &str, depth: usize) -> bool {
         let Some(bound) = self
