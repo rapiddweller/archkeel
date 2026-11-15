@@ -27,6 +27,7 @@ use archkeel_collect::{Identity, Over, Profile, Refusal, RefusalKind, Scanned};
 use archkeel_model::{Producer, Settings};
 use archkeel_store::Ingested;
 
+use crate::baseline_frame;
 use crate::contract::{ContractInput, ContractState, InsideFile, MAX_INSIDE_FILES};
 use crate::dual_run::{self, Answered, ReplyInput, Run, Trust, TrustOf, CODE_DIGEST};
 
@@ -60,6 +61,12 @@ struct ScanRequest {
     html: bool,
     #[serde(default)]
     topology: bool,
+    /// The repository path of the baseline file to compare with (AD-546).
+    #[serde(default)]
+    baseline: Option<String>,
+    /// Write the baseline of this run: the frame carries the bytes (AD-546).
+    #[serde(default)]
+    write_baseline: bool,
 }
 
 /// The frame of one scan request. An error is a request that the core cannot read.
@@ -91,7 +98,8 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
                     .map_err(Into::into);
                 }
             }
-            decide(scanned, request.html, request.topology).map_err(Into::into)
+            let accept = baseline_input(&scanned, request.baseline, request.write_baseline);
+            decide(scanned, (request.html, request.topology), accept).map_err(Into::into)
         }
         Err(refusal) if refusal.kind == RefusalKind::ParseWork => {
             Err(crate::refusal::Error::Refused(refusal))
@@ -101,7 +109,11 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
 }
 
 /// The run of a scan that `archkeel-collect` completed.
-fn decide(scanned: Scanned, html: bool, topology: bool) -> Result<Answered, String> {
+fn decide(
+    scanned: Scanned,
+    (html, topology): (bool, bool),
+    accept: Option<baseline_frame::Input>,
+) -> Result<Answered, String> {
     let insides = tree(&scanned)?;
     // AD-466: the core reads and binds each provenance document of the tree.
     let documents = crate::provenance::read(&scanned, &insides, MAX_BYTES)?;
@@ -136,6 +148,7 @@ fn decide(scanned: Scanned, html: bool, topology: bool) -> Result<Answered, Stri
         namespace,
         roots,
         baseline: false,
+        accept,
         report: false,
         html,
         topology,
@@ -148,6 +161,31 @@ fn decide(scanned: Scanned, html: bool, topology: bool) -> Result<Answered, Stri
             .map(str::to_owned)
             .collect(),
     })
+}
+
+/// The baseline of the request: the file read through the safe reader of the inside contracts
+/// (a regular file inside the repository, not a link), checked by the contract crate. A file that
+/// is absent, too large or damaged is a reason, not a silent "nothing accepted" (AD-546).
+fn baseline_input(
+    scanned: &Scanned,
+    path: Option<String>,
+    write: bool,
+) -> Option<baseline_frame::Input> {
+    if path.is_none() && !write {
+        return None;
+    }
+    let file = path.as_deref().map(|path| {
+        let limit = u64::try_from(archkeel_contract::policy::MAX_BASELINE_BYTES).unwrap_or(0);
+        match scanned.read_inside(path, limit) {
+            Ok(Some((_, bytes))) => archkeel_contract::policy::parse_baseline(&bytes)
+                .map_err(|error| format!("{path}: {error}")),
+            Ok(None) => Err(format!(
+                "{path}: not a regular file inside the repository, or not readable"
+            )),
+            Err(Over(_)) => Err(format!("{path}: more than {limit} bytes")),
+        }
+    });
+    Some(baseline_frame::Input { path, file, write })
 }
 
 /// The frame of a scan that `archkeel-collect` refused: no reply and no contract, and the
@@ -257,7 +295,7 @@ pub(crate) fn derived(frame: &Value) -> Option<&Value> {
 
 #[cfg(test)]
 #[path = "scan_tests.rs"]
-mod tests;
+pub(crate) mod tests;
 
 #[cfg(test)]
 #[path = "scan_work_tests.rs"]

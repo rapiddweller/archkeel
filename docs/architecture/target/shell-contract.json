@@ -76,6 +76,10 @@
         {
           "component": "skill",
           "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "baseline",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
         }
       ],
       "decided_by": "architect"
@@ -170,6 +174,10 @@
         {
           "component": "output",
           "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "baseline",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
         }
       ],
       "decided_by": "architect"
@@ -190,6 +198,32 @@
       ],
       "forbidden_responsibilities": [
         "Supply a verdict, a status or a scope proof."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "json",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-BASELINE",
+      "label": "baseline",
+      "role": "component",
+      "layer": "decoding",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.core_baseline"
+      ],
+      "responsibilities": [
+        "Read the baseline part of a frame as typed values and copy the exit code that the core decided."
+      ],
+      "forbidden_responsibilities": [
+        "Compare a run with a baseline file, or decide a status."
       ],
       "provenance": [
         "docs/architecture/shell.md"

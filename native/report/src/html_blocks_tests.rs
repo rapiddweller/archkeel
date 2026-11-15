@@ -347,3 +347,16 @@ fn the_page_wraps_a_long_term_and_the_folds_print_open() {
     assert!(css.contains(".rp-kv { grid-template-columns: minmax(0, 1fr); }"));
     assert!(css.contains(".rp-mini { display: block; max-width: 100%; overflow-x: auto; }"));
 }
+
+#[test]
+fn an_accepted_unknown_keeps_the_word_unknown_and_says_accepted() {
+    let mut frame = unknown_frame();
+    frame["baseline"] = json!({"state": "current", "accepted_unknowns": 12});
+    let page = document(&frame);
+    assert!(page.contains("<h1>Verdict: UNKNOWN</h1>"));
+    assert!(page.contains(
+        "Baseline: current. 12 UNKNOWN entries accepted by the baseline; the status stays UNKNOWN, and an accepted UNKNOWN is not a pass."
+    ));
+    assert!(!page.contains("<h1>Verdict: PASS</h1>"));
+    assert!(!document(&unknown_frame()).contains("Baseline:"));
+}

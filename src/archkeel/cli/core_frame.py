@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Final, TypeVar
 
+from .core_baseline import BaselineResult, read_baseline
 from .core_binding import bind_request
 from .core_evidence import (
     CollectionGap,
@@ -154,6 +155,8 @@ _EVIDENCE_FIELDS: Final = frozenset(
         "topology",
         "explain",
         "html",
+        "gaps",
+        "baseline",
         "premise",
     }
 )
@@ -161,24 +164,6 @@ _UNSUPPORTED: Final = frozenset({"rules", "sections", "report"})
 _SELF_TEST: Final = frozenset({"contract", "reply"})
 # AD-406: the self-test of a scan frame has the `collect` part too.
 _SCAN: Final = frozenset({"collect"})
-# The first words of each reason of the core (`native/model/src/reason.rs`, `core/src/check.rs`,
-# `core/src/base.rs`).
-# They classify a gap for the fall-back note and the measurement; they decide nothing.
-_GAP_PREFIXES: Final[tuple[tuple[str, GapKind], ...]] = (
-    ("unsupported: contract has no decided rule", GapKind.NO_DECIDED_RULE),
-    ("producer not verified", GapKind.PRODUCER_NOT_VERIFIED),
-    ("unsupported: rule kind ", GapKind.RULE_KIND_NOT_PORTED),
-    ("the base reply", GapKind.BASE),
-    ("unsupported: the contract mounts inside contracts", GapKind.INSIDE_CONTRACT_MISSING),
-    ("unsupported: a rule of an inside contract", GapKind.INSIDE_RULE),
-    ("unsupported: the scope proof of a contract tree", GapKind.TREE_SCOPE),
-    ("unsupported: the scope proof: ", GapKind.SCOPE_PROOF),
-    ("refused: ", GapKind.CONTRACT_REFUSED),
-    ("unsupported: the contract hygiene checks ", GapKind.HYGIENE_NOT_PORTED),
-    ("unsupported: the contract hygiene of the request", GapKind.HYGIENE_NOT_READ),
-    # A rule of a ported kind without a model: the store refused the reply.
-    ("missing input: ", GapKind.REPLY_REFUSED),
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,6 +207,7 @@ class CoreFrame:
     topology: Topology | None = None
     explain: Explain | None = None
     html: str | None = None
+    baseline: BaselineResult | None = None
 
     @property
     def complete_scope(self) -> bool:
@@ -230,19 +216,6 @@ class CoreFrame:
     @property
     def code_digest(self) -> str:
         return self.engine.removeprefix("archkeel-core ")
-
-
-_HYGIENE: Final = "contract hygiene "
-
-
-def gap_kind(reason: str) -> GapKind:
-    for prefix, kind in _GAP_PREFIXES:
-        if reason.startswith(prefix):
-            return kind
-    if reason.startswith(_HYGIENE):
-        # AD-466: `Reason::Hygiene` writes the code of release 4.0.1 first; the code is the kind.
-        return _word(GapKind, reason.removeprefix(_HYGIENE).partition(":")[0], "hygiene code")
-    return GapKind.OTHER
 
 
 def _word(kind: type[_Word], value: object, where: str) -> _Word:
@@ -322,17 +295,40 @@ def _reply_gaps(value: object) -> list[Gap]:
     return [Gap(kind, "reply", _text(found, f"self_test.reply.{tag}"))]
 
 
+def _core_gaps(frame: Mapping[str, object], named: object) -> list[Gap]:
+    """The gaps of the rules without a decision, with the kind that the core wrote (AD-546).
+
+    The shell does not infer a kind from the text. Each row must restate one reason of
+    `unsupported.rules`, so the list cannot hide or invent a gap.
+    """
+    rows = frame.get("gaps")
+    if not isinstance(rows, list):
+        raise CoreError("the core frame has no gaps list")
+    found = [_fields(row, "gaps", frozenset({"kind", "subject", "reason"})) for row in rows]
+    gaps = [
+        Gap(
+            _word(GapKind, row["kind"], "gaps.kind"),
+            _text(row["subject"], "gaps.subject"),
+            _text(row["reason"], "gaps.reason"),
+        )
+        for row in found
+    ]
+    expected = (
+        {("the whole contract", named)}
+        if isinstance(named, str)
+        else set(_texts(named, "unsupported.rules").items())
+    )
+    if {(gap.subject, gap.reason) for gap in gaps} != expected or len(gaps) != len(expected):
+        raise CoreError("the core frame gaps list differs from its unsupported rules")
+    return gaps
+
+
 def _gaps(
     frame: Mapping[str, object], scan: bool
 ) -> tuple[tuple[Gap, ...], tuple[str, ...], str | None]:
     unsupported = _fields(frame["unsupported"], "unsupported", _UNSUPPORTED)
-    gaps: list[Gap] = []
     named = unsupported["rules"]
-    if isinstance(named, str):
-        gaps.append(Gap(gap_kind(named), "the whole contract", named))
-    else:
-        rules = _texts(named, "unsupported.rules")
-        gaps += [Gap(gap_kind(why), rule, why) for rule, why in rules.items()]
+    gaps = _core_gaps(frame, named)
     sections = _texts(unsupported["sections"], "unsupported.sections")
     gaps += [Gap(GapKind.SECTION, name, why) for name, why in sections.items()]
     if unsupported["report"] is not None:
@@ -473,4 +469,5 @@ def read_frame(
         topology=frame_topology(frame, rules),
         explain=read_explain(frame["explain"], violations) if "explain" in frame else None,
         html=read_html(frame, status, request),
+        baseline=read_baseline(frame["baseline"], status) if "baseline" in frame else None,
     )

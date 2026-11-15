@@ -46,17 +46,28 @@ const BUDGET: &str = "baseline.invalid, budget.exceeded, budget.unknown";
 #[derive(Debug, Default)]
 pub(crate) struct Found {
     /// A reason that refuses the whole contract.
-    pub(crate) refusal: Option<String>,
+    pub(crate) refusal: Option<(&'static str, String)>,
     /// The reason of each hygiene row.
     pub(crate) rules: BTreeMap<String, Reason>,
 }
 
 impl Found {
-    fn defect(&mut self, place: &str, (code, pointer, subject, claim): hygiene_refs::Finding) {
+    fn defect(&mut self, place: &str, finding: hygiene_refs::Finding) {
+        let parts = vec![finding.2.clone()];
+        self.defect_parts(place, finding, parts);
+    }
+
+    /// A defect whose stable key names `parts` and not the subject of its display row (AD-546).
+    fn defect_parts(
+        &mut self,
+        place: &str,
+        (code, pointer, subject, claim): hygiene_refs::Finding,
+        parts: Vec<String>,
+    ) {
         let id = format!("hygiene:{code}:{place}{pointer}:{subject}");
         let detail = format!("{place}{pointer} {subject}: {claim}");
-        self.rules
-            .insert(id, Reason::Hygiene(Hygiene::new(code, detail)));
+        let found = Hygiene::keyed(code, detail, place, parts);
+        self.rules.insert(id, Reason::Hygiene(found));
     }
 
     fn gap(&mut self, place: &str, family: &'static str, codes: &'static str) {
@@ -66,7 +77,10 @@ impl Found {
     }
 
     fn refuse(&mut self, code: &'static str, detail: String) {
-        self.refusal = Some(Reason::Hygiene(Hygiene::new(code, detail)).to_string());
+        self.refusal = Some((
+            code,
+            Reason::Hygiene(Hygiene::new(code, detail)).to_string(),
+        ));
     }
 }
 
@@ -187,7 +201,12 @@ fn root(
     }
     let observed = hygiene_pairs::observed(contract, graph);
     for (code, subject, claim) in hygiene_pairs::closed_world(contract, &observed) {
-        found.defect(path, (code, "/rules".to_owned(), subject, claim));
+        let finding = (code, "/rules".to_owned(), subject, claim);
+        if code == "decision.open" {
+            found.defect_parts(path, finding, hygiene_pairs::open_parts(contract));
+        } else {
+            found.defect(path, finding);
+        }
     }
     let mut texts = Vec::new();
     for reference in archkeel_contract::policy::provenance_paths(contract) {

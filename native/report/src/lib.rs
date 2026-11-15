@@ -115,7 +115,8 @@
 //!         rules: Default::default(), details: Default::default(), unknown_kinds: Default::default(),
 //!         explained: Default::default(), violations: Default::default(),
 //!         beyond: Default::default(), scope: "complete".into(), premise: None,
-//!         unsupported: RuleReasons::All(String::new()), explain: Default::default() }
+//!         unsupported: RuleReasons::All(String::new()), explain: Default::default(),
+//!         causes: Default::default(), contract_kind: None }
 //! }
 //! ```
 //!

@@ -100,6 +100,10 @@ def unguarded_frame(built: Path, core: Path, frame: dict) -> dict:
     # AD-466: a check request reads no provenance document. It names that gap and never passes.
     hygiene = plain["unsupported"]["rules"].pop("hygiene:request")
     assert hygiene.startswith("unsupported: the contract hygiene of the request"), hygiene
+    # AD-546: the list of gaps with their kinds names the same row once more.
+    row = plain["gaps"].pop()
+    assert (row["kind"], row["subject"]) == ("contract_hygiene_not_read", "hygiene:request")
+    assert row["reason"] == hygiene and plain["gaps"] == []
     # AD-484: the part `explain` names the same cause once more, without a gap.
     assert plain["explain"]["holds"]["rules"].pop("hygiene:request")["kind"] == "other"
     assert plain.pop("status") != "PASS"
