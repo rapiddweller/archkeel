@@ -102,6 +102,7 @@ pub(crate) fn extra_sites(
     kinds: &[RelationshipKind],
 ) -> Result<Vec<UmlDiff>, String> {
     let table = facts.symbols()?;
+    facts.sites()?;
     let ids = |id: &str| -> Vec<String> {
         crate::uml_facts::entity(target, id)
             .and_then(|item| matches(facts, item).ok())

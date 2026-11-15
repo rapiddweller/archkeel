@@ -107,9 +107,12 @@ fn a_deep_default_gives_a_gap_and_no_record() {
 
 #[test]
 fn the_visibility_of_a_special_name_is_public() {
-    assert_eq!(class::visibility("__init__")["kind"], json!("public"));
-    assert_eq!(class::visibility("____")["kind"], json!("private"));
-    assert_eq!(class::visibility("_x")["kind"], json!("private"));
+    assert_eq!(
+        crate::declare::visibility("__init__")["kind"],
+        json!("public")
+    );
+    assert_eq!(crate::declare::visibility("____")["kind"], json!("private"));
+    assert_eq!(crate::declare::visibility("_x")["kind"], json!("private"));
 }
 
 fn gap_of(source: &str, minor: u32) -> Option<String> {
