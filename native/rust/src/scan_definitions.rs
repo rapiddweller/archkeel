@@ -180,6 +180,36 @@ pub(super) fn exact_type(walker: &mut Walker<'_>, item: &Item) {
         if let Item::Struct(found) = item {
             fields(walker, found);
         }
+    } else if walker.blocks == 0 && !walker.selves.gated() {
+        let helpers: Vec<_> = attrs
+            .iter()
+            .filter(|attr| attr.path().is_ident("serde") || attr.path().is_ident("schemars"))
+            .collect();
+        let rest: Vec<_> = attrs
+            .iter()
+            .filter(|attr| !attr.path().is_ident("serde") && !attr.path().is_ident("schemars"))
+            .cloned()
+            .collect();
+        if !helpers.is_empty() && type_inert(&rest) {
+            let tools = walker.tools && !crate::attrs::kinds::no_tools(attrs);
+            let candidates = crate::attrs::model::Context::of(item, false, tools).candidates;
+            let concerns = helpers
+                .into_iter()
+                .map(|attr| {
+                    let mut concern = super::attributes::expansion_concern(
+                        walker,
+                        String::new(),
+                        attr.path().segments[0].ident.span(),
+                    );
+                    concern.proof = Some(crate::attrs::model::Proof::Helper {
+                        namespace: plain(&attr.path().segments[0].ident),
+                        candidates: candidates.clone(),
+                    });
+                    concern
+                })
+                .collect();
+            walker.out.helper_types.push((plain(ident), concerns));
+        }
     }
 }
 
