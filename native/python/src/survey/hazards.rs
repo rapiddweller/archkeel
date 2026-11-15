@@ -30,6 +30,8 @@ use super::literal::{self, Proof};
 use super::syspath;
 use crate::module::Module;
 
+#[path = "hazards_inert.rs"]
+mod inert;
 #[path = "hazards_reflect.rs"]
 mod reflect;
 
@@ -128,22 +130,7 @@ pub(super) struct Site {
 /// The sites of a module, in source order.
 pub(super) fn sites(tree: &ModModule, proof: Proof, binders: &Binders) -> Vec<Site> {
     let bound = bindings(tree);
-    let unique = binders.unique();
-    let inert_modules = bound
-        .iter()
-        .filter_map(|(name, origins)| match origins.as_slice() {
-            [origin]
-                if unique.contains(name)
-                    && matches!(
-                        origin.as_str(),
-                        "pickle" | "importlib.metadata" | "importlib.abc"
-                    ) =>
-            {
-                Some((name.clone(), origin.clone()))
-            }
-            _ => None,
-        })
-        .collect();
+    let inert_modules = inert::modules(&bound, &binders.unique());
     let mut walk = Walk {
         found: Vec::new(),
         bound,
@@ -336,11 +323,9 @@ impl Walk {
             base = &node.value;
         }
         attributes.reverse();
-        let inert = matches!(base, Expr::Name(name) if self.inert_modules.get(name.id.as_str()).is_some_and(|module| matches!((module.as_str(), attributes.as_slice()),
-            ("pickle", ["UnpicklingError" | "PickleError" | "HIGHEST_PROTOCOL"]) |
-            ("importlib.metadata", ["PackageNotFoundError"]) |
-            ("importlib.abc", ["Traversable"]))));
-        if inert && !store(expr) {
+        if !store(expr)
+            && matches!(base, Expr::Name(name) if inert::read(&self.inert_modules, name.id.as_str(), &attributes))
+        {
             return;
         }
         if let Some(name) = attributes.iter().find(|a| {
