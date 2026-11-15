@@ -188,6 +188,10 @@ object! {
         /// The linked collector's scope statements. Wire replies carry no live authority.
         #[serde(skip)]
         pub profile_limits: Option<ProfileLimits>,
+        /// The linked collector's one stated assumption of its proofs, shown with the verdict
+        /// (AD-540). It is no proof and replaces no gap. Wire replies carry none.
+        #[serde(skip)]
+        pub scope_premise: Option<&'static str>,
         /// The linked collector's files that belong to another module (AD-468). Wire replies
         /// carry none.
         #[serde(skip)]

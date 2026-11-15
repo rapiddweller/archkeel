@@ -12,6 +12,7 @@ use std::rc::Rc;
 use tree_sitter::Node;
 
 use crate::layout::Layout;
+use crate::script_host::needs_host;
 use crate::script_publish::globals;
 use crate::script_syntax::Producer;
 use crate::script_tree::Tree;
@@ -61,6 +62,8 @@ pub(crate) fn read<'t>(
         source_writes: declared.writes,
         write_paths: declared.paths,
         top_level_write_paths: declared.top_level_paths,
+        amplified: declared.amplified,
+        host_entry: needs_host(&producer),
         ..Script::default()
     };
     let mut ambiguous = Vec::new();

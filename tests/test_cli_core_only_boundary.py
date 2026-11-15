@@ -43,6 +43,17 @@ def test_malformed_collection_gap_metadata_refuses(gap: object) -> None:
         read_frame(json.dumps(document).encode(), 0, scan=True, require_protocol=True)
 
 
+def test_a_frame_may_state_the_assumption_of_its_collector() -> None:
+    from archkeel.cli.core_frame import read_frame
+
+    document = json.loads(frame())
+    document["premise"] = "code outside the scan roots hands in no global object"
+    read_frame(json.dumps(document).encode(), 0, scan=True, require_protocol=True)
+    document["premises"] = ["a second word is no field"]
+    with pytest.raises(CoreError):
+        read_frame(json.dumps(document).encode(), 0, scan=True, require_protocol=True)
+
+
 def frame(status: Status = Status.PASS) -> bytes:
     return json.dumps(
         {

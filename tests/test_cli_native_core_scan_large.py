@@ -136,6 +136,8 @@ def test_large_honest_source_has_the_unguarded_frame(
     plain = unguarded_frame(built, harness_core, frame)
     frame["self_test"].pop("collect")
     frame.pop("status")
+    # AD-540: the premise is a statement of the linked collector; the wire reply carries none.
+    frame.pop("premise", None)
     assert frame == plain
 
 
@@ -169,6 +171,8 @@ def test_repeated_package_reads_do_not_refuse_a_small_distinct_project(
     plain = unguarded_frame(built, harness_core, frame)
     frame["self_test"].pop("collect")
     frame.pop("status")
+    # AD-540: the premise is a statement of the linked collector; the wire reply carries none.
+    frame.pop("premise", None)
     assert frame == plain
 
 
@@ -242,6 +246,8 @@ def test_flat_chains_keep_the_unguarded_frame(
     plain = unguarded_frame(built, harness_core, frame)
     frame["self_test"].pop("collect")
     frame.pop("status")
+    # AD-540: the premise is a statement of the linked collector; the wire reply carries none.
+    frame.pop("premise", None)
     assert frame == plain
 
 

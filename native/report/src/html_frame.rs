@@ -70,6 +70,8 @@ pub(super) struct Frame {
     pub(super) cause: String,
     /// The baseline of the request: its state and the number of accepted UNKNOWN entries (AD-546).
     pub(super) baseline: Option<(String, u64)>,
+    /// The assumption that the collector states for its proofs (AD-540), or empty.
+    pub(super) premise: String,
 }
 
 fn field<T: DeserializeOwned + Default>(frame: &Value, key: &str) -> T {
@@ -111,6 +113,7 @@ impl Frame {
             named: serde_json::from_value(frame["unsupported"]["rules"].clone())
                 .unwrap_or_default(),
             cause,
+            premise: text(&frame["premise"]).unwrap_or_default(),
             status: frame["status"].as_str().unwrap_or("unavailable").to_owned(),
             rules: field(frame, "rules"),
             details: field(frame, "details"),

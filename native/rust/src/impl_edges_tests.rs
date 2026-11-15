@@ -188,8 +188,7 @@ fn a_method_call_gives_a_gap_for_each_foreign_member_of_its_name() {
     assert_eq!(pairs, vec![want("ns.app.b"), want("ns.app.d")]);
 }
 
-/// AD-418, review F3 of #1121: a candidate in another crate that the caller names by a renamed
-/// dependency (`alias = { package = "core-x" }`) is a gap of the pair, as an unrenamed one is.
+/// A shadowed receiver keeps a gap to a member reached through a renamed dependency (AD-418).
 #[test]
 fn a_method_call_gives_a_gap_for_a_member_of_a_crate_of_a_renamed_dependency() {
     let file = |rel: &'static str, text: &str| (rel, text.to_owned());
@@ -215,7 +214,7 @@ fn a_method_call_gives_a_gap_for_a_member_of_a_crate_of_a_renamed_dependency() {
         file("crates/app/src/lib.rs", "mod a;\n"),
         file(
             "crates/app/src/a.rs",
-            "pub fn f(s: &alias::S) {\n    s.m(1);\n}\n",
+            "pub fn f(s: &alias::S) {\n    let s = s;\n    s.m(1);\n}\n",
         ),
     ]);
     assert_eq!(

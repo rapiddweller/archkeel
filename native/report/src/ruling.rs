@@ -101,6 +101,10 @@ pub struct Ruling {
     beyond: BTreeMap<String, String>,
     /// Why the scope of the run is not complete, or `complete`.
     scope: String,
+    /// The one assumption that the collector states for its proofs (AD-540). The word of `scope`
+    /// stays `complete`: the shell reads it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    premise: Option<&'static str>,
     #[serde(skip)]
     unsupported: RuleReasons,
     /// The typed reason of each rule without a decision, UNKNOWN rows and named rows alike. The
@@ -189,6 +193,11 @@ pub fn rule_with_edge_links(
             .find_map(|model: &Model| model.scope(|scope| scope.run()).err()),
         Err(reason) => Some(reason.clone()),
     };
+    let premise = models.ok().and_then(|models| {
+        models
+            .models()
+            .find_map(archkeel_model::Model::scope_premise)
+    });
     let complete = scope.is_none();
     let scope = scope.map_or_else(|| "complete".to_owned(), |reason| reason.to_string());
     let mut rows = Rows::default();
@@ -237,7 +246,10 @@ pub fn rule_with_edge_links(
     let failed = rows.rules.values().any(|(_, v)| *v == RuleVerdict::Fail);
     let status = run_status(true, failed, complete, open);
     let pass = match status {
-        Status::Pass => Some(run_pass(&rows.decisions, models)?),
+        Status::Pass => Some(run_pass(
+            &rows.decisions,
+            models.map_err(|_| BuildError::PassWithoutProof(None))?,
+        )?),
         Status::Fail | Status::Unknown => None,
     };
     let observation = if complete {
@@ -271,6 +283,7 @@ pub fn rule_with_edge_links(
         unknown_kinds: rows.unknown_kinds,
         beyond: rows.beyond,
         scope,
+        premise,
         unsupported,
         causes: rows.causes,
         contract_kind,
@@ -460,9 +473,8 @@ fn fits(verdict: RuleVerdict, count: usize, id: &str) -> Result<(), BuildError> 
 /// The run proof of the tree (`ModelTree::pass_run`, the one maker of a run PASS of a tree).
 fn run_pass(
     decisions: &[(String, Option<Decision>)],
-    models: Result<&ModelTree, &Reason>,
+    models: &ModelTree,
 ) -> Result<archkeel_model::RunPass, BuildError> {
-    let models = models.map_err(|_| BuildError::PassWithoutProof(None))?;
     let decided = decisions
         .iter()
         .filter_map(|(_, decision)| decision.as_ref());

@@ -75,6 +75,16 @@ fn a_run_that_is_open_without_an_unknown_rule_shows_its_cause() {
     assert!(page.contains("missing &lt;input&gt;"));
 }
 
+// Consumer: AD-540. A page shows the assumption that the frame states, and none for a frame
+// without one. The page names no language.
+#[test]
+fn a_page_states_the_assumption_of_the_frame() {
+    let premise = "code outside the scan roots hands in no global object";
+    let stated = document(&json!({"status": "PASS", "scope": "complete", "premise": premise}));
+    assert!(stated.contains(&format!("Stated assumption: {premise}")));
+    assert!(!document(&json!({"status": "PASS"})).contains("Stated assumption"));
+}
+
 fn component_frame(components: usize, modules_each: usize) -> Value {
     let list: Vec<Value> = (0..components)
         .map(|i| json!({"id": format!("COMP-{i}"), "name": format!("c{i}")}))
