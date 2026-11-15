@@ -142,6 +142,17 @@ def lifecycles() -> list[Lifecycle]:
         ),
         Lifecycle(
             _plant(
+                "entry reached only by a dynamic import",
+                "import importlib\nm = importlib.import_module('app.lib.impl')\n",
+                ("app.lib.impl",),
+                both,
+            ),
+            frozenset({"interface.unused"}),
+            frozenset({"interface.usage_unknown"}),
+            "a call-form import binds no name and may not run, so it proves no use",
+        ),
+        Lifecycle(
+            _plant(
                 "entry reached by a facade signature",
                 "from app.lib.api import make\n",
                 ("app.lib.api:make", "app.lib.models:Model"),

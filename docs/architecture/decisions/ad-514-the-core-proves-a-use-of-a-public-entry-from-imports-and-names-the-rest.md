@@ -31,7 +31,9 @@ Each finding is a named hygiene row and holds back a PASS. The run can PASS only
 `public` entry has a proven use. The core never clears a contract that 4.0.1 refuses.
 
 **What counts as a use.** A proven import route of AD-504 (`reexport_chain`, any hop; an empty
-route reaches nothing), or a module import without symbols. A star import names no symbol, so it
+route reaches nothing), or a module import without symbols. A call-form import
+(`importlib.import_module("m")`, `import("m")`) binds no name and may not run: it proves no use.
+A star import names no symbol, so it
 reaches no `module:name` entry (4.0.1 does the same). For a mount, an import from outside its
 domain counts when the component that holds the mount publishes it at the root
 (`_import_published_through_ancestors`): the root owns the source, the parent owns the target, and
@@ -45,10 +47,19 @@ it. A deeper mount counts local imports only, so it can only give more `usage_un
 | entry reached only by a declared facade signature | clear | `interface.usage_unknown` |
 | planned scanned entry reached only by a signature | clear | `interface.usage_unknown` |
 | a route through an unproven re-export (candidate) | `interface.usage_unknown` or clear | the route is empty, so `interface.usage_unknown` |
+| `public: ["app.lib.impl"]` whose only use is `import_module('app.lib.impl')` | `interface.unused` | `interface.usage_unknown` |
 
-`tests/test_cli_python_lifecycle.py` runs 12 plants and 4 variants of M-review-workflow; the
+`tests/test_cli_python_lifecycle.py` runs 13 plants and 4 variants of M-review-workflow; the
 verdict of 4.0.1 for each is recorded in `tests/python_lifecycle_plants.py` and
 `tests/python_lifecycle_mounts.py` (one `validate` of an installed 4.0.1 for each).
+
+**TypeScript.** A `module:name` symbol entry on TypeScript has no 4.0.1 oracle: 4.0.1 gives
+`rule_unsupported_by_profile`. The core decides it from its own tests alone
+(`tests/test_cli_typescript_lifecycle.py`: a used entry gives no finding, an unused one
+`interface.usage_unknown`).
+
+**Open, no code now.** When the Dart `interface_boundary` row is ported, a `module:nope` entry behind
+an import without `show` would pass; the Dart port must close that first.
 
 **Not in this change.** `declarations.public_api` (`api_surface.missing`) and the inside
 `allowed_dependency` check keep their named gaps. The facade signatures need the `symbols` section

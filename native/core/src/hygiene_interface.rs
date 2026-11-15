@@ -257,16 +257,20 @@ fn used(entry: &str, records: &[&Import]) -> bool {
         Some((module, name)) => (module, true, name),
         None => (entry, false, ""),
     };
-    records.iter().any(|record| {
-        let reaches = record.reexport_chain().iter().any(|hop| {
-            if colon {
-                hop.rsplit_once('.')
-                    .is_some_and(|(hop_module, hop_name)| hop_module == module && hop_name == name)
-            } else {
-                hop.rsplit_once('.')
-                    .is_some_and(|(hop_module, _)| hop_module == module)
-            }
-        });
-        reaches || (record.target_module() == module && (!colon || !record.symbols_known()))
-    })
+    records
+        .iter()
+        .filter(|record| !record.call_form())
+        .any(|record| {
+            let reaches = record.reexport_chain().iter().any(|hop| {
+                if colon {
+                    hop.rsplit_once('.').is_some_and(|(hop_module, hop_name)| {
+                        hop_module == module && hop_name == name
+                    })
+                } else {
+                    hop.rsplit_once('.')
+                        .is_some_and(|(hop_module, _)| hop_module == module)
+                }
+            });
+            reaches || (record.target_module() == module && (!colon || !record.symbols_known()))
+        })
 }

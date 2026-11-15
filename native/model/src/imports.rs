@@ -45,6 +45,7 @@ pub struct Import {
     pub(crate) under_type_checking: bool,
     pub(crate) symbol: Option<String>,
     pub(crate) symbols_known: bool,
+    pub(crate) call_form: bool,
     pub(crate) reexport_chain: Vec<String>,
     pub(crate) relative: bool,
     pub(crate) resolved: Resolved,
@@ -89,6 +90,13 @@ impl Import {
     }
 
     /// True when the collector knows each name that the import uses.
+    /// A call-form import binds no name and is not a statement of the module scope
+    /// (`importlib.import_module("m")`, `import("m")`): it may run, or not, and it proves no use
+    /// of a name of the target (AD-514).
+    pub fn call_form(&self) -> bool {
+        self.call_form
+    }
+
     pub fn symbols_known(&self) -> bool {
         self.symbols_known
     }
@@ -196,6 +204,7 @@ pub(crate) fn split(facts: &Facts) -> Split {
             under_type_checking: data.under_type_checking,
             symbol: data.symbol.clone(),
             symbols_known: data.symbols_known,
+            call_form: data.binding.is_none() && !data.module_level_import,
             reexport_chain: data.reexport_chain.clone().unwrap_or_default(),
             relative: data.relative_level != 0,
             resolved,
