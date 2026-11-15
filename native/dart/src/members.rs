@@ -176,7 +176,10 @@ fn operator_name(node: Node<'_>, source: &Source<'_>) -> String {
     });
     operator.map_or_else(
         || "operator".to_owned(),
-        |item| format!("operator{}", source.text(item)),
+        |item| {
+            let name = source.text(item);
+            format!("operator{name}")
+        },
     )
 }
 

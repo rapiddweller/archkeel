@@ -46,6 +46,7 @@ impl<'t> Binder<'_, 't> {
     }
 
     fn local_function(&self, node: Node<'t>, context: &Context) -> Option<Site> {
+        let source: &Source<'_> = self.source;
         let mut signature = None;
         walk_with_path(node, |item, _| {
             self.work.charge(1);
@@ -56,11 +57,11 @@ impl<'t> Binder<'_, 't> {
         });
         let name = callable_decl_name(signature?)?;
         context.span.as_ref()?;
-        let text = self.source.text(name);
+        let text = source.text(name);
         let mut site = Site::new(
             SiteKind::Binding,
-            self.source.text(node),
-            self.source.span(node),
+            source.text(node),
+            source.span(node),
             context,
         );
         site.name = Some(text.clone());
@@ -71,7 +72,7 @@ impl<'t> Binder<'_, 't> {
     fn local_variables(&self, node: Node<'t>, context: &Context) -> Vec<Site> {
         let children = named_children(node);
         self.work.charge(children.len());
-        let source = self.source;
+        let source: &Source<'_> = self.source;
         children
             .into_iter()
             .filter(|child| child.kind() == "initialized_variable_definition")
@@ -109,7 +110,7 @@ impl<'t> Binder<'_, 't> {
     }
 
     fn formal_parameter(&self, node: Node<'t>, context: &Context) -> Vec<Site> {
-        let source = self.source;
+        let source: &Source<'_> = self.source;
         let parameter = parameter(node, ParameterKind::Positional, source, self.work);
         let mut binding = Site::new(
             SiteKind::Binding,
