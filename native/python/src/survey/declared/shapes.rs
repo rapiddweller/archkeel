@@ -16,10 +16,10 @@ use archkeel_facts::type_shape::{Binding, Family, TypeShape, Unreadable};
 use archkeel_facts::{ImportFact, Record, SymbolFact};
 use ruff_python_ast::{Expr, Number, Operator, UnaryOp};
 
+use super::found::{Found, Source};
 use super::scope::type_names;
 use super::shape_names::Names;
 use super::shape_text::render;
-use super::{Found, Source};
 use crate::module::Module;
 use crate::survey::binders::Binders;
 

@@ -59,6 +59,44 @@ pub(crate) enum Entry {
     Value,
 }
 
+/// The entry that one symbol record gives.
+fn entry_of(fact: &SymbolFact, evidence: Vec<String>) -> Entry {
+    match fact {
+        SymbolFact::Function(data) | SymbolFact::Method(data) => Entry::Callable(Callable {
+            name: data.name.clone(),
+            method: data.method_kind,
+            slots: data
+                .parameters
+                .iter()
+                .map(|item| Slot {
+                    name: item.name.clone(),
+                    kind: item.kind.clone(),
+                    shape: item.shape.clone(),
+                })
+                .collect(),
+            returns: data.returns_shape.clone(),
+            evidence,
+        }),
+        SymbolFact::Class(data) => Entry::Class(Class {
+            kind: data.class_kind,
+            bases: data
+                .base_declarations
+                .iter()
+                .flat_map(|base| base.targets.clone())
+                .collect(),
+            members: data.class_members.clone(),
+            attributes: data
+                .attribute_declarations
+                .iter()
+                .map(|item| item.name.clone())
+                .collect(),
+            methods: Vec::new(),
+            evidence,
+        }),
+        _ => Entry::Value,
+    }
+}
+
 /// The one plain import that binds a name of a module.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Route {
@@ -100,60 +138,23 @@ impl BoundaryFacts {
     fn symbols(&mut self, records: &[Record<SymbolFact>]) {
         let mut methods: HashMap<String, Vec<String>> = HashMap::new();
         for record in records {
-            let evidence: Vec<String> = record
+            let name = record.data.fields().qualified_name.unwrap_or_default();
+            let evidence = record
                 .evidence_ids
                 .iter()
                 .map(|id| id.as_str().to_owned())
                 .collect();
-            let name = record.data.fields().qualified_name.unwrap_or_default();
-            let entry = match &record.data {
-                SymbolFact::Function(data) | SymbolFact::Method(data) => {
-                    if let Some(parent) = &data.parent {
-                        methods
-                            .entry(parent.clone())
-                            .or_default()
-                            .push(name.to_owned());
-                    }
-                    Entry::Callable(Callable {
-                        name: data.name.clone(),
-                        method: data.method_kind,
-                        slots: data
-                            .parameters
-                            .iter()
-                            .map(|item| Slot {
-                                name: item.name.clone(),
-                                kind: item.kind.clone(),
-                                shape: item.shape.clone(),
-                            })
-                            .collect(),
-                        returns: data.returns_shape.clone(),
-                        evidence,
-                    })
-                }
-                SymbolFact::Class(data) => Entry::Class(Class {
-                    kind: data.class_kind,
-                    bases: data
-                        .base_declarations
-                        .iter()
-                        .flat_map(|base| base.targets.clone())
-                        .collect(),
-                    members: data.class_members.clone(),
-                    attributes: data
-                        .attribute_declarations
-                        .iter()
-                        .map(|item| item.name.clone())
-                        .collect(),
-                    methods: Vec::new(),
-                    evidence,
-                }),
-                _ => Entry::Value,
-            };
-            self.entries.insert(name.to_owned(), entry);
+            if let SymbolFact::Method(data) = &record.data {
+                let parent = data.parent.clone().unwrap_or_default();
+                methods.entry(parent).or_default().push(name.to_owned());
+            }
+            self.entries
+                .insert(name.to_owned(), entry_of(&record.data, evidence));
         }
-        for (class, found) in methods {
+        for (class, mut found) in methods {
             if let Some(Entry::Class(entry)) = self.entries.get_mut(&class) {
+                found.sort();
                 entry.methods = found;
-                entry.methods.sort();
             }
         }
     }

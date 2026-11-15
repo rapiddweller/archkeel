@@ -93,9 +93,7 @@ PLANTS: dict[str, Plant] = {
         "PASS",
     ),
     "init-has-no-return-position": Plant(
-        facade(
-            "class Box:\n    def __init__(self, a: int):\n        self.a = a\n", "'Box'"
-        ),
+        facade("class Box:\n    def __init__(self, a: int):\n        self.a = a\n", "'Box'"),
         "PASS",
     ),
     "private-names-are-not-the-surface": Plant(
@@ -148,7 +146,9 @@ PLANTS: dict[str, Plant] = {
         ),
         "OPEN",
     ),
-    "alias": Plant(facade("Alias = int\n\n\ndef f(a: Alias) -> int:\n    return 1\n", "'f'"), "OPEN"),
+    "alias": Plant(
+        facade("Alias = int\n\n\ndef f(a: Alias) -> int:\n    return 1\n", "'f'"), "OPEN"
+    ),
     "alias-of-a-dict": Plant(
         facade("Alias = dict\n\n\ndef f(a: Alias) -> int:\n    return 1\n", "'f'"), "FAIL"
     ),
@@ -164,9 +164,7 @@ PLANTS: dict[str, Plant] = {
         "OPEN",
     ),
     "star-import-in-scope": Plant(
-        facade(
-            "def f(a: Thing) -> int:\n    return 1\n", "'f'", "from app.other import *\n"
-        ),
+        facade("def f(a: Thing) -> int:\n    return 1\n", "'f'", "from app.other import *\n"),
         "OPEN",
         {"other.py": "class Thing:\n    pass\n"},
     ),
@@ -180,9 +178,7 @@ PLANTS: dict[str, Plant] = {
         {"other.py": "class Thing:\n    pass\n"},
     ),
     "declared-dto": Plant(
-        facade(
-            "class Dto:\n    x: dict\n\n\ndef f(a: Dto) -> int:\n    return 1\n", "'f', 'Dto'"
-        ),
+        facade("class Dto:\n    x: dict\n\n\ndef f(a: Dto) -> int:\n    return 1\n", "'f', 'Dto'"),
         "FAIL",
     ),
     "dataclass-dto": Plant(
@@ -216,9 +212,7 @@ PLANTS: dict[str, Plant] = {
     "dynamic-exports": Plant(
         "def f(a: int) -> int:\n    return a\n\n\n__all__ = ['f'] + list(globals())\n", "OPEN"
     ),
-    "facade-without-a-literal-all": Plant(
-        "def f(a: int) -> int:\n    return a\n", "OPEN"
-    ),
+    "facade-without-a-literal-all": Plant("def f(a: int) -> int:\n    return a\n", "OPEN"),
     "explicit-entry-needs-no-all": Plant(
         "def f(a: int) -> int:\n    return a\n", "PASS", public=("app.api:f",)
     ),
@@ -248,6 +242,28 @@ PLANTS: dict[str, Plant] = {
             "from enum import Enum\nfrom typing import Literal\n",
         ),
         "PASS",
+    ),
+    "module-attribute-written-elsewhere": Plant(
+        "from app.inner import f\n\n__all__ = ['f']\n",
+        "OPEN",
+        {
+            "inner.py": "def f(a: dict) -> int:\n    return 1\n",
+            "other.py": "import app.api as api\n\napi.f = lambda a: a\n",
+        },
+    ),
+    "all-extended-later": Plant(
+        facade(
+            "def f(a: int) -> int:\n    return a\n\n\ndef g(a: dict) -> int:\n    return 1\n\n"
+            "__all__.append('g')\n",
+            "'f'",
+        ),
+        "FAIL",
+    ),
+    "facade-with-no-function": Plant(facade("X = 1\n", "'X'"), "OPEN"),
+    "allowance-for-a-dict-of-strings": Plant(
+        facade("def f(a: dict[str, str]) -> int:\n    return 1\n", "'f'"),
+        "PASS",
+        allowed=(allow("f", "a", "dict[str, str]"),),
     ),
     "unresolved-facade-entry": Plant(
         facade("def f(a: int) -> int:\n    return a\n", "'f'"),

@@ -9,7 +9,7 @@
 //! The model names no language. A position is one parameter or the return of a function or a
 //! method that a `public` entry covers, below the `source` of the rule. It is allowed, a violation
 //! or a named gap. The reading never guesses what it cannot read: an entry with no record, a class
-//! with a base outside the builtins, a member that has no record and a signature with no shape are
+//! with a base of the repository, a member that has no record and a signature with no shape are
 //! each a gap row, so a PASS needs a complete surface.
 
 use std::collections::HashSet;
@@ -18,16 +18,16 @@ use archkeel_contract::{BoundaryAllowance, BoundaryTypes, RuleKind};
 use archkeel_facts::type_shape::TypeShape;
 use archkeel_facts::vocab::MethodKind;
 
-use crate::boundary_facts::{BoundaryFacts, Callable, Class, Entry, Origin};
+use crate::boundary_facts::{Callable, Class, Entry, Origin};
 use crate::boundary_judge::{judge, GapCause, Leaf, Surface};
+use crate::boundary_surface::{declared, entries, names, PublicEntry};
 use crate::model::Model;
-use crate::ownership::in_scope;
 use crate::reason::{Hygiene, Reason, Unsupported};
 
 /// One position that breaks the rule and has no exact exception.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Position {
-    /// `<qualified name>:<position>`.
+    /// `<facade name>:<position>`.
     pub subject: String,
     pub qualified_name: String,
     /// The parameter name as the record writes it, or `return`.
@@ -70,124 +70,26 @@ pub struct Reading {
     pub stale: Vec<Stale>,
 }
 
-/// One entry of a `public` list below the `source` of the rule.
-struct PublicEntry {
-    text: String,
-    module: String,
-    name: Option<String>,
-}
-
-/// True for a name that a facade covers: no leading underscore (`facade_covers`).
-fn covered_name(name: &str) -> bool {
-    !name.starts_with('_')
-}
-
 /// True for the name of a method that is part of an interface (`is_public_method_name`).
 fn method_name(name: &str) -> bool {
     !name.starts_with('_') || (name.starts_with("__") && name.ends_with("__"))
-}
-
-fn entries(model: &Model, only: Option<&BoundaryTypes>) -> Vec<PublicEntry> {
-    let mut found = Vec::new();
-    for component in model.contract().components() {
-        for entry in component.public().iter().flatten() {
-            let text = entry.as_text();
-            let (module, name) = match text.split_once(':') {
-                Some((module, name)) => (module, Some(name.to_owned())),
-                None => (text, None),
-            };
-            if let Some(rule) = only {
-                let exempt = rule
-                    .allowed_sources()
-                    .iter()
-                    .any(|allowed| in_scope(module, allowed.as_text()))
-                    || rule
-                        .exact_sources()
-                        .iter()
-                        .any(|exact| exact.as_text() == module);
-                if !in_scope(module, rule.source().as_text()) || exempt {
-                    continue;
-                }
-            }
-            found.push(PublicEntry {
-                text: text.to_owned(),
-                module: module.to_owned(),
-                name,
-            });
-        }
-    }
-    found
-}
-
-/// The names that an entry covers, or the gap that stops the list.
-fn names(model: &Model, entry: &PublicEntry) -> Result<Vec<String>, GapRow> {
-    let gap = |cause: GapCause, text: &str| GapRow {
-        subject: entry.text.clone(),
-        cause,
-        text: text.to_owned(),
-    };
-    let Some((_, module)) = model
-        .graph()
-        .modules()
-        .iter()
-        .find(|(_, module)| module.name() == entry.module)
-    else {
-        return Err(gap(
-            GapCause::UnresolvedFacadeEntry,
-            "the module of the entry is not scanned",
-        ));
-    };
-    if let Some(name) = &entry.name {
-        return Ok(covered_name(name)
-            .then(|| name.clone())
-            .into_iter()
-            .collect());
-    }
-    // Only a literal `__all__` lists the names that the module publishes: a decorated function
-    // has no record, so a list built from the records could pass it by (AD-550).
-    if module.exports_literal() {
-        let exports = module.exports().iter().filter(|name| covered_name(name));
-        return Ok(exports.cloned().collect());
-    }
-    Err(gap(
-        GapCause::DynamicExports,
-        "the module states no literal list of exports",
-    ))
-}
-
-/// The definitions that each component declares: the origin of each covered name.
-fn declared(model: &Model, facts: &BoundaryFacts) -> HashSet<String> {
-    let mut found = HashSet::new();
-    for entry in entries(model, None) {
-        let Ok(names) = names(model, &entry) else {
-            continue;
-        };
-        for name in names {
-            if let Origin::Defined(qualified, _) = facts.origin(&entry.module, &name) {
-                found.insert(qualified.to_owned());
-            }
-        }
-    }
-    found
 }
 
 /// The reading of one rule, or the reason that the reply has no shapes to read.
 pub fn read(model: &Model, rule: &BoundaryTypes) -> Result<Reading, Reason> {
     let graph = model.graph();
     let Some(facts) = graph.boundary() else {
-        return Err(Reason::Unsupported(Unsupported::Rule(
-            RuleKind::BoundaryTypes,
-        )));
+        let kind = RuleKind::BoundaryTypes;
+        return Err(Reason::Unsupported(Unsupported::Rule(kind)));
     };
     let scanned: HashSet<&str> = graph.modules().iter().map(|(_, m)| m.name()).collect();
     let declared = declared(model, facts);
-    let surface = Surface {
-        facts,
-        declared: &declared,
-        scanned: &scanned,
-    };
     let mut reader = Reader {
-        surface,
+        surface: Surface {
+            facts,
+            declared: &declared,
+            scanned: &scanned,
+        },
         allowances: rule.allowed_positions(),
         used: vec![false; rule.allowed_positions().len()],
         seen: HashSet::new(),
@@ -203,15 +105,20 @@ pub fn read(model: &Model, rule: &BoundaryTypes) -> Result<Reading, Reason> {
     Ok(reader.reading)
 }
 
-/// The receipt of the rule: it selects a module, and its surface has no named gap. A gap holds
-/// back a PASS and decides nothing.
+/// The receipt of the rule: it selects a module, it reads a position, and its surface has no named
+/// gap. A gap holds back a PASS and decides nothing.
 pub(crate) fn receipt(model: &Model, rule: &BoundaryTypes) -> Result<(), Reason> {
     if model.source_modules(rule.source().as_text()).is_empty() {
         return Err(Reason::NoSubjects);
     }
     let reading = read(model, rule)?;
     let Some(first) = reading.gaps.first() else {
-        return Ok(());
+        // A rule that reads no position proves nothing: the surface may be a typo of the contract.
+        return if reading.positions == 0 {
+            Err(Reason::NoSubjects)
+        } else {
+            Ok(())
+        };
     };
     let detail = format!(
         "{} positions or entries of the public surface are named gaps; the first is {} ({})",
@@ -243,90 +150,91 @@ impl Reader<'_> {
     }
 
     fn entry(&mut self, model: &Model, entry: &PublicEntry) {
-        let facts = self.surface.facts;
-        let covered = match names(model, entry) {
-            Ok(covered) => covered,
-            Err(gap) => {
-                self.reading.gaps.push(gap);
-                return;
-            }
-        };
-        for name in covered {
-            // The rule names a position by the name that the facade gives (`facade_module.name`),
-            // as the exceptions of a contract do, not by the module that defines it.
-            let facade = format!("{}.{name}", entry.module);
-            if self.surface.scanned.contains(facade.as_str()) {
-                continue;
-            }
-            match facts.origin(&entry.module, &name) {
-                Origin::Defined(qualified, Entry::Callable(callable)) => {
-                    self.callable(qualified, &facade, callable);
-                }
-                Origin::Defined(qualified, Entry::Class(class)) => {
-                    self.class(qualified, &facade, class);
-                }
-                Origin::Defined(_, Entry::Value) | Origin::Module => {}
-                Origin::Missing(last) => {
-                    let scanned = self.surface.scanned.contains(last.as_str());
-                    let subject = format!("{}:{name}", entry.module);
-                    let (cause, text) = if !scanned {
-                        (
-                            GapCause::ExternalType,
-                            "a name of a module outside the scan",
-                        )
-                    } else if entry.name.is_some() {
-                        (GapCause::UnresolvedFacadeEntry, "no record for the entry")
-                    } else {
-                        (
-                            GapCause::NoRecord,
-                            "no record: a decorated, conditional or unread definition",
-                        )
-                    };
-                    self.gap(subject, cause, text);
-                }
-            }
+        match names(model, entry) {
+            Ok(covered) => covered.iter().for_each(|name| self.name(entry, name)),
+            Err(gap) => self.reading.gaps.push(gap),
         }
+    }
+
+    /// One covered name: the rule names a position by the name that the facade gives
+    /// (`facade_module.name`), as the exceptions of a contract do, not by the defining module.
+    fn name(&mut self, entry: &PublicEntry, name: &str) {
+        let facade = format!("{}.{name}", entry.module);
+        if self.surface.scanned.contains(facade.as_str()) {
+            return;
+        }
+        let facts = self.surface.facts;
+        match facts.origin(&entry.module, name) {
+            Origin::Defined(qualified, Entry::Callable(callable)) => {
+                self.callable(qualified, &facade, callable);
+            }
+            Origin::Defined(qualified, Entry::Class(class)) => {
+                self.class(qualified, &facade, class)
+            }
+            Origin::Defined(_, Entry::Value) | Origin::Module => {}
+            Origin::Missing(last) => self.missing(entry, name, &last),
+        }
+    }
+
+    /// A covered name whose definition has no record.
+    fn missing(&mut self, entry: &PublicEntry, name: &str, last: &str) {
+        let subject = format!("{}:{name}", entry.module);
+        if !self.surface.scanned.contains(last) {
+            let text = "a name of a module outside the scan";
+            return self.gap(subject, GapCause::ExternalType, text);
+        }
+        if entry.name.is_some() {
+            return self.gap(
+                subject,
+                GapCause::UnresolvedFacadeEntry,
+                "no record for the entry",
+            );
+        }
+        let text = "no record: a decorated, conditional or unread definition";
+        self.gap(subject, GapCause::NoRecord, text);
     }
 
     fn class(&mut self, qualified: &str, facade: &str, class: &Class) {
         if !self.seen.insert(qualified.to_owned()) {
             return;
         }
-        // A base that has a record is a class of the repository: its members are inherited and the
-        // reading does not follow them. A base without a record is outside the scan.
-        let inherited = class
-            .bases
-            .iter()
-            .find(|base| self.surface.facts.entry(base).is_some());
-        if let Some(base) = inherited {
+        // A base that has a record is a class of the repository: its members are inherited and
+        // the reading does not follow them. A base without a record is outside the scan.
+        let facts = self.surface.facts;
+        if let Some(base) = class.bases.iter().find(|base| facts.entry(base).is_some()) {
             self.gap(facade.to_owned(), GapCause::InheritedSurface, base);
         }
-        match &class.members {
-            None => self.gap(
-                facade.to_owned(),
-                GapCause::MemberNoRecord,
-                "the members of the class are withheld",
-            ),
-            Some(members) => {
-                for member in members.iter().filter(|member| method_name(member)) {
-                    let own = format!("{qualified}.{member}");
-                    let known = class.methods.contains(&own)
-                        || class.attributes.contains(member)
-                        || self.surface.facts.entry(&own).is_some();
-                    if !known {
-                        let named = format!("{facade}.{member}");
-                        self.gap(named, GapCause::MemberNoRecord, "a member with no record");
-                    }
+        self.members(qualified, facade, class);
+        let callables = class
+            .methods
+            .iter()
+            .filter_map(|method| match facts.entry(method) {
+                Some(Entry::Callable(callable)) if method_name(&callable.name) => {
+                    Some((method, callable))
                 }
-            }
+                _ => None,
+            });
+        for (method, callable) in callables {
+            let named = format!("{facade}.{}", callable.name);
+            self.callable(method, &named, callable);
         }
-        for method in &class.methods {
-            let Some(Entry::Callable(callable)) = self.surface.facts.entry(method) else {
-                continue;
-            };
-            if method_name(&callable.name) {
-                let named = format!("{facade}.{}", callable.name);
-                self.callable(method, &named, callable);
+    }
+
+    /// Each member that the class body binds has a record, an attribute declaration or a nested
+    /// class; a class with its members withheld is one gap.
+    fn members(&mut self, qualified: &str, facade: &str, class: &Class) {
+        let Some(members) = &class.members else {
+            let text = "the members of the class are withheld";
+            return self.gap(facade.to_owned(), GapCause::MemberNoRecord, text);
+        };
+        for member in members.iter().filter(|member| method_name(member)) {
+            let own = format!("{qualified}.{member}");
+            let known = class.methods.contains(&own)
+                || class.attributes.contains(member)
+                || self.surface.facts.entry(&own).is_some();
+            if !known {
+                let named = format!("{facade}.{member}");
+                self.gap(named, GapCause::MemberNoRecord, "a member with no record");
             }
         }
     }
@@ -336,12 +244,8 @@ impl Reader<'_> {
             return;
         }
         let Some(returns) = &callable.returns else {
-            self.gap(
-                facade.to_owned(),
-                GapCause::ShapesNotWritten,
-                "the collector wrote no shape for this signature",
-            );
-            return;
+            let text = "the collector wrote no shape for this signature";
+            return self.gap(facade.to_owned(), GapCause::ShapesNotWritten, text);
         };
         let receiver = callable
             .method
@@ -351,17 +255,22 @@ impl Reader<'_> {
                 .first()
                 .is_some_and(|slot| matches!(slot.kind.as_str(), "positional" | "positional_only"));
         for slot in callable.slots.iter().skip(usize::from(receiver)) {
-            match &slot.shape {
-                Some(shape) => self.position(facade, &slot.name, shape, callable),
-                None => self.gap(
-                    format!("{facade}:{}", slot.name),
-                    GapCause::ShapesNotWritten,
-                    "the collector wrote no shape for this parameter",
-                ),
-            }
+            self.slot(facade, &slot.name, slot.shape.as_ref(), callable);
         }
+        // A constructor has no return position.
         if callable.method != Some(MethodKind::Constructor) {
-            self.position(facade, "return", returns, callable);
+            self.slot(facade, "return", Some(returns), callable);
+        }
+    }
+
+    fn slot(&mut self, facade: &str, position: &str, shape: Option<&TypeShape>, owner: &Callable) {
+        match shape {
+            Some(shape) => self.position(facade, position, shape, owner),
+            None => self.gap(
+                format!("{facade}:{position}"),
+                GapCause::ShapesNotWritten,
+                "the collector wrote no shape for this parameter",
+            ),
         }
     }
 
@@ -372,25 +281,7 @@ impl Reader<'_> {
         let judged = judge(shape, &self.surface, 0);
         let (mut broad, other): (Vec<Leaf>, Vec<Leaf>) =
             judged.leaves.into_iter().partition(|leaf| leaf.broad);
-        let mut unread = false;
-        for (index, item) in self.allowances.iter().enumerate() {
-            if item.qualified_name() != facade || item.position() != position {
-                continue;
-            }
-            if *item.annotation() != text {
-                continue;
-            }
-            self.used[index] = true;
-            if exact(item) {
-                // One plain exception allows the one broad leaf that is the position itself.
-                let roots = broad.iter().filter(|leaf| leaf.depth == 0).count();
-                if roots == 1 {
-                    broad.retain(|leaf| leaf.depth != 0);
-                }
-            } else {
-                unread = true;
-            }
-        }
+        let unread = self.exceptions(facade, position, &text, &mut broad);
         let mut gaps = judged.gaps;
         if unread && !broad.is_empty() {
             // The exception names a depth, a field, an alias or a mapping that syntax does not read.
@@ -410,6 +301,37 @@ impl Reader<'_> {
         } else if let Some((cause, written)) = gaps.into_iter().min() {
             self.gap(subject, cause, &written);
         }
+    }
+
+    /// Apply the exceptions of the contract that name this position and its exact text: a plain one
+    /// allows the one broad leaf that is the position itself. True when an exception names more
+    /// (a depth, a field, an alias, a mapping) than syntax reads.
+    fn exceptions(
+        &mut self,
+        facade: &str,
+        position: &str,
+        text: &str,
+        broad: &mut Vec<Leaf>,
+    ) -> bool {
+        let mut unread = false;
+        for (index, item) in self.allowances.iter().enumerate() {
+            let same = item.qualified_name() == facade
+                && item.position() == position
+                && item.annotation() == text;
+            if !same {
+                continue;
+            }
+            self.used[index] = true;
+            if !exact(item) {
+                unread = true;
+                continue;
+            }
+            let roots = broad.iter().filter(|leaf| leaf.depth == 0).count();
+            if roots == 1 {
+                broad.retain(|leaf| leaf.depth != 0);
+            }
+        }
+        unread
     }
 
     /// An exception that matches no position is stale, when the surface has no gap that could hide

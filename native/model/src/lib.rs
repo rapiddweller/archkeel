@@ -56,6 +56,7 @@ mod construct_replay_tests;
 mod boundary_facts;
 mod boundary_judge;
 mod boundary_positions;
+mod boundary_surface;
 pub use boundary_judge::{GapCause, Leaf};
 pub use boundary_positions::{read as boundary_reading, GapRow, Position, Reading, Stale};
 

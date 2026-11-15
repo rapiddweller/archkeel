@@ -57,9 +57,7 @@ def test_the_rule_row_is_the_pinned_row(release_core: Path, tmp_path: Path, name
     assert "refusal" not in result, result
     assert result["frame"]["rules"][RULE] == ["boundary_types", expected], result["frame"]
     text = command(release_core, root, "--text").stdout
-    found = {
-        match.group(1) for line in text.splitlines() if (match := CAUSE.search(line))
-    }
+    found = {match.group(1) for line in text.splitlines() if (match := CAUSE.search(line))}
     if "boundary_type_allowance_stale:" in text:
         found.add("stale_allowance")
     assert "; ".join(sorted(found)) == cause
