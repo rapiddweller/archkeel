@@ -11,8 +11,7 @@
 //! binding is a refusal: a `let`, a pattern of a `match`, `if let`, `while let` or `for`, a
 //! parameter of a closure or of a nested `fn`, an item of that name, a `use` that may bind it,
 //! and a macro call whose tokens name it (a macro can bind a name that its call passes), except
-//! the macros of `std` that bind nothing. `matches!` still taints its tokens: a pattern can bind a
-//! name in its guard. A type that names a generic parameter of the `fn` or of
+//! the macros of `std` that bind nothing. A type that names a generic parameter of the `fn` or of
 //! the `impl` is generic, so it is not read. The resolution of the type, its exactness and the
 //! member are the checks of `impl_receivers.rs`.
 
@@ -176,9 +175,6 @@ impl<'ast> Visit<'ast> for Bound {
         let silent = name
             .as_deref()
             .is_some_and(|name| NO_BIND_MACROS.contains(&name));
-        if name.as_deref() == Some("matches") {
-            self.taint(node.tokens.clone());
-        }
         // A `macro_rules!` item defines a macro; it is no call.
         if !silent && name.as_deref() != Some("macro_rules") {
             self.nested_macro |= Self::has_macro(node.tokens.clone());

@@ -49,7 +49,6 @@ def test_a_written_unique_local_type_proves_a_unique_receiver(
         "let s: &crate::c::S = input; assert!(s.m(1) > 0); 1",
         "let s: &&crate::c::S = &input; s.m(1)",
         "let s: &crate::c::S = input; #[cfg(unix)] let _n = 1; s.m(1)",
-        "let s: &crate::c::S = input; matches!(s, _); s.m(1)",
         "{ let s: &crate::c::S = input; s.m(1) }",
         "let _ = s.m(1); let s: &crate::c::S = input; 1",
         "let s: &crate::c::S = { let _ = s.m(1); input }; 1",
@@ -110,7 +109,6 @@ def test_a_written_closure_type_proves_a_receiver(
     [
         "|s| s.m(1)",
         "|s: &crate::c::S| { let s = s; s.m(1) }",
-        "|s: &crate::c::S| { let _ = matches!(s, _); s.m(1) }",
         "|s: &&crate::c::S| s.m(1)",
         "|s: &crate::c::S| { #[cfg(unix)] let _n = 1; s.m(1) }",
         "|s: &crate::c::S| { fn inner() -> u8 { s.m(1) } 1 }",

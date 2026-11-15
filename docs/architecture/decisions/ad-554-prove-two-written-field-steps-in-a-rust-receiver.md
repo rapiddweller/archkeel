@@ -26,3 +26,9 @@ name in a function body. A typed local or closure with an unqualified type there
 gap when the function calls a macro that is not a silent standard macro. A path rooted at
 `crate`, `self` or `super` keeps its proof. These checks fix the two receiver findings of the
 review of AD-543. The reviewer plants and two mutations check the refusals and the controls.
+
+**`matches!` amendment.** The standard macro expands to a `match`. Its pattern bindings are
+inside the match arm and guard, not the enclosing function. A receiver call outside the macro
+can use its written type even when its name occurs in the tokens. A call inside those tokens
+keeps the gap. A workspace macro or import that can shadow `matches!` also keeps the gap.
+This amends AD-535. The self-check removes two TypeScript pairs, with no violations.
