@@ -28,6 +28,7 @@ use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, ExprCall, ModModule, Number, Stmt};
 
 use super::binders::Binders;
+use crate::module::plain_name;
 
 /// The kind of a site that is a candidate: the write form that the module body proves. It never
 /// reaches a gap: `settle` drops it or turns it into `import_system_change`.
@@ -149,9 +150,8 @@ fn is_name(expr: &Expr, name: &str) -> bool {
 
 fn dotted(expr: &Expr) -> Option<String> {
     match expr {
-        Expr::Name(node) => Some(node.id.to_string()),
         Expr::Attribute(node) => Some(format!("{}.{}", dotted(&node.value)?, node.attr.as_str())),
-        _ => None,
+        other => plain_name(other).map(str::to_owned),
     }
 }
 

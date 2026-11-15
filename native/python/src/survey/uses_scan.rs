@@ -17,7 +17,7 @@ use ruff_python_ast::{Expr, ExprContext};
 use std::collections::{HashMap, HashSet};
 
 use super::bound::{Bound, Kind};
-use super::uses_typing_guard::{withheld, STDLIB_VALUES};
+use super::uses_typing_guard::{stdlib_value, withheld};
 use crate::module::Module;
 
 /// The module and the symbol that an import names.
@@ -127,7 +127,7 @@ impl Scan<'_> {
 
     /// True when `target.symbol` is a standard library name whose call gives a value (AD-568).
     fn stdlib_value(&self, target: &str, symbol: &str) -> bool {
-        STDLIB_VALUES.contains(&(target, symbol)) && !self.modules.contains(target)
+        stdlib_value(target, symbol) && !self.modules.contains(target)
     }
 
     /// True when `name` in `module` is the one plain import of `dataclasses.dataclass`, and no

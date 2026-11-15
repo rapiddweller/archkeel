@@ -119,12 +119,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     ) -> bool {
         let tree = self.tree;
         crate::tree::cx::Cx::valid_unicode_member_name(&tree.cx, reference)
-            && tree.k(member) == K::MemberExpression
-            && tree.is_field_of_parent(reference, F::Object)
-            && tree.static_path(member).len() == 2
-            && property.is_some_and(|property| {
-                crate::tree::cx::Cx::valid_unicode_member_name(&tree.cx, property)
-            })
+            && tree.is_plain_member(reference, member, property)
             && !tree.in_ambiguous_scope(reference)
             && !self.optional_chain(member)
     }
@@ -175,12 +170,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 .into_iter()
                 .any(|child| marks.contains(&tree.k(child)))
         });
-        let proper = tree.k(target) == K::MemberExpression
-            && tree.is_field_of_parent(reference, F::Object)
-            && tree.static_path(target).len() == 2
-            && property.is_some_and(|property| {
-                crate::tree::cx::Cx::valid_unicode_member_name(&tree.cx, property)
-            })
+        let proper = tree.is_plain_member(reference, target, property)
             && tree.k(call) == K::CallExpression
             && tree.is_field_of_parent(target, F::Function)
             && !tree.in_ambiguous_scope(reference);

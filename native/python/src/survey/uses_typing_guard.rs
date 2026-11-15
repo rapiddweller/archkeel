@@ -28,34 +28,44 @@ use crate::module::Module;
 /// The standard library names whose call gives a value, never a module (Python 3.12: a path, a
 /// number, a date, a logger, a container). The proof needs the name to be the one plain import
 /// of its module, and a scan without a store to the name.
-pub(super) const STDLIB_VALUES: [(&str, &str); 17] = [
-    ("pathlib", "Path"),
-    ("pathlib", "PurePath"),
-    ("pathlib", "PurePosixPath"),
-    ("pathlib", "PureWindowsPath"),
-    ("decimal", "Decimal"),
-    ("fractions", "Fraction"),
-    ("uuid", "UUID"),
-    ("datetime", "date"),
-    ("datetime", "datetime"),
-    ("datetime", "time"),
-    ("datetime", "timedelta"),
-    ("datetime", "timezone"),
-    ("logging", "getLogger"),
-    ("collections", "OrderedDict"),
-    ("collections", "defaultdict"),
-    ("collections", "Counter"),
-    ("collections", "deque"),
+pub(super) const STDLIB_VALUES: &[(&str, &[&str])] = &[
+    (
+        "pathlib",
+        &["Path", "PurePath", "PurePosixPath", "PureWindowsPath"],
+    ),
+    ("decimal", &["Decimal"]),
+    ("fractions", &["Fraction"]),
+    ("uuid", &["UUID"]),
+    (
+        "datetime",
+        &["date", "datetime", "time", "timedelta", "timezone"],
+    ),
+    ("logging", &["getLogger"]),
+    (
+        "collections",
+        &["OrderedDict", "defaultdict", "Counter", "deque"],
+    ),
 ];
 
-/// The attribute names that a store must not use.
-const NAMES: [&str; 12] = [
+/// Whether `module.symbol` is one of `STDLIB_VALUES`.
+pub(super) fn stdlib_value(module: &str, symbol: &str) -> bool {
+    STDLIB_VALUES
+        .iter()
+        .any(|(name, symbols)| *name == module && symbols.contains(&symbol))
+}
+
+/// The typing forms that a store must not name.
+const TYPING_FORMS: [&str; 6] = [
     "Annotated",
     "Optional",
     "Union",
     "Literal",
     "TypeVar",
     "NewType",
+];
+
+/// The special attributes of an object that a store must not name.
+const SPECIAL: [&str; 6] = [
     "__getitem__",
     "__class_getitem__",
     "__call__",
@@ -82,7 +92,11 @@ pub(super) fn withheld(modules: &[Module]) -> bool {
 struct Guard(bool);
 
 fn named(name: &str) -> bool {
-    NAMES.contains(&name) || STDLIB_VALUES.iter().any(|(_, value)| *value == name)
+    TYPING_FORMS.contains(&name)
+        || SPECIAL.contains(&name)
+        || STDLIB_VALUES
+            .iter()
+            .any(|(_, values)| values.contains(&name))
 }
 
 fn mapping_of(expr: &Expr) -> bool {
