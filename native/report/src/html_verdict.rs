@@ -40,6 +40,21 @@ fn note(status: &str) -> &'static str {
     }
 }
 
+/// The line of the baseline (AD-546). An accepted UNKNOWN keeps its word: it is not a pass.
+fn baseline(frame: &Frame) -> String {
+    let Some((state, accepted)) = &frame.baseline else {
+        return String::new();
+    };
+    format!(
+        "<p class=\"body-sm ak-verdict__note\">Baseline: {}. {} UNKNOWN {} accepted by the \
+baseline; the status stays {}, and an accepted UNKNOWN is not a pass.</p>",
+        escape(state),
+        accepted,
+        if *accepted == 1 { "entry" } else { "entries" },
+        escape(&frame.status)
+    )
+}
+
 fn next(frame: &Frame, places: &Places) -> String {
     let mut steps = Vec::new();
     match frame.status.as_str() {
@@ -152,12 +167,13 @@ pub(super) fn section(frame: &Frame, places: &Places) -> String {
     format!(
         "<div class=\"rp-head\"><h1>Verdict: {}</h1><section class=\"ak-verdict ak-verdict--{state}\" aria-label=\"Verdict\">\
 <span class=\"ak-badge ak-badge--{state} tag\">{}{}</span><h2 class=\"h2 ak-verdict__title\">{}</h2>\
-<p class=\"body-sm ak-verdict__note\">{}</p>{}<dl class=\"ak-verdict__stats\">{}{}{}</dl></section>{}</div>\n",
+<p class=\"body-sm ak-verdict__note\">{}</p>{}{}<dl class=\"ak-verdict__stats\">{}{}{}</dl></section>{}</div>\n",
         escape(status),
         status_icon(status),
         escape(status),
         escape(&title(frame, places)),
         note(status),
+        baseline(frame),
         top_causes(frame),
         stat("PASS", frame.rules_with("PASS")),
         stat("FAIL", frame.rules_with("FAIL")),

@@ -60,7 +60,8 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   wheels that Full builds and runs. The Windows wheel writes no report file (see `report --output`).
 - `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give the typed refusal
   `not_on_this_development_line`, exit 2. Interactive reports, `architecture.json`, saved and focused
-  reports, baselines, amendments and `--write-graph` are refused by option name.
+  reports, amendments and `--write-graph` are refused by option name. `--baseline` and
+  `--write-baseline` are served ([reference](reference.md#baselines)).
 - `report --output PATH` writes one static HTML page or the JSON frame (`--format json`). It has no graph.
   The parent must exist. Safe file output needs POSIX directory handles; Windows refuses `--output` with exit 2 (`io_error`), writes no file and keeps the frame.
 - A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`. The run exits 2.
@@ -582,7 +583,7 @@ The crate reads, writes and binds an amendment (`policy::parse_amendment`, `poli
 - `Binding::amend` refuses a blank `decided_by` or `rationale`. Python writes a file that its reader refuses.
 - Nesting deeper than 128 levels is invalid JSON. Python stops with `RecursionError`.
 
-The baseline codec reads schemas 1.0.0 through 1.3.0 and writes 1.3.0 ([AD-386](architecture/decisions/ad-386-the-contract-crate-reads-and-writes-baselines.md)). It keeps every entry and the permissive Python string rules. It refuses repeated JSON keys, lone surrogates, numbers outside its integer range, nesting deeper than 128 and files over 16 MiB. No command uses it yet.
+The baseline codec reads schemas 1.0.0 through 1.4.0 ([AD-386](architecture/decisions/ad-386-the-contract-crate-reads-and-writes-baselines.md), [AD-546](architecture/decisions/ad-546-a-baseline-accepts-an-unknown-by-what-it-is-and-the-core-compares-it-both-ways.md)). It writes 1.4.0 for a run and 1.3.0 for a file that has no `unknowns` list. It keeps every entry and the permissive Python string rules. It refuses repeated JSON keys, lone surrogates, numbers outside its integer range, nesting deeper than 128 and files over 16 MiB. `validate --baseline` and `--write-baseline` use it. The core measures only `cycle_edges` and `private_crossings`. The three call and typing budgets are `budget.unmeasured` until slice D. The HTML report does not mark accepted entries. A TypeScript parser gap and a Dart file gap give their position in the reason, and the key drops a trailing `at line N` or `:N` by the text.
 
 The API list of `tools/rust_api.py` expands the `macro_rules!` calls of a crate before it counts
 (`tools/rust_macros.py`, [#1048](https://github.com/rapiddweller/archkeel/issues/1048)). A call that

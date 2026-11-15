@@ -164,6 +164,7 @@ fn a_fail_rule_writes_its_violations_and_a_gap_does_not_hide_it() {
     let model = model_of(&contract(&["EXTERNAL-COMPLETE"]), &reply, true);
     let named = Named {
         contract: None,
+        contract_kind: None,
         rules: [(
             "inside/R".to_owned(),
             Reason::Unsupported(Unsupported::InsideRule),
@@ -226,6 +227,37 @@ fn each_gap_of_the_core_holds_back_a_pass() {
         RuleReasons::All(_) => 0,
     };
     assert_eq!(each, 2);
+}
+
+/// AD-546: the baseline key reads the typed reason, the kind of the whole contract and the rows of
+/// the violations from the ruling, never from the text of the frame.
+#[test]
+fn the_ruling_keeps_the_typed_reason_of_each_gap_and_the_violation_rows() {
+    let model = model(&contract(&BOTH), true);
+    let gap = Reason::Unsupported(Unsupported::InsideRule);
+    let named = Named {
+        rules: [("inside/R".to_owned(), gap.clone())].into(),
+        ..Named::default()
+    };
+    let ruling = rule(Ok(&model), named).unwrap();
+    assert_eq!(ruling.causes().get("inside/R"), Some(&gap));
+    assert!(ruling.contract_kind().is_none());
+    let whole = |kind| Named {
+        contract: Some("refused: no contract".to_owned()),
+        contract_kind: kind,
+        ..Named::default()
+    };
+    let kinds = [(Some("contract_refused"), "contract_refused"), (None, "other")];
+    for (given, expected) in kinds {
+        let ruling = rule(Ok(&model), whole(given)).unwrap();
+        assert_eq!(ruling.contract_kind(), Some(expected));
+    }
+    let reply = reply_with(undeclared_import);
+    let failing = model_of(&contract(&["EXTERNAL-COMPLETE"]), &reply, true);
+    let ruling = rule(Ok(&failing), Named::default()).unwrap();
+    let rows = ruling.violation_rows();
+    assert!(rows.iter().all(|(rule, source, _)| *rule == "EXTERNAL-COMPLETE" && !source.is_empty()));
+    assert!(!rows.is_empty());
 }
 
 #[test]

@@ -73,6 +73,7 @@ def frame(status: Status = Status.PASS) -> bytes:
             "sections": {},
             "unknown_kinds": {"R1": "scope_incomplete"} if status is Status.UNKNOWN else {},
             "unsupported": {"rules": {}, "sections": {}, "report": None},
+            "gaps": [],
             "self_test": {
                 "contract": {"rules": {"R1": "forbidden_dependency"}},
                 "reply": {"files": 2},
@@ -190,7 +191,9 @@ def test_an_unported_rule_names_its_missing_kind(
 ) -> None:
     document = json.loads(frame())
     document["status"] = "UNKNOWN"
-    document["unsupported"]["rules"] = {"R2": "unsupported: rule kind symbol_placement"}
+    reason = "unsupported: rule kind symbol_placement"
+    document["unsupported"]["rules"] = {"R2": reason}
+    document["gaps"] = [{"kind": "rule_kind_not_ported", "subject": "R2", "reason": reason}]
     monkeypatch.setattr(core_only, "locate_core", lambda: Path("core"))
     monkeypatch.setattr(core_only, "exchange", lambda *_: (json.dumps(document).encode(), 3))
     assert core_only.run(["validate", "--text"]) == 2

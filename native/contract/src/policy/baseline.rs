@@ -18,7 +18,7 @@ use crate::policy::baseline_value::{
 /// An unchecked baseline cannot be built outside the crate:
 /// ```compile_fail,E0451
 /// use archkeel_contract::policy::ValidationBaseline;
-/// let baseline = ValidationBaseline { violations: vec![], budgets: vec![] };
+/// let baseline = ValidationBaseline { violations: vec![], budgets: vec![], unknowns: None };
 /// ```
 pub fn parse_baseline(bytes: &[u8]) -> Result<ValidationBaseline, BaselineError> {
     if bytes.len() > MAX_BASELINE_BYTES {

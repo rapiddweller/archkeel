@@ -14,8 +14,9 @@ The Python engine is deleted. The shell reads the arguments, starts the core and
 
 `main` supports Rust and TypeScript projects, and the import rules of Python (AD-450) and Dart (AD-468) projects.
 A config without `language` selects the Python profile. There is no partial PASS.
-Interactive reports, `architecture.json`, saved reports, focused reports, baselines, amendments and
+Interactive reports, `architecture.json`, saved reports, focused reports, amendments and
 `--write-graph` are not on `main`. The shell refuses each of their options by name with exit 2.
+`validate --baseline` and `validate --write-baseline` are on `main` ([baselines](#baselines)).
 
 Release 4.0.1 has the Python engine: `check`, `init`, full reports and baselines for Python,
 Dart and TypeScript projects. It has no Rust profile, `explore`, Studio, stories or views.
@@ -158,6 +159,34 @@ The page uses compact detail fields and cited evidence locations. The Tool block
 It shows no package version, because the scan request does not carry one. The crate version is not the package version.
 This safe file output requires POSIX directory handles; other platforms refuse file output.
 `validate --output` stays refused, as release 4.0.1 did not have it. See AD-440.
+
+### Baselines
+
+`validate --baseline PATH` compares the run with a baseline file. `validate --write-baseline PATH`
+writes the baseline of the run (schema 1.4.0). `PATH` names a regular file below the root, not an
+absolute or parent path. The two options cannot name the same file. Run `--write-baseline` once,
+review the file, and keep it in the repository.
+
+| What the run has against the file | State | Exit code |
+|---|---|---|
+| A violation, a gap or a budget that the file does not have, or a higher count | `drift` | 1 |
+| An accepted entry that the run no longer has, or a lower count (the file is stale) | `drift` | 1 |
+| The file is absent, outside the repository, damaged or unsorted | `invalid` | 1 |
+| No difference, and the run has at least one UNKNOWN | `current` | 2 |
+| No difference, and no UNKNOWN | `current` | 0 |
+| A refused part of the run (reply, contract, section, report) | `not_compared` | 2 |
+
+The file lists each accepted UNKNOWN as `kind`, `subject` and `reason`, with a `count` above 1.
+There is no line, evidence id or digest, so an unrelated edit does not change an entry. An accepted
+UNKNOWN stays UNKNOWN: the rule row, the run status and the exit code keep the word, and the text
+says `accepted UNKNOWN entries`. UNKNOWN never exits 0. Accepted violations are known debt: they do
+not make the exit code 1.
+The budgets `cycle_edges` and `private_crossings` are compared. A budget that the core does not
+measure (`calls_unresolved`, `typing_positions`, `untyped_private_accesses`) is the gap
+`budget.unmeasured`, exit 2. A file of schema 1.0.0 to 1.3.0 is read; it accepts no UNKNOWN, and its
+three call and typing budgets give `baseline.budget_of_older_schema`, exit 2. The JSON result has a
+`baseline` object with `state`, `exit_code`, `accepted_unknowns`, `new`, `gone` and `gaps`
+([AD-546](architecture/decisions/ad-546-a-baseline-accepts-an-unknown-by-what-it-is-and-the-core-compares-it-both-ways.md)).
 
 `check` always refuses and names each check it cannot run: its expectation, lock, Git and host checks need #1103.
 No failure falls back to Python.

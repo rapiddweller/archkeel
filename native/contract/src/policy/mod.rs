@@ -39,6 +39,8 @@ mod amendment_tests;
 #[cfg(test)]
 mod baseline_tests;
 #[cfg(test)]
+mod baseline_unknowns_tests;
+#[cfg(test)]
 mod compare_tests;
 #[cfg(test)]
 mod printable_tests;
