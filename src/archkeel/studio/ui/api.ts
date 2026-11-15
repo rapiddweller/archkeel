@@ -91,7 +91,7 @@ export type StoryRow = {
   readonly id: string;
   readonly title: string;
   readonly steps: number;
-  readonly source: StorySource;
+  readonly origin: StorySource;
   readonly created: string | null;
   readonly checked_counts: StoryCounts | null;
 };
@@ -124,7 +124,7 @@ export type StoryStep = {
 };
 /** A link of `steps`, by the index of the story step: the status of the call into that step. */
 export type StepLink = {
-  readonly source: string | null;
+  readonly caller: string | null;
   readonly target: string;
   readonly status: CheckStatus;
   readonly reason: string;
@@ -265,7 +265,7 @@ export const readStories = async (): Promise<readonly StoryRow[]> =>
 /** One story: the check against the current snapshot, where the spec lies and where it comes from. */
 export type StoryAnswer = {
   readonly checked: CheckedStory;
-  readonly source: StorySource;
+  readonly origin: StorySource;
   /** The spec named another snapshot and was checked by node name against the current one. */
   readonly rebound: boolean;
   readonly created: {
