@@ -26,6 +26,8 @@ pub(crate) struct Declarations {
     pub top_level_paths: Vec<Vec<String>>,
     /// The writes of the one check (AD-460); the script writes take them too.
     pub checked: Vec<Write>,
+    /// Some node writes an unknown name through an amplifier form (AD-540).
+    pub amplified: bool,
 }
 
 /// What the producer finds while it reads the nodes in order.
@@ -38,17 +40,23 @@ struct Gathered<'t> {
     paths: Vec<Vec<String>>,
     top_level: Vec<Vec<String>>,
     checked: Vec<Write>,
+    /// A node of an amplifier form wrote an unknown name (AD-540).
+    amplified: bool,
 }
 
 impl<'t> Gathered<'t> {
     /// A write of the one check at the place of `span`: a write and a path of its name, or a
     /// write and a path of an unknown name. Call it after the source write of the same target.
     fn check(&mut self, written: Option<Written>, span: Span) {
+        let amplifier = matches!(written, Some(Written::Amplified));
         let (name, path) = match written {
             Some(Written::Name(name)) => (Some(name.clone()), vec![name]),
-            Some(Written::Unknown) => (None, Vec::new()),
+            Some(Written::Unknown | Written::Amplified) => (None, Vec::new()),
             None => return,
         };
+        // An amplifier form leaves the unknown write of the file but no empty path: the project
+        // decides with its host entry whether the write blocks every name.
+        self.amplified |= amplifier;
         // The write of the target that the source writes just took: the script writes and the
         // paths hold it already.
         if self
@@ -58,14 +66,16 @@ impl<'t> Gathered<'t> {
         {
             // The source write of a target with no static path holds no path of its own, so an
             // unknown name still gives the empty path that blocks every proof (AD-460).
-            if name.is_none() {
+            if name.is_none() && !amplifier {
                 self.paths.push(Vec::new());
             }
             return;
         }
         self.writes.push((name.clone(), span.clone()));
         self.checked.push((name, span));
-        self.paths.push(path);
+        if !(amplifier && path.is_empty()) {
+            self.paths.push(path);
+        }
     }
 
     /// `objects[span] = object`: a later object of the same span replaces the earlier one.
@@ -188,6 +198,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             paths: unique(found.paths),
             top_level_paths: unique(found.top_level),
             checked: unique(found.checked),
+            amplified: found.amplified,
         }
     }
 }

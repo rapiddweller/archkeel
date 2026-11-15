@@ -896,10 +896,12 @@
         "native.archkeel_typescript_collector.script_factory",
         "native.archkeel_typescript_collector.script_flags",
         "native.archkeel_typescript_collector.script_forms",
+        "native.archkeel_typescript_collector.script_host",
         "native.archkeel_typescript_collector.script_index",
         "native.archkeel_typescript_collector.script_keys",
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
+        "native.archkeel_typescript_collector.script_numeric",
         "native.archkeel_typescript_collector.script_publish",
         "native.archkeel_typescript_collector.script_refs",
         "native.archkeel_typescript_collector.script_scope",
@@ -2384,10 +2386,12 @@
         "native.archkeel_typescript_collector.script_factory",
         "native.archkeel_typescript_collector.script_flags",
         "native.archkeel_typescript_collector.script_forms",
+        "native.archkeel_typescript_collector.script_host",
         "native.archkeel_typescript_collector.script_index",
         "native.archkeel_typescript_collector.script_keys",
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
+        "native.archkeel_typescript_collector.script_numeric",
         "native.archkeel_typescript_collector.script_publish",
         "native.archkeel_typescript_collector.script_refs",
         "native.archkeel_typescript_collector.script_scope",
@@ -2462,10 +2466,12 @@
         "native.archkeel_typescript_collector.script_factory",
         "native.archkeel_typescript_collector.script_flags",
         "native.archkeel_typescript_collector.script_forms",
+        "native.archkeel_typescript_collector.script_host",
         "native.archkeel_typescript_collector.script_index",
         "native.archkeel_typescript_collector.script_keys",
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
+        "native.archkeel_typescript_collector.script_numeric",
         "native.archkeel_typescript_collector.script_publish",
         "native.archkeel_typescript_collector.script_refs",
         "native.archkeel_typescript_collector.script_scope",
@@ -2792,6 +2798,20 @@
       "provenance": [
         "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md",
         "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-SAPHYR",
+      "kind": "external_dependency_scope",
+      "dependency": "saphyr",
+      "allowed_sources": [
+        "native.archkeel_dart_collector.import_survey.package",
+        "native.archkeel_dart_collector.cargo_toml"
+      ],
+      "rationale": "Only the Dart package survey reads YAML package metadata.",
+      "provenance": [
+        "docs/architecture/decisions/ad-542-dart-isolate-and-package-keys-need-evidence.md"
       ],
       "decided_by": "architect"
     },

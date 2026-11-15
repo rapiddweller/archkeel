@@ -39,7 +39,7 @@ fn main() -> ExitCode {
             } else if flag == "--dump-declarations" {
                 dump::declarations
             } else if flag == "--dump-collection" {
-                dump::collection
+                archkeel_dart_collector::dump::collection
             } else {
                 dump::syntax
             };

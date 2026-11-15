@@ -33,6 +33,18 @@ fn title(frame: &Frame, places: &Places) -> String {
     }
 }
 
+/// The assumption that the collector states for its proofs, as one line under the verdict note
+/// (AD-540). The core states it for the run; this page names no language.
+fn premise(frame: &Frame) -> String {
+    if frame.premise.is_empty() {
+        return String::new();
+    }
+    format!(
+        "<p class=\"body-sm ak-verdict__note\">Stated assumption: {}</p>",
+        escape(&frame.premise)
+    )
+}
+
 fn note(status: &str) -> &'static str {
     match status {
         "PASS" => "No violation. No unknown.",
@@ -152,12 +164,13 @@ pub(super) fn section(frame: &Frame, places: &Places) -> String {
     format!(
         "<div class=\"rp-head\"><h1>Verdict: {}</h1><section class=\"ak-verdict ak-verdict--{state}\" aria-label=\"Verdict\">\
 <span class=\"ak-badge ak-badge--{state} tag\">{}{}</span><h2 class=\"h2 ak-verdict__title\">{}</h2>\
-<p class=\"body-sm ak-verdict__note\">{}</p>{}<dl class=\"ak-verdict__stats\">{}{}{}</dl></section>{}</div>\n",
+<p class=\"body-sm ak-verdict__note\">{}</p>{}{}<dl class=\"ak-verdict__stats\">{}{}{}</dl></section>{}</div>\n",
         escape(status),
         status_icon(status),
         escape(status),
         escape(&title(frame, places)),
         note(status),
+        premise(frame),
         top_causes(frame),
         stat("PASS", frame.rules_with("PASS")),
         stat("FAIL", frame.rules_with("FAIL")),
