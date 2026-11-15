@@ -186,6 +186,22 @@ def read_refusal(stderr: bytes) -> Gap | None:
     return Gap(kind, _text(fields["subject"], "subject"), _text(fields["reason"], "reason"))
 
 
+def _premise(frame: Mapping[str, object], scan: bool) -> str | None:
+    """The assumption text of the frame: absent, or a non-empty string. Anything else is refused.
+    A scan of TypeScript always states it (AD-540): a frame of that language without one is refused."""
+    if "premise" not in frame:
+        collect = _object(_object(frame.get("self_test", {}), "self_test").get("collect", {}), "collect")
+        request = _object(collect.get("request", {}), "request")
+        resolver = _object(request.get("resolver", {}), "resolver")
+        if scan and resolver.get("language") == "typescript":
+            raise CoreError("the core frame of a TypeScript scan states no premise")
+        return None
+    value = frame["premise"]
+    if not isinstance(value, str) or not value.strip():
+        raise CoreError("the core frame has a premise that is not a non-empty text")
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class CoreFrame:
     engine: str
@@ -208,6 +224,8 @@ class CoreFrame:
     explain: Explain | None = None
     html: str | None = None
     baseline: BaselineResult | None = None
+    # AD-540: the one assumption that the collector states for its proofs, when it states one.
+    premise: str | None = None
 
     @property
     def complete_scope(self) -> bool:
@@ -470,4 +488,5 @@ def read_frame(
         explain=read_explain(frame["explain"], violations) if "explain" in frame else None,
         html=read_html(frame, status, request),
         baseline=read_baseline(frame["baseline"], status) if "baseline" in frame else None,
+        premise=_premise(frame, scan),
     )

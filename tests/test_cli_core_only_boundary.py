@@ -43,15 +43,48 @@ def test_malformed_collection_gap_metadata_refuses(gap: object) -> None:
         read_frame(json.dumps(document).encode(), 0, scan=True, require_protocol=True)
 
 
-def test_a_frame_may_state_the_assumption_of_its_collector() -> None:
+def _read(document: dict) -> object:
     from archkeel.cli.core_frame import read_frame
 
+    return read_frame(json.dumps(document).encode(), 0, scan=True, require_protocol=True)
+
+
+def test_a_frame_may_state_the_assumption_of_its_collector() -> None:
     document = json.loads(frame())
     document["premise"] = "code outside the scan roots hands in no global object"
-    read_frame(json.dumps(document).encode(), 0, scan=True, require_protocol=True)
+    assert _read(document).premise == document["premise"]
     document["premises"] = ["a second word is no field"]
     with pytest.raises(CoreError):
-        read_frame(json.dumps(document).encode(), 0, scan=True, require_protocol=True)
+        _read(document)
+
+
+@pytest.mark.parametrize("value", [1, True, None, ["a"], {"a": "b"}, "", "  "])
+def test_a_premise_that_is_no_text_is_refused(value: object) -> None:
+    document = json.loads(frame())
+    document["premise"] = value
+    with pytest.raises(CoreError):
+        _read(document)
+
+
+def test_a_typescript_scan_frame_must_state_its_premise() -> None:
+    document = json.loads(frame())
+    document["self_test"]["collect"]["request"]["resolver"] = {"language": "typescript"}
+    with pytest.raises(CoreError):
+        _read(document)
+    document["premise"] = "code outside the scan roots hands in no global object"
+    assert _read(document).premise is not None
+
+
+@pytest.mark.parametrize("status", [Status.PASS, Status.FAIL, Status.UNKNOWN])
+def test_the_text_verdict_prints_the_assumption(
+    status: Status, capsys: pytest.CaptureFixture[str]
+) -> None:
+    document = json.loads(frame(status))
+    document["premise"] = "code outside the scan roots hands in no global object"
+    core_only.render_text("validate", _read(document))
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == f"validate: {status}"
+    assert lines[1] == "Assumption: code outside the scan roots hands in no global object"
 
 
 def frame(status: Status = Status.PASS) -> bytes:

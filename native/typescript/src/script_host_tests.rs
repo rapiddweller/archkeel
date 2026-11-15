@@ -66,7 +66,7 @@ fn the_premise_is_not_closed() {
     // PREMISE: a caller outside the scan can give the window. Main reads `set` the same way.
     for source in [
         "export function set(o: any, k: string, v: any) { o[k] = v; }",
-        "export function h(e: any) { e.source[k] = 1; }\nconst k = 'a';",
+        "export function h(e: any) { return e.source; }",
     ] {
         assert!(!with_b(source), "the premise covers: {source}");
     }
@@ -91,6 +91,12 @@ fn a_direct_form_blocks_in_a_scan_without_a_host_entry() {
         "let i = 0; i = k; const fns: any[] = []; fns[i]('x');",
         "let i = 0; i += k; const fns: any[] = []; fns[i]('x');",
         "o[k]('x');",
+        // A write through a window-like member with a run-time key: a callback or a factory of
+        // the caller can give the object (review of #1224, `callback-premise`, `factory-premise`).
+        "o(); const h = { parent: {} }; const c = 'x' + 'y'; h.parent[c] = 1;",
+        "const h = { parent: o() }; h.parent['Ma' + 'th'] = { min: () => 777 };",
+        "e.source[k] = 1;",
+        "this[k] = v;",
     ];
     for form in forms {
         assert!(with_b(&module(form)), "a direct form blocks: {form}");
@@ -99,7 +105,8 @@ fn a_direct_form_blocks_in_a_scan_without_a_host_entry() {
 
 #[test]
 fn a_host_entry_makes_an_amplifier_form_write() {
-    let amplifier = "export const a = (l: any) => l.source[0];\nexport const b = (o: any, k: string) => { o.parent[k] = 1; };\n";
+    let amplifier =
+        "export const a = (l: any) => l.source[0];\nexport const b = (o: any) => o.parent;\n";
     let hosts = [
         "addEventListener('message', (e: any) => { e.source[k] = v; });",
         "document.defaultView[k] = v;",

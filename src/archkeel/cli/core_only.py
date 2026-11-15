@@ -451,6 +451,8 @@ def _places(frame: CoreFrame, evidence: Sequence[str]) -> str:
 
 def render_text(command: Command, frame: CoreFrame) -> None:
     print(f"{command}: {frame.status}")
+    if frame.premise is not None:
+        print(f"Assumption: {frame.premise}")
     if (topology := frame.topology) is not None:
         print(
             f"Topology: {len(topology.modules)}/{topology.total['modules']} modules, "

@@ -158,7 +158,9 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 match string_text(self, index) {
                     Some(name) => Some(Written::Name(name)),
                     None if self.numeric_key(index) => None,
-                    None => self.window_gate(object).map(Reach::written),
+                    // A write through a window-like value with a run-time key stays direct: a
+                    // value that scanned code receives from a callback can reach the member.
+                    None => self.window_gate(object).map(|_| Written::Unknown),
                 }
             }
             _ => None,

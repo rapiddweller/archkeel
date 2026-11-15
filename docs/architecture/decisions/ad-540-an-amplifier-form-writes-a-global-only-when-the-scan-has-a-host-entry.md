@@ -45,6 +45,8 @@ and a call are refused.
 - **Direct stays direct.** A key can build `constructor` (`'con' + 'structor'`, `Object.getOwnPropertyNames`,
   data), and `fn['constructor']` is `Function`: the global object with no free name. AD-508 rule 2
   (43 plants) holds. A design note that read a key call as an amplifier was wrong.
+- **A write is direct.** `x.parent[k] = v`, `this[k] = v`: a callback or factory of the caller can
+  give the object. Only a read, a pass-on, a pattern or a call is an amplifier.
 - **An amplifier needs a window:** from the host (condition 3), a script file (condition 1) or
   outside the scan (the premise). Inert names give no host object and their callbacks run in a
   module. A contained use gives a string, a Boolean, or `a` of `a && b` only when `a` is false.
@@ -58,7 +60,7 @@ and a call are refused.
   proof that `.length` is a number. Neither is here.
 - **The premise in the report.** The linked collector states it (`Facts.scope_premise`, not on the
   wire). `Model::scope_premise` gives it, the ruling writes the frame key `premise` (none when the
-  collector states none), the page shows "Stated assumption: ..." under the verdict note. The `scope`
+  collector states none), the page shows "Stated assumption: ..." and `validate --text` "Assumption: ..." under the verdict; the shell refuses a non-text premise and a TypeScript scan without one. The `scope`
   word stays `complete`: the shell requires it for a PASS; the shell allows the key `premise` only.
 
 ## Mutation table
