@@ -360,3 +360,25 @@ fn the_instance_of_shape_of_graphql_js_is_no_gap() {
     ];
     assert!(!process_gap(&files), "{:?}", titles_of(&files));
 }
+
+#[test]
+fn an_amplifier_form_in_a_scan_with_a_host_entry_is_stated_once() {
+    let b = "export const a = (l: any) => l.source;\nexport function z() { console.log(1); }\n";
+    let found = titles_of(&[("src/b.ts", b)]);
+    assert!(
+        found
+            .iter()
+            .all(|(title, _)| !title.starts_with("Script global ")),
+        "{found:?}"
+    );
+    let stated: Vec<_> = found
+        .iter()
+        .filter(|(title, _)| title.contains("a member that can be the window"))
+        .collect();
+    assert_eq!(stated.len(), 1, "{found:?}");
+    assert!(stated[0]
+        .1
+        .as_deref()
+        .unwrap_or_default()
+        .contains("depend on it"));
+}

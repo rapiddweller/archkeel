@@ -133,7 +133,7 @@ function placeOf(view: View, route: Route, model: Model | null): { crumbs: reado
         : view === View.Module && isIndex(route.symbol, model.graph.modules.length)
           ? { level: Level.Module, id: route.symbol, pkg: null }
           : view === View.Explore
-            ? { level: Level.Function, id: lensSymbol(model, route.symbol), pkg: null }
+            ? { level: Level.Routine, id: lensSymbol(model, route.symbol), pkg: null }
             : view === View.Map
               ? { level: Level.Map, id: null, pkg: null }
               : null;

@@ -219,7 +219,7 @@ impl<'a, 'p> Run<'a, 'p> {
             names.len()
         );
         let project = self.project;
-        for (at, (file, span, form)) in project.paths.blockers.iter().enumerate() {
+        for (at, (file, span, form)) in project.paths.named_blockers().iter().enumerate() {
             if blocked.is_empty() {
                 break;
             }

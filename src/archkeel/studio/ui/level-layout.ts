@@ -368,13 +368,13 @@ export function layoutModule(model: Model, module: number, showAll: boolean, tex
     const to = graph.symbols[target][0];
     const pair: LevelPair = { source, target, partial, line };
     if (from === module && to === module) {
-      bump(joined, `${cardKey(Level.Function, source)}|${cardKey(Level.Function, target)}`, pair, site);
+      bump(joined, `${cardKey(Level.Routine, source)}|${cardKey(Level.Routine, target)}`, pair, site);
     } else if (from === module) {
       bump(callees, `${to}`, pair, site);
-      bump(joined, `${cardKey(Level.Function, source)}|${stubKey(Side.Out, `${to}`)}`, pair, site);
+      bump(joined, `${cardKey(Level.Routine, source)}|${stubKey(Side.Out, `${to}`)}`, pair, site);
     } else if (to === module) {
       bump(callers, `${from}`, pair, site);
-      bump(joined, `${stubKey(Side.In, `${from}`)}|${cardKey(Level.Function, target)}`, pair, site);
+      bump(joined, `${stubKey(Side.In, `${from}`)}|${cardKey(Level.Routine, target)}`, pair, site);
     }
   }
   const links: RawLink[] = [];
@@ -384,5 +384,5 @@ export function layoutModule(model: Model, module: number, showAll: boolean, tex
   });
   const label = fileOf(model, module);
   const groups: Group[] = [{ label, items: shownFunctions, rest: all.slice(shownFunctions.length) }];
-  return arrange(Level.Function, groups, stubsOf(callers), stubsOf(callees), links, text);
+  return arrange(Level.Routine, groups, stubsOf(callers), stubsOf(callees), links, text);
 }

@@ -72,6 +72,7 @@ pub(crate) fn read<'t>(
         host_entry: needs_host(producer),
         contained_reads: crate::script_host::contained_reads(producer),
         blockers: declared.blockers.clone(),
+        amp_blockers: declared.amp_blockers.clone(),
         unlabelled_empty: declared.unlabelled_empty,
         ..Script::default()
     };
