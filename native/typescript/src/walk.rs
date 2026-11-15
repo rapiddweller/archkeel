@@ -67,16 +67,21 @@ impl Syntax {
     /// The facts of a file that could not be parsed: none.
     pub(crate) fn empty() -> Self {
         Self {
-            cx,
-            pending: Vec::new(),
-            layout,
-            stack: Vec::new(),
-            frames: Frames::new(),
-            defs: Defs::default(),
-            imports: Vec::new(),
-            rebound: BTreeSet::new(),
-            writes: Vec::new(),
+            definitions: Vec::new(),
+            scopes: Scopes::default(),
+            import_bindings: Vec::new(),
+            module_exports: Vec::new(),
+            rebound_names: Vec::new(),
+            ambient_globals: Vec::new(),
+            ambient_top_level: Vec::new(),
+            module_file: false,
+            declaration_file: false,
+            script_mode: false,
+            module_syntax: false,
+            script_bindings: Vec::new(),
+            script: Script::default(),
             sites: Sites::default(),
+            type_exports: TypeExports::default(),
         }
     }
 }
@@ -103,6 +108,7 @@ impl<'a, 't> Walk<'a, 't> {
         let layout = Layout::default();
         Self {
             cx,
+            pending: Vec::new(),
             layout,
             stack: Vec::new(),
             frames: Frames::new(),
