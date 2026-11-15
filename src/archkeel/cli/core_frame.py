@@ -163,6 +163,8 @@ _UNSUPPORTED: Final = frozenset({"rules", "sections", "report"})
 _SELF_TEST: Final = frozenset({"contract", "reply"})
 # AD-406: the self-test of a scan frame has the `collect` part too.
 _SCAN: Final = frozenset({"collect"})
+
+
 @dataclass(frozen=True, slots=True)
 class RuleVerdict:
     kind: str

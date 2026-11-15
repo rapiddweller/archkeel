@@ -72,3 +72,15 @@ fn a_position_at_the_end_of_a_reason_is_not_in_the_key() {
     assert_eq!(strip_line("module 12"), "module 12");
     assert_eq!(strip_line("7"), "7");
 }
+
+#[test]
+fn two_sites_of_one_key_are_counted_and_never_merged() {
+    let mut gaps = super::Gaps::default();
+    gaps.add(key("k", "s", "r"), 1);
+    gaps.add(key("k", "s", "r"), 1);
+    gaps.add(key("k", "t", "r"), 1);
+    assert_eq!(gaps.keys[&key("k", "s", "r")], 2);
+    assert_eq!(gaps.keys[&key("k", "t", "r")], 1);
+    gaps.add(key("k", "s", "r"), 3);
+    assert_eq!(gaps.keys[&key("k", "s", "r")], 5);
+}

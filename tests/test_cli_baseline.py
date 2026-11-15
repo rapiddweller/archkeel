@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""`validate --baseline` and `--write-baseline` through the product entry and the real core (AD-546).
+"""`validate --baseline` and `--write-baseline` through the real core (AD-546).
 
 Each test plants one difference between a run and its baseline file and states the exit code.
 UNKNOWN is never exit 0, a difference is exit 1, and a damaged file is exit 1 and never exit 2:

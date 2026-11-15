@@ -66,9 +66,7 @@ class BaselineResult:
     file: str | None
 
 
-_FIELDS: Final = frozenset(
-    {"state", "exit_code", "accepted_unknowns", "new", "gone", "gaps"}
-)
+_FIELDS: Final = frozenset({"state", "exit_code", "accepted_unknowns", "new", "gone", "gaps"})
 _CHANGED: Final = frozenset({"what", "kind", "subject", "reason", "run", "file"})
 _NAMED: Final = frozenset({"kind", "subject", "reason"})
 
