@@ -22,7 +22,7 @@ from test_cli_core_only_scan import command
 ROW = "UML-TARGET-a2e40c5592b1b06a"
 ROWS = json.loads((Path(__file__).parent / "python_site_rows.json").read_text())
 STRICTER = {("PASS", "UNKNOWN"), ("FAIL", "UNKNOWN")}
-# (equal, PASS to UNKNOWN, FAIL to UNKNOWN, plants). A release FAIL is true, but for `closed-dead-if-false`.
+# (equal, PASS to UNKNOWN, FAIL to UNKNOWN, plants). A release FAIL is true but one.
 COUNTS = (41, 12, 5, 58)
 
 
