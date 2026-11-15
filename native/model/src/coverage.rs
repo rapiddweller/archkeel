@@ -34,7 +34,7 @@ pub enum Incomplete {
 }
 
 /// The incompleteness that the coverage of a reply proves, if any. `whole` is the number of the
-/// gaps that leave the whole scope unknown (`gap_effects::Class::Whole`): no contract can drop
+/// gaps that leave the whole scope unknown (`gap_class::Class::Whole`): no contract can drop
 /// one, and none states an effect (AD-564).
 pub(crate) fn incomplete(
     coverage: &Coverage,
