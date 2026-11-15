@@ -251,26 +251,40 @@ fn published(tree: &ModelTree, mounts: &[InsideMount], at: usize, import: &Impor
 }
 
 /// `_entry_used`: a name of the route reaches the entry, or the import names the entry's module
-/// without a symbol of its own (`module` entry) or with unread symbols.
+/// without a symbol of its own (`module` entry) or with unread symbols. A call-form import proves
+/// no use (AD-514).
 fn used(entry: &str, records: &[&Import]) -> bool {
     let (module, colon, name) = match entry.split_once(':') {
         Some((module, name)) => (module, true, name),
         None => (entry, false, ""),
     };
+    let entry = Entry {
+        module,
+        colon,
+        name,
+    };
     records
         .iter()
         .filter(|record| !record.call_form())
-        .any(|record| {
-            let reaches = record.reexport_chain().iter().any(|hop| {
-                if colon {
-                    hop.rsplit_once('.').is_some_and(|(hop_module, hop_name)| {
-                        hop_module == module && hop_name == name
-                    })
-                } else {
-                    hop.rsplit_once('.')
-                        .is_some_and(|(hop_module, _)| hop_module == module)
-                }
-            });
-            reaches || (record.target_module() == module && (!colon || !record.symbols_known()))
-        })
+        .any(|record| entry.reached_by(record))
+}
+
+/// A `public` or `planned` entry: its module, whether it names a symbol, and the symbol.
+struct Entry<'e> {
+    module: &'e str,
+    colon: bool,
+    name: &'e str,
+}
+
+impl Entry<'_> {
+    fn reached_by(&self, record: &Import) -> bool {
+        let hop = |hop: &String| {
+            hop.rsplit_once('.').is_some_and(|(module, name)| {
+                module == self.module && (!self.colon || name == self.name)
+            })
+        };
+        let module_import =
+            record.target_module() == self.module && (!self.colon || !record.symbols_known());
+        record.reexport_chain().iter().any(hop) || module_import
+    }
 }
