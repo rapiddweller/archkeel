@@ -20,6 +20,51 @@ fn has(source: &str, kind: &str) -> bool {
 }
 
 #[test]
+fn local_code_is_not_the_code_module() {
+    for source in [
+        "def f(code):\n    return code.value\n",
+        "def f():\n    code = 'x'\n    return code.replace('x', 'y')\n",
+        "def f(items):\n    for code in items: print(code)\n",
+        "def f(code):\n    return {'code': code}\n",
+        "pickle = obj.pickle\n",
+        "self.code.value\n",
+    ] {
+        assert!(kinds(source).is_empty(), "{source}: {:?}", kinds(source));
+    }
+    for source in [
+        "import code as c\nc.interact()\n",
+        "from code import interact as run\nrun()\n",
+        "import code\ndef f():\n    code.interact()\n",
+    ] {
+        assert!(has(source, DYNAMIC), "{source}");
+    }
+}
+
+#[test]
+fn code_received_from_an_unknown_object_is_a_named_limit() {
+    assert!(kinds("code = provider.code\ncode.interact()\n").is_empty());
+}
+
+#[test]
+fn imported_code_and_ambiguous_bindings_remain_gaps() {
+    for source in [
+        "def f():\n    import code as c\n    def g(): c.interact()\n",
+        "if flag:\n    import code\ncode.interact()\n",
+        "from package import *\ncode.interact()\n",
+        "import code\ndef f():\n    global code\n    code.interact()\n",
+        "import code\nx = code\nx.interact()\n",
+        "del code\ncode.interact()\n",
+        "class C:\n    code.interact()\n",
+        "import provider\nprovider.code.interact()\n",
+        "from provider import code as c\nc.interact()\n",
+        "getattr(importlib, 'import_module')\n",
+        "import sys\nsys.modules['x'] = value\n",
+    ] {
+        assert!(!kinds(source).is_empty(), "{source}");
+    }
+}
+
+#[test]
 fn an_alias_value_or_attribute_of_an_import_function_is_a_dynamic_import() {
     for source in [
         "import importlib\nimportlib.import_module(name)\n",
