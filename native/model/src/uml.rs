@@ -171,10 +171,15 @@ fn relationship(facts: &Facts<'_>, target: &Target, edge: &Relationship) -> Asse
     if !crate::scope::uml_run(facts.model, facts.read) {
         return Assessed::Unknown("imports relationship coverage".to_owned());
     }
+    let only_call = facts.has_call_edge(from.name(), to.name());
     Assessed::Fail(UmlDiff {
         subject: edge.id().as_text().to_owned(),
         fact: format!("{} -> {}", from.name(), to.name()),
-        cause: "declared import is absent",
+        cause: if only_call {
+            "declared import is only a call-form import"
+        } else {
+            "declared import is absent"
+        },
         evidence: vec![from.evidence().to_owned()],
     })
 }
