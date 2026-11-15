@@ -4,8 +4,6 @@
 """Tests for installing the Archkeel coding-agent skill."""
 
 import json
-import re
-import shlex
 import subprocess
 import sys
 import zipfile
@@ -13,7 +11,6 @@ from pathlib import Path
 
 import pytest
 
-from archkeel.cli.core_only import NotOnThisLine, parse
 from archkeel.cli.skill import install_skill
 
 ROOT = Path(__file__).parents[1]
@@ -78,15 +75,10 @@ def test_codex_install_is_idempotent(tmp_path: Path) -> None:
     assert agents.read_bytes() == first
 
 
-def test_codex_install_preserves_physical_review_threshold_guidance(tmp_path: Path) -> None:
+def test_codex_install_writes_the_whole_skill_and_the_skill_is_short(tmp_path: Path) -> None:
     body = ASSET.read_text(encoding="utf-8")
-    path = install_skill(tmp_path, "codex")
-    installed = path.read_text(encoding="utf-8")
-
-    assert "More than seven direct children triggers a review" in body
-    assert "Five to seven understandable groups is a review heuristic" in body
-    assert "do not hide the excess in `misc`, `utils`, single-child wrappers" in body
-    assert installed == body
+    assert install_skill(tmp_path, "codex").read_text(encoding="utf-8") == body
+    assert len(body.splitlines()) <= 100
 
 
 @pytest.mark.parametrize(
@@ -107,87 +99,35 @@ def test_codex_rejects_malformed_markers_before_writing(tmp_path: Path, markers:
     assert not (tmp_path / ".agents").exists()
 
 
-def test_skill_covers_interview_and_auto_mode() -> None:
-    """AD-16: the skill must name both onboarding modes, not just the interview."""
-    body = ASSET.read_text(encoding="utf-8")
-    assert "Interview mode" in body
-    assert "Auto mode" in body
-    assert 'decided_by: "architect"' in body
-    assert 'decided_by: "agent"' in body
-
-
-def test_skill_asks_why_on_a_deviation_from_its_recommendation() -> None:
-    """AD-16: interview mode asks why before writing a rule against its own recommendation."""
-    body = ASSET.read_text(encoding="utf-8")
-    assert "ask why before writing the rule" in body
-
-
-def test_explore_skill_starts_studio_for_an_agent() -> None:
-    """AD-290: the skill names the CLI probes, the start command and the stop command."""
-    body = (ROOT / EXPLORE_FILES[0]).read_text(encoding="utf-8")
-    assert body.startswith("---\nname: explore\ndescription: Use when the owner wants to see")
+@pytest.mark.parametrize(
+    ("name", "files"), [("explore", EXPLORE_FILES), ("explain-flow", FLOW_FILES)]
+)
+def test_a_shipped_note_skill_has_its_frontmatter_and_its_interface_keys(
+    name: str, files: tuple[str, str]
+) -> None:
+    body = (ROOT / files[0]).read_text(encoding="utf-8")
+    assert body.startswith(f"---\nname: {name}\ndescription: ")
+    assert body.split("\n---\n")[0].count("\n") == 2
     assert len(body.splitlines()) < 60
-    normalized_body = " ".join(body.split())
-    for text in (
-        "uvx archkeel studio --help",
-        "uvx --from git+https://github.com/rapiddweller/archkeel archkeel studio",
-        "studio --root <root> --no-open --idle-exit 60",
-        "studio --stop --root <root>",
-        "outside the sandbox",
-        "run_in_background",
-        "HttpOnly",
-        "SameSite=Strict",
-        "Do not put it in logs or public channels",
-        "Share it only with the owner",
-        "`--agent {claude,codex}`",
-        "Explore scope flags:",
-        "Studio chat option:",
-        "does not change scan scope",
-        "Same root, scope and agent",
-        "mismatch exits 2",
-        "starts stay blocked by its marker",
-        "verify no Studio/Explore for this root remains",
-    ):
-        assert text in normalized_body, text
     keys = [
         line.split(":")[0].strip()
-        for line in (ROOT / EXPLORE_FILES[1]).read_text(encoding="utf-8").splitlines()
+        for line in (ROOT / files[1]).read_text(encoding="utf-8").splitlines()
     ]
     assert keys == ["interface", "display_name", "short_description", "default_prompt"]
-    assert "`explore` skill" in (ROOT / "skills/archkeel/SKILL.md").read_text(encoding="utf-8")
 
 
-def test_explain_flow_skill_traces_chooses_writes_and_checks() -> None:
-    """AD-291: the skill names the trace, the 1.2.0 spec, the check and the claim rule."""
-    body = (ROOT / FLOW_FILES[0]).read_text(encoding="utf-8")
-    assert body.startswith("---\nname: explain-flow\ndescription: Use when the owner wants a flow")
-    assert len(body.splitlines()) < 60
-    for text in (
-        "archkeel story trace --from <function> --to <function>",
-        '"schema_version": "1.2.0"',
-        "archkeel view check story.json",
-        "archkeel view show story.json",
-        "Agent text is a claim, never a fact.",
-        "`claim: true`",
-        "the direction is your claim",
-        ".archkeel/stories/<id>.story.json",
-        "git rev-parse HEAD",
-        'author_kind: "agent"',
-        "author text, a claim",
-        "Without `--to`, trace resolved calls",
-        "With `--to`, the trace also searches paths with partial calls",
-        "`paths[].seams`",
-        "stored story is reviewed repository documentation",
-        "Leave unresolved steps `unknown` without `claim`",
-        "only for a deliberate",
-        "assertion between existing nodes",
-    ):
-        assert text.lower() in body.lower(), text
-    keys = [
-        line.split(":")[0].strip()
-        for line in (ROOT / FLOW_FILES[1]).read_text(encoding="utf-8").splitlines()
-    ]
-    assert keys == ["interface", "display_name", "short_description", "default_prompt"]
+def test_offline_schema_guidance_matches_installed_files() -> None:
+    """The local schema path is shipped in the distribution."""
+    from importlib.metadata import distribution
+
+    installed = distribution("archkeel")
+    schema = next(
+        path
+        for path in installed.files or ()
+        if str(path) == "archkeel/schema/view-spec.schema.json"
+    )
+    assert installed.locate_file(schema).is_file()
+    assert (ROOT / "schema/view-spec.schema.json").is_file()
 
 
 def test_plugin_package_uses_the_canonical_skill_and_refuses_overwrite(tmp_path: Path) -> None:
@@ -525,167 +465,3 @@ def test_plugin_release_zip_is_identical_when_local_time_changes(
         assert bundle.namelist() == sorted(package_plugin._plugin_files(None))
         assert all(entry.date_time == (1980, 1, 1, 0, 0, 0) for entry in bundle.infolist())
         assert all(entry.external_attr >> 16 == 0o100644 for entry in bundle.infolist())
-
-
-def _section(heading: str) -> str:
-    body = ASSET.read_text(encoding="utf-8")
-    start = body.find(f"## {heading}\n")
-    end = body.find("\n## ", start + 1)
-    return body[start:end] if start != -1 else ""
-
-
-def _flow_section() -> str:
-    return _section("Show a flow")
-
-
-def _commands(text: str, **values: str) -> list[list[str]]:
-    """Each `archkeel ...` command line in the text as argv; a placeholder gets its value or `x`."""
-    found = re.findall(r"`archkeel ([^`]+)`", text)
-    return [
-        shlex.split(re.sub(r"<([^>]+)>", lambda hole: values.get(hole.group(1), "x"), command))
-        for command in dict.fromkeys(found)
-    ]
-
-
-def _known_to_the_shell(argv: list[str]) -> bool:
-    """The shell serves the command line, or refuses it by name as not on this line (AD-432)."""
-    try:
-        parse(argv)
-    except NotOnThisLine:
-        return True
-    except ValueError:  # an unknown command or an unknown argument
-        return False
-    return True
-
-
-_FLOW_COMMANDS = _commands(_flow_section())
-_FIRST_RUN_STEPS = re.split(r"\n(?=\d+\. )", _section("First run on a codebase"))[1:]
-_ASK = '"Create a draft contract?"'
-
-
-def _ask_step() -> int:
-    """The number of the one step that asks the owner."""
-    asks = [n for n, step in enumerate(_FIRST_RUN_STEPS, start=1) if _ASK in step]
-    assert len(asks) == 1
-    return asks[0]
-
-
-def _writes(argv: list[str]) -> bool:
-    """A command that writes the draft contract, its page graph or its snapshot."""
-    return argv[0] == "init" or "--write-graph" in argv or argv[:2] == ["report", "--output"]
-
-
-def test_flow_section_teaches_the_whole_loop() -> None:
-    assert len(_FLOW_COMMANDS) >= 6
-    taught = {" ".join(argv[:2]) for argv in _FLOW_COMMANDS}
-    assert {"report --input", "view check", "view show"} <= taught
-    assert any(argv[0] == "explore" for argv in _FLOW_COMMANDS)
-
-
-@pytest.mark.parametrize(
-    "argv",
-    _commands(_flow_section() + _section("First run on a codebase"), language="typescript"),
-    ids=" ".join,
-)
-def test_each_skill_command_is_known_to_the_shell(argv: list[str]) -> None:
-    """#787: each command line of the flow and first-run sections is served or refused by name.
-
-    The shell never answers a taught command with "unknown command" or "unknown arguments".
-    """
-    assert _known_to_the_shell(argv), argv
-
-
-def test_the_shell_does_not_know_a_command_or_option_that_no_release_has() -> None:
-    assert not _known_to_the_shell(["explor"])
-    assert not _known_to_the_shell(["validate", "--write-gr"])
-    assert _known_to_the_shell(["validate", "--write-graph"])
-
-
-def test_first_run_asks_the_owner_before_any_command_writes_a_contract() -> None:
-    """The first run never creates a contract implicitly: only read-only commands come first."""
-    ask = _ask_step()
-    before = [argv for step in _FIRST_RUN_STEPS[: ask - 1] for argv in _commands(step)]
-    assert before and all(
-        argv[0] == "explore" or argv[:2] == ["report", "--input"] for argv in before
-    )
-    assert any(argv[0] == "init" for step in _FIRST_RUN_STEPS[ask:] for argv in _commands(step))
-
-
-def test_first_run_without_a_yes_skips_every_step_that_writes() -> None:
-    """Without a yes, the skipped steps hold each write; the views write only to the cache."""
-    assert all(step.startswith(f"{n}. ") for n, step in enumerate(_FIRST_RUN_STEPS, start=1))
-    ask = _ask_step()
-    skip = re.search(r"skip steps (\d+) to (\d+)", _FIRST_RUN_STEPS[ask])
-    assert skip is not None
-    skipped = range(int(skip.group(1)), int(skip.group(2)) + 1)
-    assert skipped.start > ask + 1
-    writing = {
-        n
-        for n, step in enumerate(_FIRST_RUN_STEPS, start=1)
-        for argv in _commands(step)
-        if _writes(argv)
-    }
-    taught = [argv for n in skipped for argv in _commands(_FIRST_RUN_STEPS[n - 1])]
-    assert writing <= set(skipped)
-    assert {"init", "validate", "report"} <= {argv[0] for argv in taught if _writes(argv)}
-    kept = [argv[:2] for step in _FIRST_RUN_STEPS[skipped.stop - 1 :] for argv in _commands(step)]
-    assert ["view", "check"] in kept and ["view", "show"] in kept
-    # The views write only to the user cache, so the step without a yes skips no view.
-    spans = re.findall(r"`([^`]+)`", _FIRST_RUN_STEPS[ask])
-    assert not any(span.startswith("view") for span in spans)
-
-
-def test_flow_section_states_the_proof_rules() -> None:
-    section = _flow_section()
-    assert '"claim": true' in section
-    assert "`unknown`" in section and "`missing`" in section
-    assert "not runtime order" in section
-    assert "except when you deliberately assert it" in section
-    assert "Keep an `unknown` step without `claim`" in section
-    assert "deliberately assert it" in section
-    assert "This specific exception does not allow other drafts or evidence in Git." in section
-    assert "`status` or `evidence`" in section
-    assert "not an execution trace" in section
-    assert "`target: unavailable`" in section
-    assert "one direct edge" in section and "opens at the flow" in section
-    assert "function nodes support calls only" in section
-    assert "A partial call is `claim`, not `unknown`." in section
-    assert "archkeel/schema/" in ASSET.read_text(encoding="utf-8")
-    # The same file serves Codex and Claude Code: name commands, not one agent's tools.
-    assert not re.search(r"\b(Read|Bash|Edit|Write) tool\b", section)
-
-
-def test_offline_schema_guidance_matches_installed_files() -> None:
-    """The local schema path is shipped in the distribution."""
-    from importlib.metadata import distribution
-
-    installed = distribution("archkeel")
-    schema = next(
-        path
-        for path in installed.files or ()
-        if str(path) == "archkeel/schema/view-spec.schema.json"
-    )
-    assert installed.locate_file(schema).is_file()
-    assert (ROOT / "schema/view-spec.schema.json").is_file()
-
-
-_SCOPE = ("--source", "--namespace", "--language", "--tsconfig")
-_NAMES = {name: f"<{name}>" for name in ("dir", "package", "language", "file")}
-
-
-def test_first_run_init_takes_the_scope_options_of_the_scoped_explore() -> None:
-    """#804: a TypeScript or Dart scope must reach `init`, or init uses the Python collector."""
-
-    def scope(argv: list[str]) -> dict[str, str]:
-        return {word: argv[n + 1] for n, word in enumerate(argv) if word in _SCOPE}
-
-    explore = [scope(argv) for argv in _commands(_flow_section(), **_NAMES) if argv[0] == "explore"]
-    init = [
-        scope(argv)
-        for step in _FIRST_RUN_STEPS
-        for argv in _commands(step, **_NAMES)
-        if argv[0] == "init"
-    ]
-    scoped = [options for options in explore if options]
-    assert len(init) == len(scoped) == 1 and "--language" in init[0]
-    assert init[0] == scoped[0]

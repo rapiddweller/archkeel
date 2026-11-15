@@ -1,59 +1,20 @@
 ---
 name: explore
-description: Use when the owner wants to see the codebase map in the browser ("show me the architecture", "open the explorer", "start Studio"), or to stop or reuse a running ArchKeel Studio.
+description: Not available on this development line. Use when the owner asks to open the codebase map or Studio, to say so and to offer the static report.
 ---
 
-# Explore the codebase in ArchKeel Studio
+# Explore the codebase
 
-ArchKeel Studio is a local web app. It runs `archkeel explore` on a repository and shows the
-measured map in the browser. It writes nothing into the repository.
+The `explore` command and Studio are not available on this development line: the shell refuses
+them with exit 2. No release has them. A new static overview of the core may return later.
 
-Agent text is a claim, not a proof. Say nothing about the architecture that Studio did not measure.
-For the first-run procedure (overview, flows, a draft contract), use the `archkeel` skill.
+Do not start Studio and do not run `explore`. A refusal is not a result.
 
-## 1. Find the CLI
+For a picture of the architecture today:
 
-Never assume that the installed CLI has the `studio` command. A PyPI release before 5.0 has no `studio`.
-Try these probes in order. Use the first one that exits 0. Call it `<archkeel>` below.
+1. Run `archkeel report --topology --output report.html` in the repository. It writes one static HTML
+   page from the Rust core. Add `--config PATH` when the contract is not `archkeel.toml`.
+2. Tell the owner the verdict of the run. UNKNOWN is not PASS.
+3. For the full report of release 4.0.1, use that release.
 
-1. `archkeel studio --help`
-2. `uvx archkeel studio --help`
-3. `uvx --from git+https://github.com/rapiddweller/archkeel archkeel studio --help`
-
-For probe 3, tell the owner: this install from GitHub is needed until 5.0 is on PyPI.
-
-## 2. Start or reuse the server
-
-Run this command. `<root>` is the repository root. Add the scope options only when needed.
-
-```bash
-<archkeel> studio --root <root> --no-open --idle-exit 60
-```
-
-- Claude Code: run it as a background Bash command (`run_in_background`). Read the URL from its output.
-- Codex: run it outside the sandbox. The server needs a local port.
-- Explore scope flags: `--language`, `--source`, `--namespace`, `--tsconfig`; match `explore`'s scope (TypeScript and Dart need language options).
-- Studio chat option: `--agent {claude,codex}`; this does not change scan scope.
-
-The first output line is `ArchKeel Studio: <URL>`. The URL token logs the browser in once.
-Studio then sets an `HttpOnly`, `SameSite=Strict` cookie; later requests need that cookie.
-Treat the URL as secret. Do not put it in logs or public channels. Share it only with the owner
-privately. Same root, scope and agent reuses the server; mismatch exits 2 without a second server.
-Stop first to change scope or agent.
-
-## 3. Give the owner the URL
-
-1. Give the full URL, with its token, as a link.
-2. Say that the page runs on this computer only.
-3. Say that the first explore run can take minutes on a large repository. The Overview shows the progress.
-4. Say that the server stops by itself after 60 minutes without a request.
-
-## 4. Stop it
-
-```bash
-<archkeel> studio --stop --root <root>
-```
-
-It prints `ArchKeel Studio: stopped.` or `ArchKeel Studio: not running.` Exit 1 means cleanup remains
-after 15 seconds; starts stay blocked by its marker. For a stale marker, verify no Studio/Explore
-for this root remains before removing the printed state file; PID reuse can keep markers alive.
+For the checks of this line, use the `archkeel` skill.

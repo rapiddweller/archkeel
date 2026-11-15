@@ -1,7 +1,7 @@
 # Golden replies
 
 Frozen replies of the source collectors ([AD-343](../../docs/architecture/decisions/ad-343-a-collector-reply-is-frozen-as-golden-data-before-its-code-is-deleted.md)).
-Each language has `cases.json`, one file for each case and `RECORDINGS.md`.
+Each language has `cases.json` and one file for each case. TypeScript also has `RECORDINGS.md`.
 
 Record a case again only with a reason:
 
@@ -14,13 +14,11 @@ with the native binary.
 
 ## Python
 
-The sources of the Python cases are in `fixtures/golden-python`. A Python case sets `phase`: `full` is the host sequence (providers, then collection), `providers` is the
-survey with the provider sources and `imports` is the survey of phase `imports`. It can also set `features` (`false` requests no gated feature) and
-`exclude_tests`.
+The Python directory holds `cases.json` and 14 recorded replies (`*.json.gz`). The sources of the cases are
+in `fixtures/golden-python`. A Python case sets `phase`: `full` is the host sequence (providers, then
+collection), `providers` is the survey with the provider sources and `imports` is the survey of phase
+`imports`. It can also set `features` (`false` requests no gated feature) and `exclude_tests`.
 
-The reply depends on the interpreter: the text of the standard library, the version and the
-built-in modules. `python/interpreter.json` names the interpreter of the recording and the parts
-that depend on it. On that interpreter the whole reply must be equal. On another interpreter the
-test compares the rest and warns with the parts that it did not compare. The deletion gate
-(`ARCHKEEL_GOLDEN_GATE=delete`) fails on another interpreter. Record all cases (`CASE=all`) with
-one interpreter: `uv run --python 3.11.12`.
+No test compares these replies on `main`: `tests/test_collector_golden_replies.py` runs TypeScript only,
+and `make golden-record` builds the TypeScript collector only. There is no `interpreter.json` and no
+`RECORDINGS.md` for Python. The files are the record of the Python collector before it was deleted.
