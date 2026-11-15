@@ -203,16 +203,18 @@ impl Builder {
         else {
             return false;
         };
-        if let Some(field) = &on_self.field {
+        let mut shared = on_self.kind == Some(SelfKind::Shared);
+        for field in &on_self.fields {
             let at = frame.lexical_at(&call.scope);
             let Some((target, name, kind)) =
                 field_type(index, module, &at, (&lexical, &ty, field), found)
             else {
                 return false;
             };
-            if kind == SelfKind::Unique && on_self.kind == Some(SelfKind::Shared) {
+            if kind == SelfKind::Unique && shared {
                 return false;
             }
+            shared |= kind == SelfKind::Shared;
             (lexical, ty) = (target, name);
             form = call.arity.map(|arity| (kind, arity));
         }

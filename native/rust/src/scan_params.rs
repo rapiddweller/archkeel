@@ -11,8 +11,7 @@
 //! binding is a refusal: a `let`, a pattern of a `match`, `if let`, `while let` or `for`, a
 //! parameter of a closure or of a nested `fn`, an item of that name, a `use` that may bind it,
 //! and a macro call whose tokens name it (a macro can bind a name that its call passes), except
-//! the macros of `std` that bind nothing. `matches!` still taints its tokens: a pattern can bind a
-//! name in its guard. A type that names a generic parameter of the `fn` or of
+//! the macros of `std` that bind nothing. A type that names a generic parameter of the `fn` or of
 //! the `impl` is generic, so it is not read. The resolution of the type, its exactness and the
 //! member are the checks of `impl_receivers.rs`.
 
@@ -125,6 +124,12 @@ impl Bound {
                 TokenTree::Ident(_) if matches!(trees.peek(), Some(TokenTree::Punct(p)) if p.as_char() == '!') => {
                     return true
                 }
+                TokenTree::Punct(p)
+                    if p.as_char() == '#'
+                        && matches!(trees.peek(), Some(TokenTree::Group(g)) if g.delimiter() == proc_macro2::Delimiter::Bracket) =>
+                {
+                    return true
+                }
                 _ => {}
             }
         }
@@ -170,9 +175,6 @@ impl<'ast> Visit<'ast> for Bound {
         let silent = name
             .as_deref()
             .is_some_and(|name| NO_BIND_MACROS.contains(&name));
-        if name.as_deref() == Some("matches") {
-            self.taint(node.tokens.clone());
-        }
         // A `macro_rules!` item defines a macro; it is no call.
         if !silent && name.as_deref() != Some("macro_rules") {
             self.nested_macro |= Self::has_macro(node.tokens.clone());
@@ -272,7 +274,7 @@ pub(super) fn read(
                 scope: scope.to_vec(),
                 kind: Some(kind),
                 macros: bound.macros.iter().cloned().collect(),
-                field: None,
+                fields: Vec::new(),
             };
             found.insert(
                 name,
@@ -325,6 +327,7 @@ fn read_locals(
             || !pattern.attrs.is_empty()
             || bound.counts.get(&name) != Some(&1)
             || bound.tainted.contains(&name)
+            || macro_hides_type(&path, bound)
             || first.is_some_and(|name| hidden.contains(name) || bound.counts.contains_key(name))
         {
             continue;
@@ -336,7 +339,7 @@ fn read_locals(
             scope: scope.to_vec(),
             kind: Some(kind),
             macros: bound.macros.iter().cloned().collect(),
-            field: None,
+            fields: Vec::new(),
         };
         found.insert(
             name,
@@ -349,6 +352,14 @@ fn read_locals(
     }
 }
 
+/// A macro can add a type or import in a function body without naming it at the call.
+fn macro_hides_type(path: &[String], bound: &Bound) -> bool {
+    !bound.macros.is_empty()
+        && path
+            .first()
+            .is_some_and(|first| !matches!(first.as_str(), "crate" | "self" | "super"))
+}
+
 /// The receiver sites inside one closure, without nested items, macros or closures.
 #[derive(Default)]
 struct ClosureSites(BTreeMap<String, BTreeSet<(usize, usize)>>);
@@ -357,7 +368,17 @@ impl<'ast> Visit<'ast> for ClosureSites {
     fn visit_item(&mut self, _: &'ast Item) {}
     fn visit_expr_closure(&mut self, _: &'ast syn::ExprClosure) {}
     fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
-        if let syn::Expr::Path(path) = &*node.receiver {
+        let mut receiver = &*node.receiver;
+        for _ in 0..2 {
+            let syn::Expr::Field(field) = receiver else {
+                break;
+            };
+            if !field.attrs.is_empty() || !matches!(field.member, syn::Member::Named(_)) {
+                break;
+            }
+            receiver = &field.base;
+        }
+        if let syn::Expr::Path(path) = receiver {
             let name = path
                 .path
                 .get_ident()
@@ -402,6 +423,7 @@ impl<'ast> Visit<'ast> for Closures<'_> {
                 || !param.attrs.is_empty()
                 || self.bound.counts.get(&name) != Some(&1)
                 || self.bound.tainted.contains(&name)
+                || macro_hides_type(&path, self.bound)
                 || path.first().is_some_and(|first| {
                     self.hidden.contains(first) || self.bound.counts.contains_key(first)
                 })
@@ -417,7 +439,7 @@ impl<'ast> Visit<'ast> for Closures<'_> {
                 scope: self.scope.to_vec(),
                 kind: Some(kind),
                 macros: self.bound.macros.iter().cloned().collect(),
-                field: None,
+                fields: Vec::new(),
             };
             self.found.insert(
                 name,

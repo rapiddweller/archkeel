@@ -77,6 +77,13 @@ PROVEN: dict[str, dict[str, str]] = {
         "pub fn f(s: &crate::c::S, v: Option<u8>) -> u8 {\n"
         "    let _ = matches!(v, Some(n) if n > 0);\n    s.m(1)\n}\n"
     ),
+    "matches names the receiver": _plant(
+        "pub fn f(s: &crate::c::S) -> u8 {\n    let _ = matches!(s, _);\n    s.m(1)\n}\n"
+    ),
+    "matches pattern binds the receiver name": _plant(
+        "pub fn f(s: &crate::c::S, v: Option<u8>) -> u8 {\n"
+        "    let _ = matches!(v, Some(s) if s > 0);\n    s.m(1)\n}\n"
+    ),
     "workspace macro without nested calls": _plant(
         "macro_rules! items { ($($t:tt)*) => { $($t)* }; }\n"
         "pub fn f(s: &crate::c::S) -> u8 {\n    items! { let _n = 1; }\n    s.m(1)\n}\n"
@@ -130,13 +137,6 @@ REFUSED: dict[str, dict[str, str]] = {
     ),
     "a call inside a macro": _plant(
         "pub fn f(s: &crate::c::S) -> u8 {\n    assert!(s.m(1) > 0);\n    1\n}\n"
-    ),
-    "matches names the receiver": _plant(
-        "pub fn f(s: &crate::c::S) -> u8 {\n    let _ = matches!(s, _);\n    s.m(1)\n}\n"
-    ),
-    "matches pattern binds the receiver name": _plant(
-        "pub fn f(s: &crate::c::S, v: Option<u8>) -> u8 {\n"
-        "    let _ = matches!(v, Some(s) if s > 0);\n    s.m(1)\n}\n"
     ),
     "matches guard shadows the receiver": _plant(
         "pub fn f(s: &crate::c::S, v: Option<&crate::c::S>) -> u8 {\n"
