@@ -77,6 +77,7 @@ mod script_index;
 mod script_keys;
 mod script_names;
 mod script_namespace;
+mod script_numeric;
 mod script_project;
 mod script_proof;
 mod script_publish;
