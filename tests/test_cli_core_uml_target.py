@@ -248,11 +248,14 @@ def test_a_uml_target_that_changes_after_the_core_read_it_is_refused(
 
 
 def test_the_python_uml_fixture_has_an_unknown_row_and_never_passes(tmp_path: Path) -> None:
-    """Release 4.0.1 passes this target with symbol facts; the core has none for Python (PR2)."""
+    """Release 4.0.1 passes this target. The core decides its 18 declarations (AD-514), and the
+    seven site relationships stay a named gap until the sites are written."""
     code, envelope = run("validate", "--root", str(_copy(tmp_path, "H-uml")))
     assert _rows(envelope) == {ROW: ["uml_target", "UNKNOWN"]}
-    assert "assessments cannot be decided" in envelope["frame"]["explained"][ROW]
-    assert "the python collector states no symbol facts" in envelope["frame"]["explained"][ROW]
+    explained = envelope["frame"]["explained"][ROW]
+    assert "10 assessments cannot be decided" in explained
+    assert "the python collector states no symbol sites" in explained
+    assert "states no symbol facts" not in explained
     assert envelope["gaps"] == []
     assert (code, envelope["status"], envelope["frame"]["status"]) == (2, "UNKNOWN", "UNKNOWN")
 
