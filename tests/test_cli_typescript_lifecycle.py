@@ -14,6 +14,7 @@ import json
 import re
 from pathlib import Path
 
+import pytest
 from corpus_support import commit_tree
 from test_cli_native_python_imports import verdict
 
@@ -89,6 +90,23 @@ def codes(result: dict[str, object]) -> set[str]:
     rows = result["frame"]["unsupported"]["rules"]  # type: ignore[index]
     found = {re.match(r"hygiene:(interface\.\w+):", name) for name in rows}
     return {match.group(1) for match in found if match}
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("import { t } from '../b/missing';\nexport const used = t;\n", "UNKNOWN"),
+        ("export const load = (name: string) => import(name);\n", "UNKNOWN"),
+        ("export const alone = 1;\n", "PASS"),
+    ],
+)
+def test_requires_with_typescript_import_limits(
+    release_core: Path, tmp_path: Path, source: str, expected: str
+) -> None:
+    result = verdict(release_core, tree(tmp_path, source))
+    assert result["frame"]["rules"]["REQUIRES"][1] == expected
+    if expected == "UNKNOWN":
+        assert result["frame"]["explained"]["REQUIRES"]
 
 
 def test_a_symbol_entry_that_an_import_uses_gives_no_lifecycle_finding(

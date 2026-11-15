@@ -78,7 +78,12 @@ fn a_coverage_gap_follows_the_runtime_too() {
     let fact = Some(Reason::Incomplete(Incomplete::CoverageGaps(1)));
     assert_eq!(requires(&found), ("UNKNOWN".to_owned(), fact));
     let proved = run(unchanged, both(proving, coverage_gap), rooted()).unwrap_or_else(failed);
-    assert_eq!(requires(&proved), ("UNKNOWN".to_owned(), part()));
+    let (status, reason) = requires(&proved);
+    assert_eq!(status, "UNKNOWN");
+    assert_eq!(
+        reason.map(|value| value.to_string()).as_deref(),
+        Some("incomplete scope: the core cannot prove the dependency scope with a coverage gap")
+    );
 }
 
 #[test]
