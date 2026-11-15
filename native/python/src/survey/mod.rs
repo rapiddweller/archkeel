@@ -33,6 +33,7 @@ pub(crate) mod bound;
 mod declared;
 mod excluded;
 mod failures;
+mod globals_read;
 mod guard;
 mod hazards;
 mod imports;

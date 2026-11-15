@@ -18,16 +18,19 @@
 //!   the base of an attribute, is a dynamic import too: `getattr(sys, "path")` and `x = importlib`
 //!   reach any name of it. An attribute `sys`, `builtins` or `importlib` of any value is the same.
 //!
-//! The walk finds names, not bindings: a local value with one of these names is a site too,
-//! which is the stricter reading.
+//! The walk finds names. A name that a function binds as a parameter or a local, and that no
+//! import binds, is a local value and no door (AD-530). `getattr(module, "name")` with a literal
+//! name reads the one attribute `module.name`. A read of `__globals__` that only a lookup of a
+//! literal key reads is no site (`globals_read.rs`).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{Expr, ExprContext, ModModule, Stmt};
+use ruff_python_ast::{Expr, ExprContext, ModModule, Stmt, StmtFunctionDef};
 use ruff_text_size::{Ranged, TextRange};
 
 use super::binders::Binders;
+use super::globals_read;
 use super::literal::{self, Proof};
 use crate::module::Module;
 
@@ -125,11 +128,13 @@ pub(super) struct Site {
 }
 
 /// The sites of a module, in source order.
-pub(super) fn sites(tree: &ModModule, proof: Proof) -> Vec<Site> {
+pub(super) fn sites(tree: &ModModule, proof: Proof, inert: &HashSet<TextRange>) -> Vec<Site> {
     let mut walk = Walk {
         found: Vec::new(),
         bound: bindings(tree),
         proof,
+        inert,
+        locals: Vec::new(),
     };
     walk.visit_body(&tree.body);
     walk.found
@@ -245,13 +250,17 @@ fn imported(stmt: &Stmt) -> Vec<String> {
     }
 }
 
-struct Walk {
+struct Walk<'i> {
     found: Vec<Site>,
     bound: HashMap<String, Vec<String>>,
     proof: Proof,
+    /// The sources of `__globals__` that are inert (`globals_read.rs`).
+    inert: &'i HashSet<TextRange>,
+    /// The names that each enclosing function binds, the innermost last.
+    locals: Vec<HashSet<String>>,
 }
 
-impl Walk {
+impl Walk<'_> {
     fn push(&mut self, kind: &'static str, detail: &str, node: &impl Ranged) {
         self.found.push(Site {
             kind,
@@ -268,8 +277,16 @@ impl Walk {
             .unwrap_or_else(|| vec![name.to_owned()])
     }
 
+    /// True when a function binds `id` and no import binds it: a local value, no door (AD-530).
+    fn local(&self, id: &str) -> bool {
+        !self.bound.contains_key(id) && self.locals.iter().any(|names| names.contains(id))
+    }
+
     /// A plain name that is not the base of an attribute.
     fn name(&mut self, id: &str, expr: &Expr) {
+        if self.local(id) {
+            return;
+        }
         if BUILTIN_DOORS.contains(&id) || IMPORT_FUNCTIONS.contains(&id) {
             return self.push(DYNAMIC, id, expr);
         }
@@ -287,15 +304,22 @@ impl Walk {
     /// the value of the whole chain.
     fn chain(&mut self, expr: &Expr) {
         let mut attributes = Vec::new();
+        let mut ranges = Vec::new();
         let mut base = expr;
         while let Expr::Attribute(node) = base {
             attributes.push(node.attr.as_str());
+            ranges.push(node.range());
             base = &node.value;
         }
         attributes.reverse();
-        if let Some(name) = attributes.iter().find(|a| {
-            ANY_ATTRIBUTE.contains(a) || IMPORT_FUNCTIONS.contains(a) || **a == "__path__"
-        }) {
+        ranges.reverse();
+        let reads = |at: usize, a: &str| a == "__globals__" && self.inert.contains(&ranges[at]);
+        let hazard_at = attributes.iter().enumerate().find(|(at, a)| {
+            let named =
+                ANY_ATTRIBUTE.contains(a) || IMPORT_FUNCTIONS.contains(a) || **a == "__path__";
+            named && !reads(*at, a)
+        });
+        if let Some((_, name)) = hazard_at {
             let state = ["meta_path", "path_hooks", "path_importer_cache", "__path__"];
             let kind = if state.contains(name) {
                 IMPORT_SYSTEM
@@ -310,6 +334,9 @@ impl Walk {
             return self.visit_expr(base);
         };
         let id = root.id.as_str();
+        if self.local(id) {
+            return;
+        }
         if BUILTIN_DOORS.contains(&id) || IMPORT_FUNCTIONS.contains(&id) {
             return self.push(DYNAMIC, id, expr);
         }
@@ -327,6 +354,48 @@ impl Walk {
             }
         }
     }
+}
+
+impl Walk<'_> {
+    /// `getattr(name, "attr")` and `getattr(name, "attr", default)` with a literal attribute that
+    /// is no door string read the one attribute `name.attr` (AD-530). The site is that attribute's
+    /// hazard, if it has one; the module `name` is not read as a value. Any other form is read as
+    /// before.
+    fn literal_getattr(&mut self, call: &ruff_python_ast::ExprCall) -> bool {
+        let args = &call.arguments.args;
+        let named = matches!(&*call.func, Expr::Name(f) if f.id.as_str() == "getattr");
+        let (Some(Expr::Name(root)), Some(Expr::StringLiteral(attr))) = (args.first(), args.get(1))
+        else {
+            return false;
+        };
+        let literal = !DOOR_STRINGS.contains(&attr.value.to_str());
+        if !(named
+            && literal
+            && (2..=3).contains(&args.len())
+            && call.arguments.keywords.is_empty())
+            || self.local("getattr")
+            || self.bound.contains_key("getattr")
+        {
+            return false;
+        }
+        let id = root.id.as_str();
+        if !self.local(id) {
+            let first = |origin: String| first_hazard(origin, &[attr.value.to_str()]);
+            let found = self.origins(id).into_iter().find_map(first);
+            if let Some((kind, name)) = found {
+                self.push(kind, &name, call);
+            }
+        }
+        args.iter().skip(2).for_each(|item| self.visit_expr(item));
+        true
+    }
+}
+
+/// The names that a function binds: its parameters and its writes, not the names of a nested
+/// scope and not a comprehension variable (AD-530). A name that a `global` or `nonlocal` line
+/// names is not local.
+fn bound_in(def: &StmtFunctionDef) -> HashSet<String> {
+    super::globals_read::local_names(def)
 }
 
 /// The first hazard on the names `origin`, `origin.a`, `origin.a.b`, ..., or a module above a
@@ -347,12 +416,24 @@ fn store(expr: &Expr) -> bool {
     matches!(expr, Expr::Attribute(node) if node.ctx != ExprContext::Load)
 }
 
-impl<'a> Visitor<'a> for Walk {
+impl<'a> Visitor<'a> for Walk<'_> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
         for name in imported(stmt) {
             if let Some(kind) = hazard(&name) {
                 self.push(kind, &name, stmt);
             }
+        }
+        if let Stmt::FunctionDef(def) = stmt {
+            // The decorators, the defaults and the annotations run in the enclosing scope.
+            def.decorator_list
+                .iter()
+                .for_each(|item| self.visit_decorator(item));
+            self.visit_parameters(&def.parameters);
+            def.returns.iter().for_each(|item| self.visit_expr(item));
+            self.locals.push(bound_in(def));
+            self.visit_body(&def.body);
+            self.locals.pop();
+            return;
         }
         visitor::walk_stmt(self, stmt);
     }
@@ -363,6 +444,7 @@ impl<'a> Visitor<'a> for Walk {
             // string literal, so nothing below the call is left to read.
             Expr::Call(call) => match self.proof.target(call) {
                 Some(target) => self.push(LITERAL, &target, expr),
+                None if self.literal_getattr(call) => {}
                 None => {
                     // `vars()` without an argument is the namespace of the caller.
                     let bare = matches!(&*call.func, Expr::Name(f) if f.id.as_str() == "vars");
@@ -373,7 +455,10 @@ impl<'a> Visitor<'a> for Walk {
                 }
             },
             Expr::Attribute(_) => self.chain(expr),
-            Expr::StringLiteral(node) if DOOR_STRINGS.contains(&node.value.to_str()) => {
+            Expr::StringLiteral(node)
+                if DOOR_STRINGS.contains(&node.value.to_str())
+                    && !self.inert.contains(&node.range()) =>
+            {
                 self.push(DYNAMIC, node.value.to_str(), expr);
             }
             Expr::Name(node) if node.id.as_str() == "__path__" => {
@@ -397,9 +482,10 @@ pub(super) type Split = (Vec<(usize, TextRange, String)>, Vec<(usize, Site)>);
 
 pub(super) fn split(modules: &[Module], binders: &[Binders]) -> Split {
     let (mut literals, mut found) = (Vec::new(), Vec::new());
+    let inert = globals_read::inert_reads(modules);
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
         let proof = literal::Proof::of(&module.tree, binders);
-        for site in sites(&module.tree, proof) {
+        for site in sites(&module.tree, proof, &inert[index]) {
             match site.kind {
                 LITERAL => literals.push((index, site.range, site.detail)),
                 _ => found.push((index, site)),

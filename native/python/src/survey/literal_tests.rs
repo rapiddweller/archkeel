@@ -13,7 +13,7 @@ use super::*;
 fn found(source: &str) -> Vec<(&'static str, String)> {
     let tree = crate::test_tree(source, 14).expect("valid probe");
     let proof = Proof::of(&tree, &Binders::of(&tree));
-    sites(&tree, proof)
+    sites(&tree, proof, &std::collections::HashSet::new())
         .into_iter()
         .map(|site| (site.kind, site.detail))
         .collect()
