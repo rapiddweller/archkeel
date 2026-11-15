@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The `globals()` writes of the function `__getattr__` (AD-558): `globals()[key] = value` and the
+//! The `globals()` writes of the function `__getattr__` (AD-560): `globals()[key] = value` and the
 //! same through a local that is bound only to `globals()`, when the key is an atom.
 
 use std::collections::{HashMap, HashSet};

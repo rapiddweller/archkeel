@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The table of a lazy import module (AD-558): a module-level name bound once to a dict literal
+//! The table of a lazy import module (AD-560): a module-level name bound once to a dict literal
 //! that has string keys and tuple values, and that the module only reads.
 //!
 //! A tuple item is a string literal or the package of the file (`__spec__.parent`,

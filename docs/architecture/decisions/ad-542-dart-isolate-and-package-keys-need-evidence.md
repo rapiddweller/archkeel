@@ -2,7 +2,7 @@
 
 **Status.** Proposed. Part of #880. Amends AD-454 and AD-500.
 
-**Amended by AD-550.** Selected loader and mirror identifiers give gaps without a direct SDK edge.
+**Amended by AD-562.** Selected loader and mirror identifiers give gaps without a direct SDK edge.
 
 **Decision.** The Dart survey reads the identifiers of every selected source. A `dart:isolate`
 edge gives `DartIsolate` when any selected source has an identifier `spawnUri`, or a directive

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The lazy import module (AD-558): a module-level `__getattr__` that imports the module of a
+//! The lazy import module (AD-560): a module-level `__getattr__` that imports the module of a
 //! table by `import_module`, as `pydantic/__init__.py` does.
 //!
 //! The table (`lazy_table.rs`) and the function (`lazy_flow.rs`) bound each argument of each call
