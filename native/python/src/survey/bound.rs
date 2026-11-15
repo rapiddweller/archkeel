@@ -38,6 +38,8 @@ pub(super) enum Kind {
     Callable,
     /// A display or literal makes a value, not a module.
     Value,
+    /// A subscript of a builtin generic, if the module does not bind that builtin.
+    BuiltinGeneric(&'static str),
     /// An import: the name is whatever the imported name is.
     Import,
     /// Any other binder: the value is unknown.
@@ -92,6 +94,10 @@ impl Bound {
     pub(super) fn names(&self) -> HashSet<String> {
         let sites = self.sites.keys().cloned();
         sites.chain(self.globals.iter().cloned()).collect()
+    }
+
+    pub(super) fn unbound(&self, name: &str) -> bool {
+        !self.opaque && !self.globals.contains(name) && !self.sites.contains_key(name)
     }
 
     /// The names that only the statement at `start` binds (`from . import name`, AD-53).
@@ -274,6 +280,22 @@ impl<'a> Visitor<'a> for Walk {
 }
 
 fn value_kind(value: &Expr) -> Kind {
+    if let Expr::Subscript(subscript) = value {
+        if let Expr::Name(name) = &*subscript.value {
+            let builtin = match name.id.as_str() {
+                "list" => Some("list"),
+                "dict" => Some("dict"),
+                "tuple" => Some("tuple"),
+                "set" => Some("set"),
+                "frozenset" => Some("frozenset"),
+                "type" => Some("type"),
+                _ => None,
+            };
+            if let Some(builtin) = builtin {
+                return Kind::BuiltinGeneric(builtin);
+            }
+        }
+    }
     if matches!(
         value,
         Expr::NumberLiteral(_)

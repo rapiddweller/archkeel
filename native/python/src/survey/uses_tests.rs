@@ -213,3 +213,30 @@ fn a_type_statement_makes_a_type_alias_not_a_module() {
     ]);
     assert!(!found.opaque_surface.contains("app.lib"));
 }
+
+#[test]
+fn builtin_generic_aliases_are_values_only_when_the_builtin_is_unbound() {
+    for (source, escaped) in [
+        ("VALUE = list[int]\n", false),
+        (
+            "from typing import TypeAlias\nVALUE: TypeAlias = dict[str, int]\n",
+            false,
+        ),
+        ("list = factory()\nVALUE = list[int]\n", true),
+        ("VALUE = custom[int]\n", true),
+    ] {
+        let found = surveyed(&[
+            ("src/app/__init__.py", ""),
+            ("src/app/lib.py", source),
+            (
+                "src/app/writer.py",
+                "from app.lib import VALUE\nuse(VALUE)\n",
+            ),
+        ]);
+        assert_eq!(
+            found.opaque_surface.contains("app.lib"),
+            escaped,
+            "{source}"
+        );
+    }
+}

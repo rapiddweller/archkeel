@@ -8,6 +8,8 @@ Accepted for the Python import survey. This decision refines AD-504.
 
 A plain literal or display creates a value that is not a module object.
 The `type` statement also creates a type alias object, not a module.
+Subscripts of the builtin generic types create generic aliases, not modules.
+The survey requires the generic name to have no module-level binding.
 The survey can use that fact when an imported name is used as a value.
 The binding must be the only plain module-level binding of that name.
 The survey follows a unique plain re-import to its origin, with a depth limit.
@@ -16,6 +18,7 @@ A star import, `__getattr__`, a namespace hazard or an attribute write blocks th
 A scanned submodule with the same name also blocks the proof.
 Calls and other expressions remain unknown. The survey keeps their escape.
 An annotation of `TypeAlias` alone does not prove the value kind.
+Other subscript heads can return a module and remain unknown.
 The survey does not use an origin outside the scan as proof.
 
 ## Reason

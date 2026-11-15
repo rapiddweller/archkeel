@@ -67,6 +67,7 @@ impl Scan<'_> {
         };
         match bound.kind(name) {
             Some(Kind::Callable | Kind::Value) => true,
+            Some(Kind::BuiltinGeneric(builtin)) => bound.unbound(builtin),
             Some(Kind::Import) => match self.imports.get(&(module, name)).map(Vec::as_slice) {
                 Some([(target, Some(symbol))]) => self.callable(target, symbol, depth + 1),
                 _ => false,
