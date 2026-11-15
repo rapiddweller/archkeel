@@ -32,7 +32,7 @@ pub(crate) fn read<'t>(
 ) -> (Script, Vec<Span>) {
     let mut tree = Tree::from_layout(cx, root, layout);
     let nodes = Rc::clone(&tree.nodes);
-    tree.bind(&nodes, &syntax.import_bindings, syntax.module_file);
+    tree.bind_names(&nodes, &syntax.import_bindings, syntax.module_file);
     let module_syntax = syntax.module_syntax;
     let producer = Producer::new(
         &tree,

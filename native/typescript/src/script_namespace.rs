@@ -108,7 +108,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             };
             if tree.k(name) != K::Identifier
                 || tree.field(*variable, F::Value).is_some()
-                || tree.count(tree.root, &tree.text(name)) != 1
+                || tree.binding_count(tree.root, &tree.text(name)) != 1
             {
                 continue;
             }
