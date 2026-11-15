@@ -4,8 +4,10 @@
 
 //! Scope selection and the precedence of call and construction resolutions.
 
+use super::builder::Builder;
 use super::types::{BindingKind, Construction, ConstructionData, Resolution, ResolvedSite};
-use super::{decl, Builder, Stop};
+use crate::declarations::types as decl;
+use crate::declarations::work::Stop;
 use crate::syntax::{Site, SiteKind};
 use archkeel_facts::vocab::Status;
 use std::collections::BTreeSet;

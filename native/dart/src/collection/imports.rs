@@ -4,8 +4,10 @@
 
 //! Import records and base declarations from closed, typed resolver answers.
 
+use super::builder::{fact, id, package, Builder};
 use super::types::{DirectiveTarget, ImportData, RecordKind, Source};
-use super::{decl, fact, id, package, Builder, Stop};
+use crate::declarations::types as decl;
+use crate::declarations::work::Stop;
 use crate::syntax::{
     Combinator, Definition, DefinitionKind, Directive, DirectiveKind, Span, Visibility,
 };

@@ -4,8 +4,10 @@
 
 //! Binding, call and reference records. Bindings precede all uses in a file.
 
+use super::builder::{expression, fact, id, Builder};
 use super::types::{RecordKind, ResolvedSite, ResultBinding, SiteData, Source};
-use super::{decl, expression, fact, id, Builder, Stop};
+use crate::declarations::types as decl;
+use crate::declarations::work::Stop;
 use crate::syntax::{Site, SiteKind, SiteUse, Visibility};
 use archkeel_facts::identity::Part;
 use archkeel_facts::ids::EvidenceId;
