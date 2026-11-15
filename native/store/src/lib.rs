@@ -18,23 +18,15 @@
 #![deny(unreachable_pub)]
 
 mod bindings;
-mod canonical;
 mod dart;
 mod decode;
 mod features;
-mod inventory;
-mod pyjson;
-mod pyrepr;
 mod python;
 mod record_identity;
 mod records;
 mod registered;
-mod seam;
-pub mod session;
-mod shell;
 mod standard;
 mod stored;
-mod texts;
 mod validate;
 mod view;
 
@@ -45,7 +37,6 @@ mod construct_tests;
 mod construct_consistency_tests;
 
 use archkeel_facts::Section;
-use serde::Deserialize;
 
 pub use crate::standard::{sdk_libraries, standard_library, standard_library_everywhere};
 use crate::stored::Store;
@@ -85,91 +76,6 @@ fn validated(reply: archkeel_facts::envelope::Reply) -> Result<Store, String> {
     validate::invariants(&reply.facts)?;
     let names: Vec<&str> = reply.facts.sections.iter().map(Section::name).collect();
     validate::envelope(&reply.facts, &names)?;
-    let places = records::records(&reply.facts, &validate::index(&reply.facts))?;
-    Ok(Store::new(reply, places))
-}
-
-/// A bound item: the id of a stored entry, or the Python `repr` of an entry of the shell.
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum Bound {
-    Stored(String),
-    Written { repr: String },
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Binding {
-    records: Vec<Bound>,
-    evidence: Vec<Bound>,
-}
-
-/// The receipt digest of a dependency proof. The shell gives the items in sorted order.
-fn bind(request: &[u8], store: &Store) -> Result<String, String> {
-    let binding: Binding = serde_json::from_slice(request).map_err(|error| error.to_string())?;
-    let records = binding
-        .records
-        .into_iter()
-        .map(|item| match item {
-            Bound::Stored(id) => pyrepr::record(&store.saved(&id)?),
-            Bound::Written { repr } => Ok(repr),
-        })
-        .collect::<Result<Vec<_>, String>>()?;
-    let evidence = binding
-        .evidence
-        .into_iter()
-        .map(|item| match item {
-            Bound::Stored(id) => Ok(pyrepr::evidence(store.evidence(&id)?)),
-            Bound::Written { repr } => Ok(repr),
-        })
-        .collect::<Result<Vec<_>, String>>()?;
-    Ok(pyrepr::binding_id(&records, &evidence))
-}
-
-/// The binding digest of a member inventory proof.
-fn digest(request: &[u8], store: &Store) -> Result<String, String> {
-    let value = serde_json::from_slice(request).map_err(|error| error.to_string())?;
-    inventory::digest(value, store)
-}
-
-/// Bytes that a writer counts and drops: a frame is written once to count its length.
-pub(crate) struct Count(pub(crate) u64);
-
-impl std::io::Write for Count {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        self.0 += bytes.len() as u64;
-        Ok(bytes.len())
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
-/// The error of a frame that the stream ends before its length; it gets no answer.
-pub(crate) fn truncated() -> std::io::Error {
-    std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "frame truncated")
-}
-
-/// Write the canonical `architecture.json` of the parts of the shell as one answer frame. It is
-/// written twice, once to count its length for the frame header, and is never held. An error
-/// before the header is the answer; an error after it ends the session. A frame that the stream
-/// ends before its length gets no answer and ends the session.
-fn write(
-    request: &mut std::io::Take<impl std::io::Read>,
-    store: &Store,
-    output: &mut impl std::io::Write,
-) -> Result<std::io::Result<()>, String> {
-    let (shell, model) = shell::frame(&mut *request, &canonical::CLASSIFIED_SECTIONS)?;
-    if request.limit() > 0 {
-        return Ok(Err(truncated()));
-    }
-    let prepared = canonical::prepare(model, &shell, store)?;
-    let mut count = Count(0);
-    prepared.write_to(&mut count)?;
-    Ok((|| {
-        output.write_all(b"O")?;
-        output.write_all(&count.0.to_be_bytes())?;
-        prepared.write_to(output).map_err(std::io::Error::other)?;
-        output.flush()
-    })())
+    records::records(&reply.facts, &validate::index(&reply.facts))?;
+    Ok(Store::new(reply))
 }

@@ -14,10 +14,10 @@ use archkeel_facts::ids::EvidenceId;
 use archkeel_facts::vocab::Status;
 use archkeel_facts::{FactData, Record, Section};
 
-use crate::pyrepr::stable_id;
 use crate::stored::{visit, Visitor};
 use crate::validate::unique;
 use crate::view::View;
+use sha2::{Digest, Sha256};
 
 /// `in_scope` of `ir/facts.py`: a qualified name inside a dotted prefix.
 fn in_scope(name: &str, scope: &str) -> bool {
@@ -298,4 +298,11 @@ impl<'a> Modules<'a> {
         }
         Ok(())
     }
+}
+
+/// `stable_id(prefix, part)` of the runtime effect ids that a collector writes, for one part.
+fn stable_id(prefix: &str, part: &str) -> String {
+    let digest = Sha256::digest(part.as_bytes());
+    let hex: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
+    format!("{prefix}-{}", &hex[..16])
 }
