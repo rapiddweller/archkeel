@@ -47,6 +47,7 @@ mod stable;
 mod syspath;
 mod targets;
 mod uses;
+mod uses_scan;
 mod walks;
 
 pub(crate) struct Survey {
