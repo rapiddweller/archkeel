@@ -76,7 +76,7 @@ impl Excluded {
         for name in &directories {
             let rel = join(directory, name);
             self.directory(snapshot, &rel, namespace);
-            if !snapshot.is_link(&rel) {
+            if !Snapshot::is_link(snapshot, &rel) {
                 pending.push(rel);
             }
         }

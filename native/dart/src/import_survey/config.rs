@@ -29,10 +29,13 @@ pub(crate) fn config_gaps(
     own: &str,
     gaps: &mut Gaps,
 ) -> Option<Input> {
-    if !snapshot.is_link(CONFIG) && !snapshot.is_file(CONFIG) && !snapshot.is_link(".dart_tool") {
+    if !Snapshot::is_link(snapshot, CONFIG)
+        && !snapshot.is_file(CONFIG)
+        && !Snapshot::is_link(snapshot, ".dart_tool")
+    {
         return None;
     }
-    let raw = (!snapshot.is_link(CONFIG) && !snapshot.is_link(".dart_tool"))
+    let raw = (!Snapshot::is_link(snapshot, CONFIG) && !Snapshot::is_link(snapshot, ".dart_tool"))
         .then(|| snapshot.read(CONFIG))
         .flatten();
     let Some(raw) = raw else {
