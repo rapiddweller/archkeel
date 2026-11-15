@@ -24,6 +24,113 @@ fn has(source: &str, kind: &str) -> bool {
 }
 
 #[test]
+fn only_stable_direct_inert_attribute_loads_lose_their_extra_gap() {
+    for (source, import) in [
+        (
+            "import pickle\nraise pickle.UnpicklingError('bad')\n",
+            "pickle",
+        ),
+        (
+            "import pickle as p\ndef f():\n    raise p.UnpicklingError('bad')\n",
+            "pickle",
+        ),
+        ("import pickle\nraise pickle.PickleError('bad')\n", "pickle"),
+        ("import pickle\nx = pickle.HIGHEST_PROTOCOL\n", "pickle"),
+        (
+            "import importlib.metadata as m\nx = m.PackageNotFoundError\n",
+            "importlib.metadata",
+        ),
+        (
+            "import importlib.abc as a\nx = a.Traversable\n",
+            "importlib.abc",
+        ),
+    ] {
+        let tree = crate::test_tree(source, 14).expect("valid probe");
+        let found = sites(&tree, Proof::default(), &Binders::of(&tree));
+        assert!(found.iter().any(|site| site.detail == import), "{source}");
+        assert_eq!(
+            found.iter().filter(|site| site.kind == DYNAMIC).count(),
+            1,
+            "{source}"
+        );
+    }
+    for source in [
+        "import pickle\ndef f(pickle): return pickle.UnpicklingError\n",
+        "import pickle\npickle = other\npickle.UnpicklingError\n",
+        "if flag:\n    import pickle\npickle.UnpicklingError\n",
+        "import pickle\nfrom elsewhere import *\npickle.UnpicklingError\n",
+        "import pickle\npickle.UnpicklingError = other\n",
+        "import pickle\npickle.UnpicklingError = other\npickle.UnpicklingError()\n",
+        "import pickle\npickle.UnpicklingError.__subclasses__()\n",
+        "import pickle\npickle.Unpickler\n",
+        "import pickle\npickle.loads(data)\n",
+    ] {
+        let tree = crate::test_tree(source, 14).expect("valid probe");
+        let found = sites(&tree, Proof::default(), &Binders::of(&tree));
+        assert!(found.len() >= 2, "{source}");
+    }
+}
+
+#[test]
+fn the_other_ce_dynamic_import_forms_keep_their_named_gap() {
+    for (source, detail) in [
+        ("import pickle\n", "pickle"),
+        ("import pickle\npickle.Unpickler\n", "pickle.Unpickler"),
+        ("import pickle\npickle.dumps(data)\n", "pickle.dumps"),
+        ("import dill\n", "dill"),
+        ("import dill\ndill.settings\n", "dill.settings"),
+        ("import dill\ndill.Pickler\n", "dill.Pickler"),
+        ("import dill\ndill.Unpickler\n", "dill.Unpickler"),
+        ("from importlib import metadata\n", "importlib.metadata"),
+        (
+            "from importlib.resources import files\n",
+            "importlib.resources.files",
+        ),
+        (
+            "from importlib.abc import Traversable\n",
+            "importlib.abc.Traversable",
+        ),
+        ("'__builtins__'\n", "__builtins__"),
+        ("'__globals__'\n", "__globals__"),
+        ("'__import__'\n", "__import__"),
+        ("'__loader__'\n", "__loader__"),
+        ("'__self__'\n", "__self__"),
+        ("'__subclasses__'\n", "__subclasses__"),
+        ("eval(text)\n", "eval"),
+        ("exec(text)\n", "exec"),
+    ] {
+        let tree = crate::test_tree(source, 14).expect("valid probe");
+        let found = sites(&tree, Proof::default(), &Binders::of(&tree));
+        assert!(
+            found
+                .iter()
+                .any(|site| site.kind == DYNAMIC && site.detail == detail),
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn the_survey_keeps_the_pickle_import_gap_after_the_exception_read() {
+    use crate::survey::targets::tests::{reasons, surveyed};
+
+    let found = surveyed(&[
+        ("src/app/__init__.py", ""),
+        (
+            "src/app/client.py",
+            "import pickle\nraise pickle.UnpicklingError('bad')\n",
+        ),
+    ]);
+    let reasons = reasons(&found);
+    assert!(reasons
+        .iter()
+        .any(|reason| reason == "dynamic_import: pickle"));
+    assert!(!reasons
+        .iter()
+        .any(|reason| reason == "dynamic_import: pickle.UnpicklingError"));
+}
+
+#[test]
 fn literal_hazard_import_keeps_both_edge_and_gap() {
     for source in [
         "code = __import__('code')\n",
