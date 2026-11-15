@@ -9,7 +9,8 @@ the crate root binds the trait `T` of `b` and `a` reads it through `use super::*
 `a` when `mod b;` is deleted (E0599), so the edge `a -> b` is real.
 
 - A path `crate::c::S::m()` names the method exactly: the edge `a -> b` is a fact (FAIL).
-- A method call `s.m()` does not tell the type of `s`: the collector writes a gap for the pair
+- A method call `s.m()` whose receiver the scan cannot prove (here `let s = s;` binds it twice,
+  AD-524) does not tell the type of `s`: the collector writes a gap for the pair
   `a -> b` (UNKNOWN). The core drops that gap when the contract lets `a` use `b` (PASS).
 - A private member is visible only in `b` and below: no gap.
 """
@@ -50,7 +51,7 @@ IMPL_METHOD = {
     "lib.rs": LIB,
     "c.rs": TYPE,
     "b.rs": "impl crate::c::S {\n    pub fn m(&self) {}\n}\n",
-    "a.rs": "pub fn f(s: &crate::c::S) {\n    s.m();\n}\n",
+    "a.rs": "pub fn f(s: &crate::c::S) {\n    let s = s;\n    s.m();\n}\n",
 }
 GLOB_TRAIT = {
     "lib.rs": "mod a;\nmod b;\nmod c;\nuse b::T;\n",
@@ -196,7 +197,7 @@ def test_a_cycle_rule_sees_a_path_through_a_pub_use_re_export(
 def _calls(name: str, impl: str) -> str:
     """A module that calls `s.name(1)` and holds `impl crate::c::S { pub fn impl(&self, x) }`."""
     return (
-        f"pub fn call_{name}(s: &crate::c::S) {{\n    s.{name}(1);\n}}\n"
+        f"pub fn call_{name}(s: &crate::c::S) {{\n    let s = s;\n    s.{name}(1);\n}}\n"
         f"impl crate::c::S {{\n    pub fn {impl}(&self, x: u8) {{}}\n}}\n"
     )
 

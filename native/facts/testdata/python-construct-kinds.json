@@ -1,0 +1,650 @@
+{
+  "facts": {
+    "sections": [
+      {
+        "name": "constructs",
+        "records": [
+          {
+            "area": "constructs",
+            "data": {
+              "construct": "assert",
+              "owner": "app.core.work.risky"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-033fcbc0c16f0e44"
+            ],
+            "fact_ids": [],
+            "id": "CONSTRUCT-83f968572e99440a",
+            "kind": "assert_statement",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "app.core.work.risky"
+            ],
+            "title": "app.core.work.risky uses assert"
+          },
+          {
+            "area": "constructs",
+            "data": {
+              "construct": "broad_except",
+              "handled": [
+                "Exception"
+              ],
+              "owner": "shop.cli.main.main"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-28c0566df62f3acb"
+            ],
+            "fact_ids": [],
+            "id": "CONSTRUCT-014bd85141423fac",
+            "kind": "broad_except",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "shop.cli.main.main"
+            ],
+            "title": "shop.cli.main.main uses broad_except"
+          },
+          {
+            "area": "constructs",
+            "data": {
+              "construct": "selector",
+              "literal": null,
+              "member": "suffix",
+              "operation": "read",
+              "owner": "shop.store.backend.files.write_document",
+              "receiver_binding": null,
+              "receiver_parameter": null,
+              "receiver_type": null,
+              "selector_role": "read",
+              "status": "unknown"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-7d0ed1ca153cfb70"
+            ],
+            "fact_ids": [],
+            "id": "CONSTRUCT-SELECTOR-1e749bff8aebe09f",
+            "kind": "construct_selector",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "shop.store.backend.files.write_document"
+            ],
+            "title": "shop.store.backend.files.write_document has a read selector observation"
+          },
+          {
+            "area": "constructs",
+            "data": {
+              "construct": "delattr",
+              "owner": "app.core.work.risky"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-04f63426f632593a"
+            ],
+            "fact_ids": [],
+            "id": "CONSTRUCT-8cd6334af1f02220",
+            "kind": "delattr_call",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "app.core.work.risky"
+            ],
+            "title": "app.core.work.risky uses delattr"
+          },
+          {
+            "area": "constructs",
+            "data": {
+              "construct": "dunder_dict",
+              "owner": "app.core.work.risky"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-357d465af270a34f"
+            ],
+            "fact_ids": [],
+            "id": "CONSTRUCT-2d7bc1dba54b27db",
+            "kind": "dunder_dict",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "app.core.work.risky"
+            ],
+            "title": "app.core.work.risky uses dunder_dict"
+          },
+          {
+            "area": "constructs",
+            "data": {
+              "construct": "getattr",
+              "owner": "app.core.work.risky"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-565dabb32a0e6da1"
+            ],
+            "fact_ids": [],
+            "id": "CONSTRUCT-c7237504e407854f",
+            "kind": "getattr_call",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "app.core.work.risky"
+            ],
+            "title": "app.core.work.risky uses getattr"
+          },
+          {
+            "area": "constructs",
+            "data": {
+              "construct": "hasattr",
+              "owner": "app.core.work.risky"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-481f9bc866eff87e"
+            ],
+            "fact_ids": [],
+            "id": "CONSTRUCT-81d6ec4848ef9b6c",
+            "kind": "hasattr_call",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "app.core.work.risky"
+            ],
+            "title": "app.core.work.risky uses hasattr"
+          },
+          {
+            "area": "constructs",
+            "data": {
+              "binding_scopes": [],
+              "column": 11,
+              "derivation": [],
+              "end_column": 24,
+              "end_line": 101,
+              "form": "binary",
+              "line": 101,
+              "module": "shop.model.entities",
+              "operation": "modulo",
+              "owner": "shop.model.entities._nonce_bucket",
+              "proof": "known",
+              "subject": "job_nonce",
+              "value": 8
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-ee69fe8d780aa1cf"
+            ],
+            "fact_ids": [],
+            "id": "CONSTRUCT-886bbeee0ee1ff04",
+            "kind": "numeric_operand",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "shop.model.entities._nonce_bucket"
+            ],
+            "title": "shop.model.entities._nonce_bucket uses modulo operand"
+          },
+          {
+            "area": "constructs",
+            "data": {
+              "construct": "placeholder_body",
+              "form": "empty",
+              "owner": "app.core.work.stub"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-44f91e6d5321faae"
+            ],
+            "fact_ids": [],
+            "id": "CONSTRUCT-3a107eac02e0ed32",
+            "kind": "placeholder_body",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "app.core.work.stub"
+            ],
+            "title": "app.core.work.stub uses placeholder_body"
+          },
+          {
+            "area": "constructs",
+            "data": {
+              "construct": "setattr",
+              "owner": "app.core.work.risky"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-f760f3bf81a41dd4"
+            ],
+            "fact_ids": [],
+            "id": "CONSTRUCT-8a7200fe6d6a0dd6",
+            "kind": "setattr_call",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "app.core.work.risky"
+            ],
+            "title": "app.core.work.risky uses setattr"
+          },
+          {
+            "area": "constructs",
+            "data": {
+              "construct": "string_literal_compare",
+              "form": "compare",
+              "owner": "orders.pricing.currency.Currency.apply"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-ee63db3f9c8ee66e"
+            ],
+            "fact_ids": [],
+            "id": "CONSTRUCT-6933f3bd9d499ab7",
+            "kind": "string_literal_compare",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "orders.pricing.currency.Currency.apply"
+            ],
+            "title": "orders.pricing.currency.Currency.apply uses string_literal_compare"
+          },
+          {
+            "area": "constructs",
+            "data": {
+              "construct": "vars",
+              "owner": "app.core.work.risky"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-ba05aee2d0437049"
+            ],
+            "fact_ids": [],
+            "id": "CONSTRUCT-0d6402a70868f6e1",
+            "kind": "vars_call",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "app.core.work.risky"
+            ],
+            "title": "app.core.work.risky uses vars"
+          }
+        ]
+      },
+      {
+        "name": "typing_signals",
+        "records": [
+          {
+            "area": "type_architecture",
+            "data": {
+              "annotation": "Any",
+              "owner": "app.core.work.risky:value",
+              "signal": "any_annotation"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-35141c37e7d527c0"
+            ],
+            "fact_ids": [],
+            "id": "TYPE-67468f8fe24702cf",
+            "kind": "any_annotation",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "app.core.work.risky:value"
+            ],
+            "title": "app.core.work.risky:value: Any"
+          },
+          {
+            "area": "type_architecture",
+            "data": {
+              "annotation": "Callable[..., Any]",
+              "owner": "app.core.work.risky:handler",
+              "signal": "callable_any_annotation"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-b224163ab2ef7664"
+            ],
+            "fact_ids": [],
+            "id": "TYPE-9dfc98ac29af109e",
+            "kind": "callable_any_annotation",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "app.core.work.risky:handler"
+            ],
+            "title": "app.core.work.risky:handler: Callable[..., Any]"
+          },
+          {
+            "area": "type_architecture",
+            "data": {
+              "expression": "cast",
+              "owner": "app.core.work.risky",
+              "signal": "cast_call"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-83ea03b3b762e342"
+            ],
+            "fact_ids": [
+              "CALL-7deecfa04b9f9ee8"
+            ],
+            "id": "TYPE-485943eeb56f3fb1",
+            "kind": "cast_call",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "app.core.work.risky"
+            ],
+            "title": "app.core.work.risky uses cast"
+          },
+          {
+            "area": "type_architecture",
+            "data": {
+              "annotation": "dict[str, Any]",
+              "owner": "app.core.work.risky:payload",
+              "signal": "dict_any_annotation"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-e5830fe819ed9c03"
+            ],
+            "fact_ids": [],
+            "id": "TYPE-2138081a9f2a7f03",
+            "kind": "dict_any_annotation",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "app.core.work.risky:payload"
+            ],
+            "title": "app.core.work.risky:payload: dict[str, Any]"
+          },
+          {
+            "area": "type_architecture",
+            "data": {
+              "expression": "importlib.import_module",
+              "owner": "orders.storage.backends.<lambda:17:14>",
+              "signal": "dynamic_import"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-7cdf1f9f337ce1f6"
+            ],
+            "fact_ids": [
+              "CALL-c17025668a5a3885"
+            ],
+            "id": "TYPE-040029bac9c932ef",
+            "kind": "dynamic_import",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "orders.storage.backends.<lambda:17:14>"
+            ],
+            "title": "orders.storage.backends.<lambda:17:14> uses importlib.import_module"
+          },
+          {
+            "area": "type_architecture",
+            "data": {
+              "expression": "eval",
+              "owner": "app.core.work.risky",
+              "signal": "eval_call"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-4e2760b77f2d6859"
+            ],
+            "fact_ids": [
+              "CALL-dabd6601fa0327cb"
+            ],
+            "id": "TYPE-5a99782984498bef",
+            "kind": "eval_call",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "app.core.work.risky"
+            ],
+            "title": "app.core.work.risky uses eval"
+          },
+          {
+            "area": "type_architecture",
+            "data": {
+              "expression": "exec",
+              "owner": "app.core.work.risky",
+              "signal": "exec_call"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-7f468d9dbdc6ea0a"
+            ],
+            "fact_ids": [
+              "CALL-ca33dca60f39e47b"
+            ],
+            "id": "TYPE-c66bc78a37376478",
+            "kind": "exec_call",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "app.core.work.risky"
+            ],
+            "title": "app.core.work.risky uses exec"
+          },
+          {
+            "area": "type_architecture",
+            "data": {
+              "expression": "getattr",
+              "owner": "app.core.work.risky",
+              "signal": "getattr_call"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-565dabb32a0e6da1"
+            ],
+            "fact_ids": [
+              "CALL-4fc8650206aede7b"
+            ],
+            "id": "TYPE-6ee0776d9b7cc532",
+            "kind": "getattr_call",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "app.core.work.risky"
+            ],
+            "title": "app.core.work.risky uses getattr"
+          },
+          {
+            "area": "type_architecture",
+            "data": {
+              "expression": "hasattr",
+              "owner": "app.core.work.risky",
+              "signal": "hasattr_call"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-481f9bc866eff87e"
+            ],
+            "fact_ids": [
+              "CALL-d9e03fb031916e67"
+            ],
+            "id": "TYPE-f251c6e4a3056299",
+            "kind": "hasattr_call",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "app.core.work.risky"
+            ],
+            "title": "app.core.work.risky uses hasattr"
+          },
+          {
+            "area": "type_architecture",
+            "data": {
+              "owner": "app.util.helpers.build",
+              "positions": [
+                "count",
+                "name",
+                "return"
+              ],
+              "signal": "missing_cross_package_annotation"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-3a653335edeed516"
+            ],
+            "fact_ids": [
+              "SYM-da79fad074f075e6"
+            ],
+            "id": "TYPE-1d160de15b61d7cb",
+            "kind": "missing_cross_package_annotation",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "app.util.helpers.build"
+            ],
+            "title": "app.util.helpers.build has unannotated cross-package boundary positions"
+          },
+          {
+            "area": "type_architecture",
+            "data": {
+              "annotation": "object",
+              "owner": "sample.legacy.close:handle",
+              "signal": "object_annotation"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-3a33f6c8fe292f07"
+            ],
+            "fact_ids": [],
+            "id": "TYPE-46916e81b390e951",
+            "kind": "object_annotation",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "sample.legacy.close:handle"
+            ],
+            "title": "sample.legacy.close:handle: object"
+          },
+          {
+            "area": "type_architecture",
+            "data": {
+              "line": 8,
+              "owner": "sample.legacy",
+              "qualified_name": "sample.legacy.close",
+              "signal": "type_ignore",
+              "statement": "handle.close()",
+              "tag": "[attr-defined]"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-a936264ff775821e"
+            ],
+            "fact_ids": [],
+            "id": "TYPE-3faf967431ba3d94",
+            "kind": "type_ignore",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "sample.legacy"
+            ],
+            "title": "sample/legacy.py:8 uses type: ignore"
+          }
+        ]
+      },
+      {
+        "name": "references",
+        "records": [
+          {
+            "area": "call_hierarchy",
+            "data": {
+              "expression": "Order.from_dict",
+              "reference_context": "value",
+              "source_definition_id": "SYM-094cb8a1abb8f245",
+              "source_module": "shop.store.codec",
+              "source_scope": "shop.store.codec.decode",
+              "status": "resolved",
+              "targets": [
+                "shop.model.entities.Order.from_dict"
+              ],
+              "use": "attribute"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-cb26e324deea5970"
+            ],
+            "fact_ids": [],
+            "id": "REF-182446c0a2215637",
+            "kind": "attribute_reference",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "shop.model.entities.Order.from_dict",
+              "shop.store.codec.decode"
+            ],
+            "title": "Reference Order.from_dict"
+          },
+          {
+            "area": "call_hierarchy",
+            "data": {
+              "canonical_name": "shop.model.entities.OrderPayload.order_id",
+              "column": 4,
+              "declaration_id": "DECL-dfbdc9061a2bb783",
+              "declaration_owner_id": "SYM-a3e7c6567ab50c7e",
+              "declaration_owner_scope": "shop.model.entities.OrderPayload",
+              "end_column": 12,
+              "end_line": 25,
+              "expression": "shop.model.entities.OrderPayload.order_id",
+              "line": 25,
+              "role": "definition",
+              "source_module": "shop.model.entities",
+              "source_scope": "shop.model.entities.OrderPayload",
+              "status": "partially_resolved",
+              "targets": [],
+              "use": "source_role"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-afd0cf198ebc2e4f"
+            ],
+            "fact_ids": [],
+            "id": "SOURCE-ROLE-0205421816c8cbfe",
+            "kind": "source_role",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "shop.model.entities.OrderPayload",
+              "shop.model.entities.OrderPayload.order_id"
+            ],
+            "title": "definition of shop.model.entities.OrderPayload.order_id"
+          },
+          {
+            "area": "call_hierarchy",
+            "data": {
+              "expression": "RepositoryReader",
+              "reference_context": "annotation",
+              "source_definition_id": "SYM-8de8ecb5815be290",
+              "source_module": "shop.store.repository",
+              "source_scope": "shop.store.repository.OrderRepository",
+              "status": "resolved",
+              "targets": [
+                "shop.store.repository.RepositoryReader"
+              ],
+              "use": "value"
+            },
+            "evidence_class": "FACT",
+            "evidence_ids": [
+              "EVD-6f40620eba7a2dc1"
+            ],
+            "fact_ids": [],
+            "id": "REF-04271814c15da2bc",
+            "kind": "value_reference",
+            "provenance": [],
+            "rule_ids": [],
+            "subjects": [
+              "shop.store.repository.OrderRepository",
+              "shop.store.repository.RepositoryReader"
+            ],
+            "title": "Reference RepositoryReader"
+          }
+        ]
+      }
+    ]
+  }
+}

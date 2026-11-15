@@ -13,7 +13,7 @@
 
 use syn::{Ident, Item, ItemImpl, ItemTrait, Signature, Type};
 
-use super::receivers::{exact_path, inert, kind_of, type_inert};
+use super::receivers::{exact_path, inert, item_name, kind_of, type_inert};
 use super::state::Walker;
 use crate::attrs::{impl_item_attributes, is_test_attributes};
 use crate::definitions::{
@@ -228,26 +228,6 @@ pub(super) fn member(walker: &mut Walker<'_>, sig: &Signature, (access, owner): 
     found.receiver = sig.receiver().is_some();
     found.is_async = sig.asyncness.is_some();
     walker.out.definitions.push(found);
-}
-
-/// The name that an item declares. Every kind counts, whatever its namespace.
-pub(super) fn item_name(item: &Item) -> Option<String> {
-    let ident = match item {
-        Item::Fn(item) => &item.sig.ident,
-        Item::Struct(item) => &item.ident,
-        Item::Enum(item) => &item.ident,
-        Item::Union(item) => &item.ident,
-        Item::Trait(item) => &item.ident,
-        Item::TraitAlias(item) => &item.ident,
-        Item::Type(item) => &item.ident,
-        Item::Const(item) => &item.ident,
-        Item::Static(item) => &item.ident,
-        Item::Mod(item) => &item.ident,
-        Item::Macro(item) => item.ident.as_ref()?,
-        Item::ExternCrate(item) => item.rename.as_ref().map_or(&item.ident, |(_, name)| name),
-        _ => return None,
-    };
-    Some(plain(ident))
 }
 
 /// The name of an item of an `extern` block.

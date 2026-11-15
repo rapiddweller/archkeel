@@ -156,7 +156,7 @@ RUST_X_B = [entity("x", "ws.a.x", "rust"), entity("b", "ws.a.b", "rust")]
 RUST_X_C = [entity("x", "ws.a.x", "rust"), entity("c", "ws.a.c", "rust")]
 RUST_ONE = [component("a", ["ws.a"])]
 GAP_B = "impl crate::c::S { pub fn m(&self) -> u8 { 1 } }\n"
-GAP_X = "pub fn f(s: &crate::c::S) -> u8 { s.m() }\n"
+GAP_X = "pub fn f(s: &crate::c::S) -> u8 { let s = s; s.m() }\n"
 
 
 def referenced(identity: str, name: str, kind: str) -> dict:

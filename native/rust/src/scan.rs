@@ -28,10 +28,10 @@ use crate::tokens::{attribute_chains, plain, read_value, LINTS, MESSAGE_KEYS};
 use attributes::{attribute_strings, concern, expansion, helper_strings};
 use define::{
     define_impl_item, define_item, define_trait_item, enter_impl, enter_trait, exact_type,
-    foreign_name, impl_block, item_name,
+    foreign_name, impl_block,
 };
 use macros::{macro_call, macro_rules};
-use receivers::Selves;
+use receivers::{item_name, Selves};
 use use_items::{bind, extern_crate, use_item};
 
 /// Scan one file. A syntax error is `Err` with its line. With `exclude_tests`, an item that only
@@ -179,8 +179,9 @@ impl<'ast> Visit<'ast> for Visitor<'_> {
             self.walker
                 .selves
                 .enter_impl(found, &self.walker.inline, self.walker.blocks);
-        } else if let Item::Fn(_) = item {
-            self.walker.selves.enter_opaque();
+        } else if let Item::Fn(found) = item {
+            let at = (&self.walker.inline[..], self.walker.blocks);
+            self.walker.selves.enter_function(found, at);
         }
         exact_type(&mut self.walker, item);
         let outer = match item {
@@ -211,7 +212,8 @@ impl<'ast> Visit<'ast> for Visitor<'_> {
         if !(self.walker.exclude_tests && is_test_attributes(impl_item_attributes(item))) {
             define_impl_item(&mut self.walker, item);
             if let syn::ImplItem::Fn(method) = item {
-                self.walker.selves.enter_method(&method.sig, &method.attrs);
+                let at = (&self.walker.inline[..], self.walker.blocks);
+                self.walker.selves.enter_method(method, at);
             }
             visit::visit_impl_item(self, item);
             if let syn::ImplItem::Fn(_) = item {

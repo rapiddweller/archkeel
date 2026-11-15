@@ -163,7 +163,7 @@ def test_the_entry_is_the_product_page_and_the_self_reports_keep_their_paths(
     code, out = _build(tmp_path, _matrix(tmp_path / "m.json", [_run("served-a", "served-a")]))
     page = (out / "index.html").read_text()
     assert code == 0
-    assert "ArchKeel as a product: 2 parts, 2 runs, worst verdict FAIL" in page
+    assert "ArchKeel (Python shell + Rust core): FAIL" in page
     assert 'href="showcase/index.html"' in page
     assert "served-a" not in page
     for name in ("core", "shell"):
@@ -211,3 +211,20 @@ def test_a_written_report_does_not_name_the_path_of_the_runner(tmp_path: Path) -
     for path in [out / "self" / "core.json", out / "served-a" / "report.json"]:
         text = path.read_text()
         assert str(report_gallery.ROOT) not in text and "<repo>" in text
+
+
+def test_the_system_page_and_badge_sit_in_self_and_link_their_neighbours(tmp_path: Path) -> None:
+    code, out = _build(tmp_path, _matrix(tmp_path / "m.json", [_run("served-a", "served-a")]))
+    assert code == 0
+    page = (out / "self" / "index.html").read_text()
+    assert "ArchKeel (Python shell + Rust core): FAIL" in page
+    links = re.findall(r'href="([^"#]+)', page)
+    assert "core.html" in links and "shell.html" in links
+    assert all((out / "self" / link).resolve().is_file() for link in links)
+    badge = json.loads((out / "self" / "badge.json").read_text())
+    assert badge["label"] == "ArchKeel self-check" and badge["color"] == "f2606b"
+    assert badge["message"] == "2 PASS · 2 FAIL · 0 UNKNOWN"
+
+
+def test_the_badge_of_the_system_has_no_result_when_a_part_has_none() -> None:
+    assert report_gallery.system_badge([])["message"] == "no result"
