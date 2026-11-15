@@ -34,7 +34,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// The object of `o[k]` when the key is no literal and no number (a key that cannot name a
-    /// member such as `constructor` is no run-time key: AD-535).
+    /// member such as `constructor` is no run-time key: AD-540).
     pub(crate) fn runtime_object(&self, node: Node<'t>) -> Option<Node<'t>> {
         let tree = self.tree;
         let index = tree.field(node, F::Index);

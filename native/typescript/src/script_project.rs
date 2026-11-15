@@ -82,9 +82,9 @@ pub(crate) struct WritePaths<'a> {
     pub any_empty: bool,
     /// Some write has a path at all.
     pub any_path: bool,
-    /// Some node of an amplifier form writes an unknown name (AD-535).
+    /// Some node of an amplifier form writes an unknown name (AD-540).
     pub any_amplified: bool,
-    /// Some file gives the scan a host entry (AD-535).
+    /// Some file gives the scan a host entry (AD-540).
     pub host_entry: bool,
     /// The paths of one name (`(name,)`), by the name and the files that write them.
     pub singles: HashMap<&'a str, Owners>,
@@ -97,7 +97,7 @@ pub(crate) struct WritePaths<'a> {
 
 impl<'a> WritePaths<'a> {
     /// A write may name any global: a write with no path, or an amplified write in a scan that
-    /// has a host entry. Without a host entry an amplifier form has no window to write (AD-535).
+    /// has a host entry. Without a host entry an amplifier form has no window to write (AD-540).
     pub(crate) fn blocks_all(&self) -> bool {
         self.any_empty || (self.any_amplified && self.host_entry)
     }

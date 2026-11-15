@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-// Consumer: the script globals of a project (AD-535). File A reads `Math.min`. File B is the
+// Consumer: the script globals of a project (AD-540). File A reads `Math.min`. File B is the
 // plant. `reads_math` states what TypeScript and the host do: whether the read of `Math` in A can
 // be changed by B. The expected answer of the collector is `gap` when that is possible or when the
 // form is not proven away; `complete` only for a form that cannot write a global without a host
@@ -112,7 +112,8 @@ fn a_host_entry_makes_an_amplifier_form_write() {
         "keep(require('fs'));",
     ];
     for host in hosts {
-        let source = format!("{amplifier}export function z(k: string, v: any, keep: any) {{ {host} }}\n");
+        let source =
+            format!("{amplifier}export function z(k: string, v: any, keep: any) {{ {host} }}\n");
         assert!(with_b(&source), "a host name is an entry: {host}");
     }
     assert!(!with_b(amplifier), "the control has no host entry");
@@ -177,7 +178,9 @@ fn a_file_that_is_no_module_is_an_entry() {
 #[test]
 fn a_named_write_or_a_syntax_error_still_blocks() {
     assert!(with_b("export {}; (globalThis as any).Math = 1;"));
-    assert!(with_b("export {}; declare global { var Math: any; }\n(globalThis as any).Math = 1;"));
+    assert!(with_b(
+        "export {}; declare global { var Math: any; }\n(globalThis as any).Math = 1;"
+    ));
     assert!(with_b("export function f(o: any) { o.Math = 1; }"));
     assert!(with_b("export const x = ;"));
     // A declare alone writes nothing.

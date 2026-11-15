@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-540 | [An amplifier form writes a global only when the scan has a host entry](ad-540-an-amplifier-form-writes-a-global-only-when-the-scan-has-a-host-entry.md) |
 | AD-534 | [A local enum, a value namespace and `arguments` are bindings in TypeScript](ad-534-a-local-enum-a-value-namespace-and-arguments-are-bindings-in-typescript.md) |
 | AD-522 | [ArchKeel shows one system verdict, built from its parts (interim)](ad-522-archkeel-shows-one-system-verdict-built-from-its-two-self-runs.md) |
 | AD-518 | [The Python collector writes the symbol declarations that it binds once](ad-518-the-python-collector-writes-the-symbol-declarations-that-it-binds-once.md) |
