@@ -34,3 +34,8 @@ conditional import, the generic shadow and the path call across crates.
 `tests/test_collector_false_pass_rust_path_proof.py` checks the same-crate path call: the macro
 forms, the enum variant, the member that the caller cannot see and the generic arguments. The
 self-check pin changes only for measured rows.
+
+**Gated caller.** A path in a file gated only by a written `cfg` may reach an ungated type and
+ungated member. They exist whenever the caller exists. An opaque caller attribute or a gated
+target keeps the gap. Conditional imports, macros and generic names keep the earlier checks.
+The cross-crate plants check the edge with `rustc` and keep the opaque and gated-target gaps.
