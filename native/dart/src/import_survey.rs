@@ -162,8 +162,22 @@ fn parse_sources<'a>(found: &'a Discovery, gaps: &mut Gaps) -> Result<Index<'a>,
             kinds.push(Kind::Unknown);
             continue;
         }
-        let (parsed, loader) = parser.directives(&source.content);
-        isolate_loader |= loader || parsed.first_error.is_some();
+        let (parsed, loader, mirrors) = parser.directives(&source.content);
+        if let Some(span) = loader.as_ref() {
+            gaps.named(
+                GapName::DartIsolate,
+                Place::Span(source, span),
+                "spawnUri can run another library",
+            );
+        }
+        if let Some(span) = mirrors.as_ref() {
+            gaps.named(
+                GapName::DartMirrors,
+                Place::Span(source, span),
+                "mirror access can reach code without an import",
+            );
+        }
+        isolate_loader |= mirrors.is_some() || parsed.first_error.is_some();
         isolate_loader |= parsed.directives.iter().any(|directive| {
             directive
                 .target

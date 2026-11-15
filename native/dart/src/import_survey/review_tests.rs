@@ -84,6 +84,54 @@ fn a_config_that_maps_another_package_into_this_root_is_a_gap() {
 }
 
 #[test]
+fn a_relative_external_package_or_file_uri_with_a_host_is_a_gap() {
+    for root in [
+        "../../external/",
+        "../../x/../external/",
+        "file://example.org/pkg/",
+    ] {
+        let external = format!(r#"{{"name":"external","rootUri":"{root}","packageUri":"lib/"}}"#);
+        only(
+            &surveyed(&config(&format!("{OWN}, {external}"))),
+            "DartPackageConfig",
+        );
+    }
+}
+
+#[test]
+fn a_loader_from_a_hosted_reexport_is_a_gap_without_an_isolate_import() {
+    let found = run_roots(&[
+        ("pubspec.yaml", PUBSPEC),
+        ("lib/a.dart", "import 'package:helper/helper.dart';\nvoid f() { Isolate.spawnUri(uri, [], null); }"),
+    ], &["lib"]);
+    only(&found, "DartIsolate");
+}
+
+#[test]
+fn mirror_identifiers_from_a_hosted_reexport_are_gaps() {
+    for name in [
+        "currentMirrorSystem",
+        "reflect",
+        "reflectClass",
+        "reflectType",
+    ] {
+        let text = format!("import 'package:helper/helper.dart';\nvoid f() {{ {name}(x); }}");
+        let found = run_roots(
+            &[("pubspec.yaml", PUBSPEC), ("lib/a.dart", &text)],
+            &["lib"],
+        );
+        only(&found, "DartMirrors");
+    }
+}
+
+#[test]
+fn loader_and_mirror_words_in_strings_and_comments_are_not_identifiers() {
+    let text = "// spawnUri reflect\nconst s = 'currentMirrorSystem reflectClass reflectType';";
+    let found = run_roots(&[("pubspec.yaml", PUBSPEC), ("lib/a.dart", text)], &["lib"]);
+    assert!(found.coverage.full_scope, "{:#?}", found.unknowns);
+}
+
+#[test]
 fn an_absolute_config_entry_into_this_root_is_a_gap() {
     let tree =
         archkeel_snapshot::test_tree::Tree::new(&[("pubspec.yaml", PUBSPEC), ("lib/a.dart", "")]);

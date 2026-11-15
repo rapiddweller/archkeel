@@ -122,6 +122,19 @@ fn yaml_keys(node: &Yaml<'_>, found: &mut PubspecWords, depth: usize) -> bool {
             let Some(key) = key.as_str() else {
                 return false;
             };
+            if depth == 0
+                && matches!(
+                    key,
+                    "dependencies" | "dev_dependencies" | "dependency_overrides"
+                )
+            {
+                let Some(deps) = value.as_mapping() else {
+                    return false;
+                };
+                return deps.iter().all(|(name, dependency)| {
+                    name.as_str().is_some() && yaml_keys(dependency, found, depth + 2)
+                });
+            }
             match key {
                 "path" => found.path = true,
                 "workspace" => found.workspace = true,
@@ -379,6 +392,15 @@ mod tests {
             ),
             (false, false, false)
         );
+    }
+
+    #[test]
+    fn a_hosted_dependency_named_path_is_not_a_path_dependency() {
+        assert_eq!(
+            words("name: shop\ndependencies:\n  path: ^1.9.0\n"),
+            (false, false, false)
+        );
+        assert!(keys("name: shop\ndependencies:\n  path:\n    path: ../local\n").path);
     }
 
     #[test]
