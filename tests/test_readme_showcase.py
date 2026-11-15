@@ -40,7 +40,10 @@ def test_the_badges_are_few_in_two_rows_and_use_the_dark_label() -> None:
     assert 0 < len(badges) <= MAX_BADGES
     assert len([row for row in top.split("\n\n") if row.startswith(("![", "[!["))]) == 2
     assert all("labelColor=141414" in url for url in badges if "img.shields.io" in url)
-    assert sum("endpoint?url=" in url for url in badges) == 2
+    # One self badge: the verdict of the system, from the generated file (never a fixed PASS).
+    assert sum("endpoint?url=" in url for url in badges) == 1
+    assert SITE + "self/badge.json" in top
+    assert "checks-Rust" not in top and "engine-Rust" not in top
 
 
 def test_the_state_of_main_follows_the_pitch() -> None:
@@ -54,11 +57,36 @@ def test_each_link_to_the_site_names_a_path_that_the_gallery_writes(tmp_path: Pa
     assert code == 0
     written = {path.relative_to(out).as_posix() for path in out.rglob("*") if path.is_file()}
     urls = {
-        unquote(url).rstrip(").,") for url in re.findall(re.escape(SITE) + r"[^\s)\]&]*", README)
+        unquote(url).rstrip(").,") for url in re.findall(re.escape(SITE) + r'[^\s)\]&"]*', README)
     }
     endpoint = re.findall(r"endpoint\?url=" + re.escape(SITE) + r"([^&)]+)", README)
-    assert len(urls) >= 3 and len(endpoint) == 2
+    assert len(urls) >= 4 and endpoint == ["self/badge.json"]
+    assert SITE + "self/index.html" in urls
     assert any(url.endswith("/showcase/index.html") for url in urls)
     for url in urls:
         path = urlparse(url).path.removeprefix("/archkeel/")
         assert (path or "index.html") in written, url
+
+
+def test_the_first_screen_orders_meaning_verdict_picture_and_start() -> None:
+    first = README.split("## Why ArchKeel?")[0]
+    order = [
+        "checks it against the boundaries you declare",
+        "**UNKNOWN is not a pass.**",
+        "docs/assets/archkeel-report.png",
+        "**Four languages run through the core.**",
+        "uv tool install git+https://github.com/rapiddweller/archkeel",
+    ]
+    positions = [first.index(text) for text in order]
+    assert positions == sorted(positions)
+    picture = ROOT / "docs/assets/archkeel-report.png"
+    assert picture.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+    assert picture.stat().st_size <= 200_000
+
+
+def test_the_readme_pins_no_count_and_does_not_announce_an_unreleased_version() -> None:
+    first = README.split("## Why ArchKeel?")[0]
+    # The counts live in the generated badge and page. A fixed count here would go stale.
+    assert not re.search(r"\b\d+ (?:PASS|FAIL|UNKNOWN|rules)\b", first)
+    assert "5.0.0" not in README
+    assert "4.0.1" in README

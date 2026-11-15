@@ -229,20 +229,13 @@ def _exceptions(part: Part, ids: frozenset[str]) -> str:
 
 
 def verdict(part: Part, ids: frozenset[str]) -> str:
+    """The counts and the exceptions of one part. The card of the system holds the verdict."""
     if not part.decided:
         return f'<div><h3 class="h3">{esc(part.title)}</h3><p class="body-sm">No result.</p></div>'
-    stats = "".join(
-        f'<div class="ak-verdict__stat"><dt class="caption">{name}</dt>'
-        f'<dd class="ak-num h2">{part.counts[name]}</dd></div>'
-        for name in STATUSES
-    )
+    words = " &#183; ".join(f"{part.counts[name]} {name}" for name in STATUSES)
     return (
-        f'<div><h3 class="h3">{esc(part.title)}</h3>'
-        f'<section class="ak-verdict ak-verdict--{part.status.lower()}" '
-        f'aria-label="Verdict of {esc(part.title)}">{badge(part.status)}'
-        f'<p class="h2 ak-verdict__title">{esc(headline(part))}</p>'
-        f'<p class="body-sm ak-verdict__note">{NOTES[part.status]}</p>'
-        f'<dl class="ak-verdict__stats">{stats}</dl></section>{_exceptions(part, ids)}</div>'
+        f'<div><h3 class="h3">{esc(part.title)} {badge(part.status)}</h3>'
+        f'<p class="caption">{esc(headline(part))} &#183; {words}</p>{_exceptions(part, ids)}</div>'
     )
 
 
@@ -345,7 +338,7 @@ def product_page(
         "evidence.</p>"
         f'<div class="rp-parts">{cards}</div>{legend()}</section>'
         '<section class="rp-sec" aria-labelledby="verdicts">'
-        '<h2 class="h2" id="verdicts">Verdict of each part</h2>'
+        '<h2 class="h2" id="verdicts">Exceptions of each part</h2>'
         '<p class="body-sm rp-lede">The exceptions of each run. A number opens its evidence in '
         "the report of the part.</p>"
         f'<div class="rp-duo">{verdicts}</div></section>'
