@@ -11,7 +11,8 @@ listed inert attribute from a uniquely bound, directly imported module.
 The module import still has its own dynamic-import gap. This gap also covers
 uncertainty about the module and its runtime mutation.
 
-Other attributes, stores, deeper chains and ambiguous bindings keep their gaps.
+A store, a deeper chain or an ambiguous binding is not exempt under this rule.
+Other attributes keep their existing treatment.
 The same name bound by a parameter, a second import, a star import or a local
 assignment is ambiguous. The survey keeps its gap.
 
