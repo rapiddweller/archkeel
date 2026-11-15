@@ -15,7 +15,7 @@
 
 use std::collections::BTreeSet;
 
-use archkeel_contract::{merge_targets, Entity, EntityKind, PresenceKind, Target};
+use archkeel_contract::{bare_reference, merge_targets, Entity, EntityKind, PresenceKind, Target};
 
 use crate::reason::UmlGap;
 use crate::tree::ModelTree;
@@ -54,6 +54,59 @@ fn conflict(parts: &[UmlPart]) -> Option<String> {
     None
 }
 
+/// The identity that `_link_references` of 4.0.1 matches: language, kind and qualified name.
+fn same(left: &Entity, right: &Entity) -> bool {
+    left.language() == right.language()
+        && left.kind() == right.kind()
+        && left.qualified_name() == right.qualified_name()
+}
+
+fn parent_of<'t>(target: &'t Target, item: &Entity) -> Option<&'t Entity> {
+    let id = item.parent_id().as_ref()?;
+    target.entities().iter().find(|found| found.id() == id)
+}
+
+/// The first referenced entity that meets a planned definition in another part and that 4.0.1
+/// refuses to link (`_link_references` runs on the joined graph): it carries more than a bare
+/// reference, a scope names it, or its parent is not the parent of the definition. The core links
+/// each contract alone, so it must not give PASS for such a tree.
+fn link(parts: &[UmlPart]) -> Option<String> {
+    for (at, part) in parts.iter().enumerate() {
+        for item in part
+            .target
+            .entities()
+            .iter()
+            .filter(|item| *item.presence() == PresenceKind::Referenced)
+        {
+            let definitions = parts
+                .iter()
+                .enumerate()
+                .filter(|(other, _)| *other != at)
+                .flat_map(|(_, found)| found.target.entities().iter().map(|e| (&found.target, e)))
+                .filter(|(_, e)| *e.presence() == PresenceKind::Planned && same(e, item));
+            for (home, definition) in definitions {
+                let owned = part
+                    .target
+                    .scopes()
+                    .iter()
+                    .any(|scope| scope.scope_id() == item.id());
+                let owner = parent_of(&part.target, item);
+                let moved = item.parent_id().is_some()
+                    && !owner
+                        .zip(parent_of(home, definition))
+                        .is_some_and(|(left, right)| same(left, right));
+                if !bare_reference(item) || owned || moved {
+                    return Some(format!(
+                        "the contracts of the tree reference {} in a form that 4.0.1 refuses to link",
+                        item.qualified_name()
+                    ));
+                }
+            }
+        }
+    }
+    None
+}
+
 /// The first module that a mount draws and the reply has, outside the source domain of the mount.
 fn outside(tree: &ModelTree, parts: &[UmlPart]) -> Option<String> {
     let observed = tree.root().graph().observed();
@@ -83,7 +136,10 @@ fn outside(tree: &ModelTree, parts: &[UmlPart]) -> Option<String> {
 
 /// Compare the declared intent of the tree with the facts of the run; `id` is the row id.
 pub fn compare_tree(tree: &ModelTree, declared: &UmlDeclared, id: &str) -> UmlOutcome {
-    if let Some(reason) = conflict(&declared.parts).or_else(|| outside(tree, &declared.parts)) {
+    if let Some(reason) = conflict(&declared.parts)
+        .or_else(|| link(&declared.parts))
+        .or_else(|| outside(tree, &declared.parts))
+    {
         return UmlOutcome::Unknown(UmlGap::Nested(reason));
     }
     let targets: Vec<&Target> = declared.parts.iter().map(|part| &part.target).collect();

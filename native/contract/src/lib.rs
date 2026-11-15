@@ -53,6 +53,7 @@ pub use contract::parse;
 pub use document::{Contract, InsideRef, NeedsTree, ParsedContract};
 pub use error::{ErrorKind, ParseError};
 pub use graph::uml_target_id;
+pub use graph_link::bare_reference;
 pub use model::*;
 pub use model_declarations::*;
 pub use model_rules::*;
