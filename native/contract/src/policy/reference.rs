@@ -28,10 +28,12 @@ pub(crate) fn identity(value: &str) -> Option<String> {
     (relative(value) && !value.contains('\0') && !parts.is_empty()).then(|| parts.join("/"))
 }
 
-/// Python `_safe_inside_reference`: a reference that a mount can read. Its test for `""`, `.` and
-/// `..` is not here: `identity` refuses each of them.
+/// A reference that a mount can read: its text is its identity. `./deep.json`, `a//deep.json`,
+/// `a/./deep.json` and `deep.json/` name the file of `deep.json`, but they are another text, so a
+/// mount with one of them is refused (#1067). A reference with a `:` is refused too. `identity`
+/// itself refuses `""`, `.` and `..`.
 pub(crate) fn safe(value: &str) -> bool {
-    identity(value).is_some() && !value.contains(':')
+    identity(value).as_deref() == Some(value) && !value.contains(':')
 }
 
 /// A text as Python `repr` writes it, for the texts of a reason.

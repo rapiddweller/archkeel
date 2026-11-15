@@ -120,6 +120,10 @@ def test_two_mount_levels_keep_each_verdict_and_exit(
         "bytes",
         "backslash",
         "other-case",
+        "dot-prefix",
+        "double-slash",
+        "inner-dot",
+        "trailing-slash",
     ],
 )
 def test_an_invalid_mount_never_gives_pass(release_core: Path, tmp_path: Path, fault: str) -> None:
@@ -132,6 +136,10 @@ def test_an_invalid_mount_never_gives_pass(release_core: Path, tmp_path: Path, f
             "absolute": str(tmp_path / "outside.json"),
             "colon": "unsafe:name.json",
             "backslash": "sub\\deep.json",
+            "dot-prefix": "./deep.json",
+            "double-slash": "a//deep.json",
+            "inner-dot": "a/./deep.json",
+            "trailing-slash": "deep.json/",
             "cycle": "architecture-contract.json",
         }.get(fault, "deep.json")
         document["components"][0]["inside"] = reference

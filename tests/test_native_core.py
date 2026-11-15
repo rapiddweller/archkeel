@@ -106,3 +106,53 @@ def test_each_native_component_is_a_node_of_the_component_graph() -> None:
     nodes = set(re.findall(r'n_\d+\["([^"]+)"\]', block))
     assert {component["label"] for component in contract["components"]} <= nodes
     assert "n_2 --> n_31" in block
+
+
+def test_a_harness_core_names_itself_in_the_engine_of_its_frame(harness_core: Path) -> None:
+    """#1095: the frame of a core that has the reply-carrying request kinds says so after its code
+    digest. The request has no reply, so the frame names a gap (exit 3) and still has an engine."""
+    request = {
+        "protocol": "archkeel-dual-run-5",
+        "case": "c",
+        "root": "/r",
+        "config": "archkeel.toml",
+        "baseline": None,
+        "collector_argv": None,
+        "contracts": {"architecture-contract.json": "{}"},
+        "reply": None,
+        "sections": [],
+        "namespace": "shop",
+        "profile": "",
+        "standard_library": [],
+        "insides": [],
+        "roots": [],
+    }
+    done = subprocess.run(
+        [str(harness_core), "dual-run"],
+        input=json.dumps(request).encode(),
+        capture_output=True,
+        check=False,
+        timeout=60,
+    )
+    assert done.returncode == 3, done.stderr
+    engine = json.loads(done.stdout)["engine"]
+    assert re.fullmatch(r"archkeel-core [0-9a-f]{64}\+harness", engine), engine
+
+
+def test_one_environment_builds_the_shared_release_core() -> None:
+    """#1182: a builder with another `ARCHKEEL_VERSION` relinks the core under a worker that runs
+    it. Only `core_support.py` names the variable, and each builder of `native/target` uses it."""
+    named = {
+        path.name
+        for path in (ROOT / "tests").glob("*.py")
+        if "ARCHKEEL_VERSION" in path.read_text() and path.name != Path(__file__).name
+    }
+    assert named == {"core_support.py"}
+    builders = {"core_support.py", "test_cli_native_type_publication.py"}
+    for name in builders:
+        assert "build_environment()" in (ROOT / "tests" / name).read_text(), name
+    # A test that runs `cargo build --release` for the core must be one of the two builders.
+    for path in (ROOT / "tests").glob("*.py"):
+        text = path.read_text()
+        runs_cargo = bool(re.search(r'"build",\s*"--locked"', text)) and "--release" in text
+        assert not runs_cargo or path.name in builders | {Path(__file__).name}, path.name

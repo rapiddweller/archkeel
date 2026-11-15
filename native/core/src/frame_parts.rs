@@ -16,7 +16,12 @@ use serde::Serialize;
 /// The code digest of this build: the digest of each native collector of the same source. It is
 /// public text, so it detects a stale build and proves no producer (AD-390).
 pub(crate) const CODE_DIGEST: &str = env!("ARCHKEEL_CODE_DIGEST");
+/// The engine of a frame: the core and its code digest. A build with the test feature `harness`
+/// says so after the digest (#1095); the digest itself is the same.
+#[cfg(not(feature = "harness"))]
 pub(super) const ENGINE: &str = concat!("archkeel-core ", env!("ARCHKEEL_CODE_DIGEST"));
+#[cfg(feature = "harness")]
+pub(super) const ENGINE: &str = concat!("archkeel-core ", env!("ARCHKEEL_CODE_DIGEST"), "+harness");
 
 #[derive(Serialize)]
 pub(super) struct Parts {

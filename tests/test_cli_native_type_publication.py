@@ -10,7 +10,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from core_support import ensure_target_dir
+from core_support import build_environment, ensure_target_dir
 from filelock import FileLock
 
 from tests.test_native_interface_boundary import run_core, scan
@@ -36,9 +36,8 @@ def release() -> Path:
                 "-p",
                 "archkeel-rust-collector",
             ],
-            # No `ARCHKEEL_VERSION` here: `tests/core_support.py` builds the same release binary
-            # without it, and a different value would relink the file while another worker runs it.
             cwd=native,
+            env=build_environment(),
             check=True,
         )
     return native / "target/release"
