@@ -302,11 +302,12 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 }
 
-/// `import x = require()` and `export =` are CommonJS. A `with` statement is a syntax error in a
+/// `export =` is CommonJS (`import x = require()` binds a name that the walk does not bind, so
+/// each use of it is a free name). A `with` statement is a syntax error in a
 /// module, so a file that has one is no module that the scan can read as one.
 fn commonjs(node: Node) -> bool {
     match node.kind() {
-        "import_require_clause" | "with_statement" => true,
+        "with_statement" => true,
         "export_statement" => (0..node.child_count())
             .filter_map(|at| node.child(at))
             .any(|child| child.kind() == "="),
