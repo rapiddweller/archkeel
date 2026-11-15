@@ -14,9 +14,12 @@
 use std::collections::HashMap;
 
 use archkeel_facts::data::{CallableData, ClassData, Declared};
+use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
-use archkeel_facts::nested::{MemberInventory, Parameter, VisibilityDetail};
-use archkeel_facts::vocab::{Area, ClassKind, EvidenceClass, InventoryStatus, MemberKind};
+use archkeel_facts::nested::{BaseDeclaration, MemberInventory, Parameter, VisibilityDetail};
+use archkeel_facts::vocab::{
+    Area, ClassKind, EvidenceClass, InventoryStatus, MemberKind, RelationshipKind, Status,
+};
 use archkeel_facts::{Record, SymbolFact};
 use ruff_python_ast::{Expr, Stmt, StmtClassDef, StmtFunctionDef};
 use ruff_text_size::Ranged;
@@ -28,12 +31,13 @@ use super::writes;
 use crate::declare::{definition_id, signature, visibility};
 use crate::module::definition::Def;
 use crate::module::{EvidenceMap, Module};
-use kind::{Kind, Reading};
+use kind::{BaseSite, Kind, Local, Reading};
 use reader::{Reader, Unwritable};
 
 mod kind;
 mod members;
 mod reader;
+mod values;
 
 /// Why a member list is never complete: a base, a metaclass, a decorator and a write after the
 /// class body can add a member that the body does not show.
@@ -71,9 +75,9 @@ pub(crate) fn records(
 
 /// Remember a class of the module body with a record, and its body for the nested classes.
 fn keep<'a>(
-    found: Option<(Frame<'a>, Kind)>,
+    found: Option<(Frame<'a>, Local)>,
     name: &str,
-    local: &mut HashMap<String, Kind>,
+    local: &mut HashMap<String, Local>,
     pending: &mut Vec<Frame<'a>>,
 ) {
     if let Some((frame, kind)) = found {
@@ -123,7 +127,7 @@ impl<'m> Writer<'m, '_> {
         let bound = Bound::of(body);
         let mut pending = Vec::new();
         // The classes of the module body with a record, by name.
-        let mut local: HashMap<String, Kind> = HashMap::new();
+        let mut local: HashMap<String, Local> = HashMap::new();
         for statement in body {
             let start = statement.range().start();
             match statement {
@@ -131,15 +135,20 @@ impl<'m> Writer<'m, '_> {
                     self.function(node)?;
                 }
                 Stmt::ClassDef(node) if bound.sole(node.name.as_str(), start) => {
-                    let reading = Reading::top(body, &bound, self.binders, &local);
+                    let reading = Reading::top((&module.name, body), &bound, self.binders, &local);
                     let found = self.class(node, &reading, None)?;
                     keep(found, node.name.as_str(), &mut local, &mut pending);
+                }
+                Stmt::Assign(_) | Stmt::AnnAssign(_) => {
+                    let reading = Reading::top((&module.name, body), &bound, self.binders, &local);
+                    self.value(statement, &bound, &reading)?;
                 }
                 _ => {}
             }
         }
         while let Some(frame) = pending.pop() {
-            let reading = Reading::top(body, &bound, self.binders, &local).within(&frame.bound);
+            let reading = Reading::top((&module.name, body), &bound, self.binders, &local)
+                .within(&frame.bound);
             for node in nested(&frame) {
                 let found = self.class(node, &reading, Some(&frame))?;
                 pending.extend(found.map(|(next, _)| next));
@@ -218,13 +227,14 @@ impl<'m> Writer<'m, '_> {
         node: &'a StmtClassDef,
         reading: &Reading<'_>,
         owner: Option<&Frame<'_>>,
-    ) -> Result<Option<(Frame<'a>, Kind)>, Unwritable> {
+    ) -> Result<Option<(Frame<'a>, Local)>, Unwritable> {
         if !node.decorator_list.is_empty() {
             return Ok(None);
         }
-        let Some(class_kind) = kind::of(node, reading) else {
+        let Some(found) = kind::of(node, reading) else {
             return Ok(None);
         };
+        let class_kind = found.kind;
         let module: &'m Module = self.scan.module;
         let name = node.name.as_str();
         let holder = owner.map_or(module.name.as_str(), |frame| frame.qualname.as_str());
@@ -264,6 +274,9 @@ impl<'m> Writer<'m, '_> {
             ),
         ];
         data.attribute_declarations = attributes.declarations;
+        data.base_declarations = self.bases(&id, class_kind, &found.bases)?;
+        let constructible =
+            class_kind == Kind::Plain && found.constructible && !bound.names().contains("__new__");
         self.push(Def::Class(node), (holder, name), SymbolFact::Class(data))?;
         for (record, _) in methods {
             self.out.push(record);
@@ -274,7 +287,53 @@ impl<'m> Writer<'m, '_> {
             id,
             bound,
         };
-        Ok(Some((frame, class_kind)))
+        let local = Local {
+            kind: class_kind,
+            constructible,
+        };
+        Ok(Some((frame, local)))
+    }
+
+    /// `_base_declaration`: one resolved declaration for each base of a class. The list is the
+    /// class statement, so a base that it does not name is a base that the class lacks.
+    fn bases(
+        &mut self,
+        class: &str,
+        class_kind: Kind,
+        bases: &[BaseSite<'_>],
+    ) -> Result<Vec<BaseDeclaration>, Unwritable> {
+        let module = self.scan.module;
+        let mut found = Vec::new();
+        for base in bases {
+            let expression = self.scan.text(Some(base.expr))?.unwrap_or_default();
+            let crate::module::Location { line, column, .. } = module.location(base.expr);
+            let relationship_kind = if base.protocol && class_kind != Kind::Protocol {
+                RelationshipKind::Realizes
+            } else {
+                RelationshipKind::Inherits
+            };
+            let id = stable_id(
+                "BASE",
+                &[
+                    Part::Text(class),
+                    Part::Number(line),
+                    Part::Number(column),
+                    Part::Text(&expression),
+                ],
+            );
+            found.push(BaseDeclaration {
+                candidate_count: 1,
+                candidates_truncated: None,
+                evidence_ids: vec![EvidenceId::new(self.scan.evidence(base.expr))],
+                expression,
+                id: FactId::new(id),
+                reason: Some("explicit base with a proven binding".to_owned()),
+                relationship_kind,
+                status: Status::Resolved,
+                targets: vec![base.target.clone()],
+            });
+        }
+        Ok(found)
     }
 
     /// The methods of a class body that bind their name once, each with its record and id.
