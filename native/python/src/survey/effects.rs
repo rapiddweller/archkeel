@@ -23,7 +23,13 @@
 use archkeel_facts::data::GapEffect;
 use archkeel_facts::ids::ModuleName;
 
-use super::{hazards, targets};
+use super::hazards;
+
+/// The named gaps of the import sites (`targets.rs`).
+pub(super) const BEYOND_TOP: &str = "relative_import_beyond_top";
+pub(super) const NOT_FOUND: &str = "project_module_not_found";
+pub(super) const STAR: &str = "star_import";
+pub(super) const AMBIGUOUS: &str = "reexport_ambiguity";
 
 /// The effect of a site that can run code that the scan cannot see.
 const UNSEEN_CODE: GapEffect = GapEffect::EveryModule;
@@ -32,7 +38,7 @@ const UNSEEN_CODE: GapEffect = GapEffect::EveryModule;
 pub(super) fn of(kind: &str, module: &str) -> Option<GapEffect> {
     match kind {
         hazards::DYNAMIC | hazards::IMPORT_SYSTEM => Some(UNSEEN_CODE),
-        targets::STAR | targets::AMBIGUOUS => Some(GapEffect::Modules {
+        STAR | AMBIGUOUS => Some(GapEffect::Modules {
             modules: vec![ModuleName::new(module)],
         }),
         _ => None,

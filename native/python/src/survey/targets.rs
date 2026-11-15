@@ -13,22 +13,16 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use archkeel_facts::envelope::{FileFact, Target};
 use archkeel_facts::data::GapData;
+use archkeel_facts::envelope::{FileFact, Target};
 use archkeel_facts::vocab::ResolutionDimension;
 use archkeel_facts::{GapFact, ImportFact, Record};
 
 use super::binders::first_part;
-use super::effects;
+use super::effects::{self, AMBIGUOUS, BEYOND_TOP, NOT_FOUND, STAR};
 
 /// The prefix of the target of a relative import that `resolve_name` refuses (`imports.rs`).
 const UNRESOLVED: &str = "<unresolved:";
-
-/// The named gaps of the import sites.
-pub(super) const BEYOND_TOP: &str = "relative_import_beyond_top";
-pub(super) const NOT_FOUND: &str = "project_module_not_found";
-pub(super) const STAR: &str = "star_import";
-pub(super) const AMBIGUOUS: &str = "reexport_ambiguity";
 
 /// The typed targets, in the order of the imports, and the gaps of the sites, by id.
 pub(super) struct Resolved {
