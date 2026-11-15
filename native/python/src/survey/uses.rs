@@ -28,6 +28,7 @@ use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, ExprAttribute, ExprContext, Stmt};
 
 use super::bound::{Bound, Kind};
+use super::uses_scan::{class_patch, Scan};
 use crate::module::Module;
 
 /// The attributes of a module that are its namespace.
@@ -39,60 +40,6 @@ enum Binding {
     Module(String),
     /// `from a import x` where `a.x` is no module of the scan: the origin of the name.
     Attribute(String, String),
-}
-
-/// The module and the symbol that an import names.
-type Origin<'m> = (&'m str, Option<&'m str>);
-
-/// The facts that the visitor reads about the scan.
-struct Scan<'m> {
-    modules: HashSet<&'m str>,
-    bounds: HashMap<&'m str, Bound>,
-    hazardous: HashSet<&'m str>,
-    typing_values: HashSet<(String, String)>,
-    /// The imports of each module by bound name: (target module, symbol).
-    imports: HashMap<(&'m str, &'m str), Vec<Origin<'m>>>,
-}
-
-impl Scan<'_> {
-    /// True when `name` is not a module, following plain re-exports.
-    fn callable(&self, module: &str, name: &str, depth: usize) -> bool {
-        let Some(bound) = self.bounds.get(module).filter(|bound| {
-            depth < 8
-                && !bound.getattr
-                && !bound.attribute_write
-                && !self.hazardous.contains(module)
-                && !self.modules.contains(format!("{module}.{name}").as_str())
-        }) else {
-            return false;
-        };
-        match bound.kind(name) {
-            Some(Kind::Callable | Kind::Value) => true,
-            Some(Kind::BuiltinGeneric(builtin)) => bound.unbound(builtin),
-            Some(Kind::Other)
-                if self
-                    .typing_values
-                    .contains(&(module.to_owned(), name.to_owned())) =>
-            {
-                true
-            }
-            Some(Kind::Import) => match self.imports.get(&(module, name)).map(Vec::as_slice) {
-                Some([(target, Some(symbol))]) => self.callable(target, symbol, depth + 1),
-                _ => false,
-            },
-            _ => false,
-        }
-    }
-
-    /// The module and each module below it.
-    fn below(&self, module: &str) -> Vec<String> {
-        let child = format!("{module}.");
-        let names = self.modules.iter().copied();
-        names
-            .filter(|name| *name == module || name.starts_with(&child))
-            .map(str::to_owned)
-            .collect()
-    }
 }
 
 /// The modules that a use of a module binding in `modules` can change.
@@ -110,6 +57,7 @@ pub(super) fn escaped(modules: &[Module], imports: &[Record<ImportFact>]) -> Has
             .map(|(index, _)| modules[*index].name.as_str())
             .collect(),
         typing_values: HashSet::new(),
+        class_patch: false,
         bounds: modules
             .iter()
             .map(|module| (module.name.as_str(), Bound::of(&module.tree.body)))
@@ -146,6 +94,7 @@ pub(super) fn escaped(modules: &[Module], imports: &[Record<ImportFact>]) -> Has
             .or_default()
             .push(kind);
     }
+    scan.class_patch = class_patch(&scan, modules);
     scan.typing_values = typing_values(modules, imports, &scan);
     for module in modules {
         let mut walk = Uses {

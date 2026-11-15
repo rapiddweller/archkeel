@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-560 | [A call of a bare class or a builtin value type is no module](ad-560-a-call-of-a-bare-class-or-a-builtin-value-type-is-no-module.md) |
 | AD-558 | [An import counts as a use when every boundary up to the root publishes it](ad-558-an-import-counts-as-a-use-when-every-boundary-up-to-the-root-publishes-it.md) |
 | AD-556 | [Cross-crate Rust types need public bindings](ad-556-cross-crate-rust-types-need-public-bindings.md) |
 | AD-554 | [Prove two written field steps in a Rust receiver](ad-554-prove-two-written-field-steps-in-a-rust-receiver.md) |
