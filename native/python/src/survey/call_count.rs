@@ -103,7 +103,7 @@ pub(super) fn count(
         sites,
         row: FileMeasures {
             file: module.rel.clone(),
-            module: module.name.clone(),
+            module: archkeel_facts::ids::ModuleName::new(&module.name),
             ..FileMeasures::default()
         },
     };
@@ -378,7 +378,10 @@ mod tests {
         let second = crate::survey::targets::tests::surveyed(&reverse);
         assert_eq!(first.coverage.measures, second.coverage.measures);
         let rows = first.coverage.measures.unwrap();
-        let row = rows.iter().find(|row| row.module == "app.two").unwrap();
+        let row = rows
+            .iter()
+            .find(|row| row.module.as_str() == "app.two")
+            .unwrap();
         assert_eq!(
             (
                 row.calls_total,
@@ -422,7 +425,10 @@ mod tests {
             ),
         ]);
         let rows = found.coverage.measures.unwrap();
-        let row = rows.iter().find(|row| row.module == "app.two").unwrap();
+        let row = rows
+            .iter()
+            .find(|row| row.module.as_str() == "app.two")
+            .unwrap();
         assert_eq!(
             (
                 row.calls_total,
@@ -454,7 +460,10 @@ mod tests {
             ),
         ]);
         let rows = found.coverage.measures.unwrap();
-        let row = rows.iter().find(|row| row.module == "app.one").unwrap();
+        let row = rows
+            .iter()
+            .find(|row| row.module.as_str() == "app.one")
+            .unwrap();
         assert_eq!((row.calls_total, row.calls_partial), (1, 1));
     }
 }

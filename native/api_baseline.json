@@ -1489,7 +1489,7 @@
     "field measures::FileMeasures.calls_total: u64",
     "field measures::FileMeasures.calls_unresolved: u64",
     "field measures::FileMeasures.file: String",
-    "field measures::FileMeasures.module: String",
+    "field measures::FileMeasures.module: crate::ids::ModuleName",
     "field measures::FileMeasures.typing_positions: u64",
     "field measures::FileMeasures.unresolved_attribute: u64",
     "field measures::FileMeasures.unresolved_dynamic: u64",

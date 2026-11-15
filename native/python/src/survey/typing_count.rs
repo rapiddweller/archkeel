@@ -125,15 +125,7 @@ impl<'a> Visitor<'a> for Typing {
                     .zip(node.body.last())
                     .map(|(first, last)| (first.start(), last.end()));
                 self.public &= !node.name.as_str().starts_with('_');
-                let params = &node.parameters;
-                let all = params
-                    .posonlyargs
-                    .iter()
-                    .chain(&params.args)
-                    .chain(&params.kwonlyargs)
-                    .map(|arg| &arg.parameter)
-                    .chain(params.vararg.as_deref())
-                    .chain(params.kwarg.as_deref());
+                let all = node.parameters.iter().map(|arg| arg.as_parameter());
                 let receiver = self.receiver.clone();
                 for (_, parameter) in all.enumerate().filter(|(index, parameter)| {
                     !(*index == 0 && receiver.as_deref() == Some(parameter.name.as_str()))

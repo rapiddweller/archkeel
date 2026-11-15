@@ -6,7 +6,7 @@
 
 use std::collections::BTreeSet;
 
-use archkeel_facts::envelope::{Coverage, Facts, Role};
+use archkeel_facts::envelope::{Coverage, Facts};
 use archkeel_facts::vocab::Status;
 use archkeel_facts::{CallFact, Section};
 use serde::Serialize;
@@ -87,26 +87,14 @@ fn measure(coverage: &Coverage) -> Option<Measures> {
 pub fn measure_facts(facts: &Facts) -> Option<Measures> {
     let total = measure(&facts.coverage)?;
     let rows = facts.coverage.measures.as_ref()?;
-    let selected: BTreeSet<&str> = facts
-        .coverage
-        .selected_files
-        .iter()
-        .map(String::as_str)
-        .collect();
-    let inputs: BTreeSet<&str> = facts
-        .inputs
-        .iter()
-        .filter(|input| input.role == Role::Selected)
-        .map(|input| input.path.as_str())
-        .collect();
-    if selected != inputs || facts.files.len() != rows.len() {
+    if !crate::observed::inventory_complete(facts) || facts.files.len() != rows.len() {
         return None;
     }
     for row in rows {
         if !facts
             .files
             .iter()
-            .any(|file| file.rel_path == row.file && file.module.as_str() == row.module)
+            .any(|file| file.rel_path == row.file && file.module == row.module)
         {
             return None;
         }
@@ -128,7 +116,7 @@ pub fn measure_facts(facts: &Facts) -> Option<Measures> {
         }
     }
     for (module, count) in proven {
-        let row = rows.iter().find(|row| row.module == module)?;
+        let row = rows.iter().find(|row| row.module.as_str() == module)?;
         if count > row.calls_resolved.checked_add(row.calls_partial)? {
             return None;
         }
@@ -148,7 +136,7 @@ mod tests {
         assert!(measure(&coverage).is_none());
         let row = FileMeasures {
             file: "a.py".into(),
-            module: "a".into(),
+            module: archkeel_facts::ids::ModuleName::new("a"),
             calls_total: 2,
             calls_unresolved: 2,
             unresolved_name: 2,

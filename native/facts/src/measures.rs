@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub struct FileMeasures {
     pub file: String,
-    pub module: String,
+    pub module: crate::ids::ModuleName,
     pub calls_total: u64,
     pub calls_resolved: u64,
     pub calls_partial: u64,
