@@ -6,9 +6,8 @@
 //!
 //! The host can accept a coverage gap of a `complete_requires` rule when the receipt carries its
 //! dependency scope proof (`ir/decisions.py` `_scoped_dependency_receipt`). It accepts the proof
-//! only from a reply whose runtime can carry it (`_native_scope_runtime_valid`). For any other
-//! runtime the gap is a fact: the rule is UNKNOWN and names the gap. For that runtime the core
-//! cannot replay the proof, so the rule stays a named part.
+//! only from a reply whose runtime can carry it (`_native_scope_runtime_valid`). The core cannot
+//! replay it. A coverage gap gives an UNKNOWN row; a kept pair gap stays a named part.
 
 use archkeel_model::{Cause, Incomplete, Part, Reason, Settings, Unsupported};
 use serde_json::{json, Value};
