@@ -79,7 +79,7 @@ pub(crate) fn scope(snapshot: &mut Snapshot, roots: &[String], exclude_tests: bo
             }
             let children = directories.iter().map(|name| join(&directory, name));
             let (links, plain): (Vec<String>, Vec<String>) =
-                children.partition(|child| snapshot.is_link(child));
+                children.partition(|child| Snapshot::is_link(snapshot, child));
             linked.extend(links);
             pending.extend(plain);
             hidden(snapshot, &directory, exclude_tests, &mut unseen);

@@ -16,7 +16,7 @@ use crate::inputs::PYPROJECT;
 pub(crate) fn requirement(snapshot: &mut Snapshot) -> (Option<String>, RequirementState) {
     if !snapshot.is_file(PYPROJECT) {
         // A link out of the snapshot or a directory is not valid metadata; nothing is missing.
-        let invalid = snapshot.is_link(PYPROJECT) || snapshot.is_dir(PYPROJECT);
+        let invalid = Snapshot::is_link(snapshot, PYPROJECT) || snapshot.is_dir(PYPROJECT);
         let state = if invalid {
             RequirementState::MetadataInvalid
         } else {

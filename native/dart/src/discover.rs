@@ -300,7 +300,7 @@ fn excluded_or_link(rel: &str, name: &str, entry: Entry) -> Option<Problem> {
 /// that no import matches; a link, an unreadable file or a missing name stops the collection.
 fn read_pubspec(snapshot: &mut Snapshot) -> Result<(Pubspec, Option<String>), String> {
     let path = "pubspec.yaml";
-    if snapshot.is_link(path) {
+    if Snapshot::is_link(snapshot, path) {
         return Err("regular pubspec.yaml is required inside the snapshot".to_owned());
     }
     if !snapshot.is_file(path) && !snapshot.is_dir(path) {
