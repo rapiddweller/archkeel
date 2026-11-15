@@ -52,8 +52,9 @@ class with `__new__`; a base through an alias, a conditional base, `Generic[T]`;
 name hidden by a class attribute; a closed scope with an unlisted resolved site.
 
 **H-uml.** Rule 6 gives `inherits`, `realizes`; 4 gives both `calls`; 7 gives `references`; 5
-gives `creates` and, with 3, `instance_of` (`item = Unit()`); 8 gives `Text`, `VERSION`. The row
-may reach PASS, as 4.0.1 does; `fixtures/matrix.json` then changes (stated in the PR).
+gives `creates` and, with 3, `instance_of` (`item = Unit()`); 8 gives `Text`, `VERSION`. Of 20
+entities 19 PASS and 1 is UNKNOWN (`_token`: a bare annotation binds nothing, AD-518 rule 3); of
+8 relationships 8 PASS. The row stays UNKNOWN (exit 2), so `fixtures/matrix.json` does not move.
 
 **Rejected.** A receiver-type proof (PR 4). A name resolved through a string annotation. A site
 for a function without a record: the model reads it as absent.
