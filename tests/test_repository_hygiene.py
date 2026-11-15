@@ -479,7 +479,7 @@ def test_no_run_output_directory_is_tracked() -> None:
     assert stray == []
 
 
-# #767: nothing produces or reads the initial-PR evidence since AD-281, so no result schema names it.
+# #767: nothing produces or reads the initial-PR evidence since AD-281: no result schema names it.
 def test_no_result_schema_defines_the_initial_pr_evidence() -> None:
     named = [
         path.name
