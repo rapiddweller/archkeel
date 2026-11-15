@@ -50,7 +50,7 @@ fn pair() -> Vec<(String, String)> {
     vec![("ns.app.a".to_owned(), "ns.app.b".to_owned())]
 }
 
-// The name `s` is bound twice: the scan proves no type for the receiver (AD-518).
+// The name `s` is bound twice: the scan proves no type for the receiver (AD-524).
 const CALL: &str = "pub fn f(s: &crate::c::S) {\n    let s = s;\n    s.m(1);\n}\n";
 
 #[test]

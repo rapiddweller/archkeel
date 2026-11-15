@@ -44,12 +44,12 @@ pub(super) struct Typed<'a> {
     unplaced: BTreeSet<&'a str>,
     /// The last name of each type with a `Deref` or `DerefMut` impl in the workspace.
     derefs: BTreeSet<&'a str>,
-    /// A macro of the workspace has the name of a macro of `std` that binds nothing (AD-518).
+    /// A macro of the workspace has the name of a macro of `std` that binds nothing (AD-524).
     shadowed_macros: bool,
 }
 
 impl<'a> Typed<'a> {
-    /// Note what a module says of the types and the macros of the workspace (AD-518).
+    /// Note what a module says of the types and the macros of the workspace (AD-524).
     pub(super) fn note(&mut self, module: &'a Module) {
         let scan = &module.scan;
         for found in &scan.orphans.impls {
@@ -136,7 +136,7 @@ impl Builder {
             (None, None, true) => None,
             _ => return false,
         };
-        // A parameter has a written type; the workspace must give no reason to doubt it (AD-518).
+        // A parameter has a written type; the workspace must give no reason to doubt it (AD-524).
         let parameter = !matches!(on_self.name.as_str(), "self" | "Self");
         let deref = on_self
             .path

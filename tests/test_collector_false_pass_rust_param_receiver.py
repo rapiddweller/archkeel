@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: MIT
 """#1012: a call on a typed parameter is an edge; a call that the scan cannot prove keeps its gap.
 
-Consumer: `archkeel validate` with the native Rust collector (AD-518). Module `b` holds
+Consumer: `archkeel validate` with the native Rust collector (AD-524). Module `b` holds
 `impl crate::c::S { pub fn m(&self, x: u8) }` and module `a` calls `s.m(1)`; the rule says `a` must
 not use `b`. Cargo fails in `a` when `mod b;` is deleted, so `a -> b` is real in every plant here.
 
 - A parameter `s: &S`, `s: &mut S` or `s: S` that is bound once, with the `self` form of the
-  member, is proven: the edge `a -> b` is a fact and the rule gives FAIL (UNKNOWN before AD-518).
+  member, is proven: the edge `a -> b` is a fact and the rule gives FAIL (UNKNOWN before AD-524).
 - Every other form keeps the pair gap: UNKNOWN. Each is a refusal of the rule, in its own plant.
 """
 

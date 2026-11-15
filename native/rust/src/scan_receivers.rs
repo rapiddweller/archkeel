@@ -118,7 +118,7 @@ enum Frame {
     Opaque(Params),
 }
 
-/// The typed parameters of a `fn` (AD-518).
+/// The typed parameters of a `fn` (AD-524).
 #[path = "scan_params.rs"]
 mod params;
 
@@ -201,7 +201,7 @@ impl Selves {
     }
 
     /// The proof of a call whose receiver is `receiver`: a plain `self` path has the type of its
-    /// block, and a plain parameter name has its written type (AD-518).
+    /// block, and a plain parameter name has its written type (AD-524).
     pub(super) fn of(&self, receiver: &syn::Expr) -> Option<OnSelf> {
         let syn::Expr::Path(path) = receiver else {
             return None;

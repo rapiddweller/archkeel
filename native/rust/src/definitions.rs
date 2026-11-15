@@ -122,7 +122,7 @@ pub(crate) enum SelfKind {
 }
 
 /// A method call whose receiver is the plain `self` of a method of an `impl` block, or a path
-/// `Self::m` in such a block (AD-383), or a typed parameter of the `fn` (AD-518): the name of the
+/// `Self::m` in such a block (AD-383), or a typed parameter of the `fn` (AD-524): the name of the
 /// receiver (`self`, `Self` or the parameter), the path of its type, the inline modules that
 /// enclose the item, and the kind of the receiver as written (`None` for a path).
 #[derive(Clone, Debug, PartialEq)]

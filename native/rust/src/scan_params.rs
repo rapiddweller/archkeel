@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The typed parameters of a `fn` (AD-518). A parameter `x: T`, `x: &T` or `x: &mut T` with a
+//! The typed parameters of a `fn` (AD-524). A parameter `x: T`, `x: &T` or `x: &mut T` with a
 //! plain identifier and a plain path has the type that is written, so a call `x.m()` has the
 //! same first step as a call on `self` (AD-383): the written type, and the kind of the written
 //! reference. A written type is a proof; inference is not.
