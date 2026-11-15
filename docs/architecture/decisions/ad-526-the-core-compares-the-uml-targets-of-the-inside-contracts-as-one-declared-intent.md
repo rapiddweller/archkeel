@@ -18,6 +18,11 @@ to a mount. Two planned entities of one name and language are refused (`duplicat
 4. PASS needs each assessment PASS and `Scope::uml_complete` for the whole run. A gap inside or
    outside a mount keeps the row UNKNOWN: no gap is shown not to change an import of the target.
 5. A mount in another language than the reply is UNKNOWN. `UmlGap::Mounted` is removed.
+6. A third stop, for the reference link: 4.0.1 runs `_link_references` on the joined graph, the
+   core links each contract alone. A `referenced` entity of one part with the same language, kind
+   and name as a `planned` entity of another part gives UNKNOWN (`refuses to link`) when it is not
+   a bare reference (`bare_reference` of `graph_link.rs`), when a scope names it, or when its
+   parent is not the parent of the definition. A bare reference that matches stays linkable.
 
 **Differences from 4.0.1.** Stricter only: UNKNOWN where 4.0.1 passes (module outside the mount),
 refuses (duplicate entity, a gap that stops its scan) or gives no row. No PASS where 4.0.1 gives
@@ -42,7 +47,10 @@ outside stop (module outside the mount); the join ignores the mounts (import mis
 target); mount index shifted (module outside the mount); root part dropped (both same-element
 plants).
 
-**Tests.** `test_cli_core_uml_nested.py`, `test_cli_core_uml_target.py`, `contract_tests.rs`.
+**Tests.** `test_cli_core_uml_nested.py`, `test_cli_core_uml_review_nested.py` (the link plants,
+and the sibling and three-level plants that pin the mount index), `test_cli_core_uml_target.py`,
+`contract_tests.rs`. Mutation "no link stop" fails the five link plants; "mount index shifted"
+fails the sibling plant.
 
 **Rejected.** A clip of the facts per mount: 4.0.1 has none. A new rule kind.
 
