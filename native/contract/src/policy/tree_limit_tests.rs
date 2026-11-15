@@ -131,7 +131,7 @@ fn an_issue_kind_has_a_stable_serialized_name() {
 #[test]
 fn the_paths_still_needed_are_given_only_when_each_issue_is_missing() {
     let root = json!({"schema_version": "3.14.0", "rules": [], "components": [
-        mounting(Some("./a.json"))["components"][0].clone(),
+        mounting(Some("a.json"))["components"][0].clone(),
         {"id": "C-d", "label": "d", "role": "component", "packages": ["p.d"],
          "responsibilities": ["Own d."], "forbidden_responsibilities": [], "provenance": ["d.md"],
          "inside": "b.json"},

@@ -108,6 +108,15 @@ def python_dump_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture(scope="session")
+def harness_core(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The debug core with the test feature `harness`: the `check` and `dual-run` request kinds,
+    which a release binary does not have (#1095)."""
+    return build_native_copy(
+        tmp_path_factory, "native-harness", ("harness",), binary="archkeel-core"
+    )
+
+
+@pytest.fixture(scope="session")
 def rust_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """The debug build of the native Rust collector (AD-335), copied for its own tests."""
     return build_native_copy(tmp_path_factory, "native-rust", binary="archkeel-rust-collector")

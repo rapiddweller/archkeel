@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from corpus_support import commit_tree
 from rust_repository import component, repository
 from test_cli_core_only_scan import command
 
@@ -170,3 +171,24 @@ def test_windows_an_escaping_config_junction_has_no_verdict(
         assert "cannot read escape/archkeel.toml" in result["refusal"]["message"]
     finally:
         link.rmdir()
+
+
+@pytest.mark.parametrize("spelling", ["other-case", "backslash"])
+def test_a_mount_spelled_in_another_way_than_its_file_never_gives_pass(
+    release_core: Path, tmp_path: Path, spelling: str
+) -> None:
+    """#1067: the core compares the text of a mount with the resolved name of its file. A Windows
+    disk is case-insensitive and its separator is the backslash, so neither spelling may mount a
+    file. On a case-sensitive disk the file is missing; the verdict is UNKNOWN there too."""
+    root = repository(tmp_path, release_core)
+    contract = json.loads((root / "architecture-contract.json").read_text())
+    inside = {**contract, "components": [dict(contract["components"][0], id="INNER")]}
+    reference = "Inside.json" if spelling == "other-case" else "sub\\inside.json"
+    contract["components"][0]["inside"] = reference
+    (root / "architecture-contract.json").write_text(json.dumps(contract))
+    (root / "inside.json").write_text(json.dumps(inside))
+    commit_tree(root)
+    done = command(release_core, root, "--json")
+    assert done.returncode == 2, done.stdout + done.stderr
+    assert "PASS" not in done.stdout
+    assert json.loads(done.stdout)["status"] == "UNKNOWN"
