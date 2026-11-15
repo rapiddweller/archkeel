@@ -24,9 +24,14 @@ rule holds only the rules that read it (AD-500). A Dart cycle rule (`no_componen
 always UNKNOWN: the survey does not prove that it sees each local package, and 4.0.1 gives no Dart
 cycle receipt either. A proof that releases it: the survey resolves each `package:` URI from a
 complete package map that it reads (each `pubspec.yaml` of the project and its path and workspace
-members), and a test plants each YAML form of a local package. The `pubspec.yaml` reader has no
-YAML parser: each word `path`, `workspace` or `resolution` and each backslash is a gap, also in a
-value or a description (AD-500).
+members), and a test plants each YAML form of a local package. The Dart collector reads bounded
+YAML. It keeps a gap for a path key, an unsupported YAML form, and a workspace that it cannot
+prove disjoint from the scan roots (AD-542). Loader and mirror identifiers and non-own relative
+package roots also give gaps (AD-550).
+
+**Dart import premise (AD-542).** Code outside the scan roots does not load or run scanned code
+from a name passed as data. The current report does not yet print this premise. The stated-premise
+mechanism must land before this decision is merged.
 
 **Open false-PASS class (Python, shared with 4.0.1).** A third-party function can import a module
 from a string, for example a plugin loader, a framework that reads a dotted path from settings, or
@@ -34,6 +39,11 @@ an object deserializer. The survey does not know such a function, so it does not
 A forbidden or cyclic dependency that only such a call makes can give PASS. Release 4.0.1 has the
 same hole. This is an open defect, not an accepted limit. The survey covers the names of AD-450
 point 7: the standard-library doors, the import state and the builtins that run text.
+
+The Python collector does not follow a value from an unknown object to a loader. For example,
+`code = provider.code; code.interact()` gives no loader gap when `provider` is an unknown value.
+The same limit applies when the local name is `c`. A forbidden dependency reached only through
+such a value can give PASS. This is an open false-PASS class, not an accepted limit.
 
 **Open false-PASS class (TypeScript, shared with 4.0.1): code of an installed package is outside
 the model.** The collector does not read a package in `node_modules`, `jspm_packages` or
@@ -115,7 +125,7 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 - The shell trusts the rule rows of the core binary that it located. It checks the root, the commit,
   the dirty state, the configuration and all contract file digests against its request (AD-438).
   A nested file changed since the request started is refused. Keep the snapshot unchanged during a run.
-- ArchKeel checks only its Rust source in `native/` with the core: 63 rules PASS, 0 FAIL, 20 UNKNOWN, 0 violations,
+- ArchKeel checks only its Rust source in `native/` with the core: 63 rules PASS, 0 FAIL, 21 UNKNOWN, 0 violations,
   pinned in `native/expected-gaps.json`. The Python shell and the tools have no architecture contract.
 
 Archkeel observes one static snapshot, not runtime behavior, data flow, performance
@@ -128,6 +138,17 @@ The core path uses fixed system Git, but `git status` still reads the scanned re
 A configured `filter.<x>.clean` can execute a command during status. Do not scan untrusted Git configuration.
 Disabling repository-configured execution is deferred to slice 5; the fixed executable does not prevent it.
 See [AD-422](architecture/decisions/ad-422-core-only-validation-renders-the-scan-frame.md).
+
+## A `sys.path.append` of the snapshot (Python, AD-538)
+
+One write form is no gap: `sys.path.append(str(Path(__file__).resolve().parents[k]))` as a statement
+of a module body, when the directory holds no module-like entry that the scan imports. The verdict
+holds for a run from the snapshot tree. A copied, installed or zipped layout, a direct run of a
+`.pyc`, and `run_path` with a relative path plus `os.chdir` give another directory. An entry that
+appears in the directory after the snapshot, a writer outside the scan roots (`conftest.py`,
+`sitecustomize`, an installed package), a name that only code outside the scan imports, and a
+namespace that does not resolve to the scan root are not seen. `insert` and each other write of
+`sys.path` stay the gap of the whole run.
 
 ## Open false PASS, not accepted (Python `interface_boundary`, AD-504)
 
@@ -437,7 +458,7 @@ in another module than its type is an edge when a path names it (`impl crate::c:
 `b` and `crate::c::S::m()` in `a`: `a -> b`). A method call `x.m(..)` that may reach such a method
 (it has `self`, the same number of other arguments, and a visibility that holds the caller), and a
 call of a method of a trait that a glob brings in (`use b::T;` in the parent, `use super::*;` and
-`5u8.m()` in the child), give a gap of the pair `a -> b`. A call on a plain `self` in a method of `impl S`, or a path `Self::m`, is an edge to the module of the one inherent member `m` of `S` and gives no gap when that member has the same `self` form (`self`, `&self`, `&mut self`) and no `cfg` or other attribute can change the member, its block, its module, the type or the caller; any other case keeps the gaps (AD-383). A call `x.m()` on a parameter `x: T`, `&T` or `&mut T` is the same edge when `x` is bound once in the `fn`, `T` is a written plain path to one exact struct or enum, and the member has the `self` form of the parameter; a rebinding, a generic or `impl Trait` or `dyn` type, an alias, a mismatched `self` form, a `Deref` impl of the type and a macro that names `x` keep the gaps (AD-524). The host drops that gap only when the
+`5u8.m()` in the child), give a gap of the pair `a -> b`. A call on a plain `self` in a method of `impl S`, or a path `Self::m`, is an edge to the module of the one inherent member `m` of `S` and gives no gap when that member has the same `self` form (`self`, `&self`, `&mut self`) and no `cfg` or other attribute can change the member, its block, its module, the type or the caller; any other case keeps the gaps (AD-383). A `cfg_attr` that can add only lint attributes does not change an item (AD-535). A call `x.m()` on a parameter `x: T`, `&T` or `&mut T` is the same edge when `x` is bound once in the `fn`, `T` is a written plain path to one exact struct or enum, and the member has the `self` form of the parameter; a rebinding, a generic or `impl Trait` or `dyn` type, an alias, a mismatched `self` form, a `Deref` impl of the type and a macro that names `x` keep the gaps (AD-524). The host drops that gap only when the
 contract lets `a` use `b` and the edge closes no cycle that the edges and the other pair gaps may
 close (AD-357). A trait `impl` that is anchored in no module (neither its self type, read after `&`, nor its trait
 is defined there; a trait argument never anchors; a block name anchors only without a `use`, an inline

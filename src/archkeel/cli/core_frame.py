@@ -155,6 +155,7 @@ _EVIDENCE_FIELDS: Final = frozenset(
         "explain",
         "html",
         "measures",
+        "premise",
     }
 )
 _UNSUPPORTED: Final = frozenset({"rules", "sections", "report"})

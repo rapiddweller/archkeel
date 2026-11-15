@@ -77,7 +77,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 && tree.cx.valid_unicode_member_name(local);
             let spelling = tree.text(local);
             let bound = bound_scope(tree, node, &spelling)
-                .is_some_and(|scope| tree.count(scope, &spelling) == 1);
+                .is_some_and(|scope| tree.binding_count(scope, &spelling) == 1);
             if !plain || !bound {
                 return None;
             }
@@ -119,7 +119,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let definition = self.definitions_at(&tree.span(node)).last().copied()?;
         let body = tree.field(node, F::Body)?;
         let object = self.returned_object(node, body)?;
-        let name = self.qualified(definition);
+        let name = self.qualified_definition(definition);
         let members = self
             .object_values(object)
             .into_iter()
@@ -153,7 +153,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         if let Some((local, declaration)) = local {
             let initializer = tree.field(declaration, F::Value);
             let target = match local {
-                Some(local) => self.qualified(local),
+                Some(local) => self.qualified_definition(local),
                 None => format!("{factory}.{}", tree.text(value)),
             };
             let callable = local.is_some_and(|local| local.kind == DefinitionKind::Function)

@@ -9,14 +9,132 @@ use super::*;
 
 fn kinds(source: &str) -> Vec<&'static str> {
     let tree = crate::test_tree(source, 14).expect("valid probe");
-    sites(&tree, super::super::literal::Proof::default())
-        .into_iter()
-        .map(|site| site.kind)
-        .collect()
+    sites(
+        &tree,
+        super::super::literal::Proof::default(),
+        &super::super::binders::Binders::of(&tree),
+    )
+    .into_iter()
+    .map(|site| site.kind)
+    .collect()
 }
 
 fn has(source: &str, kind: &str) -> bool {
     kinds(source).contains(&kind)
+}
+
+#[test]
+fn literal_hazard_import_keeps_both_edge_and_gap() {
+    for source in [
+        "code = __import__('code')\n",
+        "x = __import__('code')\n",
+        "(code := __import__('code'))\n",
+        "__import__('code').interact()\n",
+        "import importlib\ncode = importlib.import_module('code')\n",
+        "f = lambda code=__import__('code'): code\n",
+        "def f(code=__import__('code')): return code\n",
+        "for code in [__import__('code')]: pass\n",
+        "[code for code in [__import__('code')]]\n",
+        "with __import__('code') as code: pass\n",
+        "try: pass\nexcept __import__('code') as code: pass\n",
+        "match __import__('code'):\n    case code: pass\n",
+        "f(__import__('code'))\n",
+        "@f(__import__('code'))\ndef g(): pass\n",
+        "def deco(f): return __import__('code')\n@deco\ndef code(): pass\n",
+        "class C:\n    code = __import__('code')\n    def f(self): return self.code\n",
+        "def f():\n    global code\n    code = __import__('code')\n",
+    ] {
+        let tree = crate::test_tree(source, 14).expect("valid probe");
+        let binders = Binders::of(&tree);
+        let found = sites(&tree, Proof::of(&tree, &binders), &binders);
+        assert!(
+            found
+                .iter()
+                .any(|site| site.kind == LITERAL && site.detail == "code"),
+            "{source}"
+        );
+        assert!(
+            found
+                .iter()
+                .any(|site| site.kind == DYNAMIC && site.detail == "code"),
+            "{source}"
+        );
+    }
+    for (source, target, kind) in [
+        ("__import__('pickle')\n", "pickle", DYNAMIC),
+        ("__import__('sys.modules')\n", "sys.modules", IMPORT_SYSTEM),
+    ] {
+        let tree = crate::test_tree(source, 14).expect("valid probe");
+        let binders = Binders::of(&tree);
+        let found = sites(&tree, Proof::of(&tree, &binders), &binders);
+        assert!(found
+            .iter()
+            .any(|site| site.kind == LITERAL && site.detail == target));
+        assert!(found
+            .iter()
+            .any(|site| site.kind == kind && site.detail == target));
+    }
+}
+
+#[test]
+fn reflective_code_access_on_imported_module_is_a_gap() {
+    for source in [
+        "import pdb\ncode = getattr(pdb, 'code')\n",
+        "import pdb\ngetattr(pdb, 'code').interact()\n",
+        "import pdb\ncode = vars(pdb)['code']\n",
+        "import pdb\ncode = pdb.__dict__['code']\n",
+        "import pdb\np = pdb\ncode = p.code\n",
+        "import pdb\ncode = (p := pdb).code\n",
+    ] {
+        assert!(has(source, DYNAMIC), "{source}");
+    }
+    assert!(kinds("def f(provider):\n    return getattr(provider, 'code')\n").is_empty());
+}
+
+#[test]
+fn local_code_is_not_the_code_module() {
+    for source in [
+        "def f(code):\n    return code.value\n",
+        "def f():\n    code = 'x'\n    return code.replace('x', 'y')\n",
+        "def f(items):\n    for code in items: print(code)\n",
+        "def f(code):\n    return {'code': code}\n",
+        "pickle = obj.pickle\n",
+        "self.code.value\n",
+    ] {
+        assert!(kinds(source).is_empty(), "{source}: {:?}", kinds(source));
+    }
+    for source in [
+        "import code as c\nc.interact()\n",
+        "from code import interact as run\nrun()\n",
+        "import code\ndef f():\n    code.interact()\n",
+    ] {
+        assert!(has(source, DYNAMIC), "{source}");
+    }
+}
+
+#[test]
+fn code_received_from_an_unknown_object_is_a_named_limit() {
+    assert!(kinds("code = provider.code\ncode.interact()\n").is_empty());
+}
+
+#[test]
+fn imported_code_and_ambiguous_bindings_remain_gaps() {
+    for source in [
+        "def f():\n    import code as c\n    def g(): c.interact()\n",
+        "if flag:\n    import code\ncode.interact()\n",
+        "from package import *\ncode.interact()\n",
+        "import code\ndef f():\n    global code\n    code.interact()\n",
+        "import code\nx = code\nx.interact()\n",
+        "del code\ncode.interact()\n",
+        "class C:\n    code.interact()\n",
+        "import provider\nprovider.code.interact()\n",
+        "from provider import code as c\nc.interact()\n",
+        "from . import code as c\nc.interact()\n",
+        "getattr(importlib, 'import_module')\n",
+        "import sys\nsys.modules['x'] = value\n",
+    ] {
+        assert!(!kinds(source).is_empty(), "{source}");
+    }
 }
 
 #[test]

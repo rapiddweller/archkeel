@@ -68,6 +68,8 @@ pub(super) struct Frame {
     pub(super) identity: Identity,
     /// Why the run is not decided: the refusal or the scope text of the frame.
     pub(super) cause: String,
+    /// The assumption that the collector states for its proofs (AD-540), or empty.
+    pub(super) premise: String,
 }
 
 fn field<T: DeserializeOwned + Default>(frame: &Value, key: &str) -> T {
@@ -109,6 +111,7 @@ impl Frame {
             named: serde_json::from_value(frame["unsupported"]["rules"].clone())
                 .unwrap_or_default(),
             cause,
+            premise: text(&frame["premise"]).unwrap_or_default(),
             status: frame["status"].as_str().unwrap_or("unavailable").to_owned(),
             rules: field(frame, "rules"),
             details: field(frame, "details"),

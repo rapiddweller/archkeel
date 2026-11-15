@@ -28,7 +28,7 @@ impl<'a, 'p> Run<'a, 'p> {
             && !self.vendors.packages.contains_key(name)
             && !self.partial
             && !self.project.any_error
-            && !(paths.any_empty || paths.singles.contains_key(name))
+            && !(paths.blocks_all() || paths.singles.contains_key(name))
     }
 
     /// `_script_standard_global`.
@@ -60,7 +60,7 @@ impl<'a, 'p> Run<'a, 'p> {
         let paths = &self.project.paths;
         let bound = self.project.bound_anywhere.contains_key(name)
             || host().any(|n| self.project.bound_anywhere.contains_key(n));
-        let written = paths.any_empty
+        let written = paths.blocks_all()
             || paths.singles.contains_key(name)
             || host().any(|n| paths.singles.contains_key(n))
             || paths.loader_first;
@@ -182,7 +182,7 @@ impl<'a, 'p> Run<'a, 'p> {
         };
         let paths = &self.project.paths;
         let blocked = self.project.any_error
-            || paths.any_empty
+            || paths.blocks_all()
             || self.project.bound_or_written_elsewhere(first, *source_at);
         if !publishers.is_empty() || blocked {
             return false;
