@@ -88,6 +88,67 @@ def test_a_path_to_an_inherent_member_is_an_edge(tmp_path: Path, release_core: P
     assert statuses(result).get("NO-APP-TO-IMPL") == "FAIL", claims(result)
 
 
+def test_a_gated_file_can_call_an_ungated_external_member(
+    tmp_path: Path, release_core: Path
+) -> None:
+    sources = {
+        "crates/base/src/lib.rs": "pub struct S; mod implementation;\n",
+        "crates/base/src/implementation.rs": "impl crate::S { pub fn m() -> u8 { 2 } }\n",
+        "crates/app/src/lib.rs": "#[cfg(not(any()))] mod caller;\n",
+        "crates/app/src/caller.rs": "use base_crate::S; pub fn run() -> u8 { S::m() }\n",
+    }
+    repository(tmp_path, release_core, sources, rules=(*CRATE_RULES, FORBID))
+    base = tmp_path / "libbase_crate.rlib"
+    for args in (
+        ["--crate-name=base_crate", "crates/base/src/lib.rs", "-o", str(base)],
+        ["--crate-name=app", "crates/app/src/lib.rs", "--extern", f"base_crate={base}"],
+    ):
+        result = subprocess.run(
+            ["rustc", "--edition=2021", "--crate-type=lib", *args],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+    result = validate(tmp_path)
+    assert statuses(result).get("NO-APP-TO-IMPL") == "FAIL", claims(result)
+
+
+def test_an_opaque_module_attribute_keeps_the_path_gap(tmp_path: Path, release_core: Path) -> None:
+    repository(
+        tmp_path,
+        release_core,
+        {
+            "crates/base/src/lib.rs": "pub struct S; mod implementation;\n",
+            "crates/base/src/implementation.rs": "impl crate::S { pub fn m() -> u8 { 2 } }\n",
+            "crates/app/src/lib.rs": "#[cfg_attr(any(), mac::rewrite)] mod caller;\n",
+            "crates/app/src/caller.rs": "use base_crate::S; pub fn run() -> u8 { S::m() }\n",
+        },
+        rules=(*CRATE_RULES, FORBID),
+    )
+    result = validate(tmp_path)
+    assert statuses(result).get("NO-APP-TO-IMPL") == "UNKNOWN", claims(result)
+
+
+def test_a_gated_external_member_keeps_the_path_gap(tmp_path: Path, release_core: Path) -> None:
+    repository(
+        tmp_path,
+        release_core,
+        {
+            "crates/base/src/lib.rs": (
+                'pub struct S; #[cfg(feature = "other")] mod implementation;\n'
+            ),
+            "crates/base/src/implementation.rs": "impl crate::S { pub fn m() -> u8 { 2 } }\n",
+            "crates/app/src/lib.rs": '#[cfg(feature = "dump")] mod caller;\n',
+            "crates/app/src/caller.rs": "use base_crate::S; pub fn run() -> u8 { S::m() }\n",
+        },
+        rules=(*CRATE_RULES, FORBID),
+    )
+    result = validate(tmp_path)
+    assert statuses(result).get("NO-APP-TO-IMPL") == "UNKNOWN", claims(result)
+
+
 def test_a_path_in_a_silent_macro_of_std_is_an_edge(tmp_path: Path, release_core: Path) -> None:
     caller = "use base_crate::S;\npub fn run() -> Vec<u8> { vec![S::m()] }\n"
     result = _plant(tmp_path, release_core, caller)
