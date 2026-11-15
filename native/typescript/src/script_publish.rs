@@ -52,7 +52,7 @@ fn object_members<'t>(tree: &Tree<'_, 't>, object: Node<'t>) -> Option<Keyed> {
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// `_script_members`: the functions that an object literal publishes under their own name.
     pub(crate) fn members(&self, object: Node<'t>, wrapper: Option<Node<'t>>) -> Vec<Member> {
-        let tree = self.tree;
+        let tree: &Tree<'_, '_> = self.tree;
         let Some((members, keys)) = object_members(tree, object) else {
             return Vec::new();
         };
@@ -83,7 +83,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
     /// Whether the statement of the assignment is a statement of the file or of the wrapper.
     fn direct(&self, node: Node<'t>, wrapper: Option<Node<'t>>) -> bool {
-        let tree = self.tree;
+        let tree: &Tree<'_, '_> = self.tree;
         let outer = tree.parent(node).and_then(|parent| tree.parent(parent));
         let body = wrapper.and_then(|wrapper| tree.field(wrapper, F::Body));
         outer.is_some_and(|outer| {
@@ -94,7 +94,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// The receiver of the assignment is the parameter that the wrapper binds to a root, once, and
     /// the wrapper is called with names that are free.
     fn wrapper_receiver_proven(&self, node: Node<'t>, wrapper: Node<'t>, name: &str) -> bool {
-        let tree = self.tree;
+        let tree: &Tree<'_, '_> = self.tree;
         let Some(info) = self.wrappers.get(&wrapper.id()) else {
             return false;
         };
@@ -114,7 +114,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// The wrapper is called with names that are free. The arguments are read once for all the
     /// assignments that the wrapper makes.
     fn free_arguments(&self, wrapper: Node<'t>) -> bool {
-        let tree = self.tree;
+        let tree: &Tree<'_, '_> = self.tree;
         let call = self.wrappers.get(&wrapper.id()).map(|info| info.call);
         let mut known = self.free_arguments.borrow_mut();
         *known.entry(wrapper.id()).or_insert_with(|| {
@@ -134,7 +134,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         target: Node<'t>,
         wrapper: Option<Node<'t>>,
     ) -> Option<ScriptGlobal> {
-        let tree = self.tree;
+        let tree: &Tree<'_, '_> = self.tree;
         let path = tree.static_path(target);
         let value = tree.field(node, F::Right)?;
         let is_left = tree
@@ -170,7 +170,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         node: Node<'t>,
         call: Node<'t>,
     ) -> Option<ScriptGlobal> {
-        let tree = self.tree;
+        let tree: &Tree<'_, '_> = self.tree;
         let binding = tree.parent(call)?;
         let declaration = tree.parent(binding)?;
         if tree.k(binding) != K::VariableDeclarator
@@ -209,7 +209,7 @@ struct Found {
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// What the node adds to the writes and publications of the file.
     fn visit(&self, node: Node<'t>, roots: &HashSet<&str>, found: &mut Found) {
-        let tree = self.tree;
+        let tree: &Tree<'_, '_> = self.tree;
         let kind = tree.k(node);
         let opaque = tree.opaque_writes(node, &self.callables);
         found
@@ -238,10 +238,10 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
     /// The assignment that `node` makes to `target`: a write, and maybe a publication.
     fn assign(&self, node: Node<'t>, target: Node<'t>, found: &mut Found) {
-        let tree = self.tree;
+        let tree: &Tree<'_, '_> = self.tree;
         let wrapper = self.wrapper_of(node);
         let alias = |name: &str| self.is_alias(wrapper, name);
-        found.writes.push(tree.target_write(node, target, &alias));
+        found.writes.push(self.write_of(node, target));
         let path = tree.static_path(target);
         if path.first().is_some_and(|first| alias(first)) {
             let published = self.assignment_publication(node, target, wrapper);
@@ -252,7 +252,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
 /// `_script_globals`: the publications of the file and the writes that a script may make.
 pub(crate) fn globals<'t>(producer: &Producer<'_, '_, 't>) -> (Vec<ScriptGlobal>, Vec<Write>) {
-    let tree = producer.tree;
+    let tree: &Tree<'_, '_> = producer.tree;
     let mut found = Found::default();
     let wrapper_calls: HashSet<usize> = producer.wrappers.values().map(|w| w.call.id()).collect();
     let mut roots: HashSet<&str> = crate::source_input::WALK_ROOTS.into_iter().collect();
