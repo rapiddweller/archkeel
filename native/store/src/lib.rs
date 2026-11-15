@@ -2,18 +2,14 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! archkeel-store, core v1 stage 1 (AD-346, epic #880 target v2 WP4).
+//! archkeel-store (AD-346, epic #880 target v2 WP4).
 //!
 //! The store reads one collector reply through the types of `archkeel-facts`, runs the generic
-//! validation once and keeps the records. It gives the Python shell two outputs:
+//! validation once and keeps the records for the model of the core (`ingest_reply`,
+//! `ingest_typed`). It also holds the pinned standard library of each profile.
 //!
-//! 1. The read-set document (`seam`): the reply with only the record fields that a rule or a view
-//!    reads. The Python check builds its facts from it and does not validate them again.
-//! 2. The whole `architecture.json` 2.9 (`canonical`), byte-equal to the Python writer. Python
-//!    passes its parts and names each stored record by its id.
-//!
-//! It also gives the receipt digest of a dependency proof (`pyrepr`) and the binding digest of a
-//! member inventory proof (`inventory`), because they hash whole records that only the store holds.
+//! The process, the read-set document and the writer of `architecture.json` for the Python shell
+//! are deleted with the Python engine (AD-432).
 
 #![deny(unreachable_pub)]
 
