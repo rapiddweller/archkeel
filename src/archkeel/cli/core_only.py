@@ -440,17 +440,25 @@ def _refused(kind: RefusalKind, message: str, as_json: bool) -> int:
     return 2
 
 
+_MAX_PLACES = 3
+
+
 def _places(frame: CoreFrame, evidence: Sequence[str]) -> str:
     places = [
         f"{location.path}:{location.line}" if location.line else location.path
         for key in evidence
         if (location := frame.locations.get(key))
     ]
-    return f" ({', '.join(places)})" if places else ""
+    # A gap that cites many places (AD-540: the uses behind a blocking form) names the first few.
+    shown = places[:_MAX_PLACES]
+    more = f", +{len(places) - len(shown)} more" if len(places) > len(shown) else ""
+    return f" ({', '.join(shown)}{more})" if places else ""
 
 
 def render_text(command: Command, frame: CoreFrame) -> None:
     print(f"{command}: {frame.status}")
+    if frame.premise is not None:
+        print(f"Assumption: {frame.premise}")
     if (topology := frame.topology) is not None:
         print(
             f"Topology: {len(topology.modules)}/{topology.total['modules']} modules, "
@@ -464,9 +472,10 @@ def render_text(command: Command, frame: CoreFrame) -> None:
         print(f"Scope: {frame.scope}")
         print("Action: Resolve the named scope gap and run again.")
     for source_gap in frame.collection_gaps:
+        detail = f" ({source_gap.detail})" if source_gap.detail else ""
         print(
             f"Source gap: {source_gap.kind}: {', '.join(source_gap.subjects)}: "
-            f"{source_gap.reason}{_places(frame, source_gap.evidence)}"
+            f"{source_gap.reason}{detail}{_places(frame, source_gap.evidence)}"
         )
         print("Action: Resolve the collector cause and run again.")
     for rule, rows in frame.details.items():

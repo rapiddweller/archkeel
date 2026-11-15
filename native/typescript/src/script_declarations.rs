@@ -14,7 +14,7 @@ use crate::script_names::bound_scope;
 use crate::script_scope::is_root;
 use crate::script_syntax::{unique, Producer};
 use crate::script_tree::Tree;
-use crate::script_types::{Member, Write};
+use crate::script_types::{Blocker, Member, Write};
 use crate::script_window::Written;
 use crate::source::Span;
 
@@ -28,6 +28,9 @@ pub(crate) struct Declarations {
     pub checked: Vec<Write>,
     /// Some node writes an unknown name through an amplifier form (AD-540).
     pub amplified: bool,
+    pub blockers: Vec<Blocker>,
+    /// An empty path that no blocker names.
+    pub unlabelled_empty: bool,
 }
 
 /// What the producer finds while it reads the nodes in order.
@@ -42,12 +45,15 @@ struct Gathered<'t> {
     checked: Vec<Write>,
     /// A node of an amplifier form wrote an unknown name (AD-540).
     amplified: bool,
+    blockers: Vec<Blocker>,
+    /// The empty paths that a blocker names.
+    labelled_empty: usize,
 }
 
 impl<'t> Gathered<'t> {
     /// A write of the one check at the place of `span`: a write and a path of its name, or a
     /// write and a path of an unknown name. Call it after the source write of the same target.
-    fn check(&mut self, written: Option<Written>, span: Span) {
+    fn check(&mut self, written: Option<Written>, span: Span, form: &'static str) {
         let amplifier = matches!(written, Some(Written::Amplified));
         let (name, path) = match written {
             Some(Written::Name(name)) => (Some(name.clone()), vec![name]),
@@ -57,6 +63,10 @@ impl<'t> Gathered<'t> {
         // An amplifier form leaves the unknown write of the file but no empty path: the project
         // decides with its host entry whether the write blocks every name.
         self.amplified |= amplifier;
+        if name.is_none() && !amplifier {
+            self.blockers.push((span.clone(), form));
+            self.labelled_empty += 1;
+        }
         // The write of the target that the source writes just took: the script writes and the
         // paths hold it already.
         if self
@@ -175,13 +185,29 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let mut targets = self.targets.iter().peekable();
         for node in tree.nodes.iter().copied() {
             found.writes.extend(tree.declaration_write(node));
-            found.check(self.node_write(node), tree.span(node));
+            found.check(self.node_write(node), tree.span(node), form_of(node));
             while let Some((_, target)) = targets.next_if(|(owner, _)| owner.id() == node.id()) {
                 self.declared_target(node, *target, &mut found);
-                found.check(self.global_write(*target), tree.span(node));
-                found.check(self.method_key_write(*target), tree.span(node));
-                found.check(self.location_target(node, *target), tree.span(node));
-                found.check(self.changed_global(*target), tree.span(node));
+                found.check(
+                    self.global_write(*target),
+                    tree.span(node),
+                    "a write through a key that is no literal",
+                );
+                found.check(
+                    self.method_key_write(*target),
+                    tree.span(node),
+                    "a write through this with a key that is no literal",
+                );
+                found.check(
+                    self.location_target(node, *target),
+                    tree.span(node),
+                    "a navigation to a text that is no literal",
+                );
+                found.check(
+                    self.changed_global(*target),
+                    tree.span(node),
+                    "a write that changes a global through a window value",
+                );
             }
             if let Some((span, object)) = self.published_object(node) {
                 found.put(span, object);
@@ -192,6 +218,8 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             .iter()
             .map(|(span, object)| (span.clone(), self.object_members(*object)))
             .collect();
+        let unlabelled_empty =
+            found.paths.iter().filter(|path| path.is_empty()).count() > found.labelled_empty;
         Declarations {
             members,
             writes: unique(found.writes),
@@ -199,6 +227,22 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             top_level_paths: unique(found.top_level),
             checked: unique(found.checked),
             amplified: found.amplified,
+            unlabelled_empty,
+            blockers: unique(found.blockers),
         }
+    }
+}
+
+/// The kind of the form at a node that writes an unknown global, as a short phrase (AD-540).
+fn form_of(node: Node) -> &'static str {
+    match node.kind() {
+        "subscript_expression" => "a key that is no literal and can name constructor",
+        "call_expression" => "a call that can run code or open a window",
+        "string" | "template_string" => "a text that can run as code",
+        "assignment_expression" | "augmented_assignment_expression" | "for_in_statement" => {
+            "a write of markup or code"
+        }
+        "shorthand_property_identifier_pattern" | "pair_pattern" => "a pattern that takes a window",
+        _ => "a name that is the global object or runs code",
     }
 }

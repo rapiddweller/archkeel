@@ -126,11 +126,7 @@ def test_each_script_global_decision_reads_the_one_write_check() -> None:
 # form is decided in one of three files, and each reader of the empty path reads `blocks_all`.
 AMPLIFIER_HOMES = {
     "Reach::Amplified": {"script_window.rs", "script_forms.rs"},
-    "Written::Amplified": {
-        "script_window.rs",
-        "script_forms.rs",
-        "script_declarations.rs",
-    },
+    "Written::Amplified": {"script_window.rs", "script_declarations.rs"},
 }
 
 
