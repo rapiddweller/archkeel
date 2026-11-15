@@ -16,6 +16,7 @@ pub(super) struct Safety {
     pub conditional_use: bool,
     pub conditional_bindings: BTreeSet<String>,
     pub conditional_globs: BTreeSet<(i64, i64)>,
+    pub restricted_bindings: BTreeSet<String>,
 }
 
 pub(super) fn read(file: &syn::File, exclude_tests: bool) -> Safety {
@@ -35,6 +36,7 @@ pub(super) fn read(file: &syn::File, exclude_tests: bool) -> Safety {
         conditional_use: found.conditional_use,
         conditional_bindings: found.conditional_bindings,
         conditional_globs: found.conditional_globs,
+        restricted_bindings: found.restricted_bindings,
     }
 }
 
@@ -45,6 +47,7 @@ struct Names {
     conditional_use: bool,
     conditional_bindings: BTreeSet<String>,
     conditional_globs: BTreeSet<(i64, i64)>,
+    restricted_bindings: BTreeSet<String>,
     gated: bool,
     exclude_tests: bool,
 }
@@ -107,6 +110,15 @@ impl<'ast> Visit<'ast> for Names {
             self.conditional_use = true;
             self.use_tree(&node.tree, None);
         }
+        if !matches!(node.vis, syn::Visibility::Public(_)) {
+            let old = std::mem::take(&mut self.conditional_bindings);
+            let old_globs = std::mem::take(&mut self.conditional_globs);
+            self.use_tree(&node.tree, None);
+            self.restricted_bindings
+                .append(&mut self.conditional_bindings);
+            self.conditional_bindings = old;
+            self.conditional_globs = old_globs;
+        }
         visit::visit_item_use(self, node);
     }
 
@@ -133,5 +145,27 @@ impl<'ast> Visit<'ast> for Names {
             }
         }
         visit::visit_expr_path(self, node);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn restricted_uses_do_not_change_conditional_facts() {
+        let file = syn::parse_file(
+            "pub use a::Public; pub(crate) use a::{Hidden, Renamed as Alias, *}; \
+             #[cfg(any())] pub use a::Conditional;",
+        )
+        .unwrap();
+        let facts = super::read(&file, false);
+        assert_eq!(
+            facts.restricted_bindings.into_iter().collect::<Vec<_>>(),
+            ["Alias", "Hidden"]
+        );
+        assert_eq!(
+            facts.conditional_bindings.into_iter().collect::<Vec<_>>(),
+            ["Conditional"]
+        );
+        assert!(facts.conditional_globs.is_empty());
     }
 }

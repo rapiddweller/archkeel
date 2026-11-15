@@ -6,7 +6,8 @@ The written type of a receiver can name an item in another workspace crate. The 
 follows explicit `use` and `pub use` leaves to one struct or enum. Each module on the path must
 be present in every configuration. A conditional use, glob, macro that can add an item, duplicate
 binding, alias, unplaced type or ambiguous crate keeps the type unknown. The resolver follows at
-most eight re-exports. A caller with an unproved macro also keeps the type unknown.
+most eight re-exports. A caller with an unproved macro also keeps the type unknown. A direct
+path into a non-root module of another crate stays unknown until module visibility is proved.
 
 The receiver still needs every first-step proof of AD-524. The resolver does not infer the type
 of a local value. The earlier intra-crate resolver also refuses a conditional `use` when it

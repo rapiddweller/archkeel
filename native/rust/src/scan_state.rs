@@ -118,6 +118,8 @@ pub(crate) struct Scan {
     pub conditional_bindings: BTreeSet<String>,
     /// Conditional glob leaves, by their source position.
     pub conditional_globs: BTreeSet<(i64, i64)>,
+    /// Names bound by a use that is not public outside the crate.
+    pub restricted_bindings: BTreeSet<String>,
     /// The second count of the tree, for the invariant of the extraction.
     pub tally: Tally,
 }

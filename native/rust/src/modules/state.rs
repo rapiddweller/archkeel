@@ -8,7 +8,7 @@ use super::alias::Aliases;
 use super::climb::inside;
 use super::outcome::{Edge, Outcome, TypeOf};
 use crate::crates::{Crate, Workspace};
-use crate::definitions::{Form, Owner};
+use crate::definitions::{Access, Form, Owner};
 use crate::resolve::{classify, Found, Named};
 use crate::scan::{Reference, Via};
 use crate::tree::Module;
@@ -227,6 +227,9 @@ impl Index<'_> {
         let Found::Edge(Named::Package(package)) = found else {
             return None;
         };
+        if names.len() != 2 {
+            return None;
+        }
         let root = self.unique_root(&package)?;
         let outcome = self.direct_reach(root, names.get(1..)?)?;
         self.cross_outcome(outcome, names.last()?, 0)
@@ -249,6 +252,7 @@ impl Index<'_> {
         let is_type = scan.definitions.iter().any(|d| {
             d.name == name
                 && d.owner == Owner::Module
+                && d.access == Access::Public
                 && matches!(d.form, Form::Struct | Form::Enum)
                 && frame.lexical_at(&d.scope) == edge.lexical
         });
@@ -259,6 +263,7 @@ impl Index<'_> {
             return None;
         };
         if scan.counts.get(name) != Some(&1)
+            || scan.restricted_bindings.contains(name)
             || !matches!(
                 leaf.via,
                 Via::Use {
@@ -281,6 +286,9 @@ impl Index<'_> {
         );
         let outcome = match external {
             Some(Found::Edge(Named::Package(package))) => {
+                if leaf.names.len() != 2 {
+                    return None;
+                }
                 self.direct_reach(self.unique_root(&package)?, leaf.names.get(1..)?)?
             }
             None if !leaf.absolute && (leaf.scope.is_empty() || first == "crate") => {

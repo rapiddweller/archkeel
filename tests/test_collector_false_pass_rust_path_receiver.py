@@ -98,6 +98,17 @@ def test_a_typed_receiver_from_another_crate_is_an_edge(tmp_path: Path, release_
     assert statuses(result).get("NO-APP-TO-IMPL") == "FAIL", claims(result)
 
 
+def test_a_direct_cross_crate_module_path_keeps_its_gap(tmp_path: Path, release_core: Path) -> None:
+    result = _plant(
+        tmp_path,
+        release_core,
+        "pub fn run(s: &base_crate::model::S) -> u8 { s.m() }\n",
+        base_source="pub mod model { pub struct S; } mod implementation;\n",
+        implementation="impl crate::model::S { pub fn m(&self) -> u8 { 2 } }\n",
+    )
+    assert statuses(result).get("NO-APP-TO-IMPL") == "UNKNOWN", claims(result)
+
+
 def test_a_typed_receiver_through_a_reexport_is_an_edge(tmp_path: Path, release_core: Path) -> None:
     sources = {
         "crates/base/src/lib.rs": "mod model; pub use model::S; mod implementation;\n",
