@@ -10,7 +10,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-558 | [A read of a host name that nothing writes is no gap](ad-558-a-read-of-a-host-name-that-nothing-writes-is-no-gap.md) |
 | AD-556 | [Cross-crate Rust types need public bindings](ad-556-cross-crate-rust-types-need-public-bindings.md) |
 | AD-554 | [Prove two written field steps in a Rust receiver](ad-554-prove-two-written-field-steps-in-a-rust-receiver.md) |
-| AD-558 | [A literal binding is not a module object](ad-552-a-literal-binding-is-not-a-module-object.md) |
+| AD-552 | [A literal binding is not a module object](ad-552-a-literal-binding-is-not-a-module-object.md) |
 | AD-550 | [Dart names loader tokens and relative package roots](ad-550-dart-names-loader-tokens-and-relative-package-roots.md) |
 | AD-544 | [A Rust receiver type can follow workspace re-exports](ad-544-a-rust-receiver-type-can-follow-workspace-reexports.md) |
 | AD-543 | [A written local type proves a Rust receiver](ad-543-a-written-local-type-proves-a-rust-receiver.md) |
