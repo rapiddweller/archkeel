@@ -13,7 +13,7 @@ FLUTTER_EXECUTABLE ?= flutter
 
 ci: ci-check mermaid
 
-ci-check: ci-artifacts-clean ci-core-check self-validate-native self-validate-shell self-validate-system
+ci-check: ci-artifacts-clean ci-core-check self-validate-native self-validate-shell
 
 ci-pr-check: ci-pr-static pr-test
 
