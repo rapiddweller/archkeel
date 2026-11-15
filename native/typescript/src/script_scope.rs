@@ -102,5 +102,5 @@ pub(crate) fn sole_binding_scope<'t>(
     node: Node<'t>,
     name: &str,
 ) -> Option<Node<'t>> {
-    bound_scope(tree, node, name).filter(|scope| tree.count(*scope, name) == 1)
+    bound_scope(tree, node, name).filter(|scope| tree.binding_count(*scope, name) == 1)
 }

@@ -4,7 +4,7 @@
 
 //! The proof that a call imports one literal module (AD-472).
 //!
-//! Exactly two forms are a static edge and no hazard:
+//! Exactly two forms are a static edge:
 //!
 //! - `importlib.import_module("a.b")`, when each binding of `importlib` in the module is a plain
 //!   `import importlib` (no alias, no submodule import, no other binding);
@@ -13,7 +13,8 @@
 //! The call has exactly one argument and no keyword: a plain string literal with an absolute dotted
 //! name. A module that calls `globals`, `vars` or `locals` proves nothing. `from importlib import
 //! import_module` stays a door: its import statement is a reference to the door. Any other call,
-//! alias, value or attribute use stays a `dynamic_import` gap (`hazards.rs`).
+//! alias, value or attribute use stays a `dynamic_import` gap (`hazards.rs`). A target that is
+//! itself a hazard keeps its named gap as well as the edge.
 
 use archkeel_facts::identity::is_identifier;
 use ruff_python_ast::visitor::{self, Visitor};

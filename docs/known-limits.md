@@ -39,6 +39,11 @@ A forbidden or cyclic dependency that only such a call makes can give PASS. Rele
 same hole. This is an open defect, not an accepted limit. The survey covers the names of AD-450
 point 7: the standard-library doors, the import state and the builtins that run text.
 
+The Python collector does not follow a value from an unknown object to a loader. For example,
+`code = provider.code; code.interact()` gives no loader gap when `provider` is an unknown value.
+The same limit applies when the local name is `c`. A forbidden dependency reached only through
+such a value can give PASS. This is an open false-PASS class, not an accepted limit.
+
 **Open false-PASS class (TypeScript, shared with 4.0.1): code of an installed package is outside
 the model.** The collector does not read a package in `node_modules`, `jspm_packages` or
 `bower_components` beside a valid manifest when only a `node_modules` search reaches it, for
