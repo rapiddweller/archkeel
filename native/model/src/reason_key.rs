@@ -142,20 +142,25 @@ fn unsupported(part: &Unsupported) -> Stable {
 /// The code of a part of the scope proof, and the value that names it, if it has one.
 fn part_code(part: &Part) -> String {
     let (code, value) = match part {
-        Part::RuntimeRequirement => ("runtime_requirement", None),
-        Part::ProfileLimit(subject) => ("profile_limit", Some(subject)),
-        Part::ConstructSubjects(rule) => ("construct_subjects", Some(rule)),
-        Part::ForeignRule => ("foreign_rule", None),
-        Part::MountedTree => ("mounted_tree", None),
-        Part::ScanRoots => ("scan_roots", None),
-        Part::ScopedRequires => ("scoped_requires", None),
-        Part::ContractSource => ("contract_source", None),
-        Part::ScanLayout => ("scan_layout", None),
-        Part::ReceiptSources => ("receipt_sources", None),
-        Part::MountedLayerOrder => ("mounted_layer_order", None),
-        Part::MountParent(parent) => ("mount_parent", Some(parent)),
+        Part::RuntimeRequirement => plain("runtime_requirement"),
+        Part::ProfileLimit(subject) => ("profile_limit", Some(subject.as_str())),
+        Part::ConstructSubjects(rule) => ("construct_subjects", Some(rule.as_str())),
+        Part::ForeignRule => plain("foreign_rule"),
+        Part::MountedTree => plain("mounted_tree"),
+        Part::ScanRoots => plain("scan_roots"),
+        Part::ScopedRequires => plain("scoped_requires"),
+        Part::ContractSource => plain("contract_source"),
+        Part::ScanLayout => plain("scan_layout"),
+        Part::ReceiptSources => plain("receipt_sources"),
+        Part::MountedLayerOrder => plain("mounted_layer_order"),
+        Part::MountParent(parent) => ("mount_parent", Some(parent.as_str())),
     };
-    value.map_or_else(|| code.to_owned(), |value| format!("{code}: {value}"))
+    coded(code, value)
+}
+
+/// A code that no value names.
+fn plain(code: &str) -> (&str, Option<&str>) {
+    (code, None)
 }
 
 fn input_code(input: Input) -> &'static str {
@@ -196,26 +201,31 @@ fn held(kind: &str, held: &Held) -> Vec<Stable> {
 }
 
 fn cause_entries(cause: &Cause) -> Vec<Stable> {
-    let one = |code: String| vec![Stable::of("incomplete_scope", code)];
-    match cause {
-        Cause::PairGaps(pairs) => held("pair_gap", pairs),
-        Cause::AllowedPairGaps(pairs) => held("allowed_pair_gap", pairs),
-        Cause::WorkTree => one("work_tree".to_owned()),
-        Cause::Runtime => one("runtime".to_owned()),
-        Cause::Producer => one("producer".to_owned()),
-        Cause::ProfileLimit(subject) => one(format!("profile_limit: {subject}")),
-        Cause::LayerMetadata(rule) => one(format!("layer_metadata: {rule}")),
-        Cause::NoRuleSubjects(rule) => one(format!("no_rule_subjects: {rule}")),
-        Cause::DynamicImport => one("dynamic_import".to_owned()),
+    let (code, value) = match cause {
+        Cause::PairGaps(pairs) => return held("pair_gap", pairs),
+        Cause::AllowedPairGaps(pairs) => return held("allowed_pair_gap", pairs),
         Cause::Undecided(count) => {
-            vec![Stable::of("undecided_imports", "undecided_imports").many(*count)]
+            return vec![Stable::of("undecided_imports", "undecided_imports").many(*count)]
         }
-        Cause::Receipt(why) => one(format!("receipt: {why}")),
-        Cause::InsideSourceDomain(parent) => one(format!("inside_source_domain: {parent}")),
-        Cause::OutsideNamespace(reference) => one(format!("outside_namespace: {reference}")),
-        Cause::OwnedFileOwner(path) => one(format!("owned_file_owner: {path}")),
-        Cause::DependencyScopeUnproven => one("dependency_scope_unproven".to_owned()),
-    }
+        Cause::WorkTree => ("work_tree", None),
+        Cause::Runtime => ("runtime", None),
+        Cause::Producer => ("producer", None),
+        Cause::DynamicImport => ("dynamic_import", None),
+        Cause::DependencyScopeUnproven => ("dependency_scope_unproven", None),
+        Cause::ProfileLimit(subject) => ("profile_limit", Some(subject.as_str())),
+        Cause::LayerMetadata(rule) => ("layer_metadata", Some(rule.as_str())),
+        Cause::NoRuleSubjects(rule) => ("no_rule_subjects", Some(rule.as_str())),
+        Cause::Receipt(why) => ("receipt", Some(*why)),
+        Cause::InsideSourceDomain(parent) => ("inside_source_domain", Some(parent.as_str())),
+        Cause::OutsideNamespace(reference) => ("outside_namespace", Some(reference.as_str())),
+        Cause::OwnedFileOwner(path) => ("owned_file_owner", Some(path.as_str())),
+    };
+    vec![Stable::of("incomplete_scope", coded(code, value))]
+}
+
+/// A code, with the value that names it when it has one: `code: value`.
+fn coded(code: &str, value: Option<&str>) -> String {
+    value.map_or_else(|| code.to_owned(), |value| format!("{code}: {value}"))
 }
 
 /// The counts of the declared UML intent are sizes of the contract, not causes, so they are not
