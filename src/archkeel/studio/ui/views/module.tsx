@@ -80,7 +80,7 @@ export function ModuleLevel(props: { model: Model; module: number; chat: ChatSta
         children: (
           <LevelCanvas
             layout={layout}
-            level={Level.Function}
+            level={Level.Routine}
             focus={focus}
             colour={() => component}
             plate="module"

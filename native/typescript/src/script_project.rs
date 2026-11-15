@@ -88,6 +88,8 @@ pub(crate) struct WritePaths<'a> {
     pub host_entry: bool,
     /// The direct forms that write an unknown global: file, place and kind of the form.
     pub blockers: Vec<(usize, &'a Span, &'static str)>,
+    /// The amplifier forms: file, place and kind. They block when the scan has a host entry.
+    pub amp_blockers: Vec<(usize, &'a Span, &'static str)>,
     /// Some write has no path and no blocker names it.
     pub unlabelled_empty: bool,
     /// The paths of one name (`(name,)`), by the name and the files that write them.
@@ -104,7 +106,19 @@ impl<'a> WritePaths<'a> {
     /// has a host entry. Without a host entry an amplifier form has no window to write (AD-540).
     /// The empty path has named blockers only: the report states them once (AD-540).
     pub(crate) fn blockers_named(&self) -> bool {
-        self.any_empty && !self.unlabelled_empty && !self.blockers.is_empty()
+        !self.named_blockers().is_empty() && !(self.any_empty && self.unlabelled_empty)
+    }
+
+    /// The forms that block now: the direct forms, else the amplifier forms of a scan with a
+    /// host entry.
+    pub(crate) fn named_blockers(&self) -> &[(usize, &'a Span, &'static str)] {
+        if self.any_empty {
+            &self.blockers
+        } else if self.any_amplified && self.host_entry {
+            &self.amp_blockers
+        } else {
+            &[]
+        }
     }
 
     pub(crate) fn blocks_all(&self) -> bool {
@@ -282,6 +296,10 @@ impl<'a> Project<'a> {
         self.paths
             .blockers
             .extend(named.map(|(span, form)| (at, span, *form)));
+        let amplified = script.script.amp_blockers.iter();
+        self.paths
+            .amp_blockers
+            .extend(amplified.map(|(span, form)| (at, span, *form)));
         for publication in &script.script.globals {
             let listed = self.publications.entry(&publication.name).or_default();
             listed.push((rel, publication));

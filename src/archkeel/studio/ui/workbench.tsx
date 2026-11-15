@@ -37,7 +37,7 @@ interface Here {
   readonly upName: string | null;
 }
 
-const DEPTH: Record<Level, number> = { [Level.Map]: 1, [Level.Component]: 2, [Level.Module]: 3, [Level.Function]: 4 };
+const DEPTH: Record<Level, number> = { [Level.Map]: 1, [Level.Component]: 2, [Level.Module]: 3, [Level.Routine]: 4 };
 const ZOOM_MS = 250;
 const ZOOM_FROM = 0.3;
 // The level and the clicked card of the last page: a drill zooms in from the card, going up zooms out.
@@ -328,7 +328,7 @@ export function LevelCanvas(props: {
   const names = (stub: LevelStub): string[] => {
     const other = connected.find((item) => item.other === stubKey(stub.side, stub.ref));
     if (other === undefined) return [];
-    return [...new Set(other.link.pairs.map((pair) => props.fnName(stub.side === Side.In ? pair.source : pair.target)))];
+    return [...new Set(other.link.pairs.map((pair) => props.fnName(stub.side === Side.In ? pair.caller : pair.target)))];
   };
   const calm = quiet();
   const hover = (key: string) => ({
@@ -611,7 +611,7 @@ export function focusRows(
     tally: link,
     neighbor: false,
     items: link.pairs.map((pair) => {
-      const symbol = outgoing ? pair.target : pair.source;
+      const symbol = outgoing ? pair.target : pair.caller;
       return {
         name: shortName(model, symbol),
         href: viewHref(View.Explore, symbol),
@@ -640,7 +640,7 @@ export function functionRows(model: Model, symbol: number, module: number): Focu
     const home = model.graph.symbols[other][0];
     const item: FocusItem = { name: shortName(model, other), href: viewHref(View.Explore, other), where, partial: entry.partial, direction: direction(entry) };
     if (home === module) {
-      rows.push({ key: cardKey(Level.Function, other), name: item.name, href: item.href, where: `${item.direction} · ${where}`, tally: tallyOf(entry.partial), neighbor: true, items: [] });
+      rows.push({ key: cardKey(Level.Routine, other), name: item.name, href: item.href, where: `${item.direction} · ${where}`, tally: tallyOf(entry.partial), neighbor: true, items: [] });
     } else {
       groups.set(home, [...(groups.get(home) ?? []), item]);
       const now = tallies.get(home) ?? { proven: 0, partial: 0 };

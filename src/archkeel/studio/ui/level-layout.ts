@@ -53,7 +53,7 @@ export interface LevelStub extends LevelBox, Tally {
 }
 /** One function pair behind a link; the line is the call site in the file of the source. */
 interface LevelPair {
-  readonly source: number;
+  readonly caller: number;
   readonly target: number;
   readonly partial: boolean;
   readonly line: number;
@@ -132,7 +132,7 @@ export function splitRef(ref: string): { readonly id: number; readonly pkg: stri
 const bump = (found: Map<string, Sites>, key: string, pair: LevelPair, site: number): void => {
   const sites = found.get(key) ?? { proven: new Set<number>(), partial: new Set<number>(), pairs: new Map<string, LevelPair>() };
   sites[proofOf(pair.partial)].add(site);
-  const id = `${pair.source}:${pair.target}`;
+  const id = `${pair.caller}:${pair.target}`;
   if (better(sites.pairs.get(id), pair)) sites.pairs.set(id, pair);
   found.set(key, sites);
 };
@@ -316,7 +316,7 @@ export function layoutComponent(model: Model, component: number, pkg: string | n
   for (const [source, target, partial, line, site] of graph.edges) {
     const from = graph.symbols[source][0];
     const to = graph.symbols[target][0];
-    const pair: LevelPair = { source, target, partial, line };
+    const pair: LevelPair = { caller: source, target, partial, line };
     if (inside(from) && inside(to)) {
       if (from !== to) bump(internal, `${from}>${to}`, pair, site);
     } else if (inside(from)) {
@@ -366,15 +366,15 @@ export function layoutModule(model: Model, module: number, showAll: boolean, tex
     if (source === target) continue;
     const from = graph.symbols[source][0];
     const to = graph.symbols[target][0];
-    const pair: LevelPair = { source, target, partial, line };
+    const pair: LevelPair = { caller: source, target, partial, line };
     if (from === module && to === module) {
-      bump(joined, `${cardKey(Level.Function, source)}|${cardKey(Level.Function, target)}`, pair, site);
+      bump(joined, `${cardKey(Level.Routine, source)}|${cardKey(Level.Routine, target)}`, pair, site);
     } else if (from === module) {
       bump(callees, `${to}`, pair, site);
-      bump(joined, `${cardKey(Level.Function, source)}|${stubKey(Side.Out, `${to}`)}`, pair, site);
+      bump(joined, `${cardKey(Level.Routine, source)}|${stubKey(Side.Out, `${to}`)}`, pair, site);
     } else if (to === module) {
       bump(callers, `${from}`, pair, site);
-      bump(joined, `${stubKey(Side.In, `${from}`)}|${cardKey(Level.Function, target)}`, pair, site);
+      bump(joined, `${stubKey(Side.In, `${from}`)}|${cardKey(Level.Routine, target)}`, pair, site);
     }
   }
   const links: RawLink[] = [];
@@ -384,5 +384,5 @@ export function layoutModule(model: Model, module: number, showAll: boolean, tex
   });
   const label = fileOf(model, module);
   const groups: Group[] = [{ label, items: shownFunctions, rest: all.slice(shownFunctions.length) }];
-  return arrange(Level.Function, groups, stubsOf(callers), stubsOf(callees), links, text);
+  return arrange(Level.Routine, groups, stubsOf(callers), stubsOf(callees), links, text);
 }
