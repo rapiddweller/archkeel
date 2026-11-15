@@ -25,6 +25,11 @@ use crate::script_scope::sole_binding_scope;
 use crate::script_syntax::Producer;
 use crate::script_window::{cooked, Written};
 
+/// The assumption that the proofs of a script global rest on (AD-540): the report states it with
+/// the verdict. The collector cannot see a caller outside the scan roots.
+pub(crate) const SCRIPT_PREMISE: &str =
+    "code outside the scan roots hands in no global or platform object";
+
 /// How a form writes an unknown global. A direct form is the stronger one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Reach {
@@ -44,95 +49,35 @@ impl Reach {
 /// The value globals of the ECMAScript library that give no host object. A name that is not on
 /// the list is a host entry until someone adds it. `globalThis`, `eval` and `Function` are not
 /// on it: each of them is the global object, or runs text.
-const INERT: &[&str] = &[
-    "Object",
-    "Array",
-    "Math",
-    "JSON",
-    "Map",
-    "Set",
-    "WeakMap",
-    "WeakSet",
-    "Symbol",
-    "Promise",
-    "Number",
-    "String",
-    "Boolean",
-    "BigInt",
-    "Date",
-    "RegExp",
-    "Error",
-    "TypeError",
-    "RangeError",
-    "SyntaxError",
-    "ReferenceError",
-    "EvalError",
-    "URIError",
-    "AggregateError",
-    "parseInt",
-    "parseFloat",
-    "isNaN",
-    "isFinite",
-    "NaN",
-    "Infinity",
-    "undefined",
-    "encodeURI",
-    "encodeURIComponent",
-    "decodeURI",
-    "decodeURIComponent",
-    "ArrayBuffer",
-    "SharedArrayBuffer",
-    "DataView",
-    "Int8Array",
-    "Uint8Array",
-    "Uint8ClampedArray",
-    "Int16Array",
-    "Uint16Array",
-    "Int32Array",
-    "Uint32Array",
-    "Float32Array",
-    "Float64Array",
-    "BigInt64Array",
-    "BigUint64Array",
-    "Proxy",
-    "Reflect",
-    "Intl",
-    "WeakRef",
-    "FinalizationRegistry",
-    "Atomics",
-    "escape",
-    "unescape",
-    "Iterator",
-];
+const INERT: &str = "\
+    Object Array Math JSON Map Set WeakMap WeakSet Symbol Promise Number String Boolean \
+    BigInt Date RegExp Error TypeError RangeError SyntaxError ReferenceError EvalError \
+    URIError AggregateError parseInt parseFloat isNaN isFinite NaN Infinity undefined \
+    encodeURI encodeURIComponent decodeURI decodeURIComponent ArrayBuffer \
+    SharedArrayBuffer DataView Int8Array Uint8Array Uint8ClampedArray Int16Array \
+    Uint16Array Int32Array Uint32Array Float32Array Float64Array BigInt64Array \
+    BigUint64Array Proxy Reflect Intl WeakRef FinalizationRegistry Atomics escape \
+    unescape Iterator";
 
 /// The comparisons whose operand is only read.
-const COMPARISONS: [&str; 8] = ["==", "!=", "===", "!==", "<", "<=", ">", ">="];
+const COMPARISONS: &str = "== != === !== < <= > >=";
 
 /// The operators whose result is a number whatever the operands are.
-const ARITHMETIC: [&str; 11] = ["-", "*", "/", "%", "**", "&", "|", "^", "<<", ">>", ">>>"];
+const ARITHMETIC: &str = "- * / % ** & | ^ << >> >>>";
 
 /// The assignment operators that keep a number a number.
-const ARITHMETIC_UPDATES: [&str; 11] = [
-    "-=", "*=", "/=", "%=", "**=", "&=", "|=", "^=", "<<=", ">>=", ">>>=",
-];
+const ARITHMETIC_UPDATES: &str = "-= *= /= %= **= &= |= ^= <<= >>= >>>=";
 
 /// The well-known symbols: a key of them is a symbol, never the text `constructor`.
-const SYMBOLS: [&str; 14] = [
-    "asyncIterator",
-    "iterator",
-    "hasInstance",
-    "toStringTag",
-    "toPrimitive",
-    "species",
-    "isConcatSpreadable",
-    "match",
-    "matchAll",
-    "replace",
-    "search",
-    "split",
-    "unscopables",
-    "dispose",
-];
+const SYMBOLS: &str = "\
+    asyncIterator iterator hasInstance toStringTag toPrimitive \
+    species isConcatSpreadable match matchAll replace \
+    search split unscopables dispose";
+
+/// Whether `name` is one of the words of `list`.
+fn listed(list: &str, name: &str) -> bool {
+    list.split_whitespace().any(|word| word == name)
+}
 
 /// The depth that a chain of numeric names is followed.
 const DEPTH: u8 = 4;
@@ -165,7 +110,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         if bound_scope(tree, node, &name).is_some() {
             return false;
         }
-        let inert = cooked(&name).is_some_and(|name| INERT.contains(&name.as_str()));
+        let inert = cooked(&name).is_some_and(|name| listed(INERT, &name));
         !(inert || self.contained(node))
     }
 
@@ -197,7 +142,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         match (parent.kind(), operator) {
             ("unary_expression", Some(operator)) => matches!(operator, "typeof" | "!"),
             ("binary_expression", Some("&&")) => tree.is_field_of_parent(chain, F::Left),
-            ("binary_expression", Some(operator)) => COMPARISONS.contains(&operator),
+            ("binary_expression", Some(operator)) => listed(COMPARISONS, operator),
             ("if_statement", _) => true,
             ("ternary_expression", _) => crate::tree::nodes::named_children(parent)
                 .first()
@@ -225,7 +170,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 let operands = crate::tree::nodes::named_children(node);
                 operands.len() == 2 && operands.iter().all(|at| self.numeric_at(*at, depth))
             }
-            ("binary_expression", Some(operator)) => ARITHMETIC.contains(&operator),
+            ("binary_expression", Some(operator)) => listed(ARITHMETIC, operator),
             ("identifier", _) => depth > 0 && self.numeric_name(node, depth - 1),
             ("member_expression", _) => self.well_known_symbol(node),
             _ => false,
@@ -242,7 +187,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 && tree.text(object) == "Symbol"
                 && bound_scope(tree, object, "Symbol").is_none()
         });
-        symbol && property.is_some_and(|name| SYMBOLS.contains(&name.as_str()))
+        symbol && property.is_some_and(|name| listed(SYMBOLS, &name))
     }
 
     /// The name has one binding, a declarator with a numeric value, and no write changes that.
@@ -295,7 +240,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 right.is_some_and(|right| self.numeric_at(right, depth))
             }
             ("augmented_assignment_expression", Some(operator)) => {
-                ARITHMETIC_UPDATES.contains(&operator)
+                listed(ARITHMETIC_UPDATES, operator)
             }
             _ => false,
         }

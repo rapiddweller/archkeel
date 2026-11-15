@@ -83,11 +83,13 @@ j <= n; j++)`; `i += k` with `k` unknown, `i = k` and `for (i in o)` are refused
   `constructor`) and a proof that `.length` is a number. Neither is in this record.
 - hono and zod keep their gaps: a real host entry (`document`, `globalThis` passed on) and a direct
   form (`new Function`).
-- The premise is stated on each TypeScript page of the report (`html_verdict.rs`, under the verdict
-  note: "Stated assumption: code outside the scan roots hands in no global or platform object."). The
-  `scope` word of the frame stays `complete`: the shell requires that word for a PASS and reads a
-  fixed list of frame keys. A machine-readable premise needs a new frame key and a shell change; it
-  is a follow-up.
+- **The premise in the report.** The linked TypeScript collector states it (`Facts.scope_premise`,
+  not on the wire, like `profile_limits`). `Model::scope_premise` gives it, the ruling writes it as
+  the frame key `premise` (absent when the collector states none), and the page shows one line under
+  the verdict note: "Stated assumption: code outside the scan roots hands in no global or platform
+  object." The `scope` word stays `complete`: the shell requires that word for a PASS. The shell
+  allows the key `premise` and no other new key. The page names no language (the model, evaluator
+  and core name none).
 
 ## Price
 - A scan that has only inert names, contained uses and amplifier forms gives a complete scope where
