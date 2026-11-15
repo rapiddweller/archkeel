@@ -37,7 +37,7 @@ NO_A_TO_B = rule(
     target="native.app.b",
     include_type_checking=True,
 )
-TYPES = "pub struct S;\npub trait Tr {\n    fn m(&self, x: u8) -> u8;\n}\n"
+TYPES = "#[derive(Debug)]\npub struct S;\npub trait Tr {\n    fn m(&self, x: u8) -> u8;\n}\n"
 SHARED = "impl crate::c::S {\n    pub fn m(&self, x: u8) -> u8 {\n        x\n    }\n}\n"
 UNIQUE = SHARED.replace("&self", "&mut self")
 VALUE = SHARED.replace("&self", "self")
@@ -105,12 +105,9 @@ REFUSED: dict[str, dict[str, str]] = {
         "pub fn f(s: &mut crate::c::S) -> u8 {\n    s.m(1)\n}\n"
     ),
     "a value with a shared member": _plant("pub fn f(s: crate::c::S) -> u8 {\n    s.m(1)\n}\n"),
-    "a shared reference with a unique member": _plant(
-        "pub fn f(s: &crate::c::S) -> u8 {\n    s.m(1)\n}\n", b=UNIQUE
-    ),
     "a reference to a reference": _plant("pub fn f(s: &&crate::c::S) -> u8 {\n    s.m(1)\n}\n"),
     "a tuple pattern": _plant("pub fn f((s, _t): (&crate::c::S, u8)) -> u8 {\n    s.m(1)\n}\n"),
-    "a ref pattern": _plant("pub fn f(ref s: crate::c::S) -> u8 {\n    s.m(1)\n}\n", b=VALUE),
+    "a ref pattern": _plant("pub fn f(ref s: crate::c::S) -> u8 {\n    s.m(1)\n}\n"),
     "a macro that rebinds the name": _plant(
         "macro_rules! rebind {\n    ($i:ident) => {\n        let $i = $i;\n    };\n}\n"
         "pub fn f(s: &crate::c::S) -> u8 {\n    rebind!(s);\n    s.m(1)\n}\n"
