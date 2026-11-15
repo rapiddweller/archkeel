@@ -70,6 +70,7 @@ pub(crate) fn read<'t>(
         top_level_write_paths: declared.top_level_paths,
         amplified: declared.amplified,
         host_entry: needs_host(producer),
+        contained_reads: crate::script_host::contained_reads(producer),
         blockers: declared.blockers.clone(),
         unlabelled_empty: declared.unlabelled_empty,
         ..Script::default()
