@@ -18,6 +18,8 @@ pub(crate) struct Parsed {
     /// The composition must discard the run when the requested bracket-nesting limit was hit.
     pub depth_limited: bool,
     pub references: Vec<Reference>,
+    /// The leading `types` directives that name a plain package (#686): type-only references.
+    pub directives: Vec<Reference>,
     /// The number of import-bearing nodes of the tree, to check that each has an outcome.
     pub places: usize,
     pub concerns: Vec<Concern>,
@@ -62,6 +64,7 @@ pub(crate) fn parse_for(
         return Parsed {
             depth_limited,
             references: Vec::new(),
+            directives: Vec::new(),
             places: 0,
             concerns: Vec::new(),
             shadows_require: false,
@@ -83,6 +86,7 @@ pub(crate) fn parse_for(
     syntax.script = found_script;
     let extracted = references::trusted(&source, root, &found_nodes);
     let references = extracted.trusted;
+    let directives = concerns::type_directives(&source, root, &found_nodes, reach.type_roots);
     let mut found = concerns::read(
         &source,
         root,
@@ -106,6 +110,7 @@ pub(crate) fn parse_for(
     Parsed {
         depth_limited: false,
         references,
+        directives,
         places: grammar.places.count(&source, root),
         concerns: found.list,
         shadows_require: found.shadows_require,

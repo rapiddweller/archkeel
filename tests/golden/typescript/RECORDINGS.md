@@ -35,3 +35,4 @@
 | 2026-11-14 | excalidraw-laser-pointer | e5296ee3f | AD-512: a name that a pattern, a declarator or a for head binds gives the reason 'lexical binding may shadow the name' (cpython 3.11.12) |
 | 2026-11-14 | synthetic-tsx-paths | e5296ee3f | AD-512: a name that a pattern, a declarator or a for head binds gives the reason 'lexical binding may shadow the name' (cpython 3.11.12) |
 | 2026-11-14 | synthetic-esm-forms | e5296ee3f | AD-512: a name that a pattern, a declarator or a for head binds gives the reason 'lexical binding may shadow the name' (cpython 3.11.12) |
+| 2026-11-15 | synthetic-esm-forms | a28b4f9ed | AD-528: a leading types directive that the resolver does not prove gives the unknown 'Unresolved triple-slash types reference: node' (cpython 3.11.12) (cpython 3.11.12) |
