@@ -178,13 +178,14 @@ fn record<D>(
     (title, data): (String, D),
 ) -> Record<D> {
     let module = reader.module;
-    let crate::module::Location { line, column, .. } = module.location(node);
+    // The span, not the start: `f()()` and `f()` start at the same place.
+    let (start, end) = (node.start().to_usize(), node.end().to_usize());
     let id = stable_id(
         "SITE",
         &[
             Part::Text(&reading.source.id),
-            Part::Number(line),
-            Part::Number(column),
+            Part::Number(i64::try_from(start).unwrap_or(i64::MAX)),
+            Part::Number(i64::try_from(end).unwrap_or(i64::MAX)),
             Part::Text(&title),
         ],
     );
