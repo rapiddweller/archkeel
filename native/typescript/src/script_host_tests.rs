@@ -164,9 +164,9 @@ fn a_file_that_is_no_module_is_an_entry() {
     let scripts = [
         "var Math2 = 1; function f() { this.x = 1; }",
         "function f() { return this; }",
-        "import fs = require('fs'); export const x = fs;",
+        "import fs = require('fs'); export {};",
         "const c = 1; export = c;",
-        "export function g(o: any) { with (o) { Math = 1; } }",
+        "export function g(o: any) { with (o) { o.x; } }",
     ];
     for script in scripts {
         let files = [("src/b.ts", amplifier), ("src/c.ts", script)];
