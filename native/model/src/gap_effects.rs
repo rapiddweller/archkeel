@@ -63,36 +63,33 @@ fn scoped(model: &Model, reads: impl Fn(Option<&str>) -> ReadSet) -> Option<Scop
     let mut ids = Vec::new();
     let mut doubts = BTreeSet::new();
     for gap in &model.graph().observed().effect_gaps {
-        let mut met = false;
-        match &gap.effect {
-            GapEffect::Edges { sources } => {
-                for module in sources.iter().map(|name| name.as_str()) {
-                    if reads(Some(module)).edges {
-                        met = true;
-                        doubts.insert(Doubt::Edges(module.to_owned()));
-                    }
-                }
-            }
-            GapEffect::Modules { modules } => {
-                for module in modules.iter().map(|name| name.as_str()) {
-                    if reads(Some(module)).any() {
-                        met = true;
-                        doubts.insert(Doubt::Code(module.to_owned()));
-                    }
-                }
-            }
-            GapEffect::EveryModule => {
-                if reads(None).any() {
-                    met = true;
-                    doubts.insert(Doubt::EveryModule);
-                }
-            }
-        }
-        if met {
+        let met = met(&gap.effect, &reads);
+        if !met.is_empty() {
             ids.push(gap.id.clone());
+            doubts.extend(met);
         }
     }
     Scoped::of(ids, doubts.into_iter().collect())
+}
+
+/// The facts that `effect` leaves unknown and that `reads` reads.
+fn met(effect: &GapEffect, reads: &impl Fn(Option<&str>) -> ReadSet) -> Vec<Doubt> {
+    match effect {
+        GapEffect::Edges { sources } => sources
+            .iter()
+            .map(|name| name.as_str())
+            .filter(|module| reads(Some(module)).edges)
+            .map(|module| Doubt::Edges(module.to_owned()))
+            .collect(),
+        GapEffect::Modules { modules } => modules
+            .iter()
+            .map(|name| name.as_str())
+            .filter(|module| reads(Some(module)).any())
+            .map(|module| Doubt::Code(module.to_owned()))
+            .collect(),
+        GapEffect::EveryModule if reads(None).any() => vec![Doubt::EveryModule],
+        GapEffect::EveryModule => Vec::new(),
+    }
 }
 
 /// What `rule` reads of `module` in `model`. `None` stands for some module of the reply, so each
