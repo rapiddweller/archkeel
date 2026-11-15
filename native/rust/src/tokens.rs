@@ -154,7 +154,7 @@ pub(crate) fn attribute_chains(stream: TokenStream) -> Option<Vec<Chain>> {
 
 /// The lint attributes: their groups hold names of lints and reasons.
 /// The macros of `std` that bind no name in the code around their call (AD-524).
-pub(crate) const NO_BIND_MACROS: [&str; 17] = [
+pub(crate) const NO_BIND_MACROS: [&str; 18] = [
     "println",
     "print",
     "eprintln",
@@ -172,6 +172,7 @@ pub(crate) const NO_BIND_MACROS: [&str; 17] = [
     "debug_assert_ne",
     "vec",
     "unreachable",
+    "matches",
 ];
 
 pub(crate) const LINTS: [&str; 5] = ["allow", "warn", "deny", "forbid", "expect"];

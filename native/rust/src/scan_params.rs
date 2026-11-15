@@ -11,7 +11,8 @@
 //! binding is a refusal: a `let`, a pattern of a `match`, `if let`, `while let` or `for`, a
 //! parameter of a closure or of a nested `fn`, an item of that name, a `use` that may bind it,
 //! and a macro call whose tokens name it (a macro can bind a name that its call passes), except
-//! the macros of `std` that bind nothing. A type that names a generic parameter of the `fn` or of
+//! the macros of `std` that bind nothing. `matches!` still taints its tokens: a pattern can bind a
+//! name in its guard. A type that names a generic parameter of the `fn` or of
 //! the `impl` is generic, so it is not read. The resolution of the type, its exactness and the
 //! member are the checks of `impl_receivers.rs`.
 
@@ -62,13 +63,23 @@ pub(super) fn generic_name(param: &GenericParam) -> Option<String> {
     }
 }
 
-/// The parameters of one `fn` that have a proof, by name.
+#[derive(Debug)]
+struct Binding {
+    receiver: OnSelf,
+    after: Option<(usize, usize)>,
+    sites: Option<BTreeSet<(usize, usize)>>,
+}
+
+/// The bindings of one `fn` that have a proof, by name.
 #[derive(Debug, Default)]
-pub(super) struct Params(BTreeMap<String, OnSelf>);
+pub(super) struct Params(BTreeMap<String, Binding>);
 
 impl Params {
-    pub(super) fn get(&self, name: &str) -> Option<&OnSelf> {
-        self.0.get(name)
+    pub(super) fn get(&self, name: &str, at: (usize, usize)) -> Option<&OnSelf> {
+        let found = self.0.get(name)?;
+        (found.after.is_none_or(|after| at > after)
+            && found.sites.as_ref().is_none_or(|sites| sites.contains(&at)))
+        .then_some(&found.receiver)
     }
 }
 
@@ -79,6 +90,8 @@ struct Bound {
     inert: fn(&[Attribute]) -> bool,
     /// A non-inert attribute is somewhere in the `fn`.
     gated: bool,
+    /// A macro call can pass a nested macro call through to its expansion.
+    nested_macro: bool,
     /// The macros that the `fn` calls and that are no silent macro of `std`.
     macros: BTreeSet<String>,
     /// How many times each name is bound by a pattern or an item.
@@ -102,6 +115,20 @@ impl Bound {
                 _ => {}
             }
         }
+    }
+
+    fn has_macro(tokens: TokenStream) -> bool {
+        let mut trees = tokens.into_iter().peekable();
+        while let Some(tree) = trees.next() {
+            match tree {
+                TokenTree::Group(group) if Self::has_macro(group.stream()) => return true,
+                TokenTree::Ident(_) if matches!(trees.peek(), Some(TokenTree::Punct(p)) if p.as_char() == '!') => {
+                    return true
+                }
+                _ => {}
+            }
+        }
+        false
     }
 
     fn leaves(&mut self, tree: &syn::UseTree) {
@@ -143,8 +170,12 @@ impl<'ast> Visit<'ast> for Bound {
         let silent = name
             .as_deref()
             .is_some_and(|name| NO_BIND_MACROS.contains(&name));
+        if name.as_deref() == Some("matches") {
+            self.taint(node.tokens.clone());
+        }
         // A `macro_rules!` item defines a macro; it is no call.
         if !silent && name.as_deref() != Some("macro_rules") {
+            self.nested_macro |= Self::has_macro(node.tokens.clone());
             let written = |path: &syn::Path| {
                 let segments = path.segments.iter().map(|s| plain(&s.ident));
                 segments.collect::<Vec<_>>().join("::")
@@ -178,7 +209,7 @@ pub(in crate::scan) fn item_name(item: &Item) -> Option<String> {
 }
 
 /// The kind and the path of a written parameter type: `T`, `&T` or `&mut T`, and one level only.
-fn typed(ty: &Type) -> Option<(Vec<String>, SelfKind)> {
+pub(in crate::scan) fn typed(ty: &Type) -> Option<(Vec<String>, SelfKind)> {
     match ty {
         Type::Reference(found) => {
             let kind = match found.mutability {
@@ -204,13 +235,14 @@ pub(super) fn read(
     let mut bound = Bound {
         inert,
         gated: false,
+        nested_macro: false,
         macros: BTreeSet::new(),
         counts: BTreeMap::new(),
         tainted: BTreeSet::new(),
     };
     bound.visit_signature(sig);
     bound.visit_block(block);
-    if bound.gated {
+    if bound.gated || bound.nested_macro {
         return Params::default();
     }
     let mut hidden: BTreeSet<String> = outer.iter().cloned().collect();
@@ -240,9 +272,178 @@ pub(super) fn read(
                 scope: scope.to_vec(),
                 kind: Some(kind),
                 macros: bound.macros.iter().cloned().collect(),
+                field: None,
             };
-            found.insert(name, on_self);
+            found.insert(
+                name,
+                Binding {
+                    receiver: on_self,
+                    after: None,
+                    sites: None,
+                },
+            );
         }
     }
+    read_locals(block, &bound, &hidden, scope, &mut found);
+    Closures {
+        bound: &bound,
+        hidden: &hidden,
+        scope,
+        found: &mut found,
+    }
+    .visit_block(block);
     Params(found)
+}
+
+/// Read only top-level initialized locals; their binding begins after the complete statement.
+fn read_locals(
+    block: &syn::Block,
+    bound: &Bound,
+    hidden: &BTreeSet<String>,
+    scope: &[String],
+    found: &mut BTreeMap<String, Binding>,
+) {
+    for statement in &block.stmts {
+        let syn::Stmt::Local(local) = statement else {
+            continue;
+        };
+        let Pat::Type(pattern) = &local.pat else {
+            continue;
+        };
+        let Pat::Ident(ident) = &*pattern.pat else {
+            continue;
+        };
+        let Some((path, kind)) = typed(&pattern.ty) else {
+            continue;
+        };
+        let name = plain(&ident.ident);
+        let first = path.first();
+        if local.init.is_none()
+            || ident.by_ref.is_some()
+            || ident.subpat.is_some()
+            || !ident.attrs.is_empty()
+            || !pattern.attrs.is_empty()
+            || bound.counts.get(&name) != Some(&1)
+            || bound.tainted.contains(&name)
+            || first.is_some_and(|name| hidden.contains(name) || bound.counts.contains_key(name))
+        {
+            continue;
+        }
+        let end = local.semi_token.spans[0].end();
+        let on_self = OnSelf {
+            name: name.clone(),
+            path,
+            scope: scope.to_vec(),
+            kind: Some(kind),
+            macros: bound.macros.iter().cloned().collect(),
+            field: None,
+        };
+        found.insert(
+            name,
+            Binding {
+                receiver: on_self,
+                after: Some((end.line, end.column)),
+                sites: None,
+            },
+        );
+    }
+}
+
+/// The receiver sites inside one closure, without nested items, macros or closures.
+#[derive(Default)]
+struct ClosureSites(BTreeMap<String, BTreeSet<(usize, usize)>>);
+
+impl<'ast> Visit<'ast> for ClosureSites {
+    fn visit_item(&mut self, _: &'ast Item) {}
+    fn visit_expr_closure(&mut self, _: &'ast syn::ExprClosure) {}
+    fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
+        if let syn::Expr::Path(path) = &*node.receiver {
+            let name = path
+                .path
+                .get_ident()
+                .filter(|_| path.qself.is_none() && path.attrs.is_empty());
+            if let Some(name) = name {
+                let at = name.span().start();
+                self.0
+                    .entry(plain(name))
+                    .or_default()
+                    .insert((at.line, at.column));
+            }
+        }
+        visit::visit_expr_method_call(self, node);
+    }
+}
+
+struct Closures<'a> {
+    bound: &'a Bound,
+    hidden: &'a BTreeSet<String>,
+    scope: &'a [String],
+    found: &'a mut BTreeMap<String, Binding>,
+}
+
+impl<'ast> Visit<'ast> for Closures<'_> {
+    fn visit_item(&mut self, _: &'ast Item) {}
+
+    fn visit_expr_closure(&mut self, node: &'ast syn::ExprClosure) {
+        let mut sites = ClosureSites::default();
+        sites.visit_expr(&node.body);
+        for input in &node.inputs {
+            let Pat::Type(param) = input else { continue };
+            let Pat::Ident(ident) = &*param.pat else {
+                continue;
+            };
+            let Some((path, kind)) = typed(&param.ty) else {
+                continue;
+            };
+            let name = plain(&ident.ident);
+            if ident.by_ref.is_some()
+                || ident.subpat.is_some()
+                || !ident.attrs.is_empty()
+                || !param.attrs.is_empty()
+                || self.bound.counts.get(&name) != Some(&1)
+                || self.bound.tainted.contains(&name)
+                || path.first().is_some_and(|first| {
+                    self.hidden.contains(first) || self.bound.counts.contains_key(first)
+                })
+            {
+                continue;
+            }
+            let Some(places) = sites.0.remove(&name) else {
+                continue;
+            };
+            let receiver = OnSelf {
+                name: name.clone(),
+                path,
+                scope: self.scope.to_vec(),
+                kind: Some(kind),
+                macros: self.bound.macros.iter().cloned().collect(),
+                field: None,
+            };
+            self.found.insert(
+                name,
+                Binding {
+                    receiver,
+                    after: None,
+                    sites: Some(places),
+                },
+            );
+        }
+        visit::visit_expr_closure(self, node);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::read;
+
+    #[test]
+    fn a_closure_binding_proves_only_receiver_sites_in_its_body() {
+        let text = "fn f() { let _c = |s: &crate::c::S| s.m(); s.m(); }";
+        let item: syn::ItemFn = syn::parse_str(text).unwrap();
+        let found = read(&item.sig, &item.block, &[], &[], |_| true);
+        let first = text.find("s.m()").unwrap();
+        let last = text.rfind("s.m()").unwrap();
+        assert!(found.get("s", (1, first)).is_some());
+        assert!(found.get("s", (1, last)).is_none());
+    }
 }

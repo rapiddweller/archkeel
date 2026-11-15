@@ -42,6 +42,7 @@ EXPECTED_RULES = [
     ("NATIVE-EXTERNAL-SHA2", "external_dependency_scope"),
     ("NATIVE-EXTERNAL-SERDE", "external_dependency_scope"),
     ("NATIVE-EXTERNAL-SERDE-JSON", "external_dependency_scope"),
+    ("NATIVE-EXTERNAL-SAPHYR", "external_dependency_scope"),
     ("NATIVE-EXTERNAL-COMPLETE", "complete_external_scope"),
     ("NATIVE-NO-EVAL-TO-REPORT", "forbidden_dependency"),
     ("NATIVE-NO-MODEL-TO-EVAL", "forbidden_dependency"),

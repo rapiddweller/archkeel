@@ -113,12 +113,12 @@ fn the_engine_reads_the_rules_of_a_structural_contract() {
             return;
         }
     };
-    assert_eq!(rules.len(), 83);
+    assert_eq!(rules.len(), 84);
     assert!(rules.contains_key("NATIVE-REQUIRES-COMPLETE"));
     let (frame, reasons) = ruled(&mut engine, Named::default());
     assert_eq!(frame["rules"], json!({}));
     assert_eq!(frame["status"], "UNKNOWN");
-    assert_eq!(reasons.len(), 83);
+    assert_eq!(reasons.len(), 84);
     // Each kind of the native contract is decided since slice S7: each rule needs the model.
     for (id, reason) in &reasons {
         assert_eq!(

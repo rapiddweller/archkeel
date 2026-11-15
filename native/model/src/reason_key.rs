@@ -214,6 +214,7 @@ fn cause_entries(cause: &Cause) -> Vec<Stable> {
         Cause::InsideSourceDomain(parent) => one(format!("inside_source_domain: {parent}")),
         Cause::OutsideNamespace(reference) => one(format!("outside_namespace: {reference}")),
         Cause::OwnedFileOwner(path) => one(format!("owned_file_owner: {path}")),
+        Cause::DependencyScopeUnproven => one("dependency_scope_unproven".to_owned()),
     }
 }
 

@@ -9,19 +9,22 @@
 //! each free `fn`, `trait` or `fn` of a `trait`. A free `fn` in a method body cannot use the `self`
 //! of the method, and in a `trait` the type of `self` is generic: both frames give no `self`.
 //!
-//! A resolution must hold in every configuration. So `cfg` and `cfg_attr` are never inert: an
-//! item, a block or a module under them is not exact, and neither is an `impl` block in a body.
+//! A resolution must hold in every configuration. A `cfg` is not inert. A `cfg_attr` is inert only
+//! when it can add lint attributes alone. An `impl` block in a body is not exact.
 
-use syn::{Attribute, GenericParam, ItemImpl, ReceiverKind, Signature};
+use syn::{
+    punctuated::Punctuated, Attribute, GenericParam, ItemImpl, Meta, ReceiverKind, Signature, Token,
+};
 
 use crate::definitions::{OnSelf, SelfKind};
-use crate::tokens::plain;
+use crate::tokens::{plain, LINTS};
 pub(in crate::scan) use params::item_name;
+pub(in crate::scan) use params::typed as written_type;
 use params::{plain_path, Params};
 
 /// The attributes that change no item and remove it in no configuration: an `impl` block or a
-/// `fn` with only these is as written. Any other attribute can be a macro that rewrites the item,
-/// or a `cfg` that removes it, so its `self` facts are not read.
+/// `fn` with only these is as written. A conditional lint also leaves the item as written.
+/// Any other attribute can be a macro that rewrites the item or a `cfg` that removes it.
 const INERT: [&str; 12] = [
     "allow",
     "warn",
@@ -47,6 +50,9 @@ const TYPE: [&str; 3] = ["derive", "repr", "non_exhaustive"];
 fn only(attrs: &[Attribute], extra: &[&str]) -> bool {
     attrs.iter().all(|attr| {
         let path = attr.path();
+        if path.is_ident("cfg_attr") {
+            return conditional_lints(attr);
+        }
         let tool = path.segments.len() == 2
             && path
                 .segments
@@ -57,6 +63,17 @@ fn only(attrs: &[Attribute], extra: &[&str]) -> bool {
             INERT.contains(&name.as_str()) || extra.contains(&name.as_str())
         })
     })
+}
+
+/// A conditional lint cannot remove or rewrite an item in any configuration.
+fn conditional_lints(attr: &Attribute) -> bool {
+    let Ok(args) = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated) else {
+        return false;
+    };
+    args.len() > 1
+        && args.iter().skip(1).all(|item| {
+            matches!(item, Meta::List(list) if list.path.get_ident().is_some_and(|id| LINTS.contains(&plain(id).as_str())))
+        })
 }
 
 /// Whether each attribute is inert or a tool attribute such as `rustfmt::skip`.
@@ -193,6 +210,7 @@ impl Selves {
                 scope,
                 kind,
                 macros: Vec::new(),
+                field: None,
             })
         });
         self.frames
@@ -206,6 +224,17 @@ impl Selves {
     /// The proof of a call whose receiver is `receiver`: a plain `self` path has the type of its
     /// block, and a plain parameter name has its written type (AD-524).
     pub(super) fn of(&self, receiver: &syn::Expr) -> Option<OnSelf> {
+        if let syn::Expr::Field(field) = receiver {
+            let syn::Member::Named(name) = &field.member else {
+                return None;
+            };
+            if !field.attrs.is_empty() || !matches!(&*field.base, syn::Expr::Path(_)) {
+                return None;
+            }
+            let mut base = self.of(&field.base)?;
+            base.field = Some(plain(name));
+            return Some(base);
+        }
         let syn::Expr::Path(path) = receiver else {
             return None;
         };
@@ -217,7 +246,11 @@ impl Selves {
         match frame {
             Some(Frame::Method(on_self, _, _)) if name == "self" => on_self.clone(),
             Some(Frame::Method(_, _, found) | Frame::Opaque(found)) if name != "self" => {
-                found.get(&plain(name)).filter(|_| !self.gated()).cloned()
+                let at = name.span().start();
+                found
+                    .get(&plain(name), (at.line, at.column))
+                    .filter(|_| !self.gated())
+                    .cloned()
             }
             _ => None,
         }
@@ -235,6 +268,7 @@ impl Selves {
                 scope: scope.clone(),
                 kind: None,
                 macros: Vec::new(),
+                field: None,
             }),
             _ => None,
         }

@@ -106,7 +106,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let nearest = script_names::bound_scope(tree, node, name);
         let only = nearest.is_some_and(|scope| scope.id() == wrapper.id())
             && script_names::bound_scope(tree, wrapper, name).is_none();
-        only && tree.count(wrapper, name) == 1
+        only && tree.binding_count(wrapper, name) == 1
             && !tree.in_ambiguous_scope(node)
             && self.free_arguments(wrapper)
     }

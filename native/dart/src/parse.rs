@@ -42,18 +42,27 @@ impl DartParser {
 
     /// The directives, the concerns and the language version of one source, without the
     /// definitions and the sites: the import survey reads no more (AD-454).
-    pub(crate) fn directives(&mut self, content: &[u8]) -> Syntax {
+    pub(crate) fn directives(&mut self, content: &[u8]) -> (Syntax, bool) {
         let source = Source::new(content);
         self.work_permille = 0;
         match self.front(content, &source) {
-            Ok(front) => finish(
-                Vec::new(),
-                front.directives,
-                Vec::new(),
-                front.concerns,
-                front.language_version,
-            ),
-            Err(stopped) => *stopped,
+            Ok(front) => {
+                let loader = walk(front.tree.root_node()).any(|node| {
+                    matches!(node.kind(), "identifier" | "type_identifier")
+                        && content.get(node.byte_range()) == Some(b"spawnUri")
+                });
+                (
+                    finish(
+                        Vec::new(),
+                        front.directives,
+                        Vec::new(),
+                        front.concerns,
+                        front.language_version,
+                    ),
+                    loader,
+                )
+            }
+            Err(stopped) => (*stopped, true),
         }
     }
 
