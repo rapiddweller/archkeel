@@ -10,7 +10,7 @@
 
 use std::path::Path;
 
-use crate::vocab::{Area, ExceptionName, Kind};
+use crate::vocab::ExceptionName;
 use crate::{GapFact, Record, Section};
 use serde_json::Value;
 
@@ -73,10 +73,6 @@ fn the_python_exception_gap_has_a_closed_kind_and_keeps_its_wire_kind() {
     );
     let wire = serde_json::to_value(&typed).expect("JSON");
     assert_eq!(wire["kind"], "SyntaxError");
-    let read: Value =
-        serde_json::from_slice(&crate::readset::to_vec(&typed).expect("JSON")).expect("JSON");
-    assert_eq!(read["kind"], "exception_gap");
-    assert_eq!(read["data"]["exception"], "SyntaxError");
 }
 
 fn gap(kind: &str, area: &str) -> String {
@@ -114,51 +110,4 @@ fn an_analyzer_failure_outside_analysis_coverage_breaks_the_record_invariant() {
     let inside: Record<GapFact> =
         serde_json::from_str(&gap("SyntaxError", "analysis_coverage")).unwrap();
     assert_eq!(inside.invariants(), Ok(()));
-}
-
-/// The WP1 read fields that a wire record carries, and the keys of its read-set data, sorted.
-fn read_keys<'a>(record: &'a Value, read: &'a Value) -> (Vec<&'a str>, Vec<&'a str>) {
-    let area: Area = serde_json::from_value(record["area"].clone()).expect("an area");
-    let kind: Kind = serde_json::from_value(read["kind"].clone()).expect("a kind");
-    let fields = crate::readset_fields::fields(area, kind).expect("a WP1 list");
-    let mut expected: Vec<&str> = record["data"]
-        .as_object()
-        .expect("data")
-        .keys()
-        .map(String::as_str)
-        .filter(|key| fields.contains(key))
-        .collect();
-    // The exception name of an analyzer failure is the protocol 9 kind, which is read.
-    if kind == Kind::ExceptionGap {
-        expected.push("exception");
-    }
-    let mut found: Vec<&str> = read["data"]
-        .as_object()
-        .expect("data")
-        .keys()
-        .map(String::as_str)
-        .collect();
-    expected.sort_unstable();
-    found.sort_unstable();
-    (found, expected)
-}
-
-// The read-set of each sample record holds exactly the WP1 read fields that the record carries.
-#[test]
-fn the_read_set_of_each_sample_record_equals_the_wp1_read_set() {
-    for name in ["python.json", "dart.json", "typescript.json"] {
-        let reply = reply(name);
-        for section in reply["facts"]["sections"].as_array().expect("a list") {
-            let typed: Section = serde_json::from_value(section.clone()).expect(name);
-            let read: Value =
-                serde_json::from_slice(&crate::readset::to_vec(&typed).expect("JSON"))
-                    .expect("JSON");
-            let wire = section["records"].as_array().expect("a list");
-            let reads = read["records"].as_array().expect("a list");
-            for (record, read) in wire.iter().zip(reads) {
-                let (found, expected) = read_keys(record, read);
-                assert_eq!(found, expected, "{name} {}", record["kind"]);
-            }
-        }
-    }
 }

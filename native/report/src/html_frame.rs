@@ -36,7 +36,7 @@ row! {
     Cycles { total: usize, items: Vec<CyclePath> }
     Pair { source: String, target: String }
     RuleHolds { kind: String, pairs: Vec<Pair>, total: usize, unnamed_imports: usize }
-    CollectionGap { kind: String, subjects: Vec<String>, reason: String }
+    CollectionGap { kind: String, subjects: Vec<String>, reason: String, evidence: Vec<String>, detail: Option<String> }
     Holds { rules: BTreeMap<String, RuleHolds> }
     Explain { rules: BTreeMap<String, Shape>, cycles: BTreeMap<String, Cycles>, holds: Holds }
 }
@@ -68,6 +68,12 @@ pub(super) struct Frame {
     pub(super) identity: Identity,
     /// Why the run is not decided: the refusal or the scope text of the frame.
     pub(super) cause: String,
+    /// The baseline of the request: its state and the number of accepted UNKNOWN entries (AD-546).
+    pub(super) baseline: Option<(String, u64)>,
+    /// The rule rows that the baseline accepts. Each stays UNKNOWN (AD-546).
+    pub(super) accepted: std::collections::BTreeSet<String>,
+    /// The assumption that the collector states for its proofs (AD-540), or empty.
+    pub(super) premise: String,
 }
 
 fn field<T: DeserializeOwned + Default>(frame: &Value, key: &str) -> T {
@@ -109,12 +115,18 @@ impl Frame {
             named: serde_json::from_value(frame["unsupported"]["rules"].clone())
                 .unwrap_or_default(),
             cause,
+            premise: text(&frame["premise"]).unwrap_or_default(),
             status: frame["status"].as_str().unwrap_or("unavailable").to_owned(),
             rules: field(frame, "rules"),
             details: field(frame, "details"),
             locations: field(frame, "locations"),
             topology: serde_json::from_value(frame["topology"].clone()).ok(),
             explain: field(frame, "explain"),
+            accepted: field(&frame["baseline"], "accepted_rules"),
+            baseline: frame["baseline"]["state"].as_str().map(|state| {
+                let accepted = frame["baseline"]["accepted_unknowns"].as_u64();
+                (state.to_owned(), accepted.unwrap_or_default())
+            }),
             head,
         }
     }

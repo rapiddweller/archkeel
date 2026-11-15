@@ -12,6 +12,7 @@ use std::rc::Rc;
 use tree_sitter::Node;
 
 use crate::layout::Layout;
+use crate::script_host::needs_host;
 use crate::script_publish::globals;
 use crate::script_syntax::Producer;
 use crate::script_tree::Tree;
@@ -32,7 +33,7 @@ pub(crate) fn read<'t>(
 ) -> (Script, Vec<Span>) {
     let mut tree = Tree::from_layout(cx, root, layout);
     let nodes = Rc::clone(&tree.nodes);
-    tree.bind(&nodes, &syntax.import_bindings);
+    tree.bind_names(&nodes, &syntax.import_bindings, syntax.module_file);
     let module_syntax = syntax.module_syntax;
     let producer = Producer::new(
         &tree,
@@ -61,6 +62,10 @@ pub(crate) fn read<'t>(
         source_writes: declared.writes,
         write_paths: declared.paths,
         top_level_write_paths: declared.top_level_paths,
+        amplified: declared.amplified,
+        host_entry: needs_host(&producer),
+        blockers: declared.blockers.clone(),
+        unlabelled_empty: declared.unlabelled_empty,
         ..Script::default()
     };
     let mut ambiguous = Vec::new();

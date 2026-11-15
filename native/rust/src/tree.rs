@@ -31,6 +31,7 @@ pub(crate) struct Module {
     /// A `cfg` or another attribute on the `mod` declaration of the file, of an enclosing inline
     /// module, of an ancestor file or inside the file may remove the module (AD-383).
     pub gated: bool,
+    pub gates: Option<Vec<String>>,
 }
 
 pub(crate) struct Walked {
@@ -65,6 +66,7 @@ struct Pending {
     test: bool,
     /// The module may be removed in some configuration (AD-383).
     gated: bool,
+    gates: Option<Vec<String>>,
 }
 
 /// The deepest module that the walk reads. A name holds the whole path, so the reply grows with
@@ -114,6 +116,7 @@ impl Walked {
             depth: 0,
             test: self.exclude_tests && (root.test || in_test_directory(&root.rel)),
             gated: false,
+            gates: Some(Vec::new()),
         };
         self.crate_tree(source, index, krate, first);
     }
@@ -151,6 +154,9 @@ impl Walked {
             };
             let scanned = self.scanned(&file, &text, krate);
             file.gated = file.gated || scanned.gated_file;
+            if scanned.gated_file {
+                file.gates = None;
+            }
             for child in &scanned.children {
                 self.child(source, krate, &file, child, &mut queue);
             }
@@ -167,6 +173,7 @@ impl Walked {
                 blank: text.trim().is_empty(),
                 scan: scanned,
                 gated: file.gated,
+                gates: file.gates,
             });
         }
     }
@@ -303,6 +310,15 @@ impl Walked {
             depth,
             test,
             gated: parent.gated || child.gated,
+            gates: parent
+                .gates
+                .as_ref()
+                .zip(child.gates.as_ref())
+                .map(|(outer, inner)| {
+                    let mut gates = outer.clone();
+                    gates.extend(inner.iter().cloned());
+                    gates
+                }),
         });
     }
 }

@@ -71,7 +71,7 @@ pub enum Reason {
     UncitedChild(String),
     /// The settings of the shell do not hold for the reply (AD-372).
     Refused(Refusal),
-    /// A cause that makes the scope incomplete in the reference engine (slice S4, AD-378).
+    /// A cause that holds the rule or makes the scope incomplete (AD-378, AD-418).
     NotComplete(Cause),
     /// A fact needed to decide an interface crossing is absent.
     Interface(InterfaceGap),
@@ -87,12 +87,42 @@ pub enum Reason {
 pub struct Hygiene {
     code: &'static str,
     detail: String,
+    /// The contract file and the stable parts of the subject (AD-546). The display detail can
+    /// hold a pointer or a count, so the key reads these.
+    place: String,
+    parts: Vec<String>,
 }
 
 impl Hygiene {
-    /// The defect `code` with its `detail`.
+    /// The defect `code` with its `detail`. It has no stable key of its own.
     pub fn new(code: &'static str, detail: String) -> Hygiene {
-        Hygiene { code, detail }
+        Hygiene {
+            code,
+            detail,
+            place: String::new(),
+            parts: Vec::new(),
+        }
+    }
+
+    /// The defect `code` in the contract file `place`, with one stable `part` for each thing that
+    /// it names.
+    pub fn keyed(code: &'static str, detail: String, place: &str, parts: Vec<String>) -> Hygiene {
+        Hygiene {
+            code,
+            detail,
+            place: place.to_owned(),
+            parts,
+        }
+    }
+
+    /// The code of the reference engine, such as `graph.drift`.
+    pub fn code(&self) -> &'static str {
+        self.code
+    }
+
+    /// The entries of the stable key: one for each part, in the contract file of the defect.
+    pub(crate) fn parts(&self) -> (&str, &[String]) {
+        (&self.place, &self.parts)
     }
 }
 
@@ -107,8 +137,8 @@ pub enum UmlGap {
         relationships: usize,
         scopes: usize,
     },
-    /// An inside contract of the tree has its own target; the core compares a root target only.
-    Mounted,
+    /// The targets of the tree contradict each other or leave a mount (AD-526): the reason.
+    Nested(String),
     /// The target gives no assessment that the core can make.
     NothingCompared,
     /// Assessments that the core cannot decide from module and import facts: their number and
@@ -131,9 +161,7 @@ impl fmt::Display for UmlGap {
                 "the core does not compare {entities} entities, {relationships} relationships \
                  and {scopes} scopes with the source facts"
             ),
-            UmlGap::Mounted => formatter.write_str(
-                "an inside contract has its own UML target, which the core does not compare",
-            ),
+            UmlGap::Nested(reason) => formatter.write_str(reason),
             UmlGap::NothingCompared => {
                 formatter.write_str("the target gives no assessment that the core can make")
             }

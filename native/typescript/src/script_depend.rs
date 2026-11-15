@@ -9,10 +9,11 @@
 use archkeel_facts::data::BindingData;
 use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{stable_id, Part};
-use archkeel_facts::ids::{FactId, ModuleName};
+use archkeel_facts::ids::{EvidenceId, FactId, ModuleName};
+use archkeel_facts::sections::GapFact;
 
 use crate::script_project::{source_origin, stable_publication, Publisher};
-use crate::script_records::{binding, global_id, import_record, Use};
+use crate::script_records::{binding, global_id, import_record, GapRecord, Use};
 use crate::script_state::{Probe, Run};
 use crate::script_types::{ScriptAlias, ScriptGlobal};
 
@@ -69,7 +70,9 @@ impl<'a, 'p> Run<'a, 'p> {
             proof = known
                 .then(|| alias_call.zip(entry))
                 .flatten()
-                .and_then(|(alias, entry)| self.factory_proof(alias, target_rel, entry, probe));
+                .and_then(|(alias, entry)| {
+                    Run::factory_proof(self, alias, target_rel, entry, probe)
+                });
             known = proof.is_some();
         }
         let evidence_ids = match alias {
@@ -194,8 +197,53 @@ impl<'a, 'p> Run<'a, 'p> {
             specifier: first.to_owned(),
             reason: reason.clone(),
         });
-        self.sink.gap(&reason, &[evidence], &module);
+        if self.behind_named_blockers(first, publishers) {
+            self.sink.blocked.push((first.to_owned(), evidence));
+        } else {
+            self.sink.gap(&reason, &[evidence], &module);
+        }
         first.to_owned()
+    }
+
+    /// One gap for each direct form that keeps the free standard names from a proof, in place of
+    /// one gap for each use (AD-540). The reason is the same for the same form and module, so a
+    /// baseline accepts it by its key. The first gap cites each blocked use, so that no unresolved
+    /// import stays without a gap; its `message` counts them.
+    pub(crate) fn state_blockers(&mut self) {
+        let blocked = std::mem::take(&mut self.sink.blocked);
+        let names: std::collections::BTreeSet<&str> =
+            blocked.iter().map(|(name, _)| name.as_str()).collect();
+        let detail = format!(
+            "{} uses of {} free standard names depend on it",
+            blocked.len(),
+            names.len()
+        );
+        let project = self.project;
+        for (at, (file, span, form)) in project.paths.blockers.iter().enumerate() {
+            if blocked.is_empty() {
+                break;
+            }
+            let Some((rel, _)) = project.files.get(*file).copied() else {
+                continue;
+            };
+            let module = self.module(rel);
+            let reason = format!(
+                "A form that can write any global keeps every free standard name from a proof: {form}"
+            );
+            let node = self.sink.cite(rel, span);
+            let mut fact = GapFact::resolution(&reason, &module);
+            if let GapFact::SourceResolutionGap(data) = &mut fact {
+                data.message = Some(detail.clone());
+            }
+            let (id, mut record) = GapRecord::unknown_gap(&reason, Some(&node), &module, fact);
+            if at == 0 {
+                let uses = blocked
+                    .iter()
+                    .map(|(_, evidence)| EvidenceId::new(evidence));
+                record.evidence_ids.extend(uses);
+            }
+            self.sink.gaps.push((id, record));
+        }
     }
 
     /// `_script_alias_evidence`: the evidence and the facts that an alias gives a use.

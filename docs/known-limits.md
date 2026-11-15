@@ -28,9 +28,14 @@ rule holds only the rules that read it (AD-500). A Dart cycle rule (`no_componen
 always UNKNOWN: the survey does not prove that it sees each local package, and 4.0.1 gives no Dart
 cycle receipt either. A proof that releases it: the survey resolves each `package:` URI from a
 complete package map that it reads (each `pubspec.yaml` of the project and its path and workspace
-members), and a test plants each YAML form of a local package. The `pubspec.yaml` reader has no
-YAML parser: each word `path`, `workspace` or `resolution` and each backslash is a gap, also in a
-value or a description (AD-500).
+members), and a test plants each YAML form of a local package. The Dart collector reads bounded
+YAML. It keeps a gap for a path key, an unsupported YAML form, and a workspace that it cannot
+prove disjoint from the scan roots (AD-542). Loader and mirror identifiers and non-own relative
+package roots also give gaps (AD-550).
+
+**Dart import premise (AD-542).** Code outside the scan roots does not load or run scanned code
+from a name passed as data. The current report does not yet print this premise. The stated-premise
+mechanism must land before this decision is merged.
 
 **Open false-PASS class (Python, shared with 4.0.1).** A third-party function can import a module
 from a string, for example a plugin loader, a framework that reads a dotted path from settings, or
@@ -38,6 +43,11 @@ an object deserializer. The survey does not know such a function, so it does not
 A forbidden or cyclic dependency that only such a call makes can give PASS. Release 4.0.1 has the
 same hole. This is an open defect, not an accepted limit. The survey covers the names of AD-450
 point 7: the standard-library doors, the import state and the builtins that run text.
+
+The Python collector does not follow a value from an unknown object to a loader. For example,
+`code = provider.code; code.interact()` gives no loader gap when `provider` is an unknown value.
+The same limit applies when the local name is `c`. A forbidden dependency reached only through
+such a value can give PASS. This is an open false-PASS class, not an accepted limit.
 
 **Open false-PASS class (TypeScript, shared with 4.0.1): code of an installed package is outside
 the model.** The collector does not read a package in `node_modules`, `jspm_packages` or
@@ -64,7 +74,8 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   wheels that Full builds and runs. The Windows wheel writes no report file (see `report --output`).
 - `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give the typed refusal
   `not_on_this_development_line`, exit 2. Interactive reports, `architecture.json`, saved and focused
-  reports, baselines, amendments and `--write-graph` are refused by option name.
+  reports, amendments and `--write-graph` are refused by option name. `--baseline` and
+  `--write-baseline` are served ([reference](reference.md#baselines)).
 - `report --output PATH` writes one static HTML page or the JSON frame (`--format json`). It has no graph.
   The parent must exist. Safe file output needs POSIX directory handles; Windows refuses `--output` with exit 2 (`io_error`), writes no file and keeps the frame.
 - A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`. The run exits 2.
@@ -119,7 +130,7 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 - The shell trusts the rule rows of the core binary that it located. It checks the root, the commit,
   the dirty state, the configuration and all contract file digests against its request (AD-438).
   A nested file changed since the request started is refused. Keep the snapshot unchanged during a run.
-- ArchKeel checks only its Rust source in `native/` with the core: 63 rules PASS, 0 FAIL, 20 UNKNOWN, 0 violations,
+- ArchKeel checks only its Rust source in `native/` with the core: 63 rules PASS, 0 FAIL, 21 UNKNOWN, 0 violations,
   pinned in `native/expected-gaps.json`. The Python shell and the tools have no architecture contract.
 
 Archkeel observes one static snapshot, not runtime behavior, data flow, performance
@@ -132,6 +143,17 @@ The core path uses fixed system Git, but `git status` still reads the scanned re
 A configured `filter.<x>.clean` can execute a command during status. Do not scan untrusted Git configuration.
 Disabling repository-configured execution is deferred to slice 5; the fixed executable does not prevent it.
 See [AD-422](architecture/decisions/ad-422-core-only-validation-renders-the-scan-frame.md).
+
+## A `sys.path.append` of the snapshot (Python, AD-538)
+
+One write form is no gap: `sys.path.append(str(Path(__file__).resolve().parents[k]))` as a statement
+of a module body, when the directory holds no module-like entry that the scan imports. The verdict
+holds for a run from the snapshot tree. A copied, installed or zipped layout, a direct run of a
+`.pyc`, and `run_path` with a relative path plus `os.chdir` give another directory. An entry that
+appears in the directory after the snapshot, a writer outside the scan roots (`conftest.py`,
+`sitecustomize`, an installed package), a name that only code outside the scan imports, and a
+namespace that does not resolve to the scan root are not seen. `insert` and each other write of
+`sys.path` stay the gap of the whole run.
 
 ## Open false PASS, not accepted (Python `interface_boundary`, AD-504)
 
@@ -349,8 +371,13 @@ project `declare` of a name, in a global script or a `declare global` block, pro
 Without `lib`, the target's default file applies, DOM included. Only top-level value declarations count, so types such as `Document` are not
 proved, and a newer `lib` name waits for the pinned TypeScript version to move.
 A `/// <reference types="./x" />` directive with a relative or absolute path names a file of the
-project; it is UNKNOWN, as `path` and `lib` directives are (#976). A `types` name without a path
-stays silent. A `declare module "x"` augmentation names a module as an import does: a relative or
+project; it is UNKNOWN, as `path` and `lib` directives are (#976). A leading `types` name is a type-only edge to the package that the resolver proves in
+`node_modules` (`@types/<name>` first, then the package); any other result, such as a package that
+is not installed, a `typeRoots` setting, a candidate with `typesVersions` and a `types` field that
+names a missing file, is UNKNOWN. A directive after code and `no-default-lib="true"` are not honored and
+stay silent
+([AD-528](architecture/decisions/ad-528-a-leading-types-directive-is-a-type-only-edge-to-its-package.md), #686).
+A `declare module "x"` augmentation names a module as an import does: a relative or
 absolute name is UNKNOWN. A bare name is UNKNOWN when the project sets `paths` or `baseUrl` and
 the file is a module file (it has `import` or `export`), because those options can map the name
 to a project file; the resolver is not asked, so a name that maps to no project file is UNKNOWN
@@ -436,7 +463,7 @@ in another module than its type is an edge when a path names it (`impl crate::c:
 `b` and `crate::c::S::m()` in `a`: `a -> b`). A method call `x.m(..)` that may reach such a method
 (it has `self`, the same number of other arguments, and a visibility that holds the caller), and a
 call of a method of a trait that a glob brings in (`use b::T;` in the parent, `use super::*;` and
-`5u8.m()` in the child), give a gap of the pair `a -> b`. A call on a plain `self` in a method of `impl S`, or a path `Self::m`, is an edge to the module of the one inherent member `m` of `S` and gives no gap when that member has the same `self` form (`self`, `&self`, `&mut self`) and no `cfg` or other attribute can change the member, its block, its module, the type or the caller; any other case keeps the gaps (AD-383). The host drops that gap only when the
+`5u8.m()` in the child), give a gap of the pair `a -> b`. A call on a plain `self` in a method of `impl S`, or a path `Self::m`, is an edge to the module of the one inherent member `m` of `S` and gives no gap when that member has the same `self` form (`self`, `&self`, `&mut self`) and no `cfg` or other attribute can change the member, its block, its module, the type or the caller; any other case keeps the gaps (AD-383). A `cfg_attr` that can add only lint attributes does not change an item (AD-535). A call `x.m()` on a parameter `x: T`, `&T` or `&mut T` is the same edge when `x` is bound once in the `fn`, `T` is a written plain path to one exact struct or enum, and the member has the `self` form of the parameter; a rebinding, a generic or `impl Trait` or `dyn` type, an alias, a mismatched `self` form, a `Deref` impl of the type and a macro that names `x` keep the gaps (AD-524). The host drops that gap only when the
 contract lets `a` use `b` and the edge closes no cycle that the edges and the other pair gaps may
 close (AD-357). A trait `impl` that is anchored in no module (neither its self type, read after `&`, nor its trait
 is defined there; a trait argument never anchors; a block name anchors only without a `use`, an inline
@@ -581,7 +608,7 @@ The crate reads, writes and binds an amendment (`policy::parse_amendment`, `poli
 - `Binding::amend` refuses a blank `decided_by` or `rationale`. Python writes a file that its reader refuses.
 - Nesting deeper than 128 levels is invalid JSON. Python stops with `RecursionError`.
 
-The baseline codec reads schemas 1.0.0 through 1.3.0 and writes 1.3.0 ([AD-386](architecture/decisions/ad-386-the-contract-crate-reads-and-writes-baselines.md)). It keeps every entry and the permissive Python string rules. It refuses repeated JSON keys, lone surrogates, numbers outside its integer range, nesting deeper than 128 and files over 16 MiB. No command uses it yet.
+The baseline codec reads schemas 1.0.0 through 1.4.0 ([AD-386](architecture/decisions/ad-386-the-contract-crate-reads-and-writes-baselines.md), [AD-546](architecture/decisions/ad-546-a-baseline-accepts-an-unknown-by-what-it-is-and-the-core-compares-it-both-ways.md)). It writes 1.4.0 for a run and 1.3.0 for a file that has no `unknowns` list. It keeps every entry and the permissive Python string rules. It refuses repeated JSON keys, lone surrogates, numbers outside its integer range, nesting deeper than 128 and files over 16 MiB. `validate --baseline` and `--write-baseline` use it. The core measures only `cycle_edges` and `private_crossings`. The three call and typing budgets are `budget.unmeasured` until slice D. The HTML report does not mark accepted entries. A TypeScript parser gap and a Dart file gap give their position in the reason, and the key drops a trailing `at line N` or `:N` by the text.
 
 The API list of `tools/rust_api.py` expands the `macro_rules!` calls of a crate before it counts
 (`tools/rust_macros.py`, [#1048](https://github.com/rapiddweller/archkeel/issues/1048)). A call that

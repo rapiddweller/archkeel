@@ -33,12 +33,13 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             && NAMESPACES.contains(&name.as_str())
     }
 
-    /// The object of `o[k]` when the key is no literal and no number.
+    /// The object of `o[k]` when the key is no literal and no number (a key that cannot name a
+    /// member such as `constructor` is no run-time key: AD-540).
     pub(crate) fn runtime_object(&self, node: Node<'t>) -> Option<Node<'t>> {
         let tree = self.tree;
         let index = tree.field(node, F::Index);
         let literal = crate::references::literal(index, tree.cx.source).is_some();
-        if literal || index.is_some_and(|i| i.kind() == "number") {
+        if literal || index.is_some_and(|i| self.numeric_key(i)) {
             return None;
         }
         tree.field(node, F::Object).map(|o| tree.cx.unwrapped(o))

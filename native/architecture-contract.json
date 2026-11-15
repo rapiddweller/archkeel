@@ -10,7 +10,7 @@
         "native.archkeel_facts"
       ],
       "responsibilities": [
-        "The typed facts, defined once: closed kinds, newtype ids, reason codes, the protocol 9 wire, the read-set and the generated schema (AD-345)."
+        "The typed facts, defined once: closed kinds, newtype ids, reason codes, the protocol 9 wire and the generated schema (AD-345)."
       ],
       "forbidden_responsibilities": [
         "Reading a snapshot, parsing source and storing facts."
@@ -77,7 +77,7 @@
         "native.archkeel_store"
       ],
       "responsibilities": [
-        "Validate one collector reply once, keep its typed facts, write the read-set and architecture.json, and give the receipt digests (AD-346)."
+        "Validate one collector reply once and keep its typed facts, and hold the pinned standard library of each profile (AD-346)."
       ],
       "forbidden_responsibilities": [
         "Parsing source and reading a snapshot."
@@ -772,6 +772,7 @@
         "native.archkeel_typescript_collector.definitions",
         "native.archkeel_typescript_collector.exports",
         "native.archkeel_typescript_collector.scope",
+        "native.archkeel_typescript_collector.bind_kinds",
         "native.archkeel_typescript_collector.import_bindings",
         "native.archkeel_typescript_collector.class_members",
         "native.archkeel_typescript_collector.constructors",
@@ -895,10 +896,12 @@
         "native.archkeel_typescript_collector.script_factory",
         "native.archkeel_typescript_collector.script_flags",
         "native.archkeel_typescript_collector.script_forms",
+        "native.archkeel_typescript_collector.script_host",
         "native.archkeel_typescript_collector.script_index",
         "native.archkeel_typescript_collector.script_keys",
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
+        "native.archkeel_typescript_collector.script_numeric",
         "native.archkeel_typescript_collector.script_publish",
         "native.archkeel_typescript_collector.script_refs",
         "native.archkeel_typescript_collector.script_scope",
@@ -2376,16 +2379,19 @@
         "native.archkeel_typescript_collector.script",
         "native.archkeel_typescript_collector.script_alias",
         "native.archkeel_typescript_collector.script_bind",
+        "native.archkeel_typescript_collector.bind_kinds",
         "native.archkeel_typescript_collector.script_code",
         "native.archkeel_typescript_collector.script_declarations",
         "native.archkeel_typescript_collector.script_declare",
         "native.archkeel_typescript_collector.script_factory",
         "native.archkeel_typescript_collector.script_flags",
         "native.archkeel_typescript_collector.script_forms",
+        "native.archkeel_typescript_collector.script_host",
         "native.archkeel_typescript_collector.script_index",
         "native.archkeel_typescript_collector.script_keys",
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
+        "native.archkeel_typescript_collector.script_numeric",
         "native.archkeel_typescript_collector.script_publish",
         "native.archkeel_typescript_collector.script_refs",
         "native.archkeel_typescript_collector.script_scope",
@@ -2460,10 +2466,12 @@
         "native.archkeel_typescript_collector.script_factory",
         "native.archkeel_typescript_collector.script_flags",
         "native.archkeel_typescript_collector.script_forms",
+        "native.archkeel_typescript_collector.script_host",
         "native.archkeel_typescript_collector.script_index",
         "native.archkeel_typescript_collector.script_keys",
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
+        "native.archkeel_typescript_collector.script_numeric",
         "native.archkeel_typescript_collector.script_publish",
         "native.archkeel_typescript_collector.script_refs",
         "native.archkeel_typescript_collector.script_scope",
@@ -2569,6 +2577,7 @@
         "native.archkeel_python_collector.survey.guard",
         "native.archkeel_python_collector.survey.hazards",
         "native.archkeel_python_collector.survey.imports",
+        "native.archkeel_python_collector.survey.syspath",
         "native.archkeel_python_collector.module",
         "native.archkeel_python_collector.survey.namespace",
         "native.archkeel_python_collector.survey.stable",
@@ -2796,6 +2805,20 @@
       "provenance": [
         "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md",
         "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-EXTERNAL-SAPHYR",
+      "kind": "external_dependency_scope",
+      "dependency": "saphyr",
+      "allowed_sources": [
+        "native.archkeel_dart_collector.import_survey.package",
+        "native.archkeel_dart_collector.cargo_toml"
+      ],
+      "rationale": "Only the Dart package survey reads YAML package metadata.",
+      "provenance": [
+        "docs/architecture/decisions/ad-542-dart-isolate-and-package-keys-need-evidence.md"
       ],
       "decided_by": "architect"
     },

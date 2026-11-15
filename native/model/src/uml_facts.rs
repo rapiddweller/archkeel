@@ -6,6 +6,7 @@
 
 use archkeel_contract::{Entity, Target, VisibilityKind};
 
+use crate::imports::Import;
 use crate::model::Model;
 
 /// One assessment of the target that differs from the facts: the FAIL evidence of the row.
@@ -89,9 +90,22 @@ impl<'m> Facts<'m> {
             .collect()
     }
 
-    /// True when the reply has the resolved local import edge `source -> target`.
+    /// True when the reply has the resolved local import edge `source -> target` that release
+    /// 4.0.1 counts. A call that names its module with no specifier (`importlib.import_module`)
+    /// is not counted there; a call with a specifier (`import("./m")`) is (AD-536).
     pub(crate) fn has_edge(&self, source: &str, target: &str) -> bool {
-        self.model.graph().imports().iter().any(|import| {
+        self.edges(source, target)
+            .any(|import| !import.call_by_name())
+    }
+
+    /// True when the only import edge `source -> target` is a call that names its module.
+    pub(crate) fn has_call_edge(&self, source: &str, target: &str) -> bool {
+        self.edges(source, target).next().is_some() && !self.has_edge(source, target)
+    }
+
+    fn edges<'a>(&'a self, source: &'a str, target: &'a str) -> impl Iterator<Item = &'a Import> {
+        let imports = self.model.graph().imports().iter();
+        imports.filter(move |import| {
             import.resolved == crate::imports::Resolved::Local
                 && import.source_module == source
                 && import.target_module == target

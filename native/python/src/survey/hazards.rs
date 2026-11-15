@@ -18,10 +18,11 @@
 //!   the base of an attribute, is a dynamic import too: `getattr(sys, "path")` and `x = importlib`
 //!   reach any name of it. An attribute `sys`, `builtins` or `importlib` of any value is the same.
 //!
-//! The walk finds names. A name that a function binds as a parameter or a local, and that no
-//! import binds, is a local value and no door (AD-530). `getattr(module, "name")` with a literal
-//! name reads the one attribute `module.name`. A read of `__globals__` that only a lookup of a
-//! literal key reads is no site (`globals_read.rs`).
+//! Except for `code` (AD-539), the walk finds names, not scoped bindings. A name that a function
+//! binds as a parameter or a local, and that no import binds, is a local value and no door
+//! (AD-530). `getattr(module, "name")` with a literal name reads the one attribute `module.name`.
+//! A read of `__globals__` that only a lookup of a literal key reads is no site
+//! (`globals_read.rs`).
 
 use std::collections::{HashMap, HashSet};
 
@@ -30,9 +31,14 @@ use ruff_python_ast::{Expr, ExprContext, ModModule, Stmt, StmtFunctionDef};
 use ruff_text_size::{Ranged, TextRange};
 
 use super::binders::Binders;
+use super::bound::Bound;
 use super::globals_read;
 use super::literal::{self, Proof};
+use super::syspath;
 use crate::module::Module;
+
+#[path = "hazards_reflect.rs"]
+mod reflect;
 
 /// The named gaps of the sites.
 pub(super) const DYNAMIC: &str = "dynamic_import";
@@ -128,16 +134,34 @@ pub(super) struct Site {
 }
 
 /// The sites of a module, in source order.
-pub(super) fn sites(tree: &ModModule, proof: Proof, inert: &HashSet<TextRange>) -> Vec<Site> {
+pub(super) fn sites(
+    tree: &ModModule,
+    proof: Proof,
+    binders: &Binders,
+    inert: &HashSet<TextRange>,
+) -> Vec<Site> {
     let mut walk = Walk {
         found: Vec::new(),
         bound: bindings(tree),
+        uncertain_code: Bound::of(&tree.body).opaque || reflect::deleted_code(tree),
+        class_body: false,
         proof,
         inert,
         locals: Vec::new(),
-        getattr_bound: super::bound::Bound::of(&tree.body).binds("getattr"),
+        getattr_bound: !Bound::of(&tree.body).unbound("getattr"),
     };
-    walk.visit_body(&tree.body);
+    for stmt in &tree.body {
+        // AD-538: an expression statement of the module body that appends a directory of the
+        // snapshot to `sys.path` is a candidate; the survey settles it with the whole scan.
+        match syspath::levels(stmt, tree, binders) {
+            Some(count) => walk.found.push(Site {
+                kind: syspath::PATH_WRITE,
+                detail: count.to_string(),
+                range: stmt.range(),
+            }),
+            None => walk.visit_stmt(stmt),
+        }
+    }
     walk.found
 }
 
@@ -189,6 +213,7 @@ fn bindings(tree: &ModModule) -> HashMap<String, Vec<String>> {
     }
     let mut walk = Imports(HashMap::new());
     walk.visit_body(&tree.body);
+    reflect::aliases(tree, &mut walk.0);
     walk.0
 }
 
@@ -254,6 +279,8 @@ fn imported(stmt: &Stmt) -> Vec<String> {
 struct Walk<'i> {
     found: Vec<Site>,
     bound: HashMap<String, Vec<String>>,
+    uncertain_code: bool,
+    class_body: bool,
     proof: Proof,
     /// The sources of `__globals__` that are inert (`globals_read.rs`).
     inert: &'i HashSet<TextRange>,
@@ -274,6 +301,13 @@ impl Walk<'_> {
 
     /// The qualified origins of a plain name: its import bindings, else the name itself.
     fn origins(&self, name: &str) -> Vec<String> {
+        if name == "code"
+            && !self.uncertain_code
+            && !self.class_body
+            && !self.bound.contains_key(name)
+        {
+            return Vec::new();
+        }
         self.bound
             .get(name)
             .cloned()
@@ -332,6 +366,9 @@ impl Walk<'_> {
             if *name != "__path__" || store(expr) {
                 return self.push(kind, name, expr);
             }
+        }
+        if attributes.contains(&"code") && reflect::module(base, &self.bound) {
+            return self.push(DYNAMIC, "code", expr);
         }
         let Expr::Name(root) = base else {
             return self.visit_expr(base);
@@ -422,24 +459,41 @@ fn store(expr: &Expr) -> bool {
 
 impl<'a> Visitor<'a> for Walk<'_> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        if matches!(stmt, Stmt::ImportFrom(node)
+            if node.level > 0 && node.names.iter().any(|alias| alias.name.as_str() == "code"))
+        {
+            self.push(DYNAMIC, "code", stmt);
+        }
         for name in imported(stmt) {
-            if let Some(kind) = hazard(&name) {
+            if name.ends_with(".code") {
+                self.push(DYNAMIC, &name, stmt);
+            } else if let Some(kind) = hazard(&name) {
                 self.push(kind, &name, stmt);
             }
         }
-        if let Stmt::FunctionDef(def) = stmt {
+        let previous = self.class_body;
+        if let Stmt::FunctionDef(node) = stmt {
             // The decorators, the defaults and the annotations run in the enclosing scope.
-            def.decorator_list
+            node.decorator_list
                 .iter()
                 .for_each(|item| self.visit_decorator(item));
-            self.visit_parameters(&def.parameters);
-            def.returns.iter().for_each(|item| self.visit_expr(item));
-            self.locals.push(bound_in(def));
-            self.visit_body(&def.body);
+            if let Some(params) = &node.type_params {
+                self.visit_type_params(params);
+            }
+            self.visit_parameters(&node.parameters);
+            node.returns.iter().for_each(|item| self.visit_expr(item));
+            self.class_body = false;
+            self.locals.push(bound_in(node));
+            self.visit_body(&node.body);
             self.locals.pop();
+            self.class_body = previous;
             return;
         }
+        if matches!(stmt, Stmt::ClassDef(_)) {
+            self.class_body = true;
+        }
         visitor::walk_stmt(self, stmt);
+        self.class_body = previous;
     }
 
     fn visit_expr(&mut self, expr: &'a Expr) {
@@ -447,9 +501,17 @@ impl<'a> Visitor<'a> for Walk<'_> {
             // AD-472: only the callee of a proven literal call is exempt; its one argument is a
             // string literal, so nothing below the call is left to read.
             Expr::Call(call) => match self.proof.target(call) {
-                Some(target) => self.push(LITERAL, &target, expr),
-                None if self.literal_getattr(call) => {}
+                Some(target) => {
+                    self.push(LITERAL, &target, expr);
+                    if let Some(kind) = hazard(&target) {
+                        self.push(kind, &target, expr);
+                    }
+                }
+                None if !reflect::code(expr, &self.bound) && self.literal_getattr(call) => {}
                 None => {
+                    if reflect::code(expr, &self.bound) {
+                        self.push(DYNAMIC, "code", expr);
+                    }
                     // `vars()` without an argument is the namespace of the caller.
                     let bare = matches!(&*call.func, Expr::Name(f) if f.id.as_str() == "vars");
                     if bare && call.arguments.is_empty() {
@@ -458,6 +520,10 @@ impl<'a> Visitor<'a> for Walk<'_> {
                     visitor::walk_expr(self, expr);
                 }
             },
+            Expr::Subscript(_) if reflect::code(expr, &self.bound) => {
+                self.push(DYNAMIC, "code", expr);
+                visitor::walk_expr(self, expr);
+            }
             Expr::Attribute(_) => self.chain(expr),
             Expr::StringLiteral(node)
                 if DOOR_STRINGS.contains(&node.value.to_str())
@@ -489,7 +555,7 @@ pub(super) fn split(modules: &[Module], binders: &[Binders]) -> Split {
     let inert = globals_read::inert_reads(modules);
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
         let proof = literal::Proof::of(&module.tree, binders);
-        for site in sites(&module.tree, proof, &inert[index]) {
+        for site in sites(&module.tree, proof, binders, &inert[index]) {
             match site.kind {
                 LITERAL => literals.push((index, site.range, site.detail)),
                 _ => found.push((index, site)),

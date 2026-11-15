@@ -92,6 +92,7 @@ pub(crate) fn named(
         let missing = Reason::MissingInput(archkeel_model::Input::Contract);
         return Named {
             contract: Some(missing.to_string()),
+            contract_kind: Some(archkeel_model::gap_kind(&missing)),
             ..Named::default()
         };
     };
@@ -124,6 +125,7 @@ pub(crate) fn named(
     Named {
         rules,
         contract: None,
+        contract_kind: None,
         hold: (!whole).then_some(Reason::Unsupported(Unsupported::TreeScope)),
         uml: None,
     }

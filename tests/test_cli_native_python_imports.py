@@ -112,6 +112,28 @@ def rows(result: dict[str, Any]) -> dict[str, str]:
     return {rule: row[1] for rule, row in result["frame"]["rules"].items()}
 
 
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("import app.missing\n", "UNKNOWN"),
+        ("def load(name):\n    return __import__(name)\n", "UNKNOWN"),
+        ("import os\n", "PASS"),
+    ],
+)
+def test_requires_with_a_coverage_gap_has_a_rule_row(
+    release_core: Path, tmp_path: Path, source: str, expected: str
+) -> None:
+    contract = [{**RULE, "id": "REQUIRES", "kind": "complete_requires"}]
+    root = project(tmp_path, {**BASE, "src/app/client.py": source}, contract_rules=contract)
+    result = verdict(release_core, root)
+    assert rows(result)["REQUIRES"] == expected
+    if expected == "UNKNOWN":
+        assert "core cannot prove the dependency scope" in result["frame"]["explained"]["REQUIRES"]
+        assert result["exit_code"] == 2
+    else:
+        assert result["exit_code"] == 0
+
+
 @pytest.mark.parametrize("verb", ["validate", "report"])
 def test_a_clean_project_passes_each_import_rule(
     release_core: Path, tmp_path: Path, verb: str

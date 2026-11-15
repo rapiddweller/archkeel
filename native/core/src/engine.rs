@@ -153,7 +153,10 @@ impl Engine {
         let core = crate::rules::named(contract, models.clone(), tree);
         named.rules.extend(core.rules);
         named.hold = named.hold.or(core.hold);
-        named.contract = named.contract.or(core.contract);
+        if named.contract.is_none() {
+            named.contract = core.contract;
+            named.contract_kind = core.contract_kind;
+        }
         archkeel_report::rule_with_edge_links(
             models.as_ref().map(|models| *models),
             named,
@@ -208,6 +211,12 @@ impl Engine {
         let missing = Reason::MissingInput(Input::Contract);
         let models = self.derived.as_ref().map_or(Err(missing), Derived::models);
         (self.contract.as_ref(), models)
+    }
+
+    /// The graph of the root model, when the run derived models (AD-546: the budgets read it).
+    pub(crate) fn graph(&self) -> Option<&archkeel_model::Graph> {
+        let derived = self.derived.as_ref()?;
+        derived.models().ok().map(|models| models.root().graph())
     }
 
     /// The number of derivations of this run.

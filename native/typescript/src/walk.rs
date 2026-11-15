@@ -17,6 +17,7 @@ use crate::ancestors::{
     Entry, Shadow, ERROR_ABOVE, INSIDE_NAMESPACE, IN_FUNCTION_LIKE, IN_REBOUND_FUNCTION,
     IN_UNMODELED_BLOCK,
 };
+use crate::bind_kinds::{is_ambient, owns_arguments, runtime_name, ARGUMENTS};
 use crate::definitions::{Definition, Defs, Scopes};
 use crate::exports::{
     ambient, export_bindings, module_exports, type_exports, ExportBinding, Named, TypeExports,
@@ -58,7 +59,6 @@ pub(crate) struct Syntax {
 
 impl Syntax {
     /// The qualified name of the parent of a definition (`Definition.parent` in Python).
-    #[cfg_attr(not(feature = "dump"), allow(dead_code))]
     pub(crate) fn parent_name(&self, definition: &Definition) -> Option<String> {
         definition.parent.map(|at| self.scopes.qualified(at))
     }
@@ -97,6 +97,9 @@ pub(crate) struct Walk<'a, 't> {
     sites: Sites,
     /// The named nodes in document order, for the script facts (`script_scope.rs`).
     layout: Layout<'t>,
+    /// The names of an `enum` or a namespace with a value, with their frame. They bind only in a
+    /// module, which `finish` knows (AD-534).
+    pending: Vec<(u32, Node<'t>)>,
 }
 
 impl<'a, 't> Walk<'a, 't> {
@@ -104,6 +107,7 @@ impl<'a, 't> Walk<'a, 't> {
         let layout = Layout::default();
         Self {
             cx,
+            pending: Vec::new(),
             layout,
             stack: Vec::new(),
             frames: Frames::new(),
@@ -259,7 +263,9 @@ impl<'a, 't> Walk<'a, 't> {
             if let Some(parameter) = cx.field(node, F::Parameter) {
                 self.frames.bind_pattern(&cx, own, parameter);
             }
+            self.bind_arguments(own, kind);
         }
+        self.bind_runtime_name(node, kind, parent_frame);
         match kind {
             K::CatchClause => {
                 if let Some(parameter) = cx.field(node, F::Parameter) {
@@ -295,6 +301,25 @@ impl<'a, 't> Walk<'a, 't> {
                 | K::ClassDeclaration
         ) {
             self.bind_declaration(node, kind, parent_frame, parent_var);
+        }
+    }
+
+    /// The `arguments` of a function that is no arrow; a parameter of that name is the one
+    /// binding (AD-534).
+    fn bind_arguments(&mut self, own: u32, kind: K) {
+        if owns_arguments(kind) && self.frames.count(own, ARGUMENTS) == 0 {
+            self.frames.bind(own, ARGUMENTS.to_owned());
+        }
+    }
+
+    /// An `enum` or a `namespace` with a value binds in the frame around it (AD-534).
+    fn bind_runtime_name(&mut self, node: Node<'t>, kind: K, parent_frame: u32) {
+        if !matches!(kind, K::EnumDeclaration | K::InternalModule | K::Module) {
+            return;
+        }
+        let ambient = is_ambient(self.stack.iter().rev().map(|up| up.kind));
+        if let Some(name) = runtime_name(&self.cx, node, kind, ambient) {
+            self.pending.push((parent_frame, name));
         }
     }
 
@@ -362,6 +387,16 @@ impl<'a, 't> Walk<'a, 't> {
         let cx = self.cx;
         let top = named_children(root);
         let exports = module_exports(&cx, &top);
+        let declaration_file =
+            suffix.is_some_and(|s| s.source_kind() == Some(SourceKind::Declaration));
+        let hinted = suffix.is_some_and(|s| s.format_hint().is_some());
+        let module_file = exports.module_syntax || (hinted && !declaration_file);
+        // In a script file an enum or a namespace is global and merges across files: no binding.
+        if module_file {
+            for (frame, name) in std::mem::take(&mut self.pending) {
+                self.frames.bind_pattern(&cx, frame, name);
+            }
+        }
         // A name that an import binds counts in the frame of the file.
         for item in &self.imports {
             self.frames.bind(ROOT, item.local.clone());
@@ -398,17 +433,14 @@ impl<'a, 't> Walk<'a, 't> {
             .filter(|item| !item.type_only)
             .map(|item| item.local.clone())
             .collect();
-        let declaration_file =
-            suffix.is_some_and(|s| s.source_kind() == Some(SourceKind::Declaration));
         let (ambient_globals, ambient_top_level) = ambient(&cx, &top, exports.module_syntax);
-        let hinted = suffix.is_some_and(|s| s.format_hint().is_some());
         let script_mode = suffix.is_some_and(|s| {
             s.source_kind() == Some(SourceKind::JavaScript) && s.format_hint().is_none()
         }) && !exports.module_syntax;
         self.sites.finish(&self.frames, cx.source.data, script_mode);
         let (definitions, scopes) = self.defs.finish(&imported, &exports);
         Syntax {
-            module_file: exports.module_syntax || (hinted && !declaration_file),
+            module_file,
             module_exports: export_bindings(&cx, (root, &top), &self.frames),
             type_exports: type_exports(&cx, root, &top, &self.frames),
             definitions,

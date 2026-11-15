@@ -156,7 +156,7 @@ RUST_X_B = [entity("x", "ws.a.x", "rust"), entity("b", "ws.a.b", "rust")]
 RUST_X_C = [entity("x", "ws.a.x", "rust"), entity("c", "ws.a.c", "rust")]
 RUST_ONE = [component("a", ["ws.a"])]
 GAP_B = "impl crate::c::S { pub fn m(&self) -> u8 { 1 } }\n"
-GAP_X = "pub fn f(s: &crate::c::S) -> u8 { s.m() }\n"
+GAP_X = "pub fn f(s: &crate::c::S) -> u8 { let s = s; s.m() }\n"
 
 
 def referenced(identity: str, name: str, kind: str) -> dict:
@@ -250,7 +250,8 @@ PLANTS: dict[str, tuple[tuple, str | None, str]] = {
         None,
         "UNKNOWN",
     ),
-    # R1 (ruled): a literal `importlib.import_module` call is an import edge since AD-472.
+    # R1 (closed, AD-536): a call is an import edge (AD-472), but not the statement that the target
+    # declares; 4.0.1 reads statements only, so the core gives its row.
     "r1-python-importlib-declared": (
         (
             PY,
@@ -262,7 +263,7 @@ PLANTS: dict[str, tuple[tuple, str | None, str]] = {
             uml(PY_MODULES, [imports("one", "t")]),
         ),
         "FAIL",
-        "PASS",
+        "FAIL",
     ),
     # R2 (ruled): the `__import__` edge is a true unlisted edge of a closed scope.
     "r2-python-dunder-import-closed": (
@@ -302,12 +303,10 @@ PLANTS: dict[str, tuple[tuple, str | None, str]] = {
         "FAIL",
     ),
 }
-RULED = {"r1-python-importlib-declared", "r2-python-dunder-import-closed"} | {
-    name for name in PLANTS if name.startswith("r3-")
-}
+RULED = {"r2-python-dunder-import-closed"} | {name for name in PLANTS if name.startswith("r3-")}
 
 
-def project(root: Path, plant: tuple) -> Path:
+def project(root: Path, plant: tuple, rules: list[dict] | None = None) -> Path:
     configuration, files, components, target = plant
     rust = configuration == RUST
     # AD-466: the provenance file draws the component graph of the imports of component a.
@@ -321,7 +320,7 @@ def project(root: Path, plant: tuple) -> Path:
     contract = {
         "schema_version": "2.2.0",
         "components": components,
-        "rules": [] if rust else RULE,
+        "rules": [] if rust else (RULE if rules is None else rules),
         "declarations": {"uml": target},
     }
     (root / "architecture-contract.json").write_text(json.dumps(contract))

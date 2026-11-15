@@ -37,11 +37,15 @@ struct Site {
 pub(super) enum Kind {
     /// A `def` or a `class`: the name is a function or a class, never a module.
     Callable,
+    /// A display or literal makes a value, not a module.
+    Value,
+    /// A subscript of a builtin generic, if the module does not bind that builtin.
+    BuiltinGeneric(&'static str),
     /// An import: the name is whatever the imported name is.
     Import,
-    /// A plain assignment of a value built only from constants, builtin constructors and names
-    /// (`value.rs`, AD-530): `Bound::deps` says what it reads.
-    Value,
+    /// A plain assignment of a name or of a builtin constructor call that `value_kind` does not
+    /// take as a value (`value.rs`, AD-530): `Bound::deps` says what it reads.
+    Derived,
     /// Any other binder: the value is unknown.
     Other,
 }
@@ -58,6 +62,8 @@ pub(super) struct Bound {
     pub(super) opaque: bool,
     /// A top-level `__getattr__` can give any attribute.
     pub(super) getattr: bool,
+    /// A namespace write through a runtime attribute helper can change a binding.
+    pub(super) attribute_write: bool,
 }
 
 impl Bound {
@@ -90,21 +96,37 @@ impl Bound {
         }
     }
 
-    /// What the value of the sole plain binder of `name` reads, when that binder is a `Value`.
+    /// What the value of the sole plain binder of `name` reads, when that binder is `Derived`.
     pub(super) fn deps(&self, name: &str) -> Option<&Deps> {
         self.values.get(name)
-    }
-
-    /// True when a statement of the module scope binds `name` at any depth, or the body can bind
-    /// names that cannot be listed.
-    pub(super) fn binds(&self, name: &str) -> bool {
-        self.opaque || self.globals.contains(name) || self.sites.contains_key(name)
     }
 
     /// Each name that a statement of the module scope, or a `global` declaration, binds.
     pub(super) fn names(&self) -> HashSet<String> {
         let sites = self.sites.keys().cloned();
         sites.chain(self.globals.iter().cloned()).collect()
+    }
+
+    pub(super) fn unbound(&self, name: &str) -> bool {
+        !self.opaque && !self.globals.contains(name) && !self.sites.contains_key(name)
+    }
+
+    pub(super) fn inert_typing_arg(&self, expr: &Expr) -> bool {
+        match expr {
+            Expr::Name(name) => {
+                matches!(
+                    name.id.as_str(),
+                    "int" | "str" | "float" | "bool" | "bytes" | "object"
+                ) && self.unbound(name.id.as_str())
+            }
+            Expr::NumberLiteral(_)
+            | Expr::StringLiteral(_)
+            | Expr::BytesLiteral(_)
+            | Expr::BooleanLiteral(_)
+            | Expr::NoneLiteral(_) => true,
+            Expr::Tuple(tuple) => tuple.elts.iter().all(|item| self.inert_typing_arg(item)),
+            _ => false,
+        }
     }
 
     /// The names that only the statement at `start` binds (`from . import name`, AD-53).
@@ -170,8 +192,8 @@ impl Walk {
         self.scope -= 1;
     }
 
-    /// A target of a plain assignment: a name binds, as a `Value` when the value reads only
-    /// constants, builtins and names; any other target is read as an expression.
+    /// A target of a plain assignment: a name binds with the kind of its value (`value_kind`), or
+    /// as `Derived` when the value reads only builtins and names; any other target is an expression.
     fn assigned<'a>(&mut self, target: &'a Expr, start: TextSize, value: Option<&Expr>)
     where
         Self: Visitor<'a>,
@@ -179,12 +201,14 @@ impl Walk {
         let Expr::Name(name) = target else {
             return self.visit_expr(target);
         };
-        let deps = value.and_then(value_deps);
-        let kind = if deps.is_some() {
-            Kind::Value
-        } else {
-            Kind::Other
-        };
+        let mut kind = value.map_or(Kind::Other, value_kind);
+        let mut deps = None;
+        if kind == Kind::Other {
+            deps = value.and_then(value_deps);
+            if deps.is_some() {
+                kind = Kind::Derived;
+            }
+        }
         self.site(name.id.as_str(), start, true, kind);
         if let (0, Some(deps)) = (self.scope, deps) {
             self.bound.values.insert(name.id.to_string(), deps);
@@ -232,6 +256,15 @@ impl<'a> Visitor<'a> for Walk {
                 self.bound.globals.extend(names);
                 self.bound.getattr |= self.bound.globals.contains("__getattr__");
             }
+            Stmt::TypeAlias(node) => {
+                if let Expr::Name(name) = &*node.name {
+                    self.site(name.id.as_str(), start, true, Kind::Value);
+                }
+                if let Some(params) = &node.type_params {
+                    self.visit_type_params(params);
+                }
+                self.visit_expr(&node.value);
+            }
             Stmt::Assign(node) => {
                 for target in &node.targets {
                     self.assigned(target, start, Some(&node.value));
@@ -258,6 +291,14 @@ impl<'a> Visitor<'a> for Walk {
     }
 
     fn visit_expr(&mut self, expr: &'a Expr) {
+        if let Expr::Call(call) = expr {
+            let name = match &*call.func {
+                Expr::Name(name) => Some(name.id.as_str()),
+                Expr::Attribute(attr) => Some(attr.attr.as_str()),
+                _ => None,
+            };
+            self.bound.attribute_write |= matches!(name, Some("setattr" | "delattr"));
+        }
         if let Expr::Name(node) = expr {
             if matches!(node.ctx, ExprContext::Store | ExprContext::Del) {
                 self.site(node.id.as_str(), expr.range().start(), false, Kind::Other);
@@ -275,6 +316,42 @@ impl<'a> Visitor<'a> for Walk {
     }
 
     bind_handler_and_pattern!();
+}
+
+fn value_kind(value: &Expr) -> Kind {
+    if let Expr::Subscript(subscript) = value {
+        if let Expr::Name(name) = &*subscript.value {
+            let builtin = match name.id.as_str() {
+                "list" => Some("list"),
+                "dict" => Some("dict"),
+                "tuple" => Some("tuple"),
+                "set" => Some("set"),
+                "frozenset" => Some("frozenset"),
+                "type" => Some("type"),
+                _ => None,
+            };
+            if let Some(builtin) = builtin {
+                return Kind::BuiltinGeneric(builtin);
+            }
+        }
+    }
+    if matches!(
+        value,
+        Expr::NumberLiteral(_)
+            | Expr::StringLiteral(_)
+            | Expr::BytesLiteral(_)
+            | Expr::BooleanLiteral(_)
+            | Expr::NoneLiteral(_)
+            | Expr::Tuple(_)
+            | Expr::List(_)
+            | Expr::Dict(_)
+            | Expr::Set(_)
+            | Expr::FString(_)
+    ) {
+        Kind::Value
+    } else {
+        Kind::Other
+    }
 }
 
 impl<'a> Bind<'a> for Walk {

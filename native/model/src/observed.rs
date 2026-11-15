@@ -51,6 +51,8 @@ pub(crate) enum Runtime {
 pub(crate) struct Observed {
     /// The linked collector's typed profile statements, absent for a wire reply.
     pub(crate) profile_limits: Option<ProfileLimits>,
+    /// The linked collector's stated assumption (AD-540), absent for a wire reply.
+    pub(crate) scope_premise: Option<&'static str>,
     /// Each gap between two modules: its source module and its module.
     pub(crate) pair_gaps: Vec<(String, String)>,
     /// The host could not read the head or the state of the work tree.
@@ -142,6 +144,7 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
         .collect();
     Observed {
         profile_limits: facts.profile_limits,
+        scope_premise: facts.scope_premise,
         pair_gaps,
         git_unknown: facts.source.git_head == "unknown"
             || matches!(facts.source.dirty, Dirty::Unknown(_)),

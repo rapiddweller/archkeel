@@ -49,6 +49,8 @@ pub(crate) fn import(id: &str, source: &str, target: &str) -> Import {
         relative: false,
         resolved: Resolved::Local,
         evidence: Vec::new(),
+        call_by_name: false,
+        unbound_type: false,
     }
 }
 

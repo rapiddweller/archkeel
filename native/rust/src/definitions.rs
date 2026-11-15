@@ -122,13 +122,29 @@ pub(crate) enum SelfKind {
 }
 
 /// A method call whose receiver is the plain `self` of a method of an `impl` block, or a path
-/// `Self::m` in such a block (AD-383): the path of the type of the block, the inline modules that
-/// enclose the block, and the kind of the `self` parameter of the method (`None` for a path).
+/// `Self::m` in such a block (AD-383), or a typed parameter of the `fn` (AD-524): the name of the
+/// receiver (`self`, `Self` or the parameter), the path of its type, the inline modules that
+/// enclose the item, and the kind of the receiver as written (`None` for a path).
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct OnSelf {
+    pub name: String,
     pub path: Vec<String>,
     pub scope: Vec<String>,
     pub kind: Option<SelfKind>,
+    /// The macros that the `fn` of a parameter calls and that are no silent macro of `std`: a
+    /// path as written for a macro with a path, else its name (AD-524).
+    pub macros: Vec<String>,
+    /// Up to two named fields of the receiver.
+    pub fields: Vec<String>,
+}
+
+/// One named field of a non-generic, exact struct.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Field {
+    pub scope: Vec<String>,
+    pub path: Vec<String>,
+    pub kind: SelfKind,
+    pub access: Access,
 }
 
 /// A member of an inherent `impl` block. Only a `fn` with a `self` parameter can be called as
@@ -143,6 +159,8 @@ pub(crate) struct Member {
     pub kind: Option<SelfKind>,
     /// The parameters besides `self`.
     pub arity: usize,
+    /// Only inert attributes are on the member: every configuration has it as written.
+    pub inert: bool,
 }
 
 /// A method call `x.m(..)` or `x.m::<..>(..)`, or a path `T::m` into another crate: the name, the

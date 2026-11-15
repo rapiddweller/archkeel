@@ -21,9 +21,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::builder::Builder;
-use crate::definitions::{Access, ImplBlock, Member, MethodCall};
+use crate::definitions::{Access, ImplBlock, Member, MethodCall, Owner, SelfKind};
 use crate::modules::{inside, Edge, Frame, Index, TypeOf};
 use crate::scan::{Reference, Via};
+use crate::tokens::NO_BIND_MACROS;
 use crate::tree::Module;
 
 /// A member of an inherent `impl` block of a placed type.
@@ -41,9 +42,45 @@ pub(super) struct Typed<'a> {
     by_type: BTreeMap<(String, String), Vec<Candidate<'a>>>,
     /// The names of the members of the blocks whose type the scan cannot place.
     unplaced: BTreeSet<&'a str>,
+    /// The last name of each type with a `Deref` or `DerefMut` impl in the workspace.
+    derefs: BTreeSet<&'a str>,
+    /// A macro, a `use` leaf or an `extern crate` of the workspace may give the name of a macro of
+    /// `std` that binds nothing to another macro (AD-524).
+    shadowed_macros: bool,
+    /// The names of the `macro_rules!` of the workspace.
+    macro_names: BTreeSet<&'a str>,
+    /// The names of the members of the traits of the workspace.
+    trait_members: BTreeSet<&'a str>,
 }
 
 impl<'a> Typed<'a> {
+    /// Note what a module says of the types and the macros of the workspace (AD-524).
+    pub(super) fn note(&mut self, module: &'a Module) {
+        let scan = &module.scan;
+        for found in &scan.orphans.impls {
+            let last = |path: &'a Option<Vec<String>>| path.as_ref()?.last().map(String::as_str);
+            if let (Some("Deref" | "DerefMut"), Some(ty)) =
+                (last(&found.trait_path), last(&found.self_path))
+            {
+                self.derefs.insert(ty);
+            }
+        }
+        let traits = scan.definitions.iter();
+        let traits = traits.filter(|d| matches!(d.owner, Owner::Trait(_)));
+        self.trait_members.extend(traits.map(|d| d.name.as_str()));
+        let defs = scan.macro_defs.iter().map(|def| def.name.as_str());
+        self.macro_names.extend(defs);
+        let bound = scan.references.iter().filter_map(|r| match &r.via {
+            Via::Use { binding, .. } => binding.as_deref(),
+            _ => None,
+        });
+        let silent = |name: &str| NO_BIND_MACROS.contains(&name);
+        let hidden = scan.macro_defs.iter().any(|d| silent(&d.name))
+            || bound.into_iter().any(silent)
+            || !scan.extern_crates.is_empty();
+        self.shadowed_macros |= hidden;
+    }
+
     /// Keep each member of a block by its type, or its name when the type is not placed.
     /// `lexical` is the lexical module of the block.
     pub(super) fn place(
@@ -63,22 +100,67 @@ impl<'a> Typed<'a> {
             module,
             lexical: lexical.clone(),
             member,
-            exact: block.exact && !module.gated,
+            exact: block.exact,
         }));
     }
 }
 
-/// Whether the member is visible at the call for certain. A `pub(in path)` is not read.
-fn certainly_visible(caller: &Module, at: &str, candidate: &Candidate<'_>) -> bool {
-    let same_crate = caller.crate_index == candidate.module.crate_index;
-    match &candidate.member.access {
+impl<'a> Typed<'a> {
+    /// Whether a macro call of a silent name of `std` may be another macro (AD-524).
+    pub(super) fn shadowed(&self) -> bool {
+        self.shadowed_macros
+    }
+
+    /// The one member that a path `T::name` at `at` reaches, for a type that the scan follows
+    /// through explicit paths (AD-544): the module and the lexical module of its block. An
+    /// inherent member that the caller can use wins over each trait member. The path keeps its
+    /// gaps when the type or the block is not exact, when a second member of the name is read,
+    /// when a block of an unplaced type or a trait of the workspace has the name, and when an
+    /// attribute is on the member.
+    pub(super) fn sole(
+        &self,
+        index: &Index<'_>,
+        (caller, at): (&Module, &str),
+        (lexical, ty): (&str, &str),
+        name: &str,
+    ) -> Option<(&'a Module, &str)> {
+        if self.unplaced.contains(name)
+            || self.trait_members.contains(name)
+            || !exact_type(index, caller, lexical, ty)
+        {
+            return None;
+        }
+        let members = self.by_type.get(&(lexical.to_owned(), ty.to_owned()))?;
+        let mut named = members.iter().filter(|c| c.member.name == name);
+        let (candidate, None) = (named.next()?, named.next()) else {
+            return None;
+        };
+        let place = (candidate.module, candidate.lexical.as_str());
+        let certain = candidate.exact
+            && same_gates(caller, candidate.module)
+            && candidate.member.inert
+            && certainly_visible(caller, at, place, &candidate.member.access);
+        certain.then_some(place)
+    }
+}
+
+/// Whether a member of a block in `lexical` of `module` is visible at the call for certain. A
+/// `pub(in path)` is not read.
+pub(super) fn certainly_visible(
+    caller: &Module,
+    at: &str,
+    (module, lexical): (&Module, &str),
+    access: &Access,
+) -> bool {
+    let same_crate = caller.crate_index == module.crate_index;
+    match access {
         Access::Public => true,
         Access::Package(text) if text == "pub(crate)" => same_crate,
         Access::Package(text) if text == "pub(super)" => {
-            let parent = candidate.lexical.rsplit_once('.').map(|(up, _)| up);
+            let parent = lexical.rsplit_once('.').map(|(up, _)| up);
             same_crate && parent.is_some_and(|parent| inside(at, parent))
         }
-        Access::Private => same_crate && inside(at, &candidate.lexical),
+        Access::Private => same_crate && inside(at, lexical),
         Access::Package(_) => false,
     }
 }
@@ -86,12 +168,69 @@ fn certainly_visible(caller: &Module, at: &str, candidate: &Candidate<'_>) -> bo
 /// Whether the type is a struct or an enum that every configuration has as written: in a module
 /// that no attribute can remove, with only inert attributes, and the only item of its name in its
 /// file.
-fn exact_type(index: &Index<'_>, lexical: &str, ty: &str) -> bool {
+fn same_gates(caller: &Module, other: &Module) -> bool {
+    if !caller.gated && !other.gated {
+        return true;
+    }
+    caller.gated
+        && other.gated
+        && caller.crate_index == other.crate_index
+        && caller
+            .gates
+            .as_ref()
+            .is_some_and(|gates| !gates.is_empty() && other.gates.as_ref() == Some(gates))
+}
+
+fn exact_type(index: &Index<'_>, caller: &Module, lexical: &str, ty: &str) -> bool {
     let frame = index.file_of(lexical).and_then(|file| index.frame(file));
     frame.is_some_and(|frame| {
         let scan = &frame.module.scan;
-        !frame.module.gated && scan.exact_types.contains(ty) && scan.counts.get(ty) == Some(&1)
+        same_gates(caller, frame.module)
+            && scan.exact_types.contains(ty)
+            && scan.counts.get(ty) == Some(&1)
     })
+}
+
+/// Resolve a named field from its exact struct, without deref or an ambiguous field.
+fn field_type(
+    index: &Index<'_>,
+    caller: &Module,
+    at: &str,
+    (lexical, ty, name): (&str, &str, &str),
+    found: &Typed<'_>,
+) -> Option<(String, String, SelfKind)> {
+    if !exact_type(index, caller, lexical, ty) || found.derefs.contains(ty) {
+        return None;
+    }
+    let frame = index.frame(index.file_of(lexical)?)?;
+    let fields: Vec<_> = frame
+        .module
+        .scan
+        .fields
+        .get(&(ty.to_owned(), name.to_owned()))?
+        .iter()
+        .filter(|f| frame.lexical_at(&f.scope) == lexical)
+        .collect();
+    let [field] = fields.as_slice() else {
+        return None;
+    };
+    let same_crate = caller.crate_index == frame.module.crate_index;
+    let visible = match &field.access {
+        Access::Public => true,
+        Access::Package(text) if text == "pub(crate)" => same_crate,
+        Access::Package(text) if text == "pub(super)" => lexical
+            .rsplit_once('.')
+            .is_some_and(|(parent, _)| same_crate && inside(at, parent)),
+        Access::Private => same_crate && inside(at, lexical),
+        Access::Package(_) => false,
+    };
+    if !visible {
+        return None;
+    }
+    let TypeOf::Known(lexical, ty) = index.type_of(frame, &field.scope, &field.path) else {
+        return None;
+    };
+    (!found.derefs.contains(ty.as_str())).then_some((lexical, ty, field.kind))
 }
 
 impl Builder {
@@ -108,17 +247,48 @@ impl Builder {
             return false;
         };
         // A method call has a `self` form and an arity; a path `Self::m` has neither.
-        let form = match (on_self.kind, call.arity, call.path) {
+        let mut form = match (on_self.kind, call.arity, call.path) {
             (Some(kind), Some(arity), false) => Some((kind, arity)),
             (None, None, true) => None,
             _ => return false,
         };
-        let TypeOf::Known(lexical, ty) = index.type_of(frame, &on_self.scope, &on_self.path) else {
+        // A parameter has a written type; the workspace must give no reason to doubt it (AD-524).
+        let parameter = !matches!(on_self.name.as_str(), "self" | "Self");
+        if module.gated && (parameter || !on_self.fields.is_empty()) {
+            return false;
+        }
+        let deref = on_self
+            .path
+            .last()
+            .is_some_and(|ty| found.derefs.contains(ty.as_str()));
+        // A macro of the `fn` that is no `macro_rules!` of the workspace can bind any name.
+        let foreign = (on_self.macros.iter()).any(|m| !found.macro_names.contains(m.as_str()));
+        if parameter && (deref || found.shadowed_macros || foreign) {
+            return false;
+        }
+        let TypeOf::Known(mut lexical, mut ty) =
+            index.type_of(frame, &on_self.scope, &on_self.path)
+        else {
             return false;
         };
+        let mut shared = on_self.kind == Some(SelfKind::Shared);
+        for field in &on_self.fields {
+            let at = frame.lexical_at(&call.scope);
+            let Some((target, name, kind)) =
+                field_type(index, module, &at, (&lexical, &ty, field), found)
+            else {
+                return false;
+            };
+            if kind == SelfKind::Unique && shared {
+                return false;
+            }
+            shared |= kind == SelfKind::Shared;
+            (lexical, ty) = (target, name);
+            form = call.arity.map(|arity| (kind, arity));
+        }
         let unplaced = found.unplaced.contains(call.name.as_str())
             || self.macro_members.contains_key(&call.name);
-        if unplaced || module.gated || !exact_type(index, &lexical, &ty) {
+        if unplaced || !exact_type(index, module, &lexical, &ty) {
             return false;
         }
         let members = found.by_type.get(&(lexical, ty)).into_iter().flatten();
@@ -128,7 +298,10 @@ impl Builder {
         let certain = |c: &Candidate<'_>| {
             let fits = form
                 .is_none_or(|(kind, arity)| c.member.kind == Some(kind) && c.member.arity == arity);
-            c.exact && fits && certainly_visible(module, &at, c)
+            c.exact
+                && same_gates(module, c.module)
+                && fits
+                && certainly_visible(module, &at, (c.module, &c.lexical), &c.member.access)
         };
         // Rust allows one member `m` per type: two read members mean a case that is not certain.
         let [candidate] = candidates.as_slice() else {
@@ -137,9 +310,10 @@ impl Builder {
         if !certain(candidate) {
             return false;
         }
-        let (root, path) = match call.path {
-            true => ("Self", format!("Self::{}", call.name)),
-            false => ("self", format!("self.{}", call.name)),
+        let root = on_self.name.as_str();
+        let path = match call.path {
+            true => format!("{root}::{}", call.name),
+            false => format!("{root}.{}", call.name),
         };
         let reference = Reference {
             root: root.to_owned(),

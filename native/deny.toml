@@ -89,6 +89,7 @@ deny = [
     { crate = "tree-sitter", wrappers = ["archkeel-typescript-collector", "archkeel-dart-grammar", "archkeel-dart-collector"], reason = "only a collector crate parses source" },
     { crate = "tree-sitter-language", wrappers = ["tree-sitter", "tree-sitter-typescript", "archkeel-dart-grammar"], reason = "every grammar crate depends on it: a new grammar crate fails here until it is listed and has an external_dependency_scope rule" },
     { crate = "tree-sitter-typescript", wrappers = ["archkeel-typescript-collector"], reason = "only a collector crate parses source" },
+    { crate = "saphyr", wrappers = ["archkeel-dart-collector"], reason = "only the Dart collector parses pubspec YAML" },
     # AD-334: the Python parser and its tree. Only the Python collector uses them; the parser uses
     # the tree, and the helper crates of ruff use neither.
     { crate = "ruff_python_parser", wrappers = ["archkeel-python-collector"], reason = "only a collector crate parses source" },

@@ -13,11 +13,11 @@
 
 use syn::{Ident, Item, ItemImpl, ItemTrait, Signature, Type};
 
-use super::receivers::{exact_path, inert, kind_of, type_inert};
+use super::receivers::{exact_path, inert, item_name, kind_of, type_inert, written_type};
 use super::state::Walker;
 use crate::attrs::{impl_item_attributes, is_test_attributes};
 use crate::definitions::{
-    Access, BlockItem, Definition, Form, Holder, ImplBlock, Member, Owner, TraitImpl,
+    Access, BlockItem, Definition, Field, Form, Holder, ImplBlock, Member, Owner, TraitImpl,
 };
 use crate::tokens::plain;
 
@@ -145,6 +145,7 @@ pub(super) fn impl_block(walker: &mut Walker<'_>, item: &ItemImpl) {
                 receiver: f.sig.receiver().is_some(),
                 kind: kind_of(&f.sig).filter(|_| inert(&f.attrs)),
                 arity: (f.sig.inputs.len()).saturating_sub(usize::from(f.sig.receiver().is_some())),
+                inert: inert(&f.attrs),
             }),
             syn::ImplItem::Const(c) => Some(Member {
                 name: plain(&c.ident),
@@ -152,6 +153,7 @@ pub(super) fn impl_block(walker: &mut Walker<'_>, item: &ItemImpl) {
                 receiver: false,
                 kind: None,
                 arity: 0,
+                inert: inert(&c.attrs),
             }),
             _ => None,
         })
@@ -175,6 +177,44 @@ pub(super) fn exact_type(walker: &mut Walker<'_>, item: &Item) {
     };
     if walker.blocks == 0 && !walker.selves.gated() && type_inert(attrs) {
         walker.out.exact_types.insert(plain(ident));
+        if let Item::Struct(found) = item {
+            fields(walker, found);
+        }
+    }
+}
+
+fn fields(walker: &mut Walker<'_>, item: &syn::ItemStruct) {
+    if item
+        .generics
+        .params
+        .iter()
+        .any(|p| !matches!(p, syn::GenericParam::Lifetime(_)))
+    {
+        return;
+    }
+    let syn::Fields::Named(fields) = &item.fields else {
+        return;
+    };
+    if fields.named.iter().any(|field| !inert(&field.attrs)) {
+        return;
+    }
+    for field in &fields.named {
+        let (Some(name), Some((path, kind))) = (&field.ident, written_type(&field.ty)) else {
+            continue;
+        };
+        let owner = plain(&item.ident);
+        let name = plain(name);
+        walker
+            .out
+            .fields
+            .entry((owner, name))
+            .or_default()
+            .push(Field {
+                scope: walker.inline.clone(),
+                path,
+                kind,
+                access: access(&field.vis),
+            });
     }
 }
 
@@ -228,26 +268,6 @@ pub(super) fn member(walker: &mut Walker<'_>, sig: &Signature, (access, owner): 
     found.receiver = sig.receiver().is_some();
     found.is_async = sig.asyncness.is_some();
     walker.out.definitions.push(found);
-}
-
-/// The name that an item declares. Every kind counts, whatever its namespace.
-pub(super) fn item_name(item: &Item) -> Option<String> {
-    let ident = match item {
-        Item::Fn(item) => &item.sig.ident,
-        Item::Struct(item) => &item.ident,
-        Item::Enum(item) => &item.ident,
-        Item::Union(item) => &item.ident,
-        Item::Trait(item) => &item.ident,
-        Item::TraitAlias(item) => &item.ident,
-        Item::Type(item) => &item.ident,
-        Item::Const(item) => &item.ident,
-        Item::Static(item) => &item.ident,
-        Item::Mod(item) => &item.ident,
-        Item::Macro(item) => item.ident.as_ref()?,
-        Item::ExternCrate(item) => item.rename.as_ref().map_or(&item.ident, |(_, name)| name),
-        _ => return None,
-    };
-    Some(plain(ident))
 }
 
 /// The name of an item of an `extern` block.

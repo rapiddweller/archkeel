@@ -179,7 +179,7 @@ PLANTS: dict[str, tuple[dict[str, str], dict | None, dict | None, str, str]] = {
         "UNKNOWN",
         "UNKNOWN",
     ),
-    # 4.0.1 passes a target of a mount; the core does not compare it (stricter).
+    # 4.0.1 passes a mount target that draws a module outside the mount; the core stops (AD-526).
     "mounted-target": (FILES, None, target(), "PASS", "UNKNOWN"),
 }
 

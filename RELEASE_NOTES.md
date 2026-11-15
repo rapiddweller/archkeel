@@ -1,13 +1,20 @@
 # ArchKeel 5.0.0 — Explicit architecture ports and native ownership evidence
 
+## Removed
+
+- `architecture-graph.schema.json`, `architecture-report.schema.json`, `architecture-comparison.schema.json`, `source-member-inventory.schema.json`: 4.0.1 wrote these artifacts; 5.0 does not.
+
 ## Support reduction on main
 
 Rust and TypeScript projects use native collectors. The Python collector implementations are deleted.
-Python and Dart projects are not supported in this version; use archkeel 4.0.1.
-This includes mixed configurations, saved facts and baseline commands. Unsupported profiles give exit 2, never PASS.
-The future Rust Python and Dart collectors stay under `native/`. Support returns when the store accepts their replies.
-TypeScript has no Python fallback. Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD lack shipped binaries.
-Those platforms cannot scan TypeScript without a native build and fail closed with exit 2.
+Python and Dart projects get PASS or FAIL for the rules that read the import graph (AD-450, AD-468).
+A gap in the survey gives UNKNOWN for each rule of the run. Python `interface_boundary` is decided from
+the publication route of each named import (AD-504). A Dart `no_component_cycles` rule is always UNKNOWN.
+Rules that read calls or constructs stay UNKNOWN for Python. For the other rules, use archkeel 4.0.1.
+Saved reports and baseline commands are refused by name with exit 2, never PASS.
+There is no Python fallback. Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD lack shipped binaries.
+Those platforms cannot scan without a native build and fail closed with exit 2.
+The per-language limits are in [known limits](docs/known-limits.md).
 
 The Rust core `archkeel-core` is the only decision path on `main` (AD-432). The Python engine is deleted.
 `validate` and `report` (text and JSON) print the frame of the core: PASS exits 0, FAIL exits 1, UNKNOWN exits 2.
@@ -26,8 +33,8 @@ native source evidence and conservative UNKNOWNs.
   owners, ports and responsibilities across Core, language collectors and reports.
   Observation, policy evaluation and rendering have separate owners.
 - **Native Rust and TypeScript collectors.** The bundled binaries replace the Python
-  collector implementations. Unsupported forms retain UNKNOWN. Python and Dart projects
-  require archkeel 4.0.1 until their native collectors and the store support their replies.
+  collector implementations. Unsupported forms retain UNKNOWN. Python and Dart projects get
+  verdicts for the rules that read the import graph; use archkeel 4.0.1 for the other rules.
 - **JavaScript script-global dependencies.** The TypeScript adapter records supported
   script-global crossings for existing dependency rules, including bounded alias,
   factory-member and destructuring forms. Standard globals follow supported
@@ -79,6 +86,18 @@ native source evidence and conservative UNKNOWNs.
   ([AD-285](docs/architecture/decisions/ad-285-explore-without-a-contract.md)).
 
 ## Upgrade from 4.0.1
+
+**Baselines.** `archkeel validate --baseline FILE` is back, with schema 1.4.0. The file lists each
+accepted UNKNOWN by kind, subject and reason. A new UNKNOWN is red (exit 1). An accepted UNKNOWN
+that is gone is red until you write the file again with `archkeel validate --write-baseline FILE`.
+The exit code is 2 while an UNKNOWN is accepted, and 0 only when nothing is unknown. Run
+`--write-baseline` once after you upgrade, and review the file. A baseline of schema 1.3.0 is still
+read, but it accepts no UNKNOWN. The core does not compare its `calls_unresolved`, `typing_positions`
+and `untyped_private_accesses`, because it counts them differently from 4.0.1: it names them as
+`baseline.budget_of_older_schema` (exit 2). `cycle_edges` and `private_crossings` are compared.
+`--accept-new` is not available: write the file again and review the diff. A violation that a
+1.3.0 file lists for `from m import name` names `m.name` in 4.0.1 and `m` in the core, so write such a
+file again once.
 
 When the Rust core runs `validate --against` (epic #880), an amendment of schema 1.0.0 gives
 exit 2 (AD-375). Write it again as schema 2.0.0 with `archkeel validate --against <ref>
@@ -250,7 +269,7 @@ they do not acquire missing native proofs by being opened with the new CLI.
 Compass and Nest demos retain source gaps and dynamic behavior as UNKNOWN. The
 release does not establish compiler parity, runtime correctness or complete UML
 conformance. See [known limits](docs/known-limits.md), the
-[report guide](docs/report-visual-system.md) and [demo catalog](https://github.com/rapiddweller/archkeel/blob/4.0.1/docs/architecture-demo.md).
+[report guide](https://github.com/rapiddweller/archkeel/blob/4.0.1/docs/report-visual-system.md) and [demo catalog](https://github.com/rapiddweller/archkeel/blob/4.0.1/docs/architecture-demo.md).
 
 # ArchKeel 2.0.0 — ArchQ Explorer and exact permissions
 
@@ -264,7 +283,7 @@ Architecture checks for coding agents.
   and evidence perspectives. Pointer zoom, keyboard shortcuts and SVG, Mermaid
   and link export support review. As-Is, Target and Diff retain the same recorded
   verdicts, UNKNOWNs and source links. No new runtime dependency is required.
-  See the [report guide](docs/report-visual-system.md) and
+  See the [report guide](https://github.com/rapiddweller/archkeel/blob/4.0.1/docs/report-visual-system.md) and
   [Explorer work](https://github.com/rapiddweller/archkeel/issues/467).
 - **Exact native boundary permissions.** Opt-in contract schemas **3.0–3.3**
   add source-and-body-bound alias permissions, heterogeneous typed-map unions

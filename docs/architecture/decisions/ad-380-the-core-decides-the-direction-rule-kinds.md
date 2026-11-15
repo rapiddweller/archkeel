@@ -2,6 +2,8 @@
 
 **Status.** Accepted. Epic #880, WP6 slice S5 (design WP6-0, section C; AD-363, AD-370, AD-372, AD-374, AD-378).
 
+**Amendment (2026-11-15).** Since #1131 no host carries the dependency scope proof. For a coverage gap, the core gives an UNKNOWN row with a cause instead of `Part::ScopedRequires`. See the amendment to [AD-418](ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md).
+
 **Decision.**
 1. The core decides the five direction kinds of the S5 row: `forbidden_dependency`, `allowed_dependency`, `sibling_isolation`, `layer_order` and `complete_requires`. The cycle part of the drop rule and `no_component_cycles` stay with S7; `interface_boundary` stays with S8.
 2. `archkeel-model` holds one import matcher per kind (`model/src/direction.rs`): `forbidden` (`rule_support.py:98`, with the component pair of `ir/dependency.py:111`), `peers` (`rules.py:1387`) and `crossings` (`rules.py:1827`, `ir/model.py:318-385`). The evaluator writes a violation for each `Judged::Fail`; the scope proof counts each `Judged::Undecided` (`rules.py:856` `symbol_limits`). One matcher serves both, so they cannot drift.

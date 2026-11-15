@@ -75,6 +75,9 @@ pub(crate) struct ScriptAlias {
 /// A write: the published name, or `None` where the write is not known, and where it is.
 pub(crate) type Write = (Option<String>, Span);
 
+/// A direct form that can write any global: its place and the kind of the form (AD-540).
+pub(crate) type Blocker = (Span, &'static str);
+
 /// The script fields of `Syntax`.
 #[derive(Default)]
 #[cfg_attr(not(feature = "dump"), allow(dead_code))]
@@ -88,4 +91,12 @@ pub(crate) struct Script {
     pub top_level_write_paths: Vec<Vec<String>>,
     pub destructures: Vec<ScriptDestructure>,
     pub namespaces: Vec<ScriptNamespace>,
+    /// Some node writes an unknown global through an amplifier form (AD-540).
+    pub amplified: bool,
+    /// The file gives the scan a host entry (AD-540).
+    pub host_entry: bool,
+    /// The places of the direct forms that write an unknown global, each with the kind of its form.
+    pub blockers: Vec<Blocker>,
+    /// A write with no path has no blocker here, so the report cannot group the gaps behind it.
+    pub unlabelled_empty: bool,
 }

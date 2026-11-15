@@ -66,6 +66,9 @@ pub(crate) struct Options {
     pub module_detection: Option<Detection>,
     /// A `typeRoots` entry is not under `node_modules`, so it may name a directory of the project.
     pub project_type_roots: bool,
+    /// `typeRoots` is set, to any list: the compiler then looks for a type package in those
+    /// roots, which the resolver does not model (#686).
+    pub type_roots_set: bool,
 }
 
 const NODE16_MODULES: [ModuleKind; 3] =
@@ -381,6 +384,7 @@ pub(crate) fn build(layer: &Layer, problems: &mut Vec<String>) -> Options {
         lib_unmodeled: replaced(raw, "libReplacement"),
         module_detection: detection_kind(&normalized(raw, "moduleDetection")),
         project_type_roots: project_type_roots(raw),
+        type_roots_set: raw.get("typeRoots").is_some_and(|roots| !roots.is_null()),
     };
     let lib = raw.get("lib").is_some_and(|value| !value.is_null());
     if raw.get("noLib") == Some(&Value::Bool(true)) && lib {

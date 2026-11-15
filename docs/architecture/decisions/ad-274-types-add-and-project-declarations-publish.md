@@ -9,8 +9,8 @@
    (no top-level `import` or `export`), and the same inside a `declare global { }` block, publishes
    NAME as a project-declared host global. A use of NAME resolves with the declaration as its
    evidence (file and line). No import edge and no runtime publisher are invented.
-3. `/// <reference types="vite/client" />` is observed as a `types` entry. It creates no gap. The
-   names it adds follow rule 1.
+3. `/// <reference types="vite/client" />` is observed as a `types` entry. It creates no gap; its
+   names follow rule 1. AD-528 (#686) adds an edge for a proven package or a gap.
 
 **Premise.** The project type-checks. TypeScript reports a conflicting redeclaration of a lib
 value, so a types package cannot give `Math` another meaning in a project that compiles. A project

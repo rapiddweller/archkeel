@@ -70,6 +70,8 @@ mod needs;
 pub use needs::{Need, Needs};
 mod ownership;
 mod reason;
+mod reason_key;
+pub use reason_key::{gap_kind, stable, Stable};
 mod scope;
 mod section;
 mod settings;
@@ -81,11 +83,13 @@ mod symbols;
 pub use symbols::Symbols;
 mod topology;
 mod uml;
+mod uml_declared;
 mod uml_details;
 mod uml_facts;
 mod uml_scope;
 mod uml_scope_symbols;
 mod uml_symbols;
+mod uml_tree;
 mod verdict;
 
 pub use coverage::Incomplete;
@@ -103,6 +107,8 @@ pub use section::{Porting, Section, Slice};
 pub use settings::{Producer, Settings, STANDARD_LIBRARY_LIMIT, STANDARD_NAME_LIMIT};
 pub use topology::Measure;
 pub use uml::{compare as compare_uml, UmlDiff, UmlOutcome, UmlTarget};
+pub use uml_declared::{UmlDeclared, UmlPart};
+pub use uml_tree::compare_tree as compare_uml_tree;
 pub use verdict::{Decision, Proven, Verdict};
 
 // Slice S4: the scope proof (AD-378).

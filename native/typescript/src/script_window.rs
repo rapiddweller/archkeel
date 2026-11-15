@@ -17,10 +17,30 @@ use crate::script_scope::sole_binding_scope;
 use crate::script_syntax::Producer;
 use crate::source_input::is_window_name;
 
+/// How a form writes an unknown global. A direct form is the stronger one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum Reach {
+    Amplified,
+    Direct,
+}
+
+impl Reach {
+    pub(crate) fn written(self) -> Written {
+        match self {
+            Reach::Amplified => Written::Amplified,
+            Reach::Direct => Written::Unknown,
+        }
+    }
+}
+
 /// What a node writes on the global object.
 pub(crate) enum Written {
     Name(String),
+    /// A name that a direct form writes: it blocks every global (AD-460).
     Unknown,
+    /// A name that an amplifier form writes: it blocks every global only when the scan has a
+    /// host entry (AD-540).
+    Amplified,
 }
 
 /// The members whose value is a window on any object: only a document or a frame has them.
@@ -137,8 +157,10 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 let index = tree.field(target, F::Index)?;
                 match string_text(self, index) {
                     Some(name) => Some(Written::Name(name)),
-                    None if index.kind() == "number" => None,
-                    None => self.window_value(object).then_some(Written::Unknown),
+                    None if self.numeric_key(index) => None,
+                    // A write through a window-like value with a run-time key stays direct: a
+                    // value that scanned code receives from a callback can reach the member.
+                    None => self.window_gate(object).map(|_| Written::Unknown),
                 }
             }
             _ => None,
@@ -178,7 +200,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 let index = tree.field(at, F::Index)?;
                 match string_text(self, index) {
                     Some(name) => Some(Written::Name(name)),
-                    None if index.kind() == "number" => None,
+                    None if self.numeric_key(index) => None,
                     None => Some(Written::Unknown),
                 }
             }
@@ -241,9 +263,11 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
     /// The value can be a window: a window name, a window member, an element of such a value, a
     /// branch of a condition, or `this` that a plain function or the top of a script receives.
-    /// The walk uses a list, not a recursion, so a deep expression costs no stack.
-    pub(crate) fn window_value(&self, node: Node<'t>) -> bool {
+    /// A direct leaf names the global object, an amplifier leaf only says that the value may be
+    /// one (AD-540). The walk uses a list, not a recursion, so a deep expression costs no stack.
+    pub(crate) fn window_gate(&self, node: Node<'t>) -> Option<Reach> {
         let tree = self.tree;
+        let mut found = None;
         let mut pending = vec![node];
         while let Some(next) = pending.pop() {
             let next = tree.cx.unwrapped(next);
@@ -252,15 +276,21 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 "ternary_expression" | "binary_expression" | "sequence_expression" => {
                     pending.extend(crate::tree::nodes::named_children(next));
                 }
-                _ if self.window_leaf(next) => return true,
-                _ => {}
+                _ => found = found.max(self.leaf_gate(next)),
             }
         }
-        false
+        found
     }
 
     /// A name, a `this` or a member that can be a window, read without its operands.
     pub(crate) fn window_leaf(&self, node: Node<'t>) -> bool {
+        self.leaf_gate(node).is_some()
+    }
+
+    /// `window_leaf` with its kind. A free root name and a wrapper alias name the global object
+    /// (direct). A member such as `source`, and `this` of a function, only say that a value may
+    /// be a window (amplifier): they need a host entry to be one (AD-540).
+    pub(crate) fn leaf_gate(&self, node: Node<'t>) -> Option<Reach> {
         let tree = self.tree;
         match node.kind() {
             "identifier" => {
@@ -268,39 +298,38 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                     .parent(node)
                     .is_some_and(|p| p.kind() == "formal_parameters");
                 if tree.in_type(node) || tree.declaration_name(node) || parameter {
-                    return false;
+                    return None;
                 }
                 let name = tree.text(node);
-                if bound_scope(tree, node, &name).is_some() {
+                let window = if bound_scope(tree, node, &name).is_some() {
                     // A local binding is no global; only a wrapper parameter names the window.
                     let wrapper = self
                         .wrapper_of(node)
                         .and_then(|w| self.wrappers.get(&w.id()));
-                    return wrapper.is_some_and(|info| info.names.contains(&name));
-                }
-                cooked(&name).is_none_or(|name| is_window_name(&name))
+                    wrapper.is_some_and(|info| info.names.contains(&name))
+                } else {
+                    cooked(&name).is_none_or(|name| is_window_name(&name))
+                };
+                window.then_some(Reach::Direct)
             }
             "this" => match self.receiver(node) {
-                Receiver::Function => true,
-                Receiver::Top => !self.module_syntax,
-                Receiver::Method | Receiver::Bound => false,
+                Receiver::Function => Some(Reach::Amplified),
+                Receiver::Top => (!self.module_syntax).then_some(Reach::Direct),
+                Receiver::Method | Receiver::Bound => None,
             },
             "member_expression" => {
-                let Some(property) = tree.field(node, F::Property) else {
-                    return false;
+                let property = tree.field(node, F::Property)?;
+                let Some(name) = cooked(&tree.text(property)) else {
+                    return Some(Reach::Direct);
                 };
-                let name = cooked(&tree.text(property));
-                let Some(name) = name else {
-                    return true;
-                };
-                if WINDOW_MEMBERS.contains(&name.as_str()) {
-                    return true;
-                }
                 // The platform hands out a window through these members of an event or a
                 // window, on any object (AD-492).
-                is_window_name(&name) || PLATFORM_MEMBERS.contains(&name.as_str())
+                let window = WINDOW_MEMBERS.contains(&name.as_str())
+                    || is_window_name(&name)
+                    || PLATFORM_MEMBERS.contains(&name.as_str());
+                window.then_some(Reach::Amplified)
             }
-            _ => false,
+            _ => None,
         }
     }
 

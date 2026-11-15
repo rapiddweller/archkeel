@@ -82,6 +82,14 @@ pub(crate) struct WritePaths<'a> {
     pub any_empty: bool,
     /// Some write has a path at all.
     pub any_path: bool,
+    /// Some node of an amplifier form writes an unknown name (AD-540).
+    pub any_amplified: bool,
+    /// Some file gives the scan a host entry (AD-540).
+    pub host_entry: bool,
+    /// The direct forms that write an unknown global: file, place and kind of the form.
+    pub blockers: Vec<(usize, &'a Span, &'static str)>,
+    /// Some write has no path and no blocker names it.
+    pub unlabelled_empty: bool,
     /// The paths of one name (`(name,)`), by the name and the files that write them.
     pub singles: HashMap<&'a str, Owners>,
     /// Some path starts with the name of a loader (`exports`, `module`, `define`).
@@ -92,6 +100,17 @@ pub(crate) struct WritePaths<'a> {
 }
 
 impl<'a> WritePaths<'a> {
+    /// A write may name any global: a write with no path, or an amplified write in a scan that
+    /// has a host entry. Without a host entry an amplifier form has no window to write (AD-540).
+    /// The empty path has named blockers only: the report states them once (AD-540).
+    pub(crate) fn blockers_named(&self) -> bool {
+        self.any_empty && !self.unlabelled_empty && !self.blockers.is_empty()
+    }
+
+    pub(crate) fn blocks_all(&self) -> bool {
+        self.any_empty || (self.any_amplified && self.host_entry)
+    }
+
     /// Some path starts with `prefix` (`path[:len(prefix)] == prefix`). The set of the prefixes of
     /// all paths is built when the first factory asks, so a project without one pays nothing.
     pub(crate) fn has_prefix(&self, prefix: &[String]) -> bool {
@@ -256,6 +275,13 @@ impl<'a> Project<'a> {
 
     fn add_file(&mut self, at: usize, rel: &'a str, file: &'a Kept, global: bool) {
         let script = &file.script;
+        self.paths.any_amplified |= script.script.amplified;
+        self.paths.host_entry |= script.script.host_entry;
+        self.paths.unlabelled_empty |= script.script.unlabelled_empty;
+        let named = script.script.blockers.iter();
+        self.paths
+            .blockers
+            .extend(named.map(|(span, form)| (at, span, *form)));
         for publication in &script.script.globals {
             let listed = self.publications.entry(&publication.name).or_default();
             listed.push((rel, publication));

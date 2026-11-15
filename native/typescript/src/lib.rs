@@ -14,6 +14,7 @@
 #![deny(unreachable_pub)]
 
 mod ancestors;
+mod bind_kinds;
 mod bound_names;
 mod cited;
 mod class_data;
@@ -71,10 +72,12 @@ mod script_factory;
 mod script_flags;
 mod script_forms;
 mod script_global;
+mod script_host;
 mod script_index;
 mod script_keys;
 mod script_names;
 mod script_namespace;
+mod script_numeric;
 mod script_project;
 mod script_proof;
 mod script_publish;

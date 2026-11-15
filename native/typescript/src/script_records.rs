@@ -116,6 +116,9 @@ pub(crate) struct Sink {
     pub gaps: Vec<(String, GapRecord)>,
     pub imports: Vec<Record<ImportFact>>,
     pub targets: Vec<Target>,
+    /// The uses of a free standard name that the named direct forms of the project block: the
+    /// name and the evidence of the use (AD-540). `state_blockers` gives them one gap.
+    pub blocked: Vec<(String, String)>,
 }
 
 impl Sink {

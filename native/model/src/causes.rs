@@ -28,7 +28,7 @@ impl fmt::Display for InterfaceGap {
     }
 }
 
-/// A cause that makes the scope of a run incomplete in the reference engine for every profile.
+/// A cause that holds a rule or makes the scope of a run incomplete.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Cause {
     /// Gaps between two modules that the contract does not allow and that can change the rule
@@ -65,6 +65,8 @@ pub enum Cause {
     /// A file without a module of its own whose path module and owner module have other
     /// components (AD-468): the path of the file.
     OwnedFileOwner(String),
+    /// The core cannot prove the dependency scope when the collector reports a coverage gap.
+    DependencyScopeUnproven,
 }
 
 /// The gaps that hold a rule: the first ones as `a -> b` and the number of all.
@@ -214,6 +216,8 @@ impl fmt::Display for Cause {
                 formatter,
                 "the file {path} belongs to a module of another component than its own path"
             ),
+            Cause::DependencyScopeUnproven => formatter
+                .write_str("the core cannot prove the dependency scope with a coverage gap"),
         }
     }
 }

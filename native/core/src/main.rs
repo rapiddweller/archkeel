@@ -17,9 +17,12 @@
 //! unsupported or refused part, 2 for a request that the core cannot read or a frame whose
 //! status has no explaining row (no frame is written), 1 for an I/O error.
 
+mod baseline;
+mod baseline_frame;
 mod contract;
 mod dual_run;
 mod engine;
+mod gap_key;
 mod hygiene;
 mod hygiene_graph;
 mod hygiene_interface;

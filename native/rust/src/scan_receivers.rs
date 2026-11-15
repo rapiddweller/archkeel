@@ -9,20 +9,22 @@
 //! each free `fn`, `trait` or `fn` of a `trait`. A free `fn` in a method body cannot use the `self`
 //! of the method, and in a `trait` the type of `self` is generic: both frames give no `self`.
 //!
-//! A resolution must hold in every configuration. So `cfg` and `cfg_attr` are never inert: an
-//! item, a block or a module under them is not exact, and neither is an `impl` block in a body.
+//! A resolution must hold in every configuration. A `cfg` is not inert. A `cfg_attr` is inert only
+//! when it can add lint attributes alone. An `impl` block in a body is not exact.
 
 use syn::{
-    Attribute, GenericArgument, GenericParam, ItemImpl, PathArguments, ReceiverKind, Signature,
-    Type,
+    punctuated::Punctuated, Attribute, GenericParam, ItemImpl, Meta, ReceiverKind, Signature, Token,
 };
 
 use crate::definitions::{OnSelf, SelfKind};
-use crate::tokens::plain;
+use crate::tokens::{plain, LINTS};
+pub(in crate::scan) use params::item_name;
+pub(in crate::scan) use params::typed as written_type;
+use params::{plain_path, Params};
 
 /// The attributes that change no item and remove it in no configuration: an `impl` block or a
-/// `fn` with only these is as written. Any other attribute can be a macro that rewrites the item,
-/// or a `cfg` that removes it, so its `self` facts are not read.
+/// `fn` with only these is as written. A conditional lint also leaves the item as written.
+/// Any other attribute can be a macro that rewrites the item or a `cfg` that removes it.
 const INERT: [&str; 12] = [
     "allow",
     "warn",
@@ -48,6 +50,9 @@ const TYPE: [&str; 3] = ["derive", "repr", "non_exhaustive"];
 fn only(attrs: &[Attribute], extra: &[&str]) -> bool {
     attrs.iter().all(|attr| {
         let path = attr.path();
+        if path.is_ident("cfg_attr") {
+            return conditional_lints(attr);
+        }
         let tool = path.segments.len() == 2
             && path
                 .segments
@@ -60,6 +65,17 @@ fn only(attrs: &[Attribute], extra: &[&str]) -> bool {
     })
 }
 
+/// A conditional lint cannot remove or rewrite an item in any configuration.
+fn conditional_lints(attr: &Attribute) -> bool {
+    let Ok(args) = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated) else {
+        return false;
+    };
+    args.len() > 1
+        && args.iter().skip(1).all(|item| {
+            matches!(item, Meta::List(list) if list.path.get_ident().is_some_and(|id| LINTS.contains(&plain(id).as_str())))
+        })
+}
+
 /// Whether each attribute is inert or a tool attribute such as `rustfmt::skip`.
 pub(super) fn inert(attrs: &[Attribute]) -> bool {
     only(attrs, &[])
@@ -68,6 +84,25 @@ pub(super) fn inert(attrs: &[Attribute]) -> bool {
 /// Whether a `mod` item, or the inner attributes of a file, keep the module in every configuration.
 pub(super) fn module_inert(attrs: &[Attribute]) -> bool {
     only(attrs, &MODULE)
+}
+
+/// The exact `cfg` chain of a file module, or no proof for another module attribute.
+pub(super) fn module_cfg(attrs: &[Attribute]) -> Option<Vec<String>> {
+    let mut gates = Vec::new();
+    for attr in attrs {
+        if attr.path().is_ident("cfg") {
+            let Meta::List(list) = &attr.meta else {
+                return None;
+            };
+            if list.tokens.is_empty() {
+                return None;
+            }
+            gates.push(list.tokens.to_string());
+        } else if attr.path().is_ident("cfg_attr") || !inert(std::slice::from_ref(attr)) {
+            return None;
+        }
+    }
+    Some(gates)
 }
 
 /// Whether a struct or an enum keeps its type as written in every configuration.
@@ -86,12 +121,6 @@ pub(super) fn kind_of(sig: &Signature) -> Option<SelfKind> {
     }
 }
 
-/// Whether a generic argument binds a type or a const: a lifetime does not change which
-/// inherent methods a type has.
-fn binds_type(argument: &GenericArgument) -> bool {
-    !matches!(argument, GenericArgument::Lifetime(_))
-}
-
 /// The path of the type of an `impl` block when the block is exact: a plain relative path with
 /// no type or const argument, no type or const parameter on the block, and only inert attributes.
 pub(super) fn exact_path(item: &ItemImpl) -> Option<Vec<String>> {
@@ -100,22 +129,7 @@ pub(super) fn exact_path(item: &ItemImpl) -> Option<Vec<String>> {
     if generic || !inert(&item.attrs) {
         return None;
     }
-    let Type::Path(path) = &*item.self_ty else {
-        return None;
-    };
-    if path.qself.is_some() || path.path.leading_colon.is_some() {
-        return None;
-    }
-    let mut names = Vec::new();
-    for segment in &path.path.segments {
-        match &segment.arguments {
-            PathArguments::None => {}
-            PathArguments::AngleBracketed(list) if !list.args.iter().any(binds_type) => {}
-            _ => return None,
-        }
-        names.push(plain(&segment.ident));
-    }
-    Some(names)
+    plain_path(&item.self_ty)
 }
 
 /// The last segment of a path `Self::m` in an expression.
@@ -128,17 +142,40 @@ pub(super) fn self_member(node: &syn::ExprPath) -> Option<&syn::Ident> {
     (first.arguments.is_none()).then_some(&last.ident)
 }
 
+/// The base and at most two named fields of a receiver.
+fn field_chain(receiver: &syn::Expr) -> Option<(&syn::Expr, Vec<String>)> {
+    let mut current = receiver;
+    let mut fields = Vec::new();
+    while let syn::Expr::Field(field) = current {
+        let syn::Member::Named(name) = &field.member else {
+            return None;
+        };
+        if !field.attrs.is_empty() || fields.len() == 2 {
+            return None;
+        }
+        fields.push(plain(name));
+        current = &field.base;
+    }
+    fields.reverse();
+    Some((current, fields))
+}
+
 /// A frame of the walk that decides what a plain `self` and `Self` are.
 #[derive(Debug)]
 enum Frame {
-    /// An `impl` block: its exact type path and enclosing inline modules, or `None`.
-    Impl(Option<(Vec<String>, Vec<String>)>),
-    /// A method of an `impl` block: the `self` that its body sees, or `None`, and whether each
-    /// attribute of the method is inert.
-    Method(Option<OnSelf>, bool),
-    /// A free `fn`, a `trait` or a `fn` of a `trait`.
-    Opaque,
+    /// An `impl` block: its exact type path and enclosing inline modules, or `None`, the names
+    /// of its type and const parameters, and whether each attribute of the block is inert.
+    Impl(Option<(Vec<String>, Vec<String>)>, Vec<String>, bool),
+    /// A method of an `impl` block: the `self` that its body sees, or `None`, whether each
+    /// attribute of the method is inert, and its typed parameters.
+    Method(Option<OnSelf>, bool, Params),
+    /// A free `fn` with its typed parameters, a `trait` or a `fn` of a `trait` (no parameters).
+    Opaque(Params),
 }
+
+/// The typed parameters of a `fn` (AD-524).
+#[path = "scan_params.rs"]
+mod params;
 
 /// The stack of frames of the walk, and the depth of the inline modules that a `cfg` or another
 /// attribute may remove.
@@ -168,44 +205,85 @@ impl Selves {
         let exact = exact_path(item)
             .filter(|_| blocks == 0 && !self.gated())
             .map(|path| (path, scope.to_vec()));
-        self.frames.push(Frame::Impl(exact));
+        let names = (item.generics.params.iter()).filter_map(params::generic_name);
+        self.frames
+            .push(Frame::Impl(exact, names.collect(), inert(&item.attrs)));
     }
 
-    /// Enter a free `fn`, a `trait` or a `fn` of a `trait`: no `self` of an `impl` reaches in.
+    /// Enter a `trait` or a `fn` of a `trait`: no `self` of an `impl` reaches in, and no
+    /// parameter has a proof.
     pub(super) fn enter_opaque(&mut self) {
-        self.frames.push(Frame::Opaque);
+        self.frames.push(Frame::Opaque(Params::default()));
+    }
+
+    /// Enter a free `fn`: no `self` of an `impl` reaches in, and its typed parameters have a
+    /// proof when the `fn` is in no gated module and no block, and has only inert attributes: a
+    /// block can declare an item that hides the type that the signature names.
+    pub(super) fn enter_function(&mut self, item: &syn::ItemFn, at: (&[String], usize)) {
+        let (scope, blocks) = at;
+        let proved = inert(&item.attrs) && !self.gated() && blocks == 0;
+        let found = proved.then(|| params::read(&item.sig, &item.block, &[], scope, inert));
+        self.frames.push(Frame::Opaque(found.unwrap_or_default()));
     }
 
     /// Enter a `fn` of an `impl` block: it sees `self` when the block is exact, the `self`
-    /// parameter has a kind, and each attribute of the `fn` is inert.
-    pub(super) fn enter_method(&mut self, sig: &Signature, attrs: &[Attribute]) {
-        let block = match self.frames.last() {
-            Some(Frame::Impl(Some(found))) => Some(found.clone()),
-            _ => None,
+    /// parameter has a kind, and each attribute of the `fn` is inert. Its typed parameters have a
+    /// proof when the `fn` has only inert attributes and the module is not gated.
+    pub(super) fn enter_method(&mut self, item: &syn::ImplItemFn, at: (&[String], usize)) {
+        let (scope, blocks) = at;
+        let (sig, attrs) = (&item.sig, &item.attrs);
+        let (block, outer, block_inert) = match self.frames.last() {
+            Some(Frame::Impl(found, names, kept)) => (found.clone(), names.clone(), *kept),
+            _ => (None, Vec::new(), false),
         };
-        let inert = inert(attrs);
-        let on_self = block.filter(|_| inert).and_then(|(path, scope)| {
+        let kept = inert(attrs);
+        let proved = kept && block_inert && !self.gated() && blocks == 0;
+        let found = proved.then(|| params::read(sig, &item.block, &outer, scope, inert));
+        let on_self = block.filter(|_| kept).and_then(|(path, scope)| {
             let kind = Some(kind_of(sig)?);
-            Some(OnSelf { path, scope, kind })
+            Some(OnSelf {
+                name: "self".to_owned(),
+                path,
+                scope,
+                kind,
+                macros: Vec::new(),
+                fields: Vec::new(),
+            })
         });
-        self.frames.push(Frame::Method(on_self, inert));
+        self.frames
+            .push(Frame::Method(on_self, kept, found.unwrap_or_default()));
     }
 
     pub(super) fn leave(&mut self) {
         self.frames.pop();
     }
 
-    /// The `self` of a call whose receiver is `receiver`: only a plain `self` path has one.
+    /// The proof of a call whose receiver is `receiver`: a plain `self` path has the type of its
+    /// block, and a plain parameter name has its written type (AD-524).
     pub(super) fn of(&self, receiver: &syn::Expr) -> Option<OnSelf> {
+        if matches!(receiver, syn::Expr::Field(_)) {
+            let (current, fields) = field_chain(receiver)?;
+            let mut base = self.of(current)?;
+            base.fields = fields;
+            return Some(base);
+        }
         let syn::Expr::Path(path) = receiver else {
             return None;
         };
-        if path.qself.is_some() || !path.attrs.is_empty() || !path.path.is_ident("self") {
+        if path.qself.is_some() || !path.attrs.is_empty() {
             return None;
         }
-        let frame = (self.frames.iter().rev()).find(|f| !matches!(f, Frame::Impl(_)));
+        let name = path.path.get_ident()?;
+        let frame = (self.frames.iter().rev()).find(|f| !matches!(f, Frame::Impl(..)));
         match frame {
-            Some(Frame::Method(on_self, _)) => on_self.clone(),
+            Some(Frame::Method(on_self, _, _)) if name == "self" => on_self.clone(),
+            Some(Frame::Method(_, _, found) | Frame::Opaque(found)) if name != "self" => {
+                let at = name.span().start();
+                found
+                    .get(&plain(name), (at.line, at.column))
+                    .filter(|_| !self.gated())
+                    .cloned()
+            }
             _ => None,
         }
     }
@@ -214,12 +292,15 @@ impl Selves {
     /// no free `fn`, no `trait` and no method with an attribute that is not inert is between. A
     /// path has no `self` form.
     pub(super) fn of_type(&self) -> Option<OnSelf> {
-        let frame = (self.frames.iter().rev()).find(|f| !matches!(f, Frame::Method(_, true)));
+        let frame = (self.frames.iter().rev()).find(|f| !matches!(f, Frame::Method(_, true, _)));
         match frame {
-            Some(Frame::Impl(Some((path, scope)))) => Some(OnSelf {
+            Some(Frame::Impl(Some((path, scope)), _, _)) => Some(OnSelf {
+                name: "Self".to_owned(),
                 path: path.clone(),
                 scope: scope.clone(),
                 kind: None,
+                macros: Vec::new(),
+                fields: Vec::new(),
             }),
             _ => None,
         }

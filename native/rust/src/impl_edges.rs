@@ -18,14 +18,14 @@ use archkeel_facts::ImportFact;
 
 use crate::builder::Builder;
 use crate::crates::Workspace;
-use crate::definitions::{Access, ImplBlock, Member, MethodCall};
+use crate::definitions::{Access, Form, ImplBlock, Member, MethodCall};
 use crate::impl_globs::{crate_path, depends, Reached};
 use crate::modules::{inside, Edge, Frame, Index, TypeOf};
 use crate::plant;
 use crate::scan::Via;
 use crate::tree::Module;
 use orphans::orphan_impl_gaps;
-use receivers::Typed;
+use receivers::{certainly_visible, Typed};
 
 /// A member of an inherent `impl` block that is not in the file of its type.
 struct Foreign<'a> {
@@ -49,6 +49,7 @@ struct Members<'a> {
 fn members<'a>(index: &Index<'_>, modules: &'a [Module]) -> Members<'a> {
     let mut found = Members::default();
     for module in modules {
+        found.typed.note(module);
         let Some(frame) = index.frame(&module.module) else {
             continue;
         };
@@ -69,7 +70,7 @@ impl<'a> Members<'a> {
         block: &'a ImplBlock,
     ) {
         let ty = block.path.as_ref().map_or(TypeOf::Unknown, |path| {
-            index.type_of(frame, &block.scope, path)
+            index.local_type_of(frame, &block.scope, path)
         });
         let own = match &ty {
             TypeOf::Known(lexical, name) if index.file_of(lexical) == Some(&module.module) => {
@@ -108,6 +109,37 @@ fn path_call(reference: &crate::scan::Reference) -> MethodCall {
     }
 }
 
+/// What the paths `T::m` of a module leave open.
+#[derive(Default)]
+struct Paths {
+    /// The paths that may reach any foreign member of their last name.
+    unresolved: Vec<MethodCall>,
+    /// The paths to a member of a known type that the caller may not see: a gap to its module.
+    doubts: Vec<(MethodCall, String)>,
+    /// The places of the paths that an edge to their one member explains.
+    proved: BTreeSet<(i64, i64)>,
+}
+
+/// Whether the enum has a variant of the name: `E::n(..)` then builds the variant.
+fn variant(index: &Index<'_>, lexical: &str, ty: &str, member: &str) -> bool {
+    let frame = index.file_of(lexical).and_then(|file| index.frame(file));
+    let definitions = frame
+        .into_iter()
+        .flat_map(|frame| &frame.module.scan.definitions);
+    let mut enums = definitions.filter(|d| d.form == Form::Enum && d.name == ty);
+    enums.any(|d| d.variants.iter().any(|name| name == member))
+}
+
+/// Whether a macro of the file can give the first name of the type path again: the path then
+/// names no certain type, unless it starts at `crate`, `self`, `super` or `::`.
+fn rebound(module: &Module, reference: &crate::scan::Reference, shadowed: bool) -> bool {
+    let fixed = ["crate", "self", "super", "Self"];
+    let first = reference.names.first().map_or("", String::as_str);
+    let scan = &module.scan;
+    let macros = scan.body_macros || scan.module_macros || (scan.placed_macros && shadowed);
+    macros && !reference.absolute && !fixed.contains(&first)
+}
+
 /// Whether a call at `at` in `caller` can reach the member: `x.m(..)` reaches only a member with a
 /// `self` parameter and as many other parameters as the call has arguments (Rust has no overloads).
 /// `pub(in path)` counts as the crate.
@@ -142,14 +174,14 @@ impl Builder {
         modules: &[Module],
     ) {
         let found = members(index, modules);
-        let paths: Vec<Vec<MethodCall>> = (modules.iter())
+        let paths: Vec<Paths> = (modules.iter())
             .map(|module| self.member_paths(index, module, &found))
             .collect();
         let edges = self.module_pairs();
         orphan_impl_gaps(self, (workspace, index, modules), &edges);
-        for (module, unresolved) in modules.iter().zip(paths) {
-            let mut calls = self.calls_of(workspace, index, module);
-            calls.extend(unresolved);
+        for (module, paths) in modules.iter().zip(paths) {
+            let mut calls = self.calls_of(workspace, index, module, &paths.proved);
+            calls.extend(paths.unresolved);
             let reached = Reached {
                 index,
                 module,
@@ -159,22 +191,26 @@ impl Builder {
             // The first calls of the list are the ones of the scan: `calls_of` puts them first.
             let own = module.scan.method_calls.len();
             self.method_gaps(workspace, &reached, &found, own);
+            for (call, target) in &paths.doubts {
+                let reason = format!(
+                    "A method call may reach the method {} of an impl block in {target}",
+                    call.name
+                );
+                self.reached_gap(&reached, call, target, &reason);
+            }
             self.glob_trait_gaps(workspace, &reached);
         }
     }
 
-    /// A path `S::m` whose type file defines no `m` for `S` is an edge to each foreign block of it.
-    /// A path whose type the scan cannot resolve exactly, or a type that a foreign block of an
-    /// unknown type may also extend, is returned as a call: it may reach any foreign `m` (#953).
-    fn member_paths(
-        &mut self,
-        index: &Index<'_>,
-        module: &Module,
-        found: &Members<'_>,
-    ) -> Vec<MethodCall> {
-        let mut unresolved = Vec::new();
+    /// A path `S::m` whose type file defines no `m` for `S` is an edge to each foreign block of it
+    /// that the caller can see. A path whose type the scan cannot resolve exactly, or a type that
+    /// a foreign block of an unknown type may also extend, is returned as a call: it may reach any
+    /// foreign `m` (#953). A path to a type that explicit paths give is an edge to its one member
+    /// (AD-544).
+    fn member_paths(&mut self, index: &Index<'_>, module: &Module, found: &Members<'_>) -> Paths {
+        let mut out = Paths::default();
         let Some(frame) = index.frame(&module.module) else {
-            return unresolved;
+            return out;
         };
         let paths = module.scan.references.iter();
         for reference in
@@ -187,8 +223,19 @@ impl Builder {
             else {
                 continue;
             };
-            let known = index.type_of(frame, &reference.scope, ty);
+            let site = (reference.site.line, reference.site.column);
+            let shadowed = found.typed.shadowed();
+            if module.scan.generic_paths.contains(&site) || rebound(module, reference, shadowed) {
+                out.unresolved.push(path_call(reference));
+                continue;
+            }
+            let at = frame.lexical_at(&reference.scope);
+            let known = index.local_type_of(frame, &reference.scope, ty);
             let own = match &known {
+                TypeOf::Known(lexical, name) if variant(index, lexical, name, member) => {
+                    out.unresolved.push(path_call(reference));
+                    continue;
+                }
                 TypeOf::Known(lexical, name) => {
                     found
                         .own
@@ -197,14 +244,27 @@ impl Builder {
                 TypeOf::Unknown => false,
                 TypeOf::Other => continue,
             };
+            if let Some(edge) = self.sole_member((index, frame), reference, &known, found) {
+                self.module_import(index, module, reference, &edge);
+                out.proved.insert(site);
+                continue;
+            }
             let unknown_block = blocks.iter().any(|block| block.ty == TypeOf::Unknown);
             if known == TypeOf::Unknown || (!own && unknown_block) {
-                unresolved.push(path_call(reference));
+                out.unresolved.push(path_call(reference));
             }
             if own || known == TypeOf::Unknown {
                 continue;
             }
-            for block in blocks.iter().filter(|block| block.ty == known) {
+            let seen = |block: &&Foreign<'_>| {
+                let place = (block.module, block.lexical.as_str());
+                certainly_visible(module, &at, place, &block.member.access)
+            };
+            let typed = blocks.iter().filter(|block| block.ty == known);
+            let (open, hidden): (Vec<_>, Vec<_>) = typed.partition(seen);
+            let doubt = |block: &&Foreign<'_>| (path_call(reference), block.module.module.clone());
+            out.doubts.extend(hidden.iter().map(doubt));
+            for block in open {
                 let edge = Edge {
                     module: block.module.module.clone(),
                     lexical: block.lexical.clone(),
@@ -214,7 +274,39 @@ impl Builder {
                 self.module_import(index, module, reference, &edge);
             }
         }
-        unresolved
+        out
+    }
+
+    /// The edge of a path `T::m` whose type is not a type of the module of the path, when explicit
+    /// paths give the type and it has one member `m` that the path reaches for certain (AD-544).
+    fn sole_member(
+        &self,
+        (index, frame): (&Index<'_>, &Frame<'_>),
+        reference: &crate::scan::Reference,
+        local: &TypeOf,
+        found: &Members<'_>,
+    ) -> Option<Edge> {
+        let (member, ty) = reference.names.split_last()?;
+        // A macro of the name of a silent macro of `std` can give a name of its tokens again.
+        let doubt = frame.module.gated || reference.absolute || found.typed.shadowed();
+        if *local != TypeOf::Unknown || doubt {
+            return None;
+        }
+        let TypeOf::Known(lexical, name) = index.type_of(frame, &reference.scope, ty) else {
+            return None;
+        };
+        if self.macro_members.contains_key(member) || variant(index, &lexical, &name, member) {
+            return None;
+        }
+        let at = frame.lexical_at(&reference.scope);
+        let caller = (frame.module, at.as_str());
+        let (module, block) = found.typed.sole(index, caller, (&lexical, &name), member)?;
+        Some(Edge {
+            module: module.module.clone(),
+            lexical: block.to_owned(),
+            symbol: Some(member.clone()),
+            level: 0,
+        })
     }
 
     /// The pairs of modules that an `import` or `reexport` record joins.
@@ -239,6 +331,7 @@ impl Builder {
         workspace: &Workspace,
         index: &Index<'_>,
         module: &Module,
+        proved: &BTreeSet<(i64, i64)>,
     ) -> Vec<MethodCall> {
         let mut calls = module.scan.method_calls.clone();
         calls.extend(
@@ -256,7 +349,8 @@ impl Builder {
             .references
             .iter()
             .filter(|r| matches!(r.via, Via::Path | Via::Helper));
-        for reference in crate_paths.filter(|r| crate_path(workspace, frame, r)) {
+        let open = crate_paths.filter(|r| !proved.contains(&(r.site.line, r.site.column)));
+        for reference in open.filter(|r| crate_path(workspace, frame, r)) {
             if let Some(name) = reference.names.last() {
                 calls.push(MethodCall {
                     name: name.clone(),
