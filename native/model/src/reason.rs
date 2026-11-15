@@ -71,7 +71,7 @@ pub enum Reason {
     UncitedChild(String),
     /// The settings of the shell do not hold for the reply (AD-372).
     Refused(Refusal),
-    /// A cause that makes the scope incomplete in the reference engine (slice S4, AD-378).
+    /// A cause that holds the rule or makes the scope incomplete (AD-378, AD-418).
     NotComplete(Cause),
     /// A fact needed to decide an interface crossing is absent.
     Interface(InterfaceGap),

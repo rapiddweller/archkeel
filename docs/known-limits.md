@@ -134,6 +134,17 @@ A configured `filter.<x>.clean` can execute a command during status. Do not scan
 Disabling repository-configured execution is deferred to slice 5; the fixed executable does not prevent it.
 See [AD-422](architecture/decisions/ad-422-core-only-validation-renders-the-scan-frame.md).
 
+## A `sys.path.append` of the snapshot (Python, AD-538)
+
+One write form is no gap: `sys.path.append(str(Path(__file__).resolve().parents[k]))` as a statement
+of a module body, when the directory holds no module-like entry that the scan imports. The verdict
+holds for a run from the snapshot tree. A copied, installed or zipped layout, a direct run of a
+`.pyc`, and `run_path` with a relative path plus `os.chdir` give another directory. An entry that
+appears in the directory after the snapshot, a writer outside the scan roots (`conftest.py`,
+`sitecustomize`, an installed package), a name that only code outside the scan imports, and a
+namespace that does not resolve to the scan root are not seen. `insert` and each other write of
+`sys.path` stay the gap of the whole run.
+
 ## Open false PASS, not accepted (Python `interface_boundary`, AD-504)
 
 The core gives PASS where Python binds something else at import time, for three forms. 4.0.1 gives
@@ -442,7 +453,7 @@ in another module than its type is an edge when a path names it (`impl crate::c:
 `b` and `crate::c::S::m()` in `a`: `a -> b`). A method call `x.m(..)` that may reach such a method
 (it has `self`, the same number of other arguments, and a visibility that holds the caller), and a
 call of a method of a trait that a glob brings in (`use b::T;` in the parent, `use super::*;` and
-`5u8.m()` in the child), give a gap of the pair `a -> b`. A call on a plain `self` in a method of `impl S`, or a path `Self::m`, is an edge to the module of the one inherent member `m` of `S` and gives no gap when that member has the same `self` form (`self`, `&self`, `&mut self`) and no `cfg` or other attribute can change the member, its block, its module, the type or the caller; any other case keeps the gaps (AD-383). A call `x.m()` on a parameter `x: T`, `&T` or `&mut T` is the same edge when `x` is bound once in the `fn`, `T` is a written plain path to one exact struct or enum, and the member has the `self` form of the parameter; a rebinding, a generic or `impl Trait` or `dyn` type, an alias, a mismatched `self` form, a `Deref` impl of the type and a macro that names `x` keep the gaps (AD-524). The host drops that gap only when the
+`5u8.m()` in the child), give a gap of the pair `a -> b`. A call on a plain `self` in a method of `impl S`, or a path `Self::m`, is an edge to the module of the one inherent member `m` of `S` and gives no gap when that member has the same `self` form (`self`, `&self`, `&mut self`) and no `cfg` or other attribute can change the member, its block, its module, the type or the caller; any other case keeps the gaps (AD-383). A `cfg_attr` that can add only lint attributes does not change an item (AD-535). A call `x.m()` on a parameter `x: T`, `&T` or `&mut T` is the same edge when `x` is bound once in the `fn`, `T` is a written plain path to one exact struct or enum, and the member has the `self` form of the parameter; a rebinding, a generic or `impl Trait` or `dyn` type, an alias, a mismatched `self` form, a `Deref` impl of the type and a macro that names `x` keep the gaps (AD-524). The host drops that gap only when the
 contract lets `a` use `b` and the edge closes no cycle that the edges and the other pair gaps may
 close (AD-357). A trait `impl` that is anchored in no module (neither its self type, read after `&`, nor its trait
 is defined there; a trait argument never anchors; a block name anchors only without a `use`, an inline

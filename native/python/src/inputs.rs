@@ -16,7 +16,18 @@ use sha2::{Digest, Sha256};
 pub(crate) const PYPROJECT: &str = "pyproject.toml";
 
 /// The inputs, sorted by path, and the source digest.
+#[cfg(any(test, feature = "dump"))]
 pub(crate) fn inputs(snapshot: &mut Snapshot, selected: &[String]) -> (Vec<Input>, String) {
+    with_listings(snapshot, selected, &[])
+}
+
+/// The inputs and the source digest with the listings of the directories that a verdict depends
+/// on (AD-538): the text of a listing is its sorted names, and the path ends with `/`.
+pub(crate) fn with_listings(
+    snapshot: &mut Snapshot,
+    selected: &[String],
+    listings: &[(String, String)],
+) -> (Vec<Input>, String) {
     let mut paths: Vec<(&str, Role)> = selected
         .iter()
         .map(|rel| (rel.as_str(), Role::Selected))
@@ -24,12 +35,22 @@ pub(crate) fn inputs(snapshot: &mut Snapshot, selected: &[String]) -> (Vec<Input
     if snapshot.is_file(PYPROJECT) {
         paths.push((PYPROJECT, Role::Resolution));
     }
+    paths.extend(
+        listings
+            .iter()
+            .map(|(path, _)| (path.as_str(), Role::Resolution)),
+    );
     paths.sort_by(|left, right| left.0.cmp(right.0));
     let mut source = Sha256::new();
     let mut found = Vec::new();
     for (rel, role) in paths {
-        let Some(raw) = snapshot.read(rel) else {
-            continue;
+        let listing = listings.iter().find(|(path, _)| path == rel);
+        let raw = match listing {
+            Some((_, text)) => text.clone().into_bytes(),
+            None => match snapshot.read(rel) {
+                Some(raw) => raw,
+                None => continue,
+            },
         };
         found.push(Input {
             digest: sha256_hex(&raw),

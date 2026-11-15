@@ -9,10 +9,14 @@ use super::*;
 
 fn kinds(source: &str) -> Vec<&'static str> {
     let tree = crate::test_tree(source, 14).expect("valid probe");
-    sites(&tree, super::super::literal::Proof::default())
-        .into_iter()
-        .map(|site| site.kind)
-        .collect()
+    sites(
+        &tree,
+        super::super::literal::Proof::default(),
+        &super::super::binders::Binders::of(&tree),
+    )
+    .into_iter()
+    .map(|site| site.kind)
+    .collect()
 }
 
 fn has(source: &str, kind: &str) -> bool {
