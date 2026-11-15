@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Write the unassigned Unicode ranges of each supported CPython for named escape checks."""
+"""Write unassigned Unicode ranges to native/python/src/unassigned.txt."""
 
 from __future__ import annotations
 

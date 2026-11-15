@@ -58,7 +58,6 @@ pub(crate) struct Syntax {
 
 impl Syntax {
     /// The qualified name of the parent of a definition (`Definition.parent` in Python).
-    #[cfg_attr(not(feature = "dump"), allow(dead_code))]
     pub(crate) fn parent_name(&self, definition: &Definition) -> Option<String> {
         definition.parent.map(|at| self.scopes.qualified(at))
     }
