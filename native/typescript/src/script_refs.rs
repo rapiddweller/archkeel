@@ -49,7 +49,7 @@ impl<'t> References<'t> {
             .entry(tree.text(node))
             .or_default()
             .push((at, node));
-        if !tree.cx.valid_unicode_member_name(node) || tree.in_error(node) {
+        if !crate::tree::cx::Cx::valid_unicode_member_name(&tree.cx, node) || tree.in_error(node) {
             self.bad.push(at);
         }
     }
