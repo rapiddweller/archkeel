@@ -9,6 +9,7 @@ use std::collections::HashSet;
 
 use tree_sitter::Node;
 
+use crate::bind_kinds::{is_ambient, owns_arguments, runtime_name, ARGUMENTS};
 use crate::import_bindings::ImportBinding;
 use crate::kinds::{F, K};
 use crate::scope::assignment_targets;
@@ -23,15 +24,27 @@ type Pattern<'t> = (Node<'t>, Node<'t>);
 impl<'a, 't> Tree<'a, 't> {
     /// `_script_bindings`: the names that each scope binds, and the scopes that are not statically
     /// known. `nodes` is the whole tree, or the nodes that a closed envelope selects.
-    pub(crate) fn bind_names(&mut self, nodes: &[Node<'t>], imports: &[ImportBinding]) {
+    pub(crate) fn bind_names(
+        &mut self,
+        nodes: &[Node<'t>],
+        imports: &[ImportBinding],
+        module: bool,
+    ) {
         let mut patterns: Vec<Pattern<'t>> = Vec::new();
         for node in nodes.iter().copied() {
-            self.patterns_of(node, &mut patterns);
+            self.patterns_of(node, &mut patterns, module);
         }
         let mut seen: HashSet<(usize, usize)> = HashSet::new();
         for (scope, pattern) in patterns {
             if seen.insert((scope.id(), pattern.id())) {
                 self.bind_pattern(scope, pattern);
+            }
+        }
+        for node in nodes.iter().copied() {
+            // A parameter named `arguments` is the one binding (AD-534).
+            if owns_arguments(self.k(node)) && self.binding_count(node, ARGUMENTS) == 0 {
+                let names = self.bindings.entry(node.id()).or_default();
+                names.insert(ARGUMENTS.to_owned(), 1);
             }
         }
         let module = self.bindings.entry(self.root.id()).or_default();
@@ -63,7 +76,7 @@ impl<'a, 't> Tree<'a, 't> {
     }
 
     /// The patterns that a node binds, with the scope of each.
-    fn patterns_of(&mut self, node: Node<'t>, out: &mut Vec<Pattern<'t>>) {
+    fn patterns_of(&mut self, node: Node<'t>, out: &mut Vec<Pattern<'t>>, module: bool) {
         let kind = self.k(node);
         if kind == K::WithStatement {
             self.ambiguous.insert(node.id());
@@ -77,6 +90,13 @@ impl<'a, 't> Tree<'a, 't> {
                     .map(|p| (node, p)),
             );
             out.extend(self.field(node, F::Parameter).map(|p| (node, p)));
+        }
+        if module && matches!(kind, K::EnumDeclaration | K::InternalModule | K::Module) {
+            let ambient = is_ambient(self.ancestors(node).map(|up| self.k(up)));
+            if let Some(name) = runtime_name(&self.cx, node, kind, ambient) {
+                let scope = self.ancestors(node).find(|up| is_scope(self.k(*up)));
+                out.push((scope.unwrap_or(self.root), name));
+            }
         }
         if kind == K::CatchClause {
             out.extend(self.field(node, F::Parameter).map(|p| (node, p)));

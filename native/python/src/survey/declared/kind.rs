@@ -44,26 +44,52 @@ const BUILTIN_BASES: [&str; 12] = [
 /// The classes of `enum` whose subclass is an enum.
 const ENUM_BASES: [&str; 5] = ["Enum", "IntEnum", "StrEnum", "Flag", "IntFlag"];
 
+/// A class of the module body with a record: its kind, and whether `A()` gives an instance of it
+/// (no enum, no protocol, no `__new__` in it or in a local base).
+#[derive(Clone, Copy, Debug)]
+pub(super) struct Local {
+    pub kind: Kind,
+    pub constructible: bool,
+}
+
+/// One base of a class: its expression, the qualified name that it resolves to, and whether that
+/// is a protocol class of the module (then a class that is no protocol realizes it).
+pub(super) struct BaseSite<'a> {
+    pub expr: &'a Expr,
+    pub target: String,
+    pub protocol: bool,
+}
+
+/// The proven kind and bases of a class.
+pub(super) struct Class<'a> {
+    pub kind: Kind,
+    pub bases: Vec<BaseSite<'a>>,
+    /// Each base lets `A()` give an instance of `A`.
+    pub constructible: bool,
+}
+
 /// What a class statement reads to know its bases.
 pub(super) struct Reading<'a> {
+    pub module: &'a str,
     pub body: &'a [Stmt],
     pub bound: &'a Bound,
     pub binders: &'a Binders,
     /// The class body that holds this class, for a nested class: it can bind a name of a base.
     pub enclosing: Option<&'a Bound>,
     /// The classes of the module body that have a record, by name (a top-level class only).
-    pub local: &'a HashMap<String, Kind>,
+    pub local: &'a HashMap<String, Local>,
 }
 
 impl<'a> Reading<'a> {
     /// The reading of a class of the module body.
     pub(super) fn top(
-        body: &'a [Stmt],
+        (module, body): (&'a str, &'a [Stmt]),
         bound: &'a Bound,
         binders: &'a Binders,
-        local: &'a HashMap<String, Kind>,
+        local: &'a HashMap<String, Local>,
     ) -> Self {
         Reading {
+            module,
             body,
             bound,
             binders,
@@ -82,14 +108,22 @@ impl<'a> Reading<'a> {
 }
 
 /// What one base is.
-enum Base {
+enum Is {
     Plain,
     Protocol,
     Enum,
 }
 
-/// The kind of `node`, or `None` when a base or a keyword leaves it open.
-pub(super) fn of(node: &StmtClassDef, reading: &Reading<'_>) -> Option<Kind> {
+/// What `classify` finds for one base.
+struct Found {
+    is: Is,
+    target: String,
+    protocol: bool,
+    constructible: bool,
+}
+
+/// The kind and the bases of `node`, or `None` when a base or a keyword leaves them open.
+pub(super) fn of<'a>(node: &'a StmtClassDef, reading: &Reading<'_>) -> Option<Class<'a>> {
     if node.type_params.is_some() {
         return None;
     }
@@ -97,23 +131,36 @@ pub(super) fn of(node: &StmtClassDef, reading: &Reading<'_>) -> Option<Kind> {
     if arguments.is_some_and(|arguments| !arguments.keywords.is_empty()) {
         return None;
     }
-    let (mut protocol, mut enumeration) = (false, false);
+    let (mut protocol, mut enumeration, mut constructible) = (false, false, true);
+    let mut bases = Vec::new();
     for base in arguments.map_or(&[][..], |arguments| &arguments.args) {
-        match classify(base, reading)? {
-            Base::Plain => {}
-            Base::Protocol => protocol = true,
-            Base::Enum => enumeration = true,
+        let found = classify(base, reading)?;
+        match found.is {
+            Is::Plain => {}
+            Is::Protocol => protocol = true,
+            Is::Enum => enumeration = true,
         }
+        constructible &= found.constructible;
+        bases.push(BaseSite {
+            expr: base,
+            target: found.target,
+            protocol: found.protocol,
+        });
     }
-    match (protocol, enumeration) {
-        (true, true) => None,
-        (true, false) => Some(Kind::Protocol),
-        (false, true) => Some(Kind::Enum),
-        (false, false) => Some(Kind::Plain),
-    }
+    let kind = match (protocol, enumeration) {
+        (true, true) => return None,
+        (true, false) => Kind::Protocol,
+        (false, true) => Kind::Enum,
+        (false, false) => Kind::Plain,
+    };
+    Some(Class {
+        kind,
+        bases,
+        constructible,
+    })
 }
 
-fn classify(base: &Expr, reading: &Reading<'_>) -> Option<Base> {
+fn classify(base: &Expr, reading: &Reading<'_>) -> Option<Found> {
     if let Expr::Name(name) = base {
         let name = name.id.as_str();
         if reading
@@ -122,32 +169,48 @@ fn classify(base: &Expr, reading: &Reading<'_>) -> Option<Base> {
         {
             return None;
         }
-        if let Some(kind) = reading
+        if let Some(local) = reading
             .local
             .get(name)
             .filter(|_| reading.enclosing.is_none())
         {
             // A class that derives from a protocol class is no protocol itself.
-            return Some(match kind {
-                Kind::Enum => Base::Enum,
-                Kind::Plain | Kind::Protocol => Base::Plain,
+            return Some(Found {
+                is: match local.kind {
+                    Kind::Enum => Is::Enum,
+                    Kind::Plain | Kind::Protocol => Is::Plain,
+                },
+                target: format!("{}.{name}", reading.module),
+                protocol: local.kind == Kind::Protocol,
+                constructible: local.constructible,
             });
         }
         if BUILTIN_BASES.contains(&name) && reading.binders.builtin_visible(name) {
-            return Some(Base::Plain);
+            return Some(Found {
+                is: Is::Plain,
+                target: format!("builtins.{name}"),
+                protocol: false,
+                constructible: true,
+            });
         }
     }
     let (module, symbol) = imported(base, reading)?;
-    match (module.as_str(), symbol.as_str()) {
-        ("typing" | "typing_extensions", "Protocol") => Some(Base::Protocol),
-        ("enum", symbol) if ENUM_BASES.contains(&symbol) => Some(Base::Enum),
-        _ => None,
-    }
+    let is = match (module.as_str(), symbol.as_str()) {
+        ("typing" | "typing_extensions", "Protocol") => Is::Protocol,
+        ("enum", symbol) if ENUM_BASES.contains(&symbol) => Is::Enum,
+        _ => return None,
+    };
+    Some(Found {
+        is,
+        target: format!("{module}.{symbol}"),
+        protocol: false,
+        constructible: false,
+    })
 }
 
 /// The module and the name that an expression reads through the one plain import of its root:
 /// `from enum import Enum` (`Enum`) or `import enum` (`enum.Enum`).
-fn imported(base: &Expr, reading: &Reading<'_>) -> Option<(String, String)> {
+pub(super) fn imported(base: &Expr, reading: &Reading<'_>) -> Option<(String, String)> {
     let (root, attribute) = match base {
         Expr::Name(name) => (name.id.as_str(), None),
         Expr::Attribute(node) => match &*node.value {

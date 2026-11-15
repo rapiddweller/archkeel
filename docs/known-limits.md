@@ -345,8 +345,13 @@ project `declare` of a name, in a global script or a `declare global` block, pro
 Without `lib`, the target's default file applies, DOM included. Only top-level value declarations count, so types such as `Document` are not
 proved, and a newer `lib` name waits for the pinned TypeScript version to move.
 A `/// <reference types="./x" />` directive with a relative or absolute path names a file of the
-project; it is UNKNOWN, as `path` and `lib` directives are (#976). A `types` name without a path
-stays silent. A `declare module "x"` augmentation names a module as an import does: a relative or
+project; it is UNKNOWN, as `path` and `lib` directives are (#976). A leading `types` name is a type-only edge to the package that the resolver proves in
+`node_modules` (`@types/<name>` first, then the package); any other result, such as a package that
+is not installed, a `typeRoots` setting, a candidate with `typesVersions` and a `types` field that
+names a missing file, is UNKNOWN. A directive after code and `no-default-lib="true"` are not honored and
+stay silent
+([AD-528](architecture/decisions/ad-528-a-leading-types-directive-is-a-type-only-edge-to-its-package.md), #686).
+A `declare module "x"` augmentation names a module as an import does: a relative or
 absolute name is UNKNOWN. A bare name is UNKNOWN when the project sets `paths` or `baseUrl` and
 the file is a module file (it has `import` or `export`), because those options can map the name
 to a project file; the resolver is not asked, so a name that maps to no project file is UNKNOWN

@@ -29,7 +29,7 @@ pub(crate) fn version(version: ProtocolVersion, profile: Profile) -> Result<(), 
 }
 
 /// The registered set of an import survey (Python, AD-450; Dart, AD-468): the sections `imports` and
-/// `unknowns`, and for Python also `symbols` (AD-518); no construct, and no statement that
+/// `unknowns`, and for Python also `symbols`, `calls` and `references` (AD-518, AD-520); no construct, and no statement that
 /// interfaces are supported. `validate::checkable` refuses each resolution feature
 /// of a Python reply, and `registered.rs` binds the symbol statement to its feature.
 pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
@@ -41,7 +41,7 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
         .collect();
     sections.sort_unstable();
     let registered: &[&str] = match facts.profile {
-        Profile::Python => &["imports", "symbols", "unknowns"],
+        Profile::Python => &["calls", "imports", "references", "symbols", "unknowns"],
         _ => &["imports", "unknowns"],
     };
     if sections != registered || !facts.capabilities.constructs.is_empty() {
@@ -106,16 +106,17 @@ pub(crate) fn survey(facts: &Facts) -> Result<(), String> {
         .try_for_each(|record| statement(&record.data))
 }
 
-/// A Python import is an import statement with known symbols, no specifier and no type flag.
+/// A Python import is an import statement, or a literal import call (AD-536), with known symbols,
+/// no specifier and no type flag.
 fn statement(fact: &ImportFact) -> Result<(), String> {
-    if !matches!(fact, ImportFact::Import(_)) {
+    let (ImportFact::Import(data) | ImportFact::DynamicImport(data)) = fact else {
         return Err("a Python import must be an import statement".to_owned());
+    };
+    let bare = data.specifier.is_none() && data.type_only.is_none();
+    if bare && data.symbols_known {
+        return Ok(());
     }
-    let data = fact.data();
-    if data.specifier.is_some() || data.type_only.is_some() || !data.symbols_known {
-        return Err("a Python import has no specifier and no type flag".to_owned());
-    }
-    Ok(())
+    Err("a Python import has no specifier and no type flag".to_owned())
 }
 
 /// The coverage gaps are the records of the `unknowns` section, each once: a gap that only one

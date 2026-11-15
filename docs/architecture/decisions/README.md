@@ -7,8 +7,11 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-534 | [A local enum, a value namespace and `arguments` are bindings in TypeScript](ad-534-a-local-enum-a-value-namespace-and-arguments-are-bindings-in-typescript.md) |
+| AD-528 | [A leading `types` directive is a type-only edge to its package, or a named gap](ad-528-a-leading-types-directive-is-a-type-only-edge-to-its-package.md) |
 | AD-524 | [A call on a typed parameter is an edge in Rust](ad-524-a-call-on-a-typed-parameter-is-an-edge-in-rust.md) |
 | AD-522 | [ArchKeel shows one system verdict, built from its parts (interim)](ad-522-archkeel-shows-one-system-verdict-built-from-its-two-self-runs.md) |
+| AD-520 | [The Python collector writes the symbol sites that its scopes prove](ad-520-the-python-collector-writes-the-symbol-sites-that-its-scopes-prove.md) |
 | AD-518 | [The Python collector writes the symbol declarations that it binds once](ad-518-the-python-collector-writes-the-symbol-declarations-that-it-binds-once.md) |
 | AD-516 | [A trait impl in a third module gives a pair gap in Rust](ad-516-a-trait-impl-in-a-third-module-gives-a-pair-gap-in-rust.md) |
 | AD-512 | [The core compares the symbol part of a UML target when the run needs it](ad-512-the-core-compares-the-symbol-part-of-a-uml-target-when-the-run-needs-it.md) |
@@ -443,3 +446,5 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-436 | [A platform wheel carries the core and no other wheel is built](ad-436-a-platform-wheel-carries-the-core-and-no-other-wheel-is-built.md) |
 | AD-504 | [The Python survey writes the publication route of each named import](ad-504-the-python-survey-writes-the-publication-route-of-each-named-import.md) |
 | AD-514 | [The core proves a use of a public entry from imports and names the rest](ad-514-the-core-proves-a-use-of-a-public-entry-from-imports-and-names-the-rest.md) |
+| AD-536 | [A Python import call is an edge of the code but not a statement of a UML target](ad-536-a-python-import-call-is-no-statement-edge-of-a-uml-target.md) |
+| AD-526 | [The core compares the UML targets of the inside contracts as one declared intent](ad-526-the-core-compares-the-uml-targets-of-the-inside-contracts-as-one-declared-intent.md) |

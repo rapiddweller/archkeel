@@ -300,11 +300,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_facts.gap",
-      "A method call may reach the method at of an impl block in native.archkeel_facts.envelope.build"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_facts.request",
       "A method call may reach the method check of an impl block in native.archkeel_facts.request_rules"
     ],

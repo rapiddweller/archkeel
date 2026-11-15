@@ -6,8 +6,7 @@
 
 use crate::ids::{ModuleName, PackageName};
 use crate::nullable::Nullable;
-use crate::reason::ReasonCode;
-use crate::vocab::{ResolutionDimension, Visibility};
+use crate::vocab::Visibility;
 
 facts_data! {
     /// An import: one record for each statement or bound name (TypeScript, Rust), or for each
@@ -38,26 +37,6 @@ facts_data! {
         [read skip] source_binding_unique: Option<bool>,
         [read skip] source_member_binding_static: Option<bool>,
         [read skip] symbol_visibility: Nullable<Visibility>,
-    }
-}
-
-facts_data! {
-    /// An UNKNOWN gap of the coverage or of the `unknowns` section.
-    pub struct GapData {
-        [wire never] code: Option<ReasonCode>,
-        [read skip] reason: Option<String>,
-        [read skip] module: Option<ModuleName>,
-        [read skip] resolution_dimension: Option<ResolutionDimension>,
-        [read skip] annotation: Option<String>,
-        [read skip] attribute: Option<String>,
-        [read skip] file: Option<String>,
-        [read skip] function: Option<String>,
-        [read skip] line: Option<i64>,
-        [read skip] message: Option<String>,
-        [read skip] parameter: Option<String>,
-        [read skip] path: Option<String>,
-        [read skip] source_module: Option<ModuleName>,
-        [read skip] under_type_checking: Option<bool>,
     }
 }
 

@@ -33,7 +33,7 @@ pub(super) struct Attributes {
 /// The declared attributes of a class body. An enum lists a name only when the whole body is
 /// proven: constants for literals, methods, a docstring and `pass`; else it lists none.
 pub(super) fn attributes(
-    scan: &mut Reader<'_>,
+    scan: &mut Reader<'_, '_>,
     node: &StmtClassDef,
     bound: &Bound,
     kind: Kind,
@@ -173,7 +173,7 @@ fn constant(value: &Expr) -> bool {
 
 /// `_class_attribute_declarations` for one name of one statement.
 fn declaration(
-    scan: &mut Reader<'_>,
+    scan: &mut Reader<'_, '_>,
     statement: &Stmt,
     name: &str,
     annotation: Option<String>,

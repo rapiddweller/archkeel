@@ -13,7 +13,7 @@ object for discovery while the owning component keeps its existing named
     {"source_module": "demo.registry", "target_module": "demo.plugins"}
   ],
   "rationale": "The registry discovers plugins; consumers use named public APIs.",
-  "provenance": ["docs/architecture.md"],
+  "provenance": ["docs/rules.md"],
   "decided_by": "architect"
 }
 ```
@@ -47,12 +47,7 @@ narrowing. Earlier contract versions reject the field, including an empty array.
 Omitting it preserves historical canonical bytes; an authored empty array
 roundtrips as empty.
 
-The model owns frozen `ModuleObjectGrant(source_module, target_module)` values.
-`InterfaceBoundaryRule.module_object_grants` is
-`tuple[ModuleObjectGrant, ...] | None`. Eight independent declarations in the own
-IR Target pin the class, both identity fields, the owning rule and this field,
-and the profile module, class and boolean module-object proof capability.
-Native tests retain that Target while widening the Python field annotation to
-`str | None`; the mismatch produces a trace-valid failure. This bounded intent
-does not close the remaining model inventory or activate a broader model type
-boundary.
+The `contract` component of `native/` owns the grant. `ModuleObjectGrant` (`source_module`,
+`target_module`) and the field `module_object_grants` of the `interface_boundary` rule are in
+`native/contract/src/model.rs`; the contract hygiene reads the field in
+`native/core/src/hygiene_refs.rs`.

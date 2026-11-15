@@ -155,7 +155,7 @@ fn factory_writes(
         .copied()
         .filter(|node| is_write(cx.k(*node)))
         .collect();
-    tree.bind_names(&bindings, &[]);
+    tree.bind_names(&bindings, &[], false);
     let declared = declared_names(&tree, bindings.iter().chain(writes.iter()).copied())?;
     let scopes = Scopes::default();
     let producer = Producer::new(&tree, &[], &scopes, false, templates);
