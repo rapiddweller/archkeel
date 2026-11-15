@@ -109,9 +109,9 @@ pub(super) fn self_member(node: &syn::ExprPath) -> Option<&syn::Ident> {
 /// A frame of the walk that decides what a plain `self` and `Self` are.
 #[derive(Debug)]
 enum Frame {
-    /// An `impl` block: its exact type path and enclosing inline modules, or `None`, and the names
-    /// of its type and const parameters.
-    Impl(Option<(Vec<String>, Vec<String>)>, Vec<String>),
+    /// An `impl` block: its exact type path and enclosing inline modules, or `None`, the names
+    /// of its type and const parameters, and whether each attribute of the block is inert.
+    Impl(Option<(Vec<String>, Vec<String>)>, Vec<String>, bool),
     /// A method of an `impl` block: the `self` that its body sees, or `None`, whether each
     /// attribute of the method is inert, and its typed parameters.
     Method(Option<OnSelf>, bool, Params),
@@ -152,7 +152,8 @@ impl Selves {
             .filter(|_| blocks == 0 && !self.gated())
             .map(|path| (path, scope.to_vec()));
         let names = (item.generics.params.iter()).filter_map(params::generic_name);
-        self.frames.push(Frame::Impl(exact, names.collect()));
+        self.frames
+            .push(Frame::Impl(exact, names.collect(), inert(&item.attrs)));
     }
 
     /// Enter a `trait` or a `fn` of a `trait`: no `self` of an `impl` reaches in, and no
@@ -167,7 +168,7 @@ impl Selves {
     pub(super) fn enter_function(&mut self, item: &syn::ItemFn, at: (&[String], usize)) {
         let (scope, blocks) = at;
         let proved = inert(&item.attrs) && !self.gated() && blocks == 0;
-        let found = proved.then(|| params::read(&item.sig, &item.block, &[], scope));
+        let found = proved.then(|| params::read(&item.sig, &item.block, &[], scope, inert));
         self.frames.push(Frame::Opaque(found.unwrap_or_default()));
     }
 
@@ -177,24 +178,25 @@ impl Selves {
     pub(super) fn enter_method(&mut self, item: &syn::ImplItemFn, at: (&[String], usize)) {
         let (scope, blocks) = at;
         let (sig, attrs) = (&item.sig, &item.attrs);
-        let (block, outer) = match self.frames.last() {
-            Some(Frame::Impl(found, names)) => (found.clone(), names.clone()),
-            _ => (None, Vec::new()),
+        let (block, outer, block_inert) = match self.frames.last() {
+            Some(Frame::Impl(found, names, kept)) => (found.clone(), names.clone(), *kept),
+            _ => (None, Vec::new(), false),
         };
-        let inert = inert(attrs);
-        let found = (inert && !self.gated() && blocks == 0)
-            .then(|| params::read(sig, &item.block, &outer, scope));
-        let on_self = block.filter(|_| inert).and_then(|(path, scope)| {
+        let kept = inert(attrs);
+        let proved = kept && block_inert && !self.gated() && blocks == 0;
+        let found = proved.then(|| params::read(sig, &item.block, &outer, scope, inert));
+        let on_self = block.filter(|_| kept).and_then(|(path, scope)| {
             let kind = Some(kind_of(sig)?);
             Some(OnSelf {
                 name: "self".to_owned(),
                 path,
                 scope,
                 kind,
+                macros: Vec::new(),
             })
         });
         self.frames
-            .push(Frame::Method(on_self, inert, found.unwrap_or_default()));
+            .push(Frame::Method(on_self, kept, found.unwrap_or_default()));
     }
 
     pub(super) fn leave(&mut self) {
@@ -227,11 +229,12 @@ impl Selves {
     pub(super) fn of_type(&self) -> Option<OnSelf> {
         let frame = (self.frames.iter().rev()).find(|f| !matches!(f, Frame::Method(_, true, _)));
         match frame {
-            Some(Frame::Impl(Some((path, scope)), _)) => Some(OnSelf {
+            Some(Frame::Impl(Some((path, scope)), _, _)) => Some(OnSelf {
                 name: "Self".to_owned(),
                 path: path.clone(),
                 scope: scope.clone(),
                 kind: None,
+                macros: Vec::new(),
             }),
             _ => None,
         }

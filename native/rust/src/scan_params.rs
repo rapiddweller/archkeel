@@ -19,7 +19,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use proc_macro2::{TokenStream, TokenTree};
 use syn::visit::{self, Visit};
-use syn::{FnArg, GenericArgument, GenericParam, Item, Pat, PathArguments, Signature, Type};
+use syn::{
+    Attribute, FnArg, GenericArgument, GenericParam, Item, Pat, PathArguments, Signature, Type,
+};
 
 use crate::definitions::{OnSelf, SelfKind};
 use crate::tokens::{plain, NO_BIND_MACROS};
@@ -71,8 +73,14 @@ impl Params {
 }
 
 /// How the body and the signature bind names.
-#[derive(Default)]
 struct Bound {
+    /// Whether each attribute is inert: a `cfg` or an unknown attribute on a statement, an
+    /// expression, an arm or a block can remove the code around a call (AD-524).
+    inert: fn(&[Attribute]) -> bool,
+    /// A non-inert attribute is somewhere in the `fn`.
+    gated: bool,
+    /// The macros that the `fn` calls and that are no silent macro of `std`.
+    macros: BTreeSet<String>,
     /// How many times each name is bound by a pattern or an item.
     counts: BTreeMap<String, usize>,
     /// Names that a `use` or a macro call may bind.
@@ -126,12 +134,23 @@ impl<'ast> Visit<'ast> for Bound {
         visit::visit_item(self, node);
     }
 
+    fn visit_attribute(&mut self, node: &'ast Attribute) {
+        self.gated |= !(self.inert)(std::slice::from_ref(node));
+    }
+
     fn visit_macro(&mut self, node: &'ast syn::Macro) {
-        let silent = node
-            .path
-            .get_ident()
-            .is_some_and(|name| NO_BIND_MACROS.contains(&plain(name).as_str()));
-        if !silent {
+        let name = node.path.get_ident().map(plain);
+        let silent = name
+            .as_deref()
+            .is_some_and(|name| NO_BIND_MACROS.contains(&name));
+        // A `macro_rules!` item defines a macro; it is no call.
+        if !silent && name.as_deref() != Some("macro_rules") {
+            let written = |path: &syn::Path| {
+                let segments = path.segments.iter().map(|s| plain(&s.ident));
+                segments.collect::<Vec<_>>().join("::")
+            };
+            self.macros
+                .insert(name.unwrap_or_else(|| written(&node.path)));
             self.taint(node.tokens.clone());
         }
         visit::visit_macro(self, node);
@@ -180,10 +199,20 @@ pub(super) fn read(
     block: &syn::Block,
     outer: &[String],
     scope: &[String],
+    inert: fn(&[Attribute]) -> bool,
 ) -> Params {
-    let mut bound = Bound::default();
+    let mut bound = Bound {
+        inert,
+        gated: false,
+        macros: BTreeSet::new(),
+        counts: BTreeMap::new(),
+        tainted: BTreeSet::new(),
+    };
     bound.visit_signature(sig);
     bound.visit_block(block);
+    if bound.gated {
+        return Params::default();
+    }
     let mut hidden: BTreeSet<String> = outer.iter().cloned().collect();
     hidden.extend(sig.generics.params.iter().filter_map(generic_name));
     let mut found = BTreeMap::new();
@@ -210,6 +239,7 @@ pub(super) fn read(
                 path,
                 scope: scope.to_vec(),
                 kind: Some(kind),
+                macros: bound.macros.iter().cloned().collect(),
             };
             found.insert(name, on_self);
         }

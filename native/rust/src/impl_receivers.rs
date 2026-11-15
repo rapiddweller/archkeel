@@ -44,8 +44,11 @@ pub(super) struct Typed<'a> {
     unplaced: BTreeSet<&'a str>,
     /// The last name of each type with a `Deref` or `DerefMut` impl in the workspace.
     derefs: BTreeSet<&'a str>,
-    /// A macro of the workspace has the name of a macro of `std` that binds nothing (AD-524).
+    /// A macro, a `use` leaf or an `extern crate` of the workspace may give the name of a macro of
+    /// `std` that binds nothing to another macro (AD-524).
     shadowed_macros: bool,
+    /// The names of the `macro_rules!` of the workspace.
+    macro_names: BTreeSet<&'a str>,
 }
 
 impl<'a> Typed<'a> {
@@ -60,11 +63,17 @@ impl<'a> Typed<'a> {
                 self.derefs.insert(ty);
             }
         }
-        let silent = scan
-            .macro_defs
-            .iter()
-            .any(|d| NO_BIND_MACROS.contains(&d.name.as_str()));
-        self.shadowed_macros |= silent;
+        let defs = scan.macro_defs.iter().map(|def| def.name.as_str());
+        self.macro_names.extend(defs);
+        let bound = scan.references.iter().filter_map(|r| match &r.via {
+            Via::Use { binding, .. } => binding.as_deref(),
+            _ => None,
+        });
+        let silent = |name: &str| NO_BIND_MACROS.contains(&name);
+        let hidden = scan.macro_defs.iter().any(|d| silent(&d.name))
+            || bound.into_iter().any(silent)
+            || !scan.extern_crates.is_empty();
+        self.shadowed_macros |= hidden;
     }
 
     /// Keep each member of a block by its type, or its name when the type is not placed.
@@ -142,7 +151,9 @@ impl Builder {
             .path
             .last()
             .is_some_and(|ty| found.derefs.contains(ty.as_str()));
-        if parameter && (deref || found.shadowed_macros) {
+        // A macro of the `fn` that is no `macro_rules!` of the workspace can bind any name.
+        let foreign = (on_self.macros.iter()).any(|m| !found.macro_names.contains(m.as_str()));
+        if parameter && (deref || found.shadowed_macros || foreign) {
             return false;
         }
         let TypeOf::Known(lexical, ty) = index.type_of(frame, &on_self.scope, &on_self.path) else {

@@ -131,6 +131,9 @@ pub(crate) struct OnSelf {
     pub path: Vec<String>,
     pub scope: Vec<String>,
     pub kind: Option<SelfKind>,
+    /// The macros that the `fn` of a parameter calls and that are no silent macro of `std`: a
+    /// path as written for a macro with a path, else its name (AD-524).
+    pub macros: Vec<String>,
 }
 
 /// A member of an inherent `impl` block. Only a `fn` with a `self` parameter can be called as

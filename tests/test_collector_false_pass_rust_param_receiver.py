@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from rust_param_review_plants import REVIEW_PLANTS
 from rust_repository import (
     CRATE_RULES,
     PROVENANCE,
@@ -35,6 +36,13 @@ NO_A_TO_B = rule(
     "forbidden_dependency",
     source="native.app.a",
     target="native.app.b",
+    include_type_checking=True,
+)
+NO_A_TO_D = rule(
+    "NO-A-TO-D",
+    "forbidden_dependency",
+    source="native.app.a",
+    target="native.app.d",
     include_type_checking=True,
 )
 TYPES = "#[derive(Debug)]\npub struct S;\npub trait Tr {\n    fn m(&self, x: u8) -> u8;\n}\n"
@@ -236,3 +244,27 @@ def test_a_proven_edge_is_judged_by_the_contract(
     result = validate(root, capsys)
 
     assert _verdict(result, "REQUIRES") == expected, claims(result)
+
+
+def _review_sources(files: dict[str, str]) -> dict[str, str]:
+    """A key with `=` is a path below the root; any other key is a file of `crates/app/src`."""
+    return {
+        key[1:] if key.startswith("=") else f"crates/app/src/{key}": text
+        for key, text in files.items()
+    }
+
+
+@pytest.mark.parametrize("files", REVIEW_PLANTS.values(), ids=REVIEW_PLANTS.keys())
+def test_a_form_of_the_proof_review_keeps_its_gap(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], files: dict[str, str]
+) -> None:
+    # The true callee is in `d` (a macro rebinds the parameter) or nowhere (a `cfg` removes the
+    # call): neither `a -> b` as an edge nor PASS for `a -> d` is true.
+    rules = (*CRATE_RULES, NO_A_TO_B, NO_A_TO_D)
+    result = validate(
+        repository(tmp_path, core_binary, _review_sources(files), rules=rules), capsys
+    )
+
+    assert _verdict(result, "NO-A-TO-B") == "UNKNOWN", claims(result)
+    if "impl" in files.get("d.rs", ""):
+        assert _verdict(result, "NO-A-TO-D") == "UNKNOWN", claims(result)
