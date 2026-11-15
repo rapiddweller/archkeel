@@ -99,4 +99,9 @@ pub(crate) struct Script {
     pub blockers: Vec<Blocker>,
     /// A write with no path has no blocker here, so the report cannot group the gaps behind it.
     pub unlabelled_empty: bool,
+    /// The line and column of each free name whose use is only read: the operand of `typeof`,
+    /// `!` or a comparison, the left of `&&`, or a condition (AD-576). It builds no code.
+    pub contained_reads: Vec<(i64, i64)>,
+    /// The places of the amplifier forms (a window member, `this`) with the kind of the form.
+    pub amp_blockers: Vec<Blocker>,
 }

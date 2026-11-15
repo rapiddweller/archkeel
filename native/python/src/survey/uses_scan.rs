@@ -17,6 +17,7 @@ use ruff_python_ast::{Expr, ExprContext};
 use std::collections::{HashMap, HashSet};
 
 use super::bound::{Bound, Kind};
+use super::uses_typing_guard::{withheld, STDLIB_VALUES};
 use crate::module::Module;
 
 /// The module and the symbol that an import names.
@@ -50,6 +51,14 @@ impl Scan<'_> {
                         .contains(&(module.to_owned(), name.to_owned()))
             }
             Some(Kind::Callable | Kind::Value) => true,
+            // A name or a builtin call that reads only inert names (AD-530).
+            Some(Kind::Derived) => bound.deps(name).is_some_and(|deps| {
+                deps.builtins.iter().all(|builtin| bound.unbound(builtin))
+                    && deps.names.iter().all(|read| {
+                        // A name that the module does not bind is a builtin or an error.
+                        bound.unbound(read) || self.callable(module, read, depth + 1)
+                    })
+            }),
             Some(Kind::BuiltinGeneric(builtin)) => bound.unbound(builtin),
             Some(Kind::Other)
                 if self
@@ -59,6 +68,9 @@ impl Scan<'_> {
                 true
             }
             Some(Kind::Import) => match self.imports.get(&(module, name)).map(Vec::as_slice) {
+                // An object of a module outside the scan; code outside the scan hands in no
+                // module of the scan (AD-530).
+                Some([(target, _)]) if !self.modules.contains(target) => true,
                 Some([(target, Some(symbol))]) => self.callable(target, symbol, depth + 1),
                 _ => false,
             },
@@ -105,11 +117,17 @@ impl Scan<'_> {
                 })
             }),
             Some(Kind::Import) => match self.imports.get(&(module, name)).map(Vec::as_slice) {
+                Some([(target, Some(symbol))]) if self.stdlib_value(target, symbol) => true,
                 Some([(target, Some(symbol))]) => self.constructs(target, symbol, depth + 1),
                 _ => false,
             },
             _ => false,
         }
+    }
+
+    /// True when `target.symbol` is a standard library name whose call gives a value (AD-568).
+    fn stdlib_value(&self, target: &str, symbol: &str) -> bool {
+        STDLIB_VALUES.contains(&(target, symbol)) && !self.modules.contains(target)
     }
 
     /// True when `name` in `module` is the one plain import of `dataclasses.dataclass`, and no
@@ -143,7 +161,7 @@ impl<'a> Visitor<'a> for PatchWatch {
 
 /// True when a statement of the scan can give a class another constructor or metaclass.
 pub(super) fn class_patch(scan: &Scan<'_>, modules: &[Module]) -> bool {
-    scan.bounds.values().any(|bound| bound.attribute_write) || {
+    scan.bounds.values().any(|bound| bound.attribute_write) || withheld(modules) || {
         let mut watch = PatchWatch(false);
         modules
             .iter()

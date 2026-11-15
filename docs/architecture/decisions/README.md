@@ -8,10 +8,12 @@ such a link has no target on `main`. The files are in the Git history before tha
 | Decision | Title |
 |---|---|
 | AD-578 | [Make the remaining self-check calls explicit](ad-578-make-the-remaining-self-check-calls-explicit.md) |
+| AD-576 | [A read of a host name that nothing writes is no gap](ad-576-a-read-of-a-host-name-that-nothing-writes-is-no-gap.md) |
+| AD-574 | [Inert door attributes keep the module import gap](ad-574-inert-door-attributes-keep-the-module-import-gap.md) |
+| AD-568 | [Narrow the typing factory proof to the statements that can replace a factory](ad-568-narrow-the-typing-factory-proof-to-the-statements-that-can-replace-a-factory.md) |
 | AD-566 | [A call of a bare class or a builtin value type is no module](ad-566-a-call-of-a-bare-class-or-a-builtin-value-type-is-no-module.md) |
-| AD-562 | [Inert door attributes keep the module import gap](ad-562-inert-door-attributes-keep-the-module-import-gap.md) |
+| AD-564 | [A gap states its effect and holds only the rules that read it](ad-564-a-gap-states-its-effect-and-holds-only-the-rules-that-read-it.md) |
 | AD-562 | [Dart names loader tokens and relative package roots](ad-562-dart-names-loader-tokens-and-relative-package-roots.md) |
-| AD-560 | [A gap states its effect and holds only the rules that read it](ad-560-a-gap-states-its-effect-and-holds-only-the-rules-that-read-it.md) |
 | AD-560 | [A lazy import table bounds the import calls of a module `__getattr__`](ad-560-a-lazy-import-table-bounds-the-import-calls-of-a-module-getattr.md) |
 | AD-558 | [A lazy import table bounds the import calls of a module `__getattr__`](ad-558-a-lazy-import-table-bounds-the-import-calls-of-a-module-getattr.md) |
 | AD-558 | [An import counts as a use when every boundary up to the root publishes it](ad-558-an-import-counts-as-a-use-when-every-boundary-up-to-the-root-publishes-it.md) |
@@ -25,6 +27,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-540 | [An amplifier form writes a global only when the scan has a host entry](ad-540-an-amplifier-form-writes-a-global-only-when-the-scan-has-a-host-entry.md) |
 | AD-535 | [Conditional lints and matches keep a Rust receiver proof](ad-535-conditional-lints-do-not-gate-a-rust-receiver-proof.md) |
 | AD-534 | [A local enum, a value namespace and `arguments` are bindings in TypeScript](ad-534-a-local-enum-a-value-namespace-and-arguments-are-bindings-in-typescript.md) |
+| AD-530 | [A Python re-export and a read of globals are proven inert by their uses](ad-530-a-python-re-export-and-a-read-of-globals-are-proven-inert-by-their-uses.md) |
 | AD-528 | [A leading `types` directive is a type-only edge to its package, or a named gap](ad-528-a-leading-types-directive-is-a-type-only-edge-to-its-package.md) |
 | AD-524 | [A call on a typed parameter is an edge in Rust](ad-524-a-call-on-a-typed-parameter-is-an-edge-in-rust.md) |
 | AD-522 | [ArchKeel shows one system verdict, built from its parts (interim)](ad-522-archkeel-shows-one-system-verdict-built-from-its-two-self-runs.md) |

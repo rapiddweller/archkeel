@@ -35,12 +35,12 @@ function Pairs(props: { model: Model; pair: Pair }) {
       <Box title="Calls behind this line, most shared callees first" evidence={Evidence.Observed}>
         <ul class="pairs">
           {shown.map((item) => (
-            <li key={`${item.source}:${item.target}`}>
+            <li key={`${item.caller}:${item.target}`}>
               <ProofMark proof={proofOf(item.partial)} />{" "}
-              <a href={viewHref(View.Explore, item.source)}>{shortName(model, item.source)}</a> calls{" "}
+              <a href={viewHref(View.Explore, item.caller)}>{shortName(model, item.caller)}</a> calls{" "}
               <a href={viewHref(View.Explore, item.target)}>{shortName(model, item.target)}</a>{" "}
               <span class="where">
-                {tailPath(fileName(model, item.source))}:{item.line}
+                {tailPath(fileName(model, item.caller))}:{item.line}
               </span>
             </li>
           ))}

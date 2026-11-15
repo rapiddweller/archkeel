@@ -197,7 +197,7 @@ impl<'a, 'p> Run<'a, 'p> {
             specifier: first.to_owned(),
             reason: reason.clone(),
         });
-        if Self::behind_named_blockers(self, first, publishers) {
+        if Self::behind_named_blockers(self, (rel, probe), first, publishers) {
             self.sink.blocked.push((first.to_owned(), evidence));
         } else {
             self.sink.gap(&reason, &[evidence], &module);
@@ -219,7 +219,7 @@ impl<'a, 'p> Run<'a, 'p> {
             names.len()
         );
         let project = self.project;
-        for (at, (file, span, form)) in project.paths.blockers.iter().enumerate() {
+        for (at, (file, span, form)) in project.paths.named_blockers().iter().enumerate() {
             if blocked.is_empty() {
                 break;
             }

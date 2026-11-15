@@ -68,7 +68,7 @@ export function isCallable(model: Model, symbol: number): boolean {
 }
 
 /** The four levels of the drill-down: components, the modules of one, the functions of one, one function. */
-export const Level = { Map: "map", Component: "component", Module: "module", Function: "function" } as const;
+export const Level = { Map: "map", Component: "component", Module: "module", Routine: "function" } as const;
 export type Level = (typeof Level)[keyof typeof Level];
 
 /** A place on a level: the component, module or function index, and a package path inside a component. */
@@ -108,12 +108,12 @@ function indexLinks(graph: Graph): { outgoing: Link[][]; incoming: Link[][] } {
 }
 
 /** The distinct function pairs behind a line, a resolved call first. */
-export function pairs(model: Model, flow: Flow): { source: number; target: number; partial: boolean; line: number }[] {
-  const found = new Map<string, { source: number; target: number; partial: boolean; line: number }>();
+export function pairs(model: Model, flow: Flow): { caller: number; target: number; partial: boolean; line: number }[] {
+  const found = new Map<string, { caller: number; target: number; partial: boolean; line: number }>();
   for (const index of flow.edges) {
     const [source, target, partial, line] = model.graph.edges[index];
     const key = `${source}:${target}`;
-    if (better(found.get(key), { partial })) found.set(key, { source, target, partial, line });
+    if (better(found.get(key), { partial })) found.set(key, { caller: source, target, partial, line });
   }
   return [...found.values()];
 }
@@ -338,7 +338,7 @@ export function locate(model: Model, symbol: number): readonly PlacePart[] {
 export function trail(model: Model, where: Where): { parts: readonly PlacePart[]; current: string } {
   const root: PlacePart = { label: "Architecture", keys: [], where: { level: Level.Map, id: null, pkg: null } };
   if (where.level === Level.Map || where.id === null) return { parts: [], current: root.label };
-  if (where.level === Level.Function) {
+  if (where.level === Level.Routine) {
     const parts = locate(model, where.id);
     const withWhere = parts.map((part, index) => ({ ...part, where: whereOf(model, where.id as number, index) }));
     return { parts: [root, ...withWhere], current: model.graph.symbols[where.id][1] };
@@ -371,7 +371,7 @@ function whereOf(model: Model, symbol: number, index: number): Where {
 /** The tree keys that open down to a place: only this branch is open. */
 export function opened(model: Model, where: Where): ReadonlySet<string> {
   if (where.id === null || where.level === Level.Map) return new Set();
-  if (where.level === Level.Function) return branch(model, where.id);
+  if (where.level === Level.Routine) return branch(model, where.id);
   if (where.level === Level.Module) return new Set(trailKeys(model, where.id));
   const keys = [componentKey(where.id)];
   where.pkg?.split(".").forEach((_, depth, all) => keys.push(`${componentKey(where.id as number)}/${all.slice(0, depth + 1).join("/")}`));

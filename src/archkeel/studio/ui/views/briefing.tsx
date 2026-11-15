@@ -194,7 +194,7 @@ function Stories(props: { model: Model; rows: readonly StoryRow[] | null }) {
                 <a href={viewHref(View.Stories, row.id)}>{row.title}</a>
                 <span class="more">
                   {counted(row.steps, "step")}
-                  {verdict === undefined ? "" : ` · ✓ ${verdict.proven} · ✎ ${verdict.claim} · ? ${verdict.unknown + verdict.missing}`} · {row.source}
+                  {verdict === undefined ? "" : ` · ✓ ${verdict.proven} · ✎ ${verdict.claim} · ? ${verdict.unknown + verdict.missing}`} · {row.origin}
                   {day(row.created)}
                 </span>
               </li>

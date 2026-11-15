@@ -1,4 +1,4 @@
-# AD-562: Inert door attributes keep the module import gap
+# AD-574: Inert door attributes keep the module import gap
 
 ## Status
 

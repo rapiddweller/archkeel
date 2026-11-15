@@ -45,11 +45,44 @@ pub(crate) fn needs_host(producer: &Producer) -> bool {
     producer.needs_host_here()
 }
 
+/// The places of the free names whose use is only read (AD-576).
+pub(crate) fn contained_reads(producer: &Producer) -> Vec<(i64, i64)> {
+    let nodes = producer.tree.nodes.iter();
+    nodes
+        .flat_map(|node| producer.contained_read(*node))
+        .collect()
+}
+
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     fn needs_host_here(&self) -> bool {
         let tree = self.tree;
         let commonjs = tree.nodes.iter().any(|node| commonjs(*node));
         !self.module_syntax || commonjs || tree.nodes.iter().any(|node| self.names_host(*node))
+    }
+
+    /// The places that a site of a contained use starts at: the free name, and each member after
+    /// it (a site of `globalThis.process` starts at the member, one of `a.b.c` at each name).
+    fn contained_read(&self, node: Node<'t>) -> Vec<(i64, i64)> {
+        let tree = self.tree;
+        let free = matches!(node.kind(), "identifier" | "shorthand_property_identifier")
+            && !tree.in_type(node)
+            && !tree.declaration_name(node)
+            && bound_scope(tree, node, &tree.text(node)).is_none();
+        if !(free && node.kind() == "identifier" && self.contained(node)) {
+            return Vec::new();
+        }
+        let place = |at: Node<'t>| (tree.span(at).line, tree.span(at).column);
+        let mut places = vec![place(node)];
+        let mut chain = node;
+        while let Some(parent) = tree.parent(chain) {
+            if tree.is_field_of_parent(chain, F::Object) {
+                places.extend(tree.field(parent, F::Property).map(place));
+            } else if parent.kind() != "parenthesized_expression" {
+                break;
+            }
+            chain = parent;
+        }
+        places
     }
 
     /// A free name that is no inert name and whose use is not contained.

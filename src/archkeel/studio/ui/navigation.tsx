@@ -133,7 +133,7 @@ const LEVEL_VIEW: Record<Level, View> = {
   [Level.Map]: View.Map,
   [Level.Component]: View.Component,
   [Level.Module]: View.Module,
-  [Level.Function]: View.Explore,
+  [Level.Routine]: View.Explore,
 };
 
 const whereHref = (where: Where): string =>
@@ -183,15 +183,18 @@ export function SearchBox(props: { model: Model; onPick: (symbol: number) => voi
     setText("");
     props.onPick(symbol);
   };
-  const arrows: Record<string, () => void> = {
-    ArrowDown: () => setLight(Math.min(found.length - 1, light + 1)),
-    ArrowUp: () => setLight(Math.max(0, light - 1)),
-    Enter: () => found[light] !== undefined && pick(found[light]),
-    Escape: () => {
-      setText("");
-      field.current?.blur();
-    },
-  };
+  const arrows = new Map<string, () => void>([
+    ["ArrowDown", () => setLight(Math.min(found.length - 1, light + 1))],
+    ["ArrowUp", () => setLight(Math.max(0, light - 1))],
+    ["Enter", () => found[light] !== undefined && pick(found[light])],
+    [
+      "Escape",
+      () => {
+        setText("");
+        field.current?.blur();
+      },
+    ],
+  ]);
   return (
     <div class="search">
       <input
@@ -208,7 +211,7 @@ export function SearchBox(props: { model: Model; onPick: (symbol: number) => voi
           setText(event.currentTarget.value);
           setLight(0);
         }}
-        onKeyDown={(event) => arrows[event.key]?.()}
+        onKeyDown={(event) => arrows.get(event.key)?.()}
       />
       <kbd>⌘K</kbd>
       {text.trim().length >= 2 ? (

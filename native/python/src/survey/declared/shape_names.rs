@@ -129,7 +129,12 @@ impl<'a> Names<'a> {
         }
         match self.bound.kind(name) {
             Some(
-                Kind::Callable | Kind::Value | Kind::BuiltinGeneric(_) | Kind::Call | Kind::Other,
+                Kind::Callable
+                | Kind::Value
+                | Kind::BuiltinGeneric(_)
+                | Kind::Call
+                | Kind::Derived
+                | Kind::Other,
             ) => Binding::Defined {
                 target: format!("{}.{name}", self.module),
             },

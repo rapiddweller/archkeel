@@ -18,12 +18,12 @@ import { Report } from "./views/report";
 import { Stories } from "./views/story";
 
 /** `planned` pages show in the nav, muted and not clickable. */
-const NAV: readonly { view: View; name: string; planned?: boolean }[] = [
-  { view: View.Overview, name: "Briefing" },
-  { view: View.Map, name: "Architecture" },
-  { view: View.Stories, name: "Stories" },
-  { view: View.Impact, name: "Impact", planned: true },
-  { view: View.Target, name: "Target / Diff", planned: true },
+const NAV: readonly { page: View; name: string; planned?: boolean }[] = [
+  { page: View.Overview, name: "Briefing" },
+  { page: View.Map, name: "Architecture" },
+  { page: View.Stories, name: "Stories" },
+  { page: View.Impact, name: "Impact", planned: true },
+  { page: View.Target, name: "Target / Diff", planned: true },
 ];
 const VIEWS = new Map<string, View>([...Object.values(View), View.Report].map((view) => [view, view]));
 /** The levels of the architecture, down to the lens, keep the Architecture item highlighted. */
@@ -42,7 +42,7 @@ const CONTRACT: Record<ContractState, string> = {
 
 interface Route {
   /** Null when the URL names no page: the shell then picks the Map, else Overview. */
-  readonly view: View | null;
+  readonly page: View | null;
   /** The function of `#/explore/<n>`, else null. */
   readonly symbol: number | null;
   /** The story of `#/stories/<id>`, else null. */
@@ -54,7 +54,7 @@ interface Route {
 function readRoute(): Route {
   const [, head, tail, last] = location.hash.split("/");
   return {
-    view: VIEWS.get(head) ?? null,
+    page: VIEWS.get(head) ?? null,
     symbol: tail !== undefined && /^\d+$/.test(tail) ? Number(tail) : null,
     story: tail !== undefined && /^[a-z0-9][a-z0-9-]*$/.test(tail) ? tail : null,
     pkg: last !== undefined && /^[A-Za-z0-9_.]+$/.test(last) ? last : null,
@@ -133,7 +133,7 @@ function placeOf(view: View, route: Route, model: Model | null): { crumbs: reado
         : view === View.Module && isIndex(route.symbol, model.graph.modules.length)
           ? { level: Level.Module, id: route.symbol, pkg: null }
           : view === View.Explore
-            ? { level: Level.Function, id: lensSymbol(model, route.symbol), pkg: null }
+            ? { level: Level.Routine, id: lensSymbol(model, route.symbol), pkg: null }
             : view === View.Map
               ? { level: Level.Map, id: null, pkg: null }
               : null;
@@ -159,7 +159,7 @@ function Shell() {
       ? SnapshotCompleteness.INCOMPLETE
       : SnapshotCompleteness.COMPLETE,
   );
-  const view = route.view ?? (state?.explore === ExploreState.DONE ? View.Map : View.Overview);
+  const view = route.page ?? (state?.explore === ExploreState.DONE ? View.Map : View.Overview);
   return (
     <>
       <aside>
@@ -170,11 +170,11 @@ function Shell() {
         <nav aria-label="Workspace">
           {NAV.map((item) =>
             item.planned ? (
-              <span key={item.view} class="planned" title="not built yet" aria-disabled="true">
+              <span key={item.page} class="planned" title="not built yet" aria-disabled="true">
                 {item.name} <small>Planned</small>
               </span>
             ) : (
-              <NavItem key={item.view} href={viewHref(item.view)} current={item.view === (NAV_OF[view] ?? view)}>
+              <NavItem key={item.page} href={viewHref(item.page)} current={item.page === (NAV_OF[view] ?? view)}>
                 {item.name}
               </NavItem>
             ),

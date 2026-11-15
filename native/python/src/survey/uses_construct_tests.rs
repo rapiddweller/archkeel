@@ -34,6 +34,11 @@ fn a_call_that_makes_an_instance_of_a_bare_class_is_no_module() {
         "from dataclasses import dataclass\n@dataclass\nclass K:\n    a: int = 0\nVALUE = K()\n",
         "from app.types import K\nVALUE = K(a=1)\n",
         "from app import types\nfrom app.types import K as Q\nVALUE = Q()\n",
+        "from pathlib import PurePosixPath\nVALUE = PurePosixPath('a/b')\n",
+        "from decimal import Decimal\nVALUE = Decimal('1.5')\n",
+        "from logging import getLogger\nVALUE = getLogger('a')\n",
+        "from collections import defaultdict\nVALUE = defaultdict(list)\n",
+        "from app.types import K\nfrom pathlib import Path as P\nVALUE = P('x')\n",
         "VALUE = frozenset({1, 2})\n",
         "VALUE = tuple([1, 2])\n",
         "VALUE = 100 * 1024 * 1024\n",
@@ -59,6 +64,11 @@ fn a_call_that_may_run_another_constructor_keeps_the_escape() {
         // A function can return a module.
         "def make():\n    return object()\nVALUE = make()\n",
         "from external import K\nVALUE = K()\n",
+        // A stdlib name that is no value class, a module import and a rebound name keep the escape.
+        "from importlib import import_module\nVALUE = import_module('os')\n",
+        "import pathlib\nVALUE = pathlib.PurePosixPath('a')\n",
+        "from pathlib import PurePosixPath\nPurePosixPath = other\nVALUE = PurePosixPath('a')\n",
+        "from pathlib import PurePosixPath as P\nfrom other import P\nVALUE = P('a')\n",
         // A rebound builtin is no builtin; a conditional class is no sole class.
         "frozenset = factory\nVALUE = frozenset({1})\n",
         "if flag:\n    class K:\n        pass\nVALUE = K()\n",
@@ -81,6 +91,23 @@ fn a_statement_that_patches_a_class_withholds_the_proof_of_each_instance() {
     ] {
         assert!(escaped(lib, &[("src/app/patch.py", patch)]), "{patch}");
     }
+    // A store to the name of a standard library value class withholds that proof too.
+    let stdlib = "from pathlib import PurePosixPath\nVALUE = PurePosixPath('a')\n";
+    assert!(!escaped(stdlib, &[]));
+    assert!(escaped(
+        stdlib,
+        &[(
+            "src/app/patch.py",
+            "import pathlib\npathlib.PurePosixPath = make\n"
+        )]
+    ));
+    assert!(escaped(
+        stdlib,
+        &[(
+            "src/app/patch.py",
+            "import sys\nsys.modules['pathlib'] = other\n"
+        )]
+    ));
     // `object.__setattr__` raises on a class and a method name is no patch of it.
     let harmless = "class C:\n    def go(self):\n        object.__setattr__(self, 'x', 1)\n        self.y = 2\n        print(self.__class__)\n";
     assert!(!escaped(lib, &[("src/app/other_user.py", harmless)]));
