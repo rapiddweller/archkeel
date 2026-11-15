@@ -102,6 +102,14 @@ def test_a_clean_dart_project_passes_each_import_rule(
     assert result["status"] == "UNKNOWN" and result["exit_code"] == 2
 
 
+def test_an_isolate_import_without_a_uri_loader_does_not_hold_import_rules(
+    release_core: Path, tmp_path: Path
+) -> None:
+    files = {**BASE, "lib/data/x.dart": "import 'dart:isolate';\nvoid f() { ReceivePort(); }\n"}
+    result = verdict(release_core, project(tmp_path, files))
+    assert rows(result) == decided(), result["frame"]["explained"]
+
+
 def test_a_forbidden_dart_import_fails_with_its_file(release_core: Path, tmp_path: Path) -> None:
     files = {**BASE, "lib/domain/model.dart": "import '../data/repo.dart';\nclass Model {}\n"}
     result = verdict(release_core, project(tmp_path, files))
@@ -155,7 +163,9 @@ GAPS: dict[str, dict[str, str]] = {
     "DartUnsupportedUri": {"lib/data/x.dart": "import 'http://x/a.dart';\n"},
     "DartUriNotLiteral": {"lib/data/x.dart": "import '$a.dart';\nconst a = 'b';\n"},
     "DartMirrors": {"lib/data/x.dart": "import 'dart:mirrors';\n"},
-    "DartIsolate": {"lib/data/x.dart": "import 'dart:isolate';\n"},
+    "DartIsolate": {
+        "lib/data/x.dart": "import 'dart:isolate';\nvoid f() { Isolate.spawnUri(uri, [], null); }\n"
+    },
     "DartPartUnowned": {"lib/data/p.dart": "part of 'repo.dart';\n"},
     "DartPartNotPart": {"lib/data/x.dart": "part 'y.dart';\n", "lib/data/y.dart": ""},
     "DartPartConflict": {
