@@ -28,6 +28,9 @@ pub(crate) struct Binders {
     opaque: bool,
     pub all_exports: HashSet<String>,
     pub all_literal: bool,
+    /// `__all__` is named but is not one literal list of strings: the module publishes names that
+    /// the survey cannot read (AD-504).
+    pub all_unread: bool,
     pub logic_free: bool,
 }
 
@@ -48,12 +51,14 @@ impl Binders {
                 direct.extend(import_bindings(statement));
             }
         }
+        let all_literal = !walk.all_imported && one_literal(&tree.body, walk.all_names);
         Self {
             counts: walk.counts,
             direct,
             opaque: walk.opaque,
             all_exports: literal_all_exports(&tree.body),
-            all_literal: !walk.all_imported && one_literal(&tree.body, walk.all_names),
+            all_literal,
+            all_unread: !all_literal && (walk.all_imported || walk.all_names > 0),
             logic_free: logic_free(&tree.body),
         }
     }
@@ -151,13 +156,7 @@ impl<'a> Visitor<'a> for Walk {
         visitor::walk_parameter(self, parameter);
     }
 
-    fn visit_except_handler(&mut self, handler: &'a ExceptHandler) {
-        bind_handler(self, handler);
-    }
-
-    fn visit_pattern(&mut self, pattern: &'a Pattern) {
-        bind_pattern(self, pattern);
-    }
+    bind_handler_and_pattern!();
 }
 
 impl<'a> Bind<'a> for Walk {
@@ -165,6 +164,21 @@ impl<'a> Bind<'a> for Walk {
         self.bind(name);
     }
 }
+
+/// The visitor methods that bind the name of an `except` handler and of a pattern. The walks of
+/// `binders.rs` and `bound.rs` share them.
+macro_rules! bind_handler_and_pattern {
+    () => {
+        fn visit_except_handler(&mut self, handler: &'a ExceptHandler) {
+            bind_handler(self, handler);
+        }
+
+        fn visit_pattern(&mut self, pattern: &'a Pattern) {
+            bind_pattern(self, pattern);
+        }
+    };
+}
+pub(super) use bind_handler_and_pattern;
 
 /// A visitor that counts the names that binders bind.
 pub(crate) trait Bind<'a>: Visitor<'a> {

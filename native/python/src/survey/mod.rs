@@ -29,6 +29,7 @@ use excluded::Excluded;
 use failures::{early, NOT_FOUND};
 
 pub(crate) mod binders;
+mod bound;
 mod excluded;
 mod failures;
 mod guard;
@@ -38,8 +39,10 @@ mod layout;
 mod literal;
 mod namespace;
 mod package_body;
+pub(crate) mod routes;
 mod stable;
 mod targets;
+mod uses;
 mod walks;
 
 pub(crate) struct Survey {
@@ -49,6 +52,13 @@ pub(crate) struct Survey {
     pub unknowns: Vec<Record<GapFact>>,
     pub coverage: Coverage,
     pub evidence: Vec<Evidence>,
+    /// The modules whose `__all__` the survey cannot read (`routes`).
+    pub opaque_surface: HashSet<String>,
+    /// The ids of the imports that are the one plain binder of their name (`bound.rs`).
+    pub sole_binders: HashSet<String>,
+    /// The ids of each `from pkg import name` where `pkg` binds `name` or can give it (AD-450):
+    /// the name may be the attribute or the submodule, so no route is written for it.
+    pub ambiguous: HashSet<String>,
     /// The digest of each file that the survey read, from the bytes that it parsed.
     pub parsed: Vec<Input>,
 }
@@ -105,8 +115,10 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .map(|module| Binders::of(&module.tree))
         .collect();
     let mut evidence = EvidenceMap::new();
-    let collected = imports::collect_all(modules, &binders, namespace, &mut evidence);
+    let (collected, written) = collect(modules, &binders, namespace, &mut evidence);
     let (mut imports, aliases) = (collected.records, collected.aliases);
+    let sole_binders = collected.sole;
+    let ambiguous = collected.ambiguous.clone();
     // AD-472: a proven literal import call is an import record; each other site is a gap.
     let (mut literals, mut hazards) = (Vec::new(), Vec::new());
     for (index, (module, binders)) in modules.iter().zip(&binders).enumerate() {
@@ -121,6 +133,14 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     let calls = imports::literal_records(modules, &binders, namespace, &mut evidence, &literals);
     imports.extend(calls);
     imports.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
+    let mut opaque_surface: HashSet<String> = modules
+        .iter()
+        .zip(&binders)
+        .filter(|(_, binders)| binders.all_unread)
+        .map(|(module, _)| module.name.clone())
+        .collect();
+    opaque_surface.extend(written);
+    opaque_surface.extend(uses::escaped(modules, &imports));
     let files: Vec<FileFact> = modules
         .iter()
         .zip(&binders)
@@ -167,12 +187,31 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         unknowns,
         coverage,
         evidence: evidence.into_values().collect(),
+        opaque_surface,
+        sole_binders,
+        ambiguous,
         parsed: snapshot
             .inputs()
             .into_iter()
             .filter(|input| selected.contains(input.path.as_str()))
             .collect(),
     })
+}
+
+/// The import records, after a first pass that names the modules that another module may change
+/// (`uses.rs`, AD-504): such a module may bind a name of its own to a package attribute that hides
+/// a submodule, so the second pass reads the written modules.
+fn collect(
+    modules: &[Module],
+    binders: &[Binders],
+    namespace: &str,
+    evidence: &mut EvidenceMap,
+) -> (imports::Collected, HashSet<String>) {
+    let scratch = &mut EvidenceMap::new();
+    let first = imports::collect_all(modules, binders, namespace, scratch, &HashSet::new());
+    let written = uses::escaped(modules, &first.records);
+    let collected = imports::collect_all(modules, binders, namespace, evidence, &written);
+    (collected, written)
 }
 
 struct Parsed {
