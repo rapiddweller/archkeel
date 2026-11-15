@@ -52,7 +52,7 @@ pub(crate) fn of_run(ruling: &Ruling, reply: Option<&Ingested>) -> Gaps {
         gaps.unacceptable.push(format!("the whole contract: {text}"));
     }
     for (rule, reason) in ruling.causes() {
-        for entry in reason.stable() {
+        for entry in archkeel_model::stable(reason) {
             let key = Key {
                 kind: entry.kind,
                 subject: entry.subject.unwrap_or_else(|| rule.clone()),

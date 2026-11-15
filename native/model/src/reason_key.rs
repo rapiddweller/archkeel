@@ -50,44 +50,42 @@ impl Stable {
     }
 }
 
-impl Reason {
-    /// The `GapKind` word of the gap that this reason makes in the frame (AD-546). The shell
-    /// reads the word and does not infer it from the text. A part that has no word of its own in
-    /// the shell is `other`, as it was when the shell read the text.
-    pub fn gap_kind(&self) -> &'static str {
-        match self {
-            Reason::Unsupported(part) => unsupported_kind(part),
-            Reason::MissingInput(_) => "reply_refused",
-            Reason::Hygiene(found) => found.code(),
-            Reason::TooManyRows(_)
-            | Reason::Interface(_)
-            | Reason::Incomplete(_)
-            | Reason::NoSubjects
-            | Reason::UncitedChild(_)
-            | Reason::Refused(_)
-            | Reason::NotComplete(_)
-            | Reason::Uml(_) => "other",
-        }
+/// The `GapKind` word of the gap that a reason makes in the frame (AD-546). The shell reads the
+/// word and does not infer it from the text. A part that has no word of its own in the shell is
+/// `other`, as it was when the shell read the text.
+pub fn gap_kind(reason: &Reason) -> &'static str {
+    match reason {
+        Reason::Unsupported(part) => unsupported_kind(part),
+        Reason::MissingInput(_) => "reply_refused",
+        Reason::Hygiene(found) => found.code(),
+        Reason::TooManyRows(_)
+        | Reason::Interface(_)
+        | Reason::Incomplete(_)
+        | Reason::NoSubjects
+        | Reason::UncitedChild(_)
+        | Reason::Refused(_)
+        | Reason::NotComplete(_)
+        | Reason::Uml(_) => "other",
     }
+}
 
-    /// The entries of the stable key of this reason: one for most reasons, one for each pair of a
-    /// pair gap, and one for each part of a hygiene row.
-    pub fn stable(&self) -> Vec<Stable> {
-        match self {
-            Reason::Unsupported(part) => vec![unsupported(part)],
-            Reason::TooManyRows(table) => vec![Stable::of("too_many_rows", *table)],
-            Reason::MissingInput(input) => vec![Stable::of("reply_refused", input_code(*input))],
-            Reason::Incomplete(found) => vec![incomplete(found)],
-            Reason::NoSubjects => vec![Stable::of("no_receipt", "no_subjects")],
-            Reason::UncitedChild(child) => {
-                vec![Stable::of("no_receipt", format!("uncited_child: {child}"))]
-            }
-            Reason::Refused(refusal) => vec![Stable::of("refused_settings", refusal_code(refusal))],
-            Reason::NotComplete(cause) => cause_entries(cause),
-            Reason::Interface(gap) => vec![Stable::of("interface_gap", gap.to_string())],
-            Reason::Hygiene(found) => hygiene(found),
-            Reason::Uml(gap) => vec![Stable::of("uml_target", uml_code(gap))],
+/// The entries of the stable key of a reason: one for most reasons, one for each pair of a pair
+/// gap, and one for each part of a hygiene row.
+pub fn stable(reason: &Reason) -> Vec<Stable> {
+    match reason {
+        Reason::Unsupported(part) => vec![unsupported(part)],
+        Reason::TooManyRows(table) => vec![Stable::of("too_many_rows", *table)],
+        Reason::MissingInput(input) => vec![Stable::of("reply_refused", input_code(*input))],
+        Reason::Incomplete(found) => vec![incomplete(found)],
+        Reason::NoSubjects => vec![Stable::of("no_receipt", "no_subjects")],
+        Reason::UncitedChild(child) => {
+            vec![Stable::of("no_receipt", format!("uncited_child: {child}"))]
         }
+        Reason::Refused(refusal) => vec![Stable::of("refused_settings", refusal_code(refusal))],
+        Reason::NotComplete(cause) => cause_entries(cause),
+        Reason::Interface(gap) => vec![Stable::of("interface_gap", gap.to_string())],
+        Reason::Hygiene(found) => hygiene(found),
+        Reason::Uml(gap) => vec![Stable::of("uml_target", uml_code(gap))],
     }
 }
 

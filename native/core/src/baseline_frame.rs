@@ -17,7 +17,7 @@ use archkeel_contract::policy::{
     ValidationBaseline,
 };
 use archkeel_contract::BudgetName;
-use archkeel_model::{Graph, Reason};
+use archkeel_model::Graph;
 use archkeel_report::{RuleReasons, Ruling, Status};
 use archkeel_store::Ingested;
 use serde::Serialize;
@@ -63,7 +63,7 @@ pub(crate) fn gap_rows(ruling: &Ruling) -> Vec<GapRow> {
         RuleReasons::Each(rules) => rules
             .iter()
             .map(|(rule, text)| GapRow {
-                kind: ruling.causes().get(rule).map_or("other", Reason::gap_kind),
+                kind: ruling.causes().get(rule).map_or("other", archkeel_model::gap_kind),
                 subject: rule.clone(),
                 reason: text.clone(),
             })

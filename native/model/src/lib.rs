@@ -71,7 +71,7 @@ pub use needs::{Need, Needs};
 mod ownership;
 mod reason;
 mod reason_key;
-pub use reason_key::Stable;
+pub use reason_key::{gap_kind, stable, Stable};
 mod scope;
 mod section;
 mod settings;

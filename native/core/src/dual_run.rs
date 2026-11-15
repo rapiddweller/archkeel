@@ -31,6 +31,9 @@ mod frame_parts;
 pub(crate) use frame_parts::{refused_scan, Answered, CODE_DIGEST};
 use frame_parts::{ContractCheck, Parts, ReplyCheck, SelfTest, UnsupportedParts, ENGINE};
 
+/// The `GapKind` word of the reason that holds a reply that the core cannot verify (AD-546).
+const PRODUCER_NOT_VERIFIED_KIND: &str = "producer_not_verified";
+
 /// Version 2 adds the settings of the shell: `namespace` and `standard_library` (AD-372).
 /// Version 3 adds `insides`: the inside contracts that the shell read (AD-379).
 /// Version 4 adds `roots`: the scan roots of the configuration (AD-384).
@@ -288,7 +291,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
     if named.contract.is_none() {
         let held = trust
             .gap
-            .map(|gap| (crate::scan::PRODUCER_NOT_VERIFIED_KIND, gap))
+            .map(|gap| (PRODUCER_NOT_VERIFIED_KIND, gap))
             .or(base.map(|base| ("base", base)))
             .or(hygiene.refusal);
         if let Some((kind, text)) = held {

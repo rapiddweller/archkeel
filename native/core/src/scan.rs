@@ -33,8 +33,6 @@ use crate::dual_run::{self, Answered, ReplyInput, Run, Trust, TrustOf, CODE_DIGE
 
 /// The first words of the reason of a reply that the core cannot verify. The shell counts it.
 pub(crate) const PRODUCER_NOT_VERIFIED: &str = "producer not verified";
-/// The `GapKind` word of that reason.
-pub(crate) const PRODUCER_NOT_VERIFIED_KIND: &str = "producer_not_verified";
 
 /// The protocol of the scan request.
 const PROTOCOL: &str = "archkeel-core-scan-1";

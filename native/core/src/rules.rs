@@ -92,7 +92,7 @@ pub(crate) fn named(
         let missing = Reason::MissingInput(archkeel_model::Input::Contract);
         return Named {
             contract: Some(missing.to_string()),
-            contract_kind: Some(missing.gap_kind()),
+            contract_kind: Some(archkeel_model::gap_kind(&missing)),
             ..Named::default()
         };
     };
