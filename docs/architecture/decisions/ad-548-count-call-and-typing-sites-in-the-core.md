@@ -21,13 +21,15 @@ can withhold a proof that a more precise scope could make; it cannot add a targe
 
 The typing count includes a missing parameter or return annotation of a public definition, a
 position whose written annotation contains `object` or `Any`, and a dynamic typing call. Names
-starting with an underscore are not public. A method receiver named `self` or `cls` is not a
-parameter position. A written call to `getattr`, `eval`, or `exec` counts even if a binding may
+starting with an underscore are not public. The first parameter of an undecorated method named
+`self` or `cls` is not a position. A decorated method has no proven receiver. A written call to
+`getattr`, `eval`, or `exec` counts even if a binding may
 hide the builtin. A written `cast` call counts when a plain `typing` import names it. These
 conservative counts can include a site that a more precise scope would exclude.
 
-The private count includes a read of an underscore attribute except a method receiver or a
-uniquely bound module import. Other profiles have no rows and no measure. A measure is a count,
+The private count includes a read of an underscore attribute, including an augmented assignment.
+It excludes a method receiver or a uniquely bound module import. Other profiles have no rows and
+no measure. A measure is a count,
 not a claim that the source is complete in any other respect.
 
 ## Reason and limits
