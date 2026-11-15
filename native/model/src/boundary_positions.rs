@@ -19,7 +19,7 @@ use archkeel_facts::type_shape::TypeShape;
 use archkeel_facts::vocab::MethodKind;
 
 use crate::boundary_facts::{Callable, Class, Entry, Origin};
-use crate::boundary_judge::{judge, GapCause, Leaf, Surface};
+use crate::boundary_judge::{judge, GapCause, GapRow, Leaf, Surface};
 use crate::boundary_surface::{declared, entries, names, PublicEntry};
 use crate::model::Model;
 use crate::reason::{Hygiene, Reason, Unsupported};
@@ -36,21 +36,6 @@ pub struct Position {
     pub text: String,
     pub leaves: Vec<Leaf>,
     pub evidence: Vec<String>,
-}
-
-/// One named gap: a position or an entry that syntax does not decide.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct GapRow {
-    pub subject: String,
-    pub cause: GapCause,
-    pub text: String,
-}
-
-impl GapRow {
-    /// The reason of the row: the cause and the written text.
-    pub fn reason(&self) -> String {
-        format!("{}: {}", self.cause.as_str(), self.text)
-    }
 }
 
 /// An exception of the contract that matches no position of the surface.
