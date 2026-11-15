@@ -155,7 +155,7 @@ fn factory_writes(
         .copied()
         .filter(|node| is_write(cx.k(*node)))
         .collect();
-    tree.bind_names(&bindings, &[], false);
+    Tree::bind_names(&mut tree, &bindings, &[], false);
     let declared = declared_names(&tree, bindings.iter().chain(writes.iter()).copied())?;
     let scopes = Scopes::default();
     let producer = Producer::new(&tree, &[], &scopes, false, templates);
@@ -179,7 +179,8 @@ fn declared_names<'t>(
     let mut declared: Declared = HashMap::new();
     for node in nodes {
         let name = tree.field(node, F::Name);
-        if name.is_some_and(|name| !tree.cx.valid_unicode_member_name(name)) {
+        if name.is_some_and(|name| !crate::tree::cx::Cx::valid_unicode_member_name(&tree.cx, name))
+        {
             return None;
         }
         let binds = matches!(

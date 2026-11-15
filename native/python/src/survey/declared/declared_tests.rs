@@ -123,15 +123,31 @@ fn an_attribute_write_with_another_base_than_self_writes_no_member() {
 }
 
 #[test]
-fn a_text_that_the_reader_does_not_write_gives_no_record_of_its_declaration() {
+fn a_text_that_the_reader_does_not_write_leaves_the_signature_unread_not_the_module() {
     let found = declared(
         concat!(
-            "def f(a: list[int]) -> int:\n    pass\n\n\ndef g(a: int = 1) -> None:\n    pass\n\n\n",
+            "def f(a: list[int]) -> int:\n    pass\n\n\ndef g(a: int = None) -> None:\n    pass\n\n\n",
             "def h(a: int = None, b: 'x.y' = True) -> a.b:\n    pass\n"
         ),
         11,
     );
-    assert_eq!(names(&found), Vec::<String>::new());
+    assert_eq!(names(&found), ["app.probe.f", "app.probe.g", "app.probe.h"]);
+    let mut complete: Vec<(String, Option<bool>)> = found
+        .iter()
+        .filter_map(|record| match &record.data {
+            SymbolFact::Function(data) => Some((data.name.clone(), data.signature_complete)),
+            _ => None,
+        })
+        .collect();
+    complete.sort();
+    assert_eq!(
+        complete,
+        [
+            ("f".to_owned(), Some(false)),
+            ("g".to_owned(), Some(true)),
+            ("h".to_owned(), Some(false))
+        ]
+    );
     let plain = declared(
         "def h(a: int = None, b: x.y = True) -> a.b:\n    pass\n",
         11,

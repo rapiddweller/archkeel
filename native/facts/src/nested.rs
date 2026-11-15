@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ids::{EvidenceId, FactId, ModuleName};
 use crate::nullable::Nullable;
+use crate::type_shape::TypeShape;
 use crate::vocab::{InventoryStatus, MemberKind, RelationshipKind, Status};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -172,6 +173,9 @@ pub struct Parameter {
     pub default_known: bool,
     pub kind: String,
     pub name: String,
+    /// The written type as a tree (AD-550). Absent when the collector does not write shapes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shape: Option<TypeShape>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

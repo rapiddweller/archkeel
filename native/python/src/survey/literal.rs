@@ -66,6 +66,13 @@ impl Proof {
     }
 }
 
+/// The number of plain `import importlib` statements of a module.
+pub(super) fn plain_importlib(tree: &ModModule) -> usize {
+    let mut walk = Walk::default();
+    walk.visit_body(&tree.body);
+    walk.plain
+}
+
 /// The plain `import importlib` statements and the calls that read or write a namespace.
 #[derive(Default)]
 struct Walk {

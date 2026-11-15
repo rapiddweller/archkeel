@@ -366,8 +366,8 @@
  ],
  "number-default": [
   "PASS",
-  "UNKNOWN",
-  "absent symbol: the symbol inventory is not complete"
+  "PASS",
+  ""
  ],
  "other-module-del": [
   "PASS",
@@ -481,8 +481,8 @@
  ],
  "subscript-annotation": [
   "PASS",
-  "UNKNOWN",
-  "absent symbol: the symbol inventory is not complete"
+  "PASS",
+  ""
  ],
  "try-except": [
   "UNKNOWN",

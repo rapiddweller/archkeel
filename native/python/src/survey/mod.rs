@@ -38,6 +38,7 @@ mod guard;
 mod hazards;
 mod imports;
 mod layout;
+mod lazy;
 mod literal;
 mod namespace;
 mod package_body;
@@ -48,6 +49,7 @@ mod syspath;
 mod targets;
 mod typing_count;
 mod uses;
+mod uses_scan;
 mod walks;
 
 pub(crate) struct Survey {
@@ -134,7 +136,11 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     let (mut imports, aliases) = (collected.records, collected.aliases);
     let (sole_binders, ambiguous) = (collected.sole, collected.ambiguous.clone());
     // AD-472: a proven literal import call is an import record; each other site is a gap.
-    let (literals, hazards) = hazards::split(modules, &binders);
+    let (literals, hazards) = hazards::split(
+        modules,
+        &binders,
+        Some(&lazy::find(modules, &binders, namespace)),
+    );
     let calls = imports::literal_records(modules, &binders, namespace, &mut evidence, &literals);
     imports.extend(calls);
     imports.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
@@ -271,6 +277,7 @@ fn declarations(
         }
     }
     let context = declared::Context::collect(&found, imports, sets);
+    declared::attach_shapes(&mut found, (modules, binders), imports, sets);
     let (mut calls, mut references, mut dead_sites) = (Vec::new(), Vec::new(), HashSet::new());
     for item in &found {
         let (more, other, dead) = declared::site_records(

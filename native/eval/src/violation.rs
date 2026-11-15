@@ -90,6 +90,8 @@ pub enum Violation {
     Cycle(Box<Cyclic>),
     /// A forbidden construct, with the original observation's identity and evidence.
     Construct(Box<ConstructViolation>),
+    /// `boundary_types`: a written type of a public position that breaks the rule (AD-550).
+    BoundaryType(Box<BoundaryViolation>),
     /// An import outside the target component's public interface.
     PrivateImport {
         id: String,
@@ -99,6 +101,22 @@ pub enum Violation {
         source_component: String,
         target_component: String,
     },
+}
+
+/// The record of one position that breaks `boundary_types` (AD-550).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BoundaryViolation {
+    pub id: String,
+    pub rule: String,
+    /// `<facade name>:<position>`.
+    pub subject: String,
+    pub qualified_name: String,
+    pub position: String,
+    /// The written type.
+    pub text: String,
+    /// One reason for each leaf that breaks the rule.
+    pub reasons: Vec<String>,
+    pub evidence: Vec<String>,
 }
 
 /// The row data of a forbidden construct, without a verdict or a scope claim.
@@ -295,6 +313,25 @@ impl Violation {
     }
 
     /// The id of the violation record.
+    pub(crate) fn boundary(rule: &str, position: &archkeel_model::Position) -> Self {
+        let id = stable_id("VIO", &[Part::Text(rule), Part::Text(&position.subject)]);
+        let reasons = position
+            .leaves
+            .iter()
+            .map(|leaf| format!("{} is {}", leaf.text, leaf.why))
+            .collect();
+        Violation::BoundaryType(Box::new(BoundaryViolation {
+            id,
+            rule: rule.to_owned(),
+            subject: position.subject.clone(),
+            qualified_name: position.qualified_name.clone(),
+            position: position.position.clone(),
+            text: position.text.clone(),
+            reasons,
+            evidence: position.evidence.clone(),
+        }))
+    }
+
     pub fn id(&self) -> &str {
         self.head()[0]
     }
@@ -318,6 +355,7 @@ impl Violation {
             Violation::OuterLayer(layered) => [&layered.id, &layered.rule],
             Violation::Cycle(cyclic) => [&cyclic.id, &cyclic.rule],
             Violation::Construct(row) => [&row.id, &row.rule],
+            Violation::BoundaryType(row) => [&row.id, &row.rule],
         }
     }
 }

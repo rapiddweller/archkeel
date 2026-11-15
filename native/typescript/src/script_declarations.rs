@@ -14,7 +14,7 @@ use crate::script_names::bound_scope;
 use crate::script_scope::is_root;
 use crate::script_syntax::{unique, Producer};
 use crate::script_tree::Tree;
-use crate::script_types::{Blocker, Member, Write};
+use crate::script_types::{Member, Write};
 use crate::script_window::Written;
 use crate::source::Span;
 
@@ -28,7 +28,7 @@ pub(crate) struct Declarations {
     pub checked: Vec<Write>,
     /// Some node writes an unknown name through an amplifier form (AD-540).
     pub amplified: bool,
-    pub blockers: Vec<Blocker>,
+    pub blockers: Vec<crate::script_types::Blocker>,
     /// An empty path that no blocker names.
     pub unlabelled_empty: bool,
 }
@@ -45,7 +45,7 @@ struct Gathered<'t> {
     checked: Vec<Write>,
     /// A node of an amplifier form wrote an unknown name (AD-540).
     amplified: bool,
-    blockers: Vec<Blocker>,
+    blockers: Vec<crate::script_types::Blocker>,
     /// The empty paths that a blocker names.
     labelled_empty: usize,
 }

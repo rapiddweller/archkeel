@@ -31,7 +31,6 @@ use crate::observed::Observed;
 /// The rule kinds that no store-accepted profile decides (`unsupported_rules`).
 const UNDECIDED_KINDS: &[RuleKind] = &[
     RuleKind::SymbolPlacement,
-    RuleKind::BoundaryTypes,
     RuleKind::CallOwner,
     RuleKind::BoundedNumericOperand,
     RuleKind::ProtocolDeclarations,
@@ -150,6 +149,8 @@ enum Reads {
     /// The module interface: the `public` entries of each component and the verdicts of each
     /// `target_symbol` rule (`interface::assess`, `interface::interface_crossings`).
     Interface,
+    /// The shapes of the written signature types (`boundary_types`, AD-550).
+    Shapes,
     /// Only the module-level import edges.
     Edges,
 }
@@ -169,9 +170,9 @@ fn reads(rule: &Rule) -> Reads {
         | Rule::ForbiddenEffectUnderCondition(_)
         | Rule::SourceOwnership(_)
         | Rule::SymbolPlacement(_)
-        | Rule::BoundaryTypes(_)
         | Rule::BoundedNumericOperand(_)
         | Rule::ProtocolDeclarations(_) => Reads::Undecided,
+        Rule::BoundaryTypes(_) => Reads::Shapes,
         Rule::ForbiddenDependency(_)
         | Rule::AllowedDependency(_)
         | Rule::ExternalDependencyScope(_)
@@ -210,8 +211,10 @@ fn rule_limits(rule: &Rule, observed: &Observed, found: &mut Vec<Limit>) {
         }
         (Reads::OwnSymbol, _) => found.extend(symbol_limit(observed, id)),
         (Reads::Undecided, _) => found.push(Limit::Certain(id.to_owned())),
+        // AD-550: a profile whose collector writes no shape cannot read the types.
+        (Reads::Shapes, _) if !observed.type_shapes => found.push(Limit::Certain(id.to_owned())),
         // No store-accepted profile limits these kinds (`profile_failures`).
-        (Reads::Constructs | Reads::Ports | Reads::Edges, _) => {}
+        (Reads::Constructs | Reads::Ports | Reads::Edges | Reads::Shapes, _) => {}
     }
 }
 
@@ -260,7 +263,7 @@ pub(crate) fn symbol_reader(contract: &Contract, rule: &Rule) -> Option<String> 
         Reads::OwnSymbol => Some(archkeel_contract::head_of(rule).id().as_text().to_owned()),
         Reads::Ports => ports().next(),
         Reads::Interface => publics().chain(selectors()).next(),
-        Reads::Undecided | Reads::Constructs | Reads::Edges => None,
+        Reads::Undecided | Reads::Constructs | Reads::Edges | Reads::Shapes => None,
     }
 }
 

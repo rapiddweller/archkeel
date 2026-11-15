@@ -16,6 +16,8 @@ use std::collections::BTreeSet;
 pub enum Need {
     /// The root contract has a UML target that the core compares (AD-494).
     UmlTarget,
+    /// The contract has a `boundary_types` rule: the core reads the signature shapes (AD-550).
+    BoundaryTypes,
 }
 
 impl Need {
@@ -23,6 +25,7 @@ impl Need {
     fn symbols(self) -> bool {
         match self {
             Need::UmlTarget => true,
+            Need::BoundaryTypes => false,
         }
     }
 }
@@ -40,5 +43,10 @@ impl Needs {
     /// True when a need of the run reads the symbol facts.
     pub fn symbols(&self) -> bool {
         self.0.iter().any(|need| need.symbols())
+    }
+
+    /// True when the run reads the shapes of the written signature types (AD-550).
+    pub fn boundary(&self) -> bool {
+        self.0.contains(&Need::BoundaryTypes)
     }
 }

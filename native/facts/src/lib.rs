@@ -47,6 +47,7 @@ pub mod request;
 pub mod schema;
 pub mod sections;
 mod skip;
+pub mod type_shape;
 pub mod vocab;
 
 pub use record::{FactData, Record};

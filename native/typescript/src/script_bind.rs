@@ -63,7 +63,7 @@ impl<'a, 't> Tree<'a, 't> {
             let plain = matches!(
                 self.k(target),
                 K::Identifier | K::TypeIdentifier | K::ShorthandPropertyIdentifierPattern
-            ) && self.cx.valid_unicode_member_name(target);
+            ) && crate::tree::cx::Cx::valid_unicode_member_name(&self.cx, target);
             if !plain {
                 self.ambiguous.insert(scope.id());
                 continue;

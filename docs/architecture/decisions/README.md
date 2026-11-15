@@ -7,10 +7,17 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-566 | [A call of a bare class or a builtin value type is no module](ad-566-a-call-of-a-bare-class-or-a-builtin-value-type-is-no-module.md) |
+| AD-562 | [Inert door attributes keep the module import gap](ad-562-inert-door-attributes-keep-the-module-import-gap.md) |
+| AD-562 | [Dart names loader tokens and relative package roots](ad-562-dart-names-loader-tokens-and-relative-package-roots.md) |
+| AD-560 | [A gap states its effect and holds only the rules that read it](ad-560-a-gap-states-its-effect-and-holds-only-the-rules-that-read-it.md) |
+| AD-560 | [A lazy import table bounds the import calls of a module `__getattr__`](ad-560-a-lazy-import-table-bounds-the-import-calls-of-a-module-getattr.md) |
+| AD-558 | [A lazy import table bounds the import calls of a module `__getattr__`](ad-558-a-lazy-import-table-bounds-the-import-calls-of-a-module-getattr.md) |
+| AD-558 | [An import counts as a use when every boundary up to the root publishes it](ad-558-an-import-counts-as-a-use-when-every-boundary-up-to-the-root-publishes-it.md) |
 | AD-556 | [Cross-crate Rust types need public bindings](ad-556-cross-crate-rust-types-need-public-bindings.md) |
 | AD-554 | [Prove two written field steps in a Rust receiver](ad-554-prove-two-written-field-steps-in-a-rust-receiver.md) |
 | AD-552 | [A literal binding is not a module object](ad-552-a-literal-binding-is-not-a-module-object.md) |
-| AD-550 | [Dart names loader tokens and relative package roots](ad-550-dart-names-loader-tokens-and-relative-package-roots.md) |
+| AD-550 | [The Python collector writes the shape of each written signature type](ad-550-the-python-collector-writes-the-shape-of-each-written-signature-type.md) |
 | AD-548 | [Count call and typing sites in the core](ad-548-count-call-and-typing-sites-in-the-core.md) |
 | AD-544 | [A Rust receiver type can follow workspace re-exports](ad-544-a-rust-receiver-type-can-follow-workspace-reexports.md) |
 | AD-543 | [A written local type proves a Rust receiver](ad-543-a-written-local-type-proves-a-rust-receiver.md) |

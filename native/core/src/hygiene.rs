@@ -26,6 +26,7 @@ use archkeel_contract::{Contract, Rule};
 use archkeel_model::{in_scope, Graph, Hygiene, ModelTree, Reason, Unsupported};
 
 use crate::contract::Usable;
+use crate::hygiene_boundary;
 use crate::hygiene_graph::{self, Pair};
 use crate::hygiene_interface;
 use crate::hygiene_pairs;
@@ -143,6 +144,16 @@ pub(crate) fn check(
                 models.as_ref().ok().copied(),
                 (inside, index),
             );
+        }
+        if has(|rule| matches!(rule, Rule::BoundaryTypes(_))) {
+            // AD-550: a run without models has no rule to hold back, and no row.
+            let tree = models.as_ref().ok().copied();
+            for finding in tree
+                .into_iter()
+                .flat_map(|tree| hygiene_boundary::findings(tree, index))
+            {
+                found.defect(place, finding);
+            }
         }
         if place != path && has(|rule| matches!(rule, Rule::AllowedDependency(_))) {
             found.gap(place, "inside", INSIDE);

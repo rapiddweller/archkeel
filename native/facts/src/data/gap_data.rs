@@ -5,6 +5,7 @@
 //! The data of a gap of the coverage or of the `unknowns` section. It has a file of its own, with
 //! no macro call at module level, so the scan of the Rust collector places the type.
 
+use crate::data::gap_effect::GapEffect;
 use crate::ids::ModuleName;
 use crate::reason::ReasonCode;
 use crate::vocab::ResolutionDimension;
@@ -41,4 +42,8 @@ pub struct GapData {
     pub source_module: Option<ModuleName>,
     #[serde(default, skip_serializing_if = "crate::skip::omitted")]
     pub under_type_checking: Option<bool>,
+    /// The facts that the gap leaves unknown (AD-560). A gap without an effect leaves the whole
+    /// scope unknown.
+    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
+    pub effect: Option<GapEffect>,
 }
