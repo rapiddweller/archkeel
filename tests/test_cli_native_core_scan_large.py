@@ -94,6 +94,9 @@ def unguarded_frame(built: Path, core: Path, frame: dict) -> dict:
     }
     stdout, _ = native_scan.exchange(str(core), "check", json.dumps(payload).encode())
     plain = json.loads(stdout)
+    # The harness core says so in its engine; the code digest is the one of the release core.
+    assert plain["engine"] == frame["engine"] + "+harness"
+    plain["engine"] = frame["engine"]
     # AD-466: a check request reads no provenance document. It names that gap and never passes.
     hygiene = plain["unsupported"]["rules"].pop("hygiene:request")
     assert hygiene.startswith("unsupported: the contract hygiene of the request"), hygiene
