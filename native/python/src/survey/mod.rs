@@ -137,12 +137,11 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .collect();
     opaque_surface.extend(writes::written(modules, &imports));
     let hazardous: HashSet<usize> = hazards.iter().map(|(index, _)| *index).collect();
-    let sets = (&sole_binders, &ambiguous);
     let symbols = declarations(
         modules,
         &binders,
         &imports,
-        sets,
+        (&sole_binders, &ambiguous),
         &mut evidence,
         |index, module| !hazardous.contains(&index) && !opaque_surface.contains(&module.name),
     );
