@@ -73,8 +73,8 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             let plain = matches!(
                 tree.k(local),
                 K::Identifier | K::ShorthandPropertyIdentifierPattern
-            ) && tree.cx.valid_unicode_member_name(key)
-                && tree.cx.valid_unicode_member_name(local);
+            ) && crate::tree::cx::Cx::valid_unicode_member_name(&tree.cx, key)
+                && crate::tree::cx::Cx::valid_unicode_member_name(&tree.cx, local);
             let spelling = tree.text(local);
             let bound = bound_scope(tree, node, &spelling)
                 .is_some_and(|scope| tree.binding_count(scope, &spelling) == 1);

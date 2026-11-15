@@ -183,7 +183,7 @@ impl<'a, 't> Tree<'a, 't> {
         if matches!(
             kind,
             K::Identifier | K::PropertyIdentifier | K::ShorthandPropertyIdentifier
-        ) && !self.cx.valid_unicode_member_name(node)
+        ) && !crate::tree::cx::Cx::valid_unicode_member_name(&self.cx, node)
         {
             found.push(self.span(node));
         }
