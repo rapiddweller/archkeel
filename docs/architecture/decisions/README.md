@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-534 | [A local enum, a value namespace and `arguments` are bindings in TypeScript](ad-534-a-local-enum-a-value-namespace-and-arguments-are-bindings-in-typescript.md) |
 | AD-528 | [A leading `types` directive is a type-only edge to its package, or a named gap](ad-528-a-leading-types-directive-is-a-type-only-edge-to-its-package.md) |
 | AD-524 | [A call on a typed parameter is an edge in Rust](ad-524-a-call-on-a-typed-parameter-is-an-edge-in-rust.md) |
 | AD-522 | [ArchKeel shows one system verdict, built from its parts (interim)](ad-522-archkeel-shows-one-system-verdict-built-from-its-two-self-runs.md) |
