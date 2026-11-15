@@ -152,7 +152,7 @@ fn inert(statement: &Stmt) -> bool {
 
 /// `NAME = constant`: a member (not a descriptor, not a private or special name).
 fn enum_literal(assign: &ruff_python_ast::StmtAssign, names: &[&str]) -> bool {
-    names.len() == 1 && !names[0].starts_with('_') && constant(&assign.value)
+    names.len() == 1 && !names[0].starts_with('_') && names[0] != "mro" && constant(&assign.value)
 }
 
 fn constant(value: &Expr) -> bool {

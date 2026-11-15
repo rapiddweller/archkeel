@@ -136,9 +136,13 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     opaque_surface.extend(written);
     opaque_surface.extend(uses::escaped(modules, &imports));
     let hazardous: HashSet<usize> = hazards.iter().map(|(index, _)| *index).collect();
-    let symbols = declarations(modules, &binders, &mut evidence, |index, module| {
-        !hazardous.contains(&index) && !opaque_surface.contains(&module.name)
-    });
+    let symbols = declarations(
+        modules,
+        &binders,
+        &imports,
+        &mut evidence,
+        |index, module| !hazardous.contains(&index) && !opaque_surface.contains(&module.name),
+    );
     let files: Vec<FileFact> = modules
         .iter()
         .zip(&binders)
@@ -202,13 +206,16 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
 fn declarations(
     modules: &[Module],
     binders: &[Binders],
+    imports: &[Record<ImportFact>],
     evidence: &mut EvidenceMap,
     admitted: impl Fn(usize, &Module) -> bool,
 ) -> Vec<Record<SymbolFact>> {
     let mut found = Vec::new();
+    let mut escapes = declared::scan_escapes(modules, binders, imports).into_iter();
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
+        let own = escapes.next().unwrap_or_default();
         if admitted(index, module) {
-            found.extend(declared::records(module, binders, evidence));
+            found.extend(declared::records(module, binders, own, evidence));
         }
     }
     found

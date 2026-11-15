@@ -35,6 +35,8 @@ mod kind;
 mod members;
 mod reader;
 
+pub(in crate::survey) use escapes::{all as scan_escapes, Escapes};
+
 /// Why a member list is never complete: a base, a metaclass, a decorator and a write after the
 /// class body can add a member that the body does not show.
 const PARTIAL: &str =
@@ -44,9 +46,9 @@ const PARTIAL: &str =
 pub(crate) fn records(
     module: &Module,
     binders: &Binders,
+    escapes: Escapes,
     evidence: &mut EvidenceMap,
 ) -> Vec<Record<SymbolFact>> {
-    let escapes = escapes::of(&module.tree.body, binders);
     let mut scratch = EvidenceMap::new();
     let mut writer = Writer {
         scan: Reader {

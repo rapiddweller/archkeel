@@ -179,6 +179,11 @@
   "UNKNOWN",
   "absent symbol: the symbol inventory is not complete"
  ],
+ "enum-reserved-name": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
  "enum-through-base": [
   "FAIL",
   "FAIL",
@@ -360,6 +365,31 @@
   "absent symbol: the symbol inventory is not complete"
  ],
  "number-default": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "other-module-del": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "other-module-pass": [
+  "PASS",
+  "PASS",
+  ""
+ ],
+ "other-module-path-write": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "other-module-setattr": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "other-module-write": [
   "PASS",
   "UNKNOWN",
   "absent symbol: the symbol inventory is not complete"

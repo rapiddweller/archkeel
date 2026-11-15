@@ -16,14 +16,22 @@
 //! A class of the module body escapes (`escaped`: it keeps no member) in each use of its name but
 //! four: a call of it, a base of a class, an attribute load on it, and an annotation. A name that
 //! is passed, stored, returned or decorated may be written by code that the scan does not link.
+//!
+//! The same visitor reads the names that an import brings from another module of the scan. The
+//! class of a `from m import C` that escapes in the importing module keeps no member in `m`. A
+//! write whose base, or a `setattr`, `delattr` or `__setattr__` call whose argument, reaches an
+//! imported name opens the module of that import, and so does a use of an imported module path
+//! (`q.C`) that is no call, base, attribute load or annotation.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
+use archkeel_facts::{ImportFact, Record};
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{
     Expr, ExprAttribute, ExprCall, ExprContext, Parameter, Stmt, StmtClassDef, StmtFunctionDef,
 };
 
+use crate::module::Module;
 use crate::survey::binders::Binders;
 use crate::survey::bound::Bound;
 
@@ -48,15 +56,81 @@ const PLAIN_BASES: [&str; 12] = [
 
 /// What the visitor finds in a module.
 #[derive(Default)]
-pub(super) struct Escapes {
+pub(in crate::survey) struct Escapes {
     /// A write that the scan cannot tie to an instance: no class of the module keeps a member.
     pub open: bool,
     /// The classes of the module body that a use of their name can write through.
     pub escaped: HashSet<String>,
 }
 
-/// The escapes of the module body `body`.
-pub(super) fn of(body: &[Stmt], binders: &Binders) -> Escapes {
+/// What a name that an import binds is: the module of the scan that it comes from and, for a
+/// `from m import C`, the name `C` (a module path has none).
+struct Origin {
+    module: String,
+    symbol: Option<String>,
+}
+
+/// The escapes of each module of the scan, in the order of `modules`: its own, and the ones that
+/// the other modules cause through their imports.
+pub(in crate::survey) fn all(
+    modules: &[Module],
+    binders: &[Binders],
+    imports: &[Record<ImportFact>],
+) -> Vec<Escapes> {
+    let scan: HashSet<&str> = modules.iter().map(|module| module.name.as_str()).collect();
+    let mut foreign: HashMap<&str, HashMap<String, Origin>> = HashMap::new();
+    for record in imports {
+        let data = record.data.data();
+        let (Some(binding), target) = (&data.binding, data.target_module.as_str()) else {
+            continue;
+        };
+        let child = data
+            .symbol
+            .as_ref()
+            .map(|symbol| format!("{target}.{symbol}"));
+        let origin = match (&data.symbol, child) {
+            (Some(_), Some(child)) if scan.contains(child.as_str()) => Origin {
+                module: child,
+                symbol: None,
+            },
+            (symbol, _) => Origin {
+                module: target.to_owned(),
+                symbol: symbol.clone(),
+            },
+        };
+        if scan.contains(origin.module.as_str()) {
+            foreign
+                .entry(data.source_module.as_str())
+                .or_default()
+                .insert(binding.clone(), origin);
+        }
+    }
+    let mut opened = false;
+    let mut named: HashSet<String> = HashSet::new();
+    let mut found: Vec<Escapes> = Vec::new();
+    let empty = HashMap::new();
+    for (module, binders) in modules.iter().zip(binders) {
+        let imported = foreign.get(module.name.as_str()).unwrap_or(&empty);
+        let (own, cross) = scan_module(&module.tree.body, binders, imported);
+        found.push(own);
+        opened |= cross.opened;
+        named.extend(cross.escaped);
+    }
+    // A write or an escape through an import reaches a class by a name that the scan cannot tie to
+    // one module (a re-export), so it holds for each module: the stricter form.
+    for escapes in &mut found {
+        escapes.open |= opened;
+        escapes.escaped.extend(named.iter().cloned());
+    }
+    found
+}
+
+/// The escapes of one module body, and what its imports let it do to other modules.
+fn scan_module(
+    body: &[Stmt],
+    binders: &Binders,
+    imported: &HashMap<String, Origin>,
+) -> (Escapes, Cross) {
     let classes: HashSet<&str> = body
         .iter()
         .filter_map(|statement| match statement {
@@ -68,7 +142,9 @@ pub(super) fn of(body: &[Stmt], binders: &Binders) -> Escapes {
         classes,
         plain: HashSet::new(),
         binders,
+        imported,
         found: Escapes::default(),
+        cross: Cross::default(),
         instance: None,
         annotation: false,
     };
@@ -80,7 +156,15 @@ pub(super) fn of(body: &[Stmt], binders: &Binders) -> Escapes {
         }
     }
     walk.visit_body(body);
-    walk.found
+    (walk.found, walk.cross)
+}
+
+/// What a module does to the classes of the others: a write through an import, and the names of
+/// the imported classes that escape in it.
+#[derive(Default)]
+struct Cross {
+    opened: bool,
+    escaped: HashSet<String>,
 }
 
 struct Walk<'a> {
@@ -89,7 +173,9 @@ struct Walk<'a> {
     /// The classes of the module body that are no metaclass.
     plain: HashSet<String>,
     binders: &'a Binders,
+    imported: &'a HashMap<String, Origin>,
     found: Escapes,
+    cross: Cross,
     /// The first parameter of the method that the walk is in: a proven instance.
     instance: Option<String>,
     /// The walk is in an annotation, where a class name is no escape.
@@ -162,7 +248,7 @@ impl Walk<'_> {
         let arguments = node.arguments.as_deref();
         for base in arguments.map_or(&[][..], |arguments| &arguments.args) {
             match base {
-                Expr::Name(name) if self.classes.contains(name.id.as_str()) => {}
+                other if self.known(other) => {}
                 other => self.visit_expr(other),
             }
         }
@@ -182,14 +268,22 @@ impl Walk<'_> {
     }
 
     fn call(&mut self, call: &ExprCall) {
-        match &*call.func {
-            // A call of a class of the module is no escape of the class.
-            Expr::Name(callee) if self.classes.contains(callee.id.as_str()) => {}
-            Expr::Name(callee) => {
-                let opens = matches!(callee.id.as_str(), "setattr" | "delattr" | "vars");
-                self.found.open |= opens;
-                self.visit_expr(&call.func);
+        let writer = match &*call.func {
+            Expr::Name(callee) => matches!(callee.id.as_str(), "setattr" | "delattr" | "vars"),
+            Expr::Attribute(callee) => {
+                matches!(callee.attr.as_str(), "__setattr__" | "__delattr__")
             }
+            _ => false,
+        };
+        if writer {
+            self.found.open = true;
+            self.reach(&call.func);
+            for argument in &call.arguments.args {
+                self.reach(argument);
+            }
+        }
+        match &*call.func {
+            callee if self.known(callee) => {}
             other => self.visit_expr(other),
         }
         for argument in &call.arguments.args {
@@ -198,6 +292,46 @@ impl Walk<'_> {
         for keyword in &call.arguments.keywords {
             self.visit_expr(&keyword.value);
         }
+    }
+
+    /// True for the name of a class of the module, of an imported class, or a path below an
+    /// imported module: a call, a base and an attribute load may hold it.
+    fn known(&self, expr: &Expr) -> bool {
+        match expr {
+            Expr::Name(name) => {
+                let name = name.id.as_str();
+                let class = self
+                    .imported
+                    .get(name)
+                    .is_some_and(|origin| origin.symbol.is_some());
+                class || self.classes.contains(name)
+            }
+            Expr::Attribute(node) => self.module_path(&node.value),
+            _ => false,
+        }
+    }
+
+    /// A path of attributes whose root is a name that an import binds to a module.
+    fn module_path(&self, expr: &Expr) -> bool {
+        match expr {
+            Expr::Name(name) => self
+                .imported
+                .get(name.id.as_str())
+                .is_some_and(|origin| origin.symbol.is_none()),
+            Expr::Attribute(node) => self.module_path(&node.value),
+            _ => false,
+        }
+    }
+
+    /// A use that reaches an imported name can write the class that it holds.
+    fn reach(&mut self, expr: &Expr) {
+        let mut names = Names::default();
+        names.visit_expr(expr);
+        let reached = names
+            .found
+            .iter()
+            .any(|name| self.imported.contains_key(name.as_str()));
+        self.cross.opened |= reached;
     }
 
     fn base_is_instance(&self, base: &Expr) -> bool {
@@ -209,16 +343,36 @@ impl Walk<'_> {
         let name = node.attr.as_str();
         if matches!(name, "__setattr__" | "__delattr__") {
             self.found.open = true;
+            self.reach(&node.value);
         }
         let stored = matches!(node.ctx, ExprContext::Store | ExprContext::Del);
-        if stored && !self.base_is_instance(&node.value) {
-            self.found.open = true;
+        if stored {
+            self.reach(&node.value);
+            self.found.open |= !self.base_is_instance(&node.value);
         }
-        // An attribute load on a class of the module is no escape of the class.
+        // A path below an imported module that is no call, base or attribute load reaches its
+        // class: the module opens.
+        self.cross.opened |= !self.annotation && self.module_path(&node.value);
+        // An attribute load on a class is no escape of the class.
         match &*node.value {
-            Expr::Name(base) if self.classes.contains(base.id.as_str()) => {}
+            base if self.known(base) => {}
             other => self.visit_expr(other),
         }
+    }
+}
+
+/// The names that an expression reads.
+#[derive(Default)]
+struct Names {
+    found: Vec<String>,
+}
+
+impl<'a> Visitor<'a> for Names {
+    fn visit_expr(&mut self, expr: &'a Expr) {
+        if let Expr::Name(name) = expr {
+            self.found.push(name.id.to_string());
+        }
+        visitor::walk_expr(self, expr);
     }
 }
 
@@ -256,12 +410,21 @@ impl<'a> Visitor<'a> for Walk<'_> {
                 self.call(call);
                 return;
             }
-            Expr::Name(name)
-                if !self.annotation
-                    && name.ctx == ExprContext::Load
-                    && self.classes.contains(name.id.as_str()) =>
-            {
-                self.found.escaped.insert(name.id.to_string());
+            Expr::Name(name) if !self.annotation && name.ctx == ExprContext::Load => {
+                let name = name.id.as_str();
+                if self.classes.contains(name) {
+                    self.found.escaped.insert(name.to_owned());
+                }
+                match self.imported.get(name) {
+                    Some(Origin {
+                        symbol: Some(symbol),
+                        ..
+                    }) => {
+                        self.cross.escaped.insert(symbol.clone());
+                    }
+                    Some(_) => self.cross.opened = true,
+                    None => {}
+                }
             }
             _ => {}
         }

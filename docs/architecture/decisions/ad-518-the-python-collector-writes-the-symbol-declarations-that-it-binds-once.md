@@ -49,8 +49,8 @@ kind or a write from elsewhere makes the text a wrong witness.
 16 entities PASS; `item`, `Text` and `VERSION` (rule 8) and `_token` (rule 3, a bare annotation)
 are UNKNOWN. Rule 7 costs H-uml no row. `fixtures/matrix.json` does not change.
 
-**Plants** (102, `tests/test_cli_python_symbols.py`, rows pinned from an installed 4.0.1): 43
-equal, 51 PASS to UNKNOWN, 8 FAIL to UNKNOWN. Six release FAILs are false (`globals-write`,
+**Plants** (108, `tests/test_cli_python_symbols.py`, rows pinned from an installed 4.0.1): 44
+equal, 56 PASS to UNKNOWN, 8 FAIL to UNKNOWN. Six release FAILs are false (`globals-write`,
 `dict-instance`, `nested-function`, `ff-attr-*`, `lambda-as-method`). The core never gives PASS
 where the truth differs, nor FAIL where it agrees.
 

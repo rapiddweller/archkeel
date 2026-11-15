@@ -380,6 +380,26 @@ REVIEW: dict[str, Plant] = {
         "PASS",
         **other("h.py", "def fix(c):\n    return c\n"),
     ),
+    "other-module-write": pl(
+        CM, AM, "DIFF", **other("__init__.py", "from demo.m import A\nA.m = 1\n")
+    ),
+    "other-module-del": pl(
+        CM, AM, "DIFF", **other("__init__.py", "from demo.m import A\ndel A.m\n")
+    ),
+    "other-module-setattr": pl(
+        CM, AM, "DIFF", **other("__init__.py", "from demo.m import A\nsetattr(A, 'm', 1)\n")
+    ),
+    "other-module-path-write": pl(
+        CM, AM, "DIFF", **other("__init__.py", "import demo.m as q\nq.A.m = 1\n")
+    ),
+    "other-module-pass": pl(
+        CM, AM, "PASS", **other("__init__.py", "from demo.m import A\nx = A.m\ny = A()\n")
+    ),
+    "enum-reserved-name": pl(
+        "from enum import Enum\n\n\nclass E(Enum):\n    R = 1\n    mro = 2\n",
+        [Want("enum", "E"), Want("enum_literal", "E.R")],
+        "DIFF",
+    ),
     "ff-attr-helper-method": pl(
         "def helper(self):\n    return 1\n\n\nclass A:\n    y = helper\n",
         AY,
