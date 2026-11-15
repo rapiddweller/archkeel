@@ -11,10 +11,12 @@
 
 use ruff_python_ast::{Expr, Number, Operator, UnaryOp};
 
+use crate::module::plain_name;
+
 /// The text of `expr`, or `None` for a form that this writer does not write.
 pub(super) fn render(expr: &Expr) -> Option<String> {
     match expr {
-        Expr::Name(node) => Some(node.id.to_string()),
+        Expr::Name(_) => plain_name(expr).map(str::to_owned),
         Expr::Attribute(node) => Some(format!("{}.{}", render(&node.value)?, node.attr.as_str())),
         Expr::NoneLiteral(_) => Some("None".to_owned()),
         Expr::EllipsisLiteral(_) => Some("...".to_owned()),
