@@ -35,9 +35,14 @@ Each report shows every FAIL and every UNKNOWN as the core gives it. Each cause 
 
 *A report of ArchKeel (layout example). The live page and the badge give today's verdict.*
 
-**Four languages run through the core.** Rust and TypeScript projects get all rule kinds that the
-core has ported. Python and Dart projects get PASS or FAIL only for the rules that read the import
-graph; the other rules stay UNKNOWN. See the [known limits](docs/known-limits.md).
+**What each language decides today.**
+
+<!-- tiers:start -->
+Rust and TypeScript projects: each rule kind that the core has ported is decided; a rule kind without a port is UNKNOWN.
+Python and Dart projects: the rules that read the import graph are decided, and Python also decides `interface_boundary` (AD-504); a Dart cycle rule is always UNKNOWN, and every other rule of both is UNKNOWN.
+<!-- tiers:end -->
+
+See the [known limits](docs/known-limits.md).
 
 **Start.** ArchKeel needs Python 3.11+, `cargo` and a Git repository with a commit.
 
@@ -102,7 +107,8 @@ is the only engine. The Python engine is deleted.
 
 - `archkeel validate` and `archkeel report` run through the core, as text or JSON.
   PASS exits 0, FAIL exits 1, UNKNOWN and a refusal exit 2.
-- **Rust and TypeScript projects** are supported, and the import rules of Python and Dart projects.
+- Rust, TypeScript, Python and Dart projects run through the core. What each decides: see the
+  [known limits](docs/known-limits.md#supported-projects-on-main).
 - `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
   Interactive reports, `architecture.json`, baselines and focused reports are not available.
 - `report --output PATH` writes one static HTML page; `--format json` writes the core frame instead.
@@ -178,15 +184,20 @@ locally. The agent in your harness explains and proposes; its text is a claim, n
 **Does a clean graph mean a good design?** No. `PASS` means the required rules have complete evidence
 and no decided violation. It does not prove runtime behavior or the quality of a design decision.
 
-**Which languages?** Rust, TypeScript, Python and Dart run through the core. Python (AD-450) and Dart
-(AD-468) projects get PASS or FAIL only for the rules that read the import graph. Use archkeel 4.0.1
-for the other Python and Dart rules.
+**Which languages?** Rust, TypeScript, Python and Dart run through the core. What each decides:
+
+<!-- tiers:start -->
+Rust and TypeScript projects: each rule kind that the core has ported is decided; a rule kind without a port is UNKNOWN.
+Python and Dart projects: the rules that read the import graph are decided, and Python also decides `interface_boundary` (AD-504); a Dart cycle rule is always UNKNOWN, and every other rule of both is UNKNOWN.
+<!-- tiers:end -->
+
+Use archkeel 4.0.1 for the other Python and Dart rules. See the [known limits](docs/known-limits.md).
 
 
 ## Scope and limits
 
-ArchKeel observes static Rust and TypeScript source in configured roots through native collectors.
-Python and Dart projects get PASS or FAIL only for rules that read the import graph.
+ArchKeel observes static Rust, TypeScript, Python and Dart source in configured roots through native
+collectors. What each language decides: see [the known limits](docs/known-limits.md#supported-projects-on-main).
 TypeScript records lexical UML declarations and statically bound relationships;
 ambiguous bindings and unsupported constructs remain UNKNOWN. TypeScript roots may name files or directories.
 ArchKeel does not prove runtime behavior, performance, or the quality of every design decision.

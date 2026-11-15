@@ -7,8 +7,8 @@ The runs come from `fixtures/matrix.json`.
 The tool decides nothing. It runs `archkeel report --output` for each run, reads the envelope that
 the CLI prints, and shows the verdict, the counts and the refusal of the core as they are.
 A run that gives no envelope gets a row without links and makes the exit code 1.
-The entry page `index.html` is the product page (`tools/report_product_page.py`): two part cards for
-the two self runs, ArchKeel on its Python shell and on its Rust core. The fixture table is at
+The entry page `index.html` is the system page (`tools/report_product_page.py`): a part card for
+the self runs, one for each part of `docs/architecture/architecture-system.json`. The fixture table is at
 `showcase/index.html`. The self runs have stable paths (`self/core.html`, `self/core.json`,
 `self/shell.html`, `self/shell.json`) and one shield endpoint file each (`self/core-badge.json`,
 `self/shell-badge.json`). The system of both has `self/index.html` and `self/badge.json`, so a
@@ -40,34 +40,33 @@ from tools.report_product import (
     Part,
     contract_of,
     part_of,
-    summed,
-    worst,
+    system,
 )
 from tools.report_product_page import product_page, shell
+from tools.system_parts import DOCUMENT, System, load
 
 ROOT = Path(__file__).resolve().parents[1]
 MATRIX = ROOT / "fixtures" / "matrix.json"
 STATUSES = ("PASS", "FAIL", "UNKNOWN")
 RUN_TIMEOUT = 900
-# The self runs: the stable name, the title, the configuration and the label of the badge.
-SELF_RUNS: tuple[dict[str, str], ...] = (
-    {
-        "name": "shell",
-        "title": "Python shell (src/archkeel)",
-        "part": "Python shell",
-        "language": "PYTHON",
-        "config": "docs/architecture/shell.toml",
-        "label": "shell self-check",
-    },
-    {
-        "name": "core",
-        "title": "Rust core (native/)",
-        "part": "Rust core",
-        "language": "RUST",
-        "config": "native/archkeel.toml",
-        "label": "core self-check",
-    },
-)
+
+
+# The self runs, one for each part of the system document (`tools/system_parts.py`).
+def self_runs(system: System) -> tuple[dict[str, str], ...]:
+    return tuple(
+        {
+            "name": part.id,
+            "title": part.subject,
+            "part": part.title,
+            "language": part.language,
+            "config": part.config,
+            "label": part.label,
+        }
+        for part in system.parts
+    )
+
+
+SELF_RUNS = self_runs(load())
 # The other own contracts: one line on the product page each, no report file of their own.
 OTHER_RUNS: tuple[dict[str, str], ...] = (
     {"title": "Browser assets", "config": "docs/architecture/browser.toml"},
@@ -179,16 +178,21 @@ def badge(row: Mapping[str, Any], label: str) -> dict[str, Any]:
 
 
 def system_badge(parts: Sequence[Part]) -> dict[str, Any]:
-    """The one shields endpoint document of the system: the weakest status, the counts added up."""
+    """The one shields endpoint document of the system. Message and colour come from `system`, as
+    the page does, so a FAIL of one part is never hidden by a part without a result."""
     label = "ArchKeel self-check"
-    if not parts or not all(part.decided for part in parts):
+    if not parts:
         return {"schemaVersion": 1, "label": label, "message": "no result", "color": "lightgrey"}
-    counts = summed(part.counts for part in parts)
+    verdict = system(parts)
+    words = [f"{verdict.counts[name]} {name}" for name in STATUSES]
+    missing = sum(1 for part in parts if not part.decided)
+    if missing:
+        words.append(f"{missing} no result")
     return {
         "schemaVersion": 1,
         "label": label,
-        "message": " · ".join(f"{counts[name]} {name}" for name in STATUSES),
-        "color": COLORS[worst(parts)],
+        "message": " · ".join(words),
+        "color": COLORS[verdict.status],
     }
 
 
@@ -320,6 +324,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--archkeel", default="archkeel", help="the CLI command, split like a shell"
     )
+    parser.add_argument("--system", type=Path, default=DOCUMENT, help="the system document")
     parser.add_argument("--sha", default=None)
     parser.add_argument("--built-at", default=None)
     args = parser.parse_args(argv)
@@ -329,17 +334,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     args.out.mkdir(parents=True, exist_ok=True)
     cli = shlex.split(args.archkeel)
     sha = args.sha or _head_sha()
-    self_rows = [build_self(cli, entry, args.out) for entry in SELF_RUNS]
+    system = load(args.system)
+    self_rows = [build_self(cli, entry, args.out) for entry in self_runs(system)]
     rows = [build_run(cli, run, args.out) for run in load_runs(args.matrix)]
     built_at = args.built_at or datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     others = [build_other(cli, entry) for entry in OTHER_RUNS]
     parts: list[Part] = [row["part"] for row in self_rows]
     ids = {row["part"].key: row["ids"] for row in self_rows}
-    (args.out / "index.html").write_text(product_page(parts, ids, sha, built_at, others))
+    (args.out / "index.html").write_text(
+        product_page(system.name, parts, ids, sha, built_at, others)
+    )
     # The same page of the system sits in self/, where the part reports are its neighbours.
     near = [replace(part, report=Path(part.report).name) for part in parts]
     (args.out / "self" / "index.html").write_text(
-        product_page(near, ids, sha, built_at, others, showcase="../showcase/index.html")
+        product_page(
+            system.name, near, ids, sha, built_at, others, showcase="../showcase/index.html"
+        )
     )
     (args.out / "self" / "badge.json").write_text(
         json.dumps(system_badge(parts), ensure_ascii=False) + "\n", encoding="utf-8"

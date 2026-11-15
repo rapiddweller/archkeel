@@ -100,7 +100,8 @@ Each push to `main` publishes the report gallery to GitHub Pages
 The job `publish-gallery` of CI runs `make report-gallery` and deploys `test-artifacts/gallery`. It is
 not in the needs of `All checks passed`, so a Pages error never fails CI. The Pages source of the
 repository must be set to GitHub Actions. The gallery has two sections: ArchKeel as one system
-(`self/index.html` and its shield endpoint `self/badge.json`; the weakest verdict of its two parts,
+(`self/index.html` and its shield endpoint `self/badge.json`; the weakest verdict of the parts of
+`docs/architecture/architecture-system.json`, an interim,
 [AD-522](docs/architecture/decisions/ad-522-archkeel-shows-one-system-verdict-built-from-its-two-self-runs.md)),
 with the reports of the Rust core and the Python shell (`self/core.html`, `self/shell.html`, with a
 shield endpoint file for each), and the fixture table. The README links these paths, so do not rename them. `fixtures/matrix.json` pins the

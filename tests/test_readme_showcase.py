@@ -74,7 +74,7 @@ def test_the_first_screen_orders_meaning_verdict_picture_and_start() -> None:
         "checks it against the boundaries you declare",
         "**UNKNOWN is not a pass.**",
         "docs/assets/archkeel-report.png",
-        "**Four languages run through the core.**",
+        "**What each language decides today.**",
         "uv tool install git+https://github.com/rapiddweller/archkeel",
     ]
     positions = [first.index(text) for text in order]
@@ -90,3 +90,23 @@ def test_the_readme_pins_no_count_and_does_not_announce_an_unreleased_version() 
     assert not re.search(r"\b\d+ (?:PASS|FAIL|UNKNOWN|rules)\b", first)
     assert "5.0.0" not in README
     assert "4.0.1" in README
+
+
+TIERS = re.compile(r"<!-- tiers:start -->\n(.*?)\n<!-- tiers:end -->", re.S)
+
+
+def test_the_language_tiers_of_the_readme_are_the_block_of_the_known_limits() -> None:
+    limits = (ROOT / "docs/known-limits.md").read_text()
+    (block,) = TIERS.findall(limits)
+    assert len(TIERS.findall(README)) >= 2
+    assert all(found == block for found in TIERS.findall(README))
+    # Outside the block, the known limits say what the block says, so that one cannot change alone.
+    body = TIERS.sub("", limits).replace("\n", " ")
+    assert "`interface_boundary` and symbol-level" in body and "(AD-504)" in body
+    assert "cycle rule (`no_component_cycles`) is always UNKNOWN" in re.sub(r"\s+", " ", body)
+    for sentence in block.splitlines():
+        assert sentence.endswith(".")
+    # The README names no tier of its own outside the block.
+    outside = TIERS.sub("", README)
+    assert "only for the rules that read the import graph" not in outside
+    assert "four languages" not in outside.lower()
