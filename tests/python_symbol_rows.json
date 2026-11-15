@@ -231,8 +231,8 @@
  ],
  "module-value": [
   "PASS",
-  "UNKNOWN",
-  "absent symbol: the symbol inventory is not complete"
+  "PASS",
+  ""
  ],
  "namedtuple": [
   "PASS",
