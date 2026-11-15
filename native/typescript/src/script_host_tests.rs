@@ -230,7 +230,7 @@ fn titles_of(files: &[(&str, &str)]) -> Vec<(String, Option<String>)> {
     facts
         .gaps
         .iter()
-        .map(|gap| (gap.title.clone(), gap.data.data().message.clone()))
+        .map(|gap| (gap.title.clone(), gap.data.collector_message()))
         .collect()
 }
 

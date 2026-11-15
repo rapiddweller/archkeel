@@ -180,6 +180,12 @@ pub enum GapFact {
 }
 
 impl GapFact {
+    /// The free text that the collector wrote beside the reason, if any (AD-540). It is no part of
+    /// the gap key. The name is unique so that no call of it reads as a call of another `data`.
+    pub fn collector_message(&self) -> Option<String> {
+        self.data().message.clone()
+    }
+
     /// The data of the gap, whatever its kind (AD-546: the baseline key reads it).
     pub fn data(&self) -> &GapData {
         match self {
