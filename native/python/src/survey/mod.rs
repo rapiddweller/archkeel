@@ -42,6 +42,7 @@ mod namespace;
 mod package_body;
 pub(crate) mod routes;
 mod stable;
+mod syspath;
 mod targets;
 mod uses;
 mod walks;
@@ -55,6 +56,8 @@ pub(crate) struct Survey {
     pub evidence: Vec<Evidence>,
     /// The modules whose `__all__` the survey cannot read (`routes`).
     pub opaque_surface: HashSet<String>,
+    /// The listing of each directory that a harmless `sys.path` write depends on (`syspath.rs`).
+    pub listings: Vec<syspath::Listing>,
     /// The ids of the imports that are the one plain binder of their name (`bound.rs`).
     pub sole_binders: HashSet<String>,
     /// The ids of each `from pkg import name` where `pkg` binds `name` or can give it (AD-450):
@@ -127,6 +130,14 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     let calls = imports::literal_records(modules, &binders, namespace, &mut evidence, &literals);
     imports.extend(calls);
     imports.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
+    // AD-522: a write to `sys.path` that adds no imported name is no gap.
+    let scan_facts = syspath::Scan {
+        modules,
+        imports: &imports,
+        roots,
+        namespace,
+    };
+    let (hazards, listings) = syspath::settle(hazards, &scan_facts, &mut snapshot);
     let mut opaque_surface: HashSet<String> = modules
         .iter()
         .zip(&binders)
@@ -190,6 +201,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         coverage,
         evidence: evidence.into_values().collect(),
         opaque_surface,
+        listings,
         sole_binders,
         ambiguous,
         parsed: snapshot

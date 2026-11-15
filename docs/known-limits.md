@@ -120,6 +120,17 @@ A configured `filter.<x>.clean` can execute a command during status. Do not scan
 Disabling repository-configured execution is deferred to slice 5; the fixed executable does not prevent it.
 See [AD-422](architecture/decisions/ad-422-core-only-validation-renders-the-scan-frame.md).
 
+## A `sys.path.append` of the snapshot (Python, AD-528)
+
+One write form is no gap: `sys.path.append(str(Path(__file__).resolve().parents[k]))` as a statement
+of a module body, when the directory holds no module-like entry that the scan imports. The verdict
+holds for a run from the snapshot tree. A copied, installed or zipped layout, a direct run of a
+`.pyc`, and `run_path` with a relative path plus `os.chdir` give another directory. An entry that
+appears in the directory after the snapshot, a writer outside the scan roots (`conftest.py`,
+`sitecustomize`, an installed package), a name that only code outside the scan imports, and a
+namespace that does not resolve to the scan root are not seen. `insert` and each other write of
+`sys.path` stay the gap of the whole run.
+
 ## Open false PASS, not accepted (Python `interface_boundary`, AD-504)
 
 The core gives PASS where Python binds something else at import time, for three forms. 4.0.1 gives
