@@ -9,7 +9,7 @@
 
 use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::de::Error as _;
-use serde::ser::{SerializeMap, Serializer};
+use serde::ser::Serializer;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{json, Value};
 
@@ -18,7 +18,6 @@ use crate::data::{
     NumericOperandData, PlaceholderData, PlainConstructData, ReferenceData, SelectorData,
     SignalData, SourceRoleData, UnusedBindingData, ValueData,
 };
-use crate::readset::{self, ReadFields, ReadSet, Reads};
 use crate::record::{FactData, Record};
 use crate::vocab::{ExceptionName, Kind};
 
@@ -220,18 +219,6 @@ impl FactData for GapFact {
         self.data().serialize(serializer)
     }
 
-    /// An analyzer failure adds its exception name: the closed kind does not hold it. A reason
-    /// code is protocol 10 data that no WP1 reader can have read; it is written when it is set.
-    fn read_set_entries<M: SerializeMap>(&self, map: &mut M, reads: Reads) -> Result<(), M::Error> {
-        if let GapFact::ExceptionGap { exception, .. } = self {
-            map.serialize_entry("exception", exception)?;
-        }
-        if let Some(code) = &self.data().code {
-            map.serialize_entry("code", code)?;
-        }
-        self.data().read_fields(map, reads)
-    }
-
     fn deserialize_data<'de, D: Deserializer<'de>>(
         kind: &str,
         deserializer: D,
@@ -357,24 +344,6 @@ impl Section {
 
     pub fn is_empty(&self) -> bool {
         self.len() == 0
-    }
-}
-
-impl ReadSet for Section {
-    fn read_set_entries<M: SerializeMap>(&self, map: &mut M) -> Result<(), M::Error> {
-        map.serialize_entry("name", self.name())?;
-        match self {
-            Section::Imports(records) => map.serialize_entry("records", &readset::List(records)),
-            Section::Symbols(records) => map.serialize_entry("records", &readset::List(records)),
-            Section::Calls(records) => map.serialize_entry("records", &readset::List(records)),
-            Section::References(records) => map.serialize_entry("records", &readset::List(records)),
-            Section::Bindings(records) => map.serialize_entry("records", &readset::List(records)),
-            Section::Constructs(records) => map.serialize_entry("records", &readset::List(records)),
-            Section::TypingSignals(records) => {
-                map.serialize_entry("records", &readset::List(records))
-            }
-            Section::Unknowns(records) => map.serialize_entry("records", &readset::List(records)),
-        }
     }
 }
 

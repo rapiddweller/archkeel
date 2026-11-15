@@ -281,11 +281,8 @@ impl Pass<'_> {
     }
 }
 
-/// The record checks. The result maps each record id to its section and position.
-pub(crate) fn records(
-    facts: &Facts,
-    envelope: &Envelope<'_>,
-) -> Result<HashMap<String, (usize, usize)>, String> {
+/// The record checks.
+pub(crate) fn records(facts: &Facts, envelope: &Envelope<'_>) -> Result<(), String> {
     let mut pass = Pass {
         facts,
         envelope,
@@ -317,5 +314,5 @@ pub(crate) fn records(
     pass.member_inventories()?;
     pass.gaps(&facts.sections)?;
     pass.import_targets()?;
-    Ok(pass.places)
+    Ok(())
 }

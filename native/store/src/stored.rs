@@ -12,21 +12,8 @@
 //! is saved: an unresolved import gets `resolution`; a TypeScript import gets its external package
 //! or builtin flag; a resolved import loses the five keys of the re-export bookkeeping.
 
-use std::collections::HashMap;
-
-use archkeel_facts::envelope::{Evidence, Profile, Reply, Target};
+use archkeel_facts::envelope::Reply;
 use archkeel_facts::{FactData, Record, Section};
-use serde_json::{Map, Value};
-
-/// The keys that the projection removes from a resolved import. This list is the one home of that
-/// projection: the Python engine that it once copied is deleted (AD-432).
-const BOOKKEEPING: [&str; 5] = [
-    "ordinary_module",
-    "origin_binding_unique",
-    "origin_member_binding_static",
-    "reexport_candidate",
-    "module_level_import",
-];
 
 /// A typed visitor of the records of one section.
 pub(crate) trait Visitor {
@@ -63,124 +50,17 @@ pub(crate) fn visit<V: Visitor>(
     }
 }
 
-/// The JSON of one record, as the Python writer sees it (stage 1 byte equality).
-struct Json(Option<Value>);
-
-impl Visitor for Json {
-    fn record<D: FactData>(&mut self, _: &Section, record: &Record<D>) -> Result<(), String> {
-        self.0 = Some(serde_json::to_value(record).map_err(|error| error.to_string())?);
-        Ok(())
-    }
-}
-
-/// The observation projection of an import: what its typed target adds or removes.
-enum Projection {
-    Unresolved,
-    External(String),
-    Builtin,
-    Strip,
-}
-
-/// The records and the evidence of one reply, found by id.
+/// The validated reply.
 pub(crate) struct Store {
     reply: Reply,
-    places: HashMap<String, (usize, usize)>,
-    evidence: HashMap<String, usize>,
-    targets: HashMap<String, usize>,
 }
 
 impl Store {
-    /// `places` maps each record id to its section and position (built by the validation).
-    pub(crate) fn new(reply: Reply, places: HashMap<String, (usize, usize)>) -> Self {
-        let evidence = reply
-            .facts
-            .evidence
-            .iter()
-            .enumerate()
-            .map(|(index, entry)| (entry.id.as_str().to_owned(), index))
-            .collect();
-        let targets = reply
-            .facts
-            .imports
-            .iter()
-            .enumerate()
-            .map(|(index, target)| (target.import_id().as_str().to_owned(), index))
-            .collect();
-        Store {
-            reply,
-            places,
-            evidence,
-            targets,
-        }
+    pub(crate) fn new(reply: Reply) -> Self {
+        Store { reply }
     }
 
     pub(crate) fn reply(&self) -> &Reply {
         &self.reply
-    }
-
-    pub(crate) fn evidence(&self, id: &str) -> Result<&Evidence, String> {
-        self.evidence
-            .get(id)
-            .map(|index| &self.reply.facts.evidence[*index])
-            .ok_or_else(|| format!("the store holds no evidence {id}"))
-    }
-
-    fn projection(&self, id: &str) -> Projection {
-        let target = self
-            .targets
-            .get(id)
-            .map(|index| &self.reply.facts.imports[*index]);
-        // `evaluate_source` names external and builtin targets for TypeScript and Rust.
-        let named = matches!(
-            self.reply.facts.profile,
-            Profile::TypeScript | Profile::Rust
-        );
-        match target {
-            Some(Target::Unresolved { .. }) => Projection::Unresolved,
-            Some(Target::External { package, .. }) if named => {
-                Projection::External(package.as_str().to_owned())
-            }
-            Some(Target::Builtin { .. }) if named => Projection::Builtin,
-            _ => Projection::Strip,
-        }
-    }
-
-    fn project(&self, id: &str, data: &mut Map<String, Value>) {
-        match self.projection(id) {
-            Projection::Unresolved => {
-                data.insert("resolution".to_owned(), Value::from("unresolved"));
-                return;
-            }
-            Projection::External(package) => {
-                data.insert("external_package".to_owned(), Value::from(package));
-            }
-            Projection::Builtin => {
-                data.insert("builtin_target".to_owned(), Value::Bool(true));
-            }
-            Projection::Strip => {}
-        }
-        for key in BOOKKEEPING {
-            data.remove(key);
-        }
-    }
-
-    /// The saved JSON object of one record, with the import projection applied.
-    pub(crate) fn saved(&self, id: &str) -> Result<Map<String, Value>, String> {
-        let (section, index) = *self
-            .places
-            .get(id)
-            .ok_or_else(|| format!("the store holds no record {id}"))?;
-        let section = &self.reply.facts.sections[section];
-        let mut json = Json(None);
-        visit(section, index, index + 1, &mut json)?;
-        let Some(Value::Object(mut object)) = json.0 else {
-            return Err("a record is not an object".to_owned());
-        };
-        if matches!(section, Section::Imports(_)) {
-            if let Some(Value::Object(data)) = object.get_mut("data") {
-                self.project(id, data);
-            }
-        }
-        Ok(object)
     }
 }
