@@ -21,11 +21,13 @@
 use std::collections::BTreeMap;
 use std::iter;
 
+use archkeel_contract::policy::InsideMount;
 use archkeel_contract::{Contract, Rule};
 use archkeel_model::{in_scope, Graph, Hygiene, ModelTree, Reason, Unsupported};
 
 use crate::contract::Usable;
 use crate::hygiene_graph::{self, Pair};
+use crate::hygiene_interface;
 use crate::hygiene_pairs;
 use crate::hygiene_refs;
 use crate::provenance::Documents;
@@ -104,9 +106,13 @@ pub(crate) fn check(
         return found;
     }
     let mounts = usable.tree.iter().flat_map(|tree| tree.mounts());
-    let contracts = iter::once((path, &usable.root))
-        .chain(mounts.map(|mount| (mount.path().as_str(), mount.contract())));
-    for (place, contract) in contracts {
+    let contracts = iter::once((path, &usable.root, None)).chain(
+        mounts
+            .enumerate()
+            .map(|(at, mount)| (mount.path().as_str(), mount.contract(), Some(at))),
+    );
+    let inside = usable.tree.as_ref().map_or(&[][..], |tree| tree.mounts());
+    for (place, contract, index) in contracts {
         let findings = [
             hygiene_refs::namespace(contract, namespace, sdk),
             hygiene_refs::public(contract),
@@ -117,7 +123,12 @@ pub(crate) fn check(
         }
         let has = |test: fn(&Rule) -> bool| contract.rules().iter().any(test);
         if has(|rule| matches!(rule, Rule::InterfaceBoundary(_))) {
-            found.gap(place, "interface", INTERFACE);
+            interface(
+                &mut found,
+                place,
+                models.as_ref().ok().copied(),
+                (inside, index),
+            );
         }
         if place != path && has(|rule| matches!(rule, Rule::AllowedDependency(_))) {
             found.gap(place, "inside", INSIDE);
@@ -125,6 +136,23 @@ pub(crate) fn check(
     }
     root(&mut found, documents, &usable.root, models, path);
     found
+}
+
+/// The interface lifecycle rows of one contract: from the models when there are some (AD-514), else
+/// the named gap of the family.
+fn interface(
+    found: &mut Found,
+    place: &str,
+    tree: Option<&ModelTree>,
+    (inside, index): (&[InsideMount], Option<usize>),
+) {
+    let Some(tree) = tree else {
+        found.gap(place, "interface", INTERFACE);
+        return;
+    };
+    for finding in hygiene_interface::findings(tree, inside, index) {
+        found.defect(place, finding);
+    }
 }
 
 /// The checks of the root contract alone, as the reference engine runs them.
