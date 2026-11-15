@@ -36,6 +36,10 @@ struct Site {
 pub(super) enum Kind {
     /// A `def` or a `class`: the name is a function or a class, never a module.
     Callable,
+    /// A display or literal makes a value, not a module.
+    Value,
+    /// A subscript of a builtin generic, if the module does not bind that builtin.
+    BuiltinGeneric(&'static str),
     /// An import: the name is whatever the imported name is.
     Import,
     /// Any other binder: the value is unknown.
@@ -52,6 +56,8 @@ pub(super) struct Bound {
     pub(super) opaque: bool,
     /// A top-level `__getattr__` can give any attribute.
     pub(super) getattr: bool,
+    /// A namespace write through a runtime attribute helper can change a binding.
+    pub(super) attribute_write: bool,
 }
 
 impl Bound {
@@ -88,6 +94,28 @@ impl Bound {
     pub(super) fn names(&self) -> HashSet<String> {
         let sites = self.sites.keys().cloned();
         sites.chain(self.globals.iter().cloned()).collect()
+    }
+
+    pub(super) fn unbound(&self, name: &str) -> bool {
+        !self.opaque && !self.globals.contains(name) && !self.sites.contains_key(name)
+    }
+
+    pub(super) fn inert_typing_arg(&self, expr: &Expr) -> bool {
+        match expr {
+            Expr::Name(name) => {
+                matches!(
+                    name.id.as_str(),
+                    "int" | "str" | "float" | "bool" | "bytes" | "object"
+                ) && self.unbound(name.id.as_str())
+            }
+            Expr::NumberLiteral(_)
+            | Expr::StringLiteral(_)
+            | Expr::BytesLiteral(_)
+            | Expr::BooleanLiteral(_)
+            | Expr::NoneLiteral(_) => true,
+            Expr::Tuple(tuple) => tuple.elts.iter().all(|item| self.inert_typing_arg(item)),
+            _ => false,
+        }
     }
 
     /// The names that only the statement at `start` binds (`from . import name`, AD-53).
@@ -156,6 +184,16 @@ impl Walk {
     fn definition(&mut self, name: &str, start: TextSize) {
         self.site(name, start, true, Kind::Callable);
     }
+
+    fn assignment_target<'a>(&mut self, target: &'a Expr, start: TextSize, kind: Kind)
+    where
+        Self: Visitor<'a>,
+    {
+        match target {
+            Expr::Name(name) => self.site(name.id.as_str(), start, true, kind),
+            other => self.visit_expr(other),
+        }
+    }
 }
 
 impl<'a> Visitor<'a> for Walk {
@@ -194,20 +232,27 @@ impl<'a> Visitor<'a> for Walk {
                 self.bound.globals.extend(names);
                 self.bound.getattr |= self.bound.globals.contains("__getattr__");
             }
+            Stmt::TypeAlias(node) => {
+                if let Expr::Name(name) = &*node.name {
+                    self.site(name.id.as_str(), start, true, Kind::Value);
+                }
+                if let Some(params) = &node.type_params {
+                    self.visit_type_params(params);
+                }
+                self.visit_expr(&node.value);
+            }
             Stmt::Assign(node) => {
                 for target in &node.targets {
-                    match target {
-                        Expr::Name(name) => self.site(name.id.as_str(), start, true, Kind::Other),
-                        other => self.visit_expr(other),
-                    }
+                    self.assignment_target(target, start, value_kind(&node.value));
                 }
                 self.visit_expr(&node.value);
             }
             Stmt::AnnAssign(node) => {
-                match &*node.target {
-                    Expr::Name(name) => self.site(name.id.as_str(), start, true, Kind::Other),
-                    other => self.visit_expr(other),
-                }
+                self.assignment_target(
+                    &node.target,
+                    start,
+                    node.value.as_deref().map_or(Kind::Other, value_kind),
+                );
                 self.visit_expr(&node.annotation);
                 node.value.iter().for_each(|value| self.visit_expr(value));
             }
@@ -226,6 +271,14 @@ impl<'a> Visitor<'a> for Walk {
     }
 
     fn visit_expr(&mut self, expr: &'a Expr) {
+        if let Expr::Call(call) = expr {
+            let name = match &*call.func {
+                Expr::Name(name) => Some(name.id.as_str()),
+                Expr::Attribute(attr) => Some(attr.attr.as_str()),
+                _ => None,
+            };
+            self.bound.attribute_write |= matches!(name, Some("setattr" | "delattr"));
+        }
         if let Expr::Name(node) = expr {
             if matches!(node.ctx, ExprContext::Store | ExprContext::Del) {
                 self.site(node.id.as_str(), expr.range().start(), false, Kind::Other);
@@ -243,6 +296,42 @@ impl<'a> Visitor<'a> for Walk {
     }
 
     bind_handler_and_pattern!();
+}
+
+fn value_kind(value: &Expr) -> Kind {
+    if let Expr::Subscript(subscript) = value {
+        if let Expr::Name(name) = &*subscript.value {
+            let builtin = match name.id.as_str() {
+                "list" => Some("list"),
+                "dict" => Some("dict"),
+                "tuple" => Some("tuple"),
+                "set" => Some("set"),
+                "frozenset" => Some("frozenset"),
+                "type" => Some("type"),
+                _ => None,
+            };
+            if let Some(builtin) = builtin {
+                return Kind::BuiltinGeneric(builtin);
+            }
+        }
+    }
+    if matches!(
+        value,
+        Expr::NumberLiteral(_)
+            | Expr::StringLiteral(_)
+            | Expr::BytesLiteral(_)
+            | Expr::BooleanLiteral(_)
+            | Expr::NoneLiteral(_)
+            | Expr::Tuple(_)
+            | Expr::List(_)
+            | Expr::Dict(_)
+            | Expr::Set(_)
+            | Expr::FString(_)
+    ) {
+        Kind::Value
+    } else {
+        Kind::Other
+    }
 }
 
 impl<'a> Bind<'a> for Walk {
