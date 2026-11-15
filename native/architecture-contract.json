@@ -401,7 +401,7 @@
         "Parsing source, collecting facts and reading a snapshot."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-342-the-dart-grammar-is-vendored-from-the-python-release-and-gated-by-tree-parity.md"
+        "docs/architecture/decisions/ad-342-the-dart-grammar-is-vendored-from-the-python-release-and-gated-by-a-test-of-its-bytes.md"
       ],
       "decided_by": "architect"
     },
@@ -2481,7 +2481,7 @@
       ],
       "rationale": "Only a grammar crate links a C parser to a Tree-sitter language; a collector gets the language from the grammar crate.",
       "provenance": [
-        "docs/architecture/decisions/ad-342-the-dart-grammar-is-vendored-from-the-python-release-and-gated-by-tree-parity.md"
+        "docs/architecture/decisions/ad-342-the-dart-grammar-is-vendored-from-the-python-release-and-gated-by-a-test-of-its-bytes.md"
       ],
       "decided_by": "architect"
     },
