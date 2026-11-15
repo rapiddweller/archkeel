@@ -100,6 +100,7 @@ pub use construct::construct_row;
 #[cfg(test)]
 mod construct_replay_tests;
 
+mod beyond;
 mod build_error;
 mod edge_links;
 mod engine_frame;

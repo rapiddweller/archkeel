@@ -113,22 +113,27 @@ def rows(result: dict[str, Any]) -> dict[str, str]:
 
 
 @pytest.mark.parametrize(
-    ("source", "expected"),
+    ("source", "expected", "why"),
     [
-        ("import app.missing\n", "UNKNOWN"),
-        ("def load(name):\n    return __import__(name)\n", "UNKNOWN"),
-        ("import os\n", "PASS"),
+        ("import app.missing\n", "UNKNOWN", "core cannot prove the dependency scope"),
+        # AD-564: the gap states its effect, and the row names what the rule reads of it.
+        (
+            "def load(name):\n    return __import__(name)\n",
+            "UNKNOWN",
+            "1 gaps leave unknown what the rule reads: the code of every module",
+        ),
+        ("import os\n", "PASS", ""),
     ],
 )
 def test_requires_with_a_coverage_gap_has_a_rule_row(
-    release_core: Path, tmp_path: Path, source: str, expected: str
+    release_core: Path, tmp_path: Path, source: str, expected: str, why: str
 ) -> None:
     contract = [{**RULE, "id": "REQUIRES", "kind": "complete_requires"}]
     root = project(tmp_path, {**BASE, "src/app/client.py": source}, contract_rules=contract)
     result = verdict(release_core, root)
     assert rows(result)["REQUIRES"] == expected
     if expected == "UNKNOWN":
-        assert "core cannot prove the dependency scope" in result["frame"]["explained"]["REQUIRES"]
+        assert why in result["frame"]["explained"]["REQUIRES"]
         assert result["exit_code"] == 2
     else:
         assert result["exit_code"] == 0
@@ -299,15 +304,23 @@ GAPS = {
 }
 
 
+# AD-564: these kinds state their effect. It leaves the files and their names known, so the rule
+# on the files has its verdict. Each rule that reads an import stays UNKNOWN, and so does the run.
+STATED = ("dynamic_import", "import_system_change", "star_import", "reexport_ambiguity")
+
+
 @pytest.mark.parametrize("gap", sorted(GAPS))
 def test_each_named_gap_gives_unknown(release_core: Path, tmp_path: Path, gap: str) -> None:
     roots = '["src", "lib"]' if gap.startswith("duplicate_module") else '["src"]'
     if gap.startswith("module_outside_layout"):
         roots = '["src/app/inner"]'
     result = verdict(release_core, project(tmp_path, {**BASE, **GAPS[gap]}, roots=roots))
-    assert set(rows(result).values()) == {"UNKNOWN"}, result
-    assert result["exit_code"] == 2
-    assert gap.split("#")[0].strip() in json.dumps(result["frame"]), result
+    kind = gap.split("#")[0].strip()
+    files = "PASS" if kind in STATED else "UNKNOWN"
+    expected = {"FORBID": "UNKNOWN", "ASSIGN": files, "CYCLES": "UNKNOWN", "EXTERNAL": "UNKNOWN"}
+    assert rows(result) == expected, result
+    assert result["status"] == "UNKNOWN" and result["exit_code"] == 2
+    assert kind in json.dumps(result["frame"]), result
 
 
 @pytest.mark.skipif(

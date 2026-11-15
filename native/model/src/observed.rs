@@ -29,6 +29,7 @@ use archkeel_facts::profile_traits::{Layout, PairGapDrop};
 use archkeel_facts::{GapFact, Section};
 
 use crate::coverage::data_of;
+use crate::gap_effects::{self, Class, EffectGap};
 
 /// The resolution feature after which the reference engine reads symbol-level selectors of one
 /// profile (`evaluate_source`: `dependency_symbols=True`). The core does not know the profile,
@@ -55,6 +56,8 @@ pub(crate) struct Observed {
     pub(crate) scope_premise: Option<&'static str>,
     /// Each gap between two modules: its source module and its module.
     pub(crate) pair_gaps: Vec<(String, String)>,
+    /// Each gap that states its effect (AD-564).
+    pub(crate) effect_gaps: Vec<EffectGap>,
     /// The host could not read the head or the state of the work tree.
     pub(crate) git_unknown: bool,
     /// The runtime check.
@@ -112,19 +115,20 @@ impl Dynamic {
 }
 
 /// The scope facts of the facts of a reply.
-pub(crate) fn observed(facts: &Facts) -> Observed {
+pub(crate) fn observed(facts: &Facts, classes: &[Class]) -> Observed {
+    // A gap between two modules that states an effect is not a pair gap (`gap_effects::Class`).
     let pair_gaps = facts
         .coverage
         .gaps
         .iter()
-        .filter_map(|gap| {
+        .zip(classes)
+        .filter(|(_, class)| **class == Class::Pair)
+        .filter_map(|(gap, _)| {
             let data = data_of(&gap.data);
-            match (&data.source_module, &data.module) {
-                (Some(source), Some(module)) if source != module => {
-                    Some((source.as_str().to_owned(), module.as_str().to_owned()))
-                }
-                _ => None,
-            }
+            Some((
+                data.source_module.as_ref()?.as_str().to_owned(),
+                data.module.as_ref()?.as_str().to_owned(),
+            ))
         })
         .collect();
     let dynamic_imports = facts
@@ -151,6 +155,7 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
         profile_limits: facts.profile_limits,
         scope_premise: facts.scope_premise,
         pair_gaps,
+        effect_gaps: gap_effects::effect_gaps(&facts.coverage, classes),
         git_unknown: facts.source.git_head == "unknown"
             || matches!(facts.source.dirty, Dirty::Unknown(_)),
         runtime: runtime(&facts.runtime),
