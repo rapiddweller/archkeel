@@ -17,7 +17,7 @@
 
 use tree_sitter::Node;
 
-use crate::kinds::{F, K};
+use crate::kinds::F;
 use crate::script_names::bound_scope;
 use crate::script_numeric::listed;
 use crate::script_syntax::Producer;
