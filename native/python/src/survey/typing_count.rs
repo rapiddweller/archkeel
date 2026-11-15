@@ -5,7 +5,7 @@
 //! Count written typing positions and dynamic typing calls.
 
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{Expr, ExprContext, Stmt};
+use ruff_python_ast::{Expr, ExprAttribute, ExprContext, Stmt};
 use ruff_text_size::{Ranged, TextSize};
 
 use super::binders::Binders;
@@ -128,6 +128,11 @@ impl<'a> Visitor<'a> for Typing {
                 self.receiver = None;
                 self.method_body = None;
             }
+            Stmt::AugAssign(node) => {
+                if let Expr::Attribute(attr) = &*node.target {
+                    self.private += u64::from(self.private_read(attr));
+                }
+            }
             _ => {}
         }
         visitor::walk_stmt(self, stmt);
@@ -140,12 +145,8 @@ impl<'a> Visitor<'a> for Typing {
 
     fn visit_expr(&mut self, expr: &'a Expr) {
         if let Expr::Attribute(attr) = expr {
-            if attr.ctx == ExprContext::Load && attr.attr.as_str().starts_with('_') {
-                let exempt = matches!(&*attr.value, Expr::Name(name)
-                    if (self.receiver.as_deref() == Some(name.id.as_str())
-                        && self.method_body.is_some_and(|(start, end)| start <= attr.start() && attr.end() <= end))
-                    || self.imported.contains(name.id.as_str()));
-                self.private += u64::from(!exempt);
+            if attr.ctx == ExprContext::Load {
+                self.private += u64::from(self.private_read(attr));
             }
         }
         let callee = match expr {
@@ -160,6 +161,16 @@ impl<'a> Visitor<'a> for Typing {
                 u64::from(matches!(name, "getattr" | "eval" | "exec") || self.casts.contains(name));
         }
         visitor::walk_expr(self, expr);
+    }
+}
+
+impl Typing {
+    fn private_read(&self, attr: &ExprAttribute) -> bool {
+        let exempt = matches!(&*attr.value, Expr::Name(name)
+            if (self.receiver.as_deref() == Some(name.id.as_str())
+                && self.method_body.is_some_and(|(start, end)| start <= attr.start() && attr.end() <= end))
+            || self.imported.contains(name.id.as_str()));
+        attr.attr.as_str().starts_with('_') && !exempt
     }
 }
 
@@ -205,5 +216,12 @@ mod tests {
         let module = crate::test_module("from typing import cast\ndef f(a: int) -> int:\n    getattr(a, 'x')\n    eval('1')\n    exec('x=1')\n    cast(int, a)\n    return a._hidden\n", 11);
         let binders = Binders::of(&module.tree);
         assert_eq!(count(&module, &binders), (4, 1));
+    }
+
+    #[test]
+    fn augmented_assignment_reads_the_private_attribute() {
+        let module = crate::test_module("def f(a):\n    a._value += 1\n", 11);
+        let binders = Binders::of(&module.tree);
+        assert_eq!(count(&module, &binders).1, 1);
     }
 }
