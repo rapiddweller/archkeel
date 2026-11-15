@@ -77,6 +77,10 @@ PROVEN: dict[str, dict[str, str]] = {
         "pub fn f(s: &crate::c::S, v: Option<u8>) -> u8 {\n"
         "    let _ = matches!(v, Some(n) if n > 0);\n    s.m(1)\n}\n"
     ),
+    "workspace macro without nested calls": _plant(
+        "macro_rules! items { ($($t:tt)*) => { $($t)* }; }\n"
+        "pub fn f(s: &crate::c::S) -> u8 {\n    items! { let _n = 1; }\n    s.m(1)\n}\n"
+    ),
 }
 
 
@@ -147,6 +151,10 @@ REFUSED: dict[str, dict[str, str]] = {
         "    let _ = matches!(1, 2);\n    s.m(1)\n}\n",
         c=TYPES + "pub fn matches() {}\n",
     ),
+    "workspace macro passes through a macro call": _plant(
+        "macro_rules! items { ($($t:tt)*) => { $($t)* }; }\n"
+        "pub fn f(s: &crate::c::S) -> u8 {\n    items! { mac::rebind!(1, 2); }\n    s.m(1)\n}\n"
+    ),
     "a macro call that names the parameter": _plant(
         "pub fn f(s: &crate::c::S) -> u8 {\n    dbg!(&s);\n    s.m(1)\n}\n"
     ),
@@ -208,6 +216,190 @@ def test_a_call_on_a_typed_parameter_is_an_edge(
     result, verdict = _check(tmp_path, core_binary, capsys, files)
 
     assert verdict == "FAIL", claims(result)
+
+
+@pytest.mark.parametrize(
+    "binding",
+    ["let s: &crate::c::S = input;", "let mut s: &crate::c::S = input;"],
+)
+def test_a_written_local_type_proves_a_receiver(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], binding: str
+) -> None:
+    files = _plant(f"pub fn f(input: &crate::c::S) -> u8 {{\n    {binding}\n    s.m(1)\n}}\n")
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "FAIL", claims(result)
+
+
+def test_a_written_unique_local_type_proves_a_unique_receiver(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    files = _plant(
+        "pub fn f(input: &mut crate::c::S) -> u8 {\n"
+        "    let s: &mut crate::c::S = input;\n    s.m(1)\n}\n",
+        b=UNIQUE,
+    )
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "FAIL", claims(result)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "let s: &crate::c::S = input; let s = s; s.m(1)",
+        "let s: &crate::c::S = input; let f = |s: &crate::c::S| s.m(1); f(s)",
+        "let s: &crate::c::S = input; assert!(s.m(1) > 0); 1",
+        "let s: &&crate::c::S = &input; s.m(1)",
+        "let s: &crate::c::S = input; #[cfg(unix)] let _n = 1; s.m(1)",
+        "let s: &crate::c::S = input; matches!(s, _); s.m(1)",
+        "{ let s: &crate::c::S = input; s.m(1) }",
+        "let _ = s.m(1); let s: &crate::c::S = input; 1",
+        "let s: &crate::c::S = { let _ = s.m(1); input }; 1",
+    ],
+)
+def test_an_unproved_local_type_keeps_the_gap(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], body: str
+) -> None:
+    files = _plant(f"pub fn f(input: &crate::c::S) -> u8 {{\n    {body}\n}}\n")
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "UNKNOWN", claims(result)
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        _plant(
+            "type Alias = crate::c::S;\npub fn f(input: &Alias) -> u8 {\n"
+            "    let s: &Alias = input; s.m(1)\n}\n"
+        ),
+        _plant(
+            "use crate::c::S;\npub fn f<S: crate::c::Tr>(input: &S) -> u8 {\n"
+            "    let s: &S = input; s.m(1)\n}\n"
+        ),
+        _plant(
+            "pub fn f(input: &mut crate::c::S) -> u8 {\n"
+            "    let s: &mut crate::c::S = input; s.m(1)\n}\n"
+        ),
+        _plant(
+            "pub fn f(input: &crate::c::S) -> u8 {\n    let s: &crate::c::S = input; s.m(1)\n}\n",
+            c=TYPES + "impl std::ops::Deref for S { type Target = u8; "
+            "fn deref(&self) -> &u8 { &1 } }\n",
+        ),
+    ],
+    ids=["alias", "generic", "receiver-form", "deref"],
+)
+def test_a_local_with_an_unproved_type_keeps_the_gap(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], files: dict[str, str]
+) -> None:
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "UNKNOWN", claims(result)
+
+
+@pytest.mark.parametrize("body", ["s.m(1)", "s.m(1).saturating_add(1)"])
+def test_a_written_closure_type_proves_a_receiver(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], body: str
+) -> None:
+    files = _plant(
+        f"pub fn f(input: &crate::c::S) -> u8 {{\n"
+        f"    let call = |s: &crate::c::S| {body};\n    call(input)\n}}\n"
+    )
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "FAIL", claims(result)
+
+
+@pytest.mark.parametrize(
+    "closure",
+    [
+        "|s| s.m(1)",
+        "|s: &crate::c::S| { let s = s; s.m(1) }",
+        "|s: &crate::c::S| { let _ = matches!(s, _); s.m(1) }",
+        "|s: &&crate::c::S| s.m(1)",
+        "|s: &crate::c::S| { #[cfg(unix)] let _n = 1; s.m(1) }",
+        "|s: &crate::c::S| { fn inner() -> u8 { s.m(1) } 1 }",
+    ],
+)
+def test_an_unproved_closure_receiver_keeps_the_gap(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], closure: str
+) -> None:
+    files = _plant(f"pub fn f() {{\n    let _call = {closure};\n}}\n")
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "UNKNOWN", claims(result)
+
+
+@pytest.mark.parametrize(
+    "caller",
+    [
+        "impl W { pub fn f(&self) -> u8 { self.s.m(1) } }",
+        "pub fn f(w: &W) -> u8 { w.s.m(1) }",
+    ],
+)
+def test_a_written_field_type_proves_a_receiver(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], caller: str
+) -> None:
+    files = _plant("pub struct W { pub s: &'static crate::c::S }\n" + caller + "\n")
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "FAIL", claims(result)
+
+
+def test_a_field_type_with_a_renamed_import_proves_a_receiver(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    files = _plant(
+        "use crate::c::S as Renamed;\npub struct W { pub s: &'static Renamed }\n"
+        "pub fn f(w: &W) -> u8 { w.s.m(1) }\n"
+    )
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "FAIL", claims(result)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "pub struct W<T> { pub s: T }\npub fn f(w: &W<&crate::c::S>) -> u8 { w.s.m(1) }\n",
+        "pub struct W<T = ()> { pub s: &'static crate::c::S, p: std::marker::PhantomData<T> }\npub fn f(w: &W) -> u8 { w.s.m(1) }\n",
+        "type A = crate::c::S;\npub struct W { pub s: &'static A }\npub fn f(w: &W) -> u8 { w.s.m(1) }\n",
+        "pub struct W { #[cfg(unix)] pub s: &'static crate::c::S }\npub fn f(w: &W) -> u8 { w.s.m(1) }\n",
+        "pub struct W { pub s: &'static mut crate::c::S }\npub fn f(w: &mut W) -> u8 { w.s.m(1) }\n",
+        "pub struct W(pub &'static crate::c::S);\npub fn f(w: &W) -> u8 { w.0.m(1) }\n",
+        "pub struct W { pub inner: V }\npub struct V { pub s: &'static crate::c::S }\npub fn f(w: &W) -> u8 { w.inner.s.m(1) }\n",
+        "macro_rules! make { () => { pub struct W { pub s: &'static crate::c::S } }; }\nmake!();\npub fn f(w: &W) -> u8 { w.s.m(1) }\n",
+        "pub struct W { pub s: &'static crate::c::S }\nimpl std::ops::Deref for W { type Target = u8; fn deref(&self) -> &u8 { &1 } }\nimpl W { pub fn f(&self) -> u8 { self.s.m(1) } }\n",
+    ],
+    ids=[
+        "generic",
+        "generic-default",
+        "alias",
+        "cfg-field",
+        "receiver-form",
+        "tuple",
+        "chain",
+        "macro-struct",
+        "deref-base",
+    ],
+)
+def test_an_unproved_field_keeps_the_gap(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], source: str
+) -> None:
+    result, verdict = _check(tmp_path, core_binary, capsys, _plant(source))
+    assert verdict == "UNKNOWN", claims(result)
+
+
+@pytest.mark.parametrize("case", ["private-field", "deref-field"])
+def test_a_hidden_or_deref_field_keeps_the_gap(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], case: str
+) -> None:
+    if case == "private-field":
+        files = _plant(
+            "pub fn f(w: &crate::c::W) -> u8 { w.s.m(1) }\n",
+            c=TYPES + "pub struct W { s: &'static S }\n",
+        )
+    else:
+        files = _plant(
+            "pub struct W { pub s: &'static crate::c::S }\npub fn f(w: &W) -> u8 { w.s.m(1) }\n",
+            c=TYPES + "impl std::ops::Deref for S { type Target = u8; "
+            "fn deref(&self) -> &u8 { &1 } }\n",
+        )
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "UNKNOWN", claims(result)
 
 
 def test_a_conditional_lint_keeps_the_forbidden_edge(

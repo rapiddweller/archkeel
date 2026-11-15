@@ -19,6 +19,7 @@ use syn::{
 use crate::definitions::{OnSelf, SelfKind};
 use crate::tokens::{plain, LINTS};
 pub(in crate::scan) use params::item_name;
+pub(in crate::scan) use params::typed as written_type;
 use params::{plain_path, Params};
 
 /// The attributes that change no item and remove it in no configuration: an `impl` block or a
@@ -209,6 +210,7 @@ impl Selves {
                 scope,
                 kind,
                 macros: Vec::new(),
+                field: None,
             })
         });
         self.frames
@@ -222,6 +224,17 @@ impl Selves {
     /// The proof of a call whose receiver is `receiver`: a plain `self` path has the type of its
     /// block, and a plain parameter name has its written type (AD-524).
     pub(super) fn of(&self, receiver: &syn::Expr) -> Option<OnSelf> {
+        if let syn::Expr::Field(field) = receiver {
+            let syn::Member::Named(name) = &field.member else {
+                return None;
+            };
+            if !field.attrs.is_empty() || !matches!(&*field.base, syn::Expr::Path(_)) {
+                return None;
+            }
+            let mut base = self.of(&field.base)?;
+            base.field = Some(plain(name));
+            return Some(base);
+        }
         let syn::Expr::Path(path) = receiver else {
             return None;
         };
@@ -233,7 +246,11 @@ impl Selves {
         match frame {
             Some(Frame::Method(on_self, _, _)) if name == "self" => on_self.clone(),
             Some(Frame::Method(_, _, found) | Frame::Opaque(found)) if name != "self" => {
-                found.get(&plain(name)).filter(|_| !self.gated()).cloned()
+                let at = name.span().start();
+                found
+                    .get(&plain(name), (at.line, at.column))
+                    .filter(|_| !self.gated())
+                    .cloned()
             }
             _ => None,
         }
@@ -251,6 +268,7 @@ impl Selves {
                 scope: scope.clone(),
                 kind: None,
                 macros: Vec::new(),
+                field: None,
             }),
             _ => None,
         }

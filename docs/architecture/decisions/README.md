@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-543 | [A written local type proves a Rust receiver](ad-543-a-written-local-type-proves-a-rust-receiver.md) |
 | AD-535 | [Conditional lints and matches keep a Rust receiver proof](ad-535-conditional-lints-do-not-gate-a-rust-receiver-proof.md) |
 | AD-534 | [A local enum, a value namespace and `arguments` are bindings in TypeScript](ad-534-a-local-enum-a-value-namespace-and-arguments-are-bindings-in-typescript.md) |
 | AD-528 | [A leading `types` directive is a type-only edge to its package, or a named gap](ad-528-a-leading-types-directive-is-a-type-only-edge-to-its-package.md) |

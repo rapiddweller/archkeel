@@ -21,7 +21,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::builder::Builder;
-use crate::definitions::{Access, ImplBlock, Member, MethodCall};
+use crate::definitions::{Access, ImplBlock, Member, MethodCall, SelfKind};
 use crate::modules::{inside, Edge, Frame, Index, TypeOf};
 use crate::scan::{Reference, Via};
 use crate::tokens::NO_BIND_MACROS;
@@ -126,6 +126,48 @@ fn exact_type(index: &Index<'_>, lexical: &str, ty: &str) -> bool {
     })
 }
 
+/// Resolve a named field from its exact struct, without deref or an ambiguous field.
+fn field_type(
+    index: &Index<'_>,
+    caller: &Module,
+    at: &str,
+    (lexical, ty, name): (&str, &str, &str),
+    found: &Typed<'_>,
+) -> Option<(String, String, SelfKind)> {
+    if !exact_type(index, lexical, ty) || found.derefs.contains(ty) {
+        return None;
+    }
+    let frame = index.frame(index.file_of(lexical)?)?;
+    let fields: Vec<_> = frame
+        .module
+        .scan
+        .fields
+        .get(&(ty.to_owned(), name.to_owned()))?
+        .iter()
+        .filter(|f| frame.lexical_at(&f.scope) == lexical)
+        .collect();
+    let [field] = fields.as_slice() else {
+        return None;
+    };
+    let same_crate = caller.crate_index == frame.module.crate_index;
+    let visible = match &field.access {
+        Access::Public => true,
+        Access::Package(text) if text == "pub(crate)" => same_crate,
+        Access::Package(text) if text == "pub(super)" => lexical
+            .rsplit_once('.')
+            .is_some_and(|(parent, _)| same_crate && inside(at, parent)),
+        Access::Private => same_crate && inside(at, lexical),
+        Access::Package(_) => false,
+    };
+    if !visible {
+        return None;
+    }
+    let TypeOf::Known(lexical, ty) = index.type_of(frame, &field.scope, &field.path) else {
+        return None;
+    };
+    (!found.derefs.contains(ty.as_str())).then_some((lexical, ty, field.kind))
+}
+
 impl Builder {
     /// Resolve a call on `self`, or a path `Self::m`: an edge to the module of the one member that
     /// it reaches, and `true`. `false` when the call is not certain: the caller keeps its gaps.
@@ -140,7 +182,7 @@ impl Builder {
             return false;
         };
         // A method call has a `self` form and an arity; a path `Self::m` has neither.
-        let form = match (on_self.kind, call.arity, call.path) {
+        let mut form = match (on_self.kind, call.arity, call.path) {
             (Some(kind), Some(arity), false) => Some((kind, arity)),
             (None, None, true) => None,
             _ => return false,
@@ -156,9 +198,24 @@ impl Builder {
         if parameter && (deref || found.shadowed_macros || foreign) {
             return false;
         }
-        let TypeOf::Known(lexical, ty) = index.type_of(frame, &on_self.scope, &on_self.path) else {
+        let TypeOf::Known(mut lexical, mut ty) =
+            index.type_of(frame, &on_self.scope, &on_self.path)
+        else {
             return false;
         };
+        if let Some(field) = &on_self.field {
+            let at = frame.lexical_at(&call.scope);
+            let Some((target, name, kind)) =
+                field_type(index, module, &at, (&lexical, &ty, field), found)
+            else {
+                return false;
+            };
+            if kind == SelfKind::Unique && on_self.kind == Some(SelfKind::Shared) {
+                return false;
+            }
+            (lexical, ty) = (target, name);
+            form = call.arity.map(|arity| (kind, arity));
+        }
         let unplaced = found.unplaced.contains(call.name.as_str())
             || self.macro_members.contains_key(&call.name);
         if unplaced || module.gated || !exact_type(index, &lexical, &ty) {
