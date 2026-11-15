@@ -39,7 +39,7 @@ reaches no `module:name` entry (4.0.1 does the same). For a mount, an import fro
 domain counts when the component that holds the mount publishes it at the root
 (`_import_published_through_ancestors`): the root owns the source, the parent owns the target, and
 the parent's `public` covers the imported name, and then the target's `public` or `planned` covers
-it. A deeper mount counts local imports only, so it can only give more `usage_unknown` rows.
+it. A deeper mount walks every owner up to the root (AD-558).
 
 **4.0.1 false verdicts and what the core does.**
 
