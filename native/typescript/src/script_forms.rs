@@ -12,10 +12,9 @@ use tree_sitter::Node;
 
 use crate::kinds::F;
 use crate::references::literal;
-use crate::script_host::Reach;
 use crate::script_names::bound_scope;
 use crate::script_syntax::Producer;
-use crate::script_window::{Receiver, Written};
+use crate::script_window::{Reach, Receiver, Written};
 
 /// The globals whose value gives reflection, a navigation or a window of another origin. A free
 /// name of them that is called, passed, stored or returned is an alias of the class.

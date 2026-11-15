@@ -8,10 +8,9 @@
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::script_host::Reach;
 use crate::script_names::bound_scope;
 use crate::script_syntax::Producer;
-use crate::script_window::{cooked, Written, CODE_NAMES, TIMERS};
+use crate::script_window::{cooked, Reach, Written, CODE_NAMES, TIMERS};
 
 /// The members of a function that call it with other arguments.
 const CALLERS: [&str; 3] = ["call", "apply", "bind"];

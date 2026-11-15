@@ -15,36 +15,13 @@
 //! no function or text that makes one. A caller can give `set(window, 'Math', x)` to
 //! `export function set(o, k, v) { o[k] = v }` and the collector does not see it.
 
-use std::collections::HashMap;
-
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
 use crate::script_names::bound_scope;
 use crate::script_scope::sole_binding_scope;
 use crate::script_syntax::Producer;
-use crate::script_window::{cooked, Written};
-
-/// The assumption that the proofs of a script global rest on (AD-540): the report states it with
-/// the verdict. The collector cannot see a caller outside the scan roots.
-pub(crate) const SCRIPT_PREMISE: &str =
-    "code outside the scan roots hands in no global or platform object";
-
-/// How a form writes an unknown global. A direct form is the stronger one.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum Reach {
-    Amplified,
-    Direct,
-}
-
-impl Reach {
-    pub(crate) fn written(self) -> Written {
-        match self {
-            Reach::Amplified => Written::Amplified,
-            Reach::Direct => Written::Unknown,
-        }
-    }
-}
+use crate::script_window::cooked;
 
 /// The value globals of the ECMAScript library that give no host object. A name that is not on
 /// the list is a host entry until someone adds it. `globalThis`, `eval` and `Function` are not
@@ -82,13 +59,10 @@ fn listed(list: &str, name: &str) -> bool {
 /// The depth that a chain of numeric names is followed.
 const DEPTH: u8 = 4;
 
-/// What the producer remembers of the names that it proved numeric, by scope and name.
-pub(crate) type NumericNames = std::cell::RefCell<HashMap<(usize, String), bool>>;
-
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// The file gives the scan a host entry (conditions 1 and 3 of AD-540): it is no ES module,
     /// or it names a free value of the host.
-    pub(crate) fn host_entry(&self) -> bool {
+    pub(crate) fn needs_host(&self) -> bool {
         let tree = self.tree;
         let commonjs = tree.nodes.iter().any(|node| commonjs(*node));
         !self.module_syntax || commonjs || tree.nodes.iter().any(|node| self.names_host(*node))

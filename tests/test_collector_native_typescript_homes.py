@@ -125,9 +125,9 @@ def test_each_script_global_decision_reads_the_one_write_check() -> None:
 # AD-540: an amplifier form blocks a proof only when the scan has a host entry. The kind of each
 # form is decided in one of three files, and each reader of the empty path reads `blocks_all`.
 AMPLIFIER_HOMES = {
-    "Reach::Amplified": {"script_host.rs", "script_window.rs", "script_forms.rs"},
+    "Reach::Amplified": {"script_window.rs", "script_forms.rs"},
     "Written::Amplified": {
-        "script_host.rs",
+        "script_window.rs",
         "script_forms.rs",
         "script_declarations.rs",
     },

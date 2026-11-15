@@ -20,6 +20,9 @@ use crate::source::Span;
 use crate::tree::nodes::named_children;
 use crate::umd::Templates;
 
+/// What the producer remembers of the names that it proved numeric, by scope and name.
+pub(crate) type NumericNames = RefCell<HashMap<(usize, String), bool>>;
+
 /// What the producers read, built once for a file.
 pub(crate) struct Producer<'x, 'a, 't> {
     pub tree: &'x Tree<'a, 't>,
@@ -43,7 +46,7 @@ pub(crate) struct Producer<'x, 'a, 't> {
     /// The nearest wrapper above each node, by the position of the node.
     wrapper_above: Vec<u32>,
     /// The names that were proved numeric (AD-540), by scope and name.
-    pub(crate) numeric: crate::script_host::NumericNames,
+    pub(crate) numeric: NumericNames,
 }
 
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {

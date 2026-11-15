@@ -25,10 +25,13 @@ use crate::construct_records::{constructs, STRING_LITERAL_COMPARE};
 use crate::kept::Pending;
 use crate::resolution::{local_imports, Imports};
 use crate::script_effects::effect_record;
-use crate::script_host::SCRIPT_PREMISE;
 use crate::site_records::{self, Pass};
 use crate::symbol_table::SymbolTable;
 use crate::symbols;
+
+/// The assumption that the proofs of a script global rest on (AD-540). The report states it with
+/// the verdict. The collector cannot see a caller outside the scan roots.
+const SCRIPT_PREMISE: &str = "code outside the scan roots hands in no global or platform object";
 
 /// What the producer holds before the first record is written: the targets of the imports, the
 /// table of symbols and the evidence, which the records cite while they are written.
@@ -197,6 +200,7 @@ pub(crate) fn typed_reply(
         plan.write(sink).map(|(tail, _)| tail)
     })?;
     use archkeel_facts::envelope::{LimitSupport, ProfileLimits};
+    reply.facts.scope_premise = Some(SCRIPT_PREMISE);
     reply.facts.scope_premise = Some(SCRIPT_PREMISE);
     reply.facts.profile_limits = Some(ProfileLimits {
         dependency_symbols: if reply

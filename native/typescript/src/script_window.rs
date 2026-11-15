@@ -12,11 +12,26 @@
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
-use crate::script_host::Reach;
 use crate::script_names::bound_scope;
 use crate::script_scope::sole_binding_scope;
 use crate::script_syntax::Producer;
 use crate::source_input::is_window_name;
+
+/// How a form writes an unknown global. A direct form is the stronger one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum Reach {
+    Amplified,
+    Direct,
+}
+
+impl Reach {
+    pub(crate) fn written(self) -> Written {
+        match self {
+            Reach::Amplified => Written::Amplified,
+            Reach::Direct => Written::Unknown,
+        }
+    }
+}
 
 /// What a node writes on the global object.
 pub(crate) enum Written {
