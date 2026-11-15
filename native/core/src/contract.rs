@@ -180,7 +180,7 @@ fn usable(tree: ContractTree) -> Usable {
 
 /// The input of the one UML target row of a tree: the reference engine names one target for the
 /// declared intent of all its contracts (AD-470). The core compares the targets of the root and of
-/// each mount as one declared intent (AD-522). `None` when no contract has `declarations.uml`.
+/// each mount as one declared intent (AD-526). `None` when no contract has `declarations.uml`.
 fn uml_target<'a>(
     root: &'a Contract,
     mounts: impl IntoIterator<Item = &'a Contract>,

@@ -447,7 +447,7 @@ fn a_root_uml_target_row_carries_its_target_for_the_comparison() {
     assert_eq!(counts, Some((21, 13, 2)));
 }
 
-/// AD-522: the targets of the root and of a mount are one declared intent for the comparison.
+/// AD-526: the targets of the root and of a mount are one declared intent for the comparison.
 #[test]
 fn a_uml_target_in_an_inside_contract_is_compared_with_the_target_of_the_root() {
     let root = contract(vec![component("a", Some("a.json"))], vec![]);

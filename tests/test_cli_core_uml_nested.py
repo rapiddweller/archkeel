@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-522: the core compares the UML target of an inside contract.
+"""AD-526: the core compares the UML target of an inside contract.
 
 Each plant is a TypeScript tree whose inside contract draws its own target. `PLANTS` of
 `uml_nested_plants.py` names the row of release 4.0.1 on the same tree (REFUSED: 4.0.1 gives no
@@ -80,4 +80,4 @@ def test_no_nested_plant_gives_a_pass_where_release_4_0_1_does_not() -> None:
         "two-mount-levels",
     }
     assert all(PLANTS[name].release == "PASS" for name in passing)
-    assert len(PLANTS) >= 14
+    assert len(PLANTS) >= 16

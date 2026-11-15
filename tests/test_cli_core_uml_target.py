@@ -276,7 +276,7 @@ def _target(path: Path, identities: list[str]) -> None:
 
 def test_a_mounted_contract_with_its_own_target_has_one_row_that_sums_the_tree() -> None:
     """A tree has one UML row at the id of its root path. The targets of the root and of each
-    mount are one declared intent (AD-522). Here each one names only referenced endpoints, so the
+    mount are one declared intent (AD-526). Here each one names only referenced endpoints, so the
     row has no assessment and stays UNKNOWN, and it holds back the PASS of the tree."""
     with case_root(HONEST) as root:
         tree(root)

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The UML target of a contract tree (AD-522).
+//! The UML target of a contract tree (AD-526).
 //!
 //! Reference engine: `declared_tree_graph` of `ir/target_graph.py` at release 4.0.1 joins the
 //! target of the root and the target of each mount into one target, and `compare_graphs` judges

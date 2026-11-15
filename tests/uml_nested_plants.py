@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-522: TypeScript trees whose inside contracts draw their own UML target.
+"""AD-526: TypeScript trees whose inside contracts draw their own UML target.
 
 Consumer: `test_cli_core_uml_nested.py` and the mutation rows of the same file. `PLANTS` gives, for
 each tree, the row of release 4.0.1 (measured on the same tree) and the row of the core.
@@ -77,6 +77,13 @@ PLANTS: dict[str, Plant] = {
     ),
     "one-import-missing": Plant(
         files={**FILES, "src/a/one.ts": "import { t } from '../b/t';\nexport const one = t;\n"},
+        inside=A_TARGET,
+        release="FAIL",
+        core="FAIL",
+    ),
+    "one-import-missing-with-root-target": Plant(
+        files={**FILES, "src/a/one.ts": "import { t } from '../b/t';\nexport const one = t;\n"},
+        root=target([ent("t", T)]),
         inside=A_TARGET,
         release="FAIL",
         core="FAIL",

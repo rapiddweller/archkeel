@@ -107,7 +107,7 @@ pub enum UmlGap {
         relationships: usize,
         scopes: usize,
     },
-    /// The targets of the tree contradict each other or leave a mount (AD-522): the reason.
+    /// The targets of the tree contradict each other or leave a mount (AD-526): the reason.
     Nested(String),
     /// The target gives no assessment that the core can make.
     NothingCompared,
