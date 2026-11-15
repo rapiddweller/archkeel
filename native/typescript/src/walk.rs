@@ -260,17 +260,9 @@ impl<'a, 't> Walk<'a, 't> {
             if let Some(parameter) = cx.field(node, F::Parameter) {
                 self.frames.bind_pattern(&cx, own, parameter);
             }
-            // A parameter named `arguments` is the one binding (AD-534).
-            if owns_arguments(kind) && self.frames.count(own, ARGUMENTS) == 0 {
-                self.frames.bind(own, ARGUMENTS.to_owned());
-            }
+            self.bind_arguments(own, kind);
         }
-        if matches!(kind, K::EnumDeclaration | K::InternalModule | K::Module) {
-            let ambient = self.stack.iter().any(|up| up.kind == K::AmbientDeclaration);
-            if let Some(name) = runtime_name(&cx, node, kind, ambient) {
-                self.frames.bind_pattern(&cx, parent_frame, name);
-            }
-        }
+        self.bind_runtime_name(node, kind, parent_frame);
         match kind {
             K::CatchClause => {
                 if let Some(parameter) = cx.field(node, F::Parameter) {
@@ -306,6 +298,26 @@ impl<'a, 't> Walk<'a, 't> {
                 | K::ClassDeclaration
         ) {
             self.bind_declaration(node, kind, parent_frame, parent_var);
+        }
+    }
+
+    /// The `arguments` of a function that is no arrow; a parameter of that name is the one
+    /// binding (AD-534).
+    fn bind_arguments(&mut self, own: u32, kind: K) {
+        if owns_arguments(kind) && self.frames.count(own, ARGUMENTS) == 0 {
+            self.frames.bind(own, ARGUMENTS.to_owned());
+        }
+    }
+
+    /// An `enum` or a `namespace` with a value binds in the frame around it (AD-534).
+    fn bind_runtime_name(&mut self, node: Node<'t>, kind: K, parent_frame: u32) {
+        if !matches!(kind, K::EnumDeclaration | K::InternalModule | K::Module) {
+            return;
+        }
+        let ambient = self.stack.iter().any(|up| up.kind == K::AmbientDeclaration);
+        if let Some(name) = runtime_name(&self.cx, node, kind, ambient) {
+            let cx = self.cx;
+            self.frames.bind_pattern(&cx, parent_frame, name);
         }
     }
 
