@@ -9,35 +9,26 @@ use crate::nested::{CallArgument, CallBinding, Construction, GuardedEffect, Resu
 use crate::nullable::{Literal, Nullable};
 use crate::vocab::{ExpressionKind, ReferenceContext, Role, Status, TransferKind, Use};
 
-/// A call site and the targets that it resolves to.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct CallData {
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub call_arguments: Nullable<Vec<CallArgument>>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub call_binding: Nullable<CallBinding>,
-    pub candidate_count: i64,
-    pub candidates_truncated: bool,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub construction: Nullable<Construction>,
-    pub expression: String,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub guarded_effect: Option<Vec<GuardedEffect>>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub reason: Option<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub result_bindings: Option<Vec<ResultBinding>>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub source_definition_id: Nullable<FactId>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub source_file: Option<String>,
-    pub source_module: ModuleName,
-    pub source_scope: String,
-    pub status: Status,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub target_evidence_ids: Option<Vec<EvidenceId>>,
-    pub targets: Vec<String>,
+facts_data! {
+    /// A call site and the targets that it resolves to.
+    pub struct CallData {
+        [read skip] call_arguments: Nullable<Vec<CallArgument>>,
+        [read skip] call_binding: Nullable<CallBinding>,
+        [read] candidate_count: i64,
+        [read] candidates_truncated: bool,
+        [read skip] construction: Nullable<Construction>,
+        [read] expression: String,
+        [read skip] guarded_effect: Option<Vec<GuardedEffect>>,
+        [read skip] reason: Option<String>,
+        [read skip] result_bindings: Option<Vec<ResultBinding>>,
+        [read skip] source_definition_id: Nullable<FactId>,
+        [read skip] source_file: Option<String>,
+        [read] source_module: ModuleName,
+        [read] source_scope: String,
+        [read] status: Status,
+        [read skip] target_evidence_ids: Option<Vec<EvidenceId>>,
+        [read] targets: Vec<String>,
+    }
 }
 
 impl CallData {
@@ -70,49 +61,32 @@ impl CallData {
     }
 }
 
-/// A reference to a name and the targets that it resolves to.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct ReferenceData {
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub candidate_count: Option<i64>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub candidates_truncated: Option<bool>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub declaration_definition_id: Option<FactId>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub declaration_evidence_ids: Option<Vec<EvidenceId>>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub declaration_id: Option<FactId>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub declaration_owner_id: Option<FactId>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub declaration_owner_scope: Option<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub declaration_role: Option<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub declaration_scope: Option<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub declaration_status: Option<String>,
-    pub expression: String,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub local_source_binding: Option<bool>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub reason: Option<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub reference_context: Option<ReferenceContext>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub result_bindings: Option<Vec<ResultBinding>>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub source_definition_id: Nullable<FactId>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub source_file: Option<String>,
-    pub source_module: ModuleName,
-    pub source_scope: String,
-    pub status: Status,
-    pub targets: Vec<String>,
-    #[serde(rename = "use")]
-    pub use_: Use,
+facts_data! {
+    /// A reference to a name and the targets that it resolves to.
+    pub struct ReferenceData {
+        [read skip] candidate_count: Option<i64>,
+        [read skip] candidates_truncated: Option<bool>,
+        [read skip] declaration_definition_id: Option<FactId>,
+        [read skip] declaration_evidence_ids: Option<Vec<EvidenceId>>,
+        [read skip] declaration_id: Option<FactId>,
+        [read skip] declaration_owner_id: Option<FactId>,
+        [read skip] declaration_owner_scope: Option<String>,
+        [read skip] declaration_role: Option<String>,
+        [read skip] declaration_scope: Option<String>,
+        [read skip] declaration_status: Option<String>,
+        [read] expression: String,
+        [read skip] local_source_binding: Option<bool>,
+        [read skip] reason: Option<String>,
+        [read skip] reference_context: Option<ReferenceContext>,
+        [read skip] result_bindings: Option<Vec<ResultBinding>>,
+        [read skip] source_definition_id: Nullable<FactId>,
+        [read skip] source_file: Option<String>,
+        [read] source_module: ModuleName,
+        [read] source_scope: String,
+        [read] status: Status,
+        [read] targets: Vec<String>,
+        [read "use"] use_: Use,
+    }
 }
 
 impl ReferenceData {
@@ -176,21 +150,17 @@ facts_data! {
     }
 }
 
-/// A binding that a module exports (TypeScript).
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct BindingData {
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub binding: Option<String>,
-    pub module: ModuleName,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub name: Option<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub script_global: Option<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub script_namespace: Option<String>,
-    pub source_module: ModuleName,
-    pub source_scope: String,
+facts_data! {
+    /// A binding that a module exports (TypeScript).
+    pub struct BindingData {
+        [wire skip] binding: Option<String>,
+        [wire] module: ModuleName,
+        [wire skip] name: Option<String>,
+        [wire skip] script_global: Option<String>,
+        [wire skip] script_namespace: Option<String>,
+        [wire] source_module: ModuleName,
+        [wire] source_scope: String,
+    }
 }
 
 impl BindingData {

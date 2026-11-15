@@ -47,20 +47,8 @@ impl IntoSection for GapFact {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum ImportFact {
-    Import(ImportData),
-    Reexport(ImportData),
-    ImportType(ImportData),
-    ImportEquals(ImportData),
-    Require(ImportData),
-    DynamicImport(ImportData),
-    ScriptGlobal(ImportData),
-    MacroBody(ImportData),
-}
-
-section_traits! {
-    ImportFact in Imports {
+section_facts! {
+    pub enum ImportFact in Imports {
         Import(ImportData),
         Reexport(ImportData),
         ImportType(ImportData),

@@ -23,6 +23,18 @@ use crate::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use crate::record::Record;
 use crate::sections::{GapFact, Section};
 
+/// A closed object of the envelope: an unknown key is a decode error.
+macro_rules! object {
+    ($(#[$doc:meta])* pub struct $name:ident { $($(#[$attr:meta])* pub $field:ident: $ty:ty,)* }) => {
+        $(#[$doc])*
+        #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+        #[serde(deny_unknown_fields)]
+        pub struct $name {
+            $($(#[$attr])* pub $field: $ty,)*
+        }
+    };
+}
+
 closed! {
     /// The protocol versions of a compressed reply.
     pub enum ProtocolVersion {
@@ -162,40 +174,40 @@ impl<'de> Deserialize<'de> for NoEntries {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Reply {
-    pub protocol_version: ProtocolVersion,
-    pub provider_sources: NoEntries,
-    pub facts: Facts,
+object! {
+    pub struct Reply {
+        pub protocol_version: ProtocolVersion,
+        pub provider_sources: NoEntries,
+        pub facts: Facts,
+    }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Facts {
-    pub profile: Profile,
-    /// The linked collector's scope statements. Wire replies carry no live authority.
-    #[serde(skip)]
-    pub profile_limits: Option<ProfileLimits>,
-    /// The linked collector's files that belong to another module (AD-468). Wire replies
-    /// carry none.
-    #[serde(skip)]
-    pub owned_files: Vec<OwnedFile>,
-    pub adapter: Adapter,
-    pub runtime: Runtime,
-    pub source: Source,
-    pub capabilities: Capabilities,
-    pub inputs: Vec<Input>,
-    pub files: Vec<FileFact>,
-    pub imports: Vec<Target>,
-    pub sections: Vec<Section>,
-    pub coverage: Coverage,
-    pub evidence: Vec<Evidence>,
-    pub uncertain_reexports: NoEntries,
-    pub type_shapes: NoEntries,
-    pub state: State,
-    pub candidate_evidence: NoEntries,
-    pub provider_bindings: NoEntries,
+object! {
+    pub struct Facts {
+        pub profile: Profile,
+        /// The linked collector's scope statements. Wire replies carry no live authority.
+        #[serde(skip)]
+        pub profile_limits: Option<ProfileLimits>,
+        /// The linked collector's files that belong to another module (AD-468). Wire replies
+        /// carry none.
+        #[serde(skip)]
+        pub owned_files: Vec<OwnedFile>,
+        pub adapter: Adapter,
+        pub runtime: Runtime,
+        pub source: Source,
+        pub capabilities: Capabilities,
+        pub inputs: Vec<Input>,
+        pub files: Vec<FileFact>,
+        pub imports: Vec<Target>,
+        pub sections: Vec<Section>,
+        pub coverage: Coverage,
+        pub evidence: Vec<Evidence>,
+        pub uncertain_reexports: NoEntries,
+        pub type_shapes: NoEntries,
+        pub state: State,
+        pub candidate_evidence: NoEntries,
+        pub provider_bindings: NoEntries,
+    }
 }
 
 /// A selected file that has no module of its own: its facts belong to the module `owner`.
@@ -227,12 +239,12 @@ pub struct ProfileLimits {
 // The serde form writes them in the order of the declaration, so the compressed reply of a native
 // collector writes these types as they are. The order of `Facts` does not matter: the stream
 // writes its keys one by one.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Adapter {
-    pub code_digest: String,
-    pub name: String,
-    pub version: String,
+object! {
+    pub struct Adapter {
+        pub code_digest: String,
+        pub name: String,
+        pub version: String,
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -288,19 +300,19 @@ pub struct Capabilities {
     pub sections: Vec<SectionName>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ConstructCapability {
-    pub name: String,
-    pub status: ConstructSupport,
+object! {
+    pub struct ConstructCapability {
+        pub name: String,
+        pub status: ConstructSupport,
+    }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Input {
-    pub digest: String,
-    pub path: String,
-    pub role: Role,
+object! {
+    pub struct Input {
+        pub digest: String,
+        pub path: String,
+        pub role: Role,
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

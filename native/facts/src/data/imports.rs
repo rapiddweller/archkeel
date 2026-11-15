@@ -9,54 +9,36 @@ use crate::nullable::Nullable;
 use crate::reason::ReasonCode;
 use crate::vocab::{ResolutionDimension, Visibility};
 
-/// An import: one record for each statement or bound name (TypeScript, Rust), or for each
-/// imported name (Python, Dart). `script_global` and `script_member` belong to `script_global`.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct ImportData {
-    pub source_module: ModuleName,
-    pub source_package: PackageName,
-    pub target_module: ModuleName,
-    pub target_package: PackageName,
-    #[serde(deserialize_with = "crate::nullable::required")]
-    #[schemars(required)]
-    pub symbol: Option<String>,
-    #[serde(deserialize_with = "crate::nullable::required")]
-    #[schemars(required)]
-    pub binding: Option<String>,
-    pub symbols_known: bool,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub specifier: Option<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub type_only: Option<bool>,
-    pub relative_level: i64,
-    pub under_type_checking: bool,
-    pub reexport: bool,
-    pub module_level_import: bool,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub reexport_chain: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub declared_in_all: Option<bool>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub ordinary_module: Option<bool>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub origin_binding_unique: Option<bool>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub origin_definition: Nullable<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub origin_member_binding_static: Option<bool>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub reexport_candidate: Option<bool>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub script_global: Option<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub script_member: Nullable<String>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub source_binding_unique: Option<bool>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub source_member_binding_static: Option<bool>,
-    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
-    pub symbol_visibility: Nullable<Visibility>,
+facts_data! {
+    /// An import: one record for each statement or bound name (TypeScript, Rust), or for each
+    /// imported name (Python, Dart). `script_global` and `script_member` belong to `script_global`.
+    pub struct ImportData {
+        [read] source_module: ModuleName,
+        [read] source_package: PackageName,
+        [read] target_module: ModuleName,
+        [read] target_package: PackageName,
+        [read required] symbol: Option<String>,
+        [read required] binding: Option<String>,
+        [read] symbols_known: bool,
+        [wire skip] specifier: Option<String>,
+        [wire skip] type_only: Option<bool>,
+        [read] relative_level: i64,
+        [read] under_type_checking: bool,
+        [read] reexport: bool,
+        [read] module_level_import: bool,
+        [read skip] reexport_chain: Option<Vec<String>>,
+        [read skip] declared_in_all: Option<bool>,
+        [read skip] ordinary_module: Option<bool>,
+        [read skip] origin_binding_unique: Option<bool>,
+        [read skip] origin_definition: Nullable<String>,
+        [read skip] origin_member_binding_static: Option<bool>,
+        [read skip] reexport_candidate: Option<bool>,
+        [read skip] script_global: Option<String>,
+        [read skip] script_member: Nullable<String>,
+        [read skip] source_binding_unique: Option<bool>,
+        [read skip] source_member_binding_static: Option<bool>,
+        [read skip] symbol_visibility: Nullable<Visibility>,
+    }
 }
 
 /// An UNKNOWN gap of the coverage or of the `unknowns` section.

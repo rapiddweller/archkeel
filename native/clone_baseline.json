@@ -53,22 +53,6 @@
     "reason": "A generated table of Unicode code point ranges (tools/contract_printable.py, L-28): rows of number pairs, as a test table of numbers is. It holds data, not logic.",
     "tokens": 74
   },
-  "contract/src/version.rs|facts/src/vocab_exception.rs|15c9e3ef90": {
-    "files": [
-      "contract/src/version.rs",
-      "facts/src/vocab_exception.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 70
-  },
-  "contract/src/version.rs|facts/src/vocab_exception.rs|5b9f94912a": {
-    "files": [
-      "contract/src/version.rs",
-      "facts/src/vocab_exception.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 75
-  },
   "contract/src/version.rs|typescript/src/references.rs|28d4a368b5": {
     "files": [
       "contract/src/version.rs",
@@ -76,22 +60,6 @@
     ],
     "reason": "Exhaustive match tables of two closed enums (contract features to versions, reference forms to kinds) have one token shape; each arm names its own variant, and a new variant must fail to compile there. AD-406: the `pub(crate)` of the library target of the collector adds three tokens to the same shape; no code was copied.",
     "tokens": 75
-  },
-  "dart/src/syntax.rs|facts/src/vocab_exception.rs|1ed1d1e558": {
-    "files": [
-      "dart/src/syntax.rs",
-      "facts/src/vocab_exception.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 83
-  },
-  "dart/src/syntax.rs|facts/src/vocab_exception.rs|d706bec81d": {
-    "files": [
-      "dart/src/syntax.rs",
-      "facts/src/vocab_exception.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 71
   },
   "dart/src/syntax.rs|rust/src/manifest.rs|233481258c": {
     "files": [
@@ -109,292 +77,70 @@
     "reason": "AD-406 slice 2 makes existing Rust fields pub(crate). Those visibility tokens extend an existing data-field shape beyond the clone window. No code was copied.",
     "tokens": 77
   },
-  "eval/src/violation.rs|facts/src/envelope.rs|194f884a4d": {
+  "facts/src/data/imports.rs|facts/src/data/sites.rs|a6651d57cb": {
     "files": [
-      "eval/src/violation.rs",
-      "facts/src/envelope.rs"
+      "facts/src/data/imports.rs",
+      "facts/src/data/sites.rs"
     ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
+    "tokens": 82
+  },
+  "facts/src/data/sites.rs|facts/src/data/sites.rs|8e9f130df0": {
+    "files": [
+      "facts/src/data/sites.rs"
+    ],
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
     "tokens": 72
   },
-  "facts/src/data/imports.rs|facts/src/data/imports.rs|ddee8436f8": {
-    "files": [
-      "facts/src/data/imports.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 70
-  },
-  "facts/src/data/imports.rs|facts/src/data/sites.rs|34672a9c2f": {
-    "files": [
-      "facts/src/data/imports.rs",
-      "facts/src/data/sites.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 90
-  },
-  "facts/src/data/imports.rs|facts/src/data/symbols.rs|eddabdb1c9": {
-    "files": [
-      "facts/src/data/imports.rs",
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 74
-  },
-  "facts/src/data/sites.rs|facts/src/data/sites.rs|04a5aa3c82": {
+  "facts/src/data/sites.rs|facts/src/data/sites.rs|cd6970d17a": {
     "files": [
       "facts/src/data/sites.rs"
     ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 81
-  },
-  "facts/src/data/sites.rs|facts/src/data/sites.rs|3807f55b46": {
-    "files": [
-      "facts/src/data/sites.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 84
-  },
-  "facts/src/data/sites.rs|facts/src/data/sites.rs|81bc327222": {
-    "files": [
-      "facts/src/data/sites.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 112
-  },
-  "facts/src/data/sites.rs|facts/src/data/sites.rs|c29bf10476": {
-    "files": [
-      "facts/src/data/sites.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 81
-  },
-  "facts/src/data/sites.rs|facts/src/data/symbols.rs|200f600d09": {
-    "files": [
-      "facts/src/data/sites.rs",
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 108
-  },
-  "facts/src/data/sites.rs|facts/src/data/symbols.rs|376250f89a": {
-    "files": [
-      "facts/src/data/sites.rs",
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 79
-  },
-  "facts/src/data/sites.rs|facts/src/data/symbols.rs|423be102df": {
-    "files": [
-      "facts/src/data/sites.rs",
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 81
-  },
-  "facts/src/data/sites.rs|facts/src/data/symbols.rs|65d7faf021": {
-    "files": [
-      "facts/src/data/sites.rs",
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 77
-  },
-  "facts/src/data/sites.rs|facts/src/data/symbols.rs|81bc327222": {
-    "files": [
-      "facts/src/data/sites.rs",
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 74
-  },
-  "facts/src/data/sites.rs|facts/src/data/symbols.rs|8c26d88438": {
-    "files": [
-      "facts/src/data/sites.rs",
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 95
-  },
-  "facts/src/data/sites.rs|facts/src/data/symbols.rs|98ffd6e3ff": {
-    "files": [
-      "facts/src/data/sites.rs",
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 80
-  },
-  "facts/src/data/sites.rs|facts/src/data/symbols.rs|b4059445e9": {
-    "files": [
-      "facts/src/data/sites.rs",
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 81
-  },
-  "facts/src/data/sites.rs|facts/src/data/symbols.rs|b9bec0b9ce": {
-    "files": [
-      "facts/src/data/sites.rs",
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 78
-  },
-  "facts/src/data/sites.rs|facts/src/data/symbols.rs|c29bf10476": {
-    "files": [
-      "facts/src/data/sites.rs",
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 78
-  },
-  "facts/src/data/sites.rs|facts/src/data/symbols.rs|d9e3b15bff": {
-    "files": [
-      "facts/src/data/sites.rs",
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 86
-  },
-  "facts/src/data/sites.rs|facts/src/data/symbols.rs|f548865ed0": {
-    "files": [
-      "facts/src/data/sites.rs",
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 74
-  },
-  "facts/src/data/sites.rs|facts/src/nested.rs|42e25b4929": {
-    "files": [
-      "facts/src/data/sites.rs",
-      "facts/src/nested.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 77
-  },
-  "facts/src/data/sites.rs|facts/src/nested.rs|b4efbf11ed": {
-    "files": [
-      "facts/src/data/sites.rs",
-      "facts/src/nested.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 75
-  },
-  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|11d3ce8e4c": {
-    "files": [
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 78
-  },
-  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|1a7e482bf5": {
-    "files": [
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 106
-  },
-  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|3a8d6d99ad": {
-    "files": [
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 88
-  },
-  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|63552dca96": {
-    "files": [
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 80
-  },
-  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|7597cde978": {
-    "files": [
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 75
-  },
-  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|783efd70a1": {
-    "files": [
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
     "tokens": 71
   },
-  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|81bc327222": {
+  "facts/src/data/sites.rs|facts/src/data/symbols.rs|9f812b0dd1": {
+    "files": [
+      "facts/src/data/sites.rs",
+      "facts/src/data/symbols.rs"
+    ],
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
+    "tokens": 91
+  },
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|3ee63772cf": {
     "files": [
       "facts/src/data/symbols.rs"
     ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 78
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
+    "tokens": 79
   },
-  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|81bc327222#2": {
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|a3ab0319d6": {
     "files": [
       "facts/src/data/symbols.rs"
     ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 74
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
+    "tokens": 76
   },
-  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|eb9dcaf1c5": {
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|b2ce1d8527": {
     "files": [
       "facts/src/data/symbols.rs"
     ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 85
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
+    "tokens": 87
   },
-  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|eb9dcaf1c5#2": {
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|c631f85375": {
     "files": [
       "facts/src/data/symbols.rs"
     ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 123
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
+    "tokens": 72
   },
-  "facts/src/data/symbols.rs|facts/src/nested.rs|200f600d09": {
+  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|f259219496": {
     "files": [
-      "facts/src/data/symbols.rs",
-      "facts/src/nested.rs"
+      "facts/src/data/symbols.rs"
     ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 101
-  },
-  "facts/src/data/symbols.rs|facts/src/nested.rs|480309aef4": {
-    "files": [
-      "facts/src/data/symbols.rs",
-      "facts/src/nested.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 73
-  },
-  "facts/src/data/symbols.rs|facts/src/nested.rs|792147c621": {
-    "files": [
-      "facts/src/data/symbols.rs",
-      "facts/src/nested.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 83
-  },
-  "facts/src/data/symbols.rs|facts/src/nested.rs|f548865ed0": {
-    "files": [
-      "facts/src/data/symbols.rs",
-      "facts/src/nested.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a field list of a fact type with its serde marks. The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 74
-  },
-  "facts/src/envelope.rs|facts/src/envelope.rs|9330196cb5": {
-    "files": [
-      "facts/src/envelope.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 95
-  },
-  "facts/src/envelope.rs|facts/src/envelope.rs|95b9faca18": {
-    "files": [
-      "facts/src/envelope.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 74
+    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
+    "tokens": 75
   },
   "facts/src/envelope.rs|facts/src/vocab.rs|f7b9dc8f30": {
     "files": [
@@ -403,30 +149,6 @@
     ],
     "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data. AD-408: correct the decoder vocabulary to include records already on the wire. This replaces existing data-table fingerprints; no executable logic is copied.",
     "tokens": 70
-  },
-  "facts/src/envelope.rs|facts/src/vocab_exception.rs|0069504520": {
-    "files": [
-      "facts/src/envelope.rs",
-      "facts/src/vocab_exception.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 79
-  },
-  "facts/src/envelope.rs|facts/src/vocab_exception.rs|34e9a90a5b": {
-    "files": [
-      "facts/src/envelope.rs",
-      "facts/src/vocab_exception.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 97
-  },
-  "facts/src/envelope.rs|facts/src/vocab_exception.rs|59eb1d2143": {
-    "files": [
-      "facts/src/envelope.rs",
-      "facts/src/vocab_exception.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 85
   },
   "facts/src/nested.rs|facts/src/nested.rs|6715bd1b22": {
     "files": [
@@ -532,6 +254,22 @@
     "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
     "tokens": 82
   },
+  "facts/src/vocab.rs|facts/src/vocab.rs|4b7e340333": {
+    "files": [
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
+    ],
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data. AD-408: correct the decoder vocabulary to include records already on the wire. This replaces existing data-table fingerprints; no executable logic is copied.",
+    "tokens": 98
+  },
+  "facts/src/vocab.rs|facts/src/vocab.rs|68074d063e": {
+    "files": [
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
+    ],
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
+    "tokens": 71
+  },
   "facts/src/vocab.rs|facts/src/vocab.rs|70c78392c2": {
     "files": [
       "facts/src/vocab.rs",
@@ -539,6 +277,14 @@
     ],
     "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
     "tokens": 73
+  },
+  "facts/src/vocab.rs|facts/src/vocab.rs|96f22961bc": {
+    "files": [
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
+    ],
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data. AD-408: correct the decoder vocabulary to include records already on the wire. This replaces existing data-table fingerprints; no executable logic is copied.",
+    "tokens": 81
   },
   "facts/src/vocab.rs|facts/src/vocab.rs|a2f488ff6f": {
     "files": [
@@ -548,101 +294,29 @@
     "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
     "tokens": 85
   },
-  "facts/src/vocab_exception.rs|facts/src/vocab_kind.rs|15c9e3ef90": {
+  "facts/src/vocab.rs|facts/src/vocab.rs|d702bb6ff4": {
     "files": [
-      "facts/src/vocab_exception.rs",
-      "facts/src/vocab_kind.rs"
+      "facts/src/vocab.rs",
+      "facts/src/vocab.rs"
     ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 154
+    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
+    "tokens": 86
   },
-  "facts/src/vocab_exception.rs|facts/src/vocab_kind.rs|59eb1d2143": {
+  "facts/src/vocab.rs|report/src/codes.rs|68074d063e": {
     "files": [
-      "facts/src/vocab_exception.rs",
-      "facts/src/vocab_kind.rs"
+      "facts/src/vocab.rs",
+      "report/src/codes.rs"
     ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 110
-  },
-  "facts/src/vocab_exception.rs|facts/src/vocab_kind.rs|7b39cdc6c5": {
-    "files": [
-      "facts/src/vocab_exception.rs",
-      "facts/src/vocab_kind.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 81
-  },
-  "facts/src/vocab_exception.rs|facts/src/vocab_kind.rs|97994b236d": {
-    "files": [
-      "facts/src/vocab_exception.rs",
-      "facts/src/vocab_kind.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 155
-  },
-  "facts/src/vocab_exception.rs|facts/src/vocab_kind.rs|d706bec81d": {
-    "files": [
-      "facts/src/vocab_exception.rs",
-      "facts/src/vocab_kind.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 159
-  },
-  "facts/src/vocab_kind.rs|facts/src/vocab_signal.rs|15c9e3ef90": {
-    "files": [
-      "facts/src/vocab_kind.rs",
-      "facts/src/vocab_signal.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 145
-  },
-  "facts/src/vocab_kind.rs|facts/src/vocab_signal.rs|59eb1d2143": {
-    "files": [
-      "facts/src/vocab_kind.rs",
-      "facts/src/vocab_signal.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 110
-  },
-  "facts/src/vocab_kind.rs|facts/src/vocab_signal.rs|7b39cdc6c5": {
-    "files": [
-      "facts/src/vocab_kind.rs",
-      "facts/src/vocab_signal.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 95
-  },
-  "facts/src/vocab_kind.rs|facts/src/vocab_signal.rs|a74f626062": {
-    "files": [
-      "facts/src/vocab_kind.rs",
-      "facts/src/vocab_signal.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 146
-  },
-  "facts/src/vocab_kind.rs|facts/src/vocab_signal.rs|d706bec81d": {
-    "files": [
-      "facts/src/vocab_kind.rs",
-      "facts/src/vocab_signal.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 159
-  },
-  "facts/src/vocab_kind.rs|typescript/src/options_target.rs|a90434427a": {
-    "files": [
-      "facts/src/vocab_kind.rs",
-      "typescript/src/options_target.rs"
-    ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
+    "reason": "code_list! calls list the values of a schema code list as name and text pairs. They are data.",
     "tokens": 70
   },
-  "facts/src/vocab_kind.rs|typescript/src/options_target.rs|ca476a3ddf": {
+  "facts/src/vocab.rs|report/src/codes.rs|d23e706e13": {
     "files": [
-      "facts/src/vocab_kind.rs",
-      "typescript/src/options_target.rs"
+      "facts/src/vocab.rs",
+      "report/src/codes.rs"
     ],
-    "reason": "A plain item that a macro wrote before: a vocabulary list (`as_str`, `parse`, `ALL`, the variants). The type is written out so that the scan of the Rust collector can place it (#880 self-gap plan); the shape repeats because the types share one wire shape.",
-    "tokens": 73
+    "reason": "code_list! calls list the values of a schema code list as name and text pairs. They are data.",
+    "tokens": 71
   },
   "model/src/limits.rs|model/src/limits.rs|00b17b8443": {
     "files": [
