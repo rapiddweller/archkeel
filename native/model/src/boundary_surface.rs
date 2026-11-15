@@ -15,8 +15,7 @@ use std::collections::HashSet;
 use archkeel_contract::BoundaryTypes;
 
 use crate::boundary_facts::{BoundaryFacts, Origin};
-use crate::boundary_judge::GapCause;
-use crate::boundary_positions::GapRow;
+use crate::boundary_judge::{GapCause, GapRow};
 use crate::model::Model;
 use crate::ownership::in_scope;
 
