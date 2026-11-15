@@ -112,18 +112,8 @@
   "gaps": [
     [
       "collection_gap",
-      "native.archkeel_core.engine",
-      "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.collection",
-      "A method call may reach the method duplicates of an impl block in native.archkeel_dart_collector.collection.inventories"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.collection",
-      "A method call may reach the method imports of an impl block in native.archkeel_dart_collector.collection.imports"
+      "native.archkeel_dart_collector.bin_archkeel_dart_collector",
+      "A method call may reach the method run of an impl block in native.archkeel_dart_collector.declarations"
     ],
     [
       "collection_gap",
@@ -133,27 +123,12 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.collection",
-      "A method call may reach the method prepare of an impl block in native.archkeel_dart_collector.collection.prepare"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.collection",
-      "A method call may reach the method sites of an impl block in native.archkeel_dart_collector.collection.sites"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.collection.imports",
-      "A method call may reach the method copies of an impl block in native.archkeel_dart_collector.declarations.work"
+      "A method call may reach the method run of an impl block in native.archkeel_dart_collector.declarations"
     ],
     [
       "collection_gap",
       "native.archkeel_dart_collector.collection.imports",
       "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.collection.sites",
-      "A method call may reach the method copies of an impl block in native.archkeel_dart_collector.declarations.work"
     ],
     [
       "collection_gap",
@@ -167,23 +142,13 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_dart_collector.collection.targets",
-      "A method call may reach the method text of an impl block in native.archkeel_dart_collector.declarations.work"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.declarations",
+      "native.archkeel_dart_collector.declarations.assembly",
       "A method call may reach the method at of an impl block in native.archkeel_facts.envelope.build"
     ],
     [
       "collection_gap",
-      "native.archkeel_dart_collector.declarations",
+      "native.archkeel_dart_collector.declarations.assembly",
       "A method call may reach the method at of an impl block in native.archkeel_facts.gap"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.declarations",
-      "A method call may reach the method class of an impl block in native.archkeel_dart_collector.declarations.members"
     ],
     [
       "collection_gap",
@@ -193,7 +158,7 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.discover",
-      "A method call may reach the method check_root of an impl block in native.archkeel_snapshot.snapshot.listing"
+      "A method call may reach the method is_link of an impl block in native.archkeel_snapshot.snapshot.listing"
     ],
     [
       "collection_gap",
@@ -204,11 +169,6 @@
       "collection_gap",
       "native.archkeel_dart_collector.import_survey",
       "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.import_survey",
-      "A method call may reach the method open_root of an impl block in native.archkeel_snapshot.snapshot.listing"
     ],
     [
       "collection_gap",
@@ -237,13 +197,8 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_eval",
-      "A method call may reach the method unknown of an impl block in native.archkeel_facts.gap"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.decide",
-      "A method call may reach the method unknown of an impl block in native.archkeel_facts.gap"
+      "native.archkeel_dart_collector.syntax",
+      "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
     ],
     [
       "collection_gap",
@@ -307,33 +262,18 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_python_collector.survey.targets",
-      "A method call may reach the method resolution of an impl block in native.archkeel_facts.gap"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_python_collector.unparse",
-      "A method call may reach the method compound of an impl block in native.archkeel_python_collector.unparse.operators"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.unparse",
-      "A method call may reach the method ftext of an impl block in native.archkeel_python_collector.unparse.ftext"
+      "A method call may reach the method expr of an impl block in native.archkeel_python_collector.unparse.expr"
     ],
     [
       "collection_gap",
       "native.archkeel_report.frame",
-      "A method call may reach the method model_of of an impl block in native.archkeel_model.run"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.frame",
-      "A method call may reach the method scope of an impl block in native.archkeel_model.scope"
+      "A method call may reach the method pass_run of an impl block in native.archkeel_model.run"
     ],
     [
       "collection_gap",
       "native.archkeel_report.frame_rules",
-      "A method call may reach the method model_of of an impl block in native.archkeel_model.run"
+      "A method call may reach the method declares of an impl block in native.archkeel_model.run"
     ],
     [
       "collection_gap",
@@ -347,11 +287,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_rust_collector.builder",
-      "A method call may reach the method collection of an impl block in native.archkeel_facts.gap"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_rust_collector.declared",
       "A method call may reach the method at of an impl block in native.archkeel_facts.envelope.build"
     ],
@@ -369,11 +304,6 @@
       "collection_gap",
       "native.archkeel_rust_collector.edges",
       "A method call may reach the method at of an impl block in native.archkeel_facts.gap"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.registry",
-      "A method call may reach the method listing of an impl block in native.archkeel_snapshot.snapshot.listing"
     ],
     [
       "collection_gap",
@@ -404,11 +334,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.collection",
       "A method call may reach the method at of an impl block in native.archkeel_facts.envelope.build"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.collection",
-      "A method call may reach the method at of an impl block in native.archkeel_facts.gap"
     ],
     [
       "collection_gap",
@@ -454,11 +379,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.script_factory",
       "A method call may reach the method valid_unicode_member_name of an impl block in native.archkeel_typescript_collector.constructors"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_records",
-      "A method call may reach the method resolution of an impl block in native.archkeel_facts.gap"
     ],
     [
       "collection_gap",
