@@ -172,7 +172,8 @@ PLANTS: dict[str, Plant] = {
         facade(
             "def f(a: Thing) -> int:\n    return 1\n",
             "'f'",
-            "from typing import TYPE_CHECKING\n\nif TYPE_CHECKING:\n    from app.other import Thing\n",
+            "from typing import TYPE_CHECKING\n\n"
+            "if TYPE_CHECKING:\n    from app.other import Thing\n",
         ),
         "FAIL",
         {"other.py": "class Thing:\n    pass\n"},
@@ -237,7 +238,8 @@ PLANTS: dict[str, Plant] = {
     ),
     "literal-of-a-member": Plant(
         facade(
-            "class Color(Enum):\n    RED = 1\n\n\ndef f(a: Literal[Color.RED]) -> int:\n    return 1\n",
+            "class Color(Enum):\n    RED = 1\n\n\n"
+            "def f(a: Literal[Color.RED]) -> int:\n    return 1\n",
             "'f'",
             "from enum import Enum\nfrom typing import Literal\n",
         ),

@@ -94,7 +94,7 @@ impl<'a, 't> Tree<'a, 't> {
     }
 
     /// `bindings[scope][name]`, zero when there is none.
-    pub(crate) fn count(&self, scope: Node, name: &str) -> u32 {
+    pub(crate) fn binding_count(&self, scope: Node, name: &str) -> u32 {
         self.bindings
             .get(&scope.id())
             .and_then(|names| names.get(name))

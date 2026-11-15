@@ -1,7 +1,6 @@
 // Archkeel
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
-
 //! Which module a path inside one crate names (AD-335, slice 5b-2c).
 //!
 //! The module index maps each module of the walk, and each inline `mod`, to the file that holds
@@ -12,136 +11,43 @@
 //! module that it names, and one that the scan cannot follow is UNKNOWN. Anything that is no
 //! module (a type, a function, a crate) gives no edge.
 
-use std::collections::BTreeMap;
-
-use crate::crates::{Crate, Workspace};
-use crate::definitions::{Form, Owner};
 use crate::resolve::classify;
 use crate::scan::Reference;
-use crate::tree::Module;
 mod alias;
 mod climb;
 mod filled;
 mod outcome;
+mod state;
 use alias::Aliases;
 use climb::ascend;
 pub(crate) use climb::inside;
 pub(crate) use outcome::{Edge, Outcome, TypeOf};
-
-/// The deepest chain of `use` bindings and globs that the resolver follows.
-const MAX_HOPS: usize = 8;
-
-/// One file of the walk, with the names that it binds.
-pub(crate) struct Frame<'a> {
-    pub module: &'a Module,
-    krate: &'a Crate,
-    /// The module id of the root of the target that holds the file.
-    root: &'a str,
-    bindings: BTreeMap<&'a str, Vec<&'a Reference>>,
-    globs: Vec<&'a Reference>,
-}
-
-pub(crate) struct Index<'a> {
-    /// A module or inline module, by its dotted id, to the module id of its file.
-    lexical: BTreeMap<String, &'a str>,
-    frames: BTreeMap<&'a str, Frame<'a>>,
-    /// The names that `extern crate self as name;` binds to a crate root.
-    aliases: Aliases,
-}
-
-pub(crate) fn index<'a>(workspace: &'a Workspace, modules: &'a [Module]) -> Index<'a> {
-    let mut built = Index {
-        lexical: BTreeMap::new(),
-        frames: BTreeMap::new(),
-        aliases: Aliases::default(),
-    };
-    for module in modules {
-        let Some(krate) = workspace.crates.get(module.crate_index) else {
-            continue;
-        };
-        let Some(root) = krate
-            .roots
-            .iter()
-            .map(|root| root.module.as_str())
-            .filter(|root| inside(&module.module, root))
-            .max_by_key(|root| root.len())
-        else {
-            continue;
-        };
-        built.lexical.insert(module.module.clone(), &module.module);
-        built.aliases.record(module, root);
-        for inline in &module.scan.inlines {
-            built.lexical.insert(
-                format!("{}.{}", module.module, inline.join(".")),
-                &module.module,
-            );
-        }
-        let mut frame = Frame {
-            module,
-            krate,
-            root,
-            bindings: BTreeMap::new(),
-            globs: Vec::new(),
-        };
-        for reference in &module.scan.references {
-            match &reference.via {
-                crate::scan::Via::Use {
-                    binding: Some(name),
-                    ..
-                } => frame.bindings.entry(name).or_default().push(reference),
-                crate::scan::Via::Glob { .. } => frame.globs.push(reference),
-                _ => {}
-            }
-        }
-        built.frames.insert(&module.module, frame);
-    }
-    built
-}
-
-fn lexical(frame: &Frame<'_>, scope: &[String]) -> String {
-    scope.iter().fold(frame.module.module.clone(), |id, part| {
-        format!("{id}.{part}")
-    })
-}
-
-impl Frame<'_> {
-    /// The lexical module of a place in the file: the file module and the enclosing inline ones.
-    pub(crate) fn lexical_at(&self, scope: &[String]) -> String {
-        lexical(self, scope)
-    }
-
-    /// The glob `use` items of the file.
-    pub(crate) fn globs(&self) -> impl Iterator<Item = &Reference> {
-        self.globs.iter().copied()
-    }
-
-    /// The `use` leaves of the file that bind `name`.
-    pub(crate) fn bound(&self, name: &str) -> &[&Reference] {
-        self.bindings.get(name).map_or(&[], Vec::as_slice)
-    }
-
-    /// The `use` leaves of the file that bind a name, also `_`.
-    pub(crate) fn leaves(&self) -> impl Iterator<Item = &Reference> {
-        self.bindings.values().flatten().copied()
-    }
-}
+pub(crate) use state::{index, Frame, Index};
+use state::{lexical, MAX_HOPS};
 
 impl<'a> Index<'a> {
-    /// The file module that holds a module or an inline module.
-    pub(crate) fn file_of(&self, lexical: &str) -> Option<&str> {
-        self.lexical.get(lexical).copied()
-    }
-
     /// From the module `start` of the walk, down the modules that `rest` names.
     pub(crate) fn reach(&self, start: &str, rest: &[String]) -> Outcome {
         self.follow(start, 0, rest)
     }
-
     /// The type that `ty` names at `scope` of the file of `frame`. It is `Known` only when the
     /// module defines a struct, enum, union or trait of that name. A type alias, a re-export, a
     /// type that a macro or a function body defines, and a name that a glob may bring in are
     /// `Unknown`: the scan cannot say which type they are (#953).
     pub(crate) fn type_of(&self, frame: &Frame<'_>, scope: &[String], ty: &[String]) -> TypeOf {
+        let local = self.local_type_of(frame, scope, ty);
+        if matches!(local, TypeOf::Known(..)) {
+            return local;
+        }
+        self.cross_type(frame, scope, ty).unwrap_or(local)
+    }
+
+    pub(crate) fn local_type_of(
+        &self,
+        frame: &Frame<'_>,
+        scope: &[String],
+        ty: &[String],
+    ) -> TypeOf {
         let Some(name) = ty.last().filter(|name| *name != "Self") else {
             return TypeOf::Other;
         };
@@ -153,7 +59,7 @@ impl<'a> Index<'a> {
             ..Reference::default()
         };
         let declared = frame.module.scan.counts.contains_key(name);
-        let (at, ty_name) = match self.resolve(frame, &path) {
+        let (at, ty_name) = match self.resolve_mode(frame, &path, true) {
             // A renamed `use` binds one name to the type of the path.
             Outcome::Edge(edge) => match edge.symbol {
                 Some(symbol) if !symbol.is_empty() && (ty.len() == 1 || symbol == *name) => {
@@ -171,34 +77,12 @@ impl<'a> Index<'a> {
             TypeOf::Unknown
         }
     }
-
-    /// Whether the lexical module defines a struct, an enum, a union or a trait named `name`.
-    fn defines_type(&self, lexical: &str, name: &str) -> bool {
-        let Some(frame) = self.file_of(lexical).and_then(|file| self.frames.get(file)) else {
-            return false;
-        };
-        let types = [Form::Struct, Form::Enum, Form::Trait];
-        frame.module.scan.definitions.iter().any(|d| {
-            d.name == name
-                && d.owner == Owner::Module
-                && types.contains(&d.form)
-                && self::lexical(frame, &d.scope) == lexical
-        })
-    }
-
-    pub(crate) fn frame(&self, module: &str) -> Option<&Frame<'a>> {
-        self.frames.get(module)
-    }
-
-    /// The file of a module of the walk.
-    pub(crate) fn rel(&self, module: &str) -> Option<&str> {
-        self.frames
-            .get(module)
-            .map(|frame| frame.module.rel.as_str())
-    }
-
     /// What the path of `reference`, written in `frame`, names.
     pub(crate) fn resolve(&self, frame: &Frame<'_>, reference: &Reference) -> Outcome {
+        self.resolve_mode(frame, reference, false)
+    }
+
+    fn resolve_mode(&self, frame: &Frame<'_>, reference: &Reference, types: bool) -> Outcome {
         let lexical = lexical(frame, &reference.scope);
         let globs = matches!(
             reference.via,
@@ -211,7 +95,7 @@ impl<'a> Index<'a> {
             frame,
             single.as_deref().unwrap_or(&reference.names),
             reference.absolute,
-            (&lexical, globs),
+            (&lexical, globs, types),
             0,
         );
         match outcome {
@@ -222,7 +106,6 @@ impl<'a> Index<'a> {
             other => other,
         }
     }
-
     /// `place` is the lexical module and whether a glob may bind the first name. A `use` path
     /// does not look into globs: a glob and the path would wait for each other.
     fn path(
@@ -230,13 +113,13 @@ impl<'a> Index<'a> {
         frame: &Frame<'_>,
         names: &[String],
         absolute: bool,
-        place: (&str, bool),
+        place: (&str, bool, bool),
         hops: usize,
     ) -> Outcome {
         if hops > MAX_HOPS {
             return Outcome::Unknown("A chain of use items is too long to follow".to_owned());
         }
-        let (lexical, globs) = place;
+        let (lexical, globs, _) = place;
         let Some(first) = names.first().map(String::as_str) else {
             return Outcome::None;
         };
@@ -276,7 +159,6 @@ impl<'a> Index<'a> {
         };
         self.follow(&cur, level, &names[at..])
     }
-
     /// The file module of the deepest module that `rest` names below `start`.
     pub(crate) fn deepest(&self, start: &str, rest: &[String]) -> String {
         match self.follow(start, 0, rest) {
@@ -284,20 +166,17 @@ impl<'a> Index<'a> {
             _ => start.to_owned(),
         }
     }
-
     /// Whether `name` is an alias of the extern prelude for the target that holds `module`.
     pub(crate) fn is_alias(&self, module: &str, name: &str) -> bool {
         let root = self.frames.get(module).map(|frame| frame.root);
         root.is_some_and(|root| self.aliases.in_prelude(root, name))
     }
-
     /// What `names` names when its first name is in the extern prelude (`extern crate self as me;`).
     fn prelude_edge(&self, frame: &Frame<'_>, names: &[String]) -> Option<Outcome> {
         let first = names.first()?;
         let alias = self.aliases.in_prelude(frame.root, first);
         alias.then(|| self.follow(frame.root, 0, &names[1..]))
     }
-
     /// From the module `start`, down each segment that names a child module.
     fn follow(&self, start: &str, level: i64, rest: &[String]) -> Outcome {
         let mut cur = start.to_owned();
@@ -328,13 +207,16 @@ impl<'a> Index<'a> {
         &self,
         frame: &Frame<'_>,
         names: &[String],
-        place: (&str, bool),
+        place: (&str, bool, bool),
         hops: usize,
         globs: bool,
     ) -> Outcome {
         // The count and the bindings below are read across the whole file, not in the scope of the
         // path. That is safe only because a name that the file declares more than once is UNKNOWN.
         let first = &names[0];
+        if place.2 && frame.module.scan.conditional_bindings.contains(first) {
+            return Outcome::Unknown(format!("A conditional use may not bind {first}"));
+        }
         let aliased = self.aliases.in_prelude(frame.root, first);
         if first == "Self" || (names.len() < 2 && !aliased) {
             return Outcome::None;
@@ -348,7 +230,7 @@ impl<'a> Index<'a> {
         let own =
             frame.module.module == frame.root && aliases.contains(&(Vec::new(), first.clone()));
         if count == 0 && !local {
-            if let Some(found) = self.unbound(frame, names, (place.0, hops), globs) {
+            if let Some(found) = self.unbound(frame, names, (place.0, hops, place.2), globs) {
                 return found;
             }
             return Outcome::None;
@@ -387,22 +269,27 @@ impl<'a> Index<'a> {
                 // same name: the path cannot start at the leaf itself (`use dep::{dep}`). It
                 // starts at a crate, and the name is no declaration for it.
                 if binding.names.first() == Some(first) {
-                    let unbound = self.unbound(frame, &full, (&at, hops), false);
+                    let unbound = self.unbound(frame, &full, (&at, hops, place.2), false);
                     return unbound.unwrap_or(Outcome::None);
                 }
-                self.path(frame, &full, binding.absolute, (&at, false), hops + 1)
+                self.path(
+                    frame,
+                    &full,
+                    binding.absolute,
+                    (&at, false, place.2),
+                    hops + 1,
+                )
             }
             None => self.follow(&child, 1, &names[1..]),
         }
     }
-
     /// A name that the file does not declare: the own package from a binary, a crate, a name from
     /// the prelude, or a name that a glob `use` brings in.
     fn unbound(
         &self,
         frame: &Frame<'_>,
         names: &[String],
-        (lexical_at, hops): (&str, usize),
+        (lexical_at, hops, types): (&str, usize, bool),
         globs: bool,
     ) -> Option<Outcome> {
         let first = &names[0];
@@ -431,7 +318,7 @@ impl<'a> Index<'a> {
             return Some(Outcome::Unknown(reason));
         }
         for glob in reaching {
-            match self.through_glob(frame, glob, names, hops) {
+            match self.through_glob(frame, glob, names, hops, types) {
                 Outcome::None => {}
                 found => return Some(found),
             }
@@ -439,7 +326,6 @@ impl<'a> Index<'a> {
         alias()
     }
 }
-
 impl Index<'_> {
     /// What `names` names when the glob `use` brings in its first name, or `None`. The glob is
     /// read only when the resolver of `use` paths takes its whole path to a module of the crate,
@@ -451,20 +337,36 @@ impl Index<'_> {
         glob: &Reference,
         names: &[String],
         hops: usize,
+        types: bool,
     ) -> Outcome {
+        if types
+            && frame
+                .module
+                .scan
+                .conditional_globs
+                .contains(&(glob.site.line, glob.site.column))
+        {
+            return Outcome::Unknown("A conditional glob may not bind the name".to_owned());
+        }
         let at = lexical(frame, &glob.scope);
         let unknown =
             |why: &str| Outcome::Unknown(format!("A glob import may bring in {}: {why}", names[0]));
         // An empty last name lets the path end at a module (`use yy::*;`, `use crate::*;`).
         let mut target = glob.names.clone();
         target.push(String::new());
-        match self.path(frame, &target, glob.absolute, (&at, false), hops + 1) {
+        match self.path(frame, &target, glob.absolute, (&at, false, types), hops + 1) {
             Outcome::Unknown(reason) => unknown(&reason),
             Outcome::Edge(edge) if edge.symbol.as_deref().is_none_or(str::is_empty) => {
                 let Some(target) = self.frames.get(edge.module.as_str()) else {
                     return unknown("the module of the glob is not in the walk");
                 };
-                match self.bare(target, names, (edge.lexical.as_str(), true), hops + 1, true) {
+                match self.bare(
+                    target,
+                    names,
+                    (edge.lexical.as_str(), true, types),
+                    hops + 1,
+                    true,
+                ) {
                     Outcome::None if filled::may_fill(target.module) => {
                         unknown("a macro call at module level of its module may define it")
                     }
@@ -475,7 +377,6 @@ impl Index<'_> {
             _ => unknown("its path names no module of the crate"),
         }
     }
-
     /// Whether the path of `glob` starts at a crate that the manifest or the sysroot names, and
     /// the file declares no name that hides it.
     fn external(&self, frame: &Frame<'_>, glob: &Reference) -> bool {

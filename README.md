@@ -110,7 +110,8 @@ is the only engine. The Python engine is deleted.
 - Rust, TypeScript, Python and Dart projects run through the core. What each decides: see the
   [known limits](docs/known-limits.md#supported-projects-on-main).
 - `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
-  Interactive reports, `architecture.json`, baselines and focused reports are not available.
+  Interactive reports, `architecture.json` and focused reports are not available.
+  `validate --baseline FILE` accepts each listed UNKNOWN and keeps exit code 2; see the [reference](docs/reference.md#baselines).
 - `report --output PATH` writes one static HTML page; `--format json` writes the core frame instead.
   `report --topology` adds a bounded topology section to the frame.
 - The [reports of the current `main`](https://rapiddweller.github.io/archkeel/) show what the core says

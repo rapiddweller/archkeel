@@ -12,7 +12,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use archkeel_model::{ModelTree, RunGap, RunPass};
+use archkeel_model::{Model, ModelTree, RunGap, RunPass};
 
 use crate::build_error::BuildError;
 use crate::build_tables::{self as layout, node_of, Strings, UnknownCell, CROSSING_CAP};
@@ -47,10 +47,7 @@ pub(crate) const BEYOND_KIND: &str = "core_decides_beyond_the_reference";
 /// One unknown row for each PASS rule of a model with kept pair gaps: the reference engine gives
 /// the rule UNKNOWN for each such gap, and the core passes it because no kept gap can change what
 /// it reads (AD-384). The row names the rule, so a reader sees the difference.
-fn beyond(rules: &[crate::input::RuleOutcome], models: Option<&ModelTree>) -> Vec<UnknownRecord> {
-    let Some(models) = models else {
-        return Vec::new();
-    };
+fn beyond(rules: &[crate::input::RuleOutcome], tree: &ModelTree) -> Vec<UnknownRecord> {
     // Each PASS row reads the kept gaps of the model whose contract holds its rule (AD-385).
     rules
         .iter()
@@ -61,7 +58,7 @@ fn beyond(rules: &[crate::input::RuleOutcome], models: Option<&ModelTree>) -> Ve
             RuleDecision::Declaration => false,
         })
         .filter_map(|rule| {
-            let kept = models.model_of(&rule.id)?.kept_pair_gaps();
+            let kept = tree.model_of(&rule.id)?.kept_pair_gaps();
             (kept > 0).then(|| UnknownRecord {
                 kind: BEYOND_KIND.to_owned(),
                 module: None,
@@ -328,10 +325,9 @@ pub fn build(
     models: Option<&ModelTree>,
 ) -> Result<Report<Decided>, BuildError> {
     let graph = matches!(records.graph, Produced::Rows(_));
-    let complete = models.is_some_and(|models| {
-        models
-            .models()
-            .all(|model| model.scope(|scope| scope.run()).is_ok())
+    let complete = models.is_some_and(|tree: &ModelTree| {
+        tree.models()
+            .all(|model: &Model| model.scope(|scope| scope.run()).is_ok())
     });
     let observation = if complete {
         Status::Pass
@@ -345,7 +341,10 @@ pub fn build(
     let permissions = rows("permissions", records.permissions)?;
     let violations = rows("violations", records.violations)?;
     let mut unknowns = rows("unknowns", records.unknowns)?;
-    unknowns.extend(beyond(&outcome.rules, models));
+    // A run without models has no PASS row, so it has no row beyond the reference engine.
+    if let Some(model_tree) = models {
+        unknowns.extend(beyond(&outcome.rules, model_tree));
+    }
     let findings = rows("findings", records.findings)?;
     let edges = match records.graph {
         Produced::Rows(graph) => graph.edges,

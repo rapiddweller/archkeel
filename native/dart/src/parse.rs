@@ -12,7 +12,7 @@ use crate::definitions::definitions;
 use crate::directives::directives;
 use crate::pytext::{is_assigned, is_space_byte};
 use crate::sites::{sites, work_limit};
-use crate::syntax::{Concern, ConcernKind, Definition, Directive, Site, Syntax};
+use crate::syntax::{Concern, ConcernKind, Definition, Directive, Site, Span, Syntax};
 use crate::tree::{children, walk, Source, Work};
 
 /// The deepest node that the parse reads. Python stops the whole scan with `RecursionError`
@@ -42,18 +42,25 @@ impl DartParser {
 
     /// The directives, the concerns and the language version of one source, without the
     /// definitions and the sites: the import survey reads no more (AD-454).
-    pub(crate) fn directives(&mut self, content: &[u8]) -> Syntax {
+    pub(crate) fn directives(&mut self, content: &[u8]) -> (Syntax, Option<Span>, Option<Span>) {
         let source = Source::new(content);
         self.work_permille = 0;
         match self.front(content, &source) {
-            Ok(front) => finish(
-                Vec::new(),
-                front.directives,
-                Vec::new(),
-                front.concerns,
-                front.language_version,
-            ),
-            Err(stopped) => *stopped,
+            Ok(front) => {
+                let (loader, mirrors) = token_spans(front.tree.root_node(), &source);
+                (
+                    finish(
+                        Vec::new(),
+                        front.directives,
+                        Vec::new(),
+                        front.concerns,
+                        front.language_version,
+                    ),
+                    loader,
+                    mirrors,
+                )
+            }
+            Err(stopped) => (*stopped, None, None),
         }
     }
 
@@ -158,6 +165,26 @@ impl DartParser {
         self.work_permille = work.permille();
         finish(definitions, directives, found, concerns, language_version)
     }
+}
+
+fn token_spans(root: Node<'_>, source: &Source<'_>) -> (Option<Span>, Option<Span>) {
+    let mut loader = None;
+    let mut mirrors = None;
+    for node in walk(root) {
+        if !matches!(node.kind(), "identifier" | "type_identifier") {
+            continue;
+        }
+        match source.data.get(node.byte_range()) {
+            Some(b"spawnUri") if loader.is_none() => loader = Some(source.span(node)),
+            Some(b"currentMirrorSystem" | b"reflect" | b"reflectClass" | b"reflectType")
+                if mirrors.is_none() =>
+            {
+                mirrors = Some(source.span(node))
+            }
+            _ => {}
+        }
+    }
+    (loader, mirrors)
 }
 
 /// The parse of one source up to its directives.

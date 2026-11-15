@@ -105,6 +105,7 @@ impl<'a, 'p> Run<'a, 'p> {
                 self.file_sites(rel, file, &loaders);
             }
         }
+        self.state_blockers();
     }
 
     /// The uses of globals in one file; a call that an import record stands for is skipped.

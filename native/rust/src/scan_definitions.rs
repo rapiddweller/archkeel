@@ -13,11 +13,11 @@
 
 use syn::{Ident, Item, ItemImpl, ItemTrait, Signature, Type};
 
-use super::receivers::{exact_path, inert, item_name, kind_of, type_inert};
+use super::receivers::{exact_path, inert, item_name, kind_of, type_inert, written_type};
 use super::state::Walker;
 use crate::attrs::{impl_item_attributes, is_test_attributes};
 use crate::definitions::{
-    Access, BlockItem, Definition, Form, Holder, ImplBlock, Member, Owner, TraitImpl,
+    Access, BlockItem, Definition, Field, Form, Holder, ImplBlock, Member, Owner, TraitImpl,
 };
 use crate::tokens::plain;
 
@@ -145,6 +145,7 @@ pub(super) fn impl_block(walker: &mut Walker<'_>, item: &ItemImpl) {
                 receiver: f.sig.receiver().is_some(),
                 kind: kind_of(&f.sig).filter(|_| inert(&f.attrs)),
                 arity: (f.sig.inputs.len()).saturating_sub(usize::from(f.sig.receiver().is_some())),
+                inert: inert(&f.attrs),
             }),
             syn::ImplItem::Const(c) => Some(Member {
                 name: plain(&c.ident),
@@ -152,6 +153,7 @@ pub(super) fn impl_block(walker: &mut Walker<'_>, item: &ItemImpl) {
                 receiver: false,
                 kind: None,
                 arity: 0,
+                inert: inert(&c.attrs),
             }),
             _ => None,
         })
@@ -175,6 +177,44 @@ pub(super) fn exact_type(walker: &mut Walker<'_>, item: &Item) {
     };
     if walker.blocks == 0 && !walker.selves.gated() && type_inert(attrs) {
         walker.out.exact_types.insert(plain(ident));
+        if let Item::Struct(found) = item {
+            fields(walker, found);
+        }
+    }
+}
+
+fn fields(walker: &mut Walker<'_>, item: &syn::ItemStruct) {
+    if item
+        .generics
+        .params
+        .iter()
+        .any(|p| !matches!(p, syn::GenericParam::Lifetime(_)))
+    {
+        return;
+    }
+    let syn::Fields::Named(fields) = &item.fields else {
+        return;
+    };
+    if fields.named.iter().any(|field| !inert(&field.attrs)) {
+        return;
+    }
+    for field in &fields.named {
+        let (Some(name), Some((path, kind))) = (&field.ident, written_type(&field.ty)) else {
+            continue;
+        };
+        let owner = plain(&item.ident);
+        let name = plain(name);
+        walker
+            .out
+            .fields
+            .entry((owner, name))
+            .or_default()
+            .push(Field {
+                scope: walker.inline.clone(),
+                path,
+                kind,
+                access: access(&field.vis),
+            });
     }
 }
 

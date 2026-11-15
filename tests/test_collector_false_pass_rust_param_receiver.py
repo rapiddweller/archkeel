@@ -73,6 +73,21 @@ PROVEN: dict[str, dict[str, str]] = {
     "a macro of std that binds nothing": _plant(
         'pub fn f(s: &crate::c::S) -> u8 {\n    println!("{}", 1);\n    s.m(1)\n}\n'
     ),
+    "matches without the receiver": _plant(
+        "pub fn f(s: &crate::c::S, v: Option<u8>) -> u8 {\n"
+        "    let _ = matches!(v, Some(n) if n > 0);\n    s.m(1)\n}\n"
+    ),
+    "matches names the receiver": _plant(
+        "pub fn f(s: &crate::c::S) -> u8 {\n    let _ = matches!(s, _);\n    s.m(1)\n}\n"
+    ),
+    "matches pattern binds the receiver name": _plant(
+        "pub fn f(s: &crate::c::S, v: Option<u8>) -> u8 {\n"
+        "    let _ = matches!(v, Some(s) if s > 0);\n    s.m(1)\n}\n"
+    ),
+    "workspace macro without nested calls": _plant(
+        "macro_rules! items { ($($t:tt)*) => { $($t)* }; }\n"
+        "pub fn f(s: &crate::c::S) -> u8 {\n    items! { let _n = 1; }\n    s.m(1)\n}\n"
+    ),
 }
 
 
@@ -122,6 +137,23 @@ REFUSED: dict[str, dict[str, str]] = {
     ),
     "a call inside a macro": _plant(
         "pub fn f(s: &crate::c::S) -> u8 {\n    assert!(s.m(1) > 0);\n    1\n}\n"
+    ),
+    "matches guard shadows the receiver": _plant(
+        "pub fn f(s: &crate::c::S, v: Option<&crate::c::S>) -> u8 {\n"
+        "    let _ = matches!(v, Some(s) if s.m(1) > 0);\n    1\n}\n"
+    ),
+    "matches macro is shadowed": _plant(
+        "macro_rules! matches { ($($tt:tt)*) => { let s = crate::c::S; } }\n"
+        "pub fn f(s: &crate::c::S) -> u8 {\n    matches!(1, 2);\n    s.m(1)\n}\n"
+    ),
+    "matches name is imported": _plant(
+        "use crate::c::matches;\npub fn f(s: &crate::c::S) -> u8 {\n"
+        "    let _ = matches!(1, 2);\n    s.m(1)\n}\n",
+        c=TYPES + "pub fn matches() {}\n",
+    ),
+    "workspace macro passes through a macro call": _plant(
+        "macro_rules! items { ($($t:tt)*) => { $($t)* }; }\n"
+        "pub fn f(s: &crate::c::S) -> u8 {\n    items! { mac::rebind!(1, 2); }\n    s.m(1)\n}\n"
     ),
     "a macro call that names the parameter": _plant(
         "pub fn f(s: &crate::c::S) -> u8 {\n    dbg!(&s);\n    s.m(1)\n}\n"
@@ -184,6 +216,35 @@ def test_a_call_on_a_typed_parameter_is_an_edge(
     result, verdict = _check(tmp_path, core_binary, capsys, files)
 
     assert verdict == "FAIL", claims(result)
+
+
+def test_a_conditional_lint_keeps_the_forbidden_edge(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    files = _plant("pub fn f(s: &crate::c::S) -> u8 {\n    s.m(1)\n}\n")
+    files["lib.rs"] = '#![cfg_attr(test, expect(dead_code, reason = "test"))]\n' + LIB
+    files["c.rs"] = "#[cfg_attr(test, allow(dead_code))]\n" + TYPES
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "FAIL", claims(result)
+
+
+@pytest.mark.parametrize(
+    "attribute",
+    [
+        "#[cfg_attr(unix, cfg(not(unix)))]",
+        "#[cfg_attr(unix, allow(dead_code), cfg(not(unix)))]",
+        "#[cfg_attr(unix, cfg_attr(unix, cfg(not(unix))))]",
+    ],
+)
+def test_a_conditional_non_lint_keeps_the_gap(
+    tmp_path: Path,
+    core_binary: Path,
+    capsys: pytest.CaptureFixture[str],
+    attribute: str,
+) -> None:
+    files = _plant(f"{attribute}\npub fn f(s: &crate::c::S) -> u8 {{\n    s.m(1)\n}}\n")
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "UNKNOWN", claims(result)
 
 
 @pytest.mark.parametrize("files", REFUSED.values(), ids=REFUSED.keys())

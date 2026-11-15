@@ -208,6 +208,11 @@ impl Model {
         self.domain.as_ref().map_or((&[], &[]), Domain::scopes)
     }
 
+    /// The assumption that the collector states for its proofs (AD-540), if it states one.
+    pub fn scope_premise(&self) -> Option<&'static str> {
+        self.graph().observed().scope_premise
+    }
+
     /// True for the model of an inside contract.
     pub fn is_mount(&self) -> bool {
         self.domain.is_some()

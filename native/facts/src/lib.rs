@@ -43,10 +43,9 @@ pub mod pyrepr;
 pub mod reason;
 pub mod record;
 pub mod request;
-mod request_rules;
 pub mod schema;
 pub mod sections;
-pub mod skip;
+mod skip;
 pub mod type_shape;
 pub mod vocab;
 

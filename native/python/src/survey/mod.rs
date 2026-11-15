@@ -40,8 +40,10 @@ mod layout;
 mod literal;
 mod namespace;
 mod package_body;
+mod pathscope;
 pub(crate) mod routes;
 mod stable;
+mod syspath;
 mod targets;
 mod uses;
 mod walks;
@@ -55,6 +57,8 @@ pub(crate) struct Survey {
     pub evidence: Vec<Evidence>,
     /// The modules whose `__all__` the survey cannot read (`routes`).
     pub opaque_surface: HashSet<String>,
+    /// The listing of each directory that a harmless `sys.path` write depends on (`syspath.rs`).
+    pub listings: Vec<pathscope::Listing>,
     /// The ids of the imports that are the one plain binder of their name (`bound.rs`).
     pub sole_binders: HashSet<String>,
     /// The ids of each `from pkg import name` where `pkg` binds `name` or can give it (AD-450):
@@ -126,13 +130,14 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     let mut evidence = EvidenceMap::new();
     let (collected, written) = collect(modules, &binders, namespace, &mut evidence);
     let (mut imports, aliases) = (collected.records, collected.aliases);
-    let sole_binders = collected.sole;
-    let ambiguous = collected.ambiguous.clone();
+    let (sole_binders, ambiguous) = (collected.sole, collected.ambiguous.clone());
     // AD-472: a proven literal import call is an import record; each other site is a gap.
     let (literals, hazards) = hazards::split(modules, &binders);
     let calls = imports::literal_records(modules, &binders, namespace, &mut evidence, &literals);
     imports.extend(calls);
     imports.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
+    let scan = pathscope::Scan::new(modules, &imports, roots, namespace);
+    let (hazards, listings) = pathscope::settle(hazards, &scan, &mut snapshot);
     let mut opaque_surface: HashSet<String> = modules
         .iter()
         .zip(&binders)
@@ -199,6 +204,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         coverage,
         evidence: evidence.into_values().collect(),
         opaque_surface,
+        listings,
         sole_binders,
         ambiguous,
         parsed: snapshot

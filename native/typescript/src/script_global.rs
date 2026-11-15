@@ -20,6 +20,12 @@ use crate::source::Span;
 impl<'a, 'p> Run<'a, 'p> {
     /// `_script_global_stable`: nothing in the project or in a vendor publishes or writes the name.
     fn global_stable(&self, name: &str, publishers: &[Publisher]) -> bool {
+        self.stable_but_for_blockers(name, publishers) && !self.project.paths.blocks_all()
+    }
+
+    /// The name is stable but for a write of no known name (a direct form, or an amplifier form in
+    /// a scan with a host entry).
+    fn stable_but_for_blockers(&self, name: &str, publishers: &[Publisher]) -> bool {
         let paths = &self.project.paths;
         publishers.is_empty()
             && self.vendors.complete
@@ -28,7 +34,17 @@ impl<'a, 'p> Run<'a, 'p> {
             && !self.vendors.packages.contains_key(name)
             && !self.partial
             && !self.project.any_error
-            && !(paths.any_empty || paths.singles.contains_key(name))
+            && !paths.singles.contains_key(name)
+    }
+
+    /// A standard global that only the named direct forms of the project keep from a proof: its
+    /// gap is one of the gaps that the report states once under those forms (AD-540).
+    pub(crate) fn behind_named_blockers(&self, name: &str, publishers: &[Publisher]) -> bool {
+        let paths = &self.project.paths;
+        paths.blockers_named()
+            && self.standard.contains(name)
+            && self.stable_but_for_blockers(name, publishers)
+            && !self.project.bound_in_scripts.contains_key(name)
     }
 
     /// `_script_standard_global`.
@@ -60,7 +76,7 @@ impl<'a, 'p> Run<'a, 'p> {
         let paths = &self.project.paths;
         let bound = self.project.bound_anywhere.contains_key(name)
             || host().any(|n| self.project.bound_anywhere.contains_key(n));
-        let written = paths.any_empty
+        let written = paths.blocks_all()
             || paths.singles.contains_key(name)
             || host().any(|n| paths.singles.contains_key(n))
             || paths.loader_first;
@@ -182,7 +198,7 @@ impl<'a, 'p> Run<'a, 'p> {
         };
         let paths = &self.project.paths;
         let blocked = self.project.any_error
-            || paths.any_empty
+            || paths.blocks_all()
             || self.project.bound_or_written_elsewhere(first, *source_at);
         if !publishers.is_empty() || blocked {
             return false;

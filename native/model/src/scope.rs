@@ -467,16 +467,19 @@ struct Source<'a> {
     type_only: bool,
 }
 
-/// The reason of an incomplete state for one rule. The host can accept a coverage gap for a
-/// `complete_requires` rule with its dependency scope proof (`_scoped_dependency_receipt`), so
-/// for that kind such a gap is a part that the core cannot read, not a fact. AD-418: the host
-/// accepts the proof only from a runtime that can carry it (`_native_scope_runtime_valid`); for
-/// any other runtime the gap is a fact, and the reference engine gives UNKNOWN too.
+/// The reason of an incomplete state for one rule. A coverage gap holds `complete_requires`:
+/// the core cannot prove the dependency scope. The former host could accept such a gap (AD-418).
+/// Other gaps keep their existing treatment when the runtime could carry the host proof.
 fn rescued(model: &Model, rule: &Rule, reason: &Reason) -> Reason {
+    if matches!(reason, Reason::Incomplete(Incomplete::CoverageGaps(_)))
+        && matches!(rule, Rule::CompleteRequires(_))
+        && model.graph().observed().scope_receipt
+    {
+        return Cause::DependencyScopeUnproven.into();
+    }
     let accepted = matches!(
         reason,
-        Reason::Incomplete(Incomplete::CoverageGaps(_) | Incomplete::UnknownImports(_))
-            | Reason::NotComplete(Cause::PairGaps(_))
+        Reason::Incomplete(Incomplete::UnknownImports(_)) | Reason::NotComplete(Cause::PairGaps(_))
     );
     let carried = model.graph().observed().scope_receipt;
     if accepted && carried && matches!(rule, Rule::CompleteRequires(_)) {

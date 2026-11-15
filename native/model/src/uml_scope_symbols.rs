@@ -13,7 +13,7 @@ use archkeel_contract::{Entity, EntityKind, RelationshipKind, ResolutionKind, Ta
 
 use crate::symbols::{self, Symbols};
 use crate::uml_facts::{Facts, UmlDiff};
-use crate::uml_symbols::matches;
+use crate::uml_symbols::matches as symbol_matches;
 
 /// The observed scope of a closed scope.
 pub(crate) enum Observed {
@@ -105,7 +105,7 @@ pub(crate) fn extra_sites(
     facts.sites()?;
     let ids = |id: &str| -> Vec<String> {
         crate::uml_facts::entity(target, id)
-            .and_then(|item| matches(facts, item).ok())
+            .and_then(|item| symbol_matches(facts, item).ok())
             .map(|found| found.iter().map(|item| item.id.clone()).collect())
             .unwrap_or_default()
     };

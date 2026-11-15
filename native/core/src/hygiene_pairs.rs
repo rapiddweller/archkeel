@@ -177,6 +177,36 @@ pub(crate) fn closed_world(contract: &Contract, observed: &BTreeSet<Pair>) -> Ve
     found
 }
 
+/// The ordered pairs of distinct labels that no whole-package rule decides, as `a -> b`, for the
+/// stable key of `decision.open` (AD-546). The display row sums them, and a sum moves with each
+/// decision, so the key names each pair. A contract with `complete_requires` has none.
+pub(crate) fn open_parts(contract: &Contract) -> Vec<String> {
+    if contract
+        .rules()
+        .iter()
+        .any(|rule| matches!(rule, Rule::CompleteRequires(_)))
+    {
+        return Vec::new();
+    }
+    let (forbidden, allowed) = decided(contract);
+    let decided: BTreeSet<Pair> = forbidden.into_iter().chain(allowed).collect();
+    let labels: BTreeSet<&str> = contract
+        .components()
+        .iter()
+        .map(|c| c.label().as_text())
+        .collect();
+    let mut pairs = Vec::new();
+    for source in &labels {
+        for target in &labels {
+            let pair = ((*source).to_owned(), (*target).to_owned());
+            if source != target && !decided.contains(&pair) {
+                pairs.push(format!("{source} -> {target}"));
+            }
+        }
+    }
+    pairs
+}
+
 /// The open decisions of a contract without `complete_requires`: each ordered pair of distinct
 /// labels that no whole-package rule decides (`open_decision_summary`).
 fn open(

@@ -59,7 +59,7 @@ fn copy(from: &Path, to: &Path) {
 }
 
 /// A copy of the H-typescript fixture with a Git directory, canonical.
-pub(super) fn repository(name: &str) -> PathBuf {
+pub(crate) fn repository(name: &str) -> PathBuf {
     let root =
         std::env::temp_dir().join(format!("archkeel-core-scan-{name}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&root);
@@ -93,7 +93,7 @@ pub(super) fn repository(name: &str) -> PathBuf {
     fs::canonicalize(root).unwrap()
 }
 
-pub(super) fn request(root: &Path) -> serde_json::Value {
+pub(crate) fn request(root: &Path) -> serde_json::Value {
     json!({
         "protocol": "archkeel-core-scan-1",
         "root": root.to_str().unwrap(),

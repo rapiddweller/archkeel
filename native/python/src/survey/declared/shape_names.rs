@@ -128,9 +128,11 @@ impl<'a> Names<'a> {
             return unproven(Unproven::StarImport);
         }
         match self.bound.kind(name) {
-            Some(Kind::Callable | Kind::Other) => Binding::Defined {
-                target: format!("{}.{name}", self.module),
-            },
+            Some(Kind::Callable | Kind::Value | Kind::BuiltinGeneric(_) | Kind::Other) => {
+                Binding::Defined {
+                    target: format!("{}.{name}", self.module),
+                }
+            }
             Some(Kind::Import) => match self.imports.get(name) {
                 Some(Import::Name(target)) => Binding::Imported {
                     target: target.clone(),
