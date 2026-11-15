@@ -29,6 +29,7 @@ use ruff_text_size::{Ranged, TextRange};
 
 use super::binders::Binders;
 use super::bound::Bound;
+use super::lazy::Lazy;
 use super::literal::{self, Proof};
 use super::syspath;
 use crate::module::Module;
@@ -163,7 +164,7 @@ const INERT: [&str; 2] = [
 ];
 
 /// The gap of a qualified name: a door, the import state, or a name below one of them.
-fn hazard(name: &str) -> Option<&'static str> {
+pub(super) fn hazard(name: &str) -> Option<&'static str> {
     if INERT.contains(&name) {
         return None;
     }
@@ -464,11 +465,23 @@ mod tests;
 /// of its module.
 pub(super) type Split = (Vec<(usize, TextRange, String)>, Vec<(usize, Site)>);
 
-pub(super) fn split(modules: &[Module], binders: &[Binders]) -> Split {
+/// The sites that the lazy import proof covers (`lazy.rs`) are no hazard when `lazy` is given.
+pub(super) fn split(modules: &[Module], binders: &[Binders], lazy: Option<&[Lazy]>) -> Split {
     let (mut literals, mut found) = (Vec::new(), Vec::new());
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
         let proof = literal::Proof::of(&module.tree, binders);
+        let covered = lazy.map(|all| &all[index]);
+        for (range, target) in covered.iter().flat_map(|item| &item.targets) {
+            literals.push((index, *range, target.clone()));
+        }
         for site in sites(&module.tree, proof, binders) {
+            let exempt = covered.iter().flat_map(|item| &item.exempt);
+            if exempt
+                .into_iter()
+                .any(|range| range.contains_range(site.range))
+            {
+                continue;
+            }
             match site.kind {
                 LITERAL => literals.push((index, site.range, site.detail)),
                 _ => found.push((index, site)),

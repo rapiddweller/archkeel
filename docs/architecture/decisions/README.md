@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-558 | [A lazy import table bounds the import calls of a module `__getattr__`](ad-558-a-lazy-import-table-bounds-the-import-calls-of-a-module-getattr.md) |
 | AD-556 | [Cross-crate Rust types need public bindings](ad-556-cross-crate-rust-types-need-public-bindings.md) |
 | AD-554 | [Prove two written field steps in a Rust receiver](ad-554-prove-two-written-field-steps-in-a-rust-receiver.md) |
 | AD-552 | [A literal binding is not a module object](ad-552-a-literal-binding-is-not-a-module-object.md) |

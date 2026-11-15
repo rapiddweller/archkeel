@@ -101,7 +101,7 @@ pub(super) fn escaped(modules: &[Module], imports: &[Record<ImportFact>]) -> Has
         .iter()
         .map(|module| super::binders::Binders::of(&module.tree))
         .collect();
-    let (_, sites) = super::hazards::split(modules, &binders);
+    let (_, sites) = super::hazards::split(modules, &binders, None);
     let mut scan = Scan {
         modules: modules.iter().map(|module| module.name.as_str()).collect(),
         hazardous: sites
