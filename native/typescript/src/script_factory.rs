@@ -9,6 +9,7 @@ use tree_sitter::Node;
 
 use crate::definitions::DefinitionKind;
 use crate::kinds::{F, K};
+use crate::script_names::bound_scope;
 use crate::script_scope::is_root;
 use crate::script_syntax::Producer;
 use crate::script_types::{FactoryMember, Member, ScriptDestructure, ScriptFactory};
@@ -75,8 +76,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             ) && tree.cx.valid_unicode_member_name(key)
                 && tree.cx.valid_unicode_member_name(local);
             let spelling = tree.text(local);
-            let bound = tree
-                .bound_scope(node, &spelling)
+            let bound = bound_scope(tree, node, &spelling)
                 .is_some_and(|scope| tree.count(scope, &spelling) == 1);
             if !plain || !bound {
                 return None;

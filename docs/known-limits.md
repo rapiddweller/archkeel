@@ -102,7 +102,7 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 - The shell trusts the rule rows of the core binary that it located. It checks the root, the commit,
   the dirty state, the configuration and all contract file digests against its request (AD-438).
   A nested file changed since the request started is refused. Keep the snapshot unchanged during a run.
-- ArchKeel checks only its Rust source in `native/` with the core: 63 rules PASS, 1 FAIL, 19 UNKNOWN,
+- ArchKeel checks only its Rust source in `native/` with the core: 63 rules PASS, 0 FAIL, 20 UNKNOWN, 0 violations,
   pinned in `native/expected-gaps.json`. The Python shell and the tools have no architecture contract.
 
 Archkeel observes one static snapshot, not runtime behavior, data flow, performance
@@ -118,13 +118,14 @@ See [AD-422](architecture/decisions/ad-422-core-only-validation-renders-the-scan
 
 ## Open false PASS, not accepted (Python `interface_boundary`, AD-504)
 
-The core gives PASS where Python binds something else at import time, for two forms. 4.0.1 gives
+The core gives PASS where Python binds something else at import time, for three forms. 4.0.1 gives
 PASS for both. They are open defects, pinned by plants in `tests/python_interface_plants.py`:
 
 - `import app.lib` then `app.lib._priv.secret()` with public `app.lib`: the rule judges imports,
   and a use of a private module through a public module object is no import.
-- A write to a package from a C extension, or through `globals()` of another module, after its
-  statements ran. A write through `sys.modules` or a computed `importlib.import_module` is a survey
+- A write to a package from a module outside the scan roots (`conftest.py`, `sitecustomize`, an
+  installed package, a script), from a C extension, or through `globals()` of another module,
+  after its statements ran. A write through `sys.modules` or a computed `importlib.import_module` is a survey
   gap, so the rule is UNKNOWN.
 
 ## Before claiming PASS

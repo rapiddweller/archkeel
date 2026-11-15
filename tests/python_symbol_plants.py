@@ -70,13 +70,18 @@ SHAPES: dict[str, Plant] = {
     "annotated-attribute": pl(
         "class A:\n    x: int\n",
         [C, Want("attribute", "A.x", {"annotation": "int"})],
+        "DIFF",
+    ),
+    "annotated-attribute-value": pl(
+        "class A:\n    x: int = 1\n",
+        [C, Want("attribute", "A.x", {"annotation": "int"})],
         "PASS",
     ),
     "assigned-attribute": pl(
         "class A:\n    limit = 10\n", [C, Want("attribute", "A.limit", STATIC)], "PASS"
     ),
     "private-attribute": pl(
-        "class A:\n    _t: str\n", [C, Want("attribute", "A._t", PRIVATE)], "PASS"
+        "class A:\n    _t: str = ''\n", [C, Want("attribute", "A._t", PRIVATE)], "PASS"
     ),
     "enum-literal": pl(
         "from enum import Enum\n\n\nclass E(Enum):\n    R = 1\n    G = 2\n",
@@ -299,4 +304,129 @@ MEMBERS: dict[str, Plant] = {
     "module-value": pl("VERSION = 1\n", [Want("constant", "VERSION")], "PASS"),
 }
 
-PLANTS: dict[str, Plant] = {**SHAPES, **BOUND, **DECORATED, **CLASSES, **MEMBERS}
+Y = "class A:\n    def y(self):\n        return 1\n"
+AY = [C, Want("method", "A.y")]
+CM = "class A:\n    def m(self):\n        return 1\n"
+AM = [C, Want("method", "A.m")]
+
+
+def other(name: str, text: str) -> dict[str, str]:
+    return {name: text}
+
+
+# The review of PR 1181: a name that a header binds, a `self` that is the class, a write that no
+# visitor sees, a class that escapes, a kind that no proof gives, and the smaller strict rules.
+REVIEW: dict[str, Plant] = {
+    "hdr-nested-base": pl(Y + "    class B((y := object)):\n        pass\n", AY, "DIFF"),
+    "hdr-nested-keyword": pl(Y + "    class B(metaclass=(y := type)):\n        pass\n", AY, "DIFF"),
+    "hdr-nested-deco": pl(
+        Y + "    @(y := (lambda c: c))\n    class B:\n        pass\n", AY, "DIFF"
+    ),
+    "hdr-func-deco": pl(
+        Y + "    @(y := (lambda f: f))\n    def z(self):\n        return 1\n", AY, "DIFF"
+    ),
+    "classmethod-self-write": pl(
+        CM + "    @classmethod\n    def setup(self):\n        self.m = 1\n\n\nA.setup()\n",
+        AM,
+        "DIFF",
+    ),
+    "self-classmethod-write": pl(
+        CM
+        + "    def __init_subclass__(self):\n        self.m = 1\n\n\n"
+        + "class B(A):\n    def m(self):\n        return 2\n",
+        [Want("class", "B"), Want("method", "B.m")],
+        "DIFF",
+    ),
+    "cls-base-local-self": pl(
+        "class B:\n    def __init_subclass__(self):\n        self.y = 1\n\n\n"
+        + Y.replace("class A:", "class A(B):"),
+        AY,
+        "DIFF",
+    ),
+    "module-self-name": pl(CM + "\n\nself = A\nself.m = 1\n", AM, "DIFF"),
+    "self-param-is-class": pl(CM + "\n\ndef fix(self):\n    self.m = 1\n\n\nfix(A)\n", AM, "DIFF"),
+    "self-rebound-write": pl(
+        CM + "\n    def fix(self):\n        self = type(self)\n        self.m = 1\n\n\nA().fix()\n",
+        AM,
+        "DIFF",
+    ),
+    "type-setattr-module": pl(CM + "\n\ntype.__setattr__(A, 'm', 1)\n", AM, "DIFF"),
+    "cls-getattr-write": pl(
+        Y + "\n    def fix(self):\n        type.__setattr__(type(self), 'y', 1)\n\n\nA().fix()\n",
+        AY,
+        "DIFF",
+    ),
+    "cls-base-local-dict": pl(
+        "class B:\n    def __init_subclass__(c):\n        type.__setattr__(c, 'y', 1)\n\n\n"
+        + Y.replace("class A:", "class A(B):"),
+        AY,
+        "DIFF",
+    ),
+    "cls-set-name": pl(
+        "class D:\n    def __set_name__(self, owner, name):\n"
+        "        type.__setattr__(owner, 'y', 1)\n\n\n" + Y + "    d = D()\n",
+        AY,
+        "DIFF",
+    ),
+    "escape-call-other-module": pl(
+        "from demo.h import fix\n\n\n" + CM + "\n\nfix(A)\n",
+        AM,
+        "DIFF",
+        **other("h.py", "def fix(c):\n    c.m = 1\n"),
+    ),
+    "escape-call-clean-other": pl(
+        "from demo.h import fix\n\n\n" + CM + "\n\nfix(A)\n",
+        AM,
+        "PASS",
+        **other("h.py", "def fix(c):\n    return c\n"),
+    ),
+    "ff-attr-helper-method": pl(
+        "def helper(self):\n    return 1\n\n\nclass A:\n    y = helper\n",
+        AY,
+        "PASS",
+    ),
+    "ff-attr-class-nested": pl(
+        "class B:\n    pass\n\n\nclass A:\n    y = B\n", [C, Want("class", "A.y")], "PASS"
+    ),
+    "lambda-as-method": pl("class A:\n    m = lambda self: 1\n", AM, "PASS"),
+    "enum-alias-literal": pl(
+        "from enum import Enum\n\n\nclass E(Enum):\n    R = 1\n    S = 1\n",
+        [Want("enum", "E"), Want("enum_literal", "E.R"), Want("enum_literal", "E.S")],
+        "DIFF",
+    ),
+    "mangled-method": pl(
+        "class A:\n    def __x(self):\n        return 1\n", [C, Want("method", "A.__x")], "DIFF"
+    ),
+    "ann-only-attribute": pl(
+        "class A:\n    x: int\n", [C, Want("attribute", "A.x", {"annotation": "int"})], "DIFF"
+    ),
+    "ann-rebound-builtin": pl(
+        "int = str\n\n\nclass A:\n    x: int = 1\n",
+        [C, Want("attribute", "A.x", {"annotation": "int"})],
+        "DIFF",
+    ),
+    "static-drawn-plain": pl(
+        "class A:\n    @staticmethod\n    def z():\n        return 1\n",
+        [C, Want("method", "A.z")],
+        "DIFF",
+    ),
+    "implicit-new-drawn-plain": pl(
+        "class A:\n    def __new__(cls):\n        return object.__new__(cls)\n",
+        [C, Want("method", "A.__new__")],
+        "DIFF",
+    ),
+    "implicit-init-subclass-plain": pl(
+        "class A:\n    def __init_subclass__(cls):\n        pass\n",
+        [C, Want("method", "A.__init_subclass__")],
+        "DIFF",
+    ),
+}
+
+PLANTS: dict[str, Plant] = {
+    **SHAPES,
+    **BOUND,
+    **DECORATED,
+    **CLASSES,
+    **MEMBERS,
+    **REVIEW,
+}

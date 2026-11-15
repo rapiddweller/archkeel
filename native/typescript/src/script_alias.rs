@@ -11,6 +11,7 @@
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
+use crate::script_names::bound_scope;
 use crate::script_scope::is_root;
 use crate::script_syntax::Producer;
 use crate::script_types::ScriptAlias;
@@ -62,9 +63,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     fn uses_binding(&self, reference: Node<'t>, name: Node<'t>, scope: Node<'t>) -> bool {
         let spelling = self.tree.text(name);
         reference.id() != name.id()
-            && self
-                .tree
-                .bound_scope(reference, &spelling)
+            && bound_scope(self.tree, reference, &spelling)
                 .is_some_and(|bound| bound.id() == scope.id())
     }
 
@@ -217,7 +216,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let path = tree.static_path(target);
         let member = tree.field(target, F::Property)?;
         let spelling = tree.text(name);
-        let scope = tree.bound_scope(node, &spelling)?;
+        let scope = bound_scope(tree, node, &spelling)?;
         let shape = if factory {
             path.len() == 2 || path.len() == 3
         } else {

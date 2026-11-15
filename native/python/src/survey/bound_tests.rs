@@ -98,3 +98,42 @@ fn a_package_body_that_binds_a_name_in_any_form_shadows_the_submodule() {
         assert!(found.names().contains("speedups"), "{source}");
     }
 }
+
+#[test]
+fn a_header_expression_binds_in_the_enclosing_scope() {
+    for source in [
+        "def _g(x=(run := 1)): pass\n",
+        "async def _g(x=(run := 1)): pass\n",
+        "def _g(*, x=(run := 1)): pass\n",
+        "def _g(x: (run := 1) = 1): pass\n",
+        "def _g() -> (run := int): pass\n",
+        "class _C((run := object)): pass\n",
+        "class _C(metaclass=(run := type)): pass\n",
+        "@((run := 1) and (lambda fn: fn))\ndef _g(): pass\n",
+        "@((run := 1) and (lambda fn: fn))\nclass _C: pass\n",
+    ] {
+        let (found, _) = bound(source);
+        assert!(found.names().contains("run"), "{source}");
+    }
+    // The body of a definition binds in a scope of its own.
+    let (found, _) = bound("def _g():\n    run = 1\nclass _C:\n    other = 2\n");
+    assert!(!found.names().contains("run") && !found.names().contains("other"));
+}
+
+#[test]
+fn any_binder_of_getattr_opens_the_module() {
+    for source in [
+        "def __getattr__(name): return 1\n",
+        "if True:\n    def __getattr__(name): return 1\n",
+        "try:\n    def __getattr__(name): return 1\nexcept OSError:\n    pass\n",
+        "__getattr__ = lambda name: 1\n",
+        "from app.hook import __getattr__\n",
+        "(__getattr__ := (lambda name: 1))\n",
+        "def _go():\n    global __getattr__\n    __getattr__ = 1\n",
+        "class __getattr__: pass\n",
+    ] {
+        let (found, _) = bound(source);
+        assert!(found.getattr, "{source}");
+    }
+    assert!(!bound("def getattr_like(): pass\n").0.getattr);
+}

@@ -9,7 +9,22 @@
   "PASS",
   ""
  ],
+ "ann-only-attribute": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "ann-rebound-builtin": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
  "annotated-attribute": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "annotated-attribute-value": [
   "PASS",
   "PASS",
   ""
@@ -59,7 +74,32 @@
   "PASS",
   ""
  ],
+ "classmethod-self-write": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
  "classmethod-write": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "cls-base-local-dict": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "cls-base-local-self": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "cls-getattr-write": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "cls-set-name": [
   "PASS",
   "UNKNOWN",
   "absent symbol: the symbol inventory is not complete"
@@ -104,6 +144,11 @@
   "UNKNOWN",
   "absent symbol: the symbol inventory is not complete"
  ],
+ "enum-alias-literal": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
  "enum-annotated": [
   "UNKNOWN",
   "UNKNOWN",
@@ -139,6 +184,16 @@
   "FAIL",
   "recorded entity kind differs"
  ],
+ "escape-call-clean-other": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "escape-call-other-module": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
  "except-target": [
   "PASS",
   "UNKNOWN",
@@ -146,6 +201,16 @@
  ],
  "exec-def": [
   "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "ff-attr-class-nested": [
+  "FAIL",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "ff-attr-helper-method": [
+  "FAIL",
   "UNKNOWN",
   "absent symbol: the symbol inventory is not complete"
  ],
@@ -184,6 +249,36 @@
   "UNKNOWN",
   "absent symbol: the symbol inventory is not complete"
  ],
+ "hdr-func-deco": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "hdr-nested-base": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "hdr-nested-deco": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "hdr-nested-keyword": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "implicit-init-subclass-plain": [
+  "PASS",
+  "UNKNOWN",
+  "a static or class method is drawn without a modifier"
+ ],
+ "implicit-new-drawn-plain": [
+  "PASS",
+  "UNKNOWN",
+  "a static or class method is drawn without a modifier"
+ ],
  "import-over-def": [
   "PASS",
   "UNKNOWN",
@@ -194,6 +289,11 @@
   "UNKNOWN",
   "absent symbol: the symbol inventory is not complete"
  ],
+ "lambda-as-method": [
+  "FAIL",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
  "local-base": [
   "PASS",
   "PASS",
@@ -201,6 +301,11 @@
  ],
  "loop-attribute": [
   "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "mangled-method": [
+  "PASS",
   "UNKNOWN",
   "absent symbol: the symbol inventory is not complete"
  ],
@@ -226,6 +331,11 @@
  ],
  "module-getattr": [
   "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "module-self-name": [
+  "PASS",
   "UNKNOWN",
   "absent symbol: the symbol inventory is not complete"
  ],
@@ -289,6 +399,21 @@
   "UNKNOWN",
   "absent symbol: the symbol inventory is not complete"
  ],
+ "self-classmethod-write": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "self-param-is-class": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "self-rebound-write": [
+  "PASS",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
  "setattr-class": [
   "PASS",
   "UNKNOWN",
@@ -314,6 +439,11 @@
   "UNKNOWN",
   "absent symbol: the symbol inventory is not complete"
  ],
+ "static-drawn-plain": [
+  "PASS",
+  "UNKNOWN",
+  "a static or class method is drawn without a modifier"
+ ],
  "staticmethod": [
   "PASS",
   "PASS",
@@ -331,6 +461,11 @@
  ],
  "type-checking": [
   "UNKNOWN",
+  "UNKNOWN",
+  "absent symbol: the symbol inventory is not complete"
+ ],
+ "type-setattr-module": [
+  "PASS",
   "UNKNOWN",
   "absent symbol: the symbol inventory is not complete"
  ],

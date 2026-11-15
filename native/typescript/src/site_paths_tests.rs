@@ -9,16 +9,16 @@ use super::{is_script_root, Text};
 #[test]
 fn frame_roots_extend_only_dependency_roots() {
     for name in ["top", "parent"] {
-        assert!(crate::script_deps::is_root(name));
+        assert!(crate::script_state::is_root(name));
         assert!(!is_script_root(name.as_bytes()));
         assert!(!crate::script_scope::is_root(name));
     }
     for name in crate::source_input::WALK_ROOTS {
         assert!(is_script_root(name.as_bytes()));
         assert!(crate::script_scope::is_root(name));
-        assert!(crate::script_deps::is_root(name));
+        assert!(crate::script_state::is_root(name));
     }
-    assert!(!crate::script_deps::is_root("global"));
+    assert!(!crate::script_state::is_root("global"));
 }
 use crate::parse::parse;
 use crate::syntax::Parsers;

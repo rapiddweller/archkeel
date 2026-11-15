@@ -13,7 +13,9 @@ use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId};
 use archkeel_facts::nested::{AttributeDeclaration, VisibilityDetail};
 use archkeel_facts::vocab::MethodKind;
-use ruff_python_ast::{Expr, Stmt, StmtClassDef, StmtFunctionDef, UnaryOp};
+use std::collections::HashSet;
+
+use ruff_python_ast::{Expr, Number, Stmt, StmtClassDef, StmtFunctionDef, UnaryOp};
 use ruff_text_size::Ranged;
 
 use super::kind::Kind;
@@ -38,14 +40,17 @@ pub(super) fn attributes(
 ) -> Result<Attributes, Unwritable> {
     let enumeration = kind == Kind::Enum;
     let mut found = Vec::new();
+    let mut keys = HashSet::new();
     for statement in &node.body {
         let start = statement.range().start();
         let (names, annotation) = match statement {
-            Stmt::AnnAssign(assign) => match &*assign.target {
-                Expr::Name(name) if !enumeration => {
+            // A bare annotation binds nothing at run time, and a value of no proven kind may be a
+            // function or a class: only `name: T = literal` is an attribute.
+            Stmt::AnnAssign(assign) => match (&*assign.target, assign.value.as_deref()) {
+                (_, _) if enumeration => return Ok(open()),
+                (Expr::Name(name), Some(value)) if constant(value) => {
                     (vec![name.id.as_str()], scan.text(Some(&assign.annotation))?)
                 }
-                _ if enumeration => return Ok(open()),
                 _ => continue,
             },
             Stmt::Assign(assign) => {
@@ -54,8 +59,11 @@ pub(super) fn attributes(
                 if enumeration && !(plain && enum_literal(assign, &names)) {
                     return Ok(open());
                 }
-                if !plain {
+                if !plain || (!enumeration && !constant(&assign.value)) {
                     continue;
+                }
+                if enumeration && !keys.insert(value_key(&assign.value).unwrap_or_default()) {
+                    return Ok(open());
                 }
                 (names, None)
             }
@@ -67,6 +75,12 @@ pub(super) fn attributes(
             }
         };
         for name in names {
+            if mangled(name) && enumeration {
+                return Ok(open());
+            }
+            if mangled(name) {
+                continue;
+            }
             if bound.sole(name, start) {
                 found.push(declaration(scan, statement, name, annotation.clone()));
             } else if enumeration {
@@ -87,6 +101,41 @@ pub(super) fn open() -> Attributes {
     Attributes {
         declarations: Vec::new(),
         literals: None,
+    }
+}
+
+/// `__x` is `_A__x` at run time: the name is no member of the class under its written name.
+pub(super) fn mangled(name: &str) -> bool {
+    name.starts_with("__") && !name.ends_with("__")
+}
+
+/// The value of an enum literal, so that `R = 1; S = 1` is seen as an alias: equal numbers (also
+/// `1`, `1.0` and `True`) and equal text give one key. A value that has no key leaves the enum open.
+fn value_key(value: &Expr) -> Option<String> {
+    match value {
+        Expr::StringLiteral(node) => Some(format!("s:{}", node.value.to_str())),
+        Expr::BytesLiteral(node) => Some(format!("b:{:?}", node.value.bytes().collect::<Vec<_>>())),
+        Expr::BooleanLiteral(node) => Some(format!("n:{}", i32::from(node.value))),
+        Expr::NoneLiteral(_) => Some("none".to_owned()),
+        Expr::NumberLiteral(node) => number_key(&node.value, false),
+        Expr::UnaryOp(node) => match (&node.op, &*node.operand) {
+            (UnaryOp::USub, Expr::NumberLiteral(inner)) => number_key(&inner.value, true),
+            (UnaryOp::UAdd, Expr::NumberLiteral(inner)) => number_key(&inner.value, false),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn number_key(number: &Number, negative: bool) -> Option<String> {
+    let sign = if negative { "-" } else { "" };
+    match number {
+        Number::Int(value) => Some(format!("n:{sign}{value}")),
+        Number::Float(value) if value.fract() == 0.0 && value.abs() < 1e15 => {
+            Some(format!("n:{sign}{}", value.abs() as i64))
+        }
+        Number::Float(value) => Some(format!("n:{sign}{value}")),
+        Number::Complex { .. } => None,
     }
 }
 
@@ -175,10 +224,15 @@ fn declaration(
 /// the function (rule 5). `staticmethod` and `classmethod` count only as the builtins.
 pub(super) fn method_kind(node: &StmtFunctionDef, binders: &Binders) -> Option<MethodKind> {
     let [decorator] = node.decorator_list.as_slice() else {
+        // `__new__` is a static method, and the two hooks are class methods, without a decorator.
         return node
             .decorator_list
             .is_empty()
-            .then_some(MethodKind::Instance);
+            .then(|| match node.name.as_str() {
+                "__new__" => MethodKind::Static,
+                "__init_subclass__" | "__class_getitem__" => MethodKind::Class,
+                _ => MethodKind::Instance,
+            });
     };
     match &decorator.expression {
         Expr::Name(name) if binders.builtin_visible(name.id.as_str()) => match name.id.as_str() {

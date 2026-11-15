@@ -48,7 +48,7 @@ fn a_function_with_type_parameters_is_written_with_its_signature_text() {
 
 #[test]
 fn each_record_names_its_parent_and_its_kind() {
-    let text = "from enum import Enum\n\n\nclass A:\n    x: int\n    class B:\n        pass\n\n    @staticmethod\n    def s():\n        pass\n\n\nclass E(Enum):\n    R = 1\n";
+    let text = "from enum import Enum\n\n\nclass A:\n    x: int = 1\n    class B:\n        pass\n\n    @staticmethod\n    def s():\n        pass\n\n\nclass E(Enum):\n    R = 1\n";
     let found = declared(text, 11);
     assert_eq!(
         names(&found),
@@ -126,4 +126,70 @@ fn a_text_that_the_reader_does_not_write_gives_no_record_of_its_declaration() {
         11,
     );
     assert_eq!(names(&plain), ["app.probe.h"]);
+}
+
+const M: &str = "    def m(self):\n        pass\n";
+
+#[test]
+fn a_class_that_a_name_use_escapes_keeps_no_member() {
+    let called = declared(&format!("class A:\n{M}\n\nA()\nA.m\n"), 11);
+    assert_eq!(names(&called), ["app.probe.A", "app.probe.A.m"]);
+    let kept = declared(
+        &format!("class A:\n{M}\n\ndef f(a: A) -> A:\n    return A()\n"),
+        11,
+    );
+    assert_eq!(
+        names(&kept),
+        ["app.probe.A", "app.probe.A.m", "app.probe.f"]
+    );
+    let passed = declared(&format!("class A:\n{M}\n\nprint(A)\n"), 11);
+    assert_eq!(names(&passed), ["app.probe.A"]);
+}
+
+#[test]
+fn a_write_through_a_base_that_may_be_a_class_opens_the_module() {
+    let metaclass = declared(
+        &format!("class M(type):\n    def f(self):\n        self.y = 1\n\n\nclass A:\n{M}"),
+        11,
+    );
+    assert_eq!(names(&metaclass), ["app.probe.A"]);
+    let hook = declared(
+        &format!("class A:\n{M}\n    def __init_subclass__(self):\n        self.y = 1\n"),
+        11,
+    );
+    assert_eq!(names(&hook), ["app.probe.A"]);
+    let setter = declared(
+        &format!("class A:\n{M}\n\ntype.__setattr__(A, 'm', 2)\n"),
+        11,
+    );
+    assert_eq!(names(&setter), ["app.probe.A"]);
+    let own = declared(
+        &format!("class A:\n{M}\n    def n(self):\n        self.y = 1\n"),
+        11,
+    );
+    assert_eq!(
+        names(&own),
+        ["app.probe.A", "app.probe.A.m", "app.probe.A.n"]
+    );
+}
+
+#[test]
+fn a_mangled_name_a_bare_annotation_and_an_alias_are_no_member() {
+    let found = declared(
+        "class A:\n    __x = 1\n    y: int\n    z = print\n    def __w(self):\n        pass\n",
+        11,
+    );
+    let SymbolFact::Class(data) = &found[0].data else {
+        return;
+    };
+    assert_eq!(names(&found), ["app.probe.A"]);
+    assert!(data.attribute_declarations.is_empty());
+    let alias = declared(
+        "from enum import Enum\n\n\nclass E(Enum):\n    R = 1\n    S = 1.0\n",
+        11,
+    );
+    let SymbolFact::Class(data) = &alias[0].data else {
+        return;
+    };
+    assert!(data.enum_members.is_none() && data.attribute_declarations.is_empty());
 }
