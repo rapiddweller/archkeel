@@ -71,7 +71,11 @@ pub(crate) fn scan(
         },
     };
     visitor.walker.out.gated_file = !receivers::module_inert(&file.attrs);
-    visitor.walker.out.generic_paths = path_safety::generic_paths(&file);
+    let safety = path_safety::read(&file, exclude_tests);
+    visitor.walker.out.generic_paths = safety.generic_paths;
+    visitor.walker.out.conditional_use = safety.conditional_use;
+    visitor.walker.out.conditional_bindings = safety.conditional_bindings;
+    visitor.walker.out.conditional_globs = safety.conditional_globs;
     visitor.visit_file(&file);
     attributes::finish(&mut visitor.walker);
     Ok(visitor.walker.out)

@@ -22,6 +22,26 @@ FORBID = rule(
 )
 
 
+def test_rust_uses_an_inherent_function_before_a_trait_function(tmp_path: Path) -> None:
+    source = tmp_path / "precedence.rs"
+    source.write_text(
+        "struct S; trait T { fn m() -> u8; } "
+        "impl T for S { fn m() -> u8 { 1 } } "
+        "impl S { fn m() -> u8 { 2 } } "
+        "fn main() { assert_eq!(S::m(), 2); assert_eq!(<S as T>::m(), 1); }\n"
+    )
+    binary = tmp_path / "precedence"
+    built = subprocess.run(
+        ["rustc", "--edition=2021", str(source), "-o", str(binary)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert built.returncode == 0, built.stderr
+    ran = subprocess.run([str(binary)], capture_output=True, text=True, check=False)
+    assert ran.returncode == 0, ran.stderr
+
+
 def _plant(
     root: Path,
     binary: Path,
@@ -65,6 +85,55 @@ def _plant(
 
 def test_a_path_to_an_inherent_member_is_an_edge(tmp_path: Path, release_core: Path) -> None:
     result = _plant(tmp_path, release_core, "use base_crate::S;\npub fn run() -> u8 { S::m() }\n")
+    assert statuses(result).get("NO-APP-TO-IMPL") == "FAIL", claims(result)
+
+
+def test_a_typed_receiver_from_another_crate_is_an_edge(tmp_path: Path, release_core: Path) -> None:
+    result = _plant(
+        tmp_path,
+        release_core,
+        "use base_crate::S;\npub fn run(s: &S) -> u8 { s.m() }\n",
+        implementation="impl crate::S { pub fn m(&self) -> u8 { 2 } }\n",
+    )
+    assert statuses(result).get("NO-APP-TO-IMPL") == "FAIL", claims(result)
+
+
+def test_a_typed_receiver_through_a_reexport_is_an_edge(tmp_path: Path, release_core: Path) -> None:
+    sources = {
+        "crates/base/src/lib.rs": "mod model; pub use model::S; mod implementation;\n",
+        "crates/base/src/model.rs": "pub struct S;\n",
+        "crates/base/src/implementation.rs": (
+            "impl crate::model::S { pub fn m(&self) -> u8 { 2 } }\n"
+        ),
+        "crates/app/src/lib.rs": "use base_crate::S; pub fn run(s: &S) -> u8 { s.m() }\n",
+    }
+    repository(tmp_path, release_core, sources, rules=(*CRATE_RULES, FORBID))
+    base = tmp_path / "libbase_crate.rlib"
+    for command in (
+        [
+            "rustc",
+            "--edition=2021",
+            "--crate-type=lib",
+            "--crate-name=base_crate",
+            "crates/base/src/lib.rs",
+            "-o",
+            str(base),
+        ],
+        [
+            "rustc",
+            "--edition=2021",
+            "--crate-type=lib",
+            "--crate-name=app",
+            "crates/app/src/lib.rs",
+            "--extern",
+            f"base_crate={base}",
+            "-o",
+            str(tmp_path / "libapp.rlib"),
+        ],
+    ):
+        result = subprocess.run(command, cwd=tmp_path, capture_output=True, text=True, check=False)
+        assert result.returncode == 0, result.stderr
+    result = validate(tmp_path)
     assert statuses(result).get("NO-APP-TO-IMPL") == "FAIL", claims(result)
 
 
@@ -170,5 +239,36 @@ def test_a_generic_parameter_cannot_prove_a_same_crate_path(
         check=False,
     )
     assert built.returncode == 0, built.stderr
+    result = validate(tmp_path)
+    assert statuses(result).get("NO-A-TO-B") == "UNKNOWN", claims(result)
+
+
+def test_a_conditional_import_cannot_place_a_receiver_type(
+    tmp_path: Path, release_core: Path
+) -> None:
+    forbidden = rule(
+        "NO-A-TO-B",
+        "forbidden_dependency",
+        source="native.app.a",
+        target="native.app.b",
+        include_type_checking=True,
+    )
+    files = {
+        "crates/app/src/lib.rs": "mod a; mod b; mod c; mod d;\n",
+        "crates/app/src/a.rs": (
+            "#[cfg(any())] use crate::c::S;\nuse crate::d::*;\npub fn run(s: &S) -> u8 { s.m() }\n"
+        ),
+        "crates/app/src/b.rs": "impl crate::c::S { pub fn m(&self) -> u8 { 2 } }\n",
+        "crates/app/src/c.rs": "pub struct S;\n",
+        "crates/app/src/d.rs": "pub struct S; impl S { pub fn m(&self) -> u8 { 1 } }\n",
+    }
+    repository(tmp_path, release_core, files, rules=(*CRATE_RULES, forbidden))
+    command = ["rustc", "--edition=2021", "--crate-type=lib", "crates/app/src/lib.rs"]
+    built = subprocess.run(command, cwd=tmp_path, capture_output=True, text=True, check=False)
+    assert built.returncode == 0, built.stderr
+    (tmp_path / "crates/app/src/b.rs").write_text("impl crate::c::S { pub fn m(&self) {} }\n")
+    poisoned = subprocess.run(command, cwd=tmp_path, capture_output=True, text=True, check=False)
+    assert poisoned.returncode == 0, poisoned.stderr
+    (tmp_path / "crates/app/src/b.rs").write_text(files["crates/app/src/b.rs"])
     result = validate(tmp_path)
     assert statuses(result).get("NO-A-TO-B") == "UNKNOWN", claims(result)

@@ -70,7 +70,7 @@ impl<'a> Members<'a> {
         block: &'a ImplBlock,
     ) {
         let ty = block.path.as_ref().map_or(TypeOf::Unknown, |path| {
-            index.type_of(frame, &block.scope, path)
+            index.local_type_of(frame, &block.scope, path)
         });
         let own = match &ty {
             TypeOf::Known(lexical, name) if index.file_of(lexical) == Some(&module.module) => {
@@ -193,7 +193,7 @@ impl Builder {
                 unresolved.push(path_call(reference));
                 continue;
             }
-            let known = index.type_of(frame, &reference.scope, ty);
+            let known = index.local_type_of(frame, &reference.scope, ty);
             let own = match &known {
                 TypeOf::Known(lexical, name) => {
                     found

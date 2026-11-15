@@ -291,11 +291,6 @@
     [
       "collection_gap",
       "native.archkeel_eval.decide",
-      "A method call may reach the method scope of an impl block in native.archkeel_model.scope"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_eval.decide",
       "A method call may reach the method unknown of an impl block in native.archkeel_facts.gap"
     ],
     [
@@ -397,16 +392,6 @@
       "collection_gap",
       "native.archkeel_report.frame_rules",
       "A method call may reach the method model_of of an impl block in native.archkeel_model.run"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.input",
-      "A method call may reach the method declares of an impl block in native.archkeel_model.run"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_report.ruling",
-      "A method call may reach the method declares of an impl block in native.archkeel_model.run"
     ],
     [
       "collection_gap",

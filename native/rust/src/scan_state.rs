@@ -112,6 +112,12 @@ pub(crate) struct Scan {
     pub gated_file: bool,
     /// Expression paths whose first name can be hidden by a generic parameter in this file.
     pub generic_paths: BTreeSet<(i64, i64)>,
+    /// A `use` may be removed or rewritten by an attribute.
+    pub conditional_use: bool,
+    /// Names that a conditional `use` may fail to bind.
+    pub conditional_bindings: BTreeSet<String>,
+    /// Conditional glob leaves, by their source position.
+    pub conditional_globs: BTreeSet<(i64, i64)>,
     /// The second count of the tree, for the invariant of the extraction.
     pub tally: Tally,
 }

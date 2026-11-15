@@ -11,24 +11,105 @@ use syn::{ExprPath, GenericParam};
 
 use crate::tokens::plain;
 
-pub(super) fn generic_paths(file: &syn::File) -> BTreeSet<(i64, i64)> {
-    let mut found = Names::default();
+pub(super) struct Safety {
+    pub generic_paths: BTreeSet<(i64, i64)>,
+    pub conditional_use: bool,
+    pub conditional_bindings: BTreeSet<String>,
+    pub conditional_globs: BTreeSet<(i64, i64)>,
+}
+
+pub(super) fn read(file: &syn::File, exclude_tests: bool) -> Safety {
+    let mut found = Names {
+        exclude_tests,
+        ..Names::default()
+    };
     found.visit_file(file);
-    found
+    let paths = found
         .paths
         .into_iter()
         .filter(|(_, name)| found.generics.contains(name))
         .map(|(site, _)| site)
-        .collect()
+        .collect();
+    Safety {
+        generic_paths: paths,
+        conditional_use: found.conditional_use,
+        conditional_bindings: found.conditional_bindings,
+        conditional_globs: found.conditional_globs,
+    }
 }
 
 #[derive(Default)]
 struct Names {
     generics: BTreeSet<String>,
     paths: Vec<((i64, i64), String)>,
+    conditional_use: bool,
+    conditional_bindings: BTreeSet<String>,
+    conditional_globs: BTreeSet<(i64, i64)>,
+    gated: bool,
+    exclude_tests: bool,
+}
+
+impl Names {
+    fn use_tree(&mut self, tree: &syn::UseTree, parent: Option<&syn::Ident>) {
+        match tree {
+            syn::UseTree::Path(path) => self.use_tree(&path.tree, Some(&path.ident)),
+            syn::UseTree::Name(name) => {
+                let ident = if name.ident == "self" {
+                    parent
+                } else {
+                    Some(&name.ident)
+                };
+                if let Some(ident) = ident {
+                    self.conditional_bindings.insert(plain(ident));
+                }
+            }
+            syn::UseTree::Rename(rename) => {
+                self.conditional_bindings.insert(plain(&rename.rename));
+            }
+            syn::UseTree::Glob(glob) => {
+                let start = glob.star_token.spans[0].start();
+                self.conditional_globs.insert((
+                    i64::try_from(start.line).unwrap_or(i64::MAX),
+                    i64::try_from(start.column).unwrap_or(i64::MAX),
+                ));
+            }
+            syn::UseTree::Group(group) => {
+                for item in &group.items {
+                    self.use_tree(item, parent);
+                }
+            }
+        }
+    }
 }
 
 impl<'ast> Visit<'ast> for Names {
+    fn visit_item(&mut self, node: &'ast syn::Item) {
+        if self.exclude_tests
+            && crate::attrs::is_test_attributes(crate::attrs::item_attributes(node))
+        {
+            return;
+        }
+        visit::visit_item(self, node);
+    }
+
+    fn visit_item_mod(&mut self, node: &'ast syn::ItemMod) {
+        let was_gated = self.gated;
+        if node.content.is_some() {
+            self.conditional_use |= !super::receivers::module_inert(&node.attrs);
+            self.gated |= !super::receivers::module_inert(&node.attrs);
+        }
+        visit::visit_item_mod(self, node);
+        self.gated = was_gated;
+    }
+
+    fn visit_item_use(&mut self, node: &'ast syn::ItemUse) {
+        if self.gated || !super::receivers::inert(&node.attrs) {
+            self.conditional_use = true;
+            self.use_tree(&node.tree, None);
+        }
+        visit::visit_item_use(self, node);
+    }
+
     fn visit_generic_param(&mut self, node: &'ast GenericParam) {
         let name = match node {
             GenericParam::Type(value) => Some(&value.ident),
@@ -42,7 +123,8 @@ impl<'ast> Visit<'ast> for Names {
     }
 
     fn visit_expr_path(&mut self, node: &'ast ExprPath) {
-        if node.qself.is_none() && node.path.leading_colon.is_none() && node.path.segments.len() > 1 {
+        if node.qself.is_none() && node.path.leading_colon.is_none() && node.path.segments.len() > 1
+        {
             if let Some(first) = node.path.segments.first() {
                 let start = first.ident.span().start();
                 let line = i64::try_from(start.line).unwrap_or(i64::MAX);
