@@ -7,9 +7,8 @@ The runs come from `fixtures/matrix.json`.
 The tool decides nothing. It runs `archkeel report --output` for each run, reads the envelope that
 the CLI prints, and shows the verdict, the counts and the refusal of the core as they are.
 A run that gives no envelope gets a row without links and makes the exit code 1.
-The entry page `index.html` is the system page (`tools/report_product_page.py`): a part card for
-the self runs, one for each part of `docs/architecture/architecture-system.json`. The fixture table is at
-`showcase/index.html`. The self runs have stable paths (`self/core.html`, `self/core.json`,
+The entry page `index.html` is the system page (`tools/report_product_page.py`): a card for each part of
+`docs/architecture/architecture-system.json`. The fixture table is at `showcase/index.html`. The self runs have stable paths (`self/core.html`, `self/core.json`,
 `self/shell.html`, `self/shell.json`) and one shield endpoint file each (`self/core-badge.json`,
 `self/shell-badge.json`). The system of both has `self/index.html` and `self/badge.json`, so a
 README can link them for good. The badge colour comes from the status of the envelope. A
