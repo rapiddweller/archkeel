@@ -140,6 +140,11 @@ impl<'a> Index<'a> {
     }
 
     pub(super) fn unique_root(&self, package: &str) -> Option<&str> {
+        // A `[lib] name` gives a crate another name in source: the name may be that crate.
+        let mut crates = self.workspace.crates.iter();
+        if crates.any(|item| item.manifest.lib_name.is_some()) {
+            return None;
+        }
         if self
             .workspace
             .crates
@@ -154,26 +159,28 @@ impl<'a> Index<'a> {
     }
 }
 
-pub(super) fn clean(frame: &Frame<'_>) -> bool {
-    !frame.module.scan.conditional_use
-        && frame.globs().next().is_none()
-        && !frame.module.scan.macro_calls.iter().any(|call| call.fills)
-}
-
 impl Index<'_> {
+    /// From the module `root`, down the modules that `names` name, to its last name. Each module
+    /// name must be the only declaration of its name in its file, and no step may be conditional:
+    /// the one declaration then wins over each glob, and a macro cannot give the name again.
     pub(super) fn direct_reach(&self, root: &str, names: &[String]) -> Option<Outcome> {
         let (last, modules) = names.split_last()?;
         let mut at = root.to_owned();
         for name in modules {
-            let frame = self.frame(self.file_of(&at)?)?;
-            if frame.module.gated || !clean(frame) {
+            let parent = self.frame(self.file_of(&at)?)?;
+            let scan = &parent.module.scan;
+            if parent.module.gated || scan.counts.get(name) != Some(&1) {
                 return None;
             }
             at = format!("{at}.{name}");
-            self.file_of(&at)?;
+            // An attribute of an inline module is not read: any conditional item refuses the file.
+            let inline = self.file_of(&at)? == parent.module.module;
+            if inline && scan.conditional_use {
+                return None;
+            }
         }
         let frame = self.frame(self.file_of(&at)?)?;
-        if frame.module.gated || !clean(frame) {
+        if frame.module.gated {
             return None;
         }
         Some(Outcome::Edge(Edge {
@@ -189,32 +196,40 @@ impl Index<'_> {
 pub(super) const MAX_HOPS: usize = 8;
 
 impl Index<'_> {
-    /// Follow an explicit import of a workspace type. Every ambiguous step is refused.
+    /// Follow an explicit path to a workspace type. Every ambiguous step is refused (AD-544).
     pub(super) fn cross_type(
         &self,
         frame: &Frame<'_>,
         scope: &[String],
         ty: &[String],
     ) -> Option<TypeOf> {
-        if !clean(frame)
-            || frame
-                .module
-                .scan
-                .macro_calls
-                .iter()
-                .any(|call| !crate::tokens::NO_BIND_MACROS.contains(&call.name.as_str()))
-        {
+        let scan = &frame.module.scan;
+        // A macro in a block can give any name of the block again, and a macro that takes a path
+        // in its tokens can give its first name again; an attribute can remove the file.
+        let silent = |call: &crate::scan::MacroCall| {
+            crate::tokens::NO_BIND_MACROS.contains(&call.name.as_str())
+        };
+        if scan.body_macros || frame.module.gated || !scan.macro_calls.iter().all(silent) {
             return None;
         }
         let first = ty.first()?;
         let binding = frame.bound(first);
         let names = if binding.is_empty() {
+            // A glob or a macro at module level can bring in a module of the name of the crate.
+            if scan.counts.contains_key(first)
+                || scan.module_macros
+                || frame.globs().next().is_some()
+            {
+                return None;
+            }
             ty.to_vec()
         } else {
             let [leaf] = binding else { return None };
-            if frame.module.scan.counts.get(first) != Some(&1)
+            if scan.counts.get(first) != Some(&1)
+                || scan.conditional_bindings.contains(first)
                 || !matches!(leaf.via, Via::Use { block: false, .. })
-                || !inside(&frame.lexical_at(scope), &frame.lexical_at(&leaf.scope))
+                || leaf.absolute
+                || frame.lexical_at(scope) != frame.lexical_at(&leaf.scope)
             {
                 return None;
             }
@@ -223,19 +238,27 @@ impl Index<'_> {
             names
         };
         let first = names.first()?;
-        let found = classify(first, frame.krate, &frame.module.scan.shadows, false)?;
-        let Found::Edge(Named::Package(package)) = found else {
-            return None;
+        let outcome = if first == "crate" {
+            self.direct_reach(frame.root, names.get(1..)?)?
+        } else {
+            let found = classify(first, frame.krate, &scan.shadows, false)?;
+            let Found::Edge(Named::Package(package)) = found else {
+                return None;
+            };
+            self.direct_reach(self.unique_root(&package)?, names.get(1..)?)?
         };
-        if names.len() != 2 {
-            return None;
-        }
-        let root = self.unique_root(&package)?;
-        let outcome = self.direct_reach(root, names.get(1..)?)?;
-        self.cross_outcome(outcome, names.last()?, 0)
+        self.cross_outcome(outcome, names.last()?, (frame.root, 0))
     }
 
-    fn cross_outcome(&self, outcome: Outcome, expected: &str, depth: usize) -> Option<TypeOf> {
+    /// The type that the edge names: a public exact type of its module, or the target of the one
+    /// `pub use` leaf of its name. `home` is the root of the crate target that wrote the path: a
+    /// restricted leaf is a step only in that target, where a path that cannot see it is an error.
+    fn cross_outcome(
+        &self,
+        outcome: Outcome,
+        expected: &str,
+        (home, depth): (&str, usize),
+    ) -> Option<TypeOf> {
         if depth > MAX_HOPS {
             return None;
         }
@@ -244,63 +267,49 @@ impl Index<'_> {
         };
         let name = edge.symbol.as_deref().filter(|name| *name == expected)?;
         let frame = self.frame(self.file_of(&edge.lexical)?)?;
-        if !clean(frame) || frame.module.gated {
+        let scan = &frame.module.scan;
+        if frame.module.gated || scan.counts.get(name) != Some(&1) {
             return None;
         }
-        let scan = &frame.module.scan;
-        let exact = scan.exact_types.contains(name) && scan.counts.get(name) == Some(&1);
+        let local = frame.root == home;
         let is_type = scan.definitions.iter().any(|d| {
             d.name == name
                 && d.owner == Owner::Module
-                && d.access == Access::Public
+                && (local || d.access == Access::Public)
                 && matches!(d.form, Form::Struct | Form::Enum)
                 && frame.lexical_at(&d.scope) == edge.lexical
         });
-        if exact && is_type {
+        if scan.exact_types.contains(name) && is_type {
             return Some(TypeOf::Known(edge.lexical, name.to_owned()));
         }
         let [leaf] = frame.bound(name) else {
             return None;
         };
-        if scan.counts.get(name) != Some(&1)
-            || scan.restricted_bindings.contains(name)
-            || !matches!(
-                leaf.via,
-                Via::Use {
-                    reexport: true,
-                    block: false,
-                    ..
-                }
-            )
+        let public = matches!(leaf.via, Via::Use { reexport: true, .. })
+            && !scan.restricted_bindings.contains(name);
+        if !(public || local)
+            || scan.conditional_bindings.contains(name)
+            || !matches!(leaf.via, Via::Use { block: false, .. })
+            || leaf.absolute
             || frame.lexical_at(&leaf.scope) != edge.lexical
         {
             return None;
         }
         let last = leaf.names.last()?;
         let first = leaf.names.first()?;
-        let external = classify(
-            first,
-            frame.krate,
-            &frame.module.scan.shadows,
-            leaf.absolute,
-        );
-        let outcome = match external {
-            Some(Found::Edge(Named::Package(package))) => {
-                if leaf.names.len() != 2 {
-                    return None;
+        let outcome = match first.as_str() {
+            "crate" => self.direct_reach(frame.root, leaf.names.get(1..)?)?,
+            "self" => self.direct_reach(&edge.lexical, leaf.names.get(1..)?)?,
+            "super" => return None,
+            _ => match classify(first, frame.krate, &scan.shadows, false) {
+                Some(Found::Edge(Named::Package(package))) => {
+                    self.direct_reach(self.unique_root(&package)?, leaf.names.get(1..)?)?
                 }
-                self.direct_reach(self.unique_root(&package)?, leaf.names.get(1..)?)?
-            }
-            None if !leaf.absolute && (leaf.scope.is_empty() || first == "crate") => {
-                let rest = if first == "crate" {
-                    leaf.names.get(1..)?
-                } else {
-                    &leaf.names
-                };
-                self.direct_reach(frame.root, rest)?
-            }
-            _ => return None,
+                // A relative path starts at the module of the `use`, not at the crate root.
+                None if leaf.names.len() > 1 => self.direct_reach(&edge.lexical, &leaf.names)?,
+                _ => return None,
+            },
         };
-        self.cross_outcome(outcome, last, depth + 1)
+        self.cross_outcome(outcome, last, (home, depth + 1))
     }
 }
