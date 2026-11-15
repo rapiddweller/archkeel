@@ -16,7 +16,7 @@ fn declared(text: &str, minor: u32) -> Vec<Record<SymbolFact>> {
     let module = crate::test_module(text, minor);
     let binders = Binders::of(&module.tree);
     let _ = minor;
-    records(&module, &binders, &mut EvidenceMap::new())
+    records(&module, &binders, &mut EvidenceMap::new()).records
 }
 
 fn names(found: &[Record<SymbolFact>]) -> Vec<String> {

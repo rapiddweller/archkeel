@@ -5,7 +5,8 @@
 //! The reading of one module for its declarations (AD-518): the evidence of a node, and the text
 //! of an annotation or a default.
 //!
-//! The text is written for a name, a dotted name, `None`, `True` and `False` only. That is what
+//! The text is written for a name, a dotted name, a call of one without arguments, `None`, `True`
+//! and `False` only. That is what
 //! `ast.unparse` writes for them in every Python of the request. Any other expression (a
 //! subscript, a string, a number, a call) gives `Unwritable`, and the declaration that holds it
 //! gets no record: the survey never guesses a text.
@@ -19,12 +20,12 @@ use crate::module::{EvidenceMap, Module};
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct Unwritable;
 
-pub(super) struct Reader<'m> {
+pub(super) struct Reader<'m, 'e> {
     pub module: &'m Module,
-    pub evidence_map: &'m mut EvidenceMap,
+    pub evidence_map: &'e mut EvidenceMap,
 }
 
-impl Reader<'_> {
+impl Reader<'_, '_> {
     /// The text of an optional expression.
     pub(super) fn text(&self, expr: Option<&Expr>) -> Result<Option<String>, Unwritable> {
         expr.map(plain).transpose()
@@ -40,6 +41,11 @@ fn plain(expr: &Expr) -> Result<String, Unwritable> {
     match expr {
         Expr::Name(node) => Ok(node.id.to_string()),
         Expr::Attribute(node) => Ok(format!("{}.{}", plain(&node.value)?, node.attr.as_str())),
+        Expr::Call(node)
+            if node.arguments.args.is_empty() && node.arguments.keywords.is_empty() =>
+        {
+            Ok(format!("{}()", plain(&node.func)?))
+        }
         Expr::NoneLiteral(_) => Ok("None".to_owned()),
         Expr::BooleanLiteral(node) => Ok(if node.value { "True" } else { "False" }.to_owned()),
         _ => Err(Unwritable),

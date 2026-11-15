@@ -11,7 +11,7 @@
 //! cannot write give no record: the model then reads the name as absent, which decides nothing
 //! (AD-512). The sites (bases, calls, references) are not written here.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::data::{CallableData, ClassData, Declared};
 use archkeel_facts::identity::{stable_id, Part};
@@ -37,19 +37,43 @@ use reader::{Reader, Unwritable};
 mod kind;
 mod members;
 mod reader;
+mod scope;
+mod sites;
 mod values;
+
+pub(crate) use sites::{sites, Context};
 
 /// Why a member list is never complete: a base, a metaclass, a decorator and a write after the
 /// class body can add a member that the body does not show.
 const PARTIAL: &str =
     "a base, a metaclass, a decorator or a write after the class body can add a member";
 
+/// A function or method with a record: the scope of its sites (AD-520).
+pub(crate) struct Source<'m> {
+    pub node: &'m StmtFunctionDef,
+    pub qualname: String,
+    pub id: String,
+    /// The names that the class body of a method binds: its annotations read them first.
+    pub class_names: Option<HashSet<String>>,
+}
+
+/// What one module declares: its records, the sources of its sites and the top-level classes
+/// that `A()` constructs.
+#[derive(Default)]
+pub(crate) struct Found<'m> {
+    /// The index of the module in the survey.
+    pub index: usize,
+    pub records: Vec<Record<SymbolFact>>,
+    pub sources: Vec<Source<'m>>,
+    pub constructible: HashSet<String>,
+}
+
 /// The declarations of one module. A module that native cannot read completely has none.
-pub(crate) fn records(
-    module: &Module,
+pub(crate) fn records<'m>(
+    module: &'m Module,
     binders: &Binders,
     evidence: &mut EvidenceMap,
-) -> Vec<Record<SymbolFact>> {
+) -> Found<'m> {
     let mut scratch = EvidenceMap::new();
     let mut writer = Writer {
         scan: Reader {
@@ -62,15 +86,27 @@ pub(crate) fn records(
             .iter()
             .any(|base| !matches!(base, Expr::Name(name) if name.id.as_str() == "self")),
         out: Vec::new(),
+        sources: Vec::new(),
+        constructible: HashSet::new(),
     };
     let done = writer.run();
-    let mut out = writer.out;
+    let Writer {
+        mut out,
+        sources,
+        constructible,
+        ..
+    } = writer;
     if done.is_err() {
-        return Vec::new();
+        return Found::default();
     }
     evidence.extend(scratch);
     out.sort_by(|left, right| left.id.as_str().cmp(right.id.as_str()));
-    out
+    Found {
+        index: 0,
+        records: out,
+        sources,
+        constructible,
+    }
 }
 
 /// Remember a class of the module body with a record, and its body for the nested classes.
@@ -114,10 +150,12 @@ struct Frame<'a> {
 }
 
 struct Writer<'m, 'b> {
-    scan: Reader<'m>,
+    scan: Reader<'m, 'b>,
     binders: &'b Binders,
     open: bool,
     out: Vec<Record<SymbolFact>>,
+    sources: Vec<Source<'m>>,
+    constructible: HashSet<String>,
 }
 
 impl<'m> Writer<'m, '_> {
@@ -158,13 +196,21 @@ impl<'m> Writer<'m, '_> {
     }
 
     /// A function of the module body that no decorator can replace.
-    fn function(&mut self, node: &StmtFunctionDef) -> Result<(), Unwritable> {
+    fn function(&mut self, node: &'m StmtFunctionDef) -> Result<(), Unwritable> {
         if !node.decorator_list.is_empty() {
             return Ok(());
         }
         let holder = &self.scan.module.name;
         let header = self.header(node.name.as_str(), holder, None);
         let fact = self.callable(node, header, None)?;
+        let qualname = format!("{holder}.{}", node.name.as_str());
+        let id = definition_id(self.scan.module, Def::Function(node), &qualname);
+        self.sources.push(Source {
+            node,
+            qualname,
+            id,
+            class_names: None,
+        });
         self.push(Def::Function(node), (holder, node.name.as_str()), fact)
     }
 
@@ -222,12 +268,12 @@ impl<'m> Writer<'m, '_> {
 
     /// The record of a class and of its methods; the frame of the class when its body holds
     /// classes to read. A class with no proven kind has no record and no member.
-    fn class<'a>(
+    fn class(
         &mut self,
-        node: &'a StmtClassDef,
+        node: &'m StmtClassDef,
         reading: &Reading<'_>,
         owner: Option<&Frame<'_>>,
-    ) -> Result<Option<(Frame<'a>, Local)>, Unwritable> {
+    ) -> Result<Option<(Frame<'m>, Local)>, Unwritable> {
         if !node.decorator_list.is_empty() {
             return Ok(None);
         }
@@ -287,6 +333,9 @@ impl<'m> Writer<'m, '_> {
             id,
             bound,
         };
+        if owner.is_none() && constructible {
+            self.constructible.insert(frame.qualname.clone());
+        }
         let local = Local {
             kind: class_kind,
             constructible,
@@ -339,7 +388,7 @@ impl<'m> Writer<'m, '_> {
     /// The methods of a class body that bind their name once, each with its record and id.
     fn methods(
         &mut self,
-        node: &StmtClassDef,
+        node: &'m StmtClassDef,
         bound: &Bound,
         qualname: &str,
         id: &str,
@@ -365,6 +414,12 @@ impl<'m> Writer<'m, '_> {
                 Def::Function(function),
                 &format!("{qualname}.{name}"),
             );
+            self.sources.push(Source {
+                node: function,
+                qualname: format!("{qualname}.{name}"),
+                id: own.clone(),
+                class_names: Some(bound.names()),
+            });
             found.push((record, own));
         }
         Ok(found)
