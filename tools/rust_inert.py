@@ -9,7 +9,7 @@ two of them that look alike are no clone:
 - a `use` item: an import list names things, it computes nothing;
 - a `const` or `static` whose value is an array or a slice of literals and paths, with tuples of
   them and no call, no operator and no block: a table of data;
-- a `match` in which each arm is `path => literal` or `literal => path`, with no guard and no other
+- a `match` in which each arm is `path => literal` (or a tuple of literals) or `literal => path`, with no guard and no other
   expression: a table of words and variants.
 
 Each rule is strict. A call, an operator, a block, a guard or a second expression in the item
@@ -167,7 +167,16 @@ def _path(tokens: Sequence[Token], *, or_allowed: bool) -> bool:
 
 
 def _literal(tokens: Sequence[Token]) -> bool:
-    return len(tokens) == 1 and tokens[0].kind == "literal"
+    """A literal, or a tuple of literals: the value of one word."""
+    if len(tokens) == 1:
+        return tokens[0].kind == "literal"
+    inside = tokens[1:-1]
+    return (
+        len(tokens) > 2
+        and _is(tokens[0], "(")
+        and _is(tokens[-1], ")")
+        and all(token.kind == "literal" or _is(token, ",") for token in inside)
+    )
 
 
 def _literals(tokens: Sequence[Token]) -> bool:

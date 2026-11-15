@@ -141,6 +141,12 @@ def test_a_match_of_variants_and_words_is_not_a_clone(tmp_path: Path) -> None:
     assert run(scratch(tmp_path / "b", kinds("a", reverse))).returncode == 0
 
 
+def test_a_match_of_variants_and_tuples_of_words_is_not_a_clone(tmp_path: Path) -> None:
+    lines = "".join(f'        E::V{i} => ("N{i}", "t{i}"),\n' for i in range(30))
+    body = f"fn pair(e: E) -> (&'static str, &'static str) {{\n    match e {{\n{lines}    }}\n}}\n"
+    assert run(scratch(tmp_path, kinds("a", body))).returncode == 0
+
+
 def test_a_match_with_a_guard_or_an_expression_arm_is_logic(tmp_path: Path) -> None:
     guarded = arms("x", 30, '        E::Z if flag() => "z",\n')
     assert run(scratch(tmp_path, kinds("a", guarded))).returncode == 1

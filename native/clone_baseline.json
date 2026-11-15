@@ -13,22 +13,6 @@
     "reason": "The facade budget and the coupling budget read the same field kinds in one shape, as their Python parsers do. They are data, not logic.",
     "tokens": 85
   },
-  "contract/src/declarations.rs|facts/src/data/symbols.rs|429e052eb3": {
-    "files": [
-      "contract/src/declarations.rs",
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "The `use` lists of two crates have one shape. Imports are not logic and the crates cannot share them.",
-    "tokens": 70
-  },
-  "contract/src/graph.rs|contract/src/python_rules.rs|6ff88f9ff0": {
-    "files": [
-      "contract/src/graph.rs",
-      "contract/src/python_rules.rs"
-    ],
-    "reason": "Two lists of imported names have one shape. They are data.",
-    "tokens": 85
-  },
   "contract/src/model.rs|contract/src/model_rules.rs|f1b6bace03": {
     "files": [
       "contract/src/model.rs",
@@ -37,38 +21,6 @@
     "reason": "Field lists of neighbouring contract types have one shape, as the Python dataclasses do. No logic repeats.",
     "tokens": 82
   },
-  "contract/src/policy/amendment.rs|model/src/boundary_judge.rs|647e3eb145": {
-    "files": [
-      "contract/src/policy/amendment.rs",
-      "model/src/boundary_judge.rs"
-    ],
-    "reason": "One word for each variant of a closed enum, written as a match arm. The enums are of different crates and own different words. No logic repeats.",
-    "tokens": 79
-  },
-  "contract/src/policy/printable.rs|facts/src/pyrepr_tests.rs|3d85e546b4": {
-    "files": [
-      "contract/src/policy/printable.rs",
-      "facts/src/pyrepr_tests.rs"
-    ],
-    "reason": "A generated table of Unicode code point ranges (tools/contract_printable.py, L-28): rows of number pairs, as a test table of numbers is. It holds data, not logic.",
-    "tokens": 70
-  },
-  "contract/src/policy/printable.rs|facts/src/pyrepr_tests.rs|ba51243f6f": {
-    "files": [
-      "contract/src/policy/printable.rs",
-      "facts/src/pyrepr_tests.rs"
-    ],
-    "reason": "A generated table of Unicode code point ranges (tools/contract_printable.py, L-28): rows of number pairs, as a test table of numbers is. It holds data, not logic.",
-    "tokens": 71
-  },
-  "contract/src/policy/printable.rs|typescript/src/resolve_tests.rs|4638f1c05f": {
-    "files": [
-      "contract/src/policy/printable.rs",
-      "typescript/src/resolve_tests.rs"
-    ],
-    "reason": "A generated table of Unicode code point ranges (tools/contract_printable.py, L-28): rows of number pairs, as a test table of numbers is. It holds data, not logic.",
-    "tokens": 74
-  },
   "contract/src/version.rs|typescript/src/references.rs|28d4a368b5": {
     "files": [
       "contract/src/version.rs",
@@ -76,22 +28,6 @@
     ],
     "reason": "Exhaustive match tables of two closed enums (contract features to versions, reference forms to kinds) have one token shape; each arm names its own variant, and a new variant must fail to compile there. AD-406: the `pub(crate)` of the library target of the collector adds three tokens to the same shape; no code was copied.",
     "tokens": 75
-  },
-  "dart/src/syntax.rs|rust/src/manifest.rs|233481258c": {
-    "files": [
-      "dart/src/syntax.rs",
-      "rust/src/manifest.rs"
-    ],
-    "reason": "AD-406 slice 2 makes existing Rust fields pub(crate). Those visibility tokens extend an existing data-field shape beyond the clone window. No code was copied.",
-    "tokens": 70
-  },
-  "dart/src/syntax.rs|rust/src/manifest.rs|95736307bd": {
-    "files": [
-      "dart/src/syntax.rs",
-      "rust/src/manifest.rs"
-    ],
-    "reason": "AD-406 slice 2 makes existing Rust fields pub(crate). Those visibility tokens extend an existing data-field shape beyond the clone window. No code was copied.",
-    "tokens": 77
   },
   "facts/src/data/imports.rs|facts/src/data/sites.rs|a6651d57cb": {
     "files": [
@@ -334,22 +270,6 @@
     "reason": "code_list! calls list the values of a schema code list as name and text pairs. They are data.",
     "tokens": 71
   },
-  "model/src/boundary_judge.rs|model/src/section.rs|731dd53e1a": {
-    "files": [
-      "model/src/boundary_judge.rs",
-      "model/src/section.rs"
-    ],
-    "reason": "One word for each variant of a closed enum, written as a match arm. The enums own different words. No logic repeats.",
-    "tokens": 84
-  },
-  "model/src/boundary_judge.rs|model/src/section.rs|79d7dd25d5": {
-    "files": [
-      "model/src/boundary_judge.rs",
-      "model/src/section.rs"
-    ],
-    "reason": "One word for each variant of a closed enum, written as a match arm. The enums own different words. No logic repeats.",
-    "tokens": 71
-  },
   "model/src/limits.rs|model/src/limits.rs|2918b64354": {
     "files": [
       "model/src/limits.rs"
@@ -372,22 +292,6 @@
     ],
     "reason": "AD-378 (review of #1066, finding 5): each match of the scope proof lists every rule kind with no default arm, so a new kind does not compile until its doubt sources are stated. The lists of kinds repeat by design.",
     "tokens": 71
-  },
-  "model/src/section.rs|report/src/kind.rs|79d7dd25d5": {
-    "files": [
-      "model/src/section.rs",
-      "report/src/kind.rs"
-    ],
-    "reason": "Exhaustive word tables of closed enums (Section names, RuleKind words, symbol kinds) have one token shape. No code is shared: each arm names its own variant and word, and a new variant must fail to compile there (AD-381).",
-    "tokens": 71
-  },
-  "model/src/section.rs|report/src/kind.rs|f99333b1c6": {
-    "files": [
-      "model/src/section.rs",
-      "report/src/kind.rs"
-    ],
-    "reason": "Exhaustive word tables of closed enums (Section names, RuleKind words, symbol kinds) have one token shape. No code is shared: each arm names its own variant and word, and a new variant must fail to compile there (AD-381).",
-    "tokens": 70
   },
   "python/src/pyast/node.rs|python/src/pyast/node.rs|0bf652e71b": {
     "files": [
@@ -437,29 +341,6 @@
     ],
     "reason": "The CPython class name (and source text) of each variant of a closed ruff enum (AD-377). One exhaustive match for each enum keeps the compiler check when ruff adds a variant. They are data, not logic.",
     "tokens": 93
-  },
-  "python/src/pyast/node.rs|python/src/pyast/node.rs|e8bbd54d32": {
-    "files": [
-      "python/src/pyast/node.rs"
-    ],
-    "reason": "The CPython class name (and source text) of each variant of a closed ruff enum (AD-377). One exhaustive match for each enum keeps the compiler check when ruff adds a variant. They are data, not logic.",
-    "tokens": 74
-  },
-  "python/src/survey/declared/shapes.rs|typescript/src/kinds.rs|6bb9d25070": {
-    "files": [
-      "python/src/survey/declared/shapes.rs",
-      "typescript/src/kinds.rs"
-    ],
-    "reason": "Two tables of (text, value) rows, one of Python collection names and one of grammar node kinds. They are data of different languages.",
-    "tokens": 84
-  },
-  "python/src/survey/declared/shapes.rs|typescript/src/kinds.rs|8e190273d6": {
-    "files": [
-      "python/src/survey/declared/shapes.rs",
-      "typescript/src/kinds.rs"
-    ],
-    "reason": "Two tables of (text, value) rows, one of Python collection names and one of grammar node kinds. They are data of different languages.",
-    "tokens": 78
   },
   "report/src/build_tables.rs|report/src/build_tables.rs|372b10f04f": {
     "files": [
@@ -518,14 +399,6 @@
     "reason": "Field lists of the input structs of build have one shape, as the rows of the payload tables do. No logic repeats.",
     "tokens": 70
   },
-  "report/src/kind.rs|typescript/src/symbol_table.rs|36d03b27ae": {
-    "files": [
-      "report/src/kind.rs",
-      "typescript/src/symbol_table.rs"
-    ],
-    "reason": "Exhaustive word tables of closed enums (Section names, RuleKind words, symbol kinds) have one token shape. No code is shared: each arm names its own variant and word, and a new variant must fail to compile there (AD-381). AD-406: the `pub(crate)` of the library target of the collector adds three tokens to the same shape; no code was copied.",
-    "tokens": 76
-  },
   "report/src/payload.rs|typescript/src/definitions.rs|b53e2fe389": {
     "files": [
       "report/src/payload.rs",
@@ -533,46 +406,6 @@
     ],
     "reason": "Derive lines and pub field lists of wire structs have one shape. No logic repeats.",
     "tokens": 80
-  },
-  "rust/src/lib.rs|typescript/src/lib.rs|0e6f6d8725": {
-    "files": [
-      "rust/src/lib.rs",
-      "typescript/src/lib.rs"
-    ],
-    "reason": "Each linked collector declares its own build provenance and compile-time test features (AD-406). These must bind to that crate's build and feature resolution. No collection logic repeats.",
-    "tokens": 111
-  },
-  "rust/src/manifest.rs|typescript/src/site_types.rs|54d9ebe401": {
-    "files": [
-      "rust/src/manifest.rs",
-      "typescript/src/site_types.rs"
-    ],
-    "reason": "AD-406 slice 2 makes existing Rust fields pub(crate). Those visibility tokens extend an existing data-field shape beyond the clone window. No code was copied.",
-    "tokens": 77
-  },
-  "typescript/src/kinds.rs|typescript/src/kinds.rs|1a2f180862": {
-    "files": [
-      "typescript/src/kinds.rs",
-      "typescript/src/kinds.rs"
-    ],
-    "reason": "Rows of the table of grammar kinds. Data, one row for each kind, not logic.",
-    "tokens": 79
-  },
-  "typescript/src/kinds.rs|typescript/src/kinds.rs|b8b671847c": {
-    "files": [
-      "typescript/src/kinds.rs",
-      "typescript/src/kinds.rs"
-    ],
-    "reason": "Rows of the table of grammar kinds. Data, one row for each kind, not logic.",
-    "tokens": 139
-  },
-  "typescript/src/kinds.rs|typescript/src/kinds.rs|b8b671847c#2": {
-    "files": [
-      "typescript/src/kinds.rs",
-      "typescript/src/kinds.rs"
-    ],
-    "reason": "Rows of the table of grammar kinds. Data, one row for each kind, not logic.",
-    "tokens": 79
   },
   "typescript/src/manifest.rs|typescript/src/options.rs|a62be8fc91": {
     "files": [
