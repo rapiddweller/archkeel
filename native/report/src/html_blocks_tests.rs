@@ -377,3 +377,17 @@ fn an_accepted_unknown_keeps_the_word_unknown_and_says_accepted() {
     assert!(!page.contains("<h1>Verdict: PASS</h1>"));
     assert!(!document(&unknown_frame()).contains("Baseline:"));
 }
+
+#[test]
+fn a_rule_row_that_the_baseline_accepts_says_accepted_and_the_others_do_not() {
+    let mut frame = unknown_frame();
+    frame["baseline"] = json!({"state": "drift", "accepted_unknowns": 1, "accepted_rules": ["A"]});
+    let page = document(&frame);
+    assert_eq!(
+        page.matches("accepted by the baseline, still UNKNOWN")
+            .count(),
+        1
+    );
+    assert!(page.contains(">A</span> <span class=\"caption rp-acc\">(accepted"));
+    assert!(!document(&unknown_frame()).contains("still UNKNOWN"));
+}

@@ -35,6 +35,9 @@ pub(crate) struct Key {
 #[derive(Debug, Default)]
 pub(crate) struct Gaps {
     pub(crate) keys: BTreeMap<Key, u64>,
+    /// The keys of each rule row without a decision, so that a row can be called accepted only
+    /// when all its keys are (AD-546).
+    pub(crate) by_rule: BTreeMap<String, Vec<Key>>,
     pub(crate) unacceptable: Vec<String>,
 }
 
@@ -59,6 +62,10 @@ pub(crate) fn of_run(ruling: &Ruling, reply: Option<&Ingested>) -> Gaps {
                 subject: entry.subject.unwrap_or_else(|| rule.clone()),
                 reason: entry.reason,
             };
+            gaps.by_rule
+                .entry(rule.clone())
+                .or_default()
+                .push(key.clone());
             gaps.add(key, entry.count);
         }
     }

@@ -70,6 +70,8 @@ pub(super) struct Frame {
     pub(super) cause: String,
     /// The baseline of the request: its state and the number of accepted UNKNOWN entries (AD-546).
     pub(super) baseline: Option<(String, u64)>,
+    /// The rule rows that the baseline accepts. Each stays UNKNOWN (AD-546).
+    pub(super) accepted: std::collections::BTreeSet<String>,
     /// The assumption that the collector states for its proofs (AD-540), or empty.
     pub(super) premise: String,
 }
@@ -120,6 +122,7 @@ impl Frame {
             locations: field(frame, "locations"),
             topology: serde_json::from_value(frame["topology"].clone()).ok(),
             explain: field(frame, "explain"),
+            accepted: field(&frame["baseline"], "accepted_rules"),
             baseline: frame["baseline"]["state"].as_str().map(|state| {
                 let accepted = frame["baseline"]["accepted_unknowns"].as_u64();
                 (state.to_owned(), accepted.unwrap_or_default())

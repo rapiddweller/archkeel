@@ -74,10 +74,16 @@ pub(crate) struct Named {
 pub(crate) struct Compared {
     pub(crate) state: &'static str,
     pub(crate) exit_code: u8,
+    /// The distinct entries (kind, subject, reason) that the file and the run share.
+    pub(crate) accepted_entries: u64,
+    /// The items behind them: an entry with a count of 3 is 3 items.
     pub(crate) accepted_unknowns: u64,
     pub(crate) new: Vec<Difference>,
     pub(crate) gone: Vec<Difference>,
     pub(crate) gaps: Vec<Named>,
+    /// The rule rows whose every key the file accepts. The row stays UNKNOWN; the report says
+    /// "accepted" beside it.
+    pub(crate) accepted_rules: Vec<String>,
 }
 
 /// Release 4.0.1 measured these three with its own analyzer; a file of an older schema holds its
@@ -100,7 +106,9 @@ pub(crate) fn compare(file: &ValidationBaseline, run: &Observed) -> Compared {
             });
         }
         found.state = "not_compared";
-        found.exit_code = if run.unknown_status { 2 } else { 1 };
+        // A refused part cannot be compared. Exit 2 with a baseline means that every UNKNOWN is
+        // accepted, so a refusal exits 1: CE treats exit 2 as green (AD-546).
+        found.exit_code = 1;
         return found;
     }
     violations(file, run, &mut found);
@@ -245,9 +253,23 @@ fn unknowns(file: &ValidationBaseline, run: &Observed, found: &mut Compared) {
             (key, *item.count())
         })
         .collect();
+    found.accepted_rules = run
+        .gaps
+        .by_rule
+        .iter()
+        .filter(|(_, keys)| {
+            keys.iter().all(|key| {
+                file_counts.get(key).copied().unwrap_or(0)
+                    >= run.gaps.keys.get(key).copied().unwrap_or(0)
+            })
+        })
+        .map(|(rule, _)| rule.clone())
+        .collect();
     for (key, run_count) in &run.gaps.keys {
         let file_count = file_counts.get(key).copied().unwrap_or(0);
-        found.accepted_unknowns += (*run_count).min(file_count);
+        let shared = (*run_count).min(file_count);
+        found.accepted_unknowns += shared;
+        found.accepted_entries += u64::from(shared > 0);
         if *run_count > file_count {
             found.new.push(entry(key, *run_count, file_count));
         }

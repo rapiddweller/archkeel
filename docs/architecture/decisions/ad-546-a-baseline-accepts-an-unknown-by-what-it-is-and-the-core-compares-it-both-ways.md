@@ -29,7 +29,8 @@ subject, reason), never to a line, an evidence id, an analyzer digest or a sourc
    violation is known debt (the freeze use of 4.0.1): it does not make the exit code 1.
 5. A part that no key can name (a refused reply, a refused or unread contract, a section or the
    report that no slice ports) cannot be accepted. The state is `not_compared` and the exit code
-   is that of the run.
+   is 1. A refused scan with `--baseline` also exits 1. Exit 2 with a baseline means only that
+   every UNKNOWN is accepted; CE treats exit 2 as green, so a refusal must not give it.
 6. A baseline that is absent, outside the repository, malformed, repeated, not sorted, with an
    unknown field or with a count of 0 is `invalid` and exits 1 with the entry. CE treats exit 2 as
    green, so exit 2 for a damaged file would be a false green.

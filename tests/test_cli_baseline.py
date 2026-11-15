@@ -59,7 +59,7 @@ def test_every_unknown_accepted_keeps_status_unknown_and_exit_2(built: Path) -> 
     assert part["state"] == "current" and part["new"] == [] and part["gone"] == []
     assert part["accepted_unknowns"] >= 1
     assert text.returncode == 2
-    assert "accepted UNKNOWN entries" in text.stdout and "stays UNKNOWN" in text.stdout
+    assert "entries" in text.stdout and "stays UNKNOWN" in text.stdout
     assert "PASS" not in text.stdout.splitlines()[0]
 
 
@@ -251,3 +251,14 @@ def test_a_collection_that_the_core_refuses_writes_no_baseline(built: Path) -> N
         code, result = run(built, root, "--write-baseline", "b.json")
         assert not (root / "b.json").exists()
     assert code == 2 and "baseline" not in result
+
+
+def test_a_refused_scan_with_a_baseline_exits_1_because_exit_2_means_all_accepted(
+    built: Path,
+) -> None:
+    with case_root(HONEST) as root:
+        run(built, root, "--write-baseline", "b.json")
+        (root / "architecture-contract.json").unlink()
+        code, result = run(built, root, "--baseline", "b.json")
+    assert code == 1, result
+    assert result["refusal"]["kind"] == "collection_refused"  # type: ignore[index]

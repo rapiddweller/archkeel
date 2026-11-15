@@ -327,6 +327,10 @@ def _exit_code(options: Options, frame: CoreFrame) -> int:
         raise CoreError("the core frame lacks the baseline part that the request asked for")
     if frame.baseline is not None:
         return frame.baseline.exit_code
+    if options.baseline is not None and collect_refused:
+        # AD-546: with a baseline, exit 2 means that every UNKNOWN is accepted. A refused scan
+        # has nothing to compare, so it is red.
+        return 1
     return EXIT_CODES[frame.status]
 
 
