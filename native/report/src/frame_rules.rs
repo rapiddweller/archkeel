@@ -7,7 +7,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use archkeel_model::{Decision, ModelTree, Verdict as ModelVerdict};
+use archkeel_model::{Decision, Model, ModelTree, Verdict as ModelVerdict};
 
 use crate::build_error::BuildError;
 use crate::head::{RuleReason, RuleResult, RuleVerdict, Status};
@@ -95,7 +95,8 @@ pub(crate) fn rule_rows(
             // With a model, a DECLARATION row needs a declaration rule of its contract. A run
             // without a model has no PASS, so a row there cannot hide a rule of a PASS run.
             RuleDecision::Declaration => {
-                if models.is_some() && !model.is_some_and(|model| model.declares(&rule.id)) {
+                if models.is_some() && !model.is_some_and(|owner: &Model| owner.declares(&rule.id))
+                {
                     return Err(BuildError::ForeignDeclaration {
                         rule: rule.id.clone(),
                     });
