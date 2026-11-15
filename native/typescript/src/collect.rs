@@ -276,4 +276,4 @@ mod script_run;
 
 #[cfg(test)]
 #[path = "collect_tests.rs"]
-mod tests;
+pub(crate) mod tests;

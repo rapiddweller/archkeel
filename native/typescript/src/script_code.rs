@@ -8,6 +8,7 @@
 use tree_sitter::Node;
 
 use crate::kinds::{F, K};
+use crate::script_host::Reach;
 use crate::script_names::bound_scope;
 use crate::script_syntax::Producer;
 use crate::script_window::{cooked, Written, CODE_NAMES, TIMERS};
@@ -36,18 +37,20 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         if let Some(name) = self.script_declaration(node) {
             return Some(Written::Name(name));
         }
-        let unknown = self.runs_code(node)
-            || self.injects_code(node)
-            || (self.window_leaf(node) && self.escapes(node, true))
-            || self.open_form(node);
-        unknown.then_some(Written::Unknown)
+        let (code, open) = (self.runs_code(node), self.open_form(node));
+        if code == Some(Reach::Direct) || open == Some(Reach::Direct) || self.injects_code(node) {
+            return Some(Written::Unknown);
+        }
+        // A window leaf that escapes, a window key, a window pattern: the kind of the leaf.
+        let leaf = self.leaf_gate(node).filter(|_| self.escapes(node, true));
+        leaf.max(code).max(open).map(Reach::written)
     }
 
     /// `eval`, `Function`, a `constructor` member or a timer that can receive a text, used as more
     /// than a read; the text `constructor`; a computed call that can reach `Function`.
-    pub(crate) fn runs_code(&self, node: Node<'t>) -> bool {
+    pub(crate) fn runs_code(&self, node: Node<'t>) -> Option<Reach> {
         let tree = self.tree;
-        let found = match node.kind() {
+        let direct = match node.kind() {
             "identifier" | "property_identifier" | "shorthand_property_identifier" => {
                 self.code_name(node)
             }
@@ -56,10 +59,15 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 .field(node, F::Key)
                 .is_some_and(|key| self.key_is_code(key)),
             "string" | "template_string" => self.constructor_text(node),
-            "subscript_expression" => self.computed_code(node),
+            "subscript_expression" => return self.computed_code(node).filter(|_| self.reads(node)),
             _ => false,
         };
-        found && !tree.in_type(node) && !tree.declaration_name(node)
+        (direct && self.reads(node)).then_some(Reach::Direct)
+    }
+
+    /// The node is no type and no declared name.
+    fn reads(&self, node: Node<'t>) -> bool {
+        !self.tree.in_type(node) && !self.tree.declaration_name(node)
     }
 
     /// The cooked name of the node is one of `names`; an escape that is not plain matches.
@@ -181,7 +189,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
     /// `f[k]` with a key that is not a literal, used as more than a read, on a function, on an
     /// element, on a `constructor` member or on a window: it can reach `Function` or `eval`.
-    fn computed_code(&self, node: Node<'t>) -> bool {
+    fn computed_code(&self, node: Node<'t>) -> Option<Reach> {
         let tree = self.tree;
         let index = tree.field(node, F::Index);
         let named = index.and_then(|index| crate::script_window::string_text(self, index));
@@ -189,15 +197,13 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             .as_ref()
             .is_some_and(|name| CODE_NAMES.contains(&name.as_str()))
         {
-            return self.used(node);
+            return self.used(node).then_some(Reach::Direct);
         }
         // A literal key names the member as the dotted form does: `x['setTimeout'](t)`.
         if named.is_some_and(|name| TIMERS.contains(&name.as_str())) {
-            return self.timer_runs_text(node);
+            return self.timer_runs_text(node).then_some(Reach::Direct);
         }
-        let Some(object) = self.runtime_object(node) else {
-            return false;
-        };
+        let object = self.runtime_object(node)?;
         let reaches = match object.kind() {
             "function_expression"
             | "arrow_function"
@@ -210,7 +216,13 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             "identifier" => self.function_binding(object),
             _ => false,
         };
-        (reaches || self.window_value(object)) && self.used(node)
+        if !self.used(node) {
+            return None;
+        }
+        // A key that can name `constructor` on a function reaches `Function` with no free name:
+        // only a window key is an amplifier.
+        let window = self.window_gate(object);
+        if reaches { Some(Reach::Direct) } else { window }
     }
 
     /// Code that a page runs from a text: `document.write`, an `on…` attribute, a `script`
