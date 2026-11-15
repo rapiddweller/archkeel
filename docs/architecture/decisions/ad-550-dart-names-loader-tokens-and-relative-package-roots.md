@@ -2,10 +2,10 @@
 
 **Status.** Proposed. Closes #1222. Amends AD-542.
 
-**Decision.** Each `spawnUri` identifier in selected Dart source gives `DartIsolate`, even when
-no selected directive imports `dart:isolate`. The identifiers `currentMirrorSystem`, `reflect`,
-`reflectClass` and `reflectType` give `DartMirrors`. A string or comment is not an identifier.
-The gap cites the source token. A direct SDK edge stays in the graph.
+**Decision.** A selected Dart source with a `spawnUri` identifier gives `DartIsolate`, even when
+no selected directive imports `dart:isolate`. A source with `currentMirrorSystem`, `reflect`,
+`reflectClass` or `reflectType` gives `DartMirrors`. A string or comment is not an identifier.
+Each gap cites the first matching token of its kind in the source. A direct SDK edge stays.
 
 A non-own package in `.dart_tool/package_config.json` is external only when its `rootUri` is an
 absolute `file:///` URI outside the snapshot. A relative URI can name a local package through a
