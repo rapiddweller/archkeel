@@ -3348,8 +3348,7 @@
             {
               "enum": [
                 "supplied_records",
-                "gitlab_mr_versions",
-                "github_initial_pr_head"
+                "gitlab_mr_versions"
               ]
             },
             {
@@ -3814,37 +3813,6 @@
               "properties": {
                 "draft_sizes": {
                   "type": "null"
-                }
-              }
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "host_source": {
-                  "const": "github_initial_pr_head"
-                }
-              }
-            },
-            "then": {
-              "properties": {
-                "provenance": {
-                  "type": "object",
-                  "required": [
-                    "initial_pr"
-                  ]
-                }
-              }
-            },
-            "else": {
-              "properties": {
-                "provenance": {
-                  "not": {
-                    "type": "object",
-                    "required": [
-                      "initial_pr"
-                    ]
-                  }
                 }
               }
             }

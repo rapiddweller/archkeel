@@ -65,6 +65,18 @@ impl<'m> Facts<'m> {
         }
     }
 
+    /// The sites of the symbols, or the cause that the collector states none (AD-518): a
+    /// relationship of a target is then undecided, and no class has a base receipt.
+    pub(crate) fn sites(&self) -> Result<(), String> {
+        if self.model.graph().observed().symbol_sites {
+            return Ok(());
+        }
+        Err(format!(
+            "the {} collector states no symbol sites",
+            self.language
+        ))
+    }
+
     /// The modules of the reply named `name`, when `language` is the language of the reply.
     pub(crate) fn modules(&self, name: &str, language: &str) -> Vec<&'m crate::modules::Module> {
         if language != self.language {

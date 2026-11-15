@@ -5,7 +5,7 @@
 //! The Dart grammar of the native Dart collector (AD-342).
 //!
 //! The C parser is vendored from the sdist of tree-sitter-dart 0.1.0 (MIT), the grammar that the
-//! Python collector loads. This crate only gives the language. It does not parse and it does not
+//! deleted Python collector loaded (AD-432). This crate only gives the language. It does not parse and it does not
 //! collect facts: a collector crate does that with `tree-sitter`.
 
 #![deny(unreachable_pub)]

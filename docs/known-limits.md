@@ -56,8 +56,20 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   The parent must exist. Safe file output needs POSIX directory handles; Windows refuses `--output` with exit 2 (`io_error`), writes no file and keeps the frame.
 - A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`. The run exits 2.
 - The core compares the module and import part of `declarations.uml` (AD-494) and the symbol part
-  for TypeScript (AD-512). Python, Dart and Rust give no symbol facts, so a symbol entity or
-  relationship of such a target keeps the UML row UNKNOWN (`no_receipt`) with a named gap. A target
+  for TypeScript (AD-512) and, for the declarations only, for Python (AD-518). Dart and Rust give
+  no symbol facts, and Python gives no site (base, call, reference, `creates`, `instance_of`), so a
+  relationship of a Python target is UNKNOWN with the cause "the python collector states no symbol
+  sites" (H-uml stays UNKNOWN). A Python declaration is written only for a class, function, method
+  or class attribute that one plain statement binds once; a second binder (`if`, `try`, `for`,
+  `with`, `del`, `global`, walrus, `match`, star import), a decorator other than the builtin
+  `staticmethod` or `classmethod`, a keyword or an unproven base, a hazard site or a write from
+  another module gives no record, so the name is absent (UNKNOWN). A class that a base which may be
+  a class writes to (`type.__setattr__`, `cls.x = v`, `self` of a metaclass), or whose name is
+  passed, stored or returned, keeps no member. A bare annotation, a value that is no literal and
+  a mangled `__x` are no attribute. A module-level value, a function inside a function and a
+  text other than a name, a dotted name, `None`, `True` or `False` in an annotation or a default
+  give none. Open: a write from a C extension or through `globals()` of another module.
+  Every Python member list is `partial`. A target
   in an inside contract and an external import target keep it UNKNOWN too. A target that 4.0.1
   passes with symbol facts (H-uml, H-uml-dart) exits 2. A FAIL for a conflict, a missing base or an
   extra element of a closed scope is true whatever the coverage, so it stays in an incomplete run.
@@ -558,9 +570,16 @@ The crate reads, writes and binds an amendment (`policy::parse_amendment`, `poli
 
 The baseline codec reads schemas 1.0.0 through 1.3.0 and writes 1.3.0 ([AD-386](architecture/decisions/ad-386-the-contract-crate-reads-and-writes-baselines.md)). It keeps every entry and the permissive Python string rules. It refuses repeated JSON keys, lone surrogates, numbers outside its integer range, nesting deeper than 128 and files over 16 MiB. No command uses it yet.
 
-The API list of `tools/rust_api.py` reads a declaration macro once, in its template. The
-contract types that `record!`, `text_type!`, `closed_enum!` and `rules!` build are not in the
-lists of `native/api_baseline.json`. Two `pub fn` of the same name in two `impl` blocks of one
+The API list of `tools/rust_api.py` expands the `macro_rules!` calls of a crate before it counts
+(`tools/rust_macros.py`, [#1048](https://github.com/rapiddweller/archkeel/issues/1048)). A call that
+it cannot expand, an exported macro and a name with two definitions are lines `unexpanded` in
+`native/api_baseline.json`. A macro of another crate, of the standard library, and a proc macro
+(attribute or derive) are not expanded. A call by a path is expanded when the path starts at `crate`,
+`self`, `super` or a module of the crate; a path through an alias or an extern crate with a name that
+a local macro has is a line `unexpanded`. A macro that a macro call defines serves the later calls of
+the same file only; a transcribed `$name` that the call does not bind (a variable of the inner
+definition) is a line `unexpanded`. A call under `#[cfg(...)]` counts as if the configuration were on,
+like any other item of the list. Two `pub fn` of the same name in two `impl` blocks of one
 file are two equal lines, so a move between the two blocks does not show (AD-382).
 
 The system-access test of the core side (AD-382) is a text scan. It does not see an access

@@ -18,7 +18,7 @@ build = "build.rs"
 tree-sitter-language = "0.1"
 
 [dev-dependencies]
-# Test only (AD-342): the parity test parses the corpus with the vendored grammar.
+# Test only (AD-342): the tests hash the vendored files and parse small sources.
 sha2.workspace = true
 tree-sitter.workspace = true
 

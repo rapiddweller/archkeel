@@ -401,7 +401,7 @@
         "Parsing source, collecting facts and reading a snapshot."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-342-the-dart-grammar-is-vendored-from-the-python-release-and-gated-by-tree-parity.md"
+        "docs/architecture/decisions/ad-342-the-dart-grammar-is-vendored-from-the-python-release-and-gated-by-a-test-of-its-bytes.md"
       ],
       "decided_by": "architect"
     },
@@ -1833,7 +1833,7 @@
         "native.archkeel_python_collector.survey"
       ],
       "responsibilities": [
-        "The import survey of a Python scan as the Python collector writes it: the parsed modules, their static imports, their file facts with the stable bindings, and the evidence of both (AD-334)."
+        "The import survey of a Python scan as the Python collector writes it: the parsed modules, their static imports, their file facts with the stable bindings, and the evidence of both (AD-334), and the symbol declarations that a module binds once (AD-518)."
       ],
       "forbidden_responsibilities": [
         "Finding the selected files and naming modules."
@@ -1865,6 +1865,10 @@
         {
           "component": "py-scope",
           "rationale": "Read the selected files, the module names and the shadowed modules."
+        },
+        {
+          "component": "py-declare",
+          "rationale": "Read the text of a signature and the id of a definition for the symbol declarations (AD-518)."
         }
       ],
       "decided_by": "architect"
@@ -1998,6 +2002,10 @@
         {
           "component": "py-parse",
           "rationale": "Charge binding scans against the shared work budget."
+        },
+        {
+          "component": "py-declare",
+          "rationale": "Read the signature, the visibility and the id of a definition as the declarations do."
         }
       ],
       "decided_by": "architect"
@@ -2118,6 +2126,34 @@
         {
           "component": "py-dump",
           "rationale": "Run the development dump (feature dump)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-PY-DECLARE",
+      "label": "py-declare",
+      "role": "component",
+      "packages": [
+        "native.archkeel_python_collector.declare"
+      ],
+      "responsibilities": [
+        "What the definition table and the symbol declarations read in the same way: the parameters of a function as text, the visibility of a name and the id of a definition (AD-377, AD-518)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading the snapshot, deciding a binding and writing the reply."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-518-the-python-collector-writes-the-symbol-declarations-that-it-binds-once.md"
+      ],
+      "requires": [
+        {
+          "component": "py-module",
+          "rationale": "Read the parsed module and file its evidence."
+        },
+        {
+          "component": "facts",
+          "rationale": "Build the stable id of a definition."
         }
       ],
       "decided_by": "architect"
@@ -2481,7 +2517,7 @@
       ],
       "rationale": "Only a grammar crate links a C parser to a Tree-sitter language; a collector gets the language from the grammar crate.",
       "provenance": [
-        "docs/architecture/decisions/ad-342-the-dart-grammar-is-vendored-from-the-python-release-and-gated-by-tree-parity.md"
+        "docs/architecture/decisions/ad-342-the-dart-grammar-is-vendored-from-the-python-release-and-gated-by-a-test-of-its-bytes.md"
       ],
       "decided_by": "architect"
     },
@@ -2549,11 +2585,18 @@
         "native.archkeel_python_collector.symbols.class",
         "native.archkeel_python_collector.symbols.writes",
         "native.archkeel_python_collector.pyast.node",
-        "native.archkeel_python_collector.symbols.scan",
         "native.archkeel_python_collector.cargo_toml",
         "native.archkeel_python_collector.survey.literal",
         "native.archkeel_python_collector.survey.package_body",
         "native.archkeel_python_collector.survey.bound",
+        "native.archkeel_python_collector.survey.writes",
+        "native.archkeel_python_collector.declare",
+        "native.archkeel_python_collector.declare.parameters",
+        "native.archkeel_python_collector.survey.declared",
+        "native.archkeel_python_collector.survey.declared.kind",
+        "native.archkeel_python_collector.survey.declared.members",
+        "native.archkeel_python_collector.survey.declared.reader",
+        "native.archkeel_python_collector.symbols.scan",
         "native.archkeel_python_collector.survey.uses"
       ],
       "rationale": "Only the parse modules, the tree readers of the survey, the CPython view of the tree, the expression text and the definition table of the Python collector read the tree of the Python parser; discovery, naming and the entry read owned values.",
@@ -2615,11 +2658,17 @@
         "native.archkeel_python_collector.pyast.fstring",
         "native.archkeel_python_collector.unparse.hazard",
         "native.archkeel_python_collector.symbols.class",
-        "native.archkeel_python_collector.symbols.scan",
         "native.archkeel_python_collector.symbols.sites",
         "native.archkeel_python_collector.survey.hazards",
         "native.archkeel_python_collector.survey.imports",
-        "native.archkeel_python_collector.survey.bound"
+        "native.archkeel_python_collector.survey.bound",
+        "native.archkeel_python_collector.declare",
+        "native.archkeel_python_collector.declare.parameters",
+        "native.archkeel_python_collector.survey.declared",
+        "native.archkeel_python_collector.survey.declared.kind",
+        "native.archkeel_python_collector.survey.declared.members",
+        "native.archkeel_python_collector.survey.declared.reader",
+        "native.archkeel_python_collector.symbols.scan"
       ],
       "rationale": "Only the survey module and the CPython view, the string check and the definition table of the Python collector read the text ranges of the Python parser (AD-377).",
       "provenance": [

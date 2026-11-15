@@ -16,7 +16,7 @@ use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::request::PythonRequest;
 use archkeel_facts::vocab::ExceptionName;
-use archkeel_facts::{GapFact, ImportFact, Record};
+use archkeel_facts::{GapFact, ImportFact, Record, SymbolFact};
 use archkeel_snapshot::Snapshot;
 
 use crate::discover::{self, Unseen};
@@ -29,7 +29,8 @@ use excluded::Excluded;
 use failures::{early, NOT_FOUND};
 
 pub(crate) mod binders;
-mod bound;
+pub(crate) mod bound;
+mod declared;
 mod excluded;
 mod failures;
 mod guard;
@@ -61,6 +62,8 @@ pub(crate) struct Survey {
     pub ambiguous: HashSet<String>,
     /// The digest of each file that the survey read, from the bytes that it parsed.
     pub parsed: Vec<Input>,
+    /// The symbol declarations that the modules bind once (AD-518).
+    pub symbols: Vec<Record<SymbolFact>>,
 }
 
 /// The parsed modules of a request and their binders, as the survey reads them (the dump of
@@ -120,16 +123,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     let sole_binders = collected.sole;
     let ambiguous = collected.ambiguous.clone();
     // AD-472: a proven literal import call is an import record; each other site is a gap.
-    let (mut literals, mut hazards) = (Vec::new(), Vec::new());
-    for (index, (module, binders)) in modules.iter().zip(&binders).enumerate() {
-        let proof = literal::Proof::of(&module.tree, binders);
-        for site in hazards::sites(&module.tree, proof) {
-            match site.kind {
-                hazards::LITERAL => literals.push((index, site.range, site.detail)),
-                _ => hazards.push((index, site)),
-            }
-        }
-    }
+    let (literals, hazards) = hazards::split(modules, &binders);
     let calls = imports::literal_records(modules, &binders, namespace, &mut evidence, &literals);
     imports.extend(calls);
     imports.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
@@ -141,6 +135,14 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .collect();
     opaque_surface.extend(written);
     opaque_surface.extend(uses::escaped(modules, &imports));
+    let hazardous: HashSet<usize> = hazards.iter().map(|(index, _)| *index).collect();
+    let symbols = declarations(
+        modules,
+        &binders,
+        &imports,
+        &mut evidence,
+        |index, module| !hazardous.contains(&index) && !opaque_surface.contains(&module.name),
+    );
     let files: Vec<FileFact> = modules
         .iter()
         .zip(&binders)
@@ -195,7 +197,28 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
             .into_iter()
             .filter(|input| selected.contains(input.path.as_str()))
             .collect(),
+        symbols,
     })
+}
+
+/// AD-518: the declarations of each module that `admitted` keeps. A module with a hazard site or
+/// a route that another module can write has none, and each name of it is absent for the model.
+fn declarations(
+    modules: &[Module],
+    binders: &[Binders],
+    imports: &[Record<ImportFact>],
+    evidence: &mut EvidenceMap,
+    admitted: impl Fn(usize, &Module) -> bool,
+) -> Vec<Record<SymbolFact>> {
+    let mut found = Vec::new();
+    let mut escapes = declared::scan_escapes(modules, binders, imports).into_iter();
+    for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
+        let own = escapes.next().unwrap_or_default();
+        if admitted(index, module) {
+            found.extend(declared::records(module, binders, own, evidence));
+        }
+    }
+    found
 }
 
 /// The import records, after a first pass that names the modules that another module may change
