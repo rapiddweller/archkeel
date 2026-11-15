@@ -67,7 +67,7 @@ pub(super) fn collection_gaps(reply: Option<&Ingested>) -> Vec<CollectionGap> {
                 .iter()
                 .map(|id| id.as_str().to_owned())
                 .collect(),
-            detail: gap.data.data().message.clone(),
+            detail: gap.data.collector_message(),
         })
         .collect()
 }
