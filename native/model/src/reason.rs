@@ -107,8 +107,8 @@ pub enum UmlGap {
         relationships: usize,
         scopes: usize,
     },
-    /// An inside contract of the tree has its own target; the core compares a root target only.
-    Mounted,
+    /// The targets of the tree contradict each other or leave a mount (AD-522): the reason.
+    Nested(String),
     /// The target gives no assessment that the core can make.
     NothingCompared,
     /// Assessments that the core cannot decide from module and import facts: their number and
@@ -131,9 +131,7 @@ impl fmt::Display for UmlGap {
                 "the core does not compare {entities} entities, {relationships} relationships \
                  and {scopes} scopes with the source facts"
             ),
-            UmlGap::Mounted => formatter.write_str(
-                "an inside contract has its own UML target, which the core does not compare",
-            ),
+            UmlGap::Nested(reason) => formatter.write_str(reason),
             UmlGap::NothingCompared => {
                 formatter.write_str("the target gives no assessment that the core can make")
             }
