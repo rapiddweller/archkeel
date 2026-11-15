@@ -2793,6 +2793,20 @@
       "decided_by": "architect"
     },
     {
+      "id": "NATIVE-EXTERNAL-SAPHYR",
+      "kind": "external_dependency_scope",
+      "dependency": "saphyr",
+      "allowed_sources": [
+        "native.archkeel_dart_collector.import_survey.package",
+        "native.archkeel_dart_collector.cargo_toml"
+      ],
+      "rationale": "Only the Dart package survey reads YAML package metadata.",
+      "provenance": [
+        "docs/architecture/decisions/ad-542-dart-isolate-and-package-keys-need-evidence.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "NATIVE-EXTERNAL-COMPLETE",
       "kind": "complete_external_scope",
       "source": "native",

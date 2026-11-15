@@ -24,9 +24,13 @@ rule holds only the rules that read it (AD-500). A Dart cycle rule (`no_componen
 always UNKNOWN: the survey does not prove that it sees each local package, and 4.0.1 gives no Dart
 cycle receipt either. A proof that releases it: the survey resolves each `package:` URI from a
 complete package map that it reads (each `pubspec.yaml` of the project and its path and workspace
-members), and a test plants each YAML form of a local package. The `pubspec.yaml` reader has no
-YAML parser: each word `path`, `workspace` or `resolution` and each backslash is a gap, also in a
-value or a description (AD-500).
+members), and a test plants each YAML form of a local package. The Dart collector reads bounded
+YAML. It keeps a gap for a path key, an unsupported YAML form, and a workspace that it cannot
+prove disjoint from the scan roots (AD-542).
+
+**Dart import premise (AD-542).** Code outside the scan roots does not load or run scanned code
+from a name passed as data. The current report does not yet print this premise. The stated-premise
+mechanism must land before this decision is merged.
 
 **Open false-PASS class (Python, shared with 4.0.1).** A third-party function can import a module
 from a string, for example a plugin loader, a framework that reads a dotted path from settings, or
