@@ -152,34 +152,36 @@ impl Held {
     /// The kind of hold that a reason states, with the pairs, the gap ids and the unnamed
     /// imports that it names.
     fn of(reason: &Reason) -> Held {
-        let held = |kind| Held {
+        let mut held = Held {
             cause: WhyUnknown::of(reason),
-            kind,
+            kind: HoldKind::Other,
             pairs: Vec::new(),
             ids: Vec::new(),
             unnamed_imports: 0,
         };
-        match reason {
-            Reason::Incomplete(Incomplete::CoverageGaps(_)) => held(HoldKind::CoverageGaps),
-            Reason::Incomplete(Incomplete::UnknownImports(count)) => Held {
-                unnamed_imports: *count,
-                ..held(HoldKind::UnknownImports)
-            },
-            Reason::Incomplete(Incomplete::NoSourceFiles) => held(HoldKind::NoSourceFiles),
-            Reason::NotComplete(Cause::PairGaps(pairs)) => Held {
-                pairs: pairs.pairs().to_vec(),
-                ..held(HoldKind::PairGaps)
-            },
-            Reason::NotComplete(Cause::AllowedPairGaps(pairs)) => Held {
-                pairs: pairs.pairs().to_vec(),
-                ..held(HoldKind::AllowedPairGaps)
-            },
-            Reason::NotComplete(Cause::ScopedGaps(scoped)) => Held {
-                ids: scoped.ids().to_vec(),
-                ..held(HoldKind::ScopedGaps)
-            },
-            _ => held(HoldKind::Other),
+        if let Reason::Incomplete(incomplete) = reason {
+            held.kind = match incomplete {
+                Incomplete::CoverageGaps(_) => HoldKind::CoverageGaps,
+                Incomplete::UnknownImports(count) => {
+                    held.unnamed_imports = *count;
+                    HoldKind::UnknownImports
+                }
+                Incomplete::NoSourceFiles => HoldKind::NoSourceFiles,
+            };
         }
+        if let Reason::NotComplete(Cause::PairGaps(pairs)) = reason {
+            held.kind = HoldKind::PairGaps;
+            held.pairs = pairs.pairs().to_vec();
+        }
+        if let Reason::NotComplete(Cause::AllowedPairGaps(pairs)) = reason {
+            held.kind = HoldKind::AllowedPairGaps;
+            held.pairs = pairs.pairs().to_vec();
+        }
+        if let Reason::NotComplete(Cause::ScopedGaps(scoped)) = reason {
+            held.kind = HoldKind::ScopedGaps;
+            held.ids = scoped.ids().to_vec();
+        }
+        held
     }
 }
 
