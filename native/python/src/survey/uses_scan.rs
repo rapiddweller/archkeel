@@ -50,6 +50,14 @@ impl Scan<'_> {
                         .contains(&(module.to_owned(), name.to_owned()))
             }
             Some(Kind::Callable | Kind::Value) => true,
+            // A name or a builtin call that reads only inert names (AD-530).
+            Some(Kind::Derived) => bound.deps(name).is_some_and(|deps| {
+                deps.builtins.iter().all(|builtin| bound.unbound(builtin))
+                    && deps.names.iter().all(|read| {
+                        // A name that the module does not bind is a builtin or an error.
+                        bound.unbound(read) || self.callable(module, read, depth + 1)
+                    })
+            }),
             Some(Kind::BuiltinGeneric(builtin)) => bound.unbound(builtin),
             Some(Kind::Other)
                 if self
@@ -59,6 +67,9 @@ impl Scan<'_> {
                 true
             }
             Some(Kind::Import) => match self.imports.get(&(module, name)).map(Vec::as_slice) {
+                // An object of a module outside the scan; code outside the scan hands in no
+                // module of the scan (AD-530).
+                Some([(target, _)]) if !self.modules.contains(target) => true,
                 Some([(target, Some(symbol))]) => self.callable(target, symbol, depth + 1),
                 _ => false,
             },

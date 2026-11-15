@@ -23,6 +23,7 @@ use ruff_text_size::{Ranged, TextSize};
 use super::binders::{
     bind_handler, bind_handler_and_pattern, bind_pattern, declared, import_bindings, Bind,
 };
+use super::value::{value_deps, Deps};
 
 /// One statement that binds a name at module scope.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -46,6 +47,9 @@ pub(super) enum Kind {
     Call,
     /// An import: the name is whatever the imported name is.
     Import,
+    /// A plain assignment of a name, or of a builtin call, that `value_kind` does not take as a
+    /// value (`value.rs`, AD-530): `Bound::deps` says what it reads.
+    Derived,
     /// Any other binder: the value is unknown.
     Other,
 }
@@ -58,6 +62,8 @@ pub(super) struct Bound {
     globals: HashSet<String>,
     /// A star import binds names that cannot be listed.
     pub(super) opaque: bool,
+    /// What the value of each plain `name = value` reads (AD-530).
+    values: HashMap<String, Deps>,
     /// A top-level `__getattr__` can give any attribute.
     pub(super) getattr: bool,
     /// A namespace write through a runtime attribute helper can change a binding.
@@ -121,6 +127,11 @@ impl Bound {
         let class = self.classes.get(name)?;
         (self.kind(name) == Some(Kind::Callable) && class.bare && !class.new)
             .then_some(class.decorators.as_slice())
+    }
+
+    /// What the value of the sole plain binder of `name` reads, when that binder is `Derived`.
+    pub(super) fn deps(&self, name: &str) -> Option<&Deps> {
+        self.values.get(name)
     }
 
     /// Each name that a statement of the module scope, or a `global` declaration, binds.
@@ -248,17 +259,24 @@ impl Walk {
         self.site(name, start, true, Kind::Callable);
     }
 
-    fn assignment_target<'a>(
-        &mut self,
-        target: &'a Expr,
-        start: TextSize,
-        (kind, callee): (Kind, Option<&str>),
-    ) where
+    fn assignment_target<'a>(&mut self, target: &'a Expr, start: TextSize, value: Option<&Expr>)
+    where
         Self: Visitor<'a>,
     {
+        let (mut kind, callee) = value.map_or((Kind::Other, None), value_kind);
+        let mut deps = None;
+        if kind == Kind::Other {
+            deps = value.and_then(value_deps);
+            if deps.is_some() {
+                kind = Kind::Derived;
+            }
+        }
         match target {
             Expr::Name(name) => {
                 self.site(name.id.as_str(), start, true, kind);
+                if let (0, Some(deps)) = (self.scope, deps) {
+                    self.bound.values.insert(name.id.to_string(), deps);
+                }
                 if let (Kind::Call, Some(callee)) = (kind, callee) {
                     self.bound
                         .callees
@@ -318,18 +336,12 @@ impl<'a> Visitor<'a> for Walk {
             }
             Stmt::Assign(node) => {
                 for target in &node.targets {
-                    self.assignment_target(target, start, value_kind(&node.value));
+                    self.assignment_target(target, start, Some(&node.value));
                 }
                 self.visit_expr(&node.value);
             }
             Stmt::AnnAssign(node) => {
-                self.assignment_target(
-                    &node.target,
-                    start,
-                    node.value
-                        .as_deref()
-                        .map_or((Kind::Other, None), value_kind),
-                );
+                self.assignment_target(&node.target, start, node.value.as_deref());
                 self.visit_expr(&node.annotation);
                 node.value.iter().for_each(|value| self.visit_expr(value));
             }

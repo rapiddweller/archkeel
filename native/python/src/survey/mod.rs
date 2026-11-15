@@ -33,6 +33,10 @@ pub(crate) mod bound;
 mod declared;
 mod excluded;
 mod failures;
+mod globals_locals;
+mod globals_project;
+mod globals_read;
+mod globals_uses;
 mod guard;
 mod hazards;
 mod imports;
@@ -53,6 +57,7 @@ mod syspath;
 mod targets;
 mod uses;
 mod uses_scan;
+mod value;
 mod walks;
 
 pub(crate) struct Survey {

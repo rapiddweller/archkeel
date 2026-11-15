@@ -2613,7 +2613,12 @@
         "native.archkeel_python_collector.survey.lazy_cover",
         "native.archkeel_python_collector.survey.lazy_flow",
         "native.archkeel_python_collector.survey.lazy_table",
-        "native.archkeel_python_collector.survey.lazy_writes"
+        "native.archkeel_python_collector.survey.lazy_writes",
+        "native.archkeel_python_collector.survey.globals_locals",
+        "native.archkeel_python_collector.survey.globals_project",
+        "native.archkeel_python_collector.survey.globals_read",
+        "native.archkeel_python_collector.survey.globals_uses",
+        "native.archkeel_python_collector.survey.value"
       ],
       "rationale": "Only the parse modules, the tree readers of the survey, the CPython view of the tree, the expression text and the definition table of the Python collector read the tree of the Python parser; discovery, naming and the entry read owned values.",
       "provenance": [
@@ -2684,6 +2689,8 @@
         "native.archkeel_python_collector.survey.lazy_flow",
         "native.archkeel_python_collector.survey.lazy_table",
         "native.archkeel_python_collector.survey.lazy_writes",
+        "native.archkeel_python_collector.survey.globals_read",
+        "native.archkeel_python_collector.survey.globals_uses",
         "native.archkeel_python_collector.declare",
         "native.archkeel_python_collector.declare.parameters",
         "native.archkeel_python_collector.survey.declared",
