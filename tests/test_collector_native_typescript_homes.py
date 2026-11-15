@@ -151,4 +151,4 @@ def test_only_the_project_reads_the_empty_path_and_the_host_entry() -> None:
         if not path.stem.endswith("_tests")
         and re.search(r"paths\.any_empty|\.host_entry|any_amplified", path.read_text())
     }
-    assert readers == {"script_project.rs", "script.rs"}, readers
+    assert readers == {"script_project.rs"}, readers
