@@ -1392,7 +1392,7 @@
     "field envelope::Coverage.files_read: u64",
     "field envelope::Coverage.full_scope: bool",
     "field envelope::Coverage.gaps: Vec<Record<GapFact>>",
-    "field envelope::Coverage.measures: Option<Vec<crate::measures::FileMeasures>>",
+    "field envelope::Coverage.measures: Option<Vec<FileMeasures>>",
     "field envelope::Coverage.selected_files: Vec<String>",
     "field envelope::Evidence.column: i64",
     "field envelope::Evidence.end_line: i64",
