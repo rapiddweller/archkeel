@@ -29,6 +29,7 @@ pub(crate) struct Index<'a> {
     pub(crate) syntax: Vec<Option<Syntax>>,
     pub(crate) kinds: Vec<Kind>,
     pub(crate) by_rel: HashMap<&'a str, usize>,
+    pub(crate) isolate_loader: bool,
 }
 
 /// Where a local path is.
