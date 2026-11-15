@@ -58,15 +58,29 @@ class NamedBaselineGap:
 class BaselineResult:
     state: BaselineState
     exit_code: int
+    accepted_entries: int
     accepted_unknowns: int
     new: tuple[Changed, ...]
     gone: tuple[Changed, ...]
     gaps: tuple[NamedBaselineGap, ...]
+    # The rule rows that the file accepts. Each stays UNKNOWN.
+    accepted_rules: tuple[str, ...]
     # The bytes that `--write-baseline` writes, as text. `None` when the run writes nothing.
     file: str | None
 
 
-_FIELDS: Final = frozenset({"state", "exit_code", "accepted_unknowns", "new", "gone", "gaps"})
+_FIELDS: Final = frozenset(
+    {
+        "state",
+        "exit_code",
+        "accepted_entries",
+        "accepted_unknowns",
+        "new",
+        "gone",
+        "gaps",
+        "accepted_rules",
+    }
+)
 _CHANGED: Final = frozenset({"what", "kind", "subject", "reason", "run", "file"})
 _NAMED: Final = frozenset({"kind", "subject", "reason"})
 
@@ -108,6 +122,12 @@ def _named(value: object) -> tuple[NamedBaselineGap, ...]:
     )
 
 
+def _rules(value: object) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        raise CoreError("the core frame field baseline.accepted_rules is not a list")
+    return tuple(_text(item, "baseline.accepted_rules") for item in value)
+
+
 def read_baseline(value: object, status: str) -> BaselineResult:
     """The checked part. `status` is the status of the run: UNKNOWN never gives exit code 0."""
     found = _object(value, "baseline")
@@ -124,6 +144,8 @@ def read_baseline(value: object, status: str) -> BaselineResult:
         raise CoreError("the core frame baseline.exit_code is not 0, 1 or 2")
     if state in {BaselineState.DRIFT, BaselineState.INVALID} and exit_code != 1:
         raise CoreError(f"the core frame baseline is {state} and does not exit 1")
+    if state is BaselineState.NOT_COMPARED and exit_code != 1:
+        raise CoreError("the core frame baseline is not_compared and does not exit 1")
     if state is BaselineState.DRIFT and not (new or gone):
         raise CoreError("the core frame baseline is drift without a difference")
     if state is BaselineState.CURRENT and (new or gone):
@@ -135,17 +157,22 @@ def read_baseline(value: object, status: str) -> BaselineResult:
     return BaselineResult(
         state,
         exit_code,
+        _count(part["accepted_entries"], "baseline.accepted_entries"),
         _count(part["accepted_unknowns"], "baseline.accepted_unknowns"),
         new,
         gone,
         gaps,
+        _rules(part["accepted_rules"]),
         file,
     )
 
 
 def lines(result: BaselineResult) -> Sequence[str]:
     """The text lines of the part. An accepted UNKNOWN keeps its word: it says "accepted"."""
-    out = [f"Baseline: {result.state}; accepted UNKNOWN entries: {result.accepted_unknowns}"]
+    out = [
+        f"Baseline: {result.state}; {result.accepted_entries} entries "
+        f"({result.accepted_unknowns} UNKNOWN items, an entry has a count)"
+    ]
     if result.accepted_unknowns:
         out.append(
             "Each accepted UNKNOWN stays UNKNOWN: it is known, not decided, and the run exits 2."
@@ -167,9 +194,11 @@ def as_json(result: BaselineResult) -> Mapping[str, object]:
     return {
         "state": result.state,
         "exit_code": result.exit_code,
+        "accepted_entries": result.accepted_entries,
         "accepted_unknowns": result.accepted_unknowns,
         "new": [vars_of(row) for row in result.new],
         "gone": [vars_of(row) for row in result.gone],
+        "accepted_rules": list(result.accepted_rules),
         "gaps": [{"kind": g.kind, "subject": g.subject, "reason": g.reason} for g in result.gaps],
     }
 

@@ -54,7 +54,7 @@ fn run(keys: &[(&str, &str, &str, u64)]) -> Observed {
         unknown_status: !keys.is_empty(),
         gaps: Gaps {
             keys,
-            unacceptable: Vec::new(),
+            ..Gaps::default()
         },
         ..Observed::default()
     }
@@ -331,12 +331,12 @@ fn an_older_file_gives_exit_2_for_an_unknown_and_0_for_none() {
 }
 
 #[test]
-fn a_refused_part_is_never_accepted_and_never_exit_0() {
+fn a_refused_part_is_never_accepted_and_exits_1_so_that_exit_2_means_all_accepted() {
     let mut now = run(&[]);
     now.gaps.unacceptable.push("reply: refused".to_owned());
     now.unknown_status = true;
     let found = compare(&file(json!([]), json!([]), json!({})), &now);
-    assert_eq!((found.state, found.exit_code), ("not_compared", 2));
+    assert_eq!((found.state, found.exit_code), ("not_compared", 1));
     assert_eq!(found.gaps[0].kind, "baseline.not_compared");
 }
 
@@ -346,4 +346,37 @@ fn an_unknown_status_without_a_key_still_exits_2() {
     now.unknown_status = true;
     let found = compare(&file(json!([]), json!([]), json!({})), &now);
     assert_eq!((found.state, found.exit_code), ("current", 2));
+}
+
+#[test]
+fn a_rule_row_is_accepted_only_when_every_key_of_the_row_is_accepted() {
+    let key = |subject: &str| Key {
+        kind: "k".into(),
+        subject: subject.into(),
+        reason: "r".into(),
+    };
+    let mut now = run(&[("k", "a", "r", 1), ("k", "b", "r", 1)]);
+    now.gaps.by_rule.insert("ONE".into(), vec![key("a")]);
+    now.gaps
+        .by_rule
+        .insert("TWO".into(), vec![key("a"), key("b")]);
+    let base = file(json!([entry("k", "a", "r", 1)]), json!([]), json!({}));
+    let found = compare(&base, &now);
+    assert_eq!(found.accepted_rules, vec!["ONE".to_owned()]);
+    assert_eq!((found.accepted_entries, found.accepted_unknowns), (1, 1));
+    // A count above the file is not accepted: the second site is new.
+    let mut more = run(&[("k", "a", "r", 2)]);
+    more.gaps.by_rule.insert("ONE".into(), vec![key("a")]);
+    assert!(compare(&base, &more).accepted_rules.is_empty());
+}
+
+#[test]
+fn entries_and_items_are_counted_apart() {
+    let base = file(
+        json!([entry("k", "a", "r", 3), entry("k", "b", "r", 1)]),
+        json!([]),
+        json!({}),
+    );
+    let found = compare(&base, &run(&[("k", "a", "r", 3), ("k", "b", "r", 1)]));
+    assert_eq!((found.accepted_entries, found.accepted_unknowns), (2, 4));
 }

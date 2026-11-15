@@ -145,6 +145,16 @@ fn kinds_table(frame: &Frame) -> String {
     )
 }
 
+/// A rule id. A row that the baseline accepts says so: it stays UNKNOWN and is not a pass (AD-546).
+fn rule_id(frame: &Frame, id: &str) -> String {
+    let mark = if frame.accepted.contains(id) {
+        " <span class=\"caption rp-acc\">(accepted by the baseline, still UNKNOWN)</span>"
+    } else {
+        ""
+    };
+    format!("<span class=\"rp-code\">{}</span>{mark}", escape(id))
+}
+
 fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
     let held = found.rules.len();
     let badge = if held > 0 {
@@ -167,7 +177,7 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
             .rules
             .iter()
             .take(MAX_IDS)
-            .map(|id| format!("<span class=\"rp-code\">{}</span>", escape(id)))
+            .map(|id| rule_id(frame, id))
             .collect();
         html.push_str(&format!(
             "<p class=\"body-sm rp-at\">Holds {}</p>",
@@ -181,7 +191,7 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
                 .iter()
                 .skip(MAX_IDS)
                 .take(MAX_LISTED_IDS - MAX_IDS)
-                .map(|id| format!("<span class=\"rp-code\">{}</span>", escape(id)))
+                .map(|id| rule_id(frame, id))
                 .collect();
             let tail = match held.saturating_sub(MAX_LISTED_IDS) {
                 0 => String::new(),

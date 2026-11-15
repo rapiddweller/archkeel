@@ -183,6 +183,8 @@ pub(crate) fn build(input: Input, run: &Observed) -> Part {
     if !run.gaps.unacceptable.is_empty() {
         let mut refused = baseline::compare(&empty(), run);
         refused.state = "not_written";
+        // A write alone has no file to fail: the refused run keeps the exit code of its status.
+        refused.exit_code = if run.unknown_status { 2 } else { 1 };
         return Part {
             compared: refused,
             file: None,
@@ -193,6 +195,9 @@ pub(crate) fn build(input: Input, run: &Observed) -> Part {
     let compared = match input.file {
         None => Compared {
             exit_code: own_exit(run),
+            // The file that this run writes holds these entries and items.
+            accepted_entries: u64::try_from(run.gaps.keys.len()).unwrap_or(u64::MAX),
+            accepted_unknowns: run.gaps.keys.values().sum(),
             ..compared
         },
         Some(_) => compared,
