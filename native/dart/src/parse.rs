@@ -12,7 +12,7 @@ use crate::definitions::definitions;
 use crate::directives::directives;
 use crate::pytext::{is_assigned, is_space_byte};
 use crate::sites::{sites, work_limit};
-use crate::syntax::{Concern, ConcernKind, Definition, Directive, Site, Syntax};
+use crate::syntax::{Concern, ConcernKind, Definition, Directive, Site, Span, Syntax};
 use crate::tree::{children, walk, Source, Work};
 
 /// The deepest node that the parse reads. Python stops the whole scan with `RecursionError`
@@ -42,15 +42,25 @@ impl DartParser {
 
     /// The directives, the concerns and the language version of one source, without the
     /// definitions and the sites: the import survey reads no more (AD-454).
-    pub(crate) fn directives(&mut self, content: &[u8]) -> (Syntax, bool) {
+    pub(crate) fn directives(&mut self, content: &[u8]) -> (Syntax, Option<Span>, Option<Span>) {
         let source = Source::new(content);
         self.work_permille = 0;
         match self.front(content, &source) {
             Ok(front) => {
-                let loader = walk(front.tree.root_node()).any(|node| {
-                    matches!(node.kind(), "identifier" | "type_identifier")
-                        && content.get(node.byte_range()) == Some(b"spawnUri")
-                });
+                let mut loader = None;
+                let mut mirrors = None;
+                for node in walk(front.tree.root_node()) {
+                    if !matches!(node.kind(), "identifier" | "type_identifier") {
+                        continue;
+                    }
+                    match content.get(node.byte_range()) {
+                        Some(b"spawnUri") if loader.is_none() => loader = Some(source.span(node)),
+                        Some(
+                            b"currentMirrorSystem" | b"reflect" | b"reflectClass" | b"reflectType",
+                        ) if mirrors.is_none() => mirrors = Some(source.span(node)),
+                        _ => {}
+                    }
+                }
                 (
                     finish(
                         Vec::new(),
@@ -60,9 +70,10 @@ impl DartParser {
                         front.language_version,
                     ),
                     loader,
+                    mirrors,
                 )
             }
-            Err(stopped) => (*stopped, true),
+            Err(stopped) => (*stopped, None, None),
         }
     }
 
