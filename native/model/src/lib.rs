@@ -57,8 +57,10 @@ mod boundary_facts;
 mod boundary_judge;
 mod boundary_positions;
 mod boundary_surface;
+mod facade_reach;
 pub use boundary_judge::{GapCause, GapRow, Leaf};
 pub use boundary_positions::{read as boundary_reading, Position, Reading, Stale};
+pub use facade_reach::facade_types;
 
 mod closed_path;
 mod condensation;

@@ -8,6 +8,8 @@ such a link has no target on `main`. The files are in the Git history before tha
 | Decision | Title |
 |---|---|
 | AD-582 | [The unused browser and Studio assets are removed](ad-582-the-unused-browser-and-studio-assets-are-removed.md) |
+| AD-580 | [A declared signature that names a type reaches its public entry](ad-580-a-declared-signature-that-names-a-type-reaches-its-public-entry.md) |
+| AD-568 | [Narrow the typing factory proof to the statements that can replace a factory](ad-568-narrow-the-typing-factory-proof-to-the-statements-that-can-replace-a-factory.md) |
 | AD-578 | [Make the remaining self-check calls explicit](ad-578-make-the-remaining-self-check-calls-explicit.md) |
 | AD-568 | [Narrow the typing factory proof to the statements that can replace a factory](ad-568-narrow-the-typing-factory-proof-to-the-statements-that-can-replace-a-factory.md) |
 | AD-576 | [A read of a host name that nothing writes is no gap](ad-576-a-read-of-a-host-name-that-nothing-writes-is-no-gap.md) |

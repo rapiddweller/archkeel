@@ -18,6 +18,9 @@ pub enum Need {
     UmlTarget,
     /// The contract has a `boundary_types` rule: the core reads the signature shapes (AD-550).
     BoundaryTypes,
+    /// The contract has an `interface_boundary` rule: a type that a declared signature names
+    /// reaches a `public` entry (AD-580).
+    InterfaceBoundary,
 }
 
 impl Need {
@@ -25,7 +28,7 @@ impl Need {
     fn symbols(self) -> bool {
         match self {
             Need::UmlTarget => true,
-            Need::BoundaryTypes => false,
+            Need::BoundaryTypes | Need::InterfaceBoundary => false,
         }
     }
 }
@@ -45,8 +48,8 @@ impl Needs {
         self.0.iter().any(|need| need.symbols())
     }
 
-    /// True when the run reads the shapes of the written signature types (AD-550).
+    /// True when the run reads the shapes of the written signature types (AD-550, AD-580).
     pub fn boundary(&self) -> bool {
-        self.0.contains(&Need::BoundaryTypes)
+        self.0.contains(&Need::BoundaryTypes) || self.0.contains(&Need::InterfaceBoundary)
     }
 }

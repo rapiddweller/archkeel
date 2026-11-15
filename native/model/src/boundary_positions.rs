@@ -56,7 +56,7 @@ pub struct Reading {
 }
 
 /// True for the name of a method that is part of an interface (`is_public_method_name`).
-fn method_name(name: &str) -> bool {
+pub(crate) fn method_name(name: &str) -> bool {
     !name.starts_with('_') || (name.starts_with("__") && name.ends_with("__"))
 }
 
