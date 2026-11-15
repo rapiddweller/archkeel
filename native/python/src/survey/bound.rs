@@ -38,8 +38,67 @@ pub(super) enum Kind {
     Callable,
     /// An import: the name is whatever the imported name is.
     Import,
+    /// A constant, a display, a comprehension or a lambda: an object that is never a module
+    /// (AD-530).
+    Value,
+    /// A call of a builtin type or function that always gives a plain object, such as
+    /// `tuple(...)`. The module must not bind the builtin name itself (AD-530).
+    Builtin(&'static str),
+    /// A plain `name = other`: the value is the value of `other` in the same module (AD-530).
+    Alias,
     /// Any other binder: the value is unknown.
     Other,
+}
+
+/// The builtins whose call always gives an instance of a builtin type, never a module.
+const BUILTIN_VALUES: [&str; 16] = [
+    "tuple",
+    "list",
+    "set",
+    "frozenset",
+    "dict",
+    "str",
+    "int",
+    "float",
+    "bool",
+    "bytes",
+    "bytearray",
+    "complex",
+    "len",
+    "sorted",
+    "repr",
+    "hash",
+];
+
+/// What the value of a plain assignment makes the name (AD-530).
+fn value_kind(value: &Expr) -> Kind {
+    match value {
+        Expr::StringLiteral(_)
+        | Expr::BytesLiteral(_)
+        | Expr::NumberLiteral(_)
+        | Expr::BooleanLiteral(_)
+        | Expr::NoneLiteral(_)
+        | Expr::EllipsisLiteral(_)
+        | Expr::FString(_)
+        | Expr::Tuple(_)
+        | Expr::List(_)
+        | Expr::Set(_)
+        | Expr::Dict(_)
+        | Expr::ListComp(_)
+        | Expr::SetComp(_)
+        | Expr::DictComp(_)
+        | Expr::Generator(_)
+        | Expr::Lambda(_) => Kind::Value,
+        Expr::Name(_) => Kind::Alias,
+        Expr::Call(call) => match &*call.func {
+            Expr::Name(name) => BUILTIN_VALUES
+                .iter()
+                .find(|builtin| **builtin == name.id.as_str())
+                .map_or(Kind::Other, |builtin| Kind::Builtin(builtin)),
+            _ => Kind::Other,
+        },
+        _ => Kind::Other,
+    }
 }
 
 /// The module-scope binders of one module body.
@@ -48,6 +107,8 @@ pub(super) struct Bound {
     sites: HashMap<String, Vec<Site>>,
     /// Names that a function of the module declares `global` (a write binds the module name).
     globals: HashSet<String>,
+    /// The name of the value of each plain `name = other` (AD-530).
+    aliases: HashMap<String, String>,
     /// A star import binds names that cannot be listed.
     pub(super) opaque: bool,
     /// A top-level `__getattr__` can give any attribute.
@@ -82,6 +143,17 @@ impl Bound {
             [only] if only.plain => Some(only.kind),
             _ => None,
         }
+    }
+
+    /// The name that the sole plain binder of `name` copies (`name = other`), if it is one.
+    pub(super) fn alias(&self, name: &str) -> Option<&str> {
+        self.aliases.get(name).map(String::as_str)
+    }
+
+    /// True when a statement of the module scope binds `name` at any depth, or the body can bind
+    /// names that cannot be listed.
+    pub(super) fn binds(&self, name: &str) -> bool {
+        self.opaque || self.globals.contains(name) || self.sites.contains_key(name)
     }
 
     /// Each name that a statement of the module scope, or a `global` declaration, binds.
@@ -153,6 +225,26 @@ impl Walk {
         self.scope -= 1;
     }
 
+    /// A target of a plain assignment: a name binds, with the name that it copies; any other
+    /// target is read as an expression. Only a sole plain binder reads the copied name.
+    fn assigned<'a>(
+        &mut self,
+        target: &'a Expr,
+        (start, kind): (TextSize, Kind),
+        value: Option<&Expr>,
+    ) where
+        Self: Visitor<'a>,
+    {
+        let Expr::Name(name) = target else {
+            return self.visit_expr(target);
+        };
+        self.site(name.id.as_str(), start, true, kind);
+        if let (0, Some(Expr::Name(other))) = (self.scope, value) {
+            let (name, other) = (name.id.to_string(), other.id.to_string());
+            self.bound.aliases.insert(name, other);
+        }
+    }
+
     fn definition(&mut self, name: &str, start: TextSize) {
         self.site(name, start, true, Kind::Callable);
     }
@@ -195,19 +287,16 @@ impl<'a> Visitor<'a> for Walk {
                 self.bound.getattr |= self.bound.globals.contains("__getattr__");
             }
             Stmt::Assign(node) => {
+                let kind = value_kind(&node.value);
                 for target in &node.targets {
-                    match target {
-                        Expr::Name(name) => self.site(name.id.as_str(), start, true, Kind::Other),
-                        other => self.visit_expr(other),
-                    }
+                    self.assigned(target, (start, kind), Some(&node.value));
                 }
                 self.visit_expr(&node.value);
             }
             Stmt::AnnAssign(node) => {
-                match &*node.target {
-                    Expr::Name(name) => self.site(name.id.as_str(), start, true, Kind::Other),
-                    other => self.visit_expr(other),
-                }
+                let value = node.value.as_deref();
+                let kind = value.map_or(Kind::Other, value_kind);
+                self.assigned(&node.target, (start, kind), value);
                 self.visit_expr(&node.annotation);
                 node.value.iter().for_each(|value| self.visit_expr(value));
             }

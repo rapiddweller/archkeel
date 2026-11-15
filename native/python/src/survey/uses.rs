@@ -53,15 +53,28 @@ struct Scan<'m> {
 }
 
 impl Scan<'_> {
-    /// True when `name` of `module` is a function or a class, following plain re-exports.
-    fn callable(&self, module: &str, name: &str, depth: usize) -> bool {
+    /// True when `name` of `module` cannot be a module of the scan, nor an alias of one: a
+    /// function or a class, a constant or a display, a call of a builtin type, a copy of such a
+    /// name, or an import whose origin lies outside the scan (AD-530). Each re-export is followed
+    /// to its sole plain binder; any other binder keeps the name unknown.
+    fn inert(&self, module: &str, name: &str, depth: usize) -> bool {
         let Some(bound) = self.bounds.get(module).filter(|_| depth < 8) else {
             return false;
         };
         match bound.kind(name) {
-            Some(Kind::Callable) => true,
+            Some(Kind::Callable | Kind::Value) => true,
+            Some(Kind::Builtin(builtin)) => !bound.binds(builtin),
+            Some(Kind::Alias) => bound
+                .alias(name)
+                .is_some_and(|other| self.inert(module, other, depth + 1)),
             Some(Kind::Import) => match self.imports.get(&(module, name)).map(Vec::as_slice) {
-                Some([(target, Some(symbol))]) => self.callable(target, symbol, depth + 1),
+                Some([(target, symbol)]) if !self.modules.contains(target) => {
+                    // An object of a module outside the scan; the module itself is no module of
+                    // the scan either.
+                    let _ = symbol;
+                    true
+                }
+                Some([(target, Some(symbol))]) => self.inert(target, symbol, depth + 1),
                 _ => false,
             },
             _ => false,
@@ -168,7 +181,7 @@ impl Uses<'_, '_> {
         match kind {
             Binding::Module(module) => Some(module.clone()),
             Binding::Attribute(anchor, symbol) => {
-                (!self.scan.callable(anchor, symbol, 0)).then(|| anchor.clone())
+                (!self.scan.inert(anchor, symbol, 0)).then(|| anchor.clone())
             }
         }
     }
