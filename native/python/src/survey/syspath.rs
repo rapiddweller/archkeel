@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! A `sys.path.append` of a directory of the snapshot that adds no name the scan imports (AD-528).
+//! A `sys.path.append` of a directory of the snapshot that adds no name the scan imports (AD-538).
 //!
 //! A write to `sys.path` is an `import_system_change` gap of the whole run (AD-450). One write is
 //! no gap: `sys.path.append(str(Path(__file__).resolve().parents[k]))`, an expression statement

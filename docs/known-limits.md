@@ -2,6 +2,15 @@
 
 ## Supported projects on main
 
+What each language decides on main. The README quotes this block, and `tests/test_readme_showcase.py` keeps the two equal.
+
+<!-- tiers:start -->
+Rust and TypeScript projects: each rule kind that the core has ported is decided; a rule kind without a port is UNKNOWN.
+Python and Dart projects: the rules that read the import graph are decided, and Python also decides `interface_boundary` (AD-504); a Dart cycle rule is always UNKNOWN, and every other rule of both is UNKNOWN.
+<!-- tiers:end -->
+
+The details follow.
+
 Main supports Rust and TypeScript projects, and the import rules of Python (AD-450) and Dart (AD-468) projects.
 A Python project gets PASS or FAIL only for rules that read the import graph. A dynamic import,
 an import-system change and the other gaps of AD-450 give UNKNOWN for each rule of the run.
@@ -120,7 +129,7 @@ A configured `filter.<x>.clean` can execute a command during status. Do not scan
 Disabling repository-configured execution is deferred to slice 5; the fixed executable does not prevent it.
 See [AD-422](architecture/decisions/ad-422-core-only-validation-renders-the-scan-frame.md).
 
-## A `sys.path.append` of the snapshot (Python, AD-528)
+## A `sys.path.append` of the snapshot (Python, AD-538)
 
 One write form is no gap: `sys.path.append(str(Path(__file__).resolve().parents[k]))` as a statement
 of a module body, when the directory holds no module-like entry that the scan imports. The verdict
@@ -347,8 +356,13 @@ project `declare` of a name, in a global script or a `declare global` block, pro
 Without `lib`, the target's default file applies, DOM included. Only top-level value declarations count, so types such as `Document` are not
 proved, and a newer `lib` name waits for the pinned TypeScript version to move.
 A `/// <reference types="./x" />` directive with a relative or absolute path names a file of the
-project; it is UNKNOWN, as `path` and `lib` directives are (#976). A `types` name without a path
-stays silent. A `declare module "x"` augmentation names a module as an import does: a relative or
+project; it is UNKNOWN, as `path` and `lib` directives are (#976). A leading `types` name is a type-only edge to the package that the resolver proves in
+`node_modules` (`@types/<name>` first, then the package); any other result, such as a package that
+is not installed, a `typeRoots` setting, a candidate with `typesVersions` and a `types` field that
+names a missing file, is UNKNOWN. A directive after code and `no-default-lib="true"` are not honored and
+stay silent
+([AD-528](architecture/decisions/ad-528-a-leading-types-directive-is-a-type-only-edge-to-its-package.md), #686).
+A `declare module "x"` augmentation names a module as an import does: a relative or
 absolute name is UNKNOWN. A bare name is UNKNOWN when the project sets `paths` or `baseUrl` and
 the file is a module file (it has `import` or `export`), because those options can map the name
 to a project file; the resolver is not asked, so a name that maps to no project file is UNKNOWN
@@ -434,7 +448,7 @@ in another module than its type is an edge when a path names it (`impl crate::c:
 `b` and `crate::c::S::m()` in `a`: `a -> b`). A method call `x.m(..)` that may reach such a method
 (it has `self`, the same number of other arguments, and a visibility that holds the caller), and a
 call of a method of a trait that a glob brings in (`use b::T;` in the parent, `use super::*;` and
-`5u8.m()` in the child), give a gap of the pair `a -> b`. A call on a plain `self` in a method of `impl S`, or a path `Self::m`, is an edge to the module of the one inherent member `m` of `S` and gives no gap when that member has the same `self` form (`self`, `&self`, `&mut self`) and no `cfg` or other attribute can change the member, its block, its module, the type or the caller; any other case keeps the gaps (AD-383). The host drops that gap only when the
+`5u8.m()` in the child), give a gap of the pair `a -> b`. A call on a plain `self` in a method of `impl S`, or a path `Self::m`, is an edge to the module of the one inherent member `m` of `S` and gives no gap when that member has the same `self` form (`self`, `&self`, `&mut self`) and no `cfg` or other attribute can change the member, its block, its module, the type or the caller; any other case keeps the gaps (AD-383). A call `x.m()` on a parameter `x: T`, `&T` or `&mut T` is the same edge when `x` is bound once in the `fn`, `T` is a written plain path to one exact struct or enum, and the member has the `self` form of the parameter; a rebinding, a generic or `impl Trait` or `dyn` type, an alias, a mismatched `self` form, a `Deref` impl of the type and a macro that names `x` keep the gaps (AD-524). The host drops that gap only when the
 contract lets `a` use `b` and the edge closes no cycle that the edges and the other pair gaps may
 close (AD-357). A trait `impl` that is anchored in no module (neither its self type, read after `&`, nor its trait
 is defined there; a trait argument never anchors; a block name anchors only without a `use`, an inline

@@ -13,6 +13,7 @@ use ruff_text_size::Ranged;
 use std::sync::OnceLock;
 
 type Ranges = Vec<(u32, u32)>;
+// Regenerate with `python3 tools/python_unicode_names.py`.
 const TABLE: &str = include_str!("unassigned.txt");
 
 fn unassigned(c: char, minor: PyMinor) -> bool {

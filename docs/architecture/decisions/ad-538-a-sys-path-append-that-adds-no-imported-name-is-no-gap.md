@@ -1,4 +1,4 @@
-# AD-528 A `sys.path.append` that adds no imported name is no gap
+# AD-538 A `sys.path.append` that adds no imported name is no gap
 
 **Status.** Proposed. Part of #880. It narrows the `import_system_change` gap of AD-450 for one
 write form. It follows AD-504 (Open false PASS) and the proof review of its design.

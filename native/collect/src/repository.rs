@@ -170,7 +170,7 @@ impl Root {
     }
 
     /// `load_config`: the path is a contained directory, or a file when `file_too`.
-    /// The names of a directory as a listing input records them (AD-528): the sorted names of its
+    /// The names of a directory as a listing input records them (AD-538): the sorted names of its
     /// files and directories (a link counts as what it resolves to), one for each line. `None`
     /// when the directory cannot be read.
     pub(crate) fn names_of(&self, relative: &str) -> Option<String> {

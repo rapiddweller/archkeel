@@ -237,86 +237,6 @@
     "reason": "Derive lines and pub field lists of the payload head structs have one shape, as the schema objects do. No logic repeats.",
     "tokens": 75
   },
-  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|068ad3ccc8": {
-    "files": [
-      "facts/src/readset_fields.rs",
-      "facts/src/readset_fields.rs"
-    ],
-    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
-    "tokens": 75
-  },
-  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|53bb937dfe": {
-    "files": [
-      "facts/src/readset_fields.rs",
-      "facts/src/readset_fields.rs"
-    ],
-    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
-    "tokens": 85
-  },
-  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|5b6e3f3430": {
-    "files": [
-      "facts/src/readset_fields.rs",
-      "facts/src/readset_fields.rs"
-    ],
-    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
-    "tokens": 89
-  },
-  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|5b6e3f3430#2": {
-    "files": [
-      "facts/src/readset_fields.rs",
-      "facts/src/readset_fields.rs"
-    ],
-    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
-    "tokens": 71
-  },
-  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|a0c7fd49be": {
-    "files": [
-      "facts/src/readset_fields.rs",
-      "facts/src/readset_fields.rs"
-    ],
-    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
-    "tokens": 74
-  },
-  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|a4cb2e3159": {
-    "files": [
-      "facts/src/readset_fields.rs",
-      "facts/src/readset_fields.rs"
-    ],
-    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
-    "tokens": 89
-  },
-  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|b5c44909e6": {
-    "files": [
-      "facts/src/readset_fields.rs",
-      "facts/src/readset_fields.rs"
-    ],
-    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
-    "tokens": 94
-  },
-  "facts/src/readset_fields.rs|facts/src/readset_fields.rs|e954c7fd30": {
-    "files": [
-      "facts/src/readset_fields.rs",
-      "facts/src/readset_fields.rs"
-    ],
-    "reason": "Lists of field names in match arms of the read set. They are data, and they repeat between areas.",
-    "tokens": 73
-  },
-  "facts/src/readset_fields.rs|typescript/src/source_input.rs|365f46d9c6": {
-    "files": [
-      "facts/src/readset_fields.rs",
-      "typescript/src/source_input.rs"
-    ],
-    "reason": "Two lists of names (read-set fields and Node builtin modules) have one shape. They are data.",
-    "tokens": 71
-  },
-  "facts/src/readset_fields.rs|typescript/src/source_input.rs|432e8990a3": {
-    "files": [
-      "facts/src/readset_fields.rs",
-      "typescript/src/source_input.rs"
-    ],
-    "reason": "Two lists of names (read-set fields and Node builtin modules) have one shape. They are data.",
-    "tokens": 70
-  },
   "facts/src/sections.rs|python/src/pyast/node.rs|5d42269720": {
     "files": [
       "facts/src/sections.rs",
@@ -611,27 +531,6 @@
     ],
     "reason": "AD-406 slice 2 makes existing Rust fields pub(crate). Those visibility tokens extend an existing data-field shape beyond the clone window. No code was copied.",
     "tokens": 77
-  },
-  "store/src/shell.rs|store/src/shell.rs|161cd47fd0": {
-    "files": [
-      "store/src/shell.rs"
-    ],
-    "reason": "Each serde visitor of the W frame (store/src/shell.rs) states its own `type Value` and `expecting`, which the `Visitor` trait requires per type; the visit methods differ.",
-    "tokens": 76
-  },
-  "store/src/shell.rs|store/src/shell.rs|209a445fb2": {
-    "files": [
-      "store/src/shell.rs"
-    ],
-    "reason": "Each serde visitor of the W frame (store/src/shell.rs) states its own `type Value` and `expecting`, which the `Visitor` trait requires per type; the visit methods differ.",
-    "tokens": 74
-  },
-  "store/src/shell.rs|store/src/shell.rs|e5fbf9ccb6": {
-    "files": [
-      "store/src/shell.rs"
-    ],
-    "reason": "Each serde visitor of the W frame (store/src/shell.rs) states its own `type Value` and `expecting`, which the `Visitor` trait requires per type; the visit methods differ.",
-    "tokens": 107
   },
   "typescript/src/kinds.rs|typescript/src/kinds.rs|1a2f180862": {
     "files": [

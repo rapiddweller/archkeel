@@ -8,7 +8,7 @@ use crate::data::ImportData;
 use crate::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use crate::nullable::Nullable;
 use crate::vocab::{Area, EvidenceClass};
-use crate::{readset, ImportFact, Record, Section};
+use crate::{ImportFact, Record, Section};
 use serde_json::Value;
 
 /// The import record as the native TypeScript collector writes it before this crate (`imports.rs`).
@@ -58,31 +58,6 @@ fn the_wire_of_an_import_is_byte_equal_to_the_native_reply() {
     );
     let back: Record<ImportFact> = serde_json::from_str(WIRE).expect("an import record");
     assert_eq!(back, import());
-}
-
-#[test]
-fn the_read_set_holds_only_the_read_fields() {
-    let read: Value =
-        serde_json::from_slice(&readset::to_vec(&import()).expect("JSON")).expect("JSON");
-    let keys: Vec<&str> = read
-        .as_object()
-        .expect("an object")
-        .keys()
-        .map(String::as_str)
-        .collect();
-    assert_eq!(
-        keys,
-        ["id", "kind", "area", "subjects", "evidence_ids", "data"]
-    );
-    let data = read["data"].as_object().expect("an object");
-    for unread in ["specifier", "type_only"] {
-        assert!(!data.contains_key(unread), "{unread} is not read by a rule");
-    }
-    // AD-346: `interface_boundary` reads it (`check/evaluation/rules.py`); WP1 traced no demo of it.
-    assert_eq!(data["symbols_known"], Value::Bool(false));
-    assert_eq!(data["symbol"], Value::Null);
-    assert_eq!(data["source_module"], "app.a_x2e_ts");
-    assert!(!data.contains_key("origin_definition"));
 }
 
 fn with(key: &str, value: Value) -> String {

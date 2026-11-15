@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-528: a `sys.path.append` that adds no imported name is no gap; each other write is.
+"""AD-538: a `sys.path.append` that adds no imported name is no gap; each other write is.
 
 Consumer: a CI job that reads `archkeel validate` on a Python project with a Poetry/Alembic style
 `sys.path.append(str(Path(__file__).resolve().parents[k]))`. The control gives each rule PASS (the

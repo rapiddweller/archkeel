@@ -22,7 +22,7 @@ pub(crate) fn inputs(snapshot: &mut Snapshot, selected: &[String]) -> (Vec<Input
 }
 
 /// The inputs and the source digest with the listings of the directories that a verdict depends
-/// on (AD-528): the text of a listing is its sorted names, and the path ends with `/`.
+/// on (AD-538): the text of a listing is its sorted names, and the path ends with `/`.
 pub(crate) fn with_listings(
     snapshot: &mut Snapshot,
     selected: &[String],

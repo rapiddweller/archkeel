@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The decision of a candidate `sys.path.append` (AD-528): drop it when its directory adds no
+//! The decision of a candidate `sys.path.append` (AD-538): drop it when its directory adds no
 //! module-like entry that the scan imports (R2, R3, R4 of `syspath.rs`), else it is the gap
 //! `import_system_change` of the whole run. The listing of the directory is a reply input.
 
@@ -30,7 +30,7 @@ pub(super) struct Scan<'s> {
 }
 
 impl<'s> Scan<'s> {
-    /// AD-528: the facts of the scan that decide whether a write to `sys.path` adds an imported name.
+    /// AD-538: the facts of the scan that decide whether a write to `sys.path` adds an imported name.
     pub(super) fn new(
         modules: &'s [Module],
         imports: &'s [Record<ImportFact>],

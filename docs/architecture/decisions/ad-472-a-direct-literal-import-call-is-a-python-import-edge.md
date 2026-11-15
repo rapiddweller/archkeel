@@ -39,7 +39,7 @@ K-python-realworld has a stub beside its source module. These forms name one kno
 
 **Rejected.** Trusting `from importlib import import_module`: the door would need an exemption at
 its import statement and at each use. Taking the Alembic `sys.path.append` of K-python-realworld
-as harmless without a proof (AD-528 proves the form of K-python-realworld): its path is computed (`Path(__file__).resolve().parents[3]`), and an appended entry
+as harmless without a proof (AD-538 proves the form of K-python-realworld): its path is computed (`Path(__file__).resolve().parents[3]`), and an appended entry
 can resolve a name that the scan classifies as external. Release 4.0.1 reads no `sys.path` write.
 
 **Limits.** No Python fixture reaches PASS with this change. M-review-workflow is held by two

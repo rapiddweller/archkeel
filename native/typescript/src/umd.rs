@@ -54,7 +54,6 @@ impl Template {
 /// The templates of one grammar.
 pub(crate) struct Templates {
     namespace: Option<Template>,
-    #[cfg_attr(not(feature = "dump"), allow(dead_code))]
     envelope: Option<Template>,
 }
 
@@ -82,7 +81,6 @@ impl Templates {
 
     /// `_umd_matches(wrapper, envelope)`: the nodes that the slots of the closed UMD envelope
     /// capture, when the wrapper is that envelope.
-    #[cfg_attr(not(feature = "dump"), allow(dead_code))]
     pub(crate) fn envelope<'t>(&self, cx: Cx, wrapper: Node<'t>) -> Option<Captures<'t>> {
         let template = self.envelope.as_ref()?;
         let pattern = template.expression()?;

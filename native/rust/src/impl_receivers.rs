@@ -24,6 +24,7 @@ use crate::builder::Builder;
 use crate::definitions::{Access, ImplBlock, Member, MethodCall};
 use crate::modules::{inside, Edge, Frame, Index, TypeOf};
 use crate::scan::{Reference, Via};
+use crate::tokens::NO_BIND_MACROS;
 use crate::tree::Module;
 
 /// A member of an inherent `impl` block of a placed type.
@@ -41,9 +42,40 @@ pub(super) struct Typed<'a> {
     by_type: BTreeMap<(String, String), Vec<Candidate<'a>>>,
     /// The names of the members of the blocks whose type the scan cannot place.
     unplaced: BTreeSet<&'a str>,
+    /// The last name of each type with a `Deref` or `DerefMut` impl in the workspace.
+    derefs: BTreeSet<&'a str>,
+    /// A macro, a `use` leaf or an `extern crate` of the workspace may give the name of a macro of
+    /// `std` that binds nothing to another macro (AD-524).
+    shadowed_macros: bool,
+    /// The names of the `macro_rules!` of the workspace.
+    macro_names: BTreeSet<&'a str>,
 }
 
 impl<'a> Typed<'a> {
+    /// Note what a module says of the types and the macros of the workspace (AD-524).
+    pub(super) fn note(&mut self, module: &'a Module) {
+        let scan = &module.scan;
+        for found in &scan.orphans.impls {
+            let last = |path: &'a Option<Vec<String>>| path.as_ref()?.last().map(String::as_str);
+            if let (Some("Deref" | "DerefMut"), Some(ty)) =
+                (last(&found.trait_path), last(&found.self_path))
+            {
+                self.derefs.insert(ty);
+            }
+        }
+        let defs = scan.macro_defs.iter().map(|def| def.name.as_str());
+        self.macro_names.extend(defs);
+        let bound = scan.references.iter().filter_map(|r| match &r.via {
+            Via::Use { binding, .. } => binding.as_deref(),
+            _ => None,
+        });
+        let silent = |name: &str| NO_BIND_MACROS.contains(&name);
+        let hidden = scan.macro_defs.iter().any(|d| silent(&d.name))
+            || bound.into_iter().any(silent)
+            || !scan.extern_crates.is_empty();
+        self.shadowed_macros |= hidden;
+    }
+
     /// Keep each member of a block by its type, or its name when the type is not placed.
     /// `lexical` is the lexical module of the block.
     pub(super) fn place(
@@ -113,6 +145,17 @@ impl Builder {
             (None, None, true) => None,
             _ => return false,
         };
+        // A parameter has a written type; the workspace must give no reason to doubt it (AD-524).
+        let parameter = !matches!(on_self.name.as_str(), "self" | "Self");
+        let deref = on_self
+            .path
+            .last()
+            .is_some_and(|ty| found.derefs.contains(ty.as_str()));
+        // A macro of the `fn` that is no `macro_rules!` of the workspace can bind any name.
+        let foreign = (on_self.macros.iter()).any(|m| !found.macro_names.contains(m.as_str()));
+        if parameter && (deref || found.shadowed_macros || foreign) {
+            return false;
+        }
         let TypeOf::Known(lexical, ty) = index.type_of(frame, &on_self.scope, &on_self.path) else {
             return false;
         };
@@ -137,9 +180,10 @@ impl Builder {
         if !certain(candidate) {
             return false;
         }
-        let (root, path) = match call.path {
-            true => ("Self", format!("Self::{}", call.name)),
-            false => ("self", format!("self.{}", call.name)),
+        let root = on_self.name.as_str();
+        let path = match call.path {
+            true => format!("{root}::{}", call.name),
+            false => format!("{root}.{}", call.name),
         };
         let reference = Reference {
             root: root.to_owned(),

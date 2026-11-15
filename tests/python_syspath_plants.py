@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The plants of the `sys.path.append` rule (AD-528, #880).
+"""The plants of the `sys.path.append` rule (AD-538, #880).
 
 Each plant is the tree of the project of `test_cli_native_python_imports` (scan root `app`,
 namespace `app`) with extra files, and the source of `app/client.py`, which writes to `sys.path`.

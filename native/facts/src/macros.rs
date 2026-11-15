@@ -45,10 +45,9 @@ macro_rules! closed {
 /// The data of a record kind. Each field carries a mark list `[mode mark "key"]`:
 ///
 /// 1. `read` or `wire`: a rule or a view reads the field for some kind of this type (WP1), or no
-///    reader reads it. The read-set writes a `read` field only when the list of the area and the
-///    kind holds it (`readset_fields`).
-/// 2. `skip` (an `Option` or a `Nullable`): the wire omits the field when it is absent. The
-///    read-set omits it too. `required`: the wire holds the field as a key that may be null.
+///    reader reads it. The mark is a record of that survey; no code uses it.
+/// 2. `skip` (an `Option` or a `Nullable`): the wire omits the field when it is absent.
+///    `required`: the wire holds the field as a key that may be null.
 ///    `never`: the wire does not hold the field.
 /// 3. `"key"`: the JSON name of the field, for a name that is a Rust keyword.
 ///
@@ -62,19 +61,6 @@ macro_rules! facts_data {
         }
     ) => {
         facts_data!(@fields pub [$(#[$doc])* $name] [] $([$($mark)? $($key)?] $field : $ty,)*);
-
-        impl $crate::readset::ReadFields for $name {
-            // A type with no read field does not use the map or the list.
-            #[allow(unused_variables)]
-            fn read_fields<M: serde::ser::SerializeMap>(
-                &self,
-                map: &mut M,
-                reads: $crate::readset::Reads,
-            ) -> Result<(), M::Error> {
-                $(facts_data!(@entry $mode $($mark)? [map self reads $field] $($key)?);)*
-                Ok(())
-            }
-        }
     };
     // The fields, one by one, each with its `serde` attributes. The last step writes the type.
     (@fields $v:tt [$(#[$doc:meta])* $name:ident] [$($done:tt)*]) => {
@@ -85,7 +71,7 @@ macro_rules! facts_data {
     };
     (@fields $v:tt $head:tt $done:tt [skip $($key:literal)?] $($rest:tt)*) => {
         facts_data!(@push $v $head $done
-            [#[serde($(rename = $key,)? default, skip_serializing_if = "crate::readset::omitted")]]
+            [#[serde($(rename = $key,)? default, skip_serializing_if = "crate::skip::omitted")]]
             $($rest)*);
     };
     (@fields $v:tt $head:tt $done:tt [required] $($rest:tt)*) => {
@@ -105,25 +91,6 @@ macro_rules! facts_data {
     (@push $v:tt $head:tt [$($done:tt)*] [$($attr:tt)*] $field:ident : $ty:ty, $($rest:tt)*) => {
         facts_data!(@fields $v $head [$($done)* $($attr)* $v $field: $ty,] $($rest)*);
     };
-    (@entry read skip [$map:ident $self:ident $reads:ident $field:ident] $($key:literal)?) => {
-        if $crate::readset::Present::present(&$self.$field) {
-            facts_data!(@entry read [$map $self $reads $field] $($key)?)
-        }
-    };
-    (@entry read required [$($rest:tt)*]) => {
-        facts_data!(@entry read [$($rest)*])
-    };
-    (@entry read [$map:ident $self:ident $reads:ident $field:ident] $key:literal) => {
-        if $crate::readset::allowed($reads, $key) {
-            $map.serialize_entry($key, &$self.$field)?
-        }
-    };
-    (@entry read [$map:ident $self:ident $reads:ident $field:ident]) => {
-        if $crate::readset::allowed($reads, stringify!($field)) {
-            $map.serialize_entry(stringify!($field), &$self.$field)?
-        }
-    };
-    (@entry wire $($mark:ident)? [$($rest:tt)*] $($key:literal)?) => {};
 }
 
 /// The data enum of a section: one variant for each kind, and the data type of that kind.
@@ -184,16 +151,6 @@ macro_rules! section_facts {
             fn serialize_data<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
                 match self {
                     $(Self::$variant(data) => serde::Serialize::serialize(data, serializer),)*
-                }
-            }
-
-            fn read_set_entries<M: serde::ser::SerializeMap>(
-                &self,
-                map: &mut M,
-                reads: $crate::readset::Reads,
-            ) -> Result<(), M::Error> {
-                match self {
-                    $(Self::$variant(data) => $crate::readset::ReadFields::read_fields(data, map, reads),)*
                 }
             }
 

@@ -265,7 +265,7 @@ fn used(entry: &str, records: &[&Import]) -> bool {
     };
     records
         .iter()
-        .filter(|record| !record.call_form())
+        .filter(|record| !record.call_form() && !record.unbound_type())
         .any(|record| entry.reached_by(record))
 }
 

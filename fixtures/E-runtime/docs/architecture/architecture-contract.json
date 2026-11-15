@@ -10,7 +10,8 @@
         "label": "Runtime fixture",
         "name": "runtime",
         "provenance": [
-          "docs/architecture/architecture-contract.json"
+          "docs/architecture/architecture-contract.json",
+          "docs/architecture/runtime.md"
         ],
         "review_order": 1
       }
