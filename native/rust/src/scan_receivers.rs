@@ -86,6 +86,25 @@ pub(super) fn module_inert(attrs: &[Attribute]) -> bool {
     only(attrs, &MODULE)
 }
 
+/// The exact `cfg` chain of a file module, or no proof for another module attribute.
+pub(super) fn module_cfg(attrs: &[Attribute]) -> Option<Vec<String>> {
+    let mut gates = Vec::new();
+    for attr in attrs {
+        if attr.path().is_ident("cfg") {
+            let Meta::List(list) = &attr.meta else {
+                return None;
+            };
+            if list.tokens.is_empty() {
+                return None;
+            }
+            gates.push(list.tokens.to_string());
+        } else if attr.path().is_ident("cfg_attr") || !inert(std::slice::from_ref(attr)) {
+            return None;
+        }
+    }
+    Some(gates)
+}
+
 /// Whether a struct or an enum keeps its type as written in every configuration.
 pub(super) fn type_inert(attrs: &[Attribute]) -> bool {
     only(attrs, &TYPE)

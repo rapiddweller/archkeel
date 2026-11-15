@@ -353,6 +353,9 @@ impl<'ast> Visit<'ast> for Visitor<'_> {
                         inline,
                         test: is_test_attributes(&node.attrs),
                         gated: !receivers::module_inert(&node.attrs) || self.walker.selves.gated(),
+                        gates: (!self.walker.selves.gated())
+                            .then(|| receivers::module_cfg(&node.attrs))
+                            .flatten(),
                         site,
                     });
                 }
