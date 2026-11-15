@@ -82,6 +82,36 @@ pub(crate) struct ImplBlock {
     pub exact: bool,
 }
 
+/// An `impl Trait for T` block at any depth (AD-516): the path of the outermost nominal type of
+/// its self type after `&` (`None` for any other self type, a type parameter or a qualified
+/// path), the path of its trait, the inline modules and the blocks (their ends) that enclose
+/// it, and its place.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct TraitImpl {
+    pub self_path: Option<Vec<String>>,
+    pub trait_path: Option<Vec<String>>,
+    pub scope: Vec<String>,
+    pub blocks: Vec<(i64, i64)>,
+    pub site: Site,
+}
+
+/// An item that a block declares, with the end of the block: a struct, enum or union (`nominal`),
+/// any other item, or a `use` (`name` is `None`: it can bind any name).
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct BlockItem {
+    pub name: Option<String>,
+    pub end: (i64, i64),
+    pub nominal: bool,
+}
+
+/// What the scan keeps for the pair gaps of trait impls in a third module (AD-516): the trait
+/// impls, and the items of each block.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct OrphanFacts {
+    pub impls: Vec<TraitImpl>,
+    pub block_items: Vec<BlockItem>,
+}
+
 /// The `self` parameter of a method as written: `self`, `&self` or `&mut self` (with any lifetime
 /// and `mut`). A typed `self: X` is no kind: the scan does not read types.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

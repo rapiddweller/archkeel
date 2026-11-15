@@ -279,6 +279,12 @@ impl fmt::Display for Reason {
     }
 }
 
+impl From<Cause> for Reason {
+    fn from(cause: Cause) -> Reason {
+        Reason::NotComplete(cause)
+    }
+}
+
 impl From<Part> for Reason {
     fn from(part: Part) -> Reason {
         Reason::Unsupported(Unsupported::ScopeProof(part))
