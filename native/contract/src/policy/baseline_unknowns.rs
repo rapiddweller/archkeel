@@ -9,16 +9,10 @@
 //! damaged file into a gate that fails open or closed without a reason.
 
 use crate::json::{has, Json};
+use crate::policy::baseline_entries::text;
 use crate::policy::baseline_value::{
     count, exact, object, required, AcceptedUnknown, BaselineError,
 };
-
-fn text(raw: &Json, label: &str) -> Result<String, BaselineError> {
-    match raw {
-        Json::Text(value) => Ok(value.clone()),
-        _ => Err(BaselineError::NotString(label.into())),
-    }
-}
 
 fn entry(raw: &Json, label: &str) -> Result<AcceptedUnknown, BaselineError> {
     let value = object(raw, label)?;
@@ -65,3 +59,7 @@ pub(super) fn unknowns(raw: &Json) -> Result<Vec<AcceptedUnknown>, BaselineError
     }
     Ok(found)
 }
+
+#[cfg(test)]
+#[path = "baseline_unknowns_tests.rs"]
+mod tests;

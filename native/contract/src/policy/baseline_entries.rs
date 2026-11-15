@@ -43,7 +43,7 @@ pub(super) fn violation(
     })
 }
 
-fn text(raw: &Json, label: &str) -> Result<String, BaselineError> {
+pub(super) fn text(raw: &Json, label: &str) -> Result<String, BaselineError> {
     match raw {
         Json::Text(value) => Ok(value.clone()),
         _ => Err(BaselineError::NotString(label.into())),

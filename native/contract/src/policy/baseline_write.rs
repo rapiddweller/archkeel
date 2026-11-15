@@ -19,7 +19,7 @@ pub fn baseline_bytes(baseline: &ValidationBaseline) -> Vec<u8> {
     for budget in &baseline.budgets {
         match budget {
             BaselineBudget::Scalar { name, value } => {
-                budgets.insert(scalar_key(*name).into(), json!(value));
+                budgets.insert(budget_word(*name).into(), json!(value));
             }
             BaselineBudget::Names { kind, key, names } => {
                 let name = match kind {
@@ -77,7 +77,8 @@ fn unknown(item: &AcceptedUnknown) -> Value {
     value
 }
 
-fn scalar_key(name: BudgetName) -> &'static str {
+/// The word of a scalar budget in the file (AD-546: the core names a budget with it).
+pub fn budget_word(name: BudgetName) -> &'static str {
     match name {
         BudgetName::CycleEdges => "cycle_edges",
         BudgetName::PrivateCrossings => "private_crossings",

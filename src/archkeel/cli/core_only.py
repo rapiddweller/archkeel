@@ -295,9 +295,8 @@ def _install_skill(options: Options, as_json: bool) -> int:
     return 0
 
 
-def _decide(options: Options, as_json: bool) -> int:
-    """Send the scan identity to the core and print the one frame that it gives."""
-    root = resolve_root(options.root or Path.cwd())
+def _request(options: Options, root: Path) -> dict[str, object]:
+    """The scan identity that the core answers, with the parts of the page and the baseline."""
     request: dict[str, object] = {
         "protocol": SCAN_PROTOCOL,
         "root": str(root),
@@ -317,6 +316,38 @@ def _decide(options: Options, as_json: bool) -> int:
         request["baseline"] = options.baseline
     if options.write_baseline is not None:
         request["write_baseline"] = True
+    return request
+
+
+def _exit_code(options: Options, frame: CoreFrame) -> int:
+    """The status maps to the exit code. With a baseline, the core decided the code (AD-546)."""
+    asked = options.baseline is not None or options.write_baseline is not None
+    collect_refused = any(gap.kind is GapKind.COLLECT for gap in frame.gaps)
+    if asked and frame.baseline is None and not collect_refused:
+        raise CoreError("the core frame lacks the baseline part that the request asked for")
+    if frame.baseline is not None:
+        return frame.baseline.exit_code
+    return EXIT_CODES[frame.status]
+
+
+def _deliver(options: Options, frame: CoreFrame, stdout: bytes, root: Path) -> str | None:
+    """Write each requested file. The message of the last failure, or `None`."""
+    failure: str | None = None
+    try:
+        _write_report(options, frame, stdout)
+    except OSError as error:
+        failure = f"cannot write report file {options.output}: {error}; no report file was written"
+    try:
+        _write_baseline(options, frame, root)
+    except OSError as error:
+        failure = f"cannot write the baseline file {error}; no baseline file was written"
+    return failure
+
+
+def _decide(options: Options, as_json: bool) -> int:
+    """Send the scan identity to the core and print the one frame that it gives."""
+    root = resolve_root(options.root or Path.cwd())
+    request = _request(options, root)
     binary = locate_core()
     confirm(binary)  # a bundled core is checked again immediately before it starts (#1095)
     started_ns = time_ns()
@@ -333,17 +364,10 @@ def _decide(options: Options, as_json: bool) -> int:
     document.pop("html", None)
     if isinstance(document.get("baseline"), dict):
         document["baseline"].pop("file", None)  # the bytes are written, not printed
-    if page and not options.topology:
+    if "topology" in request and not options.topology:
         document.pop("topology", None)
         frame = replace(frame, topology=None)
-    exit_code = EXIT_CODES[frame.status]
-    asked = options.baseline is not None or options.write_baseline is not None
-    collect_refused = any(gap.kind is GapKind.COLLECT for gap in frame.gaps)
-    if asked and frame.baseline is None and not collect_refused:
-        raise CoreError("the core frame lacks the baseline part that the request asked for")
-    if frame.baseline is not None:
-        # AD-546: the core compared the run with the file and decided the exit code.
-        exit_code = frame.baseline.exit_code
+    exit_code = _exit_code(options, frame)
     result: dict[str, object] = {
         "command": options.command,
         "status": frame.status,
@@ -359,20 +383,8 @@ def _decide(options: Options, as_json: bool) -> int:
     collected = next((gap for gap in frame.gaps if gap.kind is GapKind.COLLECT), None)
     if collected is not None:
         result["refusal"] = {"kind": RefusalKind.COLLECTION_REFUSED, "message": collected.reason}
-    file_error: str | None = None
-    try:
-        _write_report(options, frame, stdout)
-    except OSError as error:
-        file_error = (
-            f"cannot write report file {options.output}: {error}; no report file was written"
-        )
-        exit_code = 2
-        result["exit_code"] = exit_code
-        result["refusal"] = {"kind": RefusalKind.IO_ERROR, "message": file_error}
-    try:
-        _write_baseline(options, frame, root)
-    except OSError as error:
-        file_error = f"cannot write the baseline file {error}; no baseline file was written"
+    file_error = _deliver(options, frame, stdout, root)
+    if file_error is not None:
         exit_code = 2
         result["exit_code"] = exit_code
         result["refusal"] = {"kind": RefusalKind.IO_ERROR, "message": file_error}

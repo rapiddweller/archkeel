@@ -9,6 +9,7 @@ CE treats exit 2 as green.
 """
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -226,7 +227,7 @@ def test_the_same_path_for_both_options_is_refused_before_any_scan(built: Path) 
     assert "same file" in json.loads(done.stdout)["refusal"]["message"]
 
 
-@pytest.mark.parametrize("path", ["/tmp/b.json", "../b.json", "a/../../b.json", ""])
+@pytest.mark.parametrize("path", [os.sep + "b.json", "../b.json", "a/../../b.json", ""])
 def test_a_path_outside_the_root_is_refused(built: Path, path: str) -> None:
     with case_root(HONEST) as root:
         for flag in ("--baseline", "--write-baseline"):

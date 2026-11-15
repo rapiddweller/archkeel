@@ -139,21 +139,23 @@ fn unsupported(part: &Unsupported) -> Stable {
     }
 }
 
+/// The code of a part of the scope proof, and the value that names it, if it has one.
 fn part_code(part: &Part) -> String {
-    match part {
-        Part::RuntimeRequirement => "runtime_requirement".to_owned(),
-        Part::ProfileLimit(subject) => format!("profile_limit: {subject}"),
-        Part::ConstructSubjects(rule) => format!("construct_subjects: {rule}"),
-        Part::ForeignRule => "foreign_rule".to_owned(),
-        Part::MountedTree => "mounted_tree".to_owned(),
-        Part::ScanRoots => "scan_roots".to_owned(),
-        Part::ScopedRequires => "scoped_requires".to_owned(),
-        Part::ContractSource => "contract_source".to_owned(),
-        Part::ScanLayout => "scan_layout".to_owned(),
-        Part::ReceiptSources => "receipt_sources".to_owned(),
-        Part::MountedLayerOrder => "mounted_layer_order".to_owned(),
-        Part::MountParent(parent) => format!("mount_parent: {parent}"),
-    }
+    let (code, value) = match part {
+        Part::RuntimeRequirement => ("runtime_requirement", None),
+        Part::ProfileLimit(subject) => ("profile_limit", Some(subject)),
+        Part::ConstructSubjects(rule) => ("construct_subjects", Some(rule)),
+        Part::ForeignRule => ("foreign_rule", None),
+        Part::MountedTree => ("mounted_tree", None),
+        Part::ScanRoots => ("scan_roots", None),
+        Part::ScopedRequires => ("scoped_requires", None),
+        Part::ContractSource => ("contract_source", None),
+        Part::ScanLayout => ("scan_layout", None),
+        Part::ReceiptSources => ("receipt_sources", None),
+        Part::MountedLayerOrder => ("mounted_layer_order", None),
+        Part::MountParent(parent) => ("mount_parent", Some(parent)),
+    };
+    value.map_or_else(|| code.to_owned(), |value| format!("{code}: {value}"))
 }
 
 fn input_code(input: Input) -> &'static str {

@@ -15,7 +15,7 @@
 
 use std::collections::BTreeMap;
 
-use archkeel_contract::policy::{BaselineBudget, BaselineRole, ValidationBaseline};
+use archkeel_contract::policy::{budget_word, BaselineBudget, BaselineRole, ValidationBaseline};
 use archkeel_contract::BudgetName;
 use serde::Serialize;
 
@@ -27,13 +27,6 @@ pub(crate) struct Violation {
     pub(crate) rules: Vec<String>,
     pub(crate) subjects: Vec<String>,
     pub(crate) roles: Vec<(String, String)>,
-}
-
-/// The measured budgets of a run. `None` is not measured: never read as 0 (AD-97).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) struct Budgets {
-    pub(crate) cycle_edges: Option<u64>,
-    pub(crate) private_crossings: Option<u64>,
 }
 
 /// What the run has, for the compare and for the writer.
@@ -49,6 +42,13 @@ pub(crate) struct Observed {
 
 /// The violations of the file by identity: the count and the roles.
 type Accepted<'a> = BTreeMap<(&'a [String], &'a [String]), (u64, &'a [BaselineRole])>;
+
+/// The measured budgets of a run. `None` is not measured: never read as 0 (AD-97).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct Budgets {
+    pub(crate) cycle_edges: Option<u64>,
+    pub(crate) private_crossings: Option<u64>,
+}
 
 /// One difference between the run and the file.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -185,7 +185,7 @@ fn budgets(file: &ValidationBaseline, run: &Observed, found: &mut Compared) {
             BudgetName::PrivateCrossings => Some(run.budgets.private_crossings),
             _ => None,
         };
-        let word = word(name);
+        let word = budget_word(name);
         match measured {
             Some(Some(value)) => compare_budget(word, value, ceiling, found),
             Some(None) => found
@@ -226,18 +226,6 @@ fn compare_budget(name: &str, run: u64, file: u64, found: &mut Compared) {
         found.new.push(difference("above the baseline"));
     } else if run < file {
         found.gone.push(difference("below the baseline"));
-    }
-}
-
-/// The word of a scalar budget, as the file writes it.
-pub(crate) fn word(name: BudgetName) -> &'static str {
-    match name {
-        BudgetName::CycleEdges => "cycle_edges",
-        BudgetName::PrivateCrossings => "private_crossings",
-        BudgetName::TypingPositions => "typing_positions",
-        BudgetName::CallsUnresolved => "calls_unresolved",
-        BudgetName::UntypedPrivateAccesses => "untyped_private_accesses",
-        BudgetName::UnknownPositions => "unknown_positions",
     }
 }
 

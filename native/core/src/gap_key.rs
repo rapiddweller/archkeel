@@ -102,9 +102,8 @@ fn collector(record: &Record<GapFact>) -> Key {
     }
 }
 
-/// A reason that ends in `at line <n>`, or a subject that ends in `:<n>`, holds a position. The
-/// collectors that write one are the TypeScript parser gap and the Dart file gap; the key keeps
-/// the text before the position.
+/// A reason that ends in `at line <n>`, or a subject that ends in `:<n>`, holds a position. Some
+/// collectors write one into a parser gap or a file gap; the key keeps the text before it.
 fn strip_line(text: &str) -> &str {
     let digits = text.len() - text.trim_end_matches(|c: char| c.is_ascii_digit()).len();
     if digits == 0 {
