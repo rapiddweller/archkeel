@@ -85,11 +85,11 @@ REFUSED: dict[str, dict[str, str]] = {
     "a match arm": _shadow("    match o {\n        Some(s) => s.m(1),\n        None => 0,\n    }"),
     "an if let": _shadow("    if let Some(s) = o {\n        return s.m(1);\n    }\n    0"),
     "a for loop": _plant(
-        "pub fn f(v: Vec<&crate::c::S>) -> u8 {\n    let mut n = 0;\n"
+        "pub fn f(s: &crate::c::S, v: Vec<&crate::c::S>) -> u8 {\n    let mut n = 0;\n"
         "    for s in v {\n        n += s.m(1);\n    }\n    n\n}\n"
     ),
     "a generic parameter of the name": _plant(
-        "pub fn f<S: crate::c::Tr>(s: &S) -> u8 {\n    s.m(1)\n}\n",
+        USE + "pub fn f<S: crate::c::Tr>(s: &S) -> u8 {\n    s.m(1)\n}\n",
     ),
     "a generic parameter of the impl": _plant(
         "use crate::c::S;\npub struct W<S>(S);\nimpl<S: crate::c::Tr> W<S> {\n"
