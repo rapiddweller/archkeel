@@ -7,7 +7,7 @@
 //!
 //! - Absent: no `pub get` ran yet. The language maps the own package to `lib/`, as the survey does.
 //! - Present: the own package must have `rootUri` at the snapshot root and `packageUri` `lib/`.
-//!   Another package must not map into the snapshot root: then its files are not external.
+//!   Another package must use an absolute file URI outside the root; a relative URI is local.
 //! - A link, an unreadable or malformed file, or an entry that the survey cannot place is a gap.
 
 use std::path::Path;
@@ -78,7 +78,7 @@ fn check(raw: &[u8], root: &str, own: &str) -> Result<(), String> {
                     "the own package {own} is not mapped to lib/ of this root"
                 ));
             }
-        } else if place != Location::Outside {
+        } else if !root_uri.starts_with("file:///") || place != Location::Outside {
             return Err(format!(
                 "the package {name} is mapped into this root or to an unknown place"
             ));
@@ -112,7 +112,11 @@ fn place(uri: &str, root: &str) -> Location {
         return Location::Unknown;
     }
     if let Some(path) = uri.strip_prefix("file://") {
-        return absolute(path, root);
+        return if path.starts_with('/') {
+            absolute(path, root)
+        } else {
+            Location::Unknown
+        };
     }
     if uri.contains(':') || uri.starts_with('/') {
         return Location::Unknown;
