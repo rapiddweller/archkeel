@@ -1,4 +1,4 @@
-# AD-558: A read of a host name that nothing writes is no gap
+# AD-576: A read of a host name that nothing writes is no gap
 
 Status: accepted. Part of #880. It amends AD-460 and AD-540.
 

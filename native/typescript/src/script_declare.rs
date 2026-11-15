@@ -46,7 +46,9 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let tree = self.tree;
         let name = tree.text(value);
         let scope = bound_scope(tree, value, &name)?;
-        if tree.binding_count(scope, &name) != 1 || !tree.cx.valid_unicode_member_name(value) {
+        if tree.binding_count(scope, &name) != 1
+            || !crate::tree::cx::Cx::valid_unicode_member_name(&tree.cx, value)
+        {
             return None;
         }
         let key = (scope.id(), name);
@@ -213,7 +215,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let path = tree.static_path(target);
         let first = path.first()?;
         let receiver = self.chain_start(target)?;
-        if !tree.cx.valid_unicode_member_name(receiver) {
+        if !crate::tree::cx::Cx::valid_unicode_member_name(&tree.cx, receiver) {
             return declarations.map(|_| Vec::new());
         }
         let Some(scope) = bound_scope(tree, receiver, first) else {

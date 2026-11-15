@@ -33,16 +33,22 @@ pub(crate) fn read<'t>(
 ) -> (Script, Vec<Span>) {
     let mut tree = Tree::from_layout(cx, root, layout);
     let nodes = Rc::clone(&tree.nodes);
-    tree.bind_names(&nodes, &syntax.import_bindings, syntax.module_file);
+    Tree::bind_names(
+        &mut tree,
+        &nodes,
+        &syntax.import_bindings,
+        syntax.module_file,
+    );
     let module_syntax = syntax.module_syntax;
-    let producer = Producer::new(
+    let producer_value = Producer::new(
         &tree,
         &syntax.definitions,
         &syntax.scopes,
         module_syntax,
         templates,
     );
-    let (mut globals, mut writes) = globals(&producer);
+    let producer: &Producer = &producer_value;
+    let (mut globals, mut writes) = globals(producer);
     let declared = producer.declarations();
     let known: std::collections::HashSet<&crate::script_types::Write> = writes.iter().collect();
     let checked: Vec<_> = declared
@@ -63,8 +69,8 @@ pub(crate) fn read<'t>(
         write_paths: declared.paths,
         top_level_write_paths: declared.top_level_paths,
         amplified: declared.amplified,
-        host_entry: needs_host(&producer),
-        contained_reads: crate::script_host::contained_reads(&producer),
+        host_entry: needs_host(producer),
+        contained_reads: crate::script_host::contained_reads(producer),
         blockers: declared.blockers.clone(),
         unlabelled_empty: declared.unlabelled_empty,
         ..Script::default()

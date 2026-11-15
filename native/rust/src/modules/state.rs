@@ -209,7 +209,8 @@ impl Index<'_> {
         let silent = |call: &crate::scan::MacroCall| {
             crate::tokens::NO_BIND_MACROS.contains(&call.name.as_str())
         };
-        if scan.body_macros || frame.module.gated || !scan.macro_calls.iter().all(silent) {
+        let opaque_gate = frame.module.gated && frame.module.gates.is_none();
+        if scan.body_macros || opaque_gate || !scan.macro_calls.iter().all(silent) {
             return None;
         }
         let first = ty.first()?;

@@ -48,7 +48,7 @@ impl<'a, 'p> Run<'a, 'p> {
     ) -> bool {
         let standard =
             self.standard.contains(name) && !self.project.bound_in_scripts.contains_key(name);
-        // A read of a host name (AD-558) is behind the same forms: they could write the name.
+        // A read of a host name (AD-576) is behind the same forms: they could write the name.
         let read = self.read_but_for(rel, probe, name);
         self.project.paths.blockers_named()
             && (standard || read)
@@ -72,7 +72,7 @@ impl<'a, 'p> Run<'a, 'p> {
     }
 
     /// A name that nothing in the project publishes, writes or binds and that this use only reads
-    /// (AD-558): it is a name of the host, no module of the scan, and the read builds no code. A
+    /// (AD-576): it is a name of the host, no module of the scan, and the read builds no code. A
     /// root, a loader name and a use that is called, passed, stored or keyed keep their gap.
     fn host_read(&self, rel: &str, probe: &Probe, name: &str, publishers: &[Publisher]) -> bool {
         self.read_but_for(rel, probe, name) && self.global_stable(name, publishers)

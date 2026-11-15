@@ -26,6 +26,10 @@ pub(crate) struct Binders {
     direct: Vec<String>,
     /// A star import or a type parameter list anywhere: no name is unique.
     opaque: bool,
+    /// A type parameter list anywhere: the binders of a name are unknown (`count_beside_stars`).
+    typed: bool,
+    /// The star imports of the module: the level and the module of each.
+    pub stars: Vec<(u32, String)>,
     pub all_exports: HashSet<String>,
     pub all_literal: bool,
     /// `__all__` is named but is not one literal list of strings: the module publishes names that
@@ -56,6 +60,8 @@ impl Binders {
             counts: walk.counts,
             direct,
             opaque: walk.opaque,
+            typed: walk.typed,
+            stars: walk.stars,
             all_exports: literal_all_exports(&tree.body),
             all_literal,
             all_unread: !all_literal && (walk.all_imported || walk.all_names > 0),
@@ -68,6 +74,11 @@ impl Binders {
     /// Python rule applies it.
     pub(crate) fn builtin_visible(&self, name: &str) -> bool {
         !self.opaque && !self.counts.contains_key(name)
+    }
+
+    /// The count of `count`, with the star imports left out: the caller reads them (`stars`).
+    pub(crate) fn count_beside_stars(&self, name: &str) -> Option<usize> {
+        (!self.typed).then(|| self.counts.get(name).copied().unwrap_or(0))
     }
 
     /// How often a binder binds the name anywhere in the module, or `None` when a star import
@@ -92,6 +103,8 @@ pub(crate) use crate::module::{first_part, import_bindings};
 struct Walk {
     counts: HashMap<String, usize>,
     opaque: bool,
+    typed: bool,
+    stars: Vec<(u32, String)>,
     /// Each `Name` node `__all__`, in any context.
     all_names: usize,
     /// An import names `__all__` as its name or its alias.
@@ -106,6 +119,7 @@ impl Walk {
     fn type_params(&mut self, params: Option<&TypeParams>) {
         if params.is_some_and(|params| !params.type_params.is_empty()) {
             self.opaque = true;
+            self.typed = true;
         }
     }
 }
@@ -126,6 +140,8 @@ impl<'a> Visitor<'a> for Walk {
             Stmt::ImportFrom(node) => {
                 if node.names.iter().any(|alias| alias.name.as_str() == "*") {
                     self.opaque = true;
+                    let module = node.module.as_ref().map_or("", |name| name.as_str());
+                    self.stars.push((node.level, module.to_owned()));
                 }
                 self.imports(&node.names, stmt);
             }
