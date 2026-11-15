@@ -19,7 +19,8 @@ Interactive reports, `architecture.json`, saved reports, focused reports, amendm
 `validate --baseline` and `validate --write-baseline` are on `main` ([baselines](#baselines)).
 
 Release 4.0.1 has the Python engine: `check`, `init`, full reports and baselines for Python,
-Dart and TypeScript projects. It has no Rust profile, `explore`, Studio, stories or views.
+Dart and TypeScript projects. It has no Rust profile, `explore`, Studio, stories or views. The Explorer and Studio browser assets are
+not in the tree on `main` (AD-582); they return with the port of `explore` and Studio to the core (5.1).
 Its documents are at the [tag 4.0.1](https://github.com/rapiddweller/archkeel/tree/4.0.1/docs).
 This page and [known limits](known-limits.md) describe `main`.
 
@@ -63,7 +64,7 @@ equal tsconfig `paths`, which is not verified. See
 For supported UMD vendors, the `tsconfig` extension `archkeel` declares
 `scriptHost: "classic-browser"` and `scriptProviders`, each with `source` and
 `provenance` paths relative to `--root`. See the
-[provenance example](../src/archkeel/render/assets/ELKJS-LICENSE.md).
+[provenance example](https://github.com/rapiddweller/archkeel/blob/4.0.1/src/archkeel/render/assets/ELKJS-LICENSE.md).
 Provenance records the package, version, bundle SHA-256 and license; the hash binds
 the exact bundle bytes. Publication identity does not bound factory effects: unproved
 calls or constructors leave standard-global and vendor dependencies UNKNOWN.

@@ -22,7 +22,7 @@ unsupported declaration transformations remain UNKNOWN. Checker input authentica
 bounded execution and cleanup remain required operational guarantees.
 
 Keep the baseline's root and eight nested Python contracts. Add one canonical
-[browser contract](browser-contract.json) for the previously textual browser owners
+browser contract (removed, AD-582) for the previously textual browser owners
 and ports. The current evaluator accepts one language profile per observation;
 one separate contract avoids copying Python policy or introducing profile projections.
 Acceptance requires both native results. Refine existing owners and actual crossing

@@ -1,16 +1,5 @@
 fixtures/L-nest-realworld/resolver-inputs/** -text
 
-# Flow provenance requires the same source bytes on every platform.
-src/archkeel/render/assets/flow.js text eol=lf
-src/archkeel/render/assets/flow.runtime.js text eol=lf
-
-# Generated browser bytes are compared with LF compiler output.
-src/archkeel/render/assets/explorer.runtime.js text eol=lf
-src/archkeel/render/assets/report-graph-protocol.js text eol=lf
-src/archkeel/render/assets/report-graph-protocol.types.d.ts text eol=lf
-src/archkeel/render/assets/report-graph-vocabulary.ts text eol=lf
-tools/browser-runtime/protocol-exports.* text eol=lf
-
 # The native collector embeds this file, so its bytes are the same on every platform.
 src/archkeel/analyzer/typescript/standard_libs.json text eol=lf
 native/typescript/standard_libs.json text eol=lf
@@ -26,9 +15,6 @@ native/**/*.h text eol=lf
 # AD-342: the vendored parser of tree-sitter-dart 0.1.0 is generated code.
 native/dart-grammar/vendor/** linguist-vendored
 native/dart-grammar/vendor/src/parser.c linguist-generated
-
-# Vendor provenance authenticates the original bytes.
-src/archkeel/render/assets/elkjs-0.12.0.bundled.js -text
 
 # The demo tests classic Mac CR line endings; Git must keep these bytes.
 fixtures/python-newer-syntax-demo/sample/legacy.py -text
