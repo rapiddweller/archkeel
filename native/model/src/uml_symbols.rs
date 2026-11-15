@@ -155,6 +155,9 @@ pub(crate) fn relationship(
     complete: bool,
 ) -> Assessed {
     let kind = *edge.kind();
+    if let Err(cause) = facts.sites() {
+        return Assessed::Unknown(cause);
+    }
     let end = |id: &str| entity(target, id).map(|item| matches(facts, item));
     let source = end(edge.source_id().as_text());
     let found = edge.target_id().as_ref().and_then(|id| end(id.as_text()));

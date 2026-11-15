@@ -16,10 +16,10 @@ pub mod dump;
 mod reply;
 
 mod survey;
-// AD-377: the definition table and its bases have no caller in the reply yet; the test dump reads
-// them. The slice that writes the section `symbols` builds them into the release binary.
+// AD-377: the binding proofs have no caller in the reply yet; the test dump reads them.
 #[cfg(any(test, feature = "dump"))]
 mod bindings;
+mod declare;
 #[cfg(any(test, feature = "dump"))]
 mod symbols;
 #[cfg(any(test, feature = "dump"))]

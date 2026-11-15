@@ -25,17 +25,21 @@ fn the_first_part_names_the_package() {
     assert_eq!(first_part("app"), "app");
 }
 
-/// The typed facts of a frozen reply, as a Python survey with its two sections.
+/// The typed facts of a frozen reply, as a Python survey with its three sections (AD-518).
 fn survey_facts() -> Facts {
+    survey_of(Profile::Python, &["imports", "symbols", "unknowns"])
+}
+
+fn survey_of(profile: Profile, sections: &[&str]) -> Facts {
     let value = crate::validate::tests::golden("f-typescript-story");
     let mut facts = serde_json::from_value::<archkeel_facts::envelope::Reply>(value)
         .expect("the frozen reply")
         .facts;
-    facts.profile = Profile::Python;
+    facts.profile = profile;
     facts.capabilities.resolution_features.clear();
     facts.capabilities.constructs.clear();
-    facts.capabilities.sections = ["imports", "unknowns"]
-        .into_iter()
+    facts.capabilities.sections = sections
+        .iter()
         .map(|name| archkeel_facts::envelope::SectionName::parse(name).expect("a section"))
         .collect();
     facts.profile_limits = None;
@@ -43,11 +47,16 @@ fn survey_facts() -> Facts {
 }
 
 #[test]
-fn the_survey_has_exactly_two_sections_and_no_construct() {
+fn the_survey_has_exactly_its_sections_and_no_construct() {
     assert_eq!(registered(&survey_facts()), Ok(()));
+    // Dart states no symbols; Python states no site section (AD-518).
+    let dart = survey_of(Profile::Dart, &["imports", "unknowns"]);
+    assert_eq!(registered(&dart), Ok(()));
+    let with_symbols = survey_of(Profile::Dart, &["imports", "symbols", "unknowns"]);
+    assert!(registered(&with_symbols).is_err());
     let mut more = survey_facts();
-    let symbols = archkeel_facts::envelope::SectionName::parse("symbols").expect("a section");
-    more.capabilities.sections.push(symbols);
+    let calls = archkeel_facts::envelope::SectionName::parse("calls").expect("a section");
+    more.capabilities.sections.push(calls);
     assert!(registered(&more)
         .unwrap_err()
         .contains("exactly the import survey"));
@@ -77,8 +86,11 @@ fn only_the_python_survey_with_its_routes_may_state_an_interface() {
     use archkeel_facts::envelope::ProfileLimits;
     let routes = crate::features::ROUTES_FEATURE.to_owned();
     let stated = |profile: Profile, features: Vec<String>, symbols: LimitSupport| {
-        let mut facts = survey_facts();
-        facts.profile = profile;
+        let sections: &[&str] = match profile {
+            Profile::Python => &["imports", "symbols", "unknowns"],
+            _ => &["imports", "unknowns"],
+        };
+        let mut facts = survey_of(profile, sections);
         facts.capabilities.resolution_features = features;
         facts.profile_limits = Some(ProfileLimits {
             dependency_symbols: symbols,

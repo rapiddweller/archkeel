@@ -8,6 +8,8 @@ such a link has no target on `main`. The files are in the Git history before tha
 | Decision | Title |
 |---|---|
 | AD-528 | [A leading `types` directive is a type-only edge to its package, or a named gap](ad-528-a-leading-types-directive-is-a-type-only-edge-to-its-package.md) |
+| AD-522 | [ArchKeel shows one system verdict, built from its parts (interim)](ad-522-archkeel-shows-one-system-verdict-built-from-its-two-self-runs.md) |
+| AD-518 | [The Python collector writes the symbol declarations that it binds once](ad-518-the-python-collector-writes-the-symbol-declarations-that-it-binds-once.md) |
 | AD-516 | [A trait impl in a third module gives a pair gap in Rust](ad-516-a-trait-impl-in-a-third-module-gives-a-pair-gap-in-rust.md) |
 | AD-512 | [The core compares the symbol part of a UML target when the run needs it](ad-512-the-core-compares-the-symbol-part-of-a-uml-target-when-the-run-needs-it.md) |
 | AD-510 | [The report page shows the exceptions first and folds the rest](ad-510-the-report-page-shows-the-exceptions-first-and-folds-the-rest.md) |

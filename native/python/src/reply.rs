@@ -6,17 +6,16 @@
 //! `imports` (`collect.collect`), with the typed records of `archkeel-facts` (AD-345).
 //!
 //! The survey is not the whole collection. The protocol says so with the capabilities of the
-//! import survey (`PYTHON_IMPORT_SURVEY_SECTIONS`): the sections `imports` and `unknowns` only,
-//! no resolution feature and no construct. The sections `symbols`, `calls`, `references`,
-//! `bindings`, `typing_signals` and `constructs` are not declared, so they are not collected, and
-//! the lists of the collection phase are empty (AD-334, AD-367). The linked path gives the same
-//! survey as a typed reply (AD-450).
+//! import survey: the sections `imports`, `unknowns` and `symbols` (AD-518), no resolution feature
+//! and no construct. The sections `calls`, `references`, `bindings`, `typing_signals` and
+//! `constructs` are not declared, so they are not collected, and the lists of the collection phase
+//! are empty (AD-334, AD-367). The linked path gives the same survey as a typed reply (AD-450).
 
 use archkeel_facts::envelope::{
     Adapter, Coverage, Evidence, Input, Profile, Provenance, Reply, Runtime,
 };
 use archkeel_facts::request::PythonRequest;
-use archkeel_facts::{GapFact, ImportFact, Record};
+use archkeel_facts::{GapFact, ImportFact, Record, SymbolFact};
 use archkeel_snapshot::Snapshot;
 use archkeel_wire::protocol::reply_version;
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
@@ -25,8 +24,9 @@ use archkeel_wire::typed::assemble;
 use crate::survey::{routes, Survey};
 use crate::{inputs, requirement};
 
-/// `PYTHON_IMPORT_SURVEY_SECTIONS`, in its order. No other section is collected.
-pub(crate) const SURVEY_SECTIONS: [&str; 2] = ["imports", "unknowns"];
+/// The sections of the survey, in their order. No other section is collected (AD-518 adds
+/// `symbols`; the 4.0.1 survey has the first two).
+pub(crate) const SURVEY_SECTIONS: [&str; 3] = ["imports", "unknowns", "symbols"];
 
 /// The version and the code digest of this binary (`archkeel-build-support`).
 pub struct Build<'a> {
@@ -72,25 +72,28 @@ pub(crate) fn typed(
 struct Records {
     imports: Vec<Record<ImportFact>>,
     unknowns: Vec<Record<GapFact>>,
+    symbols: Vec<Record<SymbolFact>>,
     coverage: Coverage,
     evidence: Vec<Evidence>,
 }
 
 impl Records {
     fn produce(self, writer: &mut impl SectionSink) -> std::io::Result<Tail> {
-        let Self {
-            imports,
-            unknowns,
-            coverage,
-            evidence,
-        } = self;
-        writer.write_typed_section::<ImportFact>(|emit| imports.iter().for_each(emit))?;
-        writer.write_typed_section::<GapFact>(|emit| unknowns.iter().for_each(emit))?;
+        writer.write_typed_section::<ImportFact>(|emit| self.imports.iter().for_each(emit))?;
+        writer.write_typed_section::<GapFact>(|emit| self.unknowns.iter().for_each(emit))?;
+        writer.write_typed_section::<SymbolFact>(|emit| self.symbols.iter().for_each(emit))?;
+        self.tail()
+    }
+
+    /// The tail of the stream: the coverage counts, the gaps and the evidence.
+    fn tail(self) -> std::io::Result<Tail> {
+        let files_read =
+            usize::try_from(self.coverage.files_read).map_err(std::io::Error::other)?;
         Ok(Tail {
-            selected_files: coverage.selected_files,
-            files_read: usize::try_from(coverage.files_read).map_err(std::io::Error::other)?,
-            gaps: coverage.gaps,
-            evidence,
+            selected_files: self.coverage.selected_files,
+            files_read,
+            gaps: self.coverage.gaps,
+            evidence: self.evidence,
         })
     }
 }
@@ -130,6 +133,7 @@ fn parts(
     let records = Records {
         imports: survey.imports,
         unknowns: survey.unknowns,
+        symbols: survey.symbols,
         coverage: survey.coverage,
         evidence: survey.evidence,
     };
