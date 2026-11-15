@@ -306,7 +306,7 @@ PLANTS: dict[str, tuple[tuple, str | None, str]] = {
 RULED = {"r2-python-dunder-import-closed"} | {name for name in PLANTS if name.startswith("r3-")}
 
 
-def project(root: Path, plant: tuple) -> Path:
+def project(root: Path, plant: tuple, rules: list[dict] | None = None) -> Path:
     configuration, files, components, target = plant
     rust = configuration == RUST
     # AD-466: the provenance file draws the component graph of the imports of component a.
@@ -320,7 +320,7 @@ def project(root: Path, plant: tuple) -> Path:
     contract = {
         "schema_version": "2.2.0",
         "components": components,
-        "rules": [] if rust else RULE,
+        "rules": [] if rust else (RULE if rules is None else rules),
         "declarations": {"uml": target},
     }
     (root / "architecture-contract.json").write_text(json.dumps(contract))

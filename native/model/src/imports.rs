@@ -46,6 +46,8 @@ pub struct Import {
     pub(crate) symbol: Option<String>,
     pub(crate) symbols_known: bool,
     pub(crate) call_form: bool,
+    pub(crate) call_by_name: bool,
+    pub(crate) unbound_type: bool,
     pub(crate) reexport_chain: Vec<String>,
     pub(crate) relative: bool,
     pub(crate) resolved: Resolved,
@@ -94,6 +96,20 @@ impl Import {
     /// it may run, or not, and it proves no use of a name of the target (AD-514, AD-520).
     pub fn call_form(&self) -> bool {
         self.call_form
+    }
+
+    /// True for a call-form import whose module the collector read as a name, with no specifier
+    /// string of the source (`importlib.import_module("m")`). Release 4.0.1 reads the import
+    /// statements of Python only, so its UML target compare does not count this call. A call with
+    /// a specifier (`import("./m")` in TypeScript) is a counted import there (AD-520).
+    pub fn call_by_name(&self) -> bool {
+        self.call_by_name
+    }
+
+    /// True for an import in type position with no bound name (`import("m").T`, `typeof
+    /// import("m")`): it proves no use of a name of the target, like a call (AD-514, AD-520).
+    pub fn unbound_type(&self) -> bool {
+        self.unbound_type
     }
 
     pub fn symbols_known(&self) -> bool {
@@ -204,6 +220,10 @@ pub(crate) fn split(facts: &Facts) -> Split {
             symbol: data.symbol.clone(),
             symbols_known: data.symbols_known,
             call_form: matches!(record.data, ImportFact::DynamicImport(_)),
+            call_by_name: matches!(record.data, ImportFact::DynamicImport(_))
+                && data.specifier.is_none(),
+            unbound_type: matches!(record.data, ImportFact::ImportType(_))
+                && data.binding.is_none(),
             reexport_chain: data.reexport_chain.clone().unwrap_or_default(),
             relative: data.relative_level != 0,
             resolved,

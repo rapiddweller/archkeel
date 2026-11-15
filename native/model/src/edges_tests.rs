@@ -29,6 +29,8 @@ fn import(id: &str, from: (&str, &str), to: (&str, &str), type_checking: bool) -
         symbol: None,
         symbols_known: true,
         call_form: false,
+        call_by_name: false,
+        unbound_type: false,
         relative: false,
         resolved: Resolved::Local,
         evidence: Vec::new(),

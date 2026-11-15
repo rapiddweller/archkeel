@@ -90,14 +90,15 @@ impl<'m> Facts<'m> {
             .collect()
     }
 
-    /// True when the reply has the resolved local import edge `source -> target` written as an
-    /// import statement. A call-form import (`importlib.import_module("m")`) is no such edge: the
-    /// UML model of release 4.0.1 holds statements only (AD-520).
+    /// True when the reply has the resolved local import edge `source -> target` that release
+    /// 4.0.1 counts. A call that names its module with no specifier (`importlib.import_module`)
+    /// is not counted there; a call with a specifier (TypeScript `import("./m")`) is (AD-520).
     pub(crate) fn has_edge(&self, source: &str, target: &str) -> bool {
-        self.edges(source, target).any(|import| !import.call_form())
+        self.edges(source, target)
+            .any(|import| !import.call_by_name())
     }
 
-    /// True when the only import edge `source -> target` is a call-form import.
+    /// True when the only import edge `source -> target` is a call that names its module.
     pub(crate) fn has_call_edge(&self, source: &str, target: &str) -> bool {
         self.edges(source, target).next().is_some() && !self.has_edge(source, target)
     }
