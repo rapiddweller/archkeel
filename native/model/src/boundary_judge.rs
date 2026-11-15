@@ -65,6 +65,21 @@ impl GapCause {
     }
 }
 
+/// One named gap: a position or an entry that syntax does not decide.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GapRow {
+    pub subject: String,
+    pub cause: GapCause,
+    pub text: String,
+}
+
+impl GapRow {
+    /// The reason of the row: the cause and the written text.
+    pub fn reason(&self) -> String {
+        format!("{}: {}", self.cause.as_str(), self.text)
+    }
+}
+
 /// One leaf that breaks the rule.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Leaf {
