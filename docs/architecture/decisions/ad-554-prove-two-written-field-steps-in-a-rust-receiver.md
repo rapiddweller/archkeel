@@ -38,3 +38,10 @@ This amends AD-535. The self-check removes two TypeScript pairs, with no violati
 together. Different chains, opaque attributes, gated typed parameters and field projections
 keep the gap. The scan does not infer equivalence between different conditions. The earlier
 experiment exposed module cycles; no cycle is exempted and main must measure the result.
+
+**Derive helpers.** A type with `serde` or `schemars` container attributes can be exact when
+the existing registry and namespace proof establishes that each is a helper of a known derive.
+Other attributes and unproved helpers keep the gap. Derives add items without rewriting the
+type; rustc rejects a generated inherent method duplicating the written one (E0592). Field
+projection still needs its separate field-attribute proof. The preliminary identity index does
+not use these new exact types to prove itself.

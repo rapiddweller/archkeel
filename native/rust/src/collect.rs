@@ -37,7 +37,40 @@ pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collecte
             krate.registry = crate::registry::Registry::default();
         }
     }
-    let walked = walk(&mut source, &workspace, request.excludes_test_sources());
+    let mut walked = walk(&mut source, &workspace, request.excludes_test_sources());
+    let proven: Vec<Vec<String>> = {
+        let index = index(&workspace, &walked.modules);
+        walked
+            .modules
+            .iter()
+            .map(|module| {
+                if module.scan.helper_types.is_empty() {
+                    return Vec::new();
+                }
+                let local = crate::derive_imports::Local::of(module);
+                module
+                    .scan
+                    .helper_types
+                    .iter()
+                    .filter(|(_, concerns)| {
+                        concerns.iter().all(|concern| {
+                            crate::derive_identity::proven(
+                                &workspace,
+                                &index,
+                                &local,
+                                concern,
+                                &walked.modules,
+                            )
+                        })
+                    })
+                    .map(|(name, _)| name.clone())
+                    .collect()
+            })
+            .collect()
+    };
+    for (module, names) in walked.modules.iter_mut().zip(proven) {
+        module.scan.exact_types.extend(names);
+    }
     let modules: BTreeMap<&str, &str> = walked
         .modules
         .iter()
