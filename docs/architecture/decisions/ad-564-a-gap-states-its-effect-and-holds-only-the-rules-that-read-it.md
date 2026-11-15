@@ -1,4 +1,4 @@
-# AD-560 A gap states its effect and holds only the rules that read it
+# AD-564 A gap states its effect and holds only the rules that read it
 
 **Status.** Proposed. Part of #880. It extends AD-384 (pair gaps) and AD-500 (profile limits) to each coverage gap.
 

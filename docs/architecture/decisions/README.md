@@ -9,10 +9,10 @@ such a link has no target on `main`. The files are in the Git history before tha
 |---|---|
 | AD-568 | [Narrow the typing factory proof to the statements that can replace a factory](ad-568-narrow-the-typing-factory-proof-to-the-statements-that-can-replace-a-factory.md) |
 | AD-576 | [A read of a host name that nothing writes is no gap](ad-576-a-read-of-a-host-name-that-nothing-writes-is-no-gap.md) |
+| AD-574 | [Inert door attributes keep the module import gap](ad-574-inert-door-attributes-keep-the-module-import-gap.md) |
 | AD-566 | [A call of a bare class or a builtin value type is no module](ad-566-a-call-of-a-bare-class-or-a-builtin-value-type-is-no-module.md) |
-| AD-562 | [Inert door attributes keep the module import gap](ad-562-inert-door-attributes-keep-the-module-import-gap.md) |
+| AD-564 | [A gap states its effect and holds only the rules that read it](ad-564-a-gap-states-its-effect-and-holds-only-the-rules-that-read-it.md) |
 | AD-562 | [Dart names loader tokens and relative package roots](ad-562-dart-names-loader-tokens-and-relative-package-roots.md) |
-| AD-560 | [A gap states its effect and holds only the rules that read it](ad-560-a-gap-states-its-effect-and-holds-only-the-rules-that-read-it.md) |
 | AD-560 | [A lazy import table bounds the import calls of a module `__getattr__`](ad-560-a-lazy-import-table-bounds-the-import-calls-of-a-module-getattr.md) |
 | AD-558 | [A lazy import table bounds the import calls of a module `__getattr__`](ad-558-a-lazy-import-table-bounds-the-import-calls-of-a-module-getattr.md) |
 | AD-558 | [An import counts as a use when every boundary up to the root publishes it](ad-558-an-import-counts-as-a-use-when-every-boundary-up-to-the-root-publishes-it.md) |

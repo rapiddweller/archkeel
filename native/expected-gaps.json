@@ -174,11 +174,6 @@
       "collection_gap",
       "native.archkeel_typescript_collector.collect",
       "A method call may reach the method script_dependencies of an impl block in native.archkeel_typescript_collector.collect.script_run"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_depend",
-      "A method call may reach the method behind_named_blockers of an impl block in native.archkeel_typescript_collector.script_global"
     ]
   ],
   "violations": []
