@@ -14,6 +14,7 @@
 #![deny(unreachable_pub)]
 
 mod ancestors;
+mod bind_kinds;
 mod bound_names;
 mod cited;
 mod class_data;

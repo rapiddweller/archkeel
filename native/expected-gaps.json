@@ -651,11 +651,6 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.walk",
-      "A method call may reach the method bind of an impl block in native.archkeel_typescript_collector.script_bind"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.walk",
       "A method call may reach the method count of an impl block in native.archkeel_typescript_collector.script_names"
     ],
     [
