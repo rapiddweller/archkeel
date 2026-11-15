@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 use tree_sitter::Node;
 
-use crate::bind_kinds::{owns_arguments, runtime_name, ARGUMENTS};
+use crate::bind_kinds::{is_ambient, owns_arguments, runtime_name, ARGUMENTS};
 use crate::import_bindings::ImportBinding;
 use crate::kinds::{F, K};
 use crate::scope::assignment_targets;
@@ -87,9 +87,7 @@ impl<'a, 't> Tree<'a, 't> {
             out.extend(self.field(node, F::Parameter).map(|p| (node, p)));
         }
         if matches!(kind, K::EnumDeclaration | K::InternalModule | K::Module) {
-            let ambient = self
-                .ancestors(node)
-                .any(|up| self.k(up) == K::AmbientDeclaration);
+            let ambient = is_ambient(self.ancestors(node).map(|up| self.k(up)));
             if let Some(name) = runtime_name(&self.cx, node, kind, ambient) {
                 let scope = self.ancestors(node).find(|up| is_scope(self.k(*up)));
                 out.push((scope.unwrap_or(self.root), name));

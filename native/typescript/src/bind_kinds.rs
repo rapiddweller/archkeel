@@ -32,6 +32,23 @@ pub(crate) fn owns_arguments(kind: K) -> bool {
     )
 }
 
+/// Whether a declaration lies under a `declare`. `above` gives the kinds of its ancestors, the
+/// nearest first. Only the containers of a namespace body are climbed, and only as far as a
+/// namespace nests that is read (`DEPTH`): past that the answer is yes, so a deep chain binds
+/// nothing and costs a bounded climb.
+pub(crate) fn is_ambient(above: impl Iterator<Item = K>) -> bool {
+    let limit = 3 * usize::from(DEPTH) + 3;
+    let mut seen = 0;
+    for kind in above.take(limit) {
+        match kind {
+            K::AmbientDeclaration => return true,
+            K::InternalModule | K::Module | K::StatementBlock | K::ExportStatement => seen += 1,
+            _ => return false,
+        }
+    }
+    seen == limit
+}
+
 /// The name node that an `enum` or a `namespace` binds in the scope around it, or `None` where
 /// it binds nothing. `ambient` is true under a `declare`.
 pub(crate) fn runtime_name<'t>(

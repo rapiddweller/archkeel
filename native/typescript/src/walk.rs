@@ -17,7 +17,7 @@ use crate::ancestors::{
     Entry, Shadow, ERROR_ABOVE, INSIDE_NAMESPACE, IN_FUNCTION_LIKE, IN_REBOUND_FUNCTION,
     IN_UNMODELED_BLOCK,
 };
-use crate::bind_kinds::{owns_arguments, runtime_name, ARGUMENTS};
+use crate::bind_kinds::{is_ambient, owns_arguments, runtime_name, ARGUMENTS};
 use crate::definitions::{Definition, Defs, Scopes};
 use crate::exports::{
     ambient, export_bindings, module_exports, type_exports, ExportBinding, Named, TypeExports,
@@ -314,7 +314,7 @@ impl<'a, 't> Walk<'a, 't> {
         if !matches!(kind, K::EnumDeclaration | K::InternalModule | K::Module) {
             return;
         }
-        let ambient = self.stack.iter().any(|up| up.kind == K::AmbientDeclaration);
+        let ambient = is_ambient(self.stack.iter().rev().map(|up| up.kind));
         if let Some(name) = runtime_name(&self.cx, node, kind, ambient) {
             let cx = self.cx;
             self.frames.bind_pattern(&cx, parent_frame, name);
