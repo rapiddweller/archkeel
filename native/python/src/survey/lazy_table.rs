@@ -20,6 +20,8 @@ use crate::module::Module;
 pub(super) struct Table {
     pub name: String,
     pub keys: BTreeSet<String>,
+    /// Each entry: its key and its tuple items.
+    pub entries: Vec<(String, Vec<String>)>,
     /// The strings that all entries have at each tuple position.
     pub positions: Vec<BTreeSet<String>>,
     /// The ranges of the `__spec__.parent` reads of the table.
@@ -78,6 +80,7 @@ fn table<'a>(
     let mut table = Table {
         name: name.id.to_string(),
         keys: BTreeSet::new(),
+        entries: Vec::new(),
         positions: Vec::new(),
         exempt: Vec::new(),
     };
@@ -89,13 +92,16 @@ fn table<'a>(
         let Expr::Tuple(tuple) = &item.value else {
             return None;
         };
+        let mut items = Vec::new();
         for (index, element) in tuple.elts.iter().enumerate() {
             let text = atom(element, module, count, &mut table.exempt)?;
+            items.push(text.clone());
             if table.positions.len() <= index {
                 table.positions.resize_with(index + 1, BTreeSet::new);
             }
             table.positions[index].insert(text);
         }
+        table.entries.push((key.value.to_str().to_owned(), items));
     }
     Some((table, stmt))
 }

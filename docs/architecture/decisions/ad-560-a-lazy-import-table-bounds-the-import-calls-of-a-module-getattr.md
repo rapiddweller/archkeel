@@ -38,6 +38,16 @@ superset of the real calls, so an import that Python makes is always an edge. Th
 for `pydantic` the product holds external names such as `pydantic_core.AfterValidator` and
 `__module__`. They are external facts of one package each, not project edges.
 
+**Literal tests.** A test `slot == 'x'` or `slot != 'x'` of an enclosing `if` (body and plain
+`else`, the name not bound again inside) keeps only the entries that fit it. A slot is a name
+that unpacks the entry `v = table.get(p)` of the guard; the narrowing then also applies to the
+requested name and to the other slots of that entry. Any other name only loses or keeps the
+literal. For `pydantic` this removes `__module__` and `pydantic_core.<key>`; the product of the
+sets of different slots stays (`pydantic_core.aliases`).
+
+**Layout.** The modules of the proof are siblings in `survey`, `lazy_cover` holds the type that
+`hazards` reads, and the contract names them for `ruff_python_ast` and `ruff_text_size`.
+
 **Scope.** The exemption covers the callee, its import statement, the `globals` name of a proven
 write and the `__spec__.parent` reads of the table. Every other site of the module stays a gap.
 `uses.rs` still sees the old sites, so the module keeps its opaque surface (no route through it).

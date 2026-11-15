@@ -18,8 +18,20 @@ pub(super) enum Abs {
     Keys,
     Items,
     Pos(usize),
+    /// Position `n` of an entry that a name holds (`value = table.get(key)`).
+    Slot(usize),
+    /// An entry held in a name, as the value of an unpacking.
+    Held,
     Globals,
     Other,
+}
+
+/// The abstract value of position `index` of an entry.
+fn position(abs: Abs, index: usize) -> Abs {
+    match abs {
+        Abs::Held => Abs::Slot(index),
+        _ => Abs::Pos(index),
+    }
 }
 
 /// The bindings of the names of the function.
@@ -33,6 +45,19 @@ pub(super) struct Binds<'a> {
     pub bad: bool,
 }
 
+impl<'a> Binds<'a> {
+    /// A fresh walk for a name of the table.
+    pub(super) fn new(table: &'a str) -> Self {
+        Binds {
+            table,
+            map: HashMap::new(),
+            handled: HashSet::new(),
+            entries: Vec::new(),
+            bad: false,
+        }
+    }
+}
+
 impl Binds<'_> {
     fn is_table(&self, expr: &Expr) -> bool {
         matches!(expr, Expr::Name(node) if node.id.as_str() == self.table)
@@ -40,15 +65,18 @@ impl Binds<'_> {
 
     fn bind(&mut self, target: &Expr, abs: Abs) {
         match (target, abs) {
-            (Expr::Name(node), Abs::Entry | Abs::Keys | Abs::Pos(_) | Abs::Globals) => {
+            (
+                Expr::Name(node),
+                Abs::Entry | Abs::Keys | Abs::Pos(_) | Abs::Slot(_) | Abs::Globals,
+            ) => {
                 self.map.entry(node.id.to_string()).or_default().push(abs);
                 self.handled.insert(node.start());
             }
-            (Expr::Tuple(node), Abs::Entry) => {
+            (Expr::Tuple(node), Abs::Entry | Abs::Held) => {
                 let plain = node.elts.iter().enumerate();
                 for (index, element) in plain.filter(|(_, item)| !matches!(item, Expr::Starred(_)))
                 {
-                    self.bind(element, Abs::Pos(index));
+                    self.bind(element, position(abs, index));
                 }
             }
             (Expr::Tuple(node), Abs::Items) if node.elts.len() == 2 => {
@@ -133,7 +161,7 @@ impl<'a> Visitor<'a> for Binds<'_> {
                     // An unpacking of a name that holds an entry of the table.
                     Expr::Name(name) if unpack => {
                         self.entries.push(name.id.to_string());
-                        Abs::Entry
+                        Abs::Held
                     }
                     value => self.value(value),
                 };
