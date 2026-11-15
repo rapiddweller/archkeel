@@ -135,6 +135,7 @@ pub(super) fn sites(tree: &ModModule, proof: Proof, inert: &HashSet<TextRange>) 
         proof,
         inert,
         locals: Vec::new(),
+        getattr_bound: super::bound::Bound::of(&tree.body).binds("getattr"),
     };
     walk.visit_body(&tree.body);
     walk.found
@@ -258,6 +259,8 @@ struct Walk<'i> {
     inert: &'i HashSet<TextRange>,
     /// The names that each enclosing function binds, the innermost last.
     locals: Vec<HashSet<String>>,
+    /// The module binds `getattr` itself: a call of it is no read of an attribute.
+    getattr_bound: bool,
 }
 
 impl Walk<'_> {
@@ -374,6 +377,7 @@ impl Walk<'_> {
             && (2..=3).contains(&args.len())
             && call.arguments.keywords.is_empty())
             || self.local("getattr")
+            || self.getattr_bound
             || self.bound.contains_key("getattr")
         {
             return false;
@@ -395,7 +399,7 @@ impl Walk<'_> {
 /// scope and not a comprehension variable (AD-530). A name that a `global` or `nonlocal` line
 /// names is not local.
 fn bound_in(def: &StmtFunctionDef) -> HashSet<String> {
-    super::globals_read::local_names(def)
+    super::globals_locals::local_names(def)
 }
 
 /// The first hazard on the names `origin`, `origin.a`, `origin.a.b`, ..., or a module above a

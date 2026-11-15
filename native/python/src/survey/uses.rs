@@ -53,27 +53,28 @@ struct Scan<'m> {
 }
 
 impl Scan<'_> {
-    /// True when `name` of `module` cannot be a module of the scan, nor an alias of one: a
-    /// function or a class, a constant or a display, a call of a builtin type, a copy of such a
-    /// name, or an import whose origin lies outside the scan (AD-530). Each re-export is followed
-    /// to its sole plain binder; any other binder keeps the name unknown.
+    /// True when `name` of `module` cannot be a module of the scan, nor an alias of one, nor a
+    /// container of one: a function or a class, a value that reads only inert names, or an import
+    /// whose origin lies outside the scan (AD-530). Each re-export is followed to its sole plain
+    /// binder; any other binder keeps the name unknown.
     fn inert(&self, module: &str, name: &str, depth: usize) -> bool {
         let Some(bound) = self.bounds.get(module).filter(|_| depth < 8) else {
             return false;
         };
         match bound.kind(name) {
-            Some(Kind::Callable | Kind::Value) => true,
-            Some(Kind::Builtin(builtin)) => !bound.binds(builtin),
-            Some(Kind::Alias) => bound
-                .alias(name)
-                .is_some_and(|other| self.inert(module, other, depth + 1)),
+            Some(Kind::Callable) => true,
+            Some(Kind::Value) => bound.deps(name).is_some_and(|deps| {
+                let builtins = deps.builtins.iter().all(|builtin| !bound.binds(builtin));
+                let names = deps.names.iter().all(|read| {
+                    // A name that the module does not bind is a builtin or an error.
+                    !bound.binds(read) || self.inert(module, read, depth + 1)
+                });
+                builtins && names
+            }),
             Some(Kind::Import) => match self.imports.get(&(module, name)).map(Vec::as_slice) {
-                Some([(target, symbol)]) if !self.modules.contains(target) => {
-                    // An object of a module outside the scan; the module itself is no module of
-                    // the scan either.
-                    let _ = symbol;
-                    true
-                }
+                // An object of a module outside the scan; the module itself is no module of the
+                // scan either.
+                Some([(target, _)]) if !self.modules.contains(target) => true,
                 Some([(target, Some(symbol))]) => self.inert(target, symbol, depth + 1),
                 _ => false,
             },

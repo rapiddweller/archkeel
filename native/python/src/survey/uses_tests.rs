@@ -20,6 +20,7 @@ fn named(writer: &str) -> Vec<String> {
             "import json\nfrom os import path as P\nfrom app.other import VALUE as V\n\
              NUMBER = 1\nTEXT = 'a'\nPAIR = (1, 2)\nTUPLE = tuple(PAIR)\nCOPY = NUMBER\n\
              CHAIN = V\nEXT = json.dumps\nMOD = P\nTWICE = 1\nTWICE = build()\n\
+             LISTED = [build()]\nTYPES = {int: str, list: tuple}\nKEYS = tuple(TYPES.keys())\n\
              def build(): pass\n",
         ),
         ("src/app/writer.py", writer),
@@ -119,12 +120,16 @@ fn an_imported_name_of_unknown_kind_escapes_its_module_only_when_it_may_be_a_mod
 /// scan. A name with two binders, or with a call of any other function, stays unknown.
 #[test]
 fn an_imported_name_of_inert_origin_escapes_nothing() {
-    for name in ["NUMBER", "TEXT", "PAIR", "TUPLE", "COPY", "CHAIN", "MOD"] {
+    for name in [
+        "NUMBER", "TEXT", "PAIR", "TUPLE", "COPY", "CHAIN", "MOD", "TYPES", "KEYS",
+    ] {
         let source = format!("from app.kinds import {name}\nuse({name})\n{name}.run = 1\n");
         assert!(named(&source).is_empty(), "{name}");
     }
-    // Two binders, and an attribute of a module, stay unknown.
-    for name in ["TWICE", "EXT"] {
+    // Two binders, an attribute of a module and a container of a call result: each stays unknown,
+    // because an element of the value can be a module of the scan. A container that names a
+    // module of the scan escapes that module in its own module already.
+    for name in ["TWICE", "EXT", "LISTED"] {
         let source = format!("from app.kinds import {name}\nuse({name})\n");
         assert_eq!(named(&source), ["app.kinds"], "{name}");
     }

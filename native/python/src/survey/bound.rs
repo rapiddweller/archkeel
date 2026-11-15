@@ -21,6 +21,7 @@ use ruff_text_size::{Ranged, TextSize};
 use super::binders::{
     bind_handler, bind_handler_and_pattern, bind_pattern, declared, import_bindings, Bind,
 };
+use super::value::{value_deps, Deps};
 
 /// One statement that binds a name at module scope.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,67 +39,11 @@ pub(super) enum Kind {
     Callable,
     /// An import: the name is whatever the imported name is.
     Import,
-    /// A constant, a display, a comprehension or a lambda: an object that is never a module
-    /// (AD-530).
+    /// A plain assignment of a value built only from constants, builtin constructors and names
+    /// (`value.rs`, AD-530): `Bound::deps` says what it reads.
     Value,
-    /// A call of a builtin type or function that always gives a plain object, such as
-    /// `tuple(...)`. The module must not bind the builtin name itself (AD-530).
-    Builtin(&'static str),
-    /// A plain `name = other`: the value is the value of `other` in the same module (AD-530).
-    Alias,
     /// Any other binder: the value is unknown.
     Other,
-}
-
-/// The builtins whose call always gives an instance of a builtin type, never a module.
-const BUILTIN_VALUES: [&str; 16] = [
-    "tuple",
-    "list",
-    "set",
-    "frozenset",
-    "dict",
-    "str",
-    "int",
-    "float",
-    "bool",
-    "bytes",
-    "bytearray",
-    "complex",
-    "len",
-    "sorted",
-    "repr",
-    "hash",
-];
-
-/// What the value of a plain assignment makes the name (AD-530).
-fn value_kind(value: &Expr) -> Kind {
-    match value {
-        Expr::StringLiteral(_)
-        | Expr::BytesLiteral(_)
-        | Expr::NumberLiteral(_)
-        | Expr::BooleanLiteral(_)
-        | Expr::NoneLiteral(_)
-        | Expr::EllipsisLiteral(_)
-        | Expr::FString(_)
-        | Expr::Tuple(_)
-        | Expr::List(_)
-        | Expr::Set(_)
-        | Expr::Dict(_)
-        | Expr::ListComp(_)
-        | Expr::SetComp(_)
-        | Expr::DictComp(_)
-        | Expr::Generator(_)
-        | Expr::Lambda(_) => Kind::Value,
-        Expr::Name(_) => Kind::Alias,
-        Expr::Call(call) => match &*call.func {
-            Expr::Name(name) => BUILTIN_VALUES
-                .iter()
-                .find(|builtin| **builtin == name.id.as_str())
-                .map_or(Kind::Other, |builtin| Kind::Builtin(builtin)),
-            _ => Kind::Other,
-        },
-        _ => Kind::Other,
-    }
 }
 
 /// The module-scope binders of one module body.
@@ -107,8 +52,8 @@ pub(super) struct Bound {
     sites: HashMap<String, Vec<Site>>,
     /// Names that a function of the module declares `global` (a write binds the module name).
     globals: HashSet<String>,
-    /// The name of the value of each plain `name = other` (AD-530).
-    aliases: HashMap<String, String>,
+    /// What the value of each plain `name = value` reads (AD-530).
+    values: HashMap<String, Deps>,
     /// A star import binds names that cannot be listed.
     pub(super) opaque: bool,
     /// A top-level `__getattr__` can give any attribute.
@@ -145,9 +90,9 @@ impl Bound {
         }
     }
 
-    /// The name that the sole plain binder of `name` copies (`name = other`), if it is one.
-    pub(super) fn alias(&self, name: &str) -> Option<&str> {
-        self.aliases.get(name).map(String::as_str)
+    /// What the value of the sole plain binder of `name` reads, when that binder is a `Value`.
+    pub(super) fn deps(&self, name: &str) -> Option<&Deps> {
+        self.values.get(name)
     }
 
     /// True when a statement of the module scope binds `name` at any depth, or the body can bind
@@ -225,23 +170,24 @@ impl Walk {
         self.scope -= 1;
     }
 
-    /// A target of a plain assignment: a name binds, with the name that it copies; any other
-    /// target is read as an expression. Only a sole plain binder reads the copied name.
-    fn assigned<'a>(
-        &mut self,
-        target: &'a Expr,
-        (start, kind): (TextSize, Kind),
-        value: Option<&Expr>,
-    ) where
+    /// A target of a plain assignment: a name binds, as a `Value` when the value reads only
+    /// constants, builtins and names; any other target is read as an expression.
+    fn assigned<'a>(&mut self, target: &'a Expr, start: TextSize, value: Option<&Expr>)
+    where
         Self: Visitor<'a>,
     {
         let Expr::Name(name) = target else {
             return self.visit_expr(target);
         };
+        let deps = value.and_then(value_deps);
+        let kind = if deps.is_some() {
+            Kind::Value
+        } else {
+            Kind::Other
+        };
         self.site(name.id.as_str(), start, true, kind);
-        if let (0, Some(Expr::Name(other))) = (self.scope, value) {
-            let (name, other) = (name.id.to_string(), other.id.to_string());
-            self.bound.aliases.insert(name, other);
+        if let (0, Some(deps)) = (self.scope, deps) {
+            self.bound.values.insert(name.id.to_string(), deps);
         }
     }
 
@@ -287,16 +233,13 @@ impl<'a> Visitor<'a> for Walk {
                 self.bound.getattr |= self.bound.globals.contains("__getattr__");
             }
             Stmt::Assign(node) => {
-                let kind = value_kind(&node.value);
                 for target in &node.targets {
-                    self.assigned(target, (start, kind), Some(&node.value));
+                    self.assigned(target, start, Some(&node.value));
                 }
                 self.visit_expr(&node.value);
             }
             Stmt::AnnAssign(node) => {
-                let value = node.value.as_deref();
-                let kind = value.map_or(Kind::Other, value_kind);
-                self.assigned(&node.target, (start, kind), value);
+                self.assigned(&node.target, start, node.value.as_deref());
                 self.visit_expr(&node.annotation);
                 node.value.iter().for_each(|value| self.visit_expr(value));
             }
