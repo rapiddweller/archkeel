@@ -532,9 +532,11 @@ The crate reads, writes and binds an amendment (`policy::parse_amendment`, `poli
 
 The baseline codec reads schemas 1.0.0 through 1.3.0 and writes 1.3.0 ([AD-386](architecture/decisions/ad-386-the-contract-crate-reads-and-writes-baselines.md)). It keeps every entry and the permissive Python string rules. It refuses repeated JSON keys, lone surrogates, numbers outside its integer range, nesting deeper than 128 and files over 16 MiB. No command uses it yet.
 
-The API list of `tools/rust_api.py` reads a declaration macro once, in its template. The
-contract types that `record!`, `text_type!`, `closed_enum!` and `rules!` build are not in the
-lists of `native/api_baseline.json`. Two `pub fn` of the same name in two `impl` blocks of one
+The API list of `tools/rust_api.py` expands the `macro_rules!` calls of a crate before it counts
+(`tools/rust_macros.py`, [#1048](https://github.com/rapiddweller/archkeel/issues/1048)). A call that
+it cannot expand, an exported macro and a name with two definitions are lines `unexpanded` in
+`native/api_baseline.json`. A macro of another crate, of the standard library, and a proc macro
+(attribute or derive) are not expanded. Two `pub fn` of the same name in two `impl` blocks of one
 file are two equal lines, so a move between the two blocks does not show (AD-382).
 
 The system-access test of the core side (AD-382) is a text scan. It does not see an access
