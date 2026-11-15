@@ -390,31 +390,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_rust_collector.collect",
-      "A method call may reach the method check_extracted of an impl block in native.archkeel_rust_collector.edges_extracted"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.collect",
-      "A method call may reach the method declared of an impl block in native.archkeel_rust_collector.declared"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.collect",
-      "A method call may reach the method impl_members of an impl block in native.archkeel_rust_collector.impl_edges"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.collect",
-      "A method call may reach the method macro_calls of an impl block in native.archkeel_rust_collector.module_edges"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.collect",
-      "A method call may reach the method module of an impl block in native.archkeel_rust_collector.edges"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_rust_collector.declared",
       "A method call may reach the method at of an impl block in native.archkeel_facts.envelope.build"
     ],

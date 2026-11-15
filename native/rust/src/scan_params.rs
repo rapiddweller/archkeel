@@ -65,11 +65,12 @@ pub(super) fn generic_name(param: &GenericParam) -> Option<String> {
 
 /// The parameters of one `fn` that have a proof, by name.
 #[derive(Debug, Default)]
-pub(super) struct Params(BTreeMap<String, OnSelf>);
+pub(super) struct Params(BTreeMap<String, (OnSelf, Option<(usize, usize)>)>);
 
 impl Params {
-    pub(super) fn get(&self, name: &str) -> Option<&OnSelf> {
-        self.0.get(name)
+    pub(super) fn get(&self, name: &str, at: (usize, usize)) -> Option<&OnSelf> {
+        let (found, after) = self.0.get(name)?;
+        after.is_none_or(|after| at > after).then_some(found)
     }
 }
 
@@ -245,8 +246,55 @@ pub(super) fn read(
                 kind: Some(kind),
                 macros: bound.macros.iter().cloned().collect(),
             };
-            found.insert(name, on_self);
+            found.insert(name, (on_self, None));
         }
     }
+    read_locals(block, &bound, &hidden, scope, &mut found);
     Params(found)
+}
+
+/// Read only top-level initialized locals; their binding begins after the complete statement.
+fn read_locals(
+    block: &syn::Block,
+    bound: &Bound,
+    hidden: &BTreeSet<String>,
+    scope: &[String],
+    found: &mut BTreeMap<String, (OnSelf, Option<(usize, usize)>)>,
+) {
+    for statement in &block.stmts {
+        let syn::Stmt::Local(local) = statement else {
+            continue;
+        };
+        let Pat::Type(pattern) = &local.pat else {
+            continue;
+        };
+        let Pat::Ident(ident) = &*pattern.pat else {
+            continue;
+        };
+        let Some((path, kind)) = typed(&pattern.ty) else {
+            continue;
+        };
+        let name = plain(&ident.ident);
+        let first = path.first();
+        if local.init.is_none()
+            || ident.by_ref.is_some()
+            || ident.subpat.is_some()
+            || !ident.attrs.is_empty()
+            || !pattern.attrs.is_empty()
+            || bound.counts.get(&name) != Some(&1)
+            || bound.tainted.contains(&name)
+            || first.is_some_and(|name| hidden.contains(name) || bound.counts.contains_key(name))
+        {
+            continue;
+        }
+        let end = local.semi_token.spans[0].end();
+        let on_self = OnSelf {
+            name: name.clone(),
+            path,
+            scope: scope.to_vec(),
+            kind: Some(kind),
+            macros: bound.macros.iter().cloned().collect(),
+        };
+        found.insert(name, (on_self, Some((end.line, end.column))));
+    }
 }

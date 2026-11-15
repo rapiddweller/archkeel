@@ -210,6 +210,82 @@ def test_a_call_on_a_typed_parameter_is_an_edge(
     assert verdict == "FAIL", claims(result)
 
 
+@pytest.mark.parametrize(
+    "binding",
+    ["let s: &crate::c::S = input;", "let mut s: &crate::c::S = input;"],
+)
+def test_a_written_local_type_proves_a_receiver(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], binding: str
+) -> None:
+    files = _plant(f"pub fn f(input: &crate::c::S) -> u8 {{\n    {binding}\n    s.m(1)\n}}\n")
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "FAIL", claims(result)
+
+
+def test_a_written_unique_local_type_proves_a_unique_receiver(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    files = _plant(
+        "pub fn f(input: &mut crate::c::S) -> u8 {\n"
+        "    let s: &mut crate::c::S = input;\n    s.m(1)\n}\n",
+        b=UNIQUE,
+    )
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "FAIL", claims(result)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "let s: &crate::c::S = input; let s = s; s.m(1)",
+        "let s: &crate::c::S = input; let f = |s: &crate::c::S| s.m(1); f(s)",
+        "let s: &crate::c::S = input; assert!(s.m(1) > 0); 1",
+        "let s: &&crate::c::S = &input; s.m(1)",
+        "let s: &crate::c::S = input; #[cfg(unix)] let _n = 1; s.m(1)",
+        "let s: &crate::c::S = input; matches!(s, _); s.m(1)",
+        "{ let s: &crate::c::S = input; s.m(1) }",
+        "let _ = s.m(1); let s: &crate::c::S = input; 1",
+        "let s: &crate::c::S = { let _ = s.m(1); input }; 1",
+    ],
+)
+def test_an_unproved_local_type_keeps_the_gap(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], body: str
+) -> None:
+    files = _plant(f"pub fn f(input: &crate::c::S) -> u8 {{\n    {body}\n}}\n")
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "UNKNOWN", claims(result)
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        _plant(
+            "type Alias = crate::c::S;\npub fn f(input: &Alias) -> u8 {\n"
+            "    let s: &Alias = input; s.m(1)\n}\n"
+        ),
+        _plant(
+            "use crate::c::S;\npub fn f<S: crate::c::Tr>(input: &S) -> u8 {\n"
+            "    let s: &S = input; s.m(1)\n}\n"
+        ),
+        _plant(
+            "pub fn f(input: &mut crate::c::S) -> u8 {\n"
+            "    let s: &mut crate::c::S = input; s.m(1)\n}\n"
+        ),
+        _plant(
+            "pub fn f(input: &crate::c::S) -> u8 {\n    let s: &crate::c::S = input; s.m(1)\n}\n",
+            c=TYPES + "impl std::ops::Deref for S { type Target = u8; "
+            "fn deref(&self) -> &u8 { &1 } }\n",
+        ),
+    ],
+    ids=["alias", "generic", "receiver-form", "deref"],
+)
+def test_a_local_with_an_unproved_type_keeps_the_gap(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], files: dict[str, str]
+) -> None:
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "UNKNOWN", claims(result)
+
+
 def test_a_conditional_lint_keeps_the_forbidden_edge(
     tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

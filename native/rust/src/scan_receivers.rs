@@ -233,7 +233,11 @@ impl Selves {
         match frame {
             Some(Frame::Method(on_self, _, _)) if name == "self" => on_self.clone(),
             Some(Frame::Method(_, _, found) | Frame::Opaque(found)) if name != "self" => {
-                found.get(&plain(name)).filter(|_| !self.gated()).cloned()
+                let at = name.span().start();
+                found
+                    .get(&plain(name), (at.line, at.column))
+                    .filter(|_| !self.gated())
+                    .cloned()
             }
             _ => None,
         }
