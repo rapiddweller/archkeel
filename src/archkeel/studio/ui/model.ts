@@ -108,12 +108,12 @@ function indexLinks(graph: Graph): { outgoing: Link[][]; incoming: Link[][] } {
 }
 
 /** The distinct function pairs behind a line, a resolved call first. */
-export function pairs(model: Model, flow: Flow): { source: number; target: number; partial: boolean; line: number }[] {
-  const found = new Map<string, { source: number; target: number; partial: boolean; line: number }>();
+export function pairs(model: Model, flow: Flow): { caller: number; target: number; partial: boolean; line: number }[] {
+  const found = new Map<string, { caller: number; target: number; partial: boolean; line: number }>();
   for (const index of flow.edges) {
     const [source, target, partial, line] = model.graph.edges[index];
     const key = `${source}:${target}`;
-    if (better(found.get(key), { partial })) found.set(key, { source, target, partial, line });
+    if (better(found.get(key), { partial })) found.set(key, { caller: source, target, partial, line });
   }
   return [...found.values()];
 }

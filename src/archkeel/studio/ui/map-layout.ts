@@ -2,7 +2,7 @@
 import { cardHeight } from "./measure";
 import type { Model, Tally } from "./model";
 
-export const MAP_CARD = { width: 250, height: 96, gapX: 210, gapY: 30, left: 40, top: 70 } as const;
+export const MAP_CARD = { width: 250, height: 96, gapX: 210, gapY: 30, left: 40, marginTop: 70 } as const;
 
 const STRONG_SHARE = 0.06;
 const LABEL_SHARE = 0.12;
@@ -110,14 +110,14 @@ export function layoutMap(model: Model): MapLayout {
     column.forEach((component, row) => rank.set(component, row));
   });
   const tallest = Math.max(...columns.map((column) => column.length));
-  const { width, gapX, gapY, left, top } = MAP_CARD;
+  const { width, gapX, gapY, left, marginTop } = MAP_CARD;
   // A card is as tall as its longest component name needs; the three facts are one line each.
   const height = Math.max(MAP_CARD.height, ...model.graph.components.map(([id]) => cardHeight(width, id, ["x".repeat(30), "x".repeat(34), "x".repeat(34), ""])));
   const positions: (readonly [number, number])[] = new Array(count);
   columns.forEach((column, level) => {
     const offset = ((tallest - column.length) * (height + gapY)) / 2;
     column.forEach((component, row) => {
-      positions[component] = [left + level * (width + gapX), top + offset + row * (height + gapY)];
+      positions[component] = [left + level * (width + gapX), marginTop + offset + row * (height + gapY)];
     });
   });
   const strongest = Math.max(1, ...model.flows.map((flow) => flow.proven + flow.partial));

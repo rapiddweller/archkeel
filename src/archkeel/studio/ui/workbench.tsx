@@ -328,7 +328,7 @@ export function LevelCanvas(props: {
   const names = (stub: LevelStub): string[] => {
     const other = connected.find((item) => item.other === stubKey(stub.side, stub.ref));
     if (other === undefined) return [];
-    return [...new Set(other.link.pairs.map((pair) => props.fnName(stub.side === Side.In ? pair.source : pair.target)))];
+    return [...new Set(other.link.pairs.map((pair) => props.fnName(stub.side === Side.In ? pair.caller : pair.target)))];
   };
   const calm = quiet();
   const hover = (key: string) => ({
@@ -611,7 +611,7 @@ export function focusRows(
     tally: link,
     neighbor: false,
     items: link.pairs.map((pair) => {
-      const symbol = outgoing ? pair.target : pair.source;
+      const symbol = outgoing ? pair.target : pair.caller;
       return {
         name: shortName(model, symbol),
         href: viewHref(View.Explore, symbol),

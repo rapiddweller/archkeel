@@ -7,7 +7,7 @@ export const STORY = {
   gap: 14,
   card: { width: 250, height: 48 },
   row: 64,
-  top: 92,
+  marginTop: 92,
   external: 200,
 } as const;
 
@@ -55,7 +55,7 @@ export function layoutStory(checked: CheckedStory): StoryLayout {
   });
   const systems = [...new Set(steps.flatMap((step) => step.external.filter((item) => item.touched).map((item) => item.system)))];
   const centre = (lane: number): number => lane * (STORY.lane + STORY.gap) + STORY.lane / 2;
-  let top: number = STORY.top;
+  let top: number = STORY.marginTop;
   const cards = steps.map((step, index): StoryCard => {
     const height = Math.max(STORY.card.height, cardHeight(STORY.card.width, step.label, ["✓ proven · module_name.py"]));
     const card = { x: centre(laneOf[index]) - STORY.card.width / 2, y: top, lane: laneOf[index], height };
