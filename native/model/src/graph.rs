@@ -22,6 +22,7 @@ use crate::edges::{self, Edge, Level};
 use crate::ids::{Id, ModuleId, PackageId, Table};
 use crate::imports::{self, Import};
 use crate::modules::{self, Module, Package};
+use crate::needs::Needs;
 use crate::observed::{self, Observed};
 use crate::reason::Reason;
 use crate::settings::Settings;
@@ -45,13 +46,30 @@ pub struct Graph {
     observed: Observed,
     builtins: Vec<String>,
     constructs: Constructs,
+    /// The symbol table, when a need of the run reads it (AD-512).
+    symbols: Option<crate::symbols::Symbols>,
 }
 
 impl Graph {
     /// Derive the reply part of a model from a validated reply and the settings of the shell.
     pub fn derive(reply: &Ingested, settings: Settings) -> Result<Graph, Reason> {
+        Self::derive_for(reply, settings, &Needs::default())
+    }
+
+    /// Derive the reply part for a run with `needs`: a need that reads the symbols adds the
+    /// symbol table (AD-512), when the collector of the profile states symbol facts. Without a need,
+    /// the reply part is the same as `derive` gives.
+    pub fn derive_for(
+        reply: &Ingested,
+        settings: Settings,
+        needs: &Needs,
+    ) -> Result<Graph, Reason> {
         let facts = admitted(reply, &settings)?;
-        Self::from_facts(facts, settings)
+        let mut graph = Self::from_facts(facts, settings)?;
+        if needs.symbols() && graph.observed.symbol_facts {
+            graph.symbols = Some(crate::symbol_table::derive(facts, &graph.modules));
+        }
+        Ok(graph)
     }
 
     fn from_facts(facts: &Facts, settings: Settings) -> Result<Graph, Reason> {
@@ -84,6 +102,7 @@ impl Graph {
             observed: observed::observed(facts),
             builtins: builtins(facts),
             constructs: Constructs::derive(facts)?,
+            symbols: None,
         })
     }
 
@@ -155,6 +174,11 @@ impl Graph {
     /// The original construct inventory and actual named owners of the reply.
     pub(crate) fn constructs(&self) -> &Constructs {
         &self.constructs
+    }
+
+    /// The symbol table, when a need of the run reads it (AD-512).
+    pub(crate) fn symbols(&self) -> Option<&crate::symbols::Symbols> {
+        self.symbols.as_ref()
     }
 
     /// What the reply says about its own scope (slice S4).

@@ -805,6 +805,7 @@
       "role": "component",
       "packages": [
         "native.archkeel_typescript_collector.sites",
+        "native.archkeel_typescript_collector.site_local",
         "native.archkeel_typescript_collector.site_names",
         "native.archkeel_typescript_collector.site_paths",
         "native.archkeel_typescript_collector.site_syntax",
@@ -1422,7 +1423,8 @@
         "native.archkeel_rust_collector.tree",
         "native.archkeel_rust_collector.modules",
         "native.archkeel_rust_collector.resolve",
-        "native.archkeel_rust_collector.derive_identity"
+        "native.archkeel_rust_collector.derive_identity",
+        "native.archkeel_rust_collector.derive_imports"
       ],
       "responsibilities": [
         "Build the module tree of a crate and resolve a path to a module."
@@ -2319,6 +2321,7 @@
         "native.archkeel_typescript_collector.constructors",
         "native.archkeel_typescript_collector.layout",
         "native.archkeel_typescript_collector.sites",
+        "native.archkeel_typescript_collector.site_local",
         "native.archkeel_typescript_collector.site_names",
         "native.archkeel_typescript_collector.site_paths",
         "native.archkeel_typescript_collector.site_syntax",
@@ -2395,6 +2398,7 @@
         "native.archkeel_typescript_collector.constructors",
         "native.archkeel_typescript_collector.layout",
         "native.archkeel_typescript_collector.sites",
+        "native.archkeel_typescript_collector.site_local",
         "native.archkeel_typescript_collector.site_names",
         "native.archkeel_typescript_collector.site_paths",
         "native.archkeel_typescript_collector.site_syntax",
@@ -2542,7 +2546,7 @@
         "native.archkeel_python_collector.survey.literal",
         "native.archkeel_python_collector.survey.package_body",
         "native.archkeel_python_collector.survey.bound",
-        "native.archkeel_python_collector.survey.writes"
+        "native.archkeel_python_collector.survey.uses"
       ],
       "rationale": "Only the parse modules, the tree readers of the survey, the CPython view of the tree, the expression text and the definition table of the Python collector read the tree of the Python parser; discovery, naming and the entry read owned values.",
       "provenance": [

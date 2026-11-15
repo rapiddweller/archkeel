@@ -28,6 +28,18 @@ struct Site {
     /// The statement is directly in the module body: no `if`, `try`, `for`, `with` or `match`.
     plain: bool,
     start: TextSize,
+    kind: Kind,
+}
+
+/// What the statement of a site binds the name to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Kind {
+    /// A `def` or a `class`: the name is a function or a class, never a module.
+    Callable,
+    /// An import: the name is whatever the imported name is.
+    Import,
+    /// Any other binder: the value is unknown.
+    Other,
 }
 
 /// The module-scope binders of one module body.
@@ -57,6 +69,19 @@ impl Bound {
             && self.sites.get(name).is_some_and(
                 |sites| matches!(sites.as_slice(), [only] if only.plain && only.start == start),
             )
+    }
+
+    /// What the one plain statement that binds `name` makes it, or `None` when the name has no
+    /// sole plain binder.
+    pub(super) fn kind(&self, name: &str) -> Option<Kind> {
+        let sites = self
+            .sites
+            .get(name)
+            .filter(|_| !self.opaque && !self.globals.contains(name))?;
+        match sites.as_slice() {
+            [only] if only.plain => Some(only.kind),
+            _ => None,
+        }
     }
 
     /// Each name that a statement of the module scope, or a `global` declaration, binds.
@@ -93,10 +118,14 @@ struct Walk {
 }
 
 impl Walk {
-    fn site(&mut self, name: &str, start: TextSize, plain: bool) {
+    fn site(&mut self, name: &str, start: TextSize, plain: bool, kind: Kind) {
         if self.scope == 0 {
+            if name == "__getattr__" {
+                // Any binder of `__getattr__` opens the package: every name of it is ambiguous.
+                self.bound.getattr = true;
+            }
             let plain = plain && self.depth == 0;
-            let site = Site { plain, start };
+            let site = Site { plain, start, kind };
             self.bound
                 .sites
                 .entry(name.to_owned())
@@ -114,11 +143,18 @@ impl Walk {
         self.bound.opaque |= star && self.scope == 0;
     }
 
+    /// The body of a definition: the names of its statements bind in a scope of their own.
+    fn body_scope<'a>(&mut self, body: &'a [Stmt])
+    where
+        Self: Visitor<'a>,
+    {
+        self.scope += 1;
+        self.visit_body(body);
+        self.scope -= 1;
+    }
+
     fn definition(&mut self, name: &str, start: TextSize) {
-        self.site(name, start, true);
-        if self.scope == 0 && self.depth == 0 && name == "__getattr__" {
-            self.bound.getattr = true;
-        }
+        self.site(name, start, true, Kind::Callable);
     }
 }
 
@@ -128,30 +164,40 @@ impl<'a> Visitor<'a> for Walk {
         match stmt {
             Stmt::FunctionDef(node) => {
                 self.definition(node.name.as_str(), start);
-                self.scope += 1;
-                visitor::walk_stmt(self, stmt);
-                self.scope -= 1;
+                // The decorators, the defaults, the annotations run in the enclosing scope.
+                node.decorator_list
+                    .iter()
+                    .for_each(|item| self.visit_decorator(item));
+                self.visit_parameters(&node.parameters);
+                node.returns.iter().for_each(|item| self.visit_expr(item));
+                self.body_scope(&node.body);
             }
             Stmt::ClassDef(node) => {
                 self.definition(node.name.as_str(), start);
-                self.scope += 1;
-                visitor::walk_stmt(self, stmt);
-                self.scope -= 1;
+                // The decorators, the base classes and the keywords run in the enclosing scope.
+                node.decorator_list
+                    .iter()
+                    .for_each(|item| self.visit_decorator(item));
+                node.arguments
+                    .iter()
+                    .for_each(|item| self.visit_arguments(item));
+                self.body_scope(&node.body);
             }
             Stmt::Import(_) | Stmt::ImportFrom(_) => {
                 self.star(stmt);
                 for name in import_bindings(stmt) {
-                    self.site(&name, start, true);
+                    self.site(&name, start, true, Kind::Import);
                 }
             }
             Stmt::Global(_) | Stmt::Nonlocal(_) => {
                 let names = declared(stmt).iter().map(|name| name.to_string());
                 self.bound.globals.extend(names);
+                self.bound.getattr |= self.bound.globals.contains("__getattr__");
             }
             Stmt::Assign(node) => {
                 for target in &node.targets {
                     match target {
-                        Expr::Name(name) => self.site(name.id.as_str(), start, true),
+                        Expr::Name(name) => self.site(name.id.as_str(), start, true, Kind::Other),
                         other => self.visit_expr(other),
                     }
                 }
@@ -159,7 +205,7 @@ impl<'a> Visitor<'a> for Walk {
             }
             Stmt::AnnAssign(node) => {
                 match &*node.target {
-                    Expr::Name(name) => self.site(name.id.as_str(), start, true),
+                    Expr::Name(name) => self.site(name.id.as_str(), start, true, Kind::Other),
                     other => self.visit_expr(other),
                 }
                 self.visit_expr(&node.annotation);
@@ -182,20 +228,26 @@ impl<'a> Visitor<'a> for Walk {
     fn visit_expr(&mut self, expr: &'a Expr) {
         if let Expr::Name(node) = expr {
             if matches!(node.ctx, ExprContext::Store | ExprContext::Del) {
-                self.site(node.id.as_str(), expr.range().start(), false);
+                self.site(node.id.as_str(), expr.range().start(), false, Kind::Other);
             }
         }
         visitor::walk_expr(self, expr);
     }
 
-    fn visit_parameter(&mut self, _: &'a Parameter) {}
+    fn visit_parameter(&mut self, parameter: &'a Parameter) {
+        // The name of a parameter binds in the body, not in the module; its annotation runs here.
+        parameter
+            .annotation
+            .iter()
+            .for_each(|item| self.visit_expr(item));
+    }
 
     bind_handler_and_pattern!();
 }
 
 impl<'a> Bind<'a> for Walk {
     fn bind_name(&mut self, name: &'a str) {
-        self.site(name, TextSize::default(), false);
+        self.site(name, TextSize::default(), false, Kind::Other);
     }
 }
 

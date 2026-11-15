@@ -178,12 +178,12 @@ pub(crate) fn refused_scan(reason: &str, html: bool) -> Result<Answered, String>
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{evidence_id, locations};
 
     #[test]
     fn a_contract_location_has_the_citation_and_line_of_its_settings() {
         for (bytes, line) in [(b"{}\n".as_slice(), 1), (b"\n{}\n".as_slice(), 0)] {
-            let settings = Settings::new(String::new(), String::new(), Vec::new())
+            let settings = archkeel_model::Settings::new(String::new(), String::new(), Vec::new())
                 .with_contract_source("contract.json", bytes);
             let found = locations(None, "contract.json", bytes, &settings);
             let cite = evidence_id("contract.json", line, line, 0);

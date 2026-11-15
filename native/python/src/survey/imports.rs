@@ -44,7 +44,7 @@ pub(super) fn collect(
     namespace: &str,
     evidence: &mut EvidenceMap,
 ) -> (Vec<Record<ImportFact>>, Vec<Aliases>) {
-    let found = collect_all(modules, binders, namespace, evidence);
+    let found = collect_all(modules, binders, namespace, evidence, &HashSet::new());
     (found.records, found.aliases)
 }
 
@@ -66,6 +66,7 @@ pub(super) fn collect_all(
     binders: &[Binders],
     namespace: &str,
     evidence: &mut EvidenceMap,
+    written: &HashSet<String>,
 ) -> Collected {
     let names: HashSet<&str> = modules.iter().map(|module| module.name.as_str()).collect();
     // AD-450: a dotted prefix of a module is a package directory, also without `__init__.py`.
@@ -91,6 +92,7 @@ pub(super) fn collect_all(
             binders,
             bound: &bound,
             sole: &mut sole,
+            written,
             unique: binders.unique(),
             names: &names,
             directories: &directories,
@@ -131,7 +133,7 @@ pub(super) fn literal_records(
         HashMap::new(),
     );
     let (mut records, mut aliases, mut ambiguous) = (Vec::new(), Aliases::new(), HashSet::new());
-    let (bound, mut sole) = (Bound::default(), HashSet::new());
+    let (bound, mut sole, no_writes) = (Bound::default(), HashSet::new(), HashSet::new());
     for (index, range, target) in sites {
         let (module, binders) = (&modules[*index], &binders[*index]);
         let mut collector = Collector {
@@ -139,6 +141,7 @@ pub(super) fn literal_records(
             binders,
             bound: &bound,
             sole: &mut sole,
+            written: &no_writes,
             unique: HashSet::new(),
             names: &names,
             directories: &directories,
@@ -198,6 +201,8 @@ struct Collector<'m, 'e> {
     binders: &'m Binders,
     bound: &'m Bound,
     sole: &'e mut HashSet<String>,
+    /// The modules that a use of a module binding may change (`uses.rs`).
+    written: &'m HashSet<String>,
     unique: HashSet<String>,
     names: &'m HashSet<&'m str>,
     directories: &'m HashSet<&'m str>,
@@ -332,7 +337,8 @@ impl Collector<'_, '_> {
                 .open
                 .get(anchor.as_str())
                 .is_some_and(|own| !own.contains(&submodule));
-            let ambiguous = exists && (shadowed || open);
+            let written = self.written.contains(anchor.as_str());
+            let ambiguous = exists && (shadowed || open || written);
             let binding = alias.asname.as_ref().map_or(name, |a| a.as_str());
             let target = if local {
                 submodule.clone()

@@ -42,8 +42,8 @@ mod package_body;
 pub(crate) mod routes;
 mod stable;
 mod targets;
+mod uses;
 mod walks;
-mod writes;
 
 pub(crate) struct Survey {
     pub files: Vec<FileFact>,
@@ -115,7 +115,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .map(|module| Binders::of(&module.tree))
         .collect();
     let mut evidence = EvidenceMap::new();
-    let collected = imports::collect_all(modules, &binders, namespace, &mut evidence);
+    let (collected, written) = collect(modules, &binders, namespace, &mut evidence);
     let (mut imports, aliases) = (collected.records, collected.aliases);
     let sole_binders = collected.sole;
     let ambiguous = collected.ambiguous.clone();
@@ -139,7 +139,8 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .filter(|(_, binders)| binders.all_unread)
         .map(|(module, _)| module.name.clone())
         .collect();
-    opaque_surface.extend(writes::written(modules, &imports));
+    opaque_surface.extend(written);
+    opaque_surface.extend(uses::escaped(modules, &imports));
     let files: Vec<FileFact> = modules
         .iter()
         .zip(&binders)
@@ -195,6 +196,22 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
             .filter(|input| selected.contains(input.path.as_str()))
             .collect(),
     })
+}
+
+/// The import records, after a first pass that names the modules that another module may change
+/// (`uses.rs`, AD-504): such a module may bind a name of its own to a package attribute that hides
+/// a submodule, so the second pass reads the written modules.
+fn collect(
+    modules: &[Module],
+    binders: &[Binders],
+    namespace: &str,
+    evidence: &mut EvidenceMap,
+) -> (imports::Collected, HashSet<String>) {
+    let scratch = &mut EvidenceMap::new();
+    let first = imports::collect_all(modules, binders, namespace, scratch, &HashSet::new());
+    let written = uses::escaped(modules, &first.records);
+    let collected = imports::collect_all(modules, binders, namespace, evidence, &written);
+    (collected, written)
 }
 
 struct Parsed {
