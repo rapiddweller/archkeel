@@ -6,33 +6,52 @@
 
 **See what your code really does. Check it against what you decided.**
 
+ArchKeel reads your code and checks it against the boundaries you declare in a contract. It gives
+a verdict with the source evidence for each finding. No LLM is in the verdict.
+
+- **PASS**: every rule holds, with complete evidence. Exit code 0.
+- **FAIL**: the code breaks a rule. Exit code 1.
+- **UNKNOWN**: the analysis cannot decide a rule. Exit code 2. **UNKNOWN is not a pass.**
+
 [![CI](https://github.com/rapiddweller/archkeel/actions/workflows/ci.yml/badge.svg)](https://github.com/rapiddweller/archkeel/actions/workflows/ci.yml)
-[![core self-check](https://img.shields.io/endpoint?url=https://rapiddweller.github.io/archkeel/self/core-badge.json&labelColor=141414)](https://rapiddweller.github.io/archkeel/self/core.html)
-[![shell self-check](https://img.shields.io/endpoint?url=https://rapiddweller.github.io/archkeel/self/shell-badge.json&labelColor=141414)](https://rapiddweller.github.io/archkeel/self/shell.html)
-![verdict: PASS, FAIL or UNKNOWN](https://img.shields.io/badge/verdict-PASS%20%C2%B7%20FAIL%20%C2%B7%20UNKNOWN-46bfd0?labelColor=141414)
+[![ArchKeel self-check](https://img.shields.io/endpoint?url=https://rapiddweller.github.io/archkeel/self/badge.json&labelColor=141414)](https://rapiddweller.github.io/archkeel/self/index.html)
 ![no LLM in the verdict](https://img.shields.io/badge/LLM%20in%20the%20verdict-none-e8805d?labelColor=141414)
 
-![engine: Rust](https://img.shields.io/badge/engine-Rust-e8805d?labelColor=141414)
-![checks Rust and TypeScript](https://img.shields.io/badge/checks-Rust%20%C2%B7%20TypeScript-46bfd0?labelColor=141414)
 [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-D97757?labelColor=141414)](#claude-code)
 [![Codex plugin](https://img.shields.io/badge/Codex-plugin-8A8A8A?labelColor=141414)](#codex)
 [![MIT](https://img.shields.io/badge/license-MIT-a8a8ab?labelColor=141414)](https://github.com/rapiddweller/archkeel/blob/main/LICENSE)
 
-**See it live.** ArchKeel checks itself, and these reports follow the current `main`:
-[the product, two parts](https://rapiddweller.github.io/archkeel/) ·
+**See it live.** ArchKeel checks itself as one system, its Python shell and its Rust core.
+The badge above is the verdict of the weakest part, and the reports follow the current `main`:
+[ArchKeel as one system](https://rapiddweller.github.io/archkeel/self/index.html) ·
 [the Rust core](https://rapiddweller.github.io/archkeel/self/core.html) ·
 [the Python shell](https://rapiddweller.github.io/archkeel/self/shell.html) ·
 [the fixture showcase](https://rapiddweller.github.io/archkeel/showcase/index.html).
-The self reports show each FAIL and each UNKNOWN row as it is. Each one has its cause pinned in the repository.
-The showcase has Python, Dart and TypeScript projects; the Rust core is the first self report. Every showcase row is UNKNOWN today: most name a gap in the contract checks, and some name a rule kind that the core does not read yet.
+Each report shows every FAIL and every UNKNOWN as the core gives it. Each cause is pinned in the repository.
+
+<p align="center">
+  <a href="https://rapiddweller.github.io/archkeel/self/index.html"><img src="docs/assets/archkeel-report.png" alt="A report of ArchKeel: the verdict card of the system, the two parts below it, and a list of the components with an exception." width="100%"></a>
+</p>
+
+*A report of ArchKeel (layout example). The live page and the badge give today's verdict.*
+
+**What each language decides today.**
+
+<!-- tiers:start -->
+Rust and TypeScript projects: each rule kind that the core has ported is decided; a rule kind without a port is UNKNOWN.
+Python and Dart projects: the rules that read the import graph are decided, and Python also decides `interface_boundary` (AD-504); a Dart cycle rule is always UNKNOWN, and every other rule of both is UNKNOWN.
+<!-- tiers:end -->
+
+See the [known limits](docs/known-limits.md).
+
+**Start.** ArchKeel needs Python 3.11+, `cargo` and a Git repository with a commit.
+
+```bash
+ARCHKEEL_BUNDLE_NATIVE=1 uv tool install git+https://github.com/rapiddweller/archkeel
+archkeel validate --root /path/to/project   # the project needs archkeel.toml and a contract
+```
 
 [Install](#install) · [Quick start](#quick-start) · [Why](#why-archkeel) · [Compared](#archkeel-floorplan-or-understand-anything) · [Features](#features) · [FAQ](#faq)
-
-ArchKeel reads your code: the parts, the imports between them and the evidence for each. You or
-your coding agent declare the boundaries you want. ArchKeel checks the code against them and
-reports forbidden imports, misplaced types and gaps in the analysis, with source evidence.
-
-The checks run on your machine and use no LLM. The agent explains and proposes; ArchKeel measures and enforces.
 
 ## Why ArchKeel?
 
@@ -60,7 +79,7 @@ their facts in different ways.
 | | **ArchKeel** | **[Floorplan](https://github.com/haydenschmitty/floorplan)** | **[Understand Anything](https://github.com/Egonex-AI/Understand-Anything)** |
 |---|---|---|---|
 | **Question** | How does our code work, which architecture do we want, and does the code keep to it? | How does the app I built work, and what should I worry about? | How does this large codebase work, down to the functions? |
-| **Where the facts come from** | Native static analysis of Rust and TypeScript, with evidence records and source lines | Scripts scan files, imports and web requests by pattern matching ("not a compiler", in its docs); the AI names and describes the parts | Deterministic scripts plus a multi-agent LLM pipeline that builds the knowledge graph |
+| **Where the facts come from** | Native static analysis of Rust, TypeScript, Python and Dart, with evidence records and source lines | Scripts scan files, imports and web requests by pattern matching ("not a compiler", in its docs); the AI names and describes the parts | Deterministic scripts plus a multi-agent LLM pipeline that builds the knowledge graph |
 | **What is unknown** | Counted and shown as `UNKNOWN` | Missed links can be added by asking the AI | Relationships can come from LLM judgment |
 | **Role of the LLM** | Explains and proposes. No part of a check or verdict uses it | Writes the architecture description and the names | Summarizes, finds relationships, writes tours |
 | **What you end with** | A declared contract with rules and verdicts, and an exit code for CI | A map, a health check, recent work | A knowledge graph, layers, guided tours |
@@ -88,7 +107,8 @@ is the only engine. The Python engine is deleted.
 
 - `archkeel validate` and `archkeel report` run through the core, as text or JSON.
   PASS exits 0, FAIL exits 1, UNKNOWN and a refusal exit 2.
-- **Rust and TypeScript projects** are supported, and the import rules of Python and Dart projects.
+- Rust, TypeScript, Python and Dart projects run through the core. What each decides: see the
+  [known limits](docs/known-limits.md#supported-projects-on-main).
 - `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
   Interactive reports, `architecture.json`, baselines and focused reports are not available.
 - `report --output PATH` writes one static HTML page; `--format json` writes the core frame instead.
@@ -164,14 +184,20 @@ locally. The agent in your harness explains and proposes; its text is a claim, n
 **Does a clean graph mean a good design?** No. `PASS` means the required rules have complete evidence
 and no decided violation. It does not prove runtime behavior or the quality of a design decision.
 
-**Which languages?** Rust and TypeScript on main, and the import rules of Python (AD-450) and Dart
-(AD-468) projects. Use archkeel 4.0.1 for the other Python and Dart rules.
+**Which languages?** Rust, TypeScript, Python and Dart run through the core. What each decides:
+
+<!-- tiers:start -->
+Rust and TypeScript projects: each rule kind that the core has ported is decided; a rule kind without a port is UNKNOWN.
+Python and Dart projects: the rules that read the import graph are decided, and Python also decides `interface_boundary` (AD-504); a Dart cycle rule is always UNKNOWN, and every other rule of both is UNKNOWN.
+<!-- tiers:end -->
+
+Use archkeel 4.0.1 for the other Python and Dart rules. See the [known limits](docs/known-limits.md).
 
 
 ## Scope and limits
 
-ArchKeel observes static Rust and TypeScript source in configured roots through native collectors.
-Python and Dart projects get PASS or FAIL only for rules that read the import graph.
+ArchKeel observes static Rust, TypeScript, Python and Dart source in configured roots through native
+collectors. What each language decides: see [the known limits](docs/known-limits.md#supported-projects-on-main).
 TypeScript records lexical UML declarations and statically bound relationships;
 ambiguous bindings and unsupported constructs remain UNKNOWN. TypeScript roots may name files or directories.
 ArchKeel does not prove runtime behavior, performance, or the quality of every design decision.
@@ -198,7 +224,7 @@ make report-gallery       # build the reports that the site shows, in test-artif
 ArchKeel checks its own Rust source (`native/archkeel.toml`) and its own Python shell
 (`docs/architecture/shell.toml`) with `make self-validate`. Each rule row is pinned with its cause
 in `native/expected-gaps.json` and `docs/architecture/target/shell-expected.json`.
-The [live reports](https://rapiddweller.github.io/archkeel/) show both results.
+`make self-validate` prints one line for the system and one line for each part. The [live reports](https://rapiddweller.github.io/archkeel/self/index.html) show the system and both parts.
 See [CONTRIBUTING.md](https://github.com/rapiddweller/archkeel/blob/main/CONTRIBUTING.md).
 
 MIT © 2026 Rapiddweller Asia Co., Ltd. Maintained by [Alexander Kell](https://github.com/ake2l).

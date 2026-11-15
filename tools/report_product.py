@@ -13,7 +13,7 @@ that the CLI wrote holds that id.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -73,6 +73,8 @@ class Part:
     engine: str = ""
     contract: str = ""
     binary: str = ""
+    commit: str = ""
+    core: str = ""
 
     @property
     def decided(self) -> bool:
@@ -144,6 +146,57 @@ def _tiles(
     return tuple(tiles)
 
 
+EXIT_STATUS = {0: "PASS", 1: "FAIL", 2: "UNKNOWN"}
+
+
+@dataclass(frozen=True)
+class Judged:
+    """What the join trusts of one envelope: the weakest of its word, rows and exit code."""
+
+    status: str
+    counts: Mapping[str, int]
+    commit: str = ""
+    core: str = ""
+
+
+def _mapping(value: object) -> Mapping[str, Any]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def judge(envelope: object) -> Judged | None:
+    """The status, counts, commit and core of an envelope, or None when it holds no status.
+
+    The word `status` is a claim. A rule row that FAILs or is UNKNOWN, or an exit code that says
+    FAIL or UNKNOWN, makes the status weaker than PASS. Any other exit code is UNKNOWN. Anything
+    that is not a mapping, and a status that is no word of the verdict, gives None.
+    """
+    if not isinstance(envelope, Mapping):
+        return None
+    word = envelope.get("status")
+    if not isinstance(word, str) or word.upper() not in ORDER:
+        return None
+    frame = _mapping(envelope.get("frame"))
+    rows = [row[1] for row in _mapping(frame.get("rules")).values() if _row_ok(row)]
+    counts = Counter(str(row).upper() for row in rows)
+    seen = [word.upper(), *(name for name in ORDER if counts.get(name))]
+    if "exit_code" in envelope:
+        code = envelope["exit_code"]
+        seen.append(EXIT_STATUS.get(code, "UNKNOWN") if isinstance(code, int) else "UNKNOWN")
+    head = _mapping(_mapping(_mapping(frame.get("self_test")).get("collect")).get("request"))
+    commit = _mapping(head.get("snapshot")).get("git_head")
+    core = frame.get("engine")
+    return Judged(
+        weakest(seen),
+        {name: counts.get(name, 0) for name in STATUSES},
+        commit if isinstance(commit, str) else "",
+        core if isinstance(core, str) else "",
+    )
+
+
+def _row_ok(row: object) -> bool:
+    return isinstance(row, Sequence) and not isinstance(row, str) and len(row) >= 2
+
+
 def part_of(
     envelope: Mapping[str, Any] | None,
     entry: Mapping[str, str],
@@ -158,16 +211,16 @@ def part_of(
         "subject": entry["title"],
         "report": report,
     }
-    if envelope is None:
-        return Part(**base, error=error or "no envelope")
-    frame = envelope.get("frame") or {}
-    refusal = (envelope.get("refusal") or {}).get("message", "")
+    judged = judge(envelope)
+    if envelope is None or judged is None:
+        return Part(**base, error=error or "no result: the envelope holds no status")
+    frame = _mapping(envelope.get("frame"))
+    refusal = _mapping(envelope.get("refusal")).get("message", "")
     if refusal:
-        return Part(**base, status=envelope["status"], refusal=refusal)
+        return Part(**base, status=judged.status, refusal=str(refusal))
     topology = frame.get("topology") or {}
     names = {c["id"]: c["name"] for c in topology.get("components", [])}
     owner = {m["name"]: m["component"] for m in topology.get("modules", [])}
-    counts = Counter(row[1] for row in frame.get("rules", {}).values())
     places, total = _places(frame, owner, names)
     failing: dict[str, int] = {}
     for place in places:
@@ -185,8 +238,10 @@ def part_of(
     engine = str(frame.get("engine", ""))
     return Part(
         **base,
-        status=envelope["status"],
-        counts={name: counts.get(name, 0) for name in STATUSES},
+        status=judged.status,
+        counts=dict(judged.counts),
+        commit=judged.commit,
+        core=judged.core,
         components=len(names),
         modules=int(topology.get("total", {}).get("modules", len(owner))),
         failing=len(failing),
@@ -203,26 +258,79 @@ def part_of(
 
 @dataclass(frozen=True)
 class Contract:
-    """One other own contract of ArchKeel: one line with its verdict and its rule counts."""
+    """One run of an own contract of ArchKeel: one line with its verdict and its rule counts."""
 
     title: str
     status: str = ""
     counts: Mapping[str, int] = field(default_factory=dict)
     error: str = ""
+    commit: str = ""
+    core: str = ""
+
+    @property
+    def decided(self) -> bool:
+        return bool(self.status) and not self.error
 
 
-def contract_of(envelope: Mapping[str, Any] | None, title: str, error: str = "") -> Contract:
-    """The line of a contract run. A run without a result or with a refusal has no counts."""
-    if envelope is None:
-        return Contract(title, error=error or "no envelope")
-    if envelope.get("refusal"):
+def contract_of(envelope: object, title: str, error: str = "") -> Contract:
+    """The line of a contract run. A run without a valid result or with a refusal has no counts."""
+    judged = judge(envelope)
+    if judged is None:
+        return Contract(title, error=error or "no result: the envelope holds no status")
+    if _mapping(_mapping(envelope).get("refusal")):
         return Contract(title, error="refused")
-    rows = (envelope.get("frame") or {}).get("rules", {})
-    counts = Counter(row[1] for row in rows.values())
-    return Contract(title, envelope["status"], {name: counts.get(name, 0) for name in STATUSES})
+    return Contract(title, judged.status, judged.counts, "", judged.commit, judged.core)
 
 
-def worst(parts: Sequence[Part]) -> str:
-    """The worst status among the parts. It is a heading word, not a joint verdict."""
-    seen = {part.status for part in parts if part.decided}
-    return next((s for s in ("FAIL", "UNKNOWN", "PASS") if s in seen), "UNKNOWN")
+# ArchKeel as one system. One scan has one profile, so each part is one run (AD-478); the verdict
+# of the system is the weakest verdict of its parts. Interim: this ordering is the only one outside
+# the core, and it is deleted with the system contract (AD-522), where the core joins the parts.
+ORDER = ("FAIL", "UNKNOWN", "PASS")
+
+
+def weakest(statuses: Iterable[str]) -> str:
+    """FAIL before UNKNOWN before PASS. An unknown word, or no part at all, is UNKNOWN."""
+    seen = {status if status in ORDER else "UNKNOWN" for status in statuses} or {"UNKNOWN"}
+    return next(status for status in ORDER if status in seen)
+
+
+def summed(counts: Iterable[Mapping[str, int]]) -> dict[str, int]:
+    """The rule counts of the parts added up, by PASS, FAIL and UNKNOWN."""
+    rows = list(counts)
+    return {name: sum(row.get(name, 0) for row in rows) for name in STATUSES}
+
+
+@dataclass(frozen=True)
+class Verdict:
+    """The verdict of the system: the weakest status, the counts added up and the cause, if any."""
+
+    status: str
+    counts: Mapping[str, int]
+    cause: str = ""
+
+
+def system(items: Sequence[Part | Contract]) -> Verdict:
+    """Join the parts. A part without a result is UNKNOWN. Parts from different commits, or run with
+    different cores, are UNKNOWN too, whatever each says: they do not describe one system."""
+    statuses = [item.status if item.decided else "UNKNOWN" for item in items]
+    causes = []
+    if len({item.commit for item in items if item.decided and item.commit}) > 1:
+        causes.append("parts are from different commits")
+    if len({item.core for item in items if item.decided and item.core}) > 1:
+        causes.append("parts ran with different cores")
+    statuses += ["UNKNOWN"] * len(causes)
+    counts = summed(item.counts for item in items if item.decided)
+    return Verdict(weakest(statuses), counts, "; ".join(causes))
+
+
+def worst(parts: Sequence[Part | Contract]) -> str:
+    """The verdict of the system: the weakest of its parts (see `system`)."""
+    return system(parts).status
+
+
+def system_line(name: str, items: Sequence[Part | Contract]) -> str:
+    """The one line that `make self-validate` shows for the system."""
+    verdict = system(items)
+    words = " · ".join(f"{verdict.counts[name]} {name}" for name in STATUSES)
+    cause = f" ({verdict.cause})" if verdict.cause else ""
+    return f"{name}: {verdict.status}: {words}{cause}"

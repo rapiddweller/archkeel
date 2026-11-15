@@ -1,0 +1,10 @@
+{
+  "schema_version": "archkeel-system-contract-1",
+  "kind": "system",
+  "title": "ArchKeel",
+  "parts": [
+    {"id": "shell", "title": "Python shell", "config": "docs/architecture/shell.toml"},
+    {"id": "core", "title": "Rust core", "config": "native/archkeel.toml"}
+  ],
+  "rules": []
+}
