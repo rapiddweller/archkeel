@@ -62,11 +62,13 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   or class attribute that one plain statement binds once; a second binder (`if`, `try`, `for`,
   `with`, `del`, `global`, walrus, `match`, star import), a decorator other than the builtin
   `staticmethod` or `classmethod`, a keyword or an unproven base, a hazard site or a write from
-  another module gives no record, so the name is absent (UNKNOWN). A module-level value, a function
-  inside a function and a text other than a name, a dotted name, `None`, `True` or `False` in an
-  annotation or a default give none. Open: a local `self` that holds a class, a write from a C
-  extension or through `globals()` of another module, and a member that a base `__init_subclass__`
-  adds. Every Python member list is `partial`. A target
+  another module gives no record, so the name is absent (UNKNOWN). A class that a base which may be
+  a class writes to (`type.__setattr__`, `cls.x = v`, `self` of a metaclass), or whose name is
+  passed, stored or returned, keeps no member. A bare annotation, a value that is no literal and
+  a mangled `__x` are no attribute. A module-level value, a function inside a function and a
+  text other than a name, a dotted name, `None`, `True` or `False` in an annotation or a default
+  give none. Open: a write from a C extension or through `globals()` of another module.
+  Every Python member list is `partial`. A target
   in an inside contract and an external import target keep it UNKNOWN too. A target that 4.0.1
   passes with symbol facts (H-uml, H-uml-dart) exits 2. A FAIL for a conflict, a missing base or an
   extra element of a closed scope is true whatever the coverage, so it stays in an incomplete run.
