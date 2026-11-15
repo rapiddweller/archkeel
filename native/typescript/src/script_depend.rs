@@ -197,7 +197,7 @@ impl<'a, 'p> Run<'a, 'p> {
             specifier: first.to_owned(),
             reason: reason.clone(),
         });
-        if self.behind_named_blockers(first, publishers) {
+        if Self::behind_named_blockers(self, first, publishers) {
             self.sink.blocked.push((first.to_owned(), evidence));
         } else {
             self.sink.gap(&reason, &[evidence], &module);

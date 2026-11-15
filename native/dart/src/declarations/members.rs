@@ -59,7 +59,7 @@ impl Assembly {
                     None,
                     true,
                     None,
-                    Visibility::of(literal),
+                    Visibility::from_name(literal),
                 )?);
             }
         }

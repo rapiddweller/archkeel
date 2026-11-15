@@ -126,6 +126,30 @@ fn the_inputs_are_sorted_by_path_also_after_pubspec_yaml() {
 }
 
 #[test]
+fn listing_digest_keeps_the_json_key_order_and_escaping() {
+    let inputs = vec![
+        Input {
+            path: "lib/\"a.dart".to_owned(),
+            digest: "abc\\def".to_owned(),
+            role: Role::Selected,
+        },
+        Input {
+            path: "pubspec.yaml".to_owned(),
+            digest: "123".to_owned(),
+            role: Role::Resolution,
+        },
+    ];
+    let old: String = inputs
+        .iter()
+        .map(|input| {
+            json!({"path": input.path, "digest": input.digest, "role": input.role.as_str()})
+                .to_string()
+        })
+        .collect();
+    assert_eq!(listing_digest(&inputs), sha256_hex(old.as_bytes()));
+}
+
+#[test]
 fn a_syntax_error_removes_the_file_fact_and_gives_a_gap_at_the_first_error() {
     let sources = vec![
         source("lib/a.dart", "shop.a", "class A {}\n"),

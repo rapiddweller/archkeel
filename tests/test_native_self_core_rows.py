@@ -47,12 +47,10 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     assert len(core) == 84
     # No rule names a part of the scope proof: each one has a decision.
     assert result["gaps"] == []
-    assert Counter(core.values()) == {"PASS": 63, "UNKNOWN": 21}
-    # No rule fails: the cycle rule is UNKNOWN, not PASS, while the scope has gaps.
-    assert (code, result["status"], frame["status"]) == (2, "UNKNOWN", "UNKNOWN")
+    assert Counter(core.values()) == {"PASS": 84}
+    assert (code, result["status"], frame["status"]) == (0, "PASS", "PASS")
     assert set(frame["unknown_kinds"]) == {r for r, status in core.items() if status == "UNKNOWN"}
-    kept = "incomplete scope: 14 gaps between two modules that the contract"
-    assert frame["scope"].startswith(kept), frame["scope"]
+    assert frame["scope"] == "complete"
 
 
 # Review B2 and B3 of #1121: `core` reaches the collector crates only through `archkeel_collect`.

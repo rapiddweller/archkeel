@@ -16,10 +16,10 @@ use ruff_python_ast::{
 
 use crate::pyast::{bool_op, cmp_op, operator, unary_op};
 
+use super::hazard::string_failure;
 use super::literal;
-use super::outcome::{Prec, TextFailure as Failure};
+use super::outcome::{Prec, TextFailure as Failure, MAX_DEPTH};
 use super::writer::Writer;
-use super::{string_failure, MAX_DEPTH};
 
 /// `binop_precedence`, keyed by the text of the operator as in CPython.
 fn binary_precedence(text: &str) -> Prec {

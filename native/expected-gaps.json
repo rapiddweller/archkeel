@@ -2,30 +2,30 @@
   "name": "native",
   "rules": {
     "NATIVE-ASSIGNMENT-COMPLETE": "PASS",
-    "NATIVE-EXTERNAL-CC": "UNKNOWN",
-    "NATIVE-EXTERNAL-COMPLETE": "UNKNOWN",
-    "NATIVE-EXTERNAL-FLATE2": "UNKNOWN",
-    "NATIVE-EXTERNAL-PROC-MACRO2": "UNKNOWN",
-    "NATIVE-EXTERNAL-RUFF-PYTHON-AST": "UNKNOWN",
-    "NATIVE-EXTERNAL-RUFF-PYTHON-PARSER": "UNKNOWN",
-    "NATIVE-EXTERNAL-RUFF-TEXT-SIZE": "UNKNOWN",
-    "NATIVE-EXTERNAL-SAPHYR": "UNKNOWN",
-    "NATIVE-EXTERNAL-SCHEMARS": "UNKNOWN",
-    "NATIVE-EXTERNAL-SERDE": "UNKNOWN",
-    "NATIVE-EXTERNAL-SERDE-JSON": "UNKNOWN",
-    "NATIVE-EXTERNAL-SHA2": "UNKNOWN",
-    "NATIVE-EXTERNAL-SYN": "UNKNOWN",
-    "NATIVE-EXTERNAL-TOML": "UNKNOWN",
-    "NATIVE-EXTERNAL-TREE-SITTER": "UNKNOWN",
-    "NATIVE-EXTERNAL-TREE-SITTER-LANGUAGE": "UNKNOWN",
-    "NATIVE-EXTERNAL-TREE-SITTER-TYPESCRIPT": "UNKNOWN",
-    "NATIVE-EXTERNAL-UNICODE-IDENT": "UNKNOWN",
+    "NATIVE-EXTERNAL-CC": "PASS",
+    "NATIVE-EXTERNAL-COMPLETE": "PASS",
+    "NATIVE-EXTERNAL-FLATE2": "PASS",
+    "NATIVE-EXTERNAL-PROC-MACRO2": "PASS",
+    "NATIVE-EXTERNAL-RUFF-PYTHON-AST": "PASS",
+    "NATIVE-EXTERNAL-RUFF-PYTHON-PARSER": "PASS",
+    "NATIVE-EXTERNAL-RUFF-TEXT-SIZE": "PASS",
+    "NATIVE-EXTERNAL-SAPHYR": "PASS",
+    "NATIVE-EXTERNAL-SCHEMARS": "PASS",
+    "NATIVE-EXTERNAL-SERDE": "PASS",
+    "NATIVE-EXTERNAL-SERDE-JSON": "PASS",
+    "NATIVE-EXTERNAL-SHA2": "PASS",
+    "NATIVE-EXTERNAL-SYN": "PASS",
+    "NATIVE-EXTERNAL-TOML": "PASS",
+    "NATIVE-EXTERNAL-TREE-SITTER": "PASS",
+    "NATIVE-EXTERNAL-TREE-SITTER-LANGUAGE": "PASS",
+    "NATIVE-EXTERNAL-TREE-SITTER-TYPESCRIPT": "PASS",
+    "NATIVE-EXTERNAL-UNICODE-IDENT": "PASS",
     "NATIVE-NO-COLLECT-TO-CONTRACT": "PASS",
     "NATIVE-NO-COLLECT-TO-CORE": "PASS",
     "NATIVE-NO-COLLECT-TO-EVAL": "PASS",
     "NATIVE-NO-COLLECT-TO-MODEL": "PASS",
     "NATIVE-NO-COLLECT-TO-REPORT": "PASS",
-    "NATIVE-NO-COMPONENT-CYCLES": "UNKNOWN",
+    "NATIVE-NO-COMPONENT-CYCLES": "PASS",
     "NATIVE-NO-CONTRACT-TO-CORE": "PASS",
     "NATIVE-NO-CONTRACT-TO-EVAL": "PASS",
     "NATIVE-NO-CONTRACT-TO-MODEL": "PASS",
@@ -49,7 +49,7 @@
     "NATIVE-NO-MODEL-TO-REPORT": "PASS",
     "NATIVE-NO-MODEL-TO-RUST": "PASS",
     "NATIVE-NO-MODEL-TO-TYPESCRIPT": "PASS",
-    "NATIVE-NO-MODULE-CYCLES": "UNKNOWN",
+    "NATIVE-NO-MODULE-CYCLES": "PASS",
     "NATIVE-NO-PYTHON-TO-COLLECT": "PASS",
     "NATIVE-NO-PYTHON-TO-CORE": "PASS",
     "NATIVE-NO-PYTHON-TO-EVAL": "PASS",
@@ -84,102 +84,9 @@
     "NATIVE-PY-TREE-NO-UNPARSE": "PASS",
     "NATIVE-PY-UNPARSE-NO-SURVEY": "PASS",
     "NATIVE-PY-UNPARSE-NO-SYMBOLS": "PASS",
-    "NATIVE-REQUIRES-COMPLETE": "UNKNOWN"
+    "NATIVE-REQUIRES-COMPLETE": "PASS"
   },
-  "unknown": {
-    "NATIVE-EXTERNAL-CC": "scope_incomplete",
-    "NATIVE-EXTERNAL-COMPLETE": "scope_incomplete",
-    "NATIVE-EXTERNAL-FLATE2": "scope_incomplete",
-    "NATIVE-EXTERNAL-PROC-MACRO2": "scope_incomplete",
-    "NATIVE-EXTERNAL-RUFF-PYTHON-AST": "scope_incomplete",
-    "NATIVE-EXTERNAL-RUFF-PYTHON-PARSER": "scope_incomplete",
-    "NATIVE-EXTERNAL-RUFF-TEXT-SIZE": "scope_incomplete",
-    "NATIVE-EXTERNAL-SAPHYR": "scope_incomplete",
-    "NATIVE-EXTERNAL-SCHEMARS": "scope_incomplete",
-    "NATIVE-EXTERNAL-SERDE": "scope_incomplete",
-    "NATIVE-EXTERNAL-SERDE-JSON": "scope_incomplete",
-    "NATIVE-EXTERNAL-SHA2": "scope_incomplete",
-    "NATIVE-EXTERNAL-SYN": "scope_incomplete",
-    "NATIVE-EXTERNAL-TOML": "scope_incomplete",
-    "NATIVE-EXTERNAL-TREE-SITTER": "scope_incomplete",
-    "NATIVE-EXTERNAL-TREE-SITTER-LANGUAGE": "scope_incomplete",
-    "NATIVE-EXTERNAL-TREE-SITTER-TYPESCRIPT": "scope_incomplete",
-    "NATIVE-EXTERNAL-UNICODE-IDENT": "scope_incomplete",
-    "NATIVE-NO-COMPONENT-CYCLES": "scope_incomplete",
-    "NATIVE-NO-MODULE-CYCLES": "scope_incomplete",
-    "NATIVE-REQUIRES-COMPLETE": "scope_incomplete"
-  },
-  "gaps": [
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.bin_archkeel_dart_collector",
-      "A method call may reach the method run of an impl block in native.archkeel_dart_collector.declarations"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.collection",
-      "A method call may reach the method run of an impl block in native.archkeel_dart_collector.declarations"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.collection.imports",
-      "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.collection.sites",
-      "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.collection.sites",
-      "A method call may reach the method scope of an impl block in native.archkeel_dart_collector.collection.targets"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.declarations.members",
-      "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.dump",
-      "A method call may reach the method open_root of an impl block in native.archkeel_snapshot.snapshot.listing"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.records",
-      "A method call may reach the method at of an impl block in native.archkeel_facts.gap"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.records",
-      "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.syntax",
-      "A method call may reach the method of of an impl block in native.archkeel_facts.envelope.build"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_python_collector.unparse",
-      "A method call may reach the method expr of an impl block in native.archkeel_python_collector.unparse.expr"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.symbols",
-      "A method call may reach the method declared of an impl block in native.archkeel_rust_collector.declared"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.collect",
-      "A method call may reach the method script_dependencies of an impl block in native.archkeel_typescript_collector.collect.script_run"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_depend",
-      "A method call may reach the method behind_named_blockers of an impl block in native.archkeel_typescript_collector.script_global"
-    ]
-  ],
+  "unknown": {},
+  "gaps": [],
   "violations": []
 }

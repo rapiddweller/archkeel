@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-578 | [Make the remaining self-check calls explicit](ad-578-make-the-remaining-self-check-calls-explicit.md) |
 | AD-566 | [A call of a bare class or a builtin value type is no module](ad-566-a-call-of-a-bare-class-or-a-builtin-value-type-is-no-module.md) |
 | AD-562 | [Inert door attributes keep the module import gap](ad-562-inert-door-attributes-keep-the-module-import-gap.md) |
 | AD-562 | [Dart names loader tokens and relative package roots](ad-562-dart-names-loader-tokens-and-relative-package-roots.md) |
