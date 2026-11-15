@@ -2,10 +2,11 @@
 
 This Flutter fixture models one shop journey: load a three-item catalog, add products, edit a cart, place an order, then list and open orders. It uses Flutter widgets, ChangeNotifier, a deterministic async backend, and an in-memory cache. Offline catalog and order reads use cached values; failed checkout preserves the cart for retry. It has no HTTP server, durable database, payments, auth, plugins, or generated app code. Run `make flutter-demo-check` from the repository root to fetch SDK packages, format-check, analyze, run widget tests, and build the web app under `test-artifacts/flutter-demo/web`.
 
-Replay the unchanged Target through the ordinary architecture command:
+Check the unchanged Target with the core, from the repository root:
 
 ```sh
-make demo-architecture VARIANT=flutter-shop OUTPUT=build/flutter-shop.json
+mkdir -p build
+archkeel report --root fixtures/I-flutter-shop --output build/flutter-shop.html
 ```
 
 `make flutter-demo-check` verifies Dart analysis, Flutter widget tests, and a web build. It does not verify Android/iOS device behavior or native plugin integration.

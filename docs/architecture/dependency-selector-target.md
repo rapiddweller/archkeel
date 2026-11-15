@@ -4,13 +4,10 @@ Issue #541 adds bounded, independently authored API intent to
 the IR Target. Its dependency declarations express the
 intended API directly; they are not generated from observations.
 
-The `dependency-policy` component owns `archkeel.ir.dependency`: the
-`SelectorMatch` and `DependencyTargetKind` enums, immutable
-`DependencyOwner`, `ModuleSelection`, `DependencySelection` and `DependencySelector`,
-the `ComponentOwnership` alias and the shared `module_in_ownership`
-primitive. These eight named exports are its public surface. Importing another
-name through that module, including a name it imports for its own use, crosses
-the interface boundary.
+The module `archkeel.ir.dependency` that this record names is deleted with the Python engine. The
+selector types and the wire grammar are owned today by the `contract` component of `native/`
+(`native/contract/src/model.rs` and `native/contract/src/dependency.rs`); see
+[dependency selection](dependency-selection.md). The rest of this page is the record of issue #541.
 
 `DependencyOwner(identity, modules)` gives the policy API a named ownership input.
 The identity is an opaque caller-provided key; it may be a label or identifier and
