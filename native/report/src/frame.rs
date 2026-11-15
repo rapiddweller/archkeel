@@ -422,7 +422,8 @@ fn run_pass(outcome: &RunOutcome, models: Option<&ModelTree>) -> Result<RunPass,
             RuleDecision::Decided(decision) => Some(decision),
             RuleDecision::Declaration => None,
         });
-    models.ok_or(None)?.pass_run(decisions).map_err(Some)
+    let tree: &ModelTree = models.ok_or(None)?;
+    tree.pass_run(decisions).map_err(Some)
 }
 
 fn refusal(found: Vec<Problem>) -> BuildError {
