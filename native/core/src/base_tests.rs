@@ -8,8 +8,10 @@
 use serde_json::{json, Value};
 
 use super::BASE;
-use crate::check::{answer, CODE_DIGEST, PRODUCER_NOT_VERIFIED};
+use crate::check::answer;
+use crate::dual_run::CODE_DIGEST;
 use crate::engine::tests::golden_reply_with;
+use crate::scan::PRODUCER_NOT_VERIFIED;
 
 /// A contract without rules: the run of the frozen reply passes with a complete scope.
 const NO_RULES: &str = r#"{"schema_version": "2.2.0", "components": [], "rules": []}"#;

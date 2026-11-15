@@ -18,6 +18,7 @@ pub(crate) enum Request {
     /// The root contract at its path and the inside contracts that the shell read (AD-379).
     Contract(ContractInput),
     /// The compressed collector reply (protocol 8 or 9), with the decompressed size limit.
+    #[cfg(any(test, feature = "harness"))]
     Ingest { reply: Vec<u8>, inflate_limit: u64 },
     /// The reply of the collector that the core ran in its own process (AD-406): already
     /// validated by the store through its typed door, or why there is none.
@@ -46,6 +47,7 @@ impl std::fmt::Debug for Collected {
 
 /// The sections of their names. A name outside the schema and a repeated name are refused by
 /// name before any row is built: a repeated name would build the same rows again (AD-374).
+#[cfg(any(test, feature = "harness"))]
 pub(crate) fn sections(names: &[String]) -> Result<Vec<Section>, String> {
     let mut found: Vec<Section> = Vec::with_capacity(names.len());
     for name in names {
