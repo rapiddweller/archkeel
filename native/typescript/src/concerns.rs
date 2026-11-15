@@ -9,7 +9,7 @@
 use tree_sitter::Node;
 
 use crate::jsdoc;
-use crate::references::{literal, Reference};
+use crate::references::{literal, Form, Reference};
 use crate::scan::Scan;
 use crate::source::{Source, Span};
 use crate::source_input::{Reach, SourceKind, Suffix};
@@ -100,6 +100,47 @@ fn require_concerns(source: &Source, scan: &Scan, list: &mut Vec<Concern>) -> bo
     shadows
 }
 
+/// Triple-slash directives count only before the first statement of the file.
+fn leading_end(source: &Source, root: Node) -> usize {
+    crate::tree::nodes::children(root)
+        .into_iter()
+        .find(|child| !matches!(child.kind(), "comment" | "hash_bang_line"))
+        .map_or(source.data.len(), |child| child.start_byte())
+}
+
+/// The leading `/// <reference types="name" />` directives that name a plain package (#686): a
+/// type-only reference to it, at the place of the comment. A directive after the first statement is
+/// ignored by the compiler and by this reader. A file that the parser had to repair gives none:
+/// its syntax error is already a gap.
+pub(crate) fn type_directives(
+    source: &Source,
+    root: Node,
+    scan: &Scan,
+    type_roots: bool,
+) -> Vec<Reference> {
+    if root.has_error() || type_roots {
+        return Vec::new();
+    }
+    let first = leading_end(source, root);
+    let directive = |node: Node| {
+        let name = jsdoc::types_directive(&source.text(node))?;
+        Some(Reference {
+            form: Form::ImportType,
+            specifier: Some(name),
+            type_only: true,
+            module_level: false,
+            mode_override: false,
+            span: source.span(node, None),
+        })
+    };
+    let before = scan
+        .comments
+        .iter()
+        .copied()
+        .filter(|n| n.start_byte() < first);
+    before.filter_map(directive).collect()
+}
+
 fn comment_concerns(
     source: &Source,
     root: Node,
@@ -113,11 +154,7 @@ fn comment_concerns(
         suffix.and_then(Suffix::source_kind),
         Some(SourceKind::TypeScript | SourceKind::Declaration)
     );
-    // Triple-slash directives count only before the first statement of the file.
-    let first = crate::tree::nodes::children(root)
-        .into_iter()
-        .find(|child| !matches!(child.kind(), "comment" | "hash_bang_line"))
-        .map_or(source.data.len(), |child| child.start_byte());
+    let first = leading_end(source, root);
     for node in scan.comments.iter().copied() {
         let body = source.text(node);
         let directive = if node.start_byte() < first {

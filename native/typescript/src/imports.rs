@@ -8,6 +8,7 @@
 //! setting that is not observed, a target that no rule covers.
 
 use crate::collection::{Collection, GapKind};
+use crate::installed::in_node_modules;
 use crate::kept::Kept;
 use crate::kept_script::ScriptFile;
 use crate::manifest::Lookup;
@@ -16,7 +17,7 @@ use crate::parse::{parse_for, Parsed};
 use crate::plant;
 use crate::references::Form;
 use crate::resolve::format_of;
-use crate::source_input::{classify_file, ModuleFormat, SourceKind};
+use crate::source_input::{classify_file, classify_specifier, ModuleFormat, SourceKind};
 
 impl Collection<'_> {
     /// Parse a file, report what it cannot prove, and record each of its references.
@@ -82,6 +83,50 @@ impl Collection<'_> {
             handled += 1;
         }
         self.check_extracted(&parsed, handled, (rel, module, file_evidence));
+        self.type_directives(&parsed, (rel, module), &format);
+    }
+
+    /// A leading `/// <reference types="name" />` (#686). The compiler reads the type package
+    /// `name`. It is a type-only edge to the installed package when the resolver proves the name in
+    /// `node_modules`. A name that reaches a project file is a named gap (the resolver is not the
+    /// compiler's type lookup). A name that is not proven (no package, no `@types` lookup, a builtin,
+    /// an unknown format) stays silent, as it was before (AD-274).
+    fn type_directives(
+        &mut self,
+        parsed: &Parsed,
+        file: (&str, &str),
+        format: &Lookup<ModuleFormat>,
+    ) {
+        let (rel, module) = file;
+        for reference in &parsed.directives {
+            let specifier = reference.specifier.as_deref().unwrap_or("");
+            let class = classify_specifier(specifier);
+            if !class.npm_package() || class.builtin() || self.resolver.blocked.is_some() {
+                continue;
+            }
+            let mode = match format {
+                Lookup::Hit(format) => Some(*format),
+                Lookup::Missing => None,
+                Lookup::Unknown(_) => continue,
+            };
+            let found = self.resolver.resolve_classified(
+                &mut self.snapshot,
+                (specifier, &class),
+                rel,
+                mode,
+                false,
+            );
+            let Lookup::Hit(found) = found else {
+                continue;
+            };
+            let evidence = self.cite(rel, &reference.span);
+            if found.external && in_node_modules(&found.path) {
+                self.import(rel, module, reference, &evidence, format);
+            } else {
+                let reason = format!("Unobserved triple-slash reference: {specifier}");
+                self.gap(&reason, Some(&evidence), module, GapKind::Collection);
+            }
+        }
     }
 
     /// The invariant of the extraction: each import-bearing node of the tree has a record or a gap.

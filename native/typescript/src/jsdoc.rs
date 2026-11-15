@@ -181,6 +181,34 @@ pub(crate) fn triple_slash(body: &str, type_roots: bool) -> Option<String> {
     found
 }
 
+/// The package name of a leading `/// <reference types="name" />` whose only attribute is `types`
+/// and whose value is a plain name: no path, no space, no backslash, no other attribute. Such a
+/// directive makes the compiler read the type package `name`, so it is a type-only reference to
+/// it (#686). Any other form (`path`, `lib`, a second attribute such as `resolution-mode`, a
+/// relative name) is not read here.
+pub(crate) fn types_directive(body: &str) -> Option<String> {
+    let rest = body
+        .strip_prefix("///")?
+        .trim_start_matches(is_space)
+        .strip_prefix('<')?;
+    let name_end = rest.find(|c: char| is_space(c) || c == '/' || c == '>')?;
+    if !rest.get(..name_end)?.eq_ignore_ascii_case("reference") {
+        return None;
+    }
+    let attributes = rest.get(name_end..)?;
+    let first = attributes.chars().next().filter(|c| is_space(*c))?;
+    let mut found: Vec<(&str, &str)> = Vec::new();
+    attribute_list(attributes.get(first.len_utf8()..)?, |attribute, value| {
+        found.push((attribute, value));
+    });
+    let [(attribute, value)] = found.as_slice() else {
+        return None;
+    };
+    let plain =
+        !value.is_empty() && !value.starts_with(['.', '/']) && !value.contains(['\\', ' ', '\t']);
+    (attribute.eq_ignore_ascii_case("types") && plain).then(|| (*value).to_owned())
+}
+
 /// `([^\s=]+)\s*=\s*(['"])(.*?)\2` over the text: each attribute and its quoted value, scanned
 /// from every position as `re.finditer` does. A value does not hold a line feed.
 fn attribute_list<'a>(text: &'a str, mut each: impl FnMut(&'a str, &'a str)) {
@@ -221,3 +249,7 @@ fn attribute_at(text: &str, from: usize) -> Option<(&str, &str, usize)> {
     let end = text.len() - value_text.len() + close + 1;
     Some((name, value, end))
 }
+
+#[cfg(test)]
+#[path = "jsdoc_tests.rs"]
+mod tests;
