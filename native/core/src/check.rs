@@ -98,6 +98,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         namespace: request.namespace,
         roots: request.roots,
         baseline: false,
+        accept: None,
         report: false,
         html: false,
         base,

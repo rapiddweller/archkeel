@@ -24,7 +24,7 @@ run `make core` to build the core binary first.
 
 `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` are refused with exit 2 and the
 reason `not available on this development line`. Release 4.0.1 has `check` and `init`; no release
-has the other five. Saved reports, `architecture.json`, baselines, amendments, `--component` and
+has the other five. Saved reports, `architecture.json`, amendments, `--component` and
 `--write-graph` are refused by option name. A refusal is not a result: never report PASS after one,
 and never run a refused command in a loop. Tell the owner and use release 4.0.1 when they need it.
 

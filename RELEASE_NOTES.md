@@ -87,6 +87,18 @@ native source evidence and conservative UNKNOWNs.
 
 ## Upgrade from 4.0.1
 
+**Baselines.** `archkeel validate --baseline FILE` is back, with schema 1.4.0. The file lists each
+accepted UNKNOWN by kind, subject and reason. A new UNKNOWN is red (exit 1). An accepted UNKNOWN
+that is gone is red until you write the file again with `archkeel validate --write-baseline FILE`.
+The exit code is 2 while an UNKNOWN is accepted, and 0 only when nothing is unknown. Run
+`--write-baseline` once after you upgrade, and review the file. A baseline of schema 1.3.0 is still
+read, but it accepts no UNKNOWN. The core does not compare its `calls_unresolved`, `typing_positions`
+and `untyped_private_accesses`, because it counts them differently from 4.0.1: it names them as
+`baseline.budget_of_older_schema` (exit 2). `cycle_edges` and `private_crossings` are compared.
+`--accept-new` is not available: write the file again and review the diff. A violation that a
+1.3.0 file lists for `from m import name` names `m.name` in 4.0.1 and `m` in the core, so write such a
+file again once.
+
 When the Rust core runs `validate --against` (epic #880), an amendment of schema 1.0.0 gives
 exit 2 (AD-375). Write it again as schema 2.0.0 with `archkeel validate --against <ref>
 --amendment <path> --write-amendment --decided-by <who> --rationale <why>`.

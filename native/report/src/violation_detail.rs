@@ -16,6 +16,14 @@ pub(crate) struct ViolationDetail {
 }
 
 impl ViolationDetail {
+    pub(crate) fn source(&self) -> &str {
+        &self.source
+    }
+
+    pub(crate) fn target(&self) -> Option<&str> {
+        self.target.as_deref()
+    }
+
     fn cited(cause: &'static str, cited: &Cited) -> Self {
         Self {
             source: cited.source_module.clone(),

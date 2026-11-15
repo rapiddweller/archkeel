@@ -100,7 +100,7 @@ impl<'a> Typed<'a> {
             module,
             lexical: lexical.clone(),
             member,
-            exact: block.exact && !module.gated,
+            exact: block.exact,
         }));
     }
 }
@@ -126,7 +126,7 @@ impl<'a> Typed<'a> {
     ) -> Option<(&'a Module, &str)> {
         if self.unplaced.contains(name)
             || self.trait_members.contains(name)
-            || !exact_type(index, lexical, ty)
+            || !exact_type(index, caller, lexical, ty)
         {
             return None;
         }
@@ -137,6 +137,7 @@ impl<'a> Typed<'a> {
         };
         let place = (candidate.module, candidate.lexical.as_str());
         let certain = candidate.exact
+            && same_gates(caller, candidate.module)
             && candidate.member.inert
             && certainly_visible(caller, at, place, &candidate.member.access);
         certain.then_some(place)
@@ -167,11 +168,26 @@ pub(super) fn certainly_visible(
 /// Whether the type is a struct or an enum that every configuration has as written: in a module
 /// that no attribute can remove, with only inert attributes, and the only item of its name in its
 /// file.
-fn exact_type(index: &Index<'_>, lexical: &str, ty: &str) -> bool {
+fn same_gates(caller: &Module, other: &Module) -> bool {
+    if !caller.gated && !other.gated {
+        return true;
+    }
+    caller.gated
+        && other.gated
+        && caller.crate_index == other.crate_index
+        && caller
+            .gates
+            .as_ref()
+            .is_some_and(|gates| !gates.is_empty() && other.gates.as_ref() == Some(gates))
+}
+
+fn exact_type(index: &Index<'_>, caller: &Module, lexical: &str, ty: &str) -> bool {
     let frame = index.file_of(lexical).and_then(|file| index.frame(file));
     frame.is_some_and(|frame| {
         let scan = &frame.module.scan;
-        !frame.module.gated && scan.exact_types.contains(ty) && scan.counts.get(ty) == Some(&1)
+        same_gates(caller, frame.module)
+            && scan.exact_types.contains(ty)
+            && scan.counts.get(ty) == Some(&1)
     })
 }
 
@@ -183,7 +199,7 @@ fn field_type(
     (lexical, ty, name): (&str, &str, &str),
     found: &Typed<'_>,
 ) -> Option<(String, String, SelfKind)> {
-    if !exact_type(index, lexical, ty) || found.derefs.contains(ty) {
+    if !exact_type(index, caller, lexical, ty) || found.derefs.contains(ty) {
         return None;
     }
     let frame = index.frame(index.file_of(lexical)?)?;
@@ -238,6 +254,9 @@ impl Builder {
         };
         // A parameter has a written type; the workspace must give no reason to doubt it (AD-524).
         let parameter = !matches!(on_self.name.as_str(), "self" | "Self");
+        if module.gated && (parameter || !on_self.fields.is_empty()) {
+            return false;
+        }
         let deref = on_self
             .path
             .last()
@@ -252,22 +271,24 @@ impl Builder {
         else {
             return false;
         };
-        if let Some(field) = &on_self.field {
+        let mut shared = on_self.kind == Some(SelfKind::Shared);
+        for field in &on_self.fields {
             let at = frame.lexical_at(&call.scope);
             let Some((target, name, kind)) =
                 field_type(index, module, &at, (&lexical, &ty, field), found)
             else {
                 return false;
             };
-            if kind == SelfKind::Unique && on_self.kind == Some(SelfKind::Shared) {
+            if kind == SelfKind::Unique && shared {
                 return false;
             }
+            shared |= kind == SelfKind::Shared;
             (lexical, ty) = (target, name);
             form = call.arity.map(|arity| (kind, arity));
         }
         let unplaced = found.unplaced.contains(call.name.as_str())
             || self.macro_members.contains_key(&call.name);
-        if unplaced || module.gated || !exact_type(index, &lexical, &ty) {
+        if unplaced || !exact_type(index, module, &lexical, &ty) {
             return false;
         }
         let members = found.by_type.get(&(lexical, ty)).into_iter().flatten();
@@ -278,6 +299,7 @@ impl Builder {
             let fits = form
                 .is_none_or(|(kind, arity)| c.member.kind == Some(kind) && c.member.arity == arity);
             c.exact
+                && same_gates(module, c.module)
                 && fits
                 && certainly_visible(module, &at, (c.module, &c.lexical), &c.member.access)
         };

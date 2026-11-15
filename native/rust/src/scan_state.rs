@@ -74,6 +74,7 @@ pub(crate) struct Child {
     pub test: bool,
     /// The declaration, or an inline module that holds it, may be removed by a `cfg` (AD-383).
     pub gated: bool,
+    pub gates: Option<Vec<String>>,
     pub site: Site,
 }
 

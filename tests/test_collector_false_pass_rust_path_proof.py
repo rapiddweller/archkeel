@@ -76,7 +76,11 @@ def test_a_same_crate_path_to_a_foreign_member_is_an_edge(
             id="macro-in-the-body",
         ),
         pytest.param(
-            {"a": HIDE + KEEP + "pub fn f() -> u8 {\n    let r = S::n(1);\n    hide!();\n    r\n}\n"},
+            {
+                "a": HIDE
+                + KEEP
+                + "pub fn f() -> u8 {\n    let r = S::n(1);\n    hide!();\n    r\n}\n"
+            },
             id="macro-after-the-path",
         ),
         pytest.param(
@@ -132,7 +136,9 @@ def test_a_same_crate_path_that_another_item_can_take_keeps_its_gap(
 def test_a_relative_reexport_starts_at_its_module(tmp_path: Path, release_core: Path) -> None:
     one = "pub struct S;\nimpl S {\n    pub fn m(&self) -> u8 {\n        1\n    }\n}\n"
     sources = {
-        "crates/base/src/lib.rs": "pub mod model;\nmod hop;\nmod implementation;\npub use hop::S;\n",
+        "crates/base/src/lib.rs": (
+            "pub mod model;\nmod hop;\nmod implementation;\npub use hop::S;\n"
+        ),
         "crates/base/src/model.rs": "pub struct S;\n",
         "crates/base/src/hop.rs": "mod model;\npub use model::S;\n",
         "crates/base/src/hop/model.rs": one,
