@@ -283,3 +283,53 @@ fn a_name_with_a_named_write_keeps_its_own_gap() {
     let clean = titles_of(&[("src/b.ts", "export const x = Object.keys({});\n")]);
     assert!(clean.is_empty(), "{clean:?}");
 }
+
+/// Whether the project has a gap for the free name `process`.
+fn process_gap(files: &[(&str, &str)]) -> bool {
+    titles_of(files)
+        .iter()
+        .any(|(title, _)| title.starts_with("Script global process "))
+}
+
+#[test]
+fn a_contained_read_of_a_host_name_that_nothing_writes_is_no_gap() {
+    let reads = [
+        "export const p = globalThis.process && process.env.NODE_ENV === 'production';",
+        "export const t = typeof process !== 'undefined';",
+        "export const n = !process.env.CI;",
+        "export function s() { if (process.env.A) { return 1; } return 2; }",
+        "export const q = process.env.A == 'x' ? 1 : 2;",
+    ];
+    for read in reads {
+        assert!(!process_gap(&[("src/b.ts", read)]), "a read: {read}");
+    }
+}
+
+#[test]
+fn a_use_that_calls_stores_or_passes_a_host_name_keeps_its_gap() {
+    let uses = [
+        "export function f() { process.nextTick(() => 1); }",
+        "export const p = process;",
+        "export const e = process.env.NODE_ENV || 'x';",
+        "export const e = process.env.NODE_ENV ?? 'x';",
+        "export const k = (name: string) => process.env[name] === 'x';",
+        "export function g(f: any) { f(process.env); }",
+    ];
+    for used in uses {
+        assert!(process_gap(&[("src/b.ts", used)]), "not a read: {used}");
+    }
+}
+
+#[test]
+fn a_host_name_that_a_file_writes_keeps_its_gap_for_a_read() {
+    let read = "export const t = typeof process !== 'undefined';";
+    for writer in [
+        "export const w = ((globalThis as any).process = 1);",
+        "export function w(o: any) { o.process = 1; }",
+    ] {
+        let files = [("src/b.ts", read), ("src/c.ts", writer)];
+        assert!(process_gap(&files), "a write blocks the name: {writer}");
+    }
+    let script = [("src/b.ts", read), ("src/c.ts", "window.process = {};")];
+    assert!(process_gap(&script), "a published name has a publisher");
+}

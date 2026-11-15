@@ -11,8 +11,9 @@ use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{FactId, ModuleName, PackageName};
 
-use crate::script_project::{Publisher, HOST_NAMES};
+use crate::script_project::{Publisher, HOST_NAMES, LOADER_NAMES};
 use crate::script_records::{binding, global_id, import_record, Use};
+use crate::script_scope::is_root;
 use crate::script_state::{Probe, Run};
 use crate::script_types::ScriptAlias;
 use crate::source::Span;
@@ -61,6 +62,20 @@ impl<'a, 'p> Run<'a, 'p> {
         let (rel, _) = self.project.files.get(declared.file)?;
         let free = !declared.bound_elsewhere && self.global_stable(name, publishers);
         free.then_some((*rel, declared.span))
+    }
+
+    /// A name that nothing in the project publishes, writes or binds and that this use only reads
+    /// (AD-552): it is a name of the host, no module of the scan, and the read builds no code. A
+    /// root, a loader name and a use that is called, passed, stored or keyed keep their gap.
+    fn host_read(&self, rel: &str, probe: &Probe, name: &str, publishers: &[Publisher]) -> bool {
+        let file = self.file(rel);
+        let at = (probe.span.line, probe.span.column);
+        let read = file.is_some_and(|file| file.script.script.contained_reads.contains(&at));
+        read && !is_root(name)
+            && !HOST_NAMES.contains(&name)
+            && !LOADER_NAMES.contains(&name)
+            && !self.project.bound_anywhere.contains_key(name)
+            && self.global_stable(name, publishers)
     }
 
     /// `_script_vendor_package`: the package of the one vendor that publishes the name.
@@ -121,6 +136,12 @@ impl<'a, 'p> Run<'a, 'p> {
             package = first.to_owned();
             // The declaration sits in another file, so it is a fact, not evidence of this record.
             facts.push(self.declaration_fact(declared_rel, span, first));
+        } else if self.host_read(rel, probe, first, publishers) {
+            self.sink.targets.push(Target::Builtin {
+                import_id: FactId::new(identity),
+                name: first.to_owned(),
+            });
+            package = first.to_owned();
         } else if let Some(vendor) = self.vendor_package(first, publishers) {
             self.sink.targets.push(Target::External {
                 import_id: FactId::new(identity),
