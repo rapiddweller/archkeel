@@ -484,7 +484,7 @@ def test_no_result_schema_defines_the_initial_pr_evidence() -> None:
     named = [
         path.name
         for path in sorted((ROOT / "schema").glob("command-result*.json"))
-        if re.search(r"initial_pr|initialPR", path.read_text(encoding="utf-8"))
+        if re.search(r"initial_?[pP][rR]", path.read_text(encoding="utf-8"))
     ]
 
     assert named == []
