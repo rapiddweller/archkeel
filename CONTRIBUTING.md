@@ -99,9 +99,11 @@ Each push to `main` publishes the report gallery to GitHub Pages
 ([AD-462](docs/architecture/decisions/ad-462-fixture-results-are-pinned-and-the-nightly-run-publishes-a-gallery.md)).
 The job `publish-gallery` of CI runs `make report-gallery` and deploys `test-artifacts/gallery`. It is
 not in the needs of `All checks passed`, so a Pages error never fails CI. The Pages source of the
-repository must be set to GitHub Actions. The gallery has two sections: ArchKeel on its own Rust core
-and Python shell (`self/core.html`, `self/shell.html`, with a shield endpoint file for each) and the
-fixture table. The README links these paths, so do not rename them. `fixtures/matrix.json` pins the
+repository must be set to GitHub Actions. The gallery has two sections: ArchKeel as one system
+(`self/index.html` and its shield endpoint `self/badge.json`; the weakest verdict of its two parts,
+[AD-522](docs/architecture/decisions/ad-522-archkeel-shows-one-system-verdict-built-from-its-two-self-runs.md)),
+with the reports of the Rust core and the Python shell (`self/core.html`, `self/shell.html`, with a
+shield endpoint file for each), and the fixture table. The README links these paths, so do not rename them. `fixtures/matrix.json` pins the
 result of the core for each fixture; a test fails when the result changes. Update the pin in the same change.
 The Python engine built the older gallery and its Pages workflow (`pages.yml`); AD-432 deleted both.
 The Windows wheel job builds and checks the wheel. It also runs the disk-root Rust tests and
