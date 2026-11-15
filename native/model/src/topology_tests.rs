@@ -46,11 +46,11 @@ pub(crate) fn import(id: &str, source: &str, target: &str) -> Import {
         symbol: None,
         symbols_known: true,
         call_form: false,
-        call_by_name: false,
-        unbound_type: false,
         relative: false,
         resolved: Resolved::Local,
         evidence: Vec::new(),
+        call_by_name: false,
+        unbound_type: false,
     }
 }
 

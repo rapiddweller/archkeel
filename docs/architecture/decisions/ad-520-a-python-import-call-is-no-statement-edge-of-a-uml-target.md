@@ -42,8 +42,7 @@ where 4.0.1 gives FAIL.
 call never reaches its UML model, so a declared edge met only by a call is FAIL there. 4.0.1 reads
 TypeScript with a program model in which a lazy `import("../b/t")` is a counted import, so the same
 declared edge is PASS there, and the core keeps PASS. A Dart deferred import and a Rust `use` are
-`import` records and are not changed. The measure is `/private/tmp/oracle-401` on the review plants:
-every TypeScript, Dart and Rust row equals `main`.
+`import` records and are not changed. The measure is release 4.0.1 on the review plants: every TypeScript, Dart and Rust row equals `main`.
 
 **Where the core and 4.0.1 differ after this change.** A call-form edge under a closed UML scope:
 core FAIL, 4.0.1 PASS (true edge, kept). Each other row of the table below is equal or stricter.

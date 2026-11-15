@@ -46,12 +46,12 @@ pub struct Import {
     pub(crate) symbol: Option<String>,
     pub(crate) symbols_known: bool,
     pub(crate) call_form: bool,
-    pub(crate) call_by_name: bool,
-    pub(crate) unbound_type: bool,
     pub(crate) reexport_chain: Vec<String>,
     pub(crate) relative: bool,
     pub(crate) resolved: Resolved,
     pub(crate) evidence: Vec<String>,
+    pub(crate) call_by_name: bool,
+    pub(crate) unbound_type: bool,
 }
 
 impl Import {
@@ -99,9 +99,9 @@ impl Import {
     }
 
     /// True for a call-form import whose module the collector read as a name, with no specifier
-    /// string of the source (`importlib.import_module("m")`). Release 4.0.1 reads the import
-    /// statements of Python only, so its UML target compare does not count this call. A call with
-    /// a specifier (`import("./m")` in TypeScript) is a counted import there (AD-520).
+    /// string of the source (`importlib.import_module("m")`). Release 4.0.1 reads only the import
+    /// statements of that collector, so its UML target compare does not count this call. A call
+    /// with a specifier (`import("./m")`) is a counted import there (AD-520).
     pub fn call_by_name(&self) -> bool {
         self.call_by_name
     }

@@ -92,7 +92,7 @@ impl<'m> Facts<'m> {
 
     /// True when the reply has the resolved local import edge `source -> target` that release
     /// 4.0.1 counts. A call that names its module with no specifier (`importlib.import_module`)
-    /// is not counted there; a call with a specifier (TypeScript `import("./m")`) is (AD-520).
+    /// is not counted there; a call with a specifier (`import("./m")`) is (AD-520).
     pub(crate) fn has_edge(&self, source: &str, target: &str) -> bool {
         self.edges(source, target)
             .any(|import| !import.call_by_name())
