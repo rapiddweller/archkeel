@@ -37,94 +37,20 @@ use super::literal::{self, Proof};
 use super::syspath;
 use crate::module::Module;
 
+use names::{
+    above, first_hazard, hazard, ANY_ATTRIBUTE, BUILTIN_DOORS, DOOR_STRINGS, IMPORT_FUNCTIONS,
+};
+pub(super) use names::{namespace_hazard, DYNAMIC, IMPORT_SYSTEM};
+
+#[path = "hazards_binds.rs"]
+mod binds;
+#[path = "hazards_names.rs"]
+mod names;
 #[path = "hazards_reflect.rs"]
 mod reflect;
 
-/// The named gaps of the sites.
-pub(super) const DYNAMIC: &str = "dynamic_import";
-pub(super) const IMPORT_SYSTEM: &str = "import_system_change";
 /// A proven literal import call: a static edge, not a gap (AD-472, `literal.rs`).
 pub(super) const LITERAL: &str = "literal_import";
-
-/// The doors, as one list of qualified names: a reference to one of them, or to a name below
-/// it, is a dynamic import.
-const DOORS: &str = "\
-    builtins importlib __builtins__ ctypes.pythonapi types.FunctionType types.CodeType \
-    unittest.mock.patch mock.patch pytest.importorskip sys.__dict__ pkgutil pydoc runpy imp \
-    zipimport code codeop timeit doctest marshal pickle _pickle shelve dill cloudpickle";
-
-/// Each door as one qualified name.
-fn doors() -> impl Iterator<Item = &'static str> {
-    DOORS.split_whitespace()
-}
-
-/// The state of the import system: a reference is an import-system change.
-const STATE: [&str; 6] = [
-    "site",
-    "sys.path",
-    "sys.meta_path",
-    "sys.path_hooks",
-    "sys.path_importer_cache",
-    "sys.modules",
-];
-
-/// The builtin names that are doors in any position: a plain name, the root of an attribute
-/// chain or of a subscript, a value. `globals` and `locals` reach `__builtins__`, and
-/// `breakpoint` imports the module that its hook names.
-const BUILTIN_DOORS: [&str; 10] = [
-    "__import__",
-    "exec",
-    "eval",
-    "compile",
-    "__builtins__",
-    "__loader__",
-    "__spec__",
-    "globals",
-    "locals",
-    "breakpoint",
-];
-
-/// The string values that name a door: `getattr(x, "__import__")` and `d["__builtins__"]`.
-const DOOR_STRINGS: [&str; 7] = [
-    "__import__",
-    "__builtins__",
-    "import_module",
-    "__subclasses__",
-    "__globals__",
-    "__self__",
-    "__loader__",
-];
-
-/// The names of import functions: a door as a plain name or as an attribute of any value.
-const IMPORT_FUNCTIONS: [&str; 9] = [
-    "__import__",
-    "import_module",
-    "load_module",
-    "exec_module",
-    "module_from_spec",
-    "spec_from_file_location",
-    "run_module",
-    "run_path",
-    "resolve_name",
-];
-
-/// The attributes that are hazards on any value: the attributes that reach the builtins, a
-/// loader or the importer classes (`f.__globals__`, `len.__self__`, `object.__subclasses__`),
-/// the state of the import system, and modules that another module can re-export (`os.sys`).
-const ANY_ATTRIBUTE: [&str; 12] = [
-    "__self__",
-    "__globals__",
-    "__subclasses__",
-    "__loader__",
-    "__spec__",
-    "meta_path",
-    "path_hooks",
-    "path_importer_cache",
-    "sys",
-    "builtins",
-    "importlib",
-    "__builtins__",
-];
 
 /// One site: its gap, a short text and its range.
 pub(super) struct Site {
@@ -142,7 +68,7 @@ pub(super) fn sites(
 ) -> Vec<Site> {
     let mut walk = Walk {
         found: Vec::new(),
-        bound: bindings(tree),
+        bound: binds::bindings(tree),
         uncertain_code: Bound::of(&tree.body).opaque || reflect::deleted_code(tree),
         class_body: false,
         proof,
@@ -163,117 +89,6 @@ pub(super) fn sites(
         }
     }
     walk.found
-}
-
-/// The names of a door module that cannot import a module by a name given at run time (AD-472).
-/// `importlib.metadata.version` reads the version from the metadata files of an installed
-/// distribution, and `PackageNotFoundError` is an exception class. A reference to one of these
-/// exact names is no gap; any name below it, and each other name of the module, still is.
-const INERT: [&str; 2] = [
-    "importlib.metadata.version",
-    "importlib.metadata.PackageNotFoundError",
-];
-
-/// The gap of a qualified name: a door, the import state, or a name below one of them.
-fn hazard(name: &str) -> Option<&'static str> {
-    if INERT.contains(&name) {
-        return None;
-    }
-    let under = |entry: &&str| {
-        name == *entry
-            || name
-                .strip_prefix(*entry)
-                .is_some_and(|rest| rest.starts_with('.'))
-    };
-    if STATE.iter().any(under) {
-        Some(IMPORT_SYSTEM)
-    } else if doors().any(|door| under(&door)) {
-        Some(DYNAMIC)
-    } else {
-        None
-    }
-}
-
-/// True for a module above a hazard name, such as `sys` or `importlib.metadata`.
-fn above(name: &str) -> bool {
-    let prefix = format!("{name}.");
-    doors().chain(STATE).any(|entry| entry.starts_with(&prefix))
-}
-
-/// The qualified names that the import statements of a module bind, in any scope.
-fn bindings(tree: &ModModule) -> HashMap<String, Vec<String>> {
-    struct Imports(HashMap<String, Vec<String>>);
-    impl<'a> Visitor<'a> for Imports {
-        fn visit_stmt(&mut self, stmt: &'a Stmt) {
-            for (name, origin) in bound(stmt) {
-                self.0.entry(name).or_default().push(origin);
-            }
-            visitor::walk_stmt(self, stmt);
-        }
-    }
-    let mut walk = Imports(HashMap::new());
-    walk.visit_body(&tree.body);
-    reflect::aliases(tree, &mut walk.0);
-    walk.0
-}
-
-/// The names that one import statement binds and their qualified origins. A relative import
-/// names a module of the project and binds nothing here.
-fn bound(stmt: &Stmt) -> Vec<(String, String)> {
-    match stmt {
-        Stmt::Import(node) => node
-            .names
-            .iter()
-            .map(|alias| {
-                let name = alias.name.as_str();
-                match &alias.asname {
-                    Some(asname) => (asname.to_string(), name.to_owned()),
-                    None => {
-                        let first = name.split('.').next().unwrap_or(name);
-                        (first.to_owned(), first.to_owned())
-                    }
-                }
-            })
-            .collect(),
-        Stmt::ImportFrom(node) if node.level == 0 => {
-            let module = node.module.as_ref().map_or("", |module| module.as_str());
-            node.names
-                .iter()
-                .map(|alias| {
-                    let name = alias.name.as_str();
-                    let local = alias.asname.as_ref().map_or(name, |asname| asname.as_str());
-                    (local.to_owned(), format!("{module}.{name}"))
-                })
-                .collect()
-        }
-        _ => Vec::new(),
-    }
-}
-
-/// The names that an import statement imports, as qualified names, for the door check: each
-/// module of `import a.b`, and each name of `from m import n`. A star import names its module.
-fn imported(stmt: &Stmt) -> Vec<String> {
-    match stmt {
-        // A plain `import importlib` binds the module of the accepted literal call (AD-472);
-        // each use of the name is still read. Each other import of `importlib` is a reference.
-        Stmt::Import(node) => node
-            .names
-            .iter()
-            .filter(|a| a.asname.is_some() || a.name.as_str() != "importlib")
-            .map(|a| a.name.to_string())
-            .collect(),
-        Stmt::ImportFrom(node) if node.level == 0 => {
-            let module = node.module.as_ref().map_or("", |module| module.as_str());
-            node.names
-                .iter()
-                .map(|alias| match alias.name.as_str() {
-                    "*" => module.to_owned(),
-                    name => format!("{module}.{name}"),
-                })
-                .collect()
-        }
-        _ => Vec::new(),
-    }
 }
 
 struct Walk<'i> {
@@ -439,19 +254,6 @@ fn bound_in(def: &StmtFunctionDef) -> HashSet<String> {
     super::globals_locals::local_names(def)
 }
 
-/// The first hazard on the names `origin`, `origin.a`, `origin.a.b`, ..., or a module above a
-/// hazard as the value of the whole chain.
-fn first_hazard(origin: String, attributes: &[&str]) -> Option<(&'static str, String)> {
-    let mut name = origin;
-    for attribute in attributes {
-        name = format!("{name}.{attribute}");
-        if let Some(kind) = hazard(&name) {
-            return Some((kind, name));
-        }
-    }
-    above(&name).then_some((DYNAMIC, name))
-}
-
 /// True for an attribute in a write or a delete.
 fn store(expr: &Expr) -> bool {
     matches!(expr, Expr::Attribute(node) if node.ctx != ExprContext::Load)
@@ -464,7 +266,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
         {
             self.push(DYNAMIC, "code", stmt);
         }
-        for name in imported(stmt) {
+        for name in binds::imported(stmt) {
             if name.ends_with(".code") {
                 self.push(DYNAMIC, &name, stmt);
             } else if let Some(kind) = hazard(&name) {

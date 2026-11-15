@@ -120,7 +120,7 @@ pub(super) fn escaped(modules: &[Module], imports: &[Record<ImportFact>]) -> Has
         modules: modules.iter().map(|module| module.name.as_str()).collect(),
         hazardous: sites
             .iter()
-            .filter(|(_, site)| namespace_hazard(&site.detail))
+            .filter(|(_, site)| super::hazards::namespace_hazard(&site.detail))
             .map(|(index, _)| modules[*index].name.as_str())
             .collect(),
         typing_values: HashSet::new(),
@@ -170,24 +170,6 @@ pub(super) fn escaped(modules: &[Module], imports: &[Record<ImportFact>]) -> Has
         walk.visit_body(&module.tree.body);
     }
     found
-}
-
-fn namespace_hazard(detail: &str) -> bool {
-    matches!(
-        detail,
-        "globals"
-            | "locals"
-            | "vars"
-            | "exec"
-            | "eval"
-            | "compile"
-            | "__globals__"
-            | "__builtins__"
-            | "sys.__dict__"
-    ) || detail == "builtins"
-        || detail.starts_with("builtins.")
-        || detail == "sys.modules"
-        || detail.starts_with("sys.modules.")
 }
 
 /// A typing factory that is referenced only as a factory cannot be patched by a scanned use.

@@ -177,6 +177,65 @@ REEXPORT: dict[str, Plant] = {
         "UNKNOWN",
         "app.pkg.sub",
     ),
+    # AD-530 attacks on the proof: each rebinding of the name or of its origin keeps the gap.
+    "init-star-import-brings-the-name": Plant(
+        tree(IMPORT_SUB, pkg="from ..other import *\n", other="sub = 1\n"),
+        "PASS",
+        "UNKNOWN",
+        "UNKNOWN",
+        "type:int",
+    ),
+    "init-writes-globals": Plant(
+        tree(IMPORT_SUB, pkg="globals()['sub'] = 1\n"),
+        "PASS",
+        "UNKNOWN",
+        "UNKNOWN",
+        "type:int",
+    ),
+    "inert-name-with-a-conditional-origin": Plant(
+        tree(
+            IMPORT_SUB,
+            pkg="FLAG = True\nif FLAG:\n    BASE = 1\nCOPY = BASE\n",
+            writer="from app.pkg import COPY\nprint(COPY)\n",
+        ),
+        "PASS",
+        "UNKNOWN",
+        "UNKNOWN",
+        "app.pkg.sub",
+    ),
+    "inert-name-whose-origin-is-rebound-to-a-module": Plant(
+        tree(
+            IMPORT_SUB,
+            pkg="import app.service as MOD\nBASE = 1\nCOPY = BASE\nBASE = MOD\n",
+            writer="from app.pkg import COPY\nprint(COPY)\n",
+        ),
+        "PASS",
+        "UNKNOWN",
+        "UNKNOWN",
+        "app.pkg.sub",
+    ),
+    "inert-name-of-a-star-import-of-the-package": Plant(
+        tree(
+            IMPORT_SUB,
+            pkg="from external import *\nCOPY = BASE\n",
+            writer="from app.pkg import COPY\nprint(COPY)\n",
+        ),
+        "PASS",
+        "UNKNOWN",
+        "UNKNOWN",
+        "-",
+    ),
+    "inert-name-deleted-in-the-package": Plant(
+        tree(
+            IMPORT_SUB,
+            pkg="BASE = 1\ndel BASE\nimport app.service as BASE\n",
+            writer="from app.pkg import BASE\nBASE.VALUE = 2\n",
+        ),
+        "PASS",
+        "UNKNOWN",
+        "UNKNOWN",
+        "app.pkg.sub",
+    ),
 }
 
 # Group B: a read of the globals of a function, and the two other forms of the same gap.
@@ -296,8 +355,8 @@ LOCAL: dict[str, Plant] = {
     "comprehension-variable-does-not-bind-outside": Plant(
         tree("def f(x):\n    y = [code for code in x]\n    return code.interact\n"),
         "PASS",
-        "UNKNOWN",
-        "UNKNOWN",
+        "PASS",
+        "PASS",
         "-",
     ),
     "literal-getattr-of-a-module-attribute": Plant(

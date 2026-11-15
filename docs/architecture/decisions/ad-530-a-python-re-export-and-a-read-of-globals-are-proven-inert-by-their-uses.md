@@ -13,13 +13,15 @@ stricter than 4.0.1, and none is a real hazard.
 - 1 `code`: a parameter named like the door module `code`. 1 `types`: `getattr(types, "UnionType")`.
 
 **Decision.**
-1. An imported name is *inert* when its origin cannot be a module of the scan, nor a container of
-   one (`uses.rs`, `value.rs`): a `def` or `class`; a value read only from constants, from the
-   builtins `tuple`, `list`, `set`, `frozenset`, `dict`, `sorted` and the scalar builtins (each
-   unbound in its module), from `.keys()`, `.values()`, `.items()`, and from names that are
-   inert; or an import that leaves the scan. Each re-export is followed to its sole plain binder.
-   A call of any other function, an attribute, a subscript, a name with two binders and a
-   module of the scan stay unknown. An inert name escapes nothing; the rest is as in AD-504.
+1. An imported name is *inert* when its origin cannot be a module of the scan, nor an alias of
+   one (`uses.rs`, `value.rs`): a `def` or `class`; a literal or a display (AD-504); a value read
+   only from the builtins `tuple`, `list`, `set`, `frozenset`, `dict`, `sorted` and the scalar
+   builtins (each unbound in its module), from `.keys()`, `.values()`, `.items()`, and from names
+   that are inert (kind `Derived`); or an import that leaves the scan. Each re-export is followed
+   to its sole plain binder, in a module with no `__getattr__`, no write of an attribute, no
+   hazard of a namespace and no submodule of that name. A call of any other function, an
+   attribute, a subscript, a name with two binders and a module of the scan stay unknown. An
+   inert name escapes nothing; the rest is as in AD-504.
 2. A read of `__globals__` (`globals_read.rs`) is no gap when the dict only feeds `d.get("k")`,
    `d["k"]` and `"k" in d` with a literal key that is no door string, or a call outside the scan
    (an import that leaves the scan, or a pure builtin), or a function of the scan whose
@@ -47,8 +49,10 @@ iterated or passed to an unknown callee keep their gap, where 4.0.1 gives PASS.
 `__builtins__` from it by a computed key, is not seen (the survey does not read library code). A
 value with an external origin may carry a scan module only through code outside the scan.
 
-**Results.** FastAPI 0.163.0: UNKNOWN 0/0/3 with 13 gaps to PASS 3/0/0 with 0 gaps. pydantic
-v2.14.3: 325 to 307 gaps, still UNKNOWN 0/0/4. httpx 0.28.1: 19 gaps, FAIL 0/2/1, unchanged.
+**Results.** On main `6cc397932` against this change, gaps before to after: FastAPI 0.163.0 6
+to 2 (the 4 `__globals__` and `types` gaps go; 2 `reexport_ambiguity` stay), pydantic v2.14.3
+321 to 307 (14 `dynamic_import`), DATAMIMIC CE 59 to 59. No rule moves to PASS: each project keeps
+a gap that holds its rules.
 
 **Tests.** `tests/test_cli_native_python_reexport.py` (33 plants: the row of the core before and
 after, the row of 4.0.1, and a run under CPython), and the Rust tests `uses_tests.rs`,
