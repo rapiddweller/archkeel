@@ -4749,6 +4749,17 @@
             "boolean",
             "null"
           ]
+        },
+        "effect": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GapEffect"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The facts that the gap leaves unknown (AD-560). A gap without an effect leaves the whole\nscope unknown."
         }
       },
       "description": "An UNKNOWN gap of the coverage or of the `unknowns` section."
@@ -4761,6 +4772,66 @@
         "signature"
       ],
       "description": "What a source resolution gap leaves unknown."
+    },
+    "GapEffect": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "edges": {
+              "type": "object",
+              "properties": {
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/ModuleName"
+                  }
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "sources"
+              ]
+            }
+          },
+          "required": [
+            "edges"
+          ],
+          "additionalProperties": false,
+          "description": "The import edges that leave each module of `sources` are not complete: an edge to any\nmodule or package can be absent. The code of each module is known."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "modules": {
+              "type": "object",
+              "properties": {
+                "modules": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/ModuleName"
+                  }
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "modules"
+              ]
+            }
+          },
+          "required": [
+            "modules"
+          ],
+          "additionalProperties": false,
+          "description": "The code of each module of `modules` is not known: its import edges, its members, its\npositions and its constructs."
+        },
+        {
+          "type": "string",
+          "const": "every_module",
+          "description": "The code of every module is not known: an import of any module can give another module\nthan the one that it names."
+        }
+      ],
+      "description": "The facts that one gap leaves unknown. Each variant leaves the files of the scan and the\nnames of their modules known."
     },
     "Kind": {
       "type": "string",
