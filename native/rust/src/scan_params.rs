@@ -209,7 +209,7 @@ pub(in crate::scan) fn item_name(item: &Item) -> Option<String> {
 }
 
 /// The kind and the path of a written parameter type: `T`, `&T` or `&mut T`, and one level only.
-fn typed(ty: &Type) -> Option<(Vec<String>, SelfKind)> {
+pub(in crate::scan) fn typed(ty: &Type) -> Option<(Vec<String>, SelfKind)> {
     match ty {
         Type::Reference(found) => {
             let kind = match found.mutability {
@@ -272,6 +272,7 @@ pub(super) fn read(
                 scope: scope.to_vec(),
                 kind: Some(kind),
                 macros: bound.macros.iter().cloned().collect(),
+                field: None,
             };
             found.insert(
                 name,
@@ -335,6 +336,7 @@ fn read_locals(
             scope: scope.to_vec(),
             kind: Some(kind),
             macros: bound.macros.iter().cloned().collect(),
+            field: None,
         };
         found.insert(
             name,
@@ -415,6 +417,7 @@ impl<'ast> Visit<'ast> for Closures<'_> {
                 scope: self.scope.to_vec(),
                 kind: Some(kind),
                 macros: self.bound.macros.iter().cloned().collect(),
+                field: None,
             };
             self.found.insert(
                 name,

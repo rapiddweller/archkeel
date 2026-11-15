@@ -28,6 +28,14 @@ identifier followed by `!` in its tokens therefore refuses every receiver proof 
 The scan checks nested token groups too. Standard macros already known not to bind surrounding
 names keep their existing treatment. This fixes part (b) of #1215.
 
+A call on `p.f` can use the written type of `f` when `p` has a receiver proof, its struct is
+exact and non-generic, and `f` is one visible named field. The field and all other fields must
+have inert attributes. The field type is a plain path or one reference to it. The scan resolves
+the field type in the struct's module, checks that it is exact, and applies the first-step rule
+to that type. A `Deref` impl of either type, a tuple field, a field chain, a generic struct,
+an alias or a field that a configuration can change keeps the gap. A shared base does not prove
+a unique-reference field. The scan does not invent fields made by a macro.
+
 **Measurement.** On #1203, native self-check gaps fall from 101 to 96. The five removed gaps are
 the calls in `rust/src/collect.rs` to `edges`, `edges_extracted`, `module_edges`, `impl_edges`
 and `declared`. The marked native graph adds the newly observed `rs-flow -> rs-edges` edge. The
@@ -39,3 +47,6 @@ block, generic and alias types, `Deref`, and a different receiver form. The plan
 `tests/test_collector_false_pass_rust_param_receiver.py`.
 The typed closure plants fail before their rule. The closure-site and nested-macro mutations are
 each caught. The three `fm-passthrough` and `mt-passthrough` plants of #1215 keep their gaps.
+The field plants fail before their rule. Mutations of generic, field attribute, base and field
+`Deref`, field visibility and receiver-form checks each fail a plant. The field rule closes no
+additional self-check pair on this branch without the other authors' calling-side changes.
