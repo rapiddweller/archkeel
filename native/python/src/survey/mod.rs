@@ -192,6 +192,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         &sole_binders,
         &ambiguous,
         &symbols.records,
+        &symbols.dead_sites,
     );
     let coverage = Coverage {
         files_parsed: modules.len() as u64,
@@ -239,6 +240,7 @@ struct Symbols {
     records: Vec<Record<SymbolFact>>,
     calls: Vec<Record<CallFact>>,
     references: Vec<Record<ReferenceFact>>,
+    dead_sites: HashSet<String>,
 }
 
 /// AD-518, AD-520: the declarations of each module that `admitted` keeps, then their sites. A
@@ -263,9 +265,9 @@ fn declarations(
         }
     }
     let context = declared::Context::collect(&found, imports, sets);
-    let (mut calls, mut references) = (Vec::new(), Vec::new());
+    let (mut calls, mut references, mut dead_sites) = (Vec::new(), Vec::new(), HashSet::new());
     for item in &found {
-        let (more, other) = declared::site_records(
+        let (more, other, dead) = declared::site_records(
             (&modules[item.index], &binders[item.index]),
             item,
             &context,
@@ -273,12 +275,14 @@ fn declarations(
         );
         calls.extend(more);
         references.extend(other);
+        dead_sites.extend(dead);
     }
     let records = found.into_iter().flat_map(|item| item.records).collect();
     Symbols {
         records,
         calls,
         references,
+        dead_sites,
     }
 }
 

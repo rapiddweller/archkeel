@@ -18,6 +18,7 @@ from outside the scan is external. A name in the fixed builtin set is builtin on
 binding in the file can hide it. Every other call is unresolved. A receiver call such as
 `self.m()` is unresolved unless a module import proves the receiver. The file-wide binding check
 can withhold a proof that a more precise scope could make; it cannot add a target proof.
+An AD-520 site marked dead remains unresolved even when its name has a plain import.
 
 The typing count includes a missing parameter or return annotation of a public definition, a
 position whose written annotation contains `object` or `Any`, and a dynamic typing call. Names

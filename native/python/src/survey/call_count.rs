@@ -23,6 +23,7 @@ use crate::module::Module;
 pub(super) struct Context {
     imports: HashMap<String, HashMap<String, (String, bool, bool)>>,
     symbols: HashSet<String>,
+    dead_sites: HashSet<String>,
 }
 
 impl Context {
@@ -32,6 +33,7 @@ impl Context {
         sole: &HashSet<String>,
         ambiguous: &HashSet<String>,
         symbols: &[Record<SymbolFact>],
+        dead_sites: &HashSet<String>,
     ) -> Self {
         let symbols = symbols
             .iter()
@@ -41,6 +43,7 @@ impl Context {
         let mut found = Self {
             imports: HashMap::new(),
             symbols,
+            dead_sites: dead_sites.clone(),
         };
         let targets: HashMap<_, _> = targets
             .iter()
@@ -144,6 +147,7 @@ impl<'a> Visitor<'a> for Calls<'_> {
                     }
                     _ => None,
                 });
+            let withheld = self.context.dead_sites.contains(id.as_str());
             let imported = match &*call.func {
                 Expr::Name(name) => self.import(name.id.as_str(), None),
                 Expr::Attribute(attr) => match &*attr.value {
@@ -152,7 +156,9 @@ impl<'a> Visitor<'a> for Calls<'_> {
                 },
                 _ => None,
             };
-            if proof.is_some_and(|data| matches!(&data.construction, Nullable::Value(item) if item.status == Status::PartiallyResolved)) {
+            if withheld {
+                self.unresolved(&call.func);
+            } else if proof.is_some_and(|data| matches!(&data.construction, Nullable::Value(item) if item.status == Status::PartiallyResolved)) {
                 self.row.calls_partial += 1;
             } else if proof.is_some() || imported == Some(false) {
                 self.row.calls_resolved += 1;
@@ -161,13 +167,7 @@ impl<'a> Visitor<'a> for Calls<'_> {
             } else if matches!(&*call.func, Expr::Name(name) if builtin(name.id.as_str()) && self.binders.builtin_visible(name.id.as_str())) {
                 self.row.calls_builtin += 1;
             } else {
-                self.row.calls_unresolved += 1;
-                match &*call.func {
-                    Expr::Name(_) => self.row.unresolved_name += 1,
-                    Expr::Attribute(attr) if matches!(&*attr.value, Expr::Name(name) if name.id.as_str() == "self") => self.row.unresolved_self += 1,
-                    Expr::Attribute(_) => self.row.unresolved_attribute += 1,
-                    _ => self.row.unresolved_dynamic += 1,
-                }
+                self.unresolved(&call.func);
             }
         }
         visitor::walk_expr(self, expr);
@@ -175,6 +175,18 @@ impl<'a> Visitor<'a> for Calls<'_> {
 }
 
 impl Calls<'_> {
+    fn unresolved(&mut self, func: &Expr) {
+        self.row.calls_unresolved += 1;
+        match func {
+            Expr::Name(_) => self.row.unresolved_name += 1,
+            Expr::Attribute(attr) if matches!(&*attr.value, Expr::Name(name) if name.id.as_str() == "self") => {
+                self.row.unresolved_self += 1
+            }
+            Expr::Attribute(_) => self.row.unresolved_attribute += 1,
+            _ => self.row.unresolved_dynamic += 1,
+        }
+    }
+
     fn import(&self, binding: &str, attribute: Option<&str>) -> Option<bool> {
         if !self.unique.contains(binding) {
             return None;
@@ -465,5 +477,23 @@ mod tests {
             .find(|row| row.module.as_str() == "app.one")
             .unwrap();
         assert_eq!((row.calls_total, row.calls_partial), (1, 1));
+    }
+
+    #[test]
+    fn a_proven_dead_site_does_not_gain_an_import_proof() {
+        let found = crate::survey::targets::tests::surveyed(&[
+            ("src/app/__init__.py", ""),
+            ("src/app/one.py", "def make():\n    pass\n"),
+            (
+                "src/app/two.py",
+                "from app.one import make\nimport app.one as mod\ndef f():\n    if False:\n        make()\n        mod.make()\n        len([])\n",
+            ),
+        ]);
+        let rows = found.coverage.measures.unwrap();
+        let row = rows
+            .iter()
+            .find(|row| row.module.as_str() == "app.two")
+            .unwrap();
+        assert_eq!((row.calls_resolved, row.calls_unresolved), (0, 3));
     }
 }
