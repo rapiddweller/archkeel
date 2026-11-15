@@ -63,12 +63,23 @@ class BaselineResult:
     new: tuple[Changed, ...]
     gone: tuple[Changed, ...]
     gaps: tuple[NamedBaselineGap, ...]
+    # The rule rows that the file accepts. Each stays UNKNOWN.
+    accepted_rules: tuple[str, ...]
     # The bytes that `--write-baseline` writes, as text. `None` when the run writes nothing.
     file: str | None
 
 
 _FIELDS: Final = frozenset(
-    {"state", "exit_code", "accepted_entries", "accepted_unknowns", "new", "gone", "gaps"}
+    {
+        "state",
+        "exit_code",
+        "accepted_entries",
+        "accepted_unknowns",
+        "new",
+        "gone",
+        "gaps",
+        "accepted_rules",
+    }
 )
 _CHANGED: Final = frozenset({"what", "kind", "subject", "reason", "run", "file"})
 _NAMED: Final = frozenset({"kind", "subject", "reason"})
@@ -111,6 +122,12 @@ def _named(value: object) -> tuple[NamedBaselineGap, ...]:
     )
 
 
+def _rules(value: object) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        raise CoreError("the core frame field baseline.accepted_rules is not a list")
+    return tuple(_text(item, "baseline.accepted_rules") for item in value)
+
+
 def read_baseline(value: object, status: str) -> BaselineResult:
     """The checked part. `status` is the status of the run: UNKNOWN never gives exit code 0."""
     found = _object(value, "baseline")
@@ -145,6 +162,7 @@ def read_baseline(value: object, status: str) -> BaselineResult:
         new,
         gone,
         gaps,
+        _rules(part["accepted_rules"]),
         file,
     )
 
@@ -180,6 +198,7 @@ def as_json(result: BaselineResult) -> Mapping[str, object]:
         "accepted_unknowns": result.accepted_unknowns,
         "new": [vars_of(row) for row in result.new],
         "gone": [vars_of(row) for row in result.gone],
+        "accepted_rules": list(result.accepted_rules),
         "gaps": [{"kind": g.kind, "subject": g.subject, "reason": g.reason} for g in result.gaps],
     }
 
