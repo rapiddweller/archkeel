@@ -55,7 +55,7 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   The parent must exist. Safe file output needs POSIX directory handles; Windows refuses `--output` with exit 2 (`io_error`), writes no file and keeps the frame.
 - A rule kind without a port in the core is UNKNOWN with the gap `rule_kind_not_ported`. The run exits 2.
 - The core compares the module and import part of `declarations.uml` (AD-494) and the symbol part
-  for TypeScript (AD-512) and, for the declarations only, for Python (AD-514). Dart and Rust give
+  for TypeScript (AD-512) and, for the declarations only, for Python (AD-518). Dart and Rust give
   no symbol facts, and Python gives no site (base, call, reference, `creates`, `instance_of`), so a
   relationship of a Python target is UNKNOWN with the cause "the python collector states no symbol
   sites" (H-uml stays UNKNOWN). A Python declaration is written only for a class, function, method

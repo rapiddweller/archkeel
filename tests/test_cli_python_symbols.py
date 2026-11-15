@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-514: the core compares the symbol part of a UML target on Python plants.
+"""AD-518: the core compares the symbol part of a UML target on Python plants.
 
 `python_symbol_rows.json` pins, for each plant of `python_symbol_plants.py`, the row of release
 4.0.1 (`validate --json` of an installed 4.0.1 on the same tree), the row of the core and its

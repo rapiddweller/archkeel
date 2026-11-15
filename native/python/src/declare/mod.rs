@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! What the definition table (AD-377) and the symbol declarations of the survey (AD-514) read in
+//! What the definition table (AD-377) and the symbol declarations of the survey (AD-518) read in
 //! the same way: the parameters of a function as text, the visibility of a name and the id of a
 //! definition. Each caller brings its own writer of text.
 

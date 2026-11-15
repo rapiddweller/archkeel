@@ -25,7 +25,7 @@ fn the_first_part_names_the_package() {
     assert_eq!(first_part("app"), "app");
 }
 
-/// The typed facts of a frozen reply, as a Python survey with its three sections (AD-514).
+/// The typed facts of a frozen reply, as a Python survey with its three sections (AD-518).
 fn survey_facts() -> Facts {
     survey_of(Profile::Python, &["imports", "symbols", "unknowns"])
 }
@@ -49,7 +49,7 @@ fn survey_of(profile: Profile, sections: &[&str]) -> Facts {
 #[test]
 fn the_survey_has_exactly_its_sections_and_no_construct() {
     assert_eq!(registered(&survey_facts()), Ok(()));
-    // Dart states no symbols; Python states no site section (AD-514).
+    // Dart states no symbols; Python states no site section (AD-518).
     let dart = survey_of(Profile::Dart, &["imports", "unknowns"]);
     assert_eq!(registered(&dart), Ok(()));
     let with_symbols = survey_of(Profile::Dart, &["imports", "symbols", "unknowns"]);

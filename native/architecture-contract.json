@@ -1827,7 +1827,7 @@
         "native.archkeel_python_collector.survey"
       ],
       "responsibilities": [
-        "The import survey of a Python scan as the Python collector writes it: the parsed modules, their static imports, their file facts with the stable bindings, and the evidence of both (AD-334), and the symbol declarations that a module binds once (AD-514)."
+        "The import survey of a Python scan as the Python collector writes it: the parsed modules, their static imports, their file facts with the stable bindings, and the evidence of both (AD-334), and the symbol declarations that a module binds once (AD-518)."
       ],
       "forbidden_responsibilities": [
         "Finding the selected files and naming modules."
@@ -1862,7 +1862,7 @@
         },
         {
           "component": "py-declare",
-          "rationale": "Read the text of a signature and the id of a definition for the symbol declarations (AD-514)."
+          "rationale": "Read the text of a signature and the id of a definition for the symbol declarations (AD-518)."
         }
       ],
       "decided_by": "architect"
@@ -2132,13 +2132,13 @@
         "native.archkeel_python_collector.declare"
       ],
       "responsibilities": [
-        "What the definition table and the symbol declarations read in the same way: the parameters of a function as text, the visibility of a name and the id of a definition (AD-377, AD-514)."
+        "What the definition table and the symbol declarations read in the same way: the parameters of a function as text, the visibility of a name and the id of a definition (AD-377, AD-518)."
       ],
       "forbidden_responsibilities": [
         "Reading the snapshot, deciding a binding and writing the reply."
       ],
       "provenance": [
-        "docs/architecture/decisions/ad-514-the-python-collector-writes-the-symbol-declarations-that-it-binds-once.md"
+        "docs/architecture/decisions/ad-518-the-python-collector-writes-the-symbol-declarations-that-it-binds-once.md"
       ],
       "requires": [
         {

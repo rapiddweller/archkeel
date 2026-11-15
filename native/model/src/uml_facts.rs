@@ -64,7 +64,7 @@ impl<'m> Facts<'m> {
         }
     }
 
-    /// The sites of the symbols, or the cause that the collector states none (AD-514): a
+    /// The sites of the symbols, or the cause that the collector states none (AD-518): a
     /// relationship of a target is then undecided, and no class has a base receipt.
     pub(crate) fn sites(&self) -> Result<(), String> {
         if self.model.graph().observed().symbol_sites {

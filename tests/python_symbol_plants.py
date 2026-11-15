@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The plants of the Python symbol declarations (AD-514): the hard forms of binding.
+"""The plants of the Python symbol declarations (AD-518): the hard forms of binding.
 
 Each plant gives its module, the planned entities and the truth. The rows of release 4.0.1 and of
 the core are pinned in `python_symbol_rows.json` (`tests/python_symbol_rows.py` writes them).

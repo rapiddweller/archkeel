@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The kind of a class that Python binds when the class statement runs (AD-514, rule 6).
+//! The kind of a class that Python binds when the class statement runs (AD-518, rule 6).
 //!
 //! A class has a kind only when each base is proven: a builtin that no statement of the module
 //! rebinds, a name of `typing` or `enum` that its one plain import binds, or a class of the same

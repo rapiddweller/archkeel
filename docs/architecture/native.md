@@ -52,7 +52,7 @@ Only `archkeel-collect` uses a collector crate, and only `archkeel-core` uses `a
 `tests/native_rules_support.py`, AD-406).
 
 The Python collection spine has four layers ([AD-389](decisions/ad-389-the-native-python-collector-checks-compiler-refusals-before-facts.md)):
-`py-survey` -> `py-symbols` -> `py-unparse` -> `py-module`, `py-tree` and `py-parse`; `py-survey` and `py-symbols` also read `py-declare`, which reads `py-module` and `facts` (AD-514).
+`py-survey` -> `py-symbols` -> `py-unparse` -> `py-module`, `py-tree` and `py-parse`; `py-survey` and `py-symbols` also read `py-declare`, which reads `py-module` and `facts` (AD-518).
 The arrows state the allowed direction, not a required call. Twelve `NATIVE-PY-*-NO-*` rules
 forbid each upward pair, even with a matching `requires` entry. The entry, dump and reply are
 adapters above this spine. Scope, input, source and work helpers are below it; their declared

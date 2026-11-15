@@ -248,7 +248,7 @@ def test_a_uml_target_that_changes_after_the_core_read_it_is_refused(
 
 
 def test_the_python_uml_fixture_has_an_unknown_row_and_never_passes(tmp_path: Path) -> None:
-    """Release 4.0.1 passes this target. The core decides its 18 declarations (AD-514), and the
+    """Release 4.0.1 passes this target. The core decides its 18 declarations (AD-518), and the
     seven site relationships stay a named gap until the sites are written."""
     code, envelope = run("validate", "--root", str(_copy(tmp_path, "H-uml")))
     assert _rows(envelope) == {ROW: ["uml_target", "UNKNOWN"]}

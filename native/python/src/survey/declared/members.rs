@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The members of a class that its body binds once (AD-514, rules 3, 5 and 7): the attributes
+//! The members of a class that its body binds once (AD-518, rules 3, 5 and 7): the attributes
 //! with the enum literals, and the decorator of a method.
 //!
 //! The reader looks at the direct statements of the body only. Whatever another statement binds

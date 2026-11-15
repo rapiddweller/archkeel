@@ -160,7 +160,7 @@ fn literal_import(expr: &Expr) -> Option<String> {
 }
 
 /// The base of each store, `del`, `setattr` and mutation in a body, at any depth: the one reader
-/// of the objects that a statement writes to (AD-504, AD-514).
+/// of the objects that a statement writes to (AD-504, AD-518).
 pub(crate) fn bases(body: &[Stmt]) -> Vec<&Expr> {
     let mut walk = Writes::default();
     walk.visit_body(body);

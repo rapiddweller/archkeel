@@ -78,7 +78,7 @@ pub(crate) struct Observed {
     pub(crate) namespaces: bool,
     /// The collector of the profile states symbol facts (AD-512).
     pub(crate) symbol_facts: bool,
-    /// The collector of the profile also states the sites of the symbols (AD-514).
+    /// The collector of the profile also states the sites of the symbols (AD-518).
     pub(crate) symbol_sites: bool,
     /// Whether the host drops an allowed pair gap of the profile (slice S7).
     pub(crate) pair_gap_drop: PairGapDrop,

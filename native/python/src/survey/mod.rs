@@ -62,7 +62,7 @@ pub(crate) struct Survey {
     pub ambiguous: HashSet<String>,
     /// The digest of each file that the survey read, from the bytes that it parsed.
     pub parsed: Vec<Input>,
-    /// The symbol declarations that the modules bind once (AD-514).
+    /// The symbol declarations that the modules bind once (AD-518).
     pub symbols: Vec<Record<SymbolFact>>,
 }
 
@@ -196,7 +196,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     })
 }
 
-/// AD-514: the declarations of each module that `admitted` keeps. A module with a hazard site or
+/// AD-518: the declarations of each module that `admitted` keeps. A module with a hazard site or
 /// a route that another module can write has none, and each name of it is absent for the model.
 fn declarations(
     modules: &[Module],

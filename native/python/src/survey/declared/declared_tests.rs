@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-// Consumer: the declarations of AD-514. The plants of the hard forms against release 4.0.1 are in
+// Consumer: the declarations of AD-518. The plants of the hard forms against release 4.0.1 are in
 // `tests/test_cli_python_symbols.py`; these tests pin the forms that need Python 3.12 and the
 // facts that the model reads.
 

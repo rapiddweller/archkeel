@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The symbol declarations of a module (AD-514): one record for each class, function, method and
+//! The symbol declarations of a module (AD-518): one record for each class, function, method and
 //! class attribute that the module binds exactly once, in a form whose kind Python decides when
 //! the statement runs.
 //!

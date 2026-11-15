@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The reading of one module for its declarations (AD-514): the evidence of a node, and the text
+//! The reading of one module for its declarations (AD-518): the evidence of a node, and the text
 //! of an annotation or a default.
 //!
 //! The text is written for a name, a dotted name, `None`, `True` and `False` only. That is what

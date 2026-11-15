@@ -1,4 +1,4 @@
-# AD-514 The Python collector writes the symbol declarations that it binds once
+# AD-518 The Python collector writes the symbol declarations that it binds once
 
 **Status.** Proposed. Part of #880. It extends AD-512 to Python. PR 2 of 5 (L-173).
 

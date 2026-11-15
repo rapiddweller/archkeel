@@ -4,7 +4,7 @@
 
 //! `_function_signature` and `_python_visibility` (`symbols.py`): the parameters of a function as
 //! text, and the visibility that its name gives. The definition table (AD-377) and the
-//! declarations (AD-514) read them from here, each with its own writer of text.
+//! declarations (AD-518) read them from here, each with its own writer of text.
 
 use ruff_python_ast::{Expr, Parameter, StmtFunctionDef};
 use serde_json::{json, Map, Value};

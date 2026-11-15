@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The Python sources and the UML targets of the symbol plants (AD-514).
+"""The Python sources and the UML targets of the symbol plants (AD-518).
 
 A `Plant` is one module `demo/m.py`, the entities that its target plans (parents first), the row of
 release 4.0.1 on the same tree (`four`), the row of the core (`core`) and the truth: whether

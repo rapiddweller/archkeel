@@ -6,7 +6,7 @@
 //! `imports` (`collect.collect`), with the typed records of `archkeel-facts` (AD-345).
 //!
 //! The survey is not the whole collection. The protocol says so with the capabilities of the
-//! import survey: the sections `imports`, `unknowns` and `symbols` (AD-514), no resolution feature
+//! import survey: the sections `imports`, `unknowns` and `symbols` (AD-518), no resolution feature
 //! and no construct. The sections `calls`, `references`, `bindings`, `typing_signals` and
 //! `constructs` are not declared, so they are not collected, and the lists of the collection phase
 //! are empty (AD-334, AD-367). The linked path gives the same survey as a typed reply (AD-450).
@@ -24,7 +24,7 @@ use archkeel_wire::typed::assemble;
 use crate::survey::{routes, Survey};
 use crate::{inputs, requirement};
 
-/// The sections of the survey, in their order. No other section is collected (AD-514 adds
+/// The sections of the survey, in their order. No other section is collected (AD-518 adds
 /// `symbols`; the 4.0.1 survey has the first two).
 pub(crate) const SURVEY_SECTIONS: [&str; 3] = ["imports", "unknowns", "symbols"];
 
