@@ -176,7 +176,8 @@ PLANTS |= {
     ),
     "a test variant ends at its comma": (
         {
-            "lib.rs": "pub enum E { A, #[cfg(test)] B(u8), #[cfg(test)] D { x: u8 }, C }\n"
+            "lib.rs": "pub enum E { A, #[cfg(test)] B, C, #[cfg(test)] D(u8), F,\n"
+            "    #[cfg(test)] G { x: u8 }, H }\n"
             "impl E { pub fn after_variant() {} pub fn another() {} }\n"
         },
         [
@@ -185,11 +186,14 @@ PLANTS |= {
             "fn another()",
             "variant E::A",
             "variant E::C",
+            "variant E::F",
+            "variant E::H",
         ],
     ),
     "a test field ends at its comma": (
         {
-            "lib.rs": "pub struct S { pub a: u8, #[cfg(test)] pub b: Option<(u8, u8)>, pub c: u8 }\n"
+            "lib.rs": "pub struct S { pub a: u8, #[cfg(test)] pub b: Option<(u8, u8)>,\n"
+            "    pub c: u8 }\n"
             "pub struct T(pub u8, #[cfg(test)] pub u8, pub u8);\npub fn g() {}\n"
         },
         [

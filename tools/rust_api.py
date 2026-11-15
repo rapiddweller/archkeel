@@ -30,7 +30,8 @@ text of the definition does not count. A visibility that a call passes on counts
 (`pub(crate)` is no part of the API). What cannot be expanded is a line `unexpanded
 <module>::<name>!: <reason>` in the list, so the count never gets smaller without a trace: a
 call that no rule matches, a call nested deeper than 128, a matcher that the reader does not
-read, a name that two different definitions share, and a `#[macro_export]` definition.
+read, a name that two different definitions share, a call by a path that does not start at
+`crate`, `self`, `super` or a module of the crate, and a `#[macro_export]` definition.
 
 Limit: a macro of another crate, of the standard library or a proc macro (an attribute or a
 derive) is not expanded. See `docs/known-limits.md`.

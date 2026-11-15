@@ -552,7 +552,12 @@ The API list of `tools/rust_api.py` expands the `macro_rules!` calls of a crate 
 (`tools/rust_macros.py`, [#1048](https://github.com/rapiddweller/archkeel/issues/1048)). A call that
 it cannot expand, an exported macro and a name with two definitions are lines `unexpanded` in
 `native/api_baseline.json`. A macro of another crate, of the standard library, and a proc macro
-(attribute or derive) are not expanded. Two `pub fn` of the same name in two `impl` blocks of one
+(attribute or derive) are not expanded. A call by a path is expanded when the path starts at `crate`,
+`self`, `super` or a module of the crate; a path through an alias or an extern crate with a name that
+a local macro has is a line `unexpanded`. A macro that a macro call defines serves the later calls of
+the same file only; a transcribed `$name` that the call does not bind (a variable of the inner
+definition) is a line `unexpanded`. A call under `#[cfg(...)]` counts as if the configuration were on,
+like any other item of the list. Two `pub fn` of the same name in two `impl` blocks of one
 file are two equal lines, so a move between the two blocks does not show (AD-382).
 
 The system-access test of the core side (AD-382) is a text scan. It does not see an access
