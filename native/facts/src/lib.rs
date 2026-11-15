@@ -10,8 +10,6 @@
 //!    byte-equal to the reply of today, so it adopts the types without a change of the wire. A
 //!    Python or Dart reply decodes and encodes to an equal value, not to equal bytes: Python sorts
 //!    the keys, and the types write them in the order of the declaration.
-//! 2. The read-set (`readset::ReadSet`). It holds only the fields that a rule or a view reads
-//!    (WP1 of issue #880). It is the form of the seam to the Python shell.
 //!
 //! `schema::schema` generates the JSON schema of the wire from the types. The committed schema
 //! never changes: a change of a type that changes the schema fails `schema_tests`.
@@ -42,14 +40,13 @@ pub mod profile_traits;
 pub mod protocol;
 pub mod pyminor;
 pub mod pyrepr;
-pub mod readset;
-mod readset_fields;
 pub mod reason;
 pub mod record;
 pub mod request;
 mod request_rules;
 pub mod schema;
 pub mod sections;
+pub mod skip;
 pub mod vocab;
 
 pub use record::{FactData, Record};

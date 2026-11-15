@@ -20,7 +20,6 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{json, Value};
 
 use crate::ids::{EvidenceId, FactId};
-use crate::readset::ReadSet;
 use crate::vocab::{Area, EvidenceClass, Kind};
 
 /// The kind and the data of the records of one section.
@@ -39,14 +38,6 @@ pub trait FactData: Sized + Clone {
 
     /// Write the data in the wire form.
     fn serialize_data<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error>;
-
-    /// Write the read fields of the data into an open map. `reads` is the list of the area and
-    /// the kind of the record (`readset_fields::fields`).
-    fn read_set_entries<M: SerializeMap>(
-        &self,
-        map: &mut M,
-        reads: crate::readset::Reads,
-    ) -> Result<(), M::Error>;
 
     /// Read the data of the record that has the protocol 9 kind `kind`.
     fn deserialize_data<'de, D: Deserializer<'de>>(
@@ -88,21 +79,6 @@ impl<D: FactData> Serialize for Data<'_, D> {
     }
 }
 
-/// The data of a record in the read-set form.
-struct ReadSetData<'a, D> {
-    data: &'a D,
-    area: Area,
-}
-
-impl<D: FactData> Serialize for ReadSetData<'_, D> {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let reads = crate::readset_fields::fields(self.area, self.data.kind());
-        let mut map = serializer.serialize_map(None)?;
-        self.data.read_set_entries(&mut map, reads)?;
-        map.end()
-    }
-}
-
 const EMPTY: [(); 0] = [];
 
 impl<D: FactData> Serialize for Record<D> {
@@ -132,23 +108,6 @@ impl<D: FactData> Record<D> {
             return Err("an analyzer failure has the area analysis_coverage");
         }
         Ok(())
-    }
-}
-
-/// The read-set of a record: `id`, `kind`, `area`, `subjects`, `evidence_ids` and the read data.
-/// `kind` is the closed kind; an analyzer failure carries its exception name in the data.
-impl<D: FactData> ReadSet for Record<D> {
-    fn read_set_entries<M: SerializeMap>(&self, map: &mut M) -> Result<(), M::Error> {
-        map.serialize_entry("id", &self.id)?;
-        map.serialize_entry("kind", &self.data.kind())?;
-        map.serialize_entry("area", &self.area)?;
-        map.serialize_entry("subjects", &self.subjects)?;
-        map.serialize_entry("evidence_ids", &self.evidence_ids)?;
-        let data = ReadSetData {
-            data: &self.data,
-            area: self.area,
-        };
-        map.serialize_entry("data", &data)
     }
 }
 
