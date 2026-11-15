@@ -17,6 +17,16 @@ fn named(writer: &str) -> Vec<String> {
         ("src/app/__init__.py", ""),
         ("src/app/lib.py", "def f(): pass\n__all__ = ['f']\n"),
         ("src/app/other.py", "VALUE = factory()\n"),
+        ("src/app/const.py", "VALUE = 1\n"),
+        ("src/app/dyn.py", "DYN = build()\ndef build(): pass\n"),
+        (
+            "src/app/kinds.py",
+            "import json\nfrom os import path as P\nfrom app.const import VALUE as V\n\
+             NUMBER = 1\nTEXT = 'a'\nPAIR = (1, 2)\nTUPLE = tuple(PAIR)\nCOPY = NUMBER\n\
+             CHAIN = V\nEXT = json.dumps\nMOD = P\nTWICE = 1\nTWICE = build()\n\
+             LISTED = [build()]\nTYPES = {int: str, list: tuple}\nKEYS = tuple(TYPES.keys())\n\
+             def build(): pass\n",
+        ),
         ("src/app/writer.py", writer),
     ]);
     let mut names: Vec<String> = found.opaque_surface.into_iter().collect();
@@ -90,22 +100,54 @@ fn a_write_through_each_import_form_escapes_the_module() {
 
 #[test]
 fn a_package_that_escapes_withholds_each_module_below_it() {
-    let all = ["app", "app.lib", "app.other", "app.writer"];
+    let all = [
+        "app",
+        "app.const",
+        "app.dyn",
+        "app.kinds",
+        "app.lib",
+        "app.other",
+        "app.writer",
+    ];
     assert_eq!(named("import app\ngetattr(app, 'lib').f = 1\n"), all);
 }
 
 #[test]
 fn an_imported_name_of_unknown_kind_escapes_its_module_only_when_it_may_be_a_module() {
-    assert_eq!(
-        named("from app.other import VALUE\nVALUE.run = 1\n"),
-        ["app.other"]
-    );
-    assert_eq!(
-        named("from app.other import VALUE\nuse(VALUE)\n"),
-        ["app.other"]
-    );
+    assert_eq!(named("from app.dyn import DYN\nDYN.run = 1\n"), ["app.dyn"]);
+    assert_eq!(named("from app.dyn import DYN\nuse(DYN)\n"), ["app.dyn"]);
     // A function or a class is no module: a call or a write to its attribute changes no namespace.
     assert!(named("from app.lib import f\nf()\nf.run = 1\nuse(f)\n").is_empty());
+}
+
+/// AD-530: an imported name whose origin cannot be a module of the scan escapes nothing: a
+/// constant, a display, a call of a builtin type, a copy of such a name, an import that leaves the
+/// scan. A name with two binders, or with a call of any other function, stays unknown.
+#[test]
+fn an_imported_name_of_inert_origin_escapes_nothing() {
+    for name in [
+        "NUMBER", "TEXT", "PAIR", "TUPLE", "COPY", "CHAIN", "MOD", "TYPES", "KEYS", "LISTED",
+    ] {
+        let source = format!("from app.kinds import {name}\nuse({name})\n{name}.run = 1\n");
+        assert!(named(&source).is_empty(), "{name}");
+    }
+    // Two binders and an attribute of a module stay unknown. A display is inert (a container that
+    // names a module of the scan escapes that module in its own module already).
+    for name in ["TWICE", "EXT"] {
+        let source = format!("from app.kinds import {name}\nuse({name})\n");
+        assert_eq!(named(&source), ["app.kinds"], "{name}");
+    }
+}
+
+#[test]
+fn a_binder_of_a_builtin_name_keeps_the_call_unknown() {
+    let rebound = "tuple = make\nT = tuple(1)\ndef make(x): pass\n";
+    let found = surveyed(&[
+        ("src/app/__init__.py", ""),
+        ("src/app/shadow.py", rebound),
+        ("src/app/user.py", "from app.shadow import T\nuse(T)\n"),
+    ]);
+    assert!(found.opaque_surface.contains("app.shadow"));
 }
 
 #[test]
@@ -295,7 +337,7 @@ fn typing_factories_prove_values_only_when_their_bindings_are_unmodified() {
             true,
         ),
         (
-            "from typing import TypeAlias\nVALUE: TypeAlias = other\n",
+            "from typing import TypeAlias\nVALUE: TypeAlias = other()\n",
             "",
             true,
         ),

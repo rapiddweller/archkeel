@@ -14,6 +14,10 @@ The details follow.
 Main supports Rust and TypeScript projects, and the import rules of Python (AD-450) and Dart (AD-468) projects.
 A Python project gets PASS or FAIL only for rules that read the import graph. A dynamic import,
 an import-system change and the other gaps of AD-450 give UNKNOWN for each rule of the run.
+A re-export of a package is read through its uses: a name of a package that another module
+uses as a value escapes the package, unless its origin cannot be a module of the scan (AD-530). A
+read of `__globals__` is no gap when the dict only feeds a lookup of a literal key; library code
+that gives the dict back is not seen (AD-530).
 Python rules that read calls or constructs stay UNKNOWN. `interface_boundary` and symbol-level
 `through` ports are decided from the publication route of each named import (AD-504); the hygiene
 checks `interface.*` prove a use of a `public` entry from the imports and name `interface.usage_unknown`
