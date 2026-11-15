@@ -60,15 +60,6 @@ impl Layer {
         self.partial |= high.partial;
         self
     }
-
-    /// `allowJs`, or `checkJs` when `allowJs` is absent.
-    pub(crate) fn allow_js(&self) -> bool {
-        let flag = match self.compiler.get("allowJs") {
-            Some(Value::Null) | None => self.compiler.get("checkJs"),
-            found => found,
-        };
-        flag == Some(&Value::Bool(true))
-    }
 }
 
 /// `config.load_config`: the settings and the selected files of the TSConfig.

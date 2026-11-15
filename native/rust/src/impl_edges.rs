@@ -49,6 +49,7 @@ struct Members<'a> {
 fn members<'a>(index: &Index<'_>, modules: &'a [Module]) -> Members<'a> {
     let mut found = Members::default();
     for module in modules {
+        found.typed.note(module);
         let Some(frame) = index.frame(&module.module) else {
             continue;
         };

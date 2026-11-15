@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-524 | [A call on a typed parameter is an edge in Rust](ad-524-a-call-on-a-typed-parameter-is-an-edge-in-rust.md) |
 | AD-522 | [ArchKeel shows one system verdict, built from its parts (interim)](ad-522-archkeel-shows-one-system-verdict-built-from-its-two-self-runs.md) |
 | AD-518 | [The Python collector writes the symbol declarations that it binds once](ad-518-the-python-collector-writes-the-symbol-declarations-that-it-binds-once.md) |
 | AD-516 | [A trait impl in a third module gives a pair gap in Rust](ad-516-a-trait-impl-in-a-third-module-gives-a-pair-gap-in-rust.md) |
