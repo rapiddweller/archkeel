@@ -42,7 +42,7 @@ pub(super) enum Kind {
     Value,
     /// A subscript of a builtin generic, if the module does not bind that builtin.
     BuiltinGeneric(&'static str),
-    /// A call of a plain name: the value is an instance when that name is a bare class (AD-560).
+    /// A call of a plain name: the value is an instance when that name is a bare class (AD-566).
     Call,
     /// An import: the name is whatever the imported name is.
     Import,
@@ -64,7 +64,7 @@ pub(super) struct Bound {
     pub(super) attribute_write: bool,
     /// The callee of `name = callee(...)`, for the names whose kind is `Kind::Call`.
     callees: HashMap<String, String>,
-    /// The class statements of the module scope (AD-560).
+    /// The class statements of the module scope (AD-566).
     classes: HashMap<String, Class>,
 }
 

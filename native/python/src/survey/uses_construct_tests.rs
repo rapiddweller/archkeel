@@ -4,7 +4,7 @@
 
 // Consumer: a route through `app.lib` is withheld when a scanned module uses a name that `app.lib`
 // binds and that may be a module (AD-504). The call of a bare class, of a builtin value type and
-// arithmetic over numbers make no module (AD-560): Python 3.12 gives an instance, a `frozenset` or
+// arithmetic over numbers make no module (AD-566): Python 3.12 gives an instance, a `frozenset` or
 // an `int` for each of them. Each form that Python can turn into another object keeps the escape.
 
 use crate::survey::targets::tests::surveyed;
