@@ -96,6 +96,7 @@ impl Records {
         let files_read =
             usize::try_from(self.coverage.files_read).map_err(std::io::Error::other)?;
         Ok(Tail {
+            measures: self.coverage.measures,
             selected_files: self.coverage.selected_files,
             files_read,
             gaps: self.coverage.gaps,
@@ -190,11 +191,12 @@ fn provenance(request: &PythonRequest, snapshot: &mut Snapshot, build: &Build<'_
 /// survey says, so a difference is an error and no reply.
 fn same_coverage(coverage: &Coverage, files: usize) -> Result<(), String> {
     let files_read = usize::try_from(coverage.files_read).map_err(|error| error.to_string())?;
-    let written = Coverage::of(
+    let mut written = Coverage::of(
         (files_read, files),
         coverage.selected_files.clone(),
         coverage.gaps.clone(),
     );
+    written.measures.clone_from(&coverage.measures);
     if written == *coverage {
         Ok(())
     } else {

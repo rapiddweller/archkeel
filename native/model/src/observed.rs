@@ -192,7 +192,7 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
 
 /// `_source_inventory_complete`: the selected files are not empty, they are the paths of the
 /// selected inputs, and the collector read and parsed each of them.
-fn inventory_complete(facts: &Facts) -> bool {
+pub(crate) fn inventory_complete(facts: &Facts) -> bool {
     let coverage = &facts.coverage;
     let selected: BTreeSet<&str> = coverage.selected_files.iter().map(String::as_str).collect();
     let inputs: BTreeSet<&str> = facts

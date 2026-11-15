@@ -285,6 +285,7 @@ fn a_package_of_two_components_selects_the_modules_of_the_last_one() {
 
 fn coverage(selected: &[&str], gaps: Vec<Record<GapFact>>) -> Coverage {
     Coverage {
+        measures: None,
         files_parsed: 1,
         files_read: 1,
         full_scope: gaps.is_empty(),

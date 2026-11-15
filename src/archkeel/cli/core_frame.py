@@ -29,7 +29,7 @@ from .core_explain import Explain, read_explain
 from .core_json import CoreError as CoreError
 from .core_json import Gap as Gap
 from .core_json import GapKind as GapKind
-from .core_json import _count, _fields, _object, _text, _texts
+from .core_json import _check_measures, _count, _fields, _object, _text, _texts
 from .core_output import read_html
 from .core_topology import Topology, frame_topology, require_topology
 
@@ -155,6 +155,7 @@ _EVIDENCE_FIELDS: Final = frozenset(
         "topology",
         "explain",
         "html",
+        "measures",
         "gaps",
         "baseline",
         "premise",
@@ -448,6 +449,7 @@ def read_frame(
     }
     _check_rows(require_protocol, unknown_kinds, explained, violations, details)
     _object(frame["sections"], "sections")
+    _check_measures(frame.get("measures"))
     gaps, missing, derived = _gaps(frame, scan)
     if request is not None and derived is not None:
         bind_request(frame, request, derived, started_ns)

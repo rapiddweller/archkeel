@@ -121,6 +121,7 @@ impl Coverage {
             files_read: files_read as u64,
             full_scope: gaps.is_empty(),
             gaps,
+            measures: None,
             selected_files,
         }
     }

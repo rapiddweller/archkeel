@@ -20,6 +20,7 @@ use serde_json::Value;
 
 use crate::identity::sha256_hex;
 use crate::ids::{EvidenceId, FactId, ModuleName, PackageName};
+use crate::measures::FileMeasures;
 use crate::record::Record;
 use crate::sections::{GapFact, Section};
 
@@ -391,6 +392,8 @@ pub struct Coverage {
     pub files_read: u64,
     pub full_scope: bool,
     pub gaps: Vec<Record<GapFact>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub measures: Option<Vec<FileMeasures>>,
     pub selected_files: Vec<String>,
 }
 
