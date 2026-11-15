@@ -273,7 +273,7 @@ fn each_other_form_of_the_shape_keeps_a_gap() {
         SHAPE.replace("import_module(f'.{attr_name}'", "import_module(attr_name"),
         SHAPE.replace("'Old':", "'__path__':"),
         SHAPE.replace("def _migrate", "__spec__ = None\n\n\ndef _migrate"),
-        SHAPE.replace("f'.{attr_name}'", "f'.{attr_name}{attr_name}'")
+        SHAPE.replace("import_module(module_name, package=package)", "import_module(module_name + attr_name + attr_name, package=package)")
             .replace("'Old': (__spec__.parent, '.first'),", &(0..70)
                 .map(|i| format!("'k{i}': ('app', '.m'),\n"))
                 .collect::<String>()),
@@ -339,5 +339,17 @@ fn a_star_import_that_can_bind_a_dependency_keeps_the_gap() {
             .filter(|r| r.starts_with("dynamic_import"))
             .collect();
         assert!(!gaps.is_empty(), "{source}");
+    }
+}
+
+#[test]
+fn a_literal_test_on_a_slot_leaves_out_the_impossible_candidates() {
+    let found = surveyed_at(&shape_tree(SHAPE));
+    let edges = targets_of(&found);
+    for impossible in ["__module__", "ext.Alpha", "ext.sub", "app.Alpha"] {
+        assert!(!edges.contains(impossible), "{impossible}: {edges:?}");
+    }
+    for possible in ["app.sub", "app.first", "ext", "ext.core"] {
+        assert!(edges.contains(possible), "{possible}: {edges:?}");
     }
 }
