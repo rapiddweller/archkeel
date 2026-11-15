@@ -8,7 +8,7 @@ and in the native one: `/// <reference types="../b/t" />`, `declare module "../b
 
 **Decision.**
 1. A `/// <reference types="...">` directive whose value starts with `.` or `/` is a concern, as a
-   `path` directive is. A `types` name stays silent (AD-274), unless AD-524 proves it as an edge.
+   `path` directive is. A leading `types` name is an edge or a gap (AD-528).
 2. A `declare module "..."` whose name starts with `.` or `/` is a concern,
    "Unobserved module augmentation: <name>". A bare name without `*` is a concern too when the file
    is a module file and the project sets `paths` or `baseUrl`: tsc resolves the name like an

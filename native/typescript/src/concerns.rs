@@ -108,8 +108,8 @@ fn leading_end(source: &Source, root: Node) -> usize {
         .map_or(source.data.len(), |child| child.start_byte())
 }
 
-/// The leading `/// <reference types="name" />` directives that name a plain package (#686): a
-/// type-only reference to it, at the place of the comment. A directive after the first statement is
+/// The leading `/// <reference types="name" />` directives that the compiler honors (#686): a
+/// type-only reference to the name, at the place of the comment. A directive after the first statement is
 /// ignored by the compiler and by this reader. A file that the parser had to repair gives none:
 /// its syntax error is already a gap.
 pub(crate) fn type_directives(
@@ -123,13 +123,13 @@ pub(crate) fn type_directives(
     }
     let first = leading_end(source, root);
     let directive = |node: Node| {
-        let name = jsdoc::types_directive(&source.text(node))?;
+        let (name, mode_override) = jsdoc::types_directive(&source.text(node))?;
         Some(Reference {
             form: Form::ImportType,
             specifier: Some(name),
             type_only: true,
             module_level: false,
-            mode_override: false,
+            mode_override,
             span: source.span(node, None),
         })
     };

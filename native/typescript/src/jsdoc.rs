@@ -181,12 +181,12 @@ pub(crate) fn triple_slash(body: &str, type_roots: bool) -> Option<String> {
     found
 }
 
-/// The package name of a leading `/// <reference types="name" />` whose only attribute is `types`
-/// and whose value is a plain name: no path, no space, no backslash, no other attribute. Such a
-/// directive makes the compiler read the type package `name`, so it is a type-only reference to
-/// it (#686). Any other form (`path`, `lib`, a second attribute such as `resolution-mode`, a
-/// relative name) is not read here.
-pub(crate) fn types_directive(body: &str) -> Option<String> {
+/// A leading `/// <reference types="name" />` that the compiler honors (#686): the name and
+/// whether the directive sets a `resolution-mode`. tsc lowercases the tag name and the attribute
+/// names, and a `types` attribute wins over `lib` and `path`; only `no-default-lib` wins over it.
+/// A name that starts with `.` or `/` names a file: that form is the concern of AD-353, not read
+/// here. Any other value is a name to prove, also an empty one or one with a space.
+pub(crate) fn types_directive(body: &str) -> Option<(String, bool)> {
     let rest = body
         .strip_prefix("///")?
         .trim_start_matches(is_space)
@@ -197,16 +197,18 @@ pub(crate) fn types_directive(body: &str) -> Option<String> {
     }
     let attributes = rest.get(name_end..)?;
     let first = attributes.chars().next().filter(|c| is_space(*c))?;
-    let mut found: Vec<(&str, &str)> = Vec::new();
-    attribute_list(attributes.get(first.len_utf8()..)?, |attribute, value| {
-        found.push((attribute, value));
-    });
-    let [(attribute, value)] = found.as_slice() else {
-        return None;
-    };
-    let plain =
-        !value.is_empty() && !value.starts_with(['.', '/']) && !value.contains(['\\', ' ', '\t']);
-    (attribute.eq_ignore_ascii_case("types") && plain).then(|| (*value).to_owned())
+    let (mut name, mut mode, mut default_lib) = (None, false, false);
+    attribute_list(
+        attributes.get(first.len_utf8()..)?,
+        |attribute, value| match attribute.to_ascii_lowercase().as_str() {
+            "types" if name.is_none() => name = Some(value),
+            "resolution-mode" => mode = true,
+            "no-default-lib" => default_lib = true,
+            _ => {}
+        },
+    );
+    let name = name.filter(|name| !name.starts_with(['.', '/']))?;
+    (!default_lib).then(|| (name.to_owned(), mode))
 }
 
 /// `([^\s=]+)\s*=\s*(['"])(.*?)\2` over the text: each attribute and its quoted value, scanned

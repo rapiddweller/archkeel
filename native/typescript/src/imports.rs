@@ -15,7 +15,7 @@ use crate::manifest::Lookup;
 use crate::options::ModuleKind;
 use crate::parse::{parse_for, Parsed};
 use crate::plant;
-use crate::references::Form;
+use crate::references::{Form, Reference};
 use crate::resolve::format_of;
 use crate::source_input::{classify_file, classify_specifier, ModuleFormat, SourceKind};
 
@@ -86,11 +86,12 @@ impl Collection<'_> {
         self.type_directives(&parsed, (rel, module), &format);
     }
 
-    /// A leading `/// <reference types="name" />` (#686). The compiler reads the type package
-    /// `name`. It is a type-only edge to the installed package when the resolver proves the name in
-    /// `node_modules`. A name that reaches a project file is a named gap (the resolver is not the
-    /// compiler's type lookup). A name that is not proven (no package, no `@types` lookup, a builtin,
-    /// an unknown format) stays silent, as it was before (AD-274).
+    /// A leading `/// <reference types="name" />` that the compiler honors (#686). The compiler
+    /// reads the type package: first `@types/<name>`, then the package `name`. It is a type-only edge
+    /// to the first one that the resolver proves in `node_modules`. Any other result is the gap
+    /// "Unresolved triple-slash types reference": no package installed, a name that reaches a
+    /// project file, a builtin, a `resolution-mode`, an unknown module format or a blocked option.
+    /// (A directive after the first statement is not honored and never reaches here.)
     fn type_directives(
         &mut self,
         parsed: &Parsed,
@@ -99,19 +100,44 @@ impl Collection<'_> {
     ) {
         let (rel, module) = file;
         for reference in &parsed.directives {
-            let specifier = reference.specifier.as_deref().unwrap_or("");
-            let class = classify_specifier(specifier);
-            if !class.npm_package() || class.builtin() || self.resolver.blocked.is_some() {
+            if self.types_edge(rel, module, reference, format) {
                 continue;
             }
-            let mode = match format {
-                Lookup::Hit(format) => Some(*format),
-                Lookup::Missing => None,
-                Lookup::Unknown(_) => continue,
-            };
+            let name = reference.specifier.as_deref().unwrap_or("");
+            let evidence = self.cite(rel, &reference.span);
+            let reason = format!("Unresolved triple-slash types reference: {name}");
+            self.gap(&reason, Some(&evidence), module, GapKind::Resolution);
+        }
+    }
+
+    /// Record the edge of a `types` directive when the resolver proves a package; else `false`.
+    fn types_edge(
+        &mut self,
+        rel: &str,
+        module: &str,
+        reference: &Reference,
+        format: &Lookup<ModuleFormat>,
+    ) -> bool {
+        let name = reference.specifier.as_deref().unwrap_or("");
+        let mode = match format {
+            Lookup::Hit(format) => Some(*format),
+            Lookup::Missing => None,
+            Lookup::Unknown(_) => return false,
+        };
+        if name.is_empty() || reference.mode_override || self.resolver.blocked.is_some() {
+            return false;
+        }
+        let mangled = name
+            .strip_prefix('@')
+            .map_or_else(|| name.to_owned(), |scoped| scoped.replacen('/', "__", 1));
+        for specifier in [format!("@types/{mangled}"), name.to_owned()] {
+            let class = classify_specifier(&specifier);
+            if !class.npm_package() || class.builtin() {
+                continue;
+            }
             let found = self.resolver.resolve_classified(
                 &mut self.snapshot,
-                (specifier, &class),
+                (&specifier, &class),
                 rel,
                 mode,
                 false,
@@ -119,14 +145,18 @@ impl Collection<'_> {
             let Lookup::Hit(found) = found else {
                 continue;
             };
-            let evidence = self.cite(rel, &reference.span);
-            if found.external && in_node_modules(&found.path) {
-                self.import(rel, module, reference, &evidence, format);
-            } else {
-                let reason = format!("Unobserved triple-slash reference: {specifier}");
-                self.gap(&reason, Some(&evidence), module, GapKind::Collection);
+            if !(found.external && in_node_modules(&found.path)) {
+                return false;
             }
+            let evidence = self.cite(rel, &reference.span);
+            let edge = Reference {
+                specifier: Some(specifier),
+                ..reference.clone()
+            };
+            self.import(rel, module, &edge, &evidence, format);
+            return true;
         }
+        false
     }
 
     /// The invariant of the extraction: each import-bearing node of the tree has a record or a gap.

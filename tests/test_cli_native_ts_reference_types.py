@@ -1,13 +1,14 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""A leading `/// <reference types="name" />` is a type-only edge to the installed package (#686).
+"""A leading `/// <reference types="name" />` is a type-only edge or a named gap (#686, AD-528).
 
 Consumer: `archkeel validate` on a TypeScript project, through the release core. The contract lets
-only `b` use the package `vite` (`external_dependency_scope`), and `a` holds the directive. An
-edge makes the rule FAIL. A directive that the compiler ignores, or that this reader does not
-prove, gives no edge (PASS, as before AD-274 rule 3), and a name that can reach a project file is
-a named gap (UNKNOWN). The control `import type` gives the same FAIL as an edge.
+only `b` use one package (`external_dependency_scope`), and `a` holds the directive. The compiler
+reads `@types/<name>` first and then the package `name`; the resolver proves the first one that is
+installed, and the file then depends on that package: the rule FAILs. A directive that the resolver
+does not prove to one installed package is a named gap: the rule is UNKNOWN. A directive after
+code is not honored by the compiler: no edge, no gap. The control `import type` gives the same FAIL.
 """
 
 from __future__ import annotations
@@ -61,24 +62,36 @@ EDGES = {
         "vite",
     ),
     "javascript-file": ({**INSTALLED, "src/a/a.js": DIRECTIVE}, "vite"),
+    "types-package-only": (
+        {
+            "node_modules/@types/jest/index.d.ts": "declare const j: number;\n",
+            "src/a/a.ts": '/// <reference types="jest" />\nexport const a = 1;\n',
+        },
+        "@types/jest",
+    ),
+    "builtin-name-with-its-types-package": (
+        {
+            "node_modules/@types/node/index.d.ts": "declare const n: number;\n",
+            "src/a/a.ts": '/// <reference types="node" />\nexport const a = 1;\n',
+        },
+        "@types/node",
+    ),
+    "scoped-types-package": (
+        {
+            "node_modules/@types/scope__pkg/index.d.ts": "declare const s: number;\n",
+            "src/a/a.ts": '/// <reference types="@scope/pkg" />\nexport const a = 1;\n',
+        },
+        "@types/scope__pkg",
+    ),
     "control-import-type": (
         {**INSTALLED, "src/a/a.ts": 'import type {} from "vite/client";\nexport const a = 1;\n'},
         "vite",
     ),
 }
-# The compiler ignores these, or this reader does not prove them: no edge, no gap.
+# The compiler does not honor these, or they are no `types` reference: no edge, no gap.
 SILENT = {
     "after-code": (
         {**INSTALLED, "src/a/a.ts": 'export const a = 1;\n/// <reference types="vite/client" />\n'},
-        "vite",
-    ),
-    "package-not-installed": ({"src/a/a.ts": DIRECTIVE}, "vite"),
-    "extra-attribute": (
-        {**INSTALLED, "src/a/a.ts": DIRECTIVE.replace(" />", ' resolution-mode="import" />')},
-        "vite",
-    ),
-    "name-with-a-space": (
-        {**INSTALLED, "src/a/a.ts": DIRECTIVE.replace("vite/client", "vite client")},
         "vite",
     ),
     "block-comment": (
@@ -88,23 +101,33 @@ SILENT = {
         },
         "vite",
     ),
-    "types-package-only": (
+    "no-default-lib": (
         {
-            "node_modules/@types/jest/index.d.ts": "declare const j: number;\n",
-            "src/a/a.ts": '/// <reference types="jest" />\nexport const a = 1;\n',
+            **INSTALLED,
+            "src/a/a.ts": '/// <reference no-default-lib="true" />\nexport const a = 1;\n',
         },
-        "@types/jest",
-    ),
-    "builtin-name": (
-        {
-            "node_modules/@types/node/index.d.ts": "declare const n: number;\n",
-            "src/a/a.ts": '/// <reference types="node" />\nexport const a = 1;\n',
-        },
-        "@types/node",
+        "vite",
     ),
 }
-# A name that can reach a project file, or a directive that names a path: a named gap.
+# A leading directive that the resolver does not prove, or that names a path: a named gap.
 GAPS = {
+    "package-not-installed": ({"src/a/a.ts": DIRECTIVE}, "vite"),
+    "builtin-name-without-its-types-package": (
+        {"src/a/a.ts": '/// <reference types="node" />\nexport const a = 1;\n'},
+        "@types/node",
+    ),
+    "resolution-mode": (
+        {**INSTALLED, "src/a/a.ts": DIRECTIVE.replace(" />", ' resolution-mode="import" />')},
+        "vite",
+    ),
+    "name-with-a-space": (
+        {**INSTALLED, "src/a/a.ts": DIRECTIVE.replace("vite/client", "vite client")},
+        "vite",
+    ),
+    "empty-name": (
+        {**INSTALLED, "src/a/a.ts": DIRECTIVE.replace("vite/client", "")},
+        "vite",
+    ),
     "relative-name": (
         {"src/a/a.ts": '/// <reference types="../b/t" />\nexport const a = 1;\n'},
         "vite",
@@ -176,7 +199,7 @@ def test_a_leading_types_directive_is_a_type_only_edge(
 
 
 @pytest.mark.parametrize("name", sorted(SILENT))
-def test_a_directive_that_is_not_proven_gives_no_edge(
+def test_a_directive_that_the_compiler_does_not_honor_gives_no_edge(
     tmp_path: Path, release_core: Path, name: str
 ) -> None:
     files, dependency = SILENT[name]
@@ -184,7 +207,7 @@ def test_a_directive_that_is_not_proven_gives_no_edge(
 
 
 @pytest.mark.parametrize("name", sorted(GAPS))
-def test_a_directive_that_can_reach_a_project_file_is_a_named_gap(
+def test_a_directive_that_is_not_proven_to_one_installed_package_is_a_named_gap(
     tmp_path: Path, release_core: Path, name: str
 ) -> None:
     files, dependency = GAPS[name]
