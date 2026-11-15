@@ -490,6 +490,5 @@ def read_frame(
         explain=read_explain(frame["explain"], violations) if "explain" in frame else None,
         html=read_html(frame, status, request),
         baseline=read_baseline(frame["baseline"], status) if "baseline" in frame else None,
-        premise=_premise(frame, scan),
         premise=_premise(frame, scan, status),
     )
