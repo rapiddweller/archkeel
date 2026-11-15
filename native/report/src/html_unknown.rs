@@ -101,6 +101,29 @@ fn gaps_table(frame: &Frame, names: &Names<'_>) -> String {
     )
 }
 
+/// The gaps that the collector states once for many uses (AD-540): where the first evidence is,
+/// the reason and the count that the collector wrote beside it. The page names no language.
+fn stated_once(frame: &Frame) -> String {
+    let items: String = frame
+        .collection_gaps
+        .iter()
+        .filter_map(|gap| Some((gap, gap.detail.as_ref()?)))
+        .map(|(gap, detail)| {
+            let place = gap.evidence.first().and_then(|id| frame.place(id));
+            format!(
+                "<li class=\"body-sm\"><span class=\"rp-code\">{}</span> {} &#8212; {}</li>",
+                escape(&place.unwrap_or_default()),
+                escape(&gap.reason),
+                escape(detail)
+            )
+        })
+        .collect();
+    if items.is_empty() {
+        return String::new();
+    }
+    format!("<p class=\"caption\">Stated once</p><ul>{items}</ul>")
+}
+
 /// The kinds of the scan gaps, counted: what the collector could not read.
 fn kinds_table(frame: &Frame) -> String {
     let mut kinds: BTreeMap<&str, usize> = BTreeMap::new();
@@ -176,6 +199,9 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
             "<details class=\"rp-fold\"><summary class=\"caption\">What the core says</summary><p class=\"rp-fold__body\">{}</p></details>",
             escape(found.reason)
         ));
+    }
+    if found.kind == "coverage_gaps" {
+        html.push_str(&stated_once(frame));
     }
     let tables = match found.kind {
         "coverage_gaps" if !frame.collection_gaps.is_empty() => format!(

@@ -21,10 +21,12 @@ fn gap(files: &[(&str, &str)]) -> bool {
     all.extend_from_slice(files);
     let tree = Tree::new(&all);
     let facts = collect(&request(&tree, true), provenance());
-    facts
-        .gaps
-        .iter()
-        .any(|gap| gap.title.starts_with("Script global Math "))
+    facts.gaps.iter().any(|gap| {
+        gap.title.starts_with("Script global Math ")
+            || gap
+                .title
+                .starts_with("A form that can write any global keeps every")
+    })
 }
 
 fn with_b(source: &str) -> bool {
@@ -218,4 +220,66 @@ fn a_key_that_is_no_number_is_a_run_time_key() {
     for form in numbers {
         assert!(!with_b(form), "a number key: {form}");
     }
+}
+
+fn titles_of(files: &[(&str, &str)]) -> Vec<(String, Option<String>)> {
+    let mut all = vec![("tsconfig.json", "{}"), ("src/a.ts", A)];
+    all.extend_from_slice(files);
+    let tree = Tree::new(&all);
+    let facts = collect(&request(&tree, true), provenance());
+    facts
+        .gaps
+        .iter()
+        .map(|gap| (gap.title.clone(), gap.data.data().message.clone()))
+        .collect()
+}
+
+#[test]
+fn a_direct_form_is_stated_once_and_not_once_for_each_use() {
+    let b = "export function f(k: string) { Function('return this')(); eval(k); }\n\
+             export const g = Object.keys({}).length + Math.max(1, 2);\n";
+    let found = titles_of(&[("src/b.ts", b)]);
+    let blockers: Vec<_> = found
+        .iter()
+        .filter(|(title, _)| title.starts_with("A form that can write any global keeps every"))
+        .collect();
+    assert_eq!(
+        blockers.len(),
+        2,
+        "one gap for each blocking node: {found:?}"
+    );
+    assert!(
+        found
+            .iter()
+            .all(|(title, _)| !title.starts_with("Script global ")),
+        "{found:?}"
+    );
+    let said = blockers[0].1.as_deref().unwrap_or_default();
+    assert!(said.ends_with("free standard names depend on it"), "{said}");
+    assert!(said.contains("5 uses of 4 free"), "Math and Object: {said}");
+    assert_eq!(
+        blockers[0].1, blockers[1].1,
+        "the count is the same for each node"
+    );
+    // The reason has no count and no line, so a baseline entry keeps its key.
+    assert!(blockers
+        .iter()
+        .all(|(title, _)| !title.chars().any(|c| c.is_ascii_digit())));
+}
+
+#[test]
+fn a_name_with_a_named_write_keeps_its_own_gap() {
+    let b = "export function f(o: any) { o.Math = 1; Function('x'); }\n";
+    let found = titles_of(&[("src/b.ts", b)]);
+    assert!(
+        found
+            .iter()
+            .any(|(title, _)| title.starts_with("Script global Math ")),
+        "{found:?}"
+    );
+    assert!(found
+        .iter()
+        .any(|(title, _)| title.starts_with("A form that can write any global")));
+    let clean = titles_of(&[("src/b.ts", "export const x = Object.keys({});\n")]);
+    assert!(clean.is_empty(), "{clean:?}");
 }
