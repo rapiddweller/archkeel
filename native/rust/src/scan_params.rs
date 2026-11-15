@@ -272,7 +272,7 @@ pub(super) fn read(
                 scope: scope.to_vec(),
                 kind: Some(kind),
                 macros: bound.macros.iter().cloned().collect(),
-                field: None,
+                fields: Vec::new(),
             };
             found.insert(
                 name,
@@ -336,7 +336,7 @@ fn read_locals(
             scope: scope.to_vec(),
             kind: Some(kind),
             macros: bound.macros.iter().cloned().collect(),
-            field: None,
+            fields: Vec::new(),
         };
         found.insert(
             name,
@@ -357,7 +357,17 @@ impl<'ast> Visit<'ast> for ClosureSites {
     fn visit_item(&mut self, _: &'ast Item) {}
     fn visit_expr_closure(&mut self, _: &'ast syn::ExprClosure) {}
     fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
-        if let syn::Expr::Path(path) = &*node.receiver {
+        let mut receiver = &*node.receiver;
+        for _ in 0..2 {
+            let syn::Expr::Field(field) = receiver else {
+                break;
+            };
+            if !field.attrs.is_empty() || !matches!(field.member, syn::Member::Named(_)) {
+                break;
+            }
+            receiver = &field.base;
+        }
+        if let syn::Expr::Path(path) = receiver {
             let name = path
                 .path
                 .get_ident()
@@ -417,7 +427,7 @@ impl<'ast> Visit<'ast> for Closures<'_> {
                 scope: self.scope.to_vec(),
                 kind: Some(kind),
                 macros: self.bound.macros.iter().cloned().collect(),
-                field: None,
+                fields: Vec::new(),
             };
             self.found.insert(
                 name,

@@ -351,6 +351,28 @@ def test_a_field_type_with_a_renamed_import_proves_a_receiver(
     assert verdict == "FAIL", claims(result)
 
 
+def test_two_written_field_types_prove_a_receiver(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    files = _plant(
+        "pub struct W { pub inner: V }\npub struct V { pub s: &'static crate::c::S }\n"
+        "pub fn f(w: &W) -> u8 { w.inner.s.m(1) }\n"
+    )
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "FAIL", claims(result)
+
+
+def test_a_typed_closure_receiver_proves_a_field(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    files = _plant(
+        "pub struct W { pub s: &'static crate::c::S }\n"
+        "pub fn f(w: &W) -> u8 { let call = |value: &W| value.s.m(1); call(w) }\n"
+    )
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "FAIL", claims(result)
+
+
 @pytest.mark.parametrize(
     "source",
     [
@@ -359,8 +381,9 @@ def test_a_field_type_with_a_renamed_import_proves_a_receiver(
         "type A = crate::c::S;\npub struct W { pub s: &'static A }\npub fn f(w: &W) -> u8 { w.s.m(1) }\n",
         "pub struct W { #[cfg(unix)] pub s: &'static crate::c::S }\npub fn f(w: &W) -> u8 { w.s.m(1) }\n",
         "pub struct W { pub s: &'static mut crate::c::S }\npub fn f(w: &mut W) -> u8 { w.s.m(1) }\n",
+        "pub struct W { pub inner: V }\npub struct V { pub s: &'static mut crate::c::S }\npub fn f(w: &W) -> u8 { w.inner.s.m(1) }\n",
         "pub struct W(pub &'static crate::c::S);\npub fn f(w: &W) -> u8 { w.0.m(1) }\n",
-        "pub struct W { pub inner: V }\npub struct V { pub s: &'static crate::c::S }\npub fn f(w: &W) -> u8 { w.inner.s.m(1) }\n",
+        "pub struct W { pub inner: V }\npub struct V { pub inner: X }\npub struct X { pub s: &'static crate::c::S }\npub fn f(w: &W) -> u8 { w.inner.inner.s.m(1) }\n",
         "macro_rules! make { () => { pub struct W { pub s: &'static crate::c::S } }; }\nmake!();\npub fn f(w: &W) -> u8 { w.s.m(1) }\n",
         "pub struct W { pub s: &'static crate::c::S }\nimpl std::ops::Deref for W { type Target = u8; fn deref(&self) -> &u8 { &1 } }\nimpl W { pub fn f(&self) -> u8 { self.s.m(1) } }\n",
     ],
@@ -370,6 +393,7 @@ def test_a_field_type_with_a_renamed_import_proves_a_receiver(
         "alias",
         "cfg-field",
         "receiver-form",
+        "shared-base-unique-field",
         "tuple",
         "chain",
         "macro-struct",
@@ -398,6 +422,30 @@ def test_a_hidden_or_deref_field_keeps_the_gap(
             c=TYPES + "impl std::ops::Deref for S { type Target = u8; "
             "fn deref(&self) -> &u8 { &1 } }\n",
         )
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "UNKNOWN", claims(result)
+
+
+def test_a_unique_field_behind_a_shared_base_keeps_the_gap(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    files = _plant(
+        "pub struct W { pub inner: V }\npub struct V { pub s: &'static mut crate::c::S }\n"
+        "pub fn f(w: &W) -> u8 { w.inner.s.m(1) }\n",
+        b=UNIQUE,
+    )
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "UNKNOWN", claims(result)
+
+
+def test_a_unique_field_behind_a_shared_intermediate_keeps_the_gap(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    files = _plant(
+        "pub struct W { pub inner: &'static V }\npub struct V { pub s: &'static mut crate::c::S }\n"
+        "pub fn f(w: &mut W) -> u8 { w.inner.s.m(1) }\n",
+        b=UNIQUE,
+    )
     result, verdict = _check(tmp_path, core_binary, capsys, files)
     assert verdict == "UNKNOWN", claims(result)
 
