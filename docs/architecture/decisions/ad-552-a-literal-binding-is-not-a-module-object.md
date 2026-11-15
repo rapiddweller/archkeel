@@ -15,6 +15,7 @@ The binding must be the only plain module-level binding of that name.
 The survey follows a unique plain re-import to its origin, with a depth limit.
 
 A star import, `__getattr__`, a namespace hazard or an attribute write blocks this proof.
+A different dynamic-import hazard keeps its own named gap.
 A scanned submodule with the same name also blocks the proof.
 Calls and other expressions remain unknown. The survey keeps their escape.
 An annotation of `TypeAlias` alone does not prove the value kind.

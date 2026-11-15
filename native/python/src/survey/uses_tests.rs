@@ -240,3 +240,17 @@ fn builtin_generic_aliases_are_values_only_when_the_builtin_is_unbound() {
         );
     }
 }
+
+#[test]
+fn an_unrelated_named_hazard_does_not_change_a_literal_binding() {
+    let found = surveyed(&[
+        ("src/app/__init__.py", ""),
+        ("src/app/lib.py", "VALUE = 1\ncode = 2\nprint(code)\n"),
+        (
+            "src/app/writer.py",
+            "from app.lib import VALUE\nuse(VALUE)\n",
+        ),
+    ]);
+    assert!(!found.opaque_surface.contains("app.lib"));
+    assert!(!found.unknowns.is_empty());
+}
