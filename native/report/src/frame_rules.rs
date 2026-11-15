@@ -82,7 +82,7 @@ pub(crate) fn rule_rows(
     let mut out = Vec::with_capacity(rules.len());
     for rule in rules {
         let verdict = rule_verdict(&rule.decision);
-        let model = models.and_then(|models| models.model_of(&rule.id));
+        let model = models.and_then(|tree: &ModelTree| tree.model_of(&rule.id));
         match &rule.decision {
             RuleDecision::Decided(decision) => {
                 let own = model.is_some_and(|model| decision.passes(model, &rule.id));
