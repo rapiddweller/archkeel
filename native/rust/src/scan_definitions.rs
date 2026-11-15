@@ -145,6 +145,7 @@ pub(super) fn impl_block(walker: &mut Walker<'_>, item: &ItemImpl) {
                 receiver: f.sig.receiver().is_some(),
                 kind: kind_of(&f.sig).filter(|_| inert(&f.attrs)),
                 arity: (f.sig.inputs.len()).saturating_sub(usize::from(f.sig.receiver().is_some())),
+                inert: inert(&f.attrs),
             }),
             syn::ImplItem::Const(c) => Some(Member {
                 name: plain(&c.ident),
@@ -152,6 +153,7 @@ pub(super) fn impl_block(walker: &mut Walker<'_>, item: &ItemImpl) {
                 receiver: false,
                 kind: None,
                 arity: 0,
+                inert: inert(&c.attrs),
             }),
             _ => None,
         })

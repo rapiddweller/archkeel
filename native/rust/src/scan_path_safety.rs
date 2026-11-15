@@ -9,7 +9,7 @@ use std::collections::BTreeSet;
 use syn::visit::{self, Visit};
 use syn::{ExprPath, GenericParam};
 
-use crate::tokens::plain;
+use crate::tokens::{plain, NO_BIND_MACROS};
 
 pub(super) struct Safety {
     pub generic_paths: BTreeSet<(i64, i64)>,
@@ -17,6 +17,12 @@ pub(super) struct Safety {
     pub conditional_bindings: BTreeSet<String>,
     pub conditional_globs: BTreeSet<(i64, i64)>,
     pub restricted_bindings: BTreeSet<String>,
+    /// A macro call in statement place that is no silent macro of `std`: it can give any name.
+    pub body_macros: bool,
+    /// The same for a macro call in item place.
+    pub module_macros: bool,
+    /// A macro call in statement or item place.
+    pub placed_macros: bool,
 }
 
 pub(super) fn read(file: &syn::File, exclude_tests: bool) -> Safety {
@@ -28,7 +34,10 @@ pub(super) fn read(file: &syn::File, exclude_tests: bool) -> Safety {
     let paths = found
         .paths
         .into_iter()
-        .filter(|(_, name)| found.generics.contains(name))
+        .filter(|(_, name)| {
+            name.as_ref()
+                .is_none_or(|name| found.generics.contains(name))
+        })
         .map(|(site, _)| site)
         .collect();
     Safety {
@@ -37,13 +46,21 @@ pub(super) fn read(file: &syn::File, exclude_tests: bool) -> Safety {
         conditional_bindings: found.conditional_bindings,
         conditional_globs: found.conditional_globs,
         restricted_bindings: found.restricted_bindings,
+        body_macros: found.body_macros,
+        module_macros: found.module_macros,
+        placed_macros: found.placed_macros,
     }
 }
 
 #[derive(Default)]
 struct Names {
     generics: BTreeSet<String>,
-    paths: Vec<((i64, i64), String)>,
+    /// The place of each expression path and its first name; no name when a name before the last
+    /// has generic arguments (`G::<u8>::m`): the arguments choose the `impl` block.
+    paths: Vec<((i64, i64), Option<String>)>,
+    body_macros: bool,
+    module_macros: bool,
+    placed_macros: bool,
     conditional_use: bool,
     conditional_bindings: BTreeSet<String>,
     conditional_globs: BTreeSet<(i64, i64)>,
@@ -53,6 +70,16 @@ struct Names {
 }
 
 impl Names {
+    /// Whether the macro can give a name: each one but a silent macro of `std` by its plain name.
+    fn binds(&mut self, mac: &syn::Macro) -> bool {
+        if mac.path.is_ident("macro_rules") {
+            return false;
+        }
+        self.placed_macros = true;
+        let silent = |name: &syn::Ident| NO_BIND_MACROS.contains(&plain(name).as_str());
+        !mac.path.get_ident().is_some_and(silent)
+    }
+
     fn use_tree(&mut self, tree: &syn::UseTree, parent: Option<&syn::Ident>) {
         match tree {
             syn::UseTree::Path(path) => self.use_tree(&path.tree, Some(&path.ident)),
@@ -92,7 +119,17 @@ impl<'ast> Visit<'ast> for Names {
         {
             return;
         }
+        if let syn::Item::Macro(item) = node {
+            self.module_macros |= self.binds(&item.mac);
+        }
         visit::visit_item(self, node);
+    }
+
+    fn visit_stmt(&mut self, node: &'ast syn::Stmt) {
+        if let syn::Stmt::Macro(stmt) = node {
+            self.body_macros |= self.binds(&stmt.mac);
+        }
+        visit::visit_stmt(self, node);
     }
 
     fn visit_item_mod(&mut self, node: &'ast syn::ItemMod) {
@@ -141,7 +178,11 @@ impl<'ast> Visit<'ast> for Names {
                 let start = first.ident.span().start();
                 let line = i64::try_from(start.line).unwrap_or(i64::MAX);
                 let column = i64::try_from(start.column).unwrap_or(i64::MAX);
-                self.paths.push(((line, column), plain(&first.ident)));
+                let before = node.path.segments.len() - 1;
+                let mut types = node.path.segments.iter().take(before);
+                let chosen = types.any(|segment| !segment.arguments.is_none());
+                let name = (!chosen).then(|| plain(&first.ident));
+                self.paths.push(((line, column), name));
             }
         }
         visit::visit_expr_path(self, node);
