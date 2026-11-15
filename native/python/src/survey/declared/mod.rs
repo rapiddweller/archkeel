@@ -18,7 +18,8 @@ use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId};
 use archkeel_facts::nested::{BaseDeclaration, MemberInventory, Parameter};
 use archkeel_facts::vocab::{
-    Area, ClassKind, EvidenceClass, InventoryStatus, MemberKind, RelationshipKind, Status,
+    Area, ClassKind, EvidenceClass, InventoryStatus, MemberKind, MethodKind, RelationshipKind,
+    Status,
 };
 use archkeel_facts::{Record, SymbolFact};
 use ruff_python_ast::{Expr, Stmt, StmtClassDef, StmtFunctionDef};
@@ -296,6 +297,14 @@ impl<'m> Writer<'m, '_> {
         };
         let mut data = ClassData::declared(header, word);
         data.enum_members = attributes.literals;
+        // Each name that the class body binds, with a record or not: a method with a decorator
+        // that this reader does not admit has no record, and `boundary_types` must not pass it
+        // by (AD-550). A class whose members are withheld states none.
+        data.class_members = (!open).then(|| {
+            let mut names: Vec<String> = bound.names().into_iter().collect();
+            names.sort();
+            names
+        });
         data.member_inventories = vec![
             inventory(
                 MemberKind::Attribute,
@@ -403,6 +412,11 @@ impl<'m> Writer<'m, '_> {
             }
             let Some(method) = members::method_kind(function, self.binders) else {
                 continue;
+            };
+            // The constructor is its own kind: its signature has no return position (AD-550).
+            let method = match (name, method) {
+                ("__init__", MethodKind::Instance) => MethodKind::Constructor,
+                (_, kind) => kind,
             };
             let header = self.header(name, qualname, Some((qualname, id)));
             let fact = self.callable(function, header, Some(method))?;

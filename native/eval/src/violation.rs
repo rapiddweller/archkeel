@@ -90,6 +90,8 @@ pub enum Violation {
     Cycle(Box<Cyclic>),
     /// A forbidden construct, with the original observation's identity and evidence.
     Construct(Box<ConstructViolation>),
+    /// `boundary_types`: a written type of a public position that breaks the rule (AD-550).
+    BoundaryType(Box<crate::boundary_types::BoundaryViolation>),
     /// An import outside the target component's public interface.
     PrivateImport {
         id: String,
@@ -318,6 +320,7 @@ impl Violation {
             Violation::OuterLayer(layered) => [&layered.id, &layered.rule],
             Violation::Cycle(cyclic) => [&cyclic.id, &cyclic.rule],
             Violation::Construct(row) => [&row.id, &row.rule],
+            Violation::BoundaryType(row) => [&row.id, &row.rule],
         }
     }
 }

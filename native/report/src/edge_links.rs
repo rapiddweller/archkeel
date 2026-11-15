@@ -23,7 +23,8 @@ pub(crate) fn add(links: &mut Links, outcome: &Outcome) {
             Violation::Unassigned { .. }
             | Violation::NotAllowedChild { .. }
             | Violation::OuterLayer(_)
-            | Violation::Construct(_) => &[],
+            | Violation::Construct(_)
+            | Violation::BoundaryType(_) => &[],
         };
         for import in imports {
             links

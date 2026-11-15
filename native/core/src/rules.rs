@@ -44,7 +44,7 @@ fn decided(kind: RuleKind) -> bool {
         RuleKind::CatalogUse => false,
         RuleKind::ForbiddenEffectUnderCondition => false,
         RuleKind::ProtocolDeclarations => false,
-        RuleKind::BoundaryTypes => false,
+        RuleKind::BoundaryTypes => true,
     }
 }
 

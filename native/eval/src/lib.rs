@@ -50,6 +50,7 @@
 #![deny(unreachable_pub)]
 
 mod assignment;
+mod boundary_types;
 mod constructs;
 mod cycles;
 mod decide;
@@ -68,6 +69,7 @@ mod layout_citation_tests;
 use archkeel_contract::{head_of, kind_of, Rule, RuleKind};
 use archkeel_model::{Decision, Model, ModelTree, Part, Reason, Unsupported, Verdict};
 
+pub use boundary_types::BoundaryViolation;
 pub use violation::{Cited, ConstructViolation, CycleStep, Cyclic, Layered, Violation};
 
 /// The result of one rule.
@@ -146,7 +148,7 @@ fn outcome(rule: &Rule, rules: &[Rule], model: &Model) -> Outcome {
         Rule::CatalogUse(_) => unported(kind),
         Rule::ForbiddenEffectUnderCondition(_) => unported(kind), // S15
         Rule::ProtocolDeclarations(_) => unported(kind),          // S16
-        Rule::BoundaryTypes(_) => unported(kind),                 // S17
+        Rule::BoundaryTypes(rule) => boundary_types::check(id, rule, model), // AD-550
     };
     let violations = match found {
         Ok(found) => found,

@@ -122,6 +122,27 @@ pub enum TypeShape {
     Unreadable { text: String, cause: Unreadable },
 }
 
+impl TypeShape {
+    /// The text of the node: what an exact exception of a rule matches. A missing annotation and
+    /// the nothing value have the text that Python writes for them.
+    pub fn text(&self) -> &str {
+        match self {
+            TypeShape::Unannotated {} => "",
+            TypeShape::Nothing {} => "None",
+            TypeShape::Primitive { text, .. }
+            | TypeShape::Dynamic { text, .. }
+            | TypeShape::Collection { text, .. }
+            | TypeShape::Union { text, .. }
+            | TypeShape::Literal { text, .. }
+            | TypeShape::Annotated { text, .. }
+            | TypeShape::Named { text, .. }
+            | TypeShape::Applied { text, .. }
+            | TypeShape::Forward { text }
+            | TypeShape::Unreadable { text, .. } => text,
+        }
+    }
+}
+
 #[cfg(test)]
 #[path = "type_shape_tests.rs"]
 mod tests;

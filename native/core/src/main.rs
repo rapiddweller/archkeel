@@ -21,6 +21,7 @@ mod contract;
 mod dual_run;
 mod engine;
 mod hygiene;
+mod hygiene_boundary;
 mod hygiene_graph;
 mod hygiene_interface;
 mod hygiene_pairs;
