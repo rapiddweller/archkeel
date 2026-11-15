@@ -4759,7 +4759,7 @@
               "type": "null"
             }
           ],
-          "description": "The facts that the gap leaves unknown (AD-560). A gap without an effect leaves the whole\nscope unknown."
+          "description": "The facts that the gap leaves unknown (AD-564). A gap without an effect leaves the whole\nscope unknown."
         }
       },
       "description": "An UNKNOWN gap of the coverage or of the `unknowns` section."

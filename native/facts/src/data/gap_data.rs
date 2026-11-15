@@ -42,7 +42,7 @@ pub struct GapData {
     pub source_module: Option<ModuleName>,
     #[serde(default, skip_serializing_if = "crate::skip::omitted")]
     pub under_type_checking: Option<bool>,
-    /// The facts that the gap leaves unknown (AD-560). A gap without an effect leaves the whole
+    /// The facts that the gap leaves unknown (AD-564). A gap without an effect leaves the whole
     /// scope unknown.
     #[serde(default, skip_serializing_if = "crate::skip::omitted")]
     pub effect: Option<GapEffect>,

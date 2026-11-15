@@ -56,7 +56,7 @@ fn the_keys_of_the_data_keep_the_order_of_the_untyped_record() {
     );
 }
 
-// AD-560: the effect of a gap. A gap without an effect has no `effect` key, so a reply of a
+// AD-564: the effect of a gap. A gap without an effect has no `effect` key, so a reply of a
 // collector that states no effect keeps its bytes and the model reads the whole scope.
 fn with_effect(effect: crate::data::GapEffect) -> serde_json::Value {
     let mut data = GapData::at("why", "ns.mod");

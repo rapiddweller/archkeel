@@ -4,7 +4,7 @@
 
 //! The sites that can import a module that no `import` statement names (AD-450).
 //!
-//! A door or state reference is a hazard. A proven inert read keeps its import gap (AD-562).
+//! A door or state reference is a hazard. A proven inert read keeps its import gap (AD-574).
 //!
 //! - A dynamic import is a reference to a door: a standard-library name that imports a module
 //!   from a value or runs text (`DOORS`), a builtin such as `exec`, or an attribute with the name

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! What a gap leaves unknown, as typed data (AD-560).
+//! What a gap leaves unknown, as typed data (AD-564).
 //!
 //! A collector writes three sorts of facts for each module: its file and its name, the import
 //! edges that leave it, and its code (its members, its positions and its constructs). An effect
