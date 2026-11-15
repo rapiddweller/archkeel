@@ -215,6 +215,7 @@ fn typing_values(
     let mut aliases = HashMap::new();
     let mut blocked = HashSet::new();
     let mut blocked_modules = HashSet::new();
+    let mut class_write = scan.bounds.values().any(|bound| bound.attribute_write);
     for record in imports {
         let data = record.data.data();
         let target = data.target_module.as_str();
@@ -254,12 +255,21 @@ fn typing_values(
         let mut watch = TypingWatch {
             names,
             blocked: &mut blocked,
+            class_write: &mut class_write,
         };
         watch.visit_body(&module.tree.body);
     }
     let mut values = HashSet::new();
     for module in modules {
-        for (name, head, form) in module.tree.body.iter().flat_map(typing_candidates) {
+        let Some(bound) = scan.bounds.get(module.name.as_str()) else {
+            continue;
+        };
+        for (name, head, form) in module
+            .tree
+            .body
+            .iter()
+            .flat_map(|stmt| typing_candidates(stmt, bound))
+        {
             let key = (module.name.clone(), head.to_owned());
             let Some(factory) = aliases.get(&key) else {
                 continue;
@@ -267,6 +277,7 @@ fn typing_values(
             if factory_form(&factory.1) == Some(form)
                 && !blocked.iter().any(|(_, name)| name == &factory.1)
                 && blocked_modules.is_empty()
+                && !class_write
             {
                 values.insert((module.name.clone(), name.to_owned()));
             }
@@ -275,7 +286,7 @@ fn typing_values(
     values
 }
 
-fn typing_candidates(stmt: &Stmt) -> Vec<(&str, &str, bool)> {
+fn typing_candidates<'a>(stmt: &'a Stmt, bound: &Bound) -> Vec<(&'a str, &'a str, bool)> {
     let (targets, value): (Vec<&Expr>, &Expr) = match stmt {
         Stmt::Assign(node) => (node.targets.iter().collect(), &node.value),
         Stmt::AnnAssign(node) => match &node.value {
@@ -285,8 +296,17 @@ fn typing_candidates(stmt: &Stmt) -> Vec<(&str, &str, bool)> {
         _ => return Vec::new(),
     };
     let (head, form) = match value {
-        Expr::Subscript(node) => (&*node.value, true),
-        Expr::Call(node) => (&*node.func, false),
+        Expr::Subscript(node) if bound.inert_typing_arg(&node.slice) => (&*node.value, true),
+        Expr::Call(node)
+            if node.arguments.keywords.is_empty()
+                && node
+                    .arguments
+                    .args
+                    .iter()
+                    .all(|arg| bound.inert_typing_arg(arg)) =>
+        {
+            (&*node.func, false)
+        }
         _ => return Vec::new(),
     };
     let Expr::Name(head) = head else {
@@ -304,11 +324,18 @@ fn typing_candidates(stmt: &Stmt) -> Vec<(&str, &str, bool)> {
 struct TypingWatch<'a> {
     names: HashMap<&'a str, &'a Factory>,
     blocked: &'a mut HashSet<Factory>,
+    class_write: &'a mut bool,
 }
 
 impl<'a> Visitor<'a> for TypingWatch<'_> {
     fn visit_expr(&mut self, expr: &'a Expr) {
         match expr {
+            Expr::Attribute(node)
+                if node.ctx != ExprContext::Load
+                    || matches!(node.attr.as_str(), "__setattr__" | "__delattr__") =>
+            {
+                *self.class_write = true;
+            }
             Expr::Subscript(node) if self.factory(&node.value, true) => {
                 self.visit_expr(&node.slice);
                 return;

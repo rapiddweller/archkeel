@@ -293,6 +293,11 @@ fn typing_factories_prove_values_only_when_their_bindings_are_unmodified() {
             "",
             true,
         ),
+        (
+            "from typing import Annotated\nVALUE = Annotated[int, metadata()]\n",
+            "",
+            true,
+        ),
     ] {
         let found = surveyed(&[
             ("src/app/__init__.py", ""),
@@ -328,6 +333,17 @@ fn a_typing_factory_that_escapes_through_a_reexport_is_not_trusted() {
             "src/app/writer.py",
             "from app.lib import VALUE\nuse(VALUE)\n",
         ),
+    ]);
+    assert!(found.opaque_surface.contains("app.lib"));
+}
+
+#[test]
+fn writing_the_runtime_type_of_a_typing_alias_blocks_the_factory_proof() {
+    let found = surveyed(&[
+        ("src/app/__init__.py", ""),
+        ("src/app/lib.py", "from typing import Annotated\nVALUE = Annotated[int, 1]\n"),
+        ("src/app/patch.py", "from typing import Annotated\nalias = Annotated[int, 1]\ncls = type(alias)\ncls.__new__ = replacement\n"),
+        ("src/app/writer.py", "from app.lib import VALUE\nuse(VALUE)\n"),
     ]);
     assert!(found.opaque_surface.contains("app.lib"));
 }

@@ -12,6 +12,8 @@ Subscripts of the builtin generic types create generic aliases, not modules.
 The survey requires the generic name to have no module-level binding.
 Selected `typing` factories also create non-module values.
 The survey admits them only when their scanned uses cannot change the factory.
+Their arguments must be literals or unbound builtin types.
+An attribute write anywhere in the scan blocks this factory proof.
 The survey can use that fact when an imported name is used as a value.
 The binding must be the only plain module-level binding of that name.
 The survey follows a unique plain re-import to its origin, with a depth limit.

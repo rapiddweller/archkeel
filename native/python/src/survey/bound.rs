@@ -100,6 +100,24 @@ impl Bound {
         !self.opaque && !self.globals.contains(name) && !self.sites.contains_key(name)
     }
 
+    pub(super) fn inert_typing_arg(&self, expr: &Expr) -> bool {
+        match expr {
+            Expr::Name(name) => {
+                matches!(
+                    name.id.as_str(),
+                    "int" | "str" | "float" | "bool" | "bytes" | "object"
+                ) && self.unbound(name.id.as_str())
+            }
+            Expr::NumberLiteral(_)
+            | Expr::StringLiteral(_)
+            | Expr::BytesLiteral(_)
+            | Expr::BooleanLiteral(_)
+            | Expr::NoneLiteral(_) => true,
+            Expr::Tuple(tuple) => tuple.elts.iter().all(|item| self.inert_typing_arg(item)),
+            _ => false,
+        }
+    }
+
     /// The names that only the statement at `start` binds (`from . import name`, AD-53).
     pub(super) fn only_at(&self, name: &str, start: TextSize) -> bool {
         self.sites
