@@ -3,6 +3,5 @@
   "src/archkeel/render/assets/report-canvas.js": 590,
   "src/archkeel/render/assets/report-layout.js": 660,
   "src/archkeel/studio/ui/workbench.tsx": 664,
-  "tests/scaling_shapes.py": 933,
-  "tests/test_skill.py": 691
+  "tests/scaling_shapes.py": 933
 }
