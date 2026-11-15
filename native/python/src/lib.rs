@@ -65,13 +65,19 @@ pub fn compressed_reply(request: &PythonRequest, build: &Build<'_>) -> Result<Ve
 }
 
 /// The same survey through the typed sink, without reply bytes from a caller. The linked reply
-/// states that the survey reads no symbol selector and no module interface (AD-426, AD-450).
+/// states that the survey reads the symbol of each named import and writes its publication route
+/// (AD-426, AD-450, AD-504).
 pub fn typed_reply(request: &PythonRequest, build: &Build<'_>) -> Result<Reply, String> {
     let mut reply = reply::typed(request, survey::survey(request)?, build)?;
     reply.facts.profile_limits = Some(ProfileLimits {
-        dependency_symbols: LimitSupport::Unsupported,
-        interface_boundary: LimitSupport::Unsupported,
+        dependency_symbols: LimitSupport::Supported,
+        interface_boundary: LimitSupport::Supported,
     });
+    reply
+        .facts
+        .capabilities
+        .resolution_features
+        .push("import-routes-v1".to_owned());
     Ok(reply)
 }
 

@@ -76,7 +76,7 @@
     "M-review-workflow": {
       "language": "python",
       "runs": [
-      {"name": "M-review-workflow", "root": "M-review-workflow", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 6, "FAIL": 0, "UNKNOWN": 6}, "scope": "complete", "gaps": {"contract_hygiene_not_ported": 3}, "refusal": null}}
+      {"name": "M-review-workflow", "root": "M-review-workflow", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 12, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"contract_hygiene_not_ported": 3}, "refusal": null}}
       ]
     },
     "golden-python": {
