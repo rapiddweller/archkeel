@@ -31,7 +31,7 @@ BASE = {
 }
 
 
-def tree(root: Path, source: str) -> Path:
+def tree(root: Path, source: str, *, requires_only: bool = False) -> Path:
     components = [
         {
             **BASE,
@@ -66,6 +66,10 @@ def tree(root: Path, source: str) -> Path:
             "decided_by": "architect",
         },
     ]
+    if requires_only:
+        components[1]["public"] = ["app.src.b"]
+        rules = rules[1:]
+        source = "import { t } from '../b/t';\nexport const base = t;\n" + source
     files = {
         "archkeel.toml": (
             '[scan]\nlanguage = "typescript"\nroots = ["src"]\nnamespace = "app"\n'
@@ -103,10 +107,12 @@ def codes(result: dict[str, object]) -> set[str]:
 def test_requires_with_typescript_import_limits(
     release_core: Path, tmp_path: Path, source: str, expected: str
 ) -> None:
-    result = verdict(release_core, tree(tmp_path, source))
+    result = verdict(release_core, tree(tmp_path, source, requires_only=True))
     assert result["frame"]["rules"]["REQUIRES"][1] == expected
     if expected == "UNKNOWN":
         assert result["frame"]["explained"]["REQUIRES"]
+    else:
+        assert result["status"] == "PASS"
 
 
 def test_a_symbol_entry_that_an_import_uses_gives_no_lifecycle_finding(
