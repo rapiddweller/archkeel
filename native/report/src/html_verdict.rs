@@ -33,6 +33,19 @@ fn title(frame: &Frame, places: &Places) -> String {
     }
 }
 
+/// The premise of the TypeScript script-global rule (AD-540): stated on each TypeScript page, as
+/// the owner decided (L-212). The collector cannot see a caller outside the scan roots.
+const TYPESCRIPT_PREMISE: &str =
+    "Stated assumption: code outside the scan roots hands in no global or platform object.";
+
+/// The stated assumptions of the language of the run, as one line each.
+fn premise(frame: &Frame) -> String {
+    if frame.language != "typescript" {
+        return String::new();
+    }
+    format!("<p class=\"body-sm ak-verdict__note\">{TYPESCRIPT_PREMISE}</p>")
+}
+
 fn note(status: &str) -> &'static str {
     match status {
         "PASS" => "No violation. No unknown.",
@@ -152,12 +165,13 @@ pub(super) fn section(frame: &Frame, places: &Places) -> String {
     format!(
         "<div class=\"rp-head\"><h1>Verdict: {}</h1><section class=\"ak-verdict ak-verdict--{state}\" aria-label=\"Verdict\">\
 <span class=\"ak-badge ak-badge--{state} tag\">{}{}</span><h2 class=\"h2 ak-verdict__title\">{}</h2>\
-<p class=\"body-sm ak-verdict__note\">{}</p>{}<dl class=\"ak-verdict__stats\">{}{}{}</dl></section>{}</div>\n",
+<p class=\"body-sm ak-verdict__note\">{}</p>{}{}<dl class=\"ak-verdict__stats\">{}{}{}</dl></section>{}</div>\n",
         escape(status),
         status_icon(status),
         escape(status),
         escape(&title(frame, places)),
         note(status),
+        premise(frame),
         top_causes(frame),
         stat("PASS", frame.rules_with("PASS")),
         stat("FAIL", frame.rules_with("FAIL")),

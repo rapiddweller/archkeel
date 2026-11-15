@@ -75,6 +75,21 @@ fn a_run_that_is_open_without_an_unknown_rule_shows_its_cause() {
     assert!(page.contains("missing &lt;input&gt;"));
 }
 
+// Consumer: AD-540. A TypeScript page states the premise of the script-global rule; a page of
+// another language does not carry it.
+#[test]
+fn a_typescript_page_states_the_premise_of_the_script_globals() {
+    let frame = |language: &str| {
+        json!({"status": "PASS", "scope": "complete",
+            "self_test": {"collect": {"request": {"resolver": {"language": language}}}}})
+    };
+    let premise =
+        "Stated assumption: code outside the scan roots hands in no global or platform object.";
+    assert!(document(&frame("typescript")).contains(premise));
+    assert!(!document(&frame("python")).contains(premise));
+    assert!(!document(&json!({"status": "PASS"})).contains(premise));
+}
+
 fn component_frame(components: usize, modules_each: usize) -> Value {
     let list: Vec<Value> = (0..components)
         .map(|i| json!({"id": format!("COMP-{i}"), "name": format!("c{i}")}))
