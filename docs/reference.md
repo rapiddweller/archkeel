@@ -174,7 +174,7 @@ review the file, and keep it in the repository.
 | The file is absent, outside the repository, damaged or unsorted | `invalid` | 1 |
 | No difference, and the run has at least one UNKNOWN | `current` | 2 |
 | No difference, and no UNKNOWN | `current` | 0 |
-| A refused part of the run (reply, contract, section, report) | `not_compared` | 2 |
+| A refused part of the run (reply, contract, section, report), or a refused scan | `not_compared` | 1 |
 
 The file lists each accepted UNKNOWN as `kind`, `subject` and `reason`, with a `count` above 1.
 A rule row has the rule id as subject, so a new rule that is UNKNOWN for an accepted cause is a new
