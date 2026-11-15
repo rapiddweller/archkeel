@@ -83,6 +83,7 @@ pub(crate) struct ScopeDescription {
 
 impl Scopes {
     /// `parent_name` of Python: `parent.name` joined with a dot, from the outermost scope in.
+    #[cfg_attr(not(feature = "dump"), allow(dead_code))]
     pub(crate) fn qualified(&self, at: u32) -> String {
         let mut names = Vec::new();
         let mut next = Some(at);
