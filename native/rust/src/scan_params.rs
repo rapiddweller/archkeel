@@ -125,6 +125,12 @@ impl Bound {
                 TokenTree::Ident(_) if matches!(trees.peek(), Some(TokenTree::Punct(p)) if p.as_char() == '!') => {
                     return true
                 }
+                TokenTree::Punct(p)
+                    if p.as_char() == '#'
+                        && matches!(trees.peek(), Some(TokenTree::Group(g)) if g.delimiter() == proc_macro2::Delimiter::Bracket) =>
+                {
+                    return true
+                }
                 _ => {}
             }
         }
@@ -325,6 +331,7 @@ fn read_locals(
             || !pattern.attrs.is_empty()
             || bound.counts.get(&name) != Some(&1)
             || bound.tainted.contains(&name)
+            || macro_hides_type(&path, bound)
             || first.is_some_and(|name| hidden.contains(name) || bound.counts.contains_key(name))
         {
             continue;
@@ -347,6 +354,14 @@ fn read_locals(
             },
         );
     }
+}
+
+/// A macro can add a type or import in a function body without naming it at the call.
+fn macro_hides_type(path: &[String], bound: &Bound) -> bool {
+    !bound.macros.is_empty()
+        && path
+            .first()
+            .is_some_and(|first| !matches!(first.as_str(), "crate" | "self" | "super"))
 }
 
 /// The receiver sites inside one closure, without nested items, macros or closures.
@@ -412,6 +427,7 @@ impl<'ast> Visit<'ast> for Closures<'_> {
                 || !param.attrs.is_empty()
                 || self.bound.counts.get(&name) != Some(&1)
                 || self.bound.tainted.contains(&name)
+                || macro_hides_type(&path, self.bound)
                 || path.first().is_some_and(|first| {
                     self.hidden.contains(first) || self.bound.counts.contains_key(first)
                 })

@@ -18,3 +18,11 @@ conditional-module, alias and const-generic proofs. No violations are exempted.
 **Tests.** `test_two_written_field_types_prove_a_receiver` fails before the rule. The field
 plants cover a third step, typed closure base, changed fields, aliases, generic types and `Deref`.
 Five mutations check the depth limit, closure site and shared-borrow checks.
+
+**Macro review.** A workspace macro can pass an attribute macro through its tokens. The scan
+keeps the receiver gap when those tokens contain `#[...]`. A derive attribute also keeps the gap:
+a custom derive can emit an import that hides the receiver. A macro can also introduce a type
+name in a function body. A typed local or closure with an unqualified type therefore keeps the
+gap when the function calls a macro that is not a silent standard macro. A path rooted at
+`crate`, `self` or `super` keeps its proof. These checks fix the two receiver findings of the
+review of AD-543. The reviewer plants and two mutations check the refusals and the controls.
