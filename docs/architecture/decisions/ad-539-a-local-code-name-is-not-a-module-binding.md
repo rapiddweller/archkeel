@@ -19,6 +19,9 @@ A parameter or local named `code` is common and need not be a module. Treating e
 keeps unrelated import rules UNKNOWN. A star import, a delete, or a class body makes the binding
 uncertain, so the collector must not clear the gap there.
 
+An import call of a hazard keeps both its static edge and the hazard gap. Literal reflection
+through an import-bound provider, and one direct alias of that provider, keeps a gap too.
+
 ## Alternatives
 
 Keeping the spelling rule preserves false gaps. Treating all attributes named `code` as safe can

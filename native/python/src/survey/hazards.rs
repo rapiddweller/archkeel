@@ -33,6 +33,9 @@ use super::literal::{self, Proof};
 use super::syspath;
 use crate::module::Module;
 
+#[path = "hazards_reflect.rs"]
+mod reflect;
+
 /// The named gaps of the sites.
 pub(super) const DYNAMIC: &str = "dynamic_import";
 pub(super) const IMPORT_SYSTEM: &str = "import_system_change";
@@ -131,7 +134,7 @@ pub(super) fn sites(tree: &ModModule, proof: Proof, binders: &Binders) -> Vec<Si
     let mut walk = Walk {
         found: Vec::new(),
         bound: bindings(tree),
-        uncertain_code: Bound::of(&tree.body).opaque || deleted_code(tree),
+        uncertain_code: Bound::of(&tree.body).opaque || reflect::deleted_code(tree),
         class_body: false,
         proof,
     };
@@ -148,20 +151,6 @@ pub(super) fn sites(tree: &ModModule, proof: Proof, binders: &Binders) -> Vec<Si
         }
     }
     walk.found
-}
-
-fn deleted_code(tree: &ModModule) -> bool {
-    #[derive(Default)]
-    struct Deleted(bool);
-    impl<'a> Visitor<'a> for Deleted {
-        fn visit_expr(&mut self, expr: &'a Expr) {
-            self.0 |= matches!(expr, Expr::Name(node) if node.id.as_str() == "code" && node.ctx == ExprContext::Del);
-            visitor::walk_expr(self, expr);
-        }
-    }
-    let mut walk = Deleted::default();
-    walk.visit_body(&tree.body);
-    walk.0
 }
 
 /// The names of a door module that cannot import a module by a name given at run time (AD-472).
@@ -212,6 +201,7 @@ fn bindings(tree: &ModModule) -> HashMap<String, Vec<String>> {
     }
     let mut walk = Imports(HashMap::new());
     walk.visit_body(&tree.body);
+    reflect::aliases(tree, &mut walk.0);
     walk.0
 }
 
@@ -344,13 +334,13 @@ impl Walk {
                 return self.push(kind, name, expr);
             }
         }
+        if attributes.contains(&"code") && reflect::module(base, &self.bound) {
+            return self.push(DYNAMIC, "code", expr);
+        }
         let Expr::Name(root) = base else {
             return self.visit_expr(base);
         };
         let id = root.id.as_str();
-        if attributes.contains(&"code") && self.bound.contains_key(id) {
-            return self.push(DYNAMIC, "code", expr);
-        }
         if BUILTIN_DOORS.contains(&id) || IMPORT_FUNCTIONS.contains(&id) {
             return self.push(DYNAMIC, id, expr);
         }
@@ -429,8 +419,16 @@ impl<'a> Visitor<'a> for Walk {
             // AD-472: only the callee of a proven literal call is exempt; its one argument is a
             // string literal, so nothing below the call is left to read.
             Expr::Call(call) => match self.proof.target(call) {
-                Some(target) => self.push(LITERAL, &target, expr),
+                Some(target) => {
+                    self.push(LITERAL, &target, expr);
+                    if let Some(kind) = hazard(&target) {
+                        self.push(kind, &target, expr);
+                    }
+                }
                 None => {
+                    if reflect::code(expr, &self.bound) {
+                        self.push(DYNAMIC, "code", expr);
+                    }
                     // `vars()` without an argument is the namespace of the caller.
                     let bare = matches!(&*call.func, Expr::Name(f) if f.id.as_str() == "vars");
                     if bare && call.arguments.is_empty() {
@@ -439,6 +437,10 @@ impl<'a> Visitor<'a> for Walk {
                     visitor::walk_expr(self, expr);
                 }
             },
+            Expr::Subscript(_) if reflect::code(expr, &self.bound) => {
+                self.push(DYNAMIC, "code", expr);
+                visitor::walk_expr(self, expr);
+            }
             Expr::Attribute(_) => self.chain(expr),
             Expr::StringLiteral(node) if DOOR_STRINGS.contains(&node.value.to_str()) => {
                 self.push(DYNAMIC, node.value.to_str(), expr);
