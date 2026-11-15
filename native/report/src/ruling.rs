@@ -155,7 +155,7 @@ pub fn rule_with_edge_links(
     let scope = match models {
         Ok(models) => models
             .models()
-            .find_map(|model| model.scope(|scope| scope.run()).err()),
+            .find_map(|model: &Model| model.scope(|scope| scope.run()).err()),
         Err(reason) => Some(reason.clone()),
     };
     let complete = scope.is_none();
