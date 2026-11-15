@@ -55,6 +55,7 @@ pub struct Head {
 /// What the reply says after the records.
 #[derive(Clone)]
 pub struct Tail {
+    pub measures: Option<Vec<archkeel_facts::measures::FileMeasures>>,
     pub selected_files: Vec<String>,
     pub files_read: usize,
     /// Coverage gaps. The collection is complete only when there is none.
@@ -239,11 +240,12 @@ pub(crate) fn counted(
 ) -> io::Result<(Capabilities, Coverage, Vec<Evidence>)> {
     let capabilities =
         Capabilities::of(&head.sections, &head.features, &head.constructs).map_err(invalid)?;
-    let coverage = Coverage::of(
+    let mut coverage = Coverage::of(
         (tail.files_read, head.files.len()),
         tail.selected_files,
         tail.gaps,
     );
+    coverage.measures = tail.measures;
     Ok((capabilities, coverage, tail.evidence))
 }
 

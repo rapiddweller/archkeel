@@ -46,6 +46,7 @@ pub fn typed_reply(
     };
     let imports = found.imports;
     let tail = Tail {
+        measures: None,
         selected_files: found.coverage.selected_files,
         files_read: usize::try_from(found.coverage.files_read).map_err(|e| e.to_string())?,
         gaps: found.unknowns,

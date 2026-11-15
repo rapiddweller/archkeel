@@ -21,6 +21,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-554 | [Prove two written field steps in a Rust receiver](ad-554-prove-two-written-field-steps-in-a-rust-receiver.md) |
 | AD-552 | [A literal binding is not a module object](ad-552-a-literal-binding-is-not-a-module-object.md) |
 | AD-550 | [The Python collector writes the shape of each written signature type](ad-550-the-python-collector-writes-the-shape-of-each-written-signature-type.md) |
+| AD-548 | [Count call and typing sites in the core](ad-548-count-call-and-typing-sites-in-the-core.md) |
 | AD-544 | [A Rust receiver type can follow workspace re-exports](ad-544-a-rust-receiver-type-can-follow-workspace-reexports.md) |
 | AD-543 | [A written local type proves a Rust receiver](ad-543-a-written-local-type-proves-a-rust-receiver.md) |
 | AD-542 | [Dart isolate and package keys need evidence](ad-542-dart-isolate-and-package-keys-need-evidence.md) |

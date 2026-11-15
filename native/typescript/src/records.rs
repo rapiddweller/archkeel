@@ -153,6 +153,7 @@ impl Plan<'_> {
         })?;
         let (evidence, touched) = self.cited.finish();
         let tail = Tail {
+            measures: None,
             selected_files: self.selected_files,
             files_read: self.files_read,
             gaps: self.gaps,

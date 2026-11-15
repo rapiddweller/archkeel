@@ -33,6 +33,7 @@ pub mod fields;
 mod gap;
 pub mod identity;
 pub mod ids;
+pub mod measures;
 pub mod nested;
 pub mod nullable;
 mod printable;

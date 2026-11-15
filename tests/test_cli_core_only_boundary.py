@@ -173,6 +173,34 @@ def frame(status: Status = Status.PASS) -> bytes:
     ).encode()
 
 
+def test_call_measure_is_checked_before_the_frame_is_accepted() -> None:
+    from archkeel.cli.core_frame import read_frame
+
+    document = json.loads(frame())
+    measure = dict.fromkeys(
+        (
+            "calls_total",
+            "calls_resolved",
+            "calls_partial",
+            "calls_builtin",
+            "calls_external",
+            "calls_unresolved",
+            "unresolved_self",
+            "unresolved_attribute",
+            "unresolved_name",
+            "unresolved_dynamic",
+            "typing_positions",
+            "untyped_private_accesses",
+        ),
+        0,
+    )
+    document["measures"] = measure
+    read_frame(json.dumps(document).encode(), 0, scan=True, require_protocol=True)
+    measure["calls_unresolved"] = 1
+    with pytest.raises(CoreError, match="inconsistent call measures"):
+        read_frame(json.dumps(document).encode(), 0, scan=True, require_protocol=True)
+
+
 @pytest.fixture(autouse=True)
 def no_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv(core_only.VARIABLE, raising=False)
