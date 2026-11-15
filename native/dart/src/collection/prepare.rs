@@ -4,7 +4,8 @@
 
 //! Prepare all selected files before declarations; never discard a source silently.
 
-use super::{file_span, Builder, Stop};
+use super::builder::{file_span, Builder};
+use crate::declarations::work::Stop;
 use archkeel_facts::vocab::ExceptionName;
 use std::collections::BTreeMap;
 
