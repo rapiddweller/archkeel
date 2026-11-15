@@ -6,11 +6,11 @@
 //!
 //! Reference engine: `declared_tree_graph` of `ir/target_graph.py` at release 4.0.1 joins the
 //! target of the root and the target of each mount into one target, and `compare_graphs` judges
-//! that one target against the facts of the run. The core does the same and adds two stops that
-//! 4.0.1 does not have. The row is UNKNOWN, with the cause named, when two contracts draw one
-//! element, in one form or in two, and when a defined module of a mount lies outside the source
-//! domain of that mount. Both stops hold the row before any comparison, so they cannot hide a
-//! FAIL that 4.0.1 would not give: they only keep a PASS and a FAIL from resting on a target
+//! that one target against the facts of the run. The core does the same and adds three stops. The
+//! row is UNKNOWN, with the cause named, when two contracts draw one element (4.0.1 refuses it),
+//! when a defined module of a mount lies outside the source domain of that mount, and when a
+//! reference meets a definition of another contract and 4.0.1 refuses to link it. The stops hold
+//! the row before any comparison, so they only keep a PASS or a FAIL from resting on a target
 //! that 4.0.1 refuses or that leaves its mount.
 
 use std::collections::BTreeSet;
@@ -66,41 +66,44 @@ fn parent_of<'t>(target: &'t Target, item: &Entity) -> Option<&'t Entity> {
     target.entities().iter().find(|found| found.id() == id)
 }
 
+/// True when 4.0.1 refuses to link `item` of the part `part` to `definition` of the part `home`:
+/// it carries more than a bare reference, a scope names it, or its parent is not the parent of
+/// the definition.
+fn unlinkable(part: &Target, item: &Entity, (home, definition): (&Target, &Entity)) -> bool {
+    let owned = part
+        .scopes()
+        .iter()
+        .any(|scope| scope.scope_id() == item.id());
+    let moved = item.parent_id().is_some()
+        && !parent_of(part, item)
+            .zip(parent_of(home, definition))
+            .is_some_and(|(left, right)| same(left, right));
+    !bare_reference(item) || owned || moved
+}
+
 /// The first referenced entity that meets a planned definition in another part and that 4.0.1
-/// refuses to link (`_link_references` runs on the joined graph): it carries more than a bare
-/// reference, a scope names it, or its parent is not the parent of the definition. The core links
-/// each contract alone, so it must not give PASS for such a tree.
+/// refuses to link (`_link_references` runs on the joined graph). The core links each contract
+/// alone, so it must not give PASS for such a tree.
 fn link(parts: &[UmlPart]) -> Option<String> {
-    for (at, part) in parts.iter().enumerate() {
-        for item in part
-            .target
-            .entities()
-            .iter()
+    let references = parts.iter().enumerate().flat_map(|(at, part)| {
+        let found = part.target.entities().iter();
+        found
             .filter(|item| *item.presence() == PresenceKind::Referenced)
-        {
-            let definitions = parts
-                .iter()
-                .enumerate()
-                .filter(|(other, _)| *other != at)
-                .flat_map(|(_, found)| found.target.entities().iter().map(|e| (&found.target, e)))
-                .filter(|(_, e)| *e.presence() == PresenceKind::Planned && same(e, item));
-            for (home, definition) in definitions {
-                let owned = part
-                    .target
-                    .scopes()
-                    .iter()
-                    .any(|scope| scope.scope_id() == item.id());
-                let owner = parent_of(&part.target, item);
-                let moved = item.parent_id().is_some()
-                    && !owner
-                        .zip(parent_of(home, definition))
-                        .is_some_and(|(left, right)| same(left, right));
-                if !bare_reference(item) || owned || moved {
-                    return Some(format!(
-                        "the contracts of the tree reference {} in a form that 4.0.1 refuses to link",
-                        item.qualified_name()
-                    ));
-                }
+            .map(move |item| (at, item))
+    });
+    for (at, item) in references {
+        let definitions = parts
+            .iter()
+            .enumerate()
+            .filter(|(other, _)| *other != at)
+            .flat_map(|(_, found)| found.target.entities().iter().map(|e| (&found.target, e)))
+            .filter(|(_, e)| *e.presence() == PresenceKind::Planned && same(e, item));
+        for definition in definitions {
+            if unlinkable(&parts[at].target, item, definition) {
+                return Some(format!(
+                    "the contracts of the tree reference {} in a form that 4.0.1 refuses to link",
+                    item.qualified_name()
+                ));
             }
         }
     }
