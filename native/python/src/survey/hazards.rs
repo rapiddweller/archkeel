@@ -4,10 +4,7 @@
 
 //! The sites that can import a module that no `import` statement names (AD-450).
 //!
-//! A reference to a hazard name is the hazard: a call, an alias import, an attribute read, a
-//! value or a write. A name resolves through the import statements of the module, in any scope:
-//! `import sys as s` makes `s.path` the name `sys.path`. A name that no import binds resolves to
-//! itself, so `sys.path` is `sys.path` also without `import sys`.
+//! A door or state reference is a hazard. A proven inert read keeps its import gap (AD-562).
 //!
 //! - A dynamic import is a reference to a door: a standard-library name that imports a module
 //!   from a value or runs text (`DOORS`), a builtin such as `exec`, or an attribute with the name
@@ -18,8 +15,7 @@
 //!   the base of an attribute, is a dynamic import too: `getattr(sys, "path")` and `x = importlib`
 //!   reach any name of it. An attribute `sys`, `builtins` or `importlib` of any value is the same.
 //!
-//! Except for `code` (AD-539), the walk finds names, not scoped bindings. A local value with
-//! one of the other names is a site too, which is the stricter reading.
+//! Unproved names remain gaps (AD-539).
 
 use std::collections::HashMap;
 
@@ -34,6 +30,8 @@ use super::literal::{self, Proof};
 use super::syspath;
 use crate::module::Module;
 
+#[path = "hazards_inert.rs"]
+mod inert;
 #[path = "hazards_reflect.rs"]
 mod reflect;
 
@@ -43,8 +41,7 @@ pub(super) const IMPORT_SYSTEM: &str = "import_system_change";
 /// A proven literal import call: a static edge, not a gap (AD-472, `literal.rs`).
 pub(super) const LITERAL: &str = "literal_import";
 
-/// The doors, as one list of qualified names: a reference to one of them, or to a name below
-/// it, is a dynamic import.
+/// The door names and their children, unless a bounded inert read is proven.
 const DOORS: &str = "\
     builtins importlib __builtins__ ctypes.pythonapi types.FunctionType types.CodeType \
     unittest.mock.patch mock.patch pytest.importorskip sys.__dict__ pkgutil pydoc runpy imp \
@@ -132,9 +129,12 @@ pub(super) struct Site {
 
 /// The sites of a module, in source order.
 pub(super) fn sites(tree: &ModModule, proof: Proof, binders: &Binders) -> Vec<Site> {
+    let bound = bindings(tree);
+    let inert_modules = inert::modules(&bound, &binders.unique());
     let mut walk = Walk {
         found: Vec::new(),
-        bound: bindings(tree),
+        bound,
+        inert_modules,
         uncertain_code: Bound::of(&tree.body).opaque || reflect::deleted_code(tree),
         class_body: false,
         proof,
@@ -268,6 +268,7 @@ fn imported(stmt: &Stmt) -> Vec<String> {
 struct Walk {
     found: Vec<Site>,
     bound: HashMap<String, Vec<String>>,
+    inert_modules: HashMap<String, String>,
     uncertain_code: bool,
     class_body: bool,
     proof: Proof,
@@ -322,6 +323,11 @@ impl Walk {
             base = &node.value;
         }
         attributes.reverse();
+        if !store(expr)
+            && matches!(base, Expr::Name(name) if inert::read(&self.inert_modules, name.id.as_str(), &attributes))
+        {
+            return;
+        }
         if let Some(name) = attributes.iter().find(|a| {
             ANY_ATTRIBUTE.contains(a) || IMPORT_FUNCTIONS.contains(a) || **a == "__path__"
         }) {
