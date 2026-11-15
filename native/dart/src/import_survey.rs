@@ -80,10 +80,10 @@ pub fn survey(request: &DartRequest) -> Result<Survey, String> {
     let found = discover(&mut snapshot, &request.scope.namespace, &roots)?;
     let mut gaps = Gaps::default();
     discovery_gaps(&found, &mut gaps.evidence, &mut gaps.records);
-    package::package_gaps(&mut snapshot, &found, &roots, &mut gaps);
     let root = &request.snapshot.root;
     let config = config::config_gaps(&mut snapshot, root, &found.package_name, &mut gaps);
     let index = parse_sources(&found, &mut gaps)?;
+    let packages = package::package_gaps(&mut snapshot, &found, &roots, &index, &mut gaps);
     let owners = parts::owners(&mut snapshot, &index, &mut gaps);
     let built = edges::edges(&mut snapshot, &index, &owners, &mut gaps);
     let files = file_facts(&index, &mut gaps);
@@ -109,7 +109,7 @@ pub fn survey(request: &DartRequest) -> Result<Survey, String> {
     // AD-468: the selected sources that the survey read; a part counts as a parsed file.
     let read = selected.len();
     Ok(Survey {
-        inputs: with_config(inputs(&found), config),
+        inputs: with_config(inputs(&found), config, packages),
         // AD-468: the scope label of a root is `<root>/**`, as the model binds it to the roots.
         scope: roots.iter().map(|root| format!("{root}/**")).collect(),
         coverage: Coverage::of(
@@ -128,8 +128,9 @@ pub fn survey(request: &DartRequest) -> Result<Survey, String> {
 }
 
 /// The inputs with the package configuration, sorted by path.
-fn with_config(mut inputs: Vec<Input>, config: Option<Input>) -> Vec<Input> {
+fn with_config(mut inputs: Vec<Input>, config: Option<Input>, packages: Vec<Input>) -> Vec<Input> {
     inputs.extend(config);
+    inputs.extend(packages);
     inputs.sort_by(|a, b| a.path.cmp(&b.path));
     inputs
 }
@@ -147,8 +148,10 @@ fn parse_sources<'a>(found: &'a Discovery, gaps: &mut Gaps) -> Result<Index<'a>,
         .collect();
     let mut syntax = Vec::with_capacity(found.sources.len());
     let mut kinds = Vec::with_capacity(found.sources.len());
+    let mut isolate_loader = false;
     for source in &found.sources {
         if let Err(reason) = budget.charge(&source.content) {
+            isolate_loader = true;
             let message = format!("{reason}; it is not parsed");
             gaps.named(
                 GapName::DartParseBudget,
@@ -159,7 +162,16 @@ fn parse_sources<'a>(found: &'a Discovery, gaps: &mut Gaps) -> Result<Index<'a>,
             kinds.push(Kind::Unknown);
             continue;
         }
-        let parsed = parser.directives(&source.content);
+        let (parsed, loader) = parser.directives(&source.content);
+        isolate_loader |= loader || parsed.first_error.is_some();
+        isolate_loader |= parsed.directives.iter().any(|directive| {
+            directive
+                .target
+                .as_deref()
+                .into_iter()
+                .chain(directive.alternatives.iter().map(|(_, uri)| uri.as_str()))
+                .any(|uri| uri.eq_ignore_ascii_case("dart:mirrors"))
+        });
         for (span, kind, message) in parse_gaps(&parsed) {
             if kind == archkeel_facts::vocab::ExceptionName::DirectiveError {
                 gaps.named(
@@ -198,6 +210,7 @@ fn parse_sources<'a>(found: &'a Discovery, gaps: &mut Gaps) -> Result<Index<'a>,
             .collect(),
         syntax,
         kinds,
+        isolate_loader,
     })
 }
 
