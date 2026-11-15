@@ -27,7 +27,10 @@ fn the_first_part_names_the_package() {
 
 /// The typed facts of a frozen reply, as a Python survey with its three sections (AD-518).
 fn survey_facts() -> Facts {
-    survey_of(Profile::Python, &["imports", "symbols", "unknowns"])
+    survey_of(
+        Profile::Python,
+        &["calls", "imports", "references", "symbols", "unknowns"],
+    )
 }
 
 fn survey_of(profile: Profile, sections: &[&str]) -> Facts {
@@ -55,7 +58,7 @@ fn the_survey_has_exactly_its_sections_and_no_construct() {
     let with_symbols = survey_of(Profile::Dart, &["imports", "symbols", "unknowns"]);
     assert!(registered(&with_symbols).is_err());
     let mut more = survey_facts();
-    let calls = archkeel_facts::envelope::SectionName::parse("calls").expect("a section");
+    let calls = archkeel_facts::envelope::SectionName::parse("bindings").expect("a section");
     more.capabilities.sections.push(calls);
     assert!(registered(&more)
         .unwrap_err()
@@ -87,7 +90,7 @@ fn only_the_python_survey_with_its_routes_may_state_an_interface() {
     let routes = crate::features::ROUTES_FEATURE.to_owned();
     let stated = |profile: Profile, features: Vec<String>, symbols: LimitSupport| {
         let sections: &[&str] = match profile {
-            Profile::Python => &["imports", "symbols", "unknowns"],
+            Profile::Python => &["calls", "imports", "references", "symbols", "unknowns"],
             _ => &["imports", "unknowns"],
         };
         let mut facts = survey_of(profile, sections);

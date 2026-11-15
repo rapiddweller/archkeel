@@ -224,7 +224,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         };
         if !shape
             || !tree.cx.valid_unicode_member_name(member)
-            || tree.count(scope, &spelling) != 1
+            || tree.binding_count(scope, &spelling) != 1
             || !tree.script_free(target, node)
             || self.optional_chain(target)
             || self.optional_chain(value)

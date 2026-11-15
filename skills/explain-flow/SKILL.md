@@ -1,59 +1,20 @@
 ---
 name: explain-flow
-description: Use when the owner wants a flow of this codebase explained as a story ("how does X run", "walk me through the flow of Y"), with every step checked against the code.
+description: Not available on this development line. Use when the owner asks for a flow to be explained as a checked story, to say so and to offer the static report.
 ---
 
-# Explain a flow as a checked story
+# Explain a flow
 
-ArchKeel measures the flow. You write only the words. Agent text is a claim, never a fact.
-Never write a status, a line number or a system name from memory. The tool gives them.
+The story trace and the checked view are not available on this development line: the shell
+refuses `story` and `view` with exit 2. No release has them.
 
-## 1. Get a snapshot
+Do not run `story` or `view`. A refusal is not a result. Do not write a flow from
+memory and call it checked: agent text is a claim, never a fact.
 
-Run `archkeel explore --root <root> --output <dir> --json`. It writes `<dir>/architecture.json`.
-Use a CLI that has `story trace`. Probe it with `archkeel story trace --help`. Use `uvx archkeel`
-or `uvx --from git+https://github.com/rapiddweller/archkeel archkeel` when the probe fails.
+What this line offers:
 
-## 2. Trace the candidate paths
+1. Run `archkeel report --topology --output report.html` in the repository. It writes one static HTML
+   page from the Rust core with the components and the dependencies between them.
+2. Tell the owner what the page shows and which rules are UNKNOWN. UNKNOWN is not PASS.
 
-```bash
-archkeel story trace --from <function> --to <function> --snapshot <dir>/architecture.json --json
-```
-
-1. Give qualified names, such as `shop.cli.main.main`. Without `--to`, trace resolved calls to
-   the farthest functions. With `--to`, the trace also searches paths with partial calls.
-2. Read the top-level `paths` array. A hop in each path is `proven` (a resolved call) or
-   `claim` (a partial call, with its seam).
-3. Read `seams` on each path (`paths[].seams`): an unresolved call is a gap. Name it in the
-   story. Do not hide it. A path with no gaps has an empty `seams` array.
-   Check each call-site file and line in the source before you write its words.
-4. Choose one path. Do not report an unlisted hop as proven. Keep a partial hop as `claim`.
-   Leave unresolved steps `unknown` without `claim`. Set `claim: true` only for a deliberate
-   assertion between existing nodes whose transition it cannot verify; give its reason in `note`.
-   A claim cannot create a missing node. External systems need the explicit `external` field.
-
-## 3. Write the story spec
-
-Write a view spec with `"schema_version": "1.2.0"`. Add a `story` with `id`, `title` and `chapters`.
-List every step node in `nodes`. The `snapshot` digests may stay as the trace gives them: Studio
-checks the story by node name and ignores them on a mismatch. For each step in `steps`:
-
-- `node`: a function from the trace.
-- `chapter`, `title`, `note` (the story text) and `question` (for the architect): your words.
-- `external`: `{"system", "direction"}` only when the owner needs it. The direction is your claim.
-
-## 4. Check it, store it, show it
-
-1. Run `archkeel view check story.json --snapshot <dir>/architecture.json --json`.
-2. Read the result, not your spec. Report each `unknown`, `claim` and `missing` step to the owner.
-3. If a step is `missing` or `unknown` for no good reason, change the spec. Do not argue with the result.
-4. Write the spec to `<root>/.archkeel/stories/<id>.story.json` with your own write tool. This
-   stored story is reviewed repository documentation. Add `created` (UTC time), `git_head` (from
-   `git rev-parse HEAD`), `author_kind: "agent"` and
-   `agent` (your name). Do not edit anything else in the repository.
-5. Tell the owner to open Studio (`explore` skill) and pick the story in the list. Studio reads
-   the folder and checks the story again on the current snapshot. For a static page run
-   `archkeel view show story.json --snapshot <dir>/architecture.json`.
-
-The spec file is author text, a claim. The owner reviews it like documentation, in a pull request.
-Say only what `view check` measured. The `verdict` counts steps; it is not approval.
+For the checks of this line, use the `archkeel` skill.

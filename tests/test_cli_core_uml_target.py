@@ -26,9 +26,7 @@ from archkeel.cli import core_only
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 ROW = "UML-TARGET-a2e40c5592b1b06a"
 UNDECIDED = "the UML target: {count} assessments cannot be decided: "
-MOUNTED = (
-    "the UML target: an inside contract has its own UML target, which the core does not compare"
-)
+NOTHING = "the UML target: the target gives no assessment that the core can make"
 Plant = Callable[[dict[str, Any]], None]
 
 
@@ -247,16 +245,15 @@ def test_a_uml_target_that_changes_after_the_core_read_it_is_refused(
     assert (code, envelope["status"]) == (2, "UNKNOWN")
 
 
-def test_the_python_uml_fixture_has_an_unknown_row_and_never_passes(tmp_path: Path) -> None:
-    """Release 4.0.1 passes this target. The core decides 16 of its 20 entities (AD-518); `item`,
-    `Text`, `VERSION` and the bare annotation `_token` stay undecided, and the seven site
-    relationships stay a named gap until the sites are written."""
+def test_the_python_uml_fixture_keeps_one_undecided_entity(tmp_path: Path) -> None:
+    """Release 4.0.1 passes this target. The core decides 19 of its 20 entities and the 7 site
+    relationships (AD-518, AD-520). The bare annotation `_token` binds nothing at run time, so
+    that one entity is undecided and the row is UNKNOWN."""
     code, envelope = run("validate", "--root", str(_copy(tmp_path, "H-uml")))
     assert _rows(envelope) == {ROW: ["uml_target", "UNKNOWN"]}
     explained = envelope["frame"]["explained"][ROW]
-    assert "11 assessments cannot be decided" in explained
-    assert "the python collector states no symbol sites" in explained
-    assert "states no symbol facts" not in explained
+    assert "1 assessments cannot be decided" in explained
+    assert "absent symbol" in explained and "no symbol sites" not in explained
     assert envelope["gaps"] == []
     assert (code, envelope["status"], envelope["frame"]["status"]) == (2, "UNKNOWN", "UNKNOWN")
 
@@ -281,8 +278,9 @@ def _target(path: Path, identities: list[str]) -> None:
 
 
 def test_a_mounted_contract_with_its_own_target_has_one_row_that_sums_the_tree() -> None:
-    """A tree has one UML row at the id of its root path. A target in a mount keeps the row
-    UNKNOWN by name (AD-494), and it holds back the PASS of the tree."""
+    """A tree has one UML row at the id of its root path. The targets of the root and of each
+    mount are one declared intent (AD-526). Here each one names only referenced endpoints, so the
+    row has no assessment and stays UNKNOWN, and it holds back the PASS of the tree."""
     with case_root(HONEST) as root:
         tree(root)
         code, envelope = run("validate", "--root", str(root))
@@ -292,11 +290,11 @@ def test_a_mounted_contract_with_its_own_target_has_one_row_that_sums_the_tree()
         rows = _rows(envelope)
         assert rows[ROW] == ["uml_target", "UNKNOWN"]
         assert [rule for rule, row in rows.items() if row[1] != "PASS"] == [ROW]
-        assert envelope["frame"]["explained"][ROW] == MOUNTED
+        assert envelope["frame"]["explained"][ROW] == NOTHING
         assert (code, envelope["status"]) == (2, "UNKNOWN")
         _target(root / "architecture-contract.json", ["root-string", "root-string-2"])
         _target(root / "deep.json", ["deep-string"])
         code, envelope = run("validate", "--root", str(root))
         assert [rule for rule in _rows(envelope) if rule.startswith("UML-TARGET-")] == [ROW]
-        assert envelope["frame"]["explained"][ROW] == MOUNTED
+        assert envelope["frame"]["explained"][ROW] == NOTHING
         assert (code, envelope["status"]) == (2, "UNKNOWN")

@@ -25,7 +25,7 @@ use crate::tree::walk;
 /// Collect the facts of one request.
 pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collected {
     let mut source = Snapshot::new(&request.snapshot.root);
-    let mut builder = Builder {
+    let mut builder: Builder = Builder {
         exclude_tests: request.excludes_test_sources(),
         ..Builder::default()
     };

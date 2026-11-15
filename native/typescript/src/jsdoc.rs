@@ -181,6 +181,36 @@ pub(crate) fn triple_slash(body: &str, type_roots: bool) -> Option<String> {
     found
 }
 
+/// A leading `/// <reference types="name" />` that the compiler honors (#686): the name and
+/// whether the directive sets a `resolution-mode`. tsc lowercases the tag name and the attribute
+/// names, and a `types` attribute wins over `lib` and `path`; only `no-default-lib="true"` wins over it (any other value, such as "false", does not).
+/// A name that starts with `.` or `/` names a file: that form is the concern of AD-353, not read
+/// here. Any other value is a name to prove, also an empty one or one with a space.
+pub(crate) fn types_directive(body: &str) -> Option<(String, bool)> {
+    let rest = body
+        .strip_prefix("///")?
+        .trim_start_matches(is_space)
+        .strip_prefix('<')?;
+    let name_end = rest.find(|c: char| is_space(c) || c == '/' || c == '>')?;
+    if !rest.get(..name_end)?.eq_ignore_ascii_case("reference") {
+        return None;
+    }
+    let attributes = rest.get(name_end..)?;
+    let first = attributes.chars().next().filter(|c| is_space(*c))?;
+    let (mut name, mut mode, mut default_lib) = (None, false, false);
+    attribute_list(
+        attributes.get(first.len_utf8()..)?,
+        |attribute, value| match attribute.to_ascii_lowercase().as_str() {
+            "types" if name.is_none() => name = Some(value),
+            "resolution-mode" => mode = true,
+            "no-default-lib" => default_lib = value == "true",
+            _ => {}
+        },
+    );
+    let name = name.filter(|name| !name.starts_with(['.', '/']))?;
+    (!default_lib).then(|| (name.to_owned(), mode))
+}
+
 /// `([^\s=]+)\s*=\s*(['"])(.*?)\2` over the text: each attribute and its quoted value, scanned
 /// from every position as `re.finditer` does. A value does not hold a line feed.
 fn attribute_list<'a>(text: &'a str, mut each: impl FnMut(&'a str, &'a str)) {
@@ -221,3 +251,7 @@ fn attribute_at(text: &str, from: usize) -> Option<(&str, &str, usize)> {
     let end = text.len() - value_text.len() + close + 1;
     Some((name, value, end))
 }
+
+#[cfg(test)]
+#[path = "jsdoc_tests.rs"]
+mod tests;

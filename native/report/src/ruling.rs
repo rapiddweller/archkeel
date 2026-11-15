@@ -155,7 +155,7 @@ pub fn rule_with_edge_links(
     let scope = match models {
         Ok(models) => models
             .models()
-            .find_map(|model| model.scope(|scope| scope.run()).err()),
+            .find_map(|model: &Model| model.scope(|scope| scope.run()).err()),
         Err(reason) => Some(reason.clone()),
     };
     let complete = scope.is_none();
@@ -351,18 +351,21 @@ impl Rows {
         let Some(tree) = decided else {
             let gap = match target {
                 UmlTarget::Gap(gap) => gap,
-                UmlTarget::Compare(found) => UmlGap::NotCompared {
-                    entities: found.entities().len(),
-                    relationships: found.relationships().len(),
-                    scopes: found.scopes().len(),
-                },
+                UmlTarget::Compare(found) => {
+                    let (entities, relationships, scopes) = found.counts();
+                    UmlGap::NotCompared {
+                        entities,
+                        relationships,
+                        scopes,
+                    }
+                }
             };
             gaps.insert(id, run.cloned().unwrap_or(Reason::Uml(gap)));
             return Ok(false);
         };
         let outcome = match target {
             UmlTarget::Gap(gap) => UmlOutcome::Unknown(gap),
-            UmlTarget::Compare(found) => archkeel_model::compare_uml(tree.root(), &found, &id),
+            UmlTarget::Compare(found) => archkeel_model::compare_uml_tree(tree, &found, &id),
         };
         let verdict = match outcome {
             UmlOutcome::Pass(decision) if decision.passes(tree.root(), &id) => RuleVerdict::Pass,

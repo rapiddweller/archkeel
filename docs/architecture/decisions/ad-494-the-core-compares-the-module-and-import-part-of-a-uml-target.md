@@ -41,8 +41,9 @@ the row FAIL, any other UNKNOWN makes it UNKNOWN, else it is PASS.
 
 **Where the core differs from 4.0.1, with the proof.**
 - Python `importlib.import_module('app.b.t')` or `__import__('app.b.t')` is an import edge since
-  AD-472: a declared edge gives PASS (4.0.1: FAIL), and the edge under a closed scope without a
-  listed import gives FAIL (4.0.1: PASS). The core reads the true edge; 4.0.1 misses it.
+  AD-472: the edge under a closed scope without a listed import gives FAIL (4.0.1: PASS). The core
+  reads the true edge; 4.0.1 misses it. A declared edge that only a call meets gives FAIL as in
+  4.0.1 (AD-536).
 - TypeScript `import t = require('../b/t')` and a Dart conditional import under a closed scope:
   4.0.1 cannot complete the scan (exit 2, `parse_error`; its row is FAIL for TypeScript and
   UNKNOWN for Dart). The core gives FAIL for the true unlisted edge.

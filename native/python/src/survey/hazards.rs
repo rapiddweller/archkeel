@@ -29,6 +29,7 @@ use ruff_text_size::{Ranged, TextRange};
 
 use super::binders::Binders;
 use super::literal::{self, Proof};
+use super::syspath;
 use crate::module::Module;
 
 /// The named gaps of the sites.
@@ -125,13 +126,24 @@ pub(super) struct Site {
 }
 
 /// The sites of a module, in source order.
-pub(super) fn sites(tree: &ModModule, proof: Proof) -> Vec<Site> {
+pub(super) fn sites(tree: &ModModule, proof: Proof, binders: &Binders) -> Vec<Site> {
     let mut walk = Walk {
         found: Vec::new(),
         bound: bindings(tree),
         proof,
     };
-    walk.visit_body(&tree.body);
+    for stmt in &tree.body {
+        // AD-538: an expression statement of the module body that appends a directory of the
+        // snapshot to `sys.path` is a candidate; the survey settles it with the whole scan.
+        match syspath::levels(stmt, tree, binders) {
+            Some(count) => walk.found.push(Site {
+                kind: syspath::PATH_WRITE,
+                detail: count.to_string(),
+                range: stmt.range(),
+            }),
+            None => walk.visit_stmt(stmt),
+        }
+    }
     walk.found
 }
 
@@ -399,7 +411,7 @@ pub(super) fn split(modules: &[Module], binders: &[Binders]) -> Split {
     let (mut literals, mut found) = (Vec::new(), Vec::new());
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
         let proof = literal::Proof::of(&module.tree, binders);
-        for site in sites(&module.tree, proof) {
+        for site in sites(&module.tree, proof, binders) {
             match site.kind {
                 LITERAL => literals.push((index, site.range, site.detail)),
                 _ => found.push((index, site)),

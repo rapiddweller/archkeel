@@ -8,7 +8,7 @@
 //! the evidence that it cites. The id is the `stable_id` of the producer, so the same reason, the
 //! same evidence and the same module give one record.
 
-use crate::data::GapData;
+use crate::data::gap_data::GapData;
 use crate::identity::{stable_id, Part};
 use crate::ids::{EvidenceId, FactId, ModuleName};
 use crate::record::Record;
