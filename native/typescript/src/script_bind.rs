@@ -24,7 +24,12 @@ type Pattern<'t> = (Node<'t>, Node<'t>);
 impl<'a, 't> Tree<'a, 't> {
     /// `_script_bindings`: the names that each scope binds, and the scopes that are not statically
     /// known. `nodes` is the whole tree, or the nodes that a closed envelope selects.
-    pub(crate) fn bind(&mut self, nodes: &[Node<'t>], imports: &[ImportBinding], module: bool) {
+    pub(crate) fn bind_names(
+        &mut self,
+        nodes: &[Node<'t>],
+        imports: &[ImportBinding],
+        module: bool,
+    ) {
         let mut patterns: Vec<Pattern<'t>> = Vec::new();
         for node in nodes.iter().copied() {
             self.patterns_of(node, &mut patterns, module);
@@ -37,7 +42,7 @@ impl<'a, 't> Tree<'a, 't> {
         }
         for node in nodes.iter().copied() {
             // A parameter named `arguments` is the one binding (AD-534).
-            if owns_arguments(self.k(node)) && self.count(node, ARGUMENTS) == 0 {
+            if owns_arguments(self.k(node)) && self.binding_count(node, ARGUMENTS) == 0 {
                 let names = self.bindings.entry(node.id()).or_default();
                 names.insert(ARGUMENTS.to_owned(), 1);
             }

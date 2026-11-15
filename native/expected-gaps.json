@@ -385,31 +385,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_rust_collector.collect",
-      "A method call may reach the method check_extracted of an impl block in native.archkeel_rust_collector.edges_extracted"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.collect",
-      "A method call may reach the method declared of an impl block in native.archkeel_rust_collector.declared"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.collect",
-      "A method call may reach the method impl_members of an impl block in native.archkeel_rust_collector.impl_edges"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.collect",
-      "A method call may reach the method macro_calls of an impl block in native.archkeel_rust_collector.module_edges"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.collect",
-      "A method call may reach the method module of an impl block in native.archkeel_rust_collector.edges"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_rust_collector.declared",
       "A method call may reach the method at of an impl block in native.archkeel_facts.envelope.build"
     ],
@@ -475,23 +450,8 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_typescript_collector.dump",
-      "A method call may reach the method qualified of an impl block in native.archkeel_typescript_collector.script_declare"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_typescript_collector.exports",
       "A method call may reach the method valid_unicode_member_name of an impl block in native.archkeel_typescript_collector.constructors"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.kept",
-      "A method call may reach the method qualified of an impl block in native.archkeel_typescript_collector.script_declare"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.parse",
-      "A method call may reach the method count of an impl block in native.archkeel_typescript_collector.script_names"
     ],
     [
       "collection_gap",
@@ -501,7 +461,7 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.script",
-      "A method call may reach the method bind of an impl block in native.archkeel_typescript_collector.script_bind"
+      "A method call may reach the method bind_names of an impl block in native.archkeel_typescript_collector.script_bind"
     ],
     [
       "collection_gap",
@@ -545,11 +505,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_typescript_collector.script_depend",
-      "A method call may reach the method factory_proof of an impl block in native.archkeel_typescript_collector.script_proof"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_typescript_collector.script_factory",
       "A method call may reach the method valid_unicode_member_name of an impl block in native.archkeel_typescript_collector.constructors"
     ],
@@ -581,22 +536,12 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.umd_publication",
-      "A method call may reach the method bind of an impl block in native.archkeel_typescript_collector.script_bind"
+      "A method call may reach the method bind_names of an impl block in native.archkeel_typescript_collector.script_bind"
     ],
     [
       "collection_gap",
       "native.archkeel_typescript_collector.umd_publication",
       "A method call may reach the method valid_unicode_member_name of an impl block in native.archkeel_typescript_collector.constructors"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.walk",
-      "A method call may reach the method count of an impl block in native.archkeel_typescript_collector.script_names"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.walk",
-      "A method call may reach the method qualified of an impl block in native.archkeel_typescript_collector.script_declare"
     ],
     [
       "collection_gap",

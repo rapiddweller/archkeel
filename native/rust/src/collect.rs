@@ -50,14 +50,15 @@ pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collecte
         builder.problem(problem, &modules);
     }
     let modules_index = index(&workspace, &walked.modules);
+    let builder_ref: &mut Builder = &mut builder;
     for module in &walked.modules {
-        builder.module(&workspace, &modules_index, module, &walked.modules);
+        builder_ref.module(&workspace, &modules_index, module, &walked.modules);
     }
-    builder.macro_calls(&modules_index, &walked.modules);
-    builder.impl_members(&workspace, &modules_index, &walked.modules);
-    builder.check_extracted(&walked.modules);
+    builder_ref.macro_calls(&modules_index, &walked.modules);
+    builder_ref.impl_members(&workspace, &modules_index, &walked.modules);
+    builder_ref.check_extracted(&walked.modules);
     let taken: BTreeSet<&str> = modules.values().copied().collect();
-    builder.declared(&workspace, &request.scope.namespace, &taken, &mut source);
+    builder_ref.declared(&workspace, &request.scope.namespace, &taken, &mut source);
     let mut selected: Vec<String> = files
         .iter()
         .filter(|f| f.ends_with(".rs"))

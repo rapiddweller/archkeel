@@ -77,6 +77,10 @@ PROVEN: dict[str, dict[str, str]] = {
         "pub fn f(s: &crate::c::S, v: Option<u8>) -> u8 {\n"
         "    let _ = matches!(v, Some(n) if n > 0);\n    s.m(1)\n}\n"
     ),
+    "workspace macro without nested calls": _plant(
+        "macro_rules! items { ($($t:tt)*) => { $($t)* }; }\n"
+        "pub fn f(s: &crate::c::S) -> u8 {\n    items! { let _n = 1; }\n    s.m(1)\n}\n"
+    ),
 }
 
 
@@ -146,6 +150,10 @@ REFUSED: dict[str, dict[str, str]] = {
         "use crate::c::matches;\npub fn f(s: &crate::c::S) -> u8 {\n"
         "    let _ = matches!(1, 2);\n    s.m(1)\n}\n",
         c=TYPES + "pub fn matches() {}\n",
+    ),
+    "workspace macro passes through a macro call": _plant(
+        "macro_rules! items { ($($t:tt)*) => { $($t)* }; }\n"
+        "pub fn f(s: &crate::c::S) -> u8 {\n    items! { mac::rebind!(1, 2); }\n    s.m(1)\n}\n"
     ),
     "a macro call that names the parameter": _plant(
         "pub fn f(s: &crate::c::S) -> u8 {\n    dbg!(&s);\n    s.m(1)\n}\n"
