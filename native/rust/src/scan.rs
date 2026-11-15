@@ -71,10 +71,14 @@ pub(crate) fn scan(
         },
     };
     visitor.walker.out.gated_file = !receivers::module_inert(&file.attrs);
+    visitor.walker.out.generic_paths = path_safety::generic_paths(&file);
     visitor.visit_file(&file);
     attributes::finish(&mut visitor.walker);
     Ok(visitor.walker.out)
 }
+
+#[path = "scan_path_safety.rs"]
+mod path_safety;
 
 /// The walk of a file: the state that the files below fill, and the visit of the syntax tree.
 struct Visitor<'a> {

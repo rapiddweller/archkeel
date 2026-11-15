@@ -188,6 +188,11 @@ impl Builder {
             else {
                 continue;
             };
+            let site = (reference.site.line, reference.site.column);
+            if module.scan.generic_paths.contains(&site) {
+                unresolved.push(path_call(reference));
+                continue;
+            }
             let known = index.type_of(frame, &reference.scope, ty);
             let own = match &known {
                 TypeOf::Known(lexical, name) => {

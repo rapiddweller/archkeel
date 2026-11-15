@@ -110,6 +110,8 @@ pub(crate) struct Scan {
     pub exact_types: BTreeSet<String>,
     /// An inner attribute of the file may remove the module in some configuration.
     pub gated_file: bool,
+    /// Expression paths whose first name can be hidden by a generic parameter in this file.
+    pub generic_paths: BTreeSet<(i64, i64)>,
     /// The second count of the tree, for the invariant of the extraction.
     pub tally: Tally,
 }
