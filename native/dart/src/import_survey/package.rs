@@ -175,7 +175,11 @@ fn workspace(
     if text.contains(['&', '*', '!', '\\']) || index.syntax.iter().any(Option::is_none) {
         return false;
     }
-    if snapshot.is_file("pubspec.lock") || snapshot.is_link("pubspec.lock") {
+    if snapshot.is_file("pubspec.lock")
+        || snapshot.is_link("pubspec.lock")
+        || snapshot.is_file(".dart_tool/package_config.json")
+        || snapshot.is_link(".dart_tool/package_config.json")
+    {
         return false;
     }
     let Some(document) = yaml(text) else {

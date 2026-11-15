@@ -19,10 +19,11 @@ The package survey uses `saphyr` to parse one bounded YAML document. Only that s
 the parser. A key `path` gives a gap; a word in a value
 does not. Invalid, complex, escaped or over-budget YAML keeps a gap. A root workspace is complete
 only for simple, unique members outside every scan root. Each member manifest is an input. An
-import of a member, a path mapping, an override, a link, a lock file or a missing member keeps a
-gap. A package with `resolution: workspace` keeps a gap. Other workspace and path forms remain
-UNKNOWN. An imported member stays UNKNOWN because a link below its `lib/` can point back into a
-scan root. The survey does not read that member's source tree.
+import of a member, a path mapping, an override, a link, a lock file, a package configuration or
+a missing member keeps a gap. A package with `resolution: workspace` keeps a gap. Other workspace
+and path forms remain UNKNOWN. An imported member stays UNKNOWN because a link below its `lib/`
+can point back into a scan root. A configured external package can use such a link as well. The
+survey does not read external source trees.
 
 **Reason.** Importing an SDK library does not itself load a script. A metadata value is not a
 dependency key. A disjoint unused workspace member is external to the selected source roots.

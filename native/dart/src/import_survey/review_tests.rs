@@ -239,6 +239,48 @@ fn an_imported_workspace_member_can_link_into_the_scan() {
 }
 
 #[test]
+fn a_workspace_config_keeps_a_gap_for_external_links() {
+    let found = run_roots(
+        &[
+            ("pubspec.yaml", "name: shop\nworkspace:\n  - other\n"),
+            ("other/pubspec.yaml", "name: other\nresolution: workspace\n"),
+            (CONFIG, &config(OWN)),
+            ("lib/a.dart", ""),
+        ],
+        &["lib"],
+    );
+    only(&found, "DartWorkspace");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_configured_external_package_can_link_into_the_scan() {
+    let tree = archkeel_snapshot::test_tree::Tree::new(&[
+        ("pubspec.yaml", "name: shop\nworkspace:\n  - other\n"),
+        ("other/pubspec.yaml", "name: other\nresolution: workspace\n"),
+        ("lib/a.dart", "import 'package:external/b.dart';"),
+        ("lib/b.dart", ""),
+    ]);
+    let external = archkeel_snapshot::test_tree::Tree::new(&[]);
+    std::os::unix::fs::symlink(tree.root.join("lib"), external.root.join("lib")).unwrap();
+    std::fs::create_dir_all(tree.root.join(".dart_tool")).unwrap();
+    let entry = format!(
+        r#"{{"name":"external","rootUri":"file://{}/","packageUri":"lib/"}}"#,
+        external.path()
+    );
+    std::fs::write(tree.root.join(CONFIG), config(&format!("{OWN}, {entry}"))).unwrap();
+    let request = serde_json::json!({
+        "protocol_version": "8.0.0",
+        "snapshot": {"root": tree.path(), "git_head": "0".repeat(40), "dirty": false},
+        "scope": {"roots": ["lib"], "namespace": "shop"},
+        "resolver": {"language": "dart"},
+    });
+    let decoded = super::reply::decode(request.to_string().as_bytes()).unwrap();
+    let found = super::survey(&decoded).unwrap();
+    only(&found, "DartWorkspace");
+}
+
+#[test]
 fn a_dense_source_below_the_byte_budget_is_over_the_token_budget() {
     let dense = format!("import 'b.dart';\nvar x = [{}];\n", "1,".repeat(200_000));
     assert!(dense.len() < super::PARSE_BUDGET_BYTES);
