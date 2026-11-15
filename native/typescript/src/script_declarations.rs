@@ -103,12 +103,18 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         }
     }
 
-    /// The paths that an assignment target writes.
-    fn write_paths(&self, node: Node<'t>, target: Node<'t>, found: &mut Gathered<'t>) {
+    /// The write that an assignment makes to `target`, with the aliases of the wrapper of `node`.
+    pub(crate) fn write_of(&self, node: Node<'t>, target: Node<'t>) -> Write {
         let tree: &Tree<'_, '_> = self.tree;
         let wrapper = self.wrapper_of(node);
         let alias = |name: &str| self.is_alias(wrapper, name);
-        found.writes.push(tree.target_write(node, target, &alias));
+        tree.target_write(node, target, &alias)
+    }
+
+    /// The paths that an assignment target writes.
+    fn write_paths(&self, node: Node<'t>, target: Node<'t>, found: &mut Gathered<'t>) {
+        let tree: &Tree<'_, '_> = self.tree;
+        found.writes.push(self.write_of(node, target));
         let route = tree.static_path(target);
         self.route_paths(target, &route, found);
         if route.len() > 1 {

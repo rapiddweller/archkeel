@@ -241,7 +241,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         let tree: &Tree<'_, '_> = self.tree;
         let wrapper = self.wrapper_of(node);
         let alias = |name: &str| self.is_alias(wrapper, name);
-        found.writes.push(tree.target_write(node, target, &alias));
+        found.writes.push(self.write_of(node, target));
         let path = tree.static_path(target);
         if path.first().is_some_and(|first| alias(first)) {
             let published = self.assignment_publication(node, target, wrapper);
