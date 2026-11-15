@@ -48,9 +48,29 @@ pub(super) fn count(module: &Module, binders: &Binders) -> (u64, u64) {
                 .to_owned()
         })
         .collect();
+    let typing_modules = module
+        .tree
+        .body
+        .iter()
+        .filter_map(|stmt| match stmt {
+            Stmt::Import(node) => Some(&node.names),
+            _ => None,
+        })
+        .flatten()
+        .filter(|alias| alias.name.as_str() == "typing")
+        .map(|alias| {
+            alias
+                .asname
+                .as_ref()
+                .unwrap_or(&alias.name)
+                .as_str()
+                .to_owned()
+        })
+        .collect();
     let mut walk = Typing {
         imported,
         casts,
+        typing_modules,
         count: 0,
         private: 0,
         public: true,
@@ -66,6 +86,7 @@ pub(super) fn count(module: &Module, binders: &Binders) -> (u64, u64) {
 struct Typing {
     imported: std::collections::HashSet<String>,
     casts: std::collections::HashSet<String>,
+    typing_modules: std::collections::HashSet<String>,
     count: u64,
     private: u64,
     public: bool,
@@ -160,6 +181,12 @@ impl<'a> Visitor<'a> for Typing {
             self.count +=
                 u64::from(matches!(name, "getattr" | "eval" | "exec") || self.casts.contains(name));
         }
+        if let Expr::Call(call) = expr {
+            let typing_cast = matches!(&*call.func, Expr::Attribute(attr)
+                if attr.attr.as_str() == "cast" && matches!(&*attr.value, Expr::Name(name)
+                    if self.typing_modules.contains(name.id.as_str())));
+            self.count += u64::from(typing_cast);
+        }
         visitor::walk_expr(self, expr);
     }
 }
@@ -223,5 +250,15 @@ mod tests {
         let module = crate::test_module("def f(a):\n    a._value += 1\n", 11);
         let binders = Binders::of(&module.tree);
         assert_eq!(count(&module, &binders).1, 1);
+    }
+
+    #[test]
+    fn a_plain_typing_module_import_identifies_cast() {
+        let module = crate::test_module(
+            "import typing as t\ndef f() -> int:\n    return t.cast(int, 1)\n",
+            11,
+        );
+        let binders = Binders::of(&module.tree);
+        assert_eq!(count(&module, &binders).0, 1);
     }
 }
