@@ -32,8 +32,8 @@ The scan has no host entry when 1 to 3 hold (the collector proves them). 4 is a 
    object**. A caller can give `set(window, 'Math', x)` to `export function set(o, k, v) { o[k] = v }`.
    Main relied on it already for a parameter. A written type is no proof, and the rule reads none.
 
-Where the premise does not cover a read the gap stays: a named write `o.Math = v` still blocks
-`Math`; a script file; `declare global` (only a write publishes); a merge across files.
+Where the premise does not cover a read the gap stays (a named write `o.Math = v`, a script file,
+`declare global`, a merge across files). hono and zod keep their gaps.
 
 **Numeric keys.** A number or symbol cannot name `constructor`, so it is no run-time key: a number,
 arithmetic (`- * / % ** & | ^ << >> >>>`), unary `-` `+` `~`, an update, `Symbol.iterator` and the
@@ -45,30 +45,24 @@ and a call are refused.
 - **Direct stays direct.** A key can build `constructor` (`'con' + 'structor'`, `Object.getOwnPropertyNames`,
   data), and `fn['constructor']` is `Function`: the global object with no free name. AD-508 rule 2
   (43 plants) holds. A design note that read a key call as an amplifier was wrong.
-- **An amplifier needs a window.** It comes from the host (E1, condition 3), a script file (E2,
-  condition 1) or outside the scan (E3, the premise).
-- **Inert names** give no host object; their callbacks run in a module (`this` is `undefined`). A
-  contained use gives a string or a Boolean, or `a` of `a && b` only when `a` is false.
+- **An amplifier needs a window:** from the host (condition 3), a script file (condition 1) or
+  outside the scan (the premise). Inert names give no host object and their callbacks run in a
+  module. A contained use gives a string, a Boolean, or `a` of `a && b` only when `a` is false.
 
 ## What does not close
-- graphql-js keeps 397 gaps: two direct forms remain and block all 393 standard globals:
+- graphql-js keeps 397 gaps: two direct forms block all 393 standard globals:
   `execution/execute.ts:1304` `source[info.fieldName](...)` (key text of the caller) and
   `jsutils/suggestionList.ts:129` `rows[aLength % 3][bLength]` (`b.length` is not proven a number).
   With those two lines changed in a copy the same core gives 4 gaps (`process`: no `@types/node`).
   Closing them needs a second premise (key text from outside never names `constructor`) and a
   proof that `.length` is a number. Neither is here.
-- hono and zod keep their gaps (real host entry; `new Function`).
 - **The premise in the report.** The linked collector states it (`Facts.scope_premise`, not on the
   wire). `Model::scope_premise` gives it, the ruling writes the frame key `premise` (none when the
   collector states none), the page shows "Stated assumption: ..." under the verdict note. The `scope`
   word stays `complete`: the shell requires it for a PASS; the shell allows the key `premise` only.
 
 ## Mutation table
-Each row removes one condition; the plants of `script_host_tests.rs` turn.
-| Condition removed | Plants that turn |
-|---|---|
-| module by syntax; `with`; `export =` | `a_file_that_is_no_module_is_an_entry` |
-| direct forms stay direct | `a_direct_form_blocks_in_a_scan_without_a_host_entry` |
-| non-inert name is an entry | `a_host_entry_makes_an_amplifier_form_write` |
-| contained use | `a_contained_use_of_a_host_name_is_no_entry`, `a_use_that_leaves_the_place_is_an_entry` |
-| every write keeps a number | `a_key_that_is_no_number_is_a_run_time_key` |
+Removing a condition turns a plant of `script_host_tests.rs`: module syntax, `with`, `export =`
+(`a_file_that_is_no_module_is_an_entry`); direct forms (`a_direct_form_blocks_in_a_scan_without_a_host_entry`);
+non-inert names (`a_host_entry_makes_an_amplifier_form_write`); contained use (`a_contained_use_of_a_host_name_is_no_entry`,
+`a_use_that_leaves_the_place_is_an_entry`); numeric writes (`a_key_that_is_no_number_is_a_run_time_key`).
