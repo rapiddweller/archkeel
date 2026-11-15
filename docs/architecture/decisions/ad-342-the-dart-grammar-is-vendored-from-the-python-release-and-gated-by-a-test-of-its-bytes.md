@@ -39,7 +39,8 @@ allows crates.io only, and the Python collector loads the PyPI release, not a co
 **Limit.** A new fork release needs a new vendored copy, a new hash table, one run of the parity
 tool and an update of `uv.lock` in the same PR. The tree of an accepted source is not proved
 sound: only an error or missing node, a language override outside 2.12 through 3.12 and an SDK
-constraint outside that range give a gap (AD-387).
+constraint outside that range give a gap (AD-387). A `pubspec.yaml` with no `sdk:` constraint
+is no gap: the verdict of the project stays.
 
 **History (#1031).** The Python collector loaded the platform wheels of `tree-sitter-dart` 0.1.0
 with tree-sitter 0.26.0 while the crate links 0.25.10. Trees were measured equal only against the

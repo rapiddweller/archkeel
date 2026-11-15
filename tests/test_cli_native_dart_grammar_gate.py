@@ -61,3 +61,12 @@ def test_a_source_that_the_grammar_cannot_parse_soundly_is_a_named_gap(
         and cause in gap["reason"]
     ]
     assert len(named) == 1, result["frame"]["collection_gaps"]
+
+
+def test_a_pubspec_without_an_sdk_constraint_keeps_the_verdict(
+    release_core: Path, tmp_path: Path
+) -> None:
+    # AD-342: only a constraint outside 2.12 through 3.12 is a gap; no constraint is no gap.
+    files = {**BASE, "pubspec.yaml": "name: shop\n"}
+    result = verdict(release_core, project(tmp_path, files))
+    assert rows(result) == decided(), result["frame"]["explained"]
