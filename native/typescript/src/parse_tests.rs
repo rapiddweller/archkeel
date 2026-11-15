@@ -192,7 +192,6 @@ fn mutated_real_sources_never_panic() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
     let mut sources = Vec::new();
     corpus(&root.join("fixtures/L-nest-realworld/src"), &mut sources);
-    corpus(&root.join("src/archkeel/studio/ui"), &mut sources);
     assert!(sources.len() > 40, "the real sources are missing");
     let mut parsers = Parsers::new();
     let mut random = Seeded(0x4_2880);

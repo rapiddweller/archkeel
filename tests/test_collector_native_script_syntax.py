@@ -195,7 +195,6 @@ def _mutate(rng: random.Random, text: str) -> str:
 
 
 SCRIPTS_OF_THE_REPOSITORY = (
-    "src/archkeel/studio/ui",
     "tests/golden/typescript/sources",
     "fixtures",
 )

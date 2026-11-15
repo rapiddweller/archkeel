@@ -49,7 +49,7 @@ jobs:
         working-directory: native
         run: rustup toolchain install
 
-      - name: Check architecture, format, lint, Python types and browser code
+      - name: Check architecture, format, lint and Python types
         env:
           # A dispatch has no previous push; one squash merge is one commit on main.
           BASE: ${{ github.event_name == 'push' && github.event.before || 'HEAD~1' }}
@@ -150,7 +150,7 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked
 
-      - name: Check browser runtime, graph protocol and report renderer
+      - name: Check the report renderer
         run: make ci-pr-report-check
 
       - name: Upload PR report JUnit results

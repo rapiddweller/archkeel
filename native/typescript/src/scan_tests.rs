@@ -159,7 +159,6 @@ fn the_single_walk_finds_what_the_seven_queries_find() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../");
     let mut files = Vec::new();
     sources(&root.join("fixtures"), &mut files);
-    sources(&root.join("src/archkeel/studio/ui"), &mut files);
     assert!(files.len() > 50, "the fixtures are missing");
     let typescript = Reference::new(LANGUAGE_TYPESCRIPT.into());
     let tsx = Reference::new(LANGUAGE_TSX.into());

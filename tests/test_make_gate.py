@@ -19,13 +19,11 @@ import pytest
 from areas import AREAS, area_of
 
 ROOT = Path(__file__).parents[1]
-GATE_STEPS = ["browser-architecture-check", "check", "build", "smoke"]
+GATE_STEPS = ["check", "build", "smoke"]
 CI_CHECK_STEPS = [
     "ci-artifacts-clean",
     *GATE_STEPS,
     "typescript-compiler-check",
-    "browser-graph-check",
-    "browser-runtime-check",
     "typescript-libs-check",
     "self-validate-native",
     "self-validate-shell",
@@ -111,10 +109,10 @@ def test_ci_check_leaves_mermaid_to_its_parallel_workflow_job(tmp_path: Path, jo
     assert steps == CI_CHECK_STEPS
 
 
-@pytest.mark.parametrize("failed", [None, "browser-architecture-check", "pr-test"])
+@pytest.mark.parametrize("failed", [None, "pr-test"])
 def test_pr_gate_keeps_policy_and_stops_before_later_checks(tmp_path, failed):
     result, steps = _run_gate(tmp_path, "ci-pr-check", failed, 2, False, base="a" * 40)
-    expected = ["browser-architecture-check", "pr-test"]
+    expected = ["pr-test"]
     if failed is not None:
         expected = expected[: expected.index(failed) + 1]
     assert steps == expected
@@ -123,11 +121,11 @@ def test_pr_gate_keeps_policy_and_stops_before_later_checks(tmp_path, failed):
 
 @pytest.mark.parametrize(
     "failed",
-    [None, "browser-runtime-check", "browser-graph-check", "pr-report-test"],
+    [None, "pr-report-test"],
 )
 def test_pr_report_gate_runs_logic_sample_and_propagates_failure(tmp_path, failed):
     result, steps = _run_gate(tmp_path, "ci-pr-report-check", failed, 2, False)
-    expected = ["browser-runtime-check", "browser-graph-check", "pr-report-test"]
+    expected = ["pr-report-test"]
     if failed is not None:
         expected = expected[: expected.index(failed) + 1]
     assert steps == expected
@@ -155,7 +153,7 @@ def test_every_job_runs_on_a_pinned_runner_image() -> None:
             assert not re.search(r"runs-on: .*-latest", body), (path.name, job)
 
 
-def test_full_report_job_allows_the_browser_suite_to_finish() -> None:
+def test_full_report_job_allows_the_suite_to_finish() -> None:
     body = _jobs("full-verification.yml")["full-suite-and-reports"]
     timeout = re.search(r"^    timeout-minutes: (\d+)$", body, re.MULTILINE)
     assert timeout is not None
@@ -300,7 +298,7 @@ def test_only_full_ci_stops_pytest_after_first_failure(target):
     )
     assert result.returncode == 0, result.stderr
     command = result.stdout
-    assert command.count("python -m pytest") == (1 if target == "test" else 2)
+    assert command.count("python -m pytest") == 1
     assert ("--maxfail=1" in command) == (target != "test")
     assert "--dist=loadgroup" in command and "--max-worker-restart=0" in command
     assert "--junitxml=test-artifacts/pytest/results.xml" in command
@@ -454,5 +452,5 @@ def test_an_area_selects_only_its_files_and_fails_closed_when_empty() -> None:
 
 def test_ci_pr_static_runs_policy_without_tests(tmp_path) -> None:
     result, steps = _run_gate(tmp_path, "ci-pr-static", None, 2, False, base="a" * 40)
-    assert steps == ["browser-architecture-check"]
+    assert steps == []
     assert result.returncode == 0

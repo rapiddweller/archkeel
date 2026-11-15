@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """AD-357, AD-382, AD-383: a self-check of the core equals its pins: gaps, violations, statuses.
 
-Consumer: `make self-validate-native` and `make browser-architecture-check`
+Consumer: `make self-validate-native`
 (`tools/native_expected.py`). The input is the result document of `archkeel validate --json`.
 """
 
