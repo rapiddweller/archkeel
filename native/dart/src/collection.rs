@@ -4,6 +4,7 @@
 
 //! The complete raw collection assembly; resolution remains a typed input (AD-400).
 
+mod builder;
 mod imports;
 mod inventories;
 mod prepare;
@@ -11,15 +12,12 @@ mod sites;
 mod targets;
 pub(crate) mod types;
 
+use crate::declarations::types as decl;
 use crate::declarations::work::Stop;
-use crate::declarations::{types as decl, Assembly};
-use crate::syntax::{Site, Span};
 use archkeel_facts::envelope::{Capabilities, FileFact, SectionName};
-use archkeel_facts::identity::{stable_id, Part};
-use archkeel_facts::ids::EvidenceId;
-use archkeel_facts::vocab::{Area, ExceptionName};
-use std::collections::{BTreeMap, BTreeSet};
-use types::{Fact, Input, Output, RecordKind, Source};
+use archkeel_facts::vocab::ExceptionName;
+use builder::{file_span, Builder};
+use types::{Input, Output, Source};
 
 const SECTIONS: [SectionName; 6] = [
     SectionName::Imports,
@@ -50,45 +48,7 @@ pub(crate) fn build(input: &Input) -> Output {
     builder.finish()
 }
 
-struct Builder<'a> {
-    input: &'a Input,
-    decl: Assembly,
-    files: Vec<decl::File>,
-    by_path: BTreeMap<String, usize>,
-    parsed: BTreeSet<String>,
-    incomplete_paths: BTreeSet<String>,
-    incomplete_ids: BTreeSet<String>,
-    symbol_indices: BTreeMap<String, usize>,
-    directive_indices: BTreeMap<(String, usize), usize>,
-    name_indices: BTreeMap<(String, String), usize>,
-    site_indices: BTreeMap<String, usize>,
-    construction_indices: BTreeMap<(String, usize, String), usize>,
-    scopes: BTreeMap<(String, Option<String>), Vec<usize>>,
-    sdk_supported: bool,
-    output: Output,
-}
-
 impl<'a> Builder<'a> {
-    fn new(input: &'a Input) -> Self {
-        Self {
-            input,
-            decl: Assembly::default(),
-            files: Vec::new(),
-            by_path: BTreeMap::new(),
-            parsed: BTreeSet::new(),
-            incomplete_paths: BTreeSet::new(),
-            incomplete_ids: BTreeSet::new(),
-            symbol_indices: BTreeMap::new(),
-            directive_indices: BTreeMap::new(),
-            name_indices: BTreeMap::new(),
-            site_indices: BTreeMap::new(),
-            construction_indices: BTreeMap::new(),
-            scopes: BTreeMap::new(),
-            sdk_supported: true,
-            output: Output::default(),
-        }
-    }
-
     fn run(&mut self) -> Result<(), Stop> {
         self.decl.work.input(self.input)?;
         self.prepare()?;
@@ -199,70 +159,6 @@ impl<'a> Builder<'a> {
         Ok(())
     }
 
-    fn file(&self, rel: &str) -> Result<&decl::File, Stop> {
-        self.by_path
-            .get(rel)
-            .and_then(|index| self.files.get(*index))
-            .ok_or(Stop::Input)
-    }
-
-    fn cite(&mut self, rel: &str, span: &Span) -> Result<String, Stop> {
-        self.decl.work.copies(span)?;
-        let index = *self.by_path.get(rel).ok_or(Stop::Input)?;
-        let file = self.files.get(index).ok_or(Stop::Input)?;
-        Ok(self.decl.cite(file, span))
-    }
-
-    fn gap(
-        &mut self,
-        rel: &str,
-        span: &Span,
-        kind: ExceptionName,
-        message: &str,
-        evidence: Option<Vec<EvidenceId>>,
-    ) -> Result<(), Stop> {
-        self.decl.work.text(message)?;
-        let (id, mut record) = crate::records::gap(rel, span.line, kind, message, None);
-        if self.decl.gaps.contains_key(&id) {
-            return Ok(());
-        }
-        record.evidence_ids = match evidence {
-            Some(values) => values,
-            None => match self
-                .by_path
-                .get(rel)
-                .and_then(|index| self.files.get(*index))
-            {
-                Some(file) => vec![EvidenceId::new(self.decl.gap_cite(file, span))],
-                None => Vec::new(),
-            },
-        };
-        self.decl.gaps.insert(id, record);
-        Ok(())
-    }
-
-    fn symbol_index(&self, name: &str) -> Option<usize> {
-        self.symbol_indices.get(name).copied()
-    }
-
-    fn symbol_kind(&self, name: &str) -> Option<decl::Kind> {
-        self.symbol_index(name)
-            .and_then(|index| self.decl.output.symbols.get(index))
-            .map(|symbol| symbol.kind)
-    }
-
-    fn names(&self, rel: &str, name: &str) -> Result<Vec<String>, Stop> {
-        self.decl.work.text(name)?;
-        let key = (rel.to_owned(), name.to_owned());
-        let answer = self
-            .name_indices
-            .get(&key)
-            .and_then(|index| self.input.resolver.names.get(*index))
-            .ok_or(Stop::Input)?;
-        self.decl.work.copies(&answer.targets)?;
-        Ok(answer.targets.clone())
-    }
-
     fn source_facts(&mut self) -> Result<(), Stop> {
         for rel in &self.parsed {
             self.decl.work.charge(1)?;
@@ -314,62 +210,4 @@ impl<'a> Builder<'a> {
         self.output.work = self.decl.work.spent();
         self.output
     }
-}
-
-fn file_span() -> Span {
-    Span {
-        line: 1,
-        end_line: 1,
-        column: 0,
-        excerpt: String::new(),
-        start_byte: 0,
-        end_byte: 0,
-    }
-}
-
-fn id(prefix: &str, rel: &str, start: usize, rest: &[Part<'_>]) -> String {
-    let mut parts = vec![
-        Part::Text(rel),
-        Part::Number(i64::try_from(start).unwrap_or(i64::MAX)),
-    ];
-    parts.extend_from_slice(rest);
-    stable_id(prefix, &parts)
-}
-
-fn package(module: &str) -> String {
-    module
-        .rsplit_once('.')
-        .map_or("", |(value, _)| value)
-        .to_owned()
-}
-
-fn fact<T>(
-    id: String,
-    kind: RecordKind,
-    title: String,
-    subjects: Vec<String>,
-    evidence: String,
-    data: T,
-) -> Fact<T> {
-    let area = match kind {
-        RecordKind::Import => Area::Dependencies,
-        RecordKind::Call | RecordKind::Reference => Area::Source,
-    };
-    decl::Symbol::new(
-        id,
-        kind,
-        title,
-        subjects,
-        vec![EvidenceId::new(evidence)],
-        data,
-        area,
-    )
-}
-
-fn expression(site: &Site) -> String {
-    site.expression_source
-        .as_ref()
-        .filter(|text| !text.is_empty())
-        .unwrap_or(&site.expression)
-        .clone()
 }

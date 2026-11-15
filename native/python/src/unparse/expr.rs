@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The compound expressions of `_Unparser`, and `_Precedence`.
+//! The expressions of `_Unparser`, and `_Precedence`. They recurse into one another, so they are
+//! one module.
 //!
 //! A parent sets the precedence of a child before it writes it; a child that no parent set has
 //! `TEST`. A node writes parentheses when its precedence is higher than the precedence that its
@@ -10,13 +11,15 @@
 
 use ruff_python_ast::{
     BoolOp, Comprehension, Expr, ExprBinOp, ExprCall, ExprCompare, ExprDict, ExprIf, ExprLambda,
-    ExprSlice, Number, Operator, UnaryOp,
+    ExprSlice, Number, Operator, Parameters, UnaryOp,
 };
 
 use crate::pyast::{bool_op, cmp_op, operator, unary_op};
 
+use super::literal;
 use super::outcome::{Prec, TextFailure as Failure};
-use super::Writer;
+use super::writer::Writer;
+use super::{string_failure, MAX_DEPTH};
 
 /// `binop_precedence`, keyed by the text of the operator as in CPython.
 fn binary_precedence(text: &str) -> Prec {
@@ -32,6 +35,133 @@ fn binary_precedence(text: &str) -> Prec {
 }
 
 impl Writer<'_> {
+    /// `traverse` of an expression whose parent set the precedence `prec`.
+    pub(super) fn expr(&mut self, expr: &Expr, prec: Prec) -> Result<(), Failure> {
+        self.depth += 1;
+        if self.depth > MAX_DEPTH {
+            return Err(Failure::Deep);
+        }
+        let result = self.dispatch(expr, prec);
+        self.depth -= 1;
+        result
+    }
+
+    /// The text of an expression in a field of an f-string, one level deeper than this writer.
+    fn field_text(&self, expr: &Expr) -> Result<String, Failure> {
+        let mut writer = self.inner();
+        writer.expr(expr, Prec::Or)?;
+        Ok(writer.out)
+    }
+
+    pub(super) fn dispatch(&mut self, expr: &Expr, prec: Prec) -> Result<(), Failure> {
+        if let Some(failure) = string_failure(expr, self.source, self.minor) {
+            return Err(failure);
+        }
+        match expr {
+            Expr::Name(node) => self.write(node.id.as_str()),
+            Expr::StringLiteral(node) => self.string(node)?,
+            Expr::BytesLiteral(node) => {
+                let bytes: Vec<u8> = node.value.bytes().collect();
+                self.write(&literal::repr_bytes(&bytes));
+            }
+            Expr::NumberLiteral(node) => self.number(&node.value)?,
+            Expr::BooleanLiteral(node) => self.write(if node.value { "True" } else { "False" }),
+            Expr::NoneLiteral(_) => self.write("None"),
+            Expr::EllipsisLiteral(_) => self.write("..."),
+            Expr::FString(node) => {
+                let pieces = crate::pyast::fstring::fstring(&node.value);
+                let field = self.inner();
+                self.ftext(&pieces, "f", &|expr| field.field_text(expr))?;
+            }
+            Expr::TString(node) => {
+                let pieces = crate::pyast::fstring::tstring(&node.value);
+                let field = self.inner();
+                self.ftext(&pieces, "t", &|expr| field.field_text(expr))?;
+            }
+            Expr::IpyEscapeCommand(_) => return Err(Failure::Invalid),
+            _ => self.compound(expr, prec)?,
+        }
+        Ok(())
+    }
+
+    /// `interleave(", ", traverse, items)` with the default precedence.
+    pub(super) fn items(&mut self, items: &[Expr]) -> Result<(), Failure> {
+        for (index, item) in items.iter().enumerate() {
+            if index > 0 {
+                self.write(", ");
+            }
+            self.expr(item, Prec::Test)?;
+        }
+        Ok(())
+    }
+
+    /// `items_view`: one item takes a trailing comma.
+    pub(super) fn items_view(&mut self, items: &[Expr]) -> Result<(), Failure> {
+        if let [item] = items {
+            self.expr(item, Prec::Test)?;
+            self.write(",");
+            Ok(())
+        } else {
+            self.items(items)
+        }
+    }
+
+    /// `visit_arguments`.
+    pub(super) fn arguments(&mut self, params: &Parameters) -> Result<(), Failure> {
+        let mut first = true;
+        let positional = params.posonlyargs.len();
+        for (index, param) in params.posonlyargs.iter().chain(&params.args).enumerate() {
+            if !first {
+                self.write(", ");
+            }
+            first = false;
+            self.arg(&param.parameter)?;
+            if let Some(default) = &param.default {
+                self.write("=");
+                self.expr(default, Prec::Test)?;
+            }
+            if index + 1 == positional {
+                self.write(", /");
+            }
+        }
+        if params.vararg.is_some() || !params.kwonlyargs.is_empty() {
+            if !first {
+                self.write(", ");
+            }
+            first = false;
+            self.write("*");
+            if let Some(vararg) = &params.vararg {
+                self.arg(vararg)?;
+            }
+        }
+        for param in &params.kwonlyargs {
+            self.write(", ");
+            self.arg(&param.parameter)?;
+            if let Some(default) = &param.default {
+                self.write("=");
+                self.expr(default, Prec::Test)?;
+            }
+        }
+        if let Some(kwarg) = &params.kwarg {
+            if !first {
+                self.write(", ");
+            }
+            self.write("**");
+            self.arg(kwarg)?;
+        }
+        Ok(())
+    }
+
+    /// `visit_arg`: the name and its annotation.
+    pub(super) fn arg(&mut self, param: &ruff_python_ast::Parameter) -> Result<(), Failure> {
+        self.write(param.name.as_str());
+        if let Some(annotation) = &param.annotation {
+            self.write(": ");
+            self.expr(annotation, Prec::Test)?;
+        }
+        Ok(())
+    }
+
     /// `require_parens`: open a parenthesis when the precedence of the node is higher than the
     /// precedence that its operator needs.
     fn open(&mut self, prec: Prec, needed: Prec) -> bool {
