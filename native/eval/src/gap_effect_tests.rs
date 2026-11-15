@@ -43,7 +43,10 @@ fn edges(module: &'static str) -> impl FnOnce(&mut Value) + Clone {
 }
 
 fn code(module: &'static str) -> impl FnOnce(&mut Value) + Clone {
-    gap(module, json!({"effect": {"modules": {"modules": [module]}}}))
+    gap(
+        module,
+        json!({"effect": {"modules": {"modules": [module]}}}),
+    )
 }
 
 fn every_module(module: &'static str) -> impl FnOnce(&mut Value) + Clone {
@@ -69,10 +72,20 @@ fn assert_scope(found: &Run, doubt: &Doubt, held: &[&str], decided: &[&str]) {
     assert_eq!(held.len() + decided.len(), 9, "the test names each rule");
     for rule in held {
         let expected = Some(vec![doubt.clone()]);
-        assert_eq!(doubts(found, rule), expected, "{rule}: {:?}", found.0.get(*rule));
+        assert_eq!(
+            doubts(found, rule),
+            expected,
+            "{rule}: {:?}",
+            found.0.get(*rule)
+        );
     }
     for rule in decided {
-        assert_eq!(word(found, rule), "PASS", "{rule}: {:?}", found.0.get(*rule));
+        assert_eq!(
+            word(found, rule),
+            "PASS",
+            "{rule}: {:?}",
+            found.0.get(*rule)
+        );
     }
     assert!(
         matches!(&found.1, Err(Reason::NotComplete(Cause::ScopedGaps(all))) if all.ids() == [ID]),
@@ -86,7 +99,11 @@ fn the_edges_of_a_source_module_hold_the_rules_that_read_them_and_no_other_rule(
     // `domain.index` is a source of DOMAIN-NO-DATA, no data member and no allowed source of
     // `@shop/transport`: the edge that the gap hides can break each rule but DATA-PEERS.
     let found = run(unchanged, edges(INDEX), rooted()).unwrap_or_else(failed);
-    let held = [&EVERY_EDGE[..], &["EXTERNAL-COMPLETE", "EXTERNAL-SHOP", "DOMAIN-NO-DATA"]].concat();
+    let held = [
+        &EVERY_EDGE[..],
+        &["EXTERNAL-COMPLETE", "EXTERNAL-SHOP", "DOMAIN-NO-DATA"],
+    ]
+    .concat();
     let decided = [&FILES_ONLY[..], &["DATA-PEERS"]].concat();
     assert_scope(&found, &Doubt::Edges(INDEX.to_owned()), &held, &decided);
 }
@@ -114,7 +131,12 @@ fn the_code_of_every_module_holds_each_rule_but_the_rules_of_the_files() {
     let found = run(unchanged, every_module(ORDER), rooted()).unwrap_or_else(failed);
     let held = [
         &EVERY_EDGE[..],
-        &["EXTERNAL-COMPLETE", "EXTERNAL-SHOP", "DOMAIN-NO-DATA", "DATA-PEERS"],
+        &[
+            "EXTERNAL-COMPLETE",
+            "EXTERNAL-SHOP",
+            "DOMAIN-NO-DATA",
+            "DATA-PEERS",
+        ],
     ]
     .concat();
     assert_scope(&found, &Doubt::EveryModule, &held, &FILES_ONLY);
@@ -153,7 +175,12 @@ fn a_symbol_rule_reads_the_code_of_each_module_and_the_edges_of_its_sources() {
     assert_eq!(doubts(&found, "SYMBOL"), expected);
     // The twin: the edges of a module that is no source are not in the read set of the rule.
     let found = run(symbol, edges(LOCAL.0), rooted()).unwrap_or_else(failed);
-    assert_eq!(doubts(&found, "SYMBOL"), None, "{:?}", found.0.get("SYMBOL"));
+    assert_eq!(
+        doubts(&found, "SYMBOL"),
+        None,
+        "{:?}",
+        found.0.get("SYMBOL")
+    );
     let found = run(symbol, edges(PAGE), rooted()).unwrap_or_else(failed);
     let expected = Some(vec![Doubt::Edges(PAGE.to_owned())]);
     assert_eq!(doubts(&found, "SYMBOL"), expected);
@@ -204,7 +231,10 @@ fn a_gap_without_a_usable_effect_holds_every_rule() {
         for (rule, (word, why)) in &found.0 {
             assert_eq!((word.as_str(), why), ("UNKNOWN", &whole), "{name}: {rule}");
         }
-        assert_eq!(found.1, Err(Reason::Incomplete(Incomplete::CoverageGaps(1))));
+        assert_eq!(
+            found.1,
+            Err(Reason::Incomplete(Incomplete::CoverageGaps(1)))
+        );
     }
 }
 

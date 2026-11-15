@@ -2,167 +2,24 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The effect of each gap and the rules that it holds (AD-564).
+//! The rules that a gap with an effect holds (AD-564).
 //!
-//! A collector can state what one gap leaves unknown (`GapEffect`). A gap without a statement
-//! leaves the whole scope unknown, as before. This file gives each gap its class one time, and
-//! it states for each rule kind which facts of a module the rule reads (`reads`). A gap with an
-//! effect holds a rule only when the effect meets the read set of the rule.
-//!
-//! Each doubt goes to the wider class, so a statement can only make a verdict less certain: a
-//! gap with an effect that names no module, or a module that the reply does not have, or that
-//! also has the form of a gap between two modules, leaves the whole scope unknown.
+//! This file states for each rule kind which facts of a module the rule reads (`reads`). A gap
+//! with an effect (`gap_class.rs`) holds a rule only when the effect meets the read set of the
+//! rule.
 //!
 //! The match of `reads` has no catch-all arm: a new rule kind does not compile until it states
 //! what it reads.
 
 use std::collections::BTreeSet;
-use std::fmt;
 
 use archkeel_contract::{CycleLevel, Rule};
-use archkeel_facts::data::{GapData, GapEffect};
-use archkeel_facts::envelope::Coverage;
+use archkeel_facts::data::GapEffect;
 
-use crate::causes::HELD_SHOWN;
-use crate::coverage::{data_of, droppable};
+use crate::gap_class::{Doubt, Scoped};
 use crate::model::Model;
 use crate::ownership::{claims, in_scope, owner_of};
 use crate::selection;
-
-/// How much one gap leaves unknown.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Class {
-    /// The whole scope: no rule has a scope proof.
-    Whole,
-    /// The edge between two modules (AD-357): `pair_gaps.rs` gives the rules that it holds.
-    Pair,
-    /// The stated effect: `held` gives the rules that it holds.
-    Effect,
-}
-
-/// The class of each gap of the coverage, in the order of the reply.
-pub(crate) fn classes(coverage: &Coverage, is_module: impl Fn(&str) -> bool) -> Vec<Class> {
-    coverage
-        .gaps
-        .iter()
-        .map(|gap| class(data_of(&gap.data), &is_module))
-        .collect()
-}
-
-fn class(data: &GapData, is_module: &impl Fn(&str) -> bool) -> Class {
-    let pair = droppable(data);
-    let Some(effect) = &data.effect else {
-        return if pair { Class::Pair } else { Class::Whole };
-    };
-    let named = match effect {
-        GapEffect::Edges { sources: names } | GapEffect::Modules { modules: names } => {
-            !names.is_empty() && names.iter().all(|name| is_module(name.as_str()))
-        }
-        GapEffect::EveryModule => true,
-    };
-    if named && !pair {
-        Class::Effect
-    } else {
-        Class::Whole
-    }
-}
-
-/// One gap with an effect: its id and its effect.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct EffectGap {
-    pub(crate) id: String,
-    pub(crate) effect: GapEffect,
-}
-
-/// The gaps with an effect, in the order of the reply.
-pub(crate) fn effect_gaps(coverage: &Coverage, classes: &[Class]) -> Vec<EffectGap> {
-    coverage
-        .gaps
-        .iter()
-        .zip(classes)
-        .filter(|(_, class)| **class == Class::Effect)
-        .filter_map(|(gap, _)| {
-            Some(EffectGap {
-                id: gap.id.as_str().to_owned(),
-                effect: data_of(&gap.data).effect.clone()?,
-            })
-        })
-        .collect()
-}
-
-/// Facts that a gap leaves unknown and that a rule reads.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Doubt {
-    /// The import edges that leave this module.
-    Edges(String),
-    /// The code of this module: its import edges, its members and its constructs.
-    Code(String),
-    /// The code of every module.
-    EveryModule,
-}
-
-impl Doubt {
-    /// The stable word of the doubt: it holds no gap id and no position (AD-546).
-    pub fn word(&self) -> String {
-        match self {
-            Doubt::Edges(module) => format!("edges: {module}"),
-            Doubt::Code(module) => format!("modules: {module}"),
-            Doubt::EveryModule => "every_module".to_owned(),
-        }
-    }
-}
-
-impl fmt::Display for Doubt {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Doubt::Edges(module) => write!(formatter, "the import edges of {module}"),
-            Doubt::Code(module) => write!(formatter, "the code of {module}"),
-            Doubt::EveryModule => formatter.write_str("the code of every module"),
-        }
-    }
-}
-
-/// The gaps with an effect that hold a rule or the run: their ids, in the order of the reply,
-/// and the facts that they leave unknown, sorted and distinct. It is a reason, not a proof: it
-/// can only make a rule UNKNOWN.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Scoped {
-    ids: Vec<String>,
-    doubts: Vec<Doubt>,
-}
-
-impl Scoped {
-    /// The id of each gap that holds the rule.
-    pub fn ids(&self) -> &[String] {
-        &self.ids
-    }
-
-    /// The facts that the gaps leave unknown and that the rule reads.
-    pub fn doubts(&self) -> &[Doubt] {
-        &self.doubts
-    }
-}
-
-impl fmt::Display for Scoped {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let shown: Vec<String> = self
-            .doubts
-            .iter()
-            .take(HELD_SHOWN)
-            .map(Doubt::to_string)
-            .collect();
-        write!(
-            formatter,
-            "{} gaps leave unknown what the rule reads: {}",
-            self.ids.len(),
-            shown.join(", ")
-        )?;
-        match self.doubts.len() - shown.len() {
-            0 => Ok(()),
-            more => write!(formatter, " and {more} more"),
-        }
-    }
-}
 
 /// The facts of one module that a rule reads.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -235,10 +92,7 @@ fn scoped(model: &Model, reads: impl Fn(Option<&str>) -> ReadSet) -> Option<Scop
             ids.push(gap.id.clone());
         }
     }
-    (!ids.is_empty()).then(|| Scoped {
-        ids,
-        doubts: doubts.into_iter().collect(),
-    })
+    Scoped::of(ids, doubts.into_iter().collect())
 }
 
 /// What `rule` reads of `module` in `model`. `None` stands for some module of the reply, so each
@@ -285,9 +139,7 @@ fn reads(model: &Model, rule: &Rule, module: Option<&str>) -> ReadSet {
             let exempt = |name: &str| rule.allowed_sources().iter().any(|a| a.as_text() == name);
             ReadSet {
                 edges: on(&|name| {
-                    model.selects(name)
-                        && (sources.matches(name) || unowned(name))
-                        && !exempt(name)
+                    model.selects(name) && (sources.matches(name) || unowned(name)) && !exempt(name)
                 }),
                 code: rule.target_symbol().is_some(),
             }
