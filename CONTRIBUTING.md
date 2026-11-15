@@ -27,7 +27,6 @@ Python collectors are deleted; the Python collectors are gone, and a release 4.0
 
 ```bash
 make ci-pr-check BASE=origin/main        # lint, types and a fixed set of tests
-make ci-pr-report-check                  # the JavaScript logic of the report assets
 ```
 
 Run `make merge-check PR=<number>` before each merge. It checks the conflicts and the changed files of the pull request, and warns when the branch is behind `main`.
@@ -72,7 +71,6 @@ aggregate would count as passed.
 |---|---|---|
 | CI: Lint, types and architecture | each push to `main` | `make ci-pr-static BASE=origin/main`, then `make self-validate` |
 | CI: Tests: `<area>` | each push to `main` | `make pr-test AREA="<area>"` |
-| CI: Report and renderer tests | each push to `main` | `make ci-pr-report-check` |
 | CI: Docs diagrams | each push to `main` | `make mermaid`; the job also runs `tests/test_mermaid.py` |
 | CI: Native: Rust checks and dependency policy | each push to `main` | `make native-check` |
 | CI: Publish the report gallery | each push to `main`, and dispatch on `main` | `make report-gallery` |

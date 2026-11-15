@@ -6,10 +6,10 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test merge-check pr-report-test ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build smoke release-check browser-runtime-install  typescript-libs-check    core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
+.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static pr-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build smoke release-check browser-runtime-install  typescript-libs-check    core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
-.NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check
+.NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static
 
 ci: ci-check mermaid
 
@@ -18,8 +18,6 @@ ci-check: ci-artifacts-clean ci-core-check self-validate-native self-validate-sh
 ci-pr-check: ci-pr-static pr-test
 
 ci-pr-static: lint typecheck
-
-ci-pr-report-check: pr-report-test
 
 pr-test: browser-runtime-install
 	$(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
@@ -30,11 +28,6 @@ pr-test: browser-runtime-install
 merge-check:
 	@test -n "$(PR)" || { echo "PR is required"; exit 2; }
 	$(UV) run --locked python -m tools.merge_check "$(PR)"
-
-pr-report-test:
-	$(UV) run --locked python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q \
-		--junitxml=test-artifacts/pytest/pr-report.xml \
-		tests/test_report_renderer_units.py
 
 ci-artifacts-clean:
 	rm -rf test-artifacts/validation test-artifacts/validation-native

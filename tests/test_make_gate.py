@@ -41,7 +41,7 @@ def _run_gate(
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
     steps = tmp_path / "steps"
     overrides = tmp_path / "Makefile"
-    names = [*CI_STEPS, "pr-test", "pr-report-test"]
+    names = [*CI_STEPS, "pr-test"]
     recipes = []
     for name in names:
         recipes.append(
@@ -113,19 +113,6 @@ def test_ci_check_leaves_mermaid_to_its_parallel_workflow_job(tmp_path: Path, jo
 def test_pr_gate_keeps_policy_and_stops_before_later_checks(tmp_path, failed):
     result, steps = _run_gate(tmp_path, "ci-pr-check", failed, 2, False, base="a" * 40)
     expected = ["pr-test"]
-    if failed is not None:
-        expected = expected[: expected.index(failed) + 1]
-    assert steps == expected
-    assert result.returncode == (0 if failed is None else 2)
-
-
-@pytest.mark.parametrize(
-    "failed",
-    [None, "pr-report-test"],
-)
-def test_pr_report_gate_runs_logic_sample_and_propagates_failure(tmp_path, failed):
-    result, steps = _run_gate(tmp_path, "ci-pr-report-check", failed, 2, False)
-    expected = ["pr-report-test"]
     if failed is not None:
         expected = expected[: expected.index(failed) + 1]
     assert steps == expected
