@@ -26,6 +26,14 @@ fn reply(path: &Path, seen: &mut BTreeSet<String>) -> Result<(), Box<dyn std::er
     let mut text = String::new();
     flate2::read::GzDecoder::new(std::fs::File::open(path)?).read_to_string(&mut text)?;
     let value: Value = serde_json::from_str(&text)?;
+    sections(&value, &path.display().to_string(), seen)
+}
+
+fn sections(
+    value: &Value,
+    source: &str,
+    seen: &mut BTreeSet<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
     for section in value["facts"]["sections"].as_array().into_iter().flatten() {
         let name = section["name"].as_str().ok_or("section without name")?;
         if !matches!(name, "constructs" | "typing_signals") {
@@ -36,7 +44,7 @@ fn reply(path: &Path, seen: &mut BTreeSet<String>) -> Result<(), Box<dyn std::er
             seen.insert(format!("{name}/{kind}"));
             let single = json!({"name": name, "records": [record]});
             if let Err(error) = serde_json::from_value::<crate::Section>(single) {
-                return Err(format!("{}: {name}/{kind}: {error}", path.display()).into());
+                return Err(format!("{source}: {name}/{kind}: {error}").into());
             }
         }
     }
@@ -48,6 +56,10 @@ fn every_frozen_construct_and_signal_kind_decodes() -> Result<(), Box<dyn std::e
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
     let mut seen = BTreeSet::new();
     visit(&root, &mut seen)?;
+    // One frozen Python record per kind stays after the reply corpus is archived.
+    let python: Value =
+        serde_json::from_str(include_str!("../testdata/python-construct-kinds.json"))?;
+    sections(&python, "python-construct-kinds.json", &mut seen)?;
     for kind in [
         "assert_statement",
         "placeholder_body",

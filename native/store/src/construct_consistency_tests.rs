@@ -282,7 +282,11 @@ fn a_real_ingest_refuses_conflicting_construct_identity() {
 fn every_frozen_construct_and_signal_has_consistent_identity(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/golden");
-    frozen(&root)
+    frozen(&root)?;
+    let python: Value = serde_json::from_str(include_str!(
+        "../../facts/testdata/python-construct-kinds.json"
+    ))?;
+    frozen_sections(&python)
 }
 
 fn frozen(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {

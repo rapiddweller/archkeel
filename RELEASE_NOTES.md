@@ -1,5 +1,9 @@
 # ArchKeel 5.0.0 — Explicit architecture ports and native ownership evidence
 
+## Removed
+
+- `architecture-graph.schema.json`, `architecture-report.schema.json`, `architecture-comparison.schema.json`, `source-member-inventory.schema.json`: 4.0.1 wrote these artifacts; 5.0 does not.
+
 ## Support reduction on main
 
 Rust and TypeScript projects use native collectors. The Python collector implementations are deleted.
