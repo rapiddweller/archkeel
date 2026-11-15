@@ -13,10 +13,10 @@ use archkeel_facts::ids::{FactId, ModuleName, PackageName};
 
 use crate::script_project::{Publisher, HOST_NAMES, LOADER_NAMES};
 use crate::script_records::{binding, global_id, import_record, Use};
-use crate::script_scope::is_root;
 use crate::script_state::{Probe, Run};
 use crate::script_types::ScriptAlias;
 use crate::source::Span;
+use crate::source_input::is_window_name;
 
 impl<'a, 'p> Run<'a, 'p> {
     /// `_script_global_stable`: nothing in the project or in a vendor publishes or writes the name.
@@ -83,7 +83,7 @@ impl<'a, 'p> Run<'a, 'p> {
         let file = self.file(rel);
         let at = (probe.span.line, probe.span.column);
         let read = file.is_some_and(|file| file.script.script.contained_reads.contains(&at));
-        read && !is_root(name)
+        read && !is_window_name(name)
             && !HOST_NAMES.contains(&name)
             && !LOADER_NAMES.contains(&name)
             && !self.project.bound_anywhere.contains_key(name)
