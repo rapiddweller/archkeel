@@ -32,6 +32,7 @@ pub(crate) mod binders;
 pub(crate) mod bound;
 mod call_count;
 mod declared;
+mod effects;
 mod excluded;
 mod failures;
 mod globals_locals;

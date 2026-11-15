@@ -39,6 +39,7 @@ class HoldKind(StrEnum):
     COVERAGE_GAPS = "coverage_gaps"
     PAIR_GAPS = "pair_gaps"
     ALLOWED_PAIR_GAPS = "allowed_pair_gaps"
+    SCOPED_GAPS = "scoped_gaps"
     UNKNOWN_IMPORTS = "unknown_imports"
     NO_SOURCE_FILES = "no_source_files"
     OTHER = "other"

@@ -308,16 +308,24 @@ fn gap(source_module: Option<&str>) -> Record<GapFact> {
 
 #[test]
 fn the_reply_proves_an_incomplete_scope_only_with_a_gap_that_no_contract_drops() {
-    assert_eq!(incomplete(&coverage(&["a.ts"], Vec::new()), 0), None);
+    let found = |coverage: &Coverage| {
+        let classes = crate::gap_effects::classes(coverage, |_| true);
+        let whole = classes
+            .iter()
+            .filter(|class| **class == crate::gap_effects::Class::Whole)
+            .count();
+        incomplete(coverage, whole, 0)
+    };
+    assert_eq!(found(&coverage(&["a.ts"], Vec::new())), None);
     assert_eq!(
-        incomplete(&coverage(&[], Vec::new()), 0),
+        found(&coverage(&[], Vec::new())),
         Some(Incomplete::NoSourceFiles)
     );
     let certain = coverage(&["a.ts"], vec![gap(None), gap(Some("shop.a"))]);
-    assert_eq!(incomplete(&certain, 0), Some(Incomplete::CoverageGaps(2)));
+    assert_eq!(found(&certain), Some(Incomplete::CoverageGaps(2)));
     // A gap between two modules can be allowed by the contract (`drop_allowed_pair_gaps`).
     assert_eq!(
-        incomplete(&coverage(&["a.ts"], vec![gap(Some("shop.b"))]), 0),
+        found(&coverage(&["a.ts"], vec![gap(Some("shop.b"))])),
         None
     );
 }

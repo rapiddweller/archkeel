@@ -424,3 +424,47 @@ fn a_uml_target_with_the_id_of_a_rule_is_refused() {
     });
     assert_eq!(rule(Ok(&model), named).map(|_| ()), refused);
 }
+
+/// AD-564: a gap that states its effect holds only the rules that read the effect, and the
+/// `explain` part names the gap for each such rule.
+#[test]
+fn a_gap_with_an_effect_is_named_for_each_rule_that_it_holds_and_for_no_other_rule() {
+    const ID: &str = "UNKNOWN-00000000000000ee";
+    const INDEX: &str = "shop.src.domain.index_x2e_ts";
+    let reply = reply_with(|reply| {
+        let gap = json!({
+            "id": ID, "evidence_class": "UNKNOWN", "area": "source",
+            "kind": "source_resolution_gap", "title": "site", "subjects": [INDEX],
+            "evidence_ids": [], "fact_ids": [], "rule_ids": [], "provenance": [],
+            "data": {"reason": "site", "module": INDEX, "resolution_dimension": "imports",
+                     "effect": {"edges": {"sources": [INDEX]}}}
+        });
+        reply["facts"]["sections"][1]["records"] = json!([gap.clone()]);
+        reply["facts"]["coverage"]["gaps"] = json!([gap]);
+        reply["facts"]["coverage"]["full_scope"] = json!(false);
+    });
+    let rules = ["ASSIGNMENT", "LAYOUT", "DOMAIN-NO-DATA", "DATA-PEERS"];
+    let model = model_of(&contract(&rules), &reply, true);
+    let ruling = rule(Ok(&model), Named::default()).unwrap();
+    let value = frame(&ruling);
+    assert_eq!(value["status"], "UNKNOWN");
+    for passed in ["ASSIGNMENT", "LAYOUT", "DATA-PEERS"] {
+        assert_eq!(value["rules"][passed][1], "PASS", "{passed}");
+    }
+    // Each such PASS is a PASS beyond the reference engine, and the frame says so.
+    let beyond = "no one of the 1 gaps with a stated effect can change the rule";
+    let passed = json!({"ASSIGNMENT": beyond, "LAYOUT": beyond, "DATA-PEERS": beyond});
+    assert_eq!(value["beyond"], passed);
+    assert_eq!(value["rules"]["DOMAIN-NO-DATA"][1], "UNKNOWN");
+    assert_eq!(value["unknown_kinds"]["DOMAIN-NO-DATA"], "scope_incomplete");
+    let gaps = model.root().graph().coverage_gaps();
+    assert_eq!(gaps.iter().map(|gap| gap.whole).collect::<Vec<_>>(), [false]);
+    let explain = serde_json::to_value(ruling.explain(gaps)).unwrap_or(Value::Null);
+    let holds = &explain["holds"];
+    assert_eq!(holds["rules"].as_object().map(|rules| rules.len()), Some(1));
+    let held = &holds["rules"]["DOMAIN-NO-DATA"];
+    assert_eq!(held["kind"], "scoped_gaps");
+    assert_eq!((&held["gaps"], &held["total"]), (&json!([ID]), &json!(1)));
+    assert_eq!(holds["gaps"][0]["id"], ID);
+    assert_eq!(holds["gaps"][0]["rules"], json!(["DOMAIN-NO-DATA"]));
+}

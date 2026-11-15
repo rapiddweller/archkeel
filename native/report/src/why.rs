@@ -80,6 +80,7 @@ fn not_complete(cause: &Cause) -> WhyUnknown {
         Cause::DynamicImport | Cause::Receipt(_) => WhyUnknown::NoReceipt,
         Cause::PairGaps(_)
         | Cause::AllowedPairGaps(_)
+        | Cause::ScopedGaps(_)
         | Cause::WorkTree
         | Cause::Runtime
         | Cause::Producer

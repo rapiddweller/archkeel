@@ -44,11 +44,25 @@ fn rows<T>(table: &'static str, produced: Produced<T>) -> Result<T, BuildError> 
 /// The kind of an unknown row that names a PASS beyond the reference engine (AD-384 point 7).
 pub(crate) const BEYOND_KIND: &str = "core_decides_beyond_the_reference";
 
-/// One unknown row for each PASS rule of a model with kept pair gaps: the reference engine gives
-/// the rule UNKNOWN for each such gap, and the core passes it because no kept gap can change what
-/// it reads (AD-384). The row names the rule, so a reader sees the difference.
+/// Why a PASS of `model` is a PASS beyond the reference engine, if it is one: the reference
+/// engine gives each rule UNKNOWN for a kept pair gap (AD-384) and for a gap that states its
+/// effect (AD-564), and the core passes a rule that no such gap can change.
+pub(crate) fn beyond_reason(model: &archkeel_model::Model) -> Option<String> {
+    let (kept, stated) = (model.kept_pair_gaps(), model.effect_gaps());
+    let pairs = format!("no one of the {kept} kept pair gaps can change the rule");
+    let effects = format!("no one of the {stated} gaps with a stated effect can change the rule");
+    match (kept > 0, stated > 0) {
+        (false, false) => None,
+        (true, false) => Some(pairs),
+        (false, true) => Some(effects),
+        (true, true) => Some(format!("{pairs}; {effects}")),
+    }
+}
+
+/// One unknown row for each PASS rule of a model with such gaps. The row names the rule, so a
+/// reader sees the difference.
 fn beyond(rules: &[crate::input::RuleOutcome], tree: &ModelTree) -> Vec<UnknownRecord> {
-    // Each PASS row reads the kept gaps of the model whose contract holds its rule (AD-385).
+    // Each PASS row reads the gaps of the model whose contract holds its rule (AD-385).
     rules
         .iter()
         .filter(|rule| match &rule.decision {
@@ -58,13 +72,12 @@ fn beyond(rules: &[crate::input::RuleOutcome], tree: &ModelTree) -> Vec<UnknownR
             RuleDecision::Declaration => false,
         })
         .filter_map(|rule| {
-            let kept = tree.model_of(&rule.id)?.kept_pair_gaps();
-            (kept > 0).then(|| UnknownRecord {
+            Some(UnknownRecord {
                 kind: BEYOND_KIND.to_owned(),
                 module: None,
                 subjects: Vec::new(),
                 rules: vec![rule.id.clone()],
-                title: format!("no one of the {kept} kept pair gaps can change the rule"),
+                title: beyond_reason(tree.model_of(&rule.id)?)?,
             })
         })
         .collect()

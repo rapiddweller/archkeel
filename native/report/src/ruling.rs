@@ -341,10 +341,7 @@ impl Rows {
                         return Ok(());
                     }
                     None => {
-                        let kept = model.kept_pair_gaps();
-                        if kept > 0 {
-                            let why =
-                                format!("no one of the {kept} kept pair gaps can change the rule");
+                        if let Some(why) = crate::frame::beyond_reason(model) {
                             self.beyond.insert(id.clone(), why);
                         }
                         RuleVerdict::Pass
