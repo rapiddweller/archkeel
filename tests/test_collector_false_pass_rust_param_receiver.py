@@ -77,6 +77,10 @@ PROVEN: dict[str, dict[str, str]] = {
         "pub fn f(s: &crate::c::S, v: Option<u8>) -> u8 {\n"
         "    let _ = matches!(v, Some(n) if n > 0);\n    s.m(1)\n}\n"
     ),
+    "workspace macro without nested calls": _plant(
+        "macro_rules! items { ($($t:tt)*) => { $($t)* }; }\n"
+        "pub fn f(s: &crate::c::S) -> u8 {\n    items! { let _n = 1; }\n    s.m(1)\n}\n"
+    ),
 }
 
 
@@ -146,6 +150,10 @@ REFUSED: dict[str, dict[str, str]] = {
         "use crate::c::matches;\npub fn f(s: &crate::c::S) -> u8 {\n"
         "    let _ = matches!(1, 2);\n    s.m(1)\n}\n",
         c=TYPES + "pub fn matches() {}\n",
+    ),
+    "workspace macro passes through a macro call": _plant(
+        "macro_rules! items { ($($t:tt)*) => { $($t)* }; }\n"
+        "pub fn f(s: &crate::c::S) -> u8 {\n    items! { mac::rebind!(1, 2); }\n    s.m(1)\n}\n"
     ),
     "a macro call that names the parameter": _plant(
         "pub fn f(s: &crate::c::S) -> u8 {\n    dbg!(&s);\n    s.m(1)\n}\n"
@@ -282,6 +290,37 @@ def test_an_unproved_local_type_keeps_the_gap(
 def test_a_local_with_an_unproved_type_keeps_the_gap(
     tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], files: dict[str, str]
 ) -> None:
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "UNKNOWN", claims(result)
+
+
+@pytest.mark.parametrize("body", ["s.m(1)", "s.m(1).saturating_add(1)"])
+def test_a_written_closure_type_proves_a_receiver(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], body: str
+) -> None:
+    files = _plant(
+        f"pub fn f(input: &crate::c::S) -> u8 {{\n"
+        f"    let call = |s: &crate::c::S| {body};\n    call(input)\n}}\n"
+    )
+    result, verdict = _check(tmp_path, core_binary, capsys, files)
+    assert verdict == "FAIL", claims(result)
+
+
+@pytest.mark.parametrize(
+    "closure",
+    [
+        "|s| s.m(1)",
+        "|s: &crate::c::S| { let s = s; s.m(1) }",
+        "|s: &crate::c::S| { let _ = matches!(s, _); s.m(1) }",
+        "|s: &&crate::c::S| s.m(1)",
+        "|s: &crate::c::S| { #[cfg(unix)] let _n = 1; s.m(1) }",
+        "|s: &crate::c::S| { fn inner() -> u8 { s.m(1) } 1 }",
+    ],
+)
+def test_an_unproved_closure_receiver_keeps_the_gap(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], closure: str
+) -> None:
+    files = _plant(f"pub fn f() {{\n    let _call = {closure};\n}}\n")
     result, verdict = _check(tmp_path, core_binary, capsys, files)
     assert verdict == "UNKNOWN", claims(result)
 

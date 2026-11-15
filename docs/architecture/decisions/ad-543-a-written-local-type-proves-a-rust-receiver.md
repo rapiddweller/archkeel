@@ -17,6 +17,17 @@ These limits avoid assuming a local is in scope before it exists or outside its 
 first-step inherent-method argument as AD-524 applies. The scan refuses any second binding in
 the function, so no inner binding can hide the local at a later call.
 
+A typed closure parameter has the same proof at the receiver sites in its own closure body.
+The scan records those exact sites. It does not extend the proof to nested items, nested
+closures, macro tokens or code outside the closure. Untyped parameters keep the gap. The
+same binding, type, macro and configuration refusals apply to the whole enclosing function.
+
+A workspace macro call can pass a nested macro call to its expansion. The nested call can be a
+procedural macro that binds a receiver without naming it at the outer call. A macro call with an
+identifier followed by `!` in its tokens therefore refuses every receiver proof in that function.
+The scan checks nested token groups too. Standard macros already known not to bind surrounding
+names keep their existing treatment. This fixes part (b) of #1215.
+
 **Measurement.** On #1203, native self-check gaps fall from 101 to 96. The five removed gaps are
 the calls in `rust/src/collect.rs` to `edges`, `edges_extracted`, `module_edges`, `impl_edges`
 and `declared`. The marked native graph adds the newly observed `rs-flow -> rs-edges` edge. The
@@ -26,3 +37,5 @@ result is 63 PASS, 0 FAIL and 20 UNKNOWN, with no violations.
 closures, macro tokens, gates, a call before the declaration or in its initializer, a nested
 block, generic and alias types, `Deref`, and a different receiver form. The plants are in
 `tests/test_collector_false_pass_rust_param_receiver.py`.
+The typed closure plants fail before their rule. The closure-site and nested-macro mutations are
+each caught. The three `fm-passthrough` and `mt-passthrough` plants of #1215 keep their gaps.
