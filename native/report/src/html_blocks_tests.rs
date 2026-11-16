@@ -188,7 +188,8 @@ fn the_page_keeps_its_size_by_rule_and_states_the_cut() {
     assert!(!page.contains("id=\"c-comp-50\""));
     assert!(page.contains("Modules: 25 of 30"));
     assert_eq!(page.matches("class=\"rp-comp rp-comp--line\"").count(), 8);
-    assert!(page.len() < 600_000);
+    // AD-606: the Explorer scripts and style are about 2.1 MB; the data of 2,100 modules adds 0.4 MB.
+    assert!(page.len() < 3_000_000);
 }
 
 #[test]
@@ -243,9 +244,14 @@ fn headings_follow_in_order_and_never_skip_a_level() {
     let mut frame = unknown_frame();
     frame["rules"]["P"] = json!(["layer_order", "PASS"]);
     let page = document(&frame);
+    // A heading inside a script is a template of the Explorer, not a heading of the page.
+    let text: String = page
+        .split("<script")
+        .map(|part| part.split_once("</script>").map_or(part, |(_, rest)| rest))
+        .collect();
     let mut last = 0;
     let mut found = 0;
-    for part in page.split("<h").skip(1) {
+    for part in text.split("<h").skip(1) {
         let Some(level) = part.chars().next().and_then(|c| c.to_digit(10)) else {
             continue;
         };
@@ -280,7 +286,11 @@ fn hostile_names_reach_no_markup_in_any_new_block() {
         !page.contains("<script>\""),
         "a hostile name is raw in the page"
     );
-    assert_eq!(page.matches("<script>").count(), 1);
+    assert_eq!(
+        page.matches("<script").count(),
+        10,
+        "the theme, the data and eight scripts"
+    );
     for block in [
         "id=\"unknown\"",
         "id=\"components\"",

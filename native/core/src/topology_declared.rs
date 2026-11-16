@@ -6,12 +6,19 @@
 //! with the number of observed imports that use it, and the layers of each `layer_order` rule.
 //! It makes no decision: the rules decide, and these rows only show what the contract states.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use archkeel_contract::{head_of, Rule};
 use archkeel_model::ModelTree;
 use schemars::JsonSchema;
 use serde::Serialize;
+
+/// What a `requires` entry states besides its two components.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct Declared {
+    pub(crate) rationale: String,
+    pub(crate) through: Vec<String>,
+}
 
 /// One `requires` entry: the two components by id, and the observed imports that use it.
 #[derive(Debug, PartialEq, Eq, Serialize, JsonSchema)]
@@ -20,6 +27,10 @@ pub(crate) struct Require {
     pub(crate) target: String,
     /// Zero says that no observed import uses the permission.
     pub(crate) imports: usize,
+    /// Why the contract allows the pair.
+    pub(crate) rationale: String,
+    /// The selectors that an import of the pair must pass through; empty when the entry names none.
+    pub(crate) through: Vec<String>,
 }
 
 /// The layers of one `layer_order` rule, from the inner layer to the outer layer.
@@ -29,21 +40,30 @@ pub(crate) struct LayerOrder {
     layers: Vec<String>,
 }
 
-/// Each declared pair of the tree, by component id. A label is local to its contract.
-pub(crate) fn pairs(models: &ModelTree) -> BTreeSet<(String, String)> {
-    let mut pairs = BTreeSet::new();
+/// Each declared pair of the tree, by component id, with its rationale and its ports. A label is
+/// local to its contract.
+pub(crate) fn pairs(models: &ModelTree) -> BTreeMap<(String, String), Declared> {
+    let mut pairs = BTreeMap::new();
     for model in models.models() {
         for (_, component) in model.components().iter() {
             let targets = component.requires().iter().flatten().filter_map(|entry| {
-                model
-                    .component(entry.component().as_text())
-                    .and_then(|id| model.components().get(id))
+                let id = model.component(entry.component().as_text())?;
+                Some((model.components().get(id)?, entry))
             });
-            pairs.extend(targets.map(|target| {
-                (
+            pairs.extend(targets.map(|(target, entry)| {
+                let declared = Declared {
+                    rationale: entry.rationale().clone(),
+                    through: entry
+                        .through()
+                        .iter()
+                        .map(|s| s.as_text().to_owned())
+                        .collect(),
+                };
+                let key = (
                     component.id().as_text().to_owned(),
                     target.id().as_text().to_owned(),
-                )
+                );
+                (key, declared)
             }));
         }
     }
@@ -54,7 +74,7 @@ pub(crate) fn pairs(models: &ModelTree) -> BTreeSet<(String, String)> {
 /// their ancestors too: a `requires` entry of a component with an inside contract covers the
 /// imports of its sub-components.
 pub(crate) fn requires<'a>(
-    pairs: BTreeSet<(String, String)>,
+    pairs: BTreeMap<(String, String), Declared>,
     parents: &BTreeMap<&'a str, &'a str>,
     observed: impl Iterator<Item = (&'a str, &'a str, usize)>,
 ) -> Vec<Require> {
@@ -69,13 +89,15 @@ pub(crate) fn requires<'a>(
     }
     pairs
         .into_iter()
-        .map(|(source, target)| Require {
+        .map(|((source, target), declared)| Require {
             imports: sums
                 .get(&(source.as_str(), target.as_str()))
                 .copied()
                 .unwrap_or(0),
             source,
             target,
+            rationale: declared.rationale,
+            through: declared.through,
         })
         .collect()
 }
