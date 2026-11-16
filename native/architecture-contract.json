@@ -603,7 +603,6 @@
         "native.archkeel_model.reason:Refusal",
         "native.archkeel_model.reason:UmlGap",
         "native.archkeel_model.reason:Unsupported",
-        "native.archkeel_model.reason_key:Stable",
         "native.archkeel_model.reason_key:gap_kind",
         "native.archkeel_model.reason_key:stable",
         "native.archkeel_model.section:Section"
@@ -724,7 +723,6 @@
         "native.archkeel_model.measures:Measures",
         "native.archkeel_model.measures:measure_facts",
         "native.archkeel_model.modules:Module",
-        "native.archkeel_model.modules:Package",
         "native.archkeel_model.observed:Observed",
         "native.archkeel_model.observed:Runtime",
         "native.archkeel_model.ownership:claims",
@@ -737,8 +735,7 @@
         "native.archkeel_model.symbols:Entity",
         "native.archkeel_model.symbols:Signature",
         "native.archkeel_model.symbols:Symbols",
-        "native.archkeel_model.symbols:module_id",
-        "native.archkeel_model.topology:Measure"
+        "native.archkeel_model.symbols:module_id"
       ],
       "decided_by": "architect"
     },
@@ -827,10 +824,8 @@
         "native.archkeel_model.pair_gaps:pairs",
         "native.archkeel_model.pair_gaps:reads",
         "native.archkeel_model.roots:Roots",
-        "native.archkeel_model.selection:Selection",
         "native.archkeel_model.selection:dependency_sides",
         "native.archkeel_model.selection:layer_components",
-        "native.archkeel_model.sides:Direction",
         "native.archkeel_model.sides:Shape",
         "native.archkeel_model.sides:shape",
         "native.archkeel_model.subjects:Names",
@@ -914,7 +909,6 @@
       ],
       "public": [
         "native.archkeel_model.model:Model",
-        "native.archkeel_model.model:Rows",
         "native.archkeel_model.proof:State",
         "native.archkeel_model.tree:ModelTree"
       ],
@@ -1011,22 +1005,14 @@
         }
       ],
       "public": [
-        "native.archkeel_model.boundary_judge:GapCause",
-        "native.archkeel_model.boundary_judge:GapRow",
-        "native.archkeel_model.boundary_judge:Leaf",
         "native.archkeel_model.boundary_positions:Position",
-        "native.archkeel_model.boundary_positions:Reading",
-        "native.archkeel_model.boundary_positions:Stale",
         "native.archkeel_model.boundary_positions:read",
         "native.archkeel_model.boundary_positions:receipt",
         "native.archkeel_model.closed_path:Link",
-        "native.archkeel_model.closed_path:Step",
         "native.archkeel_model.closed_path:cycle_path",
-        "native.archkeel_model.component_cycles:ComponentCycle",
         "native.archkeel_model.component_cycles:cycles_of_components",
         "native.archkeel_model.construct_match:matches",
         "native.archkeel_model.construct_match:receipt",
-        "native.archkeel_model.direction:Crossing",
         "native.archkeel_model.direction:Judged",
         "native.archkeel_model.direction:crossings",
         "native.archkeel_model.direction:forbidden",
@@ -1131,20 +1117,14 @@
         }
       ],
       "public": [
-        "native.archkeel_model.receipts:GapScope",
-        "native.archkeel_model.receipts:ScanProof",
         "native.archkeel_model.run:Model",
         "native.archkeel_model.run:ModelTree",
-        "native.archkeel_model.run:RunComplete",
         "native.archkeel_model.run:RunGap",
         "native.archkeel_model.run:RunPass",
         "native.archkeel_model.scope:Model",
-        "native.archkeel_model.scope:Scope",
-        "native.archkeel_model.scope:ScopeComplete",
         "native.archkeel_model.scope:uml_pass",
         "native.archkeel_model.scope:uml_run",
         "native.archkeel_model.verdict:Decision",
-        "native.archkeel_model.verdict:Proven",
         "native.archkeel_model.verdict:Verdict"
       ],
       "decided_by": "architect"
@@ -1393,7 +1373,6 @@
         }
       ],
       "public": [
-        "native.archkeel_eval.violation:BoundaryViolation",
         "native.archkeel_eval.violation:Cited",
         "native.archkeel_eval.violation:ConstructViolation",
         "native.archkeel_eval.violation:CycleStep",
@@ -2785,7 +2764,6 @@
             "native.archkeel_collect:RefusalKind",
             "native.archkeel_collect:Scanned",
             "native.archkeel_collect:System",
-            "native.archkeel_collect:SystemInterface",
             "native.archkeel_collect:SystemPart",
             "native.archkeel_collect:read_system",
             "native.archkeel_collect:scan"
@@ -2928,7 +2906,6 @@
         "native.archkeel_collect:RefusalKind",
         "native.archkeel_collect:Scanned",
         "native.archkeel_collect:System",
-        "native.archkeel_collect:SystemInterface",
         "native.archkeel_collect:SystemPart",
         "native.archkeel_collect:read_system",
         "native.archkeel_collect:scan"

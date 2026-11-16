@@ -34,13 +34,15 @@ pub enum Resolved {
     Builtin,
 }
 
-/// What a record states about publication: the route of its name (AD-504, AD-604) and the name
-/// that it publishes outside the package of its module (AD-608).
+/// What a record states about publication: the route of its name (AD-504, AD-604), the name
+/// that it publishes outside the package of its module (AD-608), and whether it receives a
+/// publication of another crate of the workspace (AD-622).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Published {
     pub(crate) chain: Vec<String>,
     pub(crate) complete: bool,
     pub(crate) outside: Option<String>,
+    pub(crate) other_crate: bool,
 }
 
 /// One resolved import that is not a macro body: the input of the edges and the rules.
@@ -141,6 +143,12 @@ impl Import {
     /// re-export that does (`*` for a glob; AD-608).
     pub fn published_as(&self) -> Option<&str> {
         self.published.outside.as_deref()
+    }
+
+    /// True when the record names a module of another crate of the workspace by that crate's
+    /// name, as a binary target names its library (AD-622).
+    pub fn other_crate(&self) -> bool {
+        self.published.other_crate
     }
 
     /// True for a relative import, which names its target by position and not by name.
@@ -251,6 +259,7 @@ pub(crate) fn split(facts: &Facts) -> Split {
                 chain: data.reexport_chain.clone().unwrap_or_default(),
                 complete: data.route_complete != Some(false),
                 outside: data.published_as.clone(),
+                other_crate: data.other_crate == Some(true),
             },
             relative: data.relative_level != 0,
             resolved,

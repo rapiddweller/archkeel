@@ -46,6 +46,10 @@ facts_data! {
         /// The name that a re-export publishes outside the package of its module, as a `pub use`
         /// at the root of a library crate does (`*` for a glob; AD-608).
         [read skip] published_as: Option<String>,
+        /// True when the import names a module of another crate of the workspace by that crate's
+        /// name, as a binary target names its library (AD-622). Absent: the same crate, or a
+        /// collector without crates.
+        [read skip] other_crate: Option<bool>,
         /// True when `__all__` lists the name.
         [read skip] declared_in_all: Option<bool>,
         /// True when the target is an ordinary module.
@@ -92,6 +96,7 @@ impl ImportData {
             reexport_chain: None,
             route_complete: None,
             published_as: None,
+            other_crate: None,
             declared_in_all: None,
             ordinary_module: None,
             origin_binding_unique: None,

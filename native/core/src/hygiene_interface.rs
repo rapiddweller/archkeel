@@ -14,6 +14,7 @@
 //! signatures, so it can prove a use and never an absence of use. It counts only a use that it can prove, and it names each other case:
 //!
 //! - a component that receives imports and has no `public` entry: `interface.undeclared`;
+//! - an import counts when it crosses components, or crates of one component (AD-622);
 //! - a `public` entry that no proven import reaches: `interface.usage_unknown`, because a facade
 //!   signature may still reach it (4.0.1 then says unused, missing or nothing);
 //! - a `planned` entry whose module was scanned: `interface.planned_built` when an import reaches
@@ -149,7 +150,10 @@ fn uses<'m>(
                     owners
                 }
             };
-            for to in owners.into_iter().filter(|to| *to != from) {
+            // AD-622: an import from another crate of the same component is a use of a public
+            // entry: the library publishes it for that crate (a binary target, AD-608).
+            let crossing = |to: &String| *to != from || import.other_crate();
+            for to in owners.into_iter().filter(crossing) {
                 found.entry(to).or_default().push(import);
             }
         } else if let Some(to) = index.and_then(|at| outside(tree, mounts, at, model, import)) {

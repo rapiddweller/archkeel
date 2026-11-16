@@ -59,6 +59,9 @@ pub(crate) fn join(
         frame.insert(key.to_owned(), Value::Array(rows));
     }
     frame.insert("scope".to_owned(), scope(&frames));
+    if let Some(premise) = premise(&frames) {
+        frame.insert("premise".to_owned(), json!(premise));
+    }
     frame.insert("measures".to_owned(), Value::Null);
     let digest = archkeel_facts::identity::sha256_hex(&system.document.1);
     frame.insert("contract_digest".to_owned(), json!(digest));
@@ -156,6 +159,21 @@ fn sections(frames: &[Map<String, Value>]) -> Map<String, Value> {
         .into_iter()
         .map(|(name, rows)| (name, Value::Array(rows)))
         .collect()
+}
+
+/// The assumptions that the collectors of the parts state (AD-540), each once in the order of the
+/// parts: a part whose proofs rest on a premise keeps it in the system frame.
+fn premise(frames: &[Map<String, Value>]) -> Option<String> {
+    let mut found: Vec<&str> = Vec::new();
+    for text in frames
+        .iter()
+        .filter_map(|part| part.get("premise")?.as_str())
+    {
+        if !found.contains(&text) {
+            found.push(text);
+        }
+    }
+    (!found.is_empty()).then(|| found.join("; "))
 }
 
 /// `complete` when each part is complete, else the reason of the first part that is not.
@@ -264,3 +282,7 @@ fn row(part: &SystemPart, frame: &Map<String, Value>, status: Option<Status>) ->
         rules: map(frame, "rules").map(|(id, _)| id.clone()).collect(),
     }
 }
+
+#[cfg(test)]
+#[path = "system_tests.rs"]
+mod tests;

@@ -23,6 +23,9 @@ pub(crate) struct Module {
     pub rel: String,
     pub module: String,
     pub crate_index: usize,
+    /// The root module of the target whose tree holds the file: the library, a binary or the
+    /// build script of the package. Each target is a crate of its own (AD-622).
+    pub target: String,
     /// The first line of the file, trimmed at its end: the evidence of the file. The walk does
     /// not keep the text, which only this line and `blank` need.
     pub first_line: String,
@@ -118,7 +121,7 @@ impl Walked {
             gated: false,
             gates: Some(Vec::new()),
         };
-        self.crate_tree(source, index, krate, first);
+        self.crate_tree(source, (index, &root.module), krate, first);
     }
 
     /// A module id that no other file has. Rust refuses two modules of one name in one parent,
@@ -146,7 +149,13 @@ impl Walked {
         }
     }
 
-    fn crate_tree(&mut self, source: &mut Snapshot, index: usize, krate: &Crate, first: Pending) {
+    fn crate_tree(
+        &mut self,
+        source: &mut Snapshot,
+        (index, target): (usize, &str),
+        krate: &Crate,
+        first: Pending,
+    ) {
         let mut queue = VecDeque::from([first]);
         while let Some(mut file) = queue.pop_front() {
             let Some(text) = self.read(source, &file) else {
@@ -169,6 +178,7 @@ impl Walked {
                 rel: file.rel,
                 module: file.module,
                 crate_index: index,
+                target: target.to_owned(),
                 first_line: first.trim_end().to_owned(),
                 blank: text.trim().is_empty(),
                 scan: scanned,
