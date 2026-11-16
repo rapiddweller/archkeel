@@ -225,3 +225,22 @@ fn the_frame_lists_each_gap_of_the_rules_with_its_kind_from_the_core() {
     }
     assert!(found.get("baseline").is_none());
 }
+
+#[test]
+fn an_older_file_names_the_release_the_migration_command_and_the_unread_sections() {
+    let root = repository("base-older");
+    let older = json!({"schema_version": "1.2.0", "violations": [],
+        "budgets": {"calls_unresolved": 5, "cycle_edges": 0}});
+    fs::write(root.join("old.json"), older.to_string()).unwrap();
+    let found = frame(&root, json!({"baseline": "old.json"}))["baseline"].clone();
+    let gap = &found["gaps"][0];
+    assert_eq!(gap["kind"], "baseline.older_schema");
+    let text = gap["reason"].as_str().unwrap();
+    assert!(text.contains("release 4.0.1"), "{text}");
+    assert!(
+        text.contains("archkeel validate --write-baseline old.json"),
+        "{text}"
+    );
+    assert!(text.contains("amendment file"), "{text}");
+    assert!(found["exit_code"].as_u64().unwrap() >= 2);
+}

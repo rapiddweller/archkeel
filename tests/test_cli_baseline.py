@@ -183,7 +183,7 @@ def test_a_file_of_schema_1_3_0_accepts_no_unknown_and_names_the_old_budgets(bui
     assert code == 2, result
     part = baseline(result)
     kinds = {gap["kind"] for gap in part["gaps"]}  # type: ignore[union-attr]
-    assert kinds == {"baseline.budget_of_older_schema"}
+    assert kinds == {"baseline.budget_of_older_schema", "baseline.older_schema"}
     assert part["new"] == [] and part["gone"] == []
 
 
@@ -264,3 +264,39 @@ def test_a_refused_scan_with_a_baseline_exits_1_because_exit_2_means_all_accepte
         code, result = run(built, root, "--baseline", "b.json")
     assert code == 1, result
     assert result["refusal"]["kind"] == "collection_refused"  # type: ignore[index]
+
+
+def test_a_baseline_of_release_4_0_1_prints_one_migration_command_and_no_doubled_words(
+    built: Path,
+) -> None:
+    older = {
+        "schema_version": "1.2.0",
+        "violations": [{"rules": ["R"], "subjects": ["backend"], "count": 1}],
+        "budgets": {"calls_unresolved": 5, "cycle_edges": 0},
+    }
+    with case_root(HONEST) as root:
+        (root / "old.json").write_text(json.dumps(older), encoding="utf-8")
+        done = command(built / f"archkeel-core{SUFFIX}", root, "--text", "--baseline", "old.json")
+    lines = [line for line in done.stdout.splitlines() if line.startswith("Baseline")]
+    text = "\n".join(lines)
+    assert "release 4.0.1" in text and "archkeel validate --write-baseline old.json" in text
+    assert "amendment file" in text and "not compared" in text
+    assert "violation: violation" not in text and ":  (" not in text
+    assert "this run has 0, the file lists 1" in text
+
+
+def test_the_call_summary_shows_the_percentage_and_the_meaning() -> None:
+    from archkeel.cli.core_evidence import call_lines
+
+    counts = {
+        "calls_total": 6399,
+        "calls_resolved": 370,
+        "calls_partial": 0,
+        "calls_builtin": 100,
+        "calls_external": 200,
+        "calls_unresolved": 5729,
+    }
+    first, meaning = call_lines(counts)
+    assert first.startswith("Calls: 370 of 6399 resolved (5.8%)")
+    assert "stays UNKNOWN" in meaning
+    assert call_lines(None) == [] and call_lines({**counts, "calls_total": 0})[0].count("n/a")

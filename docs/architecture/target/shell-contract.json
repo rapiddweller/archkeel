@@ -89,6 +89,10 @@
         {
           "component": "init",
           "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "display",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
         }
       ],
       "decided_by": "architect",
@@ -294,7 +298,8 @@
         "archkeel.cli.core_topology:require_topology",
         "archkeel.cli.core_evidence:read_details",
         "archkeel.cli.core_evidence:read_locations",
-        "archkeel.cli.core_evidence:read_collection_gaps"
+        "archkeel.cli.core_evidence:read_collection_gaps",
+        "archkeel.cli.core_evidence:call_lines"
       ]
     },
     {
