@@ -20,6 +20,7 @@ from typing import Final
 from .core_json import CoreError
 
 SCHEMA_NAME: Final = "archkeel-core-frame-1.schema.json"
+REFUSAL_NAME: Final = "archkeel-core-refusal-1.schema.json"
 # Keywords that describe and never constrain.
 _NOTES: Final = frozenset({"$schema", "title", "description", "format", "$defs"})
 _CHECKS: Final = frozenset(
@@ -44,33 +45,42 @@ _CHECKS: Final = frozenset(
 )
 
 
-def _path() -> Path:
-    """The schema of this install: the wheel copy, or the checkout copy."""
+def _path(name: str) -> Path:
+    """The schema file of this install: the wheel copy, or the checkout copy."""
     package = Path(__file__).resolve().parents[1]
-    for found in (package / "schema" / SCHEMA_NAME, package.parents[1] / "schema" / SCHEMA_NAME):
+    for found in (package / "schema" / name, package.parents[1] / "schema" / name):
         if found.is_file():
             return found
-    raise CoreError(f"the frame schema {SCHEMA_NAME} is missing from this install")
+    raise CoreError(f"the schema {name} is missing from this install")
 
 
 @cache
-def frame_schema() -> Mapping[str, object]:
-    """The schema of the frame `archkeel-core-frame-1`, read once."""
+def _schema(name: str) -> Mapping[str, object]:
+    """One generated schema of the core, read once."""
     try:
-        value = json.loads(_path().read_text(encoding="utf-8"))
+        value = json.loads(_path(name).read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
-        raise CoreError(f"the frame schema cannot be read: {error}") from error
+        raise CoreError(f"the schema {name} cannot be read: {error}") from error
     if not isinstance(value, dict):
-        raise CoreError("the frame schema is not an object")
+        raise CoreError(f"the schema {name} is not an object")
     return value
 
 
 def check_frame(frame: object) -> None:
     """Refuse a frame that the schema does not accept, with the first path that differs."""
-    root = frame_schema()
-    problem = _problem(frame, root, root, "frame")
+    _check(frame, SCHEMA_NAME, "frame")
+
+
+def check_refusal(refusal: object) -> None:
+    """Refuse a stderr refusal that the refusal schema does not accept."""
+    _check(refusal, REFUSAL_NAME, "refusal")
+
+
+def _check(value: object, name: str, what: str) -> None:
+    root = _schema(name)
+    problem = _problem(value, root, root, what)
     if problem is not None:
-        raise CoreError(f"the core frame breaks its schema: {problem}")
+        raise CoreError(f"the core {what} breaks its schema: {problem}")
 
 
 def _kind(value: object) -> str:

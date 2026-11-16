@@ -9,7 +9,7 @@ from enum import StrEnum
 from typing import Final
 
 from .core_evidence import Location
-from .core_json import CoreError, as_count, as_fields, as_object, as_text
+from .core_json import CoreError, as_count, as_object, as_text
 
 LIMITS: Final = {
     "components": 4096,
@@ -130,7 +130,7 @@ def _strings(value: object) -> tuple[str, ...]:
 
 
 def _component(value: object) -> Component:
-    row = as_fields(value, "topology.component", frozenset(Component.__dataclass_fields__))
+    row = as_object(value, "topology.component")
     return Component(
         as_text(row["id"], "id"),
         as_text(row["name"], "name"),
@@ -144,7 +144,7 @@ def _component(value: object) -> Component:
 
 
 def _module(value: object) -> Module:
-    row = as_fields(value, "topology.module", frozenset(Module.__dataclass_fields__))
+    row = as_object(value, "topology.module")
     try:
         ownership = Ownership(as_text(row["ownership"], "ownership"))
     except ValueError as error:
@@ -156,14 +156,14 @@ def _module(value: object) -> Module:
 
 
 def _edge(value: object, rules: Mapping[str, object]) -> Edge:
-    row = as_fields(value, "topology.edge", frozenset(Edge.__dataclass_fields__))
+    row = as_object(value, "topology.edge")
     try:
         resolution = Resolution(as_text(row["resolution"], "resolution"))
     except ValueError as error:
         raise CoreError("topology: unknown resolution") from error
     evidence = []
     for item in _list(row["evidence"], LIMITS["evidence_per_edge"]):
-        location = as_fields(item, "topology.location", frozenset({"path", "line"}))
+        location = as_object(item, "topology.location")
         evidence.append(
             Location(as_text(location["path"], "path"), as_count(location["line"], "line"))
         )
@@ -189,18 +189,18 @@ def _edge(value: object, rules: Mapping[str, object]) -> Edge:
 
 
 def _require(value: object) -> Require:
-    row = _fields(value, "topology.require", frozenset(Require.__dataclass_fields__))
+    row = as_object(value, "topology.require")
     return Require(
-        _text(row["source"], "source"),
-        _text(row["target"], "target"),
-        _count(row["imports"], "imports"),
+        as_text(row["source"], "source"),
+        as_text(row["target"], "target"),
+        as_count(row["imports"], "imports"),
     )
 
 
 def _layer_order(value: object) -> LayerOrder:
     # The rule is a rule of the contract. A frame that decides no rule can still state it.
-    row = _fields(value, "topology.layer_order", frozenset(LayerOrder.__dataclass_fields__))
-    return LayerOrder(_text(row["rule"], "rule"), _strings(row["layers"]))
+    row = as_object(value, "topology.layer_order")
+    return LayerOrder(as_text(row["rule"], "rule"), _strings(row["layers"]))
 
 
 # A component edge names a component or one of these labels, never a module.
@@ -238,26 +238,7 @@ def _check_references(topology: "Topology") -> None:
 def read_topology(value: object, scope: str, rules: Mapping[str, object]) -> Topology:
     """Read the topology part of a frame into typed values and fail closed."""
 
-    row = as_fields(
-        value,
-        "topology",
-        frozenset(
-            {
-                "version",
-                "complete",
-                "gaps",
-                "truncated",
-                "budgets",
-                "total",
-                "components",
-                "modules",
-                "edges",
-                "component_edges",
-                "requires",
-                "layers",
-            }
-        ),
-    )
+    row = as_object(value, "topology")
     if as_count(row["version"], "topology.version") != 1:
         raise CoreError("topology: unsupported version")
     budgets = as_object(row["budgets"], "topology.budgets")
@@ -265,7 +246,7 @@ def read_topology(value: object, scope: str, rules: Mapping[str, object]) -> Top
         raise CoreError("topology: unknown budgets")
     total = {
         key: as_count(value, key)
-        for key, value in as_fields(row["total"], "topology.total", frozenset(LIMITS)).items()
+        for key, value in as_object(row["total"], "topology.total").items()
     }
     complete, truncated = _bool(row["complete"]), _bool(row["truncated"])
     gaps = _strings(row["gaps"])

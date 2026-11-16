@@ -68,7 +68,10 @@ def test_a_premise_that_is_no_text_is_refused(value: object) -> None:
 
 def test_a_typescript_scan_frame_must_state_its_premise() -> None:
     document = json.loads(frame())
-    document["self_test"]["collect"]["request"]["resolver"] = {"language": "typescript"}
+    document["self_test"]["collect"]["request"]["resolver"] = {
+        "language": "typescript",
+        "tsconfig": "tsconfig.json",
+    }
     with pytest.raises(CoreError):
         _read(document)
     document["premise"] = "code outside the scan roots hands in no global object"
@@ -167,7 +170,14 @@ def frame(status: Status = Status.PASS) -> bytes:
                 "collect": {
                     "contract_files": {"contract.json": hashlib.sha256(b"contract").hexdigest()},
                     "request": {
-                        "snapshot": {"root": str(Path.cwd()), "git_head": HEAD, "dirty": False}
+                        "protocol_version": "9.0.0",
+                        "snapshot": {"root": str(Path.cwd()), "git_head": HEAD, "dirty": False},
+                        "scope": {
+                            "roots": ["src"],
+                            "namespace": "app",
+                            "exclude_test_sources": False,
+                        },
+                        "resolver": {"language": "rust"},
                     },
                 },
             },

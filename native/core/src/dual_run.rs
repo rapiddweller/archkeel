@@ -30,7 +30,7 @@ use archkeel_report::Named;
 mod frame_parts;
 #[cfg(test)]
 pub(crate) use frame_parts::Parts as FrameParts;
-pub(crate) use frame_parts::{refused_scan, Answered, CODE_DIGEST};
+pub(crate) use frame_parts::{refused_scan, Answered, Collect, CODE_DIGEST};
 use frame_parts::{ContractCheck, Parts, ReplyCheck, SelfTest, UnsupportedParts, ENGINE};
 
 /// Version 2 adds the settings of the shell: `namespace` and `standard_library` (AD-372).
@@ -200,7 +200,7 @@ pub(crate) struct Run {
     /// the whole contract when the request kind does not trust the reply.
     pub(crate) trust: TrustOf,
     /// The `collect` part of the self-test of a scan request (AD-406); `None` for the others.
-    pub(crate) collect: Option<serde_json::Value>,
+    pub(crate) collect: Option<Collect>,
     /// The provenance documents that a scan request read (AD-466); `None` for the others.
     pub(crate) documents: Option<crate::provenance::Documents>,
     /// The SDK libraries of the profile that a contract can forbid by name (`reference.namespace`).
@@ -314,7 +314,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         gaps,
         baseline,
         engine: ENGINE,
-        sections: rows,
+        sections: frame_parts::typed_rows(rows)?,
         unsupported: UnsupportedParts {
             sections,
             report: report.err(),

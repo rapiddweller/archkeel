@@ -4,7 +4,7 @@
 
 use std::path::Path;
 
-use super::{schema, text, PATH};
+use super::{refusal_text, schema, text, PATH, REFUSAL_PATH};
 
 #[test]
 fn the_committed_frame_schema_equals_the_generated_schema() {
@@ -43,4 +43,22 @@ fn the_frame_schema_is_closed_and_names_the_ruling_and_the_parts() {
 fn write_the_frame_schema() {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(PATH);
     std::fs::write(path, text().expect("the schema is JSON")).expect("written");
+}
+
+#[test]
+fn the_committed_refusal_schema_equals_the_generated_schema() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(REFUSAL_PATH);
+    let committed = std::fs::read_to_string(path).unwrap_or_default();
+    assert!(
+        committed == refusal_text().expect("the schema is JSON"),
+        "the generated refusal schema differs from schema/archkeel-core-refusal-1.schema.json. \
+         Write it with `cargo test -p archkeel-core -- --ignored write_the_refusal_schema`"
+    );
+}
+
+#[test]
+#[ignore = "writes the refusal schema file; run it after a change of the refusal type"]
+fn write_the_refusal_schema() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(REFUSAL_PATH);
+    std::fs::write(path, refusal_text().expect("the schema is JSON")).expect("written");
 }

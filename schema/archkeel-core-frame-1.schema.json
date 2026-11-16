@@ -113,7 +113,9 @@
       "type": "object",
       "additionalProperties": {
         "type": "array",
-        "items": true
+        "items": {
+          "$ref": "#/$defs/SectionRow"
+        }
       }
     },
     "unsupported": {
@@ -484,6 +486,19 @@
           "items": {
             "$ref": "#/$defs/Edge"
           }
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Require"
+          },
+          "description": "The declared structure (AD-594): each `requires` entry and each `layer_order`."
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LayerOrder"
+          }
         }
       },
       "required": [
@@ -496,7 +511,9 @@
         "components",
         "modules",
         "edges",
-        "component_edges"
+        "component_edges",
+        "requires",
+        "layers"
       ],
       "additionalProperties": false
     },
@@ -527,6 +544,16 @@
           "type": "integer",
           "format": "uint",
           "minimum": 0
+        },
+        "requires": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "layers": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
         }
       },
       "required": [
@@ -534,7 +561,9 @@
         "modules",
         "edges",
         "component_edges",
-        "evidence_per_edge"
+        "evidence_per_edge",
+        "requires",
+        "layers"
       ],
       "additionalProperties": false
     },
@@ -567,6 +596,19 @@
         },
         "planned": {
           "type": "boolean"
+        },
+        "layer": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The declared layer and the declared public surface. Empty when the contract states none."
+        },
+        "public": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
@@ -575,7 +617,9 @@
         "parent",
         "packages",
         "exact_modules",
-        "planned"
+        "planned",
+        "layer",
+        "public"
       ],
       "additionalProperties": false
     },
@@ -672,6 +716,50 @@
         "path",
         "line"
       ],
+      "additionalProperties": false
+    },
+    "Require": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "imports": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0,
+          "description": "Zero says that no observed import uses the permission."
+        }
+      },
+      "required": [
+        "source",
+        "target",
+        "imports"
+      ],
+      "description": "One `requires` entry: the two components by id, and the observed imports that use it.",
+      "additionalProperties": false
+    },
+    "LayerOrder": {
+      "type": "object",
+      "properties": {
+        "rule": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "rule",
+        "layers"
+      ],
+      "description": "The layers of one `layer_order` rule, from the inner layer to the outer layer.",
       "additionalProperties": false
     },
     "Explain": {
@@ -1073,6 +1161,72 @@
       "description": "One coverage gap and the rules that it holds.",
       "additionalProperties": false
     },
+    "SectionRow": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "evidence_class": {
+          "type": "string"
+        },
+        "area": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rule_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "data": true
+      },
+      "required": [
+        "id",
+        "evidence_class",
+        "area",
+        "kind",
+        "title",
+        "subjects",
+        "evidence_ids",
+        "rule_ids",
+        "fact_ids",
+        "provenance",
+        "data"
+      ],
+      "description": "One row of a section: the envelope that every row has. `data` is the payload of the row kind,\nwhich the harness compares with the rows of the reference engine; it is the one open leaf.",
+      "additionalProperties": false
+    },
     "UnsupportedParts": {
       "type": "object",
       "properties": {
@@ -1108,7 +1262,16 @@
         "reply": {
           "$ref": "#/$defs/ReplyCheck"
         },
-        "collect": true
+        "collect": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Collect"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
       },
       "required": [
         "contract",
@@ -1215,6 +1378,289 @@
           "additionalProperties": false
         }
       ]
+    },
+    "Collect": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "request": {
+              "$ref": "#/$defs/Request"
+            },
+            "contract_files": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "request",
+            "contract_files"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "refused": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "refused"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "The `collect` part of the self-test of a scan (AD-406): the request that the core derived and\nthe digest of each contract file, or the reason that the collector did not run."
+    },
+    "Request": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol_version": {
+          "$ref": "#/$defs/Version",
+          "description": "The protocol version that the reply must use."
+        },
+        "snapshot": {
+          "$ref": "#/$defs/Snapshot",
+          "description": "The tree that the collector reads."
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope",
+          "description": "The files that the collector reads."
+        },
+        "resolver": {
+          "$ref": "#/$defs/Resolver",
+          "description": "The resolver settings of the language."
+        }
+      },
+      "required": [
+        "protocol_version",
+        "snapshot",
+        "scope",
+        "resolver"
+      ],
+      "description": "One collection request. `R` is the settings of the language: the whole `Resolver` as the wire\nhas it, or the settings of one language after the collector has chosen it."
+    },
+    "Version": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "3.0.0",
+          "description": "Protocol 3, the oldest request."
+        },
+        {
+          "type": "string",
+          "const": "8.0.0",
+          "description": "Protocol 8."
+        },
+        {
+          "type": "string",
+          "const": "9.0.0",
+          "description": "Protocol 9: the scope can exclude test sources."
+        },
+        {
+          "type": "string",
+          "const": "10.0.0",
+          "description": "Protocol 10: the request of the native Python collector."
+        }
+      ],
+      "description": "A request version that the host sends to a native collector."
+    },
+    "Snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "description": "The absolute snapshot root."
+        },
+        "git_head": {
+          "type": "string",
+          "description": "The commit that the tree is at."
+        },
+        "dirty": {
+          "$ref": "#/$defs/Dirty",
+          "description": "`true`, `false` or `\"unknown\"`, echoed back in the reply."
+        }
+      },
+      "required": [
+        "root",
+        "git_head",
+        "dirty"
+      ],
+      "description": "The snapshot to read."
+    },
+    "Dirty": {
+      "anyOf": [
+        {
+          "type": "boolean",
+          "description": "Whether the tree has uncommitted changes."
+        },
+        {
+          "$ref": "#/$defs/UnknownDirty",
+          "description": "The tool could not tell."
+        }
+      ],
+      "description": "`dirty` is a Boolean, or the text `unknown` when the host could not read the work tree."
+    },
+    "UnknownDirty": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "unknown",
+          "description": "The tool could not tell whether the tree is dirty."
+        }
+      ],
+      "description": "The value of `dirty` when the tool cannot tell."
+    },
+    "Scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "roots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Nonempty relative paths that stay inside the snapshot and neither repeat nor overlap."
+        },
+        "namespace": {
+          "type": "string",
+          "description": "A dotted namespace."
+        },
+        "exclude_test_sources": {
+          "type": "boolean",
+          "description": "Present exactly in a 9.0.0 request (AD-313)."
+        }
+      },
+      "required": [
+        "roots",
+        "namespace"
+      ],
+      "description": "The part of the snapshot to read."
+    },
+    "Resolver": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "language": {
+              "type": "string",
+              "const": "typescript"
+            },
+            "tsconfig": {
+              "type": "string",
+              "description": "A relative path that stays inside the snapshot."
+            },
+            "bundler": {
+              "const": true,
+              "description": "The host writes `bundler` only when it is true, so false has one form: absent."
+            }
+          },
+          "required": [
+            "language",
+            "tsconfig"
+          ],
+          "description": "The settings of the TypeScript resolver."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The settings of the Rust resolver.",
+          "properties": {
+            "language": {
+              "type": "string",
+              "const": "rust"
+            }
+          },
+          "required": [
+            "language"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "language": {
+              "type": "string",
+              "const": "python"
+            },
+            "phase": {
+              "$ref": "#/$defs/PythonPhase",
+              "description": "The phase of the Python collection."
+            },
+            "interpreter": {
+              "$ref": "#/$defs/Interpreter",
+              "description": "The interpreter that the collector runs."
+            }
+          },
+          "required": [
+            "language",
+            "phase",
+            "interpreter"
+          ],
+          "description": "The settings of the Python resolver."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The settings of the Dart resolver.",
+          "properties": {
+            "language": {
+              "type": "string",
+              "const": "dart"
+            }
+          },
+          "required": [
+            "language"
+          ]
+        }
+      ],
+      "description": "The settings of one language. The tag is the language that the collector reads."
+    },
+    "PythonPhase": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "imports",
+          "description": "The import survey."
+        }
+      ],
+      "description": "The part of the Python collection that the request asks for. Slice 1 has the import survey."
+    },
+    "Interpreter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "`platform.python_version()`, for example `3.11.12`: the version that the facts claim."
+        },
+        "stdlib_module_names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "`sys.stdlib_module_names`, sorted."
+        },
+        "builtin_module_names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "`sys.builtin_module_names`, sorted. The set depends on the build, not on the version."
+        }
+      },
+      "required": [
+        "version",
+        "stdlib_module_names",
+        "builtin_module_names"
+      ],
+      "description": "What the host interpreter is, as one isolated child (`python -I`) sees it. The host builds it\nin one function (`analyzer/interpreter.py`); the collector reads it and never runs Python."
     },
     "Location2": {
       "type": "object",

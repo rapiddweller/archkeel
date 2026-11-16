@@ -31,7 +31,7 @@ pub(crate) struct Parts {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) explain: Option<archkeel_report::Explain>,
     pub(super) engine: &'static str,
-    pub(super) sections: BTreeMap<&'static str, Vec<serde_json::Value>>,
+    pub(super) sections: BTreeMap<&'static str, Vec<SectionRow>>,
     pub(super) unsupported: UnsupportedParts,
     pub(super) self_test: SelfTest,
     pub(super) locations: BTreeMap<String, Location>,
@@ -41,6 +41,55 @@ pub(crate) struct Parts {
     pub(super) gaps: Vec<crate::baseline_frame::GapRow>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) baseline: Option<crate::baseline_frame::Part>,
+}
+
+/// One row of a section: the envelope that every row has. `data` is the payload of the row kind,
+/// which the harness compares with the rows of the reference engine; it is the one open leaf.
+#[derive(Serialize, serde::Deserialize, schemars::JsonSchema)]
+pub(crate) struct SectionRow {
+    id: String,
+    evidence_class: String,
+    area: String,
+    kind: String,
+    title: String,
+    subjects: Vec<String>,
+    evidence_ids: Vec<String>,
+    rule_ids: Vec<String>,
+    fact_ids: Vec<String>,
+    provenance: Vec<String>,
+    data: serde_json::Value,
+}
+
+/// The rows of each section, as rows of the envelope or an error that names the bad row.
+pub(super) fn typed_rows(
+    rows: BTreeMap<&'static str, Vec<serde_json::Value>>,
+) -> Result<BTreeMap<&'static str, Vec<SectionRow>>, String> {
+    rows.into_iter()
+        .map(|(name, found)| {
+            found
+                .into_iter()
+                .map(|row| {
+                    serde_json::from_value(row).map_err(|error| format!("section {name}: {error}"))
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .map(|found| (name, found))
+        })
+        .collect()
+}
+
+/// The `collect` part of the self-test of a scan (AD-406): the request that the core derived and
+/// the digest of each contract file, or the reason that the collector did not run.
+#[derive(Serialize, schemars::JsonSchema)]
+#[serde(untagged)]
+pub(crate) enum Collect {
+    Derived {
+        #[schemars(with = "archkeel_facts::request::Request")]
+        request: serde_json::Value,
+        contract_files: BTreeMap<String, String>,
+    },
+    Refused {
+        refused: String,
+    },
 }
 
 #[derive(Serialize, schemars::JsonSchema)]
@@ -97,7 +146,7 @@ pub(super) struct SelfTest {
     pub(super) contract: ContractCheck,
     pub(super) reply: ReplyCheck,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(super) collect: Option<serde_json::Value>,
+    pub(super) collect: Option<Collect>,
 }
 
 #[derive(Serialize, schemars::JsonSchema)]
@@ -259,7 +308,9 @@ pub(crate) fn refused_scan(reason: &str, html: bool) -> Result<Answered, String>
         self_test: SelfTest {
             contract: ContractCheck::NotRead(reason.to_owned()),
             reply: ReplyCheck::Absent(reason.to_owned()),
-            collect: Some(serde_json::json!({"refused": reason})),
+            collect: Some(Collect::Refused {
+                refused: reason.to_owned(),
+            }),
         },
     };
     let frame = ruling

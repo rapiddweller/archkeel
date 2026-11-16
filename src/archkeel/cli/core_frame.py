@@ -29,9 +29,9 @@ from .core_explain import Explain, read_explain
 from .core_json import CoreError as CoreError
 from .core_json import Gap as Gap
 from .core_json import GapKind as GapKind
-from .core_json import as_count, as_fields, as_object, as_text, as_texts, check_measures
+from .core_json import as_count, as_object, as_text, as_texts, check_measures
 from .core_output import read_html
-from .core_schema import check_frame
+from .core_schema import check_frame, check_refusal
 from .core_topology import Topology, frame_topology, require_topology
 
 
@@ -130,10 +130,6 @@ class _CollectRead(StrEnum):
     REFUSED = "refused"
 
 
-class _RefusalProtocol(StrEnum):
-    V1 = "archkeel-core-refusal-1"
-
-
 _Word = TypeVar("_Word", bound=StrEnum)
 # The exit codes of the core: a frame without a named part, and a frame that names one.
 DECIDED_EXIT: Final = 0
@@ -155,8 +151,8 @@ def read_refusal(stderr: bytes) -> Gap | None:
         value = json.loads(stderr, object_pairs_hook=_unique)
     except (UnicodeDecodeError, ValueError):
         return None
-    fields = as_fields(value, "refusal", frozenset({"protocol", "kind", "subject", "reason"}))
-    _word(_RefusalProtocol, fields["protocol"], "refusal.protocol")
+    check_refusal(value)
+    fields = as_object(value, "refusal")
     kind = _word(GapKind, fields["kind"], "refusal.kind")
     if kind is not GapKind.PARSE_WORK_LIMIT:
         raise CoreError(f"the core refusal has an unsupported kind {kind}")
@@ -308,7 +304,7 @@ def _core_gaps(frame: Mapping[str, object], named: object) -> list[Gap]:
     rows = frame.get("gaps")
     if not isinstance(rows, list):
         raise CoreError("the core frame has no gaps list")
-    found = [as_fields(row, "gaps", frozenset({"kind", "subject", "reason"})) for row in rows]
+    found = [as_object(row, "gaps") for row in rows]
     gaps = [
         Gap(
             _word(GapKind, row["kind"], "gaps.kind"),
