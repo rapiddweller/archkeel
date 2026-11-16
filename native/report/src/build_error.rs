@@ -2,63 +2,38 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Why no `Report` can be built (AD-371).
+//! Why the engine ruling cannot be built.
 
 use std::fmt;
 
-use archkeel_model::{RunGap, Unsupported};
-
-use crate::payload::MAX_BYTES;
-use crate::problem::Problem;
 use crate::status::Unexplained;
+use archkeel_model::RunGap;
 
-/// Why no `Report` can be built.
+/// Why the engine ruling cannot be built.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BuildError {
-    /// A table that the schema requires and cannot mark as not produced has no rows yet.
-    NotProduced {
-        /// The name of the table.
-        table: &'static str,
-        /// The part of the report that the core did not produce.
-        part: Unsupported,
-    },
-    /// A rule decides PASS without an evaluator receipt (AD-117).
-    PassWithoutReceipt {
-        /// The id of the rule.
-        rule: String,
-    },
-    /// An UNKNOWN rule without `WhyUnknown`, or another verdict with one.
+    /// An UNKNOWN rule has no reason, or another verdict has one.
     ReasonMismatch {
-        /// The id of the rule.
+        /// The rule id.
         rule: String,
     },
-    /// The rows give PASS, and the model gives no run proof (L-35b, AD-381): the gap, or `None`
-    /// for a run without a model.
+    /// A PASS has no run proof.
     PassWithoutProof(Option<RunGap>),
-    /// A rule row holds a PASS that is not a PASS of this rule of this model (AD-378, AD-381).
+    /// A PASS belongs to another rule or model.
     ForeignPass {
-        /// The id of the rule.
+        /// The rule id.
         rule: String,
     },
-    /// A DECLARATION row whose rule is not a permission declaration of the model (AD-381).
+    /// A declaration does not belong to the model.
     ForeignDeclaration {
-        /// The id of the rule.
+        /// The rule id.
         rule: String,
     },
-    /// A status other than PASS has no row that explains it (AD-361 point 5).
+    /// The status has no row that explains it.
     Unexplained(Vec<Unexplained>),
-    /// The frame breaks other rules of the check, such as the status rule.
-    Invalid(Vec<Problem>),
-    /// The canonical bytes are above the budget; the payload is never cut in silence.
-    TooLarge {
-        /// The size in bytes.
-        bytes: u64,
-    },
-    /// The bytes cannot be written.
-    Encode(String),
-    /// Two outcomes name the same rule; no map entry can replace another outcome.
+    /// Two outcomes have the same rule id.
     DuplicateRule {
-        /// The id of the rule.
+        /// The rule id.
         rule: String,
     },
 }
@@ -66,46 +41,24 @@ pub enum BuildError {
 impl fmt::Display for BuildError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            BuildError::NotProduced { table, part } => {
-                write!(formatter, "the {table} table is not produced: {part}")
-            }
-            BuildError::ReasonMismatch { rule } => {
-                write!(
-                    formatter,
-                    "rule {rule} has a reason that its verdict cannot have"
-                )
-            }
-            BuildError::PassWithoutProof(gap) => {
-                write!(
-                    formatter,
-                    "the rows give PASS and the model gives no run proof: {gap:?}"
-                )
-            }
-            BuildError::ForeignDeclaration { rule } => {
-                write!(
-                    formatter,
-                    "rule {rule} is no permission declaration of the model"
-                )
-            }
-            BuildError::ForeignPass { rule } => {
-                write!(
-                    formatter,
-                    "rule {rule} holds a PASS of another rule or model"
-                )
-            }
-            BuildError::PassWithoutReceipt { rule } => {
-                write!(formatter, "rule {rule} decides PASS without a receipt")
-            }
-            BuildError::Unexplained(found) => write!(formatter, "{found:?}"),
-            BuildError::Invalid(found) => write!(formatter, "{found:?}"),
-            BuildError::TooLarge { bytes } => {
-                write!(
-                    formatter,
-                    "the payload has {bytes} bytes, above {MAX_BYTES}"
-                )
-            }
-            BuildError::Encode(error) => formatter.write_str(error),
-            BuildError::DuplicateRule { rule } => write!(formatter, "rule {rule} occurs twice"),
+            Self::ReasonMismatch { rule } => write!(
+                formatter,
+                "rule {rule} has a reason that its verdict cannot have"
+            ),
+            Self::PassWithoutProof(gap) => write!(
+                formatter,
+                "the rows give PASS and the model gives no run proof: {gap:?}"
+            ),
+            Self::ForeignDeclaration { rule } => write!(
+                formatter,
+                "rule {rule} is no permission declaration of the model"
+            ),
+            Self::ForeignPass { rule } => write!(
+                formatter,
+                "rule {rule} holds a PASS of another rule or model"
+            ),
+            Self::Unexplained(found) => write!(formatter, "{found:?}"),
+            Self::DuplicateRule { rule } => write!(formatter, "rule {rule} occurs twice"),
         }
     }
 }
