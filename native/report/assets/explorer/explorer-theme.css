@@ -1,0 +1,19 @@
+/* AD-606: how the Explorer sits in the report page. Its rules read the 5.0 tokens directly; this
+   file adds the rules of the page and defines no token. */
+.rp-explorer { margin: 0 0 var(--space-5); }
+.rp-explorer .flow { font-family: var(--font-sans); }
+/* Embedded, the Explorer has the width of the report column and a fixed height; nothing of it
+   leaves the column. Fullscreen ("Back to report" or Esc returns) uses the whole window. */
+.rp-explorer .flow-section { left: auto; width: auto; margin-left: 0; }
+html.ak-canvas .rp-explorer .flow:not([data-expanded]) { height: 680px; }
+/* The panel of the selection fits inside the embedded Explorer. */
+html.ak-canvas .rp-explorer .flow:not([data-expanded])[data-details-open="true"] .flow-map-column { right: 320px; }
+html.ak-canvas .rp-explorer .flow:not([data-expanded])[data-atlas] .flow-inspector { width: 300px; padding: var(--space-4); }
+/* In the column the bottom bars share less width: the perspective bar takes what the legend and
+   the zoom leave. */
+html.ak-canvas .rp-explorer .flow:not([data-expanded]) .ak-bottom-left { max-width: 240px; }
+html.ak-canvas .rp-explorer .flow:not([data-expanded]) .ak-bottom-center { left: 264px; right: 212px; }
+/* A box that holds a violated place has the FAIL border; one that a gap holds the UNKNOWN border. */
+/* They win over the colour of a perspective: an exception is never a decoration. */
+html.ak-canvas .rp-explorer g.node[data-assessment-status="FAIL"] .card { stroke: var(--fail) !important; stroke-width: 2.5 !important; }
+html.ak-canvas .rp-explorer g.node[data-assessment-status="UNKNOWN"] .card { stroke: var(--unknown) !important; stroke-width: 2 !important; stroke-dasharray: 6 4; }

@@ -300,28 +300,6 @@ fn panel(
     )
 }
 
-/// A component with a violation or a gap, for the picture and for the links to its block.
-pub(super) struct Exception {
-    pub(super) id: String,
-    pub(super) name: String,
-    pub(super) violations: usize,
-    pub(super) gaps: usize,
-}
-
-/// The components that have a block on the page, a violation first, then a gap, then the largest.
-pub(super) fn exceptions(frame: &Frame, places: &Places, names: &Names<'_>) -> Vec<Exception> {
-    entries(frame, places, names)
-        .iter()
-        .filter(|entry| entry.group() < 2)
-        .map(|entry| Exception {
-            id: entry.id.to_owned(),
-            name: entry.name.to_owned(),
-            violations: entry.violations(),
-            gaps: entry.gaps.len(),
-        })
-        .collect()
-}
-
 /// The section of the components, or nothing when the frame has no topology.
 pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> String {
     let Some(topology) = frame.topology.as_ref() else {
@@ -339,7 +317,7 @@ The frame holds no level below a file.</p>"
         .to_owned();
     html.push_str(&format!(
         "<p class=\"caption rp-note\">{} of {} have a violation or a gap. All tables for {}{}. \
-The others are in the matrix. Every row: <span class=\"rp-code\">archkeel report --topology --output report.json --format json</span></p>",
+The others are in the Explorer. Every row: <span class=\"rp-code\">archkeel report --topology --output report.json --format json</span></p>",
         list.len(),
         count(all.len(), "component"),
         count(list.len().min(FULL), "component"),

@@ -10,6 +10,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-612 | [Remove the unused report v2 pipeline](ad-612-remove-the-unused-report-v2-pipeline.md) |
 | AD-610 | [Check literal schema extensions](ad-610-check-literal-schema-extensions.md) |
 | AD-608 | [A crate root is the one public path of each name it publishes](ad-608-a-crate-root-is-the-one-public-path-of-each-name-it-publishes.md) |
+| AD-606 | [The report page holds the 4.0.1 Explorer with the 5.0 design tokens](ad-606-the-report-page-holds-the-4-0-1-explorer-with-the-5-0-design-tokens.md) |
 | AD-604 | [The Rust collector states the item and the route of each import](ad-604-the-rust-collector-states-the-item-and-route-of-each-import.md) |
 | AD-600 | [Every section row kind is a typed variant and the frame states its constants](ad-600-every-section-row-kind-is-a-typed-variant-and-the-frame-states-its-constants.md) |
 | AD-598 | [The shell reads no field list and the frame schema is closed](ad-598-the-shell-reads-no-field-list-and-the-frame-schema-is-closed.md) |

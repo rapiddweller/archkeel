@@ -50,6 +50,9 @@ class Component:
     planned: bool
     layer: str | None
     public: tuple[str, ...]
+    responsibilities: tuple[str, ...]
+    forbidden_responsibilities: tuple[str, ...]
+    planned_public: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +63,7 @@ class Module:
     path: str
     component: str | None
     ownership: Ownership
+    language: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +87,8 @@ class Require:
     source: str
     target: str
     imports: int
+    rationale: str
+    through: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,6 +146,9 @@ def _component(value: object) -> Component:
         _bool(row["planned"]),
         _optional(row["layer"]),
         _strings(row["public"]),
+        _strings(row["responsibilities"]),
+        _strings(row["forbidden_responsibilities"]),
+        _strings(row["planned_public"]),
     )
 
 
@@ -152,7 +161,13 @@ def _module(value: object) -> Module:
     component = _optional(row["component"])
     if (ownership is Ownership.OWNED) != (component is not None):
         raise CoreError("topology: ownership and component differ")
-    return Module(as_text(row["name"], "name"), as_text(row["path"], "path"), component, ownership)
+    return Module(
+        as_text(row["name"], "name"),
+        as_text(row["path"], "path"),
+        component,
+        ownership,
+        as_text(row["language"], "language"),
+    )
 
 
 def _edge(value: object, rules: Mapping[str, object]) -> Edge:
@@ -194,6 +209,8 @@ def _require(value: object) -> Require:
         as_text(row["source"], "source"),
         as_text(row["target"], "target"),
         as_count(row["imports"], "imports"),
+        as_text(row["rationale"], "rationale"),
+        _strings(row["through"]),
     )
 
 
@@ -288,7 +305,12 @@ def read_topology(value: object, scope: str, rules: Mapping[str, object]) -> Top
 
 
 def require_topology(frame: Mapping[str, object], request: Mapping[str, object] | None) -> None:
-    """A requested section that the frame does not hold is a refusal."""
+    """A requested section that the frame does not hold is a refusal. A refused collection has
+    no reply to project: its own refusal is the message."""
+    self_test = frame.get("self_test")
+    collect = self_test.get("collect") if isinstance(self_test, Mapping) else None
+    if isinstance(collect, Mapping) and "refused" in collect:
+        return
     if "topology" not in frame and request is not None and request.get("topology"):
         raise CoreError("the core did not produce the requested topology section")
 

@@ -197,6 +197,12 @@ impl Graph {
         self.symbols.as_ref()
     }
 
+    /// The language name of the collector that read the modules, as the collector states it
+    /// (AD-494). The model compares no name and maps none.
+    pub fn language(&self) -> &'static str {
+        self.observed.language
+    }
+
     /// What the reply says about its own scope (slice S4).
     pub(crate) fn observed(&self) -> &Observed {
         &self.observed
