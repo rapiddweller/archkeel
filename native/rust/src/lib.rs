@@ -41,6 +41,7 @@ mod routes;
 mod scan;
 mod site;
 mod source;
+mod std_macros;
 mod symbols;
 mod test_scope;
 mod tokens;

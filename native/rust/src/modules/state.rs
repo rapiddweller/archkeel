@@ -230,7 +230,7 @@ impl Index<'_> {
         // A macro in a block can give any name of the block again, and a macro that takes a path
         // in its tokens can give its first name again; an attribute can remove the file.
         let silent = |call: &crate::scan::MacroCall| {
-            crate::tokens::NO_BIND_MACROS.contains(&call.name.as_str())
+            crate::std_macros::has(call.name.as_str(), crate::std_macros::Role::NO_BIND)
         };
         let opaque_gate = frame.module.gated && frame.module.gates.is_none();
         if scan.body_macros || opaque_gate || !scan.macro_calls.iter().all(silent) {

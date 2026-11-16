@@ -95,19 +95,6 @@ pub(crate) fn only_dollar_crate(stream: TokenStream, depth: usize) -> bool {
     true
 }
 
-/// The macros of `std` that expand to an expression of the place of the call and name no item of
-/// the crate that defines a macro (AD-614).
-pub(crate) const EXPRESSION_MACROS: [&str; 8] = [
-    "env",
-    "option_env",
-    "concat",
-    "stringify",
-    "file",
-    "line",
-    "column",
-    "module_path",
-];
-
 /// The rest of a token stream after one token.
 type Rest = std::iter::Peekable<proc_macro2::token_stream::IntoIter>;
 
@@ -232,29 +219,6 @@ pub(crate) fn attribute_chains(stream: TokenStream) -> Option<Vec<Chain>> {
     let mut found = Vec::new();
     collect(stream, 0, true, &mut found).then_some(found)
 }
-
-/// The lint attributes: their groups hold names of lints and reasons.
-/// The macros of `std` that bind no name in the code around their call (AD-524).
-pub(crate) const NO_BIND_MACROS: [&str; 18] = [
-    "println",
-    "print",
-    "eprintln",
-    "eprint",
-    "format",
-    "format_args",
-    "write",
-    "writeln",
-    "panic",
-    "assert",
-    "assert_eq",
-    "assert_ne",
-    "debug_assert",
-    "debug_assert_eq",
-    "debug_assert_ne",
-    "vec",
-    "unreachable",
-    "matches",
-];
 
 pub(crate) const LINTS: [&str; 5] = ["allow", "warn", "deny", "forbid", "expect"];
 
