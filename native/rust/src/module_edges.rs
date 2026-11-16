@@ -18,12 +18,50 @@ use crate::builder::{import_record, Builder};
 use crate::crates::Root;
 use crate::definitions::MethodCall;
 use crate::modules::{Edge, Index, Outcome};
-use crate::routes::{route, Publications, Route};
+use crate::names::{self, published, with_name, ImportName};
+use crate::resolve::{classify, Found, Named};
 use crate::scan::{MacroCall, MacroDef, Reference, Site, Via};
 use crate::tree::Module;
 
 /// The `macro_rules!` definitions of each crate, by name: the module, and the definition.
 type Defs<'a> = BTreeMap<(usize, &'a str), Vec<(&'a Module, &'a MacroDef)>>;
+
+/// The one portable exported definition that a call of another crate names (AD-614): by its path
+/// `dep::m!`, or by its plain name through the one `use` leaf of the file that binds it. A
+/// `#[macro_export]` macro is an item of the root of its crate.
+fn exported<'a>(
+    index: &Index<'_>,
+    defs: &Defs<'a>,
+    module: &Module,
+    call: &MacroCall,
+) -> Option<(&'a Module, &'a MacroDef)> {
+    let frame = index.frame(&module.module)?;
+    let path = match call.path.as_slice() {
+        [_] => match frame.bound(&call.name) {
+            [leaf] if module.scan.counts.get(&call.name) == Some(&1) => leaf.names.clone(),
+            _ => return None,
+        },
+        path => path.to_vec(),
+    };
+    let [first, last] = path.as_slice() else {
+        return None;
+    };
+    let krate = index.workspace().crates.get(module.crate_index)?;
+    let Some(Found::Edge(Named::Package(package))) =
+        classify(first, krate, &module.scan.shadows, false)
+    else {
+        return None;
+    };
+    let root = &index.workspace().primary_of(&package)?.module;
+    let owner = index.frame(root)?.module;
+    let found = defs.get(&(owner.crate_index, last.as_str()))?;
+    match found.as_slice() {
+        [(at, def)] if def.portable && at.module == *root && last == &call.name => {
+            Some((*at, *def))
+        }
+        _ => None,
+    }
+}
 
 /// The definitions of `name` that a call sees: each crate-wide one, and each one of a block that
 /// holds the call after the definition.
@@ -52,7 +90,18 @@ impl Builder {
         let Some(frame) = index.frame(&module.module) else {
             return;
         };
-        match index.resolve(frame, reference) {
+        // A glob names a module, also by one name (`use child::*;`): an empty last name lets the
+        // path end at that module, as `through_glob` does (AD-608).
+        let mut glob = None;
+        if matches!(reference.via, Via::Glob { .. }) {
+            let mut names = reference.names.clone();
+            names.push(String::new());
+            glob = Some(Reference {
+                names,
+                ..reference.clone()
+            });
+        }
+        match index.resolve(frame, glob.as_ref().unwrap_or(reference)) {
             // A body path from the crate name (`::app::b`) needs `extern crate self as app`.
             Outcome::None if reference.absolute && reference.in_macro.is_some() => {
                 let reason = "A macro_rules! body holds a path from the name of its own crate";
@@ -125,8 +174,28 @@ impl Builder {
 
     fn expand(&mut self, index: &Index<'_>, defs: &Defs<'_>, module: &Module, call: &MacroCall) {
         let name = call.name.as_str();
+        if call.path.len() == 1
+            && index.frame(&module.module).is_some_and(|frame| {
+                frame
+                    .bound(name)
+                    .iter()
+                    .any(|leaf| leaf.names.last().is_some_and(|original| original != name))
+            })
+        {
+            let evidence = self.cite(&module.rel, &call.site);
+            self.gap(
+                "The scan cannot resolve a renamed macro binding",
+                Some(&evidence),
+                &module.module,
+            );
+            return;
+        }
         let found = visible(defs, module, call, name);
         if found.is_empty() {
+            // AD-614: a portable macro of another crate names the same edges in this module.
+            if let Some(owner_def) = exported(index, defs, module, call) {
+                self.expand_uses(index, module, call, owner_def);
+            }
             return;
         }
         let reason = match (found.len(), call.placed) {
@@ -290,72 +359,15 @@ impl Builder {
             runtime_file: Some(target_rel.to_owned()),
             declaration_file: None,
         });
-        let named = named(index, &mut self.publications, edge, &reference.via);
-        let record = module_record(module, reference, edge, &identity, evidence);
-        self.imports.push(with_name(record, named));
+        let named = names::named(index, &mut self.publications, edge, &reference.via);
+        let mut record = with_name(
+            module_record(module, reference, edge, &identity, evidence),
+            named,
+        );
+        record.data.data_mut().published_as = published(index, &module.module, reference);
+        self.imports.push(record);
         self.ended += 1;
     }
-}
-
-/// What an import names (AD-604): the item, the type of a member, a glob (`*`) or a whole module
-/// (`None`), with the publication route of the item.
-pub(crate) struct ImportName {
-    symbol: Option<String>,
-    route: Route,
-}
-
-impl ImportName {
-    /// A glob names every name of its module, and the scan does not know which one a use takes.
-    pub(crate) fn glob() -> Self {
-        ImportName {
-            symbol: Some("*".to_owned()),
-            route: Route::none(),
-        }
-    }
-}
-
-fn named(index: &Index<'_>, roots: &mut Publications, edge: &Edge, via: &Via) -> ImportName {
-    if matches!(via, Via::Glob { .. }) {
-        return ImportName::glob();
-    }
-    // A member of an `impl` block: the type in the module of the block, and its publications.
-    if let Some((at, ty)) = &edge.member_of {
-        let route = if edge.lexical == edge.module {
-            roots.member(index, &edge.module, at, ty)
-        } else {
-            Route::none()
-        };
-        return ImportName {
-            symbol: Some(ty.clone()),
-            route,
-        };
-    }
-    item(index, &edge.lexical, edge.symbol.as_deref())
-}
-
-/// The item that a path names after the module `lexical`, and its route; `None` for a module.
-pub(crate) fn item(index: &Index<'_>, lexical: &str, symbol: Option<&str>) -> ImportName {
-    match symbol.filter(|name| !name.is_empty()) {
-        Some(name) => ImportName {
-            symbol: Some(name.to_owned()),
-            route: route(index, lexical, name),
-        },
-        None => ImportName {
-            symbol: None,
-            route: Route::none(),
-        },
-    }
-}
-
-/// The record with the name that it imports: the collector reads the name of each import.
-pub(crate) fn with_name(mut record: Record<ImportFact>, named: ImportName) -> Record<ImportFact> {
-    let data = record.data.data_mut();
-    data.symbol = named.symbol;
-    data.symbols_known = true;
-    let Route { hops, complete } = named.route;
-    data.route_complete = (!hops.is_empty() && !complete).then_some(false);
-    data.reexport_chain = (!hops.is_empty()).then_some(hops);
-    record
 }
 
 fn module_record(
@@ -413,13 +425,10 @@ pub(crate) fn local_target(
             return None;
         };
         let rel = index.rel(&edge.module)?.to_owned();
-        let named = item(index, &edge.lexical, edge.symbol.as_deref());
+        let named = names::item(index, &edge.lexical, edge.symbol.as_deref());
         Some((edge.module, rel, named))
     });
-    let whole = ImportName {
-        symbol: None,
-        route: Route::none(),
-    };
+    let whole = ImportName::whole();
     let (module, file, named) =
         deepest.unwrap_or_else(|| (root.module.clone(), root.rel.clone(), whole));
     let target = Target::Local {

@@ -132,6 +132,7 @@ pub(crate) fn rows(outcomes: &[Outcome], rule: &str) -> Vec<String> {
                 short(&cited.target_module)
             )
         }
+        Violation::Publication(found) => found.name.clone(),
         Violation::OuterLayer(layered) => layered.id.clone(),
         Violation::Cycle(..) => "cycle".to_owned(),
         Violation::Construct(row) => row.owner.clone(),

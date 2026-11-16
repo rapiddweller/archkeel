@@ -228,6 +228,7 @@ def _decide(options: Options, as_json: bool) -> int:
         print(json.dumps(result))
     else:
         if collected is None:
+            _system_lines(document.get("system"))
             render_text(options.command, frame)
         else:
             _refused(RefusalKind.COLLECTION_REFUSED, collected.reason, False)
@@ -289,6 +290,17 @@ def _places(frame: CoreFrame, evidence: Sequence[str]) -> str:
     shown = places[:_MAX_PLACES]
     more = f", +{len(places) - len(shown)} more" if len(places) > len(shown) else ""
     return f" ({', '.join(shown)}{more})" if places else ""
+
+
+def _system_lines(system: object) -> None:
+    """AD-616: the title of a system run, then one line for each part, as the core named it."""
+    if not isinstance(system, dict):
+        return
+    print(f"System {system.get('title')}:")
+    for part in system.get("parts", []):
+        if isinstance(part, dict):
+            named = f"{part.get('title')} ({part.get('profile')})"
+            print(f"  {named}: {part.get('status')}, {len(part.get('rules', []))} rules")
 
 
 def render_text(command: Command, frame: CoreFrame) -> None:

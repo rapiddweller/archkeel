@@ -154,6 +154,7 @@ fn row(violation: &Violation) -> Value {
                    "target_module": cited.target_module, "dependency": dependency}),
         ),
         Violation::PrivateImport { .. }
+        | Violation::Publication(_)
         | Violation::Forbidden { .. }
         | Violation::Peer { .. }
         | Violation::Unrequired { .. } => direction_record(violation),
@@ -237,6 +238,28 @@ fn direction_record(violation: &Violation) -> Value {
             symbol.as_deref(),
             [source_component, target_component],
         ),
+        // AD-608: the subject is the published name in the module of the re-export.
+        Violation::Publication(found) => {
+            let archkeel_eval::Published {
+                id,
+                rule,
+                cited,
+                name,
+                component,
+            } = found.as_ref();
+            let target = format!("{}:{name}", cited.source_module);
+            named_record(
+                [id, rule],
+                cited,
+                ["api_surface", "interface_boundary"],
+                &target,
+                format!(
+                    "{} publishes {target} outside its declared interface",
+                    cited.source_module
+                ),
+                json!({"symbol": name, "source_component": component, "published": true}),
+            )
+        }
         Violation::Forbidden {
             id,
             rule,

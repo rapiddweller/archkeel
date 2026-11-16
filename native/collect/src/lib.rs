@@ -26,6 +26,9 @@ mod python;
 mod refusal;
 mod repository;
 mod run;
+mod system;
+
+pub use system::{System, SystemPart};
 
 use archkeel_store::Ingested;
 use serde_json::{json, Value};
@@ -79,6 +82,16 @@ impl Scanned {
     }
 }
 
+/// The system document that the configuration of `identity` names, or `None` for the
+/// configuration of one scan (AD-616). It is read with the safe reader of the scan.
+pub fn read_system(identity: &Identity<'_>) -> Result<Option<System>, Refusal> {
+    if !identity.config.ends_with(".json") {
+        return Ok(None);
+    }
+    repository::safe_config(identity.config)?;
+    system::read(&root_of(identity)?, identity.config)
+}
+
 /// The test features of the linked collectors. A build with one cannot give an accepted reply.
 pub fn test_features() -> &'static [&'static str] {
     [
@@ -95,16 +108,7 @@ pub fn test_features() -> &'static [&'static str] {
 /// the bytes of the root contract.
 pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Refusal> {
     built(test_features())?;
-    let supplied = repository::Root::of(identity.root).map_err(|why| refused("root", why))?;
-    let root = if identity.discover_root {
-        let repository = git::root(supplied.path()).map_err(|why| refused("root", why))?;
-        let text = repository
-            .to_str()
-            .ok_or_else(|| refused("root", "the root is not UTF-8"))?;
-        repository::Root::of(text).map_err(|why| refused("root", why))?
-    } else {
-        supplied
-    };
+    let root = root_of(identity)?;
     let root_text = root
         .path()
         .to_str()
@@ -174,19 +178,23 @@ fn built(features: &[&str]) -> Result<(), Refusal> {
     }
 }
 
+/// The repository root of `identity`: the supplied root, or its work tree when the shell supplied
+/// no explicit root.
+fn root_of(identity: &Identity<'_>) -> Result<repository::Root, Refusal> {
+    let supplied = repository::Root::of(identity.root).map_err(|why| refused("root", why))?;
+    if !identity.discover_root {
+        return Ok(supplied);
+    }
+    let repository = git::root(supplied.path()).map_err(|why| refused("root", why))?;
+    let text = repository
+        .to_str()
+        .ok_or_else(|| refused("root", "the root is not UTF-8"))?;
+    repository::Root::of(text).map_err(|why| refused("root", why))
+}
+
 /// The configuration at `path`, with the checks of `load_config` against the repository.
 fn read_config(root: &repository::Root, path: &str) -> Result<config::Config, Refusal> {
-    let safe = !path.is_empty()
-        && path != "."
-        && !path.starts_with('/')
-        && !path.split('/').any(|part| part == "..")
-        && !path.contains(['\0', '\\', ':', '*', '?', '[', ']', '{', '}', '!']);
-    if !safe {
-        return Err(refused(
-            "config",
-            "--config must be a safe POSIX relative path",
-        ));
-    }
+    repository::safe_config(path)?;
     let payload = match root.read(path, repository::MAX_CONFIG_BYTES) {
         Ok(Some((_, payload))) => payload,
         Ok(None) => return Err(refused("config", format!("cannot read {path}"))),

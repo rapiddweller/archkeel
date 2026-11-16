@@ -19,10 +19,9 @@
 use crate::definitions::{Form, Owner};
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::modules::{Frame, Index, Outcome, MAX_HOPS};
+use crate::modules::{binds_nothing, Frame, Index, Outcome, MAX_HOPS};
 use crate::resolve::{classify, Found, Named};
 use crate::scan::{Reference, Via};
-use crate::tokens::NO_BIND_MACROS;
 
 /// The hops of a route, and whether the scan proves each step to its end.
 pub(crate) struct Route {
@@ -75,7 +74,7 @@ fn route_in(index: &Index<'_>, at: &str, name: &str, of_type: bool) -> Route {
         hops.push(format!("{at}.{name}"));
         let scan = &frame.module.scan;
         let opaque = frame.module.gated && frame.module.gates.is_none();
-        if !opaque && macro_defines(index, frame, &name) {
+        if !opaque && !of_type && defined_here(index, frame, &name) {
             return stop(hops, true);
         }
         if opaque || (scan.module_macros && !of_type) || scan.counts.get(&name) != Some(&1) {
@@ -105,60 +104,22 @@ fn route_in(index: &Index<'_>, at: &str, name: &str, of_type: bool) -> Route {
     }
 }
 
-/// Whether the name is defined in the file, so the route ends there (AD-608). No `use` leaf, glob or
-/// `extern crate` of the file can bind the name, so only a definition can give it: a written one or
-/// one of a macro call in item place. Each call in item place is a call by its plain name of the one crate-wide
-/// `macro_rules!` of that name in the crate. The call writes no import, and the expansion writes
-/// none at item level and calls only such macros there (`tokens::item_level`). Such a call can add
-/// a definition, never a re-export.
-fn macro_defines(index: &Index<'_>, frame: &Frame<'_>, name: &str) -> bool {
+/// Whether the name is defined in the file, so the route ends there (AD-608, AD-614). No `use`
+/// leaf, glob or `extern crate` of the file binds the name, so only a definition gives it: a written
+/// one, two under `cfg`, or one of a macro call in item place. Each call in item place is a call by
+/// its plain name of the one crate-wide `macro_rules!` of that name in the crate. The call writes
+/// no import, and the expansion writes none at item level and calls only such macros there
+/// (`tokens::item_level`). Such a call can add a definition, never a re-export.
+fn defined_here(index: &Index<'_>, frame: &Frame<'_>, name: &str) -> bool {
     let scan = &frame.module.scan;
-    let mut calls = scan.macro_calls.iter().filter(|call| call.fills).peekable();
     if !frame.bound(name).is_empty()
         || frame.globs().next().is_some()
         || !scan.extern_crates.is_empty()
         || !scan.self_aliases.is_empty()
-        || calls.peek().is_none()
     {
         return false;
     }
-    let mut seen = BTreeSet::new();
-    calls.all(|call| {
-        call.placed
-            && !call.writes_use
-            && frame.bound(&call.name).is_empty()
-            && writes_no_import(index, frame, &call.name, &mut seen)
-    })
-}
-
-/// Whether the macro `name` of the crate of `frame` writes no import when it expands.
-fn writes_no_import(
-    index: &Index<'_>,
-    frame: &Frame<'_>,
-    name: &str,
-    seen: &mut BTreeSet<String>,
-) -> bool {
-    if NO_BIND_MACROS.contains(&name) || !seen.insert(name.to_owned()) {
-        return true;
-    }
-    let crate_index = frame.module.crate_index;
-    let definitions: Vec<_> = index
-        .frames()
-        .filter(|other| other.module.crate_index == crate_index)
-        .flat_map(|other| other.module.scan.macro_defs.iter())
-        .filter(|def| def.name == name)
-        .collect();
-    let [def] = definitions.as_slice() else {
-        return false;
-    };
-    // The tokens of the expansion decide it: a path that the scan cannot place writes no import.
-    let items = &def.item_level;
-    def.local.is_none()
-        && !items.writes_use
-        && items
-            .calls
-            .iter()
-            .all(|inner| writes_no_import(index, frame, inner, seen))
+    binds_nothing(index, frame)
 }
 
 /// The module and the name that a `use` leaf of `frame` names, by the rules of the edges: a

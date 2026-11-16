@@ -51,6 +51,17 @@ impl Level {
 /// string that is a name or starts with `name::`. The caller passes the places that syn does not
 /// read as code: a macro body and an attribute stream.
 pub(crate) fn walk(stream: TokenStream, found: &mut BTreeSet<String>) {
+    walk_with(stream, found, true);
+}
+
+/// The names of the arguments of a `std` macro that reads no string as a path (AD-614): each
+/// identifier, and the first segment of a path-shaped string. `assert_eq!(x, "core")` names no
+/// crate.
+pub(crate) fn walk_code(stream: TokenStream, found: &mut BTreeSet<String>) {
+    walk_with(stream, found, false);
+}
+
+fn walk_with(stream: TokenStream, found: &mut BTreeSet<String>, strings: bool) {
     let mut levels = vec![Level::new(stream, false)];
     // The walk keeps its own stack, so the depth of the brackets costs no stack frame.
     while let Some(level) = levels.last_mut() {
@@ -90,7 +101,7 @@ pub(crate) fn walk(stream: TokenStream, found: &mut BTreeSet<String>) {
                         .is_some_and(|name| MESSAGE_KEYS.contains(&name));
                 (level.key, level.armed, level.hash) = (None, false, false);
                 if !message {
-                    note_literal(&literal.to_string(), found);
+                    note_literal(&literal.to_string(), strings, found);
                 }
             }
             _ => (level.key, level.armed, level.hash) = (None, false, false),
@@ -98,10 +109,22 @@ pub(crate) fn walk(stream: TokenStream, found: &mut BTreeSet<String>) {
     }
 }
 
-/// A literal of a token stream: only a string counts.
-fn note_literal(literal: &str, found: &mut BTreeSet<String>) {
+/// A literal of a token stream: only a string counts, and with `words` false only a path-shaped
+/// one.
+fn note_literal(literal: &str, words: bool, found: &mut BTreeSet<String>) {
     if let Ok(text) = syn::parse_str::<syn::LitStr>(literal) {
-        note_string(&text.value(), found);
+        if words {
+            note_string(&text.value(), found);
+        } else {
+            note_path_string(&text.value(), found);
+        }
+    }
+}
+
+/// The first segment of a string value that starts with `name::` (AD-614).
+pub(crate) fn note_path_string(value: &str, found: &mut BTreeSet<String>) {
+    if value.contains("::") {
+        note_string(value, found);
     }
 }
 

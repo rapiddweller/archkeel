@@ -6,9 +6,9 @@
 `docs/architecture/architecture-system.json` has the shape of the first slice of the system
 contract: a title and parts, each with an id, a title and the scan configuration it names. The
 language and the roots of a part come from its configuration, so no field of the document names a
-language. Interim: the system contract of the core replaces this reader and the join of
-`tools/report_product.py`. The Makefile, `tools/self_system.py`, the gallery and the system page
-take the title and the parts only from here.
+language. The core runs this document in one system run (AD-616, `make self-validate-system`).
+The gallery and its system page still take the title and the parts from here, and join the
+verdicts in `tools/report_product.py`, until the report draws a system frame (AD-522).
 """
 
 from __future__ import annotations

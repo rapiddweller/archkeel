@@ -43,6 +43,9 @@ facts_data! {
         /// `false` when the collector proves only the first hops of `reexport_chain`: a later
         /// hop may follow (AD-604). Absent: the route is complete, or there is none.
         [read skip] route_complete: Option<bool>,
+        /// The name that a re-export publishes outside the package of its module, as a `pub use`
+        /// at the root of a library crate does (`*` for a glob; AD-608).
+        [read skip] published_as: Option<String>,
         /// True when `__all__` lists the name.
         [read skip] declared_in_all: Option<bool>,
         /// True when the target is an ordinary module.
@@ -88,6 +91,7 @@ impl ImportData {
             module_level_import: false,
             reexport_chain: None,
             route_complete: None,
+            published_as: None,
             declared_in_all: None,
             ordinary_module: None,
             origin_binding_unique: None,

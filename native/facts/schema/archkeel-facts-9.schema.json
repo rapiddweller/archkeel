@@ -425,6 +425,13 @@
           ],
           "description": "`false` when the collector proves only the first hops of `reexport_chain`: a later\nhop may follow (AD-604). Absent: the route is complete, or there is none."
         },
+        "published_as": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The name that a re-export publishes outside the package of its module, as a `pub use`\nat the root of a library crate does (`*` for a glob; AD-608)."
+        },
         "declared_in_all": {
           "type": [
             "boolean",
