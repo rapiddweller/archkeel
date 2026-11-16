@@ -97,6 +97,7 @@ class LayerOrder:
 
     rule: str
     layers: tuple[str, ...]
+    part: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,7 +218,12 @@ def _require(value: object) -> Require:
 def _layer_order(value: object) -> LayerOrder:
     # The rule is a rule of the contract. A frame that decides no rule can still state it.
     row = as_object(value, "topology.layer_order")
-    return LayerOrder(as_text(row["rule"], "rule"), _strings(row["layers"]))
+    part = row.get("part")
+    return LayerOrder(
+        as_text(row["rule"], "rule"),
+        _strings(row["layers"]),
+        as_text(part, "part") if part is not None else None,
+    )
 
 
 # A component edge names a component or one of these labels, never a module.

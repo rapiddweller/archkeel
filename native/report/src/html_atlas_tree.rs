@@ -82,7 +82,8 @@ fn grouped_scopes(topology: &Topology) -> Vec<Group<'_>> {
             .filter(|c| c.parent.as_deref() == scope)
             .collect();
         let order = topology.layers.iter().find(|o| {
-            !children.is_empty()
+            o.part.as_deref() == scope
+                && !children.is_empty()
                 && children
                     .iter()
                     .all(|c| c.layer.as_ref().is_some_and(|l| o.layers.contains(l)))

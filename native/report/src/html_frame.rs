@@ -30,7 +30,7 @@ row! {
     Edge { source: String, target: String, resolution: String, count: usize, evidence: Vec<Location>, evidence_total: usize, rules: Vec<String> }
     Totals { components: usize, modules: usize, component_edges: usize, requires: usize, layers: usize }
     Require { source: String, target: String, imports: usize, rationale: String, through: Vec<String> }
-    LayerOrder { rule: String, layers: Vec<String> }
+    LayerOrder { rule: String, layers: Vec<String>, part: Option<String> }
     Topology { complete: bool, total: Totals, components: Vec<Component>, modules: Vec<Module>, edges: Vec<Edge>, component_edges: Vec<Edge>, requires: Vec<Require>, layers: Vec<LayerOrder> }
     Shape { direction: String, source: Vec<String>, target: Vec<String> }
     Step { from: String, to: String, from_component: Option<String>, to_component: Option<String>, evidence: Vec<String>, evidence_total: usize }
