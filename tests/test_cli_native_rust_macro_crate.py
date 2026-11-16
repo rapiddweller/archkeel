@@ -45,6 +45,20 @@ PLANTS = [
         "FAIL",
     ),
     (
+        "renamed portable macro",
+        PORTABLE,
+        "use base_crate::circle as c;\npub fn run() {\n    let _ = c!();\n}\n",
+        [],
+        "UNKNOWN",
+    ),
+    (
+        "renamed reexport of portable macro",
+        PORTABLE + "pub use circle as other;\n",
+        "use base_crate::other as c;\npub fn run() {\n    let _ = c!();\n}\n",
+        [],
+        "UNKNOWN",
+    ),
+    (
         "portable call of a public name",
         PORTABLE,
         "pub fn run() {\n    let _ = base_crate::circle!();\n}\n",

@@ -174,6 +174,22 @@ impl Builder {
 
     fn expand(&mut self, index: &Index<'_>, defs: &Defs<'_>, module: &Module, call: &MacroCall) {
         let name = call.name.as_str();
+        if call.path.len() == 1
+            && index.frame(&module.module).is_some_and(|frame| {
+                frame
+                    .bound(name)
+                    .iter()
+                    .any(|leaf| leaf.names.last().is_some_and(|original| original != name))
+            })
+        {
+            let evidence = self.cite(&module.rel, &call.site);
+            self.gap(
+                "The scan cannot resolve a renamed macro binding",
+                Some(&evidence),
+                &module.module,
+            );
+            return;
+        }
         let found = visible(defs, module, call, name);
         if found.is_empty() {
             // AD-614: a portable macro of another crate names the same edges in this module.

@@ -17,7 +17,8 @@ collector (a clone of 75 tokens), as one shared macro would have been a gap.
 2. A portable exported macro is no gap. The scan keeps the edges of its `$crate` paths (as for a
    `crate` path of a local macro), and a call in another crate takes them. The call names the macro
    by its path `dep::m!`, or by its plain name through the one `use` leaf of the file that binds it.
-   A `#[macro_export]` macro is an item of the root of its crate.
+   A `#[macro_export]` macro is an item of the root of its crate. A call through a renamed
+   binding keeps a gap: the scan does not resolve the binding to the definition.
 3. Any other exported macro keeps the gap.
 4. `facts` exports `native_provenance!`. The Rust and the TypeScript collector call it, so the clone
    is gone and `tests/test_rust_clones.py` passes.
@@ -48,5 +49,6 @@ With the test sources (the oracle `test_the_scan_of_native_is_complete`), the sc
 - a portable call by path and through a `use` gives the edge of the expansion, which fails the
   interface rule for an unlisted name and passes for a listed one;
 - a body with a bare `crate` path keeps the gap (UNKNOWN);
+- a renamed import and a renamed reexport keep a gap (UNKNOWN);
 - `tests/test_cli_native_rust_interface.py`: a name with two definitions under `cfg` fails when it
   is unlisted and passes when it is listed; a name that a macro may publish further stays UNKNOWN.
