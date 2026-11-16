@@ -179,6 +179,7 @@ fn decide(
         reply,
         ..
     } = scanned;
+    let target = reply.reply().facts.runtime.target_description.clone();
     dual_run::run(Run {
         case: "scan".to_owned(),
         path,
@@ -198,6 +199,7 @@ fn decide(
         collect: Some(crate::dual_run::Collect::Derived {
             request,
             contract_files,
+            target,
         }),
         documents: Some(documents),
         sdk_libraries: archkeel_store::sdk_libraries(profile)
@@ -249,13 +251,21 @@ fn in_process(profile: Profile) -> TrustOf {
                 gap: None,
             };
         };
-        // AD-450: only a name that is standard in each version of the profile.
-        let standard_library = archkeel_store::standard_library_everywhere(profile)
-            .into_iter()
-            .map(str::to_owned)
-            .collect();
-        let settings = Settings::new(namespace, profile.as_str().to_owned(), standard_library);
         let facts = &reply.reply().facts;
+        let Some(standard_library) =
+            archkeel_store::standard_library_at(profile, &facts.runtime.version)
+        else {
+            let names = archkeel_store::standard_library_everywhere(profile)
+                .into_iter()
+                .map(str::to_owned)
+                .collect();
+            return Trust {
+                settings: Settings::new(namespace, profile.as_str().to_owned(), names),
+                gap: Some("the target has no standard library table".to_owned()),
+            };
+        };
+        let standard_library = standard_library.into_iter().map(str::to_owned).collect();
+        let settings = Settings::new(namespace, profile.as_str().to_owned(), standard_library);
         let adapter = &facts.adapter;
         if facts.profile == profile
             && adapter.name == profile.as_str()

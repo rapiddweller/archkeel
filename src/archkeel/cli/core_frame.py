@@ -349,12 +349,18 @@ def _gaps(
             raise CoreError("the core frame of a scan has no self_test.collect")
         collect = as_object(test["collect"], "self_test.collect")
         tag, found = _one(
-            {key: value for key, value in collect.items() if key != "contract_files"},
+            {
+                key: value
+                for key, value in collect.items()
+                if key not in ("contract_files", "target")
+            },
             "self_test.collect",
             _CollectRead,
         )
         if "contract_files" in collect:
             as_texts(collect["contract_files"], "self_test.collect.contract_files")
+        if "target" in collect:
+            as_text(collect["target"], "self_test.collect.target")
         if tag is _CollectRead.REQUEST:
             derived = json.dumps(as_object(found, "self_test.collect.request"))
         else:

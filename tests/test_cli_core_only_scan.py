@@ -120,7 +120,7 @@ def test_a_construct_failure_from_main_keeps_its_cause_and_location(built: Path)
 
 
 @pytest.mark.parametrize("language", ["python"])
-def test_an_unsupported_profile_refuses_by_name(built: Path, language: str) -> None:
+def test_a_supported_profile_with_no_source_stays_undecided(built: Path, language: str) -> None:
     with case_root(HONEST) as root:
         (root / "archkeel.toml").write_text(
             f'[scan]\nlanguage = "{language}"\nroots = ["src"]\n'
@@ -129,7 +129,8 @@ def test_an_unsupported_profile_refuses_by_name(built: Path, language: str) -> N
         done = command(built / f"archkeel-core{SUFFIX}", root, "--json")
     assert done.returncode == 2, done.stdout + done.stderr
     result = json.loads(done.stdout)
-    assert "profile" in done.stdout and language in done.stdout
+    assert result["frame"]["self_test"]["collect"]["request"]["resolver"]["language"] == language
+    assert result["status"] == "UNKNOWN"
     assert "refused" not in result["frame"]["self_test"]["contract"]
 
 

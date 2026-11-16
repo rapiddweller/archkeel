@@ -3243,6 +3243,12 @@
               "additionalProperties": {
                 "type": "string"
               }
+            },
+            "target": {
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "required": [
@@ -3444,15 +3450,28 @@
               "$ref": "#/$defs/PythonPhase",
               "description": "The phase of the Python collection."
             },
+            "python": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "The configured target version, when the scan names one."
+            },
             "interpreter": {
-              "$ref": "#/$defs/Interpreter",
-              "description": "The interpreter that the collector runs."
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Interpreter"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A legacy interpreter description from an older caller."
             }
           },
           "required": [
             "language",
-            "phase",
-            "interpreter"
+            "phase"
           ],
           "description": "The settings of the Python resolver."
         },

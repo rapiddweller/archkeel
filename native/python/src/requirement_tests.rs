@@ -12,6 +12,30 @@ fn state(text: &str) -> (Option<String>, RequirementState) {
 }
 
 #[test]
+fn target_is_selected_inside_the_collector() {
+    use archkeel_facts::request::PythonPhase;
+    let tree = Tree::new(&[(
+        "pyproject.toml",
+        "[project]\nrequires-python = '>=3.13,<3.14'\n",
+    )]);
+    let mut snapshot = Snapshot::new(&tree.path());
+    let mut settings = PythonSettings {
+        phase: PythonPhase::Imports,
+        python: None,
+        interpreter: None,
+    };
+    let (interpreter, source) = target(&mut snapshot, &settings).unwrap();
+    assert_eq!(interpreter.version.as_str(), "3.13.0");
+    assert_eq!(source, TargetSource::Requirement);
+    assert!(interpreter
+        .stdlib_module_names
+        .contains(&"_interpreters".to_owned()));
+    settings.python = Some("3.10".to_owned());
+    let error = target(&mut snapshot, &settings).unwrap_err();
+    assert!(error.contains("3.10") && error.contains("3.11–3.14"));
+}
+
+#[test]
 fn the_requirement_follows_project_then_poetry() {
     let declared = state("[project]\nrequires-python = \">=3.11\"\n");
     assert_eq!(

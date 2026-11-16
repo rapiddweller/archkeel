@@ -158,7 +158,16 @@ pub(crate) fn observed(facts: &Facts, classes: &[Class]) -> Observed {
         effect_gaps: gap_class::effect_gaps(&facts.coverage, classes),
         git_unknown: facts.source.git_head == "unknown"
             || matches!(facts.source.dirty, Dirty::Unknown(_)),
-        runtime: runtime(&facts.runtime),
+        runtime: if facts.profile_limits.is_some()
+            && facts.profile.selects_target_without_requirement()
+            && matches!(
+                facts.runtime.requirement_state,
+                RequirementState::MetadataMissing | RequirementState::RequirementMissing
+            ) {
+            Runtime::Satisfied
+        } else {
+            runtime(&facts.runtime)
+        },
         dynamic_imports,
         constructs: facts
             .capabilities

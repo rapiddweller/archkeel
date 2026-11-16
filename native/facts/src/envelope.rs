@@ -179,7 +179,7 @@ object! {
 }
 
 /// The runtime that made the reply: its name, version and requirement.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Runtime {
     /// The name as written.
@@ -190,7 +190,16 @@ pub struct Runtime {
     pub requirement_state: RequirementState,
     /// The version of the runtime that ran.
     pub version: String,
+    /// How the collector selected its target, when this runtime is a target.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_source: Option<TargetSource>,
+    /// The collector's display text for the selected target.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_description: Option<String>,
 }
+
+mod target_source;
+pub use target_source::TargetSource;
 
 /// The one runtime whose reply the host accepts a dependency scope proof from
 /// (`ir/decisions.py` `_native_scope_runtime_valid`).
@@ -441,6 +450,8 @@ impl Provenance {
                 required: Some(format!(">={rust_version}")),
                 requirement_state: RequirementState::Declared,
                 version: runtime_version.to_owned(),
+                target_source: None,
+                target_description: None,
             },
         }
     }

@@ -28,6 +28,7 @@ fn a_typescript_scan_gives_its_settings_with_the_python_defaults() {
             tsconfig: "tsconfig.json".to_owned(),
             bundler: false,
             exclude_test_sources: false,
+            python: None,
         })
     );
     let set = typescript(

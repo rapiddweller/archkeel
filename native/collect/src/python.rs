@@ -2,36 +2,22 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The Python part of the composition (AD-450): the interpreter block of the request and the
-//! binding of the reply digests to the files of the snapshot.
-//!
-//! The core runs no Python interpreter. The request names the grammar of the newest supported
-//! minor and the names that are standard in each supported minor (the pinned table of AD-388).
-//! A name of only some minors is not standard, so the collector gives it as an external package.
+//! The Python request and the binding of reply digests to the files of the snapshot.
 
-use archkeel_facts::envelope::{Input, Profile, Reply};
+use archkeel_facts::envelope::{Input, Reply};
 use archkeel_facts::identity::sha256_hex;
 use serde_json::{json, Value};
 
 use crate::repository::{Over, Root};
 
-/// The grammar of the survey: the newest minor that the collector supports. It is a parse
-/// setting, not the version of an interpreter that ran.
-pub(crate) const GRAMMAR: &str = "3.14.0";
-
 /// The largest input that the snapshot reads (AD-319); a larger file is no input.
 const MAX_INPUT_BYTES: u64 = 4 << 20;
 
-/// The resolver of a Python request: the import survey with the pinned interpreter block.
+/// The resolver of a Python request; the collector selects its target.
 pub(crate) fn resolver() -> Value {
     json!({
         "language": "python",
         "phase": "imports",
-        "interpreter": {
-            "version": GRAMMAR,
-            "stdlib_module_names": archkeel_store::standard_library_everywhere(Profile::Python),
-            "builtin_module_names": [],
-        },
     })
 }
 

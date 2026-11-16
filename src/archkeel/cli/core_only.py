@@ -227,8 +227,12 @@ def _print_text(
         for message in (collected.reason if collected else None, file_error)
         if message is not None
     ]
+    test = document.get("self_test")
+    collect = test.get("collect") if isinstance(test, dict) else None
+    target = collect.get("target") if isinstance(collect, dict) else None
     if options.output is not None and not options.text and file_error is None and not problems:
-        print(f"{header(options.command, frame, code)}; report written to {options.output}")
+        detail = f"; {target}" if isinstance(target, str) else ""
+        print(f"{header(options.command, frame, code)}; report written to {options.output}{detail}")
     elif collected is not None:
         fix = FIXES[RefusalKind.COLLECTION_REFUSED]
         print("\n".join(refusal(options.command, code, plain(collected.reason, *typed), fix)))
@@ -244,6 +248,8 @@ def _print_text(
             contract_files=_contract_files(document),
         )
         print("\n".join(lines))
+        if isinstance(target, str):
+            print(target)
         if options.output is not None and file_error is None:
             print(f"Report written to {options.output}")
         if options.verbose:
