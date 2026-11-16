@@ -243,14 +243,15 @@ pub(super) fn levels(
         .filter_map(|n| n.parent)
         .chain(tree.owner.values().copied())
         .collect();
+    let inputs = Inputs {
+        tree,
+        cells: &cells,
+        declared: &declared,
+        crossings: &crossings,
+    };
     let parents = std::iter::once(None).chain(opened.into_iter().map(Some));
     for level in parents {
-        let row = level_row(
-            level,
-            (tree, &cells, &declared, &crossings),
-            found,
-            &mut out,
-        );
+        let row = level_row(level, &inputs, found, &mut out);
         out.rows.push(json!({
             "parent_id": level.map(|l| &tree.nodes[l].id), "import_status": complete,
             "import_reason": reason, "questions": [], "balance": row.balance,
@@ -278,14 +279,26 @@ struct Row {
     balance: Value,
 }
 
-type Crossings<'a> = [(usize, usize, &'a super::frame::Interface)];
+/// What each level reads: the tree, the observed cells, the declared requirements and the crossings.
+struct Inputs<'a> {
+    tree: &'a Tree,
+    cells: &'a [Cell],
+    declared: &'a [(usize, usize, usize)],
+    crossings: &'a [(usize, usize, &'a super::frame::Interface)],
+}
 
 fn level_row(
     level: Option<usize>,
-    (tree, cells, declared, crossings): (&Tree, &[Cell], &[(usize, usize, usize)], &Crossings<'_>),
+    inputs: &Inputs<'_>,
     found: &[Finding],
     out: &mut Levels,
 ) -> Row {
+    let Inputs {
+        tree,
+        cells,
+        declared,
+        crossings,
+    } = *inputs;
     let (observed, permitted) = pairs(level, tree, cells, declared);
     let id = |n: usize| tree.nodes[n].id.clone();
     let level_id = level.map(id);
