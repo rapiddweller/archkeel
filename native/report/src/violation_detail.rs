@@ -105,6 +105,13 @@ impl ViolationDetail {
                 cause: "import outside the public interface",
                 evidence: cited.evidence.clone(),
             },
+            // AD-608: the target is the published name in the selector form `module:name`.
+            Violation::Publication { cited, name, .. } => Self {
+                source: cited.source_module.clone(),
+                target: Some(format!("{}:{name}", cited.source_module)),
+                cause: "publication outside the public interface",
+                evidence: cited.evidence.clone(),
+            },
         }
     }
 }

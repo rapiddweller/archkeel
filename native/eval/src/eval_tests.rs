@@ -108,7 +108,8 @@ fn name(violation: &Violation) -> String {
         | Violation::Forbidden { cited, .. }
         | Violation::Peer { cited, .. }
         | Violation::Unrequired { cited, .. }
-        | Violation::PrivateImport { cited, .. } => {
+        | Violation::PrivateImport { cited, .. }
+        | Violation::Publication { cited, .. } => {
             format!("{} -> {}", cited.source_module, cited.target_module)
         }
         Violation::OuterLayer(layered) => {

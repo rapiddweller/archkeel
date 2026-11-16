@@ -48,6 +48,7 @@ pub struct Import {
     pub(crate) call_form: bool,
     pub(crate) reexport_chain: Vec<String>,
     pub(crate) route_complete: bool,
+    pub(crate) published_as: Option<String>,
     pub(crate) relative: bool,
     pub(crate) resolved: Resolved,
     pub(crate) evidence: Vec<String>,
@@ -127,6 +128,12 @@ impl Import {
     /// so a route with no public hop proves no violation (AD-604).
     pub fn route_complete(&self) -> bool {
         self.route_complete
+    }
+
+    /// The name that the record publishes outside the package of its module, when it is a
+    /// re-export that does (`*` for a glob; AD-608).
+    pub fn published_as(&self) -> Option<&str> {
+        self.published_as.as_deref()
     }
 
     /// True for a relative import, which names its target by position and not by name.
@@ -235,6 +242,7 @@ pub(crate) fn split(facts: &Facts) -> Split {
                 && data.binding.is_none(),
             reexport_chain: data.reexport_chain.clone().unwrap_or_default(),
             route_complete: data.route_complete != Some(false),
+            published_as: data.published_as.clone(),
             relative: data.relative_level != 0,
             resolved,
             evidence: sorted(evidence(record)),

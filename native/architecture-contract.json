@@ -526,6 +526,7 @@
         "native.archkeel_model:gap_kind",
         "native.archkeel_model:in_scope",
         "native.archkeel_model:interface_crossings",
+        "native.archkeel_model:interface_publications",
         "native.archkeel_model:measure_facts",
         "native.archkeel_model:peers",
         "native.archkeel_model:publishes",
@@ -578,6 +579,7 @@
       "public": [
         "native.archkeel_model.brand:Brand",
         "native.archkeel_model.causes:Cause",
+        "native.archkeel_model.causes:HELD_SHOWN",
         "native.archkeel_model.causes:Held",
         "native.archkeel_model.causes:InterfaceGap",
         "native.archkeel_model.causes:Part",
@@ -599,9 +601,12 @@
         "native.archkeel_model.reason:Refusal",
         "native.archkeel_model.reason:UmlGap",
         "native.archkeel_model.reason:Unsupported",
+        "native.archkeel_model.reason_key:Stable",
         "native.archkeel_model.reason_key:gap_kind",
         "native.archkeel_model.reason_key:stable",
-        "native.archkeel_model.section:Section"
+        "native.archkeel_model.section:Porting",
+        "native.archkeel_model.section:Section",
+        "native.archkeel_model.section:Slice"
       ],
       "decided_by": "architect"
     },
@@ -694,6 +699,7 @@
         "native.archkeel_model.measures:Measures",
         "native.archkeel_model.measures:measure_facts",
         "native.archkeel_model.modules:Module",
+        "native.archkeel_model.modules:Package",
         "native.archkeel_model.observed:Observed",
         "native.archkeel_model.observed:Runtime",
         "native.archkeel_model.ownership:claims",
@@ -702,11 +708,14 @@
         "native.archkeel_model.ownership:owners",
         "native.archkeel_model.ownership:source_modules",
         "native.archkeel_model.settings:Producer",
+        "native.archkeel_model.settings:STANDARD_LIBRARY_LIMIT",
+        "native.archkeel_model.settings:STANDARD_NAME_LIMIT",
         "native.archkeel_model.settings:Settings",
         "native.archkeel_model.symbols:Entity",
         "native.archkeel_model.symbols:Signature",
         "native.archkeel_model.symbols:Symbols",
-        "native.archkeel_model.symbols:module_id"
+        "native.archkeel_model.symbols:module_id",
+        "native.archkeel_model.topology:Measure"
       ],
       "decided_by": "architect"
     },
@@ -779,11 +788,14 @@
         "native.archkeel_model.limits:undecided_kind",
         "native.archkeel_model.limits:word",
         "native.archkeel_model.pair_gaps:Pairs",
+        "native.archkeel_model.pair_gaps:Reads",
         "native.archkeel_model.pair_gaps:pairs",
         "native.archkeel_model.pair_gaps:reads",
         "native.archkeel_model.roots:Roots",
+        "native.archkeel_model.selection:Selection",
         "native.archkeel_model.selection:dependency_sides",
         "native.archkeel_model.selection:layer_components",
+        "native.archkeel_model.sides:Direction",
         "native.archkeel_model.sides:Shape",
         "native.archkeel_model.sides:shape",
         "native.archkeel_model.subjects:Names",
@@ -861,6 +873,7 @@
       ],
       "public": [
         "native.archkeel_model.model:Model",
+        "native.archkeel_model.model:Rows",
         "native.archkeel_model.proof:State",
         "native.archkeel_model.tree:ModelTree"
       ],
@@ -947,14 +960,22 @@
         }
       ],
       "public": [
+        "native.archkeel_model.boundary_judge:GapCause",
+        "native.archkeel_model.boundary_judge:GapRow",
+        "native.archkeel_model.boundary_judge:Leaf",
         "native.archkeel_model.boundary_positions:Position",
+        "native.archkeel_model.boundary_positions:Reading",
+        "native.archkeel_model.boundary_positions:Stale",
         "native.archkeel_model.boundary_positions:read",
         "native.archkeel_model.boundary_positions:receipt",
         "native.archkeel_model.closed_path:Link",
+        "native.archkeel_model.closed_path:Step",
         "native.archkeel_model.closed_path:cycle_path",
+        "native.archkeel_model.component_cycles:ComponentCycle",
         "native.archkeel_model.component_cycles:cycles_of_components",
         "native.archkeel_model.construct_match:matches",
         "native.archkeel_model.construct_match:receipt",
+        "native.archkeel_model.direction:Crossing",
         "native.archkeel_model.direction:Judged",
         "native.archkeel_model.direction:crossings",
         "native.archkeel_model.direction:forbidden",
@@ -962,6 +983,7 @@
         "native.archkeel_model.direction:undecided",
         "native.archkeel_model.facade_reach:facade_types",
         "native.archkeel_model.interface:interface_crossings",
+        "native.archkeel_model.interface:interface_publications",
         "native.archkeel_model.interface:publishes",
         "native.archkeel_model.interface:receipt"
       ],
@@ -1052,14 +1074,20 @@
         }
       ],
       "public": [
+        "native.archkeel_model.receipts:GapScope",
+        "native.archkeel_model.receipts:ScanProof",
         "native.archkeel_model.run:Model",
         "native.archkeel_model.run:ModelTree",
+        "native.archkeel_model.run:RunComplete",
         "native.archkeel_model.run:RunGap",
         "native.archkeel_model.run:RunPass",
         "native.archkeel_model.scope:Model",
+        "native.archkeel_model.scope:Scope",
+        "native.archkeel_model.scope:ScopeComplete",
         "native.archkeel_model.scope:uml_pass",
         "native.archkeel_model.scope:uml_run",
         "native.archkeel_model.verdict:Decision",
+        "native.archkeel_model.verdict:Proven",
         "native.archkeel_model.verdict:Verdict"
       ],
       "decided_by": "architect"
@@ -1134,6 +1162,7 @@
         "native.archkeel_model.uml:UmlDiff",
         "native.archkeel_model.uml:UmlOutcome",
         "native.archkeel_model.uml:UmlTarget",
+        "native.archkeel_model.uml:compare",
         "native.archkeel_model.uml_declared:UmlDeclared",
         "native.archkeel_model.uml_declared:UmlPart",
         "native.archkeel_model.uml_tree:compare_tree"
@@ -1289,6 +1318,7 @@
         }
       ],
       "public": [
+        "native.archkeel_eval.violation:BoundaryViolation",
         "native.archkeel_eval.violation:Cited",
         "native.archkeel_eval.violation:ConstructViolation",
         "native.archkeel_eval.violation:CycleStep",
@@ -1631,6 +1661,7 @@
         "native.archkeel_report.head:Source",
         "native.archkeel_report.head:Status",
         "native.archkeel_report.head:Summary",
+        "native.archkeel_report.head:TrendPoint",
         "native.archkeel_report.payload:DecodeError",
         "native.archkeel_report.payload:MAX_BYTES",
         "native.archkeel_report.payload:Payload",
@@ -1641,15 +1672,21 @@
         "native.archkeel_report.tables:Edges",
         "native.archkeel_report.tables:Fields",
         "native.archkeel_report.tables:Findings",
+        "native.archkeel_report.tables:Flag",
+        "native.archkeel_report.tables:Id",
         "native.archkeel_report.tables:Measures",
         "native.archkeel_report.tables:Nodes",
         "native.archkeel_report.tables:OptGap",
+        "native.archkeel_report.tables:OptId",
+        "native.archkeel_report.tables:OptStr",
         "native.archkeel_report.tables:Params",
         "native.archkeel_report.tables:Permissions",
+        "native.archkeel_report.tables:StrId",
         "native.archkeel_report.tables:Units",
         "native.archkeel_report.tables:Unknowns",
         "native.archkeel_report.tables:Variants",
-        "native.archkeel_report.tables:Violations"
+        "native.archkeel_report.tables:Violations",
+        "native.archkeel_report.tables:opt_gap"
       ],
       "decided_by": "architect"
     },
@@ -1702,7 +1739,10 @@
         "native.archkeel_report.check_rows:counted",
         "native.archkeel_report.problem:Problem",
         "native.archkeel_report.report:Decided",
+        "native.archkeel_report.report:ReadError",
+        "native.archkeel_report.report:Recorded",
         "native.archkeel_report.report:Report",
+        "native.archkeel_report.status:PASS_NEEDS",
         "native.archkeel_report.status:Unexplained",
         "native.archkeel_report.status:run_status",
         "native.archkeel_report.status:status_of"
@@ -1791,6 +1831,28 @@
       "public": [
         "native.archkeel_report.build_error:BuildError",
         "native.archkeel_report.construct:construct_row",
+        "native.archkeel_report.frame:build",
+        "native.archkeel_report.input:ComponentText",
+        "native.archkeel_report.input:CrossingRow",
+        "native.archkeel_report.input:Diagnostic",
+        "native.archkeel_report.input:EdgeRow",
+        "native.archkeel_report.input:FindingRow",
+        "native.archkeel_report.input:GraphRows",
+        "native.archkeel_report.input:MeasureRow",
+        "native.archkeel_report.input:NodeRow",
+        "native.archkeel_report.input:PermissionRow",
+        "native.archkeel_report.input:Produced",
+        "native.archkeel_report.input:Records",
+        "native.archkeel_report.input:RuleOutcome",
+        "native.archkeel_report.input:RuleText",
+        "native.archkeel_report.input:RunFacts",
+        "native.archkeel_report.input:RunOutcome",
+        "native.archkeel_report.input:Target",
+        "native.archkeel_report.input:Tree",
+        "native.archkeel_report.input:Undecided",
+        "native.archkeel_report.input:UnitRow",
+        "native.archkeel_report.input:UnknownRecord",
+        "native.archkeel_report.input:ViolationRow",
         "native.archkeel_report.kind:word",
         "native.archkeel_report.why:WhyUnknown"
       ],
@@ -3082,8 +3144,16 @@
         }
       ],
       "public": [
+        "native.archkeel_dart_collector.import_survey.reply:SURVEY_SECTIONS",
         "native.archkeel_dart_collector.import_survey.reply:decode",
         "native.archkeel_dart_collector.import_survey.reply:typed_reply",
+        "native.archkeel_dart_collector.import_survey:GapName",
+        "native.archkeel_dart_collector.import_survey:NamedGap",
+        "native.archkeel_dart_collector.import_survey:PARSE_BUDGET_BYTES",
+        "native.archkeel_dart_collector.import_survey:PARSE_BUDGET_TOKENS",
+        "native.archkeel_dart_collector.import_survey:PartOwner",
+        "native.archkeel_dart_collector.import_survey:SURVEY_BUDGET_BYTES",
+        "native.archkeel_dart_collector.import_survey:Survey",
         "native.archkeel_dart_collector.import_survey:edge_rows",
         "native.archkeel_dart_collector.import_survey:gap_rows",
         "native.archkeel_dart_collector.import_survey:survey"
@@ -4224,7 +4294,8 @@
       ],
       "public": [
         "native.archkeel_typescript_collector.collect:gather",
-        "native.archkeel_typescript_collector.collect:records"
+        "native.archkeel_typescript_collector.collect:records",
+        "native.archkeel_typescript_collector.collect:reply"
       ],
       "decided_by": "architect"
     },
@@ -5317,6 +5388,7 @@
         }
       ],
       "public": [
+        "native.archkeel_python_collector.reply:Build",
         "native.archkeel_python_collector.reply:reply",
         "native.archkeel_python_collector.reply:typed"
       ],
