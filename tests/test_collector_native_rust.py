@@ -145,7 +145,10 @@ def test_a_rule_that_needs_symbols_or_calls_is_unknown_and_never_pass(
     found = claims(result)
     assert any("rule_kind_not_ported: ENUMS-IN-BASE" in c for c in found), found
     assert any("NO-DYNAMIC: incomplete scope: the profile cannot decide" in c for c in found), found
-    assert "PASS" not in statuses(result).values()
+    # AD-644: the limits hold only these two rules; the crate rules read no construct or symbol.
+    found = statuses(result)
+    assert found["NO-DYNAMIC"] == "UNKNOWN" and "ENUMS-IN-BASE" not in found, found
+    assert {found[str(item["id"])] for item in CRATE_RULES} == {"PASS"}, found
     assert result["status"] == "UNKNOWN"
 
 

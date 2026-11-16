@@ -830,7 +830,8 @@
         "native.archkeel_model.dropped_gaps:holds",
         "native.archkeel_model.limits:Limit",
         "native.archkeel_model.limits:layer_gaps",
-        "native.archkeel_model.limits:limits",
+        "native.archkeel_model.limits:rule_limit",
+        "native.archkeel_model.limits:run_limits",
         "native.archkeel_model.limits:stated_hold",
         "native.archkeel_model.limits:undecided_kind",
         "native.archkeel_model.limits:word",
@@ -925,6 +926,8 @@
       "public": [
         "native.archkeel_model.model:Model",
         "native.archkeel_model.proof:State",
+        "native.archkeel_model.proof:hold_rule",
+        "native.archkeel_model.proof:hold_run",
         "native.archkeel_model.tree:ModelTree"
       ],
       "decided_by": "architect"

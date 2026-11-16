@@ -62,3 +62,24 @@ def test_the_release_core_gives_the_pinned_result(
     found = summarize(envelope)
     assert found == entry["expect"], "the core result changed: update fixtures/matrix.json"
     assert code == entry["expect"]["exit"]
+
+
+def test_the_scope_line_counts_the_gaps_that_the_report_lists(
+    release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AD-644: the scope line and `holds` read the one class of each gap; the numbers agree.
+
+    Truth of the fixture: three files that the collector cannot analyse leave the whole scope
+    unknown; the loader call states its effect (`every_module`, AD-634).
+    """
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    _, envelope = run("report", "--root", str(FIXTURES / "golden-python" / "synthetic-gaps"))
+    frame = envelope["frame"]
+    reported = frame["explain"]["holds"]["gaps_total"]
+    kinds = [gap["kind"] for gap in frame["collection_gaps"]]
+    assert reported == len(kinds) == 4, kinds
+    whole = kinds.count("exception_gap")
+    assert frame["scope"] == (
+        f"incomplete scope: the collector reports {reported} coverage gaps; "
+        f"{whole} of them leave the whole scope unknown"
+    )

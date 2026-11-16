@@ -198,6 +198,10 @@ mod graph_tests;
 mod scope_tests;
 
 #[cfg(test)]
+#[path = "profile_limit_tests.rs"]
+mod profile_limit_tests;
+
+#[cfg(test)]
 #[path = "receipt_tests.rs"]
 mod receipt_tests;
 

@@ -177,7 +177,7 @@ fn input_code(input: Input) -> &'static str {
 fn incomplete(found: &Incomplete) -> Stable {
     match found {
         Incomplete::NoSourceFiles => Stable::of("incomplete_scope", "no_source_files"),
-        Incomplete::CoverageGaps(_) => Stable::of("incomplete_scope", "coverage_gaps"),
+        Incomplete::CoverageGaps { .. } => Stable::of("incomplete_scope", "coverage_gaps"),
         Incomplete::UnknownImports(count) => {
             Stable::of("incomplete_scope", "unknown_imports").many(*count)
         }

@@ -74,7 +74,10 @@ fn a_kept_gap_of_the_runtime_with_the_proof_stays_a_named_part() {
 #[test]
 fn a_coverage_gap_follows_the_runtime_too() {
     let found = run(unchanged, coverage_gap, rooted()).unwrap_or_else(failed);
-    let fact = Some(Reason::Incomplete(Incomplete::CoverageGaps(1)));
+    let fact = Some(Reason::Incomplete(Incomplete::CoverageGaps {
+        whole: 1,
+        reported: 1,
+    }));
     assert_eq!(requires(&found), ("UNKNOWN".to_owned(), fact));
     let proved = run(unchanged, both(proving, coverage_gap), rooted()).unwrap_or_else(failed);
     let (status, reason) = requires(&proved);

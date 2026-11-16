@@ -9,8 +9,8 @@
     "F-architecture": {
       "language": "python",
       "runs": [
-      {"name": "F-architecture", "root": "F-architecture", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 33, "DECLARATION": 6}, "scope": "incomplete scope: the profile cannot decide CALL-DESCRIBE-NO-MAINTENANCE", "gaps": {"boundary_type_position": 2, "rule_kind_not_ported": 9}, "refusal": null}},
-      {"name": "F-architecture-tests", "root": "F-architecture", "command": "report", "config": "archkeel-tests.toml", "contract": ["tests/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 5}, "scope": "incomplete scope: the profile cannot decide TESTS-HELPERS-IN-SUPPORT", "gaps": {"rule_kind_not_ported": 1}, "refusal": null}}
+      {"name": "F-architecture", "root": "F-architecture", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 25, "FAIL": 0, "UNKNOWN": 8, "DECLARATION": 6}, "scope": "incomplete scope: the profile cannot decide declarations.context_roots", "gaps": {"boundary_type_position": 2, "rule_kind_not_ported": 9}, "refusal": null}},
+      {"name": "F-architecture-tests", "root": "F-architecture", "command": "report", "config": "archkeel-tests.toml", "contract": ["tests/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 5, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"rule_kind_not_ported": 1}, "refusal": null}}
       ]
     },
     "F-typescript-story": {
@@ -86,14 +86,14 @@
       {"name": "golden-python-fastapi-security", "root": "golden-python/fastapi-security", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: 10 gaps leave unknown what the rule reads: the code of every module", "gaps": {"no_decided_rule": 1}, "refusal": null}},
       {"name": "golden-python-synthetic-constructs", "root": "golden-python/synthetic-constructs", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: 2 gaps leave unknown what the rule reads: the code of every module", "gaps": {"no_decided_rule": 1}, "refusal": null}},
       {"name": "golden-python-synthetic-excluded-tests", "root": "golden-python/synthetic-excluded-tests", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"no_decided_rule": 1}, "refusal": null}},
-      {"name": "golden-python-synthetic-gaps", "root": "golden-python/synthetic-gaps", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 4 coverage gaps", "gaps": {"no_decided_rule": 1}, "refusal": null}},
+      {"name": "golden-python-synthetic-gaps", "root": "golden-python/synthetic-gaps", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 4 coverage gaps; 3 of them leave the whole scope unknown", "gaps": {"no_decided_rule": 1}, "refusal": null}},
       {"name": "golden-python-synthetic-tests-only", "root": "golden-python/synthetic-tests-only", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"no_decided_rule": 1}, "refusal": null}}
       ]
     },
     "python-newer-syntax-demo": {
       "language": "python",
       "runs": [
-      {"name": "python-newer-syntax-demo", "root": "python-newer-syntax-demo", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 1}, "scope": "incomplete scope: the profile cannot decide CALL-PURGE-MAINTENANCE-ONLY", "gaps": {"rule_kind_not_ported": 1}, "refusal": null}}
+      {"name": "python-newer-syntax-demo", "root": "python-newer-syntax-demo", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {"rule_kind_not_ported": 1}, "refusal": null}}
       ]
     },
     "python-stdlib-demo": {

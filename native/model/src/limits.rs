@@ -6,7 +6,14 @@
 //!
 //! Reference engine: `check/evaluation/rules.py` `profile_failures` with the table of
 //! `ir/profiles.py`, `check/evaluation/crate_scope.py` `root_limits`, and `_layer_metadata_failures`
-//! with `_layer_order_components`. Each limit is a coverage failure: no rule of the run passes.
+//! with `_layer_order_components`. The reference engine makes each limit a coverage failure: no
+//! rule of the run passes.
+//!
+//! AD-644: a limit holds only what reads the part that it makes unknown. `rule_limit` gives the
+//! limit that holds one rule: its own construct, kind or shape limit, or a symbol selector that it
+//! reads (`symbol_reader`). `run_limits` gives the limits that hold the run and no rule: the
+//! declarations that no rule reads and the symbol entries of the components. The scope proof
+//! (`run.rs`, `Scope::hold_rule` and `Scope::hold_run`) turns a limit into a reason.
 //!
 //! The core reads no profile table and names no language. The linked collector states the
 //! profile differences as typed data. Without those statements the run stays conservative:
@@ -63,13 +70,13 @@ pub(crate) fn undecided_kind(kind: RuleKind) -> bool {
     UNDECIDED_KINDS.contains(&kind)
 }
 
-/// The profile limits of a contract, in the order of `profile_failures`.
-pub(crate) fn limits(contract: &Contract, observed: &Observed) -> Vec<Limit> {
+/// The profile limits that hold the run and no rule (AD-644), in the order of
+/// `profile_failures`: a symbol entry of a component (a rule that reads it is held by
+/// `rule_limit`), and a declaration that no rule reads. The core decides no declaration, so each
+/// one keeps the run UNKNOWN.
+pub(crate) fn run_limits(contract: &Contract, observed: &Observed) -> Vec<Limit> {
     let symbols = |subject: &str| symbol_limit(observed, subject);
     let mut found = Vec::new();
-    for rule in contract.rules() {
-        rule_limits(rule, observed, &mut found);
-    }
     for component in contract.components() {
         let id = component.id().as_text();
         let public = component.public().iter().flatten();
@@ -120,6 +127,15 @@ pub(crate) fn limits(contract: &Contract, observed: &Observed) -> Vec<Limit> {
         }
     }
     found
+}
+
+/// The profile limit that holds one rule (AD-644): the limit of the rule itself (`own_limit`),
+/// else the limit of the first symbol selector that the rule reads (`symbol_reader`). Each other
+/// limit makes unknown a part that this rule does not read.
+pub(crate) fn rule_limit(contract: &Contract, rule: &Rule, observed: &Observed) -> Option<Limit> {
+    own_limit(rule, observed).or_else(|| {
+        symbol_reader(contract, rule).and_then(|subject| symbol_limit(observed, &subject))
+    })
 }
 
 /// A limit of a store-accepted profile for one rule. A stated unsupported feature is not a limit
@@ -177,36 +193,49 @@ fn reads(rule: &Rule) -> Reads {
     }
 }
 
-/// The limits of one rule, in the order of `profile_failures`.
-fn rule_limits(rule: &Rule, observed: &Observed, found: &mut Vec<Limit>) {
-    let id = archkeel_contract::head_of(rule).id().as_text();
+/// The limit of the part that only this rule reads (AD-644): its unexamined constructs, its
+/// kind that no profile decides, its shapes, or its interface. A symbol selector is read by more
+/// rules (`symbol_reader`), so `rule_limit` gives it.
+fn own_limit(rule: &Rule, observed: &Observed) -> Option<Limit> {
+    let id = archkeel_contract::head_of(rule).id().as_text().to_owned();
     match (reads(rule), rule) {
-        (Reads::Interface, _) => {
-            match observed
-                .profile_limits
-                .map(|limits| limits.interface_boundary)
-            {
-                // AD-500: `interface::receipt` refuses this rule alone without the feature.
-                Some(LimitSupport::Supported | LimitSupport::Unsupported) => {}
-                None => found.push(Limit::Unread(id.to_owned())),
-            }
-        }
+        (Reads::Interface, _) => match observed
+            .profile_limits
+            .map(|limits| limits.interface_boundary)
+        {
+            // AD-500: `interface::receipt` refuses this rule alone without the feature.
+            Some(LimitSupport::Supported | LimitSupport::Unsupported) => None,
+            None => Some(Limit::Unread(id)),
+        },
+        // The subject names what the collector lacks, so the row says why it is held.
         (Reads::Constructs, Rule::ForbiddenConstruct(rule)) => {
             let examined: HashSet<&str> = observed.constructs.iter().map(String::as_str).collect();
-            let unexamined = rule
+            let unexamined: Vec<String> = rule
                 .constructs()
                 .iter()
-                .any(|kind| !examined.contains(word(kind).as_str()));
-            if unexamined || (rule.selector().is_some() && !observed.construct_selectors) {
-                found.push(Limit::Certain(id.to_owned()));
+                .map(word)
+                .filter(|kind| !examined.contains(kind.as_str()))
+                .collect();
+            if !unexamined.is_empty() {
+                let words = unexamined.join(", ");
+                Some(Limit::Certain(format!(
+                    "{id}: the collector examines no {words}"
+                )))
+            } else if rule.selector().is_some() && !observed.construct_selectors {
+                let lack = "the collector reads no construct selector";
+                Some(Limit::Certain(format!("{id}: {lack}")))
+            } else {
+                None
             }
         }
-        (Reads::OwnSymbol, _) => found.extend(symbol_limit(observed, id)),
-        (Reads::Undecided, _) => found.push(Limit::Certain(id.to_owned())),
+        (Reads::Undecided, _) => Some(Limit::Certain(id)),
         // AD-550: a profile whose collector writes no shape cannot read the types.
-        (Reads::Shapes, _) if !observed.type_shapes => found.push(Limit::Certain(id.to_owned())),
-        // No store-accepted profile limits these kinds (`profile_failures`).
-        (Reads::Constructs | Reads::Ports | Reads::Edges | Reads::Shapes, _) => {}
+        (Reads::Shapes, _) if !observed.type_shapes => Some(Limit::Certain(id)),
+        // No store-accepted profile limits these kinds (`profile_failures`); `rule_limit` gives
+        // the limit of the own symbol of a `target_symbol` rule.
+        (Reads::Constructs | Reads::OwnSymbol | Reads::Ports | Reads::Edges | Reads::Shapes, _) => {
+            None
+        }
     }
 }
 
