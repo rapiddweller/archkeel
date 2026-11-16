@@ -13,17 +13,7 @@ use ruff_text_size::{Ranged, TextRange};
 
 use super::globals_locals::Locals;
 use super::globals_project::{Callee, Project, DEPTH};
-
-/// The strings that name a door: a key with one of them is never read as data.
-const DOOR_KEYS: [&str; 7] = [
-    "__import__",
-    "__builtins__",
-    "import_module",
-    "__subclasses__",
-    "__globals__",
-    "__self__",
-    "__loader__",
-];
+use super::hazards_names::DOOR_STRINGS;
 
 impl Project<'_> {
     /// True when the parameter `param` of the scan function `def` is used in inert forms only.
@@ -106,7 +96,7 @@ struct Uses<'p, 'm, 'f> {
 impl Uses<'_, '_, '_> {
     /// True for a string literal that is no door.
     fn plain_key(expr: &Expr) -> bool {
-        matches!(expr, Expr::StringLiteral(text) if !DOOR_KEYS.contains(&text.value.to_str()))
+        matches!(expr, Expr::StringLiteral(text) if !DOOR_STRINGS.contains(&text.value.to_str()))
     }
 
     /// The loads of the target that the expression `expr` uses in an inert form.

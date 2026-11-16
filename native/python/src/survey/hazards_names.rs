@@ -94,7 +94,8 @@ pub(super) const BUILTIN_DOORS: [&str; 10] = [
     "breakpoint",
 ];
 
-/// The string values that name a door: `getattr(x, "__import__")` and `d["__builtins__"]`.
+/// The string values that name a door: `getattr(x, "__import__")` and `d["__builtins__"]`. A key
+/// with one of them is never read as data.
 pub(super) const DOOR_STRINGS: [&str; 7] = [
     "__import__",
     "__builtins__",
