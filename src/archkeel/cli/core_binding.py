@@ -58,7 +58,7 @@ def bind_request(
     if len(raw) > 1 << 20:
         raise RequestMismatch("the configuration exceeds the core byte limit")
     if config.suffix == ".json":
-        # AD-612: a system document is the contract of a system run; the core names its digest.
+        # AD-616: a system document is the contract of a system run; the core names its digest.
         reference, payload = config.relative_to(root).as_posix(), raw
     else:
         scan = as_object(tomllib.loads(raw.decode("utf-8-sig")).get("scan"), "scan")

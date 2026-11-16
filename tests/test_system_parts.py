@@ -41,7 +41,7 @@ def test_the_document_has_the_shape_of_the_first_slice_of_the_system_contract() 
 def test_no_tool_or_makefile_target_hard_wires_a_part() -> None:
     makefile = (ROOT / "Makefile").read_text()
     recipe = makefile.split("self-validate-system:")[1].split("\n\n")[0]
-    # AD-612: the core runs the system document; the recipe names no part, config or result path.
+    # AD-616: the core runs the system document; the recipe names no part, config or result path.
     assert "--config $(SYSTEM_DOCUMENT)" in recipe
     assert "docs/architecture" not in recipe and "native/" not in recipe and ".json" not in recipe
     document = DOCUMENT.relative_to(ROOT).as_posix()

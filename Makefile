@@ -94,7 +94,7 @@ self-validate-shell: core
 	$(UV) run --locked python tools/native_expected.py test-artifacts/validation-shell/result.json docs/architecture/target/shell-expected.json
 	@echo "Shell architecture rules: as pinned in docs/architecture/target/shell-expected.json; full result: test-artifacts/validation-shell/result.json"
 
-# AD-612: ArchKeel as one system: one core run checks each part of the system document and gives one
+# AD-616: ArchKeel as one system: one core run checks each part of the system document and gives one
 # status by the status rule of the core, then one line for each part. The pinned result of each part
 # is the gate (above), so a FAIL or UNKNOWN (exit 1 or 2) does not stop make; a refusal does.
 SYSTEM_DOCUMENT := docs/architecture/architecture-system.json

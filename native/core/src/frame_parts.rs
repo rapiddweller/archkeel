@@ -43,7 +43,7 @@ pub(crate) struct Parts {
     pub(super) gaps: Vec<crate::baseline_frame::GapRow>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) baseline: Option<crate::baseline_frame::Part>,
-    /// The parts of a system run (AD-612); `crate::system::join` writes it.
+    /// The parts of a system run (AD-616); `crate::system::join` writes it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) system: Option<SystemFrame>,
 }
@@ -332,7 +332,7 @@ mod tests {
     }
 }
 
-/// The part `system` of a frame (AD-612): `crate::system::join` writes it.
+/// The part `system` of a frame (AD-616): `crate::system::join` writes it.
 #[derive(Serialize, schemars::JsonSchema)]
 pub(crate) struct SystemFrame {
     /// The title of the system.

@@ -83,7 +83,7 @@ impl Scanned {
 }
 
 /// The system document that the configuration of `identity` names, or `None` for the
-/// configuration of one scan (AD-612). It is read with the safe reader of the scan.
+/// configuration of one scan (AD-616). It is read with the safe reader of the scan.
 pub fn read_system(identity: &Identity<'_>) -> Result<Option<System>, Refusal> {
     if !identity.config.ends_with(".json") {
         return Ok(None);

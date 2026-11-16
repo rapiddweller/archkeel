@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The frame of a system run (AD-612): one scan for each part of a system document, joined into
+//! The frame of a system run (AD-616): one scan for each part of a system document, joined into
 //! one frame. The rows of each part stay as they are; a rule id that two parts use refuses the run.
 //! The status comes from the status rule of the core (`archkeel_report::system_status`). The part
 //! `system` names each part with its profile, which the Language view of the report reads.

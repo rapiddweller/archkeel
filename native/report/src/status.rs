@@ -20,7 +20,7 @@ pub(crate) fn run_status(target: bool, failed: bool, complete: bool, open: bool)
     }
 }
 
-/// The status of a system from the statuses of its parts (AD-612), by the same rule: a part that
+/// The status of a system from the statuses of its parts (AD-616), by the same rule: a part that
 /// FAILs is a violation row, a part without a result is an incomplete observation, and an UNKNOWN
 /// part is an open rule. A system without a part has no Target.
 pub fn system_status(parts: &[Option<Status>]) -> Status {

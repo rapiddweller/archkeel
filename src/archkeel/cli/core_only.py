@@ -274,7 +274,7 @@ def _places(frame: CoreFrame, evidence: Sequence[str]) -> str:
 
 
 def _system_lines(system: object) -> None:
-    """AD-612: the title of a system run, then one line for each part, as the core named it."""
+    """AD-616: the title of a system run, then one line for each part, as the core named it."""
     if not isinstance(system, dict):
         return
     print(f"System {system.get('title')}:")

@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-612: one core run checks each part of a system document.
+"""AD-616: one core run checks each part of a system document.
 
 Each part is the scan of one configuration. The status of the system comes from the status rule of
 the core: a part that FAILs fails the system. A rule id that two parts use, a rule between parts,

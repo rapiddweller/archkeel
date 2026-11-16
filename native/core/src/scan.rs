@@ -86,7 +86,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
     one(&request, &identity)
 }
 
-/// The run of a system document (AD-612): one scan for each part, joined into one frame. A part
+/// The run of a system document (AD-616): one scan for each part, joined into one frame. A part
 /// is a scan with the identity of the request and the configuration of the part. The page, the
 /// topology and the baseline belong to one part, so a system run refuses them.
 fn system_run(

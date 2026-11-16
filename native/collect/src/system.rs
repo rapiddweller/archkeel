@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The system document of a repository (AD-612, the first slice of the system contract of
+//! The system document of a repository (AD-616, the first slice of the system contract of
 //! AD-522): a title and parts, each with the configuration of one scan. The core runs one scan for
 //! each part and joins their frames. A part names no language; its configuration does.
 

@@ -582,7 +582,6 @@
       "public": [
         "native.archkeel_model.brand:Brand",
         "native.archkeel_model.causes:Cause",
-        "native.archkeel_model.causes:HELD_SHOWN",
         "native.archkeel_model.causes:Held",
         "native.archkeel_model.causes:InterfaceGap",
         "native.archkeel_model.causes:Part",
@@ -607,9 +606,7 @@
         "native.archkeel_model.reason_key:Stable",
         "native.archkeel_model.reason_key:gap_kind",
         "native.archkeel_model.reason_key:stable",
-        "native.archkeel_model.section:Porting",
-        "native.archkeel_model.section:Section",
-        "native.archkeel_model.section:Slice"
+        "native.archkeel_model.section:Section"
       ],
       "decided_by": "architect"
     },
@@ -736,8 +733,6 @@
         "native.archkeel_model.ownership:owners",
         "native.archkeel_model.ownership:source_modules",
         "native.archkeel_model.settings:Producer",
-        "native.archkeel_model.settings:STANDARD_LIBRARY_LIMIT",
-        "native.archkeel_model.settings:STANDARD_NAME_LIMIT",
         "native.archkeel_model.settings:Settings",
         "native.archkeel_model.symbols:Entity",
         "native.archkeel_model.symbols:Signature",
@@ -829,7 +824,6 @@
         "native.archkeel_model.limits:undecided_kind",
         "native.archkeel_model.limits:word",
         "native.archkeel_model.pair_gaps:Pairs",
-        "native.archkeel_model.pair_gaps:Reads",
         "native.archkeel_model.pair_gaps:pairs",
         "native.archkeel_model.pair_gaps:reads",
         "native.archkeel_model.roots:Roots",
@@ -1240,7 +1234,6 @@
         "native.archkeel_model.uml:UmlDiff",
         "native.archkeel_model.uml:UmlOutcome",
         "native.archkeel_model.uml:UmlTarget",
-        "native.archkeel_model.uml:compare",
         "native.archkeel_model.uml_declared:UmlDeclared",
         "native.archkeel_model.uml_declared:UmlPart",
         "native.archkeel_model.uml_tree:compare_tree"
@@ -1869,28 +1862,6 @@
       "public": [
         "native.archkeel_report.build_error:BuildError",
         "native.archkeel_report.construct:construct_row",
-        "native.archkeel_report.frame:build",
-        "native.archkeel_report.input:ComponentText",
-        "native.archkeel_report.input:CrossingRow",
-        "native.archkeel_report.input:Diagnostic",
-        "native.archkeel_report.input:EdgeRow",
-        "native.archkeel_report.input:FindingRow",
-        "native.archkeel_report.input:GraphRows",
-        "native.archkeel_report.input:MeasureRow",
-        "native.archkeel_report.input:NodeRow",
-        "native.archkeel_report.input:PermissionRow",
-        "native.archkeel_report.input:Produced",
-        "native.archkeel_report.input:Records",
-        "native.archkeel_report.input:RuleOutcome",
-        "native.archkeel_report.input:RuleText",
-        "native.archkeel_report.input:RunFacts",
-        "native.archkeel_report.input:RunOutcome",
-        "native.archkeel_report.input:Target",
-        "native.archkeel_report.input:Tree",
-        "native.archkeel_report.input:Undecided",
-        "native.archkeel_report.input:UnitRow",
-        "native.archkeel_report.input:UnknownRecord",
-        "native.archkeel_report.input:ViolationRow",
         "native.archkeel_report.kind:word",
         "native.archkeel_report.why:WhyUnknown"
       ],
@@ -2854,7 +2825,7 @@
         },
         {
           "component": "report",
-          "rationale": "Join the statuses of the parts of a system by the status rule of the report (AD-612).",
+          "rationale": "Join the statuses of the parts of a system by the status rule of the report (AD-616).",
           "through": [
             "native.archkeel_report:Status",
             "native.archkeel_report:system_status"
@@ -6329,7 +6300,7 @@
       "rationale": "A component uses another component only where requires says so; absence forbids. This is the crate direction of AD-327 and the module direction of each collector.",
       "provenance": [
         "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md",
-        "docs/architecture/decisions/ad-612-exact-ports-and-one-system-run.md"
+        "docs/architecture/decisions/ad-616-exact-ports-and-one-system-run.md"
       ],
       "decided_by": "architect"
     },
