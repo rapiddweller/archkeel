@@ -11,6 +11,7 @@
 use std::collections::HashSet;
 
 use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Target};
+#[cfg(feature = "dump")]
 use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::request::PythonRequest;
 use archkeel_facts::{
