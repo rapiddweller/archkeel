@@ -556,6 +556,12 @@
     if (root.dataset.detailsOpen !== "true") detailsToggle?.click();
   });
   const fitDiagram = () => F.fit(true);
+  // The rows of a wrapped layout follow the shape of the view: lay the diagram out again when the
+  // Explorer goes to the full window and back.
+  if (A) new MutationObserver(() => requestAnimationFrame(() => {
+    fittedKey = null;
+    root.querySelector('[data-flow-view][aria-pressed="true"]')?.click();
+  })).observe(root, { attributes: true, attributeFilter: ["data-expanded"] });
   root.addEventListener("archkeel:rendered", () => {
     back?.setAttribute("aria-label", back.textContent);
     if (!A) return;
@@ -564,6 +570,12 @@
     applyPerspective();
     if (drawerName === "objects") { const same = drawerName; closeDrawer(); toggleDrawer(same, objectsDrawer); }
     const { scope, viewMode } = F.state();
+    // Target and Diff of a contract that declares no dependency say so, in one line.
+    topLeft.querySelector(".rp-empty-note")?.remove();
+    const noted = F.reportScene.atlas.declared_note;
+    if (noted && (viewMode === "target" || viewMode === "diff")) {
+      topLeft.append(h("p", { class: "rp-empty-note", role: "status" }, noted));
+    }
     const key = `${viewMode}|${scope}|${query().get("content") || ""}`;
     if (key !== fittedKey) {
       fittedKey = key;

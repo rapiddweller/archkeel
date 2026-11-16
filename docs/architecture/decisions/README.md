@@ -7,7 +7,9 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-652 | [A group says why it is a group, and a capped list names both numbers](ad-652-a-group-says-why-and-a-capped-list-names-both-numbers.md) |
 | AD-642 | [Python local bindings use their own scope](ad-642-python-local-bindings-use-their-own-scope.md) |
+| AD-640 | [CI gets a fifteen-line summary, and the text names the top jobs](ad-640-ci-gets-a-fifteen-line-summary-and-the-text-names-the-top-jobs.md) |
 | AD-636 | [Python scans select a target version](ad-636-python-scans-select-a-target-version.md) |
 | AD-634 | [Each collector states the effect of its gaps](ad-634-each-collector-states-the-effect-of-its-gaps.md) |
 | AD-632 | [The command line prints one exit table and text for a person](ad-632-the-command-line-prints-one-exit-table-and-text-for-a-person.md) |

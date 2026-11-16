@@ -50,7 +50,7 @@ class RefusalKind(StrEnum):
     COLLECTION_REFUSED = "collection_refused"
     REQUEST_MISMATCH = "request_mismatch"
     INVALID_INPUT = "invalid_input"
-    # AD-432: this development line does not serve the command or option; nothing ran.
+    # AD-432: ArchKeel 5.0 does not serve the command or option yet; nothing ran.
     NOT_ON_THIS_LINE = "not_on_this_development_line"
     CORE_BINARY_NOT_FOUND = "core_binary_not_found"
     IO_ERROR = "io_error"
