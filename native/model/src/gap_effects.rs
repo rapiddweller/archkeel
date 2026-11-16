@@ -201,15 +201,7 @@ fn reads(model: &Model, rule: &Rule, module: Option<&str>) -> ReadSet {
         // AD-550 reads the written types of each module, and a type name through its imports.
         Rule::BoundaryTypes(_) => ReadSet::BOTH,
         // A kind that no slice decides: its slice states what it reads here (fail closed).
-        Rule::CallOwner(_)
-        | Rule::ForbiddenCallArgument(_)
-        | Rule::CatalogArgument(_)
-        | Rule::CatalogUse(_)
-        | Rule::ForbiddenEffectUnderCondition(_)
-        | Rule::SourceOwnership(_)
-        | Rule::SymbolPlacement(_)
-        | Rule::BoundedNumericOperand(_)
-        | Rule::ProtocolDeclarations(_) => ReadSet::BOTH,
+        undecided_rule!() => ReadSet::BOTH,
     }
 }
 
