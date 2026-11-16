@@ -25,7 +25,6 @@ from corpus_support import case, materialized
 from filelock import FileLock
 
 from archkeel.cli import core_only
-from tools.native_expected import expected_exit
 
 ROOT = Path(__file__).resolve().parents[1]
 NATIVE = ROOT / "native"
@@ -38,6 +37,10 @@ def pinned_self_status() -> tuple[int, str]:
     AD-668: a known violation of the self-contract stays FAIL until the code is fixed, so a test of
     the self run compares with the pin and does not expect PASS.
     """
+    # Imported here: a copy of this module in a temporary project (`test_parallel_execution`)
+    # has no `tools` package beside it.
+    from tools.native_expected import expected_exit
+
     expected = json.loads((NATIVE / "expected-gaps.json").read_text("utf-8"))
     code = expected_exit(expected)
     return code, {0: "PASS", 1: "FAIL"}.get(code, "UNKNOWN")
