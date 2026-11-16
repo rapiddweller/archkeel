@@ -91,6 +91,7 @@ impl Payload {
 
     /// Read canonical bytes. Bytes that decode but differ from their own encoding are refused:
     /// another key order, whitespace, another escape, or a missing nullable key.
+    #[cfg(test)]
     pub(crate) fn decode(bytes: &[u8]) -> Result<Payload, DecodeError> {
         let payload: Payload = serde_json::from_slice(bytes).map_err(DecodeError::Shape)?;
         match payload.encode() {
