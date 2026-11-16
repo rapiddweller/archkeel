@@ -149,6 +149,8 @@ pub(crate) struct MacroDef {
     pub unknowns: Vec<String>,
     /// A definition in a function body is visible only in the rest of that body.
     pub local: Option<Local>,
+    /// What its expansion writes at item level (AD-608).
+    pub item_level: crate::tokens::ItemLevel,
 }
 
 /// The text where a `macro_rules!` of a block is visible: from its definition to the end of the
@@ -178,6 +180,8 @@ pub(crate) struct MacroCall {
     /// The call is at module level: it may define a name of the module, which a glob `use` of
     /// the module then brings in, so such a glob is UNKNOWN (`modules/filled.rs`).
     pub fills: bool,
+    /// The tokens of the call may write an import, which the macro can pass on (AD-608).
+    pub writes_use: bool,
 }
 
 pub(super) struct Walker<'a> {

@@ -20,23 +20,18 @@
         "docs/architecture/decisions/ad-345-collector-facts-have-one-typed-definition-in-archkeel-facts.md"
       ],
       "public": [
+        "native.archkeel_facts.data.gap_data:GapData",
         "native.archkeel_facts.data:BindingData",
         "native.archkeel_facts.data:CallData",
         "native.archkeel_facts.data:CallableData",
         "native.archkeel_facts.data:ClassData",
         "native.archkeel_facts.data:ConstructData",
         "native.archkeel_facts.data:Declared",
-        "native.archkeel_facts.data:GapData",
         "native.archkeel_facts.data:ImportData",
         "native.archkeel_facts.data:ReferenceData",
         "native.archkeel_facts.data:SelectorData",
         "native.archkeel_facts.data:SignalData",
         "native.archkeel_facts.data:ValueData",
-        "native.archkeel_facts.envelope.build:Capabilities",
-        "native.archkeel_facts.envelope.build:Coverage",
-        "native.archkeel_facts.envelope.build:Evidence",
-        "native.archkeel_facts.envelope.build:FileFact",
-        "native.archkeel_facts.envelope.build:Source",
         "native.archkeel_facts.envelope.cycle:proves_cycle_scope",
         "native.archkeel_facts.envelope:Adapter",
         "native.archkeel_facts.envelope:Capabilities",
@@ -65,8 +60,6 @@
         "native.archkeel_facts.envelope:source_digest",
         "native.archkeel_facts.fields:Fields",
         "native.archkeel_facts.fields:Named",
-        "native.archkeel_facts.gap:GapData",
-        "native.archkeel_facts.gap:GapFact",
         "native.archkeel_facts.identity:Part",
         "native.archkeel_facts.identity:evidence_id",
         "native.archkeel_facts.identity:inside",
@@ -98,15 +91,11 @@
         "native.archkeel_facts.pyrepr:printable",
         "native.archkeel_facts.pyrepr:string",
         "native.archkeel_facts.pyrepr:string_with",
-        "native.archkeel_facts.record:FactData",
         "native.archkeel_facts.request:DartRequest",
         "native.archkeel_facts.request:PythonRequest",
         "native.archkeel_facts.request:Request",
         "native.archkeel_facts.request:RustRequest",
         "native.archkeel_facts.request:TypeScriptRequest",
-        "native.archkeel_facts.sections:GapFact",
-        "native.archkeel_facts.sections:ImportFact",
-        "native.archkeel_facts.sections:Section",
         "native.archkeel_facts.type_shape:Binding",
         "native.archkeel_facts.type_shape:Family",
         "native.archkeel_facts.type_shape:TypeShape",
@@ -134,9 +123,13 @@
         "native.archkeel_facts:BindingFact",
         "native.archkeel_facts:CallFact",
         "native.archkeel_facts:ConstructFact",
+        "native.archkeel_facts:FactData",
+        "native.archkeel_facts:GapFact",
+        "native.archkeel_facts:ImportFact",
         "native.archkeel_facts:IntoSection",
         "native.archkeel_facts:Record",
         "native.archkeel_facts:ReferenceFact",
+        "native.archkeel_facts:Section",
         "native.archkeel_facts:SymbolFact"
       ],
       "decided_by": "architect"
@@ -174,15 +167,14 @@
         "native.archkeel_snapshot.paths:join",
         "native.archkeel_snapshot.paths:normpath",
         "native.archkeel_snapshot.paths:within",
-        "native.archkeel_snapshot.snapshot.listing:Snapshot",
-        "native.archkeel_snapshot.snapshot:Snapshot",
         "native.archkeel_snapshot.work:bounded",
         "native.archkeel_snapshot.work:depth_limit",
         "native.archkeel_snapshot.work:refuse_depth",
         "native.archkeel_snapshot:Entry",
         "native.archkeel_snapshot:Hidden",
         "native.archkeel_snapshot:MAX_FILE_BYTES",
-        "native.archkeel_snapshot:RootCheck"
+        "native.archkeel_snapshot:RootCheck",
+        "native.archkeel_snapshot:Snapshot"
       ],
       "decided_by": "architect"
     },
@@ -3762,8 +3754,6 @@
       ],
       "public": [
         "native.archkeel_typescript_collector.script:read",
-        "native.archkeel_typescript_collector.script_bind:Tree",
-        "native.archkeel_typescript_collector.script_declare:Producer",
         "native.archkeel_typescript_collector.script_names:bound_scope",
         "native.archkeel_typescript_collector.script_syntax:Producer",
         "native.archkeel_typescript_collector.script_tree:Tree",
@@ -4190,7 +4180,6 @@
         "docs/architecture/decisions/ad-352-the-native-typescript-collector-equals-the-python-one-and-is-bundled.md"
       ],
       "public": [
-        "native.archkeel_typescript_collector.script_deps:Run",
         "native.archkeel_typescript_collector.script_project:Project",
         "native.archkeel_typescript_collector.script_project:Write",
         "native.archkeel_typescript_collector.script_project:WriteIndex",
@@ -4672,7 +4661,6 @@
         "native.archkeel_rust_collector.modules.state:Frame",
         "native.archkeel_rust_collector.modules.state:Index",
         "native.archkeel_rust_collector.modules:Edge",
-        "native.archkeel_rust_collector.modules:Index",
         "native.archkeel_rust_collector.modules:Outcome",
         "native.archkeel_rust_collector.modules:TypeOf",
         "native.archkeel_rust_collector.modules:index",
@@ -4681,6 +4669,7 @@
         "native.archkeel_rust_collector.resolve:Named",
         "native.archkeel_rust_collector.resolve:classify",
         "native.archkeel_rust_collector.resolve:linked",
+        "native.archkeel_rust_collector.routes:Publications",
         "native.archkeel_rust_collector.routes:Route",
         "native.archkeel_rust_collector.routes:route",
         "native.archkeel_rust_collector.tree:Module",
@@ -4734,6 +4723,7 @@
           "rationale": "Resolve a path against the module tree.",
           "through": [
             "native.archkeel_rust_collector.modules",
+            "native.archkeel_rust_collector.routes",
             "native.archkeel_rust_collector.tree"
           ]
         }
@@ -5845,8 +5835,9 @@
     {
       "id": "NATIVE-INTERFACE-BOUNDARY",
       "kind": "interface_boundary",
-      "rationale": "A component is used only through the names that it lists in public. Each list is the smallest set that covers each use of the component that the scan sees, so a use of another name fails (AD-604).",
+      "rationale": "A component is used only through the names that it lists in public. A crate root is the one public path of each name that it publishes: another crate uses such a name through the root, and a deeper path of it is no public path (AD-608). A method call reaches the module of its impl block and passes through the publication of its type (AD-604).",
       "provenance": [
+        "docs/architecture/decisions/ad-608-a-crate-root-is-the-one-public-path-of-each-name-it-publishes.md",
         "docs/architecture/decisions/ad-604-the-rust-collector-states-the-item-and-route-of-each-import.md",
         "docs/architecture/native.md"
       ],
