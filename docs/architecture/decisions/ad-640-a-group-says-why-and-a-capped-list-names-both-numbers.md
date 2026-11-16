@@ -19,3 +19,9 @@ Status: accepted (owner order, second UX test of 2026-11-16, #1349, #1352, #1354
    with no written responsibility, the causes of unknown rules or of gaps with no rule), and says
    how many more there are. A finding of a module that no component owns says to assign its package,
    a root package too.
+6. A level without a layer order is laid out in rows that fill the view: a chain snakes from row
+   to row, and its edges follow. The rows take the shape of the canvas (its width over its height,
+   times 1.45, between 1.2 and 3) and the diagram is laid out again when the Explorer goes to the
+   full window and back. 9 and 12 boxes open at 71% or more with readable titles. A level with a
+   layer order keeps the layered layout. The bars at the bottom of the embedded Explorer stand
+   outside the fitted area.
