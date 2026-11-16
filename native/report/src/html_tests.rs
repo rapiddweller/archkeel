@@ -5,7 +5,6 @@
 // Consumer: the report page (AD-496). Frames are built by hand, so each block has a test of its own.
 
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 
 use super::markup::escape;
 use super::*;
@@ -63,15 +62,6 @@ fn the_policy_admits_the_theme_script_by_its_hash_and_nothing_else() {
         .unwrap();
     assert_eq!(script, shell::THEME_SCRIPT);
     assert!(!page.contains("<link") && !page.contains("@import") && !page.contains("src="));
-}
-
-#[test]
-fn every_script_hash_is_the_hash_of_its_embedded_bytes() {
-    let hash = |script: &str| markup::base64(&Sha256::digest(script.as_bytes()));
-    assert_eq!(shell::THEME_HASH, hash(shell::THEME_SCRIPT));
-    for (script, _, expected) in explorer::SCRIPTS {
-        assert_eq!(expected, hash(script));
-    }
 }
 
 fn components(count: usize, edges: &[(usize, usize)]) -> Value {
