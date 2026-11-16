@@ -1,0 +1,99 @@
+// Archkeel
+// Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+// SPDX-License-Identifier: MIT
+
+//! The declared structure of the contract tree as display rows (AD-594): each `requires` entry
+//! with the number of observed imports that use it, and the layers of each `layer_order` rule.
+//! It makes no decision: the rules decide, and these rows only show what the contract states.
+
+use std::collections::{BTreeMap, BTreeSet};
+
+use archkeel_contract::{head_of, Rule};
+use archkeel_model::ModelTree;
+use serde::Serialize;
+
+/// One `requires` entry: the two components by id, and the observed imports that use it.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub(crate) struct Require {
+    pub(crate) source: String,
+    pub(crate) target: String,
+    /// Zero says that no observed import uses the permission.
+    pub(crate) imports: usize,
+}
+
+/// The layers of one `layer_order` rule, from the inner layer to the outer layer.
+#[derive(Serialize)]
+pub(crate) struct LayerOrder {
+    rule: String,
+    layers: Vec<String>,
+}
+
+/// Each declared pair of the tree, by component id. A label is local to its contract.
+pub(crate) fn pairs(models: &ModelTree) -> BTreeSet<(String, String)> {
+    let mut pairs = BTreeSet::new();
+    for model in models.models() {
+        for (_, component) in model.components().iter() {
+            for entry in component.requires().iter().flatten() {
+                let target = model
+                    .component(entry.component().as_text())
+                    .and_then(|id| model.components().get(id));
+                if let Some(target) = target {
+                    pairs.insert((
+                        component.id().as_text().to_owned(),
+                        target.id().as_text().to_owned(),
+                    ));
+                }
+            }
+        }
+    }
+    pairs
+}
+
+/// The rows of the declared pairs. An import between two components counts for each pair of
+/// their ancestors too: a `requires` entry of a component with an inside contract covers the
+/// imports of its sub-components.
+pub(crate) fn requires<'a>(
+    pairs: BTreeSet<(String, String)>,
+    parents: &BTreeMap<&'a str, &'a str>,
+    observed: impl Iterator<Item = (&'a str, &'a str, usize)>,
+) -> Vec<Require> {
+    let chain = |start: &'a str| std::iter::successors(Some(start), |id| parents.get(id).copied());
+    let mut sums: BTreeMap<(&str, &str), usize> = BTreeMap::new();
+    for (source, target, count) in observed {
+        for from in chain(source) {
+            for to in chain(target).filter(|to| *to != from) {
+                *sums.entry((from, to)).or_default() += count;
+            }
+        }
+    }
+    pairs
+        .into_iter()
+        .map(|(source, target)| Require {
+            imports: sums
+                .get(&(source.as_str(), target.as_str()))
+                .copied()
+                .unwrap_or(0),
+            source,
+            target,
+        })
+        .collect()
+}
+
+/// The layers of each `layer_order` rule of the tree, in contract order.
+pub(crate) fn layers(models: &ModelTree) -> Vec<LayerOrder> {
+    models
+        .models()
+        .flat_map(|model| model.contract().rules())
+        .filter_map(|rule| match rule {
+            Rule::LayerOrder(order) => Some(LayerOrder {
+                rule: head_of(rule).id().as_text().to_owned(),
+                layers: order.layers().clone(),
+            }),
+            _ => None,
+        })
+        .collect()
+}
+
+#[cfg(test)]
+#[path = "topology_declared_tests.rs"]
+mod tests;

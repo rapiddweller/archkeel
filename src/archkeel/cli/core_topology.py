@@ -17,6 +17,8 @@ LIMITS: Final = {
     "edges": 20_000,
     "component_edges": 20_000,
     "evidence_per_edge": 5,
+    "requires": 20_000,
+    "layers": 4096,
 }
 
 
@@ -46,6 +48,8 @@ class Component:
     packages: tuple[str, ...]
     exact_modules: tuple[str, ...]
     planned: bool
+    layer: str | None
+    public: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +77,23 @@ class Edge:
 
 
 @dataclass(frozen=True, slots=True)
+class Require:
+    """One declared `requires` entry and the observed imports that use it (AD-594)."""
+
+    source: str
+    target: str
+    imports: int
+
+
+@dataclass(frozen=True, slots=True)
+class LayerOrder:
+    """The layers of one `layer_order` rule, from the inner layer to the outer layer."""
+
+    rule: str
+    layers: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class Topology:
     """The topology part of a frame: components, modules and edges."""
 
@@ -84,6 +105,8 @@ class Topology:
     modules: tuple[Module, ...]
     edges: tuple[Edge, ...]
     component_edges: tuple[Edge, ...]
+    requires: tuple[Require, ...]
+    layers: tuple[LayerOrder, ...]
 
 
 def _bool(value: object) -> bool:
@@ -115,6 +138,8 @@ def _component(value: object) -> Component:
         _strings(row["packages"]),
         _strings(row["exact_modules"]),
         _bool(row["planned"]),
+        _optional(row["layer"]),
+        _strings(row["public"]),
     )
 
 
@@ -161,6 +186,21 @@ def _edge(value: object, rules: Mapping[str, object]) -> Edge:
     )
 
 
+def _require(value: object) -> Require:
+    row = _fields(value, "topology.require", frozenset(Require.__dataclass_fields__))
+    return Require(
+        _text(row["source"], "source"),
+        _text(row["target"], "target"),
+        _count(row["imports"], "imports"),
+    )
+
+
+def _layer_order(value: object) -> LayerOrder:
+    # The rule is a rule of the contract. A frame that decides no rule can still state it.
+    row = _fields(value, "topology.layer_order", frozenset(LayerOrder.__dataclass_fields__))
+    return LayerOrder(_text(row["rule"], "rule"), _strings(row["layers"]))
+
+
 # A component edge names a component or one of these labels, never a module.
 _OWNER_LABELS: Final = frozenset({"unowned", "ambiguous"})
 _TARGET_LABELS: Final = _OWNER_LABELS | {resolution.value for resolution in Resolution}
@@ -188,6 +228,9 @@ def _check_references(topology: "Topology") -> None:
             or edge.target not in components | _TARGET_LABELS
         ):
             raise CoreError("topology: a component edge names no listed component")
+    for require in topology.requires:
+        if not cut_components and not {require.source, require.target} <= components:
+            raise CoreError("topology: a requirement names no listed component")
 
 
 def read_topology(value: object, scope: str, rules: Mapping[str, object]) -> Topology:
@@ -208,6 +251,8 @@ def read_topology(value: object, scope: str, rules: Mapping[str, object]) -> Top
                 "modules",
                 "edges",
                 "component_edges",
+                "requires",
+                "layers",
             }
         ),
     )
@@ -224,7 +269,7 @@ def read_topology(value: object, scope: str, rules: Mapping[str, object]) -> Top
     gaps = _strings(row["gaps"])
     lists = {
         key: _list(row[key], LIMITS[key])
-        for key in ("components", "modules", "edges", "component_edges")
+        for key in ("components", "modules", "edges", "component_edges", "requires", "layers")
     }
     if any(len(items) != min(total[key], LIMITS[key]) for key, items in lists.items()):
         raise CoreError("topology: inconsistent list counts")
@@ -244,12 +289,18 @@ def read_topology(value: object, scope: str, rules: Mapping[str, object]) -> Top
         tuple(_module(item) for item in lists["modules"]),
         tuple(_edge(item, rules) for item in lists["edges"]),
         tuple(_edge(item, rules) for item in lists["component_edges"]),
+        tuple(_require(item) for item in lists["requires"]),
+        tuple(_layer_order(item) for item in lists["layers"]),
     )
     _check_references(topology)
     for items in (topology.components, topology.modules, topology.edges, topology.component_edges):
         keys = [item.name if isinstance(item, Module) else item.id for item in items]
         if len(set(keys)) != len(keys):
             raise CoreError("topology: repeated identity")
+    pairs = [(item.source, item.target) for item in topology.requires]
+    orders = [item.rule for item in topology.layers]
+    if len(set(pairs)) != len(pairs) or len(set(orders)) != len(orders):
+        raise CoreError("topology: repeated requirement or layer order")
     return topology
 
 
