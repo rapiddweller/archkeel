@@ -1339,6 +1339,7 @@
         "native.archkeel_eval:Cyclic",
         "native.archkeel_eval:Layered",
         "native.archkeel_eval:Outcome",
+        "native.archkeel_eval:Published",
         "native.archkeel_eval:Violation",
         "native.archkeel_eval:evaluate",
         "native.archkeel_eval:evaluate_tree"
@@ -1404,6 +1405,7 @@
         "native.archkeel_eval.violation:CycleStep",
         "native.archkeel_eval.violation:Cyclic",
         "native.archkeel_eval.violation:Layered",
+        "native.archkeel_eval.violation:Published",
         "native.archkeel_eval.violation:Violation"
       ],
       "decided_by": "architect"
@@ -1774,7 +1776,6 @@
         "native.archkeel_report.head:Source",
         "native.archkeel_report.head:Status",
         "native.archkeel_report.head:Summary",
-        "native.archkeel_report.head:TrendPoint",
         "native.archkeel_report.payload:DecodeError",
         "native.archkeel_report.payload:MAX_BYTES",
         "native.archkeel_report.payload:Payload",
@@ -1785,21 +1786,15 @@
         "native.archkeel_report.tables:Edges",
         "native.archkeel_report.tables:Fields",
         "native.archkeel_report.tables:Findings",
-        "native.archkeel_report.tables:Flag",
-        "native.archkeel_report.tables:Id",
         "native.archkeel_report.tables:Measures",
         "native.archkeel_report.tables:Nodes",
         "native.archkeel_report.tables:OptGap",
-        "native.archkeel_report.tables:OptId",
-        "native.archkeel_report.tables:OptStr",
         "native.archkeel_report.tables:Params",
         "native.archkeel_report.tables:Permissions",
-        "native.archkeel_report.tables:StrId",
         "native.archkeel_report.tables:Units",
         "native.archkeel_report.tables:Unknowns",
         "native.archkeel_report.tables:Variants",
-        "native.archkeel_report.tables:Violations",
-        "native.archkeel_report.tables:opt_gap"
+        "native.archkeel_report.tables:Violations"
       ],
       "decided_by": "architect"
     },
@@ -1856,7 +1851,6 @@
         "native.archkeel_report.report:ReadError",
         "native.archkeel_report.report:Recorded",
         "native.archkeel_report.report:Report",
-        "native.archkeel_report.status:PASS_NEEDS",
         "native.archkeel_report.status:Unexplained",
         "native.archkeel_report.status:run_status",
         "native.archkeel_report.status:status_of"
@@ -2380,6 +2374,7 @@
             "native.archkeel_eval:Cyclic",
             "native.archkeel_eval:Layered",
             "native.archkeel_eval:Outcome",
+            "native.archkeel_eval:Published",
             "native.archkeel_eval:Violation",
             "native.archkeel_eval:evaluate_tree"
           ]
@@ -3407,16 +3402,8 @@
         }
       ],
       "public": [
-        "native.archkeel_dart_collector.import_survey.reply:SURVEY_SECTIONS",
         "native.archkeel_dart_collector.import_survey.reply:decode",
         "native.archkeel_dart_collector.import_survey.reply:typed_reply",
-        "native.archkeel_dart_collector.import_survey:GapName",
-        "native.archkeel_dart_collector.import_survey:NamedGap",
-        "native.archkeel_dart_collector.import_survey:PARSE_BUDGET_BYTES",
-        "native.archkeel_dart_collector.import_survey:PARSE_BUDGET_TOKENS",
-        "native.archkeel_dart_collector.import_survey:PartOwner",
-        "native.archkeel_dart_collector.import_survey:SURVEY_BUDGET_BYTES",
-        "native.archkeel_dart_collector.import_survey:Survey",
         "native.archkeel_dart_collector.import_survey:edge_rows",
         "native.archkeel_dart_collector.import_survey:gap_rows",
         "native.archkeel_dart_collector.import_survey:survey"

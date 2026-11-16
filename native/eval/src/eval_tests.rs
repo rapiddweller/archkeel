@@ -108,10 +108,10 @@ fn name(violation: &Violation) -> String {
         | Violation::Forbidden { cited, .. }
         | Violation::Peer { cited, .. }
         | Violation::Unrequired { cited, .. }
-        | Violation::PrivateImport { cited, .. }
-        | Violation::Publication { cited, .. } => {
+        | Violation::PrivateImport { cited, .. } => {
             format!("{} -> {}", cited.source_module, cited.target_module)
         }
+        Violation::Publication(found) => found.name.clone(),
         Violation::OuterLayer(layered) => {
             format!(
                 "{} -> {}",

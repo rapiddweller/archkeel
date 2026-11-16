@@ -106,11 +106,11 @@ impl ViolationDetail {
                 evidence: cited.evidence.clone(),
             },
             // AD-608: the target is the published name in the selector form `module:name`.
-            Violation::Publication { cited, name, .. } => Self {
-                source: cited.source_module.clone(),
-                target: Some(format!("{}:{name}", cited.source_module)),
+            Violation::Publication(found) => Self {
+                source: found.cited.source_module.clone(),
+                target: Some(format!("{}:{}", found.cited.source_module, found.name)),
                 cause: "publication outside the public interface",
-                evidence: cited.evidence.clone(),
+                evidence: found.cited.evidence.clone(),
             },
         }
     }

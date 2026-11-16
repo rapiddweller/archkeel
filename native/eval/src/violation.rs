@@ -147,18 +147,22 @@ pub enum Violation {
     },
     /// A re-export that publishes a name outside its package which the component of its module
     /// does not list in `public` (AD-608).
-    Publication {
-        /// The id of the violation record.
-        id: String,
-        /// The id of the rule that the violation breaks.
-        rule: String,
-        /// The re-export record that the violation cites.
-        cited: Cited,
-        /// The published name.
-        name: String,
-        /// The component that publishes it.
-        component: String,
-    },
+    Publication(Box<Published>),
+}
+
+/// A name that a re-export publishes outside its package, unlisted in `public` (AD-608).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Published {
+    /// The id of the violation record.
+    pub id: String,
+    /// The id of the rule that the violation breaks.
+    pub rule: String,
+    /// The re-export record that the violation cites.
+    pub cited: Cited,
+    /// The published name.
+    pub name: String,
+    /// The component that publishes it.
+    pub component: String,
 }
 
 /// The record of one position that breaks `boundary_types` (AD-550).
@@ -409,13 +413,13 @@ impl Violation {
             "VIO",
             &[Part::Text(&rule), Part::Text(import.id()), Part::Text(name)],
         );
-        Self::Publication {
+        Self::Publication(Box::new(Published {
             id,
             rule,
             cited,
             name: name.to_owned(),
             component: component.to_owned(),
-        }
+        }))
     }
 
     /// The id of the violation record.
@@ -458,8 +462,8 @@ impl Violation {
             | Violation::Forbidden { id, rule, .. }
             | Violation::Peer { id, rule, .. }
             | Violation::Unrequired { id, rule, .. }
-            | Violation::PrivateImport { id, rule, .. }
-            | Violation::Publication { id, rule, .. } => [id, rule],
+            | Violation::PrivateImport { id, rule, .. } => [id, rule],
+            Violation::Publication(found) => [&found.id, &found.rule],
             Violation::OuterLayer(layered) => [&layered.id, &layered.rule],
             Violation::Cycle(cyclic) => [&cyclic.id, &cyclic.rule],
             Violation::Construct(row) => [&row.id, &row.rule],
