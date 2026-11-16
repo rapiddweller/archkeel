@@ -432,6 +432,13 @@
           ],
           "description": "The name that a re-export publishes outside the package of its module, as a `pub use`\nat the root of a library crate does (`*` for a glob; AD-608)."
         },
+        "other_crate": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "True when the import names a module of another crate of the workspace by that crate's\nname, as a binary target names its library (AD-622). Absent: the same crate, or a\ncollector without crates."
+        },
         "declared_in_all": {
           "type": [
             "boolean",

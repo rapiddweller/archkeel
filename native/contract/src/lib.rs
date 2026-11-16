@@ -57,10 +57,18 @@ pub use document::{Contract, ParsedContract};
 pub(crate) use error::ErrorKind;
 pub use graph::uml_target_id;
 pub use graph_link::bare_reference;
-pub use model::*;
-pub use model_constructs::*;
-pub use model_declarations::*;
-pub use model_rules::*;
-pub use model_uml::*;
+pub use model::{
+    CompleteRequires, Component, ComponentLabel, CycleLevel, DecidedBy, ExternalDependencyScope,
+    ForbiddenDependency, InterfaceBoundary, LayerOrder, Lifecycle, NoComponentCycles, Package,
+    RootLayout, RuleKind, Selector, SelectorMatch, SiblingIsolation, SourceRule, TargetKind,
+};
+pub use model_constructs::{ConstructSelector, ForbiddenConstruct};
+pub use model_declarations::BudgetName;
+pub use model_rules::{BoundaryAllowance, BoundaryTypes};
+pub use model_uml::{
+    CompletenessMode, Entity, EntityKind, ModifierKind, ParameterKind, PresenceKind, Relationship,
+    RelationshipKind, ResolutionKind, Signature, Target, TargetScope, VisibilityBasis,
+    VisibilityKind,
+};
 pub use rule::{head_of, kind_of, Rule};
 pub use uml_merge::merge_targets;

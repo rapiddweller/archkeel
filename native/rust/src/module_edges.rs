@@ -365,6 +365,11 @@ impl Builder {
             named,
         );
         record.data.data_mut().published_as = published(index, &module.module, reference);
+        // AD-622: a binary target reaches the library of its own package through the index
+        // (`resolve::classify`): the path crosses crates when the target is another target.
+        let target_of = |name: &str| index.frame(name).map(|frame| frame.module.target.as_str());
+        let other = target_of(&edge.module).is_some_and(|at| at != module.target);
+        record.data.data_mut().other_crate = other.then_some(true);
         self.imports.push(record);
         self.ended += 1;
     }
