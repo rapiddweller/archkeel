@@ -1,0 +1,66 @@
+[
+  {
+    "tables": [
+      "native/contract/src/paths.rs:SOURCE_SUFFIXES",
+      "src/archkeel/cli/init_areas.py:_CODE"
+    ],
+    "shared": 8,
+    "issue": 1390
+  },
+  {
+    "tables": [
+      "native/python/src/survey/lazy_flow.rs:DEPENDENT",
+      "native/python/src/survey/lazy_shape.rs:DUNDERS"
+    ],
+    "shared": 5,
+    "issue": 1390
+  },
+  {
+    "tables": [
+      "native/rust/src/macro_identity.rs:STD",
+      "native/rust/src/scan_macros.rs:KNOWN_MACROS"
+    ],
+    "shared": 32,
+    "issue": 1390
+  },
+  {
+    "tables": [
+      "native/rust/src/macro_identity.rs:STD",
+      "native/rust/src/tokens.rs:EXPRESSION_MACROS"
+    ],
+    "shared": 8,
+    "issue": 1390
+  },
+  {
+    "tables": [
+      "native/rust/src/macro_identity.rs:STD",
+      "native/rust/src/tokens.rs:NO_BIND_MACROS"
+    ],
+    "shared": 18,
+    "issue": 1390
+  },
+  {
+    "tables": [
+      "native/rust/src/scan_macros.rs:KNOWN_MACROS",
+      "native/rust/src/tokens.rs:EXPRESSION_MACROS"
+    ],
+    "shared": 8,
+    "issue": 1390
+  },
+  {
+    "tables": [
+      "native/rust/src/scan_macros.rs:KNOWN_MACROS",
+      "native/rust/src/tokens.rs:NO_BIND_MACROS"
+    ],
+    "shared": 18,
+    "issue": 1390
+  },
+  {
+    "tables": [
+      "native/rust/src/scan_receivers.rs:INERT",
+      "native/rust/src/tokens.rs:LINTS"
+    ],
+    "shared": 5,
+    "issue": 1390
+  }
+]

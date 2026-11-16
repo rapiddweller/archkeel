@@ -9,7 +9,8 @@ use std::collections::{HashMap, HashSet};
 use ruff_python_ast::{CmpOp, Expr, ExprContext, Stmt};
 
 use super::scan::{Result, Scan};
-use crate::module::namespace_tables::{CONTAINERS, GLOBAL, GLOBALS, LOCAL, OWN, TYPE_READERS};
+use crate::module::builtin_roles::{self, Role};
+use crate::module::namespace_tables::{GLOBAL, GLOBALS, LOCAL, OWN, TYPE_READERS};
 use crate::pyast::Node;
 
 pub(super) struct Env<'a, 'n> {
@@ -190,7 +191,9 @@ fn bare_builtin(expr: &Expr, env: &Env<'_, '_>) -> bool {
     let Expr::Name(n) = expr else {
         return false;
     };
-    CONTAINERS.contains(&n.id.as_str()) && !env.opaque && !env.blocked.contains(n.id.as_str())
+    builtin_roles::has(n.id.as_str(), Role::NAME_CONTAINER)
+        && !env.opaque
+        && !env.blocked.contains(n.id.as_str())
 }
 
 pub(super) fn rebind(

@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 //! What the tree reads from one contract: its record IDs, its provenance paths, the declarations
-//! that an inside must not hold, and the copy with IDs in the scope of a parent. Each function is
-//! one Python function of `ir/codec_inside.py` or `ir/target_graph.py`.
+//! that an inside must not hold, and the copy with IDs in the scope of a parent.
 
 use std::collections::BTreeSet;
 
@@ -14,7 +13,7 @@ use crate::model_declarations::Declarations;
 use crate::model_uml::Target;
 use crate::rule::Rule;
 
-/// Python `scope_key`: the key of a component in the scope of its parent.
+/// The key of a component in the scope of its parent.
 pub(crate) fn scope_key(parent: &str, label: &str) -> String {
     if parent.is_empty() {
         label.to_owned()
@@ -27,7 +26,7 @@ fn texts<'a>(ids: impl Iterator<Item = &'a ItemId> + 'a) -> impl Iterator<Item =
     ids.map(|id| id.0.clone())
 }
 
-/// Python `_contract_record_ids`: the IDs that two contracts of one tree must not share.
+/// The IDs that two contracts of one tree must not share.
 pub(crate) fn record_ids(contract: &Contract) -> BTreeSet<String> {
     let mut ids: BTreeSet<String> =
         texts(contract.components.iter().map(|item| &item.id)).collect();
@@ -55,7 +54,7 @@ fn head(rule: &Rule) -> &RuleHead {
     crate::rule::head_of(rule)
 }
 
-/// Python `contract_provenance_paths`: each repository path that the contract cites. The core
+/// Each repository path that the contract cites. The core
 /// reads and binds each of these files (AD-466).
 pub fn provenance_paths(contract: &Contract) -> BTreeSet<String> {
     let mut lists: Vec<&Vec<String>> = contract.components.iter().map(|c| &c.provenance).collect();
@@ -95,7 +94,7 @@ fn declaration_provenance<'a>(declarations: &'a Declarations, lists: &mut Vec<&'
     lists.push(&d.context_roots_provenance);
 }
 
-/// Python `_unsupported_inside_declaration_fields`: the declarations that only a root holds.
+/// The declarations that only a root holds.
 pub(crate) fn unsupported_fields(contract: &Contract) -> Vec<&'static str> {
     let Some(d) = &contract.declarations else {
         return Vec::new();
@@ -139,7 +138,7 @@ fn scoped_option(prefix: &str, id: Option<&ItemId>) -> Option<ItemId> {
         .map(|value| scoped_id(prefix, value))
 }
 
-/// Python `scoped_target`: the UML Target with each ID in the scope of the parent.
+/// The UML Target with each ID in the scope of the parent.
 fn scoped_target(target: &Target, prefix: &str) -> Target {
     let mut scoped = target.clone();
     for entity in &mut scoped.entities {
@@ -157,7 +156,7 @@ fn scoped_target(target: &Target, prefix: &str) -> Target {
     scoped
 }
 
-/// Python `_scoped_inside_contract`: the IDs of components, rules and the UML Target in the scope
+/// The IDs of components, rules and the UML Target in the scope
 /// of the parent. The digest stays the digest of the bytes.
 pub(crate) fn scoped_contract(parent_id: &str, contract: &Contract) -> Contract {
     let mut scoped = contract.clone();

@@ -21,6 +21,8 @@ pub(crate) mod definition;
 use crate::names::package_for;
 use crate::source::Lines;
 
+#[path = "builtin_roles.rs"]
+pub(crate) mod builtin_roles;
 #[path = "namespace_tables.rs"]
 pub(crate) mod namespace_tables;
 

@@ -11,6 +11,7 @@
 //! subscript, a string, a number, a call) gives `Unwritable`, and the declaration that holds it
 //! gets no record: the survey never guesses a text.
 
+use crate::module::builtin_roles::{self, Role};
 use ruff_python_ast::Expr;
 use ruff_text_size::Ranged;
 
@@ -33,33 +34,13 @@ pub(super) struct Reader<'m, 'e> {
     pub shadowed: Vec<&'static str>,
 }
 
-/// The builtin names that an annotation or a default reads as a type or a value.
-const BUILTINS: [&str; 18] = [
-    "int",
-    "str",
-    "float",
-    "bool",
-    "bytes",
-    "bytearray",
-    "complex",
-    "list",
-    "dict",
-    "set",
-    "frozenset",
-    "tuple",
-    "object",
-    "type",
-    "range",
-    "slice",
-    "memoryview",
-    "property",
-];
-
 impl Reader<'_, '_> {
     /// The builtin names that `binders` shows bound in the module.
     pub(super) fn shadowed(binders: &Binders) -> Vec<&'static str> {
-        let hidden = |name: &&str| !binders.builtin_visible(name);
-        BUILTINS.iter().copied().filter(hidden).collect()
+        let hidden = |name: &&'static str| !binders.builtin_visible(name);
+        builtin_roles::named(Role::ANNOTATION)
+            .filter(hidden)
+            .collect()
     }
 }
 

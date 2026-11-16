@@ -4,8 +4,7 @@
 
 //! The claims of an inside contract, clipped to the physical packages of its parent component.
 //!
-//! Python `_inside_source_domain` (`check/evaluation/evaluate.py`), the part over the
-//! components: each package of a child component that lies below a package of the parent stays;
+//! For components, each package of a child component that lies below a package of the parent stays;
 //! each exact module that the parent names, or that lies below a package of the parent, stays.
 //! Each claim outside the parent is cut, and the component that held it is named: the reference
 //! engine writes a coverage failure for it (`inside_source_domain_incomplete`). The part over the

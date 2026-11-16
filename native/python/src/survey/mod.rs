@@ -14,6 +14,7 @@ use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Target};
 #[cfg(feature = "dump")]
 use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::request::PythonRequest;
+use archkeel_facts::sections::SignalFact;
 use archkeel_facts::{
     CallFact, ConstructFact, GapFact, ImportFact, Record, ReferenceFact, SymbolFact,
 };
@@ -94,9 +95,12 @@ pub(crate) struct Survey {
     pub calls: Vec<Record<CallFact>>,
     pub references: Vec<Record<ReferenceFact>>,
     pub constructs: Vec<Record<ConstructFact>>,
+    pub signals: Vec<Record<SignalFact>>,
     pub broad_complete: bool,
     pub dict_complete: bool,
     pub vars_complete: bool,
+    pub compare_complete: bool,
+    pub getattr_complete: bool,
 }
 
 /// The parsed modules of a request and their binders, as the survey reads them (the dump of
@@ -165,8 +169,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .map(|module| Binders::of(&module.tree))
         .collect();
     let mut evidence = EvidenceMap::new();
-    let (constructs, broad_complete, dict_complete, vars_complete) =
-        constructs::collect(modules, &binders, &mut evidence);
+    let constructs = constructs::collect(modules, &binders, &mut evidence);
     let lazy = lazy::find(modules, &binders, namespace);
     // AD-472: a proven literal import call is an import record; each other site is a gap.
     let (literals, hazards) = hazards::split(modules, &binders, Some(&lazy));
@@ -300,10 +303,13 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         symbols: symbols.records,
         calls: symbols.calls,
         references: symbols.references,
-        constructs,
-        broad_complete,
-        dict_complete,
-        vars_complete,
+        signals: constructs.signals,
+        broad_complete: constructs.broad_complete,
+        dict_complete: constructs.dict_complete,
+        vars_complete: constructs.vars_complete,
+        compare_complete: constructs.compare_complete,
+        getattr_complete: constructs.getattr_complete,
+        constructs: constructs.records,
     })
 }
 

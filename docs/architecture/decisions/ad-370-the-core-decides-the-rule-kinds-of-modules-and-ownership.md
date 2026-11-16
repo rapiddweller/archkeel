@@ -10,7 +10,7 @@
    (no selected file, or a coverage gap that no contract can drop).
 2. A new library crate `archkeel-eval` decides each rule. An `Outcome` holds a `Decision`, never
    a bare `Verdict`. Slice S1 decides `complete_assignment` and `root_layout`, the kinds that read
-   only modules, packages and owners. The order is the order of Python `_rule_status`:
+   only modules, packages and owners. The order is the order of the deleted Python `_rule_status`:
    - a violation gives FAIL; a violation is a fact also in an incomplete scope;
    - an `Incomplete` gives UNKNOWN (`Reason::Incomplete`);
    - a rule that selects no module has no evaluator receipt and gives UNKNOWN

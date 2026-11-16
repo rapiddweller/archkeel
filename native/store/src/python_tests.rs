@@ -132,6 +132,7 @@ fn python_accepts_only_the_registered_assert_capability_with_its_section() {
     assert_eq!(registered(&facts), Ok(()));
     facts.capabilities.constructs[3].status = ConstructSupport::Supported;
     assert_eq!(registered(&facts), Ok(()));
+    check_comparison_capability(&mut facts);
     facts.capabilities.constructs[3].name = "setattr".to_owned();
     assert!(registered(&facts).is_err());
     facts.capabilities.constructs.pop();
@@ -142,6 +143,45 @@ fn python_accepts_only_the_registered_assert_capability_with_its_section() {
     assert!(registered(&facts).is_err());
     facts.capabilities.constructs.clear();
     assert!(registered(&facts).is_err());
+}
+
+fn check_comparison_capability(facts: &mut Facts) {
+    facts
+        .capabilities
+        .constructs
+        .push(archkeel_facts::envelope::ConstructCapability {
+            name: "string_literal_compare".to_owned(),
+            status: ConstructSupport::Partial,
+        });
+    assert_eq!(registered(facts), Ok(()));
+    facts.capabilities.constructs[4].status = ConstructSupport::Supported;
+    assert_eq!(registered(facts), Ok(()));
+    check_getattr_capability(facts);
+    facts.capabilities.constructs[4].name = "setattr".to_owned();
+    assert!(registered(facts).is_err());
+    facts.capabilities.constructs.pop();
+}
+
+fn check_getattr_capability(facts: &mut Facts) {
+    facts
+        .capabilities
+        .constructs
+        .push(archkeel_facts::envelope::ConstructCapability {
+            name: "getattr".to_owned(),
+            status: ConstructSupport::Partial,
+        });
+    assert!(registered(facts).is_err());
+    facts
+        .capabilities
+        .sections
+        .push(archkeel_facts::envelope::SectionName::parse("typing_signals").expect("a section"));
+    assert_eq!(registered(facts), Ok(()));
+    facts.capabilities.constructs[5].status = ConstructSupport::Supported;
+    assert_eq!(registered(facts), Ok(()));
+    facts.capabilities.constructs[5].name = "hasattr".to_owned();
+    assert!(registered(facts).is_err());
+    facts.capabilities.constructs.pop();
+    facts.capabilities.sections.pop();
 }
 
 #[test]

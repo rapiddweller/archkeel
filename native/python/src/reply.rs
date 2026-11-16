@@ -6,13 +6,14 @@
 //! `imports` (`collect.collect`), with the typed records of `archkeel-facts` (AD-345).
 //!
 //! The survey is not the whole collection. The protocol says so with the capabilities of the
-//! import survey and written constructs (AD-658, AD-666, AD-680, AD-682). The linked path gives the same
+//! import survey and written constructs (AD-658, AD-666, AD-680, AD-682, AD-684). The linked path gives the same
 //! survey as a typed reply (AD-450).
 
 use archkeel_facts::envelope::{
     Adapter, Coverage, Evidence, Input, Profile, Provenance, Reply, Runtime, TargetSource,
 };
 use archkeel_facts::request::PythonRequest;
+use archkeel_facts::sections::SignalFact;
 use archkeel_facts::{
     CallFact, ConstructFact, GapFact, ImportFact, Record, ReferenceFact, SymbolFact,
 };
@@ -26,13 +27,14 @@ use crate::{inputs, requirement};
 
 /// The sections of the survey, in their order. No other section is collected (AD-518 adds
 /// `symbols`; the 4.0.1 survey has the first two).
-const SURVEY_SECTIONS: [&str; 6] = [
+const SURVEY_SECTIONS: [&str; 7] = [
     "imports",
     "unknowns",
     "symbols",
     "calls",
     "references",
     "constructs",
+    "typing_signals",
 ];
 
 /// The version and the code digest of this binary (`archkeel-build-support`).
@@ -87,6 +89,7 @@ struct Records {
     calls: Vec<Record<CallFact>>,
     references: Vec<Record<ReferenceFact>>,
     constructs: Vec<Record<ConstructFact>>,
+    signals: Vec<Record<SignalFact>>,
     coverage: Coverage,
     evidence: Vec<Evidence>,
 }
@@ -101,6 +104,7 @@ impl Records {
             .write_typed_section::<ReferenceFact>(|emit| self.references.iter().for_each(emit))?;
         writer
             .write_typed_section::<ConstructFact>(|emit| self.constructs.iter().for_each(emit))?;
+        writer.write_typed_section::<SignalFact>(|emit| self.signals.iter().for_each(emit))?;
         self.tail()
     }
 
@@ -175,6 +179,22 @@ fn parts(
                     "partial"
                 },
             ),
+            (
+                "string_literal_compare",
+                if survey.compare_complete {
+                    "supported"
+                } else {
+                    "partial"
+                },
+            ),
+            (
+                "getattr",
+                if survey.getattr_complete {
+                    "supported"
+                } else {
+                    "partial"
+                },
+            ),
         ],
         inputs,
         source_digest: Some(source_digest),
@@ -189,6 +209,7 @@ fn parts(
         calls: survey.calls,
         references: survey.references,
         constructs: survey.constructs,
+        signals: survey.signals,
         coverage: survey.coverage,
         evidence: survey.evidence,
     };

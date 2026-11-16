@@ -2,15 +2,16 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Written asserts, broad handlers, `__dict__` reads and `vars` calls (AD-658, AD-666, AD-680, AD-682).
+//! Written constructs with lexical owners (AD-658, AD-666, AD-680, AD-682, AD-684, AD-686).
 
-use archkeel_facts::data::{ConstructData, PlainConstructData};
+use archkeel_facts::data::{ConstructData, PlainConstructData, SignalData};
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId};
-use archkeel_facts::vocab::{Area, EvidenceClass};
+use archkeel_facts::sections::SignalFact;
+use archkeel_facts::vocab::{Area, ConstructForm, EvidenceClass, Signal};
 use archkeel_facts::{ConstructFact, Record};
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{ExceptHandler, Expr, Stmt};
+use ruff_python_ast::{CmpOp, ExceptHandler, Expr, Stmt};
 use ruff_text_size::Ranged;
 
 use super::binders::Binders;
@@ -20,43 +21,69 @@ pub(super) fn collect(
     modules: &[Module],
     binders: &[Binders],
     evidence: &mut EvidenceMap,
-) -> (Vec<Record<ConstructFact>>, bool, bool, bool) {
+) -> Findings {
     let mut records = Vec::new();
+    let mut signals = Vec::new();
     let mut complete = true;
     let mut dict_complete = true;
     let mut vars_complete = true;
+    let mut compare_complete = true;
+    let mut getattr_complete = true;
     for (module, binders) in modules.iter().zip(binders) {
-        let (found, read, dict_read, vars_read) = one(module, binders, evidence);
-        records.extend(found);
-        complete &= read;
-        dict_complete &= dict_read;
-        vars_complete &= vars_read;
+        let found = one(module, binders, evidence);
+        records.extend(found.records);
+        signals.extend(found.signals);
+        complete &= found.broad_complete;
+        dict_complete &= found.dict_complete;
+        vars_complete &= found.vars_complete;
+        compare_complete &= found.compare_complete;
+        getattr_complete &= found.getattr_complete;
     }
-    (records, complete, dict_complete, vars_complete)
+    Findings {
+        records,
+        signals,
+        broad_complete: complete,
+        dict_complete,
+        vars_complete,
+        compare_complete,
+        getattr_complete,
+    }
 }
 
-fn one(
-    module: &Module,
-    binders: &Binders,
-    evidence: &mut EvidenceMap,
-) -> (Vec<Record<ConstructFact>>, bool, bool, bool) {
+pub(super) struct Findings {
+    pub records: Vec<Record<ConstructFact>>,
+    pub signals: Vec<Record<SignalFact>>,
+    pub broad_complete: bool,
+    pub dict_complete: bool,
+    pub vars_complete: bool,
+    pub compare_complete: bool,
+    pub getattr_complete: bool,
+}
+
+fn one(module: &Module, binders: &Binders, evidence: &mut EvidenceMap) -> Findings {
     let mut walk = Walk {
         module,
         binders,
         evidence,
         owner: module.name.clone(),
         records: Vec::new(),
+        signals: Vec::new(),
         complete: true,
         dict_complete: true,
         vars_complete: true,
+        compare_complete: true,
+        getattr_complete: true,
     };
     walk.visit_body(&module.tree.body);
-    (
-        walk.records,
-        walk.complete,
-        walk.dict_complete,
-        walk.vars_complete,
-    )
+    Findings {
+        records: walk.records,
+        signals: walk.signals,
+        broad_complete: walk.complete,
+        dict_complete: walk.dict_complete,
+        vars_complete: walk.vars_complete,
+        compare_complete: walk.compare_complete,
+        getattr_complete: walk.getattr_complete,
+    }
 }
 
 struct Walk<'a> {
@@ -65,13 +92,19 @@ struct Walk<'a> {
     evidence: &'a mut EvidenceMap,
     owner: String,
     records: Vec<Record<ConstructFact>>,
+    signals: Vec<Record<SignalFact>>,
     complete: bool,
     dict_complete: bool,
     vars_complete: bool,
+    compare_complete: bool,
+    getattr_complete: bool,
 }
 
 impl<'a> Visitor<'a> for Walk<'_> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        if matches!(stmt, Stmt::Match(_)) {
+            self.compare_complete = false;
+        }
         if matches!(stmt, Stmt::Assert(_)) {
             let place = self.module.location(stmt);
             let evidence = self.module.evidence(self.evidence, stmt);
@@ -120,17 +153,45 @@ impl<'a> Visitor<'a> for Walk<'_> {
         if matches!(expr, Expr::Name(name) if name.id.as_str() == "vars") {
             self.vars_complete = false;
         }
+        if matches!(expr, Expr::Name(name) if name.id.as_str() == "getattr") {
+            self.getattr_complete = false;
+        }
         if let Expr::Call(call) = expr {
-            self.dict_complete = false;
-            let known = matches!(&*call.func, Expr::Name(name)
-                if name.id.as_str() == "vars" && self.binders.builtin_visible("vars"));
-            if known {
-                self.construct(expr, "vars_call", "vars", ConstructFact::VarsCall);
-            } else {
-                self.vars_complete = false;
+            self.call(expr, call);
+        }
+        if let Expr::Compare(node) = expr {
+            self.compare_complete = false;
+            let literal =
+                |value: &Expr| matches!(value, Expr::StringLiteral(_) | Expr::BytesLiteral(_));
+            let found = node
+                .ops
+                .iter()
+                .zip(node.operands.windows(2))
+                .any(|(op, pair)| {
+                    matches!(op, CmpOp::Eq | CmpOp::NotEq)
+                        && (literal(&pair[0]) || literal(&pair[1]))
+                });
+            if found {
+                let place = self.module.location(expr);
+                let evidence = self.module.evidence(self.evidence, expr);
+                let mut data = self.data("string_literal_compare");
+                data.form = Some(ConstructForm::Compare);
+                self.record(
+                    place,
+                    evidence,
+                    "string_literal_compare",
+                    "string_literal_compare",
+                    ConstructFact::StringLiteralCompare(data),
+                );
             }
         }
         if let Expr::Attribute(node) = expr {
+            if matches!(
+                node.attr.as_str(),
+                "startswith" | "endswith" | "__eq__" | "__ne__" | "__contains__"
+            ) {
+                self.compare_complete = false;
+            }
             if node.attr.as_str() == "__dict__" {
                 let place = self.module.location(&node.attr);
                 let evidence = self.module.evidence(self.evidence, &node.attr);
@@ -151,6 +212,57 @@ impl<'a> Visitor<'a> for Walk<'_> {
 }
 
 impl Walk<'_> {
+    fn call(&mut self, expr: &Expr, call: &ruff_python_ast::ExprCall) {
+        self.dict_complete = false;
+        self.compare_complete = false;
+        let known = matches!(&*call.func, Expr::Name(name)
+            if name.id.as_str() == "vars" && self.binders.builtin_visible("vars"));
+        if known {
+            self.construct(expr, "vars_call", "vars", ConstructFact::VarsCall);
+        } else {
+            self.vars_complete = false;
+        }
+        let known_getattr = matches!(&*call.func, Expr::Name(name)
+            if name.id.as_str() == "getattr" && self.binders.builtin_visible("getattr"));
+        if known_getattr {
+            self.getattr(expr);
+        } else {
+            self.getattr_complete = false;
+        }
+    }
+
+    fn getattr(&mut self, node: &impl Ranged) {
+        let place = self.module.location(node);
+        let evidence = self.module.evidence(self.evidence, node);
+        let id = stable_id(
+            "TYPE",
+            &[
+                Part::Text(&self.module.rel),
+                Part::Number(place.line),
+                Part::Number(place.column),
+                Part::Text("getattr_call"),
+            ],
+        );
+        let record = self.make(
+            id,
+            evidence,
+            "getattr",
+            Area::TypeArchitecture,
+            SignalFact::GetattrCall(SignalData {
+                annotation: None,
+                expression: None,
+                line: None,
+                owner: self.owner.clone(),
+                positions: None,
+                qualified_name: None,
+                signal: Signal::GetattrCall,
+                statement: None,
+                tag: None,
+            }),
+        );
+        self.signals.push(record);
+    }
+
     fn construct(
         &mut self,
         node: &impl Ranged,
@@ -189,16 +301,21 @@ impl Walk<'_> {
                 Part::Text(kind),
             ],
         );
-        self.records.push(Record {
+        let record = self.make(id, evidence, name, Area::Constructs, data);
+        self.records.push(record);
+    }
+
+    fn make<D>(&self, id: String, evidence: String, name: &str, area: Area, data: D) -> Record<D> {
+        Record {
             id: FactId::new(id),
             evidence_class: EvidenceClass::Fact,
-            area: Area::Constructs,
+            area,
             title: format!("{} uses {name}", self.owner),
             subjects: vec![self.owner.clone()],
             evidence_ids: vec![EvidenceId::new(evidence)],
             fact_ids: Vec::new(),
             data,
-        });
+        }
     }
 
     fn broad(&self, expr: &Expr) -> bool {

@@ -89,9 +89,14 @@ fn the_other_ce_dynamic_import_forms_keep_their_named_gap() {
         ("import pickle\npickle.Unpickler\n", "pickle.Unpickler"),
         ("import pickle\npickle.dumps(data)\n", "pickle.dumps"),
         ("import dill\n", "dill"),
-        ("import dill\ndill.settings\n", "dill.settings"),
         ("import dill\ndill.Pickler\n", "dill.Pickler"),
         ("import dill\ndill.Unpickler\n", "dill.Unpickler"),
+        ("import dill\ndill.loads(data)\n", "dill.loads"),
+        ("import dill\ndill.dumps(data)\n", "dill.dumps"),
+        (
+            "import importlib\nimportlib.import_module(name)\n",
+            "import_module",
+        ),
         ("from importlib import metadata\n", "importlib.metadata"),
         (
             "from importlib.resources import files\n",

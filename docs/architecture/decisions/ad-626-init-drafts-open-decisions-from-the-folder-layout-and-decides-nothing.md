@@ -10,7 +10,7 @@ The shell decides nothing and reads no source (AD-432), so that design cannot re
 ## Decision
 
 1. `archkeel init` is a command of the shell. It writes three files below the root and replaces
-   none: `archkeel.toml`, `architecture-contract.json` and `docs/architecture/architecture.md`.
+   none: `archkeel.toml`, `architecture-contract.json` and `docs/architecture/architecture.md` in the user's project.
    If one of them exists, `init` refuses with `io_error` and writes nothing.
 2. The draft reads the folder layout only: the one top-level Python package in `src/` (or in the
    root), and its subpackages. No source file is read, so `init` cannot give a wrong fact.

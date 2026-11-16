@@ -32,8 +32,8 @@ pub(crate) fn version(version: ProtocolVersion, profile: Profile) -> Result<(), 
 
 /// The registered set of an import survey (Python, AD-450; Dart, AD-468): the sections `imports` and
 /// `unknowns`, and for Python also `symbols`, `calls` and `references` (AD-518, AD-520);
-/// the Python survey may additionally state `assert`, `broad_except`, `dunder_dict` and `vars`
-/// (AD-658, AD-666, AD-680, AD-682).
+/// the Python survey may additionally state the construct kinds of AD-658, AD-666, AD-680,
+/// AD-682, AD-684 and AD-686.
 /// `validate::checkable` refuses each resolution feature
 /// of a Python reply, and `registered.rs` binds the symbol statement to its feature.
 pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
@@ -50,14 +50,26 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
     };
     let with_asserts = facts.profile == Profile::Python
         && sections
-            == [
-                "calls",
-                "constructs",
-                "imports",
-                "references",
-                "symbols",
-                "unknowns",
-            ]
+            == if facts.capabilities.constructs.len() == 6 {
+                &[
+                    "calls",
+                    "constructs",
+                    "imports",
+                    "references",
+                    "symbols",
+                    "typing_signals",
+                    "unknowns",
+                ][..]
+            } else {
+                &[
+                    "calls",
+                    "constructs",
+                    "imports",
+                    "references",
+                    "symbols",
+                    "unknowns",
+                ][..]
+            }
         && {
             let entries = &facts.capabilities.constructs;
             let partial = |index: usize, name: &str| {
@@ -69,12 +81,14 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
                         )
                 })
             };
-            (1..=4).contains(&entries.len())
+            (1..=6).contains(&entries.len())
                 && entries[0].name == "assert"
                 && entries[0].status == ConstructSupport::Supported
                 && (entries.len() < 2 || partial(1, "broad_except"))
                 && (entries.len() < 3 || partial(2, "dunder_dict"))
                 && (entries.len() < 4 || partial(3, "vars"))
+                && (entries.len() < 5 || partial(4, "string_literal_compare"))
+                && (entries.len() < 6 || partial(5, "getattr"))
         };
     if !with_asserts && (sections != registered || !facts.capabilities.constructs.is_empty()) {
         return Err(format!(

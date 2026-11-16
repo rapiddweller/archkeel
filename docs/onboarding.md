@@ -92,7 +92,7 @@ Edit `architecture-contract.json`:
     "provenance": ["docs/architecture/architecture.md"], "decided_by": "architect"}
    ```
 
-Edit the graph in `docs/architecture/architecture.md` to draw the same dependencies:
+Edit the graph in `docs/architecture/architecture.md` of your project to draw the same dependencies:
 
 ````markdown
 <!-- archkeel-component-graph -->
