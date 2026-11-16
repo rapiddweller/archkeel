@@ -16,7 +16,9 @@ use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::request::PythonRequest;
 use archkeel_facts::vocab::ExceptionName;
-use archkeel_facts::{CallFact, GapFact, ImportFact, Record, ReferenceFact, SymbolFact};
+use archkeel_facts::{
+    CallFact, ConstructFact, GapFact, ImportFact, Record, ReferenceFact, SymbolFact,
+};
 use archkeel_snapshot::Snapshot;
 
 use crate::discover::{self, Unseen};
@@ -32,6 +34,7 @@ pub(crate) mod binders;
 pub(crate) mod bound;
 pub(crate) mod bound_kind;
 mod call_count;
+mod constructs;
 mod copy_local;
 mod declared;
 mod effects;
@@ -94,6 +97,7 @@ pub(crate) struct Survey {
     pub symbols: Vec<Record<SymbolFact>>,
     pub calls: Vec<Record<CallFact>>,
     pub references: Vec<Record<ReferenceFact>>,
+    pub constructs: Vec<Record<ConstructFact>>,
 }
 
 /// The parsed modules of a request and their binders, as the survey reads them (the dump of
@@ -162,6 +166,10 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .map(|module| Binders::of(&module.tree))
         .collect();
     let mut evidence = EvidenceMap::new();
+    let constructs = modules
+        .iter()
+        .flat_map(|module| constructs::asserts(module, &mut evidence))
+        .collect();
     let lazy = lazy::find(modules, &binders, namespace);
     // AD-472: a proven literal import call is an import record; each other site is a gap.
     let (literals, hazards) = hazards::split(modules, &binders, Some(&lazy));
@@ -295,6 +303,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         symbols: symbols.records,
         calls: symbols.calls,
         references: symbols.references,
+        constructs,
     })
 }
 

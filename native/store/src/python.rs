@@ -9,7 +9,9 @@
 
 use std::collections::HashSet;
 
-use archkeel_facts::envelope::{Facts, LimitSupport, Profile, ProtocolVersion, Target};
+use archkeel_facts::envelope::{
+    ConstructSupport, Facts, LimitSupport, Profile, ProtocolVersion, Target,
+};
 use archkeel_facts::{ImportFact, Section};
 
 use crate::standard::standard_library_at;
@@ -29,8 +31,9 @@ pub(crate) fn version(version: ProtocolVersion, profile: Profile) -> Result<(), 
 }
 
 /// The registered set of an import survey (Python, AD-450; Dart, AD-468): the sections `imports` and
-/// `unknowns`, and for Python also `symbols`, `calls` and `references` (AD-518, AD-520); no construct, and no statement that
-/// interfaces are supported. `validate::checkable` refuses each resolution feature
+/// `unknowns`, and for Python also `symbols`, `calls` and `references` (AD-518, AD-520);
+/// the Python survey may additionally state the `assert` construct (AD-658).
+/// `validate::checkable` refuses each resolution feature
 /// of a Python reply, and `registered.rs` binds the symbol statement to its feature.
 pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
     let mut sections: Vec<&str> = facts
@@ -44,7 +47,18 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
         Profile::Python => &["calls", "imports", "references", "symbols", "unknowns"],
         _ => &["imports", "unknowns"],
     };
-    if sections != registered || !facts.capabilities.constructs.is_empty() {
+    let with_asserts = facts.profile == Profile::Python
+        && sections
+            == [
+                "calls",
+                "constructs",
+                "imports",
+                "references",
+                "symbols",
+                "unknowns",
+            ]
+        && matches!(facts.capabilities.constructs.as_slice(), [one] if one.name == "assert" && one.status == ConstructSupport::Supported);
+    if !with_asserts && (sections != registered || !facts.capabilities.constructs.is_empty()) {
         return Err(format!(
             "a {} reply must be exactly the import survey (AD-450, AD-468)",
             facts.profile.as_str()

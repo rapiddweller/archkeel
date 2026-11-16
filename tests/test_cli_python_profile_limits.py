@@ -132,3 +132,58 @@ def test_an_unported_kind_and_an_unmeasured_budget_name_their_own_rows(
     assert "rule kind SymbolPlacement" in unsupported["PROTOCOLS-IN-SERVICE"], unsupported
     budget = scanned(release_core, tmp_path / "budget", PLANTS["budget"])["frame"]
     assert "declarations.measurement_budgets.private_crossings" in budget["scope"], budget["scope"]
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("def check():\n    assert False\n", "FAIL"),
+        ("def check():\n    return True\n", "PASS"),
+        ("exec('assert False')\n", "UNKNOWN"),
+        ("from builtins import exec as run\nrun('assert False')\n", "UNKNOWN"),
+    ],
+)
+def test_assert_construct_has_evidence_and_hidden_code_does_not_pass(
+    release_core: Path, tmp_path: Path, source: str, expected: str
+) -> None:
+    rule = {**CONSTRUCT, "id": "NO-ASSERT", "constructs": ["assert"]}
+    result = scanned(
+        release_core, tmp_path, Plant({"src/app/client/page.py": source}, [rule], [], {}, {})
+    )
+    assert rows(result)["NO-ASSERT"] == expected, result["frame"]["explained"]
+    if expected == "FAIL":
+        frame = result["frame"]
+        evidence = frame["details"]["NO-ASSERT"][0]["evidence"]
+        assert [frame["locations"][item] for item in evidence] == [
+            {"path": "src/app/client/page.py", "line": 2}
+        ]
+
+
+def test_assert_uses_its_function_owner_and_exact_line(release_core: Path, tmp_path: Path) -> None:
+    rule = {
+        **CONSTRUCT,
+        "id": "NO-ASSERT",
+        "source": "app.client.page",
+        "constructs": ["assert"],
+        "allowed_sources": ["app.client.page.Allowed"],
+    }
+    source = (
+        "class Allowed:\n"
+        "    def check(self):\n"
+        "        assert True\n"
+        "class Forbidden:\n"
+        "    def check(self):\n"
+        "        assert False\n"
+    )
+    result = scanned(
+        release_core, tmp_path, Plant({"src/app/client/page.py": source}, [rule], [], {}, {})
+    )
+    assert rows(result)["NO-ASSERT"] == "FAIL"
+    frame = json.dumps(result["frame"])
+    assert "app.client.page.Forbidden.check" in frame
+    assert "app.client.page.Allowed.check" not in frame
+    details = result["frame"]["details"]["NO-ASSERT"]
+    evidence = details[0]["evidence"]
+    assert [result["frame"]["locations"][item] for item in evidence] == [
+        {"path": "src/app/client/page.py", "line": 6}
+    ]
