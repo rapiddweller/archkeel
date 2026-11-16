@@ -86,8 +86,9 @@ SLOW_FILES = frozenset(
     }
 )
 
-# AD-674: files that a PR gate of 3 minutes cannot afford. Each took 8 s or more of summed test time
-# in the full run of 2026-11-16, or builds a workspace copy. The main tier runs them; the PR tier does not.
+# AD-674: files that a PR gate of 3 minutes cannot afford. Each took 8 s or more of summed
+# test time in the full run of 2026-11-16, or builds a workspace copy. The main tier runs them;
+# the PR tier does not.
 HEAVY_FILES = frozenset(
     {
         "test_cli_baseline.py",
