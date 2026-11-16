@@ -56,31 +56,66 @@ fn components(count: usize, edges: &[(usize, usize)]) -> Value {
     let list: Vec<Value> = (0..count)
         .map(|i| json!({"id": format!("COMP-{i}"), "name": format!("c{i}")}))
         .collect();
-    let links: Vec<Value> = edges
-        .iter()
-        .map(|(a, b)| {
-            json!({"source": format!("COMP-{a}"), "target": format!("COMP-{b}"),
-                "resolution": "resolved", "count": 2})
-        })
+    let modules: Vec<Value> = (0..count)
+        .map(|i| json!({"name": format!("m{i}"), "path": format!("src/m{i}.rs"), "component": format!("COMP-{i}")}))
         .collect();
-    json!({"components": list, "modules": [], "component_edges": links,
-        "total": {"components": count, "modules": 0, "edges": 0, "component_edges": links.len()}})
+    let imports: Vec<Value> = edges
+        .iter()
+        .map(|(a, b)| json!({"source": format!("m{a}"), "target": format!("m{b}"), "resolution": "resolved", "count": 2}))
+        .collect();
+    json!({"components": list, "modules": modules, "edges": imports, "component_edges": [],
+        "total": {"components": count, "modules": count, "edges": imports.len(), "component_edges": 0}})
 }
 
+/// The data of the Explorer that a page holds.
+fn payload(page: &str) -> Value {
+    let (_, rest) = page
+        .split_once("<script id=\"flow-data\" type=\"application/json\">")
+        .unwrap();
+    serde_json::from_str(rest.split_once("</script>").unwrap().0).unwrap()
+}
+
+/// The observed edges between the top components, as (source, target, import sites).
+fn top_edges(data: &Value) -> Vec<(String, String, u64)> {
+    let root = data["atlas"]["levels"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|level| level["parent_id"].is_null())
+        .unwrap();
+    root["edges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| {
+            let text = |key: &str| e[key].as_str().unwrap().to_owned();
+            (
+                text("source_id"),
+                text("target_id"),
+                e["import_sites"].as_u64().unwrap(),
+            )
+        })
+        .collect()
+}
+
+// AD-606: a run with a topology has the Explorer and its data; a run without one has no section.
 #[test]
-fn a_small_run_has_the_map_and_a_large_run_has_the_matrix_only() {
-    let small = document(&json!({"status": "PASS", "topology": components(3, &[(0, 1), (1, 2)])}));
-    assert!(small.contains("class=\"ak-diagram rp-map\"") && small.contains("class=\"rp-mx\""));
-    let many = document(&json!({"status": "PASS", "topology": components(13, &[(0, 1)])}));
-    assert!(!many.contains("class=\"ak-diagram rp-map\"") && many.contains("class=\"rp-mx\""));
-    let dense: Vec<(usize, usize)> = (0..7).flat_map(|a| (0..7).map(move |b| (a, b))).collect();
-    let thick = document(&json!({"status": "PASS", "topology": components(7, &dense)}));
-    assert!(
-        !thick.contains("class=\"ak-diagram rp-map\""),
-        "more than 30 dependencies draw the matrix"
-    );
+fn a_run_with_a_topology_has_the_explorer_and_its_data() {
+    for size in [3, 13] {
+        let page =
+            document(&json!({"status": "PASS", "topology": components(size, &[(0, 1), (1, 2)])}));
+        let data = payload(&page);
+        assert_eq!(data["atlas"]["components"].as_array().unwrap().len(), size);
+        assert_eq!(top_edges(&data).len(), 2);
+        assert!(page.contains("id=\"flow\" class=\"flow\" data-atlas=\"true\""));
+        assert_eq!(
+            page.matches("<script").count(),
+            10,
+            "the theme, the data and eight scripts"
+        );
+    }
     let none = document(&json!({"status": "PASS"}));
-    assert!(!none.contains("id=\"arch\""));
+    assert!(!none.contains("id=\"arch\"") && !none.contains("flow-data"));
 }
 
 fn dependency_frame(rows: usize) -> Value {
@@ -226,22 +261,20 @@ fn hostile_frame(components: usize) -> Value {
     frame
 }
 
-// S4: a hostile component or module name reaches no markup, in the map and in the matrix.
 #[test]
-fn hostile_names_are_escaped_in_the_map_the_matrix_and_the_cycle_rows() {
+// S4: a hostile component or module name reaches no markup: the data block writes `<` as
+// `\u003c`, and the Explorer reads the name as text.
+fn hostile_names_are_escaped_in_the_data_and_the_cycle_rows() {
     for components in [2, 13] {
         let page = document(&hostile_frame(components));
         let safe = escape(HOSTILE);
         assert!(page.contains(&safe), "{components} components");
         assert!(!page.contains("<script>\""), "{components} components");
-        assert_eq!(page.matches("<script>").count(), 1);
-        assert!(page.contains("class=\"rp-mx\""));
+        let data = payload(&page);
         assert_eq!(
-            page.contains("class=\"ak-diagram rp-map\""),
-            components <= 12
+            data["atlas"]["components"][0]["label"],
+            format!("{HOSTILE}0")
         );
-        assert!(page.contains(&format!("<title>{safe}0")) || components > 12);
-        assert!(page.contains(&format!("title=\"{safe}0")) || components <= 12);
         let cycle = page.split("Cycle of 1 member").nth(1).unwrap();
         assert!(cycle.contains(&format!("<span title=\"{safe}\">{safe}</span>")));
     }
@@ -259,121 +292,13 @@ fn a_rule_with_an_import_row_and_a_cycle_row_pairs_each_with_its_own_row() {
     assert!(!page.contains(&format!("{} imports m.b", escape(HOSTILE))));
 }
 
-/// The boxes `(x, y, width, height)` and the paths of the edges of the map.
-fn drawing(page: &str) -> (Vec<[f64; 4]>, Vec<String>) {
-    let number = |chunk: &str, key: &str| -> f64 {
-        let at = chunk.split(&format!("{key}=\"")).nth(1).unwrap();
-        at.split('"').next().unwrap().parse().unwrap()
-    };
-    let boxes = page
-        .split("<rect class=\"ak-node__box\"")
-        .skip(1)
-        .map(|chunk| ["x", "y", "width", "height"].map(|key| number(chunk, key)))
-        .collect();
-    let paths = page
-        .split("<path class=\"ak-edge")
-        .skip(1)
-        .map(|chunk| {
-            chunk
-                .split("d=\"")
-                .nth(1)
-                .unwrap()
-                .split('"')
-                .next()
-                .unwrap()
-                .to_owned()
-        })
-        .collect();
-    (boxes, paths)
-}
-
-/// The points of a path of the map in order: a curve counts with its two control points.
-fn points(path: &str) -> Vec<(f64, f64)> {
-    let mut found: Vec<(f64, f64)> = Vec::new();
-    let mut tokens: Vec<String> = Vec::new();
-    let mut word = String::new();
-    for c in path.chars() {
-        if c.is_ascii_alphabetic() {
-            if !word.is_empty() {
-                tokens.push(std::mem::take(&mut word));
-            }
-            tokens.push(c.to_string());
-        } else if c == ' ' {
-            if !word.is_empty() {
-                tokens.push(std::mem::take(&mut word));
-            }
-        } else {
-            word.push(c);
-        }
-    }
-    tokens.push(word);
-    let (mut x, mut y) = (0.0, 0.0);
-    let mut at = 0;
-    while at < tokens.len() {
-        let value = |i: usize| tokens[i].parse::<f64>().unwrap();
-        match tokens[at].as_str() {
-            "M" => (x, y, at) = (value(at + 1), value(at + 2), at + 3),
-            "H" => (x, at) = (value(at + 1), at + 2),
-            "V" => (y, at) = (value(at + 1), at + 2),
-            "C" => {
-                found.push((value(at + 1), value(at + 2)));
-                found.push((value(at + 3), value(at + 4)));
-                (x, y, at) = (value(at + 5), value(at + 6), at + 7);
-            }
-            other => assert!(other.is_empty(), "unknown path command {other}"),
-        }
-        found.push((x, y));
-    }
-    found
-}
-
-// S5: no edge segment crosses the inside of a box. A box is the end of an edge only at its border.
+// S6: an import inside one component is no edge between components.
 #[test]
-fn no_edge_of_the_map_crosses_a_box() {
-    let edges = [
-        (0, 1),
-        (1, 2),
-        (0, 2),
-        (0, 3),
-        (3, 1),
-        (2, 0),
-        (4, 5),
-        (5, 4),
-        (3, 3),
-        (0, 5),
-        (1, 4),
-    ];
-    let page = document(&json!({"status": "PASS", "topology": components(6, &edges)}));
-    let (boxes, paths) = drawing(&page);
-    assert_eq!(boxes.len(), 6);
-    assert_eq!(
-        paths.len(),
-        10,
-        "the edge of a component to itself is not drawn"
-    );
-    for path in &paths {
-        let line = points(path);
-        for pair in line.windows(2) {
-            let (low_x, high_x) = (pair[0].0.min(pair[1].0), pair[0].0.max(pair[1].0));
-            let (low_y, high_y) = (pair[0].1.min(pair[1].1), pair[0].1.max(pair[1].1));
-            for [x, y, w, h] in &boxes {
-                let inside = low_x < x + w - 1.0
-                    && high_x > x + 1.0
-                    && low_y < y + h - 1.0
-                    && high_y > y + 1.0;
-                assert!(!inside, "{path} crosses the box at {x},{y}");
-            }
-        }
-    }
-}
-
-// S6: the number of dependencies is the number that the map draws.
-#[test]
-fn the_count_of_dependencies_leaves_out_the_edges_to_the_component_itself() {
+fn the_edges_leave_out_the_imports_inside_one_component() {
     let page =
         document(&json!({"status": "PASS", "topology": components(3, &[(0, 1), (1, 1), (2, 2)])}));
-    assert!(page.contains("1 dependency between components"));
-    assert!(page.contains("Component map: 3 components, 1 dependency."));
+    let edges = top_edges(&payload(&page));
+    assert_eq!(edges, [("COMP-0".to_owned(), "COMP-1".to_owned(), 2)]);
 }
 
 // B1: equal places are shown once with their number, and the page has no link without a target.
@@ -462,4 +387,33 @@ fn every_unknown_run_names_a_cause_and_the_rules_it_holds_with_a_bound() {
     }
     let empty = document(&json!({"status": "UNKNOWN", "scope": "missing input"}));
     assert!(empty.contains("keeps the run open: missing input"));
+}
+
+// A tower lays out its rows on the row tracks of its path (`subgrid`). A path without its row
+// tracks puts each row in one track: the rows of a module and of its file are drawn over each
+// other. Each path that a page writes has its tracks in the style.
+#[test]
+fn each_evidence_path_of_a_page_has_its_row_tracks() {
+    let frame = json!({"status": "FAIL", "rules": {"A": ["complete_assignment", "FAIL"]},
+        "details": {"A": [{"source": "app.loose", "target": null, "cause": "module has no unique owner",
+            "evidence": ["E"]}]},
+        "locations": {"E": {"path": "src/loose.rs", "line": 1}},
+        "topology": {"components": [], "component_edges": [], "edges": [],
+            "modules": [{"name": "app.loose", "path": "src/loose.rs", "component": null}],
+            "total": {"components": 0, "modules": 1, "edges": 0, "component_edges": 0}}});
+    let page = document(&frame);
+    let style = include_str!("../assets/report.css");
+    let paths: std::collections::BTreeSet<&str> = page
+        .split("class=\"rp-path rp-path--")
+        .skip(1)
+        .filter_map(|rest| rest.split('"').next())
+        .collect();
+    assert!(
+        paths.contains("2"),
+        "a module without a component has two rows: {paths:?}"
+    );
+    for rows in paths {
+        let rule = format!(".rp-path--{rows} {{ grid-template-rows: repeat({rows}, auto); }}");
+        assert!(style.contains(&rule), "{rule} is missing");
+    }
 }

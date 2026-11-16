@@ -50,6 +50,7 @@ class Component:
     planned: bool
     layer: str | None
     public: tuple[str, ...]
+    responsibilities: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +61,7 @@ class Module:
     path: str
     component: str | None
     ownership: Ownership
+    language: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,6 +142,7 @@ def _component(value: object) -> Component:
         _bool(row["planned"]),
         _optional(row["layer"]),
         _strings(row["public"]),
+        _strings(row["responsibilities"]),
     )
 
 
@@ -152,7 +155,13 @@ def _module(value: object) -> Module:
     component = _optional(row["component"])
     if (ownership is Ownership.OWNED) != (component is not None):
         raise CoreError("topology: ownership and component differ")
-    return Module(as_text(row["name"], "name"), as_text(row["path"], "path"), component, ownership)
+    return Module(
+        as_text(row["name"], "name"),
+        as_text(row["path"], "path"),
+        component,
+        ownership,
+        as_text(row["language"], "language"),
+    )
 
 
 def _edge(value: object, rules: Mapping[str, object]) -> Edge:

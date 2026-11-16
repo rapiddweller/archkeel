@@ -7,6 +7,7 @@ reads the file, as a user does."""
 import base64
 import hashlib
 import html
+import json
 import re
 from pathlib import Path
 
@@ -18,7 +19,8 @@ from planted_cycle import cycle_root as cycle_root
 from archkeel.cli import core_only
 
 ASSETS = ROOT / "native/report/assets"
-BUDGET = 600_000
+# AD-606: the Explorer scripts and style are about 2.1 MB of the page.
+BUDGET = 3_500_000
 RUNS = {
     "shell": (None, "docs/architecture/shell.toml", "PASS"),
     "H-typescript": ("fixtures/H-typescript", "archkeel.toml", "UNKNOWN"),
@@ -72,11 +74,29 @@ def test_the_theme_script_is_the_file_of_the_design_system_and_its_hash_is_in_th
     assert "default-src 'none'" in self_page and "unsafe-eval" not in self_page
 
 
+def markup(page: str) -> str:
+    """The page without the bodies of its scripts: the scripts are checked by their hashes."""
+    return re.sub(r"(<script[^>]*>).*?</script>", r"\1</script>", page, flags=re.S)
+
+
 def test_the_page_loads_nothing_and_links_only_inside_itself(self_page: str) -> None:
-    assert "src=" not in self_page and "<link" not in self_page and "@import" not in self_page
-    assert not re.findall(r'href="(?!#)', self_page)
-    assert not re.findall(r"url\((?!data:)", self_page)
-    assert "http://" not in self_page and "https://" not in self_page
+    page = markup(self_page)
+    assert "src=" not in page and "<link" not in page and "@import" not in page
+    assert not re.findall(r'href="(?!#)', page)
+    assert not re.findall(r"url\((?!data:)", page)
+    assert "http://" not in page and "https://" not in page
+    # A script cannot request anything either: the policy admits no source.
+    assert "default-src 'none'" in self_page and "connect-src" not in self_page
+
+
+def test_each_script_of_the_page_is_admitted_by_its_hash(self_page: str) -> None:
+    policy = re.search(r'Content-Security-Policy" content="([^"]+)"', self_page)
+    assert policy
+    bodies = re.findall(r"<script(?![^>]*application/json)[^>]*>(.*?)</script>", self_page, re.S)
+    assert len(bodies) == 9, "the theme switch and the eight scripts of the Explorer"
+    for body in bodies:
+        digest = base64.b64encode(hashlib.sha256(body.encode()).digest()).decode()
+        assert f"'sha256-{digest}'" in policy.group(1)
 
 
 def test_the_verdict_heading_is_the_one_exact_line_that_the_shell_checks(cycle_page: str) -> None:
@@ -99,14 +119,17 @@ def test_a_cycle_page_shows_one_block_for_its_cycle(cycle_page: str) -> None:
     assert "members are in this cycle. Shortest closed path shown:" in cycle
 
 
-def test_the_self_run_page_draws_a_matrix_and_no_map_for_its_many_components(
+def test_the_self_run_page_holds_the_explorer_with_the_components_of_its_line(
     self_page: str,
 ) -> None:
-    # The count comes from the page, which copies the frame: more than 12 components draw a matrix.
+    # AD-606: the line of counts and the Explorer read the same data.
     count = re.search(r"(\d+) components, \d+ modules", self_page)
-    assert count and int(count.group(1)) > 12 and 'class="rp-mx"' in self_page
-    # A matrix page has no drawn map: the run has more than 12 components.
-    assert 'class="ak-diagram rp-map"' not in self_page
+    data = re.search(r'<script id="flow-data" type="application/json">(.*?)</script>', self_page)
+    assert count and data
+    components = json.loads(data.group(1))["atlas"]["components"]
+    real = [c for c in components if not c["id"].startswith("LAYER:")]
+    assert int(count.group(1)) == len(real) > 12
+    assert all(c["language"] == "rust" for c in real if c["observed_modules"])
 
 
 @pytest.mark.parametrize("name", sorted(RUNS))
@@ -162,7 +185,7 @@ def test_the_local_style_has_no_rule_that_no_page_uses() -> None:
 
 def visible_text(page: str) -> str:
     """The text that a reader sees: no style, no script, the body of a closed fold left out."""
-    page = re.sub(r"<style>.*?</style>|<script>.*?</script>", "", page, flags=re.S)
+    page = re.sub(r"<style>.*?</style>|<script[^>]*>.*?</script>", "", page, flags=re.S)
     fold = r"<details(?![^>]*\bopen\b)[^>]*>\s*<summary[^>]*>(.*?)</summary>.*?</details>"
     page = re.sub(fold, r"\1", page, flags=re.S)
     return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", page))).strip()
@@ -177,11 +200,8 @@ def test_the_word_budget_of_the_core_self_page_and_no_json_block(self_page: str)
     words = visible_text(self_page)
     print(f"visible characters of the core self page: {len(words)}")
     assert len(words) < WORD_BUDGET
-    assert (
-        "<pre" not in self_page
-        and '"kind":' not in self_page
-        and "&quot;kind&quot;" not in self_page
-    )
+    page = markup(self_page)
+    assert "<pre" not in page and '"kind":' not in page and "&quot;kind&quot;" not in page
 
 
 @pytest.mark.parametrize("name", sorted(RUNS))
@@ -191,7 +211,7 @@ def test_the_word_budget_and_the_links_hold_on_each_dogfood_page(
     folder, config, _ = RUNS[name]
     root = ROOT / folder if folder else ROOT
     _, text, _ = write_page(release_core, monkeypatch, root, config, tmp_path / "p.html")
-    assert len(visible_text(text)) < WORD_BUDGET and "<pre" not in text
+    assert len(visible_text(text)) < WORD_BUDGET and "<pre" not in markup(text)
     ids = set(re.findall(r' id="([^"]+)"', text))
     links = set(re.findall(r'href="#([^"]+)"', text))
     assert not (links - ids), sorted(links - ids)[:5]

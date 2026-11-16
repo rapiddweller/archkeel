@@ -5,6 +5,7 @@
 //! The shell of the report page: the policy, the theme script, the style and the top bar (AD-496).
 //! The files are the design system of the owner; the page loads no other resource.
 
+use super::explorer;
 use super::markup::{base64, escape};
 
 const TOKENS: &str = include_str!("../assets/tokens.css");
@@ -31,9 +32,10 @@ font-display:block;src:url(data:font/woff2;base64,{}) format(\"woff2\");}}",
 fn style() -> String {
     let mut css = font("Geist", "100 900", GEIST);
     css.push_str(&font("JetBrains Mono", "100 800", MONO));
-    for part in [TOKENS, "\n", BUNDLE, "\n", LOCAL] {
+    for part in [TOKENS, "\n", BUNDLE, "\n", LOCAL, "\n"] {
         css.push_str(part);
     }
+    css.push_str(&explorer::style());
     css.push_str(&format!(
         "@media (prefers-color-scheme:light){{html:not([data-theme]){{{LIGHT}color-scheme:light}}}}\
 @media print{{:root,[data-theme]{{{LIGHT}color-scheme:light}}}}"
@@ -62,11 +64,12 @@ pub(super) fn start(subject: &str) -> String {
     format!(
         "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n\
 <meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; \
-font-src data:; img-src data:; script-src 'sha256-{THEME_HASH}'; base-uri 'none'; form-action 'none'\">\n\
+font-src data:; img-src data:; script-src 'sha256-{THEME_HASH}'{}; base-uri 'none'; form-action 'none'\">\n\
 <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n\
 <title>ArchKeel report</title>\n<script>{THEME_SCRIPT}</script>\n<style>{}</style>\n</head>\n\
 <body class=\"ak-root body\">\n<header class=\"rp-top\"><p class=\"h3 rp-word\">ArchKeel<i>.</i></p>\
-<p class=\"body-sm rp-subject\">{}</p>{}</header>\n<main class=\"rp-main\">\n",
+<p class=\"body-sm rp-subject\">{}</p>{}</header>\n<main class=\"rp-main report-shell\">\n",
+        explorer::sources(),
         style(),
         escape(subject),
         toggle()

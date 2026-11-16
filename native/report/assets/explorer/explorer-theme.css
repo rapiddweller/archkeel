@@ -1,0 +1,11 @@
+/* AD-606: how the Explorer sits in the report page. Its rules read the 5.0 tokens directly; this
+   file adds the rules of the page and defines no token. */
+.rp-explorer { margin: 0 0 var(--space-5); }
+.rp-explorer .flow { font-family: var(--font-sans); }
+/* Embedded, the Explorer has the width of the report column and a fixed height; nothing of it
+   leaves the column. Fullscreen ("Back to report" or Esc returns) uses the whole window. */
+.rp-explorer .flow-section { left: auto; width: auto; margin-left: 0; }
+html.ak-canvas .rp-explorer .flow:not([data-expanded]) { height: 680px; }
+/* The panel of the selection fits inside the embedded Explorer. */
+html.ak-canvas .rp-explorer .flow:not([data-expanded])[data-details-open="true"] .flow-map-column { right: 320px; }
+html.ak-canvas .rp-explorer .flow:not([data-expanded])[data-atlas] .flow-inspector { width: 300px; padding: var(--space-4); }
