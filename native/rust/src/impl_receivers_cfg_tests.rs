@@ -112,17 +112,20 @@ fn a_path_self_m_is_an_edge_to_the_one_member_or_a_gap() {
 
 #[test]
 fn a_member_that_a_macro_may_expand_is_no_edge() {
-    // The expansion itself is no gap yet (#1020): only the resolution is blocked.
+    // The resolution is blocked, and the expansion adds `m` to an impl block of `S` outside the
+    // file of `S`: the module of the macro call gets a pair gap too (#1196, #1020).
     let made = "macro_rules! make {\n    () => {\n        impl crate::c::S {\n            pub fn m(&self) {}\n        }\n    };\n}\nmake!();\n";
     assert_eq!(
         outcome(made, &caller("&self", CALL), &[]),
-        (Vec::new(), names(&["e"]))
+        (Vec::new(), names(&["b", "e"]))
     );
     // A read member `m` beside a macro that defines `fn m`: the scan cannot see which is real.
     let beside = "pub struct T;\npub struct U;\nmacro_rules! make {\n    () => {\n        impl crate::d::U {\n            pub fn m(&self) {}\n        }\n    };\n}\nmake!();\n";
     let d = ("crates/app/src/d.rs", beside);
     let found = outcome(&shared(), &caller("&self", CALL), &[d]);
-    assert_eq!(found, kept());
+    // The impl names its type by a path, which no reading anchors in `d`: `d` gets a pair gap too
+    // (#1196). Each gap of the read member stays.
+    assert_eq!(found, (Vec::new(), names(&["b", "d", "e"])));
 }
 
 #[test]
