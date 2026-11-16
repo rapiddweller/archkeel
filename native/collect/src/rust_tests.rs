@@ -8,8 +8,8 @@ use std::fs;
 use std::path::Path;
 
 use super::*;
-use archkeel_facts::envelope::LimitSupport;
 use crate::tests::{commit, copy, identity};
+use archkeel_facts::envelope::LimitSupport;
 
 pub(super) fn repository() -> std::path::PathBuf {
     let root = crate::repository::tests::scratch("rust");

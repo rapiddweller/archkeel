@@ -41,11 +41,15 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
     if let Some(limits) = facts.profile_limits {
         // AD-504: the Python statement binds to the feature of its routes, as TypeScript binds
         // its statement to `script-globals-v1`. AD-604: the Rust statement binds to its routes.
-        let symbols = facts.capabilities.resolution_features.iter().any(|feature| {
-            feature == "script-globals-v1"
-                || feature == ROUTES_FEATURE
-                || feature == RUST_ROUTES_FEATURE
-        });
+        let symbols = facts
+            .capabilities
+            .resolution_features
+            .iter()
+            .any(|feature| {
+                feature == "script-globals-v1"
+                    || feature == ROUTES_FEATURE
+                    || feature == RUST_ROUTES_FEATURE
+            });
         if (limits.dependency_symbols == LimitSupport::Supported) != symbols {
             return Err("profile symbol statement does not match its capability".to_owned());
         }
@@ -53,7 +57,9 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
         if facts.profile == Profile::Rust
             && (limits.interface_boundary == LimitSupport::Supported) != rust_routes
         {
-            return Err("a Rust interface statement needs the feature rust-item-routes-v1".to_owned());
+            return Err(
+                "a Rust interface statement needs the feature rust-item-routes-v1".to_owned(),
+            );
         }
     }
     let sections = names(facts.capabilities.sections.iter().map(|name| name.as_str()));

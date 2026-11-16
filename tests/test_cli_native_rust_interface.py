@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-604: the core decides `interface_boundary` for Rust from the item and the route of each import.
+"""AD-604: the core decides `interface_boundary` for Rust from the item and route of each import.
 
 Each plant is a small Cargo workspace that rustc accepts (`cargo check`), so a FAIL is a use of a
 name that the contract does not publish, not code that cannot build. A use of a public name passes,
@@ -35,7 +35,9 @@ BASE = {
     "crates/base/src/made.rs": (
         "macro_rules! def {\n    ($n:ident) => {\n        pub struct $n;\n    };\n}\ndef!(Gen);\n"
     ),
-    "crates/base/src/extra.rs": "impl crate::Tool {\n    pub fn build() -> Self {\n        crate::Tool\n    }\n}\n",
+    "crates/base/src/extra.rs": (
+        "impl crate::Tool {\n    pub fn build() -> Self {\n        crate::Tool\n    }\n}\n"
+    ),
 }
 PUBLIC = ["native.base_crate:make", "native.base_crate:Thing", "native.base_crate.shapes:Circle"]
 VIOLATION = "BOUNDARY: native.app -> {}: import outside the public interface"
@@ -157,12 +159,18 @@ def test_each_rust_form_gets_the_verdict_of_its_route(
     assert claim is None or claim in found, (name, found)
 
 
-@pytest.mark.parametrize(("public", "status"), [(["native.base_crate.extra:Tool"], "PASS"), ([], "FAIL")])
+@pytest.mark.parametrize(
+    ("public", "status"), [(["native.base_crate.extra:Tool"], "PASS"), ([], "FAIL")]
+)
 def test_a_member_of_a_type_is_published_by_the_type_in_the_module_of_its_block(
     core_binary: Path, tmp_path: Path, public: list[str], status: str
 ) -> None:
     """The root calls `Tool::build`, which a block of another component defines (#953)."""
-    root = {**component("base", "base_crate"), "packages": [], "exact_modules": ["native.base_crate"]}
+    root = {
+        **component("base", "base_crate"),
+        "packages": [],
+        "exact_modules": ["native.base_crate"],
+    }
     root["requires"] = [{"component": "extra", "rationale": "The root builds its tool."}]
     extra = {**component("extra", "base_crate.extra"), "public": public}
     manifest = {**component("manifest", "base_crate.cargo_toml")}
@@ -177,6 +185,9 @@ def test_a_member_of_a_type_is_published_by_the_type_in_the_module_of_its_block(
     found_status, found = _run(tmp_path, core_binary, files, (root, extra, manifest, app))
     assert found_status == status, found
     if status == "FAIL":
-        assert VIOLATION.replace("native.app", "native.base_crate").format(
-            "native.base_crate.extra:Tool"
-        ) in found
+        assert (
+            VIOLATION.replace("native.app", "native.base_crate").format(
+                "native.base_crate.extra:Tool"
+            )
+            in found
+        )

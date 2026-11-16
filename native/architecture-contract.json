@@ -1184,8 +1184,8 @@
           "component": "report-payload",
           "rationale": "Read and write the typed payload: codes, head and tables.",
           "through": [
-            "native.archkeel_report.codes",
             "native.archkeel_report.code",
+            "native.archkeel_report.codes",
             "native.archkeel_report.head",
             "native.archkeel_report.payload",
             "native.archkeel_report.tables"
@@ -1255,8 +1255,8 @@
         "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md"
       ],
       "public": [
-        "native.archkeel_report.codes",
         "native.archkeel_report.code",
+        "native.archkeel_report.codes",
         "native.archkeel_report.head",
         "native.archkeel_report.payload",
         "native.archkeel_report.tables"
@@ -1300,8 +1300,8 @@
           "component": "report-payload",
           "rationale": "Read and write the typed payload: codes, head and tables.",
           "through": [
-            "native.archkeel_report.codes",
             "native.archkeel_report.code",
+            "native.archkeel_report.codes",
             "native.archkeel_report.head",
             "native.archkeel_report.payload",
             "native.archkeel_report.tables"
@@ -1377,8 +1377,8 @@
           "component": "report-payload",
           "rationale": "Read and write the typed payload: codes, head and tables.",
           "through": [
-            "native.archkeel_report.codes",
             "native.archkeel_report.code",
+            "native.archkeel_report.codes",
             "native.archkeel_report.head",
             "native.archkeel_report.payload",
             "native.archkeel_report.tables"

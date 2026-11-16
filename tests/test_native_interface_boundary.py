@@ -318,7 +318,9 @@ def test_a_symbol_selector_cannot_hide_a_forbidden_side_effect_import(
     assert frame["status"] == "FAIL", frame
 
 
-def test_rust_names_its_missing_publication_surface(built: Path, tmp_path: Path) -> None:
+def test_rust_decides_the_rule_and_names_a_component_without_public(
+    built: Path, tmp_path: Path
+) -> None:
     root = repository(tmp_path / "project", built / "archkeel-core")
     path = root / "architecture-contract.json"
     contract = json.loads(path.read_text())
@@ -334,8 +336,11 @@ def test_rust_names_its_missing_publication_surface(built: Path, tmp_path: Path)
     path.write_text(json.dumps(contract))
     (root / "p").write_text(EMPTY_GRAPH)
     frame = run_core(built, root)
-    assert frame["rules"]["INTERFACE"][1] == "UNKNOWN", frame
-    assert "interface_boundary: incomplete publication surface" in json.dumps(frame), frame
+    # AD-604: the Rust collector states its publication surface, so the rule is decided. A
+    # component without `public` is no subject; the hygiene names it and holds the run.
+    assert frame["rules"]["INTERFACE"][1] == "PASS", frame
+    assert "interface.undeclared" in json.dumps(frame), frame
+    assert frame["status"] != "PASS", frame
 
 
 @pytest.mark.parametrize(

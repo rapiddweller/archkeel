@@ -14,11 +14,10 @@ use archkeel_facts::identity::{package_of, stable_id, Part};
 use archkeel_facts::ids::{FactId, ModuleName, PackageName};
 use archkeel_facts::{ImportFact, Record};
 
-use crate::builder::{import_record, Builder, Origin};
+use crate::builder::{import_record, Builder};
 use crate::crates::Root;
 use crate::definitions::MethodCall;
 use crate::modules::{Edge, Index, Outcome};
-use crate::resolve::{classify, Found, Named};
 use crate::routes::{route, Route};
 use crate::scan::{MacroCall, MacroDef, Reference, Site, Via};
 use crate::tree::Module;
@@ -59,13 +58,6 @@ impl Builder {
                 let reason = "A macro_rules! body holds a path from the name of its own crate";
                 self.unreadable(module, reference, reason.to_owned());
             }
-            // A path through a `use` leaf into another crate of the workspace (AD-604).
-            Outcome::None if reference.names.len() > 1 && reference.in_macro.is_none() => {
-                match index.crate_path(frame, reference) {
-                    Some(names) => self.bound_crate_path(index, module, reference, names),
-                    None => self.ended += 1,
-                }
-            }
             // A path inside one crate that no module edge names: a local outcome.
             Outcome::None => self.ended += 1,
             Outcome::Unknown(reason) => self.unreadable(module, reference, reason),
@@ -73,36 +65,6 @@ impl Builder {
                 None => self.module_import(index, module, reference, &edge),
                 Some(_) => self.macro_use(index, module, reference, edge),
             },
-        }
-    }
-
-    /// The record of a path that names another crate of the workspace through a `use` leaf of
-    /// its file. Without it, a use through `use dep::m;` would have no record of its own, and the
-    /// interface rule would not see the name that it uses (AD-604).
-    fn bound_crate_path(
-        &mut self,
-        index: &Index<'_>,
-        module: &Module,
-        reference: &Reference,
-        names: Vec<String>,
-    ) {
-        let workspace = index.workspace();
-        let named = match workspace.crates.get(module.crate_index) {
-            Some(krate) => classify(&names[0], krate, &module.scan.shadows, false),
-            None => None,
-        };
-        match named {
-            Some(Found::Edge(named @ Named::Package(_))) => {
-                let full = Reference {
-                    root: names[0].clone(),
-                    names,
-                    via: Via::Path,
-                    ..reference.clone()
-                };
-                self.import(workspace, Some(index), Origin::of(module), &full, &named);
-            }
-            // A path into a crate outside the workspace is no crossing of a component.
-            _ => self.ended += 1,
         }
     }
 
