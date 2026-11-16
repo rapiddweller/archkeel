@@ -33,9 +33,8 @@ fn components(payload: &Value) -> Vec<&Value> {
 /// The violated places that name no module of a component.
 fn outside(places: &Places, names: &Names<'_>) -> usize {
     places
-        .shown
-        .iter()
-        .filter(|place| match &place.kind {
+        .every()
+        .filter(|kind| match kind {
             Kind::Import { source, .. } => names.component(source).is_none(),
             Kind::Cycle(cycle) => cycle.members.iter().all(|m| names.component(m).is_none()),
         })
@@ -68,6 +67,13 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
 a root package too. See the violations below.",
             count(lost, "violated place")
         ));
+        if places.total > places.shown.len() {
+            lede.push_str(&format!(
+                " <a href=\"#violations\">The list shows {} of {} violated places.</a>",
+                places.shown.len(),
+                places.total
+            ));
+        }
     }
     if !frame.named.is_empty() {
         lede.push_str(&format!(

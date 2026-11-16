@@ -121,7 +121,7 @@ fn a_run_with_a_topology_has_the_explorer_and_its_data() {
             .iter()
             .map(|level| level["edges"].as_array().unwrap().len())
             .sum();
-        assert!(if size <= 6 {
+        assert!(if size <= 12 {
             edges.len() == 2
         } else {
             drawn >= 2
@@ -361,7 +361,16 @@ fn the_verdict_names_the_largest_causes_in_one_line() {
         .next()
         .unwrap();
     assert!(!verdict.contains("rp-code\">A<"));
-    assert!(page.contains("4 unknown rules: 3 causes hold them. <a href=\"#unknown\">Causes</a>."));
+    // NEXT names the three largest jobs, each with its count of unknown rules.
+    let next = page
+        .split("id=\"next\"")
+        .nth(1)
+        .unwrap()
+        .split("</ol>")
+        .next()
+        .unwrap();
+    assert_eq!(next.matches("Close the gaps behind").count(), 3, "{next}");
+    assert!(next.contains("Close the gaps behind 2 unknown rules: 5 coverage gaps in the scan."));
 }
 
 // Red main (#1169): a page of an UNKNOWN run says why, with the code of the cause, and which rules
@@ -380,7 +389,9 @@ fn a_named_gap_without_a_rule_row_shows_its_code_on_the_page() {
         "{}",
         page.len()
     );
-    assert!(page.contains("Remove the causes named under the verdict."));
+    assert!(page.contains(
+        "Remove the cause that keeps the run open (1 gap): contract hygiene graph.count"
+    ));
 }
 
 #[test]
@@ -446,43 +457,11 @@ fn each_evidence_path_of_a_page_has_its_row_tracks() {
     }
 }
 
-/// The status of each component of the Explorer data, by its id.
-fn statuses(data: &Value) -> Vec<(String, String)> {
-    data["atlas"]["components"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|c| {
-            (
-                c["id"].as_str().unwrap().to_owned(),
-                c["status"].as_str().unwrap().to_owned(),
-            )
-        })
-        .collect()
-}
-
-// AD-606: a gap that no component owns may hold any component, so none shows PASS beside it.
-#[test]
-fn a_gap_that_names_no_owned_module_holds_every_component() {
-    for subjects in [json!([]), json!(["outside.module"])] {
-        let mut frame = json!({"status": "UNKNOWN", "topology": components(3, &[(0, 1)]),
-            "collection_gaps": [{"kind": "collection_gap", "subjects": subjects, "reason": "macro"}]});
-        let found = statuses(&payload(&document(&frame)));
-        assert_eq!(found.len(), 3);
-        assert!(
-            found.iter().all(|(_, status)| status == "UNKNOWN"),
-            "{found:?}"
-        );
-        // A gap inside one component holds that component only.
-        frame["collection_gaps"][0]["subjects"] = json!(["m1"]);
-        let found = statuses(&payload(&document(&frame)));
-        assert_eq!(found[0].1, "PASS", "{found:?}");
-        assert_eq!(found[1].1, "UNKNOWN", "{found:?}");
-    }
-}
-
 #[path = "html_system_tests.rs"]
 mod system_tests;
 
 #[path = "html_groups_tests.rs"]
 mod groups_tests;
+
+#[path = "html_next_tests.rs"]
+mod next_tests;

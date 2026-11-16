@@ -44,6 +44,15 @@ pub(super) struct Place {
 pub(super) struct Places {
     pub(super) shown: Vec<Place>,
     pub(super) total: usize,
+    /// The places beyond the cut: the page draws none of them, but each count reads all places.
+    pub(super) hidden: Vec<Kind>,
+}
+
+impl Places {
+    /// Every place of the frame, shown or not, so that a count never reads the cut list.
+    pub(super) fn every(&self) -> impl Iterator<Item = &Kind> {
+        self.shown.iter().map(|p| &p.kind).chain(&self.hidden)
+    }
 }
 
 fn is_cycle(detail: &Detail) -> bool {
@@ -110,6 +119,11 @@ impl Places {
                 .map(|(path, violated)| (Kind::Cycle(Box::new(path)), vec![violated])),
         );
         let total = all.len();
+        let hidden = all
+            .iter()
+            .skip(MAX_PLACES)
+            .map(|(kind, _)| kind.clone())
+            .collect();
         let shown = all
             .into_iter()
             .take(MAX_PLACES)
@@ -120,6 +134,10 @@ impl Places {
                 rules,
             })
             .collect();
-        Places { shown, total }
+        Places {
+            shown,
+            total,
+            hidden,
+        }
     }
 }
