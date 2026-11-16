@@ -181,7 +181,7 @@ GAPS: dict[str, dict[str, str]] = {
 }
 
 
-# AD-630: these gaps state an effect on the code of every library: the files and their names
+# AD-634: these gaps state an effect on the code of every library: the files and their names
 # stay known, so the rule on the files has its verdict.
 EVERY_LIBRARY = {"DartWorkspace", "DartPathDependency", "DartPackageConfig"}
 # These sites in `shop.data.x` leave the code of that library unknown. `FORBID` reads the edges
