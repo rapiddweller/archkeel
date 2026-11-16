@@ -63,6 +63,12 @@ fn object(value: Result<Value, serde_json::Error>) -> Result<Map<String, Value>,
     }
 }
 
+/// The page of a frame that the core joined itself: a system frame (AD-618). The page reads the
+/// frame and decides nothing.
+pub fn page(frame: &Map<String, Value>) -> Result<Value, serde_json::Error> {
+    html::render(frame)
+}
+
 /// The frame of a ruling (`Ruling::frame`): the keys of the ruling, its `unsupported.rules`
 /// and the parts of the core. A part that holds a key of the ruling is refused.
 pub(crate) fn write<P: Serialize>(

@@ -116,6 +116,7 @@ mod why;
 
 #[cfg(test)]
 pub(crate) use build_error::BuildError;
+pub use engine_frame::page;
 #[cfg(test)]
 pub(crate) use engine_frame::FrameError;
 #[cfg(test)]

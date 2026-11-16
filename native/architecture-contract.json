@@ -1702,6 +1702,7 @@
         "native.archkeel_report:Ruling",
         "native.archkeel_report:Status",
         "native.archkeel_report:construct_row",
+        "native.archkeel_report:page",
         "native.archkeel_report:rule",
         "native.archkeel_report:rule_with_edge_links",
         "native.archkeel_report:system_status"
@@ -1923,6 +1924,7 @@
       "public": [
         "native.archkeel_report.engine_frame:EngineFrame",
         "native.archkeel_report.engine_frame:FrameError",
+        "native.archkeel_report.engine_frame:page",
         "native.archkeel_report.engine_frame:write"
       ],
       "decided_by": "architect"
@@ -2717,7 +2719,8 @@
         "native.archkeel_core.check",
         "native.archkeel_core.base",
         "native.archkeel_core.refusal",
-        "native.archkeel_core.system"
+        "native.archkeel_core.system",
+        "native.archkeel_core.system_topology"
       ],
       "responsibilities": [
         "Serve the request kinds of the shell: the scan request that runs the collector in the process, the check request with its base, and the typed refusal (AD-390, AD-399, AD-406, AD-420)."
@@ -2825,9 +2828,10 @@
         },
         {
           "component": "report",
-          "rationale": "Join the statuses of the parts of a system by the status rule of the report (AD-616).",
+          "rationale": "Join the statuses of the parts of a system by the status rule of the report, and draw the one page of the joined frame (AD-616, AD-618).",
           "through": [
             "native.archkeel_report:Status",
+            "native.archkeel_report:page",
             "native.archkeel_report:system_status"
           ]
         }
