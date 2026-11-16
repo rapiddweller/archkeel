@@ -16,6 +16,7 @@ use std::collections::BTreeSet;
 use archkeel_contract::{CycleLevel, Rule};
 use archkeel_facts::data::GapEffect;
 
+use crate::door_reach::Applied;
 use crate::gap_class::{Doubt, Scoped};
 use crate::model::Model;
 use crate::ownership::{claims, in_scope, owner_of};
@@ -67,6 +68,16 @@ impl ReadSet {
 /// The gaps with an effect that hold `rule` in `model`, if any.
 pub(crate) fn held(model: &Model, rule: &Rule) -> Option<Scoped> {
     scoped(model, |module| reads(model, rule, module))
+}
+
+/// The applied door declarations whose stated effect meets what `rule` reads (AD-664): a PASS of
+/// the rule holds only under their premise.
+pub fn assumed<'m>(model: &'m Model, rule: &Rule) -> Vec<&'m Applied> {
+    let reads = |module: Option<&str>| reads(model, rule, module);
+    let applied = model.graph().doors().applied().iter();
+    applied
+        .filter(|door| !met(&door.stated, &reads).is_empty())
+        .collect()
 }
 
 /// Each gap with an effect: with one, the scope of the whole run is not complete.

@@ -6,7 +6,7 @@
 //! (`collect._script_dependency`, `_script_source_target`, `_script_alias_evidence`,
 //! `_script_publication_evidence`).
 
-use archkeel_facts::data::{BindingData, GapEffect};
+use archkeel_facts::data::{BindingData, DoorForm, DoorSite, GapEffect};
 use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName};
@@ -15,7 +15,7 @@ use archkeel_facts::GapFact;
 use crate::script_project::{source_origin, stable_publication, Publisher};
 use crate::script_records::{binding, global_id, import_record, GapRecord, Use};
 use crate::script_state::{Probe, Run};
-use crate::script_types::{ScriptAlias, ScriptGlobal};
+use crate::script_types::{key_form, ScriptAlias, ScriptGlobal};
 
 /// ` has no unique unconditional publication` (`GapTitle.UNPUBLISHED_GLOBAL`).
 const UNPUBLISHED: &str = " has no unique unconditional publication";
@@ -237,6 +237,7 @@ impl<'a, 'p> Run<'a, 'p> {
                 // AD-564: the form can write any global, so no module proves that a free name
                 // is the standard one: the code of every module is unknown, its files are not.
                 data.effect = Some(GapEffect::EveryModule);
+                data.door = key_door(form, span.line);
             }
             let (id, mut record) = GapRecord::unknown_gap(&reason, Some(&node), &module, fact);
             if at == 0 {
@@ -311,3 +312,13 @@ impl<'a, 'p> Run<'a, 'p> {
 
 /// A member that the file declares: its local name and where.
 pub(crate) type LocalMember<'a> = (String, &'a crate::source::Span);
+
+/// AD-664: a run-time key is a door site; a contract can name it by its line.
+fn key_door(form: &str, line: i64) -> Option<DoorSite> {
+    (form == key_form()).then(|| DoorSite {
+        form: DoorForm::ComputedKey,
+        line: u32::try_from(line).unwrap_or(0),
+        scope: None,
+        binding: None,
+    })
+}

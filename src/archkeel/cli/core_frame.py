@@ -17,6 +17,7 @@ from typing import Final, TypeVar
 
 from .core_baseline import BaselineResult, read_baseline
 from .core_binding import bind_request
+from .core_doors import DoorRow, pass_qualifiers, read_doors
 from .core_evidence import (
     CollectionGap,
     Location,
@@ -206,6 +207,9 @@ class CoreFrame:
     measures: Mapping[str, int] | None = None
     # AD-540: the one assumption that the collector states for its proofs, when it states one.
     premise: str | None = None
+    # AD-664: the door sites of each PASS under a declared reach, and the applied declarations.
+    assumed: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    doors: tuple[DoorRow, ...] = ()
 
     @property
     def complete_scope(self) -> bool:
@@ -445,10 +449,8 @@ def read_frame(
     gaps, missing, derived = _gaps(frame, scan)
     if request is not None and derived is not None:
         bind_request(frame, request, derived, started_ns)
-    beyond = as_texts(frame["beyond"], "beyond")
     passing = {rule for rule, verdict in rules.items() if verdict.status is RuleStatus.PASS}
-    if not passing.issuperset(beyond):
-        raise CoreError("the core frame names a rule beyond the reference that is not PASS")
+    beyond, assumed = pass_qualifiers(frame, passing)
     engine = as_text(frame["engine"], "engine")
     if status is Status.PASS and not rules:
         raise CoreError("the core frame is PASS with zero rules")
@@ -486,4 +488,6 @@ def read_frame(
         baseline=read_baseline(frame["baseline"], status) if "baseline" in frame else None,
         measures=measures,
         premise=_premise(frame, scan, status),
+        assumed=assumed,
+        doors=read_doors(frame),
     )

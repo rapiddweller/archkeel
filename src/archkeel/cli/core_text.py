@@ -15,6 +15,8 @@ from collections.abc import Mapping, Sequence
 
 from .core_baseline import BaselineResult, BaselineState
 from .core_baseline import lines as baseline_lines
+from .core_doors import DECLARED, declared, door_lines
+from .core_doors import qualifier as door_qualifier
 from .core_evidence import CollectionGap, call_lines
 from .core_exit import word_of
 from .core_frame import CoreCommand as Command
@@ -67,6 +69,11 @@ def _invalid(baseline: BaselineResult) -> str:
     return f"{gap.subject} is not valid: {why}"
 
 
+def _assuming(doors: int) -> str:
+    """`pass assuming the declared reach of N doors`, for the header."""
+    return door_qualifier(doors).replace("PASS", "pass", 1)
+
+
 def reason_of(frame: CoreFrame, code: int) -> str:
     """Why the run exits with `code`: one sentence for the header."""
     counts = Counter(verdict.status for verdict in frame.rules.values())
@@ -96,6 +103,8 @@ def reason_of(frame: CoreFrame, code: int) -> str:
         return "no rule could be read: see the problem below"
     if word_of(code) != frame.status:
         return f"the run is {frame.status}; the exit is {code} because a file could not be written"
+    if frame.status is Status.PASS and frame.doors:
+        return f"all {total} rules pass; {len(frame.assumed)} {_assuming(len(frame.doors))}"
     if frame.status is Status.PASS:
         return f"all {total} rules pass"
     if frame.status is Status.FAIL:
@@ -180,7 +189,11 @@ def _group_lines(
     """
     groups: dict[str, list[int]] = {}
     for index, gap in enumerate(frame.collection_gaps):
-        key = NOT_FOUND_LABEL if _missing(gap) is not None else kind_label(gap.kind)
+        lines_of = [place.line for e in gap.evidence if (place := frame.locations.get(e))]
+        if declared(gap.subjects, lines_of, frame.doors):
+            key = kind_label(DECLARED)
+        else:
+            key = NOT_FOUND_LABEL if _missing(gap) is not None else kind_label(gap.kind)
         groups.setdefault(key, []).append(index)
     ranked = sorted(groups.items(), key=lambda item: (-len(item[1]), item[0]))
     lines: list[str] = []
@@ -202,7 +215,8 @@ def _group_lines(
                 "      Fix: generate or build the module before the scan, or leave out the files "
                 "that import it."
             )
-    return lines, [(label, len(members)) for label, members in ranked]
+    jobs = [(label, len(rows)) for label, rows in ranked if label != kind_label(DECLARED)]
+    return lines, jobs
 
 
 def _generated(name: str, ignored: Mapping[str, str]) -> str:
@@ -306,6 +320,7 @@ def render(
         out.append(f"Next: {action}")
     if frame.premise is not None:
         out.append(f"Assumption: {frame.premise}")
+    out.extend(door_lines(frame.assumed, frame.doors, SHOWN, show_all))
     if system:
         out.extend(_system(system))
     out.extend(_violation_lines(frame, show_all))
