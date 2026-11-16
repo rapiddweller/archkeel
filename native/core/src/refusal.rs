@@ -52,7 +52,7 @@ impl std::fmt::Display for Error {
                 let line = serde_json::to_string(&Refusal {
                     protocol: Protocol::V1,
                     kind,
-                    subject: &refusal.part,
+                    subject: refusal.part,
                     reason: &refusal.reason,
                 })
                 .map_err(|_| std::fmt::Error)?;
