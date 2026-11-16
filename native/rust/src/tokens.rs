@@ -74,6 +74,40 @@ fn relative_in(stream: TokenStream, depth: usize) -> bool {
     false
 }
 
+/// Whether each `crate` of the stream is `$crate`: the crate that defines the macro, wherever the
+/// macro expands (AD-614). A bare `crate` names the crate of the call.
+pub(crate) fn only_dollar_crate(stream: TokenStream, depth: usize) -> bool {
+    if depth > MAX_DEPTH {
+        return false;
+    }
+    let mut dollar = false;
+    for token in stream {
+        let ok = match &token {
+            TokenTree::Group(group) => only_dollar_crate(group.stream(), depth + 1),
+            TokenTree::Ident(word) => word != "crate" || dollar,
+            _ => true,
+        };
+        if !ok {
+            return false;
+        }
+        dollar = matches!(&token, TokenTree::Punct(punct) if punct.as_char() == '$');
+    }
+    true
+}
+
+/// The macros of `std` that expand to an expression of the place of the call and name no item of
+/// the crate that defines a macro (AD-614).
+pub(crate) const EXPRESSION_MACROS: [&str; 8] = [
+    "env",
+    "option_env",
+    "concat",
+    "stringify",
+    "file",
+    "line",
+    "column",
+    "module_path",
+];
+
 /// The rest of a token stream after one token.
 type Rest = std::iter::Peekable<proc_macro2::token_stream::IntoIter>;
 

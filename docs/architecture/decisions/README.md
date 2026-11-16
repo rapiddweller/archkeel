@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-614 | [A portable exported macro gives its edges to each call](ad-614-a-portable-exported-macro-gives-its-edges-to-each-call.md) |
 | AD-612 | [Exact ports, and one system run](ad-612-exact-ports-and-one-system-run.md) |
 | AD-612 | [Remove the unused report v2 pipeline](ad-612-remove-the-unused-report-v2-pipeline.md) |
 | AD-610 | [Check literal schema extensions](ad-610-check-literal-schema-extensions.md) |

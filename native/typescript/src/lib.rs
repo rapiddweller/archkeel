@@ -114,7 +114,7 @@ mod umd_publication;
 mod unselected;
 mod walk;
 
-use archkeel_facts::envelope::{test_features, Profile, Provenance, Reply};
+use archkeel_facts::envelope::{test_features, Provenance, Reply};
 use archkeel_facts::request::TypeScriptRequest;
 use archkeel_wire::protocol::Version;
 
@@ -125,14 +125,7 @@ pub const TEST_FEATURES: &[&str] = test_features(cfg!(feature = "dump"));
 
 /// The provenance of this build: the collector of its profile with the code digest of the workspace.
 pub fn provenance() -> Provenance {
-    Provenance::native(
-        Profile::TypeScript,
-        (env!("ARCHKEEL_VERSION"), env!("ARCHKEEL_CODE_DIGEST")),
-        (
-            env!("ARCHKEEL_RUSTC_VERSION"),
-            env!("CARGO_PKG_RUST_VERSION"),
-        ),
-    )
+    archkeel_facts::native_provenance!(TypeScript)
 }
 
 /// The typed reply of one request: the same facts that `reply` writes as compressed bytes.

@@ -131,7 +131,8 @@
         "native.archkeel_facts:Record",
         "native.archkeel_facts:ReferenceFact",
         "native.archkeel_facts:Section",
-        "native.archkeel_facts:SymbolFact"
+        "native.archkeel_facts:SymbolFact",
+        "native.archkeel_facts:native_provenance"
       ],
       "decided_by": "architect"
     },
@@ -5004,7 +5005,8 @@
         "native.archkeel_rust_collector.declared",
         "native.archkeel_rust_collector.symbols",
         "native.archkeel_rust_collector.impl_edges",
-        "native.archkeel_rust_collector.impl_globs"
+        "native.archkeel_rust_collector.impl_globs",
+        "native.archkeel_rust_collector.names"
       ],
       "responsibilities": [
         "Write the import edges between crates and modules, the declared dependencies and the symbol records of the definitions."
