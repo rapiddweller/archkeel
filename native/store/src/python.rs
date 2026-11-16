@@ -32,8 +32,8 @@ pub(crate) fn version(version: ProtocolVersion, profile: Profile) -> Result<(), 
 
 /// The registered set of an import survey (Python, AD-450; Dart, AD-468): the sections `imports` and
 /// `unknowns`, and for Python also `symbols`, `calls` and `references` (AD-518, AD-520);
-/// the Python survey may additionally state `assert`, `broad_except` and `dunder_dict`
-/// (AD-658, AD-666, AD-680).
+/// the Python survey may additionally state `assert`, `broad_except`, `dunder_dict` and `vars`
+/// (AD-658, AD-666, AD-680, AD-682).
 /// `validate::checkable` refuses each resolution feature
 /// of a Python reply, and `registered.rs` binds the symbol statement to its feature.
 pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
@@ -69,11 +69,12 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
                         )
                 })
             };
-            (1..=3).contains(&entries.len())
+            (1..=4).contains(&entries.len())
                 && entries[0].name == "assert"
                 && entries[0].status == ConstructSupport::Supported
                 && (entries.len() < 2 || partial(1, "broad_except"))
                 && (entries.len() < 3 || partial(2, "dunder_dict"))
+                && (entries.len() < 4 || partial(3, "vars"))
         };
     if !with_asserts && (sections != registered || !facts.capabilities.constructs.is_empty()) {
         return Err(format!(
