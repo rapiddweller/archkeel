@@ -15,7 +15,8 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from scaling_shapes import SHAPES, SITE_TIMED, Shape
+from scaling_shape_kit import Shape
+from scaling_shapes import SHAPES, SITE_TIMED
 from scaling_walk_only import WALK_ONLY
 from test_collector_native_scaling import (
     CAP,
