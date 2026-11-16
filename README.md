@@ -131,8 +131,14 @@ ARCHKEEL_BUNDLE_NATIVE=1 uv tool install git+https://github.com/rapiddweller/arc
 archkeel --version
 ```
 
-This builds the current `main` with its core binary. The build needs `cargo` and `cargo-auditable`,
-and it refuses without the variable, because a package without the core refuses each run.
+This builds the current `main` with its core binary. The build needs `cargo` and `cargo-auditable`
+(`cargo install --locked cargo-auditable`), and it refuses without the variable, because a package
+without the core refuses each run. From a checkout, `make build` does the same and writes the
+wheel of your platform to `dist/`:
+
+```bash
+make build && uv tool install dist/archkeel-*.whl
+```
 `uv tool install archkeel` installs release 4.0.1 from PyPI, which has the Python engine.
 You can also run `main` from a source checkout:
 
