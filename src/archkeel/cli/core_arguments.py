@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: MIT
 """Read the command line of the shell into typed options (AD-596).
 
-The shell serves `validate`, `report`, `init` and `skill`. This part owns the help text, the
-options and the refusal of each command or option of the deleted Python shell by name. It
-reads the arguments only: it starts no process, finds no binary and reads no frame.
+The shell serves `validate`, `report`, `init` and `skill`. This part owns the options and the
+refusal of each command or option of the deleted Python shell by name. It reads the arguments
+only: it starts no process, finds no binary and reads no frame.
 """
 
 from __future__ import annotations
@@ -58,38 +58,6 @@ REMOVED_OPTIONS: Final = frozenset(
         "--write-graph",
     }
 )
-HELP: Final = f"""\
-usage: archkeel <command> [--root PATH] [--config PATH] [--json | --text]
-
-The Rust core (archkeel-core) decides each run. This shell prints its frame.
-
-commands:
-  validate   Check the contract. PASS exits 0, FAIL exits 1, UNKNOWN and a refusal exit 2.
-             With --baseline, a difference from the file exits 1 and an accepted UNKNOWN exits 2.
-  report     Print the same frame of the core as a report. The exit codes are the same.
-  init       Draft archkeel.toml and a first contract (every decision is a TODO) for a Python
-             project with one top-level package. Replaces no file. See docs/onboarding.md.
-  skill      Install the agent skill: archkeel skill install {{claude,codex}} [--root PATH]
-
-{_LINE} (#880), exit 2:
-  check                                 Use release {RELEASE}.
-  explore, guide, story, view, studio   No release has them.
-
-options:
-  --root PATH     Repository root. Default: the Git work tree of the current directory.
-  --config PATH   Configuration file below the root. Default: archkeel.toml.
-  --json          Print JSON also in a terminal.
-  --text          Print text also without a terminal.
-  --topology      Include the bounded topology in report only. Default: no topology work.
-  --output PATH   Report only: write one file. No file is written by default.
-  --format FORMAT Report only, with --output: html (default) or json. No sidecar files.
-  --baseline PATH Validate only: compare with this baseline file below the root, in both
-                  directions. A new gap or violation, and an accepted item that is gone, exit 1.
-  --write-baseline PATH
-                  Validate only: write the baseline of this run (schema 1.4.0) to this file.
-  --core-only     Accepted and ignored: the core is the only path.
-  --version       Print the version.
-"""
 
 
 class NotOnThisLine(CoreError):
@@ -113,6 +81,8 @@ class Options(argparse.Namespace):
     text: bool = False
     core_only: bool = False
     topology: bool = False
+    all: bool = False
+    verbose: bool = False
     action: str = ""
     agent: str = ""
     output: Path | None = None
@@ -146,11 +116,9 @@ def command_of(argv: Sequence[str]) -> Command:
         raise ValueError(f"unknown command {argv[0]!r}; run archkeel --help") from error
     if command is Command.CHECK:
         names = "; ".join(active_checks())
-        raise NotOnThisLine(
-            f"check is {_LINE}; {_remedy(True)} (#880); not ported: {names} (#1103)"
-        )
+        raise NotOnThisLine(f"check is {_LINE}; {_remedy(True)}; not ported: {names}")
     if command not in SERVED and command is not Command.SKILL:
-        raise NotOnThisLine(f"{command} is {_LINE}; {_remedy(command in RELEASED)} (#880)")
+        raise NotOnThisLine(f"{command} is {_LINE}; {_remedy(command in RELEASED)}")
     return command
 
 
@@ -183,6 +151,9 @@ def parse(argv: Sequence[str]) -> Options:
     form = parser.add_mutually_exclusive_group()
     for flag in ("json", "text"):
         form.add_argument(f"--{flag}", action="store_true")
+    if command is not Command.SKILL:
+        parser.add_argument("--all", action="store_true")
+        parser.add_argument("--verbose", action="store_true")
     if command is Command.SKILL:
         parser.add_argument("action", choices=["install"])
         parser.add_argument("agent", choices=["claude", "codex"])
@@ -197,11 +168,18 @@ def parse(argv: Sequence[str]) -> Options:
             parser.add_argument("--topology", action="store_true")
             parser.add_argument("--output", type=_output_path)
             parser.add_argument("--format", choices=["html", "json"], default="html")
-    options, extra = parser.parse_known_args(argv[1:], Options(command=command))
+    try:
+        options, extra = parser.parse_known_args(argv[1:], Options(command=command))
+    except ValueError as error:
+        if command is Command.SKILL:
+            raise ValueError(
+                f"{error}; use: archkeel skill install claude (or codex); run archkeel skill --help"
+            ) from error
+        raise
     for argument in extra:
         if (name := argument.split("=", 1)[0]) in REMOVED_OPTIONS:
             remedy = _remedy(name not in UNRELEASED_OPTIONS)
-            raise NotOnThisLine(f"{command} {name} is {_LINE}; {remedy} (#880)")
+            raise NotOnThisLine(f"{command} {name} is {_LINE}; {remedy}")
     if extra:
         raise ValueError(f"unknown arguments: {' '.join(extra)}; run archkeel --help")
     if options.baseline is not None and options.baseline == options.write_baseline:
