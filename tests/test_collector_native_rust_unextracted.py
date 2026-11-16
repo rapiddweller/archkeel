@@ -5,7 +5,7 @@
 
 Consumer: `edges_extracted.rs` (`check_extracted`). A second count of the tree must equal what the
 scan and the edges ended. A bug that drops a record would otherwise leave no trace, and the scan
-would read as complete (FP-13). The test plants that bug (`plant.rs`, only in the test binary) and
+would read as complete (FP-13). The test plants that bug (only in the test binary) and
 checks that the reply of the collector names an `unextracted` gap and is not a full scope.
 """
 

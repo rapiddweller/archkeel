@@ -1309,6 +1309,7 @@
         }
       ],
       "public": [
+        "native.archkeel_eval.violation:BoundaryViolation",
         "native.archkeel_eval.violation:Cited",
         "native.archkeel_eval.violation:ConstructViolation",
         "native.archkeel_eval.violation:CycleStep",
@@ -4294,7 +4295,8 @@
       ],
       "public": [
         "native.archkeel_typescript_collector.collect:gather",
-        "native.archkeel_typescript_collector.collect:records"
+        "native.archkeel_typescript_collector.collect:records",
+        "native.archkeel_typescript_collector.collect:reply"
       ],
       "decided_by": "architect"
     },
@@ -5387,6 +5389,7 @@
         }
       ],
       "public": [
+        "native.archkeel_python_collector.reply:Build",
         "native.archkeel_python_collector.reply:reply",
         "native.archkeel_python_collector.reply:typed"
       ],

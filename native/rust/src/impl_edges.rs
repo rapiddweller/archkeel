@@ -21,7 +21,6 @@ use crate::crates::Workspace;
 use crate::definitions::{Access, Form, ImplBlock, Member, MethodCall};
 use crate::impl_globs::{crate_path, depends, Reached};
 use crate::modules::{inside, Edge, Frame, Index, TypeOf};
-use crate::plant;
 use crate::scan::Via;
 use crate::tree::Module;
 use orphans::orphan_impl_gaps;
@@ -384,7 +383,11 @@ impl Builder {
             return;
         };
         for (at_index, call) in reached.calls.iter().enumerate() {
-            if at_index < own && plant::method(&module.rel, at_index) {
+            #[cfg(feature = "dump")]
+            if at_index < own
+                && std::env::var("ARCHKEEL_PLANT_METHOD")
+                    .is_ok_and(|value| value == format!("{}:{at_index}", module.rel))
+            {
                 continue;
             }
             if at_index < own && self.self_call((reached.index, frame), module, call, &found.typed)
