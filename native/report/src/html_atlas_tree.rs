@@ -9,6 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::Value;
 
+pub(super) use super::atlas_node::Node;
 use super::frame::{Component, Frame, Topology};
 
 /// The texts that the payload names by index.
@@ -27,23 +28,6 @@ impl Refs {
         self.index.insert(text.to_owned(), self.list.len() - 1);
         self.list.len() - 1
     }
-}
-
-/// One box of the Explorer: a component of the contract, or a layer of its layer order.
-pub(super) struct Node {
-    pub(super) id: String,
-    pub(super) label: String,
-    pub(super) parent: Option<usize>,
-    pub(super) layer: Option<String>,
-    pub(super) public: Vec<String>,
-    pub(super) path: String,
-    /// What the box is responsible for; a layer names the count of its components.
-    pub(super) about: Vec<String>,
-    /// What the component must not do, and its planned surface, as the contract states them.
-    pub(super) forbidden: Vec<String>,
-    pub(super) planned: Vec<String>,
-    /// The place of a layer in its layer order, from the inner layer; `None` for a component.
-    pub(super) rank: Option<usize>,
 }
 
 /// The components as a tree, and the component that owns each module.
@@ -181,6 +165,7 @@ impl Tree {
             };
             nodes.push(component_node(component, parent));
         }
+        super::atlas_groups::limit(&mut nodes);
         let owner: BTreeMap<String, usize> = topology
             .modules
             .iter()

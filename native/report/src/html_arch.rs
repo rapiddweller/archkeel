@@ -14,13 +14,19 @@ use super::frame::Frame;
 use super::markup::{count, escape};
 use super::places::{Kind, Places};
 
-/// The components of the contract with a status, without the boxes of the layers.
+/// The components of the contract with a status, without the boxes of the layers and the groups.
 fn components(payload: &Value) -> Vec<&Value> {
     payload["atlas"]["components"]
         .as_array()
         .into_iter()
         .flatten()
-        .filter(|c| !c["id"].as_str().is_some_and(|id| id.starts_with("LAYER:")))
+        .filter(|c| {
+            !c["id"].as_str().is_some_and(|id| {
+                ["LAYER:", "GROUP:", "PART:"]
+                    .iter()
+                    .any(|p| id.starts_with(p))
+            })
+        })
         .collect()
 }
 
@@ -58,8 +64,15 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
     }
     if lost > 0 {
         lede.push_str(&format!(
-            " {} in no component: see the violations below.",
+            " {} in no component: assign the package of its module to a component of the contract, \
+a root package too. See the violations below.",
             count(lost, "violated place")
+        ));
+    }
+    if !frame.named.is_empty() {
+        lede.push_str(&format!(
+            " {} of the run name no component: see Unknown.",
+            count(frame.named.len(), "gap")
         ));
     }
     format!(

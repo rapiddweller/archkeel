@@ -29,6 +29,10 @@ fn title(frame: &Frame, places: &Places) -> String {
             count(places.total, "place")
         ),
         _ if unknown > 0 => format!("{} cannot be decided", count(unknown, "rule")),
+        _ if !frame.named.is_empty() => format!(
+            "The run cannot be decided: {} with no rule of their own hold it open",
+            count(frame.named.len(), "gap")
+        ),
         _ => "The run cannot be decided".to_owned(),
     }
 }
@@ -168,21 +172,31 @@ fn top_causes(frame: &Frame) -> String {
     if all.is_empty() {
         return String::new();
     }
-    let mut lines: String = all
-        .iter()
-        .take(3)
-        .map(|cause| {
-            let held = if cause.rules.is_empty() {
-                count(cause.named, "named gap")
-            } else {
-                count(cause.rules.len(), "rule")
-            };
-            format!(
-                "<p class=\"body-sm ak-verdict__note\">{held}: {}</p>",
-                escape(&causes::title(cause))
-            )
-        })
-        .collect();
+    // Every number below is a count of the list of causes that the Unknown section shows.
+    let (rules, named): (usize, usize) = all.iter().fold((0, 0), |(r, n), cause| {
+        (r + cause.rules.len(), n + cause.named)
+    });
+    let keeping = if all.len() == 1 {
+        "1 cause keeps".to_owned()
+    } else {
+        format!("{} keep", count(all.len(), "cause"))
+    };
+    let no_rule = format!("{} with no rule", count(named, "gap"));
+    let mut lines = format!(
+        "<p class=\"body-sm ak-verdict__note\">{keeping} the run open: {} and {no_rule}.</p>",
+        count(rules, "unknown rule")
+    );
+    for cause in all.iter().take(3) {
+        let held = if cause.rules.is_empty() {
+            format!("{} with no rule", count(cause.named, "gap"))
+        } else {
+            count(cause.rules.len(), "unknown rule")
+        };
+        lines.push_str(&format!(
+            "<p class=\"body-sm ak-verdict__note\">{held}: {}</p>",
+            escape(&causes::title(cause))
+        ));
+    }
     let more = all.len().saturating_sub(3);
     if more > 0 {
         lines.push_str(&format!(
@@ -202,10 +216,18 @@ pub(super) fn section(frame: &Frame, places: &Places) -> String {
             "<div class=\"ak-verdict__stat\"><dt class=\"caption\">{label}</dt><dd class=\"ak-num h2\">{value}</dd></div>"
         )
     };
+    let gaps = |frame: &Frame| {
+        if frame.named.is_empty() {
+            String::new()
+        } else {
+            stat("Gaps with no rule", frame.named.len())
+        }
+    };
     format!(
         "<div class=\"rp-head\"><h1>Verdict: {}</h1><section class=\"ak-verdict ak-verdict--{state}\" aria-label=\"Verdict\">\
 <span class=\"ak-badge ak-badge--{state} tag\">{}{}</span><h2 class=\"h2 ak-verdict__title\">{}</h2>\
-<p class=\"body-sm ak-verdict__note\">{}</p>{}{}{}{}<dl class=\"ak-verdict__stats\">{}{}{}</dl></section>{}</div>\n",
+<p class=\"body-sm ak-verdict__note\">{}</p>{}{}{}{}<dl class=\"ak-verdict__stats\">{}{}{}{}</dl></section>{}</div>
+",
         escape(status),
         status_icon(status),
         escape(status),
@@ -215,9 +237,10 @@ pub(super) fn section(frame: &Frame, places: &Places) -> String {
         premise(frame),
         calls(frame),
         top_causes(frame),
-        stat("PASS", frame.rules_with("PASS")),
-        stat("FAIL", frame.rules_with("FAIL")),
-        stat("UNKNOWN", frame.rules_with("UNKNOWN")),
+        stat("Rules PASS", frame.rules_with("PASS")),
+        stat("Rules FAIL", frame.rules_with("FAIL")),
+        stat("Rules UNKNOWN", frame.rules_with("UNKNOWN")),
+        gaps(frame),
         next(frame, places)
     )
 }

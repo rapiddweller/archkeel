@@ -262,7 +262,7 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
         .collect();
     let note = (languages.len() == 1).then(|| {
         format!(
-            "This run scans one part of the system: its {} modules. Another part is checked by its own run and contract until the system contract joins them (AD-522).",
+            "This page shows one part of the system: its {} modules. Another part has its own run and contract; a system document joins the parts into one page.",
             languages.iter().next().copied().unwrap_or_default()
         )
     });
