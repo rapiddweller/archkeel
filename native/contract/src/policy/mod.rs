@@ -55,7 +55,7 @@ pub use baseline_value::{
     AcceptedUnknown, BaselineBudget, BaselineError, BaselineFingerprint, BaselineRole,
     BaselineViolation, NameBudgetKind, ValidationBaseline, MAX_BASELINE_BYTES,
 };
-pub use baseline_write::{baseline_bytes, baseline_digest, budget_word};
+pub use baseline_write::{baseline_bytes, budget_word};
 pub use binding::{bind, Baselines, BindError, Binding, GateStatus, OldContract, Verdict};
 pub use change::{ChangeDirection, ChangeKind, ContractChange};
 pub use clip::{clip_inside, Clipped};

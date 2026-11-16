@@ -88,8 +88,3 @@ pub fn budget_word(name: BudgetName) -> &'static str {
         BudgetName::UnknownPositions => "unknown_positions",
     }
 }
-
-/// Hash canonical content, not the byte layout of the input file.
-pub fn baseline_digest(baseline: &ValidationBaseline) -> String {
-    crate::contract::digest_of(&baseline_bytes(baseline)).0
-}
