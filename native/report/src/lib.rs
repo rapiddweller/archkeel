@@ -161,10 +161,6 @@
 //! }
 //! ```
 
-// AD-590: not yet enforced here: about 250 row fields and error variants name the columns of the report schema. Items outside macros carry docs.
-#![allow(missing_docs)]
-
-
 #![deny(unreachable_pub)]
 
 mod construct;
@@ -179,6 +175,7 @@ mod check;
 mod check_order;
 mod check_rows;
 mod check_structure;
+mod code;
 mod codes;
 mod edge_links;
 mod engine_frame;

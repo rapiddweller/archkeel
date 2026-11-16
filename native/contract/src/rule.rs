@@ -5,10 +5,11 @@
 //! One rule of the contract: a closed enum of the 22 rule kinds.
 
 use crate::model::{
-    AllowedDependency, CompleteRequires, ExternalDependencyScope, ForbiddenConstruct,
-    ForbiddenDependency, InterfaceBoundary, LayerOrder, NoComponentCycles, RootLayout, RuleHead,
-    RuleKind, SiblingIsolation, SourceRule,
+    AllowedDependency, CompleteRequires, ExternalDependencyScope, ForbiddenDependency,
+    InterfaceBoundary, LayerOrder, NoComponentCycles, RootLayout, RuleHead, RuleKind,
+    SiblingIsolation, SourceRule,
 };
+use crate::model_constructs::ForbiddenConstruct;
 use crate::model_rules::{
     BoundaryTypes, BoundedNumericOperand, CallOwner, CatalogArgument, CatalogUse,
     ForbiddenCallArgument, ForbiddenEffectUnderCondition, ProtocolDeclarations, SourceOwnership,

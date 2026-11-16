@@ -34,10 +34,15 @@ use archkeel_model::{Cause, Reason, Unsupported};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WhyUnknown {
+    /// The scope of the run is not complete.
     ScopeIncomplete,
+    /// No receipt proves the pass.
     NoReceipt,
+    /// Some assessments are not decided.
     Undecided,
+    /// A module with no owner blocks the rule.
     OwnershipBlocker,
+    /// No rule of the kind decides.
     NoDecidedRule,
 }
 

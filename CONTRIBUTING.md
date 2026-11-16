@@ -112,7 +112,7 @@ The Windows wheel job builds and checks the wheel. It also runs the disk-root Ru
 
 Each non-test `.rs` file under `native/` starts with a `//!` line that names its responsibility.
 Each public item has a short `///` that says what it is or what it means (`missing_docs` is
-`deny`; AD-590 lists the crates that do not take it yet).
+`deny` for every crate). A macro that declares items takes the doc of each one from its input.
 
 There is no central utils module. A helper lives in the component that owns its meaning. Code that
 several crates share lives in the lowest crate that owns that meaning, as `pytext`, `snapshot`,
