@@ -100,6 +100,13 @@ EXPECTED_RULES = [
     ("NATIVE-NO-DART-TO-REPORT", "forbidden_dependency"),
     ("NATIVE-NO-DART-TO-CORE", "forbidden_dependency"),
     ("NATIVE-NO-DART-TO-COLLECT", "forbidden_dependency"),
+    ("NATIVE-NEUTRAL-STORE-NO-PROFILE", "forbidden_dependency"),
+    ("NATIVE-NEUTRAL-MODEL-NO-PROFILE", "forbidden_dependency"),
+    ("NATIVE-NEUTRAL-EVAL-NO-PROFILE", "forbidden_dependency"),
+    ("NATIVE-NEUTRAL-REPORT-NO-PROFILE", "forbidden_dependency"),
+    ("NATIVE-NEUTRAL-CORE-NO-PROFILE", "forbidden_dependency"),
+    ("NATIVE-NEUTRAL-STORE-NO-PYTHON-MODULE", "forbidden_dependency"),
+    ("NATIVE-NEUTRAL-STORE-NO-DART-MODULE", "forbidden_dependency"),
 ]
 
 

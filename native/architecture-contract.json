@@ -5406,8 +5406,10 @@
         }
       ],
       "public": [
+        "native.archkeel_python_collector.module.builtin_roles:Role",
+        "native.archkeel_python_collector.module.builtin_roles:has",
+        "native.archkeel_python_collector.module.builtin_roles:named",
         "native.archkeel_python_collector.module.definition:Def",
-        "native.archkeel_python_collector.module.namespace_tables:CONTAINERS",
         "native.archkeel_python_collector.module.namespace_tables:GLOBAL",
         "native.archkeel_python_collector.module.namespace_tables:GLOBALS",
         "native.archkeel_python_collector.module.namespace_tables:LOCAL",

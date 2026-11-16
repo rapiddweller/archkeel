@@ -42,6 +42,13 @@ pub(crate) fn ruled(engine: &mut Engine, named: Named) -> (Value, BTreeMap<Strin
 /// The contract of the native workspace: only structural rule kinds.
 pub(crate) const NATIVE_CONTRACT: &str = include_str!("../../architecture-contract.json");
 
+/// The number of rules of the native contract, read from the file and not pinned.
+pub(crate) fn native_rule_count() -> usize {
+    let document: Value =
+        serde_json::from_str(NATIVE_CONTRACT).expect("the native contract is JSON");
+    document["rules"].as_array().map_or(0, Vec::len)
+}
+
 /// The frozen H-typescript reply (AD-343), with the provenance of a run, compressed.
 pub(crate) fn golden_reply() -> Vec<u8> {
     golden_reply_by(None)
@@ -113,12 +120,12 @@ fn the_engine_reads_the_rules_of_a_structural_contract() {
             return;
         }
     };
-    assert_eq!(rules.len(), 86);
+    assert_eq!(rules.len(), native_rule_count());
     assert!(rules.contains_key("NATIVE-REQUIRES-COMPLETE"));
     let (frame, reasons) = ruled(&mut engine, Named::default());
     assert_eq!(frame["rules"], json!({}));
     assert_eq!(frame["status"], "UNKNOWN");
-    assert_eq!(reasons.len(), 86);
+    assert_eq!(reasons.len(), native_rule_count());
     // Each kind of the native contract is decided since slice S7: each rule needs the model.
     for (id, reason) in &reasons {
         assert_eq!(
