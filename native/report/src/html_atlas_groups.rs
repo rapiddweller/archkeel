@@ -10,15 +10,18 @@
 
 use super::atlas_node::Node;
 
-/// The most boxes of one level of the Explorer. In a chain of this many boxes, the whole level
-/// fits the width of the report column at a size that the titles can be read at.
-pub(super) const READABLE: usize = 6;
+/// The most boxes of one level of the Explorer: a level up to this size is drawn as it is, and a
+/// larger one is split into groups (lead decision of the second UX test: about twelve).
+pub(super) const READABLE: usize = 12;
+
+/// The most boxes of one range group: a group is opened to be read, so it stays small.
+const RANGE: usize = 6;
 
 /// The name of the group of each span `(first, last)` of leaf names: the first `depth` segments of
-/// the first name when that gives between two and `READABLE` groups, else ranges of `READABLE`
+/// the first name when that gives between two and `READABLE` groups, else ranges of `RANGE`
 /// sorted spans (a set of more than `READABLE` ranges is grouped again). A range names the first
 /// and the last leaf, so a group of groups has a short name too.
-pub(super) fn group_names(spans: &[(String, String)]) -> Vec<String> {
+pub(super) fn group_names(spans: &[(String, String)]) -> (Vec<String>, bool) {
     let labels: Vec<&str> = spans.iter().map(|(first, _)| first.as_str()).collect();
     for separator in ['.', '/', ':', '_', '-'] {
         for depth in 1..=4 {
@@ -31,15 +34,15 @@ pub(super) fn group_names(spans: &[(String, String)]) -> Vec<String> {
                 .collect();
             let distinct: std::collections::BTreeSet<&String> = keys.iter().collect();
             if (2..=READABLE).contains(&distinct.len()) {
-                return keys;
+                return (keys, true);
             }
         }
     }
-    // Balanced ranges: `ceil(n / READABLE)` groups whose sizes differ by at most one, so no range
+    // Balanced ranges: `ceil(n / RANGE)` groups whose sizes differ by at most one, so no range
     // holds a single box (a range of one box would carry the name of that box).
     let mut order: Vec<usize> = (0..labels.len()).collect();
     order.sort_by_key(|i| labels[*i]);
-    let groups = labels.len().div_ceil(READABLE);
+    let groups = labels.len().div_ceil(RANGE);
     let (base, extra) = (labels.len() / groups, labels.len() % groups);
     let mut names = vec![String::new(); labels.len()];
     let mut start = 0;
@@ -57,7 +60,7 @@ pub(super) fn group_names(spans: &[(String, String)]) -> Vec<String> {
         }
         start = end;
     }
-    names
+    (names, false)
 }
 
 /// Split each scope that has more than `READABLE` children into groups, until none has.
@@ -80,7 +83,7 @@ pub(super) fn limit(nodes: &mut Vec<Node>) {
             .collect();
         let spans: Vec<(String, String)> = children.iter().map(|i| span(nodes, *i)).collect();
         let labels: Vec<String> = children.iter().map(|i| nodes[*i].label.clone()).collect();
-        let names = group_names(&spans);
+        let (names, by_prefix) = group_names(&spans);
         let owner = scope.map_or("ROOT".to_owned(), |s| nodes[s].id.clone());
         let mut made: Vec<(String, usize)> = Vec::new();
         for (child, name) in children.iter().zip(&names) {
@@ -110,7 +113,19 @@ pub(super) fn limit(nodes: &mut Vec<Node>) {
                 .collect::<Vec<_>>()
                 .join(", ");
             let more = if members.len() > 3 { ", ..." } else { "" };
-            nodes[*at].about = vec![format!("{} boxes: {shown}{more}.", members.len())];
+            // A group says why it is a group (a level of this size is split), and what is in it.
+            let why = if by_prefix {
+                format!(
+                    "Grouped by the name prefix `{name}`: this level has {} boxes, more than {READABLE}.",
+                    children.len()
+                )
+            } else {
+                format!(
+                    "Grouped by size: this level has {} boxes, more than {READABLE}; the names are sorted and cut into ranges.",
+                    children.len()
+                )
+            };
+            nodes[*at].about = vec![why, format!("{} boxes: {shown}{more}.", members.len())];
         }
     }
 }

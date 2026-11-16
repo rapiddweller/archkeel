@@ -99,6 +99,13 @@
     }
     return { positions, frames, routes, labels };
   }
+  // The shape of the view that the rows fill: the width over the height of the canvas, times 1.45
+  // (the cards are taller than wide, and the edges need room between the layers), within 1.2 and 3.
+  function viewAspect() {
+    const canvas = typeof document === "undefined" ? null : document.querySelector("#flow .flow-canvas");
+    if (!canvas || !canvas.clientWidth || !canvas.clientHeight) return 2.4;
+    return Math.round(Math.min(3, Math.max(1.2, (canvas.clientWidth / canvas.clientHeight) * 1.45)) * 10) / 10;
+  }
   function buildAtlasGraph({ componentOverview, parentId, nodes, edges, components, cardWidth, cardHeights }) {
     const rootId = "__archkeel_atlas_layout_root__";
     const componentsById = new Map(components.map((component) => [component.id, component]));
@@ -113,6 +120,15 @@
       "elk.layered.spacing.nodeNodeBetweenLayers": "68",
       "elk.padding": "[top=28,left=28,bottom=28,right=28]",
     };
+    // A chain of boxes, or boxes with no edge, would stand in one row at a small zoom. Without a
+    // layer order, the layered layout wraps them into rows that fill the view (wide as the
+    // window: 2.4), and a chain snakes from row to row with its edges following.
+    if (componentOverview && !nodes.some((node) => node.id.startsWith("LAYER:"))) {
+      Object.assign(layoutOptions, {
+        "elk.layered.wrapping.strategy": "MULTI_EDGE", "elk.aspectRatio": String(viewAspect()),
+        "elk.layered.spacing.nodeNodeBetweenLayers": "50",
+      });
+    }
     const labels = [];
     const graphEdges = edges.map((edge) => {
       const id = componentOverview ? `edge:${edge.layoutId}` : `edge:${edge.id}`;

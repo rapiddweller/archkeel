@@ -6,7 +6,7 @@
 
 use serde_json::json;
 
-use super::*;
+use super::{Binding, Family, TypeShape, Unproven};
 
 fn name(text: &str) -> TypeShape {
     TypeShape::Primitive {

@@ -416,9 +416,7 @@ impl Index<'_> {
                     hops + 1,
                     true,
                 ) {
-                    Outcome::None
-                        if filled::may_fill(target.module) && !binds_nothing(self, target) =>
-                    {
+                    Outcome::None if filled::may_fill(target.module) => {
                         unknown("a macro call at module level of its module may define it")
                     }
                     found => found,

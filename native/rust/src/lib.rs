@@ -23,6 +23,7 @@ mod impl_edges;
 mod impl_globs;
 #[cfg(test)]
 mod known_derive_tests;
+mod macro_items;
 mod manifest;
 mod manifest_lines;
 mod module_edges;

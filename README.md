@@ -204,6 +204,27 @@ A minimal contract, which `init` writes for each subpackage (the list of rules i
    "decided_by": "architect"}]}
 ```
 
+### In CI
+
+`--summary` prints at most fifteen lines, also when stdout is a pipe or a file; the exit code
+(0 PASS, 1 FAIL, 2 UNKNOWN) decides the job. Without it a pipe gets one JSON object that can be
+megabytes.
+
+```yaml
+- run: archkeel validate --summary          # ends the job with exit 1 or 2 when not PASS
+- run: archkeel report --output report.html # one line in the log; keep the file as an artifact
+```
+
+A log of a run with violations looks like this (fifteen lines at most):
+
+```text
+validate: FAIL -> exit 1 (2 violations in 1 rules)
+Next: remove the 2 violations, or review the declared restriction. Then run again.
+  DEP-APP-NO-CLI: forbidden dependency: shop.app.a -> shop.cli.b
+  DEP-APP-NO-CLI: forbidden dependency: shop.app.c -> shop.cli.b
+Details: archkeel validate --text (all: --all); machine output: --json
+```
+
 Read the verdicts: on `main`, `report` has the exit codes of `validate`.
 `archkeel --help` lists the commands and options. See the [reference](docs/reference.md).
 
