@@ -145,7 +145,7 @@ fn read_json(snapshot: &mut Snapshot, rel: &str) -> (Option<Map<String, Value>>,
 /// `config._strip`: replace each comment with a space, then drop each trailing comma.
 ///
 /// Each look-ahead starts only at a comment or a comma, so the work grows linearly with the text.
-pub(crate) fn strip_jsonc(text: &str) -> String {
+fn strip_jsonc(text: &str) -> String {
     // After one unclosed `/*`, no later `/*` can close either.
     let unclosed = Cell::new(false);
     let plain = scan(text, |rest| {

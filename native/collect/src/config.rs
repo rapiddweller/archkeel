@@ -284,7 +284,7 @@ fn safe_path(value: &Value, field: &str, allow_dot: bool) -> Result<String, Refu
 
 /// `PurePosixPath(value).as_posix()` of a relative path: no empty part, no `.` part, and `.`
 /// for a path that has no other part.
-pub(crate) fn posix(value: &str) -> String {
+fn posix(value: &str) -> String {
     let parts: Vec<&str> = value
         .split('/')
         .filter(|part| !part.is_empty() && *part != ".")

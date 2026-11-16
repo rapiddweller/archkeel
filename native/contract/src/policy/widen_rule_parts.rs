@@ -17,7 +17,7 @@ use crate::rule::{body_of, head_of, Rule};
 
 /// The canonical fields of a rule that Python `asdict` holds, without the head but with its
 /// author.
-pub(crate) fn rule_fields(rule: &Rule) -> Option<Map<String, Value>> {
+fn rule_fields(rule: &Rule) -> Option<Map<String, Value>> {
     let Value::Object(mut fields) = body_of(rule) else {
         return None;
     };

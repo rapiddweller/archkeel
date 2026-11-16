@@ -36,7 +36,7 @@ use crate::test_sources::NO_PRODUCTION_SOURCE;
 use archkeel_snapshot::paths::join;
 use archkeel_snapshot::Snapshot;
 
-pub(crate) const FEATURES: [&str; 4] = [
+const FEATURES: [&str; 4] = [
     "literal-imports",
     "relative-specifiers",
     "node-builtins",
@@ -46,7 +46,7 @@ pub(crate) const FEATURES: [&str; 4] = [
 const COMPILER_SPACE: &str = " \t\n\u{b}\u{c}\r\u{a0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200a}\u{2028}\u{2029}\u{202f}\u{205f}\u{3000}\u{feff}";
 
 /// The reason of a project source under the scan roots that the TSConfig does not select.
-pub(crate) const UNSELECTED: &str =
+const UNSELECTED: &str =
     "Source file under the scan roots is not selected by the TSConfig";
 
 /// The reply of one request, written into `out`: the imports, the symbols, the calls, the

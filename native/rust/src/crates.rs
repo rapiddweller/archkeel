@@ -116,7 +116,7 @@ fn is_manifest(file: &str) -> bool {
 }
 
 /// The manifest of `dir`, read and parsed once; `Ok(None)` when the directory has none.
-pub(crate) fn manifest_table(
+fn manifest_table(
     source: &mut Snapshot,
     tables: &mut BTreeMap<String, Option<Rc<Parsed>>>,
     dir: &str,

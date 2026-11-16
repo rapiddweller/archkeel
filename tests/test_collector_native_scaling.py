@@ -43,15 +43,9 @@ from pathlib import Path
 import pytest
 from collector_timing import Taken, interleaved_least, least_of, timed_run
 from collector_wire import request_bytes
-from scaling_shapes import (
-    COVERAGE,
-    FIELD_COVERAGE,
-    KIND_CLASSES,
-    NAME_ONLY,
-    SHAPES,
-    SITE_TIMED,
-    Shape,
-)
+from scaling_coverage import COVERAGE, FIELD_COVERAGE, KIND_CLASSES, NAME_ONLY
+from scaling_shape_kit import Shape
+from scaling_shapes import SHAPES, SITE_TIMED
 from scaling_walk_only import WALK_ONLY
 from test_collector_native_syntax import _native
 

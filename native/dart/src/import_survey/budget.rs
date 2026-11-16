@@ -13,9 +13,9 @@ use crate::parse::MAX_DEPTH;
 /// The bytes of one source.
 pub(crate) const PARSE_BUDGET_BYTES: usize = 1 << 20;
 /// The possible tokens of one source: each word run and each other byte that is not white space.
-pub(crate) const PARSE_BUDGET_TOKENS: usize = 1 << 17;
+const PARSE_BUDGET_TOKENS: usize = 1 << 17;
 /// The bytes that one survey parses in total.
-pub(crate) const SURVEY_BUDGET_BYTES: usize = 32 << 20;
+const SURVEY_BUDGET_BYTES: usize = 32 << 20;
 
 /// The bounds of one survey and the bytes that it has parsed.
 #[derive(Clone, Copy, Debug)]

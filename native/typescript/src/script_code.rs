@@ -47,7 +47,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
     /// `eval`, `Function`, a `constructor` member or a timer that can receive a text, used as more
     /// than a read; the text `constructor`; a computed call that can reach `Function`.
-    pub(crate) fn runs_code(&self, node: Node<'t>) -> Option<Reach> {
+    fn runs_code(&self, node: Node<'t>) -> Option<Reach> {
         let tree = self.tree;
         let direct = match node.kind() {
             "identifier" | "property_identifier" | "shorthand_property_identifier" => {
@@ -230,7 +230,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 
     /// Code that a page runs from a text: `document.write`, an `on…` attribute, a `script`
     /// element, a `javascript:` link and `importScripts`.
-    pub(crate) fn injects_code(&self, node: Node<'t>) -> bool {
+    fn injects_code(&self, node: Node<'t>) -> bool {
         let tree = self.tree;
         if tree.in_type(node) {
             return false;
@@ -340,7 +340,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// A top-level `enum` or `namespace` of a script binds a global of its name at run time.
-    pub(crate) fn script_declaration(&self, node: Node<'t>) -> Option<String> {
+    fn script_declaration(&self, node: Node<'t>) -> Option<String> {
         let tree = self.tree;
         if self.module_syntax
             || !matches!(

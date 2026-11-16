@@ -193,7 +193,7 @@ fn call_site<'t>(
 }
 
 /// `_call_name`: the name, the receiver and the `[` test of the text before a call.
-pub(crate) fn call_name(text: &str) -> (Option<String>, Option<String>, bool) {
+fn call_name(text: &str) -> (Option<String>, Option<String>, bool) {
     let value = rstrip(text);
     let value = value.strip_suffix('.').unwrap_or(value);
     if let Some((receiver, name)) = value.rsplit_once('.') {
