@@ -3033,8 +3033,8 @@
   ],
   "archkeel-rust-collector": [
     "const TEST_FEATURES",
+    "fn encoded_reply(request:&RustRequest,provenance:Provenance,version:Version,)->Result<Vec<u8>,String>",
     "fn provenance()->Provenance",
-    "fn reply(request:&RustRequest,provenance:Provenance,version:Version,)->Result<Vec<u8>,String>",
     "fn typed_reply(request:&RustRequest,provenance:Provenance,version:Version,)->Result<Reply,String>"
   ],
   "archkeel-snapshot": [

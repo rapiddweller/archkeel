@@ -31,7 +31,7 @@ fn equal(request: &[u8]) {
     let wire = std::thread::Builder::new()
         .stack_size(256 << 20)
         .spawn(move || {
-            archkeel_rust_collector::reply(
+            archkeel_rust_collector::encoded_reply(
                 &decoded,
                 archkeel_rust_collector::provenance(),
                 archkeel_wire::protocol::reply_version(decoded.protocol_version),
