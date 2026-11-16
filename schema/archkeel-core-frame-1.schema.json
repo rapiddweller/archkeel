@@ -610,6 +610,13 @@
           "items": {
             "type": "string"
           }
+        },
+        "responsibilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "What the component is responsible for, as the contract states it."
         }
       },
       "required": [
@@ -620,7 +627,8 @@
         "exact_modules",
         "planned",
         "layer",
-        "public"
+        "public",
+        "responsibilities"
       ],
       "additionalProperties": false
     },
@@ -641,13 +649,18 @@
         },
         "ownership": {
           "type": "string"
+        },
+        "language": {
+          "type": "string",
+          "description": "The language of the collector reply that names the module."
         }
       },
       "required": [
         "name",
         "path",
         "component",
-        "ownership"
+        "ownership",
+        "language"
       ],
       "additionalProperties": false
     },
