@@ -65,17 +65,9 @@ impl Collection<'_> {
             || (format == Lookup::Hit(ModuleFormat::Cjs)
                 && matches!(explicit, Some(ModuleKind::NodeNext | ModuleKind::Node16)));
         let mut handled = 0usize;
-        #[cfg(feature = "dump")]
-        let mut index = 0;
-        for reference in &parsed.references {
-            #[cfg(feature = "dump")]
-            {
-                let skip = std::env::var("ARCHKEEL_PLANT_SKIP")
-                    .is_ok_and(|planted| planted == format!("{rel}:{index}"));
-                index += 1;
-                if skip {
-                    continue;
-                }
+        for (index, reference) in parsed.references.iter().enumerate() {
+            if planted_skip(rel, index) {
+                continue;
             }
             let evidence = self.cite(rel, &reference.span);
             if reference.form == Form::Require && (!cjs || parsed.shadows_require) {
@@ -187,4 +179,17 @@ impl Collection<'_> {
             self.gap(&reason, Some(evidence), module, GapKind::Collection);
         }
     }
+}
+
+/// Whether the dump build skips reference `index` of `rel`, as the `ARCHKEEL_PLANT_SKIP` setting
+/// `rel:index` asks. The normal build never skips.
+#[cfg(feature = "dump")]
+fn planted_skip(rel: &str, index: usize) -> bool {
+    std::env::var("ARCHKEEL_PLANT_SKIP").is_ok_and(|planted| planted == format!("{rel}:{index}"))
+}
+
+/// The normal build never skips a reference.
+#[cfg(not(feature = "dump"))]
+fn planted_skip(_rel: &str, _index: usize) -> bool {
+    false
 }
