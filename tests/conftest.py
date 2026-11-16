@@ -158,7 +158,8 @@ def _shares_a_fixture(item: pytest.Item) -> bool:
 
 
 # AD-674: a test that needs a debug build of the workspace (a copy of a collector or of the core) is
-# marked `debug_build`. The PR gate leaves them out: it builds only the release core. The main tier runs them.
+# marked `debug_build`. The PR gate leaves them out: it builds only the release core.
+# The main tier runs them.
 DEBUG_BUILD_FIXTURES = frozenset(
     {
         "built",

@@ -330,7 +330,9 @@ def test_every_test_file_belongs_to_one_area_and_ci_runs_every_area() -> None:
         assert [line.split("- ", 1)[1].strip('"') for line in listed[1].splitlines()] == list(AREAS)
     # AD-674: each area keeps a floor of fast tests, so a selection can never be empty.
     floors = json.loads((ROOT / "tests/area_floors.json").read_text())
-    assert sorted(floors) == sorted(AREAS) and all(floor > 0 for floor in floors.values())
+    for tier in ("fast", "pr"):
+        assert sorted(floors[tier]) == sorted(AREAS)
+        assert all(floor > 0 for floor in floors[tier].values())
 
 
 def _triggers(workflow: str) -> set[str]:
@@ -352,7 +354,8 @@ def test_the_fast_tests_leave_out_the_nightly_files_and_the_pr_gate_selects_by_a
     makefile = (ROOT / "Makefile").read_text()
     recipe = re.search(r"^FAST_TEST = .*?\n\n", makefile, re.DOTALL | re.MULTILINE)
     assert recipe is not None and "tests/test_" not in recipe[0]
-    assert "-m 'not native_wheel and not slow'" in recipe[0]
+    assert "-m 'not native_wheel and not slow'" in makefile
+    assert "not slow and not debug_build" in makefile
     assert "pr-gate: ci-pr-static self-validate pr-selected-test" in makefile
     assert all((ROOT / "tests" / name).is_file() for name in SLOW_FILES)
 
