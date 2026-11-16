@@ -83,7 +83,8 @@ def test_the_page_loads_nothing_and_links_only_inside_itself(self_page: str) -> 
     page = markup(self_page)
     assert "src=" not in page and "<link" not in page and "@import" not in page
     assert not re.findall(r'href="(?!#)', page)
-    assert not re.findall(r"url\((?!data:)", page)
+    # `url(#...)` names an SVG marker of the page itself.
+    assert not re.findall(r"url\((?!data:|#)", page)
     assert "http://" not in page and "https://" not in page
     # A script cannot request anything either: the policy admits no source.
     assert "default-src 'none'" in self_page and "connect-src" not in self_page
