@@ -668,10 +668,11 @@
       "packages": [],
       "exact_modules": [
         "archkeel.cli.init_draft",
-        "archkeel.cli.init_layouts"
+        "archkeel.cli.init_layouts",
+        "archkeel.cli.init_areas"
       ],
       "responsibilities": [
-        "Draft archkeel.toml, a first contract and its provenance document from the folder layout of a Python, Cargo or package.json workspace project, and write only the files that are missing. Every decision in the draft is a TODO."
+        "Draft archkeel.toml, a first contract and its provenance page from the folder layout and manifests of a project, or a system document with one part for each language area (Python, Cargo, TypeScript, Dart) of a mixed repository, and write only the files that are missing. Every decision in the draft is a TODO."
       ],
       "forbidden_responsibilities": [
         "Read a frame, read a source file, start the core or decide a verdict."
@@ -685,6 +686,7 @@
         "archkeel.cli.init_draft:CONFIG",
         "archkeel.cli.init_draft:CONTRACT",
         "archkeel.cli.init_draft:DOCUMENT",
+        "archkeel.cli.init_draft:SYSTEM",
         "archkeel.cli.init_draft:Draft",
         "archkeel.cli.init_draft:NothingToDraft",
         "archkeel.cli.init_draft:draft",
@@ -959,6 +961,18 @@
       "id": "SHELL-NO-INIT-LAYOUTS-TO-FRAME",
       "kind": "forbidden_dependency",
       "source": "archkeel.cli.init_layouts",
+      "target": "archkeel.cli.core_frame",
+      "include_type_checking": true,
+      "rationale": "The draft reads no frame.",
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-NO-INIT-AREAS-TO-FRAME",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.cli.init_areas",
       "target": "archkeel.cli.core_frame",
       "include_type_checking": true,
       "rationale": "The draft reads no frame.",

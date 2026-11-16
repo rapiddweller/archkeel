@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Written asserts and broad exception handlers with lexical owners (AD-658, AD-666).
+//! Written asserts, broad exception handlers and `__dict__` reads (AD-658, AD-666, AD-680).
 
 use archkeel_facts::data::{ConstructData, PlainConstructData};
 use archkeel_facts::identity::{stable_id, Part};
@@ -19,22 +19,24 @@ pub(super) fn collect(
     modules: &[Module],
     binders: &[Binders],
     evidence: &mut EvidenceMap,
-) -> (Vec<Record<ConstructFact>>, bool) {
+) -> (Vec<Record<ConstructFact>>, bool, bool) {
     let mut records = Vec::new();
     let mut complete = true;
+    let mut dict_complete = true;
     for (module, binders) in modules.iter().zip(binders) {
-        let (found, read) = one(module, binders, evidence);
+        let (found, read, dict_read) = one(module, binders, evidence);
         records.extend(found);
         complete &= read;
+        dict_complete &= dict_read;
     }
-    (records, complete)
+    (records, complete, dict_complete)
 }
 
 fn one(
     module: &Module,
     binders: &Binders,
     evidence: &mut EvidenceMap,
-) -> (Vec<Record<ConstructFact>>, bool) {
+) -> (Vec<Record<ConstructFact>>, bool, bool) {
     let mut walk = Walk {
         module,
         binders,
@@ -42,9 +44,10 @@ fn one(
         owner: module.name.clone(),
         records: Vec::new(),
         complete: true,
+        dict_complete: true,
     };
     walk.visit_body(&module.tree.body);
-    (walk.records, walk.complete)
+    (walk.records, walk.complete, walk.dict_complete)
 }
 
 struct Walk<'a> {
@@ -54,6 +57,7 @@ struct Walk<'a> {
     owner: String,
     records: Vec<Record<ConstructFact>>,
     complete: bool,
+    dict_complete: bool,
 }
 
 impl<'a> Visitor<'a> for Walk<'_> {
@@ -108,6 +112,29 @@ impl<'a> Visitor<'a> for Walk<'_> {
             self.complete = false;
         }
         visitor::walk_except_handler(self, handler);
+    }
+
+    fn visit_expr(&mut self, expr: &'a Expr) {
+        if matches!(expr, Expr::Call(_)) {
+            self.dict_complete = false;
+        }
+        if let Expr::Attribute(node) = expr {
+            if node.attr.as_str() == "__dict__" {
+                let place = self.module.location(&node.attr);
+                let evidence = self.module.evidence(self.evidence, &node.attr);
+                self.record(
+                    place,
+                    evidence,
+                    "dunder_dict",
+                    "dunder_dict",
+                    ConstructFact::DunderDict(PlainConstructData {
+                        construct: "dunder_dict".to_owned(),
+                        owner: self.owner.clone(),
+                    }),
+                );
+            }
+        }
+        visitor::walk_expr(self, expr);
     }
 }
 

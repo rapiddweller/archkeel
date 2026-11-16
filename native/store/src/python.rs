@@ -32,7 +32,8 @@ pub(crate) fn version(version: ProtocolVersion, profile: Profile) -> Result<(), 
 
 /// The registered set of an import survey (Python, AD-450; Dart, AD-468): the sections `imports` and
 /// `unknowns`, and for Python also `symbols`, `calls` and `references` (AD-518, AD-520);
-/// the Python survey may additionally state `assert` and `broad_except` (AD-658, AD-666).
+/// the Python survey may additionally state `assert`, `broad_except` and `dunder_dict`
+/// (AD-658, AD-666, AD-680).
 /// `validate::checkable` refuses each resolution feature
 /// of a Python reply, and `registered.rs` binds the symbol statement to its feature.
 pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
@@ -57,18 +58,22 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
                 "symbols",
                 "unknowns",
             ]
-        && match facts.capabilities.constructs.as_slice() {
-            [one] => one.name == "assert" && one.status == ConstructSupport::Supported,
-            [one, two] => {
-                one.name == "assert"
-                    && one.status == ConstructSupport::Supported
-                    && two.name == "broad_except"
-                    && matches!(
-                        two.status,
-                        ConstructSupport::Supported | ConstructSupport::Partial
-                    )
-            }
-            _ => false,
+        && {
+            let entries = &facts.capabilities.constructs;
+            let partial = |index: usize, name: &str| {
+                entries.get(index).is_some_and(|entry| {
+                    entry.name == name
+                        && matches!(
+                            entry.status,
+                            ConstructSupport::Supported | ConstructSupport::Partial
+                        )
+                })
+            };
+            (1..=3).contains(&entries.len())
+                && entries[0].name == "assert"
+                && entries[0].status == ConstructSupport::Supported
+                && (entries.len() < 2 || partial(1, "broad_except"))
+                && (entries.len() < 3 || partial(2, "dunder_dict"))
         };
     if !with_asserts && (sections != registered || !facts.capabilities.constructs.is_empty()) {
         return Err(format!(
