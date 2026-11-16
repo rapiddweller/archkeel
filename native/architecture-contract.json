@@ -565,14 +565,16 @@
           "component": "contract",
           "rationale": "Name the rule kind in a reason (AD-359).",
           "through": [
-            "native.archkeel_contract"
+            "native.archkeel_contract:RuleKind"
           ]
         },
         {
           "component": "facts",
           "rationale": "Read the coverage and the gap facts of the reply through the typed facts (AD-363 amendment).",
           "through": [
-            "native.archkeel_facts"
+            "native.archkeel_facts.data",
+            "native.archkeel_facts.envelope",
+            "native.archkeel_facts:GapFact"
           ]
         }
       ],
@@ -650,21 +652,46 @@
           "component": "contract",
           "rationale": "Read the typed components and rules of the parsed contract (AD-359).",
           "through": [
-            "native.archkeel_contract"
+            "native.archkeel_contract:Component",
+            "native.archkeel_contract:EntityKind",
+            "native.archkeel_contract:ModifierKind",
+            "native.archkeel_contract:ParameterKind",
+            "native.archkeel_contract:RelationshipKind",
+            "native.archkeel_contract:ResolutionKind",
+            "native.archkeel_contract:VisibilityBasis",
+            "native.archkeel_contract:VisibilityKind"
           ]
         },
         {
           "component": "store",
           "rationale": "Read the records of the validated reply in their typed form (AD-359).",
           "through": [
-            "native.archkeel_store"
+            "native.archkeel_store:Ingested",
+            "native.archkeel_store:standard_library"
           ]
         },
         {
           "component": "facts",
           "rationale": "Read the records of the reply through the typed facts, the one read path of the model (AD-363 amendment).",
           "through": [
-            "native.archkeel_facts"
+            "native.archkeel_facts.data",
+            "native.archkeel_facts.envelope",
+            "native.archkeel_facts.identity",
+            "native.archkeel_facts.ids",
+            "native.archkeel_facts.nested",
+            "native.archkeel_facts.nullable",
+            "native.archkeel_facts.profile_traits",
+            "native.archkeel_facts.type_shape",
+            "native.archkeel_facts.vocab",
+            "native.archkeel_facts:CallFact",
+            "native.archkeel_facts:ConstructFact",
+            "native.archkeel_facts:FactData",
+            "native.archkeel_facts:GapFact",
+            "native.archkeel_facts:ImportFact",
+            "native.archkeel_facts:Record",
+            "native.archkeel_facts:ReferenceFact",
+            "native.archkeel_facts:Section",
+            "native.archkeel_facts:SymbolFact"
           ]
         },
         {
@@ -749,7 +776,20 @@
           "component": "contract",
           "rationale": "Read the typed components and rules of the parsed contract (AD-359).",
           "through": [
-            "native.archkeel_contract"
+            "native.archkeel_contract:BudgetName",
+            "native.archkeel_contract:Component",
+            "native.archkeel_contract:ComponentLabel",
+            "native.archkeel_contract:Contract",
+            "native.archkeel_contract:CycleLevel",
+            "native.archkeel_contract:ForbiddenDependency",
+            "native.archkeel_contract:LayerOrder",
+            "native.archkeel_contract:Rule",
+            "native.archkeel_contract:RuleKind",
+            "native.archkeel_contract:Selector",
+            "native.archkeel_contract:SelectorMatch",
+            "native.archkeel_contract:TargetKind",
+            "native.archkeel_contract:head_of",
+            "native.archkeel_contract:kind_of"
           ]
         },
         {
@@ -830,14 +870,20 @@
           "component": "contract",
           "rationale": "Read the typed components and rules of the parsed contract (AD-359).",
           "through": [
-            "native.archkeel_contract"
+            "native.archkeel_contract.policy",
+            "native.archkeel_contract:Component",
+            "native.archkeel_contract:Contract",
+            "native.archkeel_contract:Package",
+            "native.archkeel_contract:Rule",
+            "native.archkeel_contract:head_of",
+            "native.archkeel_contract:kind_of"
           ]
         },
         {
           "component": "store",
           "rationale": "Read the records of the validated reply in their typed form (AD-359).",
           "through": [
-            "native.archkeel_store"
+            "native.archkeel_store:Ingested"
           ]
         },
         {
@@ -910,7 +956,17 @@
           "component": "contract",
           "rationale": "Read the typed components and rules of the parsed contract (AD-359).",
           "through": [
-            "native.archkeel_contract"
+            "native.archkeel_contract:BoundaryAllowance",
+            "native.archkeel_contract:BoundaryTypes",
+            "native.archkeel_contract:CompleteRequires",
+            "native.archkeel_contract:Component",
+            "native.archkeel_contract:ConstructSelector",
+            "native.archkeel_contract:ForbiddenConstruct",
+            "native.archkeel_contract:ForbiddenDependency",
+            "native.archkeel_contract:InterfaceBoundary",
+            "native.archkeel_contract:Rule",
+            "native.archkeel_contract:RuleKind",
+            "native.archkeel_contract:SiblingIsolation"
           ]
         },
         {
@@ -1015,7 +1071,13 @@
           "component": "contract",
           "rationale": "Read the typed components and rules of the parsed contract (AD-359).",
           "through": [
-            "native.archkeel_contract"
+            "native.archkeel_contract:CycleLevel",
+            "native.archkeel_contract:Lifecycle",
+            "native.archkeel_contract:NoComponentCycles",
+            "native.archkeel_contract:Rule",
+            "native.archkeel_contract:RuleKind",
+            "native.archkeel_contract:head_of",
+            "native.archkeel_contract:kind_of"
           ]
         },
         {
@@ -1122,7 +1184,22 @@
           "component": "contract",
           "rationale": "Read the typed components and rules of the parsed contract (AD-359).",
           "through": [
-            "native.archkeel_contract"
+            "native.archkeel_contract:CompletenessMode",
+            "native.archkeel_contract:Entity",
+            "native.archkeel_contract:EntityKind",
+            "native.archkeel_contract:ModifierKind",
+            "native.archkeel_contract:ParameterKind",
+            "native.archkeel_contract:PresenceKind",
+            "native.archkeel_contract:Relationship",
+            "native.archkeel_contract:RelationshipKind",
+            "native.archkeel_contract:ResolutionKind",
+            "native.archkeel_contract:Signature",
+            "native.archkeel_contract:Target",
+            "native.archkeel_contract:TargetScope",
+            "native.archkeel_contract:VisibilityBasis",
+            "native.archkeel_contract:VisibilityKind",
+            "native.archkeel_contract:bare_reference",
+            "native.archkeel_contract:merge_targets"
           ]
         },
         {
@@ -1291,14 +1368,17 @@
           "component": "model",
           "rationale": "Read the modules, packages, owners and the scope proof of the run (AD-363).",
           "through": [
-            "native.archkeel_model"
+            "native.archkeel_model:Import",
+            "native.archkeel_model:Module",
+            "native.archkeel_model:ModuleId",
+            "native.archkeel_model:Position"
           ]
         },
         {
           "component": "contract",
           "rationale": "Read the typed rules of the parsed contract (AD-359).",
           "through": [
-            "native.archkeel_contract"
+            "native.archkeel_contract:ConstructSelector"
           ]
         },
         {
@@ -1358,14 +1438,46 @@
           "component": "model",
           "rationale": "Read the modules, packages, owners and the scope proof of the run (AD-363).",
           "through": [
-            "native.archkeel_model"
+            "native.archkeel_model:Import",
+            "native.archkeel_model:Input",
+            "native.archkeel_model:Judged",
+            "native.archkeel_model:Level",
+            "native.archkeel_model:Link",
+            "native.archkeel_model:Model",
+            "native.archkeel_model:Part",
+            "native.archkeel_model:Reason",
+            "native.archkeel_model:Resolved",
+            "native.archkeel_model:boundary_reading",
+            "native.archkeel_model:claims",
+            "native.archkeel_model:construct_matches",
+            "native.archkeel_model:crossings",
+            "native.archkeel_model:cycle_path",
+            "native.archkeel_model:cycles_of_components",
+            "native.archkeel_model:forbidden",
+            "native.archkeel_model:in_scope",
+            "native.archkeel_model:interface_crossings",
+            "native.archkeel_model:interface_publications",
+            "native.archkeel_model:peers"
           ]
         },
         {
           "component": "contract",
           "rationale": "Read the typed rules of the parsed contract (AD-359).",
           "through": [
-            "native.archkeel_contract"
+            "native.archkeel_contract:BoundaryTypes",
+            "native.archkeel_contract:CompleteRequires",
+            "native.archkeel_contract:Component",
+            "native.archkeel_contract:CycleLevel",
+            "native.archkeel_contract:ExternalDependencyScope",
+            "native.archkeel_contract:ForbiddenConstruct",
+            "native.archkeel_contract:ForbiddenDependency",
+            "native.archkeel_contract:InterfaceBoundary",
+            "native.archkeel_contract:LayerOrder",
+            "native.archkeel_contract:NoComponentCycles",
+            "native.archkeel_contract:RootLayout",
+            "native.archkeel_contract:Rule",
+            "native.archkeel_contract:SiblingIsolation",
+            "native.archkeel_contract:SourceRule"
           ]
         },
         {
@@ -1436,14 +1548,15 @@
           "component": "model",
           "rationale": "Read the modules, packages, owners and the scope proof of the run (AD-363).",
           "through": [
-            "native.archkeel_model"
+            "native.archkeel_model:Decision",
+            "native.archkeel_model:Model"
           ]
         },
         {
           "component": "contract",
           "rationale": "Read the typed rules of the parsed contract (AD-359).",
           "through": [
-            "native.archkeel_contract"
+            "native.archkeel_contract:Rule"
           ]
         },
         {
@@ -1720,7 +1833,8 @@
           "component": "model",
           "rationale": "Hold the Decision and the run proof that a PASS of the frame needs (AD-381).",
           "through": [
-            "native.archkeel_model"
+            "native.archkeel_model:Decision",
+            "native.archkeel_model:RunPass"
           ]
         },
         {
@@ -1780,21 +1894,30 @@
           "component": "model",
           "rationale": "Copy the Decision of each rule and of the run, and name the slice of a table that is not produced (AD-363).",
           "through": [
-            "native.archkeel_model"
+            "native.archkeel_model:Cause",
+            "native.archkeel_model:Decision",
+            "native.archkeel_model:Model",
+            "native.archkeel_model:ModelTree",
+            "native.archkeel_model:Reason",
+            "native.archkeel_model:RunGap",
+            "native.archkeel_model:RunPass",
+            "native.archkeel_model:Unsupported",
+            "native.archkeel_model:Verdict"
           ]
         },
         {
           "component": "eval",
           "rationale": "Take each rule row from an outcome of the evaluator, so that the rule id and its decision come together (AD-359, AD-381).",
           "through": [
-            "native.archkeel_eval"
+            "native.archkeel_eval:ConstructViolation",
+            "native.archkeel_eval:Outcome"
           ]
         },
         {
           "component": "contract",
           "rationale": "Write the contract word of each rule kind with an exhaustive match (AD-381).",
           "through": [
-            "native.archkeel_contract"
+            "native.archkeel_contract:RuleKind"
           ]
         },
         {
@@ -1944,21 +2067,43 @@
           "component": "model",
           "rationale": "Copy the Decision of each rule and of the run, and name the slice of a table that is not produced (AD-363).",
           "through": [
-            "native.archkeel_model"
+            "native.archkeel_model:Cause",
+            "native.archkeel_model:CoverageGap",
+            "native.archkeel_model:Decision",
+            "native.archkeel_model:Incomplete",
+            "native.archkeel_model:Model",
+            "native.archkeel_model:ModelTree",
+            "native.archkeel_model:Reason",
+            "native.archkeel_model:RunPass",
+            "native.archkeel_model:Shape",
+            "native.archkeel_model:UmlDiff",
+            "native.archkeel_model:UmlGap",
+            "native.archkeel_model:UmlOutcome",
+            "native.archkeel_model:UmlTarget",
+            "native.archkeel_model:Unsupported",
+            "native.archkeel_model:Verdict",
+            "native.archkeel_model:compare_uml_tree",
+            "native.archkeel_model:shape"
           ]
         },
         {
           "component": "eval",
           "rationale": "Take each rule row from an outcome of the evaluator, so that the rule id and its decision come together (AD-359, AD-381).",
           "through": [
-            "native.archkeel_eval"
+            "native.archkeel_eval:Cited",
+            "native.archkeel_eval:CycleStep",
+            "native.archkeel_eval:Cyclic",
+            "native.archkeel_eval:Outcome",
+            "native.archkeel_eval:Violation",
+            "native.archkeel_eval:evaluate"
           ]
         },
         {
           "component": "contract",
           "rationale": "Write the contract word of each rule kind with an exhaustive match (AD-381).",
           "through": [
-            "native.archkeel_contract"
+            "native.archkeel_contract:Rule",
+            "native.archkeel_contract:head_of"
           ]
         },
         {
@@ -2141,14 +2286,28 @@
           "component": "model",
           "rationale": "Name the needs of the run and the declared UML target for the model (AD-512, AD-526).",
           "through": [
-            "native.archkeel_model"
+            "native.archkeel_model:Need",
+            "native.archkeel_model:Needs",
+            "native.archkeel_model:Reason",
+            "native.archkeel_model:UmlDeclared",
+            "native.archkeel_model:UmlGap",
+            "native.archkeel_model:UmlPart",
+            "native.archkeel_model:UmlTarget",
+            "native.archkeel_model:Unsupported"
           ]
         },
         {
           "component": "contract",
           "rationale": "Parse the contract bytes that the shell sends (AD-359).",
           "through": [
-            "native.archkeel_contract"
+            "native.archkeel_contract.policy",
+            "native.archkeel_contract:Contract",
+            "native.archkeel_contract:ParsedContract",
+            "native.archkeel_contract:RuleKind",
+            "native.archkeel_contract:head_of",
+            "native.archkeel_contract:kind_of",
+            "native.archkeel_contract:parse",
+            "native.archkeel_contract:uml_target_id"
           ]
         }
       ],
@@ -2196,42 +2355,74 @@
           "component": "model",
           "rationale": "Derive the model of the run and ask it for each section (AD-363).",
           "through": [
-            "native.archkeel_model"
+            "native.archkeel_model:Cycle",
+            "native.archkeel_model:Edge",
+            "native.archkeel_model:Graph",
+            "native.archkeel_model:Input",
+            "native.archkeel_model:Level",
+            "native.archkeel_model:Model",
+            "native.archkeel_model:ModelTree",
+            "native.archkeel_model:Needs",
+            "native.archkeel_model:Reason",
+            "native.archkeel_model:Resolved",
+            "native.archkeel_model:Section",
+            "native.archkeel_model:Settings",
+            "native.archkeel_model:Unsupported",
+            "native.archkeel_model:claims",
+            "native.archkeel_model:gap_kind"
           ]
         },
         {
           "component": "eval",
           "rationale": "Decide the rules of the run and write the violation rows of the decided kinds (AD-370).",
           "through": [
-            "native.archkeel_eval"
+            "native.archkeel_eval:Cited",
+            "native.archkeel_eval:Cyclic",
+            "native.archkeel_eval:Layered",
+            "native.archkeel_eval:Outcome",
+            "native.archkeel_eval:Violation",
+            "native.archkeel_eval:evaluate_tree"
           ]
         },
         {
           "component": "report",
           "rationale": "Write the status of the run and each rule verdict only through the ruling of the report (AD-388).",
           "through": [
-            "native.archkeel_report"
+            "native.archkeel_report:Explain",
+            "native.archkeel_report:Named",
+            "native.archkeel_report:Ruling",
+            "native.archkeel_report:construct_row",
+            "native.archkeel_report:rule_with_edge_links"
           ]
         },
         {
           "component": "contract",
           "rationale": "Parse the contract bytes that the shell sends (AD-359).",
           "through": [
-            "native.archkeel_contract"
+            "native.archkeel_contract.policy",
+            "native.archkeel_contract:Contract",
+            "native.archkeel_contract:Lifecycle",
+            "native.archkeel_contract:Rule",
+            "native.archkeel_contract:RuleKind",
+            "native.archkeel_contract:head_of",
+            "native.archkeel_contract:kind_of"
           ]
         },
         {
           "component": "store",
           "rationale": "Validate the collector reply once before the model reads it (AD-346).",
           "through": [
-            "native.archkeel_store"
+            "native.archkeel_store:Ingested",
+            "native.archkeel_store:ingest_reply"
           ]
         },
         {
           "component": "facts",
           "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422).",
           "through": [
-            "native.archkeel_facts"
+            "native.archkeel_facts.envelope",
+            "native.archkeel_facts.identity",
+            "native.archkeel_facts:Section"
           ]
         },
         {
@@ -2294,35 +2485,42 @@
           "component": "model",
           "rationale": "Derive the model of the run and ask it for each section (AD-363).",
           "through": [
-            "native.archkeel_model"
+            "native.archkeel_model:Graph",
+            "native.archkeel_model:gap_kind",
+            "native.archkeel_model:stable"
           ]
         },
         {
           "component": "report",
           "rationale": "Write the status of the run and each rule verdict only through the ruling of the report (AD-388).",
           "through": [
-            "native.archkeel_report"
+            "native.archkeel_report:RuleReasons",
+            "native.archkeel_report:Ruling",
+            "native.archkeel_report:Status"
           ]
         },
         {
           "component": "contract",
           "rationale": "Parse the contract bytes that the shell sends (AD-359).",
           "through": [
-            "native.archkeel_contract"
+            "native.archkeel_contract.policy",
+            "native.archkeel_contract:BudgetName"
           ]
         },
         {
           "component": "store",
           "rationale": "Validate the collector reply once before the model reads it (AD-346).",
           "through": [
-            "native.archkeel_store"
+            "native.archkeel_store:Ingested"
           ]
         },
         {
           "component": "facts",
           "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422).",
           "through": [
-            "native.archkeel_facts"
+            "native.archkeel_facts:FactData",
+            "native.archkeel_facts:GapFact",
+            "native.archkeel_facts:Record"
           ]
         },
         {
@@ -2380,14 +2578,35 @@
           "component": "model",
           "rationale": "Derive the model of the run and ask it for each section (AD-363).",
           "through": [
-            "native.archkeel_model"
+            "native.archkeel_model:ComponentId",
+            "native.archkeel_model:Graph",
+            "native.archkeel_model:Hygiene",
+            "native.archkeel_model:Import",
+            "native.archkeel_model:Model",
+            "native.archkeel_model:ModelTree",
+            "native.archkeel_model:Reason",
+            "native.archkeel_model:Unsupported",
+            "native.archkeel_model:boundary_reading",
+            "native.archkeel_model:claims",
+            "native.archkeel_model:facade_types",
+            "native.archkeel_model:in_scope",
+            "native.archkeel_model:publishes"
           ]
         },
         {
           "component": "contract",
           "rationale": "Parse the contract bytes that the shell sends (AD-359).",
           "through": [
-            "native.archkeel_contract"
+            "native.archkeel_contract.policy",
+            "native.archkeel_contract:Component",
+            "native.archkeel_contract:Contract",
+            "native.archkeel_contract:DecidedBy",
+            "native.archkeel_contract:ForbiddenDependency",
+            "native.archkeel_contract:Rule",
+            "native.archkeel_contract:SelectorMatch",
+            "native.archkeel_contract:TargetKind",
+            "native.archkeel_contract:canonical_bytes",
+            "native.archkeel_contract:head_of"
           ]
         },
         {
@@ -2401,7 +2620,8 @@
           "component": "collect",
           "rationale": "Read each provenance document with the safe reader of the scan (AD-466).",
           "through": [
-            "native.archkeel_collect"
+            "native.archkeel_collect:Over",
+            "native.archkeel_collect:Scanned"
           ]
         },
         {
@@ -2462,28 +2682,37 @@
           "component": "model",
           "rationale": "Derive the model of the run and ask it for each section (AD-363).",
           "through": [
-            "native.archkeel_model"
+            "native.archkeel_model:Input",
+            "native.archkeel_model:Measures",
+            "native.archkeel_model:Producer",
+            "native.archkeel_model:Reason",
+            "native.archkeel_model:Section",
+            "native.archkeel_model:Settings",
+            "native.archkeel_model:Unsupported",
+            "native.archkeel_model:measure_facts"
           ]
         },
         {
           "component": "report",
           "rationale": "Write the status of the run and each rule verdict only through the ruling of the report (AD-388).",
           "through": [
-            "native.archkeel_report"
+            "native.archkeel_report:Explain",
+            "native.archkeel_report:Named",
+            "native.archkeel_report:rule"
           ]
         },
         {
           "component": "contract",
           "rationale": "Parse the contract bytes that the shell sends (AD-359).",
           "through": [
-            "native.archkeel_contract"
+            "native.archkeel_contract:RuleKind"
           ]
         },
         {
           "component": "store",
           "rationale": "Validate the collector reply once before the model reads it (AD-346).",
           "through": [
-            "native.archkeel_store"
+            "native.archkeel_store:Ingested"
           ]
         },
         {
@@ -2572,7 +2801,8 @@
           "component": "model",
           "rationale": "Derive the model of the run and ask it for each section (AD-363).",
           "through": [
-            "native.archkeel_model"
+            "native.archkeel_model:Producer",
+            "native.archkeel_model:Settings"
           ]
         },
         {
@@ -2586,7 +2816,10 @@
           "component": "store",
           "rationale": "Validate the collector reply once before the model reads it (AD-346).",
           "through": [
-            "native.archkeel_store"
+            "native.archkeel_store:Ingested",
+            "native.archkeel_store:sdk_libraries",
+            "native.archkeel_store:standard_library",
+            "native.archkeel_store:standard_library_everywhere"
           ]
         },
         {
@@ -2600,7 +2833,13 @@
           "component": "collect",
           "rationale": "Run the linked collector of the scan request in the process of the core and take its typed reply or its refusal (AD-406, AD-420).",
           "through": [
-            "native.archkeel_collect"
+            "native.archkeel_collect:Identity",
+            "native.archkeel_collect:Over",
+            "native.archkeel_collect:Profile",
+            "native.archkeel_collect:Refusal",
+            "native.archkeel_collect:RefusalKind",
+            "native.archkeel_collect:Scanned",
+            "native.archkeel_collect:scan"
           ]
         },
         {
@@ -2853,7 +3092,7 @@
           "component": "pytext",
           "rationale": "Split a text into lines where Python str.splitlines splits.",
           "through": [
-            "native.archkeel_pytext"
+            "native.archkeel_pytext:splitlines"
           ]
         }
       ]
@@ -2880,7 +3119,12 @@
           "component": "snapshot",
           "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits.",
           "through": [
-            "native.archkeel_snapshot"
+            "native.archkeel_snapshot.paths",
+            "native.archkeel_snapshot.snapshot",
+            "native.archkeel_snapshot:Entry",
+            "native.archkeel_snapshot:MAX_FILE_BYTES",
+            "native.archkeel_snapshot:RootCheck",
+            "native.archkeel_snapshot:Snapshot"
           ]
         },
         {
@@ -2946,7 +3190,7 @@
           "component": "dart-grammar",
           "rationale": "Load the vendored Dart grammar that the Python collector also loads (AD-342).",
           "through": [
-            "native.archkeel_dart_grammar"
+            "native.archkeel_dart_grammar:LANGUAGE"
           ]
         },
         {
@@ -3012,7 +3256,16 @@
           "component": "facts",
           "rationale": "Write the typed facts that the reply holds (AD-345).",
           "through": [
-            "native.archkeel_facts"
+            "native.archkeel_facts.data",
+            "native.archkeel_facts.envelope",
+            "native.archkeel_facts.gap",
+            "native.archkeel_facts.identity",
+            "native.archkeel_facts.ids",
+            "native.archkeel_facts.nullable",
+            "native.archkeel_facts.pyrepr",
+            "native.archkeel_facts.vocab",
+            "native.archkeel_facts:GapFact",
+            "native.archkeel_facts:Record"
           ]
         },
         {
@@ -3034,7 +3287,7 @@
           "component": "pytext",
           "rationale": "Split a text into lines where Python str.splitlines splits.",
           "through": [
-            "native.archkeel_pytext"
+            "native.archkeel_pytext:splitlines"
           ]
         },
         {
@@ -3092,14 +3345,24 @@
           "component": "facts",
           "rationale": "Write the typed import, gap, file and coverage facts (AD-345).",
           "through": [
-            "native.archkeel_facts"
+            "native.archkeel_facts.data",
+            "native.archkeel_facts.envelope",
+            "native.archkeel_facts.identity",
+            "native.archkeel_facts.ids",
+            "native.archkeel_facts.request",
+            "native.archkeel_facts.vocab",
+            "native.archkeel_facts:GapFact",
+            "native.archkeel_facts:ImportFact",
+            "native.archkeel_facts:Record"
           ]
         },
         {
           "component": "snapshot",
           "rationale": "Open the snapshot, read pubspec.yaml and find a file that is not selected, through the one owner of reads.",
           "through": [
-            "native.archkeel_snapshot"
+            "native.archkeel_snapshot.paths",
+            "native.archkeel_snapshot.snapshot",
+            "native.archkeel_snapshot:Snapshot"
           ]
         },
         {
@@ -3182,7 +3445,7 @@
           "component": "snapshot",
           "rationale": "Open the snapshot and normalize the scan roots.",
           "through": [
-            "native.archkeel_snapshot"
+            "native.archkeel_snapshot:Snapshot"
           ]
         },
         {
@@ -3870,7 +4133,9 @@
           "component": "snapshot",
           "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits.",
           "through": [
-            "native.archkeel_snapshot"
+            "native.archkeel_snapshot.paths",
+            "native.archkeel_snapshot.snapshot",
+            "native.archkeel_snapshot:Snapshot"
           ]
         },
         {
@@ -3933,7 +4198,9 @@
           "component": "snapshot",
           "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits.",
           "through": [
-            "native.archkeel_snapshot"
+            "native.archkeel_snapshot.paths",
+            "native.archkeel_snapshot.snapshot",
+            "native.archkeel_snapshot:Snapshot"
           ]
         },
         {
@@ -3995,7 +4262,24 @@
           "component": "facts",
           "rationale": "Write and read the typed facts that the reply holds (AD-345).",
           "through": [
-            "native.archkeel_facts"
+            "native.archkeel_facts.data",
+            "native.archkeel_facts.envelope",
+            "native.archkeel_facts.gap",
+            "native.archkeel_facts.identity",
+            "native.archkeel_facts.ids",
+            "native.archkeel_facts.nested",
+            "native.archkeel_facts.nullable",
+            "native.archkeel_facts.vocab",
+            "native.archkeel_facts:BindingFact",
+            "native.archkeel_facts:CallFact",
+            "native.archkeel_facts:ConstructFact",
+            "native.archkeel_facts:GapFact",
+            "native.archkeel_facts:ImportFact",
+            "native.archkeel_facts:IntoSection",
+            "native.archkeel_facts:Record",
+            "native.archkeel_facts:ReferenceFact",
+            "native.archkeel_facts:Section",
+            "native.archkeel_facts:SymbolFact"
           ]
         },
         {
@@ -4100,14 +4384,20 @@
           "component": "facts",
           "rationale": "Write and read the typed facts that the reply holds (AD-345).",
           "through": [
-            "native.archkeel_facts"
+            "native.archkeel_facts.data",
+            "native.archkeel_facts.envelope",
+            "native.archkeel_facts.gap",
+            "native.archkeel_facts.identity",
+            "native.archkeel_facts.ids",
+            "native.archkeel_facts:GapFact"
           ]
         },
         {
           "component": "snapshot",
           "rationale": "Read the vendored library and its provenance through the one owner of paths and limits.",
           "through": [
-            "native.archkeel_snapshot"
+            "native.archkeel_snapshot.snapshot",
+            "native.archkeel_snapshot:Snapshot"
           ]
         },
         {
@@ -4161,7 +4451,7 @@
           "component": "pytext",
           "rationale": "Split a provenance file into lines where Python str.splitlines splits.",
           "through": [
-            "native.archkeel_pytext"
+            "native.archkeel_pytext:splitlines"
           ]
         }
       ],
@@ -4205,14 +4495,26 @@
           "component": "facts",
           "rationale": "Write and read the typed facts that the reply holds (AD-345).",
           "through": [
-            "native.archkeel_facts"
+            "native.archkeel_facts.data",
+            "native.archkeel_facts.envelope",
+            "native.archkeel_facts.gap",
+            "native.archkeel_facts.identity",
+            "native.archkeel_facts.ids",
+            "native.archkeel_facts.request",
+            "native.archkeel_facts.vocab",
+            "native.archkeel_facts:GapFact",
+            "native.archkeel_facts:ImportFact",
+            "native.archkeel_facts:Record",
+            "native.archkeel_facts:Section"
           ]
         },
         {
           "component": "snapshot",
           "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits.",
           "through": [
-            "native.archkeel_snapshot"
+            "native.archkeel_snapshot.paths",
+            "native.archkeel_snapshot.work",
+            "native.archkeel_snapshot:Snapshot"
           ]
         },
         {
@@ -4567,7 +4869,10 @@
           "component": "snapshot",
           "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits.",
           "through": [
-            "native.archkeel_snapshot"
+            "native.archkeel_snapshot.paths",
+            "native.archkeel_snapshot.snapshot",
+            "native.archkeel_snapshot:Entry",
+            "native.archkeel_snapshot:Snapshot"
           ]
         }
       ],
@@ -4615,7 +4920,9 @@
           "component": "snapshot",
           "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits.",
           "through": [
-            "native.archkeel_snapshot"
+            "native.archkeel_snapshot.paths",
+            "native.archkeel_snapshot.snapshot",
+            "native.archkeel_snapshot:Snapshot"
           ]
         },
         {
@@ -4686,7 +4993,15 @@
           "component": "facts",
           "rationale": "Write and read the typed facts that the reply holds (AD-345).",
           "through": [
-            "native.archkeel_facts"
+            "native.archkeel_facts.data",
+            "native.archkeel_facts.envelope",
+            "native.archkeel_facts.gap",
+            "native.archkeel_facts.ids",
+            "native.archkeel_facts.vocab",
+            "native.archkeel_facts:GapFact",
+            "native.archkeel_facts:ImportFact",
+            "native.archkeel_facts:Record",
+            "native.archkeel_facts:SymbolFact"
           ]
         },
         {
@@ -4750,14 +5065,24 @@
           "component": "facts",
           "rationale": "Write and read the typed facts that the reply holds (AD-345).",
           "through": [
-            "native.archkeel_facts"
+            "native.archkeel_facts.data",
+            "native.archkeel_facts.envelope",
+            "native.archkeel_facts.identity",
+            "native.archkeel_facts.ids",
+            "native.archkeel_facts.nested",
+            "native.archkeel_facts.vocab",
+            "native.archkeel_facts:ImportFact",
+            "native.archkeel_facts:Record",
+            "native.archkeel_facts:SymbolFact"
           ]
         },
         {
           "component": "snapshot",
           "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits.",
           "through": [
-            "native.archkeel_snapshot"
+            "native.archkeel_snapshot.paths",
+            "native.archkeel_snapshot.snapshot",
+            "native.archkeel_snapshot:Snapshot"
           ]
         },
         {
@@ -4830,14 +5155,19 @@
           "component": "facts",
           "rationale": "Write and read the typed facts that the reply holds (AD-345).",
           "through": [
-            "native.archkeel_facts"
+            "native.archkeel_facts.envelope",
+            "native.archkeel_facts.request",
+            "native.archkeel_facts:GapFact",
+            "native.archkeel_facts:ImportFact",
+            "native.archkeel_facts:Record",
+            "native.archkeel_facts:SymbolFact"
           ]
         },
         {
           "component": "snapshot",
           "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits.",
           "through": [
-            "native.archkeel_snapshot"
+            "native.archkeel_snapshot:Snapshot"
           ]
         },
         {
@@ -4900,7 +5230,8 @@
           "component": "snapshot",
           "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits.",
           "through": [
-            "native.archkeel_snapshot"
+            "native.archkeel_snapshot.snapshot",
+            "native.archkeel_snapshot:Snapshot"
           ]
         },
         {
@@ -5070,7 +5401,7 @@
           "component": "pytext",
           "rationale": "Strip Python white space with its one implementation.",
           "through": [
-            "native.archkeel_pytext"
+            "native.archkeel_pytext:rstrip"
           ]
         }
       ],
@@ -5193,7 +5524,10 @@
           "component": "snapshot",
           "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits.",
           "through": [
-            "native.archkeel_snapshot"
+            "native.archkeel_snapshot.paths",
+            "native.archkeel_snapshot.snapshot",
+            "native.archkeel_snapshot:Hidden",
+            "native.archkeel_snapshot:Snapshot"
           ]
         }
       ],
@@ -5241,7 +5575,8 @@
           "component": "snapshot",
           "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits.",
           "through": [
-            "native.archkeel_snapshot"
+            "native.archkeel_snapshot.snapshot",
+            "native.archkeel_snapshot:Snapshot"
           ]
         }
       ],
@@ -5281,14 +5616,35 @@
           "component": "facts",
           "rationale": "Write and read the typed facts that the reply holds (AD-345).",
           "through": [
-            "native.archkeel_facts"
+            "native.archkeel_facts.data",
+            "native.archkeel_facts.envelope",
+            "native.archkeel_facts.gap",
+            "native.archkeel_facts.identity",
+            "native.archkeel_facts.ids",
+            "native.archkeel_facts.measures",
+            "native.archkeel_facts.nested",
+            "native.archkeel_facts.nullable",
+            "native.archkeel_facts.pyminor",
+            "native.archkeel_facts.request",
+            "native.archkeel_facts.type_shape",
+            "native.archkeel_facts.vocab",
+            "native.archkeel_facts:CallFact",
+            "native.archkeel_facts:FactData",
+            "native.archkeel_facts:GapFact",
+            "native.archkeel_facts:ImportFact",
+            "native.archkeel_facts:Record",
+            "native.archkeel_facts:ReferenceFact",
+            "native.archkeel_facts:SymbolFact"
           ]
         },
         {
           "component": "snapshot",
           "rationale": "Read the files through the one owner of snapshot reads.",
           "through": [
-            "native.archkeel_snapshot"
+            "native.archkeel_snapshot.paths",
+            "native.archkeel_snapshot.snapshot",
+            "native.archkeel_snapshot:Hidden",
+            "native.archkeel_snapshot:Snapshot"
           ]
         },
         {
@@ -5352,14 +5708,21 @@
           "component": "facts",
           "rationale": "Write and read the typed facts that the reply holds (AD-345).",
           "through": [
-            "native.archkeel_facts"
+            "native.archkeel_facts.envelope",
+            "native.archkeel_facts.request",
+            "native.archkeel_facts:CallFact",
+            "native.archkeel_facts:GapFact",
+            "native.archkeel_facts:ImportFact",
+            "native.archkeel_facts:Record",
+            "native.archkeel_facts:ReferenceFact",
+            "native.archkeel_facts:SymbolFact"
           ]
         },
         {
           "component": "snapshot",
           "rationale": "Read the inputs through the one owner of snapshot reads.",
           "through": [
-            "native.archkeel_snapshot"
+            "native.archkeel_snapshot:Snapshot"
           ]
         },
         {
@@ -5585,7 +5948,7 @@
           "component": "snapshot",
           "rationale": "Read the files through the one owner of snapshot reads.",
           "through": [
-            "native.archkeel_snapshot"
+            "native.archkeel_snapshot:Snapshot"
           ]
         },
         {
@@ -5988,7 +6351,8 @@
       "kind": "complete_requires",
       "rationale": "A component uses another component only where requires says so; absence forbids. This is the crate direction of AD-327 and the module direction of each collector.",
       "provenance": [
-        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md"
+        "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md",
+        "docs/architecture/decisions/ad-612-exact-ports-and-one-system-run.md"
       ],
       "decided_by": "architect"
     },

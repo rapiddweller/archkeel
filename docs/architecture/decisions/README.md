@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-612 | [Exact ports, and one system run](ad-612-exact-ports-and-one-system-run.md) |
 | AD-610 | [Check literal schema extensions](ad-610-check-literal-schema-extensions.md) |
 | AD-608 | [A crate root is the one public path of each name it publishes](ad-608-a-crate-root-is-the-one-public-path-of-each-name-it-publishes.md) |
 | AD-604 | [The Rust collector states the item and the route of each import](ad-604-the-rust-collector-states-the-item-and-route-of-each-import.md) |
