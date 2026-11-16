@@ -33,7 +33,22 @@ The draft reads the folder layout, not the code:
 | Cargo workspace (`[workspace] members`) | crate |
 | `package.json` with `workspaces` | workspace package |
 
-The modules beside the packages are the component `root`. The contract has two rules: every module
+The modules beside the packages are the component `root`.
+
+### A mixed repository: a system
+
+If the repository has several language areas (a Python backend and a Dart app; a Python platform
+and two TypeScript apps; a Cargo workspace), the draft is a **system** (AD-660): the file
+`docs/architecture/architecture-system.json` with one part for each area, and for each part its own
+`archkeel.toml`, contract and page in `docs/architecture/<part>/`. `validate` and `report` take that
+document when there is no `archkeel.toml`; `archkeel report --output report.html` then draws the
+system: one box for each part with its language, and the components inside it. If you have an
+`archkeel.toml`, it wins: run `archkeel report --config docs/architecture/architecture-system.json`.
+
+Each part states what it is responsible for, what it is not, and what it gives (all `TODO` first).
+An interface between two parts needs a schema file (OpenAPI, proto, ...): the draft names one only
+where such a file lies inside a part, and each other part is an open candidate caller. Add the
+others to `interfaces` of the system document by hand. The contract has two rules: every module
 has one owner, and no component cycle. A Python project must declare `requires-python` in
 `pyproject.toml`; if not, the output says so, because the core cannot decide the scan scope.
 

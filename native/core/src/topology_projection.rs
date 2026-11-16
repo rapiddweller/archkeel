@@ -335,6 +335,7 @@ fn edge_rows(
         .map(|target| (target.import_id().as_str(), target))
         .collect();
     let mut buckets = BTreeMap::new();
+    let listed: BTreeSet<&str> = modules.iter().map(|m| m.name.as_str()).collect();
     for import in models.root().graph().imports() {
         // The typed target decides. A profile that reads each target by its module gives the
         // rules `Resolved::Local` for a library or a platform module: it is no module of the
@@ -343,8 +344,11 @@ fn edge_rows(
             targets.get(import.id()),
             Some(Target::External { .. } | Target::Builtin { .. })
         );
+        // A local target that is no listed module (a JSON or asset file that the import names, or
+        // a file beside the scan root) has no row to draw: the display calls it external, so
+        // that every `resolved` edge ends at a module of the list.
         let resolution = match import.resolved() {
-            Resolved::Local if !outside => "resolved",
+            Resolved::Local if !outside && listed.contains(import.target_module()) => "resolved",
             _ => "external",
         };
         add(

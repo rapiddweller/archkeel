@@ -1,48 +1,78 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Draft `archkeel.toml` and a first contract from the folder layout of a project (AD-626, AD-638).
+"""Draft `archkeel.toml` and a first contract, or a system of them (AD-626, AD-638, AD-660).
 
-The draft reads the layout only (`init_layouts`): no source, no import, no fact. It names each
-component the layout shows and leaves every decision to the user: each responsibility and each
-rationale is the word `TODO`, which the core reports as open. The draft decides nothing. A file
-that exists is never replaced.
+The draft reads the folder layout and the manifests only (`init_areas`): no source, no import, no
+fact. It names each component the layout shows and leaves every decision to the user: each
+responsibility and each rationale is the word `TODO`, which the core reports as open. The draft
+decides nothing. A file that exists is never replaced.
+
+One language area gives `archkeel.toml`, a contract and its page at the root. Several areas give a
+system: `docs/architecture/architecture-system.json` with one part for each area, and for each part
+a configuration, a contract and a page in `docs/architecture/<part>/`.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from .init_layouts import DOCUMENT, Layout, NothingToDraft, Part, detect
+from .init_areas import Area, detect, title_of, unique_ids
+from .init_layouts import _IGNORED, DOCUMENT, Layout, NothingToDraft, Part
 
-__all__ = ["CONFIG", "CONTRACT", "DOCUMENT", "PROVENANCE", "Draft", "NothingToDraft", "draft"]
+__all__ = [
+    "CONFIG",
+    "CONTRACT",
+    "DOCUMENT",
+    "SYSTEM",
+    "Draft",
+    "NothingToDraft",
+    "draft",
+    "write_missing",
+]
 CONFIG: Final = "archkeel.toml"
 CONTRACT: Final = "architecture-contract.json"
+SYSTEM: Final = "docs/architecture/architecture-system.json"
 # A contract must cite a file that exists, and a cited document must hold the marked component
 # graph (release 4.0.1 wrote it too). The draft draws the components and no edge: the core then
 # reports `graph.drift` with the edges that it found, and that list is the first decision to make.
-PROVENANCE: Final = "docs/architecture/architecture.md"
+PAGE: Final = "architecture.md"
+_FOLDER: Final = "docs/architecture"
+_SPEC_DEPTH: Final = 4
 _SCHEMA: Final = "3.14.0"
+_SPECS: Final = re.compile(r"(openapi|swagger|asyncapi)[^/]*\.(json|ya?ml)$|\.proto$", re.I)
+
+
+@dataclass(frozen=True)
+class File:
+    """One file of a draft. `unless` is a path whose existence stops this file: the contract and
+    its page belong together, and an existing contract is the user's."""
+
+    path: str
+    text: str
+    unless: str = ""
 
 
 @dataclass(frozen=True)
 class Draft:
-    """The three files of a draft, as text, and what they name."""
+    """The files of a draft and what they name."""
 
-    config: str
-    contract: str
-    document: str
+    files: tuple[File, ...]
     language: str
     namespace: str
     components: tuple[str, ...]
     note: str = ""
+    parts: tuple[str, ...] = ()
+    interfaces: tuple[str, ...] = ()
+    entry: str = CONFIG
 
 
-def _document(components: tuple[str, ...]) -> str:
+def _page(components: tuple[str, ...]) -> str:
     nodes = "".join(f"    {label}\n" for label in components)
     return (
         "# Architecture\n\nTODO: write the decisions of this architecture here.\n\n"
@@ -50,9 +80,13 @@ def _document(components: tuple[str, ...]) -> str:
     )
 
 
-def _component(part: Part) -> dict[str, object]:
+def _slug(text: str) -> str:
+    return re.sub(r"[^A-Z0-9]+", "-", text.upper()).strip("-")
+
+
+def _component(part: Part, prefix: str, page: str) -> dict[str, object]:
     return {
-        "id": "COMP-" + re.sub(r"[^A-Z0-9]+", "-", part.label.upper()).strip("-"),
+        "id": "-".join(x for x in ("COMP", prefix, _slug(part.label)) if x),
         "label": part.label,
         "role": "component",
         "packages": list(part.packages),
@@ -60,76 +94,173 @@ def _component(part: Part) -> dict[str, object]:
         # `decided_by: architect` with the word TODO: the core reports `responsibility.missing`.
         "responsibilities": ["TODO"],
         "forbidden_responsibilities": [],
-        "provenance": [PROVENANCE],
+        "provenance": [page],
         "decided_by": "architect",
         "public": [],
     }
 
 
-def _rule(identifier: str, kind: str, **fields: str) -> dict[str, object]:
+def _rule(identifier: str, kind: str, page: str, **fields: str) -> dict[str, object]:
     return {
         "id": identifier,
         "kind": kind,
         **fields,
         "rationale": "TODO: say why this rule holds.",
-        "provenance": [PROVENANCE],
+        "provenance": [page],
         "decided_by": "architect",
     }
 
 
-def _toml(layout: Layout) -> str:
+def _toml(layout: Layout, contract: str) -> str:
     roots = ", ".join(f'"{root}"' for root in layout.roots)
     return (
         f'[scan]\nlanguage = "{layout.language}"\nnamespace = "{layout.namespace}"\n'
-        f'roots = [{roots}]\ncontract = "{CONTRACT}"\n{layout.extra}'
+        f'roots = [{roots}]\ncontract = "{contract}"\n{layout.extra}'
+    )
+
+
+def _unit(layout: Layout, folder: str, prefix: str) -> tuple[list[File], tuple[str, ...]]:
+    """The configuration, the contract and the page of one scan, in `folder` ("" is the root)."""
+    at = f"{folder}/" if folder else ""
+    contract, page = f"{at}{CONTRACT}", f"{folder or _FOLDER}/{PAGE}"
+    parts = [part for part in layout.parts if part.packages or part.modules]
+    labels = tuple(part.label for part in parts)
+    ids = (f"{prefix}-ASSIGNMENT-COMPLETE", f"{prefix}-COMPONENT-NO-CYCLES")
+    document = {
+        "schema_version": _SCHEMA,
+        "components": [_component(part, prefix, page) for part in parts],
+        "rules": [
+            _rule(ids[0].strip("-"), "complete_assignment", page, source=layout.namespace),
+            _rule(ids[1].strip("-"), "no_component_cycles", page),
+        ],
+    }
+    files = [
+        File(f"{at}{CONFIG}", _toml(layout, contract)),
+        File(contract, json.dumps(document, indent=2) + "\n", unless=contract),
+        File(page, _page(labels), unless=contract),
+    ]
+    return files, labels
+
+
+def _files(repo: Path) -> list[Path]:
+    """The files of the repository down to four folders, without hidden or generated folders."""
+    found = []
+    for folder, names, files in os.walk(repo):
+        depth = len(Path(folder).relative_to(repo).parts)
+        names[:] = sorted(
+            name
+            for name in names
+            if depth < _SPEC_DEPTH and not name.startswith(".") and name not in _IGNORED
+        )
+        found += [Path(folder) / name for name in sorted(files) if _SPECS.search(name)]
+    return found
+
+
+def _specs(repo: Path, areas: list[Area]) -> list[tuple[str, int]]:
+    """The files that state an interface (OpenAPI, Swagger, AsyncAPI, proto), each with the index
+    of the area whose folder holds it most closely."""
+    found = []
+    for path in _files(repo):
+        relative = path.relative_to(repo)
+        holders = [
+            (len(Path(a.folder).parts) if a.folder != "." else 0, i)
+            for i, a in enumerate(areas)
+            if a.folder == "." or relative.is_relative_to(a.folder)
+        ]
+        if holders:
+            found.append((relative.as_posix(), max(holders)[1]))
+    return found
+
+
+def _system(repo: Path, areas: list[Area]) -> Draft:
+    ids = unique_ids(areas)
+    files: list[File] = []
+    parts, names = [], []
+    for area, identifier in zip(areas, ids, strict=True):
+        unit, labels = _unit(area.layout, f"{_FOLDER}/{identifier}", _slug(identifier))
+        files += unit
+        names += [f"{identifier}/{label}" for label in labels]
+        title = title_of(area, identifier)
+        parts.append(
+            {
+                "id": identifier,
+                "title": title,
+                "config": unit[0].path,
+                "responsibilities": [f"TODO: state what {title} is responsible for."],
+                "forbidden_responsibilities": [f"TODO: state what {title} must not do."],
+                "provides": [f"TODO: state what {title} gives to the other parts."],
+            }
+        )
+    interfaces: list[dict[str, str]] = []
+    for spec, holder in _specs(repo, areas):
+        for index, source in enumerate(ids):
+            if index != holder:
+                interfaces.append(
+                    {
+                        "id": f"{source}-to-{ids[holder]}-{len(interfaces) + 1}",
+                        "source": source,
+                        "target": ids[holder],
+                        "title": f"TODO: confirm that {source} uses {spec}",
+                        "schema": spec,
+                    }
+                )
+    system = {
+        "schema_version": "archkeel-system-contract-1",
+        "kind": "system",
+        "title": repo.name,
+        "parts": parts,
+        "interfaces": interfaces,
+        "rules": [],
+    }
+    files.insert(0, File(SYSTEM, json.dumps(system, indent=2) + "\n"))
+    languages = ", ".join(sorted({a.layout.language for a in areas}))
+    note = " ".join(dict.fromkeys(a.layout.note for a in areas if a.layout.note))
+    return Draft(
+        tuple(files),
+        languages,
+        repo.name,
+        tuple(names),
+        note,
+        tuple(title_of(a, i) for a, i in zip(areas, ids, strict=True)),
+        tuple(str(i["id"]) for i in interfaces),
+        SYSTEM,
     )
 
 
 def draft(root: Path) -> Draft:
     """Draft the files for the layout of `root`, or raise `NothingToDraft`."""
-    layout = detect(root)
-    rules = [
-        _rule("ASSIGNMENT-COMPLETE", "complete_assignment", source=layout.namespace),
-        _rule("COMPONENT-NO-CYCLES", "no_component_cycles"),
-    ]
-    parts = [part for part in layout.parts if part.packages or part.modules]
-    labels = tuple(part.label for part in parts)
-    contract = {
-        "schema_version": _SCHEMA,
-        "components": [_component(part) for part in parts],
-        "rules": rules,
-    }
-    return Draft(
-        _toml(layout),
-        json.dumps(contract, indent=2) + "\n",
-        _document(labels),
-        layout.language,
-        layout.namespace,
-        labels,
-        layout.note,
-    )
+    areas = detect(root)
+    if len(areas) > 1:
+        return _system(root, areas)
+    layout = areas[0].layout
+    files, labels = _unit(layout, "", "")
+    # One scan at the root keeps the plain names of the rules and components.
+    return Draft(tuple(files), layout.language, layout.namespace, labels, layout.note)
+
+
+def _blocked(root: Path, item: File) -> bool:
+    return (root / item.path).exists() or bool(item.unless and (root / item.unless).exists())
 
 
 def write_missing(root: Path, result: Draft) -> list[str]:
     """Write each file of the draft that does not exist, and return their names.
 
-    The contract and its document are written together, and only when the contract is missing:
-    an existing contract is the user's. A file is created exclusively, so a file that appears
-    meanwhile is never replaced. A failure removes what this call wrote, then raises `OSError`.
+    A file whose `unless` path exists is skipped: an existing contract is the user's, and its
+    page stays with it. A file is created exclusively, so a file that appears meanwhile is never
+    replaced. A failure removes what this call wrote, then raises `OSError`.
     """
-    wanted = {CONFIG: result.config}
-    if not (root / CONTRACT).exists():
-        wanted |= {CONTRACT: result.contract, PROVENANCE: result.document}
     written: list[Path] = []
+    # What stops a file is decided before the first write: the contract stops its page, too.
+    blocked = {item.path for item in result.files if _blocked(root, item)}
     try:
-        for name, text in wanted.items():
-            target = root / name
-            if target.exists():
+        for item in result.files:
+            target = root / item.path
+            if item.path in blocked:
                 continue
             target.parent.mkdir(parents=True, exist_ok=True)
             with target.open("x", encoding="utf-8") as handle:
                 written.append(target)
-                handle.write(text)
+                handle.write(item.text)
     except OSError:
         for target in written:
             target.unlink(missing_ok=True)
