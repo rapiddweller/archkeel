@@ -485,7 +485,9 @@ call, `Display`, `Drop`, `==`, `for`, `+`, `?`, `impl Trait`, `dyn`, a field, an
 `Default`, a closure, `into()` into a sink of another module); (2) an impl of a trait of `b` for a
 type of another module, reached through a generic bound, a supertrait, a `dyn` supertrait or a
 re-export of the trait; (3) a trait of a crate outside the workspace that a glob brings in. Open false
-PASS, not accepted (#1020): an item that a function-like macro generates without a recorded path.
+PASS, not accepted (#1020): an item that a function-like procedural macro generates without a
+recorded path. A member that a `macro_rules!` impl adds outside the file of its type gives a pair gap
+(AD-656).
 The independent token inventory remains open (#1026); it must detect tokens that a macro reader loses.
 Attribute macros and unproved derives have named expansion gaps on every scanned syntax position.
 Each gap names the source module and leaves the target unseen. It blocks affected rules through

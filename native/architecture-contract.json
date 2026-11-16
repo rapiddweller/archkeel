@@ -4792,6 +4792,7 @@
         "native.archkeel_rust_collector.scan:Via",
         "native.archkeel_rust_collector.scan:scan",
         "native.archkeel_rust_collector.site:Site",
+        "native.archkeel_rust_collector.tokens:NAME_FROM_CALL",
         "native.archkeel_rust_collector.tokens:NO_BIND_MACROS"
       ],
       "decided_by": "architect"
