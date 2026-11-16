@@ -38,6 +38,7 @@ pub(crate) fn import(id: &str, source: &str, target: &str) -> Import {
     Import {
         reexport_chain: Vec::new(),
         route_complete: true,
+        published_as: None,
         id: id.to_owned(),
         source_module: source.to_owned(),
         target_module: target.to_owned(),

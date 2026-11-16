@@ -52,7 +52,18 @@ impl Builder {
         let Some(frame) = index.frame(&module.module) else {
             return;
         };
-        match index.resolve(frame, reference) {
+        // A glob names a module, also by one name (`use child::*;`): an empty last name lets the
+        // path end at that module, as `through_glob` does (AD-608).
+        let mut glob = None;
+        if matches!(reference.via, Via::Glob { .. }) {
+            let mut names = reference.names.clone();
+            names.push(String::new());
+            glob = Some(Reference {
+                names,
+                ..reference.clone()
+            });
+        }
+        match index.resolve(frame, glob.as_ref().unwrap_or(reference)) {
             // A body path from the crate name (`::app::b`) needs `extern crate self as app`.
             Outcome::None if reference.absolute && reference.in_macro.is_some() => {
                 let reason = "A macro_rules! body holds a path from the name of its own crate";
@@ -291,8 +302,12 @@ impl Builder {
             declaration_file: None,
         });
         let named = named(index, &mut self.publications, edge, &reference.via);
-        let record = module_record(module, reference, edge, &identity, evidence);
-        self.imports.push(with_name(record, named));
+        let mut record = with_name(
+            module_record(module, reference, edge, &identity, evidence),
+            named,
+        );
+        record.data.data_mut().published_as = published(index, &module.module, reference);
+        self.imports.push(record);
         self.ended += 1;
     }
 }
@@ -344,6 +359,35 @@ pub(crate) fn item(index: &Index<'_>, lexical: &str, symbol: Option<&str>) -> Im
             symbol: None,
             route: Route::none(),
         },
+    }
+}
+
+/// The name that a `use` leaf publishes outside its crate (AD-608): a `pub use` at module level of
+/// the root of a library crate. A glob publishes names that the scan does not list (`*`). A leaf
+/// with a restricted visibility (`pub(crate)`) publishes nothing outside the crate.
+pub(crate) fn published(index: &Index<'_>, module: &str, reference: &Reference) -> Option<String> {
+    let frame = index.frame(module)?;
+    let krate = frame.krate();
+    let root = krate
+        .primary
+        .as_ref()
+        .is_some_and(|root| root.module == module);
+    if !(krate.library && root) || frame.lexical_at(&reference.scope) != module {
+        return None;
+    }
+    match &reference.via {
+        Via::Use {
+            binding: Some(name),
+            reexport: true,
+            block: false,
+        } if name != "_" && !frame.module.scan.restricted_bindings.contains(name) => {
+            Some(name.clone())
+        }
+        Via::Glob {
+            reexport: true,
+            block: false,
+        } => Some("*".to_owned()),
+        _ => None,
     }
 }
 

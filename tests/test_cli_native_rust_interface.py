@@ -27,9 +27,9 @@ pytestmark = pytest.mark.skipif(shutil.which("cargo") is None, reason="rustc is 
 
 BASE = {
     "crates/base/src/lib.rs": (
-        "pub mod shapes;\npub mod relay;\nmod inner;\nmod extra;\nmod made;\n"
+        "pub mod shapes;\npub mod relay;\nmod inner;\nmod extra;\npub mod made;\n"
         "pub use inner::Thing;\n"
-        "pub use made::Gen;\npub fn make() {}\npub fn secret() {}\npub struct Tool;\n"
+        "pub fn make() {}\npub fn secret() {}\npub struct Tool;\n"
     ),
     "crates/base/src/inner.rs": "pub struct Thing;\n",
     "crates/base/src/shapes.rs": "pub struct Circle;\npub struct Square;\n",
@@ -96,10 +96,10 @@ PLANTS = [
     ),
     (
         "item that a macro defines",
-        "use base_crate::Gen;\npub fn run() -> Gen { Gen }\n",
+        "use base_crate::made::Gen;\npub fn run() -> Gen { Gen }\n",
         [],
         "FAIL",
-        VIOLATION.format("native.base_crate:Gen"),
+        VIOLATION.format("native.base_crate.made:Gen"),
     ),
     (
         "item that a macro may publish further",
@@ -110,8 +110,8 @@ PLANTS = [
     ),
     (
         "macro item at a public hop",
-        "use base_crate::Gen;\npub fn run() -> Gen { Gen }\n",
-        ["native.base_crate:Gen"],
+        "use base_crate::made::Gen;\npub fn run() -> Gen { Gen }\n",
+        ["native.base_crate.made:Gen"],
         "PASS",
         None,
     ),
@@ -209,7 +209,7 @@ def test_a_member_of_a_type_is_published_by_the_type_in_the_module_of_its_block(
         )
 
 
-ROOT_PUBLIC = ["native.base_crate:Circle", "native.base_crate:make"]
+ROOT_PUBLIC = ["native.base_crate:Circle", "native.base_crate:Thing", "native.base_crate:make"]
 # AD-608: the root of `base` publishes `Circle`; its one public path is the root.
 ROOT_PLANTS = [
     ("root path", "use base_crate::Circle;\npub fn run() -> Circle { Circle }\n", "PASS"),
@@ -238,3 +238,29 @@ def test_a_name_that_a_crate_root_publishes_has_the_root_as_its_one_path(
     assert found_status == status, (name, found)
     if status == "FAIL":
         assert VIOLATION.format("native.base_crate.shapes:Circle") in found, (name, found)
+
+
+PUBLISHED = (
+    "BOUNDARY: native.base_crate -> native.base_crate:Square: "
+    "publication outside the public interface"
+)
+# AD-608: a `pub use` at the root of a library crate publishes its name to other crates.
+PUBLICATIONS = [
+    ("unlisted publication", "pub use shapes::Square;\n", [], "FAIL"),
+    ("listed publication", "pub use shapes::Square;\n", ["native.base_crate:Square"], "PASS"),
+    ("restricted re-export", "pub(crate) use shapes::Square;\n", [], "PASS"),
+    ("published glob", "pub use shapes::*;\n", [], "UNKNOWN"),
+]
+
+
+@pytest.mark.parametrize(("name", "line", "more", "status"), PUBLICATIONS)
+def test_a_crate_root_publishes_only_names_that_its_component_lists(
+    core_binary: Path, tmp_path: Path, name: str, line: str, more: list[str], status: str
+) -> None:
+    base = {**component("base", "base_crate"), "public": PUBLIC + more}
+    app = component("app", "app", ("base",))
+    lib = BASE["crates/base/src/lib.rs"] + line
+    files = {**BASE, "crates/base/src/lib.rs": lib, "crates/app/src/lib.rs": "pub fn run() {}\n"}
+    found_status, found = _run(tmp_path, core_binary, files, (base, app))
+    assert found_status == status, (name, found)
+    assert (PUBLISHED in found) == (status == "FAIL"), (name, found)

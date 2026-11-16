@@ -16,7 +16,7 @@ use archkeel_facts::{ImportFact, Record};
 use crate::builder::{import_record, Builder, Origin};
 use crate::crates::{Crate, Workspace};
 use crate::derive_imports::Local;
-use crate::module_edges::{local_target, with_name, ImportName};
+use crate::module_edges::{local_target, published, with_name, ImportName};
 use crate::modules::Index;
 use crate::resolve::{classify, linked, Found, Named};
 use crate::scan::Reference;
@@ -226,10 +226,13 @@ impl Builder {
             &target_package,
         );
         // AD-604: an import into the workspace names its item; an external one is not read.
-        self.imports.push(match name {
+        let mut record = match name {
             Some(name) => with_name(record, name),
             None => record,
-        });
+        };
+        record.data.data_mut().published_as =
+            index.and_then(|index| published(index, from.module, reference));
+        self.imports.push(record);
         self.ended += 1;
     }
 }
