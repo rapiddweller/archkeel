@@ -12,7 +12,7 @@ import stat
 from collections.abc import Mapping
 from pathlib import Path
 
-from .core_json import CoreError, _fields, _text
+from .core_json import CoreError, as_object, as_text
 
 
 def read_html(
@@ -20,12 +20,14 @@ def read_html(
     status: str,
     request: Mapping[str, object] | None,
 ) -> str | None:
+    """The HTML part of a frame if the request asked for it, else `None`."""
+
     if "html" not in frame and not (request and request.get("html")):
         return None
-    part = _fields(frame.get("html"), "html", frozenset({"protocol", "status", "document"}))
+    part = as_object(frame.get("html"), "html")
     if part["protocol"] != "archkeel-core-html-1" or part["status"] != status:
         raise CoreError("the core HTML part has another protocol or status")
-    document = _text(part["document"], "html.document")
+    document = as_text(part["document"], "html.document")
     heading = f"<h1>Verdict: {status}</h1>"
     headings = re.findall(r"<h[1-6]\b[^>]*>\s*Verdict:", document, flags=re.IGNORECASE)
     if document.count(heading) != 1 or headings != ["<h1>Verdict:"]:

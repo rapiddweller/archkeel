@@ -15,13 +15,13 @@ from core_support import HONEST, SUFFIX, case_root
 from test_cli_core_only import GUARD, ROOT
 from test_cli_core_only_boundary import HEAD, frame
 
-from archkeel.cli import core_only
+from archkeel.cli import core_arguments, core_only
 from archkeel.cli.native_scan import exchange
 
 
 @pytest.fixture(autouse=True)
 def environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.delenv(core_only.VARIABLE, raising=False)
+    monkeypatch.delenv(core_arguments.VARIABLE, raising=False)
     monkeypatch.chdir(tmp_path)
     (tmp_path / "archkeel.toml").write_text('[scan]\ncontract = "contract.json"\n')
     (tmp_path / "contract.json").write_text('{"rules": [{"id": "R1"}]}')
@@ -38,7 +38,7 @@ def test_an_unbound_other_projects_pass_is_a_refusal(
     snapshot = document["self_test"]["collect"]["request"]["snapshot"]
     snapshot["root"] = str(tmp_path / "other" if fault == "foreign-root" else tmp_path)
     if fault == "foreign-rule":
-        document.pop("contract_digest", None)
+        document["contract_digest"] = None
         document["rules"] = {"OTHER": ["complete_assignment", "PASS"]}
         document["self_test"]["contract"]["rules"] = {"OTHER": "complete_assignment"}
     monkeypatch.setattr(core_only, "identity", lambda _: (HEAD, False))

@@ -12,7 +12,8 @@ Archkeel checks the shell with its own core and the contract in
 | Part | Modules | Task |
 |---|---|---|
 | `entry` | `archkeel`, `archkeel.cli`, `archkeel.cli.__main__` | Start the command line and return the exit code. |
-| `commands` | `core_only` | Parse the arguments, send the scan identity, print the frame, map the status to an exit code. |
+| `commands` | `core_only` | Send the scan identity, print the frame, map the status to an exit code. |
+| `arguments` | `core_arguments` | Read the command line into typed options and refuse by name what this line does not serve (AD-596). |
 | `locate` | `core_binary` | Find the core binary of this install. |
 | `launch` | `native_scan` | Build the scan request, start the core and return its bytes. |
 | `frame` | `core_frame` | Read one frame into typed values. The only part that reads a verdict. |
@@ -21,6 +22,7 @@ Archkeel checks the shell with its own core and the contract in
 | `binding` | `core_binding` | Bind a frame to the request identity and the contract file bytes. |
 | `output` | `core_output` | Read the presentation of the core and write the received bytes to one file. |
 | `json` | `core_json` | Checked readers and the shared error type. |
+| `schema` | `core_schema` | Check a frame against the one schema that the core generates from its types (AD-596). |
 | `skill` | `skill` | Install the coding-agent skill. |
 
 An arrow points down only. The entry calls the commands, the commands call the other parts, and
@@ -46,36 +48,43 @@ from the shell to the core. `SHELL-ONLY-LAUNCH-STARTS-A-PROCESS` keeps it in one
 <!-- archkeel-component-graph -->
 ```mermaid
 flowchart LR
-    n_0["baseline"]
-    n_1["binding"]
-    n_2["commands"]
-    n_3["display"]
-    n_4["entry"]
-    n_5["frame"]
-    n_6["json"]
-    n_7["launch"]
-    n_8["locate"]
-    n_9["output"]
-    n_10["skill"]
+    n_0["arguments"]
+    n_1["baseline"]
+    n_2["binding"]
+    n_3["commands"]
+    n_4["display"]
+    n_5["entry"]
+    n_6["frame"]
+    n_7["json"]
+    n_8["launch"]
+    n_9["locate"]
+    n_10["output"]
+    n_11["schema"]
+    n_12["skill"]
     n_0 --> n_6
-    n_1 --> n_6
-    n_2 --> n_0
-    n_2 --> n_1
-    n_2 --> n_5
-    n_2 --> n_6
+    n_1 --> n_7
     n_2 --> n_7
-    n_2 --> n_8
-    n_2 --> n_9
-    n_2 --> n_10
+    n_3 --> n_0
+    n_3 --> n_1
+    n_3 --> n_2
     n_3 --> n_6
-    n_4 --> n_2
-    n_5 --> n_0
-    n_5 --> n_1
+    n_3 --> n_7
+    n_3 --> n_8
+    n_3 --> n_9
+    n_3 --> n_10
+    n_3 --> n_12
+    n_4 --> n_7
+    n_4 --> n_11
     n_5 --> n_3
-    n_5 --> n_6
-    n_5 --> n_9
-    n_7 --> n_5
-    n_7 --> n_6
+    n_6 --> n_1
+    n_6 --> n_2
+    n_6 --> n_4
+    n_6 --> n_7
+    n_6 --> n_10
+    n_6 --> n_11
     n_8 --> n_6
-    n_9 --> n_6
+    n_8 --> n_7
+    n_9 --> n_7
+    n_10 --> n_7
+    n_11 --> n_7
 ```

@@ -22,7 +22,8 @@
           "required": [
             "name",
             "records"
-          ]
+          ],
+          "description": "The import records."
         },
         {
           "type": "object",
@@ -41,7 +42,8 @@
           "required": [
             "name",
             "records"
-          ]
+          ],
+          "description": "The symbol records."
         },
         {
           "type": "object",
@@ -60,7 +62,8 @@
           "required": [
             "name",
             "records"
-          ]
+          ],
+          "description": "The call records."
         },
         {
           "type": "object",
@@ -79,7 +82,8 @@
           "required": [
             "name",
             "records"
-          ]
+          ],
+          "description": "The reference records."
         },
         {
           "type": "object",
@@ -98,7 +102,8 @@
           "required": [
             "name",
             "records"
-          ]
+          ],
+          "description": "The binding records."
         },
         {
           "type": "object",
@@ -117,7 +122,8 @@
           "required": [
             "name",
             "records"
-          ]
+          ],
+          "description": "The construct records."
         },
         {
           "type": "object",
@@ -136,7 +142,8 @@
           "required": [
             "name",
             "records"
-          ]
+          ],
+          "description": "The typing signal records."
         },
         {
           "type": "object",
@@ -155,7 +162,8 @@
           "required": [
             "name",
             "records"
-          ]
+          ],
+          "description": "The gap records."
         }
       ],
       "description": "One section of a reply: its name and its records."
@@ -342,50 +350,63 @@
       "additionalProperties": false,
       "properties": {
         "source_module": {
-          "$ref": "#/$defs/ModuleName"
+          "$ref": "#/$defs/ModuleName",
+          "description": "The module that holds the source."
         },
         "source_package": {
-          "$ref": "#/$defs/PackageName"
+          "$ref": "#/$defs/PackageName",
+          "description": "The package that holds the source module."
         },
         "target_module": {
-          "$ref": "#/$defs/ModuleName"
+          "$ref": "#/$defs/ModuleName",
+          "description": "The module that the import reaches."
         },
         "target_package": {
-          "$ref": "#/$defs/PackageName"
+          "$ref": "#/$defs/PackageName",
+          "description": "The package that the import reaches."
         },
         "symbol": {
-          "type": "string"
+          "type": "string",
+          "description": "The imported name."
         },
         "binding": {
-          "type": "string"
+          "type": "string",
+          "description": "The name that the import binds."
         },
         "symbols_known": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "True when the collector reads the imported names."
         },
         "specifier": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The text of the import as written."
         },
         "type_only": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True for an import that only types use."
         },
         "relative_level": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "description": "The number of leading dots of a relative import."
         },
         "under_type_checking": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "True when the import sits under `TYPE_CHECKING`."
         },
         "reexport": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "True when the import publishes the name again."
         },
         "module_level_import": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "True when the import sits at module level."
         },
         "reexport_chain": {
           "type": [
@@ -394,67 +415,85 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The names whose route the collector records."
+        },
+        "route_complete": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "`false` when the collector proves only the first hops of `reexport_chain`: a later\nhop may follow (AD-604). Absent: the route is complete, or there is none."
         },
         "declared_in_all": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when `__all__` lists the name."
         },
         "ordinary_module": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the target is an ordinary module."
         },
         "origin_binding_unique": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when one statement binds the name in the origin."
         },
         "origin_definition": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The id of the definition at the origin."
         },
         "origin_member_binding_static": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when no statement rebinds the member at the origin."
         },
         "reexport_candidate": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the import can publish the name again."
         },
         "script_global": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The global that a script import binds."
         },
         "script_member": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The member of the global that a script import reads."
         },
         "source_binding_unique": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when one statement binds the name in the source."
         },
         "source_member_binding_static": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when no statement rebinds the member."
         },
         "symbol_visibility": {
           "anyOf": [
@@ -464,7 +503,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The visibility of the imported symbol."
         }
       },
       "required": [
@@ -491,34 +531,76 @@
       "description": "The package of a module, or the package of an external dependency."
     },
     "Visibility": {
-      "type": "string",
-      "enum": [
-        "private",
-        "public_name"
-      ]
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "private",
+          "description": "The name is private."
+        },
+        {
+          "type": "string",
+          "const": "public_name",
+          "description": "The name is public."
+        }
+      ],
+      "description": "Whether a name is public or private."
     },
     "FactId": {
       "type": "string",
       "description": "The id of a source record (`PREFIX-` and 16 hex digits, `identity::stable_id`)."
     },
     "EvidenceClass": {
-      "type": "string",
-      "enum": [
-        "FACT",
-        "UNKNOWN"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "FACT",
+          "description": "A record that the collector proves."
+        },
+        {
+          "type": "string",
+          "const": "UNKNOWN",
+          "description": "A gap that the collector names."
+        }
       ],
       "description": "The evidence class of a source record. A source record is a fact or an UNKNOWN gap."
     },
     "Area": {
-      "type": "string",
-      "enum": [
-        "source",
-        "dependencies",
-        "repository_topology",
-        "call_hierarchy",
-        "constructs",
-        "type_architecture",
-        "analysis_coverage"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "source",
+          "description": "Source facts such as imports."
+        },
+        {
+          "type": "string",
+          "const": "dependencies",
+          "description": "Dependency facts of the language."
+        },
+        {
+          "type": "string",
+          "const": "repository_topology",
+          "description": "The layout of the repository."
+        },
+        {
+          "type": "string",
+          "const": "call_hierarchy",
+          "description": "Calls and references."
+        },
+        {
+          "type": "string",
+          "const": "constructs",
+          "description": "Written constructs that a rule can forbid."
+        },
+        {
+          "type": "string",
+          "const": "type_architecture",
+          "description": "Types and their relations."
+        },
+        {
+          "type": "string",
+          "const": "analysis_coverage",
+          "description": "What the analysis does not cover."
+        }
       ],
       "description": "The area of a record. One concept can have two areas: an import is `source` in TypeScript\nand Rust, and `dependencies` in Python and Dart."
     },
@@ -739,13 +821,15 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/AttributeDeclaration"
-          }
+          },
+          "description": "The attributes that the class declares."
         },
         "base_declarations": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/BaseDeclaration"
-          }
+          },
+          "description": "The bases that the class names."
         },
         "base_roots": {
           "type": [
@@ -754,7 +838,8 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The root names of the bases."
         },
         "bases": {
           "type": [
@@ -763,16 +848,19 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The bases as written."
         },
         "class_body_control_flow": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the body of the class has control flow."
         },
         "class_header_static": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "True when the header of the class is read in full."
         },
         "class_kind": {
           "anyOf": [
@@ -782,7 +870,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The kind of the class."
         },
         "class_members": {
           "type": [
@@ -791,13 +880,15 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The names of the members of the class."
         },
         "declared_in_all": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when `__all__` lists the name."
         },
         "decorator_evidence_ids": {
           "type": [
@@ -806,19 +897,22 @@
           ],
           "items": {
             "$ref": "#/$defs/EvidenceId"
-          }
+          },
+          "description": "The evidence of the decorators."
         },
         "decorators": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The decorators as written."
         },
         "default_instance_result": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when a call of the class returns an instance."
         },
         "definition_contexts": {
           "type": [
@@ -827,7 +921,8 @@
           ],
           "items": {
             "$ref": "#/$defs/DefinitionContext"
-          }
+          },
+          "description": "The places where the definition is made."
         },
         "enum_members": {
           "type": [
@@ -836,7 +931,8 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The members of an enum class."
         },
         "fields": {
           "type": [
@@ -845,13 +941,15 @@
           ],
           "items": {
             "$ref": "#/$defs/Field"
-          }
+          },
+          "description": "The fields of the class."
         },
         "frozen_object": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the instances cannot change."
         },
         "generic_bases": {
           "type": [
@@ -860,7 +958,8 @@
           ],
           "items": {
             "$ref": "#/$defs/GenericBase"
-          }
+          },
+          "description": "The generic bases with their arguments."
         },
         "generic_parameters": {
           "type": [
@@ -869,7 +968,8 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The type parameters of the class."
         },
         "guard_boolean_members": {
           "type": [
@@ -878,7 +978,8 @@
           ],
           "items": {
             "$ref": "#/$defs/GuardBooleanMember"
-          }
+          },
+          "description": "The boolean members that a guard reads."
         },
         "instance_member_scope_evidence_id": {
           "anyOf": [
@@ -888,7 +989,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The evidence of the scope of the instance members."
         },
         "instance_member_writes": {
           "type": [
@@ -897,23 +999,26 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The instance members that the class writes."
         },
         "lexical_parent_id": {
           "type": "string",
-          "description": "The id of a source record (`PREFIX-` and 16 hex digits, `identity::stable_id`)."
+          "description": "The id of the symbol that holds it in the source text."
         },
         "member_inventories": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/MemberInventory"
-          }
+          },
+          "description": "The inventories of the members, by kind."
         },
         "mixin_capable": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the class can serve as a mixin."
         },
         "modifiers": {
           "type": [
@@ -922,31 +1027,38 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The modifiers as written."
         },
         "module": {
-          "$ref": "#/$defs/ModuleName"
+          "$ref": "#/$defs/ModuleName",
+          "description": "The module that holds it."
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "The name as written."
         },
         "namespace_bound": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the namespace binds the name."
         },
         "overload_signature": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the definition is an overload signature."
         },
         "package": {
-          "$ref": "#/$defs/PackageName"
+          "$ref": "#/$defs/PackageName",
+          "description": "The package that holds the module."
         },
         "parent": {
-          "type": "string"
+          "type": "string",
+          "description": "The qualified name of the parent symbol."
         },
         "property_members": {
           "type": [
@@ -955,49 +1067,59 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The names of the properties."
         },
         "qualified_name": {
-          "type": "string"
+          "type": "string",
+          "description": "The name with the names of its parents."
         },
         "signature_complete": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the collector reads the whole signature."
         },
         "source_binding_unique": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "True when one statement binds the name in the source."
         },
         "source_class_header_static": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the header of the class in the source is read in full."
         },
         "source_file": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The file that holds the source."
         },
         "source_member_binding_static": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "True when no statement rebinds the member."
         },
         "source_member_owner_static": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when no statement rebinds the owner of the members."
         },
         "symbol_category": {
-          "$ref": "#/$defs/SymbolCategory"
+          "$ref": "#/$defs/SymbolCategory",
+          "description": "The category of the symbol."
         },
         "typed_dict_header_static": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the header of the typed dict is read in full."
         },
         "visibility": {
           "anyOf": [
@@ -1007,10 +1129,12 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The visibility of the symbol."
         },
         "visibility_detail": {
-          "$ref": "#/$defs/VisibilityDetail"
+          "$ref": "#/$defs/VisibilityDetail",
+          "description": "How the visibility is written and why it holds."
         }
       },
       "required": [
@@ -1037,13 +1161,15 @@
       "additionalProperties": false,
       "properties": {
         "annotation": {
-          "type": "string"
+          "type": "string",
+          "description": "The annotation as written."
         },
         "constant": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The value of a constant attribute, when it is one."
         },
         "decorator_evidence_ids": {
           "type": [
@@ -1052,7 +1178,8 @@
           ],
           "items": {
             "$ref": "#/$defs/EvidenceId"
-          }
+          },
+          "description": "The evidence of the decorators."
         },
         "decorators": {
           "type": [
@@ -1061,34 +1188,41 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The decorators as written."
         },
         "definition_id": {
-          "$ref": "#/$defs/FactId"
+          "$ref": "#/$defs/FactId",
+          "description": "The id of the symbol that defines the attribute."
         },
         "evidence_ids": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/EvidenceId"
-          }
+          },
+          "description": "The ids of the evidence records that back the value."
         },
         "literal_value": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The literal value of the attribute, as written."
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "The name as written."
         },
         "static": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the attribute belongs to the class and not to an instance."
         },
         "visibility": {
-          "$ref": "#/$defs/VisibilityDetail"
+          "$ref": "#/$defs/VisibilityDetail",
+          "description": "How the visibility is written and why it holds."
         }
       },
       "required": [
@@ -1097,27 +1231,32 @@
         "evidence_ids",
         "name",
         "visibility"
-      ]
+      ],
+      "description": "One attribute of a class as the collector declares it."
     },
     "VisibilityDetail": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "basis": {
-          "type": "string"
+          "type": "string",
+          "description": "The rule that decides the visibility."
         },
         "kind": {
-          "type": "string"
+          "type": "string",
+          "description": "The kind of the value, as a closed word."
         },
         "spelling": {
-          "type": "string"
+          "type": "string",
+          "description": "The name as written, which can decide the visibility."
         }
       },
       "required": [
         "basis",
         "kind",
         "spelling"
-      ]
+      ],
+      "description": "How the visibility of a name is written and why it holds."
     },
     "BaseDeclaration": {
       "type": "object",
@@ -1125,43 +1264,52 @@
       "properties": {
         "candidate_count": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "description": "How many targets the base can resolve to."
         },
         "candidates_truncated": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the list of targets is cut."
         },
         "evidence_ids": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/EvidenceId"
-          }
+          },
+          "description": "The ids of the evidence records that back the value."
         },
         "expression": {
-          "type": "string"
+          "type": "string",
+          "description": "The base as written."
         },
         "id": {
-          "$ref": "#/$defs/FactId"
+          "$ref": "#/$defs/FactId",
+          "description": "The id of the record."
         },
         "reason": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "Why the collector does not prove it."
         },
         "relationship_kind": {
-          "$ref": "#/$defs/RelationshipKind"
+          "$ref": "#/$defs/RelationshipKind",
+          "description": "The kind of the relationship with the base."
         },
         "status": {
-          "$ref": "#/$defs/Status"
+          "$ref": "#/$defs/Status",
+          "description": "The proof state of the value."
         },
         "targets": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The qualified names that the value can resolve to."
         }
       },
       "required": [
@@ -1172,75 +1320,129 @@
         "relationship_kind",
         "status",
         "targets"
-      ]
+      ],
+      "description": "One base that a class names, with the targets that it resolves to."
     },
     "RelationshipKind": {
-      "type": "string",
-      "enum": [
-        "inherits",
-        "realizes"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "inherits",
+          "description": "The class inherits from the base."
+        },
+        {
+          "type": "string",
+          "const": "realizes",
+          "description": "The class realizes the base."
+        }
       ],
       "description": "How a class relates to a base declaration."
     },
     "Status": {
-      "type": "string",
-      "enum": [
-        "resolved",
-        "partially_resolved",
-        "unresolved",
-        "unknown",
-        "decided"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "resolved",
+          "description": "The target is proven."
+        },
+        {
+          "type": "string",
+          "const": "partially_resolved",
+          "description": "Some targets are proven and some are not."
+        },
+        {
+          "type": "string",
+          "const": "unresolved",
+          "description": "No target is proven."
+        },
+        {
+          "type": "string",
+          "const": "unknown",
+          "description": "The collector does not decide."
+        },
+        {
+          "type": "string",
+          "const": "decided",
+          "description": "The collector decides by its own rule."
+        }
       ],
       "description": "How far a call, a reference or a selector is resolved."
     },
     "ClassKind": {
-      "type": "string",
-      "enum": [
-        "class",
-        "dataclass",
-        "enum",
-        "protocol",
-        "pydantic_model"
-      ]
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "class",
+          "description": "A plain class."
+        },
+        {
+          "type": "string",
+          "const": "dataclass",
+          "description": "A dataclass."
+        },
+        {
+          "type": "string",
+          "const": "enum",
+          "description": "An enum."
+        },
+        {
+          "type": "string",
+          "const": "protocol",
+          "description": "A protocol."
+        },
+        {
+          "type": "string",
+          "const": "pydantic_model",
+          "description": "A pydantic model."
+        }
+      ],
+      "description": "The kind of a class."
     },
     "DefinitionContext": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "branch": {
-          "type": "string"
+          "type": "string",
+          "description": "The branch of the condition that holds the definition."
         },
         "evidence_ids": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/EvidenceId"
-          }
+          },
+          "description": "The ids of the evidence records that back the value."
         },
         "kind": {
-          "type": "string"
+          "type": "string",
+          "description": "The kind of the value, as a closed word."
         }
       },
       "required": [
         "branch",
         "evidence_ids",
         "kind"
-      ]
+      ],
+      "description": "The place where a definition is made, such as a branch of a condition."
     },
     "Field": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "annotation": {
-          "type": "string"
+          "type": "string",
+          "description": "The type of the field as written."
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "The name as written."
         }
       },
       "required": [
         "annotation",
         "name"
-      ]
+      ],
+      "description": "One field of a class: its name and written type."
     },
     "GenericBase": {
       "type": "object",
@@ -1250,23 +1452,27 @@
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The arguments of the generic as written."
         },
         "arguments_are_names": {
           "type": "array",
           "items": {
             "type": "boolean"
-          }
+          },
+          "description": "For each argument, true when it is a plain name."
         },
         "base": {
-          "type": "string"
+          "type": "string",
+          "description": "The generic that the arguments apply to."
         }
       },
       "required": [
         "arguments",
         "arguments_are_names",
         "base"
-      ]
+      ],
+      "description": "A generic base with the arguments that it is applied to."
     },
     "GuardBooleanMember": {
       "type": "object",
@@ -1276,16 +1482,19 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/EvidenceId"
-          }
+          },
+          "description": "The ids of the evidence records that back the value."
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "The name as written."
         }
       },
       "required": [
         "evidence_ids",
         "name"
-      ]
+      ],
+      "description": "A boolean member that a guard reads."
     },
     "MemberInventory": {
       "type": "object",
@@ -1295,19 +1504,24 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/FactId"
-          }
+          },
+          "description": "The ids of the symbols that define the members."
         },
         "kind": {
-          "$ref": "#/$defs/MemberKind"
+          "$ref": "#/$defs/MemberKind",
+          "description": "The kind of the members."
         },
         "reason": {
-          "type": "string"
+          "type": "string",
+          "description": "Why the collector does not prove it."
         },
         "schema_version": {
-          "type": "string"
+          "type": "string",
+          "description": "The version of the inventory format."
         },
         "status": {
-          "$ref": "#/$defs/InventoryStatus"
+          "$ref": "#/$defs/InventoryStatus",
+          "description": "Whether the inventory is complete."
         }
       },
       "required": [
@@ -1316,35 +1530,78 @@
         "reason",
         "schema_version",
         "status"
-      ]
+      ],
+      "description": "The inventory of the members of one kind that a class has, and whether it is complete."
     },
     "MemberKind": {
-      "type": "string",
-      "enum": [
-        "attribute",
-        "method"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "attribute",
+          "description": "The members are attributes."
+        },
+        {
+          "type": "string",
+          "const": "method",
+          "description": "The members are methods."
+        }
       ],
       "description": "The members that a member inventory lists (`facts.MemberKind`)."
     },
     "InventoryStatus": {
-      "type": "string",
-      "enum": [
-        "complete",
-        "partial"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "complete",
+          "description": "The inventory lists every member."
+        },
+        {
+          "type": "string",
+          "const": "partial",
+          "description": "The inventory may miss members."
+        }
       ],
       "description": "Whether a member inventory lists every member (`facts.InventoryStatus`)."
     },
     "SymbolCategory": {
-      "type": "string",
-      "enum": [
-        "class",
-        "constant",
-        "dynamic_binding",
-        "function",
-        "macro",
-        "method",
-        "type_alias"
-      ]
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "class",
+          "description": "A class."
+        },
+        {
+          "type": "string",
+          "const": "constant",
+          "description": "A constant."
+        },
+        {
+          "type": "string",
+          "const": "dynamic_binding",
+          "description": "A binding that is set at run time."
+        },
+        {
+          "type": "string",
+          "const": "function",
+          "description": "A function."
+        },
+        {
+          "type": "string",
+          "const": "macro",
+          "description": "A macro."
+        },
+        {
+          "type": "string",
+          "const": "method",
+          "description": "A method."
+        },
+        {
+          "type": "string",
+          "const": "type_alias",
+          "description": "A type alias."
+        }
+      ],
+      "description": "The category of a symbol."
     },
     "CallableData": {
       "type": "object",
@@ -1354,25 +1611,29 @@
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The kind of accessor, for a property method."
         },
         "annotation": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The annotation as written."
         },
         "async": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True for an `async` function."
         },
         "class_header_static": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the header of the class is read in full."
         },
         "contextmanager_signature": {
           "anyOf": [
@@ -1382,13 +1643,15 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The signature facts of a context manager factory."
         },
         "declared_in_all": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when `__all__` lists the name."
         },
         "decorator_evidence_ids": {
           "type": [
@@ -1397,13 +1660,15 @@
           ],
           "items": {
             "$ref": "#/$defs/EvidenceId"
-          }
+          },
+          "description": "The evidence of the decorators."
         },
         "decorators": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The decorators as written."
         },
         "definition_contexts": {
           "type": [
@@ -1412,11 +1677,12 @@
           ],
           "items": {
             "$ref": "#/$defs/DefinitionContext"
-          }
+          },
+          "description": "The places where the definition is made."
         },
         "lexical_parent_id": {
           "type": "string",
-          "description": "The id of a source record (`PREFIX-` and 16 hex digits, `identity::stable_id`)."
+          "description": "The id of the symbol that holds it in the source text."
         },
         "method_kind": {
           "anyOf": [
@@ -1426,7 +1692,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The kind of the method."
         },
         "modifiers": {
           "type": [
@@ -1435,46 +1702,56 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The modifiers as written."
         },
         "module": {
-          "$ref": "#/$defs/ModuleName"
+          "$ref": "#/$defs/ModuleName",
+          "description": "The module that holds it."
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "The name as written."
         },
         "namespace_bound": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the namespace binds the name."
         },
         "overload_signature": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "True when the definition is an overload signature."
         },
         "overloaded": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when overloads exist."
         },
         "package": {
-          "$ref": "#/$defs/PackageName"
+          "$ref": "#/$defs/PackageName",
+          "description": "The package that holds the module."
         },
         "parameters": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/Parameter"
-          }
+          },
+          "description": "The parameters in order."
         },
         "parameters_contained": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the collector reads each parameter."
         },
         "parent": {
-          "type": "string"
+          "type": "string",
+          "description": "The qualified name of the parent symbol."
         },
         "property_binding": {
           "anyOf": [
@@ -1484,19 +1761,23 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The binding that a property method makes."
         },
         "qualified_name": {
-          "type": "string"
+          "type": "string",
+          "description": "The name with the names of its parents."
         },
         "receiver_parameter": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The parameter that holds the receiver."
         },
         "returns": {
-          "type": "string"
+          "type": "string",
+          "description": "The return annotation as written."
         },
         "returns_shape": {
           "anyOf": [
@@ -1506,62 +1787,72 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The shape of the written return type."
         },
         "shape": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The shape of the function body, as a digest text."
         },
         "shape_nodes": {
           "type": [
             "integer",
             "null"
           ],
-          "format": "int64"
+          "format": "int64",
+          "description": "The number of nodes in the shape."
         },
         "signature_complete": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the collector reads the whole signature."
         },
         "signature_decorators_proven": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the decorators of the signature are proven."
         },
         "source_binding_static": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when no statement rebinds the name."
         },
         "source_binding_unique": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when one statement binds the name in the source."
         },
         "source_file": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The file that holds the source."
         },
         "source_final_method_binding": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the method binding is final."
         },
         "source_member_binding_static": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when no statement rebinds the member."
         },
         "stored_field_writes": {
           "type": [
@@ -1570,10 +1861,12 @@
           ],
           "items": {
             "$ref": "#/$defs/StoredFieldWrite"
-          }
+          },
+          "description": "The writes of parameters into fields."
         },
         "symbol_category": {
-          "$ref": "#/$defs/SymbolCategory"
+          "$ref": "#/$defs/SymbolCategory",
+          "description": "The category of the symbol."
         },
         "visibility": {
           "anyOf": [
@@ -1583,10 +1876,12 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The visibility of the symbol."
         },
         "visibility_detail": {
-          "$ref": "#/$defs/VisibilityDetail"
+          "$ref": "#/$defs/VisibilityDetail",
+          "description": "How the visibility is written and why it holds."
         }
       },
       "required": [
@@ -1610,25 +1905,31 @@
       "additionalProperties": false,
       "properties": {
         "abc": {
-          "$ref": "#/$defs/ContextmanagerAbc"
+          "$ref": "#/$defs/ContextmanagerAbc",
+          "description": "The abstract base that proves the context manager."
         },
         "effective_return": {
-          "$ref": "#/$defs/EffectiveReturn"
+          "$ref": "#/$defs/EffectiveReturn",
+          "description": "The type that the factory returns after its wrapper."
         },
         "factory": {
-          "type": "string"
+          "type": "string",
+          "description": "The name of the factory."
         },
         "kind": {
-          "type": "string"
+          "type": "string",
+          "description": "The kind of the value, as a closed word."
         },
         "partial": {
-          "$ref": "#/$defs/ContextmanagerPartial"
+          "$ref": "#/$defs/ContextmanagerPartial",
+          "description": "The partial application that proves the context manager."
         },
         "support_evidence_ids": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/EvidenceId"
-          }
+          },
+          "description": "The evidence of the signature."
         }
       },
       "required": [
@@ -1638,26 +1939,31 @@
         "kind",
         "partial",
         "support_evidence_ids"
-      ]
+      ],
+      "description": "The signature facts of a context manager factory."
     },
     "ContextmanagerAbc": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "kind": {
-          "type": "string"
+          "type": "string",
+          "description": "The kind of the value, as a closed word."
         },
         "members": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The members of the abstract base."
         },
         "module": {
-          "$ref": "#/$defs/ModuleName"
+          "$ref": "#/$defs/ModuleName",
+          "description": "The module of the abstract base."
         },
         "origin": {
-          "type": "string"
+          "type": "string",
+          "description": "Where the value comes from."
         }
       },
       "required": [
@@ -1665,42 +1971,51 @@
         "members",
         "module",
         "origin"
-      ]
+      ],
+      "description": "The abstract base that proves a context manager."
     },
     "EffectiveReturn": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "payload": {
-          "type": "string"
+          "type": "string",
+          "description": "The type that the factory yields."
         },
         "wrapper": {
-          "type": "string"
+          "type": "string",
+          "description": "The wrapper type that the factory returns."
         }
       },
       "required": [
         "payload",
         "wrapper"
-      ]
+      ],
+      "description": "The type that a context manager factory returns after its wrapper."
     },
     "ContextmanagerPartial": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "cache_tag": {
-          "type": "string"
+          "type": "string",
+          "description": "The cache tag of the runtime."
         },
         "implementation": {
-          "type": "string"
+          "type": "string",
+          "description": "The implementation of the runtime."
         },
         "kind": {
-          "type": "string"
+          "type": "string",
+          "description": "The kind of the value, as a closed word."
         },
         "origin": {
-          "type": "string"
+          "type": "string",
+          "description": "Where the value comes from."
         },
         "version": {
-          "type": "string"
+          "type": "string",
+          "description": "The version of the runtime."
         }
       },
       "required": [
@@ -1709,36 +2024,62 @@
         "kind",
         "origin",
         "version"
-      ]
+      ],
+      "description": "The partial application that proves a context manager."
     },
     "MethodKind": {
-      "type": "string",
-      "enum": [
-        "instance",
-        "static",
-        "class",
-        "constructor",
-        "factory"
-      ]
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "instance",
+          "description": "A method of an instance."
+        },
+        {
+          "type": "string",
+          "const": "static",
+          "description": "A static method."
+        },
+        {
+          "type": "string",
+          "const": "class",
+          "description": "A class method."
+        },
+        {
+          "type": "string",
+          "const": "constructor",
+          "description": "A constructor."
+        },
+        {
+          "type": "string",
+          "const": "factory",
+          "description": "A factory."
+        }
+      ],
+      "description": "The kind of a method."
     },
     "Parameter": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "annotation": {
-          "type": "string"
+          "type": "string",
+          "description": "The annotation as written."
         },
         "default": {
-          "type": "string"
+          "type": "string",
+          "description": "The default value as written."
         },
         "default_known": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "True when the collector reads the default."
         },
         "kind": {
-          "type": "string"
+          "type": "string",
+          "description": "The kind of the value, as a closed word."
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "The name as written."
         },
         "shape": {
           "anyOf": [
@@ -1758,7 +2099,8 @@
         "default_known",
         "kind",
         "name"
-      ]
+      ],
+      "description": "One parameter of a function: its name, kind, annotation and default."
     },
     "TypeShape": {
       "oneOf": [
@@ -1799,10 +2141,12 @@
               "const": "primitive"
             },
             "text": {
-              "type": "string"
+              "type": "string",
+              "description": "The text of the node, as the reference collector writes it."
             },
             "name": {
-              "type": "string"
+              "type": "string",
+              "description": "The name of the type."
             }
           },
           "required": [
@@ -1821,10 +2165,12 @@
               "const": "dynamic"
             },
             "text": {
-              "type": "string"
+              "type": "string",
+              "description": "The text of the node, as the reference collector writes it."
             },
             "name": {
-              "type": "string"
+              "type": "string",
+              "description": "The name of the type."
             }
           },
           "required": [
@@ -1843,22 +2189,27 @@
               "const": "collection"
             },
             "text": {
-              "type": "string"
+              "type": "string",
+              "description": "The text of the node, as the reference collector writes it."
             },
             "family": {
-              "$ref": "#/$defs/Family"
+              "$ref": "#/$defs/Family",
+              "description": "The family of the collection."
             },
             "name": {
-              "type": "string"
+              "type": "string",
+              "description": "The name as written."
             },
             "args": {
               "type": "array",
               "items": {
                 "$ref": "#/$defs/TypeShape"
-              }
+              },
+              "description": "The type arguments, in order."
             },
             "open_end": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "True for a tuple of any length of one element type."
             }
           },
           "required": [
@@ -1880,13 +2231,15 @@
               "const": "union"
             },
             "text": {
-              "type": "string"
+              "type": "string",
+              "description": "The text of the node, as the reference collector writes it."
             },
             "arms": {
               "type": "array",
               "items": {
                 "$ref": "#/$defs/TypeShape"
-              }
+              },
+              "description": "The types that the union joins, flattened."
             }
           },
           "required": [
@@ -1905,10 +2258,12 @@
               "const": "literal"
             },
             "text": {
-              "type": "string"
+              "type": "string",
+              "description": "The text of the node, as the reference collector writes it."
             },
             "plain": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "True when each value is a string, a number, a boolean, bytes or nothing."
             }
           },
           "required": [
@@ -1927,10 +2282,12 @@
               "const": "annotated"
             },
             "text": {
-              "type": "string"
+              "type": "string",
+              "description": "The text of the node, as the reference collector writes it."
             },
             "inner": {
-              "$ref": "#/$defs/TypeShape"
+              "$ref": "#/$defs/TypeShape",
+              "description": "The type that decides."
             }
           },
           "required": [
@@ -1949,10 +2306,12 @@
               "const": "named"
             },
             "text": {
-              "type": "string"
+              "type": "string",
+              "description": "The text of the node, as the reference collector writes it."
             },
             "binding": {
-              "$ref": "#/$defs/Binding"
+              "$ref": "#/$defs/Binding",
+              "description": "What the name is bound to."
             }
           },
           "required": [
@@ -1971,16 +2330,19 @@
               "const": "applied"
             },
             "text": {
-              "type": "string"
+              "type": "string",
+              "description": "The text of the node, as the reference collector writes it."
             },
             "head": {
-              "$ref": "#/$defs/TypeShape"
+              "$ref": "#/$defs/TypeShape",
+              "description": "The generic name that the arguments apply to."
             },
             "args": {
               "type": "array",
               "items": {
                 "$ref": "#/$defs/TypeShape"
-              }
+              },
+              "description": "The type arguments, in order."
             }
           },
           "required": [
@@ -2000,7 +2362,8 @@
               "const": "forward"
             },
             "text": {
-              "type": "string"
+              "type": "string",
+              "description": "The text of the node, as the reference collector writes it."
             }
           },
           "required": [
@@ -2018,10 +2381,12 @@
               "const": "unreadable"
             },
             "text": {
-              "type": "string"
+              "type": "string",
+              "description": "The text of the node, as the reference collector writes it."
             },
             "cause": {
-              "$ref": "#/$defs/Unreadable"
+              "$ref": "#/$defs/Unreadable",
+              "description": "Why the collector does not prove it."
             }
           },
           "required": [
@@ -2060,7 +2425,8 @@
               "const": "builtin"
             },
             "target": {
-              "type": "string"
+              "type": "string",
+              "description": "The qualified name that the binding reads."
             }
           },
           "required": [
@@ -2078,7 +2444,8 @@
               "const": "defined"
             },
             "target": {
-              "type": "string"
+              "type": "string",
+              "description": "The qualified name that the binding reads."
             }
           },
           "required": [
@@ -2096,7 +2463,8 @@
               "const": "imported"
             },
             "target": {
-              "type": "string"
+              "type": "string",
+              "description": "The qualified name that the binding reads."
             }
           },
           "required": [
@@ -2114,7 +2482,8 @@
               "const": "unproven"
             },
             "cause": {
-              "$ref": "#/$defs/Unproven"
+              "$ref": "#/$defs/Unproven",
+              "description": "Why the collector does not prove it."
             }
           },
           "required": [
@@ -2187,17 +2556,21 @@
       "properties": {
         "line": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "description": "The line of the place, counted from 1."
         },
         "operation": {
-          "type": "string"
+          "type": "string",
+          "description": "The operation that the property performs."
         },
         "source": {
-          "type": "string"
+          "type": "string",
+          "description": "The member that the property reads or writes."
         },
         "source_line": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "description": "The line of that member."
         }
       },
       "required": [
@@ -2205,26 +2578,32 @@
         "operation",
         "source",
         "source_line"
-      ]
+      ],
+      "description": "The binding that a property operation makes."
     },
     "StoredFieldWrite": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "annotation_evidence_id": {
-          "$ref": "#/$defs/EvidenceId"
+          "$ref": "#/$defs/EvidenceId",
+          "description": "The evidence of the annotation of the field."
         },
         "evidence_id": {
-          "$ref": "#/$defs/EvidenceId"
+          "$ref": "#/$defs/EvidenceId",
+          "description": "The evidence of the write."
         },
         "field": {
-          "type": "string"
+          "type": "string",
+          "description": "The field that is written."
         },
         "parameter": {
-          "type": "string"
+          "type": "string",
+          "description": "The parameter that is stored."
         },
         "receiver": {
-          "type": "string"
+          "type": "string",
+          "description": "The receiver that holds the field."
         }
       },
       "required": [
@@ -2233,7 +2612,8 @@
         "field",
         "parameter",
         "receiver"
-      ]
+      ],
+      "description": "A write of a parameter into a field of the receiver."
     },
     "ValueData": {
       "type": "object",
@@ -2243,19 +2623,22 @@
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The type that the alias names."
         },
         "annotation": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The annotation as written."
         },
         "class_header_static": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the header of the class is read in full."
         },
         "constant": {
           "anyOf": [
@@ -2265,7 +2648,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The constant value, when it is one."
         },
         "decorator_evidence_ids": {
           "type": [
@@ -2274,7 +2658,8 @@
           ],
           "items": {
             "$ref": "#/$defs/EvidenceId"
-          }
+          },
+          "description": "The evidence of the decorators."
         },
         "decorators": {
           "type": [
@@ -2283,7 +2668,8 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The decorators as written."
         },
         "definition_contexts": {
           "type": [
@@ -2292,13 +2678,15 @@
           ],
           "items": {
             "$ref": "#/$defs/DefinitionContext"
-          }
+          },
+          "description": "The places where the definition is made."
         },
         "initializer": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The expression that sets the value."
         },
         "lexical_parent_id": {
           "anyOf": [
@@ -2308,7 +2696,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The id of the symbol that holds it in the source text."
         },
         "modifiers": {
           "type": [
@@ -2317,19 +2706,23 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The modifiers as written."
         },
         "module": {
-          "$ref": "#/$defs/ModuleName"
+          "$ref": "#/$defs/ModuleName",
+          "description": "The module that holds it."
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "The name as written."
         },
         "overload_signature": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the definition is an overload signature."
         },
         "package": {
           "anyOf": [
@@ -2339,7 +2732,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The package that holds the module."
         },
         "parameters": {
           "type": [
@@ -2348,46 +2742,55 @@
           ],
           "items": {
             "$ref": "#/$defs/Parameter"
-          }
+          },
+          "description": "The parameters, when the value is a callable type."
         },
         "parent": {
-          "type": "string"
+          "type": "string",
+          "description": "The qualified name of the parent symbol."
         },
         "qualified_name": {
-          "type": "string"
+          "type": "string",
+          "description": "The name with the names of its parents."
         },
         "record_kind": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The kind of the record."
         },
         "returns": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The return annotation as written."
         },
         "signature_complete": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the collector reads the whole signature."
         },
         "source_binding_unique": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "True when one statement binds the name in the source."
         },
         "source_file": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The file that holds the source."
         },
         "source_member_binding_static": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when no statement rebinds the member."
         },
         "symbol_category": {
           "anyOf": [
@@ -2397,7 +2800,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The category of the symbol."
         },
         "visibility": {
           "anyOf": [
@@ -2407,10 +2811,12 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The visibility of the symbol."
         },
         "visibility_detail": {
-          "$ref": "#/$defs/VisibilityDetail"
+          "$ref": "#/$defs/VisibilityDetail",
+          "description": "How the visibility is written and why it holds."
         }
       },
       "required": [
@@ -2426,18 +2832,22 @@
     "Literal": {
       "anyOf": [
         {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "A boolean constant."
         },
         {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "description": "A whole number constant."
         },
         {
           "type": "number",
-          "format": "double"
+          "format": "double",
+          "description": "A decimal number constant."
         },
         {
-          "type": "string"
+          "type": "string",
+          "description": "A text constant."
         }
       ],
       "description": "A written constant: a Python or Dart literal of one of the JSON scalar types."
@@ -2588,7 +2998,8 @@
           ],
           "items": {
             "$ref": "#/$defs/CallArgument"
-          }
+          },
+          "description": "The arguments of the call."
         },
         "call_binding": {
           "anyOf": [
@@ -2598,14 +3009,17 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "What the call binds to."
         },
         "candidate_count": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "description": "How many targets the site can resolve to."
         },
         "candidates_truncated": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "True when the list of targets is cut."
         },
         "construction": {
           "anyOf": [
@@ -2615,10 +3029,12 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "What a construction call builds."
         },
         "expression": {
-          "type": "string"
+          "type": "string",
+          "description": "The expression as written."
         },
         "guarded_effect": {
           "type": [
@@ -2627,13 +3043,15 @@
           ],
           "items": {
             "$ref": "#/$defs/GuardedEffect"
-          }
+          },
+          "description": "The effects that only run under a guard."
         },
         "reason": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "Why the collector does not prove it."
         },
         "result_bindings": {
           "type": [
@@ -2642,7 +3060,8 @@
           ],
           "items": {
             "$ref": "#/$defs/ResultBinding"
-          }
+          },
+          "description": "The bindings of the result."
         },
         "source_definition_id": {
           "anyOf": [
@@ -2652,22 +3071,27 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The id of the definition that holds the source."
         },
         "source_file": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The file that holds the source."
         },
         "source_module": {
-          "$ref": "#/$defs/ModuleName"
+          "$ref": "#/$defs/ModuleName",
+          "description": "The module that holds the source."
         },
         "source_scope": {
-          "type": "string"
+          "type": "string",
+          "description": "The scope that holds the source."
         },
         "status": {
-          "$ref": "#/$defs/Status"
+          "$ref": "#/$defs/Status",
+          "description": "The proof state of the record."
         },
         "target_evidence_ids": {
           "type": [
@@ -2676,13 +3100,15 @@
           ],
           "items": {
             "$ref": "#/$defs/EvidenceId"
-          }
+          },
+          "description": "The evidence of the targets."
         },
         "targets": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The qualified names that it resolves to."
         }
       },
       "required": [
@@ -2704,19 +3130,24 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/EvidenceId"
-          }
+          },
+          "description": "The ids of the evidence records that back the value."
         },
         "keyword": {
-          "type": "string"
+          "type": "string",
+          "description": "The keyword of the argument, when it has one."
         },
         "kind": {
-          "type": "string"
+          "type": "string",
+          "description": "The kind of the value, as a closed word."
         },
         "value": {
-          "type": "string"
+          "type": "string",
+          "description": "The argument as written."
         },
         "value_kind": {
-          "type": "string"
+          "type": "string",
+          "description": "The kind of the value of the argument."
         }
       },
       "required": [
@@ -2725,7 +3156,8 @@
         "kind",
         "value",
         "value_kind"
-      ]
+      ],
+      "description": "One argument of a call."
     },
     "CallBinding": {
       "type": "object",
@@ -2735,10 +3167,12 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/EvidenceId"
-          }
+          },
+          "description": "The ids of the evidence records that back the value."
         },
         "origin": {
-          "type": "string"
+          "type": "string",
+          "description": "Where the value comes from."
         },
         "proof": {
           "anyOf": [
@@ -2748,17 +3182,20 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The proof of the binding."
         },
         "target": {
-          "type": "string"
+          "type": "string",
+          "description": "The qualified name that it resolves to."
         }
       },
       "required": [
         "evidence_ids",
         "origin",
         "target"
-      ]
+      ],
+      "description": "What a call binds to, with its origin and proof."
     },
     "CallBindingProof": {
       "type": "object",
@@ -2772,34 +3209,40 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The evidence of the constructor."
         },
         "descriptor_kind": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The kind of the descriptor."
         },
         "descriptor_member": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The member that the descriptor binds."
         },
         "descriptor_owner_module": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The module of the owner of the descriptor."
         },
         "descriptor_owner_qualname": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The qualified name of the owner of the descriptor."
         },
         "kind": {
-          "type": "string"
+          "type": "string",
+          "description": "The kind of the value, as a closed word."
         },
         "provider_evidence_id": {
           "anyOf": [
@@ -2809,28 +3252,34 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The evidence of the provider."
         },
         "runtime_implementation": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The implementation of the runtime that proves the binding."
         },
         "runtime_name": {
-          "type": "string"
+          "type": "string",
+          "description": "The name of the runtime that proves the binding."
         },
         "runtime_version": {
-          "type": "string"
+          "type": "string",
+          "description": "The version of the runtime that proves the binding."
         },
         "stdlib_source_digest": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The digest of the standard library source that proves the binding."
         },
         "target": {
-          "type": "string"
+          "type": "string",
+          "description": "The qualified name that it resolves to."
         },
         "witness_evidence_ids": {
           "type": [
@@ -2839,7 +3288,8 @@
           ],
           "items": {
             "$ref": "#/$defs/EvidenceId"
-          }
+          },
+          "description": "The evidence that witnesses the binding."
         }
       },
       "required": [
@@ -2847,26 +3297,31 @@
         "runtime_name",
         "runtime_version",
         "target"
-      ]
+      ],
+      "description": "The proof that supports a call binding."
     },
     "Construction": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "candidates_truncated": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "True when the list of targets is cut."
         },
         "reason": {
-          "type": "string"
+          "type": "string",
+          "description": "Why the collector does not prove it."
         },
         "status": {
-          "$ref": "#/$defs/Status"
+          "$ref": "#/$defs/Status",
+          "description": "The proof state of the value."
         },
         "targets": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The qualified names that the value can resolve to."
         }
       },
       "required": [
@@ -2874,47 +3329,56 @@
         "reason",
         "status",
         "targets"
-      ]
+      ],
+      "description": "What a construction expression builds: the status and the candidate targets."
     },
     "GuardedEffect": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "complete": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "True when the collector reads the whole effect."
         },
         "condition": {
-          "$ref": "#/$defs/Condition"
+          "$ref": "#/$defs/Condition",
+          "description": "The condition of the guard."
         },
         "condition_evidence_ids": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/EvidenceId"
-          }
+          },
+          "description": "The evidence of the condition."
         },
         "condition_value": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "The value of the condition, when the collector proves it."
         },
         "effect_binding_evidence_ids": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/EvidenceId"
-          }
+          },
+          "description": "The evidence of the bindings that the effect makes."
         },
         "helper_bindings": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The helpers that the effect binds."
         },
         "path_evidence_ids": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/EvidenceId"
-          }
+          },
+          "description": "The evidence of the path to the effect."
         },
         "unknown_reason": {
-          "type": "string"
+          "type": "string",
+          "description": "Why the condition is not proven."
         }
       },
       "required": [
@@ -2926,58 +3390,70 @@
         "helper_bindings",
         "path_evidence_ids",
         "unknown_reason"
-      ]
+      ],
+      "description": "An effect that only runs under a guard, with the proof of the guard."
     },
     "Condition": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "kind": {
-          "type": "string"
+          "type": "string",
+          "description": "The kind of the value, as a closed word."
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "The name as written."
         },
         "owner": {
-          "type": "string"
+          "type": "string",
+          "description": "The symbol that the condition belongs to."
         }
       },
       "required": [
         "kind",
         "name",
         "owner"
-      ]
+      ],
+      "description": "The condition of a guard."
     },
     "ResultBinding": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "annotation": {
-          "type": "string"
+          "type": "string",
+          "description": "The annotation as written."
         },
         "definition_contexts": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/DefinitionContext"
-          }
+          },
+          "description": "The places where the binding is defined."
         },
         "evidence_ids": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/EvidenceId"
-          }
+          },
+          "description": "The ids of the evidence records that back the value."
         },
         "id": {
-          "$ref": "#/$defs/FactId"
+          "$ref": "#/$defs/FactId",
+          "description": "The id of the record."
         },
         "initializer": {
-          "type": "string"
+          "type": "string",
+          "description": "The expression that sets the value."
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "The name as written."
         },
         "target_kind": {
-          "type": "string"
+          "type": "string",
+          "description": "The kind of the target of the binding."
         }
       },
       "required": [
@@ -2988,7 +3464,8 @@
         "initializer",
         "name",
         "target_kind"
-      ]
+      ],
+      "description": "The binding of a result to a name, with its initializer."
     },
     "Record_ReferenceFact": {
       "type": "object",
@@ -3148,13 +3625,15 @@
             "integer",
             "null"
           ],
-          "format": "int64"
+          "format": "int64",
+          "description": "How many targets the site can resolve to."
         },
         "candidates_truncated": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the list of targets is cut."
         },
         "declaration_definition_id": {
           "anyOf": [
@@ -3164,7 +3643,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The id of the definition of the declaration."
         },
         "declaration_evidence_ids": {
           "type": [
@@ -3173,7 +3653,8 @@
           ],
           "items": {
             "$ref": "#/$defs/EvidenceId"
-          }
+          },
+          "description": "The evidence of the declaration."
         },
         "declaration_id": {
           "anyOf": [
@@ -3183,7 +3664,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The id of the declaration."
         },
         "declaration_owner_id": {
           "anyOf": [
@@ -3193,46 +3675,54 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The id of the owner of the declaration."
         },
         "declaration_owner_scope": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The scope of the owner of the declaration."
         },
         "declaration_role": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The role of the declaration."
         },
         "declaration_scope": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The scope of the declaration."
         },
         "declaration_status": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The proof state of the declaration."
         },
         "expression": {
-          "type": "string"
+          "type": "string",
+          "description": "The expression as written."
         },
         "local_source_binding": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when a local statement binds the source name."
         },
         "reason": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "Why the collector does not prove it."
         },
         "reference_context": {
           "anyOf": [
@@ -3242,7 +3732,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The context of the reference."
         },
         "result_bindings": {
           "type": [
@@ -3251,7 +3742,8 @@
           ],
           "items": {
             "$ref": "#/$defs/ResultBinding"
-          }
+          },
+          "description": "The bindings of the result."
         },
         "source_definition_id": {
           "anyOf": [
@@ -3261,31 +3753,38 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The id of the definition that holds the source."
         },
         "source_file": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The file that holds the source."
         },
         "source_module": {
-          "$ref": "#/$defs/ModuleName"
+          "$ref": "#/$defs/ModuleName",
+          "description": "The module that holds the source."
         },
         "source_scope": {
-          "type": "string"
+          "type": "string",
+          "description": "The scope that holds the source."
         },
         "status": {
-          "$ref": "#/$defs/Status"
+          "$ref": "#/$defs/Status",
+          "description": "The proof state of the record."
         },
         "targets": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The qualified names that it resolves to."
         },
         "use": {
-          "$ref": "#/$defs/Use"
+          "$ref": "#/$defs/Use",
+          "description": "How the value is used."
         }
       },
       "required": [
@@ -3299,23 +3798,62 @@
       "description": "A reference to a name and the targets that it resolves to."
     },
     "ReferenceContext": {
-      "type": "string",
-      "enum": [
-        "annotation",
-        "value",
-        "unknown"
-      ]
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "annotation",
+          "description": "The reference sits in an annotation."
+        },
+        {
+          "type": "string",
+          "const": "value",
+          "description": "The reference sits in a value."
+        },
+        {
+          "type": "string",
+          "const": "unknown",
+          "description": "The context is not known."
+        }
+      ],
+      "description": "The context of a reference."
     },
     "Use": {
-      "type": "string",
-      "enum": [
-        "value",
-        "attribute",
-        "member",
-        "read",
-        "write",
-        "type",
-        "source_role"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "value",
+          "description": "The target is read as a value."
+        },
+        {
+          "type": "string",
+          "const": "attribute",
+          "description": "An attribute of the target is read."
+        },
+        {
+          "type": "string",
+          "const": "member",
+          "description": "A member of the target is read."
+        },
+        {
+          "type": "string",
+          "const": "read",
+          "description": "The target is read."
+        },
+        {
+          "type": "string",
+          "const": "write",
+          "description": "The target is written."
+        },
+        {
+          "type": "string",
+          "const": "type",
+          "description": "The target is used as a type."
+        },
+        {
+          "type": "string",
+          "const": "source_role",
+          "description": "The target is used in a source role."
+        }
       ],
       "description": "How a reference uses its target."
     },
@@ -3324,11 +3862,13 @@
       "additionalProperties": false,
       "properties": {
         "canonical_name": {
-          "type": "string"
+          "type": "string",
+          "description": "The canonical name of the value."
         },
         "column": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "description": "The first column of the place."
         },
         "constant": {
           "anyOf": [
@@ -3338,27 +3878,34 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The constant value of the source, when it is one."
         },
         "declaration_id": {
-          "$ref": "#/$defs/FactId"
+          "$ref": "#/$defs/FactId",
+          "description": "The id of the declaration."
         },
         "declaration_owner_id": {
-          "$ref": "#/$defs/FactId"
+          "$ref": "#/$defs/FactId",
+          "description": "The id of the owner of the declaration."
         },
         "declaration_owner_scope": {
-          "type": "string"
+          "type": "string",
+          "description": "The scope of the owner of the declaration."
         },
         "end_column": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "description": "The last column of the place."
         },
         "end_line": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "description": "The last line of the place."
         },
         "expression": {
-          "type": "string"
+          "type": "string",
+          "description": "The expression as written."
         },
         "expression_kind": {
           "anyOf": [
@@ -3368,35 +3915,43 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The kind of the expression."
         },
         "line": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "description": "The first line of the place, counted from 1."
         },
         "parameter": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The parameter that the site names."
         },
         "role": {
-          "$ref": "#/$defs/Role"
+          "$ref": "#/$defs/Role",
+          "description": "The role that the source plays."
         },
         "source_module": {
-          "$ref": "#/$defs/ModuleName"
+          "$ref": "#/$defs/ModuleName",
+          "description": "The module that holds the source."
         },
         "source_scope": {
-          "type": "string"
+          "type": "string",
+          "description": "The scope that holds the source."
         },
         "status": {
-          "$ref": "#/$defs/Status"
+          "$ref": "#/$defs/Status",
+          "description": "The proof state of the record."
         },
         "targets": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The qualified names that it resolves to."
         },
         "transfer_kind": {
           "anyOf": [
@@ -3406,10 +3961,12 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "How the value passes to the target."
         },
         "use": {
-          "$ref": "#/$defs/Use"
+          "$ref": "#/$defs/Use",
+          "description": "How the value is used."
         }
       },
       "required": [
@@ -3432,30 +3989,74 @@
       "description": "The role of a source binding at one location (Python)."
     },
     "ExpressionKind": {
-      "type": "string",
-      "enum": [
-        "literal",
-        "reference",
-        "unsupported"
-      ]
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "literal",
+          "description": "A literal."
+        },
+        {
+          "type": "string",
+          "const": "reference",
+          "description": "A reference."
+        },
+        {
+          "type": "string",
+          "const": "unsupported",
+          "description": "A form that the collector does not read."
+        }
+      ],
+      "description": "The kind of an expression that a source role holds."
     },
     "Role": {
-      "type": "string",
-      "enum": [
-        "definition",
-        "delete",
-        "fallback",
-        "parameter_default",
-        "value_transfer",
-        "write"
-      ]
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "definition",
+          "description": "The value defines the name."
+        },
+        {
+          "type": "string",
+          "const": "delete",
+          "description": "The value deletes the name."
+        },
+        {
+          "type": "string",
+          "const": "fallback",
+          "description": "The value is a fallback."
+        },
+        {
+          "type": "string",
+          "const": "parameter_default",
+          "description": "The value is the default of a parameter."
+        },
+        {
+          "type": "string",
+          "const": "value_transfer",
+          "description": "The value passes to another name."
+        },
+        {
+          "type": "string",
+          "const": "write",
+          "description": "The value is written."
+        }
+      ],
+      "description": "The role that a source value plays."
     },
     "TransferKind": {
-      "type": "string",
-      "enum": [
-        "dictionary_value",
-        "unsupported_dictionary_value"
-      ]
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "dictionary_value",
+          "description": "A value of a dictionary."
+        },
+        {
+          "type": "string",
+          "const": "unsupported_dictionary_value",
+          "description": "A value of a dictionary that the collector does not read."
+        }
+      ],
+      "description": "How a value passes from a source to a target."
     },
     "Record_BindingFact": {
       "type": "object",
@@ -3572,34 +4173,41 @@
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The name that the import binds."
         },
         "module": {
-          "$ref": "#/$defs/ModuleName"
+          "$ref": "#/$defs/ModuleName",
+          "description": "The module that holds it."
         },
         "name": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The bound name."
         },
         "script_global": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The global that a script import binds."
         },
         "script_namespace": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The namespace of a script binding."
         },
         "source_module": {
-          "$ref": "#/$defs/ModuleName"
+          "$ref": "#/$defs/ModuleName",
+          "description": "The module that holds the source."
         },
         "source_scope": {
-          "type": "string"
+          "type": "string",
+          "description": "The scope that holds the source."
         }
       },
       "required": [
@@ -3614,16 +4222,20 @@
       "additionalProperties": false,
       "properties": {
         "binding": {
-          "type": "string"
+          "type": "string",
+          "description": "The binding that nothing uses."
         },
         "module": {
-          "$ref": "#/$defs/ModuleName"
+          "$ref": "#/$defs/ModuleName",
+          "description": "The module that holds it."
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "The bound name."
         },
         "owner": {
-          "type": "string"
+          "type": "string",
+          "description": "The scope that holds the binding."
         }
       },
       "required": [
@@ -3872,7 +4484,8 @@
       "additionalProperties": false,
       "properties": {
         "construct": {
-          "type": "string"
+          "type": "string",
+          "description": "The name of the construct."
         },
         "form": {
           "anyOf": [
@@ -3882,7 +4495,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The form in which the construct is written."
         },
         "handled": {
           "type": [
@@ -3891,10 +4505,12 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The cases that the construct handles."
         },
         "owner": {
-          "type": "string"
+          "type": "string",
+          "description": "The qualified name of the symbol that owns it."
         }
       },
       "required": [
@@ -3904,14 +4520,37 @@
       "description": "A written construct that a rule can forbid."
     },
     "ConstructForm": {
-      "type": "string",
-      "enum": [
-        "binary",
-        "compare",
-        "endswith",
-        "membership",
-        "startswith",
-        "match"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "binary",
+          "description": "A binary operation."
+        },
+        {
+          "type": "string",
+          "const": "compare",
+          "description": "A comparison."
+        },
+        {
+          "type": "string",
+          "const": "endswith",
+          "description": "An `endswith` call."
+        },
+        {
+          "type": "string",
+          "const": "membership",
+          "description": "A membership test."
+        },
+        {
+          "type": "string",
+          "const": "startswith",
+          "description": "A `startswith` call."
+        },
+        {
+          "type": "string",
+          "const": "match",
+          "description": "A pattern match."
+        }
       ],
       "description": "The written form of a construct or of a numeric operand (Python)."
     },
@@ -3920,19 +4559,24 @@
       "additionalProperties": false,
       "properties": {
         "construct": {
-          "type": "string"
+          "type": "string",
+          "description": "The name of the construct that the selector observes."
         },
         "literal": {
-          "type": "string"
+          "type": "string",
+          "description": "The literal that the selector reads."
         },
         "member": {
-          "type": "string"
+          "type": "string",
+          "description": "The member that the selector reads."
         },
         "operation": {
-          "$ref": "#/$defs/Operation"
+          "$ref": "#/$defs/Operation",
+          "description": "The operation that the site performs."
         },
         "owner": {
-          "type": "string"
+          "type": "string",
+          "description": "The qualified name of the symbol that owns it."
         },
         "receiver_binding": {
           "type": "object",
@@ -3942,29 +4586,35 @@
               "type": "array",
               "items": {
                 "$ref": "#/$defs/EvidenceId"
-              }
+              },
+              "description": "The ids of the evidence records that back the value."
             },
             "origin": {
-              "type": "string"
+              "type": "string",
+              "description": "Where the value comes from."
             },
             "target": {
-              "type": "string"
+              "type": "string",
+              "description": "The qualified name that it resolves to."
             }
           },
           "required": [
             "evidence_ids",
             "origin",
             "target"
-          ]
+          ],
+          "description": "What the receiver binds to."
         },
         "receiver_parameter": {
-          "type": "string"
+          "type": "string",
+          "description": "The parameter that holds the receiver."
         },
         "receiver_parameter_owner": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The owner of that parameter."
         },
         "receiver_parameter_scopes": {
           "type": [
@@ -3973,16 +4623,20 @@
           ],
           "items": {
             "$ref": "#/$defs/BindingScope"
-          }
+          },
+          "description": "The scopes that bind that parameter."
         },
         "receiver_type": {
-          "type": "string"
+          "type": "string",
+          "description": "The type of the receiver as written."
         },
         "selector_role": {
-          "$ref": "#/$defs/SelectorRole"
+          "$ref": "#/$defs/SelectorRole",
+          "description": "The role of the selector."
         },
         "status": {
-          "$ref": "#/$defs/Status"
+          "$ref": "#/$defs/Status",
+          "description": "The proof state of the record."
         }
       },
       "required": [
@@ -4000,52 +4654,128 @@
       "description": "A selector on a receiver (Python)."
     },
     "Operation": {
-      "type": "string",
-      "enum": [
-        "call",
-        "compare",
-        "construct",
-        "modulo",
-        "probe",
-        "read",
-        "write"
-      ]
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "call",
+          "description": "A call."
+        },
+        {
+          "type": "string",
+          "const": "compare",
+          "description": "A comparison."
+        },
+        {
+          "type": "string",
+          "const": "construct",
+          "description": "A construction."
+        },
+        {
+          "type": "string",
+          "const": "modulo",
+          "description": "A modulo operation."
+        },
+        {
+          "type": "string",
+          "const": "probe",
+          "description": "A probe of a member."
+        },
+        {
+          "type": "string",
+          "const": "read",
+          "description": "A read."
+        },
+        {
+          "type": "string",
+          "const": "write",
+          "description": "A write."
+        }
+      ],
+      "description": "What a site does with its receiver."
     },
     "BindingScope": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "scope_evidence_id": {
-          "$ref": "#/$defs/EvidenceId"
+          "$ref": "#/$defs/EvidenceId",
+          "description": "The evidence of the scope."
         },
         "scope_owner": {
-          "type": "string"
+          "type": "string",
+          "description": "The qualified name of the owner of the scope."
         },
         "scope_symbol_id": {
-          "$ref": "#/$defs/FactId"
+          "$ref": "#/$defs/FactId",
+          "description": "The id of the symbol of the scope."
         }
       },
       "required": [
         "scope_evidence_id",
         "scope_owner",
         "scope_symbol_id"
-      ]
+      ],
+      "description": "The scope that a binding is made in."
     },
     "SelectorRole": {
-      "type": "string",
-      "enum": [
-        "call",
-        "constructor",
-        "endswith",
-        "equality",
-        "membership",
-        "read",
-        "startswith",
-        "type_probe",
-        "write",
-        "match",
-        "reflect"
-      ]
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "call",
+          "description": "The selector is a call."
+        },
+        {
+          "type": "string",
+          "const": "constructor",
+          "description": "The selector is a constructor call."
+        },
+        {
+          "type": "string",
+          "const": "endswith",
+          "description": "The selector is an `endswith` test."
+        },
+        {
+          "type": "string",
+          "const": "equality",
+          "description": "The selector is an equality test."
+        },
+        {
+          "type": "string",
+          "const": "membership",
+          "description": "The selector is a membership test."
+        },
+        {
+          "type": "string",
+          "const": "read",
+          "description": "The selector is a read."
+        },
+        {
+          "type": "string",
+          "const": "startswith",
+          "description": "The selector is a `startswith` test."
+        },
+        {
+          "type": "string",
+          "const": "type_probe",
+          "description": "The selector is a type test."
+        },
+        {
+          "type": "string",
+          "const": "write",
+          "description": "The selector is a write."
+        },
+        {
+          "type": "string",
+          "const": "match",
+          "description": "The selector is a pattern match."
+        },
+        {
+          "type": "string",
+          "const": "reflect",
+          "description": "The selector is a reflection call."
+        }
+      ],
+      "description": "The role that a selector plays at its site."
     },
     "NumericOperandData": {
       "type": "object",
@@ -4055,51 +4785,64 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/BindingScope"
-          }
+          },
+          "description": "The scopes that bind the operand."
         },
         "column": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "description": "The first column of the place."
         },
         "derivation": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The steps that derive the value."
         },
         "end_column": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "description": "The last column of the place."
         },
         "end_line": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "description": "The last line of the place."
         },
         "form": {
-          "$ref": "#/$defs/ConstructForm"
+          "$ref": "#/$defs/ConstructForm",
+          "description": "The form in which the construct is written."
         },
         "line": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "description": "The first line of the place, counted from 1."
         },
         "module": {
-          "$ref": "#/$defs/ModuleName"
+          "$ref": "#/$defs/ModuleName",
+          "description": "The module that holds it."
         },
         "operation": {
-          "$ref": "#/$defs/Operation"
+          "$ref": "#/$defs/Operation",
+          "description": "The operation that the site performs."
         },
         "owner": {
-          "type": "string"
+          "type": "string",
+          "description": "The qualified name of the symbol that owns it."
         },
         "proof": {
-          "$ref": "#/$defs/Proof"
+          "$ref": "#/$defs/Proof",
+          "description": "The proof of the value."
         },
         "subject": {
-          "type": "string"
+          "type": "string",
+          "description": "The subject of the operand."
         },
         "value": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "description": "The value as written."
         }
       },
       "required": [
@@ -4120,10 +4863,17 @@
       "description": "A numeric operand and its proof (Python)."
     },
     "Proof": {
-      "type": "string",
-      "enum": [
-        "known",
-        "unknown"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "known",
+          "description": "The operand is proven."
+        },
+        {
+          "type": "string",
+          "const": "unknown",
+          "description": "The operand is not proven."
+        }
       ],
       "description": "Whether a numeric operand is proven."
     },
@@ -4132,10 +4882,12 @@
       "additionalProperties": false,
       "properties": {
         "construct": {
-          "type": "string"
+          "type": "string",
+          "description": "The name of the construct."
         },
         "owner": {
-          "type": "string"
+          "type": "string",
+          "description": "The qualified name of the symbol that owns it."
         }
       },
       "required": [
@@ -4149,13 +4901,16 @@
       "additionalProperties": false,
       "properties": {
         "construct": {
-          "type": "string"
+          "type": "string",
+          "description": "The name of the construct."
         },
         "form": {
-          "$ref": "#/$defs/PlaceholderForm"
+          "$ref": "#/$defs/PlaceholderForm",
+          "description": "The form in which the construct is written."
         },
         "owner": {
-          "type": "string"
+          "type": "string",
+          "description": "The qualified name of the symbol that owns it."
         }
       },
       "required": [
@@ -4166,10 +4921,17 @@
       "description": "A function body that declares no implementation."
     },
     "PlaceholderForm": {
-      "type": "string",
-      "enum": [
-        "empty",
-        "not_implemented"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "empty",
+          "description": "A body with no statement."
+        },
+        {
+          "type": "string",
+          "const": "not_implemented",
+          "description": "A body that raises `NotImplementedError`."
+        }
       ],
       "description": "The two function bodies that the collector identifies as placeholders."
     },
@@ -4414,23 +5176,27 @@
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The annotation as written."
         },
         "expression": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The expression as written."
         },
         "line": {
           "type": [
             "integer",
             "null"
           ],
-          "format": "int64"
+          "format": "int64",
+          "description": "The first line of the place, counted from 1."
         },
         "owner": {
-          "type": "string"
+          "type": "string",
+          "description": "The qualified name of the symbol that owns it."
         },
         "positions": {
           "type": [
@@ -4439,28 +5205,33 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The positions that the signal covers."
         },
         "qualified_name": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The name with the names of its parents."
         },
         "signal": {
-          "$ref": "#/$defs/Signal"
+          "$ref": "#/$defs/Signal",
+          "description": "The kind of the typing signal."
         },
         "statement": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The statement of the signal."
         },
         "tag": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The tag of the signal."
         }
       },
       "required": [
@@ -4470,20 +5241,67 @@
       "description": "A typing signal (Python)."
     },
     "Signal": {
-      "type": "string",
-      "enum": [
-        "any_annotation",
-        "dict_any_annotation",
-        "callable_any_annotation",
-        "object_annotation",
-        "cast_call",
-        "getattr_call",
-        "hasattr_call",
-        "eval_call",
-        "exec_call",
-        "dynamic_import",
-        "type_ignore",
-        "missing_cross_package_annotation"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "any_annotation",
+          "description": "An `Any` annotation."
+        },
+        {
+          "type": "string",
+          "const": "dict_any_annotation",
+          "description": "A dict annotation with `Any` values."
+        },
+        {
+          "type": "string",
+          "const": "callable_any_annotation",
+          "description": "A callable annotation with `Any`."
+        },
+        {
+          "type": "string",
+          "const": "object_annotation",
+          "description": "An `object` annotation."
+        },
+        {
+          "type": "string",
+          "const": "cast_call",
+          "description": "A call of `cast`."
+        },
+        {
+          "type": "string",
+          "const": "getattr_call",
+          "description": "A call of `getattr`."
+        },
+        {
+          "type": "string",
+          "const": "hasattr_call",
+          "description": "A call of `hasattr`."
+        },
+        {
+          "type": "string",
+          "const": "eval_call",
+          "description": "A call of `eval`."
+        },
+        {
+          "type": "string",
+          "const": "exec_call",
+          "description": "A call of `exec`."
+        },
+        {
+          "type": "string",
+          "const": "dynamic_import",
+          "description": "An import that is computed at run time."
+        },
+        {
+          "type": "string",
+          "const": "type_ignore",
+          "description": "A `type: ignore` comment."
+        },
+        {
+          "type": "string",
+          "const": "missing_cross_package_annotation",
+          "description": "A position that crosses a package with no annotation."
+        }
       ],
       "description": "The typing signal of a record of `typing_signals`; the text equals the kind of the record."
     },
@@ -4663,7 +5481,8 @@
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The reason as written."
         },
         "module": {
           "anyOf": [
@@ -4673,7 +5492,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The module that the gap is about."
         },
         "resolution_dimension": {
           "anyOf": [
@@ -4683,56 +5503,65 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The dimension of the resolution that the collector does not prove."
         },
         "annotation": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The annotation that the collector does not read."
         },
         "attribute": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The attribute that the gap is about."
         },
         "file": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The path of the file, relative to the root."
         },
         "function": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The function that the gap is about."
         },
         "line": {
           "type": [
             "integer",
             "null"
           ],
-          "format": "int64"
+          "format": "int64",
+          "description": "The line of the place, counted from 1."
         },
         "message": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The message of the failure."
         },
         "parameter": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The parameter that the gap is about."
         },
         "path": {
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "description": "The path that the gap is about."
         },
         "source_module": {
           "anyOf": [
@@ -4742,13 +5571,15 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The module whose import the gap is about."
         },
         "under_type_checking": {
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "description": "True when the import sits under `TYPE_CHECKING`."
         },
         "effect": {
           "anyOf": [
@@ -4765,11 +5596,22 @@
       "description": "An UNKNOWN gap of the coverage or of the `unknowns` section."
     },
     "ResolutionDimension": {
-      "type": "string",
-      "enum": [
-        "imports",
-        "runtime_effects",
-        "signature"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "imports",
+          "description": "The imports are not resolved."
+        },
+        {
+          "type": "string",
+          "const": "runtime_effects",
+          "description": "The effects at run time are not known."
+        },
+        {
+          "type": "string",
+          "const": "signature",
+          "description": "The signature is not read."
+        }
       ],
       "description": "What a source resolution gap leaves unknown."
     },
@@ -4782,6 +5624,7 @@
               "type": "object",
               "properties": {
                 "sources": {
+                  "description": "The modules whose outgoing edges are not complete.",
                   "type": "array",
                   "items": {
                     "$ref": "#/$defs/ModuleName"
@@ -4807,6 +5650,7 @@
               "type": "object",
               "properties": {
                 "modules": {
+                  "description": "The modules whose code is not known.",
                   "type": "array",
                   "items": {
                     "$ref": "#/$defs/ModuleName"
@@ -4834,66 +5678,297 @@
       "description": "The facts that one gap leaves unknown. Each variant leaves the files of the scan and the\nnames of their modules known."
     },
     "Kind": {
-      "type": "string",
-      "enum": [
-        "import",
-        "reexport",
-        "import_type",
-        "import_equals",
-        "require",
-        "dynamic_import",
-        "script_global",
-        "macro_body",
-        "class",
-        "function",
-        "method",
-        "constant",
-        "type_alias",
-        "binding",
-        "alias",
-        "dynamic_binding",
-        "static_constant",
-        "macro",
-        "calls",
-        "call",
-        "resolved_call",
-        "partially_resolved_call",
-        "unresolved_call",
-        "references",
-        "reference",
-        "script_namespace_effect",
-        "value_reference",
-        "attribute_reference",
-        "source_role",
-        "bindings",
-        "unused_parameter",
-        "unused_local",
-        "string_literal_compare",
-        "broad_except",
-        "getattr_call",
-        "hasattr_call",
-        "setattr_call",
-        "delattr_call",
-        "vars_call",
-        "construct_selector",
-        "numeric_operand",
-        "any_annotation",
-        "dict_any_annotation",
-        "callable_any_annotation",
-        "object_annotation",
-        "cast_call",
-        "eval_call",
-        "exec_call",
-        "type_ignore",
-        "missing_cross_package_annotation",
-        "collection_gap",
-        "source_resolution_gap",
-        "dynamic_import_limit",
-        "private_attribute_access_limit",
-        "exception_gap",
-        "assert_statement",
-        "placeholder_body",
-        "dunder_dict"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "import",
+          "description": "An import statement or imported name."
+        },
+        {
+          "type": "string",
+          "const": "reexport",
+          "description": "An import that publishes the name again."
+        },
+        {
+          "type": "string",
+          "const": "import_type",
+          "description": "A type-only import."
+        },
+        {
+          "type": "string",
+          "const": "import_equals",
+          "description": "An `import x = require()` form."
+        },
+        {
+          "type": "string",
+          "const": "require",
+          "description": "A `require` call."
+        },
+        {
+          "type": "string",
+          "const": "dynamic_import",
+          "description": "An import whose target is computed at run time."
+        },
+        {
+          "type": "string",
+          "const": "script_global",
+          "description": "A global that a script file binds."
+        },
+        {
+          "type": "string",
+          "const": "macro_body",
+          "description": "An import inside a macro body."
+        },
+        {
+          "type": "string",
+          "const": "class",
+          "description": "A class symbol."
+        },
+        {
+          "type": "string",
+          "const": "function",
+          "description": "A function symbol."
+        },
+        {
+          "type": "string",
+          "const": "method",
+          "description": "A method symbol."
+        },
+        {
+          "type": "string",
+          "const": "constant",
+          "description": "A constant symbol."
+        },
+        {
+          "type": "string",
+          "const": "type_alias",
+          "description": "A type alias symbol."
+        },
+        {
+          "type": "string",
+          "const": "binding",
+          "description": "A name binding."
+        },
+        {
+          "type": "string",
+          "const": "alias",
+          "description": "An alias symbol."
+        },
+        {
+          "type": "string",
+          "const": "dynamic_binding",
+          "description": "A binding that is set at run time."
+        },
+        {
+          "type": "string",
+          "const": "static_constant",
+          "description": "A constant with a value that is known statically."
+        },
+        {
+          "type": "string",
+          "const": "macro",
+          "description": "A macro symbol."
+        },
+        {
+          "type": "string",
+          "const": "calls",
+          "description": "The calls of one scope."
+        },
+        {
+          "type": "string",
+          "const": "call",
+          "description": "A call."
+        },
+        {
+          "type": "string",
+          "const": "resolved_call",
+          "description": "A call with one proven target."
+        },
+        {
+          "type": "string",
+          "const": "partially_resolved_call",
+          "description": "A call with a target that is only partly proven."
+        },
+        {
+          "type": "string",
+          "const": "unresolved_call",
+          "description": "A call with no proven target."
+        },
+        {
+          "type": "string",
+          "const": "references",
+          "description": "The references of one scope."
+        },
+        {
+          "type": "string",
+          "const": "reference",
+          "description": "A reference to a name."
+        },
+        {
+          "type": "string",
+          "const": "script_namespace_effect",
+          "description": "A write into the namespace of a script."
+        },
+        {
+          "type": "string",
+          "const": "value_reference",
+          "description": "A reference that reads a value."
+        },
+        {
+          "type": "string",
+          "const": "attribute_reference",
+          "description": "A reference to an attribute."
+        },
+        {
+          "type": "string",
+          "const": "source_role",
+          "description": "The role that a source value plays."
+        },
+        {
+          "type": "string",
+          "const": "bindings",
+          "description": "The bindings of one scope."
+        },
+        {
+          "type": "string",
+          "const": "unused_parameter",
+          "description": "A parameter that nothing reads."
+        },
+        {
+          "type": "string",
+          "const": "unused_local",
+          "description": "A local name that nothing reads."
+        },
+        {
+          "type": "string",
+          "const": "string_literal_compare",
+          "description": "A comparison with a string literal."
+        },
+        {
+          "type": "string",
+          "const": "broad_except",
+          "description": "A broad exception handler."
+        },
+        {
+          "type": "string",
+          "const": "getattr_call",
+          "description": "A call of `getattr`."
+        },
+        {
+          "type": "string",
+          "const": "hasattr_call",
+          "description": "A call of `hasattr`."
+        },
+        {
+          "type": "string",
+          "const": "setattr_call",
+          "description": "A call of `setattr`."
+        },
+        {
+          "type": "string",
+          "const": "delattr_call",
+          "description": "A call of `delattr`."
+        },
+        {
+          "type": "string",
+          "const": "vars_call",
+          "description": "A call of `vars`."
+        },
+        {
+          "type": "string",
+          "const": "construct_selector",
+          "description": "A selector on a receiver."
+        },
+        {
+          "type": "string",
+          "const": "numeric_operand",
+          "description": "A numeric operand with its proof."
+        },
+        {
+          "type": "string",
+          "const": "any_annotation",
+          "description": "An `Any` annotation."
+        },
+        {
+          "type": "string",
+          "const": "dict_any_annotation",
+          "description": "A dict annotation with `Any` values."
+        },
+        {
+          "type": "string",
+          "const": "callable_any_annotation",
+          "description": "A callable annotation with `Any`."
+        },
+        {
+          "type": "string",
+          "const": "object_annotation",
+          "description": "An `object` annotation."
+        },
+        {
+          "type": "string",
+          "const": "cast_call",
+          "description": "A call of `cast`."
+        },
+        {
+          "type": "string",
+          "const": "eval_call",
+          "description": "A call of `eval`."
+        },
+        {
+          "type": "string",
+          "const": "exec_call",
+          "description": "A call of `exec`."
+        },
+        {
+          "type": "string",
+          "const": "type_ignore",
+          "description": "A `type: ignore` comment."
+        },
+        {
+          "type": "string",
+          "const": "missing_cross_package_annotation",
+          "description": "A position that crosses a package with no annotation."
+        },
+        {
+          "type": "string",
+          "const": "collection_gap",
+          "description": "A gap of the collection."
+        },
+        {
+          "type": "string",
+          "const": "source_resolution_gap",
+          "description": "A gap of the resolution of a source name."
+        },
+        {
+          "type": "string",
+          "const": "dynamic_import_limit",
+          "description": "A dynamic import that the collector cannot follow."
+        },
+        {
+          "type": "string",
+          "const": "private_attribute_access_limit",
+          "description": "An access to a private attribute that the collector cannot type."
+        },
+        {
+          "type": "string",
+          "const": "exception_gap",
+          "description": "An analyzer failure; the data holds the class name."
+        },
+        {
+          "type": "string",
+          "const": "assert_statement",
+          "description": "An `assert` statement."
+        },
+        {
+          "type": "string",
+          "const": "placeholder_body",
+          "description": "A function body that declares no implementation."
+        },
+        {
+          "type": "string",
+          "const": "dunder_dict",
+          "description": "A use of `__dict__`."
+        }
       ],
       "description": "The kind of a record. The section of the record decides its data type (`sections`).\n`ExceptionGap` replaces the open kind of protocol 9: there, the kind of an analyzer failure\nis the name of the exception class (`SyntaxError`). The name is a field of the record."
     },

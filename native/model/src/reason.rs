@@ -133,8 +133,11 @@ pub enum UmlGap {
     Empty,
     /// The declared intent that the core does not compare: no model decides the run.
     NotCompared {
+        /// How many entities the target declares.
         entities: usize,
+        /// How many relationships the target declares.
         relationships: usize,
+        /// How many scopes the target declares.
         scopes: usize,
     },
     /// The targets of the tree contradict each other or leave a mount (AD-526): the reason.
@@ -143,7 +146,12 @@ pub enum UmlGap {
     NothingCompared,
     /// Assessments that the core cannot decide from module and import facts: their number and
     /// the element kinds that need other facts.
-    Undecided { count: usize, kinds: Vec<String> },
+    Undecided {
+        /// How many assessments the core cannot decide.
+        count: usize,
+        /// The element kinds that need other facts.
+        kinds: Vec<String>,
+    },
     /// Each assessment passes, but the scope of the run is not complete: its reason.
     Incomplete(String),
 }

@@ -301,7 +301,10 @@ def test_the_binding_refuses_incomplete_or_changed_file_identity(
         assert core_only.run(["report", "--root", str(root), "--json"]) == 2
         result = json.loads(capsys.readouterr().out)
         assert result["status"] == "UNKNOWN"
-        assert result["refusal"]["kind"] == "request_mismatch"
+        # The schema of the frame refuses a missing list before the binding reads it.
+        assert result["refusal"]["kind"] == (
+            "core_error" if fault == "no-list" else "request_mismatch"
+        )
 
 
 def test_a_tree_of_two_mount_levels_starts_one_core_process(

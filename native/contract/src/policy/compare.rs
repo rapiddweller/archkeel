@@ -27,6 +27,7 @@ record!(
     pub(crate),
     /// The changes from an old to a new contract tree: the widenings first, then the narrowings.
     Comparison {
+        /// The changes between the two contracts.
         changes: Vec<ContractChange>,
     }
 );

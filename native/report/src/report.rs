@@ -92,7 +92,10 @@ pub enum ReadError {
     /// The payload breaks the named rules.
     Check(Vec<Problem>),
     /// The input is above the byte budget; it is refused before the parse.
-    TooLarge { bytes: u64 },
+    TooLarge {
+        /// The size in bytes.
+        bytes: u64,
+    },
 }
 
 impl fmt::Display for ReadError {

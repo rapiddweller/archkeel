@@ -108,6 +108,18 @@ The Python engine built the older gallery and its Pages workflow (`pages.yml`); 
 The Windows wheel job builds and checks the wheel. It also runs the disk-root Rust tests and
 `tests/test_cli_windows_root.py` through the release core. It does not run the full shell suite.
 
+## Rust documentation and helpers
+
+Each non-test `.rs` file under `native/` starts with a `//!` line that names its responsibility.
+Each public item has a short `///` that says what it is or what it means (`missing_docs` is
+`deny` for every crate). A macro that declares items takes the doc of each one from its input.
+
+There is no central utils module. A helper lives in the component that owns its meaning. Code that
+several crates share lives in the lowest crate that owns that meaning, as `pytext`, `snapshot`,
+`facts` and `build-support` do. A helper that one crate uses stays in that crate. No module,
+file, directory or crate is named `util`, `utils`, `common`, `helper`, `helpers`, `misc` or
+`shared`. `tests/test_native_conventions.py` checks both rules.
+
 ## Browser assets
 
 The Explorer and Studio browser assets are not in the tree: no 5.0 path loads them (AD-582). Git
@@ -118,7 +130,7 @@ catalog check reads.
 ## Inspect the native self-check
 
 ArchKeel checks the Rust source of `native/` with its own core (AD-432).
-The pinned result is in `native/expected-gaps.json`: 84 rules PASS, 0 FAIL and 0 UNKNOWN, with no gaps or violations.
+The pinned result is in `native/expected-gaps.json`: 86 rules PASS, 0 FAIL and 0 UNKNOWN, with no gaps or violations.
 
 ```bash
 make self-validate-native

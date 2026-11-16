@@ -22,10 +22,14 @@ use crate::pyminor::PythonVersion;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Request<R = Resolver> {
+    /// The protocol version that the reply must use.
     #[serde(deserialize_with = "version")]
     pub protocol_version: Version,
+    /// The tree that the collector reads.
     pub snapshot: Snapshot,
+    /// The files that the collector reads.
     pub scope: Scope,
+    /// The resolver settings of the language.
     pub resolver: R,
 }
 
@@ -44,6 +48,7 @@ pub type DartRequest = Request<DartSettings>;
 pub struct Snapshot {
     /// The absolute snapshot root.
     pub root: String,
+    /// The commit that the tree is at.
     pub git_head: String,
     /// `true`, `false` or `"unknown"`, echoed back in the reply.
     #[serde(deserialize_with = "dirty")]
@@ -68,12 +73,16 @@ pub struct Scope {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "language", deny_unknown_fields)]
 pub enum Resolver {
+    /// The settings of the TypeScript resolver.
     #[serde(rename = "typescript")]
     TypeScript(TypeScriptSettings),
+    /// The settings of the Rust resolver.
     #[serde(rename = "rust")]
     Rust(RustSettings),
+    /// The settings of the Python resolver.
     #[serde(rename = "python")]
     Python(PythonSettings),
+    /// The settings of the Dart resolver.
     #[serde(rename = "dart")]
     Dart(DartSettings),
 }
@@ -109,13 +118,16 @@ pub struct DartSettings {}
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PythonSettings {
+    /// The phase of the Python collection.
     pub phase: PythonPhase,
+    /// The interpreter that the collector runs.
     pub interpreter: Interpreter,
 }
 
 closed! {
     /// The part of the Python collection that the request asks for. Slice 1 has the import survey.
     pub enum PythonPhase {
+        /// The import survey.
         Imports = "imports",
     }
 }

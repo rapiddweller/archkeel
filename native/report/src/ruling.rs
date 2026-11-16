@@ -62,10 +62,12 @@ pub struct Named {
 }
 
 /// The reasons of the rules without a decision: one for each rule, or one for the contract.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 #[serde(untagged)]
 pub enum RuleReasons {
+    /// One reason for each rule, by rule id.
     Each(BTreeMap<String, String>),
+    /// One reason for all rules.
     All(String),
 }
 
@@ -80,8 +82,9 @@ impl RuleReasons {
 }
 
 /// The decided head of the engine frame. The fields are private: only `rule` makes one.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 pub struct Ruling {
+    #[schemars(extend("const" = "archkeel-core-frame-1"))]
     protocol: &'static str,
     #[serde(skip)]
     html: bool,

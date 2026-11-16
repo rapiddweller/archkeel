@@ -11,13 +11,16 @@ use archkeel_contract::Target;
 /// of the tree, and `None` for the root.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UmlPart {
+    /// The place of the contract in the walk of the tree, or `None` for the root.
     pub mount: Option<usize>,
+    /// The declared target of the contract.
     pub target: Target,
 }
 
 /// The declared intent of a tree: the target of each contract that has one, the root first.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UmlDeclared {
+    /// The targets of the contracts, the root first.
     pub parts: Vec<UmlPart>,
 }
 

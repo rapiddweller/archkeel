@@ -81,6 +81,7 @@ pub(crate) fn id_of<I: Id>(index: usize) -> I {
     I::from_index(u32::try_from(index).unwrap_or(u32::MAX))
 }
 
+/// A list of rows that is indexed by a typed id, so an id of one table cannot index another.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Table<I, T> {
     rows: Vec<T>,

@@ -41,12 +41,29 @@ body { margin: 0; }
 .rp-map .ak-node__icon { color: var(--ink-muted); }
 .rp-map a { text-decoration: none; }
 .rp-edge--unknown { stroke: var(--unknown); stroke-width: 2; stroke-dasharray: 2 4; }
+.rp-edge--unused { stroke: var(--ink-subtle); stroke-dasharray: 1 5; }
+.rp-arrowhead--unknown { fill: var(--unknown); }
+.rp-arrowhead--unused { fill: var(--ink-subtle); }
 .rp-callout circle { fill: var(--fail); }
+.rp-callout--unknown circle { fill: var(--unknown); }
 .rp-callout text { fill: var(--surface-0); font-family: var(--font-mono); font-weight: 600; font-size: 11px; text-anchor: middle; }
 .rp-mx-only { display: none; }
 .rp-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); margin: var(--space-4) 0 0; padding: 0; list-style: none; color: var(--ink-muted); }
 .rp-legend li { display: inline-flex; align-items: center; gap: var(--space-2); }
 .rp-legend svg { flex: none; }
+
+/* 3b the views (AD-594): the selected radio input shows the marks that name its view */
+.rp-tabs { margin: 0 0 var(--space-2); }
+.rp-tabs label { cursor: pointer; }
+#rp-view-a:checked ~ .rp-tabs [for="rp-view-a"], #rp-view-t:checked ~ .rp-tabs [for="rp-view-t"], #rp-view-d:checked ~ .rp-tabs [for="rp-view-d"] { background: var(--surface-3); color: var(--ink); border-color: var(--line-strong); }
+#rp-view-a:focus-visible ~ .rp-tabs [for="rp-view-a"], #rp-view-t:focus-visible ~ .rp-tabs [for="rp-view-t"], #rp-view-d:focus-visible ~ .rp-tabs [for="rp-view-d"] { outline: 2px solid var(--focus); outline-offset: 2px; }
+#rp-view-a:checked ~ .rp-in:not(.rp-a), #rp-view-a:checked ~ * .rp-in:not(.rp-a),
+#rp-view-t:checked ~ .rp-in:not(.rp-t), #rp-view-t:checked ~ * .rp-in:not(.rp-t),
+#rp-view-d:checked ~ .rp-in:not(.rp-d), #rp-view-d:checked ~ * .rp-in:not(.rp-d) { display: none; }
+#rp-view-t:checked ~ * .ak-node--fail .ak-node__box { stroke: var(--line-strong); stroke-width: 1.5; }
+.rp-pic > .rp-note { margin: 0 0 var(--space-3); }
+.rp-diff { margin: var(--space-3) 0 0; }
+.rp-diff .rp-ev { margin: var(--space-1) 0 0; }
 
 /* 3a matrix: a row depends on the marked columns */
 .rp-mx { border-collapse: collapse; font-family: var(--font-mono); font-size: 11px; line-height: 16px; }
@@ -61,10 +78,11 @@ body { margin: 0; }
 .rp-mx td { width: var(--c, 17px); min-width: var(--c, 17px); height: var(--c, 17px); padding: 0; border: 1px solid var(--line); text-align: center; color: var(--ink-muted); line-height: 1; }
 .rp-mx td.rp-n { width: auto; min-width: 0; padding: 0 var(--space-3) 0 0; border: 0; text-align: right; color: var(--ink-muted); }
 .rp-mx td.rp-self { background: var(--surface-2); }
-.rp-mx td.rp-o::before { content: ""; display: inline-block; width: 5px; height: 5px; margin-bottom: 1px; border-radius: 50%; background: var(--ink-muted); }
-.rp-mx td.rp-v { padding: 0; }
-.rp-mx td.rp-v a { display: block; line-height: calc(var(--c, 17px) - 1px); background: var(--fail); color: var(--surface-0); font-weight: 600; text-decoration: none; }
-.rp-mx td.rp-u { color: var(--unknown-text); font-weight: 600; outline: 1.5px dashed var(--unknown); outline-offset: -2.5px; }
+.rp-mx .rp-o, .rp-mx .rp-un { display: inline-block; box-sizing: border-box; width: 5px; height: 5px; margin-bottom: 1px; border-radius: 50%; background: var(--ink-muted); }
+.rp-mx .rp-un { width: 7px; height: 7px; margin-bottom: 0; background: none; border: 1.5px solid var(--ink-subtle); }
+.rp-mx .rp-v, .rp-mx .rp-u { display: block; line-height: calc(var(--c, 17px) - 1px); font-weight: 600; text-decoration: none; }
+.rp-mx .rp-v { background: var(--fail); color: var(--surface-0); }
+.rp-mx .rp-u { color: var(--unknown-text); outline: 1.5px dashed var(--unknown); outline-offset: -2.5px; }
 .rp-node__count { fill: var(--unknown-text); }
 .rp-mx td.rp-ext1 { border-left: 1px solid var(--line); }
 .rp-mx tbody tr:hover th, .rp-mx tbody tr:hover td { background: var(--surface-2); }
@@ -261,7 +279,7 @@ html:not([data-theme]) .ak-seg { display: none; }
   .rp-mx thead th { font-size: 7px; }
   .rp-grp > summary { break-after: avoid; }
   .rp-mx tbody th { position: static; padding-right: var(--space-2); }
-  .rp-mx td.rp-o::before { width: 4px; height: 4px; }
+  .rp-mx .rp-o, .rp-mx .rp-un { width: 4px; height: 4px; }
   .rp-mx td.rp-n { padding-right: var(--space-2); }
   .rp-fold__body, .rp-main a { text-decoration: none; }
 }

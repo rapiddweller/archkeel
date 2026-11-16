@@ -105,6 +105,19 @@ impl Profile {
         }
     }
 
+    /// True when the collector of this profile writes each use of a name through a binding of a
+    /// whole module as an import record of its own (AD-604). A module is no value in Rust: a use
+    /// through it is a qualified path, and each qualified path ends as a record or a gap (AD-352).
+    /// So an import that names a whole module binds no name of it, and the interface rule judges
+    /// the uses. A TypeScript namespace object and a Python module object are values: a use
+    /// through them is no record, so their import stays the one place to judge.
+    pub fn namespace_uses_recorded(self) -> bool {
+        match self {
+            Profile::Rust => true,
+            Profile::TypeScript | Profile::Python | Profile::Dart => false,
+        }
+    }
+
     /// How the modules of this profile lie in the scan roots. A Python module that is not its
     /// path below a scan root is a gap of the survey, so the parent rule holds (AD-450). A Dart
     /// module is the namespace and the path below its scan root (AD-468).

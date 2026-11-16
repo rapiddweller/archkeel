@@ -23,6 +23,7 @@ use crate::vocab::{ExceptionName, Kind};
 
 /// The data of a section: it gives the section that holds its records.
 pub trait IntoSection: FactData {
+    /// Wraps the records into the section that holds this data.
     fn section(records: Vec<Record<Self>>) -> Section;
 
     /// The name of the section on the wire.
@@ -48,14 +49,23 @@ impl IntoSection for GapFact {
 }
 
 section_facts! {
+    /// The kinds of the `imports` section.
     pub enum ImportFact in Imports {
+        /// An import statement or imported name.
         Import(ImportData),
+        /// An import that publishes the name again.
         Reexport(ImportData),
+        /// A type-only import.
         ImportType(ImportData),
+        /// An `import x = require()` form.
         ImportEquals(ImportData),
+        /// A `require` call.
         Require(ImportData),
+        /// An import whose target is computed at run time.
         DynamicImport(ImportData),
+        /// A global that a script file binds.
         ScriptGlobal(ImportData),
+        /// An import inside a macro body.
         MacroBody(ImportData),
     }
 }
@@ -82,85 +92,140 @@ impl ImportFact {
         import_data!(self)
     }
 
+    /// The import data that the record holds, for an edit.
     pub fn data_mut(&mut self) -> &mut ImportData {
         import_data!(self)
     }
 }
 
 section_facts! {
+    /// The kinds of the `symbols` section.
     pub enum SymbolFact in Symbols {
+        /// A class symbol.
         Class(ClassData),
+        /// A function symbol.
         Function(CallableData),
+        /// A method symbol.
         Method(CallableData),
+        /// A constant symbol.
         Constant(ValueData),
+        /// A type alias symbol.
         TypeAlias(ValueData),
+        /// A name binding.
         Binding(ValueData),
+        /// An alias symbol.
         Alias(ValueData),
+        /// A binding that is set at run time.
         DynamicBinding(ValueData),
+        /// A constant with a value that is known statically.
         StaticConstant(ValueData),
+        /// A macro symbol.
         Macro(ValueData),
     }
 }
 
 section_facts! {
+    /// The kinds of the `calls` section.
     pub enum CallFact in Calls {
+        /// The calls of one scope.
         Calls(CallData),
+        /// A call.
         Call(CallData),
+        /// A call with one proven target.
         ResolvedCall(CallData),
+        /// A call with a target that is only partly proven.
         PartiallyResolvedCall(CallData),
+        /// A call with no proven target.
         UnresolvedCall(CallData),
     }
 }
 
 section_facts! {
+    /// The kinds of the `references` section.
     pub enum ReferenceFact in References {
+        /// The references of one scope.
         References(ReferenceData),
+        /// A reference to a name.
         Reference(ReferenceData),
+        /// A write into the namespace of a script.
         ScriptNamespaceEffect(ReferenceData),
+        /// A reference that reads a value.
         ValueReference(ReferenceData),
+        /// A reference to an attribute.
         AttributeReference(ReferenceData),
+        /// The role that a source value plays.
         SourceRole(SourceRoleData),
     }
 }
 
 section_facts! {
+    /// The kinds of the `bindings` section.
     pub enum BindingFact in Bindings {
+        /// The bindings of one scope.
         Bindings(BindingData),
+        /// A parameter that nothing reads.
         UnusedParameter(UnusedBindingData),
+        /// A local name that nothing reads.
         UnusedLocal(UnusedBindingData),
     }
 }
 
 section_facts! {
+    /// The kinds of the `constructs` section.
     pub enum ConstructFact in Constructs {
+        /// A comparison with a string literal.
         StringLiteralCompare(ConstructData),
+        /// A broad exception handler.
         BroadExcept(ConstructData),
+        /// A call of `getattr`.
         GetattrCall(ConstructData),
+        /// A call of `hasattr`.
         HasattrCall(ConstructData),
+        /// A call of `setattr`.
         SetattrCall(ConstructData),
+        /// A call of `delattr`.
         DelattrCall(ConstructData),
+        /// A call of `vars`.
         VarsCall(ConstructData),
+        /// A selector on a receiver.
         ConstructSelector(SelectorData),
+        /// A numeric operand with its proof.
         NumericOperand(NumericOperandData),
+        /// An `assert` statement.
         AssertStatement(PlainConstructData),
+        /// A function body that declares no implementation.
         PlaceholderBody(PlaceholderData),
+        /// A use of `__dict__`.
         DunderDict(PlainConstructData),
     }
 }
 
 section_facts! {
+    /// The kinds of the `typing_signals` section.
     pub enum SignalFact in TypingSignals with SignalData {
+        /// An `Any` annotation.
         AnyAnnotation,
+        /// A dict annotation with `Any` values.
         DictAnyAnnotation,
+        /// A callable annotation with `Any`.
         CallableAnyAnnotation,
+        /// An `object` annotation.
         ObjectAnnotation,
+        /// A call of `cast`.
         CastCall,
+        /// A call of `getattr`.
         GetattrCall,
+        /// A call of `hasattr`.
         HasattrCall,
+        /// A call of `eval`.
         EvalCall,
+        /// A call of `exec`.
         ExecCall,
+        /// An import whose target is computed at run time.
         DynamicImport,
+        /// A `type: ignore` comment.
         TypeIgnore,
+        /// A position that crosses a package with no annotation.
         MissingCrossPackageAnnotation,
     }
 }
@@ -168,13 +233,19 @@ section_facts! {
 /// A gap of the coverage or of the `unknowns` section.
 #[derive(Clone, Debug, PartialEq)]
 pub enum GapFact {
+    /// A gap of the collection: a file or a part that the collector does not read.
     CollectionGap(GapData),
+    /// A gap of the resolution of a source name.
     SourceResolutionGap(GapData),
+    /// A dynamic import that the collector cannot follow.
     DynamicImportLimit(GapData),
+    /// An access to a private attribute that the collector cannot type.
     PrivateAttributeAccessLimit(GapData),
     /// An analyzer failure. Protocol 9 writes the exception class name as the kind.
     ExceptionGap {
+        /// The class name of the failure.
         exception: ExceptionName,
+        /// The data of the gap.
         data: GapData,
     },
 }
@@ -275,13 +346,21 @@ impl FactData for GapFact {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "name", content = "records", rename_all = "snake_case")]
 pub enum Section {
+    /// The import records.
     Imports(Vec<Record<ImportFact>>),
+    /// The symbol records.
     Symbols(Vec<Record<SymbolFact>>),
+    /// The call records.
     Calls(Vec<Record<CallFact>>),
+    /// The reference records.
     References(Vec<Record<ReferenceFact>>),
+    /// The binding records.
     Bindings(Vec<Record<BindingFact>>),
+    /// The construct records.
     Constructs(Vec<Record<ConstructFact>>),
+    /// The typing signal records.
     TypingSignals(Vec<Record<SignalFact>>),
+    /// The gap records.
     Unknowns(Vec<Record<GapFact>>),
 }
 
@@ -320,6 +399,7 @@ impl Section {
         }
     }
 
+    /// The name of the section.
     pub fn name(&self) -> &'static str {
         match self {
             Section::Imports(_) => "imports",
@@ -349,6 +429,7 @@ impl Section {
         }
     }
 
+    /// True when the section holds no record.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }

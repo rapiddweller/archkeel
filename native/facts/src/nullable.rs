@@ -13,13 +13,17 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// `Absent` writes no key (with `skip_serializing_if = "Nullable::is_absent"`), `Null` writes `null`.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum Nullable<T> {
+    /// The key is not in the text.
     #[default]
     Absent,
+    /// The key is in the text with the value `null`.
     Null,
+    /// The key is in the text with a value.
     Value(T),
 }
 
 impl<T> Nullable<T> {
+    /// True when the field was absent from the text.
     pub fn is_absent(&self) -> bool {
         matches!(self, Nullable::Absent)
     }
@@ -70,8 +74,12 @@ pub fn required<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum Literal {
+    /// A boolean constant.
     Bool(bool),
+    /// A whole number constant.
     Integer(i64),
+    /// A decimal number constant.
     Float(f64),
+    /// A text constant.
     Text(String),
 }

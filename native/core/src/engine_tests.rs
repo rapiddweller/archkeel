@@ -113,12 +113,12 @@ fn the_engine_reads_the_rules_of_a_structural_contract() {
             return;
         }
     };
-    assert_eq!(rules.len(), 84);
+    assert_eq!(rules.len(), 86);
     assert!(rules.contains_key("NATIVE-REQUIRES-COMPLETE"));
     let (frame, reasons) = ruled(&mut engine, Named::default());
     assert_eq!(frame["rules"], json!({}));
     assert_eq!(frame["status"], "UNKNOWN");
-    assert_eq!(reasons.len(), 84);
+    assert_eq!(reasons.len(), 86);
     // Each kind of the native contract is decided since slice S7: each rule needs the model.
     for (id, reason) in &reasons {
         assert_eq!(
@@ -171,6 +171,11 @@ fn the_engine_decides_the_s1_kinds_and_writes_their_violation_rows() {
     let rows = rows.into_iter().next().and_then(|(_, rows)| rows.ok());
     let rows = rows.unwrap_or_default();
     assert_eq!(rows.len(), 2);
+    let typed = crate::dual_run::typed_rows(std::collections::BTreeMap::from([(
+        "violations",
+        rows.clone(),
+    )]));
+    assert!(typed.is_ok(), "{:?}", typed.err());
     let local = rows.iter().find(|row| row["id"] == "VIO-671ede9c9771d825");
     let expected = json!({
         "id": "VIO-671ede9c9771d825", "evidence_class": "VIOLATION", "area": "components",
@@ -229,6 +234,10 @@ fn the_engine_ingests_a_reply_and_each_section_has_rows_or_names_its_slice() {
         }
     };
     assert_eq!(rows.len(), Section::ALL.len());
+    // Each row that the builders write is a row of a typed kind (AD-600).
+    let (found, _) = crate::sections::split(rows.clone());
+    let typed = crate::dual_run::typed_rows(found);
+    assert!(typed.is_ok(), "{:?}", typed.err());
     for (section, rows) in rows {
         if section == Section::Violations {
             // The rows of the decided kinds; the native contract finds no violation here.

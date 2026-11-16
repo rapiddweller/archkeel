@@ -15,9 +15,13 @@ use crate::envelope::ProtocolVersion;
 closed! {
     /// A request version that the host sends to a native collector.
     pub enum Version {
+        /// Protocol 3, the oldest request.
         V3 = "3.0.0",
+        /// Protocol 8.
         V8 = "8.0.0",
+        /// Protocol 9: the scope can exclude test sources.
         V9 = "9.0.0",
+        /// Protocol 10: the request of the native Python collector.
         V10 = "10.0.0",
     }
 }

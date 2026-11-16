@@ -48,6 +48,30 @@ struct Budgets {
     gaps: usize,
 }
 
+/// The schema of the budgets: each field is a constant, the value of `BUDGETS`. The shell reads
+/// the limits from the schema and keeps no copy of them.
+fn budgets_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    let values = serde_json::to_value(BUDGETS).unwrap_or_default();
+    let fields: serde_json::Map<String, serde_json::Value> = values
+        .as_object()
+        .into_iter()
+        .flatten()
+        .map(|(name, value)| (name.clone(), serde_json::json!({"const": value})))
+        .collect();
+    let required: Vec<&String> = fields.keys().collect();
+    schemars::json_schema!({
+        "type": "object",
+        "properties": fields,
+        "required": required,
+        "additionalProperties": false,
+    })
+}
+
+/// The schema of the version of the part: the constant `VERSION`.
+fn version_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    schemars::json_schema!({"const": VERSION})
+}
+
 const BUDGETS: Budgets = Budgets {
     cycles_per_rule: MAX_CYCLES,
     path_steps: MAX_STEPS,
@@ -58,7 +82,7 @@ const BUDGETS: Budgets = Budgets {
 };
 
 /// The shape of one rule.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 pub(crate) struct RuleShape {
     kind: &'static str,
     direction: &'static str,
@@ -67,7 +91,7 @@ pub(crate) struct RuleShape {
 }
 
 /// One step of a cycle path.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 struct Step {
     from: String,
     to: String,
@@ -79,7 +103,7 @@ struct Step {
 }
 
 /// One cycle: its members and one closed path through them.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 struct CyclePath {
     id: String,
     /// The position of the violation in `details` of the rule.
@@ -91,7 +115,7 @@ struct CyclePath {
 }
 
 /// The cycles of one rule.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 struct Cycles {
     total: usize,
     truncated: bool,
@@ -99,7 +123,7 @@ struct Cycles {
 }
 
 /// What kind of gap holds a rule.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 enum HoldKind {
     CoverageGaps,
@@ -240,14 +264,14 @@ fn step(step: &CycleStep) -> Step {
 }
 
 /// The pair of a gap between two modules.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 struct Pair {
     source: String,
     target: String,
 }
 
 /// The gaps that hold one rule.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 struct RuleHolds {
     cause: WhyUnknown,
     kind: HoldKind,
@@ -263,7 +287,7 @@ struct RuleHolds {
 }
 
 /// One coverage gap and the rules that it holds.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 struct GapHolds {
     id: String,
     kind: String,
@@ -273,7 +297,7 @@ struct GapHolds {
     truncated: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 struct Holds {
     rules: BTreeMap<String, RuleHolds>,
     gaps: Vec<GapHolds>,
@@ -285,9 +309,11 @@ struct Holds {
 }
 
 /// The `explain` part of the frame.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 pub struct Explain {
+    #[schemars(schema_with = "version_schema")]
     version: u8,
+    #[schemars(schema_with = "budgets_schema")]
     budgets: Budgets,
     rules: BTreeMap<String, RuleShape>,
     cycles: BTreeMap<String, Cycles>,

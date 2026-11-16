@@ -298,6 +298,7 @@ impl Builder {
         if unplaced || !exact_type(index, module, &lexical, &ty) {
             return false;
         }
+        let type_name = ty.clone();
         let members = found.by_type.get(&(lexical, ty)).into_iter().flatten();
         let candidates: Vec<&Candidate<'_>> =
             members.filter(|c| c.member.name == call.name).collect();
@@ -336,6 +337,7 @@ impl Builder {
             lexical: candidate.lexical.clone(),
             symbol: Some(call.name.clone()),
             level: 0,
+            member_of: Some(type_name),
         };
         self.module_import(index, module, &reference, &edge);
         true

@@ -21,22 +21,39 @@ use crate::boundary_facts::{BoundaryFacts, Entry, Origin};
 /// Why a position or an entry of a facade is not decided by syntax. The causes are closed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum GapCause {
+    /// A position with no annotation.
     MissingAnnotation,
+    /// An annotation that is a string naming a type that the syntax does not resolve.
     ForwardReference,
+    /// A user generic: its arguments are not decided by syntax.
     Generic,
+    /// A type alias: its target is not read.
     Alias,
+    /// A dotted name that no import binding resolves.
     DottedName,
+    /// A type outside the scan.
     ExternalType,
+    /// A name that no binding of the module resolves.
     UnresolvedName,
+    /// An `Any` type, which proves nothing about its content.
     AnyType,
+    /// A class whose fields the rule would walk.
     FieldWalk,
+    /// An allowance that the rule does not read.
     AllowanceNotRead,
+    /// A surface that a class inherits from a base that the scan does not read.
     InheritedSurface,
+    /// A member of the surface that has no record.
     MemberNoRecord,
+    /// A name with no record in the scan.
     NoRecord,
+    /// An entry of a facade that does not resolve.
     UnresolvedFacadeEntry,
+    /// A facade whose exports are computed at run time.
     DynamicExports,
+    /// A collector that does not write the shapes of types.
     ShapesNotWritten,
+    /// Any other reason that syntax does not decide.
     Other,
 }
 
@@ -68,8 +85,11 @@ impl GapCause {
 /// One named gap: a position or an entry that syntax does not decide.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GapRow {
+    /// The facade position or entry that the gap is about.
     pub subject: String,
+    /// The closed cause of the gap.
     pub cause: GapCause,
+    /// The written detail of the gap.
     pub text: String,
 }
 
@@ -85,6 +105,7 @@ impl GapRow {
 pub struct Leaf {
     /// The text of the leaf as written.
     pub text: String,
+    /// Why the leaf breaks the rule.
     pub why: String,
     /// How many collections hold the leaf: 0 for the position itself.
     pub depth: u32,

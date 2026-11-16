@@ -175,6 +175,7 @@ mod check;
 mod check_order;
 mod check_rows;
 mod check_structure;
+mod code;
 mod codes;
 mod edge_links;
 mod engine_frame;

@@ -6,11 +6,16 @@
 
 use serde::{Deserialize, Serialize};
 
+/// A minor release of Python 3 that the collector supports.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PyMinor {
+    /// Python 3.11.
     Py311,
+    /// Python 3.12.
     Py312,
+    /// Python 3.13.
     Py313,
+    /// Python 3.14.
     Py314,
 }
 
@@ -28,6 +33,7 @@ impl PyMinor {
         }
     }
 
+    /// The minor number of the release.
     pub fn number(self) -> u8 {
         match self {
             Self::Py311 => 11,
@@ -47,10 +53,12 @@ pub struct PythonVersion {
 }
 
 impl PythonVersion {
+    /// The minor release of the version.
     pub fn minor(&self) -> PyMinor {
         self.minor
     }
 
+    /// The version as written.
     pub fn as_str(&self) -> &str {
         &self.text
     }

@@ -9,7 +9,7 @@ from enum import StrEnum
 from typing import Final
 
 from .core_evidence import Location
-from .core_json import CoreError, _count, _fields, _object, _text
+from .core_json import CoreError, as_count, as_object, as_text
 
 LIMITS: Final = {
     "components": 4096,
@@ -17,16 +17,22 @@ LIMITS: Final = {
     "edges": 20_000,
     "component_edges": 20_000,
     "evidence_per_edge": 5,
+    "requires": 20_000,
+    "layers": 4096,
 }
 
 
 class Ownership(StrEnum):
+    """Whether exactly one component owns a module."""
+
     OWNED = "owned"
     UNOWNED = "unowned"
     AMBIGUOUS = "ambiguous"
 
 
 class Resolution(StrEnum):
+    """Whether an import resolved to a module, failed to resolve or is external."""
+
     RESOLVED = "resolved"
     UNRESOLVED = "unresolved"
     EXTERNAL = "external"
@@ -34,16 +40,22 @@ class Resolution(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class Component:
+    """A component of the contract as the topology lists it."""
+
     id: str
     name: str
     parent: str | None
     packages: tuple[str, ...]
     exact_modules: tuple[str, ...]
     planned: bool
+    layer: str | None
+    public: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
 class Module:
+    """A scanned module, its path and its owning component."""
+
     name: str
     path: str
     component: str | None
@@ -52,6 +64,8 @@ class Module:
 
 @dataclass(frozen=True, slots=True)
 class Edge:
+    """An import edge between two modules or two components, with its evidence and rules."""
+
     id: str
     source: str
     target: str
@@ -63,7 +77,26 @@ class Edge:
 
 
 @dataclass(frozen=True, slots=True)
+class Require:
+    """One declared `requires` entry and the observed imports that use it (AD-594)."""
+
+    source: str
+    target: str
+    imports: int
+
+
+@dataclass(frozen=True, slots=True)
+class LayerOrder:
+    """The layers of one `layer_order` rule, from the inner layer to the outer layer."""
+
+    rule: str
+    layers: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class Topology:
+    """The topology part of a frame: components, modules and edges."""
+
     complete: bool
     truncated: bool
     gaps: tuple[str, ...]
@@ -72,6 +105,8 @@ class Topology:
     modules: tuple[Module, ...]
     edges: tuple[Edge, ...]
     component_edges: tuple[Edge, ...]
+    requires: tuple[Require, ...]
+    layers: tuple[LayerOrder, ...]
 
 
 def _bool(value: object) -> bool:
@@ -81,7 +116,7 @@ def _bool(value: object) -> bool:
 
 
 def _optional(value: object) -> str | None:
-    return None if value is None else _text(value, "topology")
+    return None if value is None else as_text(value, "topology")
 
 
 def _list(value: object, limit: int) -> list[object]:
@@ -91,45 +126,49 @@ def _list(value: object, limit: int) -> list[object]:
 
 
 def _strings(value: object) -> tuple[str, ...]:
-    return tuple(_text(item, "topology") for item in _list(value, 100_000))
+    return tuple(as_text(item, "topology") for item in _list(value, 100_000))
 
 
 def _component(value: object) -> Component:
-    row = _fields(value, "topology.component", frozenset(Component.__dataclass_fields__))
+    row = as_object(value, "topology.component")
     return Component(
-        _text(row["id"], "id"),
-        _text(row["name"], "name"),
+        as_text(row["id"], "id"),
+        as_text(row["name"], "name"),
         _optional(row["parent"]),
         _strings(row["packages"]),
         _strings(row["exact_modules"]),
         _bool(row["planned"]),
+        _optional(row["layer"]),
+        _strings(row["public"]),
     )
 
 
 def _module(value: object) -> Module:
-    row = _fields(value, "topology.module", frozenset(Module.__dataclass_fields__))
+    row = as_object(value, "topology.module")
     try:
-        ownership = Ownership(_text(row["ownership"], "ownership"))
+        ownership = Ownership(as_text(row["ownership"], "ownership"))
     except ValueError as error:
         raise CoreError("topology: unknown ownership") from error
     component = _optional(row["component"])
     if (ownership is Ownership.OWNED) != (component is not None):
         raise CoreError("topology: ownership and component differ")
-    return Module(_text(row["name"], "name"), _text(row["path"], "path"), component, ownership)
+    return Module(as_text(row["name"], "name"), as_text(row["path"], "path"), component, ownership)
 
 
 def _edge(value: object, rules: Mapping[str, object]) -> Edge:
-    row = _fields(value, "topology.edge", frozenset(Edge.__dataclass_fields__))
+    row = as_object(value, "topology.edge")
     try:
-        resolution = Resolution(_text(row["resolution"], "resolution"))
+        resolution = Resolution(as_text(row["resolution"], "resolution"))
     except ValueError as error:
         raise CoreError("topology: unknown resolution") from error
     evidence = []
     for item in _list(row["evidence"], LIMITS["evidence_per_edge"]):
-        location = _fields(item, "topology.location", frozenset({"path", "line"}))
-        evidence.append(Location(_text(location["path"], "path"), _count(location["line"], "line")))
-    count = _count(row["count"], "count")
-    total = _count(row["evidence_total"], "evidence_total")
+        location = as_object(item, "topology.location")
+        evidence.append(
+            Location(as_text(location["path"], "path"), as_count(location["line"], "line"))
+        )
+    count = as_count(row["count"], "count")
+    total = as_count(row["evidence_total"], "evidence_total")
     linked = _strings(row["rules"])
     if (
         count == 0
@@ -138,15 +177,30 @@ def _edge(value: object, rules: Mapping[str, object]) -> Edge:
     ):
         raise CoreError("topology: inconsistent edge counts or rule links")
     return Edge(
-        _text(row["id"], "id"),
-        _text(row["source"], "source"),
-        _text(row["target"], "target"),
+        as_text(row["id"], "id"),
+        as_text(row["source"], "source"),
+        as_text(row["target"], "target"),
         resolution,
         count,
         tuple(evidence),
         total,
         linked,
     )
+
+
+def _require(value: object) -> Require:
+    row = as_object(value, "topology.require")
+    return Require(
+        as_text(row["source"], "source"),
+        as_text(row["target"], "target"),
+        as_count(row["imports"], "imports"),
+    )
+
+
+def _layer_order(value: object) -> LayerOrder:
+    # The rule is a rule of the contract. A frame that decides no rule can still state it.
+    row = as_object(value, "topology.layer_order")
+    return LayerOrder(as_text(row["rule"], "rule"), _strings(row["layers"]))
 
 
 # A component edge names a component or one of these labels, never a module.
@@ -176,41 +230,29 @@ def _check_references(topology: "Topology") -> None:
             or edge.target not in components | _TARGET_LABELS
         ):
             raise CoreError("topology: a component edge names no listed component")
+    for require in topology.requires:
+        if not cut_components and not {require.source, require.target} <= components:
+            raise CoreError("topology: a requirement names no listed component")
 
 
 def read_topology(value: object, scope: str, rules: Mapping[str, object]) -> Topology:
-    row = _fields(
-        value,
-        "topology",
-        frozenset(
-            {
-                "version",
-                "complete",
-                "gaps",
-                "truncated",
-                "budgets",
-                "total",
-                "components",
-                "modules",
-                "edges",
-                "component_edges",
-            }
-        ),
-    )
-    if _count(row["version"], "topology.version") != 1:
+    """Read the topology part of a frame into typed values and fail closed."""
+
+    row = as_object(value, "topology")
+    if as_count(row["version"], "topology.version") != 1:
         raise CoreError("topology: unsupported version")
-    budgets = _object(row["budgets"], "topology.budgets")
+    budgets = as_object(row["budgets"], "topology.budgets")
     if budgets != LIMITS or any(isinstance(v, bool) for v in budgets.values()):
         raise CoreError("topology: unknown budgets")
     total = {
-        key: _count(value, key)
-        for key, value in _fields(row["total"], "topology.total", frozenset(LIMITS)).items()
+        key: as_count(value, key)
+        for key, value in as_object(row["total"], "topology.total").items()
     }
     complete, truncated = _bool(row["complete"]), _bool(row["truncated"])
     gaps = _strings(row["gaps"])
     lists = {
         key: _list(row[key], LIMITS[key])
-        for key in ("components", "modules", "edges", "component_edges")
+        for key in ("components", "modules", "edges", "component_edges", "requires", "layers")
     }
     if any(len(items) != min(total[key], LIMITS[key]) for key, items in lists.items()):
         raise CoreError("topology: inconsistent list counts")
@@ -230,12 +272,18 @@ def read_topology(value: object, scope: str, rules: Mapping[str, object]) -> Top
         tuple(_module(item) for item in lists["modules"]),
         tuple(_edge(item, rules) for item in lists["edges"]),
         tuple(_edge(item, rules) for item in lists["component_edges"]),
+        tuple(_require(item) for item in lists["requires"]),
+        tuple(_layer_order(item) for item in lists["layers"]),
     )
     _check_references(topology)
     for items in (topology.components, topology.modules, topology.edges, topology.component_edges):
         keys = [item.name if isinstance(item, Module) else item.id for item in items]
         if len(set(keys)) != len(keys):
             raise CoreError("topology: repeated identity")
+    pairs = [(item.source, item.target) for item in topology.requires]
+    orders = [item.rule for item in topology.layers]
+    if len(set(pairs)) != len(pairs) or len(set(orders)) != len(orders):
+        raise CoreError("topology: repeated requirement or layer order")
     return topology
 
 
@@ -249,4 +297,4 @@ def frame_topology(frame: Mapping[str, object], rules: Mapping[str, object]) -> 
     """The decoded section of a frame, or `None` when the frame has none."""
     if "topology" not in frame:
         return None
-    return read_topology(frame["topology"], _text(frame["scope"], "scope"), rules)
+    return read_topology(frame["topology"], as_text(frame["scope"], "scope"), rules)

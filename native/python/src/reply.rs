@@ -31,7 +31,9 @@ pub(crate) const SURVEY_SECTIONS: [&str; 5] =
 
 /// The version and the code digest of this binary (`archkeel-build-support`).
 pub struct Build<'a> {
+    /// The version of the binary.
     pub version: &'a str,
+    /// The digest of the code of the binary.
     pub code_digest: &'a str,
 }
 

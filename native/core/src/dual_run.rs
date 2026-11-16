@@ -28,7 +28,9 @@ use archkeel_report::Named;
 
 #[path = "frame_parts.rs"]
 mod frame_parts;
-pub(crate) use frame_parts::{refused_scan, Answered, CODE_DIGEST};
+pub(crate) use frame_parts::{refused_scan, Answered, Collect, CODE_DIGEST};
+#[cfg(test)]
+pub(crate) use frame_parts::{typed_rows, Parts as FrameParts};
 use frame_parts::{ContractCheck, Parts, ReplyCheck, SelfTest, UnsupportedParts, ENGINE};
 
 /// Version 2 adds the settings of the shell: `namespace` and `standard_library` (AD-372).
@@ -198,7 +200,7 @@ pub(crate) struct Run {
     /// the whole contract when the request kind does not trust the reply.
     pub(crate) trust: TrustOf,
     /// The `collect` part of the self-test of a scan request (AD-406); `None` for the others.
-    pub(crate) collect: Option<serde_json::Value>,
+    pub(crate) collect: Option<Collect>,
     /// The provenance documents that a scan request read (AD-466); `None` for the others.
     pub(crate) documents: Option<crate::provenance::Documents>,
     /// The SDK libraries of the profile that a contract can forbid by name (`reference.namespace`).
@@ -263,11 +265,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         Answer::Sections(rows) => rows,
         _ => Vec::new(),
     };
-    let report: Result<(), String> = match engine.answer(Request::Report) {
-        _ if !run.report => Ok(()),
-        Answer::Report(reason) => Err(reason.to_string()),
-        other => Err(format!("unexpected answer {other:?}")),
-    };
+    let report = report_check(&mut engine, run.report);
     // AD-466: a request without documents names the hygiene that it cannot check.
     let hygiene = frame_parts::hygiene_of(
         &mut engine,
@@ -312,7 +310,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         gaps,
         baseline,
         engine: ENGINE,
-        sections: rows,
+        sections: frame_parts::typed_rows(rows)?,
         unsupported: UnsupportedParts {
             sections,
             report: report.err(),
@@ -334,6 +332,14 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         .map_err(|error| format!("{}: an inconsistent frame: {error}", run.case))?
         .into_bytes();
     Ok(Answered { frame, names_a_gap })
+}
+
+fn report_check(engine: &mut Engine, requested: bool) -> Result<(), String> {
+    match engine.answer(Request::Report) {
+        _ if !requested => Ok(()),
+        Answer::Report(reason) => Err(reason.to_string()),
+        other => Err(format!("unexpected answer {other:?}")),
+    }
 }
 
 /// The settings of a run: the trusted settings, bound to the root contract and to the scan roots.

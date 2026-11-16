@@ -17,30 +17,50 @@ use crate::status::Unexplained;
 pub enum BuildError {
     /// A table that the schema requires and cannot mark as not produced has no rows yet.
     NotProduced {
+        /// The name of the table.
         table: &'static str,
+        /// The part of the report that the core did not produce.
         part: Unsupported,
     },
     /// A rule decides PASS without an evaluator receipt (AD-117).
-    PassWithoutReceipt { rule: String },
+    PassWithoutReceipt {
+        /// The id of the rule.
+        rule: String,
+    },
     /// An UNKNOWN rule without `WhyUnknown`, or another verdict with one.
-    ReasonMismatch { rule: String },
+    ReasonMismatch {
+        /// The id of the rule.
+        rule: String,
+    },
     /// The rows give PASS, and the model gives no run proof (L-35b, AD-381): the gap, or `None`
     /// for a run without a model.
     PassWithoutProof(Option<RunGap>),
     /// A rule row holds a PASS that is not a PASS of this rule of this model (AD-378, AD-381).
-    ForeignPass { rule: String },
+    ForeignPass {
+        /// The id of the rule.
+        rule: String,
+    },
     /// A DECLARATION row whose rule is not a permission declaration of the model (AD-381).
-    ForeignDeclaration { rule: String },
+    ForeignDeclaration {
+        /// The id of the rule.
+        rule: String,
+    },
     /// A status other than PASS has no row that explains it (AD-361 point 5).
     Unexplained(Vec<Unexplained>),
     /// The frame breaks other rules of the check, such as the status rule.
     Invalid(Vec<Problem>),
     /// The canonical bytes are above the budget; the payload is never cut in silence.
-    TooLarge { bytes: u64 },
+    TooLarge {
+        /// The size in bytes.
+        bytes: u64,
+    },
     /// The bytes cannot be written.
     Encode(String),
     /// Two outcomes name the same rule; no map entry can replace another outcome.
-    DuplicateRule { rule: String },
+    DuplicateRule {
+        /// The id of the rule.
+        rule: String,
+    },
 }
 
 impl fmt::Display for BuildError {

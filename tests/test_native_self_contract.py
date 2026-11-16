@@ -96,8 +96,12 @@ OTHER = [
     ("report", "regex", "pub use regex::Regex;\n", "NATIVE-EXTERNAL-COMPLETE"),
     ("contract", "facts", "pub use archkeel_facts::Record;\n", "NATIVE-REQUIRES-COMPLETE"),
     ("typescript", "model", "pub use archkeel_model::Model;\n", "NATIVE-REQUIRES-COMPLETE"),
+    # AD-604: `Stable` is public in Rust, and the model does not list it in `public`.
+    ("eval", "model", "pub use archkeel_model::Stable;\n", "NATIVE-INTERFACE-BOUNDARY"),
 ]
 Plant = tuple[str, str]  # (rule, planted file below the copy root)
+# AD-588: the crates with parts. The root part owns the root and the manifest only.
+SPLIT = ("model", "eval", "report", "core")
 
 # The guarded collection spine: survey -> symbols -> unparse -> module, tree and parse.
 PYTHON_LAYERS = [("survey",), ("symbols",), ("unparse",), ("module", "tree", "parse")]
@@ -166,6 +170,23 @@ def _plant(native: Path, crate: str, cargo: str, name: str, text: str) -> str:
     return f"native/{crate}/src/{name}.rs"
 
 
+def _own(native: Path, plants: list[Plant]) -> None:
+    """Give each planted module of a crate with parts to its root part (AD-588).
+
+    A new module of such a crate has no owner. The plant keeps one file for each code form, so
+    the contract of the copy names the file, as an author of a new module must do.
+    """
+    path = native / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    parts = {part["label"]: part for part in contract["components"]}
+    for _, planted in plants:
+        _, crate, *_, file = Path(planted).parts
+        if crate in SPLIT and file not in {"main.rs", "lib.rs"}:
+            module = f"native.archkeel_{crate}.{Path(file).stem}"
+            parts[crate]["exact_modules"].append(module)
+    path.write_text(json.dumps(contract, indent=2) + "\n")
+
+
 def _code_forms(native: Path) -> list[Plant]:
     plants = _python_plants(native, False)
     for number, (source, target) in enumerate(CHAIN_RULES):
@@ -176,6 +197,17 @@ def _code_forms(native: Path) -> list[Plant]:
             plants.append((_rule(source, target), _plant(native, source, target, name, text)))
     for number, (crate, cargo, text, rule) in enumerate(OTHER):
         plants.append((rule, _plant(native, crate, cargo, f"planted_other_{number}", text)))
+    _own(native, plants)
+    # AD-588: `core-frame` requires `core-engine` through its ports, and `rules` is no port.
+    frame = native / "core/src/dual_run.rs"
+    frame.write_text(frame.read_text() + "\npub use crate::rules::outcomes as planted;\n")
+    plants.append(("NATIVE-REQUIRES-COMPLETE", "native/core/src/dual_run.rs"))
+    # AD-588: a new module of a crate with parts that no part claims has no owner.
+    (native / "model/src/lib.rs").write_text(
+        (native / "model/src/lib.rs").read_text() + "\nmod planted_free;\n"
+    )
+    (native / "model/src/planted_free.rs").write_text("pub fn planted() {}\n")
+    plants.append(("NATIVE-ASSIGNMENT-COMPLETE", "native/model/src/planted_free.rs"))
     members = native / "Cargo.toml"
     members.write_text(members.read_text().replace('"report"]', '"report", "planted"]', 1))
     (native / "planted/src").mkdir(parents=True)
@@ -200,6 +232,7 @@ def _with_requires(native: Path) -> list[Plant]:
         text = f"pub use {ITEM[target]} as planted;\n"
         plants.append((_rule(source, target), _plant(native, source, target, f"p_{number}", text)))
     path.write_text(json.dumps(contract, indent=2))
+    _own(native, plants)
     return plants + python
 
 
@@ -271,3 +304,24 @@ def test_each_python_upward_pair_has_a_rule_and_a_plant(runs: dict[str, Any]) ->
         rule["id"] for rule in contract["rules"] if rule["id"].startswith("NATIVE-PY-")
     }
     assert expected == {rule for rule, _ in plants if rule.startswith("NATIVE-PY-")}
+
+
+def test_the_layer_order_fails_each_upward_requires_and_no_other(runs: dict[str, Any]) -> None:
+    """AD-588: the order reads the declared `requires`, not the imports.
+
+    The code forms declare nothing, so the order passes. With a matching `requires` the order
+    fails for each chain pair that points up. A pair that points down (the core side to a
+    collector or to `collect`, a collector to `store`) is a row of its forbidden rule only.
+    """
+    _, code = runs["code"]
+    _, result = runs["requires"]
+    assert code["rules"]["NATIVE-LAYER-ORDER"][1] == "PASS"
+    assert result["rules"]["NATIVE-LAYER-ORDER"][1] == "FAIL"
+    upward = {
+        (LABEL.get(source, source), LABEL.get(target, target))
+        for source, target in CHAIN_RULES
+        if target != "store" and not (source in SPLIT and target in {*COLLECTORS, "collect"})
+    }
+    rows = result["details"]["NATIVE-LAYER-ORDER"]
+    assert {(row["source"], row["target"]) for row in rows} == upward
+    assert len(upward) == 35
