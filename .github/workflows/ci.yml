@@ -49,6 +49,10 @@ jobs:
         working-directory: native
         run: rustup toolchain install
 
+      - name: Hash the native tree
+        id: native
+        run: echo "hash=${{ hashFiles('native/**', '!native/target/**') }}" >> "$GITHUB_OUTPUT"
+
       - name: Restore the Rust build cache of main
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -78,6 +82,14 @@ jobs:
             ~/.cargo/git
             native/target
           key: rust-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
+
+      # AD-674: a PR gate whose native/ tree is the same downloads this core and builds nothing.
+      - name: Save the core for this native tree
+        if: always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: native/target/release/archkeel-core
+          key: core-${{ runner.os }}-${{ steps.native.outputs.hash }}
 
   tests:
     name: "Tests: ${{ matrix.area }}"

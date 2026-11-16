@@ -84,7 +84,9 @@ native-check:
 
 # AD-432: the core is the only decision path. `archkeel` finds this release build of the checkout.
 core:
-	cd native && cargo build --locked --release -p archkeel-core
+	@if [ -n "$$ARCHKEEL_PREBUILT_CORE" ] && [ -x native/target/release/archkeel-core ]; then \
+		echo "core: the prebuilt release core of main is used (AD-674)"; \
+	else cd native && cargo build --locked --release -p archkeel-core; fi
 
 # AD-672: the pins are ratchets. With origin/main present, growth against it needs a reason in the growth file.
 RATCHET_BASE := $(if $(shell git rev-parse --verify -q origin/main),--base-ref origin/main,)

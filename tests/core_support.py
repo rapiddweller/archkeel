@@ -152,8 +152,12 @@ def built(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @pytest.fixture(scope="session")
 def release_core() -> Path:
     """The release core: the build that a measurement of time or memory must use."""
+    binary = NATIVE / "target" / "release" / f"archkeel-core{SUFFIX}"
+    # AD-674: the PR gate downloads the core of main when native/ is unchanged; it builds nothing.
+    if os.environ.get("ARCHKEEL_PREBUILT_CORE") and binary.is_file():
+        return binary
     _build("--release")
-    return NATIVE / "target" / "release" / f"archkeel-core{SUFFIX}"
+    return binary
 
 
 @pytest.fixture(scope="session")
