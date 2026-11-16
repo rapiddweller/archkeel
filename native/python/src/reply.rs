@@ -6,16 +6,16 @@
 //! `imports` (`collect.collect`), with the typed records of `archkeel-facts` (AD-345).
 //!
 //! The survey is not the whole collection. The protocol says so with the capabilities of the
-//! import survey: the sections `imports`, `unknowns` and `symbols` (AD-518), no resolution feature
-//! and no construct. The sections `calls`, `references`, `bindings`, `typing_signals` and
-//! `constructs` are not declared, so they are not collected, and the lists of the collection phase
-//! are empty (AD-334, AD-367). The linked path gives the same survey as a typed reply (AD-450).
+//! import survey and the written `assert` construct (AD-658). The linked path gives the same
+//! survey as a typed reply (AD-450).
 
 use archkeel_facts::envelope::{
     Adapter, Coverage, Evidence, Input, Profile, Provenance, Reply, Runtime, TargetSource,
 };
 use archkeel_facts::request::PythonRequest;
-use archkeel_facts::{CallFact, GapFact, ImportFact, Record, ReferenceFact, SymbolFact};
+use archkeel_facts::{
+    CallFact, ConstructFact, GapFact, ImportFact, Record, ReferenceFact, SymbolFact,
+};
 use archkeel_snapshot::Snapshot;
 use archkeel_wire::protocol::reply_version;
 use archkeel_wire::stream::{encode_stream, Head, SectionSink, Tail};
@@ -26,8 +26,14 @@ use crate::{inputs, requirement};
 
 /// The sections of the survey, in their order. No other section is collected (AD-518 adds
 /// `symbols`; the 4.0.1 survey has the first two).
-pub(crate) const SURVEY_SECTIONS: [&str; 5] =
-    ["imports", "unknowns", "symbols", "calls", "references"];
+pub(crate) const SURVEY_SECTIONS: [&str; 6] = [
+    "imports",
+    "unknowns",
+    "symbols",
+    "calls",
+    "references",
+    "constructs",
+];
 
 /// The version and the code digest of this binary (`archkeel-build-support`).
 pub struct Build<'a> {
@@ -80,6 +86,7 @@ struct Records {
     symbols: Vec<Record<SymbolFact>>,
     calls: Vec<Record<CallFact>>,
     references: Vec<Record<ReferenceFact>>,
+    constructs: Vec<Record<ConstructFact>>,
     coverage: Coverage,
     evidence: Vec<Evidence>,
 }
@@ -92,6 +99,8 @@ impl Records {
         writer.write_typed_section::<CallFact>(|emit| self.calls.iter().for_each(emit))?;
         writer
             .write_typed_section::<ReferenceFact>(|emit| self.references.iter().for_each(emit))?;
+        writer
+            .write_typed_section::<ConstructFact>(|emit| self.constructs.iter().for_each(emit))?;
         self.tail()
     }
 
@@ -140,7 +149,7 @@ fn parts(
             .collect(),
         sections: SURVEY_SECTIONS.to_vec(),
         features: Vec::new(),
-        constructs: Vec::new(),
+        constructs: vec![("assert", "supported")],
         inputs,
         source_digest: Some(source_digest),
         files: survey.files,
@@ -153,6 +162,7 @@ fn parts(
         symbols: survey.symbols,
         calls: survey.calls,
         references: survey.references,
+        constructs: survey.constructs,
         coverage: survey.coverage,
         evidence: survey.evidence,
     };
