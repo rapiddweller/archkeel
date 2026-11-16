@@ -115,6 +115,11 @@ fn one_mark_is_one_element_that_names_each_view_that_shows_it() {
     assert!(page.contains(
         "<span class=\"rp-un rp-in rp-d\" title=\"core to store: declared, no observed import uses it\"></span>"
     ));
+}
+
+#[test]
+fn diff_names_each_difference_and_target_states_the_declared_structure() {
+    let page = section(&frame());
     // Diff names each difference as text, and the violation names its rule.
     assert!(
         page.contains("<a href=\"#x1\">api to store</a>: 1 violation, <b class=\"rp-code\">R</b>")

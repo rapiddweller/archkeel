@@ -33,17 +33,17 @@ pub(crate) fn pairs(models: &ModelTree) -> BTreeSet<(String, String)> {
     let mut pairs = BTreeSet::new();
     for model in models.models() {
         for (_, component) in model.components().iter() {
-            for entry in component.requires().iter().flatten() {
-                let target = model
+            let targets = component.requires().iter().flatten().filter_map(|entry| {
+                model
                     .component(entry.component().as_text())
-                    .and_then(|id| model.components().get(id));
-                if let Some(target) = target {
-                    pairs.insert((
-                        component.id().as_text().to_owned(),
-                        target.id().as_text().to_owned(),
-                    ));
-                }
-            }
+                    .and_then(|id| model.components().get(id))
+            });
+            pairs.extend(targets.map(|target| {
+                (
+                    component.id().as_text().to_owned(),
+                    target.id().as_text().to_owned(),
+                )
+            }));
         }
     }
     pairs

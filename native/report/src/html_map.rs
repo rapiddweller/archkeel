@@ -22,32 +22,41 @@ const LANE: usize = 10;
 
 type Positions<'a> = BTreeMap<&'a str, (usize, usize)>;
 
-/// The arrowhead, the class of the path and the callout of a mark.
-fn style(mark: Mark) -> (&'static str, &'static str) {
-    match mark {
-        Mark::Plain => ("ak-arrow", ""),
-        Mark::Fail => ("ak-arrow-fail", " ak-edge--violation"),
-        Mark::Unknown => ("rp-arrow-unknown", " rp-edge--unknown"),
-        Mark::Unused => ("rp-arrow-unused", " rp-edge--unused"),
-    }
-}
+/// One row for each mark: the id of its arrowhead, the class of its path and the class of the
+/// arrowhead.
+const STYLES: [(Mark, &str, &str, &str); 4] = [
+    (Mark::Plain, "ak-arrow", "", ""),
+    (
+        Mark::Fail,
+        "ak-arrow-fail",
+        " ak-edge--violation",
+        " ak-arrowhead--fail",
+    ),
+    (
+        Mark::Unknown,
+        "rp-arrow-unknown",
+        " rp-edge--unknown",
+        " rp-arrowhead--unknown",
+    ),
+    (
+        Mark::Unused,
+        "rp-arrow-unused",
+        " rp-edge--unused",
+        " rp-arrowhead--unused",
+    ),
+];
 
 /// The arrowheads of the map, one for each mark.
 fn arrowheads() -> String {
-    [
-        ("ak-arrow", ""),
-        ("ak-arrow-fail", " ak-arrowhead--fail"),
-        ("rp-arrow-unknown", " rp-arrowhead--unknown"),
-        ("rp-arrow-unused", " rp-arrowhead--unused"),
-    ]
-    .iter()
-    .map(|(id, class)| {
-        format!(
-            "<marker id=\"{id}\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" markerWidth=\"8\" markerHeight=\"8\" orient=\"auto\">\
+    STYLES
+        .iter()
+        .map(|(_, id, _, class)| {
+            format!(
+                "<marker id=\"{id}\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" markerWidth=\"8\" markerHeight=\"8\" orient=\"auto\">\
 <path class=\"ak-arrowhead{class}\" d=\"M0 1L10 5L0 9z\"/></marker>"
-        )
-    })
-    .collect()
+            )
+        })
+        .collect()
 }
 
 impl<'a> Picture<'a> {
@@ -123,7 +132,10 @@ impl<'a> Picture<'a> {
     ) -> String {
         let mut svg = String::new();
         for (mark, views) in link.marks() {
-            let (arrow, class) = style(mark);
+            let (arrow, class) = STYLES
+                .iter()
+                .find(|style| style.0 == mark)
+                .map_or(("ak-arrow", ""), |style| (style.1, style.2));
             svg.push_str(&format!(
                 "<path class=\"ak-edge{class} {views}\" d=\"{d}\" marker-end=\"url(#{arrow})\"><title>{}</title></path>",
                 link.title(mark, names)
@@ -195,7 +207,7 @@ impl<'a> Picture<'a> {
         }
     }
 
-    pub(super) fn map(&self, names: &Names<'a>) -> String {
+    pub(super) fn component_map(&self, names: &Names<'a>) -> String {
         let top = self
             .links
             .iter()

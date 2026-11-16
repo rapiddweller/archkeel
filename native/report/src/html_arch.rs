@@ -220,7 +220,7 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
     let drawn = if picture.small() {
         format!(
             "<div class=\"rp-map-only\"><div class=\"rp-pic__scroll\">{}</div></div><div class=\"rp-mx-only\">{}</div>{differences}{LEGEND}",
-            picture.map(names),
+            picture.component_map(names),
             picture.matrix(names)
         )
     } else {
