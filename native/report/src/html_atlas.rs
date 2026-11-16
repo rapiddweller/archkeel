@@ -64,30 +64,37 @@ fn exceptions(frame: &Frame, tree: &Tree, found: &[Finding]) -> (Vec<usize>, Vec
         .flat_map(|t| &t.modules)
         .map(|m| (m.path.as_str(), m.name.as_str()))
         .collect();
-    let count = |subjects: &mut dyn Iterator<Item = &str>, into: &mut Vec<usize>| {
+    let all = tree.nodes.len();
+    // The nodes that own the modules of a subject list; `None` when the list is empty or a module
+    // has no owner: that subject is unscoped.
+    let owners = |subjects: &[&str]| -> Option<BTreeSet<usize>> {
         let mut nodes = BTreeSet::new();
         for subject in subjects {
             let module = paths.get(subject).copied().unwrap_or(subject);
-            if let Some(owner) = tree.owner.get(module) {
-                nodes.extend(tree.chain(*owner));
-            }
+            nodes.extend(tree.chain(*tree.owner.get(module)?));
         }
-        for node in nodes {
-            into[node] += 1;
+        (!nodes.is_empty()).then_some(nodes)
+    };
+    let (mut fail, mut unknown) = (vec![0; all], vec![0; all]);
+    for finding in found {
+        let modules: Vec<&str> = finding.modules.iter().map(String::as_str).collect();
+        for node in owners(&modules).unwrap_or_default() {
+            fail[node] += 1;
+        }
+    }
+    // A gap that no node owns may hold any node: it counts for every node, so no node shows PASS
+    // beside a gap that it cannot exclude.
+    let mut gap_nodes = |subjects: &[&str]| {
+        for node in owners(subjects).unwrap_or_else(|| (0..all).collect()) {
+            unknown[node] += 1;
         }
     };
-    let (mut fail, mut unknown) = (vec![0; tree.nodes.len()], vec![0; tree.nodes.len()]);
-    for finding in found {
-        count(&mut finding.modules.iter().map(String::as_str), &mut fail);
-    }
     for gap in &frame.collection_gaps {
-        count(&mut gap.subjects.iter().map(String::as_str), &mut unknown);
+        let subjects: Vec<&str> = gap.subjects.iter().map(String::as_str).collect();
+        gap_nodes(&subjects);
     }
     for (source, target) in held(frame) {
-        count(
-            &mut [source.as_str(), target.as_str()].into_iter(),
-            &mut unknown,
-        );
+        gap_nodes(&[source.as_str(), target.as_str()]);
     }
     (fail, unknown)
 }

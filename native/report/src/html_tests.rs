@@ -417,3 +417,38 @@ fn each_evidence_path_of_a_page_has_its_row_tracks() {
         assert!(style.contains(&rule), "{rule} is missing");
     }
 }
+
+/// The status of each component of the Explorer data, by its id.
+fn statuses(data: &Value) -> Vec<(String, String)> {
+    data["atlas"]["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| {
+            (
+                c["id"].as_str().unwrap().to_owned(),
+                c["status"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect()
+}
+
+// AD-606: a gap that no component owns may hold any component, so none shows PASS beside it.
+#[test]
+fn a_gap_that_names_no_owned_module_holds_every_component() {
+    for subjects in [json!([]), json!(["outside.module"])] {
+        let mut frame = json!({"status": "UNKNOWN", "topology": components(3, &[(0, 1)]),
+            "collection_gaps": [{"kind": "collection_gap", "subjects": subjects, "reason": "macro"}]});
+        let found = statuses(&payload(&document(&frame)));
+        assert_eq!(found.len(), 3);
+        assert!(
+            found.iter().all(|(_, status)| status == "UNKNOWN"),
+            "{found:?}"
+        );
+        // A gap inside one component holds that component only.
+        frame["collection_gaps"][0]["subjects"] = json!(["m1"]);
+        let found = statuses(&payload(&document(&frame)));
+        assert_eq!(found[0].1, "PASS", "{found:?}");
+        assert_eq!(found[1].1, "UNKNOWN", "{found:?}");
+    }
+}

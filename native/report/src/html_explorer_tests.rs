@@ -139,3 +139,77 @@ fn no_explorer_file_redefines_a_token() {
         }
     }
 }
+
+/// The selectors of each rule of `explorer.css`, with the rules inside `@media` blocks.
+fn selectors(css: &str) -> Vec<String> {
+    let mut found = Vec::new();
+    let mut head = String::new();
+    let mut depth = 0usize;
+    let mut comment = false;
+    let mut chars = css.chars().peekable();
+    while let Some(c) = chars.next() {
+        if comment {
+            if c == '*' && chars.peek() == Some(&'/') {
+                chars.next();
+                comment = false;
+            }
+            continue;
+        }
+        match c {
+            '/' if chars.peek() == Some(&'*') => comment = true,
+            '{' => {
+                let text = head.trim().to_owned();
+                if !text.starts_with('@') {
+                    found.extend(text.split(',').map(|s| s.trim().to_owned()));
+                }
+                head.clear();
+                depth += 1;
+            }
+            '}' => {
+                depth = depth.saturating_sub(1);
+                head.clear();
+            }
+            ';' if depth == 0 => head.clear(),
+            _ => head.push(c),
+        }
+    }
+    found.retain(|s| !s.is_empty());
+    found
+}
+
+#[test]
+fn every_explorer_rule_stays_inside_the_explorer() {
+    let css = include_str!("../assets/explorer/explorer.css");
+    let loose: Vec<String> = selectors(css)
+        .into_iter()
+        .filter(|s| !s.contains(".rp-explorer") && s != "from" && s != "to")
+        .collect();
+    assert!(
+        loose.is_empty(),
+        "explorer.css rules that can reach the rest of the report: {loose:?}"
+    );
+}
+
+#[test]
+fn explorer_spacing_that_a_token_names_uses_the_token() {
+    let css = include_str!("../assets/explorer/explorer.css");
+    for declaration in css.split([';', '{', '}']) {
+        let Some((property, value)) = declaration.split_once(':') else {
+            continue;
+        };
+        let property = property.trim();
+        if !["padding", "margin", "gap"]
+            .iter()
+            .any(|p| property == *p || property.starts_with(&format!("{p}-")))
+        {
+            continue;
+        }
+        for token in ["4px", "8px", "12px", "16px", "24px", "32px", "48px", "64px"] {
+            let literal = value.split_whitespace().any(|word| word == token);
+            assert!(
+                !literal,
+                "{property}: {value} writes {token}: use a --space token"
+            );
+        }
+    }
+}

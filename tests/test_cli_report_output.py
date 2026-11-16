@@ -90,7 +90,7 @@ def test_files_keep_the_frame_and_exit(
         # AD-498: the Counts, Rules, Gaps, Unsupported, Identity and Tool parts are gone.
         for old in ("Counts", "Rules", "Gaps", "Unsupported", "Request identity", "Tool"):
             assert f"<h2>{old}</h2>" not in text
-        # AD-606: the scripts of the Explorer are checked by their hashes; the markup is checked here.
+        # AD-606: the hashes check the Explorer scripts; the markup is checked here.
         page = re.sub(r"(<script[^>]*>).*?</script>", r"\1</script>", text, flags=re.S)
         assert "<footer" in page and "<pre" not in page
         assert page.count("<script>") == 1 and "src=" not in page
