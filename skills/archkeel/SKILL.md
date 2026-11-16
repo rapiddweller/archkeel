@@ -21,9 +21,11 @@ run `make core` to build the core binary first.
   frame instead: `archkeel report --output report.json --format json`. Without `--output`, the
   format option is refused. No file is written by default. The parent of `PATH` must exist.
 - `archkeel skill install claude` or `archkeel skill install codex` writes this skill file.
-- `archkeel init` drafts `archkeel.toml` and a contract for a Python project with one top-level
-  package. Every decision in it is a `TODO`: the first verdict is UNKNOWN and lists them. Ask the
-  owner for each decision; never fill one in alone. The walk is in `docs/onboarding.md`.
+- `archkeel init` drafts `archkeel.toml` and a contract from the folder layout (Python packages, a
+  Cargo workspace, a package.json workspace). `validate` and `report` do it by themselves when
+  `archkeel.toml` is missing, and never replace a file (`--no-init` or `ARCHKEEL_NO_INIT=1` writes
+  nothing). Every decision in the draft is a `TODO`: the first verdict is UNKNOWN and lists them. Ask
+  the owner for each decision; never fill one in alone. The walk is in `docs/onboarding.md`.
 
 `check`, `explore`, `guide`, `story`, `view` and `studio` are refused with exit 2 and the
 reason `not available on this development line`. Release 4.0.1 has `check`; no release

@@ -36,11 +36,12 @@ from .core_frame import (
     read_frame,
 )
 from .core_help import help_for
+from .core_init import Created, prepare, run_init
 from .core_json import Gap, RequestMismatch
 from .core_output import write_output
 from .core_text import header, refusal, render, summary
 from .core_words import fix_for, plain
-from .init_draft import CONFIG, CONTRACT, DOCUMENT, PROVENANCE, write_draft
+from .init_draft import DOCUMENT
 from .native_scan import SCAN_PROTOCOL, exchange, identity
 
 
@@ -69,7 +70,7 @@ def run(argv: Sequence[str]) -> int:
         if options.command is Command.SKILL:
             return _install_skill(options, as_json)
         if options.command is Command.INIT:
-            return _init(options, as_json)
+            return run_init("--json" in argv, resolve_root(options.root or Path.cwd()))
         return _decide(options, as_json)
     except (CoreError, OSError, ValueError) as error:
         message = str(error)
@@ -126,27 +127,6 @@ def _install_skill(options: Options, as_json: bool) -> int:
         name = "$archkeel" if options.agent == InstallationAgent.CODEX else "/archkeel"
         print(f"Installed Archkeel instructions: {path}")
         print(f"Use {name} in your agent session; start a new session if needed.")
-    return 0
-
-
-def _init(options: Options, as_json: bool) -> int:
-    """Draft the three files of a first contract below the root (AD-626). It decides nothing."""
-    root = resolve_root(options.root or Path.cwd())
-    result = write_draft(root)
-    files = [CONFIG, CONTRACT, PROVENANCE]
-    if as_json:
-        document = {"command": Command.INIT, "exit_code": 0, "files": files}
-        document |= {"components": result.components, "root": result.root, "note": result.note}
-        print(json.dumps(document))
-        return 0
-    print(f"Drafted for the package {result.namespace} ({result.root}): {len(files)} files")
-    for name in files:
-        print(f"  {name}")
-    print(f"Components: {', '.join(result.components)}")
-    if result.note:
-        print(f"Note: {result.note}")
-    print("Next: replace each TODO with your decision (responsibilities, rationales), then run")
-    print(f"  archkeel validate --text\nGuide: {DOCUMENT}")
     return 0
 
 
@@ -266,6 +246,9 @@ def _decide(options: Options, as_json: bool) -> int:
     """Send the scan identity to the core and print the one frame that it gives."""
     options = _located(options)
     root = resolve_root(options.root or Path.cwd())
+    first = prepare(options, root)  # AD-638: a project without archkeel.toml gets a draft
+    if isinstance(first, str):
+        return _refused(options.command, RefusalKind.INVALID_INPUT, first, as_json)
     request = _request(options, root)
     binary = locate_core()
     confirm(binary)  # a bundled core is checked again immediately before it starts (#1095)
@@ -309,6 +292,8 @@ def _decide(options: Options, as_json: bool) -> int:
         collected = replace(collected, reason=_config_reason(options, root, collected.reason))
     if collected is not None:
         result["refusal"] = {"kind": RefusalKind.COLLECTION_REFUSED, "message": collected.reason}
+    if isinstance(first, Created):
+        result["init"] = first.as_json()
     file_error = _deliver(options, frame, stdout, root)
     if file_error is not None:
         code = 2
@@ -317,6 +302,8 @@ def _decide(options: Options, as_json: bool) -> int:
     if as_json and (options.json or options.output is None):
         print(json.dumps(result))
         return code
+    if isinstance(first, Created):
+        print("\n".join(first.lines()), end="\n\n")
     _print_text(options, frame, document, (code, collected, file_error), (binary, root))
     return code
 
