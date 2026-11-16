@@ -2417,6 +2417,13 @@
       ],
       "requires": [
         {
+          "component": "core-decode",
+          "rationale": "Decode the shared request protocol and byte fields.",
+          "through": [
+            "native.archkeel_core.decode"
+          ]
+        },
+        {
           "component": "model",
           "rationale": "Derive the model of the run and ask it for each section (AD-363).",
           "through": [
@@ -2504,6 +2511,42 @@
       "decided_by": "architect"
     },
     {
+      "id": "COMP-NATIVE-CORE-DECODE",
+      "label": "core-decode",
+      "role": "component",
+      "layer": "core",
+      "packages": [
+        "native.archkeel_core.decode"
+      ],
+      "responsibilities": [
+        "Decode request protocols, reply bytes and inside-contract bytes shared by the request kinds."
+      ],
+      "forbidden_responsibilities": [
+        "Reading files, trusting a reply or deciding a rule."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md"
+      ],
+      "requires": [
+        {
+          "component": "core-contract",
+          "rationale": "Name the decoded inside-contract input.",
+          "through": [
+            "native.archkeel_core.contract"
+          ]
+        }
+      ],
+      "public": [
+        "native.archkeel_core.decode:INFLATE_LIMIT",
+        "native.archkeel_core.decode:InsideJson",
+        "native.archkeel_core.decode:ReplyBytes",
+        "native.archkeel_core.decode:decode",
+        "native.archkeel_core.decode:hex",
+        "native.archkeel_core.decode:insides"
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "COMP-NATIVE-CORE-REQUESTS",
       "label": "core-requests",
       "role": "component",
@@ -2526,6 +2569,13 @@
         "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
       ],
       "requires": [
+        {
+          "component": "core-decode",
+          "rationale": "Decode the shared request protocol and byte fields.",
+          "through": [
+            "native.archkeel_core.decode"
+          ]
+        },
         {
           "component": "model",
           "rationale": "Derive the model of the run and ask it for each section (AD-363).",
