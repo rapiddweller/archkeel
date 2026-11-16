@@ -19,6 +19,11 @@
   "UNKNOWN",
   "alias"
  ],
+ "all-extended-later": [
+  "PASS",
+  "UNKNOWN",
+  "dynamic_exports"
+ ],
  "allowance-exact-for-object": [
   "PASS",
   "PASS",
@@ -28,6 +33,11 @@
   "PASS",
   "UNKNOWN",
   "allowance_not_read"
+ ],
+ "allowance-for-a-dict-of-strings": [
+  "PASS",
+  "PASS",
+  ""
  ],
  "allowance-for-a-nested-object-needs-a-depth": [
   "FAIL",
@@ -154,6 +164,11 @@
   "UNKNOWN",
   "external_type"
  ],
+ "facade-with-no-function": [
+  "UNKNOWN",
+  "UNKNOWN",
+  ""
+ ],
  "facade-without-a-literal-all": [
   "PASS",
   "UNKNOWN",
@@ -193,6 +208,11 @@
   "UNKNOWN",
   "UNKNOWN",
   "missing_annotation"
+ ],
+ "module-attribute-written-elsewhere": [
+  "FAIL",
+  "UNKNOWN",
+  "no_record"
  ],
  "optional-and-union": [
   "PASS",
