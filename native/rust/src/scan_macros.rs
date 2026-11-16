@@ -13,7 +13,7 @@ use syn::{ItemMacro, Macro};
 use super::attributes::concern;
 use super::state::{Local, MacroCall, MacroDef, Walker};
 use crate::definitions::{Holder, MethodCall};
-use crate::macro_items::item_level;
+use crate::macro_items::{holds_impl, item_level, macro_paths};
 use crate::net;
 use crate::plant;
 use crate::tokens::{
@@ -175,6 +175,11 @@ pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
             idents(node.tokens.clone(), 0, &mut found);
             found
         },
+        scope: walker.inline.clone(),
+        block: walker.blocks > 0,
+        prelude: walker.tools,
+        absolute: node.path.leading_colon.is_some(),
+        writes_impl: holds_impl(node.tokens.clone()),
     };
     // The tokens of a macro are not code that the scan reads: a call in them is not placed.
     let mut inner = BTreeSet::new();
@@ -187,9 +192,14 @@ pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
         && std_only(&name)
         && !local(&name)
         && inner.iter().all(|inner| std_only(inner) && !local(inner));
-    let hidden = inner.into_iter().map(|name| MacroCall {
-        name,
+    // A call in the tokens keeps its own path: the proof of a macro identity reads it (#1371).
+    let mut paths = BTreeSet::new();
+    macro_paths(node.tokens.clone(), 0, &mut paths);
+    let hidden = paths.into_iter().map(|(absolute, path)| MacroCall {
+        name: path.last().cloned().unwrap_or_default(),
         placed: false,
+        absolute,
+        path,
         ..call.clone()
     });
     let before = walker.out.macro_calls.len();

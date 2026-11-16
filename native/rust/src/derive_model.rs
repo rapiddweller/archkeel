@@ -9,7 +9,7 @@
 
 use syn::parse::Parser;
 use syn::visit::{self, Visit};
-use syn::{Attribute, Expr, Item, Lit, Meta, Token};
+use syn::{Attribute, Expr, Item, Lit, Meta};
 
 pub(crate) struct Known {
     pub package: &'static str,
@@ -167,10 +167,10 @@ fn string(meta: &Meta) -> Option<&syn::LitStr> {
 fn extensions(input: syn::parse::ParseStream<'_>) -> syn::Result<()> {
     while !input.is_empty() {
         input.parse::<syn::LitStr>()?;
-        input.parse::<Token![=]>()?;
+        input.parse::<syn::token::Eq>()?;
         input.parse::<Lit>()?;
         if !input.is_empty() {
-            input.parse::<Token![,]>()?;
+            input.parse::<syn::token::Comma>()?;
         }
     }
     Ok(())
@@ -218,7 +218,7 @@ fn value(kind: ValueKind, meta: &Meta, found: &mut Vec<crate::tokens::Chain>) ->
             check.0
         }),
         K::Bounds => {
-            syn::punctuated::Punctuated::<syn::WherePredicate, Token![,]>::parse_terminated
+            syn::punctuated::Punctuated::<syn::WherePredicate, syn::token::Comma>::parse_terminated
                 .parse_str(&text)
                 .is_ok_and(|bounds| {
                     let mut check = Check(true);

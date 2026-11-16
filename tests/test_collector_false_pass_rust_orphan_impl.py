@@ -188,6 +188,13 @@ PLANTS["a type argument of the trait is local"] = {
 PLANTS.update(SELF_TYPE_PLANTS)
 
 DISPLAY = PLANTS["Display and to_string"]
+# AD-662 (#1371): a trait impl that a macro of `b` writes is an orphan of `b` too.
+PLANTS["an impl that a macro of b generates"] = {
+    **DISPLAY,
+    "b.rs": "macro_rules! show {\n    () => {\n"
+    "        impl std::fmt::Display for crate::c::S {\n"
+    f"            {HEAD_DISPLAY}\n        }}\n    }};\n}}\nshow!();\n",
+}
 
 
 def _verdict(result: dict[str, Any], identifier: str) -> str:
@@ -345,12 +352,6 @@ def test_a_trait_impl_in_a_module_of_a_crate_gives_a_pair_gap_to_a_crate_that_de
 OPEN: dict[str, dict[str, str]] = {
     **{f"a value of a type of b: {name}": files for name, files in OPEN_VALUE_FORMS.items()},
     **{f"the trait is defined in b: {name}": files for name, files in OPEN_TRAIT_FORMS.items()},
-    "an impl that a macro of b generates": {
-        **DISPLAY,
-        "b.rs": "macro_rules! show {\n    () => {\n"
-        "        impl std::fmt::Display for crate::c::S {\n"
-        f"            {HEAD_DISPLAY}\n        }}\n    }};\n}}\nshow!();\n",
-    },
 }
 
 

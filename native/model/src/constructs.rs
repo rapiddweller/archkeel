@@ -7,7 +7,7 @@
 use archkeel_facts::data::{SelectorData, SignalData};
 use archkeel_facts::envelope::{ConstructSupport, Facts};
 use archkeel_facts::vocab::Kind;
-use archkeel_facts::{ConstructFact, FactData, Record, Section};
+use archkeel_facts::{CommonData, ConstructFact, FactData, Record, Section};
 
 use crate::reason::Reason;
 

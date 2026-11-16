@@ -56,8 +56,8 @@ pub use record::{FactData, Record};
 /// The pinned standard-library tables shared by collectors and the store.
 pub const STANDARD_LIBRARY: &str = include_str!("standard_library.txt");
 pub use sections::{
-    BindingFact, CallFact, ConstructFact, GapFact, ImportFact, IntoSection, ReferenceFact, Section,
-    SymbolFact,
+    BindingFact, CallFact, CommonData, ConstructFact, GapFact, ImportFact, IntoSection,
+    ReferenceFact, Section, SymbolFact,
 };
 
 /// The provenance of a linked native collector of `profile` (a variant of
