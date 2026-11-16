@@ -21,7 +21,7 @@ use crate::ingest::ReplyState;
 use crate::request::Request;
 
 /// The first words of each reason of the base. The shell counts them.
-pub(crate) const BASE: &str = "the base reply";
+const BASE: &str = "the base reply";
 
 /// The base reply of a check request and the trust function of its request kind.
 pub(crate) struct Base {

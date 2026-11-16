@@ -141,7 +141,7 @@ pub(crate) fn parameter<'t>(
 }
 
 /// `_parameter`: `parent` is the list or the group that holds `node`.
-pub(crate) fn parameter_in<'t>(
+fn parameter_in<'t>(
     node: Node<'t>,
     kind: ParameterKind,
     parent: Option<Node<'t>>,

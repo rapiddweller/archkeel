@@ -153,7 +153,7 @@ pub(crate) fn schema() -> Value {
 }
 
 /// The path of the committed schema of the refusal, relative to the crate.
-pub(crate) const REFUSAL_PATH: &str = "../../schema/archkeel-core-refusal-1.schema.json";
+const REFUSAL_PATH: &str = "../../schema/archkeel-core-refusal-1.schema.json";
 
 /// The schema of the refusal on stderr, generated from `refusal::Refusal`.
 pub(crate) fn refusal_schema() -> Value {
@@ -185,7 +185,7 @@ pub(crate) fn refusal_schema() -> Value {
 }
 
 /// The text of the refusal schema file.
-pub(crate) fn refusal_text() -> serde_json::Result<String> {
+fn refusal_text() -> serde_json::Result<String> {
     serde_json::to_string_pretty(&refusal_schema()).map(|text| text + "\n")
 }
 

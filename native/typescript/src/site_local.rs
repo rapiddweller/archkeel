@@ -42,7 +42,7 @@ fn block_like(kind: K) -> bool {
 /// The identifiers that a pattern, a parameter or an assignment target names: the one place that
 /// reads a pattern (`assignment_targets` walks shorthand, renamed, array, rest, default and nested
 /// forms). A target that is no plain name, such as `a.b`, names nothing.
-pub(crate) fn pattern_names<'t>(cx: &Cx, pattern: Node<'t>) -> Vec<Node<'t>> {
+fn pattern_names<'t>(cx: &Cx, pattern: Node<'t>) -> Vec<Node<'t>> {
     assignment_targets(cx, pattern)
         .into_iter()
         .filter(|found| {

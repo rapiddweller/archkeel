@@ -64,7 +64,7 @@ pub(crate) fn is_alnum(c: char) -> bool {
 }
 
 /// The code point is in one of the sorted inclusive ranges of `table`.
-pub(crate) fn in_table(table: &[(u32, u32)], c: char) -> bool {
+fn in_table(table: &[(u32, u32)], c: char) -> bool {
     let code = u32::from(c);
     let after = table.partition_point(|(start, _)| *start <= code);
     after
