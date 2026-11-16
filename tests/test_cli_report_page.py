@@ -47,7 +47,7 @@ def self_page(
         code, text, found = write_page(
             release_core, patch, frozen_root, "native/archkeel.toml", target
         )
-    assert (code, found["status"]) == (2, "UNKNOWN")
+    assert (code, found["status"]) == (0, "PASS")
     return text
 
 
@@ -218,10 +218,17 @@ def test_the_word_budget_and_the_links_hold_on_each_dogfood_page(
     assert not (links - ids), sorted(links - ids)[:5]
 
 
-def test_every_link_inside_the_core_self_page_has_its_target(self_page: str) -> None:
-    ids = set(re.findall(r' id="([^"]+)"', self_page))
-    links = re.findall(r'href="#([^"]+)"', self_page)
-    assert links and not (set(links) - ids), sorted(set(links) - ids)[:5]
+def test_every_link_inside_the_core_self_page_has_its_target(
+    self_page: str, cycle_page: str
+) -> None:
+    # A PASS page has no violation or cause to link to; the page of a failing run does, so the
+    # check is not empty: it sees links there, and none of either page is dangling.
+    for page in (self_page, cycle_page):
+        ids = set(re.findall(r' id="([^"]+)"', page))
+        links = re.findall(r'href="#([^"]+)"', page)
+        assert not (set(links) - ids), sorted(set(links) - ids)[:5]
+    assert re.findall(r'href="#([^"]+)"', cycle_page)
+    assert re.findall(r' id="([^"]+)"', self_page)
 
 
 @pytest.mark.parametrize("name", ["H-typescript", "L-nest-realworld"])

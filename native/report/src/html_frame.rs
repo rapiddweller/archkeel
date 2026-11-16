@@ -79,6 +79,19 @@ pub(super) struct Frame {
     pub(super) accepted: std::collections::BTreeSet<String>,
     /// The assumption that the collector states for its proofs (AD-540), or empty.
     pub(super) premise: String,
+    /// The call counts of the core (#1327), or `None` when it did not measure.
+    pub(super) calls: Option<Calls>,
+}
+
+/// The call counts that the page shows: the classes of `Measures` of the model.
+#[derive(Clone, Debug, Deserialize)]
+pub(super) struct Calls {
+    pub(super) calls_total: u64,
+    pub(super) calls_resolved: u64,
+    pub(super) calls_partial: u64,
+    pub(super) calls_builtin: u64,
+    pub(super) calls_external: u64,
+    pub(super) calls_unresolved: u64,
 }
 
 fn field<T: DeserializeOwned + Default>(frame: &Value, key: &str) -> T {
@@ -121,6 +134,7 @@ impl Frame {
                 .unwrap_or_default(),
             cause,
             premise: text(&frame["premise"]).unwrap_or_default(),
+            calls: serde_json::from_value(frame["measures"].clone()).ok(),
             status: frame["status"].as_str().unwrap_or("unavailable").to_owned(),
             rules: field(frame, "rules"),
             details: field(frame, "details"),

@@ -6,7 +6,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static pr-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build smoke release-check browser-runtime-install browser-architecture-check typescript-libs-check    core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
+.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static pr-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build sdist smoke release-check browser-runtime-install browser-architecture-check typescript-libs-check    core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static

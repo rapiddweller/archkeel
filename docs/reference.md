@@ -9,7 +9,8 @@ The Python engine is deleted. The shell reads the arguments, starts the core and
 | --- | --- |
 | `validate`, `report` | Served by the core, as text or JSON. See [the core path](#the-core-path). |
 | `skill install claude\|codex` | Served by the shell. It writes the skill file. |
-| `check`, `init` | Typed refusal, exit 2. Release 4.0.1 has them. |
+| `init` | Served by the shell: drafts `archkeel.toml` and a contract for a Python project with one top-level package ([guide](onboarding.md), AD-626). |
+| `check` | Typed refusal, exit 2. Release 4.0.1 has it. |
 | `explore`, `guide`, `story`, `view`, `studio` | Typed refusal, exit 2. No release has them. |
 
 `main` supports Rust and TypeScript projects, and the import rules of Python (AD-450) and Dart (AD-468) projects.
@@ -194,6 +195,13 @@ measure (`calls_unresolved`, `typing_positions`, `untyped_private_accesses`) is 
 three call and typing budgets give `baseline.budget_of_older_schema`, exit 2. The JSON result has a
 `baseline` object with `state`, `exit_code`, `accepted_unknowns`, `new`, `gone` and `gaps`
 ([AD-546](architecture/decisions/ad-546-a-baseline-accepts-an-unknown-by-what-it-is-and-the-core-compares-it-both-ways.md)).
+
+A baseline of schema 1.0.0 to 1.3.0 comes from release 4.0.1. The text names that, prints the one
+command that writes it again (`archkeel validate --write-baseline <file>`), and says which parts the
+core does not read: the budgets `calls_unresolved`, `typing_positions` and `untyped_private_accesses`,
+and the amendment file of the project. The text and the page also show the call measure: how many
+calls the core resolved, with the percentage, and that an unresolved call is no edge, so a rule that
+reads calls stays UNKNOWN while a rule of imports does not read it.
 
 `check` always refuses and names each check it cannot run: its expectation, lock, Git and host checks need #1103.
 No failure falls back to Python.

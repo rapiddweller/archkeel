@@ -164,10 +164,41 @@ pub(crate) fn observed(
     }
 }
 
+/// A file of schema 1.0.0 to 1.3.0 is from release 4.0.1: say so once, with the one command that
+/// migrates it, and name each section that this core does not read from it (AD-546, #1326). The
+/// named gap holds the exit code at 2, so the old file is never a silent green.
+fn with_migration(
+    mut compared: Compared,
+    file: &ValidationBaseline,
+    path: Option<&str>,
+) -> Compared {
+    if file.unknowns().is_some() {
+        return compared;
+    }
+    compared.gaps.insert(
+        0,
+        baseline::Named {
+            kind: "baseline.older_schema",
+            subject: path.unwrap_or("").to_owned(),
+            reason: format!(
+                "this file is from release 4.0.1 (schema before 1.4.0). It lists no accepted \
+                 UNKNOWN, so none is accepted. Its budgets calls_unresolved, typing_positions and \
+                 untyped_private_accesses are not compared, and the amendment file of the project \
+                 is not read. Write it again once: archkeel validate --write-baseline {}",
+                path.unwrap_or("<file>")
+            ),
+        },
+    );
+    if compared.exit_code == 0 {
+        compared.exit_code = 2;
+    }
+    compared
+}
+
 /// The part of the frame for the request.
 pub(crate) fn build(input: Input, run: &Observed) -> Part {
     let compared = match &input.file {
-        Some(Ok(file)) => baseline::compare(file, run),
+        Some(Ok(file)) => with_migration(baseline::compare(file, run), file, input.path.as_deref()),
         Some(Err(why)) => invalid(input.path.as_deref(), why),
         None => Compared {
             state: "written",

@@ -85,7 +85,7 @@ def files_of_the_package() -> None:
         assert json.loads(schemas.joinpath(name).read_text(encoding="utf-8"))["$id"]
 
 
-REFUSED = ("check", "explore", "init", "guide", "story", "view", "studio")
+REFUSED = ("check", "explore", "guide", "story", "view", "studio")
 
 
 def cli(*args: str) -> subprocess.CompletedProcess[str]:
@@ -188,7 +188,7 @@ def commands() -> None:
             message = refusal(
                 cli(command, "--root", str(root), "--json"), "not_on_this_development_line"
             )
-            remedy = "use release 4.0.1" if command in {"check", "init"} else "no release has it"
+            remedy = "use release 4.0.1" if command == "check" else "no release has it"
             assert remedy in message and "#880" in message, message
         removed = cli("validate", "--root", str(root), "--native-core", "--json")
         message = refusal(removed, "not_on_this_development_line")

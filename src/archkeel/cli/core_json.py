@@ -114,13 +114,14 @@ _CALL_CLASSES = "calls_resolved calls_partial calls_builtin calls_external calls
 _CALL_CAUSES = "unresolved_self unresolved_attribute unresolved_name unresolved_dynamic".split()
 
 
-def check_measures(value: object) -> None:
-    """Refuse call measures that do not add up; `None` is no measures."""
+def check_measures(value: object) -> dict[str, int] | None:
+    """The call measures, refused when they do not add up; `None` is no measures."""
     if value is None:
-        return
+        return None
     fields = as_object(value, "measures")
     counts = {name: as_count(item, f"measures.{name}") for name, item in fields.items()}
     if counts["calls_total"] != sum(counts[name] for name in _CALL_CLASSES) or counts[
         "calls_unresolved"
     ] != sum(counts[name] for name in _CALL_CAUSES):
         raise CoreError("the core frame has inconsistent call measures")
+    return counts

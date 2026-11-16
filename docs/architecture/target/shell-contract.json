@@ -85,6 +85,14 @@
         {
           "component": "arguments",
           "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "init",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "display",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
         }
       ],
       "decided_by": "architect",
@@ -290,7 +298,8 @@
         "archkeel.cli.core_topology:require_topology",
         "archkeel.cli.core_evidence:read_details",
         "archkeel.cli.core_evidence:read_locations",
-        "archkeel.cli.core_evidence:read_collection_gaps"
+        "archkeel.cli.core_evidence:read_collection_gaps",
+        "archkeel.cli.core_evidence:call_lines"
       ]
     },
     {
@@ -471,6 +480,34 @@
       "public": [
         "archkeel.cli.skill:InstallationAgent",
         "archkeel.cli.skill:install_skill"
+      ]
+    },
+    {
+      "id": "SHELL-INIT",
+      "label": "init",
+      "role": "component",
+      "layer": "foundation",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.init_draft"
+      ],
+      "responsibilities": [
+        "Draft archkeel.toml, a first contract and its provenance document from the folder layout of a Python project. Every decision in the draft is a TODO."
+      ],
+      "forbidden_responsibilities": [
+        "Read a frame, read a source file, start the core or decide a verdict."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [],
+      "decided_by": "architect",
+      "public": [
+        "archkeel.cli.init_draft:CONFIG",
+        "archkeel.cli.init_draft:CONTRACT",
+        "archkeel.cli.init_draft:DOCUMENT",
+        "archkeel.cli.init_draft:PROVENANCE",
+        "archkeel.cli.init_draft:write_draft"
       ]
     }
   ],
@@ -719,6 +756,18 @@
       "target": "archkeel.cli.core_frame",
       "include_type_checking": true,
       "rationale": "The skill installer reads no frame.",
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-NO-INIT-TO-FRAME",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.cli.init_draft",
+      "target": "archkeel.cli.core_frame",
+      "include_type_checking": true,
+      "rationale": "The draft reads no frame.",
       "provenance": [
         "docs/architecture/shell.md"
       ],
