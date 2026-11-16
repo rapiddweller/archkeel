@@ -115,12 +115,17 @@ def rows(result: dict[str, Any]) -> dict[str, str]:
 @pytest.mark.parametrize(
     ("source", "expected", "why"),
     [
-        ("import app.missing\n", "UNKNOWN", "core cannot prove the dependency scope"),
-        # AD-564: the gap states its effect, and the row names what the rule reads of it.
+        # AD-564: each gap states its effect, and the row names what the rule reads of it. An
+        # import of a project module that the scan does not find can load unseen code.
+        (
+            "import app.missing\n",
+            "UNKNOWN",
+            "1 gap leaves unknown what the rule reads: the code of every module",
+        ),
         (
             "def load(name):\n    return __import__(name)\n",
             "UNKNOWN",
-            "1 gaps leave unknown what the rule reads: the code of every module",
+            "1 gap leaves unknown what the rule reads: the code of every module",
         ),
         ("import os\n", "PASS", ""),
     ],
@@ -304,9 +309,17 @@ GAPS = {
 }
 
 
-# AD-564: these kinds state their effect. It leaves the files and their names known, so the rule
-# on the files has its verdict. Each rule that reads an import stays UNKNOWN, and so does the run.
-STATED = ("dynamic_import", "import_system_change", "star_import", "reexport_ambiguity")
+# AD-564: these kinds state an effect on the code. It leaves the files and their names known, so
+# the rule on the files has its verdict. Each rule that reads an import stays UNKNOWN, and so does
+# the run. An unresolved project import can load unseen code (`every_module`).
+STATED = (
+    "dynamic_import",
+    "import_system_change",
+    "star_import",
+    "reexport_ambiguity",
+    "project_module_not_found",
+    "relative_import_beyond_top",
+)
 
 
 @pytest.mark.parametrize("gap", sorted(GAPS))

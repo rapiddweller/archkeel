@@ -36,4 +36,10 @@ pub enum GapEffect {
     /// The code of every module is not known: an import of any module can give another module
     /// than the one that it names.
     EveryModule,
+    /// The file and the place in the layout of each module of `modules` are not proven: a rule
+    /// on the files of the scan cannot judge them. Their code is read and known.
+    Layout {
+        /// The modules whose file and place in the layout are not proven.
+        modules: Vec<ModuleName>,
+    },
 }

@@ -197,4 +197,4 @@ fn rank(edges: &mut [Edge]) {
 
 #[cfg(test)]
 #[path = "edges_tests.rs"]
-mod tests;
+pub(crate) mod tests;

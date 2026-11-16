@@ -20,7 +20,7 @@
 
 | Rule kind | Reads | Held when |
 |---|---|---|
-| `root_layout`, `complete_assignment`, `layer_order`, `allowed_dependency` | `L` and the contract (`layout::check`, `assignment::check`, `direction::layers`; a permission has no verdict) | never |
+| `root_layout`, `complete_assignment`, `layer_order`, `allowed_dependency` | `L` and the contract (`layout::check`, `assignment::check`, `direction::layers`; a permission has no verdict) | only a `layout` effect (AD-634) on a module below the root or the source; never for `layer_order` and `allowed_dependency` |
 | `external_dependency_scope`, `complete_external_scope` | `E(m)` of each selected `m` in the source scope that the rule does not exempt | `X` is such an `m` |
 | `forbidden_dependency` | `E(m)` of each selected `m` on the source side or without one owner, but not an allowed source; a `target_symbol` rule reads `C` of each module on the way to the symbol | `X` is such an `m`; for a symbol rule and `modules`: each `X` |
 | `sibling_isolation` | `E(m)` of each selected `m` in a member scope | `X` is such an `m` |
@@ -35,7 +35,7 @@
 The evaluator and the receipt of a rule are functions of its read set. When no effect meets the read set, they read the same facts in `W` and in `T`, so a PASS on `W` is a PASS on `T`. A row of the table is thus sound when its read set contains every fact that the code of that kind reads. Each row names the function that reads. Where the code reads less than the row (a module that two components claim has no owner), the row keeps the wider set.
 
 **Definitions.** These two sentences define the terms of the table. They are not premises that a project can fail.
-- D1. `root_layout` and `complete_assignment` are rules on the files of the scan. No code adds a file to the scan, so no effect contains `L`.
+- D1. `root_layout` and `complete_assignment` are rules on the files of the scan. No code adds a file to the scan, so only the `layout` effect of AD-634 contains `L`.
 - D2. An edge is an import that the code of the source module writes (AD-500). A name that `m` gets through an attribute of another module is no edge of `m`.
 
 **Owner decision: strict.** Text that the scan cannot see can replace a module in `sys.modules`, and then an import of any module gives another module than the one that it names. So each site that can run such text states `every_module`. No premise limits what the text does, and no option makes the effect narrower. `UNSEEN_CODE` in `survey/effects.rs` is the one switch.
@@ -43,11 +43,11 @@ The evaluator and the receipt of a rule are functions of its read set. When no e
 **Effects of the Python collector** (`survey/effects.rs`, applied in `targets::site_gap`).
 - `dynamic_import` (`exec`, `eval`, `compile`, a loader call with an unknown name) and `import_system_change`: `every_module`.
 - `star_import` and `reexport_ambiguity`: `modules` of the source module. A star import binds names that the scan does not know and imports each submodule that `__all__` names.
-- Each other kind states no effect. A file gap (`module_outside_layout`, `duplicate_module`, `stub_or_compiled_module`, `unreadable_source`, `linked_source`) leaves `L` unknown, and a module that the scan did not find can be a file outside `L`. An effect for `module_outside_layout` needs a variant for the files alone, which this record does not add.
+- AD-634 adds the effects of the unresolved imports and of `module_outside_layout`, and of the TypeScript and Dart gaps.
 
 **A loader call is not `edges` of its source module.** `importlib.import_module(name)` with an unknown name can return `sys`. The write `found.modules[__name__] = other` then gets no gap of its own, and each import of the module gives `other`. The plant `loader` proves it: with the mapping `edges {source}`, `CLIENT-NO-SECRET` is PASS while Python binds the secret module. A later change can state `edges` for a sound part: a call whose result the code does not use, or a name with a literal prefix below the project namespace.
 
-**Rust and TypeScript.** The Rust collector states no effect. Its gaps have the pair form, which AD-384 scopes to one pair: this is narrower than `edges` of the source. The TypeScript script-global gaps state no effect yet.
+**Rust.** The pair gaps of the Rust collector are scoped by AD-384 to one pair. Its module gaps state no effect yet (AD-634).
 
 **Measured** on `efa899834`: before is this change with a mapping that states no effect, after is this change.
 

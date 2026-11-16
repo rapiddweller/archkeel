@@ -17,6 +17,10 @@
 //!   unknown.
 //! - A name that can be an attribute or a submodule leaves the target of the import and the
 //!   binding of the source module unknown: the code of the source module is unknown.
+//! - A relative import above the top package, or an import of a project module that the scan
+//!   does not find, fails or loads a file that the scan cannot see: that is unseen code too.
+//! - A module whose top package lies above its scan root is read, but its place in the layout
+//!   is not proven (`layout.rs`): its file and layout are unknown, its code is known.
 //!
 //! `UNSEEN_CODE` is the one switch for a site that can run unseen code.
 
@@ -37,11 +41,18 @@ const UNSEEN_CODE: GapEffect = GapEffect::EveryModule;
 /// The effect of the gap of kind `kind` at a site of `module`, if the collector can state one.
 pub(super) fn of(kind: &str, module: &str) -> Option<GapEffect> {
     match kind {
-        hazards::DYNAMIC | hazards::IMPORT_SYSTEM => Some(UNSEEN_CODE),
+        hazards::DYNAMIC | hazards::IMPORT_SYSTEM | BEYOND_TOP | NOT_FOUND => Some(UNSEEN_CODE),
         STAR | AMBIGUOUS => Some(GapEffect::Modules {
             modules: vec![ModuleName::new(module)],
         }),
         _ => None,
+    }
+}
+
+/// The effect of the layout gap of `module`: its file and its place in the layout.
+pub(super) fn layout(module: &str) -> GapEffect {
+    GapEffect::Layout {
+        modules: vec![ModuleName::new(module)],
     }
 }
 
