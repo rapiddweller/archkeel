@@ -22,17 +22,17 @@ pub(crate) mod sealed {
 ///
 /// Another crate cannot make an id from a number:
 ///
-/// ```compile_fail
+/// ```compile_fail,E0599
 /// use archkeel_model::ComponentId;
 /// let forged = ComponentId::from_index(7);
 /// ```
 ///
 /// and cannot add an id type of its own:
 ///
-/// ```compile_fail
+/// ```compile_fail,E0603
 /// #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// struct Forged;
-/// impl archkeel_model::Id for Forged {
+/// impl archkeel_model::ids::Id for Forged {
 ///     fn index(self) -> usize { 0 }
 /// }
 /// ```

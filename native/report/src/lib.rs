@@ -43,23 +43,20 @@
 //! R7. A hand-made status: the fields of a ruling are private (E0451).
 //!
 //! ```compile_fail,E0451
-//! use archkeel_report::{Decided, RuleReasons, Ruling, Status};
-//! fn ruling(decided: Decided) -> Ruling {
-//!     Ruling { decided, protocol: "archkeel-core-frame-1", html: false, status: Status::Pass,
-//!         rules: Default::default(), details: Default::default(), unknown_kinds: Default::default(),
-//!         explained: Default::default(), violations: Default::default(),
-//!         beyond: Default::default(), scope: "complete".into(), premise: None,
-//!         unsupported: RuleReasons::All(String::new()), explain: Default::default(),
-//!         causes: Default::default(), contract_kind: None }
+//! use archkeel_report::{Ruling, Status};
+//! fn ruling(previous: Ruling) -> Ruling {
+//!     Ruling { status: Status::Pass, ..previous }
 //! }
 //! ```
 //!
-//! R8. A decided mark without the run proof: its fields are private to the report (E0451).
+//! R8. A decided mark without the run proof: its module is private to the report (E0603).
 //!
-//! ```compile_fail,E0451
-//! use archkeel_report::{Decided, Status};
-//! fn decided() -> Decided {
-//!     Decided { status: Status::Pass, pass: None, observation: Status::Pass, rules: Vec::new() }
+//! ```compile_fail,E0603
+//! use archkeel_report::Status;
+//! fn decided() -> archkeel_report::report::Decided {
+//!     archkeel_report::report::Decided {
+//!         status: Status::Pass, pass: None, observation: Status::Pass, rules: Vec::new()
+//!     }
 //! }
 //! ```
 //!
@@ -87,11 +84,11 @@
 //! ```
 //!
 //! R11. Frame bytes with a hand-made status: only `Ruling::frame` makes an `EngineFrame`, and
-//! a part with a key of the ruling is refused when it runs (E0451).
+//! a part with a key of the ruling is refused when it runs (E0603).
 //!
-//! ```compile_fail,E0451
-//! fn frame() -> archkeel_report::EngineFrame {
-//!     archkeel_report::EngineFrame { bytes: br#"{"status": "PASS"}"#.to_vec() }
+//! ```compile_fail,E0603
+//! fn frame() -> archkeel_report::engine_frame::EngineFrame {
+//!     archkeel_report::engine_frame::EngineFrame { bytes: br#"{"status": "PASS"}"#.to_vec() }
 //! }
 //! ```
 

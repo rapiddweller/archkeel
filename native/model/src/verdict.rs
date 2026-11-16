@@ -7,8 +7,8 @@
 //! Another crate cannot write a PASS: `Verdict::Pass` holds a `Proven` mark that only this module
 //! makes, and only `Scope::pass` (with the scope proof) gives a `Decision` that holds one.
 //!
-//! ```compile_fail
-//! let pass = archkeel_model::Verdict::Pass(archkeel_model::Proven { _scope: () });
+//! ```compile_fail,E0603
+//! let pass = archkeel_model::Verdict::Pass(archkeel_model::verdict::Proven { _scope: () });
 //! ```
 
 use crate::reason::Reason;
