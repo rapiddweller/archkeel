@@ -48,7 +48,8 @@ mod work;
 #[cfg(feature = "dump")]
 pub mod dump;
 
-pub use import_survey::reply::{decode, typed_reply};
+pub use import_survey::reply::decode;
+pub use import_survey::reply::typed_reply;
 
 /// The test features of this build. A build with one of them is refused by `archkeel-collect`
 /// (AD-406). The release build has none.

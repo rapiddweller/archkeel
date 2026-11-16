@@ -114,13 +114,18 @@ mod status;
 mod violation_detail;
 mod why;
 
-pub use build_error::BuildError;
-pub use engine_frame::{page, EngineFrame, FrameError};
-pub use head::{RuleVerdict, Status};
-pub use report::Decided;
+#[cfg(test)]
+pub(crate) use build_error::BuildError;
+pub use engine_frame::page;
+#[cfg(test)]
+pub(crate) use engine_frame::FrameError;
+#[cfg(test)]
+pub(crate) use head::RuleVerdict;
+pub use head::Status;
 pub use ruling::{rule, rule_with_edge_links, Explain, Named, RuleReasons, Ruling};
-pub use status::{system_status, Unexplained};
-pub use why::WhyUnknown;
+pub use status::system_status;
+#[cfg(test)]
+pub(crate) use status::Unexplained;
 
 #[cfg(test)]
 mod run_tests;

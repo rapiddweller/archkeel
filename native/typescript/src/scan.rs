@@ -11,7 +11,6 @@
 
 use tree_sitter::{Language, Node, TreeCursor};
 
-use crate::plant;
 use crate::source::Source;
 use crate::walk::Walk;
 
@@ -129,26 +128,36 @@ fn visit<'t>(kinds: &Kinds, source: &Source, node: Node<'t>, found: &mut Scan<'t
     {
         name(kinds, source, node, kind, found);
     } else if kind == kinds.import_statement {
-        if !plant::lose("import") {
-            found.imports.push(node);
+        #[cfg(feature = "dump")]
+        if std::env::var("ARCHKEEL_PLANT_SCAN").is_ok_and(|planted| planted == "import") {
+            return;
         }
+        found.imports.push(node);
     } else if kind == kinds.export_statement {
         let sourced = node
             .child_by_field_name("source")
             .is_some_and(|source| source.is_named());
-        if sourced && !plant::lose("export") {
+        #[cfg(feature = "dump")]
+        if std::env::var("ARCHKEEL_PLANT_SCAN").is_ok_and(|planted| planted == "export") {
+            return;
+        }
+        if sourced {
             found.exports.push(node);
         }
     } else if kind == kinds.call_expression {
         match field_kind(node, "function") {
-            Some((id, _)) if id == kinds.import && !plant::lose("dynamic") => {
+            Some((id, _)) if id == kinds.import => {
+                #[cfg(feature = "dump")]
+                if std::env::var("ARCHKEEL_PLANT_SCAN").is_ok_and(|planted| planted == "dynamic") {
+                    return;
+                }
                 found.dynamic.push(node);
             }
-            Some((id, callee))
-                if id == kinds.identifier
-                    && is_text(source, callee, b"require")
-                    && !plant::lose("require") =>
-            {
+            Some((id, callee)) if id == kinds.identifier && is_text(source, callee, b"require") => {
+                #[cfg(feature = "dump")]
+                if std::env::var("ARCHKEEL_PLANT_SCAN").is_ok_and(|planted| planted == "require") {
+                    return;
+                }
                 found.requires.push(node);
             }
             _ => {}

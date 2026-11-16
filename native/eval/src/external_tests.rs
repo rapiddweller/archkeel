@@ -4,7 +4,7 @@
 
 //! The external rule kinds of S2 over the frozen H-typescript reply with retargeted imports.
 
-use archkeel_model::{Decision, Incomplete, Model, Reason, Refusal, RunGap, Settings, Verdict};
+use archkeel_model::{Decision, Incomplete, Model, Reason, RunGap, Settings, Verdict};
 use serde_json::{json, Value};
 
 use crate::tests::{contract, reply, shop_profile, shop_settings};
@@ -290,15 +290,13 @@ fn settings_that_do_not_hold_for_the_reply_give_no_model() {
     let derive = |settings: Settings| Model::derive(&contract, &reply, settings).err();
     assert_eq!(derive(shop_settings()), None);
     let other = Settings::new("shop".to_owned(), "other".to_owned(), Vec::new());
-    assert_eq!(
-        derive(other),
-        Some(Reason::Refused(Refusal::ProfileMismatch))
-    );
+    assert!(matches!(derive(other), Some(Reason::Refused(refusal))
+        if refusal.to_string() == "the profile of the settings is not the profile of the reply"));
     for namespace in ["", "nothing", "sho"] {
         let settings = Settings::new(namespace.to_owned(), shop_profile(), Vec::new());
         assert!(matches!(
             derive(settings),
-            Some(Reason::Refused(Refusal::OutsideNamespace(_)))
+            Some(Reason::Refused(refusal)) if refusal.to_string().contains("lies outside the namespace")
         ));
     }
 }

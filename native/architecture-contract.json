@@ -3529,6 +3529,7 @@
       ],
       "public": [
         "native.archkeel_dart_collector:TEST_FEATURES",
+        "native.archkeel_dart_collector:decode",
         "native.archkeel_dart_collector:provenance",
         "native.archkeel_dart_collector:typed_reply"
       ],
@@ -3543,8 +3544,7 @@
         "native.archkeel_typescript_collector.source",
         "native.archkeel_typescript_collector.source_input",
         "native.archkeel_typescript_collector.kinds",
-        "native.archkeel_typescript_collector.pytext",
-        "native.archkeel_typescript_collector.plant"
+        "native.archkeel_typescript_collector.pytext"
       ],
       "responsibilities": [
         "The typed input of the walk: source text with spans, the nominal source input, the closed node kinds and the text helpers."
@@ -3823,7 +3823,6 @@
           "rationale": "Use the typed source, spans and node kinds.",
           "through": [
             "native.archkeel_typescript_collector.kinds",
-            "native.archkeel_typescript_collector.plant",
             "native.archkeel_typescript_collector.source",
             "native.archkeel_typescript_collector.source_input"
           ]
@@ -4479,7 +4478,6 @@
           "component": "ts-input",
           "rationale": "Use the typed source, spans and node kinds.",
           "through": [
-            "native.archkeel_typescript_collector.plant",
             "native.archkeel_typescript_collector.pytext",
             "native.archkeel_typescript_collector.source",
             "native.archkeel_typescript_collector.source_input"
@@ -4726,6 +4724,7 @@
       "public": [
         "native.archkeel_typescript_collector:TEST_FEATURES",
         "native.archkeel_typescript_collector:provenance",
+        "native.archkeel_typescript_collector:reply",
         "native.archkeel_typescript_collector:typed_reply"
       ],
       "decided_by": "architect"

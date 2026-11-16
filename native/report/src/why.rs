@@ -33,7 +33,7 @@ use archkeel_model::{Cause, Reason, Unsupported};
 /// from the `Decision`: PASS is `evaluated`, FAIL `violations`, a declaration `declaration`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum WhyUnknown {
+pub(crate) enum WhyUnknown {
     /// The scope of the run is not complete.
     ScopeIncomplete,
     /// No receipt proves the pass.
@@ -41,6 +41,7 @@ pub enum WhyUnknown {
     /// Some assessments are not decided.
     Undecided,
     /// A module with no owner blocks the rule.
+    #[expect(dead_code, reason = "the frame schema reserves this reason")]
     OwnershipBlocker,
     /// No rule of the kind decides.
     NoDecidedRule,
@@ -48,7 +49,7 @@ pub enum WhyUnknown {
 
 impl WhyUnknown {
     /// The reason code of an UNKNOWN rule with this reason of the model.
-    pub fn of(reason: &Reason) -> WhyUnknown {
+    pub(crate) fn of(reason: &Reason) -> WhyUnknown {
         match reason {
             Reason::Unsupported(part) => unsupported(part),
             Reason::NotComplete(cause) => not_complete(cause),

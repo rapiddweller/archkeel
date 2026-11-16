@@ -19,7 +19,7 @@ use crate::ownership::in_scope;
 
 /// The modules that one side of a dependency rule selects (`ModuleSelection`).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Selection<'c> {
+pub(crate) struct Selection<'c> {
     packages: Vec<&'c str>,
     exact: Vec<&'c str>,
 }
@@ -35,7 +35,7 @@ impl<'c> Selection<'c> {
     }
 
     /// True when the side selects `module` (`module_in_ownership`).
-    pub fn matches(&self, module: &str) -> bool {
+    pub(crate) fn matches(&self, module: &str) -> bool {
         self.exact.contains(&module) || self.packages.iter().any(|p| in_scope(module, p))
     }
 }
@@ -44,7 +44,7 @@ impl<'c> Selection<'c> {
 /// `DependencySelector.select`): a whole-package module ban whose source and target each name a
 /// package of exactly one component selects the whole ordered component pair; any other rule
 /// selects its own names. The subject check and the matcher read the same sides.
-pub fn dependency_sides<'a>(
+pub(crate) fn dependency_sides<'a>(
     rule: &'a ForbiddenDependency,
     components: &'a [Component],
 ) -> [Selection<'a>; 2] {
@@ -114,7 +114,10 @@ fn literal(name: &str, mode: SelectorMatch) -> Selection<'_> {
 
 /// The components of a `layer_order` rule (`_layer_order_components`): the selected sources
 /// and the components that they require, in contract order.
-pub fn layer_components<'c>(contract: &'c Contract, rule: &LayerOrder) -> Vec<&'c Component> {
+pub(crate) fn layer_components<'c>(
+    contract: &'c Contract,
+    rule: &LayerOrder,
+) -> Vec<&'c Component> {
     let selected = |component: &Component| {
         rule.components()
             .as_ref()

@@ -41,7 +41,7 @@ pub fn canonical_bytes(contract: &Contract) -> Vec<u8> {
 }
 
 /// The digest that an amendment binds to: the SHA-256 of the canonical bytes (AD-61).
-pub fn canonical_digest(contract: &Contract) -> ContractDigest {
+pub(crate) fn canonical_digest(contract: &Contract) -> ContractDigest {
     digest_of(&canonical_bytes(contract))
 }
 
