@@ -1,4 +1,4 @@
-# AD-634: Python scans select a target version
+# AD-636: Python scans select a target version
 
 **Status:** Accepted. Closes #1316.
 

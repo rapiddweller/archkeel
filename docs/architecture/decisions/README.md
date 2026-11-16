@@ -7,7 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
-| AD-634 | [Python scans select a target version](ad-634-python-scans-select-a-target-version.md) |
+| AD-636 | [Python scans select a target version](ad-636-python-scans-select-a-target-version.md) |
 | AD-632 | [The command line prints one exit table and text for a person](ad-632-the-command-line-prints-one-exit-table-and-text-for-a-person.md) |
 | AD-628 | [Comprehension targets have their own scope](ad-628-comprehension-targets-have-their-own-scope.md) |
 | AD-626 | [`init` drafts open decisions from the folder layout and decides nothing](ad-626-init-drafts-open-decisions-from-the-folder-layout-and-decides-nothing.md) |
