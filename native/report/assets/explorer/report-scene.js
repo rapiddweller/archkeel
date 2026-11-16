@@ -131,8 +131,10 @@
         state: isDiff ? undeclared || edge.status === "FAIL" ? "violation" : edge.status === "UNKNOWN" ? "undecided" : "observed"
           : edge.status === "FAIL" ? "violation" : edge.status === "UNKNOWN" ? "undecided" : "observed",
         edgeClass: isDiff ? undeclared || edge.status === "FAIL" ? "atlas-undeclared" : allowed ? "atlas-permitted" : "atlas-observed" : "",
-        tooltip: `Observed imports: ${edge.import_sites ?? "UNKNOWN"}. Core ${edge.status}; ${undeclared ? "recorded as undeclared." : allowed ? "declared dependency in use." : "no deviation recorded."}`,
-        label: countLabel(edge.import_sites, "import"),
+        // A crossing between two parts of a system is no import: its title names it.
+        tooltip: edge.crossing ? `${edge.crossing}. Schema: ${edge.schema}.`
+          : `Observed imports: ${edge.import_sites ?? "UNKNOWN"}. Core ${edge.status}; ${undeclared ? "recorded as undeclared." : allowed ? "declared dependency in use." : "no deviation recorded."}`,
+        label: edge.crossing || countLabel(edge.import_sites, "import"),
       });
       });
       const unused = deviationIndex.unused(level.parent_id).map((row) => {

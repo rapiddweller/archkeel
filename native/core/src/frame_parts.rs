@@ -341,6 +341,22 @@ pub(crate) struct SystemFrame {
     pub(crate) document: String,
     /// Each part, in the order of the document.
     pub(crate) parts: Vec<PartRow>,
+    /// What crosses between the parts, in the order of the document.
+    pub(crate) interfaces: Vec<InterfaceRow>,
+}
+
+/// One interface between two parts of a system frame: a crossing that is no import.
+#[derive(Serialize, schemars::JsonSchema)]
+pub(crate) struct InterfaceRow {
+    pub(crate) id: String,
+    /// The id of the part that uses the interface.
+    pub(crate) source: String,
+    /// The id of the part that provides it.
+    pub(crate) target: String,
+    /// What crosses, in one line.
+    pub(crate) title: String,
+    /// The repository path of the schema of what crosses.
+    pub(crate) schema: String,
 }
 
 /// One part of a system frame.

@@ -3,8 +3,50 @@
   "kind": "system",
   "title": "ArchKeel",
   "parts": [
-    {"id": "shell", "title": "Python shell", "config": "docs/architecture/shell.toml"},
-    {"id": "core", "title": "Rust core", "config": "native/archkeel.toml"}
+    {
+      "id": "shell",
+      "title": "Python shell",
+      "config": "docs/architecture/shell.toml",
+      "responsibilities": [
+        "The command line entry: read the options, find the repository and the configuration.",
+        "Locate the core binary and launch it as a process with one typed request.",
+        "Check the frame that the core returns against its schema and show it as text, JSON or a report file.",
+        "Read and write the baseline files that the user names."
+      ],
+      "forbidden_responsibilities": [
+        "Deciding any rule, status or verdict: the core decides, the shell only shows.",
+        "Reading source files to collect facts."
+      ],
+      "provides": [
+        "The archkeel command: validate, report and skill install."
+      ]
+    },
+    {
+      "id": "core",
+      "title": "Rust core",
+      "config": "native/archkeel.toml",
+      "responsibilities": [
+        "Collect the facts of the source files with the collector of each language.",
+        "Build the model of the facts, evaluate each rule of the contract and decide the status.",
+        "Write the one frame of the run and the report page that show the decision."
+      ],
+      "forbidden_responsibilities": [
+        "Terminal output, option parsing and packaging: the shell owns them.",
+        "Trusting a status, a digest or a reply that a caller gives."
+      ],
+      "provides": [
+        "The core frame protocol archkeel-core-frame-1: one frame for each request, with the schema schema/archkeel-core-frame-1.schema.json."
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "id": "core-frame-protocol",
+      "source": "shell",
+      "target": "core",
+      "title": "Core frame protocol",
+      "schema": "schema/archkeel-core-frame-1.schema.json"
+    }
   ],
   "rules": []
 }

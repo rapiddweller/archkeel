@@ -334,46 +334,37 @@
       ],
       "description": "Why the evaluator left a rule UNKNOWN. The builder derives the reason of every other verdict\nfrom the `Decision`: PASS is `evaluated`, FAIL `violations`, a declaration `declaration`."
     },
-    "PartRow": {
+    "InterfaceRow": {
       "type": "object",
       "properties": {
         "id": {
           "type": "string"
         },
-        "title": {
-          "type": "string"
-        },
-        "config": {
+        "source": {
           "type": "string",
-          "description": "The repository path of the configuration of the part."
+          "description": "The id of the part that uses the interface."
         },
-        "profile": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "The profile of the collector that read the part, from its collection request."
+        "target": {
+          "type": "string",
+          "description": "The id of the part that provides it."
         },
-        "status": {
-          "$ref": "#/$defs/Status"
+        "title": {
+          "type": "string",
+          "description": "What crosses, in one line."
         },
-        "rules": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "The ids of the rules of the part."
+        "schema": {
+          "type": "string",
+          "description": "The repository path of the schema of what crosses."
         }
       },
       "required": [
         "id",
+        "source",
+        "target",
         "title",
-        "config",
-        "profile",
-        "status",
-        "rules"
+        "schema"
       ],
-      "description": "One part of a system frame.",
+      "description": "One interface between two parts of a system frame: a crossing that is no import.",
       "additionalProperties": false
     },
     "Measures": {
@@ -3729,14 +3720,64 @@
             "$ref": "#/$defs/PartRow"
           },
           "description": "Each part, in the order of the document."
+        },
+        "interfaces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InterfaceRow"
+          },
+          "description": "What crosses between the parts, in the order of the document."
         }
       },
       "required": [
         "title",
         "document",
-        "parts"
+        "parts",
+        "interfaces"
       ],
       "description": "The part `system` of a frame (AD-616): `crate::system::join` writes it.",
+      "additionalProperties": false
+    },
+    "PartRow": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "config": {
+          "type": "string",
+          "description": "The repository path of the configuration of the part."
+        },
+        "profile": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The profile of the collector that read the part, from its collection request."
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the rules of the part."
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "config",
+        "profile",
+        "status",
+        "rules"
+      ],
+      "description": "One part of a system frame.",
       "additionalProperties": false
     }
   },

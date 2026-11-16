@@ -209,6 +209,18 @@ pub(super) fn levels(
             ))
         })
         .collect();
+    // The crossings between the parts of a system: an edge with no import site, named by its title.
+    let crossings: Vec<(usize, usize, &super::frame::Interface)> = frame
+        .interfaces
+        .iter()
+        .filter_map(|i| {
+            Some((
+                *ids.get(format!("PART:{}", i.source).as_str())?,
+                *ids.get(format!("PART:{}", i.target).as_str())?,
+                i,
+            ))
+        })
+        .collect();
     let mut out = Levels {
         modules,
         assignments,
@@ -233,7 +245,12 @@ pub(super) fn levels(
         .collect();
     let parents = std::iter::once(None).chain(opened.into_iter().map(Some));
     for level in parents {
-        let row = level_row(level, tree, &cells, &declared, found, &mut out);
+        let row = level_row(
+            level,
+            (tree, &cells, &declared, &crossings),
+            found,
+            &mut out,
+        );
         out.rows.push(json!({
             "parent_id": level.map(|l| &tree.nodes[l].id), "import_status": complete,
             "import_reason": reason, "questions": [], "balance": row.balance,
@@ -261,11 +278,11 @@ struct Row {
     balance: Value,
 }
 
+type Crossings<'a> = [(usize, usize, &'a super::frame::Interface)];
+
 fn level_row(
     level: Option<usize>,
-    tree: &Tree,
-    cells: &[Cell],
-    declared: &[(usize, usize, usize)],
+    (tree, cells, declared, crossings): (&Tree, &[Cell], &[(usize, usize, usize)], &Crossings<'_>),
     found: &[Finding],
     out: &mut Levels,
 ) -> Row {
@@ -306,6 +323,13 @@ fn level_row(
         edges: observed
             .iter()
             .map(|((s, t), (sites, status))| json!({"source_id": id(*s), "target_id": id(*t), "import_sites": sites, "status": status}))
+            .chain(crossings.iter().filter_map(|(s, t, i)| {
+                let ends = (tree.child_under(level, *s)?, tree.child_under(level, *t)?);
+                (ends.0 != ends.1 && !observed.contains_key(&ends)).then(|| json!({
+                    "source_id": id(ends.0), "target_id": id(ends.1), "import_sites": 0,
+                    "status": "PASS", "crossing": i.title, "schema": i.schema,
+                }))
+            }))
             .collect(),
         modules: (0..out.modules.len())
             .filter(|m| inside(out.modules[*m]["id"].as_str().and_then(|n| tree.owner.get(n).copied())))

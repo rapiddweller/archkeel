@@ -486,3 +486,26 @@ fn a_part_of_a_system_holds_its_own_layers() {
     assert_eq!(parent("PART:a").1, json!("PASS"));
     assert_eq!(parent("PART:b").1, json!("UNKNOWN"));
 }
+
+// AD-620: an interface between two parts is an edge with no import site, named by its title; it is
+// no deviation and no declared-but-unused requirement.
+#[test]
+fn an_interface_between_two_parts_is_one_named_edge() {
+    let comp = |id: &str| json!({"id": id, "name": id, "parent": null, "layer": null});
+    let frame = json!({"status": "PASS",
+        "topology": {"components": [comp("PART:a"), comp("PART:b")], "modules": []},
+        "system": {"interfaces": [{"id": "i", "source": "a", "target": "b",
+            "title": "Wire protocol", "schema": "schema/x.json"}]}});
+    let data = payload(&document(&frame));
+    let root = data["atlas"]["levels"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|level| level["parent_id"].is_null())
+        .unwrap();
+    let edges = root["edges"].as_array().unwrap();
+    assert_eq!(edges.len(), 1);
+    assert_eq!(edges[0]["crossing"], json!("Wire protocol"));
+    assert_eq!(edges[0]["import_sites"], json!(0));
+    assert!(root["deviation_ids"].as_array().unwrap().is_empty());
+}
