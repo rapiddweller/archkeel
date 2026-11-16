@@ -122,6 +122,10 @@ impl<'id, 'm> Scope<'id, 'm> {
         if let Some(subject) = crate::limits::stated_hold(self.model.contract(), rule, observed) {
             return Err(Reason::NotComplete(Cause::ProfileLimit(subject)));
         }
+        // AD-564: a gap that states its effect holds the rule when the rule reads the effect.
+        if let Some(scoped) = crate::gap_effects::held(self.model, rule) {
+            return Err(Reason::NotComplete(Cause::ScopedGaps(scoped)));
+        }
         // Slice S7 (AD-384): a kept pair gap holds only the rules whose reading it can change;
         // AD-418: so does a gap that the drop rule drops.
         let gaps = self
@@ -169,6 +173,10 @@ impl<'id, 'm> Scope<'id, 'm> {
         }
         if let Some(held) = Held::of(kept) {
             return Err(Reason::NotComplete(Cause::PairGaps(held)));
+        }
+        // AD-564: each gap that states its effect holds the run.
+        if let Some(scoped) = crate::gap_effects::every(self.model) {
+            return Err(Reason::NotComplete(Cause::ScopedGaps(scoped)));
         }
         let rules = self.model.contract().rules();
         let components = self.model.contract().components();

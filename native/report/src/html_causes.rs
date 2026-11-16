@@ -84,6 +84,10 @@ pub(super) fn title(cause: &Cause<'_>) -> String {
             "{} between two modules that the contract allows",
             count(cause.total, "gap")
         ),
+        "scoped_gaps" => format!(
+            "{} with an effect that the rule reads",
+            count(cause.total, "gap")
+        ),
         "unknown_imports" => format!(
             "{} that no gap names",
             count(cause.unnamed, "unresolved import")

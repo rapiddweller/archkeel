@@ -1155,6 +1155,11 @@
         },
         {
           "type": "string",
+          "const": "scoped_gaps",
+          "description": "Gaps that state their effect, and the rule reads the effect (AD-564)."
+        },
+        {
+          "type": "string",
           "const": "other",
           "description": "Any other cause: the text of `explained` names it."
         }

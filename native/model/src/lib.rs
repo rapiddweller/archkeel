@@ -42,6 +42,8 @@
 //!
 #![deny(unreachable_pub)]
 
+#[macro_use]
+mod rule_kinds;
 mod construct_match;
 pub use construct_match::matches as construct_matches;
 mod constructs;
@@ -65,6 +67,8 @@ mod condensation;
 mod coverage;
 mod cycles;
 mod edges;
+mod gap_class;
+mod gap_effects;
 mod gaps;
 mod graph;
 mod ids;
@@ -148,6 +152,7 @@ mod roots;
 
 pub use closed_path::{cycle_path, Link};
 pub use component_cycles::cycles_of_components;
+
 pub use gaps::CoverageGap;
 pub use sides::{shape, Shape};
 

@@ -129,6 +129,8 @@ enum HoldKind {
     CoverageGaps,
     PairGaps,
     AllowedPairGaps,
+    /// Gaps that state their effect, and the rule reads the effect (AD-564).
+    ScopedGaps,
     UnknownImports,
     NoSourceFiles,
     /// Any other cause: the text of `explained` names it.
@@ -141,36 +143,45 @@ struct Held {
     cause: WhyUnknown,
     kind: HoldKind,
     pairs: Vec<(String, String)>,
+    /// The ids of the gaps that the reason itself names (AD-564).
+    ids: Vec<String>,
     unnamed_imports: usize,
 }
 
-/// The kind of hold that a reason states, the pairs that it names and the unnamed imports.
-fn kind_of(reason: &Reason) -> (HoldKind, Vec<(String, String)>, usize) {
-    if let Reason::Incomplete(incomplete) = reason {
-        return match incomplete {
-            Incomplete::CoverageGaps(_) => (HoldKind::CoverageGaps, Vec::new(), 0),
-            Incomplete::UnknownImports(count) => (HoldKind::UnknownImports, Vec::new(), *count),
-            Incomplete::NoSourceFiles => (HoldKind::NoSourceFiles, Vec::new(), 0),
-        };
-    }
-    if let Reason::NotComplete(Cause::PairGaps(held)) = reason {
-        return (HoldKind::PairGaps, held.pairs().to_vec(), 0);
-    }
-    if let Reason::NotComplete(Cause::AllowedPairGaps(held)) = reason {
-        return (HoldKind::AllowedPairGaps, held.pairs().to_vec(), 0);
-    }
-    (HoldKind::Other, Vec::new(), 0)
-}
-
 impl Held {
+    /// The kind of hold that a reason states, with the pairs, the gap ids and the unnamed
+    /// imports that it names.
     fn of(reason: &Reason) -> Held {
-        let (kind, pairs, unnamed_imports) = kind_of(reason);
-        Held {
+        let mut held = Held {
             cause: WhyUnknown::of(reason),
-            kind,
-            pairs,
-            unnamed_imports,
+            kind: HoldKind::Other,
+            pairs: Vec::new(),
+            ids: Vec::new(),
+            unnamed_imports: 0,
+        };
+        if let Reason::Incomplete(incomplete) = reason {
+            held.kind = match incomplete {
+                Incomplete::CoverageGaps(_) => HoldKind::CoverageGaps,
+                Incomplete::UnknownImports(count) => {
+                    held.unnamed_imports = *count;
+                    HoldKind::UnknownImports
+                }
+                Incomplete::NoSourceFiles => HoldKind::NoSourceFiles,
+            };
         }
+        if let Reason::NotComplete(Cause::PairGaps(pairs)) = reason {
+            held.kind = HoldKind::PairGaps;
+            held.pairs = pairs.pairs().to_vec();
+        }
+        if let Reason::NotComplete(Cause::AllowedPairGaps(pairs)) = reason {
+            held.kind = HoldKind::AllowedPairGaps;
+            held.pairs = pairs.pairs().to_vec();
+        }
+        if let Reason::NotComplete(Cause::ScopedGaps(scoped)) = reason {
+            held.kind = HoldKind::ScopedGaps;
+            held.ids = scoped.ids().to_vec();
+        }
+        held
     }
 }
 
@@ -325,7 +336,7 @@ fn ids_of(held: &Held, gaps: &[CoverageGap]) -> Vec<String> {
     match held.kind {
         HoldKind::CoverageGaps => gaps
             .iter()
-            .filter(|gap| gap.holds_run)
+            .filter(|gap| gap.whole)
             .map(|gap| gap.id.clone())
             .collect(),
         HoldKind::PairGaps | HoldKind::AllowedPairGaps => {
@@ -342,6 +353,7 @@ fn ids_of(held: &Held, gaps: &[CoverageGap]) -> Vec<String> {
                 .map(|gap| gap.id.clone())
                 .collect()
         }
+        HoldKind::ScopedGaps => held.ids.clone(),
         HoldKind::UnknownImports | HoldKind::NoSourceFiles | HoldKind::Other => Vec::new(),
     }
 }

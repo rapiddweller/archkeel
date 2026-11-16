@@ -6,7 +6,7 @@
 //! (`collect._script_dependency`, `_script_source_target`, `_script_alias_evidence`,
 //! `_script_publication_evidence`).
 
-use archkeel_facts::data::BindingData;
+use archkeel_facts::data::{BindingData, GapEffect};
 use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName};
@@ -234,6 +234,9 @@ impl<'a, 'p> Run<'a, 'p> {
             let mut fact = GapFact::resolution(&reason, &module);
             if let GapFact::SourceResolutionGap(data) = &mut fact {
                 data.message = Some(detail.clone());
+                // AD-564: the form can write any global, so no module proves that a free name
+                // is the standard one: the code of every module is unknown, its files are not.
+                data.effect = Some(GapEffect::EveryModule);
             }
             let (id, mut record) = GapRecord::unknown_gap(&reason, Some(&node), &module, fact);
             if at == 0 {

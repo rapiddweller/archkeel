@@ -27,6 +27,7 @@
         "native.archkeel_facts.data:ClassData",
         "native.archkeel_facts.data:ConstructData",
         "native.archkeel_facts.data:Declared",
+        "native.archkeel_facts.data:GapEffect",
         "native.archkeel_facts.data:ImportData",
         "native.archkeel_facts.data:ReferenceData",
         "native.archkeel_facts.data:SelectorData",
@@ -554,7 +555,8 @@
         "native.archkeel_model.reason",
         "native.archkeel_model.reason_key",
         "native.archkeel_model.brand",
-        "native.archkeel_model.needs"
+        "native.archkeel_model.needs",
+        "native.archkeel_model.gap_class"
       ],
       "responsibilities": [
         "Name the ids, the sections, the coverage facts of the reply and the reasons why a part of a run has no result."
@@ -592,8 +594,13 @@
         "native.archkeel_model.causes:Part",
         "native.archkeel_model.coverage:Incomplete",
         "native.archkeel_model.coverage:data_of",
-        "native.archkeel_model.coverage:droppable",
         "native.archkeel_model.coverage:incomplete",
+        "native.archkeel_model.gap_class:Class",
+        "native.archkeel_model.gap_class:Doubt",
+        "native.archkeel_model.gap_class:EffectGap",
+        "native.archkeel_model.gap_class:Scoped",
+        "native.archkeel_model.gap_class:classes",
+        "native.archkeel_model.gap_class:effect_gaps",
         "native.archkeel_model.ids:ComponentId",
         "native.archkeel_model.ids:Id",
         "native.archkeel_model.ids:ModuleId",
@@ -701,6 +708,7 @@
           "rationale": "Name an id, a section, a coverage fact or the reason that a part has no result.",
           "through": [
             "native.archkeel_model.coverage",
+            "native.archkeel_model.gap_class",
             "native.archkeel_model.ids",
             "native.archkeel_model.needs",
             "native.archkeel_model.reason"
@@ -757,7 +765,8 @@
         "native.archkeel_model.roots",
         "native.archkeel_model.domain",
         "native.archkeel_model.pair_gaps",
-        "native.archkeel_model.dropped_gaps"
+        "native.archkeel_model.dropped_gaps",
+        "native.archkeel_model.rule_kinds"
       ],
       "responsibilities": [
         "Say what each rule reads: its sides, subjects, profile limits, scan roots, domain and pair gaps (slices S4, S5 and S7)."
@@ -829,6 +838,7 @@
         "native.archkeel_model.pair_gaps:pairs",
         "native.archkeel_model.pair_gaps:reads",
         "native.archkeel_model.roots:Roots",
+        "native.archkeel_model.rule_kinds:undecided_rule",
         "native.archkeel_model.selection:dependency_sides",
         "native.archkeel_model.selection:layer_components",
         "native.archkeel_model.sides:Shape",
@@ -1040,7 +1050,8 @@
         "native.archkeel_model.scope",
         "native.archkeel_model.verdict",
         "native.archkeel_model.receipts",
-        "native.archkeel_model.run"
+        "native.archkeel_model.run",
+        "native.archkeel_model.gap_effects"
       ],
       "responsibilities": [
         "Prove that a rule and a run saw their whole scope, and make the only PASS: the scope, the receipts, the verdict and the run proof (AD-363, AD-378, AD-384)."
@@ -1070,6 +1081,7 @@
           "component": "facts",
           "rationale": "Read the records of the reply through the typed facts, the one read path of the model (AD-363 amendment).",
           "through": [
+            "native.archkeel_facts.data",
             "native.archkeel_facts.profile_traits"
           ]
         },
@@ -1080,6 +1092,7 @@
             "native.archkeel_model.brand",
             "native.archkeel_model.causes",
             "native.archkeel_model.coverage",
+            "native.archkeel_model.gap_class",
             "native.archkeel_model.reason"
           ]
         },
@@ -1098,6 +1111,7 @@
             "native.archkeel_model.limits",
             "native.archkeel_model.pair_gaps",
             "native.archkeel_model.roots",
+            "native.archkeel_model.rule_kinds",
             "native.archkeel_model.selection"
           ]
         },
@@ -1921,7 +1935,8 @@
       "packages": [
         "native.archkeel_report.ruling",
         "native.archkeel_report.edge_links",
-        "native.archkeel_report.violation_detail"
+        "native.archkeel_report.violation_detail",
+        "native.archkeel_report.beyond"
       ],
       "responsibilities": [
         "Decide the head of the engine frame: evaluate the model once and give the status, the rule verdicts, the violation evidence and the explain part (AD-388, AD-484)."

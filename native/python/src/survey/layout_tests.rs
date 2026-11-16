@@ -46,6 +46,13 @@ fn a_top_package_above_its_root_is_a_gap_and_a_root_that_is_the_package_is_not()
         "{:?}",
         reasons(&above)
     );
+    // AD-564: the module is read; only its file and its place in the layout are unknown.
+    let effect = above.unknowns[0].data.data().effect.clone();
+    let module = archkeel_facts::ids::ModuleName::new("app.inner.app.deep");
+    let layout = archkeel_facts::data::GapEffect::Layout {
+        modules: vec![module],
+    };
+    assert_eq!(effect, Some(layout));
     for (roots, files) in [
         (
             ["demo"],

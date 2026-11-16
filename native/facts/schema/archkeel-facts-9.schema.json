@@ -5687,6 +5687,32 @@
           "type": "string",
           "const": "every_module",
           "description": "The code of every module is not known: an import of any module can give another module\nthan the one that it names."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "layout": {
+              "type": "object",
+              "properties": {
+                "modules": {
+                  "description": "The modules whose file and place in the layout are not proven.",
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/ModuleName"
+                  }
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "modules"
+              ]
+            }
+          },
+          "required": [
+            "layout"
+          ],
+          "additionalProperties": false,
+          "description": "The file and the place in the layout of each module of `modules` are not proven: a rule\non the files of the scan cannot judge them. Their code is read and known."
         }
       ],
       "description": "The facts that one gap leaves unknown. Each variant leaves the files of the scan and the\nnames of their modules known."
