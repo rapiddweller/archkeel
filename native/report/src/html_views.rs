@@ -107,7 +107,8 @@ impl Link<'_> {
         format!("{}: {facts}", self.pair(names))
     }
 
-    fn pair(&self, names: &Names<'_>) -> String {
+    /// The names of the two components, escaped.
+    pub(super) fn pair(&self, names: &Names<'_>) -> String {
         format!(
             "{} to {}",
             escape(names.name(self.from)),
@@ -153,20 +154,32 @@ fn violated<'a>(places: &Places, names: &Names<'a>) -> (Marks<'a>, BTreeSet<Stri
     (marks, failing)
 }
 
-/// The pairs of components that a gap holds: the pairs of modules that `explain.holds` names for
-/// a rule that is UNKNOWN.
-fn held<'a>(frame: &'a Frame, names: &Names<'a>) -> BTreeSet<(&'a str, &'a str)> {
-    frame
+/// Each pair of modules that a gap holds, with the rules that it holds: the pairs that
+/// `explain.holds` names for a rule that is UNKNOWN.
+pub(super) fn held_pairs(frame: &Frame) -> BTreeMap<(&str, &str), Vec<&str>> {
+    let mut pairs: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
+    let holds = frame
         .rules
         .iter()
         .filter(|(_, row)| row.1 == "UNKNOWN")
-        .filter_map(|(rule, _)| frame.explain.holds.rules.get(rule))
-        .flat_map(|hold| &hold.pairs)
-        .filter_map(|pair| {
-            Some((
-                names.component(&pair.source)?.0,
-                names.component(&pair.target)?.0,
-            ))
+        .filter_map(|(rule, _)| Some((rule.as_str(), frame.explain.holds.rules.get(rule)?)));
+    for (rule, hold) in holds {
+        for pair in &hold.pairs {
+            let rules = pairs
+                .entry((pair.source.as_str(), pair.target.as_str()))
+                .or_default();
+            rules.push(rule);
+        }
+    }
+    pairs
+}
+
+/// The pairs of components that a gap holds.
+fn held<'a>(frame: &'a Frame, names: &Names<'a>) -> BTreeSet<(&'a str, &'a str)> {
+    held_pairs(frame)
+        .into_keys()
+        .filter_map(|(source, target)| {
+            Some((names.component(source)?.0, names.component(target)?.0))
         })
         .collect()
 }
@@ -245,150 +258,58 @@ pub(super) fn switch() -> String {
     format!("{inputs}<div class=\"ak-seg rp-tabs\">{labels}</div>")
 }
 
-const MAX_ROWS: usize = 9;
 const MAX_LAYER_ORDERS: usize = 5;
 
 /// One sentence for each view: what the view shows, with the numbers of the frame.
-pub(super) fn ledes(frame: &Frame, links: &[Link<'_>]) -> String {
+pub(super) fn ledes(frame: &Frame, links: &[Link<'_>], places: &Places) -> String {
     let Some(topology) = frame.topology.as_ref() else {
         return String::new();
     };
-    let shown =
-        |view: View, mark: Mark| links.iter().filter(|l| l.mark(view) == Some(mark)).count();
     let declared = links.iter().filter(|l| l.declared.is_some()).count();
     let layered = topology.components.iter().filter(|c| c.layer.is_some());
     let public = topology.components.iter().filter(|c| !c.public.is_empty());
     let target = if declared + topology.layers.len() == 0
         && layered.clone().count() + public.clone().count() == 0
     {
-        "the contract declares no requirement, no layer and no public surface.".to_owned()
+        "the contract declares no requirement, layer or public surface.".to_owned()
     } else {
         format!(
-            "the structure that the contract declares. {} between components, {} with a layer, {} with a public surface.",
+            "what the contract declares. {}, {} with a layer, {} with a public surface.",
             count(declared, "requirement"),
             count(layered.count(), "component"),
             public.count()
         )
     };
+    let unused = links
+        .iter()
+        .filter(|l| l.mark(View::Diff) == Some(Mark::Unused))
+        .count();
     let mut html = format!(
-        "<p class=\"caption rp-note rp-in rp-a\"><b>As-Is:</b> the dependencies that the scan observed between the components.</p>\
+        "<p class=\"caption rp-note rp-in rp-a\"><b>As-Is:</b> the observed dependencies.</p>\
 <p class=\"caption rp-note rp-in rp-t\"><b>Target:</b> {target}</p>\
-<p class=\"caption rp-note rp-in rp-d\"><b>Diff:</b> where the observed dependencies and the declared structure differ. \
-{} against a rule, {} that a gap holds, {} without an observed import.</p>",
-        count(shown(View::Diff, Mark::Fail), "dependency"),
-        count(shown(View::Diff, Mark::Unknown), "pair"),
-        count(shown(View::Diff, Mark::Unused), "requirement")
+<p class=\"caption rp-note rp-in rp-d\"><b>Diff:</b> {}, {} of modules that a gap holds, {} without an observed import.</p>",
+        count(places.total, "violated place"),
+        count(held_pairs(frame).len(), "pair"),
+        count(unused, "requirement")
     );
     for order in topology.layers.iter().take(MAX_LAYER_ORDERS) {
         html.push_str(&format!(
-            "<p class=\"caption rp-note rp-in rp-t\">Layers of <b class=\"rp-code\">{}</b>, from the inner layer to the outer layer: {}.</p>",
+            "<p class=\"caption rp-note rp-in rp-t\">Layers of <b class=\"rp-code\">{}</b>, inner to outer: {}.</p>",
             escape(&order.rule),
             escape(&order.layers.join(", "))
         ));
     }
-    html.push_str(&limits(frame, topology.layers.len()));
-    html
-}
-
-/// What the frame does not name, so that a view does not look complete when it is not.
-fn limits(frame: &Frame, orders: usize) -> String {
-    let mut html = String::new();
-    if orders > MAX_LAYER_ORDERS {
+    if topology.layers.len() > MAX_LAYER_ORDERS {
         html.push_str(&format!(
-            "<p class=\"caption rp-note rp-in rp-t\">The page shows {MAX_LAYER_ORDERS} of {orders} layer orders.</p>"
-        ));
-    }
-    let holds = frame
-        .rules
-        .iter()
-        .filter(|(_, row)| row.1 == "UNKNOWN")
-        .filter_map(|(rule, _)| frame.explain.holds.rules.get(rule))
-        .filter(|hold| !hold.pairs.is_empty());
-    let (named, total) = holds.fold((0, 0), |sum, hold| {
-        (sum.0 + hold.pairs.len(), sum.1 + hold.total)
-    });
-    if total > named {
-        html.push_str(&format!(
-            "<p class=\"caption rp-note rp-in rp-d\">The frame names {named} of {total} pairs of modules that a gap holds. The picture shows the named pairs only.</p>"
+            "<p class=\"caption rp-note rp-in rp-t\">The page shows {MAX_LAYER_ORDERS} of {} layer orders.</p>",
+            topology.layers.len()
         ));
     }
     html
-}
-
-/// The rules of the violated places of a pair, each once, in the order of the places.
-fn rules_of(link: &Link<'_>, places: &Places) -> Vec<String> {
-    let mut rules: Vec<String> = Vec::new();
-    for place in places
-        .shown
-        .iter()
-        .filter(|p| link.places.contains(&p.number))
-    {
-        for violated in &place.rules {
-            if !rules.contains(&violated.rule) {
-                rules.push(violated.rule.clone());
-            }
-        }
-    }
-    rules
-}
-
-/// The differences as text, one group for each mark of Diff. The picture shows the same pairs.
-pub(super) fn differences(links: &[Link<'_>], places: &Places, names: &Names<'_>) -> String {
-    let group = |mark: Mark, head: &str, row: &dyn Fn(&Link<'_>) -> String| {
-        let found: Vec<&Link<'_>> = links
-            .iter()
-            .filter(|link| link.mark(View::Diff) == Some(mark))
-            .collect();
-        if found.is_empty() {
-            return String::new();
-        }
-        let rows: String = found
-            .iter()
-            .take(MAX_ROWS)
-            .map(|link| format!("<li class=\"body-sm\">{}</li>", row(link)))
-            .collect();
-        let more = match found.len().saturating_sub(MAX_ROWS) {
-            0 => String::new(),
-            more => format!("<li class=\"body-sm\">and {more} more</li>"),
-        };
-        format!(
-            "<p class=\"caption rp-note\">{head}: {}</p><ul class=\"rp-ev\">{rows}{more}</ul>",
-            found.len()
-        )
-    };
-    let fail = group(Mark::Fail, "Observed and against a rule", &|link| {
-        let rules: Vec<String> = rules_of(link, places)
-            .iter()
-            .map(|rule| format!("<b class=\"rp-code\">{}</b>", escape(rule)))
-            .collect();
-        format!(
-            "<a href=\"#x{}\">{}</a>: {}, {}",
-            link.places[0],
-            link.pair(names),
-            count(link.places.len(), "violation"),
-            rules.join(", ")
-        )
-    });
-    let unknown = group(Mark::Unknown, "Held by a gap, not decided", &|link| {
-        format!("<a href=\"#unknown\">{}</a>", link.pair(names))
-    });
-    let unused = group(
-        Mark::Unused,
-        "Declared and without an observed import, for information",
-        &|link| link.pair(names),
-    );
-    let body = if fail.is_empty() && unknown.is_empty() && unused.is_empty() {
-        "<p class=\"caption rp-note\">The frame names no difference between the observed dependencies and the declared requirements.</p>".to_owned()
-    } else {
-        format!("{fail}{unknown}{unused}")
-    };
-    format!("<div class=\"rp-in rp-d rp-diff\">{body}</div>")
 }
 
 /// How to read the picture in each view; it sits with the picture that it explains.
-pub(super) const LEGEND: &str = "<p class=\"caption rp-note rp-in rp-a\">Read a component: it depends on what its arrows or marked columns show. \
-A dashed red arrow, or a red cell, is a place that breaks a rule; its number links to the block.</p>\
-<p class=\"caption rp-note rp-in rp-t\">An arrow or a marked column is a requirement that the contract declares. \
-The picture does not show a dependency that a rule forbids; the rules list states it.</p>\
-<p class=\"caption rp-note rp-in rp-d\">A dashed red arrow, or a red cell, breaks a rule. A dotted arrow, or a cell with a question mark, is a pair that a gap holds. \
-A grey dotted arrow, or a ring, is a declared requirement without an observed import: this is information and not a verdict.</p>";
+pub(super) const LEGEND: &str = "<p class=\"caption rp-note rp-in rp-a\">A dashed red arrow or a red cell breaks a rule; its number links to the block.</p>\
+<p class=\"caption rp-note rp-in rp-t\">An arrow or a marked cell is a declared requirement. A forbidden pair is in the rules list.</p>\
+<p class=\"caption rp-note rp-in rp-d\">Dashed red: breaks a rule. Dotted, or a question mark: a gap holds the pair. \
+Grey dotted, or a ring: declared and not used, for information only.</p>";

@@ -11,12 +11,12 @@
 <label class="ak-seg__btn ui" for="rp-view-d">Diff</label>
 </div>
 <p class="caption rp-note rp-in rp-a">
-<b>As-Is:</b> the dependencies that the scan observed between the components.</p>
+<b>As-Is:</b> the observed dependencies.</p>
 <p class="caption rp-note rp-in rp-t">
-<b>Target:</b> the structure that the contract declares. 3 requirements between components, 4 components with a layer, 1 with a public surface.</p>
+<b>Target:</b> what the contract declares. 3 requirements, 4 components with a layer, 1 with a public surface.</p>
 <p class="caption rp-note rp-in rp-d">
-<b>Diff:</b> where the observed dependencies and the declared structure differ. 1 dependency against a rule, 1 pair that a gap holds, 1 requirement without an observed import.</p>
-<p class="caption rp-note rp-in rp-t">Layers of <b class="rp-code">LAYERS</b>, from the inner layer to the outer layer: core, edge.</p>
+<b>Diff:</b> 1 violated place, 2 pairs of modules that a gap holds, 1 requirement without an observed import.</p>
+<p class="caption rp-note rp-in rp-t">Layers of <b class="rp-code">LAYERS</b>, inner to outer: core, edge.</p>
 <div class="rp-map-only">
 <div class="rp-pic__scroll">
 <svg class="ak-diagram rp-map" viewBox="0 0 670 250" style="max-width:670px" role="img" aria-label="Component map: 4 components, 3 dependencies.">
@@ -201,25 +201,31 @@
 </div>
 </div>
 <div class="rp-in rp-d rp-diff">
-<p class="caption rp-note">Observed and against a rule: 1</p>
+<p class="caption rp-note">Violated places: 1</p>
 <ul class="rp-ev">
 <li class="body-sm">
-<a href="#x1">api to store</a>: 1 violation, <b class="rp-code">R</b>
+<a href="#x1">
+<span class="rp-no">1</span> src/api.rs imports src/store.rs</a> &#183; <b class="rp-code">R</b>
 </li>
 </ul>
-<p class="caption rp-note">Held by a gap, not decided: 1</p>
+<p class="caption rp-note">Held by a gap, not decided: 2</p>
 <ul class="rp-ev">
 <li class="body-sm">
-<a href="#unknown">cli to store</a>
+<a href="#unknown">app.cli <span class="rp-at">(cli)</span> to app.store <span class="rp-at">(store)</span>
+</a> &#183; <b class="rp-code">Q</b>
+</li>
+<li class="body-sm">
+<a href="#unknown">app.cli <span class="rp-at">(cli)</span> to ext.lib</a> &#183; <b class="rp-code">Q</b>
 </li>
 </ul>
+<p class="caption rp-note">The frame names 2 of 3 pairs that a gap holds for a rule. The list shows each named pair.</p>
 <p class="caption rp-note">Declared and without an observed import, for information: 1</p>
 <ul class="rp-ev">
 <li class="body-sm">core to store</li>
 </ul>
 </div>
-<p class="caption rp-note rp-in rp-a">Read a component: it depends on what its arrows or marked columns show. A dashed red arrow, or a red cell, is a place that breaks a rule; its number links to the block.</p>
-<p class="caption rp-note rp-in rp-t">An arrow or a marked column is a requirement that the contract declares. The picture does not show a dependency that a rule forbids; the rules list states it.</p>
-<p class="caption rp-note rp-in rp-d">A dashed red arrow, or a red cell, breaks a rule. A dotted arrow, or a cell with a question mark, is a pair that a gap holds. A grey dotted arrow, or a ring, is a declared requirement without an observed import: this is information and not a verdict.</p>
+<p class="caption rp-note rp-in rp-a">A dashed red arrow or a red cell breaks a rule; its number links to the block.</p>
+<p class="caption rp-note rp-in rp-t">An arrow or a marked cell is a declared requirement. A forbidden pair is in the rules list.</p>
+<p class="caption rp-note rp-in rp-d">Dashed red: breaks a rule. Dotted, or a question mark: a gap holds the pair. Grey dotted, or a ring: declared and not used, for information only.</p>
 </figure>
 </section>

@@ -11,6 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::cases::{one_line, Names};
 use super::components;
+use super::diff;
 use super::frame::Frame;
 use super::map::Picture;
 use super::markup::{anchor, count, escape, status_icon};
@@ -197,7 +198,7 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
     let exceptions = components::exceptions(frame, places, names);
     picture.linked = exceptions.iter().map(|e| e.id.clone()).collect();
     let totals = &picture.topology.total;
-    let differences = views::differences(&picture.links, places, names);
+    let differences = diff::differences(frame, &picture.links, places, names);
     let drawn = if picture.small() {
         format!(
             "<div class=\"rp-map-only\"><div class=\"rp-pic__scroll\">{}</div></div><div class=\"rp-mx-only\">{}</div>{differences}{LEGEND}",
@@ -208,7 +209,7 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
         // Many components: the picture names the components with an exception and counts the
         // rest. The matrix is a table to look up, so it is folded.
         format!(
-            "<div class=\"rp-in rp-a rp-d\">{}{}</div>{differences}<details class=\"rp-fold\"><summary class=\"caption\">Matrix of {}, {}: a row depends on the marked columns</summary>{}{LEGEND}</details>",
+            "<div class=\"rp-in rp-a rp-d\">{}</div><div class=\"rp-in rp-a\">{}</div>{differences}<details class=\"rp-fold\"><summary class=\"caption\">Matrix of {}, {}: a row depends on the marked columns</summary>{}{LEGEND}</details>",
             tiles(&exceptions, picture.order.len()),
             exception_list(places, names),
             count(picture.order.len(), "component"),
@@ -243,7 +244,7 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
         count(picture.observed(), "dependency"),
         picture.failing.len(),
         views::switch(),
-        views::ledes(frame, &picture.links)
+        views::ledes(frame, &picture.links, places)
     )
 }
 

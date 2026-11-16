@@ -25,8 +25,9 @@ fn frame() -> Value {
         "locations": {"E": {"path": "src/api.rs", "line": 3}},
         "explain": {"rules": {"R": {"kind": "forbidden_dependency", "direction": "forbids",
                 "source": ["API"], "target": ["STORE"]}}, "cycles": {},
-            "holds": {"rules": {"Q": {"kind": "pair_gaps", "total": 1,
-                "pairs": [{"source": "app.cli", "target": "app.store"}]}}}},
+            "holds": {"rules": {"Q": {"kind": "pair_gaps", "total": 3,
+                "pairs": [{"source": "app.cli", "target": "app.store"},
+                    {"source": "app.cli", "target": "ext.lib"}]}}}},
         "topology": {
             "components": [component("API", "api", "edge", &[]),
                 component("CLI", "cli", "edge", &[]),
@@ -120,13 +121,18 @@ fn one_mark_is_one_element_that_names_each_view_that_shows_it() {
 #[test]
 fn diff_names_each_difference_and_target_states_the_declared_structure() {
     let page = section(&frame());
-    // Diff names each difference as text, and the violation names its rule.
-    assert!(
-        page.contains("<a href=\"#x1\">api to store</a>: 1 violation, <b class=\"rp-code\">R</b>")
-    );
+    // Diff lists each violated place with its rules, and each pair of modules that a gap holds,
+    // also a pair that no pair of components carries.
+    assert!(page.contains("<b>Diff:</b> 1 violated place, 2 pairs of modules that a gap holds, 1 requirement without an observed import."));
+    assert!(page.contains(
+        "<a href=\"#x1\"><span class=\"rp-no\">1</span> src/api.rs imports src/store.rs</a> &#183; <b class=\"rp-code\">R</b>"
+    ));
+    assert!(page.contains("Held by a gap, not decided: 2"));
+    assert!(page.contains("<a href=\"#unknown\">app.cli <span class=\"rp-at\">(cli)</span> to ext.lib</a> &#183; <b class=\"rp-code\">Q</b>"));
+    assert!(page.contains("The frame names 2 of 3 pairs that a gap holds for a rule."));
     assert!(page.contains("Declared and without an observed import, for information: 1"));
     // Target states the layers and the public surface that the contract declares.
-    assert!(page.contains("Layers of <b class=\"rp-code\">LAYERS</b>, from the inner layer to the outer layer: core, edge."));
+    assert!(page.contains("Layers of <b class=\"rp-code\">LAYERS</b>, inner to outer: core, edge."));
     assert!(page.contains(">core &#183; 2 public</text>"));
     assert!(page.contains("title=\"app.core, app.core:Port\">2</td>"));
 }
@@ -141,9 +147,8 @@ fn a_frame_without_declared_rows_says_so_and_keeps_the_picture() {
         *component = json!({"id": component["id"], "name": component["name"]});
     }
     let page = section(&value);
-    assert!(page.contains(
-        "<b>Target:</b> the contract declares no requirement, no layer and no public surface."
-    ));
+    assert!(page
+        .contains("<b>Target:</b> the contract declares no requirement, layer or public surface."));
     assert!(page.contains("class=\"ak-diagram rp-map\"") && !page.contains(">Layer</th>"));
     assert!(!page.contains("rp-edge--unused") && page.contains("rp-edge--unknown"));
 }

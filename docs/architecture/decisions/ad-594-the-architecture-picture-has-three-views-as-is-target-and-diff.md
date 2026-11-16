@@ -10,7 +10,10 @@
 2. Diff has three marks. An observed dependency against a rule is a violation and links to its
    block. A pair that a gap holds is not decided and links to the causes. A declared requirement
    without an observed import is information and no verdict. One pair shows one mark: violation
-   before held pair before requirement without import.
+   before held pair before requirement without import. Below the picture, Diff lists each violated
+   place, each pair of modules that a gap holds and each requirement without an observed import,
+   one line each. The list cuts nothing that the frame names. When the frame names fewer pairs
+   than a gap holds, or the page shows fewer places than the run has, the list states both numbers.
 3. The page decides nothing (AD-496 point 9). Each mark is a row of the frame: a violated place
    (`explain.rules`), a held pair of an UNKNOWN rule (`explain.holds`), a requirement with
    `imports: 0` (`topology.requires`).
@@ -38,10 +41,11 @@ of `complete_requires`. The removed Explorer (`flow.js`, #1131, #1273): it does 
 **Limits.** Target does not draw a dependency that a rule forbids, and it does not draw `through`.
 Diff does not mark an observed dependency that no requirement declares when no rule fails on it.
 The layers are a line of text and not the columns of the map. The frame names at most 20 held
-pairs for a rule; the page states the two numbers when it shows fewer. The page shows at most five
-layer orders and nine rows for each group of the Diff list.
+pairs for a rule (`explain`); the list states the two numbers. A place without a pair of two
+components, such as a cycle inside one component, is in the list and not on the picture. The page
+shows at most five layer orders.
 
 **Tests.** `native/report/src/html_views_tests.rs` (the section of a small frame with a violation,
-a held pair and a requirement without import against `native/report/testdata/views.html`; the marks
+held pairs and a requirement without import against `native/report/testdata/views.html`; the marks
 of each view). `native/core/src/topology_declared_tests.rs` (the count of `imports`, the roll-up to the parent).
 `tests/test_cli_report_topology_declared.py` (the rows of a real run; forged rows are refused).

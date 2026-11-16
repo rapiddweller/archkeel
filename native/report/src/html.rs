@@ -14,6 +14,8 @@ mod cases;
 mod causes;
 #[path = "html_components.rs"]
 mod components;
+#[path = "html_diff.rs"]
+mod diff;
 #[path = "html_footer.rs"]
 mod footer;
 #[path = "html_frame.rs"]
