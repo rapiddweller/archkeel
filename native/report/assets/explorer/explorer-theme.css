@@ -9,3 +9,7 @@ html.ak-canvas .rp-explorer .flow:not([data-expanded]) { height: 680px; }
 /* The panel of the selection fits inside the embedded Explorer. */
 html.ak-canvas .rp-explorer .flow:not([data-expanded])[data-details-open="true"] .flow-map-column { right: 320px; }
 html.ak-canvas .rp-explorer .flow:not([data-expanded])[data-atlas] .flow-inspector { width: 300px; padding: var(--space-4); }
+/* In the column the bottom bars share less width: the perspective bar takes what the legend and
+   the zoom leave. */
+html.ak-canvas .rp-explorer .flow:not([data-expanded]) .ak-bottom-left { max-width: 240px; }
+html.ak-canvas .rp-explorer .flow:not([data-expanded]) .ak-bottom-center { left: 264px; right: 212px; }
