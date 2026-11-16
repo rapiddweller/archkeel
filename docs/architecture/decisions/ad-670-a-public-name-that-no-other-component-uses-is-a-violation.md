@@ -43,7 +43,30 @@ as rules of the self-contract, and their current FAIL rows stay visible). Part o
   the collector states every public item.
 
 **Self-contract.** `NATIVE-PUBLIC-HAS-A-USER` judges the functions, constants and statics of every
-native crate. Types wait for signature facts of the Rust collector (named gap, issue below).
+native crate. Types wait for signature facts of the Rust collector; this is a named gap and the
+next step (#1402).
+- Native self-check: before 89 PASS, 4 FAIL, 0 UNKNOWN (27 violations). After: 89 PASS, 5 FAIL,
+  0 UNKNOWN (48 violations). The rule is FAIL with 21 rows, pinned with #1402:
+  - `facts.schema`: 7 rows;
+  - `contract.policy`: 5 rows;
+  - `snapshot.work` and `snapshot.test_tree`: 5 rows;
+  - `pyast.node`: 2 rows;
+  - `facts.nullable`, `facts.pyrepr` and `collect`: 1 row each.
+- The first build of the rule itself broke the self-contract, and the self-check showed each
+  break. All were fixed in code before the merge, with no pin:
+  - two modules had no owner, and the public entries and ports were not declared;
+  - there was a module cycle `graph -> model -> pair_gaps -> proof -> published -> graph`. The
+    item list moved to `published_items.rs`.
+  - there were four clones, and `scope.rs` had 503 lines.
+- The shell contract (Python) would show 20 rows. Python has no visibility between module and
+  public, so a helper that another module of the same component uses cannot be narrowed. The
+  owner decides whether the rule judges Python by module or by component before the shell
+  contract adopts it.
+
+**Collector limit found.** `lib.rs` of the Rust collector declares both `mod reply` and
+`pub fn reply`. The collector resolves `use archkeel_rust_collector::reply` to the module only. The
+rule therefore judges an item `x` of `P` as undecided when another component imports the module
+`P.x` as a whole: a whole-module import may name the item too.
 
 **Tests.**
 - `tests/test_cli_native_unused_public.py`: Rust plants that rustc accepts, and Python plants that
