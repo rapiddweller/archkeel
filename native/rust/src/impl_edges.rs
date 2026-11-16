@@ -315,7 +315,7 @@ impl Builder {
     }
 
     /// The pairs of modules that an `import` or `reexport` record joins.
-    pub(crate) fn module_pairs(&self) -> BTreeSet<(String, String)> {
+    fn module_pairs(&self) -> BTreeSet<(String, String)> {
         let data = self.imports.iter().filter_map(|record| match &record.data {
             ImportFact::Import(data) | ImportFact::Reexport(data) => Some(data),
             _ => None,

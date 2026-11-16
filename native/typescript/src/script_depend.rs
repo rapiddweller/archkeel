@@ -148,7 +148,7 @@ impl<'a, 'p> Run<'a, 'p> {
     }
 
     /// Add facts to the proofs of a site, once each (`dict.fromkeys`).
-    pub(crate) fn add_fact_ids(&mut self, module: &str, probe: &Probe, ids: Vec<String>) {
+    fn add_fact_ids(&mut self, module: &str, probe: &Probe, ids: Vec<String>) {
         let key = probe.key();
         let mut all = self.sink.facts.fact_ids(module, &key);
         for id in ids {
@@ -281,7 +281,7 @@ impl<'a, 'p> Run<'a, 'p> {
     }
 
     /// `_script_publication_evidence`: the binding that says a file publishes a global.
-    pub(crate) fn publication_evidence(&mut self, rel: &str, publication: &ScriptGlobal) -> String {
+    fn publication_evidence(&mut self, rel: &str, publication: &ScriptGlobal) -> String {
         let module = self.module(rel);
         let parts = [
             Part::Text(&module),

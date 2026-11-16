@@ -19,7 +19,7 @@ use crate::script_types::Write;
 use crate::source::Span;
 
 /// `_SCRIPT_EFFECT_NAMES`: a name that reaches the global object or runs text as code.
-pub(crate) fn is_effect_name(name: &str) -> bool {
+fn is_effect_name(name: &str) -> bool {
     matches!(
         name,
         "constructor"

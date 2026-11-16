@@ -5,7 +5,7 @@
 //! Typed refusals shared by the scan composition and the collector thread (AD-420).
 
 /// The first words of each refusal; the shell counts them.
-pub(crate) const REFUSED: &str = "collect";
+const REFUSED: &str = "collect";
 
 /// A part that the in-process path cannot run, by name.
 #[derive(Debug, PartialEq, Eq)]

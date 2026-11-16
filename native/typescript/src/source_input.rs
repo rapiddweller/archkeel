@@ -19,7 +19,7 @@ pub(crate) const FRAME_ROOTS: [&str; 2] = ["top", "parent"];
 
 /// The other global names whose value is a window: the window that opened this one, and the
 /// global object of Node.
-pub(crate) const OTHER_WINDOWS: [&str; 2] = ["opener", "global"];
+const OTHER_WINDOWS: [&str; 2] = ["opener", "global"];
 
 /// A global name whose value can be a window: a root, a frame root or another window. This is the
 /// one list of such names; the write check of a script reads it.
@@ -130,7 +130,7 @@ impl Suffix {
     }
 
     /// The suffixes that shadow this one, best first.
-    pub(crate) fn priority(self) -> &'static [Suffix] {
+    fn priority(self) -> &'static [Suffix] {
         match self {
             Dts | Ts | Js | Tsx | Jsx => &PLAIN,
             Dmts | Mjs | Mts => &ESM,
@@ -390,7 +390,7 @@ const ASSET_SUFFIXES: &[&str] = &[
 const ASSET_QUERIES: &[&str] = &["url", "raw", "inline", "worker", "sharedworker"];
 
 /// `posixpath.splitext`: the extension of the last component; leading dots do not count.
-pub(crate) fn splitext(path: &str) -> (&str, &str) {
+fn splitext(path: &str) -> (&str, &str) {
     let slash = path.rfind('/').map_or(0, |index| index + 1);
     let Some(dot) = path.rfind('.').filter(|dot| *dot >= slash) else {
         return (path, "");

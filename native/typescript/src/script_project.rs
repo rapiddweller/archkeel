@@ -45,7 +45,7 @@ impl<'a> WriteIndex<'a> {
     }
 
     /// The only write that is of the name or of no known name: its file and place.
-    pub(crate) fn sole(&self, name: &str) -> Option<(&'a str, &'a Span)> {
+    fn sole(&self, name: &str) -> Option<(&'a str, &'a Span)> {
         let count = |slot: Option<&(Write<'a>, usize)>| slot.map_or(0, |(_, count)| *count);
         let named = self.named.get(name);
         let total = count(named).saturating_add(count(self.unknown.as_ref()));
@@ -160,7 +160,7 @@ impl Owners {
     }
 
     /// A file other than `file` holds it.
-    pub(crate) fn other_than(self, file: usize) -> bool {
+    fn other_than(self, file: usize) -> bool {
         self.first != file || self.more
     }
 }
@@ -199,7 +199,7 @@ pub(crate) struct Project<'a> {
 
 impl<'a> Project<'a> {
     /// `collect._global_script`: the top-level names of the file belong to the global scope.
-    pub(crate) fn global_script(file: &Kept, scripts_are_global: bool) -> bool {
+    fn global_script(file: &Kept, scripts_are_global: bool) -> bool {
         file.script.declaration_file || (scripts_are_global && !file.script.module_file)
     }
 

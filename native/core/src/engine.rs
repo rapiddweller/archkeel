@@ -221,7 +221,7 @@ impl Engine {
 
     /// The number of derivations of this run.
     #[cfg(test)]
-    pub(crate) fn derivations(&self) -> usize {
+    fn derivations(&self) -> usize {
         self.derivations
     }
 }

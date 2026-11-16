@@ -57,7 +57,7 @@ pub(crate) fn listed(facts: Facts, pending: &Pending) -> Result<(Facts, Vec<Stri
 }
 
 /// The records of the section of `D`.
-pub(crate) fn section_of<D: IntoSection>(sections: &[Section]) -> Vec<Record<D>> {
+fn section_of<D: IntoSection>(sections: &[Section]) -> Vec<Record<D>> {
     sections
         .iter()
         .find_map(D::records)

@@ -195,7 +195,7 @@ fn conditional_uris(
 }
 
 /// `_literal_uri`: the string of a URI node, by the byte scan or by its string literals.
-pub(crate) fn literal_uri(node: Option<Node<'_>>, source: &Source<'_>) -> Option<String> {
+fn literal_uri(node: Option<Node<'_>>, source: &Source<'_>) -> Option<String> {
     let node = node?;
     if let Some(scanned) = string_sequence(source.data, node.start_byte(), node.end_byte()) {
         return Some(scanned);
