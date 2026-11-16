@@ -267,7 +267,7 @@ fn supported_profile_does_not_remove_the_per_import_symbol_check(
 }
 
 /// The golden reply with its first import unresolved; the id and site of that import.
-fn unresolved() -> Option<(Reply, String, String, Vec<EvidenceId>)> {
+pub(crate) fn unresolved() -> Option<(Reply, String, String, Vec<EvidenceId>)> {
     let mut reply = golden()?;
     let record = import_records(&mut reply)?.first()?.clone();
     let id = record.id.as_str().to_owned();

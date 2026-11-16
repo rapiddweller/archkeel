@@ -3,12 +3,13 @@
 // SPDX-License-Identifier: MIT
 
 //! The coverage gaps of a reply as a reader needs them (AD-484): the id, the kind, the text and
-//! the two modules of a pair gap. `holds_run` is the answer of the scope proof itself: the
-//! same filter as `coverage::incomplete`, so a page never recomputes it.
+//! the two modules of a pair gap. `whole` is the answer of the scope proof itself: the same
+//! class as `coverage::incomplete` counts (`gap_class::Class`), so a page never recomputes it.
 
 use archkeel_facts::envelope::Coverage;
 
-use crate::coverage::{data_of, droppable};
+use crate::coverage::data_of;
+use crate::gap_class::Class;
 
 /// One coverage gap of the reply.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -23,16 +24,18 @@ pub struct CoverageGap {
     pub source: Option<String>,
     /// The module of the gap.
     pub module: Option<String>,
-    /// The gap makes the scope of the run incomplete: no contract can drop it.
-    pub holds_run: bool,
+    /// The gap leaves the whole scope unknown, so it holds each rule: no contract can drop it,
+    /// and it states no effect (AD-564).
+    pub whole: bool,
 }
 
 /// The coverage gaps of a reply, in the order of the reply.
-pub(crate) fn coverage_gaps(coverage: &Coverage) -> Vec<CoverageGap> {
+pub(crate) fn coverage_gaps(coverage: &Coverage, classes: &[Class]) -> Vec<CoverageGap> {
     coverage
         .gaps
         .iter()
-        .map(|gap| {
+        .zip(classes)
+        .map(|(gap, class)| {
             let data = data_of(&gap.data);
             CoverageGap {
                 id: gap.id.as_str().to_owned(),
@@ -40,7 +43,7 @@ pub(crate) fn coverage_gaps(coverage: &Coverage) -> Vec<CoverageGap> {
                 title: gap.title.clone(),
                 source: data.source_module.as_ref().map(|m| m.as_str().to_owned()),
                 module: data.module.as_ref().map(|m| m.as_str().to_owned()),
-                holds_run: !droppable(data),
+                whole: *class == Class::Whole,
             }
         })
         .collect()

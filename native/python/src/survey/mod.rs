@@ -34,6 +34,7 @@ pub(crate) mod bound_kind;
 mod call_count;
 mod copy_local;
 mod declared;
+mod effects;
 mod excluded;
 mod failures;
 mod globals_locals;

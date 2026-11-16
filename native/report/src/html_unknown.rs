@@ -28,6 +28,9 @@ fn advice(kind: &str) -> Option<&'static str> {
         "pair_gaps" => {
             Some("For each pair below, make the call explicit or allow the pair in the contract.")
         }
+        "scoped_gaps" => Some(
+            "Close the gaps that the core names. Each of them leaves facts unknown that the rule reads.",
+        ),
         "unknown_imports" => {
             Some("Resolve these imports, or let the scan name each of them as a gap.")
         }
@@ -205,7 +208,7 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
             ));
         }
     }
-    if found.kind == "other" || found.kind == "named" {
+    if ["other", "named", "scoped_gaps"].contains(&found.kind) {
         html.push_str(&format!(
             "<details class=\"rp-fold\"><summary class=\"caption\">What the core says</summary><p class=\"rp-fold__body\">{}</p></details>",
             escape(found.reason)

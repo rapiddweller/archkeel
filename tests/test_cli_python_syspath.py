@@ -70,13 +70,15 @@ def test_each_other_write_keeps_the_gap_of_the_whole_run(
 ) -> None:
     result = verdict(release_core, tree(tmp_path, plant))
     found = rows(result)
-    # A plant that imports an external name has the row EXTERNAL FAIL; the gap holds each other row.
+    # A plant that imports an external name has the row EXTERNAL FAIL. The gap leaves the code of
+    # every module unknown (AD-564, `every_module`), so it holds each rule that reads an import;
+    # the rule on the files decides, because a write to `sys.path` adds no file to the scan.
     assert result["status"] != "PASS" and result["exit_code"] != 0, (plant.name, found)
     assert "import_system_change" in json.dumps(result), plant.name
-    assert {found[name] for name in ("ASSIGN", "CYCLES", "FORBID")} == {"UNKNOWN"}, (
-        plant.name,
-        found,
-    )
+    assert {found[name] for name in ("CYCLES", "FORBID")} == {"UNKNOWN"}, (plant.name, found)
+    # A second gap without an effect (a link out of the snapshot) holds the rule on the files too.
+    why = result["frame"]["explained"].get("ASSIGN", "")
+    assert found["ASSIGN"] != "UNKNOWN" or "coverage gap" in why, (plant.name, found, why)
 
 
 @pytest.mark.skipif(os.name == "nt", reason="needs a symbolic link")

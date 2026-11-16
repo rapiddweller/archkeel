@@ -7,8 +7,9 @@
 
 use std::collections::BTreeMap;
 
+use archkeel_facts::data::GapEffect;
 use archkeel_facts::envelope::Evidence;
-use archkeel_facts::ids::FactId;
+use archkeel_facts::ids::{FactId, ModuleName};
 use archkeel_facts::vocab::ExceptionName;
 use archkeel_facts::GapFact;
 use archkeel_facts::Record;
@@ -77,6 +78,46 @@ impl GapName {
     }
 }
 
+impl GapName {
+    /// What the gap leaves unknown (AD-564), when the survey can state it. `module` is the
+    /// library that holds the site, if the gap has one.
+    ///
+    /// - A package key or file can make a `package:` URI of any library name another file: the
+    ///   edges of every library are unknown. The files below the roots and their names are not.
+    /// - A directive, a mirror or an isolate site leaves the targets and the exports of its own
+    ///   library unknown. Dart code cannot change another library, and an isolate shares no
+    ///   library with the code that spawns it.
+    /// - A part whose owner is not proven, a second package in a root, an unparsed target and a
+    ///   file over the parse budget can put code or a file in a library that the gap does not
+    ///   name: no statement, so the whole scope stays unknown.
+    fn effect(self, module: Option<&str>) -> Option<GapEffect> {
+        let own = || {
+            module.map(|name| GapEffect::Modules {
+                modules: vec![ModuleName::new(name)],
+            })
+        };
+        match self {
+            Self::Workspace | Self::PathDependency | Self::PackageConfig => {
+                Some(GapEffect::EveryModule)
+            }
+            Self::TargetMissing
+            | Self::TargetNotSelected
+            | Self::TargetOutside
+            | Self::UnsupportedUri
+            | Self::UriNotLiteral
+            | Self::Mirrors
+            | Self::Isolate => own(),
+            Self::TargetIsPart
+            | Self::TargetUnparsed
+            | Self::PartUnowned
+            | Self::PartNotPart
+            | Self::PartConflict
+            | Self::NestedPackage
+            | Self::ParseBudget => None,
+        }
+    }
+}
+
 /// One named gap: its name and the id of its record in `unknowns`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct NamedGap {
@@ -111,15 +152,19 @@ impl Gaps {
     /// A named gap at `span` of `source`, or at line 1 of `rel` when there is no span.
     pub(crate) fn named(&mut self, name: GapName, at: Place<'_>, message: &str) {
         let text = format!("{}: {message}", name.as_str());
-        let (rel, line, cited) = match at {
+        let (rel, line, cited, module) = match at {
             Place::Span(source, span) => (
                 source.rel_path.as_str(),
                 span.line,
                 Some(cite(&mut self.evidence, source, span)),
+                Some(source.module.as_str()),
             ),
-            Place::File(rel) => (rel, 1, None),
+            Place::File(rel) => (rel, 1, None, None),
         };
-        let (id, record) = gap(rel, line, name.exception(), &text, cited);
+        let (id, mut record) = gap(rel, line, name.exception(), &text, cited);
+        if let GapFact::ExceptionGap { data, .. } = &mut record.data {
+            data.effect = name.effect(module);
+        }
         self.named.entry(id.clone()).or_insert(name);
         self.records.entry(id).or_insert(record);
     }
@@ -131,3 +176,7 @@ pub(crate) enum Place<'a> {
     Span(&'a Source, &'a Span),
     File(&'a str),
 }
+
+#[cfg(test)]
+#[path = "names_tests.rs"]
+mod tests;
