@@ -488,10 +488,15 @@ that `b` defines, which the caller gets from another module, with the impl in `b
 call, `Display`, `Drop`, `==`, `for`, `+`, `?`, `impl Trait`, `dyn`, a field, an alias with
 `Default`, a closure, `into()` into a sink of another module); (2) an impl of a trait of `b` for a
 type of another module, reached through a generic bound, a supertrait, a `dyn` supertrait or a
-re-export of the trait; (3) a trait of a crate outside the workspace that a glob brings in. Open false
-PASS, not accepted (#1020): an item that a function-like procedural macro generates without a
-recorded path. A member that a `macro_rules!` impl adds outside the file of its type gives a pair gap
-(AD-656).
+re-export of the trait; (3) a trait of a crate outside the workspace that a glob brings in.
+A member that a `macro_rules!` impl adds outside the file of its type gives a pair gap (AD-656); only
+a type of the same arm, or an item of the module that every configuration has, anchors it (AD-662). A
+call of a macro whose expansion the scan does not read (a procedural macro, a `macro_rules!` of a
+crate outside the scan, a macro that an import binds) gives a gap of its module with an unseen
+target, and each module that may reach an impl in the module of the call gets a pair gap (AD-662).
+A `std` macro by its prelude name or a `std`, `core` or `alloc` path, and the registry macros
+`serde_json` 1.0.154 `json!` and `schemars` 1.2.3 `json_schema!` with a proved identity, are read
+through their tokens.
 The independent token inventory remains open (#1026); it must detect tokens that a macro reader loses.
 Attribute macros and unproved derives have named expansion gaps on every scanned syntax position.
 Each gap names the source module and leaves the target unseen. It blocks affected rules through
@@ -658,7 +663,7 @@ The core decides one rule kind set where Python does not ([AD-384](architecture/
 - The Rust collector does not mark an external `pub use` as a re-export. So a gap into a module with any external import holds `external_dependency_scope` and `complete_external_scope`.
 - The gap scope reads the edge model of the collector, as Python does. A glob that brings in a trait through a `pub use` chain `b -> d` gives the gap `a -> b`, not `a -> d`, so a rule on `a -> d` passes (review N2 of #1084). With the explicit call both engines record only `a -> b`.
 - A method call can reach a member in another crate through any crate of the Cargo closure of the caller, and the collector lists such candidates. Two forms give no candidate, also inside one crate: a trait method whose impl is in the module of its trait or of its type (`impl Trait`, `Box<dyn Trait>`, the class #1004; an impl in a third module gives a pair gap, AD-516) and a method in the file of its type, called on a value that the caller does not name (for example the return value of a function of another crate). On `native/` the rows `NATIVE-NO-CORE-TO-TYPESCRIPT` and `NATIVE-NO-CORE-TO-RUST` hold only because a test pins the import records of the reply from `collect` to each collector crate. Both are open false PASS classes of the edge model ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
-- A PASS beyond Python is only as strong as the edge model of the collector. The open false-PASS classes #1004 (a value of a type that an anchored impl serves, when the caller does not name its module) and #1020 (an item that a macro makes) give no edge and no gap. Where Python gives UNKNOWN only for a kept gap, the Python UNKNOWN hid them; the core PASS does not ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
+- A PASS beyond Python is only as strong as the edge model of the collector. The open false-PASS class #1004 (a value of a type that an anchored impl serves, when the caller does not name its module) gives no edge and no gap; an item that a macro makes gives a gap since AD-662. Where Python gives UNKNOWN only for a kept gap, the Python UNKNOWN hid them; the core PASS does not ([AD-418](architecture/decisions/ad-418-a-dropped-pair-gap-holds-the-rules-it-can-change-and-a-scoped-requires-needs-its-runtime.md)).
 
 The dual-run request is a test protocol that only test builds and the cargo feature `harness` have (#1095); a release binary refuses it. Its `collector_argv`, `pinned` and `standard_library` fields are the word of the caller, not evidence: a wrong producer or an extra standard library name can give a PASS that Python does not give. The request of M1 must not take them from a caller: the shell starts the pinned collector, checks its digest and fills the producer and the standard library from its own profile table.
 

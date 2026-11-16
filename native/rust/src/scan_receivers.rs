@@ -13,7 +13,7 @@
 //! when it can add lint attributes alone. An `impl` block in a body is not exact.
 
 use syn::{
-    punctuated::Punctuated, Attribute, GenericParam, ItemImpl, Meta, ReceiverKind, Signature, Token,
+    punctuated::Punctuated, Attribute, GenericParam, ItemImpl, Meta, ReceiverKind, Signature,
 };
 
 use crate::definitions::{OnSelf, SelfKind};
@@ -67,7 +67,8 @@ fn only(attrs: &[Attribute], extra: &[&str]) -> bool {
 
 /// A conditional lint cannot remove or rewrite an item in any configuration.
 fn conditional_lints(attr: &Attribute) -> bool {
-    let Ok(args) = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated) else {
+    let Ok(args) = attr.parse_args_with(Punctuated::<Meta, syn::token::Comma>::parse_terminated)
+    else {
         return false;
     };
     args.len() > 1
