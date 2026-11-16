@@ -135,10 +135,15 @@ fn each_name(
 /// group, or a group
 /// deeper than the scan reads (AD-608). Tokens without one cannot make a name a re-export.
 pub(crate) fn writes_use(stream: TokenStream, depth: usize) -> bool {
+    holds_word(stream, depth, &["use", "extern", "mod"])
+}
+
+/// Whether the stream holds one of `words` in any group, or nests deeper than the scan reads.
+pub(crate) fn holds_word(stream: TokenStream, depth: usize, words: &[&str]) -> bool {
     depth > MAX_DEPTH
         || stream.into_iter().any(|token| match token {
-            TokenTree::Group(group) => writes_use(group.stream(), depth + 1),
-            TokenTree::Ident(word) => word == "use" || word == "extern" || word == "mod",
+            TokenTree::Group(group) => holds_word(group.stream(), depth + 1, words),
+            TokenTree::Ident(word) => words.iter().any(|w| word == w),
             _ => false,
         })
 }
@@ -152,7 +157,8 @@ pub(crate) fn is_punct(token: &TokenTree, ch: char) -> bool {
     matches!(token, TokenTree::Punct(punct) if punct.as_char() == ch)
 }
 
-/// The names that the stream defines as functions: `fn` and an identifier (AD-383).
+/// The names that the stream defines as functions or constants: `fn` or `const` and an
+/// identifier (AD-383). A path names an associated constant as it names a function (#1371).
 pub(crate) fn fn_names(stream: TokenStream, depth: usize, found: &mut BTreeSet<String>) {
     each_name(stream, depth, fn_name, found);
 }
@@ -162,7 +168,7 @@ pub(crate) fn fn_names(stream: TokenStream, depth: usize, found: &mut BTreeSet<S
 pub(crate) const NAME_FROM_CALL: &str = "$";
 
 fn fn_name(token: &TokenTree, rest: &Rest) -> Option<String> {
-    let keyword = matches!(token, TokenTree::Ident(word) if word == "fn");
+    let keyword = matches!(token, TokenTree::Ident(word) if word == "fn" || word == "const");
     match rest.clone().next() {
         Some(TokenTree::Ident(name)) if keyword => Some(plain(&name)),
         Some(TokenTree::Punct(dollar)) if keyword && dollar.as_char() == '$' => {

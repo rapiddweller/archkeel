@@ -9,12 +9,26 @@ Consumer: `make self-validate-native`
 
 from __future__ import annotations
 
+import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from native_expected import expected_exit, problems, summary, written  # noqa: E402
+from native_expected import (  # noqa: E402
+    expected_exit,
+    growth,
+    main,
+    problems,
+    summary,
+    unlisted,
+    written,
+)
+
+ROOT = Path(__file__).resolve().parents[1]
 
 GAP = {"kind": "collection_gap", "subjects": ["a"], "reason": "r"}
 PIN = ["collection_gap", "a", "r"]
@@ -136,3 +150,78 @@ def test_write_keeps_the_issue_of_a_known_violation_and_leaves_a_new_one_open() 
     ]
     assert pinned["gaps"] == [PIN]
     assert (pinned["name"], pinned["rules"], pinned["unknown"]) == ("Studio UI", {"R": "FAIL"}, {})
+
+
+# AD-672: the pins are ratchets. A pin may only shrink; growth needs a reason in the growth file.
+GROWTH_FILES = [
+    ROOT / "native/expected-growth.json",
+    ROOT / "docs/architecture/target/shell-expected-growth.json",
+]
+CLEAN = {"rules": {"R": "PASS"}, "unknown": {}, "gaps": [], "violations": []}
+
+
+def test_growth_names_a_new_gap_violation_status_and_unknown_reason() -> None:
+    assert growth(CLEAN, CLEAN) == []
+    assert growth(PINNED, PINNED) == []
+    assert growth(PINNED, CLEAN) == [
+        ["gap", "collection_gap", "a", "r"],
+        ["rule", "R", "UNKNOWN"],
+        ["unknown", "R", "scope_incomplete"],
+    ]
+    assert growth(FAILED, PINNED) == [
+        ["violation", "R", "m.a -> m.b", "m.a", "dependency cycle"],
+        ["rule", "R", "FAIL"],
+    ]
+    assert growth(CLEAN, FAILED) == [], "a smaller pin is no growth"
+    assert growth({**CLEAN, "rules": {"N": "UNKNOWN"}}, CLEAN) == [["rule", "N", "UNKNOWN"]]
+
+
+def test_growth_needs_an_entry_with_a_reason() -> None:
+    grown = [["gap", "collection_gap", "a", "r"]]
+    assert unlisted(grown, {}) and unlisted(grown, {"raised": [{"entry": grown[0], "reason": ""}]})
+    assert unlisted(grown, {"raised": [{"entry": grown[0], "reason": "short"}]})
+    reason = "a new collector limit, decided on 2026-11-16 in the decision log"
+    assert unlisted(grown, {"raised": [{"entry": grown[0], "reason": reason}]}) == []
+
+
+def test_write_refuses_a_new_unknown_and_takes_a_listed_one(tmp_path: Path) -> None:
+    result, pin, listed = tmp_path / "r.json", tmp_path / "p.json", tmp_path / "g.json"
+    result.write_text(json.dumps(_result([GAP])))
+    pin.write_text(json.dumps(CLEAN))
+    listed.write_text('{"raised": []}')
+    run = [str(result), str(pin), "--write", "--growth", str(listed)]
+    assert main(run) == 1 and json.loads(pin.read_text()) == CLEAN
+    entry = ["gap", "collection_gap", "a", "r"]
+    items = [entry, ["rule", "R", "UNKNOWN"], ["unknown", "R", "scope_incomplete"]]
+    reason = "a new collector limit, decided on 2026-11-16 in the decision log"
+    listed.write_text(json.dumps({"raised": [{"entry": item, "reason": reason} for item in items]}))
+    assert main(run) == 0 and json.loads(pin.read_text())["gaps"] == [PIN]
+
+
+def test_every_growth_entry_of_the_repository_has_a_reason() -> None:
+    for path in GROWTH_FILES:
+        raised = json.loads(path.read_text(encoding="utf-8"))["raised"]
+        for item in raised:
+            assert len(str(item.get("reason", "")).strip()) >= 10, (path.name, item)
+            assert item.get("entry") and item["entry"][0] in {"gap", "violation", "rule", "unknown"}
+
+
+def test_a_pin_that_grew_against_its_base_fails_until_its_growth_has_a_reason(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
+    pin, listed, result = tmp_path / "pin.json", tmp_path / "growth.json", tmp_path / "r.json"
+    pin.write_text(json.dumps(CLEAN))
+    for command in (["init", "-q"], ["add", "pin.json"], ["commit", "-q", "-m", "base"]):
+        subprocess.run([*git, *command], cwd=tmp_path, check=True, capture_output=True)
+    monkeypatch.chdir(tmp_path)
+    pin.write_text(json.dumps(PINNED))
+    result.write_text(json.dumps(_result([GAP])))
+    listed.write_text('{"raised": []}')
+    run = [str(result), "pin.json", "--growth", str(listed), "--base-ref", "HEAD"]
+    assert main(run) == 1
+    reason = "a new collector limit, decided on 2026-11-16 in the decision log"
+    items = [["gap", "collection_gap", "a", "r"], ["rule", "R", "UNKNOWN"]]
+    items.append(["unknown", "R", "scope_incomplete"])
+    listed.write_text(json.dumps({"raised": [{"entry": i, "reason": reason} for i in items]}))
+    assert main(run) == 0

@@ -43,6 +43,22 @@ DEAD_MEMBER = (
     "impl crate::c::S {\n    #[cfg_attr(all(), cfg(any()))]\n    pub fn m(&self) {}\n"
     "    pub fn n(&self) {}\n}\n"
 )
+# #1374: a call expands one arm, so the type of one arm anchors no impl of another arm.
+ARMS = (
+    "use crate::c::S;\nmacro_rules! mk {\n    (type_arm) => {\n        pub struct S;\n    };\n"
+    "    (method_arm) => {\n        impl S {\n            pub fn m(&self) {}\n        }\n"
+    "    };\n}\n"
+    "mk!(method_arm);\n"
+)
+# A struct that `cfg` removes declares no name: the `use` binds `S`.
+DEAD_ANCHOR = (
+    "use crate::c::S;\n#[cfg(any())]\npub struct S;\nmacro_rules! mk {\n    () => {\n"
+    "        impl S {\n            pub fn m(&self) {}\n        }\n    };\n}\nmk!();\n"
+)
+CONSTANT = (
+    "macro_rules! mk {\n    () => {\n        impl crate::c::S {\n"
+    "            pub const C: u8 = 1;\n        }\n    };\n}\nmk!();\n"
+)
 HELD = {"UNKNOWN", "FAIL"}
 # name: (b.rs, d.rs, a.rs, the verdicts of NO-A-TO-D)
 PLANTS = {
@@ -60,6 +76,14 @@ PLANTS = {
     ),
     "a macro with a literal method name": ("", LITERAL, REBOUND, HELD),
     "a receiver of a written type": ("", NAMED + "mk!(m);\n", TYPED, HELD),
+    "a type of another arm (#1374)": ("", ARMS, REBOUND, HELD),
+    "a struct that cfg removes, beside a use of the type": ("", DEAD_ANCHOR, REBOUND, HELD),
+    "a path to a constant that a macro defines": (
+        "",
+        CONSTANT,
+        "pub fn f() -> u8 {\n    crate::c::S::C\n}\n",
+        HELD,
+    ),
     # The twin: the call of the macro names `n`, and `a` calls the live plain `m` of `b`.
     "the macro defines another name": (
         "impl crate::c::S {\n    pub fn m(&self) {}\n}\n",

@@ -240,10 +240,11 @@ fn a_definition_gives_no_gap_and_cites_its_name() {
         ("crates/src/lib.rs", "m! {}\npub fn named() {}\n"),
     ];
     let facts = run(&files, false);
-    assert!(
-        facts.gaps.is_empty(),
-        "an unread item is no gap: {:?}",
-        facts.gaps
+    // The definition gives no gap; the call of a macro that the scan does not read does (#1371).
+    let reasons: Vec<_> = facts.gaps.iter().map(|gap| gap.title.as_str()).collect();
+    assert_eq!(
+        reasons,
+        ["The macro m! is no macro_rules! of the workspace: the scan does not read its expansion"]
     );
     let record = &facts.symbols[0];
     let cited = facts

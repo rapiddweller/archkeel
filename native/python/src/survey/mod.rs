@@ -11,9 +11,6 @@
 use std::collections::HashSet;
 
 use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Target};
-use archkeel_facts::identity::{stable_id, Part};
-use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
-#[cfg(feature = "dump")]
 use archkeel_facts::pyminor::PyMinor;
 use archkeel_facts::request::PythonRequest;
 use archkeel_facts::{
@@ -96,6 +93,7 @@ pub(crate) struct Survey {
     pub calls: Vec<Record<CallFact>>,
     pub references: Vec<Record<ReferenceFact>>,
     pub constructs: Vec<Record<ConstructFact>>,
+    pub broad_complete: bool,
 }
 
 /// The parsed modules of a request and their binders, as the survey reads them (the dump of
@@ -164,10 +162,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .map(|module| Binders::of(&module.tree))
         .collect();
     let mut evidence = EvidenceMap::new();
-    let constructs = modules
-        .iter()
-        .flat_map(|module| constructs::asserts(module, &mut evidence))
-        .collect();
+    let (constructs, broad_complete) = constructs::collect(modules, &binders, &mut evidence);
     let lazy = lazy::find(modules, &binders, namespace);
     // AD-472: a proven literal import call is an import record; each other site is a gap.
     let (literals, hazards) = hazards::split(modules, &binders, Some(&lazy));
@@ -227,7 +222,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .zip(&aliases)
         .map(|((module, binders), aliases)| {
             let stable = stable::bindings(module, binders, aliases, minor);
-            file_fact(module, binders, stable, &mut evidence)
+            stable::file_fact(module, binders, stable, &mut evidence)
         })
         .collect();
     let mut unknowns = parsed.gaps;
@@ -302,6 +297,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         calls: symbols.calls,
         references: symbols.references,
         constructs,
+        broad_complete,
     })
 }
 
@@ -382,28 +378,5 @@ fn collect(
         if sources.len() == before {
             return (collected, written);
         }
-    }
-}
-
-/// `collect._file_facts`.
-fn file_fact(
-    module: &Module,
-    binders: &Binders,
-    stable_bindings: Vec<String>,
-    evidence: &mut EvidenceMap,
-) -> FileFact {
-    let mut exports: Vec<String> = binders.all_exports.iter().cloned().collect();
-    exports.sort();
-    FileFact {
-        id: FactId::new(stable_id("FILE", &[Part::Text(&module.name)])),
-        rel_path: module.rel.clone(),
-        module: ModuleName::new(module.name.as_str()),
-        package: PackageName::new(module.package.as_str()),
-        all_exports: exports,
-        all_literal: binders.all_literal,
-        compatibility_logic_free: binders.logic_free,
-        stable_bindings,
-        blank: module.tree.body.is_empty(),
-        evidence_id: EvidenceId::new(module.file_evidence(evidence)),
     }
 }

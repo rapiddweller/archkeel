@@ -131,6 +131,7 @@
         "native.archkeel_facts.vocab:Visibility",
         "native.archkeel_facts:BindingFact",
         "native.archkeel_facts:CallFact",
+        "native.archkeel_facts:CommonData",
         "native.archkeel_facts:ConstructFact",
         "native.archkeel_facts:FactData",
         "native.archkeel_facts:GapFact",
@@ -708,6 +709,7 @@
             "native.archkeel_facts.type_shape",
             "native.archkeel_facts.vocab",
             "native.archkeel_facts:CallFact",
+            "native.archkeel_facts:CommonData",
             "native.archkeel_facts:ConstructFact",
             "native.archkeel_facts:FactData",
             "native.archkeel_facts:GapFact",
@@ -4941,6 +4943,8 @@
         }
       ],
       "public": [
+        "native.archkeel_rust_collector.derive_identity:binding",
+        "native.archkeel_rust_collector.derive_identity:namespace",
         "native.archkeel_rust_collector.derive_identity:proven",
         "native.archkeel_rust_collector.derive_imports:Local",
         "native.archkeel_rust_collector.modules.state:Frame",
@@ -5001,7 +5005,8 @@
           "rationale": "Read the lexical shape of a source file.",
           "through": [
             "native.archkeel_rust_collector.definitions",
-            "native.archkeel_rust_collector.scan"
+            "native.archkeel_rust_collector.scan",
+            "native.archkeel_rust_collector.site"
           ]
         },
         {
@@ -5035,14 +5040,15 @@
       "role": "component",
       "layer": "collector",
       "packages": [
+        "native.archkeel_rust_collector.declared",
         "native.archkeel_rust_collector.edges",
         "native.archkeel_rust_collector.edges_extracted",
-        "native.archkeel_rust_collector.module_edges",
-        "native.archkeel_rust_collector.declared",
-        "native.archkeel_rust_collector.symbols",
         "native.archkeel_rust_collector.impl_edges",
         "native.archkeel_rust_collector.impl_globs",
-        "native.archkeel_rust_collector.names"
+        "native.archkeel_rust_collector.macro_identity",
+        "native.archkeel_rust_collector.module_edges",
+        "native.archkeel_rust_collector.names",
+        "native.archkeel_rust_collector.symbols"
       ],
       "responsibilities": [
         "Write the import edges between crates and modules, the declared dependencies and the symbol records of the definitions."
@@ -5082,6 +5088,7 @@
           "component": "rs-text",
           "rationale": "Read the lexical shape of a source file.",
           "through": [
+            "native.archkeel_rust_collector.attrs.model",
             "native.archkeel_rust_collector.definitions",
             "native.archkeel_rust_collector.plant",
             "native.archkeel_rust_collector.scan",

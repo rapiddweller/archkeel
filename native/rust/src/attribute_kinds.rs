@@ -7,7 +7,7 @@
 
 use std::collections::BTreeSet;
 use syn::parse::Parser;
-use syn::{Attribute, Meta, Path, Token};
+use syn::{Attribute, Meta, Path};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
@@ -79,7 +79,7 @@ pub(crate) fn no_tools(attrs: &[Attribute]) -> bool {
 
 pub(crate) fn list<T: syn::parse::Parse>(meta: &Meta) -> Option<Vec<T>> {
     let Meta::List(list) = meta else { return None };
-    syn::punctuated::Punctuated::<T, Token![,]>::parse_terminated
+    syn::punctuated::Punctuated::<T, syn::token::Comma>::parse_terminated
         .parse2(list.tokens.clone())
         .ok()
         .map(|p| p.into_iter().collect())

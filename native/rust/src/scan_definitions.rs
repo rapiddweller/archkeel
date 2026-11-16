@@ -170,12 +170,18 @@ pub(super) fn impl_block(walker: &mut Walker<'_>, item: &ItemImpl) {
 /// Keep a struct or an enum at module level that every configuration has (AD-383).
 pub(super) fn exact_type(walker: &mut Walker<'_>, item: &Item) {
     block_type(walker, item);
-    let (ident, attrs) = match item {
-        Item::Struct(found) => (&found.ident, &found.attrs),
-        Item::Enum(found) => (&found.ident, &found.attrs),
+    let (ident, attrs, is_type) = match item {
+        Item::Struct(found) => (&found.ident, &found.attrs, true),
+        Item::Enum(found) => (&found.ident, &found.attrs, true),
+        Item::Trait(found) => (&found.ident, &found.attrs, false),
         _ => return,
     };
     if walker.blocks == 0 && !walker.selves.gated() && type_inert(attrs) {
+        let scope = walker.inline.clone();
+        walker.out.exact_items.insert((scope, plain(ident)));
+        if !is_type {
+            return;
+        }
         walker.out.exact_types.insert(plain(ident));
         if let Item::Struct(found) = item {
             fields(walker, found);

@@ -101,6 +101,19 @@ fn python_accepts_only_the_registered_assert_capability_with_its_section() {
     facts.capabilities.constructs[0].name = "assert".to_owned();
     facts.capabilities.constructs[0].status = ConstructSupport::Partial;
     assert!(registered(&facts).is_err());
+    facts.capabilities.constructs[0].status = ConstructSupport::Supported;
+    facts
+        .capabilities
+        .constructs
+        .push(archkeel_facts::envelope::ConstructCapability {
+            name: "broad_except".to_owned(),
+            status: ConstructSupport::Partial,
+        });
+    assert_eq!(registered(&facts), Ok(()));
+    facts.capabilities.constructs[1].status = ConstructSupport::Supported;
+    assert_eq!(registered(&facts), Ok(()));
+    facts.capabilities.constructs[1].name = "getattr".to_owned();
+    assert!(registered(&facts).is_err());
     facts.capabilities.constructs.clear();
     assert!(registered(&facts).is_err());
 }
