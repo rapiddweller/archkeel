@@ -1938,7 +1938,7 @@
   }
 
 
-  const atlasOwnerPalette = ["var(--accent)", "var(--ink-muted)", "var(--accent-hover)", "var(--line-strong)", "var(--accent-text)", "var(--ink-subtle)"];
+  const atlasOwnerPalette = ["var(--line-strong)", "var(--ink-subtle)", "var(--ink-muted)", "var(--line-strong)", "var(--ink-subtle)", "var(--ink-muted)"];
   const atlasComponentIds = ATLAS ? ATLAS.components.map((item) => item.id).sort() : [];
   function atlasOwnerColor(componentId) {
     const index = atlasComponentIds.indexOf(componentId);

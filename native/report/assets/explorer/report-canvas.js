@@ -246,7 +246,7 @@
 
   // ---------- perspectives from recorded evidence ----------
   const { decider: DECIDER, perspectives: PERSPECTIVES } = window.ArchkeelReportScene;
-  const PALETTE = ["var(--accent)", "var(--ink-muted)", "var(--accent-hover)", "var(--line-strong)", "var(--accent-text)", "var(--ink-subtle)", "var(--ink)", "var(--surface-3)"];
+  const PALETTE = ["var(--line-strong)", "var(--accent-text)", "var(--ink-muted)", "var(--accent-hover)", "var(--ink-subtle)", "var(--accent)", "var(--ink)", "var(--surface-3)"];
   const categorical = {};
   for (const [key, perspective] of Object.entries(PERSPECTIVES)) {
     if (perspective.colors) continue;

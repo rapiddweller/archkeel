@@ -48,12 +48,12 @@ pub(super) const SCRIPTS: [(&str, &str, &str); 8] = [
     (
         include_str!("../assets/explorer/flow.runtime.js"),
         " data-report-asset=\"flow\"",
-        "LiJZ9OKONbi0AhtouHpJQkIK/RpCMv1RBs/KEuZ+AfM=",
+        "Srr/Lvuvq/kwiRT9Exm6XspDEDU+PU4GB+vDBr5XWH8=",
     ),
     (
         include_str!("../assets/explorer/report-canvas.js"),
         " data-report-asset=\"canvas\"",
-        "5MsVFojnIYBZTh3Ikiic1wrG4Ifxz7jONpqenaiFrCc=",
+        "fcsmHXRjDiMKl8xof8xMFq9PSXv1++ALvW6d4Zyin2E=",
     ),
 ];
 
