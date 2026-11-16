@@ -86,7 +86,7 @@ pub(crate) fn collect(request: &RustRequest, provenance: Provenance) -> Collecte
     for module in &walked.modules {
         builder_ref.module(&workspace, &modules_index, module, &walked.modules);
     }
-    builder_ref.macro_calls(&modules_index, &walked.modules);
+    builder_ref.macro_calls(&workspace, &modules_index, &walked.modules);
     builder_ref.impl_members(&workspace, &modules_index, &walked.modules);
     builder_ref.check_extracted(&walked.modules);
     let taken: BTreeSet<&str> = modules.values().copied().collect();

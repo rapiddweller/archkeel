@@ -83,6 +83,10 @@ pub(crate) struct Builder {
     /// The members that a macro call can add to an `impl` block outside the file of its type,
     /// by name, with the modules of the calls: a method call gets a pair gap to each (#1196).
     pub(crate) macro_foreign_members: BTreeMap<String, BTreeSet<String>>,
+    /// The modules where a macro call may write an impl that is not anchored there, with the file
+    /// and the site of the first such call: each module that may reach one gets a pair gap
+    /// (#1371, AD-516).
+    pub(crate) macro_impl_homes: BTreeMap<String, (String, crate::site::Site)>,
     /// The pairs that have a pair gap: one gap is enough for each pair.
     pub(crate) gapped: BTreeSet<(String, String)>,
     /// The outcomes that the edges ended, for the invariant of the extraction
