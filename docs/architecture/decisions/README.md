@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-672 | [A self-check pin may only shrink, and growth needs a reason](ad-672-a-self-check-pin-may-only-shrink-and-growth-needs-a-reason.md) |
 | AD-664 | [A contract can declare the reach of a door site](ad-664-a-contract-can-declare-the-reach-of-a-door-site.md) |
 | AD-658 | [A Python assert is a written construct](ad-658-a-python-assert-is-a-written-construct.md) |
 | AD-656 | [A macro that adds a method outside the file of its type gives a pair gap](ad-656-a-macro-that-adds-a-method-outside-the-file-of-its-type-gives-a-pair-gap.md) |
