@@ -10,7 +10,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::codes::{Code, NodeLevel, UnknownReason, UnknownSource};
+use crate::code::Code;
+use crate::codes::{NodeLevel, UnknownReason, UnknownSource};
 use crate::input::{
     EdgeRow, FindingRow, MeasureRow, NodeRow, PermissionRow, UnitRow, ViolationRow,
 };
