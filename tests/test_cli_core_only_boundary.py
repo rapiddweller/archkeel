@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from archkeel.cli import core_binary, core_only, native_scan
+from archkeel.cli import core_arguments, core_binary, core_only, native_scan
 from archkeel.cli.core_frame import CoreError, RefusalKind, Status
 
 HEAD = "a" * 40
@@ -159,6 +159,8 @@ def frame(status: Status = Status.PASS) -> bytes:
             "unknown_kinds": {"R1": "scope_incomplete"} if status is Status.UNKNOWN else {},
             "unsupported": {"rules": {}, "sections": {}, "report": None},
             "gaps": [],
+            "collection_gaps": [],
+            "measures": None,
             "self_test": {
                 "contract": {"rules": {"R1": "forbidden_dependency"}},
                 "reply": {"files": 2},
@@ -203,7 +205,7 @@ def test_call_measure_is_checked_before_the_frame_is_accepted() -> None:
 
 @pytest.fixture(autouse=True)
 def no_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.delenv(core_only.VARIABLE, raising=False)
+    monkeypatch.delenv(core_arguments.VARIABLE, raising=False)
     monkeypatch.delenv(OLD_STAGE_ONE_VARIABLE, raising=False)
     monkeypatch.setattr(core_only, "identity", lambda _: (HEAD, False))
     monkeypatch.chdir(tmp_path)
@@ -211,7 +213,7 @@ def no_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     (tmp_path / "contract.json").write_bytes(b"contract")
 
 
-@pytest.mark.parametrize("variable", [core_only.VARIABLE, OLD_STAGE_ONE_VARIABLE])
+@pytest.mark.parametrize("variable", [core_arguments.VARIABLE, OLD_STAGE_ONE_VARIABLE])
 @pytest.mark.parametrize("value", ["1", "0", "wrong"])
 def test_an_old_engine_variable_selects_nothing(
     variable: str,
@@ -371,7 +373,7 @@ def test_real_process_faults_are_typed_refusals(
     assert json.loads(capsys.readouterr().out)["status"] == Status.UNKNOWN
 
 
-@pytest.mark.parametrize("kind", list(core_only.CheckKind))
+@pytest.mark.parametrize("kind", list(core_arguments.CheckKind))
 @pytest.mark.parametrize(
     "flags",
     [
@@ -397,7 +399,7 @@ def test_real_process_faults_are_typed_refusals(
     ],
 )
 def test_each_mandatory_merge_check_is_named_without_a_scan(
-    kind: core_only.CheckKind,
+    kind: core_arguments.CheckKind,
     flags: list[str],
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
@@ -416,7 +418,7 @@ def test_each_mandatory_merge_check_is_named_without_a_scan(
     [
         (command, option)
         for command in ("validate", "report")
-        for option in sorted(core_only.REMOVED_OPTIONS)
+        for option in sorted(core_arguments.REMOVED_OPTIONS)
         if (command, option) != ("report", "--output")
     ],
 )
@@ -435,7 +437,7 @@ def test_each_option_of_the_release_line_refuses_by_name(
         refusal = json.loads(capsys.readouterr().out)["refusal"]
         assert refusal["kind"] == RefusalKind.NOT_ON_THIS_LINE
         assert f"{command} {option} is not available" in refusal["message"]
-        released = option not in core_only.UNRELEASED_OPTIONS
+        released = option not in core_arguments.UNRELEASED_OPTIONS
         assert ("use release 4.0.1" in refusal["message"]) == released
         assert ("no release has it" in refusal["message"]) != released
         assert "#880" in refusal["message"]

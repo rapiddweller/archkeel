@@ -31,6 +31,7 @@ from .core_json import Gap as Gap
 from .core_json import GapKind as GapKind
 from .core_json import as_count, as_fields, as_object, as_text, as_texts, check_measures
 from .core_output import read_html
+from .core_schema import check_frame
 from .core_topology import Topology, frame_topology, require_topology
 
 
@@ -137,42 +138,7 @@ _Word = TypeVar("_Word", bound=StrEnum)
 # The exit codes of the core: a frame without a named part, and a frame that names one.
 DECIDED_EXIT: Final = 0
 NAMES_A_GAP_EXIT: Final = 3
-_FIELDS: Final = frozenset(
-    {
-        "engine",
-        "status",
-        "rules",
-        "explained",
-        "violations",
-        "beyond",
-        "scope",
-        "sections",
-        "unsupported",
-        "self_test",
-    }
-)
 FRAME_PROTOCOL: Final = FrameProtocol.FRAME
-_EVIDENCE_FIELDS: Final = frozenset(
-    {
-        "protocol",
-        "details",
-        "locations",
-        "unknown_kinds",
-        "collection_gaps",
-        "contract_digest",
-        "topology",
-        "explain",
-        "html",
-        "measures",
-        "gaps",
-        "baseline",
-        "premise",
-    }
-)
-_UNSUPPORTED: Final = frozenset({"rules", "sections", "report"})
-_SELF_TEST: Final = frozenset({"contract", "reply"})
-# AD-406: the self-test of a scan frame has the `collect` part too.
-_SCAN: Final = frozenset({"collect"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -294,7 +260,8 @@ def _document(stdout: bytes) -> dict[str, object]:
     if text[end:].strip():
         raise CoreError("the core wrote more than one frame")
     found = as_object(value, "frame")
-    return as_fields(found, "frame", _FIELDS | (_EVIDENCE_FIELDS & found.keys()))
+    check_frame(found)
+    return found
 
 
 def _rules(frame: Mapping[str, object]) -> dict[str, RuleVerdict]:
@@ -363,7 +330,7 @@ def _core_gaps(frame: Mapping[str, object], named: object) -> list[Gap]:
 def _gaps(
     frame: Mapping[str, object], scan: bool
 ) -> tuple[tuple[Gap, ...], tuple[str, ...], str | None]:
-    unsupported = as_fields(frame["unsupported"], "unsupported", _UNSUPPORTED)
+    unsupported = as_object(frame["unsupported"], "unsupported")
     named = unsupported["rules"]
     gaps = _core_gaps(frame, named)
     sections = as_texts(unsupported["sections"], "unsupported.sections")
@@ -371,12 +338,16 @@ def _gaps(
     if unsupported["report"] is not None:
         report = as_text(unsupported["report"], "unsupported.report")
         gaps.append(Gap(GapKind.REPORT, "report", report))
-    test = as_fields(frame["self_test"], "self_test", _SELF_TEST | _SCAN if scan else _SELF_TEST)
+    test = as_object(frame["self_test"], "self_test")
     contract, missing = _contract_gaps(test["contract"])
     # AD-406: the `collect` part of a scan frame: the derived request, or the refusal.
     collected: list[Gap] = []
     derived: str | None = None
+    if scan == ("collect" not in test):
+        raise CoreError("the core frame has self_test.collect only for a scan, and always for it")
     if scan:
+        if "collect" not in test:
+            raise CoreError("the core frame of a scan has no self_test.collect")
         collect = as_object(test["collect"], "self_test.collect")
         tag, found = _one(
             {key: value for key, value in collect.items() if key != "contract_files"},

@@ -1,0 +1,1355 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "archkeel core frame, protocol archkeel-core-frame-1",
+  "description": "The one frame that the core writes and the shell reads. Generated from the Rust types.",
+  "type": "object",
+  "properties": {
+    "protocol": {
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/Status"
+    },
+    "rules": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "prefixItems": [
+          {
+            "type": "string"
+          },
+          {
+            "$ref": "#/$defs/RuleVerdict"
+          }
+        ],
+        "minItems": 2,
+        "maxItems": 2
+      },
+      "description": "The kind word and the verdict of each decided rule."
+    },
+    "explained": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "The reason of each UNKNOWN rule."
+    },
+    "violations": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "format": "uint",
+        "minimum": 0
+      },
+      "description": "The number of violations of each FAIL rule."
+    },
+    "details": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/ViolationDetail"
+        }
+      }
+    },
+    "unknown_kinds": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/WhyUnknown"
+      }
+    },
+    "beyond": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Each PASS rule of a run with kept pair gaps: the reference engine gives it UNKNOWN, and\nthe model proves that no kept gap can change it (AD-384 point 4)."
+    },
+    "scope": {
+      "type": "string",
+      "description": "Why the scope of the run is not complete, or `complete`."
+    },
+    "premise": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The one assumption that the collector states for its proofs (AD-540). The word of `scope`\nstays `complete`: the shell reads it."
+    },
+    "measures": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Measures"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "topology": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Topology"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "explain": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Explain"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "engine": {
+      "type": "string"
+    },
+    "sections": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": true
+      }
+    },
+    "unsupported": {
+      "$ref": "#/$defs/UnsupportedParts"
+    },
+    "self_test": {
+      "$ref": "#/$defs/SelfTest"
+    },
+    "locations": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/Location2"
+      }
+    },
+    "collection_gaps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/CollectionGap"
+      }
+    },
+    "contract_digest": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/GapRow"
+      },
+      "description": "The gaps of the rules without a decision, each with its kind (AD-546)."
+    },
+    "baseline": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Part"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "html": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "archkeel-core-html-1"
+        },
+        "status": {
+          "type": "string"
+        },
+        "document": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol",
+        "status",
+        "document"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "beyond",
+    "collection_gaps",
+    "contract_digest",
+    "details",
+    "engine",
+    "explained",
+    "gaps",
+    "locations",
+    "measures",
+    "protocol",
+    "rules",
+    "scope",
+    "sections",
+    "self_test",
+    "status",
+    "unknown_kinds",
+    "unsupported",
+    "violations"
+  ],
+  "$defs": {
+    "RuleReasons": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "description": "The reasons of the rules without a decision: one for each rule, or one for the contract."
+    },
+    "Status": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "UNKNOWN"
+      ],
+      "description": "The status of a run or of its observation: the three verdicts of the Decision."
+    },
+    "RuleVerdict": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "UNKNOWN",
+        "DECLARATION"
+      ],
+      "description": "The encoded verdict of one rule row. It is the wire form only: a built report writes it from\na `Decision` of the model, and a decoded report holds it as read bytes (AD-363 point 4)."
+    },
+    "ViolationDetail": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cause": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "source",
+        "target",
+        "cause",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "WhyUnknown": {
+      "type": "string",
+      "enum": [
+        "scope_incomplete",
+        "no_receipt",
+        "undecided",
+        "ownership_blocker",
+        "no_decided_rule"
+      ],
+      "description": "Why the evaluator left a rule UNKNOWN. The builder derives the reason of every other verdict\nfrom the `Decision`: PASS is `evaluated`, FAIL `violations`, a declaration `declaration`."
+    },
+    "Named": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "subject",
+        "reason"
+      ],
+      "description": "A part of the baseline that the core names and does not decide.",
+      "additionalProperties": false
+    },
+    "Measures": {
+      "type": "object",
+      "properties": {
+        "calls_total": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "All calls that the inventory found."
+        },
+        "calls_resolved": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Calls with one proven target."
+        },
+        "calls_partial": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Calls with a target that is only partly proven."
+        },
+        "calls_builtin": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Calls of a builtin."
+        },
+        "calls_external": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Calls of a name outside the scan."
+        },
+        "calls_unresolved": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Calls with no proven target."
+        },
+        "unresolved_self": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Unresolved calls on `self`."
+        },
+        "unresolved_attribute": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Unresolved calls of an attribute."
+        },
+        "unresolved_name": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Unresolved calls of a plain name."
+        },
+        "unresolved_dynamic": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Unresolved calls whose target is computed at run time."
+        },
+        "typing_positions": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "The positions that a type annotation can fill."
+        },
+        "untyped_private_accesses": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Accesses to a private member that no type proves."
+        }
+      },
+      "required": [
+        "calls_total",
+        "calls_resolved",
+        "calls_partial",
+        "calls_builtin",
+        "calls_external",
+        "calls_unresolved",
+        "unresolved_self",
+        "unresolved_attribute",
+        "unresolved_name",
+        "unresolved_dynamic",
+        "typing_positions",
+        "untyped_private_accesses"
+      ],
+      "description": "The counts of one complete source inventory.",
+      "additionalProperties": false
+    },
+    "Topology": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "budgets": {
+          "$ref": "#/$defs/Counts"
+        },
+        "total": {
+          "$ref": "#/$defs/Counts"
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Component"
+          }
+        },
+        "modules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Module"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Edge"
+          }
+        },
+        "component_edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Edge"
+          }
+        }
+      },
+      "required": [
+        "version",
+        "complete",
+        "gaps",
+        "truncated",
+        "budgets",
+        "total",
+        "components",
+        "modules",
+        "edges",
+        "component_edges"
+      ],
+      "additionalProperties": false
+    },
+    "Counts": {
+      "type": "object",
+      "properties": {
+        "components": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "modules": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "edges": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "component_edges": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "evidence_per_edge": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "components",
+        "modules",
+        "edges",
+        "component_edges",
+        "evidence_per_edge"
+      ],
+      "additionalProperties": false
+    },
+    "Component": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "parent": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "packages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exact_modules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "planned": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "parent",
+        "packages",
+        "exact_modules",
+        "planned"
+      ],
+      "additionalProperties": false
+    },
+    "Module": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "component": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ownership": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "path",
+        "component",
+        "ownership"
+      ],
+      "additionalProperties": false
+    },
+    "Edge": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "resolution": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Location"
+          }
+        },
+        "evidence_total": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "rules": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "target",
+        "resolution",
+        "count",
+        "evidence",
+        "evidence_total",
+        "rules"
+      ],
+      "additionalProperties": false
+    },
+    "Location": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "path",
+        "line"
+      ],
+      "additionalProperties": false
+    },
+    "Explain": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "budgets": {
+          "$ref": "#/$defs/Budgets"
+        },
+        "rules": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/RuleShape"
+          }
+        },
+        "cycles": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/Cycles"
+          }
+        },
+        "holds": {
+          "$ref": "#/$defs/Holds"
+        }
+      },
+      "required": [
+        "version",
+        "budgets",
+        "rules",
+        "cycles",
+        "holds"
+      ],
+      "description": "The `explain` part of the frame.",
+      "additionalProperties": false
+    },
+    "Budgets": {
+      "type": "object",
+      "properties": {
+        "cycles_per_rule": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "path_steps": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "evidence_per_step": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "held_per_rule": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "rules_per_gap": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "gaps": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "cycles_per_rule",
+        "path_steps",
+        "evidence_per_step",
+        "held_per_rule",
+        "rules_per_gap",
+        "gaps"
+      ],
+      "additionalProperties": false
+    },
+    "RuleShape": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "string"
+        },
+        "source": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "target": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "direction",
+        "source",
+        "target"
+      ],
+      "description": "The shape of one rule.",
+      "additionalProperties": false
+    },
+    "Cycles": {
+      "type": "object",
+      "properties": {
+        "total": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CyclePath"
+          }
+        }
+      },
+      "required": [
+        "total",
+        "truncated",
+        "items"
+      ],
+      "description": "The cycles of one rule.",
+      "additionalProperties": false
+    },
+    "CyclePath": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "index": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0,
+          "description": "The position of the violation in `details` of the rule."
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "path": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Step"
+          }
+        },
+        "steps_total": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "index",
+        "members",
+        "path",
+        "steps_total",
+        "truncated"
+      ],
+      "description": "One cycle: its members and one closed path through them.",
+      "additionalProperties": false
+    },
+    "Step": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "from_component": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "to_component": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "imports": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_total": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "from_component",
+        "to_component",
+        "imports",
+        "evidence",
+        "evidence_total"
+      ],
+      "description": "One step of a cycle path.",
+      "additionalProperties": false
+    },
+    "Holds": {
+      "type": "object",
+      "properties": {
+        "rules": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/RuleHolds"
+          }
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GapHolds"
+          }
+        },
+        "gaps_total": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0,
+          "description": "The number of coverage gaps of the reply."
+        },
+        "gaps_holding": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0,
+          "description": "The number of coverage gaps that hold at least one rule."
+        },
+        "gaps_truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "rules",
+        "gaps",
+        "gaps_total",
+        "gaps_holding",
+        "gaps_truncated"
+      ],
+      "additionalProperties": false
+    },
+    "RuleHolds": {
+      "type": "object",
+      "properties": {
+        "cause": {
+          "$ref": "#/$defs/WhyUnknown"
+        },
+        "kind": {
+          "$ref": "#/$defs/HoldKind"
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the coverage gaps of the reply that hold the rule."
+        },
+        "pairs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Pair"
+          },
+          "description": "The pairs of the gaps between two modules that hold the rule."
+        },
+        "total": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0,
+          "description": "The number of gaps that hold the rule."
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "unnamed_imports": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0,
+          "description": "The imports that the collector could not resolve and that no gap names."
+        }
+      },
+      "required": [
+        "cause",
+        "kind",
+        "gaps",
+        "pairs",
+        "total",
+        "truncated",
+        "unnamed_imports"
+      ],
+      "description": "The gaps that hold one rule.",
+      "additionalProperties": false
+    },
+    "HoldKind": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "coverage_gaps",
+            "pair_gaps",
+            "allowed_pair_gaps",
+            "unknown_imports",
+            "no_source_files"
+          ]
+        },
+        {
+          "type": "string",
+          "const": "other",
+          "description": "Any other cause: the text of `explained` names it."
+        }
+      ],
+      "description": "What kind of gap holds a rule."
+    },
+    "Pair": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "target"
+      ],
+      "description": "The pair of a gap between two modules.",
+      "additionalProperties": false
+    },
+    "GapHolds": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rules_total": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "reason",
+        "rules",
+        "rules_total",
+        "truncated"
+      ],
+      "description": "One coverage gap and the rules that it holds.",
+      "additionalProperties": false
+    },
+    "UnsupportedParts": {
+      "type": "object",
+      "properties": {
+        "sections": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "report": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rules": {
+          "$ref": "#/$defs/RuleReasons"
+        }
+      },
+      "required": [
+        "sections",
+        "report",
+        "rules"
+      ],
+      "additionalProperties": false
+    },
+    "SelfTest": {
+      "type": "object",
+      "properties": {
+        "contract": {
+          "$ref": "#/$defs/ContractCheck"
+        },
+        "reply": {
+          "$ref": "#/$defs/ReplyCheck"
+        },
+        "collect": true
+      },
+      "required": [
+        "contract",
+        "reply"
+      ],
+      "additionalProperties": false
+    },
+    "ContractCheck": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "rules": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "rules"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "missing": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "missing"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "refused": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "refused"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "not_read": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "not_read"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ReplyCheck": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "files": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "files"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "refused": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "refused"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "absent": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "absent"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Location2": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "required": [
+        "path",
+        "line"
+      ],
+      "additionalProperties": false
+    },
+    "CollectionGap": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "detail": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The collector's free text beside the reason, not part of the gap key (AD-540)."
+        }
+      },
+      "required": [
+        "kind",
+        "subjects",
+        "reason",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "GapRow": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "subject",
+        "reason"
+      ],
+      "description": "One gap of the result, with the word that the shell reads (AD-546).",
+      "additionalProperties": false
+    },
+    "Part": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string"
+        },
+        "exit_code": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "accepted_entries": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "The distinct entries (kind, subject, reason) that the file and the run share."
+        },
+        "accepted_unknowns": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "The items behind them: an entry with a count of 3 is 3 items."
+        },
+        "new": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Difference"
+          }
+        },
+        "gone": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Difference"
+          }
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Named"
+          }
+        },
+        "accepted_rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The rule rows whose every key the file accepts. The row stays UNKNOWN; the report says\n\"accepted\" beside it."
+        },
+        "file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "state",
+        "exit_code",
+        "accepted_entries",
+        "accepted_unknowns",
+        "new",
+        "gone",
+        "gaps",
+        "accepted_rules"
+      ],
+      "description": "The part of the frame. `file` holds the bytes to write, as text.",
+      "additionalProperties": false
+    },
+    "Difference": {
+      "type": "object",
+      "properties": {
+        "what": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "run": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "file": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "what",
+        "kind",
+        "subject",
+        "reason",
+        "run",
+        "file"
+      ],
+      "description": "One difference between the run and the file.",
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

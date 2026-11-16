@@ -62,7 +62,7 @@ pub struct Named {
 }
 
 /// The reasons of the rules without a decision: one for each rule, or one for the contract.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 #[serde(untagged)]
 pub enum RuleReasons {
     /// One reason for each rule, by rule id.
@@ -82,7 +82,7 @@ impl RuleReasons {
 }
 
 /// The decided head of the engine frame. The fields are private: only `rule` makes one.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 pub struct Ruling {
     protocol: &'static str,
     #[serde(skip)]

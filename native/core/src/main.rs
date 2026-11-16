@@ -22,6 +22,7 @@ mod baseline_frame;
 mod contract;
 mod dual_run;
 mod engine;
+mod frame_schema;
 mod gap_key;
 mod hygiene;
 mod hygiene_boundary;

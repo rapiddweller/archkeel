@@ -20,7 +20,7 @@ const MAX_MODULES: usize = 10_000;
 const MAX_EDGES: usize = 20_000;
 const MAX_EVIDENCE: usize = 5;
 
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 pub(crate) struct Topology {
     version: u8,
     complete: bool,
@@ -34,7 +34,7 @@ pub(crate) struct Topology {
     component_edges: Vec<Edge>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 struct Counts {
     components: usize,
     modules: usize,
@@ -43,7 +43,7 @@ struct Counts {
     evidence_per_edge: usize,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 struct Component {
     id: String,
     name: String,
@@ -53,7 +53,7 @@ struct Component {
     planned: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 struct Module {
     name: String,
     path: String,
@@ -61,13 +61,13 @@ struct Module {
     ownership: &'static str,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, schemars::JsonSchema)]
 struct Location {
     path: String,
     line: i64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 struct Edge {
     id: String,
     source: String,

@@ -2742,9 +2742,12 @@
       "kind": "external_dependency_scope",
       "dependency": "schemars",
       "allowed_sources": [
-        "native.archkeel_facts"
+        "native.archkeel_core",
+        "native.archkeel_facts",
+        "native.archkeel_model",
+        "native.archkeel_report"
       ],
-      "rationale": "Only the facts crate generates the JSON schema of the facts (AD-345).",
+      "rationale": "Only the facts crate and the crates of the core frame derive a JSON schema: the facts (AD-345) and the frame of the core (AD-596).",
       "provenance": [
         "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
       ],

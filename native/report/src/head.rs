@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::codes::{Code, Gap, MeasureDef, Relation};
 
 /// The status of a run or of its observation: the three verdicts of the Decision.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum Status {
     /// Every rule passes.
     #[serde(rename = "PASS")]
@@ -27,7 +27,7 @@ pub enum Status {
 
 /// The encoded verdict of one rule row. It is the wire form only: a built report writes it from
 /// a `Decision` of the model, and a decoded report holds it as read bytes (AD-363 point 4).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum RuleVerdict {
     /// The rule holds.
     #[serde(rename = "PASS")]
