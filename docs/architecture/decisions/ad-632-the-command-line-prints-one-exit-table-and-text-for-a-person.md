@@ -27,5 +27,10 @@ command and a full JSON frame printed after `report --output`.
    examples. `--only` and `--input` are not documented and refuse in plain words; `--topology` says
    that it changes the printed result, not the HTML page.
 
-**Not done here.** Errors of a contract or a configuration file that name file, path and fix need
-the messages of the core (#1324).
+6. Errors of the input come first and name what to do (#1324). A refused contract is printed as
+   `Problem: <file>: <what the core read>` and `Fix: <what to write>`: the syntax place of invalid
+   JSON, an example for a `requires` entry, the schema file for the other forms. A configuration
+   file that cannot be read is split into missing (with `archkeel init`), a folder, and unreadable.
+   The advice is display only (`core_words.contract_fix`); the core still decides every verdict.
+   It is chosen from the shape of the core message; a better message for each form needs the
+   contract crate.
