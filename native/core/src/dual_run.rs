@@ -30,7 +30,9 @@ use archkeel_report::Named;
 
 #[path = "frame_parts.rs"]
 mod frame_parts;
-pub(crate) use frame_parts::{refused_scan, Answered, Collect, PartRow, SystemFrame, CODE_DIGEST};
+pub(crate) use frame_parts::{
+    refused_scan, Answered, Collect, InterfaceRow, PartRow, SystemFrame, CODE_DIGEST,
+};
 #[cfg(test)]
 pub(crate) use frame_parts::{typed_rows, Parts as FrameParts};
 use frame_parts::{ContractCheck, Parts, ReplyCheck, SelfTest, UnsupportedParts, ENGINE};

@@ -13,7 +13,7 @@ use archkeel_collect::{System, SystemPart};
 use archkeel_report::{system_status, Status};
 use serde_json::{json, Map, Value};
 
-use crate::dual_run::{PartRow, SystemFrame};
+use crate::dual_run::{InterfaceRow, PartRow, SystemFrame};
 
 /// The keys whose maps of all parts the system frame holds; a key that two parts use refuses it.
 const RULE_MAPS: [&str; 6] = [
@@ -72,15 +72,20 @@ pub(crate) fn join(
         title: system.title.clone(),
         document: system.document.0.clone(),
         parts,
+        interfaces: system
+            .interfaces
+            .iter()
+            .map(|i| InterfaceRow {
+                id: i.id.clone(),
+                source: i.source.clone(),
+                target: i.target.clone(),
+                title: i.title.clone(),
+                schema: i.schema.clone(),
+            })
+            .collect(),
     };
     if topology || html {
-        let sources: Vec<_> = system
-            .parts
-            .iter()
-            .zip(&frames)
-            .zip(&described.parts)
-            .map(|((part, found), row)| (part, row.profile.as_deref(), found))
-            .collect();
+        let sources: Vec<_> = system.parts.iter().zip(&frames).collect();
         if let Some(found) = crate::system_topology::topology(&sources)? {
             frame.insert("topology".to_owned(), found);
         }

@@ -12,30 +12,26 @@ use std::collections::BTreeSet;
 use archkeel_collect::SystemPart;
 use serde_json::{json, Map, Value};
 
-/// The part box of the Explorer for a part, from the keys of a component of the topology.
-fn part_component(part: &SystemPart, profile: Option<&str>, sample: &Map<String, Value>) -> Value {
+/// The part box of the Explorer for a part, from the keys of a component of the topology. The
+/// texts are the ones of the system document: what the part is for, what it is not for, and what
+/// it provides.
+fn part_component(part: &SystemPart, sample: &Map<String, Value>) -> Value {
     let mut row: Map<String, Value> = sample
         .keys()
         .map(|key| (key.clone(), Value::Null))
         .collect();
-    for key in [
-        "packages",
-        "exact_modules",
-        "public",
-        "responsibilities",
-        "forbidden_responsibilities",
-        "planned_public",
-    ] {
+    for key in ["packages", "exact_modules", "planned_public"] {
         row.insert(key.to_owned(), json!([]));
     }
-    let about = match profile {
-        Some(profile) => format!("One part of the system; its modules are read as {profile}."),
-        None => "One part of the system.".to_owned(),
-    };
     row.insert("id".to_owned(), json!(format!("PART:{}", part.id)));
     row.insert("name".to_owned(), json!(part.title));
     row.insert("planned".to_owned(), json!(false));
-    row.insert("responsibilities".to_owned(), json!([about]));
+    row.insert("public".to_owned(), json!(part.provides));
+    row.insert("responsibilities".to_owned(), json!(part.responsibilities));
+    row.insert(
+        "forbidden_responsibilities".to_owned(),
+        json!(part.forbidden_responsibilities),
+    );
     Value::Object(row)
 }
 
@@ -58,14 +54,14 @@ fn unique(seen: &mut BTreeSet<String>, kind: &str, id: Option<&str>) -> Result<(
 /// The topology of the system. `None` when no part states one (a part without it is a gap that
 /// the frame of the part names).
 pub(crate) fn topology(
-    parts: &[(&SystemPart, Option<&str>, &Map<String, Value>)],
+    parts: &[(&SystemPart, &Map<String, Value>)],
 ) -> Result<Option<Value>, String> {
     let (mut components, mut modules) = (Vec::new(), Vec::new());
     let mut lists: [Vec<Value>; 5] = Default::default();
     let (mut ids, mut names) = (BTreeSet::new(), BTreeSet::new());
     let (mut complete, mut truncated, mut found) = (true, false, false);
     let mut totals = Map::new();
-    for (part, profile, frame) in parts {
+    for (part, frame) in parts {
         let Some(topology) = frame.get("topology").and_then(Value::as_object) else {
             complete = false;
             continue;
@@ -79,7 +75,7 @@ pub(crate) fn topology(
         };
         let part_id = format!("PART:{}", part.id);
         unique(&mut ids, "component", Some(&part_id))?;
-        components.push(part_component(part, *profile, sample));
+        components.push(part_component(part, sample));
         for component in own {
             let mut component = component.clone();
             unique(&mut ids, "component", component["id"].as_str())?;
@@ -116,7 +112,7 @@ pub(crate) fn topology(
     totals.insert("modules".to_owned(), json!(modules.len()));
     let first = parts
         .iter()
-        .find_map(|(_, _, frame)| frame.get("topology").and_then(Value::as_object));
+        .find_map(|(_, frame)| frame.get("topology").and_then(Value::as_object));
     let [edges, component_edges, requires, layers, gaps] = lists;
     Ok(Some(json!({
         "version": 1, "complete": complete, "truncated": truncated, "gaps": gaps,

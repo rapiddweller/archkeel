@@ -39,7 +39,11 @@ SCAN = '[scan]\nlanguage = "rust"\nroots = ["crates"]\nnamespace = "native"\ncon
 
 
 def _system(
-    root: Path, core: Path, parts: dict[str, tuple[dict[str, Any], ...]], rules: list[Any]
+    root: Path,
+    core: Path,
+    parts: dict[str, tuple[dict[str, Any], ...]],
+    rules: list[Any],
+    interfaces: list[Any] | None = None,
 ) -> Path:
     """A Rust fixture with one configuration and contract for each part, and the system document."""
     repository(root, core)
@@ -49,12 +53,22 @@ def _system(
         contract = {"schema_version": "2.1.0", "components": components, "rules": part_rules}
         (root / f"{name}-contract.json").write_text(json.dumps(contract, indent=2))
         (root / f"{name}.toml").write_text(SCAN.format(f"{name}-contract.json"))
-        listed.append({"id": name, "title": f"Part {name}", "config": f"{name}.toml"})
+        listed.append(
+            {
+                "id": name,
+                "title": f"Part {name}",
+                "config": f"{name}.toml",
+                "responsibilities": [f"Part {name} checks its crate."],
+                "forbidden_responsibilities": ["Checking another part."],
+                "provides": [f"The result of {name}."],
+            }
+        )
     document = {
         "schema_version": "archkeel-system-contract-1",
         "kind": "system",
         "title": "Fixture",
         "parts": listed,
+        "interfaces": interfaces or [],
         "rules": rules,
     }
     (root / "system.json").write_text(json.dumps(document, indent=2))
@@ -165,12 +179,46 @@ def test_the_report_of_two_parts_that_name_one_component_is_refused(
     assert page is None
 
 
+def test_an_interface_names_two_parts_and_a_schema_file_that_exists(
+    tmp_path: Path, core_binary: Path
+) -> None:
+    (tmp_path / "wire.schema.json").write_text("{}")
+    good = {
+        "id": "wire",
+        "source": "one",
+        "target": "two",
+        "title": "A wire",
+        "schema": "wire.schema.json",
+    }
+    for name, change, cause in (
+        ("lost", {"schema": "none.schema.json"}, "is no file"),
+        ("self", {"target": "one"}, "joins a part to itself"),
+        ("far", {"target": "ghost"}, "names no part ghost"),
+    ):
+        root = _system(
+            tmp_path / name, core_binary, {"one": PASSING, "two": ()}, [], [{**good, **change}]
+        )
+        (root / "wire.schema.json").write_text("{}")
+        commit_tree(root)
+        code, result = _validate(root, core_binary)
+        assert code != 0 and result["status"] == "UNKNOWN", result
+        assert cause in json.dumps(result), result
+
+
 def test_a_part_that_the_core_cannot_run_leaves_the_system_unknown(
     tmp_path: Path, core_binary: Path
 ) -> None:
     root = _system(tmp_path, core_binary, {"one": PASSING}, [])
     document = json.loads((root / "system.json").read_text())
-    document["parts"].append({"id": "lost", "title": "Lost part", "config": "lost.toml"})
+    lost = {
+        "id": "lost",
+        "title": "Lost part",
+        "config": "lost.toml",
+        "responsibilities": ["Nothing runs."],
+        "forbidden_responsibilities": ["Anything."],
+        "provides": ["Nothing."],
+    }
+    document["parts"].append(lost)
     (root / "system.json").write_text(json.dumps(document))
     commit_tree(root)
     exit_code, result = _validate(root, core_binary)

@@ -38,7 +38,7 @@ pub(super) const SCRIPTS: [(&str, &str, &str); 8] = [
     (
         include_str!("../assets/explorer/report-scene.js"),
         " data-report-asset=\"scene\"",
-        "4HS6/ptvzziRWgJIvu+KEQG7ieN2SDfyBv8etVGvSQc=",
+        "y/9Dg2Klo0nJgXudiDeERramh1MCAyGhutLqbivjkc0=",
     ),
     (
         include_str!("../assets/explorer/report-layout.js"),
@@ -53,7 +53,7 @@ pub(super) const SCRIPTS: [(&str, &str, &str); 8] = [
     (
         include_str!("../assets/explorer/report-canvas.js"),
         " data-report-asset=\"canvas\"",
-        "fcsmHXRjDiMKl8xof8xMFq9PSXv1++ALvW6d4Zyin2E=",
+        "rBmq3mJ2/ojoEWBROD6Nl3Hj7rA5YAtkQ1ok3jlD4jM=",
     ),
 ];
 
