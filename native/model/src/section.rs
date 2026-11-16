@@ -7,9 +7,7 @@
 
 /// A WP6 slice that ports a derived section.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Slice {
-    /// Import projection and dependency edges.
-    S2,
+pub(crate) enum Slice {
     /// Cycles.
     S3,
     /// Metrics.
@@ -20,7 +18,7 @@ pub enum Slice {
 
 /// Who ports a section to the core.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Porting {
+pub(crate) enum Porting {
     /// A slice of the model.
     Slice(Slice),
     /// The rows of the collector that the store holds and writes.
@@ -128,7 +126,7 @@ impl Section {
     }
 
     /// Who ports the section.
-    pub fn porting(self) -> Porting {
+    pub(crate) fn porting(self) -> Porting {
         match self {
             Section::Metrics => Porting::Slice(Slice::S10),
             // Slice S4 makes the scope proof but none of these rows (AD-378).
