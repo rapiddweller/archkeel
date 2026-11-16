@@ -7,9 +7,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 CONTRACT = Path(__file__).parents[1] / "native/architecture-contract.json"
 EXPECTED_RULES = [
+    ("NATIVE-LAYER-ORDER", "layer_order"),
     ("NATIVE-PY-SYMBOLS-NO-SURVEY", "forbidden_dependency"),
     ("NATIVE-PY-UNPARSE-NO-SURVEY", "forbidden_dependency"),
     ("NATIVE-PY-UNPARSE-NO-SYMBOLS", "forbidden_dependency"),
@@ -110,3 +112,40 @@ def test_the_module_cycle_rule_judges_modules_in_every_component() -> None:
     rule = rules["NATIVE-NO-MODULE-CYCLES"]
     assert rule["level"] == "module"
     assert "components" not in rule
+
+
+def _minimal(ports: set[str] | list[str]) -> list[str]:
+    """A port is a module prefix, so a port below another port of the list says nothing more."""
+    return sorted(
+        port for port in ports if not any(port.startswith(f"{other}.") for other in ports)
+    )
+
+
+def _claims(component: dict[str, Any], module: str) -> bool:
+    packages = component["packages"]
+    exact = module in component.get("exact_modules", [])
+    return exact or any(module == name or module.startswith(f"{name}.") for name in packages)
+
+
+def test_each_requirement_names_its_ports_and_public_is_their_union() -> None:
+    """AD-588: a requirement without `through` permits each module of its target.
+
+    `NATIVE-REQUIRES-COMPLETE` judges the ports. No rule reads `public` for Rust, so this test
+    holds it equal to the ports that the other components declare.
+    """
+    components = {
+        c["label"]: c for c in json.loads(CONTRACT.read_text(encoding="utf-8"))["components"]
+    }
+    entered: dict[str, set[str]] = {label: set() for label in components}
+    for label, component in components.items():
+        for required in component.get("requires", []):
+            target = components[required["component"]]
+            ports = required.get("through", [])
+            where = f"{label} -> {target['label']}"
+            assert ports, f"{where} has no port"
+            assert ports == _minimal(ports), f"{where}: the ports are not sorted and minimal"
+            assert all(_claims(target, port) for port in ports), f"{where}: a port of another part"
+            assert all(":" not in port for port in ports), f"{where}: a symbol port holds the run"
+            entered[target["label"]].update(ports)
+    public = {label: component.get("public") for label, component in components.items()}
+    assert public == {label: _minimal(ports) for label, ports in entered.items()}
