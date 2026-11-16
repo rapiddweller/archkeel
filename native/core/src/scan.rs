@@ -177,9 +177,9 @@ fn decide(
         contract: (path, contract),
         request,
         reply,
-        target,
         ..
     } = scanned;
+    let target = reply.reply().facts.runtime.target_description.clone();
     dual_run::run(Run {
         case: "scan".to_owned(),
         path,

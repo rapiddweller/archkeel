@@ -12,7 +12,7 @@
 //! are empty (AD-334, AD-367). The linked path gives the same survey as a typed reply (AD-450).
 
 use archkeel_facts::envelope::{
-    Adapter, Coverage, Evidence, Input, Profile, Provenance, Reply, Runtime,
+    Adapter, Coverage, Evidence, Input, Profile, Provenance, Reply, Runtime, TargetSource,
 };
 use archkeel_facts::request::PythonRequest;
 use archkeel_facts::{CallFact, GapFact, ImportFact, Record, ReferenceFact, SymbolFact};
@@ -42,8 +42,9 @@ pub(crate) fn reply(
     request: &PythonRequest,
     survey: Survey,
     build: &Build<'_>,
+    source: TargetSource,
 ) -> Result<Vec<u8>, String> {
-    let (head, records) = parts(request, survey, build)?;
+    let (head, records) = parts(request, survey, build, source)?;
     let mut bytes = Vec::new();
     let version = reply_version(request.protocol_version);
     encode_stream(version, head, &mut bytes, |writer| records.produce(writer))?;
@@ -55,6 +56,7 @@ pub(crate) fn typed(
     request: &PythonRequest,
     mut survey: Survey,
     build: &Build<'_>,
+    source: TargetSource,
 ) -> Result<Reply, String> {
     // AD-504: the linked path also writes the publication routes that `interface_boundary` reads.
     // The subprocess reply stays the frozen survey of the phase `imports`.
@@ -65,7 +67,7 @@ pub(crate) fn typed(
         &survey.sole_binders,
         &survey.ambiguous,
     );
-    let (head, records) = parts(request, survey, build)?;
+    let (head, records) = parts(request, survey, build, source)?;
     assemble(reply_version(request.protocol_version), head, |writer| {
         records.produce(writer)
     })
@@ -114,6 +116,7 @@ fn parts(
     request: &PythonRequest,
     survey: Survey,
     build: &Build<'_>,
+    source: TargetSource,
 ) -> Result<(Head, Records), String> {
     let mut snapshot = Snapshot::new(&request.snapshot.root);
     let selected = survey.coverage.selected_files.clone();
@@ -125,7 +128,7 @@ fn parts(
     let (inputs, source_digest) = inputs::with_listings(&mut snapshot, &selected, &listings);
     same_inputs(&inputs, &survey.parsed)?;
     let head = Head {
-        provenance: provenance(request, &mut snapshot, build),
+        provenance: provenance(request, &mut snapshot, build, source)?,
         git_head: request.snapshot.git_head.clone(),
         dirty: serde_json::to_value(&request.snapshot.dirty).map_err(|error| error.to_string())?,
         scope: request
@@ -171,9 +174,40 @@ fn same_inputs(inputs: &[Input], parsed: &[Input]) -> Result<(), String> {
 
 /// The adapter of this binary, and the runtime that the Python collector claims: the version of
 /// the interpreter block and the requirement of `pyproject.toml` (`runtime.collector_provenance`).
-fn provenance(request: &PythonRequest, snapshot: &mut Snapshot, build: &Build<'_>) -> Provenance {
+fn provenance(
+    request: &PythonRequest,
+    snapshot: &mut Snapshot,
+    build: &Build<'_>,
+    source: TargetSource,
+) -> Result<Provenance, String> {
     let (required, requirement_state) = requirement::requirement(snapshot);
-    Provenance {
+    let interpreter = request
+        .resolver
+        .interpreter
+        .as_ref()
+        .ok_or("no Python target")?;
+    let source_text = match source {
+        TargetSource::Config => match &required {
+            Some(text) => {
+                format!("scan.python in archkeel.toml; requires-python {text:?} in pyproject.toml")
+            }
+            None => "scan.python in archkeel.toml".to_owned(),
+        },
+        TargetSource::Requirement => format!(
+            "requires-python {:?} in pyproject.toml",
+            required
+                .as_deref()
+                .ok_or("the Python requirement changed")?
+        ),
+        TargetSource::Default => "the collector default".to_owned(),
+        TargetSource::Legacy => String::new(),
+    };
+    let version = interpreter.version.as_str();
+    let display_version = version.strip_suffix(".0").unwrap_or(version);
+    let target_description = (source != TargetSource::Legacy).then(|| format!(
+        "ArchKeel reads this project as Python {display_version} (from {source_text}); the collector supports Python 3.11–3.14"
+    ));
+    Ok(Provenance {
         profile: Profile::Python,
         adapter: Adapter {
             code_digest: build.code_digest.to_owned(),
@@ -184,9 +218,11 @@ fn provenance(request: &PythonRequest, snapshot: &mut Snapshot, build: &Build<'_
             name: "python".to_owned(),
             required,
             requirement_state,
-            version: request.resolver.interpreter.version.as_str().to_owned(),
+            version: version.to_owned(),
+            target_source: (source != TargetSource::Legacy).then_some(source),
+            target_description,
         },
-    }
+    })
 }
 
 /// The stream writes the coverage from its parts (`Coverage::of`). The reply must say what the

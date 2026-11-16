@@ -18,7 +18,7 @@
 
 use archkeel_facts::envelope::Profile;
 
-const TABLE: &str = include_str!("standard_library.txt");
+const TABLE: &str = archkeel_facts::STANDARD_LIBRARY;
 
 /// The SDK libraries that a contract can forbid by name although no scan lists them as a module
 /// (`dart.io`). They are the `sdk_libraries` of the Dart profile of release 4.0.1 (`ir/profiles.py`),

@@ -120,8 +120,12 @@ pub struct DartSettings {}
 pub struct PythonSettings {
     /// The phase of the Python collection.
     pub phase: PythonPhase,
-    /// The interpreter that the collector runs.
-    pub interpreter: Interpreter,
+    /// The configured target version, when the scan names one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub python: Option<String>,
+    /// A legacy interpreter description from an older caller.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub interpreter: Option<Interpreter>,
 }
 
 closed! {
@@ -312,7 +316,18 @@ impl Resolver {
         match self {
             Resolver::TypeScript(settings) => relative(&settings.tsconfig, "resolver.tsconfig"),
             Resolver::Rust(_) | Resolver::Dart(_) => Ok(()),
-            Resolver::Python(settings) => settings.interpreter.check(),
+            Resolver::Python(settings)
+                if settings.python.is_some() && settings.interpreter.is_some() =>
+            {
+                Err(
+                    "a Python request cannot name both a target and a legacy interpreter"
+                        .to_owned(),
+                )
+            }
+            Resolver::Python(settings) => settings
+                .interpreter
+                .as_ref()
+                .map_or(Ok(()), Interpreter::check),
         }
     }
 }

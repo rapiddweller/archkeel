@@ -6050,6 +6050,110 @@
         }
       ],
       "description": "Why a fact is UNKNOWN. One code covers one cause; the message names the file or the value."
+    },
+    "Runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name as written."
+        },
+        "required": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The version requirement that the project declares for the runtime."
+        },
+        "requirement_state": {
+          "$ref": "#/$defs/RequirementState",
+          "description": "Whether the requirement is declared and valid."
+        },
+        "version": {
+          "type": "string",
+          "description": "The version of the runtime that ran."
+        },
+        "target_source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TargetSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "How the collector selected its target, when this runtime is a target."
+        },
+        "target_description": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The collector's display text for the selected target."
+        }
+      },
+      "required": [
+        "name",
+        "requirement_state",
+        "version"
+      ],
+      "description": "The runtime that made the reply: its name, version and requirement."
+    },
+    "RequirementState": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "declared",
+          "description": "The project declares a valid requirement."
+        },
+        {
+          "type": "string",
+          "const": "metadata_missing",
+          "description": "The project has no metadata file."
+        },
+        {
+          "type": "string",
+          "const": "metadata_invalid",
+          "description": "The metadata file is not valid."
+        },
+        {
+          "type": "string",
+          "const": "requirement_missing",
+          "description": "The metadata declares no requirement."
+        },
+        {
+          "type": "string",
+          "const": "requirement_invalid",
+          "description": "The requirement is not valid."
+        }
+      ],
+      "description": "The state of the runtime requirement of the collector."
+    },
+    "TargetSource": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "config",
+          "description": "The scan configuration selects the target."
+        },
+        {
+          "type": "string",
+          "const": "requirement",
+          "description": "The project requirement selects the target."
+        },
+        {
+          "type": "string",
+          "const": "default",
+          "description": "The collector uses its default target."
+        },
+        {
+          "type": "string",
+          "const": "legacy",
+          "description": "A legacy request supplies an interpreter description."
+        }
+      ],
+      "description": "The source of a collector's selected target version."
     }
   }
 }

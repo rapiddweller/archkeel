@@ -9,7 +9,8 @@ The Python collector reads a target version, not an interpreter.
 If no project requirement exists, the collector selects its default.
 The supported targets are Python 3.11 through 3.14.
 The parser and the store use the standard-library table and grammar of the selected version.
-The run summary states the target and its source.
+The request carries only the configured target. The collector reads the project requirement.
+The reply states the target and its source as facts. The run summary shows those facts.
 
 ## Reason
 

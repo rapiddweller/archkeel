@@ -13,6 +13,8 @@ fn checked(required: Option<&str>, version: &str) -> Runtime {
         required: required.map(str::to_owned),
         requirement_state: RequirementState::Declared,
         version: version.to_owned(),
+        target_source: None,
+        target_description: None,
     })
 }
 

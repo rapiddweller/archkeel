@@ -35,7 +35,7 @@ fn decoded(files: &[(&str, &str)]) -> (Reply, Value) {
     let tree = Tree::new(files);
     let request = request(&tree.path());
     let survey = crate::survey::survey(&request).unwrap();
-    let bytes = reply(&request, survey, &BUILD).unwrap();
+    let bytes = reply(&request, survey, &BUILD, TargetSource::Legacy).unwrap();
     let mut text = String::new();
     ZlibDecoder::new(bytes.as_slice())
         .read_to_string(&mut text)
@@ -136,7 +136,7 @@ fn a_coverage_that_the_stream_cannot_write_is_no_reply() {
     let request = request(&tree.path());
     let mut survey = crate::survey::survey(&request).unwrap();
     survey.coverage.full_scope = true;
-    let refused = reply(&request, survey, &BUILD).unwrap_err();
+    let refused = reply(&request, survey, &BUILD, TargetSource::Legacy).unwrap_err();
     assert_eq!(
         refused,
         "the coverage of the reply differs from the coverage of the survey"
@@ -149,6 +149,6 @@ fn a_file_that_changes_after_its_parse_gives_no_reply() {
     let request = request(&tree.path());
     let survey = crate::survey::survey(&request).unwrap();
     std::fs::write(tree.root.join("src/app/a.py"), "import app\n").unwrap();
-    let error = typed(&request, survey, &BUILD).unwrap_err();
+    let error = typed(&request, survey, &BUILD, TargetSource::Legacy).unwrap_err();
     assert_eq!(error, "the source changed during the scan: src/app/a.py");
 }

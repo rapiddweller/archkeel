@@ -101,8 +101,14 @@ pub(crate) struct Modules {
 
 #[cfg(feature = "dump")]
 pub(crate) fn modules(request: &PythonRequest) -> Result<Modules, String> {
-    let minor = request.resolver.interpreter.version.minor();
     let mut snapshot = Snapshot::new(&request.snapshot.root);
+    let minor = request
+        .resolver
+        .interpreter
+        .as_ref()
+        .ok_or("no Python target")?
+        .version
+        .minor();
     let scope = discover::scope(
         &mut snapshot,
         &request.scope.roots,
@@ -127,7 +133,11 @@ pub(crate) fn modules(request: &PythonRequest) -> Result<Modules, String> {
     reason = "the survey is one pipeline of passes; AD-520 adds the site pass to it"
 )]
 pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
-    let interpreter = &request.resolver.interpreter;
+    let interpreter = request
+        .resolver
+        .interpreter
+        .as_ref()
+        .ok_or("no Python target")?;
     let minor = interpreter.version.minor();
     let mut snapshot = Snapshot::new(&request.snapshot.root);
     let namespace = &request.scope.namespace;

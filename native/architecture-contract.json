@@ -57,6 +57,7 @@
         "native.archkeel_facts.envelope:Source",
         "native.archkeel_facts.envelope:State",
         "native.archkeel_facts.envelope:Target",
+        "native.archkeel_facts.envelope:TargetSource",
         "native.archkeel_facts.envelope:source_digest",
         "native.archkeel_facts.envelope:test_features",
         "native.archkeel_facts.fields:Fields",
@@ -93,7 +94,9 @@
         "native.archkeel_facts.pyrepr:string",
         "native.archkeel_facts.pyrepr:string_with",
         "native.archkeel_facts.request:DartRequest",
+        "native.archkeel_facts.request:Interpreter",
         "native.archkeel_facts.request:PythonRequest",
+        "native.archkeel_facts.request:PythonSettings",
         "native.archkeel_facts.request:Request",
         "native.archkeel_facts.request:RustRequest",
         "native.archkeel_facts.request:TypeScriptRequest",
@@ -130,6 +133,7 @@
         "native.archkeel_facts:IntoSection",
         "native.archkeel_facts:Record",
         "native.archkeel_facts:ReferenceFact",
+        "native.archkeel_facts:STANDARD_LIBRARY",
         "native.archkeel_facts:Section",
         "native.archkeel_facts:SymbolFact",
         "native.archkeel_facts:native_provenance"
@@ -5501,7 +5505,9 @@
           "rationale": "Write and read the typed facts that the reply holds (AD-345).",
           "through": [
             "native.archkeel_facts.envelope",
-            "native.archkeel_facts.identity"
+            "native.archkeel_facts.identity",
+            "native.archkeel_facts.request",
+            "native.archkeel_facts:STANDARD_LIBRARY"
           ]
         },
         {
@@ -5516,7 +5522,8 @@
       "public": [
         "native.archkeel_python_collector.inputs:inputs",
         "native.archkeel_python_collector.inputs:with_listings",
-        "native.archkeel_python_collector.requirement:requirement"
+        "native.archkeel_python_collector.requirement:requirement",
+        "native.archkeel_python_collector.requirement:target"
       ],
       "decided_by": "architect"
     },
@@ -6046,14 +6053,13 @@
           "component": "py-inputs",
           "rationale": "Read the declared Python requirement before deriving the target version.",
           "through": [
-            "native.archkeel_python_collector.requirement:requirement"
+            "native.archkeel_python_collector.requirement:target"
           ]
         }
       ],
       "public": [
         "native.archkeel_python_collector:BUILD",
         "native.archkeel_python_collector:TEST_FEATURES",
-        "native.archkeel_python_collector:python_requirement",
         "native.archkeel_python_collector:typed_reply"
       ],
       "decided_by": "architect"
