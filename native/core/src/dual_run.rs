@@ -30,7 +30,7 @@ use archkeel_report::Named;
 
 #[path = "frame_parts.rs"]
 mod frame_parts;
-pub(crate) use frame_parts::{refused_scan, Answered, Collect, CODE_DIGEST};
+pub(crate) use frame_parts::{refused_scan, Answered, Collect, PartRow, SystemFrame, CODE_DIGEST};
 #[cfg(test)]
 pub(crate) use frame_parts::{typed_rows, Parts as FrameParts};
 use frame_parts::{ContractCheck, Parts, ReplyCheck, SelfTest, UnsupportedParts, ENGINE};
@@ -272,6 +272,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         collection_gaps,
         gaps,
         baseline,
+        system: None,
         engine: ENGINE,
         sections: frame_parts::typed_rows(rows)?,
         unsupported: UnsupportedParts {

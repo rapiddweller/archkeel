@@ -160,6 +160,17 @@
         }
       ]
     },
+    "system": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SystemFrame"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The parts of a system run (AD-612); `crate::system::join` writes it."
+    },
     "html": {
       "type": "object",
       "properties": {
@@ -323,25 +334,46 @@
       ],
       "description": "Why the evaluator left a rule UNKNOWN. The builder derives the reason of every other verdict\nfrom the `Decision`: PASS is `evaluated`, FAIL `violations`, a declaration `declaration`."
     },
-    "Named": {
+    "PartRow": {
       "type": "object",
       "properties": {
-        "kind": {
+        "id": {
           "type": "string"
         },
-        "subject": {
+        "title": {
           "type": "string"
         },
-        "reason": {
-          "type": "string"
+        "config": {
+          "type": "string",
+          "description": "The repository path of the configuration of the part."
+        },
+        "profile": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The profile of the collector that read the part, from its collection request."
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the rules of the part."
         }
       },
       "required": [
-        "kind",
-        "subject",
-        "reason"
+        "id",
+        "title",
+        "config",
+        "profile",
+        "status",
+        "rules"
       ],
-      "description": "A part of the baseline that the core names and does not decide.",
+      "description": "One part of a system frame.",
       "additionalProperties": false
     },
     "Measures": {
@@ -3615,6 +3647,54 @@
         "file"
       ],
       "description": "One difference between the run and the file.",
+      "additionalProperties": false
+    },
+    "Named": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "subject",
+        "reason"
+      ],
+      "description": "A part of the baseline that the core names and does not decide.",
+      "additionalProperties": false
+    },
+    "SystemFrame": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "The title of the system."
+        },
+        "document": {
+          "type": "string",
+          "description": "The repository path of the system document."
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PartRow"
+          },
+          "description": "Each part, in the order of the document."
+        }
+      },
+      "required": [
+        "title",
+        "document",
+        "parts"
+      ],
+      "description": "The part `system` of a frame (AD-612): `crate::system::join` writes it.",
       "additionalProperties": false
     }
   },

@@ -20,6 +20,16 @@ pub(crate) fn run_status(target: bool, failed: bool, complete: bool, open: bool)
     }
 }
 
+/// The status of a system from the statuses of its parts (AD-612), by the same rule: a part that
+/// FAILs is a violation row, a part without a result is an incomplete observation, and an UNKNOWN
+/// part is an open rule. A system without a part has no Target.
+pub fn system_status(parts: &[Option<Status>]) -> Status {
+    let failed = parts.contains(&Some(Status::Fail));
+    let complete = parts.iter().all(Option::is_some);
+    let open = parts.contains(&Some(Status::Unknown));
+    run_status(!parts.is_empty(), failed, complete, open)
+}
+
 /// A status without the row that explains it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Unexplained {

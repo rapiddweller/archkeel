@@ -1710,7 +1710,8 @@
         "native.archkeel_report:Status",
         "native.archkeel_report:construct_row",
         "native.archkeel_report:rule",
-        "native.archkeel_report:rule_with_edge_links"
+        "native.archkeel_report:rule_with_edge_links",
+        "native.archkeel_report:system_status"
       ],
       "decided_by": "architect"
     },
@@ -1781,7 +1782,8 @@
       "public": [
         "native.archkeel_report.report:Decided",
         "native.archkeel_report.status:Unexplained",
-        "native.archkeel_report.status:run_status"
+        "native.archkeel_report.status:run_status",
+        "native.archkeel_report.status:system_status"
       ],
       "decided_by": "architect"
     },
@@ -2619,6 +2621,7 @@
           "through": [
             "native.archkeel_report:Explain",
             "native.archkeel_report:Named",
+            "native.archkeel_report:Status",
             "native.archkeel_report:rule"
           ]
         },
@@ -2683,9 +2686,11 @@
         "native.archkeel_core.dual_run:BaseOf",
         "native.archkeel_core.dual_run:CODE_DIGEST",
         "native.archkeel_core.dual_run:Collect",
+        "native.archkeel_core.dual_run:PartRow",
         "native.archkeel_core.dual_run:ReplyInput",
         "native.archkeel_core.dual_run:Run",
         "native.archkeel_core.dual_run:Shared",
+        "native.archkeel_core.dual_run:SystemFrame",
         "native.archkeel_core.dual_run:Trust",
         "native.archkeel_core.dual_run:TrustOf",
         "native.archkeel_core.dual_run:answer",
@@ -2740,7 +2745,8 @@
         "native.archkeel_core.scan",
         "native.archkeel_core.check",
         "native.archkeel_core.base",
-        "native.archkeel_core.refusal"
+        "native.archkeel_core.refusal",
+        "native.archkeel_core.system"
       ],
       "responsibilities": [
         "Serve the request kinds of the shell: the scan request that runs the collector in the process, the check request with its base, and the typed refusal (AD-390, AD-399, AD-406, AD-420)."
@@ -2803,6 +2809,9 @@
             "native.archkeel_collect:Refusal",
             "native.archkeel_collect:RefusalKind",
             "native.archkeel_collect:Scanned",
+            "native.archkeel_collect:System",
+            "native.archkeel_collect:SystemPart",
+            "native.archkeel_collect:read_system",
             "native.archkeel_collect:scan"
           ]
         },
@@ -2841,6 +2850,14 @@
           "rationale": "Build the engine frame of one request (AD-360).",
           "through": [
             "native.archkeel_core.dual_run"
+          ]
+        },
+        {
+          "component": "report",
+          "rationale": "Join the statuses of the parts of a system by the status rule of the report (AD-612).",
+          "through": [
+            "native.archkeel_report:Status",
+            "native.archkeel_report:system_status"
           ]
         }
       ],
@@ -2933,6 +2950,9 @@
         "native.archkeel_collect:Refusal",
         "native.archkeel_collect:RefusalKind",
         "native.archkeel_collect:Scanned",
+        "native.archkeel_collect:System",
+        "native.archkeel_collect:SystemPart",
+        "native.archkeel_collect:read_system",
         "native.archkeel_collect:scan"
       ],
       "decided_by": "architect"
