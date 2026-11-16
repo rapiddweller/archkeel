@@ -11,8 +11,7 @@
 //! (`Scope::run_complete`), as `build` does. The core adds only gaps (`Named`): a gap can make a
 //! status stricter, never PASS.
 //!
-//! A full `Report<Decided>` needs tables that no slice produces yet (`BuildError::NotProduced`),
-//! so the engine frame keeps its rows and holds the same `Decided` mark.
+//! The engine frame keeps its rows and the `Decided` mark.
 
 #![deny(
     clippy::wildcard_enum_match_arm,

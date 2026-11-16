@@ -425,10 +425,10 @@ def test_every_area_has_files() -> None:
 
 def test_an_area_selects_only_its_files_and_fails_closed_when_empty() -> None:
     result, selected = _collected(
-        "--area=reports", "tests/test_report_schema.py", "tests/test_skill.py"
+        "--area=reports", "tests/test_report_gallery.py", "tests/test_skill.py"
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert selected and all(test.startswith("tests/test_report_schema.py::") for test in selected)
+    assert selected and all(test.startswith("tests/test_report_gallery.py::") for test in selected)
     result, _ = _collected("--area=CLI and core", "tests/test_skill.py")
     assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
     assert "selects no tests" in result.stderr
