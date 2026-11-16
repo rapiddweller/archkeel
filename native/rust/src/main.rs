@@ -12,7 +12,7 @@
 use std::io::{Read, Write};
 use std::process::ExitCode;
 
-use archkeel_rust_collector::{provenance, reply};
+use archkeel_rust_collector::{encoded_reply, provenance};
 use archkeel_wire::protocol::reply_version;
 use archkeel_wire::request::decode_rust;
 
@@ -30,7 +30,7 @@ fn run() -> Result<Vec<u8>, String> {
     let worker = std::thread::Builder::new()
         .stack_size(STACK_BYTES)
         .spawn(move || {
-            reply(
+            encoded_reply(
                 &request,
                 provenance(),
                 reply_version(request.protocol_version),
