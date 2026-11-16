@@ -107,3 +107,46 @@ fn a_datetime_that_tomllib_refuses_is_invalid() {
         );
     }
 }
+
+fn selected(requires: &str) -> Result<String, String> {
+    use archkeel_facts::request::PythonPhase;
+    let tree = Tree::new(&[(
+        "pyproject.toml",
+        &format!("[project]\nrequires-python = '{requires}'\n"),
+    )]);
+    let settings = PythonSettings {
+        phase: PythonPhase::Imports,
+        python: None,
+        interpreter: None,
+    };
+    target(&mut Snapshot::new(&tree.path()), &settings)
+        .map(|(found, _)| found.version.as_str().to_owned())
+}
+
+#[test]
+fn a_range_that_reaches_a_supported_version_is_read_as_the_lowest_supported_one() {
+    // K14: pydantic writes `>=3.10`; 3.10 is not supported, 3.11 is inside the range.
+    assert_eq!(selected(">=3.10").unwrap(), "3.11.0");
+    assert_eq!(selected(">=3.9,<4").unwrap(), "3.11.0");
+    assert_eq!(selected(">=3.10,<3.13").unwrap(), "3.11.0");
+    assert_eq!(selected(">=3.11").unwrap(), "3.11.0");
+    assert_eq!(selected(">=3.12").unwrap(), "3.12.0");
+}
+
+#[test]
+fn a_range_entirely_below_the_supported_versions_keeps_the_refusal() {
+    for range in [">=3.9,<3.11", ">=3.8,<3.10", ">=3.10,<3.11"] {
+        let error = selected(range).unwrap_err();
+        assert!(
+            error.contains("unsupported") && error.contains("3.11–3.14"),
+            "{range}: {error}"
+        );
+    }
+}
+
+#[test]
+fn the_clamp_is_named_for_the_description() {
+    assert_eq!(clamped_from(">=3.10"), Some([3, 10, 0]));
+    assert_eq!(clamped_from(">=3.12"), None);
+    assert_eq!(clamped_from(">=3.9,<3.11"), None);
+}
