@@ -12,6 +12,8 @@ _ASSETS = Path(__file__).resolve().parent / "assets"
 
 
 class InstallationAgent(StrEnum):
+    """The agents for which the skill can be installed."""
+
     CLAUDE = "claude"
     CODEX = "codex"
 

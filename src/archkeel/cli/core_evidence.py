@@ -10,6 +10,8 @@ from .core_json import CoreError, _count, _fields, _object, _text
 
 @dataclass(frozen=True, slots=True)
 class ViolationDetail:
+    """One violation of a rule: source, target, cause and the keys of its evidence."""
+
     source: str
     target: str | None
     cause: str
@@ -18,12 +20,16 @@ class ViolationDetail:
 
 @dataclass(frozen=True, slots=True)
 class Location:
+    """A place in a source file: a path and a line."""
+
     path: str
     line: int
 
 
 @dataclass(frozen=True, slots=True)
 class CollectionGap:
+    """A part of the code that the collector could not read, with its reason and evidence."""
+
     kind: str
     subjects: tuple[str, ...]
     reason: str
