@@ -25,7 +25,7 @@ Four crates of the decision side have parts by responsibility too (AD-588). No c
 - `model`: `model-terms`, `model-graph`, `model-selection`, `model-run`, `model-match`, `model-proof`, `model-uml`.
 - `eval`: `eval-violation`, `eval-rules`, `eval-decide`.
 - `report`: `report-payload`, `report-check`, `report-build`, `report-page`, `report-frame`, `report-ruling`.
-- `core`: `core-contract`, `core-engine`, `core-baseline`, `core-hygiene`, `core-frame`, `core-requests`.
+- `core`: `core-contract`, `core-decode`, `core-engine`, `core-baseline`, `core-hygiene`, `core-frame`, `core-requests`.
 
 The component with the name of the crate is the root part. It owns the root file and the manifest, and it
 publishes the parts. A part claims its modules by name and stays in the layer of its crate. A new module of
@@ -504,6 +504,7 @@ flowchart LR
     n_59["core-frame"]
     n_60["core-hygiene"]
     n_61["core-requests"]
+    n_78["core-decode"]
     n_62["eval-decide"]
     n_63["eval-rules"]
     n_64["eval-violation"]
@@ -531,6 +532,7 @@ flowchart LR
     n_56 --> n_15
     n_57 --> n_1
     n_57 --> n_5
+    n_78 --> n_57
     n_58 --> n_1
     n_58 --> n_57
     n_58 --> n_31
@@ -545,6 +547,7 @@ flowchart LR
     n_59 --> n_57
     n_59 --> n_58
     n_59 --> n_60
+    n_59 --> n_78
     n_59 --> n_4
     n_59 --> n_5
     n_59 --> n_41
@@ -563,6 +566,7 @@ flowchart LR
     n_61 --> n_58
     n_61 --> n_59
     n_61 --> n_60
+    n_61 --> n_78
     n_61 --> n_4
     n_61 --> n_5
     n_61 --> n_15

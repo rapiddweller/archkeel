@@ -70,7 +70,7 @@ struct ScanRequest {
 
 /// The frame of one scan request. An error is a request that the core cannot read.
 pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
-    let request: ScanRequest = dual_run::decode(input, PROTOCOL)?;
+    let request: ScanRequest = crate::decode::decode(input, PROTOCOL)?;
     let identity = Identity {
         root: &request.root,
         config: &request.config,

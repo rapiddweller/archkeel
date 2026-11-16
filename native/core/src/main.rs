@@ -20,6 +20,7 @@
 mod baseline;
 mod baseline_frame;
 mod contract;
+mod decode;
 mod dual_run;
 mod engine;
 mod gap_key;

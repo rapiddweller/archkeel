@@ -31,8 +31,9 @@ use archkeel_model::{Producer, Settings};
 use archkeel_store::Ingested;
 
 use crate::base::Base;
+use crate::decode::{self, InsideJson, ReplyBytes};
 use crate::dual_run::CODE_DIGEST;
-use crate::dual_run::{self, Answered, BaseOf, InsideJson, ReplyBytes, Run, Trust};
+use crate::dual_run::{self, Answered, BaseOf, Run, Trust};
 use crate::scan::PRODUCER_NOT_VERIFIED;
 
 /// The protocol of the check request.
@@ -42,7 +43,7 @@ const PROTOCOL: &str = "archkeel-core-check-2";
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CheckRequest {
-    // Checked before through `dual_run::decode`.
+    // Checked before through `decode::decode`.
     #[serde(rename = "protocol")]
     _protocol: String,
     contract: ContractJson,
@@ -69,16 +70,16 @@ struct ContractJson {
 
 /// The frame of one check request. An error is a request that the core cannot read.
 pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
-    let request: CheckRequest = dual_run::decode(input, PROTOCOL)?;
+    let request: CheckRequest = decode::decode(input, PROTOCOL)?;
     let reply = dual_run::ReplyInput::bytes(
         request
             .reply
-            .map(|reply| dual_run::hex(&reply.hex))
+            .map(|reply| decode::hex(&reply.hex))
             .transpose()?,
     );
     let base = request
         .base
-        .map(|base| dual_run::hex(&base.reply.hex))
+        .map(|base| decode::hex(&base.reply.hex))
         .transpose()?
         .map(|reply| -> BaseOf {
             let base = Base {
@@ -91,8 +92,8 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         topology: false,
         case: "check".to_owned(),
         path: request.contract.path,
-        contract: dual_run::hex(&request.contract.hex)?,
-        insides: dual_run::insides(request.insides)?,
+        contract: decode::hex(&request.contract.hex)?,
+        insides: decode::insides(request.insides)?,
         reply,
         sections: Vec::new(),
         namespace: request.namespace,
