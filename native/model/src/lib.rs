@@ -150,7 +150,7 @@ mod roots;
 
 pub use closed_path::{cycle_path, Link};
 pub use component_cycles::cycles_of_components;
-pub use gap_class::{Doubt, Scoped};
+
 pub use gaps::CoverageGap;
 pub use sides::{shape, Shape};
 
