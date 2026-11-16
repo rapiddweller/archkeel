@@ -9,8 +9,8 @@ use std::collections::BTreeMap;
 
 use archkeel_facts::envelope::Evidence;
 use archkeel_facts::ids::FactId;
-use archkeel_facts::sections::GapFact;
 use archkeel_facts::vocab::ExceptionName;
+use archkeel_facts::GapFact;
 use archkeel_facts::Record;
 
 use crate::discover::Source;

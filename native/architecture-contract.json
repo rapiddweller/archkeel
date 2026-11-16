@@ -570,9 +570,7 @@
           "component": "facts",
           "rationale": "Read the coverage and the gap facts of the reply through the typed facts (AD-363 amendment).",
           "through": [
-            "native.archkeel_facts.data",
-            "native.archkeel_facts.envelope",
-            "native.archkeel_facts.sections"
+            "native.archkeel_facts"
           ]
         }
       ],
@@ -2229,9 +2227,7 @@
           "component": "facts",
           "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422).",
           "through": [
-            "native.archkeel_facts.envelope",
-            "native.archkeel_facts.identity",
-            "native.archkeel_facts.sections"
+            "native.archkeel_facts"
           ]
         },
         {
@@ -4106,12 +4102,7 @@
           "component": "facts",
           "rationale": "Write and read the typed facts that the reply holds (AD-345).",
           "through": [
-            "native.archkeel_facts.data",
-            "native.archkeel_facts.envelope",
-            "native.archkeel_facts.gap",
-            "native.archkeel_facts.identity",
-            "native.archkeel_facts.ids",
-            "native.archkeel_facts.sections"
+            "native.archkeel_facts"
           ]
         },
         {

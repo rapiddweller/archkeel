@@ -9,8 +9,8 @@ use crate::syntax::{Site, Span, Visibility};
 pub(crate) use archkeel_facts::data::ImportData;
 use archkeel_facts::envelope::{Capabilities, Dirty, Evidence, FileFact, Input as Digest, Target};
 use archkeel_facts::ids::EvidenceId;
-use archkeel_facts::sections::GapFact;
 use archkeel_facts::vocab::{ExceptionName, Status};
+use archkeel_facts::GapFact;
 use archkeel_facts::Record;
 use serde::{Deserialize, Serialize};
 
