@@ -6,7 +6,7 @@
 //! `imports` (`collect.collect`), with the typed records of `archkeel-facts` (AD-345).
 //!
 //! The survey is not the whole collection. The protocol says so with the capabilities of the
-//! import survey and written constructs (AD-658, AD-666, AD-680, AD-682). The linked path gives the same
+//! import survey and written constructs (AD-658, AD-666, AD-680, AD-682, AD-684). The linked path gives the same
 //! survey as a typed reply (AD-450).
 
 use archkeel_facts::envelope::{
@@ -170,6 +170,14 @@ fn parts(
             (
                 "vars",
                 if survey.vars_complete {
+                    "supported"
+                } else {
+                    "partial"
+                },
+            ),
+            (
+                "string_literal_compare",
+                if survey.compare_complete {
                     "supported"
                 } else {
                     "partial"
