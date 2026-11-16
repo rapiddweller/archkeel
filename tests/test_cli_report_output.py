@@ -468,7 +468,7 @@ def test_native_static_page_stays_below_the_review_size_budget(
         "--output",
         str(target),
     )
-    assert code == 2 and found["status"] == "UNKNOWN", found
+    assert code == 0 and found["status"] == "PASS", found
     # AD-606: the Explorer scripts and style are about 2.1 MB of the page.
     assert target.stat().st_size < 3_500_000
 
