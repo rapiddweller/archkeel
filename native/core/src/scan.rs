@@ -19,7 +19,6 @@
 //! the shell gives UNKNOWN without a fallback.
 
 use serde::Deserialize;
-use serde_json::json;
 #[cfg(test)]
 use serde_json::Value;
 
@@ -154,7 +153,10 @@ fn decide(
         topology,
         base: None,
         trust: in_process(profile),
-        collect: Some(json!({ "request": request, "contract_files": contract_files })),
+        collect: Some(crate::dual_run::Collect::Derived {
+            request,
+            contract_files,
+        }),
         documents: Some(documents),
         sdk_libraries: archkeel_store::sdk_libraries(profile)
             .into_iter()

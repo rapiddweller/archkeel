@@ -112,28 +112,15 @@ def as_count(value: object, where: str) -> int:
 
 _CALL_CLASSES = "calls_resolved calls_partial calls_builtin calls_external calls_unresolved".split()
 _CALL_CAUSES = "unresolved_self unresolved_attribute unresolved_name unresolved_dynamic".split()
-_MEASURE_FIELDS = frozenset(
-    (*_CALL_CLASSES, *_CALL_CAUSES, "calls_total", "typing_positions", "untyped_private_accesses")
-)
 
 
 def check_measures(value: object) -> None:
     """Refuse call measures that do not add up; `None` is no measures."""
     if value is None:
         return
-    fields = as_fields(value, "measures", _MEASURE_FIELDS)
+    fields = as_object(value, "measures")
     counts = {name: as_count(item, f"measures.{name}") for name, item in fields.items()}
     if counts["calls_total"] != sum(counts[name] for name in _CALL_CLASSES) or counts[
         "calls_unresolved"
     ] != sum(counts[name] for name in _CALL_CAUSES):
         raise CoreError("the core frame has inconsistent call measures")
-
-
-def as_fields(value: object, where: str, names: frozenset[str]) -> dict[str, object]:
-    """An object with exactly these fields."""
-    found = as_object(value, where)
-    if missing := sorted(names - found.keys()):
-        raise CoreError(f"the core frame field {where} has no field {', '.join(missing)}")
-    if extra := sorted(found.keys() - names):
-        raise CoreError(f"the core frame field {where} has an unknown field {', '.join(extra)}")
-    return found

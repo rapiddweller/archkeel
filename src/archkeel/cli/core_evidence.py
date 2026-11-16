@@ -5,7 +5,7 @@
 
 from dataclasses import dataclass
 
-from .core_json import CoreError, as_count, as_fields, as_object, as_text
+from .core_json import CoreError, as_count, as_object, as_text
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,7 +54,7 @@ def read_details(value: object) -> dict[str, tuple[ViolationDetail, ...]]:
     for rule, rows in as_object(value, "details").items():
         details: list[ViolationDetail] = []
         for row in _list(rows, f"details.{rule}"):
-            item = as_fields(row, "detail", frozenset({"source", "target", "cause", "evidence"}))
+            item = as_object(row, "detail")
             details.append(
                 ViolationDetail(
                     as_text(item["source"], "detail.source"),
@@ -71,7 +71,7 @@ def read_locations(value: object) -> dict[str, Location]:
     """Read the table of source locations by evidence key."""
     result: dict[str, Location] = {}
     for key, row in as_object(value, "locations").items():
-        item = as_fields(row, "location", frozenset({"path", "line"}))
+        item = as_object(row, "location")
         result[key] = Location(
             as_text(item["path"], "location.path"), as_count(item["line"], "location.line")
         )
@@ -82,10 +82,7 @@ def read_collection_gaps(value: object) -> tuple[CollectionGap, ...]:
     """Read the gaps of the collector."""
     gaps: list[CollectionGap] = []
     for row in _list(value, "collection_gaps"):
-        names = frozenset({"kind", "subjects", "reason", "evidence"})
-        item = as_fields(
-            row, "collection gap", names | as_object(row, "collection gap").keys() & {"detail"}
-        )
+        item = as_object(row, "collection gap")
         gaps.append(
             CollectionGap(
                 as_text(item["kind"], "collection gap.kind"),

@@ -10,10 +10,11 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_contract::{head_of, Rule};
 use archkeel_model::ModelTree;
+use schemars::JsonSchema;
 use serde::Serialize;
 
 /// One `requires` entry: the two components by id, and the observed imports that use it.
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, JsonSchema)]
 pub(crate) struct Require {
     pub(crate) source: String,
     pub(crate) target: String,
@@ -22,7 +23,7 @@ pub(crate) struct Require {
 }
 
 /// The layers of one `layer_order` rule, from the inner layer to the outer layer.
-#[derive(Serialize)]
+#[derive(Serialize, JsonSchema)]
 pub(crate) struct LayerOrder {
     rule: String,
     layers: Vec<String>,

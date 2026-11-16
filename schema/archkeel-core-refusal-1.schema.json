@@ -1,0 +1,43 @@
+{
+  "type": "object",
+  "properties": {
+    "protocol": {
+      "$ref": "#/$defs/Protocol"
+    },
+    "kind": {
+      "$ref": "#/$defs/Kind"
+    },
+    "subject": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "protocol",
+    "kind",
+    "subject",
+    "reason"
+  ],
+  "description": "The one typed refusal that the core writes on stderr; the shell reads it against the schema\ngenerated from this type (`frame_schema::refusal_schema`).",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "archkeel core refusal, protocol archkeel-core-refusal-1",
+  "$defs": {
+    "Kind": {
+      "type": "string",
+      "enum": [
+        "parse_work_limit",
+        "unsupported"
+      ]
+    },
+    "Protocol": {
+      "type": "string",
+      "enum": [
+        "archkeel-core-refusal-1"
+      ],
+      "description": "The protocol word of the refusal on stderr: the one version."
+    }
+  },
+  "additionalProperties": false
+}

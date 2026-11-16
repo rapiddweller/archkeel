@@ -13,9 +13,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final
 
-from .core_json import CoreError, as_count, as_fields, as_object, as_text
+from .core_json import CoreError, as_count, as_object, as_text
 
 
 class BaselineState(StrEnum):
@@ -75,28 +74,12 @@ class BaselineResult:
     file: str | None
 
 
-_FIELDS: Final = frozenset(
-    {
-        "state",
-        "exit_code",
-        "accepted_entries",
-        "accepted_unknowns",
-        "new",
-        "gone",
-        "gaps",
-        "accepted_rules",
-    }
-)
-_CHANGED: Final = frozenset({"what", "kind", "subject", "reason", "run", "file"})
-_NAMED: Final = frozenset({"kind", "subject", "reason"})
-
-
 def _changed(value: object, where: str) -> tuple[Changed, ...]:
     if not isinstance(value, list):
         raise CoreError(f"the core frame field {where} is not a list")
     found: list[Changed] = []
     for index, item in enumerate(value):
-        row = as_fields(item, f"{where}[{index}]", _CHANGED)
+        row = as_object(item, f"{where}[{index}]")
         try:
             what = Difference(as_text(row["what"], f"{where}.what"))
         except ValueError as error:
@@ -117,7 +100,7 @@ def _changed(value: object, where: str) -> tuple[Changed, ...]:
 def _named(value: object) -> tuple[NamedBaselineGap, ...]:
     if not isinstance(value, list):
         raise CoreError("the core frame field baseline.gaps is not a list")
-    rows = [as_fields(item, "baseline.gaps", _NAMED) for item in value]
+    rows = [as_object(item, "baseline.gaps") for item in value]
     return tuple(
         NamedBaselineGap(
             as_text(row["kind"], "baseline.gaps.kind"),
@@ -138,7 +121,7 @@ def read_baseline(value: object, status: str) -> BaselineResult:
     """The checked part. `status` is the status of the run: UNKNOWN never gives exit code 0."""
     found = as_object(value, "baseline")
     file = found.pop("file", None)
-    part = as_fields(found, "baseline", _FIELDS)
+    part = as_object(found, "baseline")
     try:
         state = BaselineState(as_text(part["state"], "baseline.state"))
     except ValueError as error:
