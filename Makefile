@@ -6,7 +6,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static pr-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build sdist smoke release-check browser-runtime-install browser-architecture-check typescript-libs-check generated-check core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
+.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static pr-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate browser-architecture-check typescript-libs-check generated-check core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static
@@ -25,6 +25,9 @@ generated-check: browser-runtime-install
 	cd native && cargo test --locked -p archkeel-report the_light_palette_matches_the_design_tokens
 	$(UV) run --locked python tools/rust_api.py --check
 	$(UV) run --locked python tools/browser_runtime.py --check
+
+browser-runtime-generate: browser-runtime-install
+	$(UV) run --locked python tools/browser_runtime.py
 
 pr-test: browser-runtime-install
 	$(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
