@@ -29,11 +29,17 @@ record!(
     pub(crate),
     /// A checked amendment of schema 2.0.0. Only `parse_amendment` and `Binding::amend` make one.
     Amendment {
+        /// The digest of the contract before the change.
         before_digest: AmendmentDigest,
+        /// The digest of the contract after the change.
         after_digest: AmendmentDigest,
+        /// Who decided it.
         decided_by: String,
+        /// Why the item exists, as the contract states it.
         rationale: String,
+        /// The digest of the baseline before the change.
         before_baseline_digest: Option<AmendmentDigest>,
+        /// The digest of the baseline after the change.
         after_baseline_digest: Option<AmendmentDigest>,
     }
 );
@@ -41,11 +47,17 @@ record!(
 /// One field of an amendment. Its key is the JSON key.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AmendmentField {
+    /// The digest of the contract before the change.
     BeforeDigest,
+    /// The digest of the contract after the change.
     AfterDigest,
+    /// Who decided the change.
     DecidedBy,
+    /// Why the change is made.
     Rationale,
+    /// The digest of the baseline before the change.
     BeforeBaselineDigest,
+    /// The digest of the baseline after the change.
     AfterBaselineDigest,
 }
 

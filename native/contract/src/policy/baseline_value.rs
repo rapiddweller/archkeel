@@ -12,44 +12,86 @@ use crate::model_declarations::BudgetName;
 /// Refuse larger input before the JSON reader allocates a tree.
 pub const MAX_BASELINE_BYTES: usize = 16 * 1024 * 1024;
 
-record!(pub(crate),
+record!(
+    pub(crate),
     /// Sorted rule ids and subjects. Repeated members remain part of the identity.
-    BaselineFingerprint { rules: Vec<String>, subjects: Vec<String> }
+    BaselineFingerprint {
+        /// The rule ids.
+        rules: Vec<String>,
+        /// The sorted subjects of the rules.
+        subjects: Vec<String>,
+    }
 );
 
-record!(pub(crate),
+record!(
+    pub(crate),
     /// Direction evidence, separate from the fingerprint.
-    BaselineRole { source: String, target: String }
+    BaselineRole {
+        /// The selector of the modules that the rule judges.
+        source: String,
+        /// The target side of the direction evidence.
+        target: String,
+    }
 );
 
-record!(pub(crate),
+record!(
+    pub(crate),
     /// One checked debt entry. Only the codec can make one.
-    BaselineViolation { fingerprint: BaselineFingerprint, count: u64, roles: Vec<BaselineRole> }
+    BaselineViolation {
+        /// The rules and subjects that identify the entry.
+        fingerprint: BaselineFingerprint,
+        /// How many violations the baseline accepts.
+        count: u64,
+        /// The direction evidence of the entry.
+        roles: Vec<BaselineRole>,
+    }
 );
 
-closed_enum!(NameBudgetKind {
-    FacadeNames,
-    CouplingNames
-});
+closed_enum!(
+    /// The kind of names that a keyed budget lists.
+    NameBudgetKind {
+        /// The names of a facade.
+        FacadeNames,
+        /// The names that one component imports from another.
+        CouplingNames,
+    }
+);
 
 /// A scalar or keyed budget. A keyed value is the length of its names, never another count.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub enum BaselineBudget {
+    /// A budget that is one count.
     Scalar {
+        /// The name of the budget.
         name: BudgetName,
+        /// The count that the baseline accepts.
         value: u64,
     },
+    /// A budget that is a list of names.
     Names {
+        /// The kind of the names.
         kind: NameBudgetKind,
+        /// The key of the budget, such as a facade or a component.
         key: String,
+        /// The names that the baseline accepts, sorted.
         names: Vec<String>,
     },
 }
 
-record!(pub(crate),
+record!(
+    pub(crate),
     /// One accepted UNKNOWN (schema 1.4.0, AD-546): what it is, not where it is. There is no line,
     /// evidence id or digest. The count is how many equal entries the run has; 1 is not written.
-    AcceptedUnknown { kind: String, subject: String, reason: String, count: u64 }
+    AcceptedUnknown {
+        /// The kind of the value.
+        kind: String,
+        /// The subject that the item is about.
+        subject: String,
+        /// Why it holds or fails.
+        reason: String,
+        /// How many violations the baseline accepts.
+        count: u64,
+    }
 );
 
 impl AcceptedUnknown {
@@ -77,12 +119,16 @@ impl AcceptedUnknown {
     }
 }
 
-record!(pub(crate),
+record!(
+    pub(crate),
     /// Checked baseline content, sorted as Python sorts it. No rule or staleness check occurs.
     /// `unknowns` is `None` for schema 1.0.0 to 1.3.0: such a file accepts no UNKNOWN (AD-546).
     ValidationBaseline {
+        /// The checked debt entries.
         violations: Vec<BaselineViolation>,
+        /// The checked budgets.
         budgets: Vec<BaselineBudget>,
+        /// The checked accepted UNKNOWN entries.
         unknowns: Option<Vec<AcceptedUnknown>>,
     }
 );
@@ -139,31 +185,54 @@ impl ValidationBaseline {
 /// A baseline validation failure. Labels are paths into the input, not unchecked field maps.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BaselineError {
+    /// The text is not JSON.
     Json(String),
+    /// An object repeats a key.
     DuplicateKey(String),
+    /// The text is larger than the limit.
     TooLarge,
+    /// An integer is outside the range that the baseline accepts.
     IntegerRange(String),
+    /// The value at the path must be an object.
     NotObject(String),
+    /// The schema version is not supported.
     UnsupportedSchema(String),
+    /// The keys of the object differ from the keys that the schema fixes.
     FieldsMismatch(String),
+    /// The value at the path must be an array.
     NotArray(String),
+    /// The value at the path must be a string.
     NotString(String),
+    /// The value at the path must be an array of strings.
     NotStrings(String),
+    /// The value at the path must be a count.
     NotCount(String),
+    /// The count at the path is zero.
     ZeroCount(String),
+    /// The list at the path is empty.
     Empty(String),
+    /// A role appears twice.
     RepeatedRole(String),
+    /// Two entries have the same fingerprint.
     RepeatedFingerprint {
+        /// The index of the second entry.
         index: usize,
+        /// The index of the first entry.
         first: usize,
+        /// The repeated name.
         name: String,
     },
+    /// The budget is not one that the baseline supports.
     UnsupportedBudget(String),
+    /// The names at the path are not in sorted order.
     UnsortedNames(String),
     /// An accepted UNKNOWN that repeats an earlier entry, or does not follow it in order.
     UnorderedUnknown {
+        /// The index of the entry.
         index: usize,
+        /// True when the entry repeats an earlier one, false when it is out of order.
         repeated: bool,
+        /// The name of the entry.
         name: String,
     },
 }

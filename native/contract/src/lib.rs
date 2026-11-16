@@ -13,10 +13,6 @@
 //! It covers the whole grammar of `parse_contract`: components, the 22 rule kinds and the
 //! `declarations` object with its UML Target and the checks of `declared_graph`.
 
-// AD-590: not yet enforced here: about 130 accessors, variants and structs come from the `record!` and `closed_enum!` macros and name the contract file keys. Items outside macros carry docs.
-#![allow(missing_docs)]
-
-
 #![deny(unreachable_pub)]
 
 #[macro_use]

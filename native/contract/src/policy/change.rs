@@ -16,7 +16,9 @@ use crate::policy::reference::python_repr;
 /// amendment.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ChangeDirection {
+    /// The change permits more.
     Widened,
+    /// The change permits less.
     Narrowed,
 }
 
@@ -55,12 +57,17 @@ record!(
     pub(crate),
     /// One change, with the subject, field and message of Python `WideningChange`.
     ContractChange {
+        /// Whether the change widens or narrows the contract.
         #[serde(skip)]
         direction: ChangeDirection,
+        /// The kind of the value.
         #[serde(skip)]
         kind: ChangeKind,
+        /// The subject that the item is about.
         subject: String,
+        /// The field that changed.
         field: String,
+        /// The text for a person.
         message: String,
     }
 );

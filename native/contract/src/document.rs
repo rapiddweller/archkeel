@@ -13,11 +13,17 @@ record!(
     pub(crate),
     /// One parsed contract. Its digest is the SHA-256 of the bytes: the contract identity of a run.
     Contract {
+        /// The schema version of the contract.
         version: ContractVersion,
+        /// The URL of the JSON schema that the contract names, if any.
         schema: Option<String>,
+        /// The components of the contract.
         components: Vec<Component>,
+        /// The rules of the contract.
         rules: Vec<Rule>,
+        /// The declarations that are not rules.
         declarations: Option<Declarations>,
+        /// The digest of the contract file.
         digest: ContractDigest,
         /// The parent key of an inside contract that the tree assembly scoped, else `None`. Only
         /// the assembly sets it and no crate clears it, so a model can refuse an inside contract
@@ -31,7 +37,9 @@ record!(
     pub(crate),
     /// One mount: the component that names an inside contract, and the path of that contract.
     InsideRef {
+        /// The component that names the inside contract.
         component: ItemId,
+        /// The path of the inside contract.
         path: InsidePath,
     }
 );
@@ -65,7 +73,9 @@ impl NeedsTree {
 /// The result of `parse`: a complete contract, or a contract that needs its inside tree.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ParsedContract {
+    /// The contract has no inside contract that is missing.
     Complete(Contract),
+    /// The contract names inside contracts that the caller must read first.
     NeedsTree(NeedsTree),
 }
 
