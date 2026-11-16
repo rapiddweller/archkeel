@@ -139,6 +139,7 @@
         "native.archkeel_facts:IntoSection",
         "native.archkeel_facts:Record",
         "native.archkeel_facts:ReferenceFact",
+        "native.archkeel_facts.sections:SignalFact",
         "native.archkeel_facts:STANDARD_LIBRARY",
         "native.archkeel_facts:Section",
         "native.archkeel_facts:SymbolFact",
@@ -5639,6 +5640,7 @@
             "native.archkeel_facts:ImportFact",
             "native.archkeel_facts:Record",
             "native.archkeel_facts:ReferenceFact",
+            "native.archkeel_facts.sections:SignalFact",
             "native.archkeel_facts:SymbolFact"
           ]
         },
@@ -5721,6 +5723,7 @@
             "native.archkeel_facts:ImportFact",
             "native.archkeel_facts:Record",
             "native.archkeel_facts:ReferenceFact",
+            "native.archkeel_facts.sections:SignalFact",
             "native.archkeel_facts:SymbolFact"
           ]
         },

@@ -63,32 +63,26 @@ fn the_reply_declares_only_the_sections_of_the_import_survey() {
         .collect();
     assert_eq!(sections, SURVEY_SECTIONS);
     assert!(capabilities.resolution_features.is_empty());
-    assert_eq!(capabilities.constructs.len(), 5);
-    assert_eq!(capabilities.constructs[0].name, "assert");
+    let names: Vec<&str> = capabilities
+        .constructs
+        .iter()
+        .map(|item| item.name.as_str())
+        .collect();
     assert_eq!(
-        capabilities.constructs[0].status,
-        archkeel_facts::envelope::ConstructSupport::Supported
+        names,
+        [
+            "assert",
+            "broad_except",
+            "dunder_dict",
+            "vars",
+            "string_literal_compare",
+            "getattr"
+        ]
     );
-    assert_eq!(capabilities.constructs[1].name, "broad_except");
-    assert_eq!(
-        capabilities.constructs[1].status,
-        archkeel_facts::envelope::ConstructSupport::Supported
-    );
-    assert_eq!(capabilities.constructs[2].name, "dunder_dict");
-    assert_eq!(
-        capabilities.constructs[2].status,
-        archkeel_facts::envelope::ConstructSupport::Supported
-    );
-    assert_eq!(capabilities.constructs[3].name, "vars");
-    assert_eq!(
-        capabilities.constructs[3].status,
-        archkeel_facts::envelope::ConstructSupport::Supported
-    );
-    assert_eq!(capabilities.constructs[4].name, "string_literal_compare");
-    assert_eq!(
-        capabilities.constructs[4].status,
-        archkeel_facts::envelope::ConstructSupport::Supported
-    );
+    assert!(capabilities
+        .constructs
+        .iter()
+        .all(|item| item.status == archkeel_facts::envelope::ConstructSupport::Supported));
     let written: Vec<&str> = reply
         .facts
         .sections
