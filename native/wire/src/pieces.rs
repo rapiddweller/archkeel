@@ -35,7 +35,7 @@ impl Adler {
         Self { low: 1, high: 0 }
     }
 
-    pub(crate) fn update(&mut self, data: &[u8]) {
+    fn update(&mut self, data: &[u8]) {
         for step in data.chunks(ADLER_STEP) {
             for byte in step {
                 self.low = self.low.wrapping_add(u32::from(*byte));

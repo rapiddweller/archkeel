@@ -26,7 +26,7 @@ use crate::{inputs, requirement};
 
 /// The sections of the survey, in their order. No other section is collected (AD-518 adds
 /// `symbols`; the 4.0.1 survey has the first two).
-pub(crate) const SURVEY_SECTIONS: [&str; 6] = [
+const SURVEY_SECTIONS: [&str; 6] = [
     "imports",
     "unknowns",
     "symbols",

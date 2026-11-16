@@ -74,7 +74,7 @@ struct Pending {
 
 /// The deepest module that the walk reads. A name holds the whole path, so the reply grows with
 /// the square of the depth; the deepest module of the `uv` corpus has depth 4.
-pub(crate) const MAX_MODULE_DEPTH: usize = 64;
+const MAX_MODULE_DEPTH: usize = 64;
 
 pub(crate) fn walk(source: &mut Snapshot, workspace: &Workspace, exclude_tests: bool) -> Walked {
     let mut walked = Walked {
