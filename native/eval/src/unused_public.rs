@@ -9,16 +9,29 @@
 //! every public symbol hold back a PASS (the scope proof of the model).
 
 use archkeel_contract::UnusedPublic;
-use archkeel_model::{unused_public, Model, Unused};
+use archkeel_facts::identity::{stable_id, Part};
+use archkeel_model::{unused_public, Model, PublicItem, Unused};
 
-use crate::violation::Violation;
+use crate::violation::{UnusedItem, Violation};
 
 pub(crate) fn check(id: &str, rule: &UnusedPublic, model: &Model) -> Vec<Violation> {
     let mut rows: Vec<Violation> = unused_public(model, rule)
         .into_iter()
         .filter(|(_, judged)| *judged == Unused::Fail)
-        .map(|(item, _)| Violation::unused(id, item))
+        .map(|(item, _)| violation(id, item))
         .collect();
     rows.sort_by(|a, b| a.id().cmp(b.id()));
     rows
+}
+
+fn violation(rule: &str, item: &PublicItem) -> Violation {
+    let subject = format!("{}:{}", item.module, item.name);
+    Violation::UnusedPublic(Box::new(UnusedItem {
+        id: stable_id("VIO", &[Part::Text(rule), Part::Text(&subject)]),
+        rule: rule.to_owned(),
+        module: item.module.clone(),
+        name: item.name.clone(),
+        kind: item.kind.word(),
+        evidence: item.evidence.clone(),
+    }))
 }

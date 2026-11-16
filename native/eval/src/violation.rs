@@ -164,7 +164,7 @@ pub struct UnusedItem {
     /// The name of the item.
     pub name: String,
     /// The kind of the item, as the symbol facts name it.
-    pub kind: archkeel_contract::PublicItemKind,
+    pub kind: &'static str,
     /// The evidence rows of its definition.
     pub evidence: Vec<String>,
 }
@@ -458,19 +458,6 @@ impl Violation {
             text: position.text.clone(),
             reasons,
             evidence: position.evidence.clone(),
-        }))
-    }
-
-    /// The violation of a public item that no other component uses (AD-670).
-    pub(crate) fn unused(rule: &str, item: &archkeel_model::PublicItem) -> Self {
-        let subject = format!("{}:{}", item.module, item.name);
-        Violation::UnusedPublic(Box::new(UnusedItem {
-            id: stable_id("VIO", &[Part::Text(rule), Part::Text(&subject)]),
-            rule: rule.to_owned(),
-            module: item.module.clone(),
-            name: item.name.clone(),
-            kind: item.kind,
-            evidence: item.evidence.clone(),
         }))
     }
 

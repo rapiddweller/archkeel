@@ -51,6 +51,7 @@ APP = """use base_crate::globbed::*;
 pub fn run() {
     base_crate::used();
     base_crate::reexported();
+    base_crate::twice();
     taken_by_glob();
 }
 """

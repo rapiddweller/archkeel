@@ -23,64 +23,11 @@
 use std::collections::{HashMap, HashSet};
 
 use archkeel_contract::{PublicItemKind, UnusedPublic};
-use archkeel_facts::envelope::Facts;
-use archkeel_facts::{Record, Section, SymbolFact};
 
 use crate::model::Model;
 use crate::ownership::{in_scope, owner_of};
+use crate::published_items::PublicItem;
 use crate::reason::{Hygiene, Reason};
-
-/// One public module-level item of the reply.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PublicItem {
-    /// The module that defines it.
-    pub module: String,
-    /// Its name.
-    pub name: String,
-    /// Its kind, as the symbol facts name it.
-    pub kind: PublicItemKind,
-    /// The evidence of its definition.
-    pub evidence: Vec<String>,
-}
-
-/// The public module-level items of the symbol facts, in reply order.
-pub(crate) fn items(facts: &Facts) -> Vec<PublicItem> {
-    let records: &[Record<SymbolFact>] = facts
-        .sections
-        .iter()
-        .find_map(|section| match section {
-            Section::Symbols(records) => Some(records.as_slice()),
-            _ => None,
-        })
-        .unwrap_or(&[]);
-    records.iter().filter_map(item).collect()
-}
-
-fn item(record: &Record<SymbolFact>) -> Option<PublicItem> {
-    use PublicItemKind as K;
-    let (kind, module, name, parent, visibility) = match &record.data {
-        SymbolFact::Class(d) => (K::Class, &d.module, &d.name, &d.parent, &d.visibility_detail),
-        SymbolFact::Function(d) => (K::Function, &d.module, &d.name, &d.parent, &d.visibility_detail),
-        SymbolFact::Method(_) => return None,
-        SymbolFact::Constant(d) => (K::Constant, &d.module, &d.name, &d.parent, &d.visibility_detail),
-        SymbolFact::TypeAlias(d) => (K::TypeAlias, &d.module, &d.name, &d.parent, &d.visibility_detail),
-        SymbolFact::Binding(d) => (K::Binding, &d.module, &d.name, &d.parent, &d.visibility_detail),
-        SymbolFact::Alias(d) => (K::Alias, &d.module, &d.name, &d.parent, &d.visibility_detail),
-        SymbolFact::DynamicBinding(d) => {
-            (K::DynamicBinding, &d.module, &d.name, &d.parent, &d.visibility_detail)
-        }
-        SymbolFact::StaticConstant(d) => {
-            (K::StaticConstant, &d.module, &d.name, &d.parent, &d.visibility_detail)
-        }
-        SymbolFact::Macro(d) => (K::Macro, &d.module, &d.name, &d.parent, &d.visibility_detail),
-    };
-    (parent.is_none() && visibility.kind == "public").then(|| PublicItem {
-        module: module.as_str().to_owned(),
-        name: name.clone(),
-        kind,
-        evidence: record.evidence_ids.iter().map(|id| id.as_str().to_owned()).collect(),
-    })
-}
 
 /// How the rule judges one public item that no other component is proven to use.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -97,7 +44,11 @@ pub fn unused<'m>(model: &'m Model, rule: &UnusedPublic) -> Vec<(&'m PublicItem,
         return Vec::new();
     };
     let users = Users::of(model);
-    let exempt: HashSet<&str> = rule.external_users().iter().map(|u| u.symbol().as_str()).collect();
+    let exempt: HashSet<&str> = rule
+        .external_users()
+        .iter()
+        .map(|u| u.symbol().as_str())
+        .collect();
     let kinds = rule.item_kinds();
     items
         .iter()
@@ -111,9 +62,9 @@ pub fn unused<'m>(model: &'m Model, rule: &UnusedPublic) -> Vec<(&'m PublicItem,
         .collect()
 }
 
-/// The receipt of the rule: no item is undecided. An undecided item holds back a PASS and decides
-/// nothing; a violation stays FAIL.
-pub(crate) fn receipt(model: &Model, rule: &UnusedPublic) -> Result<(), Reason> {
+/// The receipt of the rule: no item is undecided, and whether the rule selects a module. An
+/// undecided item holds back a PASS and decides nothing; a violation stays FAIL.
+pub(crate) fn receipt(model: &Model, rule: &UnusedPublic) -> Result<bool, Reason> {
     let undecided: Vec<(&PublicItem, &str)> = unused(model, rule)
         .into_iter()
         .filter_map(|(item, judged)| match judged {
@@ -122,7 +73,7 @@ pub(crate) fn receipt(model: &Model, rule: &UnusedPublic) -> Result<(), Reason> 
         })
         .collect();
     let Some((first, why)) = undecided.first() else {
-        return Ok(());
+        return Ok(!model.source_modules(rule.source().as_text()).is_empty());
     };
     let detail = format!(
         "{} public items have no proven user, and a use may exist that the facts do not show; \
@@ -131,7 +82,10 @@ pub(crate) fn receipt(model: &Model, rule: &UnusedPublic) -> Result<(), Reason> 
         first.module,
         first.name
     );
-    Err(Reason::Hygiene(Hygiene::new("unused_public_undecided", detail)))
+    Err(Reason::Hygiene(Hygiene::new(
+        "unused_public_undecided",
+        detail,
+    )))
 }
 
 /// The uses that cross a component, read once for all items of a rule.
@@ -175,7 +129,9 @@ impl Users {
             match import.symbol() {
                 Some("*") => drop(users.open.insert(target.to_owned())),
                 None if !namespace_uses => drop(users.open.insert(target.to_owned())),
-                None => {}
+                // A module `P.x` and an item `x` of `P` share a name in two namespaces, and a
+                // whole-module import of `P.x` may name the item too (`mod reply; pub fn reply`).
+                None => drop(users.reached.insert(target.to_owned())),
                 Some(name) => {
                     users.named.insert(format!("{target}.{name}"));
                     users.named.extend(import.reexport_chain().iter().cloned());
@@ -207,10 +163,15 @@ impl Users {
     fn close(&mut self, imports: &[crate::imports::Import]) {
         loop {
             let mut added = Vec::new();
-            for import in imports.iter().filter(|i| self.open.contains(i.source_module())) {
+            for import in imports
+                .iter()
+                .filter(|i| self.open.contains(i.source_module()))
+            {
                 let target = import.target_module();
                 match import.symbol() {
-                    Some("*") | None if !self.open.contains(target) => added.push(target.to_owned()),
+                    Some("*") | None if !self.open.contains(target) => {
+                        added.push(target.to_owned())
+                    }
                     Some("*") | None => {}
                     Some(name) => {
                         self.reached.insert(format!("{target}.{name}"));
@@ -226,19 +187,32 @@ impl Users {
     }
 
     fn judge(&self, item: &PublicItem) -> Option<Unused> {
-        use PublicItemKind as K;
         let key = format!("{}.{}", item.module, item.name);
         if self.named.contains(&key) {
             return None;
         }
-        Some(if self.open.contains(&item.module) || self.reached.contains(&key) {
-            Unused::Undecided("another component may take it through a glob, a module or a macro")
-        } else if self.unproven.contains(&item.name) {
-            Unused::Undecided("another component imports its name through a route that is not proven")
-        } else if matches!(item.kind, K::Class | K::TypeAlias | K::Alias | K::Macro) {
-            Unused::Undecided("a signature of a used item may need it; the facts state no signature types")
-        } else {
-            Unused::Fail
-        })
+        Some(
+            if self.open.contains(&item.module) || self.reached.contains(&key) {
+                Unused::Undecided(
+                    "another component may take it through a glob, a module or a macro",
+                )
+            } else if self.unproven.contains(&item.name) {
+                Unused::Undecided(
+                    "another component imports its name through a route that is not proven",
+                )
+            } else if matches!(
+                item.kind,
+                PublicItemKind::Class
+                    | PublicItemKind::TypeAlias
+                    | PublicItemKind::Alias
+                    | PublicItemKind::Macro
+            ) {
+                Unused::Undecided(
+                    "a signature of a used item may need it; the facts state no signature types",
+                )
+            } else {
+                Unused::Fail
+            },
+        )
     }
 }

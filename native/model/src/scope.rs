@@ -351,10 +351,7 @@ fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
             true
         }
         // AD-670: an item that another component may use without a proven import holds it back.
-        Rule::UnusedPublic(rule) => {
-            crate::published::receipt(model, rule)?;
-            !model.source_modules(rule.source().as_text()).is_empty()
-        }
+        Rule::UnusedPublic(rule) => crate::published::receipt(model, rule)?,
         // Each kind that no slice decides: its slice states its receipt here (AD-378). A
         // permission declaration (`allowed_dependency`) has no verdict, so it has no receipt.
         other @ (Rule::CallOwner(_)

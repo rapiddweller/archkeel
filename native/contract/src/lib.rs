@@ -68,7 +68,6 @@ pub use model::{
 pub use model_constructs::{ConstructSelector, ForbiddenConstruct};
 pub use model_declarations::BudgetName;
 pub use model_rules::{BoundaryAllowance, BoundaryTypes};
-pub use unused_public::{ExternalUser, PublicItemKind, UnusedPublic};
 pub use model_uml::{
     CompletenessMode, Entity, EntityKind, ModifierKind, ParameterKind, PresenceKind, Relationship,
     RelationshipKind, ResolutionKind, Signature, Target, TargetScope, VisibilityBasis,
@@ -76,3 +75,4 @@ pub use model_uml::{
 };
 pub use rule::{head_of, kind_of, Rule};
 pub use uml_merge::merge_targets;
+pub use unused_public::{PublicItemKind, UnusedPublic};

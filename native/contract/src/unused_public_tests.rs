@@ -23,7 +23,8 @@ fn read(text: &str) -> Result<Contract, String> {
 
 #[test]
 fn a_rule_with_kinds_and_an_external_user_parses() -> Result<(), String> {
-    let extra = format!(r#", "item_kinds": ["function", "static_constant"], "external_users": [{USER}]"#);
+    let extra =
+        format!(r#", "item_kinds": ["function", "static_constant"], "external_users": [{USER}]"#);
     let parsed = read(&contract("3.16.0", &extra))?;
     let [Rule::UnusedPublic(rule)] = parsed.rules().as_slice() else {
         return Err("one unused_public rule".to_owned());
@@ -49,11 +50,26 @@ fn each_malformed_rule_is_refused() {
     let refused = [
         (contract("3.15.0", ""), "3.16.0"),
         (contract("3.16.0", r#", "item_kinds": []"#), "non-empty"),
-        (contract("3.16.0", r#", "item_kinds": ["method"]"#), "unknown kind"),
-        (contract("3.16.0", r#", "item_kinds": ["class", "class"]"#), "repeat"),
+        (
+            contract("3.16.0", r#", "item_kinds": ["method"]"#),
+            "unknown kind",
+        ),
+        (
+            contract("3.16.0", r#", "item_kinds": ["class", "class"]"#),
+            "repeat",
+        ),
         (contract("3.16.0", no_name), "module:Name"),
-        (contract("3.16.0", &format!(r#", "external_users": [{USER}, {USER}]"#)), "repeat"),
-        (contract("3.16.0", r#", "external_users": [{"symbol": "p:f"}]"#), "fields"),
+        (
+            contract(
+                "3.16.0",
+                &format!(r#", "external_users": [{USER}, {USER}]"#),
+            ),
+            "repeat",
+        ),
+        (
+            contract("3.16.0", r#", "external_users": [{"symbol": "p:f"}]"#),
+            "fields",
+        ),
     ];
     for (text, expected) in refused {
         match read(&text) {

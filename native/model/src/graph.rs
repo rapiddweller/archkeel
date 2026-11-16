@@ -46,7 +46,7 @@ pub struct Graph {
     /// The source and target module of each resolved macro body (AD-670).
     macro_bodies: Vec<(String, String)>,
     /// The public module-level items, when a rule of the run reads them (AD-670).
-    published: Option<Vec<crate::published::PublicItem>>,
+    published: Option<Vec<crate::published_items::PublicItem>>,
     module_edges: Vec<Edge>,
     package_edges: Vec<Edge>,
     module_measures: Vec<Measure>,
@@ -89,7 +89,7 @@ impl Graph {
             ));
         }
         if needs.published() {
-            graph.published = Some(crate::published::items(facts));
+            graph.published = Some(crate::published_items::items(facts));
         }
         if needs.boundary() && graph.observed.type_shapes {
             graph.boundary = Some(crate::boundary_facts::BoundaryFacts::derive(facts));
@@ -139,7 +139,12 @@ impl Graph {
             macro_bodies: split
                 .macro_bodies
                 .iter()
-                .map(|body| (body.source_module().to_owned(), body.target_module().to_owned()))
+                .map(|body| {
+                    (
+                        body.source_module().to_owned(),
+                        body.target_module().to_owned(),
+                    )
+                })
                 .collect(),
             published: None,
             module_edges,
@@ -203,7 +208,7 @@ impl Graph {
     }
 
     /// The public module-level items, when a rule of the run reads them (AD-670).
-    pub(crate) fn published(&self) -> Option<&[crate::published::PublicItem]> {
+    pub(crate) fn published(&self) -> Option<&[crate::published_items::PublicItem]> {
         self.published.as_deref()
     }
 

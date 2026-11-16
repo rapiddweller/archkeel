@@ -38,6 +38,23 @@ closed_enum!(
     }
 );
 
+impl PublicItemKind {
+    /// The word of the kind, as the contract and the symbol facts write it.
+    pub fn word(self) -> &'static str {
+        match self {
+            PublicItemKind::Function => "function",
+            PublicItemKind::Class => "class",
+            PublicItemKind::Constant => "constant",
+            PublicItemKind::StaticConstant => "static_constant",
+            PublicItemKind::TypeAlias => "type_alias",
+            PublicItemKind::Binding => "binding",
+            PublicItemKind::Alias => "alias",
+            PublicItemKind::DynamicBinding => "dynamic_binding",
+            PublicItemKind::Macro => "macro",
+        }
+    }
+}
+
 record!(
     pub(crate),
     /// A public item that a consumer outside the scan uses.
@@ -87,11 +104,7 @@ pub(crate) fn unused_public(raw: &Json, label: &str) -> Parsed<UnusedPublic> {
     let users = match field(item, "external_users") {
         None => &[][..],
         Some(Json::Array(users)) => users.as_slice(),
-        Some(_) => {
-            return Err(invalid(format!(
-                "{label}.external_users must be an array"
-            )))
-        }
+        Some(_) => return Err(invalid(format!("{label}.external_users must be an array"))),
     };
     let external_users = users
         .iter()

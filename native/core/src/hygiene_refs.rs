@@ -124,7 +124,11 @@ fn rule_references(found: &mut Held, index: usize, rule: &Value, sdk: &[String])
     }
     // AD-670: each external user names an item of the scan.
     for (item, user) in list(&rule["external_users"]).iter().enumerate() {
-        found.add(at(&format!("external_users/{item}/symbol")), &user["symbol"], true);
+        found.add(
+            at(&format!("external_users/{item}/symbol")),
+            &user["symbol"],
+            true,
+        );
     }
     for (item, grant) in list(&rule["module_object_grants"]).iter().enumerate() {
         for field in ["source_module", "target_module"] {

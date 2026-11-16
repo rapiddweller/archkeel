@@ -71,7 +71,7 @@ use archkeel_contract::{head_of, kind_of, Rule, RuleKind};
 use archkeel_model::{Decision, Model, ModelTree, Part, Reason, Unsupported, Verdict};
 
 pub use violation::{
-    Cited, ConstructViolation, CycleStep, Cyclic, Layered, Published, UnusedItem, Violation,
+    Cited, ConstructViolation, CycleStep, Cyclic, Layered, Published, Violation,
 };
 
 /// The result of one rule.

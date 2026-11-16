@@ -280,8 +280,9 @@ fn classified(kind: RuleKind) -> bool {
         | K::ForbiddenEffectUnderCondition
         | K::LayerOrder
         | K::SymbolPlacement
-        | K::ProtocolDeclarations
-        | K::UnusedPublic => false,
+        | K::ProtocolDeclarations => false,
+        // AD-670: each change of the rule widens (`not_enumerated`).
+        K::UnusedPublic => false,
     }
 }
 

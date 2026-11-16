@@ -10,12 +10,12 @@ use crate::model::{
     SiblingIsolation, SourceRule,
 };
 use crate::model_constructs::ForbiddenConstruct;
-use crate::unused_public::UnusedPublic;
 use crate::model_rules::{
     BoundaryTypes, BoundedNumericOperand, CallOwner, CatalogArgument, CatalogUse,
     ForbiddenCallArgument, ForbiddenEffectUnderCondition, ProtocolDeclarations, SourceOwnership,
     SymbolPlacement,
 };
+use crate::unused_public::UnusedPublic;
 
 /// Declare the rule enum, its kind, its head and its body from one list of (variant, value type)
 /// pairs. The call passes the visibility of the body (the crate), so the definition names no
