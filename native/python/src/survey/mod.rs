@@ -176,6 +176,21 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
                 && !opaque_surface.contains(&module.name)
         },
     );
+    // AD-550: another module can write a name of an escaped module, and a hazard site can rebind
+    // one, so no import of such a module is the one binder of its name.
+    let withheld: HashSet<&str> = modules
+        .iter()
+        .enumerate()
+        .filter(|(index, module)| {
+            hazards.iter().any(|(site, _)| site == index) || opaque_surface.contains(&module.name)
+        })
+        .map(|(_, module)| module.name.as_str())
+        .collect();
+    for record in &mut imports {
+        if withheld.contains(record.data.data().source_module.as_str()) {
+            record.data.data_mut().source_binding_unique = Some(false);
+        }
+    }
     let files: Vec<FileFact> = modules
         .iter()
         .zip(&binders)
