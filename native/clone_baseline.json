@@ -96,28 +96,6 @@
     "reason": "The CPython class name (and source text) of each variant of a closed ruff enum (AD-377). One exhaustive match for each enum keeps the compiler check when ruff adds a variant. They are data, not logic.",
     "tokens": 71
   },
-  "report/src/build_tables.rs|report/src/build_tables.rs|372b10f04f": {
-    "files": [
-      "report/src/build_tables.rs"
-    ],
-    "reason": "Each layout function pushes one cell per column of its table. The columns differ; no logic repeats.",
-    "tokens": 76
-  },
-  "report/src/check_structure.rs|report/src/check_structure.rs|b22255ca85": {
-    "files": [
-      "report/src/check_structure.rs"
-    ],
-    "reason": "ids! and opt_ids! calls list the id columns of the payload and the table they point into. They are data.",
-    "tokens": 71
-  },
-  "report/src/payload.rs|typescript/src/definitions.rs|b53e2fe389": {
-    "files": [
-      "report/src/payload.rs",
-      "typescript/src/definitions.rs"
-    ],
-    "reason": "Derive lines and pub field lists of wire structs have one shape. No logic repeats.",
-    "tokens": 80
-  },
   "typescript/src/manifest.rs|typescript/src/options.rs|a62be8fc91": {
     "files": [
       "typescript/src/manifest.rs",
