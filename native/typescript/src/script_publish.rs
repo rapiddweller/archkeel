@@ -165,11 +165,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// `_script_return_publication`: `var name = (function () { return {...}; })();`.
-    fn return_publication(
-        &self,
-        node: Node<'t>,
-        call: Node<'t>,
-    ) -> Option<ScriptGlobal> {
+    fn return_publication(&self, node: Node<'t>, call: Node<'t>) -> Option<ScriptGlobal> {
         let tree: &Tree<'_, '_> = self.tree;
         let binding = tree.parent(call)?;
         let declaration = tree.parent(binding)?;
