@@ -89,7 +89,10 @@ def rules(*, interface: bool = False) -> list[dict[str, Any]]:
 def held(result: dict[str, Any], gap: str) -> None:
     found = rows(result)
     assert found["CYCLES"] == "UNKNOWN", result["frame"]["explained"]
-    assert found["ASSIGN"] == "UNKNOWN", result["frame"]["explained"]
+    # AD-630: a package key leaves the edges of every library unknown, not the files; a second
+    # package in a scan root can own its files, so it holds the rule on the files too.
+    files = "UNKNOWN" if gap == "DartNestedPackage" else "PASS"
+    assert found["ASSIGN"] == files, result["frame"]["explained"]
     assert gap in json.dumps(result["frame"]["collection_gaps"]), result["frame"]["scope"]
 
 

@@ -99,22 +99,28 @@ pub enum Doubt {
 impl Doubt {
     /// The stable word of the doubt: it holds no gap id and no position (AD-546).
     pub fn word(&self) -> String {
+        match self.parts() {
+            (word, _, Some(module)) => format!("{word}: {module}"),
+            (word, _, None) => word.to_owned(),
+        }
+    }
+
+    /// The word, the text and the module of the doubt: one table for `word` and `Display`.
+    fn parts(&self) -> (&'static str, &'static str, Option<&str>) {
         match self {
-            Doubt::Edges(module) => format!("edges: {module}"),
-            Doubt::Code(module) => format!("modules: {module}"),
-            Doubt::EveryModule => "every_module".to_owned(),
-            Doubt::Layout(module) => format!("layout: {module}"),
+            Doubt::Edges(module) => ("edges", "the import edges of", Some(module)),
+            Doubt::Code(module) => ("modules", "the code of", Some(module)),
+            Doubt::EveryModule => ("every_module", "the code of every module", None),
+            Doubt::Layout(module) => ("layout", "the file and the layout of", Some(module)),
         }
     }
 }
 
 impl fmt::Display for Doubt {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Doubt::Edges(module) => write!(formatter, "the import edges of {module}"),
-            Doubt::Code(module) => write!(formatter, "the code of {module}"),
-            Doubt::EveryModule => formatter.write_str("the code of every module"),
-            Doubt::Layout(module) => write!(formatter, "the file and the layout of {module}"),
+        match self.parts() {
+            (_, text, Some(module)) => write!(formatter, "{text} {module}"),
+            (_, text, None) => formatter.write_str(text),
         }
     }
 }
