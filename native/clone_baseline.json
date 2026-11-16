@@ -13,14 +13,6 @@
     "reason": "The facade budget and the coupling budget read the same field kinds in one shape, as their Python parsers do. They are data, not logic.",
     "tokens": 85
   },
-  "contract/src/model.rs|contract/src/model_rules.rs|f1b6bace03": {
-    "files": [
-      "contract/src/model.rs",
-      "contract/src/model_rules.rs"
-    ],
-    "reason": "Field lists of neighbouring contract types have one shape, as the Python dataclasses do. No logic repeats.",
-    "tokens": 82
-  },
   "contract/src/version.rs|typescript/src/references.rs|28d4a368b5": {
     "files": [
       "contract/src/version.rs",
@@ -28,21 +20,6 @@
     ],
     "reason": "Exhaustive match tables of two closed enums (contract features to versions, reference forms to kinds) have one token shape; each arm names its own variant, and a new variant must fail to compile there. AD-406: the `pub(crate)` of the library target of the collector adds three tokens to the same shape; no code was copied.",
     "tokens": 75
-  },
-  "facts/src/data/imports.rs|facts/src/data/sites.rs|a6651d57cb": {
-    "files": [
-      "facts/src/data/imports.rs",
-      "facts/src/data/sites.rs"
-    ],
-    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
-    "tokens": 82
-  },
-  "facts/src/data/sites.rs|facts/src/data/sites.rs|8e9f130df0": {
-    "files": [
-      "facts/src/data/sites.rs"
-    ],
-    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
-    "tokens": 72
   },
   "facts/src/data/sites.rs|facts/src/data/sites.rs|cd6970d17a": {
     "files": [
@@ -59,129 +36,6 @@
     "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
     "tokens": 91
   },
-  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|3ee63772cf": {
-    "files": [
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
-    "tokens": 79
-  },
-  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|a3ab0319d6": {
-    "files": [
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
-    "tokens": 76
-  },
-  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|b2ce1d8527": {
-    "files": [
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
-    "tokens": 87
-  },
-  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|c631f85375": {
-    "files": [
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
-    "tokens": 72
-  },
-  "facts/src/data/symbols.rs|facts/src/data/symbols.rs|f259219496": {
-    "files": [
-      "facts/src/data/symbols.rs"
-    ],
-    "reason": "Neighbouring lines of the facts_data! tables hold one field each as a mark, a name and a type. The macro writes the serde attributes, so only that data shape is left.",
-    "tokens": 75
-  },
-  "facts/src/envelope.rs|facts/src/vocab.rs|f7b9dc8f30": {
-    "files": [
-      "facts/src/envelope.rs",
-      "facts/src/vocab.rs"
-    ],
-    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data. AD-408: correct the decoder vocabulary to include records already on the wire. This replaces existing data-table fingerprints; no executable logic is copied.",
-    "tokens": 70
-  },
-  "facts/src/nested.rs|facts/src/nested.rs|6715bd1b22": {
-    "files": [
-      "facts/src/nested.rs",
-      "facts/src/nested.rs"
-    ],
-    "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
-    "tokens": 73
-  },
-  "facts/src/nested.rs|facts/src/nested.rs|69b2c4d2d7": {
-    "files": [
-      "facts/src/nested.rs",
-      "facts/src/nested.rs"
-    ],
-    "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
-    "tokens": 104
-  },
-  "facts/src/nested.rs|facts/src/nested.rs|7cf795bbf4": {
-    "files": [
-      "facts/src/nested.rs",
-      "facts/src/nested.rs"
-    ],
-    "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
-    "tokens": 70
-  },
-  "facts/src/nested.rs|facts/src/nested.rs|9d4172abd6": {
-    "files": [
-      "facts/src/nested.rs",
-      "facts/src/nested.rs"
-    ],
-    "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
-    "tokens": 74
-  },
-  "facts/src/nested.rs|facts/src/nested.rs|9d4172abd6#2": {
-    "files": [
-      "facts/src/nested.rs",
-      "facts/src/nested.rs"
-    ],
-    "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
-    "tokens": 74
-  },
-  "facts/src/nested.rs|facts/src/nested.rs|cd475bd9ba": {
-    "files": [
-      "facts/src/nested.rs",
-      "facts/src/nested.rs"
-    ],
-    "reason": "Derive lines and pub field lists of neighbouring wire structs have one shape. No logic repeats.",
-    "tokens": 71
-  },
-  "facts/src/nested.rs|report/src/head.rs|2f9a288de4": {
-    "files": [
-      "facts/src/nested.rs",
-      "report/src/head.rs"
-    ],
-    "reason": "Derive lines and pub field lists of the payload head structs have one shape, as the schema objects do. No logic repeats.",
-    "tokens": 75
-  },
-  "facts/src/nested.rs|report/src/head.rs|859357fe2a": {
-    "files": [
-      "facts/src/nested.rs",
-      "report/src/head.rs"
-    ],
-    "reason": "Derive lines and pub field lists of the payload head structs have one shape, as the schema objects do. No logic repeats.",
-    "tokens": 77
-  },
-  "facts/src/nested.rs|report/src/head.rs|8ab25facc4": {
-    "files": [
-      "facts/src/nested.rs",
-      "report/src/head.rs"
-    ],
-    "reason": "Derive lines and pub field lists of the payload head structs have one shape, as the schema objects do. No logic repeats.",
-    "tokens": 74
-  },
-  "facts/src/nested.rs|report/src/head.rs|ef5b91edfd": {
-    "files": [
-      "facts/src/nested.rs",
-      "report/src/head.rs"
-    ],
-    "reason": "Derive lines and pub field lists of the payload head structs have one shape, as the schema objects do. No logic repeats.",
-    "tokens": 75
-  },
   "facts/src/sections.rs|python/src/pyast/node.rs|5d42269720": {
     "files": [
       "facts/src/sections.rs",
@@ -197,78 +51,6 @@
     ],
     "reason": "The CPython class name (and source text) of each variant of a closed ruff enum (AD-377). One exhaustive match for each enum keeps the compiler check when ruff adds a variant. They are data, not logic.",
     "tokens": 70
-  },
-  "facts/src/vocab.rs|facts/src/vocab.rs|16412c39fa": {
-    "files": [
-      "facts/src/vocab.rs",
-      "facts/src/vocab.rs"
-    ],
-    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
-    "tokens": 82
-  },
-  "facts/src/vocab.rs|facts/src/vocab.rs|4b7e340333": {
-    "files": [
-      "facts/src/vocab.rs",
-      "facts/src/vocab.rs"
-    ],
-    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data. AD-408: correct the decoder vocabulary to include records already on the wire. This replaces existing data-table fingerprints; no executable logic is copied.",
-    "tokens": 98
-  },
-  "facts/src/vocab.rs|facts/src/vocab.rs|68074d063e": {
-    "files": [
-      "facts/src/vocab.rs",
-      "facts/src/vocab.rs"
-    ],
-    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
-    "tokens": 71
-  },
-  "facts/src/vocab.rs|facts/src/vocab.rs|70c78392c2": {
-    "files": [
-      "facts/src/vocab.rs",
-      "facts/src/vocab.rs"
-    ],
-    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
-    "tokens": 73
-  },
-  "facts/src/vocab.rs|facts/src/vocab.rs|96f22961bc": {
-    "files": [
-      "facts/src/vocab.rs",
-      "facts/src/vocab.rs"
-    ],
-    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data. AD-408: correct the decoder vocabulary to include records already on the wire. This replaces existing data-table fingerprints; no executable logic is copied.",
-    "tokens": 81
-  },
-  "facts/src/vocab.rs|facts/src/vocab.rs|a2f488ff6f": {
-    "files": [
-      "facts/src/vocab.rs",
-      "facts/src/vocab.rs"
-    ],
-    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
-    "tokens": 85
-  },
-  "facts/src/vocab.rs|facts/src/vocab.rs|d702bb6ff4": {
-    "files": [
-      "facts/src/vocab.rs",
-      "facts/src/vocab.rs"
-    ],
-    "reason": "closed! calls list the variants of a vocabulary as name and text pairs. They are data.",
-    "tokens": 86
-  },
-  "facts/src/vocab.rs|report/src/codes.rs|68074d063e": {
-    "files": [
-      "facts/src/vocab.rs",
-      "report/src/codes.rs"
-    ],
-    "reason": "code_list! calls list the values of a schema code list as name and text pairs. They are data.",
-    "tokens": 70
-  },
-  "facts/src/vocab.rs|report/src/codes.rs|d23e706e13": {
-    "files": [
-      "facts/src/vocab.rs",
-      "report/src/codes.rs"
-    ],
-    "reason": "code_list! calls list the values of a schema code list as name and text pairs. They are data.",
-    "tokens": 71
   },
   "model/src/limits.rs|model/src/limits.rs|2918b64354": {
     "files": [
@@ -293,20 +75,6 @@
     "reason": "AD-378 (review of #1066, finding 5): each match of the scope proof lists every rule kind with no default arm, so a new kind does not compile until its doubt sources are stated. The lists of kinds repeat by design.",
     "tokens": 71
   },
-  "python/src/pyast/node.rs|python/src/pyast/node.rs|0bf652e71b": {
-    "files": [
-      "python/src/pyast/node.rs"
-    ],
-    "reason": "The CPython class name (and source text) of each variant of a closed ruff enum (AD-377). One exhaustive match for each enum keeps the compiler check when ruff adds a variant. They are data, not logic.",
-    "tokens": 78
-  },
-  "python/src/pyast/node.rs|python/src/pyast/node.rs|2a527c506b": {
-    "files": [
-      "python/src/pyast/node.rs"
-    ],
-    "reason": "The CPython class name (and source text) of each variant of a closed ruff enum (AD-377). One exhaustive match for each enum keeps the compiler check when ruff adds a variant. They are data, not logic.",
-    "tokens": 73
-  },
   "python/src/pyast/node.rs|python/src/pyast/node.rs|2e1ec79a89": {
     "files": [
       "python/src/pyast/node.rs"
@@ -328,20 +96,6 @@
     "reason": "The CPython class name (and source text) of each variant of a closed ruff enum (AD-377). One exhaustive match for each enum keeps the compiler check when ruff adds a variant. They are data, not logic.",
     "tokens": 71
   },
-  "python/src/pyast/node.rs|python/src/pyast/node.rs|783372cca5": {
-    "files": [
-      "python/src/pyast/node.rs"
-    ],
-    "reason": "The CPython class name (and source text) of each variant of a closed ruff enum (AD-377). One exhaustive match for each enum keeps the compiler check when ruff adds a variant. They are data, not logic.",
-    "tokens": 90
-  },
-  "python/src/pyast/node.rs|python/src/pyast/node.rs|a5e860b001": {
-    "files": [
-      "python/src/pyast/node.rs"
-    ],
-    "reason": "The CPython class name (and source text) of each variant of a closed ruff enum (AD-377). One exhaustive match for each enum keeps the compiler check when ruff adds a variant. They are data, not logic.",
-    "tokens": 93
-  },
   "report/src/build_tables.rs|report/src/build_tables.rs|372b10f04f": {
     "files": [
       "report/src/build_tables.rs"
@@ -355,49 +109,6 @@
     ],
     "reason": "ids! and opt_ids! calls list the id columns of the payload and the table they point into. They are data.",
     "tokens": 71
-  },
-  "report/src/codes.rs|report/src/codes.rs|c4f377b227": {
-    "files": [
-      "report/src/codes.rs"
-    ],
-    "reason": "code_list! calls list the values of a schema code list as name and text pairs. They are data.",
-    "tokens": 79
-  },
-  "report/src/codes.rs|report/src/codes.rs|cc3606ea98": {
-    "files": [
-      "report/src/codes.rs"
-    ],
-    "reason": "code_list! calls list the values of a schema code list as name and text pairs. They are data.",
-    "tokens": 79
-  },
-  "report/src/head.rs|report/src/head.rs|79d9f589f7": {
-    "files": [
-      "report/src/head.rs"
-    ],
-    "reason": "Derive lines and pub field lists of the payload head structs have one shape, as the schema objects do. No logic repeats.",
-    "tokens": 73
-  },
-  "report/src/head.rs|report/src/input.rs|de8a734d40": {
-    "files": [
-      "report/src/head.rs",
-      "report/src/input.rs"
-    ],
-    "reason": "Field lists of the input structs of build have one shape, as the rows of the payload tables do. No logic repeats.",
-    "tokens": 75
-  },
-  "report/src/input.rs|report/src/input.rs|227b8d937f": {
-    "files": [
-      "report/src/input.rs"
-    ],
-    "reason": "Field lists of the input structs of build have one shape, as the rows of the payload tables do. No logic repeats.",
-    "tokens": 82
-  },
-  "report/src/input.rs|report/src/input.rs|b2e845ea6d": {
-    "files": [
-      "report/src/input.rs"
-    ],
-    "reason": "Field lists of the input structs of build have one shape, as the rows of the payload tables do. No logic repeats.",
-    "tokens": 70
   },
   "report/src/payload.rs|typescript/src/definitions.rs|b53e2fe389": {
     "files": [

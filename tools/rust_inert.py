@@ -9,6 +9,10 @@ two of them that look alike are no clone:
 - a `use` item: an import list names things, it computes nothing;
 - a `const` or `static` whose value is an array or a slice of literals and paths, with tuples of
   them and no call, no operator and no block: a table of data;
+- a `mod name;` declaration, and a struct of named fields that have plain types: a declaration
+  of names and types;
+- a declaration macro (`closed! { pub enum E { A = "a", } }`) whose body is names, literals and
+  brackets, each `=` followed by a literal;
 - a `match` in which each arm is `path => literal` (or a tuple of literals) or `literal => path`, with no guard and no other
   expression: a table of words and variants.
 
@@ -39,6 +43,15 @@ def inert_mask(tokens: Sequence[Token]) -> list[bool]:
             end = _table_end(tokens, start)
         elif token.text == "match":
             end = _match_end(tokens, start)
+        elif token.text == "mod":
+            end = _mod_end(tokens, start)
+        elif token.text == "struct":
+            first = _struct_start(tokens, start)
+            end = _struct_end(tokens, start)
+            if end is not None:
+                mask[first:start] = [True] * (start - first)
+        elif start + 1 < len(tokens) and _is(tokens[start + 1], "!"):
+            end = _words_end(tokens, start)
         if end is not None:
             mask[start:end] = [True] * (end - start)
     return mask
@@ -126,7 +139,9 @@ def _arms(body: Sequence[Token]) -> bool:
             return False
         pattern = body[index:arrow]
         stop = arrow + 2
-        while stop < len(body) and not _is(body[stop], ","):
+        depth = 0
+        while stop < len(body) and not (depth == 0 and _is(body[stop], ",")):
+            depth += _is(body[stop], "(") - _is(body[stop], ")")
             stop += 1
         value = body[arrow + 2 : stop]
         if not _arm(pattern, value):
@@ -183,3 +198,69 @@ def _literals(tokens: Sequence[Token]) -> bool:
     return bool(tokens) and all(
         token.kind == "literal" or (token.kind == "punct" and token.text == "|") for token in tokens
     )
+
+
+def _mod_end(tokens: Sequence[Token], start: int) -> int | None:
+    """Return the index after `mod name;`."""
+    if start + 3 < len(tokens) + 0 and tokens[start + 1].kind == "name" and _is(tokens[start + 2], ";"):
+        return start + 3
+    return None
+
+
+def _struct_start(tokens: Sequence[Token], start: int) -> int:
+    """Return the index of the first attribute or `pub` before the `struct` at `start`."""
+    first = start
+    if first > 0 and tokens[first - 1].text == "pub":
+        first -= 1
+    while first > 0 and _is(tokens[first - 1], "]"):
+        depth, position = 0, first - 1
+        while position >= 0:
+            depth += _is(tokens[position], "]") - _is(tokens[position], "[")
+            if depth == 0:
+                break
+            position -= 1
+        if position < 1 or not _is(tokens[position - 1], "#"):
+            break
+        first = position - 1
+    return first
+
+
+def _struct_end(tokens: Sequence[Token], start: int) -> int | None:
+    """Return the index after a struct whose fields are `name: plain type`."""
+    if start + 2 >= len(tokens) or not _is(tokens[start + 2], "{"):
+        return None
+    end = group_end(tokens, start + 2)
+    body = tokens[start + 3 : end - 1]
+    for index, token in enumerate(body):
+        if token.kind == "literal":
+            return None
+        if token.kind == "punct" and token.text not in {",", ":", "<", ">", "&", "'", "[", "]", ";"}:
+            return None
+        if token.kind == "name" and index + 1 < len(body) and _is(body[index + 1], "("):
+            return None
+    return end
+
+
+def _words_end(tokens: Sequence[Token], start: int) -> int | None:
+    """Return the index after a declaration macro whose body is only words."""
+    opener = start + 2
+    if opener >= len(tokens) or not _opens(tokens[opener]):
+        return None
+    end = group_end(tokens, opener)
+    body = tokens[opener + 1 : end - 1]
+    equals = 0
+    for index, token in enumerate(body):
+        if _is(token, "="):
+            equals += 1
+            if index + 1 >= len(body) or body[index + 1].kind != "literal":
+                return None
+        elif token.kind == "punct" and token.text not in {",", "{", "}", ":", "(", ")"}:
+            if not _is(token, "="):
+                return None
+        elif token.kind == "name" and index + 1 < len(body) and _is(body[index + 1], "("):
+            return None
+    if equals == 0:
+        return None
+    if end < len(tokens) and _is(tokens[end], ";"):
+        end += 1
+    return end
