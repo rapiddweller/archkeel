@@ -279,7 +279,7 @@ def _decide(options: Options, as_json: bool) -> int:
     """Send the scan identity to the core and print the one frame that it gives."""
     options = _located(options)
     root = resolve_root(options.root or Path.cwd())
-    first = prepare(options, root)  # AD-638: a project without archkeel.toml gets a draft
+    options, first = prepare(options, root)  # AD-638, AD-660: a project without a config gets one
     if isinstance(first, str):
         return _refused(options.command, RefusalKind.INVALID_INPUT, first, as_json)
     request = _request(options, root)

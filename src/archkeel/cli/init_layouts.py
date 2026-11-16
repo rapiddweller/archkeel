@@ -11,6 +11,7 @@ code. A layout that this module cannot name soundly raises `NothingToDraft`.
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -55,17 +56,27 @@ def _name(text: str) -> str:
 
 
 def _escape(segment: str) -> str:
-    """The module identity of a TypeScript path segment: a character outside [a-z0-9_] is
-    `_x<hex>_`, as the collector names it."""
-    return "".join(c if re.fullmatch(r"[a-z0-9_]", c) else f"_x{ord(c):x}_" for c in segment)
+    """The module identity of a TypeScript path segment: a character other than an ASCII letter
+    or digit is `_x<hex>_`, as the collector writes it (`.` is `_x2e_`, `_` is `_x5f_`)."""
+    return "".join(c if c.isascii() and c.isalnum() else f"_x{ord(c):x}_" for c in segment)
 
 
 def _packages(folder: Path) -> list[Path]:
+    """The subfolders of `folder` that hold Python code at any depth (a folder without
+    `__init__.py` is a namespace package, and the scan reads its modules too)."""
     return sorted(
         path
         for path in folder.iterdir()
-        if path.is_dir() and path.name not in _IGNORED and (path / "__init__.py").is_file()
+        if path.is_dir() and path.name not in _IGNORED and _has_python(path)
     )
+
+
+def _has_python(folder: Path) -> bool:
+    for _, names, files in os.walk(folder):
+        names[:] = [name for name in names if name not in _IGNORED]
+        if any(file.endswith(".py") for file in files):
+            return True
+    return False
 
 
 def _members(root: Path, patterns: list[str], marker: str) -> list[Path]:
@@ -79,33 +90,60 @@ def _members(root: Path, patterns: list[str], marker: str) -> list[Path]:
     return sorted(found)
 
 
-def python_layout(root: Path) -> Layout:
-    """One component for each subpackage of the one top-level package, or for each top-level
-    package when there are several. The modules beside them are the component `root`."""
-    base = root / "src" if (root / "src").is_dir() else root
-    found = _packages(base)
-    where = base.relative_to(root).as_posix()
+def python_layouts(root: Path, folder: Path | None = None) -> list[Layout]:
+    """The Python scans of a project folder: one component for each subpackage of a top-level
+    package. A module name is the namespace and the path below the scan root, and the namespace
+    must be the name of that root, so a scan has one root folder.
+
+    Below `src` the folders that hold Python give one scan with one component each, or one scan
+    of the only folder. In a folder without `src` each top-level package (with `__init__.py`) is
+    its own scan. `root` is the repository; `folder` is the project folder below it."""
+    folder = folder or root
+    src = (folder / "src").is_dir()
+    base = folder / "src" if src else folder
+    found = (
+        _packages(base) if src else [p for p in _packages(base) if (p / "__init__.py").is_file()]
+    )
     if not found:
+        where = base.relative_to(root).as_posix()
         raise _refuse(f"no top-level Python package (a folder with __init__.py) in {where}")
-    if len(found) == 1:
-        package = found[0]
-        scan = package.relative_to(root).as_posix()
-        namespace, inside = package.name, _packages(package)
-        owner, modules = package, [namespace]
-        parts = [Part(p.name, (f"{namespace}.{p.name}",)) for p in inside]
-    else:
-        scan = base.relative_to(root).as_posix()
-        namespace = _name(base.name if where != "." else root.name)
-        owner, modules = base, []
-        parts = [Part(p.name, (f"{namespace}.{p.name}",)) for p in found]
-    taken = {part.label for part in parts}
-    modules += [
-        f"{namespace}.{path.stem}"
-        for path in sorted(owner.glob("*.py"))
-        if path.stem != "__init__" and path.stem not in taken
-    ]
-    parts.append(Part("root", modules=tuple(modules)))
-    return Layout("python", namespace, (scan,), tuple(parts), note=_python_note(root))
+    note = _python_note(folder)
+    if src and len(found) > 1:
+        return [_python_scan(root, base, [p.name for p in found], note)]
+    return [_python_single(root, package, note) for package in found]
+
+
+def _python_single(root: Path, package: Path, note: str) -> Layout:
+    """The scan of one package: a component for each folder in it that holds Python."""
+    namespace = package.name
+    parts = [Part(p.name, (f"{namespace}.{p.name}",)) for p in _packages(package)]
+    parts.append(Part("root", modules=_beside(namespace, package, {p.label for p in parts}, True)))
+    return Layout(
+        "python", namespace, (package.relative_to(root).as_posix(),), tuple(parts), note=note
+    )
+
+
+def _python_scan(root: Path, base: Path, names: list[str], note: str) -> Layout:
+    """The scan of a folder (`src`) that holds several packages: a component for each."""
+    namespace = _name(base.name)
+    parts = [Part(name, (f"{namespace}.{name}",)) for name in names]
+    own = (base / "__init__.py").is_file()  # a package `src/__init__.py` is a module of the scan
+    parts.append(Part("root", modules=_beside(namespace, base, set(names), own)))
+    return Layout(
+        "python", namespace, (base.relative_to(root).as_posix(),), tuple(parts), note=note
+    )
+
+
+def _beside(namespace: str, folder: Path, taken: set[str], itself: bool) -> tuple[str, ...]:
+    """The modules directly in `folder`: the package itself and each `.py` file beside the parts."""
+    return tuple(
+        ([namespace] if itself and (folder / "__init__.py").is_file() else [])
+        + [
+            f"{namespace}.{path.stem}"
+            for path in sorted(folder.glob("*.py"))
+            if path.stem != "__init__" and path.stem not in taken
+        ]
+    )
 
 
 def _python_note(root: Path) -> str:
@@ -118,8 +156,9 @@ def _python_note(root: Path) -> str:
     )
 
 
-def rust_layout(root: Path) -> Layout | None:
-    """One component for each crate of a Cargo workspace; `None` without a workspace."""
+def rust_layout(repo: Path, root: Path) -> Layout | None:
+    """One component for each crate of the Cargo workspace in `root` (a folder of the repository
+    `repo`); `None` without a workspace."""
     manifest = root / "Cargo.toml"
     if not manifest.is_file():
         return None
@@ -137,14 +176,16 @@ def rust_layout(root: Path) -> Layout | None:
         )
         if found:
             name = found[1].replace("-", "_")
-            parts.append(Part(_name(found[1]), (f"{_name(root.name)}.{name}",)))
+            parts.append(Part(_name(found[1]), (f"{_name(root.name or repo.name)}.{name}",)))
     if len(parts) < 2:
         raise _refuse("the Cargo workspace names fewer than two crates with a [package] name")
-    return Layout("rust", _name(root.name), (".",), tuple(parts))
+    scan = root.relative_to(repo).as_posix()
+    return Layout("rust", _name(root.name or repo.name), (scan,), tuple(parts))
 
 
-def typescript_layout(root: Path) -> Layout | None:
-    """One component for each member of the `workspaces` of package.json; `None` without them."""
+def typescript_layout(repo: Path, root: Path) -> Layout | None:
+    """One component for each member of the `workspaces` of the package.json in `root` (a folder
+    of the repository `repo`); `None` without them."""
     manifest = root / "package.json"
     if not manifest.is_file():
         return None
@@ -160,23 +201,17 @@ def typescript_layout(root: Path) -> Layout | None:
     members = _members(root, [s for s in spaces if isinstance(s, str)], "package.json")
     if len(members) < 2:
         raise _refuse("package.json workspaces name fewer than two packages")
-    namespace = _name(root.name)
+    namespace = _name(root.name or repo.name)
     parts, roots = [], []
     for member in members:
-        relative = member.relative_to(root)
+        relative = member.relative_to(repo)
         selector = ".".join([namespace, *(_escape(part) for part in relative.parts)])
         parts.append(Part(_name(member.name), (selector,)))
         roots.append(relative.as_posix())
-    extra = 'tsconfig = "tsconfig.json"\n' if (root / "tsconfig.json").is_file() else ""
+    extra = _tsconfig(repo, root)
     return Layout("typescript", namespace, tuple(roots), tuple(parts), extra)
 
 
-def detect(root: Path) -> Layout:
-    """The layout of `root`. Two languages at one root are refused: a run covers one language."""
-    found = [layout for layout in (rust_layout(root), typescript_layout(root)) if layout]
-    if len(found) > 1:
-        raise _refuse(
-            "the root holds a Cargo workspace and a package.json workspace, and a run covers one "
-            "language"
-        )
-    return found[0] if found else python_layout(root)
+def _tsconfig(repo: Path, folder: Path) -> str:
+    config = folder / "tsconfig.json"
+    return f'tsconfig = "{config.relative_to(repo).as_posix()}"\n' if config.is_file() else ""

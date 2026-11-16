@@ -173,6 +173,25 @@ pub(crate) fn explain(frames: &[Map<String, Value>]) -> Option<Value> {
             }
         }
     }
+    // The list of the gaps that hold a rule keeps the budget of one part: the parts together may
+    // hold more, and the frame states the cut (`gaps_truncated`) with the count that holds.
+    let budget = joined
+        .get("budgets")
+        .and_then(|b| b.get("gaps"))
+        .and_then(Value::as_u64)
+        .and_then(|n| usize::try_from(n).ok());
+    if let (Some(budget), Some(Value::Array(listed))) = (budget, holds.get_mut("gaps")) {
+        listed.truncate(budget);
+        let holding = holds
+            .get("gaps_holding")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        holds.insert("gaps_truncated".to_owned(), json!(holding > budget as u64));
+    }
     joined.insert("holds".to_owned(), Value::Object(holds));
     Some(Value::Object(joined))
 }
+
+#[cfg(test)]
+#[path = "system_topology_tests.rs"]
+mod tests;
