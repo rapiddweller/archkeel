@@ -10,7 +10,7 @@ use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 
 use super::{modules, packages, Measure};
 use crate::edges::{both, Edge};
-use crate::imports::{Import, MacroBody, Resolved};
+use crate::imports::{Import, MacroBody, Published, Resolved};
 use crate::modules::tables;
 
 pub(crate) fn file(module: &str, package: &str) -> FileFact {
@@ -36,8 +36,10 @@ pub(crate) fn import(id: &str, source: &str, target: &str) -> Import {
             .to_owned()
     };
     Import {
-        reexport_chain: Vec::new(),
-        route_complete: true,
+        published: Published {
+            complete: true,
+            ..Published::default()
+        },
         id: id.to_owned(),
         source_module: source.to_owned(),
         target_module: target.to_owned(),

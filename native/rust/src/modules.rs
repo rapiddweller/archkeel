@@ -21,6 +21,7 @@ mod state;
 use alias::Aliases;
 use climb::ascend;
 pub(crate) use climb::inside;
+pub(crate) use filled::binds_nothing;
 pub(crate) use outcome::{Edge, Outcome, TypeOf};
 use state::lexical;
 pub(crate) use state::MAX_HOPS;
@@ -236,8 +237,10 @@ impl<'a> Index<'a> {
         hops: usize,
         globs: bool,
     ) -> Outcome {
-        // The count and the bindings below are read across the whole file, not in the scope of the
-        // path. That is safe only because a name that the file declares more than once is UNKNOWN.
+        // The alias check reads the count and the bindings of the whole file. The one declaration of
+        // the name is read in the inline module of the path: a declaration of a child module is no
+        // name here, and a glob of the child stays a glob (AD-614). Within the module the rule is
+        // the old one: a name that it declares more than once is UNKNOWN.
         let first = &names[0];
         if place.2 && frame.module.scan.conditional_bindings.contains(first) {
             return Outcome::Unknown(format!("A conditional use may not bind {first}"));
@@ -279,12 +282,31 @@ impl<'a> Index<'a> {
         if !local {
             return Outcome::None;
         }
-        if count != 1 {
+        let scope: Vec<String> = place
+            .0
+            .strip_prefix(frame.module.module.as_str())
+            .unwrap_or("")
+            .split('.')
+            .filter(|part| !part.is_empty())
+            .map(str::to_owned)
+            .collect();
+        let scan = &frame.module.scan;
+        let here_count = scan.scoped_counts.get(&(scope, first.clone())).copied();
+        let here_bound: Vec<&Reference> = (bound.into_iter().flatten())
+            .copied()
+            .filter(|leaf| lexical(frame, &leaf.scope) == place.0)
+            .collect();
+        if here_count.unwrap_or(0) == 0 && here_bound.is_empty() && !here.1 {
+            return self
+                .unbound(frame, names, (place.0, hops, place.2), globs)
+                .unwrap_or(Outcome::None);
+        }
+        if here_count != Some(1) {
             let reason =
                 format!("A name that the file declares more than once may name a module: {first}");
             return Outcome::Unknown(reason);
         }
-        match bound {
+        match (!here_bound.is_empty()).then_some(here_bound) {
             Some(bindings) => {
                 let binding = bindings[0];
                 let at = lexical(frame, &binding.scope);
@@ -305,7 +327,9 @@ impl<'a> Index<'a> {
                     hops + 1,
                 )
             }
-            None => self.follow(&child, 1, &names[1..]),
+            None if here.1 => self.follow(&child, 1, &names[1..]),
+            // The one declaration here is an item, not a module: the path names no module.
+            None => Outcome::None,
         }
     }
     /// A name that the file does not declare: the own package from a binary, a crate, a name from
@@ -392,7 +416,9 @@ impl Index<'_> {
                     hops + 1,
                     true,
                 ) {
-                    Outcome::None if filled::may_fill(target.module) => {
+                    Outcome::None
+                        if filled::may_fill(target.module) && !binds_nothing(self, target) =>
+                    {
                         unknown("a macro call at module level of its module may define it")
                     }
                     found => found,

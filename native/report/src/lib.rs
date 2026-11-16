@@ -119,7 +119,7 @@ pub use engine_frame::{EngineFrame, FrameError};
 pub use head::{RuleVerdict, Status};
 pub use report::Decided;
 pub use ruling::{rule, rule_with_edge_links, Explain, Named, RuleReasons, Ruling};
-pub use status::Unexplained;
+pub use status::{system_status, Unexplained};
 pub use why::WhyUnknown;
 
 #[cfg(test)]

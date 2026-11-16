@@ -111,6 +111,7 @@ fn name(violation: &Violation) -> String {
         | Violation::PrivateImport { cited, .. } => {
             format!("{} -> {}", cited.source_module, cited.target_module)
         }
+        Violation::Publication(found) => found.name.clone(),
         Violation::OuterLayer(layered) => {
             format!(
                 "{} -> {}",

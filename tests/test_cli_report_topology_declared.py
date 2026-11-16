@@ -66,10 +66,13 @@ def test_the_topology_states_the_declared_structure(release_core: Path, tmp_path
         for e in topology["component_edges"]
         if e["resolution"] == "resolved"
     }
-    assert topology["requires"] == [
-        {"source": "COMP-APP", "target": "COMP-BASE", "imports": used["COMP-APP", "COMP-BASE"]},
-        {"source": "COMP-SPARE", "target": "COMP-BASE", "imports": 0},
+    rows = [(r["source"], r["target"], r["imports"], r["through"]) for r in topology["requires"]]
+    assert rows == [
+        ("COMP-APP", "COMP-BASE", used["COMP-APP", "COMP-BASE"], []),
+        ("COMP-SPARE", "COMP-BASE", 0, []),
     ]
+    # AD-606: each row carries the rationale that the contract states.
+    assert all(r["rationale"] for r in topology["requires"])
     assert used["COMP-APP", "COMP-BASE"] > 0
     assert topology["layers"] == [{"rule": "LAYERS", "layers": ["core", "edge"]}]
     assert topology["total"]["requires"] == 2 and topology["budgets"]["requires"] == 20_000

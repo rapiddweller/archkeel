@@ -160,6 +160,17 @@
         }
       ]
     },
+    "system": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SystemFrame"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The parts of a system run (AD-616); `crate::system::join` writes it."
+    },
     "html": {
       "type": "object",
       "properties": {
@@ -323,25 +334,46 @@
       ],
       "description": "Why the evaluator left a rule UNKNOWN. The builder derives the reason of every other verdict\nfrom the `Decision`: PASS is `evaluated`, FAIL `violations`, a declaration `declaration`."
     },
-    "Named": {
+    "PartRow": {
       "type": "object",
       "properties": {
-        "kind": {
+        "id": {
           "type": "string"
         },
-        "subject": {
+        "title": {
           "type": "string"
         },
-        "reason": {
-          "type": "string"
+        "config": {
+          "type": "string",
+          "description": "The repository path of the configuration of the part."
+        },
+        "profile": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The profile of the collector that read the part, from its collection request."
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The ids of the rules of the part."
         }
       },
       "required": [
-        "kind",
-        "subject",
-        "reason"
+        "id",
+        "title",
+        "config",
+        "profile",
+        "status",
+        "rules"
       ],
-      "description": "A part of the baseline that the core names and does not decide.",
+      "description": "One part of a system frame.",
       "additionalProperties": false
     },
     "Measures": {
@@ -610,6 +642,27 @@
           "items": {
             "type": "string"
           }
+        },
+        "responsibilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "What the component is responsible for, as the contract states it."
+        },
+        "forbidden_responsibilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "What the component must not do, as the contract states it."
+        },
+        "planned_public": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The selectors of its planned surface. Empty when the contract states none."
         }
       },
       "required": [
@@ -620,7 +673,10 @@
         "exact_modules",
         "planned",
         "layer",
-        "public"
+        "public",
+        "responsibilities",
+        "forbidden_responsibilities",
+        "planned_public"
       ],
       "additionalProperties": false
     },
@@ -641,13 +697,18 @@
         },
         "ownership": {
           "type": "string"
+        },
+        "language": {
+          "type": "string",
+          "description": "The language of the collector reply that names the module."
         }
       },
       "required": [
         "name",
         "path",
         "component",
-        "ownership"
+        "ownership",
+        "language"
       ],
       "additionalProperties": false
     },
@@ -733,12 +794,25 @@
           "format": "uint",
           "minimum": 0,
           "description": "Zero says that no observed import uses the permission."
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Why the contract allows the pair."
+        },
+        "through": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The selectors that an import of the pair must pass through; empty when the entry names none."
         }
       },
       "required": [
         "source",
         "target",
-        "imports"
+        "imports",
+        "rationale",
+        "through"
       ],
       "description": "One `requires` entry: the two components by id, and the observed imports that use it.",
       "additionalProperties": false
@@ -3615,6 +3689,54 @@
         "file"
       ],
       "description": "One difference between the run and the file.",
+      "additionalProperties": false
+    },
+    "Named": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "subject",
+        "reason"
+      ],
+      "description": "A part of the baseline that the core names and does not decide.",
+      "additionalProperties": false
+    },
+    "SystemFrame": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "The title of the system."
+        },
+        "document": {
+          "type": "string",
+          "description": "The repository path of the system document."
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PartRow"
+          },
+          "description": "Each part, in the order of the document."
+        }
+      },
+      "required": [
+        "title",
+        "document",
+        "parts"
+      ],
+      "description": "The part `system` of a frame (AD-616): `crate::system::join` writes it.",
       "additionalProperties": false
     }
   },

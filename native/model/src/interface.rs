@@ -72,6 +72,60 @@ fn namespace(model: &Model, import: &Import) -> bool {
     import.symbols_known() && import.symbol().is_none() && model.graph().observed().namespace_uses
 }
 
+/// A name that a re-export publishes outside the package of its module (AD-608), judged against
+/// the `public` entries of the component of that module.
+pub struct Publication<'m> {
+    /// The re-export record.
+    pub import: &'m Import,
+    /// The component that publishes the name.
+    pub component: &'m Component,
+    /// The published name, `*` for a glob.
+    pub name: &'m str,
+    /// Pass when an entry lists the name, Undecided for a glob.
+    pub judged: Judged,
+}
+
+/// AD-608: a re-export that publishes a name outside its package must publish a name that its
+/// component lists in `public` (`module:name`, or the whole module). A component without
+/// `public` is no subject, as for an import.
+pub fn interface_publications<'m>(
+    model: &'m Model,
+    rule: &InterfaceBoundary,
+) -> Vec<Publication<'m>> {
+    let components = model.components();
+    model
+        .graph()
+        .imports()
+        .iter()
+        .filter_map(|import| {
+            let name = import.published_as()?;
+            if !model.selects(import.source_module())
+                || (import.under_type_checking() && !rule.include_type_checking())
+            {
+                return None;
+            }
+            let component = components.get(owner_of(components, import.source_module())?)?;
+            let public = component.public().as_ref()?;
+            let module = import.source_module();
+            let listed = public.iter().any(|entry| {
+                let entry = entry.as_text();
+                entry == module || entry == format!("{module}:{name}")
+            });
+            let judged = match (name, listed) {
+                (_, true) => Judged::Pass,
+                ("*", false) => Judged::Undecided,
+                (_, false) => Judged::Fail,
+            };
+            Some(Publication {
+                import,
+                component,
+                name,
+                judged,
+            })
+        })
+        .collect()
+}
+
 /// A receipt never creates a PASS. `Scope::complete` consumes it with all other proofs.
 pub(crate) fn receipt(model: &Model, rule: &InterfaceBoundary) -> Result<(), Reason> {
     let supported = model
@@ -84,6 +138,12 @@ pub(crate) fn receipt(model: &Model, rule: &InterfaceBoundary) -> Result<(), Rea
     }
     for crossing in interface_crossings(model, rule) {
         assess(model, rule, crossing.target, crossing.import).map_err(Reason::Interface)?;
+    }
+    let undecided = interface_publications(model, rule)
+        .iter()
+        .any(|publication| publication.judged == Judged::Undecided);
+    if undecided {
+        return Err(Reason::Interface(InterfaceGap::UnreadBinding));
     }
     if model
         .graph()

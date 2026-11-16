@@ -161,8 +161,27 @@ def _deliver(options: Options, frame: CoreFrame, stdout: bytes, root: Path) -> s
     return failure
 
 
+def _located(options: Options) -> Options:
+    """Without `--root`, a configuration outside the repository of the working directory names
+    its own repository: the root is the Git root above the file, and the path is relative to it."""
+    if options.root is not None:
+        return options
+    config = Path(options.config)
+    path = (config if config.is_absolute() else Path.cwd() / config).resolve()
+    if not path.is_file():
+        return options
+    top = next((folder for folder in path.parents if (folder / ".git").exists()), None)
+    if top is None or (not config.is_absolute() and Path.cwd().resolve().is_relative_to(top)):
+        return options
+    located = Options(**vars(options))
+    located.root = top
+    located.config = path.relative_to(top).as_posix()
+    return located
+
+
 def _decide(options: Options, as_json: bool) -> int:
     """Send the scan identity to the core and print the one frame that it gives."""
+    options = _located(options)
     root = resolve_root(options.root or Path.cwd())
     request = _request(options, root)
     binary = locate_core()
@@ -209,6 +228,7 @@ def _decide(options: Options, as_json: bool) -> int:
         print(json.dumps(result))
     else:
         if collected is None:
+            _system_lines(document.get("system"))
             render_text(options.command, frame)
         else:
             _refused(RefusalKind.COLLECTION_REFUSED, collected.reason, False)
@@ -270,6 +290,17 @@ def _places(frame: CoreFrame, evidence: Sequence[str]) -> str:
     shown = places[:_MAX_PLACES]
     more = f", +{len(places) - len(shown)} more" if len(places) > len(shown) else ""
     return f" ({', '.join(shown)}{more})" if places else ""
+
+
+def _system_lines(system: object) -> None:
+    """AD-616: the title of a system run, then one line for each part, as the core named it."""
+    if not isinstance(system, dict):
+        return
+    print(f"System {system.get('title')}:")
+    for part in system.get("parts", []):
+        if isinstance(part, dict):
+            named = f"{part.get('title')} ({part.get('profile')})"
+            print(f"  {named}: {part.get('status')}, {len(part.get('rules', []))} rules")
 
 
 def render_text(command: Command, frame: CoreFrame) -> None:

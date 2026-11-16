@@ -63,6 +63,12 @@ struct Component {
     /// The declared layer and the declared public surface. Empty when the contract states none.
     layer: Option<String>,
     public: Vec<String>,
+    /// What the component is responsible for, as the contract states it.
+    responsibilities: Vec<String>,
+    /// What the component must not do, as the contract states it.
+    forbidden_responsibilities: Vec<String>,
+    /// The selectors of its planned surface. Empty when the contract states none.
+    planned_public: Vec<String>,
 }
 
 #[derive(Serialize, schemars::JsonSchema)]
@@ -71,6 +77,8 @@ struct Module {
     path: String,
     component: Option<String>,
     ownership: &'static str,
+    /// The language of the collector reply that names the module.
+    language: &'static str,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, schemars::JsonSchema)]
@@ -131,7 +139,7 @@ pub(crate) fn project(
     match (models, reply) {
         (Ok(models), Some(reply)) => {
             components = component_rows(models);
-            modules = module_rows(models);
+            modules = module_rows(models, models.root().graph().language());
             (edges, component_edges) = edge_rows(models, reply, links, &modules);
             requires = require_rows(models, &components, &component_edges);
             layers = declared::layers(models);
@@ -244,6 +252,14 @@ fn component_rows(models: &ModelTree) -> Vec<Component> {
                     .flatten()
                     .map(|p| p.as_text().to_owned())
                     .collect(),
+                responsibilities: component.responsibilities().clone(),
+                forbidden_responsibilities: component.forbidden_responsibilities().clone(),
+                planned_public: component
+                    .planned()
+                    .iter()
+                    .flatten()
+                    .map(|p| p.as_text().to_owned())
+                    .collect(),
             });
         }
     }
@@ -251,7 +267,7 @@ fn component_rows(models: &ModelTree) -> Vec<Component> {
     rows
 }
 
-fn module_rows(models: &ModelTree) -> Vec<Module> {
+fn module_rows(models: &ModelTree, language: &'static str) -> Vec<Module> {
     let tree: Vec<&Model> = models.models().collect();
     let mut rows: Vec<Module> = models
         .root()
@@ -285,6 +301,7 @@ fn module_rows(models: &ModelTree) -> Vec<Module> {
                 path: module.file().to_owned(),
                 component,
                 ownership,
+                language,
             }
         })
         .collect();

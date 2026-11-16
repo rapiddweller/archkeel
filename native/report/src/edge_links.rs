@@ -19,6 +19,7 @@ pub(crate) fn add(links: &mut Links, outcome: &Outcome) {
             | Violation::Peer { cited, .. }
             | Violation::Unrequired { cited, .. }
             | Violation::PrivateImport { cited, .. } => std::slice::from_ref(&cited.import),
+            Violation::Publication(found) => std::slice::from_ref(&found.cited.import),
             Violation::Cycle(cycle) => cycle.facts.as_slice(),
             Violation::Unassigned { .. }
             | Violation::NotAllowedChild { .. }

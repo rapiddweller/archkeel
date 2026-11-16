@@ -34,6 +34,15 @@ pub enum Resolved {
     Builtin,
 }
 
+/// What a record states about publication: the route of its name (AD-504, AD-604) and the name
+/// that it publishes outside the package of its module (AD-608).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct Published {
+    pub(crate) chain: Vec<String>,
+    pub(crate) complete: bool,
+    pub(crate) outside: Option<String>,
+}
+
 /// One resolved import that is not a macro body: the input of the edges and the rules.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Import {
@@ -46,8 +55,7 @@ pub struct Import {
     pub(crate) symbol: Option<String>,
     pub(crate) symbols_known: bool,
     pub(crate) call_form: bool,
-    pub(crate) reexport_chain: Vec<String>,
-    pub(crate) route_complete: bool,
+    pub(crate) published: Published,
     pub(crate) relative: bool,
     pub(crate) resolved: Resolved,
     pub(crate) evidence: Vec<String>,
@@ -120,13 +128,19 @@ impl Import {
 
     /// The publication names whose route the collector records.
     pub fn reexport_chain(&self) -> &[String] {
-        &self.reexport_chain
+        &self.published.chain
     }
 
     /// False when the collector proves only the first hops of the route: a later hop may follow,
     /// so a route with no public hop proves no violation (AD-604).
     pub fn route_complete(&self) -> bool {
-        self.route_complete
+        self.published.complete
+    }
+
+    /// The name that the record publishes outside the package of its module, when it is a
+    /// re-export that does (`*` for a glob; AD-608).
+    pub fn published_as(&self) -> Option<&str> {
+        self.published.outside.as_deref()
     }
 
     /// True for a relative import, which names its target by position and not by name.
@@ -233,8 +247,11 @@ pub(crate) fn split(facts: &Facts) -> Split {
                 && data.specifier.is_none(),
             unbound_type: matches!(record.data, ImportFact::ImportType(_))
                 && data.binding.is_none(),
-            reexport_chain: data.reexport_chain.clone().unwrap_or_default(),
-            route_complete: data.route_complete != Some(false),
+            published: Published {
+                chain: data.reexport_chain.clone().unwrap_or_default(),
+                complete: data.route_complete != Some(false),
+                outside: data.published_as.clone(),
+            },
             relative: data.relative_level != 0,
             resolved,
             evidence: sorted(evidence(record)),

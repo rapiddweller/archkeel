@@ -1,0 +1,192 @@
+{
+  "$schema": "../../../schema/architecture-contract.schema.json",
+  "schema_version": "2.2.0",
+  "components": [
+    {
+      "id": "BROWSER-EXPLORER",
+      "label": "explorer",
+      "role": "projection",
+      "packages": [],
+      "exact_modules": [
+        "browser.native.report.assets.explorer.flow_x2e_js",
+        "browser.native.report.assets.explorer.report_x2d_canvas_x2e_js"
+      ],
+      "public": [],
+      "responsibilities": [
+        "Own DOM, navigation, filters, focus and asynchronous input lifetime."
+      ],
+      "forbidden_responsibilities": [
+        "Evaluate architecture rules or duplicate projection and layout algorithms."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-606-the-report-page-holds-the-4-0-1-explorer-with-the-5-0-design-tokens.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "report-scene",
+          "through": [
+            "browser.native.report.assets.explorer.report_x2d_scene_x2e_js:create",
+            "browser.native.report.assets.explorer.report_x2d_scene_x2e_js:search",
+            "browser.native.report.assets.explorer.report_x2d_scene_x2e_js:sceneToMermaid",
+            "browser.native.report.assets.explorer.report_x2d_scene_x2e_js:decider",
+            "browser.native.report.assets.explorer.report_x2d_scene_x2e_js:perspectives"
+          ],
+          "rationale": "Read projected scene data through the published scene facade.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "layout",
+          "through": [
+            "browser.native.report.assets.explorer.report_x2d_layout_x2e_js:routeUmlRelationships",
+            "browser.native.report.assets.explorer.report_x2d_layout_x2e_js:hasCompleteManualPositions",
+            "browser.native.report.assets.explorer.report_x2d_layout_x2e_js:layoutUml",
+            "browser.native.report.assets.explorer.report_x2d_layout_x2e_js:layoutAtlas"
+          ],
+          "rationale": "Place and route projected scenes through validated layout operations.",
+          "decided_by": "agent"
+        }
+      ]
+    },
+    {
+      "id": "BROWSER-REPORT-SCENE",
+      "label": "report-scene",
+      "role": "projection",
+      "packages": [],
+      "exact_modules": [
+        "browser.native.report.assets.explorer.report_x2d_scene_x2e_js"
+      ],
+      "public": [
+        "browser.native.report.assets.explorer.report_x2d_scene_x2e_js:create",
+        "browser.native.report.assets.explorer.report_x2d_scene_x2e_js:search",
+        "browser.native.report.assets.explorer.report_x2d_scene_x2e_js:sceneToMermaid",
+        "browser.native.report.assets.explorer.report_x2d_scene_x2e_js:decider",
+        "browser.native.report.assets.explorer.report_x2d_scene_x2e_js:perspectives"
+      ],
+      "responsibilities": [
+        "Project recorded Atlas data and compose the graph and deviation readers."
+      ],
+      "forbidden_responsibilities": [
+        "Own DOM, layout, navigation or rule verdicts."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-606-the-report-page-holds-the-4-0-1-explorer-with-the-5-0-design-tokens.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "graph-scene",
+          "through": [
+            "browser.native.report.assets.explorer.report_x2d_graph_x2d_scene_x2e_js:create"
+          ],
+          "rationale": "Reuse the authenticated graph reader and scene projection.",
+          "decided_by": "agent"
+        },
+        {
+          "component": "atlas-deviations",
+          "through": [
+            "browser.native.report.assets.explorer.report_x2d_atlas_x2d_deviations_x2e_js:create"
+          ],
+          "rationale": "Index recorded deviations without re-evaluating rules.",
+          "decided_by": "agent"
+        }
+      ]
+    },
+    {
+      "id": "BROWSER-GRAPH-SCENE",
+      "label": "graph-scene",
+      "role": "projection",
+      "packages": [],
+      "exact_modules": [
+        "browser.native.report.assets.explorer.report_x2d_graph_x2d_scene_x2e_js",
+        "browser.native.report.assets.explorer.report_x2d_graph_x2d_protocol_x2e_js"
+      ],
+      "public": [
+        "browser.native.report.assets.explorer.report_x2d_graph_x2d_scene_x2e_js:create",
+        "browser.native.report.assets.explorer.report_x2d_graph_x2d_protocol_x2e_js:ArchkeelGraphProtocol",
+        "browser.native.report.assets.explorer.report_x2d_graph_x2d_protocol_x2e_js:ArchkeelGraphSceneProtocol"
+      ],
+      "responsibilities": [
+        "Read the canonical graph wire format and project graph scenes through the shared generated protocol."
+      ],
+      "forbidden_responsibilities": [
+        "Read the DOM, place scenes or infer rule verdicts."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-606-the-report-page-holds-the-4-0-1-explorer-with-the-5-0-design-tokens.md"
+      ],
+      "decided_by": "agent",
+      "requires": []
+    },
+    {
+      "id": "BROWSER-ATLAS-DEVIATIONS",
+      "label": "atlas-deviations",
+      "role": "projection",
+      "packages": [],
+      "exact_modules": [
+        "browser.native.report.assets.explorer.report_x2d_atlas_x2d_deviations_x2e_js"
+      ],
+      "public": [
+        "browser.native.report.assets.explorer.report_x2d_atlas_x2d_deviations_x2e_js:create"
+      ],
+      "responsibilities": [
+        "Index recorded deviations using the canonical graph protocol."
+      ],
+      "forbidden_responsibilities": [
+        "Infer evidence, change permissions or access DOM and layout."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-606-the-report-page-holds-the-4-0-1-explorer-with-the-5-0-design-tokens.md"
+      ],
+      "decided_by": "agent",
+      "requires": [
+        {
+          "component": "graph-scene",
+          "through": [
+            "browser.native.report.assets.explorer.report_x2d_graph_x2d_protocol_x2e_js:ArchkeelGraphProtocol",
+            "browser.native.report.assets.explorer.report_x2d_graph_x2d_protocol_x2e_js:ArchkeelGraphSceneProtocol"
+          ],
+          "rationale": "Read the generated protocol vocabulary shared with graph projection.",
+          "decided_by": "agent"
+        }
+      ]
+    },
+    {
+      "id": "BROWSER-LAYOUT",
+      "label": "layout",
+      "role": "projection",
+      "packages": [],
+      "exact_modules": [
+        "browser.native.report.assets.explorer.report_x2d_layout_x2e_js"
+      ],
+      "public": [
+        "browser.native.report.assets.explorer.report_x2d_layout_x2e_js:routeUmlRelationships",
+        "browser.native.report.assets.explorer.report_x2d_layout_x2e_js:hasCompleteManualPositions",
+        "browser.native.report.assets.explorer.report_x2d_layout_x2e_js:layoutUml",
+        "browser.native.report.assets.explorer.report_x2d_layout_x2e_js:layoutAtlas"
+      ],
+      "responsibilities": [
+        "Place and route scene inputs; reject incomplete or invalid layout output."
+      ],
+      "forbidden_responsibilities": [
+        "Read DOM state, navigate or derive architecture evidence."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-606-the-report-page-holds-the-4-0-1-explorer-with-the-5-0-design-tokens.md"
+      ],
+      "decided_by": "agent",
+      "requires": []
+    }
+  ],
+  "rules": [
+    {
+      "id": "BROWSER-COMPLETE-REQUIRES",
+      "kind": "complete_requires",
+      "rationale": "Every selected script has one owner; cross-owner source bindings use only the exact declared entry ports. Runtime effects do not constitute source bindings.",
+      "provenance": [
+        "docs/architecture/decisions/ad-606-the-report-page-holds-the-4-0-1-explorer-with-the-5-0-design-tokens.md"
+      ],
+      "decided_by": "agent"
+    }
+  ]
+}

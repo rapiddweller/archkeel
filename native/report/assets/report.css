@@ -105,6 +105,8 @@ body { margin: 0; }
 
 /* 4a evidence path: containment runs down, a relation runs across at the level where it holds */
 .rp-path { display: grid; grid-template-columns: minmax(0, max-content) max-content minmax(0, max-content); justify-content: start; column-gap: var(--space-3); row-gap: 2px; margin: 0; }
+.rp-path--1 { grid-template-rows: repeat(1, auto); }
+.rp-path--2 { grid-template-rows: repeat(2, auto); }
 .rp-path--3 { grid-template-rows: repeat(3, auto); }
 .rp-path--4 { grid-template-rows: repeat(4, auto); }
 .rp-path--5 { grid-template-rows: repeat(5, auto); }
@@ -295,6 +297,3 @@ html:not([data-theme]) .ak-seg { display: none; }
 .rp-main > dl dd { margin: 0 0 var(--space-2); font-family: var(--font-mono); }
 .rp-pic .rp-tiles { margin-bottom: var(--space-4); }
 .rp-pic .rp-ev { margin-bottom: var(--space-3); }
-.rp-place { margin: 0 0 var(--space-2); }
-.rp-place > summary { cursor: pointer; padding: var(--space-1) 0; }
-.rp-place[open] { margin-bottom: var(--space-4); }

@@ -27,6 +27,7 @@ mod manifest;
 mod manifest_lines;
 mod module_edges;
 mod modules;
+mod names;
 mod nesting;
 mod net;
 mod paths;
@@ -44,7 +45,7 @@ mod tokens;
 mod toml;
 mod tree;
 
-use archkeel_facts::envelope::{test_features, Profile, Provenance, Reply};
+use archkeel_facts::envelope::{test_features, Provenance, Reply};
 use archkeel_facts::request::RustRequest;
 use archkeel_wire::protocol::Version;
 
@@ -53,14 +54,7 @@ pub const TEST_FEATURES: &[&str] = test_features(cfg!(feature = "dump"));
 
 /// The provenance of this build: the collector of its profile with the code digest of the workspace.
 pub fn provenance() -> Provenance {
-    Provenance::native(
-        Profile::Rust,
-        (env!("ARCHKEEL_VERSION"), env!("ARCHKEEL_CODE_DIGEST")),
-        (
-            env!("ARCHKEEL_RUSTC_VERSION"),
-            env!("CARGO_PKG_RUST_VERSION"),
-        ),
-    )
+    archkeel_facts::native_provenance!(Rust)
 }
 
 /// The compressed reply of the subprocess path.
