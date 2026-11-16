@@ -104,7 +104,8 @@ fn by_kind(kind: RuleKind) -> Reads<'static> {
         | K::CatalogUse
         | K::ForbiddenEffectUnderCondition
         | K::ProtocolDeclarations
-        | K::BoundaryTypes => Reads::Every,
+        | K::BoundaryTypes
+        | K::UnusedPublic => Reads::Every,
     }
 }
 

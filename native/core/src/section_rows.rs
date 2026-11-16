@@ -73,6 +73,7 @@ enum Body {
     NoComponentCycles(ComponentCycle),
     ModuleCycle(ModuleCycle),
     BoundaryTypes(BoundaryTypes),
+    UnusedPublic(UnusedPublic),
     ForbiddenConstruct(ConstructData),
 }
 
@@ -224,6 +225,15 @@ struct BoundaryTypes {
     position: String,
     annotation: String,
     reasons: Vec<String>,
+}
+
+/// A public item that no other component uses (AD-670).
+#[derive(Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct UnusedPublic {
+    module: String,
+    name: String,
+    item_kind: String,
 }
 
 /// A forbidden construct: with the selector of the rule, or the plain construct name.

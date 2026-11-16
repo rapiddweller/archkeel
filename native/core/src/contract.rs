@@ -89,6 +89,13 @@ impl Usable {
             .map(archkeel_contract::kind_of)
             .chain(self.inside.iter().map(|(_, kind)| *kind))
             .any(typed);
+        let published = self
+            .root
+            .rules()
+            .iter()
+            .map(archkeel_contract::kind_of)
+            .chain(self.inside.iter().map(|(_, kind)| *kind))
+            .any(|kind| kind == RuleKind::UnusedPublic);
         let facade = |kind: RuleKind| kind == RuleKind::InterfaceBoundary;
         let interface = self
             .root
@@ -108,7 +115,8 @@ impl Usable {
                 .then_some(Need::UmlTarget)
                 .into_iter()
                 .chain(boundary.then_some(Need::BoundaryTypes))
-                .chain(interface.then_some(Need::InterfaceBoundary)),
+                .chain(interface.then_some(Need::InterfaceBoundary))
+                .chain(published.then_some(Need::UnusedPublic)),
         )
         .with_doors(doors)
     }

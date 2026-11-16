@@ -148,6 +148,25 @@ pub enum Violation {
     /// A re-export that publishes a name outside its package which the component of its module
     /// does not list in `public` (AD-608).
     Publication(Box<Published>),
+    /// `unused_public`: a public item that no other component uses (AD-670).
+    UnusedPublic(Box<UnusedItem>),
+}
+
+/// A public item that no other component uses (AD-670).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnusedItem {
+    /// The id of the violation record.
+    pub id: String,
+    /// The id of the rule that the violation breaks.
+    pub rule: String,
+    /// The module that defines the item.
+    pub module: String,
+    /// The name of the item.
+    pub name: String,
+    /// The kind of the item, as the symbol facts name it.
+    pub kind: archkeel_contract::PublicItemKind,
+    /// The evidence rows of its definition.
+    pub evidence: Vec<String>,
 }
 
 /// A name that a re-export publishes outside its package, unlisted in `public` (AD-608).
@@ -442,6 +461,19 @@ impl Violation {
         }))
     }
 
+    /// The violation of a public item that no other component uses (AD-670).
+    pub(crate) fn unused(rule: &str, item: &archkeel_model::PublicItem) -> Self {
+        let subject = format!("{}:{}", item.module, item.name);
+        Violation::UnusedPublic(Box::new(UnusedItem {
+            id: stable_id("VIO", &[Part::Text(rule), Part::Text(&subject)]),
+            rule: rule.to_owned(),
+            module: item.module.clone(),
+            name: item.name.clone(),
+            kind: item.kind,
+            evidence: item.evidence.clone(),
+        }))
+    }
+
     /// The id of the violation record, whatever its kind.
     pub fn id(&self) -> &str {
         self.head()[0]
@@ -468,6 +500,7 @@ impl Violation {
             Violation::Cycle(cyclic) => [&cyclic.id, &cyclic.rule],
             Violation::Construct(row) => [&row.id, &row.rule],
             Violation::BoundaryType(row) => [&row.id, &row.rule],
+            Violation::UnusedPublic(row) => [&row.id, &row.rule],
         }
     }
 }

@@ -350,6 +350,11 @@ fn receipt(model: &Model, rule: &Rule) -> Result<(), Reason> {
             crate::boundary_positions::receipt(model, rule)?;
             true
         }
+        // AD-670: an item that another component may use without a proven import holds it back.
+        Rule::UnusedPublic(rule) => {
+            crate::published::receipt(model, rule)?;
+            !model.source_modules(rule.source().as_text()).is_empty()
+        }
         // Each kind that no slice decides: its slice states its receipt here (AD-378). A
         // permission declaration (`allowed_dependency`) has no verdict, so it has no receipt.
         other @ (Rule::CallOwner(_)
@@ -446,6 +451,7 @@ fn dynamic_import(model: &Model, rule: &Rule) -> bool {
         | Rule::SourceOwnership(_)
         | Rule::SymbolPlacement(_)
         | Rule::BoundaryTypes(_)
+        | Rule::UnusedPublic(_)
         | Rule::BoundedNumericOperand(_)
         | Rule::ProtocolDeclarations(_) => true,
     };

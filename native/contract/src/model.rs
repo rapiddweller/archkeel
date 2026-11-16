@@ -148,7 +148,7 @@ record!(
 );
 
 closed_enum!(
-    /// The 22 rule kinds of the grammar (`ArchitectureRuleKind`).
+    /// The 23 rule kinds of the grammar (`ArchitectureRuleKind`).
     RuleKind {
         /// A rule on who may call a target.
         CallOwner,
@@ -194,6 +194,8 @@ closed_enum!(
         BoundedNumericOperand,
         /// A rule on the declarations of a protocol.
         ProtocolDeclarations,
+        /// A rule that each public name of a component has a user in another component.
+        UnusedPublic,
     }
 );
 

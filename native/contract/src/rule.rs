@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! One rule of the contract: a closed enum of the 22 rule kinds.
+//! One rule of the contract: a closed enum of the 23 rule kinds.
 
 use crate::model::{
     AllowedDependency, CompleteRequires, ExternalDependencyScope, ForbiddenDependency,
@@ -10,6 +10,7 @@ use crate::model::{
     SiblingIsolation, SourceRule,
 };
 use crate::model_constructs::ForbiddenConstruct;
+use crate::unused_public::UnusedPublic;
 use crate::model_rules::{
     BoundaryTypes, BoundedNumericOperand, CallOwner, CatalogArgument, CatalogUse,
     ForbiddenCallArgument, ForbiddenEffectUnderCondition, ProtocolDeclarations, SourceOwnership,
@@ -97,4 +98,6 @@ rules!(
     BoundedNumericOperand(BoundedNumericOperand),
     /// A rule on the declarations of a protocol.
     ProtocolDeclarations(ProtocolDeclarations),
+    /// A rule that each public name of a component has a user in another component.
+    UnusedPublic(UnusedPublic),
 );

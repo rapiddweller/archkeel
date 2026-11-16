@@ -105,6 +105,8 @@ pub(crate) fn check(rule: &Rule, components: &[Component], names: &Names<'_>) ->
         | Rule::ProtocolDeclarations(_) => return Subjects::Unread,
         // AD-550: the facade modules below `source` are the subjects of the rule.
         Rule::BoundaryTypes(rule) => vec![vec![rule.source().as_text()]],
+        // AD-670: the modules below `source` hold the public items of the rule.
+        Rule::UnusedPublic(rule) => vec![vec![rule.source().as_text()]],
     };
     if sides.iter().all(|side| count(side)) {
         Subjects::Found

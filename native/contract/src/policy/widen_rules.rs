@@ -280,7 +280,8 @@ fn classified(kind: RuleKind) -> bool {
         | K::ForbiddenEffectUnderCondition
         | K::LayerOrder
         | K::SymbolPlacement
-        | K::ProtocolDeclarations => false,
+        | K::ProtocolDeclarations
+        | K::UnusedPublic => false,
     }
 }
 

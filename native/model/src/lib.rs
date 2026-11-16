@@ -57,6 +57,8 @@ mod construct_replay_tests;
 mod boundary_facts;
 mod boundary_judge;
 mod boundary_positions;
+mod published;
+pub use published::{unused as unused_public, PublicItem, Unused};
 mod boundary_surface;
 mod facade_reach;
 pub use boundary_positions::{read as boundary_reading, Position};

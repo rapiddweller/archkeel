@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
-  "schema_version": "3.14.0",
+  "schema_version": "3.16.0",
   "components": [
     {
       "id": "COMP-NATIVE-FACTS",
@@ -7601,6 +7601,21 @@
       "rationale": "Cut A: `store` names no language. The module `store.dart` holds rules of one language; they belong to its collector, which states them in its reply (AD-668).",
       "provenance": [
         "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-PUBLIC-HAS-A-USER",
+      "kind": "unused_public",
+      "source": "native",
+      "item_kinds": [
+        "function",
+        "constant",
+        "static_constant"
+      ],
+      "rationale": "A public function, constant or static of a crate that no other component uses is a public surface without a need: make it private to its crate or delete it (AD-670). A type waits for the signature facts of the Rust collector, because a used signature may need it.",
+      "provenance": [
+        "docs/architecture/decisions/ad-670-a-public-name-that-no-other-component-uses-is-a-violation.md"
       ],
       "decided_by": "architect"
     }
