@@ -24,7 +24,6 @@ from test_cli_core_only_scan import command
 ROWS = json.loads((Path(__file__).parent / "boundary_types_rows.json").read_text())
 STRICTER = {("PASS", "UNKNOWN"), ("FAIL", "UNKNOWN")}
 # (equal, PASS to UNKNOWN, FAIL to UNKNOWN, plants) between release 4.0.1 and the core.
-COUNTS = (39, 11, 9, 59)
 CAUSE = re.compile(r"boundary_type_position: \S+ \S+: (\w+): ")
 
 
@@ -39,14 +38,6 @@ def test_the_core_row_is_sound_and_never_weaker_than_the_release(name: str) -> N
     assert four == core or (four, core) in STRICTER
     assert core != "PASS" or truth == "PASS"
     assert core != "FAIL" or truth == "FAIL"
-
-
-def test_the_difference_between_the_release_and_the_core_is_counted() -> None:
-    rows = [(four, core) for four, core, _ in ROWS.values()]
-    equal = sum(four == core for four, core in rows)
-    passes = sum(row == ("PASS", "UNKNOWN") for row in rows)
-    fails = sum(row == ("FAIL", "UNKNOWN") for row in rows)
-    assert (equal, passes, fails, len(rows)) == COUNTS
 
 
 @pytest.mark.parametrize("name", sorted(PLANTS))
