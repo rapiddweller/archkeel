@@ -54,7 +54,7 @@ pub(crate) fn reason(gap: &Record<GapFact>) -> String {
     }
 }
 
-/// The survey of `src/app/client.py` with `source`, beside `__init__.py` and `service.py`.
+/// The survey of the sample `src/app/client.py` with `source`, beside `__init__.py` and `service.py`.
 fn client(source: &str, init: &str) -> Survey {
     surveyed(&[
         ("src/app/__init__.py", init),

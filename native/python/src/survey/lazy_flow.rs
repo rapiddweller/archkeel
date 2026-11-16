@@ -20,6 +20,7 @@ use ruff_python_ast::{
 use ruff_text_size::{Ranged, TextRange};
 
 use super::lazy_binds::{Abs, Binds};
+use super::lazy_shape::plain_parameter;
 use super::lazy_table::Table;
 use super::lazy_writes::Writes;
 
@@ -63,7 +64,7 @@ pub(super) struct Flow {
 }
 
 pub(super) fn analyze(function: &StmtFunctionDef, table: &Table, callee: Callee) -> Flow {
-    let Some(param) = only_parameter(function) else {
+    let Some(param) = plain_parameter(function).map(|one| one.parameter.name.as_str()) else {
         return Flow::default();
     };
     let mut binds = Binds::new(&table.name);
@@ -115,19 +116,6 @@ pub(super) fn analyze(function: &StmtFunctionDef, table: &Table, callee: Callee)
 
 fn collides(key: &str, table: &str) -> bool {
     key == table || DEPENDENT.contains(&key)
-}
-
-/// The name of the one plain parameter.
-fn only_parameter(function: &StmtFunctionDef) -> Option<&str> {
-    let parameters = &function.parameters;
-    let plain = parameters.posonlyargs.is_empty()
-        && parameters.kwonlyargs.is_empty()
-        && parameters.vararg.is_none()
-        && parameters.kwarg.is_none();
-    match parameters.args.as_slice() {
-        [one] if plain => Some(one.parameter.name.as_str()),
-        _ => None,
-    }
 }
 
 pub(super) struct Scope<'a> {

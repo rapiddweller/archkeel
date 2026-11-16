@@ -28,7 +28,7 @@ Archkeel checks the shell with its own core and the contract in
 | `text` | `core_text` | The text of a run for a person: header with exit code and reason, then problems, violations, grouped causes. |
 | `help` | `core_help` | The help of the tool and of each command. |
 | `skill` | `skill` | Install the coding-agent skill. |
-| `init` | `init_draft`, `init_layouts` | Draft `archkeel.toml`, a first contract and its document from the folder layout of a Python, Cargo workspace or package.json workspace project (AD-626, AD-638). It reads no source and writes only missing files. |
+| `init` | `init_draft`, `init_layouts`, `init_areas` | Draft `archkeel.toml`, a first contract and its document from the folder layout and manifests: one configuration, or a system with one part for each language area (AD-626, AD-638, AD-660). It reads no source and writes only missing files. |
 
 An arrow points down only. The entry calls the commands, the commands call the other parts, and
 no part calls up. Rule `SHELL-REQUIRES-COMPLETE` allows only the arrows in the contract.

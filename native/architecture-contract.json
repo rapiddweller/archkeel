@@ -131,6 +131,7 @@
         "native.archkeel_facts.vocab:Visibility",
         "native.archkeel_facts:BindingFact",
         "native.archkeel_facts:CallFact",
+        "native.archkeel_facts:CommonData",
         "native.archkeel_facts:ConstructFact",
         "native.archkeel_facts:FactData",
         "native.archkeel_facts:GapFact",
@@ -708,6 +709,7 @@
             "native.archkeel_facts.type_shape",
             "native.archkeel_facts.vocab",
             "native.archkeel_facts:CallFact",
+            "native.archkeel_facts:CommonData",
             "native.archkeel_facts:ConstructFact",
             "native.archkeel_facts:FactData",
             "native.archkeel_facts:GapFact",
@@ -4942,6 +4944,8 @@
         }
       ],
       "public": [
+        "native.archkeel_rust_collector.derive_identity:binding",
+        "native.archkeel_rust_collector.derive_identity:namespace",
         "native.archkeel_rust_collector.derive_identity:proven",
         "native.archkeel_rust_collector.derive_imports:Local",
         "native.archkeel_rust_collector.modules.state:Frame",
@@ -5002,7 +5006,8 @@
           "rationale": "Read the lexical shape of a source file.",
           "through": [
             "native.archkeel_rust_collector.definitions",
-            "native.archkeel_rust_collector.scan"
+            "native.archkeel_rust_collector.scan",
+            "native.archkeel_rust_collector.site"
           ]
         },
         {
@@ -5036,14 +5041,15 @@
       "role": "component",
       "layer": "collector",
       "packages": [
+        "native.archkeel_rust_collector.declared",
         "native.archkeel_rust_collector.edges",
         "native.archkeel_rust_collector.edges_extracted",
-        "native.archkeel_rust_collector.module_edges",
-        "native.archkeel_rust_collector.declared",
-        "native.archkeel_rust_collector.symbols",
         "native.archkeel_rust_collector.impl_edges",
         "native.archkeel_rust_collector.impl_globs",
-        "native.archkeel_rust_collector.names"
+        "native.archkeel_rust_collector.macro_identity",
+        "native.archkeel_rust_collector.module_edges",
+        "native.archkeel_rust_collector.names",
+        "native.archkeel_rust_collector.symbols"
       ],
       "responsibilities": [
         "Write the import edges between crates and modules, the declared dependencies and the symbol records of the definitions."
@@ -5083,6 +5089,7 @@
           "component": "rs-text",
           "rationale": "Read the lexical shape of a source file.",
           "through": [
+            "native.archkeel_rust_collector.attrs.model",
             "native.archkeel_rust_collector.definitions",
             "native.archkeel_rust_collector.plant",
             "native.archkeel_rust_collector.scan",
@@ -6730,6 +6737,7 @@
         "native.archkeel_python_collector.symbols.sites",
         "native.archkeel_python_collector.survey.hazards",
         "native.archkeel_python_collector.survey.typing_count",
+        "native.archkeel_python_collector.survey.constructs",
         "native.archkeel_python_collector.survey.imports",
         "native.archkeel_python_collector.survey.bound",
         "native.archkeel_python_collector.survey.copy_local",
@@ -7507,6 +7515,95 @@
       "rationale": "A collector writes facts and uses only base crates without the store; the dart collector must not use collect (AD-406).",
       "provenance": [
         "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_store",
+      "target": "native",
+      "target_symbol": "Profile",
+      "include_type_checking": true,
+      "rationale": "Cut A: `store` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "provenance": [
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NEUTRAL-MODEL-NO-PROFILE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_model",
+      "target": "native",
+      "target_symbol": "Profile",
+      "include_type_checking": true,
+      "rationale": "Cut A: `model` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "provenance": [
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NEUTRAL-EVAL-NO-PROFILE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_eval",
+      "target": "native",
+      "target_symbol": "Profile",
+      "include_type_checking": true,
+      "rationale": "Cut A: `eval` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "provenance": [
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NEUTRAL-REPORT-NO-PROFILE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_report",
+      "target": "native",
+      "target_symbol": "Profile",
+      "include_type_checking": true,
+      "rationale": "Cut A: `report` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "provenance": [
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NEUTRAL-CORE-NO-PROFILE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_core",
+      "target": "native",
+      "target_symbol": "Profile",
+      "include_type_checking": true,
+      "rationale": "Cut A: `core` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "provenance": [
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NEUTRAL-STORE-NO-PYTHON-MODULE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_store",
+      "target": "native.archkeel_store.python",
+      "include_type_checking": true,
+      "rationale": "Cut A: `store` names no language. The module `store.python` holds rules of one language; they belong to its collector, which states them in its reply (AD-668).",
+      "provenance": [
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NEUTRAL-STORE-NO-DART-MODULE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_store",
+      "target": "native.archkeel_store.dart",
+      "include_type_checking": true,
+      "rationale": "Cut A: `store` names no language. The module `store.dart` holds rules of one language; they belong to its collector, which states them in its reply (AD-668).",
+      "provenance": [
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
       ],
       "decided_by": "architect"
     }

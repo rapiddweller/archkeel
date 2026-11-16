@@ -79,7 +79,7 @@ native-check:
 	cd native && cargo clippy --locked --all-targets --features dump,harness -- -D warnings
 	cd native && cargo deny --locked check
 	cd native && cargo test --locked
-	$(UV) run --locked python -m pytest -q tests/test_repository_hygiene.py tests/test_ir_owners.py tests/test_rust_clones.py tests/test_rust_api.py tests/test_rust_source.py tests/test_native_contract_rules.py tests/test_native_expected_gaps.py tests/test_native_report.py tests/test_native_core.py tests/test_cli_core_only.py tests/test_cli_help.py tests/test_cli_text_output.py tests/test_cli_core_only_boundary.py tests/test_cli_core_only_build_output.py tests/test_cli_core_only_exit_table.py tests/test_cli_core_only_review.py tests/test_cli_core_only_scan.py tests/test_cli_native_dart_grammar_gate.py tests/test_cli_native_profile_limits.py tests/test_cli_native_core_scan.py tests/test_cli_native_core_scan_rust.py tests/test_cli_native_core_scan_work.py tests/test_cli_native_core_scan_large.py tests/test_collector_native_rust_module_oracle.py tests/test_collector_native_rust_definitions_oracle.py tests/test_collector_native_rust_receivers_compiled.py
+	$(UV) run --locked python -m pytest -q tests/test_repository_hygiene.py tests/test_doc_references_exist.py tests/test_ir_owners.py tests/test_rust_clones.py tests/test_rust_api.py tests/test_rust_source.py tests/test_native_contract_rules.py tests/test_native_expected_gaps.py tests/test_native_report.py tests/test_native_core.py tests/test_cli_core_only.py tests/test_cli_help.py tests/test_cli_text_output.py tests/test_cli_core_only_boundary.py tests/test_cli_core_only_build_output.py tests/test_cli_core_only_exit_table.py tests/test_cli_core_only_review.py tests/test_cli_core_only_scan.py tests/test_cli_native_dart_grammar_gate.py tests/test_cli_native_profile_limits.py tests/test_cli_native_core_scan.py tests/test_cli_native_core_scan_rust.py tests/test_cli_native_core_scan_work.py tests/test_cli_native_core_scan_large.py tests/test_collector_native_rust_module_oracle.py tests/test_collector_native_rust_definitions_oracle.py tests/test_collector_native_rust_receivers_compiled.py
 	$(UV) run --locked python -m pytest -q -n 0 tests/test_native_self_rules.py tests/test_native_self_contract.py tests/test_native_self_core_rows.py
 	$(MAKE) self-validate-native
 
@@ -87,13 +87,16 @@ native-check:
 core:
 	cd native && cargo build --locked --release -p archkeel-core
 
+# AD-672: the pins are ratchets. With origin/main present, growth against it needs a reason in the growth file.
+RATCHET_BASE := $(if $(shell git rev-parse --verify -q origin/main),--base-ref origin/main,)
+
 # AD-335: Archkeel checks the Rust of native/ with its own core and its own contract (AD-432).
 # The result must equal the pinned gaps, violations and rule statuses of native/expected-gaps.json
 # (AD-357). The pinned result has a FAIL, so the exit code of `archkeel` is not the gate.
 self-validate-native: core
 	@mkdir -p test-artifacts/validation-native
 	@$(UV) run --locked archkeel validate --config native/archkeel.toml --json > test-artifacts/validation-native/result.json || true
-	$(UV) run --locked python tools/native_expected.py test-artifacts/validation-native/result.json native/expected-gaps.json
+	$(UV) run --locked python tools/native_expected.py test-artifacts/validation-native/result.json native/expected-gaps.json --growth native/expected-growth.json $(RATCHET_BASE)
 	@echo "Native architecture rules: as pinned in native/expected-gaps.json; full result: test-artifacts/validation-native/result.json"
 
 # AD-478: Archkeel checks the Python shell of src/archkeel with its own core and its own contract.
@@ -101,7 +104,7 @@ self-validate-native: core
 self-validate-shell: core
 	@mkdir -p test-artifacts/validation-shell
 	@$(UV) run --locked archkeel validate --config docs/architecture/shell.toml --json > test-artifacts/validation-shell/result.json || true
-	$(UV) run --locked python tools/native_expected.py test-artifacts/validation-shell/result.json docs/architecture/target/shell-expected.json
+	$(UV) run --locked python tools/native_expected.py test-artifacts/validation-shell/result.json docs/architecture/target/shell-expected.json --growth docs/architecture/target/shell-expected-growth.json $(RATCHET_BASE)
 	@echo "Shell architecture rules: as pinned in docs/architecture/target/shell-expected.json; full result: test-artifacts/validation-shell/result.json"
 
 # AD-616: ArchKeel as one system: one core run checks each part of the system document and gives one

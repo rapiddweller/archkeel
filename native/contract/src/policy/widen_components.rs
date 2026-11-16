@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The widenings and narrowings of components (Python `ir/widening.py`): presence, `public`,
+//! The widenings and narrowings of components: presence, `public`,
 //! `planned`, `requires`, `namespace` and each other field, which fails closed.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -20,7 +20,7 @@ struct Entry {
     decided_by: Option<String>,
 }
 
-/// Python `_effective_requires`: an entry without an author has the author of its component.
+/// An entry without an author has the author of its component.
 fn effective(component: &Component) -> Vec<Entry> {
     let author = component.decided_by.as_ref();
     component
@@ -39,7 +39,7 @@ fn effective(component: &Component) -> Vec<Entry> {
         .collect()
 }
 
-/// Python `in_scope`: a name in a dotted prefix, without a part of a segment.
+/// A name in a dotted prefix, without a part of a segment.
 fn in_scope(name: &str, scope: &str) -> bool {
     name == scope
         || name
@@ -47,7 +47,7 @@ fn in_scope(name: &str, scope: &str) -> bool {
             .is_some_and(|rest| rest.starts_with('.'))
 }
 
-/// Python `_required_port_assessment(...) is PASS` with known symbols.
+/// Whether the required port passes with known symbols.
 fn port_passes(port: &str, module: &str, symbol: Option<&str>) -> bool {
     match port.split_once(':') {
         None => in_scope(module, port),
@@ -55,7 +55,7 @@ fn port_passes(port: &str, module: &str, symbol: Option<&str>) -> bool {
     }
 }
 
-/// Python `requires_covers` with a module.
+/// Whether a requirement covers a module.
 fn covers(entries: &[&Entry], label: &str, module: &str, symbol: Option<&str>) -> bool {
     entries.iter().any(|entry| {
         entry.component == label
@@ -67,7 +67,7 @@ fn covers(entries: &[&Entry], label: &str, module: &str, symbol: Option<&str>) -
     })
 }
 
-/// Python `_contained`: `before` already let the same author import all that `entry` permits.
+/// Whether `before` let the same author import all that `entry` permits.
 fn contained(entry: &Entry, before: &[Entry]) -> bool {
     let same: Vec<&Entry> = before
         .iter()
@@ -130,7 +130,7 @@ fn namespace_widenings(
     )]
 }
 
-/// Python `last_name`: the segment after the last `:`, then after the last `.`.
+/// The segment after the last `:`, then after the last `.`.
 fn last_name(name: &str) -> &str {
     let symbol = name.rsplit(':').next().unwrap_or(name);
     symbol.rsplit('.').next().unwrap_or(symbol)
@@ -140,7 +140,7 @@ fn alike(entry: &str, other: &str) -> bool {
     entry.contains(':') == other.contains(':') && last_name(entry) == last_name(other)
 }
 
-/// Python `_in_place_of`: the one lost entry that a gained entry may replace.
+/// The one lost entry that a gained entry may replace.
 fn in_place_of(entry: &str, gained: &BTreeSet<&str>, lost: &BTreeSet<&str>) -> String {
     let matches: Vec<&&str> = lost.iter().filter(|item| alike(entry, item)).collect();
     let [only] = matches.as_slice() else {
@@ -228,7 +228,7 @@ fn by_id(items: &[Component]) -> BTreeMap<&str, &Component> {
         .collect()
 }
 
-/// Python `_components_widenings`: components matched by ID.
+/// Component widenings, matching components by ID.
 pub(crate) fn components_widenings(
     before: &[Component],
     after: &[Component],
@@ -253,7 +253,7 @@ pub(crate) fn components_widenings(
     changes
 }
 
-/// Python `_requires_narrowings`: per target and author, entries that went away.
+/// Requirements that went away, per target and author.
 fn requires_narrowings(subject: &str, before: &[Entry], after: &[Entry]) -> Vec<ContractChange> {
     let keys: BTreeSet<(&str, Option<&str>)> = before
         .iter()
@@ -302,7 +302,7 @@ fn requires_narrowings(subject: &str, before: &[Entry], after: &[Entry]) -> Vec<
     changes
 }
 
-/// The component part of Python `contract_narrowing_changes`.
+/// The component part of a contract narrowing comparison.
 pub(crate) fn components_narrowings(
     before: &[Component],
     after: &[Component],

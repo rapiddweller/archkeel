@@ -6,7 +6,9 @@
 
 use archkeel_facts::data::SelectorData;
 use archkeel_facts::vocab::{Area, ConstructForm, Operation, SelectorRole, Use};
-use archkeel_facts::{ConstructFact, FactData, Record, ReferenceFact, Section, SymbolFact};
+use archkeel_facts::{
+    CommonData, ConstructFact, FactData, Record, ReferenceFact, Section, SymbolFact,
+};
 
 pub(crate) fn validate(section: &Section) -> Result<(), String> {
     match section {

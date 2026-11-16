@@ -99,6 +99,26 @@ pub(super) fn orphan_impl_gaps(
     (workspace, index, modules): (&Workspace, &Index<'_>, &[Module]),
     edges: &BTreeSet<(String, String)>,
 ) {
+    // #1371: a macro call may write an impl that the scan does not read.
+    let homes = builder.macro_impl_homes.clone();
+    for home in modules {
+        let Some((rel, site)) = homes.get(&home.module) else {
+            continue;
+        };
+        let target = home.module.as_str();
+        let why = format!(
+            "A macro call in {target} may write a trait impl or a method that the scan does not read: code of the caller may run it"
+        );
+        for caller in callers(workspace, modules, home) {
+            once_gap(
+                builder,
+                edges,
+                (caller.module.as_str(), target),
+                (rel, site),
+                &why,
+            );
+        }
+    }
     for home in modules {
         let target = home.module.as_str();
         let why = format!(

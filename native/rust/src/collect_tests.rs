@@ -172,6 +172,8 @@ fn each_place_that_cannot_be_read_is_a_gap_with_its_line() {
             "A cfg condition gates a module: cfg(unix)",
             "Module file not found: mod unix in crates/app/src/lib.rs",
             "The macro make! holds a path that the scan cannot read",
+            // #1371: the expansion of a macro of another crate is not read.
+            "The macro other::make! is no macro_rules! of the workspace: the scan does not read its expansion",
         ]
     );
     let lines: Vec<_> = facts

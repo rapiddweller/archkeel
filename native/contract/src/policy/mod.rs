@@ -5,7 +5,7 @@
 //! The contract policy that spans more than one contract file (AD-366, epic #880).
 //!
 //! `assemble_tree` builds the tree of a root contract and its inside contracts from bytes that the
-//! shell sends, and makes each check of Python `ir/codec_inside.py`. It returns the whole tree or
+//! shell sends and checks each mount. It returns the whole tree or
 //! no tree. The comparison digest of the tree is the digest that an amendment binds.
 //!
 //! `compare_trees` compares an old and a new tree as `validate --against` does (AD-373).

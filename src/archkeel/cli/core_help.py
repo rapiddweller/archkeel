@@ -104,8 +104,9 @@ usage: archkeel init [--root PATH] [--json]
 Draft the files of a first contract below the root: archkeel.toml, a contract of open decisions
 (every decision is a TODO) and its provenance page. It reads the folder layout only: the
 top-level Python packages (or the subpackages of the one package), the crates of a Cargo workspace,
-or the packages of a package.json workspace. It replaces no file and starts no scan. It prints text;
---json prints JSON.
+the packages of a package.json workspace, a TypeScript or Dart project. A repository with
+several of these gets a system document with one part for each. It replaces no file and
+starts no scan. It prints text; --json prints JSON.
 
 exit codes:
   0  drafted

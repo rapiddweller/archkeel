@@ -6,7 +6,7 @@
 //! `imports` (`collect.collect`), with the typed records of `archkeel-facts` (AD-345).
 //!
 //! The survey is not the whole collection. The protocol says so with the capabilities of the
-//! import survey and the written `assert` construct (AD-658). The linked path gives the same
+//! import survey and written constructs (AD-658, AD-666, AD-680, AD-682). The linked path gives the same
 //! survey as a typed reply (AD-450).
 
 use archkeel_facts::envelope::{
@@ -149,7 +149,33 @@ fn parts(
             .collect(),
         sections: SURVEY_SECTIONS.to_vec(),
         features: Vec::new(),
-        constructs: vec![("assert", "supported")],
+        constructs: vec![
+            ("assert", "supported"),
+            (
+                "broad_except",
+                if survey.broad_complete {
+                    "supported"
+                } else {
+                    "partial"
+                },
+            ),
+            (
+                "dunder_dict",
+                if survey.dict_complete {
+                    "supported"
+                } else {
+                    "partial"
+                },
+            ),
+            (
+                "vars",
+                if survey.vars_complete {
+                    "supported"
+                } else {
+                    "partial"
+                },
+            ),
+        ],
         inputs,
         source_digest: Some(source_digest),
         files: survey.files,

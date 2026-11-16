@@ -32,7 +32,8 @@ pub(crate) fn version(version: ProtocolVersion, profile: Profile) -> Result<(), 
 
 /// The registered set of an import survey (Python, AD-450; Dart, AD-468): the sections `imports` and
 /// `unknowns`, and for Python also `symbols`, `calls` and `references` (AD-518, AD-520);
-/// the Python survey may additionally state the `assert` construct (AD-658).
+/// the Python survey may additionally state `assert`, `broad_except`, `dunder_dict` and `vars`
+/// (AD-658, AD-666, AD-680, AD-682).
 /// `validate::checkable` refuses each resolution feature
 /// of a Python reply, and `registered.rs` binds the symbol statement to its feature.
 pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
@@ -57,7 +58,24 @@ pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
                 "symbols",
                 "unknowns",
             ]
-        && matches!(facts.capabilities.constructs.as_slice(), [one] if one.name == "assert" && one.status == ConstructSupport::Supported);
+        && {
+            let entries = &facts.capabilities.constructs;
+            let partial = |index: usize, name: &str| {
+                entries.get(index).is_some_and(|entry| {
+                    entry.name == name
+                        && matches!(
+                            entry.status,
+                            ConstructSupport::Supported | ConstructSupport::Partial
+                        )
+                })
+            };
+            (1..=4).contains(&entries.len())
+                && entries[0].name == "assert"
+                && entries[0].status == ConstructSupport::Supported
+                && (entries.len() < 2 || partial(1, "broad_except"))
+                && (entries.len() < 3 || partial(2, "dunder_dict"))
+                && (entries.len() < 4 || partial(3, "vars"))
+        };
     if !with_asserts && (sections != registered || !facts.capabilities.constructs.is_empty()) {
         return Err(format!(
             "a {} reply must be exactly the import survey (AD-450, AD-468)",
