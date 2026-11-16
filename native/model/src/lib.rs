@@ -40,26 +40,11 @@
 //!
 //! The model names no language: a rule of the native contract and a test check that.
 //!
-//! Callers can name the results and proofs that the model's public functions return:
-//!
-//! ```
-//! use archkeel_model::{ComponentCycle, Crossing, Direction, GapCause, GapRow, GapScope, Leaf,
-//!     Measure, Package, Proven, Reading, Rows, RunComplete, ScanProof, Scope, ScopeComplete,
-//!     Selection, Stable, Stale, Step};
-//! fn boundary(reading: &Reading) -> (&[GapRow], &[Stale]) {
-//!     (&reading.gaps, &reading.stale)
-//! }
-//! fn scope<'id>(scope: Scope<'id, '_>, proof: ScopeComplete<'id>) {
-//!     let _decision = scope.pass(proof);
-//! }
-//! ```
-
 #![deny(unreachable_pub)]
 
 mod construct_match;
 pub use construct_match::matches as construct_matches;
 mod constructs;
-pub use constructs::{ConstructMatch, ConstructSite};
 
 #[cfg(test)]
 mod construct_tests;
@@ -72,8 +57,7 @@ mod boundary_judge;
 mod boundary_positions;
 mod boundary_surface;
 mod facade_reach;
-pub use boundary_judge::{GapCause, GapRow, Leaf};
-pub use boundary_positions::{read as boundary_reading, Position, Reading, Stale};
+pub use boundary_positions::{read as boundary_reading, Position};
 pub use facade_reach::facade_types;
 
 mod closed_path;
@@ -96,7 +80,7 @@ pub use needs::{Need, Needs};
 mod ownership;
 mod reason;
 mod reason_key;
-pub use reason_key::{gap_kind, stable, Stable};
+pub use reason_key::{gap_kind, stable};
 mod scope;
 mod section;
 mod settings;
@@ -105,7 +89,6 @@ mod symbol_sites;
 mod symbol_table;
 mod symbol_values;
 mod symbols;
-pub use symbols::Symbols;
 mod topology;
 mod uml;
 mod uml_declared;
@@ -121,20 +104,18 @@ pub use coverage::Incomplete;
 pub use cycles::Cycle;
 pub use edges::{Edge, Level};
 pub use graph::Graph;
-pub use ids::{ComponentId, Id, ModuleId, PackageId, Table};
+pub use ids::{ComponentId, ModuleId};
 pub use imports::{Import, Resolved};
-pub use model::{Model, Rows};
-pub use modules::{Module, Package};
+pub use model::Model;
+pub use modules::Module;
 pub use ownership::{claims, in_scope};
-pub use reason::{Hygiene, Input, Reason, Refusal, UmlGap, Unsupported};
-pub use scope::{Scope, ScopeComplete};
+pub use reason::{Hygiene, Input, Reason, UmlGap, Unsupported};
 pub use section::Section;
 pub use settings::{Producer, Settings};
-pub use topology::Measure;
 pub use uml::{UmlDiff, UmlOutcome, UmlTarget};
 pub use uml_declared::{UmlDeclared, UmlPart};
 pub use uml_tree::compare_tree as compare_uml_tree;
-pub use verdict::{Decision, Proven, Verdict};
+pub use verdict::{Decision, Verdict};
 
 // Slice S4: the scope proof (AD-378).
 mod causes;
@@ -143,19 +124,18 @@ mod observed;
 mod proof;
 mod subjects;
 
-pub use causes::{Cause, InterfaceGap, Part};
+pub use causes::{Cause, Part};
 
 // Slice S5: the import matchers of the direction kinds and the sides they share (AD-380).
 mod direction;
 mod selection;
 
-pub use direction::{crossings, forbidden, peers, Crossing, Judged};
-pub use selection::{dependency_sides, layer_components, Selection};
+pub use direction::{crossings, forbidden, peers, Judged};
 
 // The run proof (lead decision L-35b, AD-381).
 mod run;
 
-pub use run::{RunComplete, RunGap, RunPass};
+pub use run::{RunGap, RunPass};
 
 // Slice S7: the scan roots, the cycle receipts, the component cycles and the rules that each
 // pair gap can change (AD-384).
@@ -166,12 +146,10 @@ mod pair_gaps;
 mod receipts;
 mod roots;
 
-pub use causes::Held;
-pub use closed_path::{cycle_path, Link, Step};
-pub use component_cycles::{cycles_of_components, ComponentCycle};
+pub use closed_path::{cycle_path, Link};
+pub use component_cycles::cycles_of_components;
 pub use gaps::CoverageGap;
-pub use receipts::{GapScope, ScanProof};
-pub use sides::{shape, Direction, Shape};
+pub use sides::{shape, Shape};
 
 // The models of an inside-contract tree (AD-385): one model for each contract of the tree.
 mod domain;

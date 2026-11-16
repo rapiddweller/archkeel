@@ -8,17 +8,9 @@
 
 use std::io::{self, BufRead, Read, Write};
 
-use archkeel_contract::{parse, ErrorKind};
+use archkeel_contract::parse;
+use archkeel_contract::policy::IssueKind;
 use serde_json::{json, Value};
-
-fn kind(error: ErrorKind) -> &'static str {
-    match error {
-        ErrorKind::Invalid => "invalid",
-        ErrorKind::Version => "version",
-        ErrorKind::Input => "input",
-        ErrorKind::DuplicateKey => "duplicate_key",
-    }
-}
 
 fn line(bytes: &[u8]) -> Value {
     match parse(bytes) {
@@ -29,7 +21,7 @@ fn line(bytes: &[u8]) -> Value {
             "canonical_digest": parsed.file_canonical_digest().as_text(),
         }),
         Err(error) => {
-            json!({"kind": kind(error.kind), "message": error.message})
+            json!({"kind": IssueKind::Contract(error.kind).word().trim_start_matches("contract_"), "message": error.message})
         }
     }
 }
