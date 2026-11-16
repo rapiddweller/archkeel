@@ -1,4 +1,4 @@
-# AD-628 The command line prints one exit table and text for a person
+# AD-632 The command line prints one exit table and text for a person
 
 **Status.** Proposed. Part of #880. Closes the user-experience findings #1317, #1318, #1319, #1320,
 #1323 and #1328. It changes defaults of the text and of `report --output`; no exit code changes.
