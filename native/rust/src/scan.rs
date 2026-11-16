@@ -294,8 +294,10 @@ impl<'ast> Visit<'ast> for Visitor<'_> {
         visit::visit_expr_path(self, node);
     }
 
+    // AD-614: a string of code is a value. Only a path-shaped one (`name::rest`) stays in the net;
+    // a bare word (`"core"`) names no crate.
     fn visit_lit_str(&mut self, text: &'ast syn::LitStr) {
-        net::note_string(&text.value(), &mut self.walker.out.mentioned);
+        net::note_path_string(&text.value(), &mut self.walker.out.mentioned);
     }
 
     fn visit_macro(&mut self, node: &'ast Macro) {

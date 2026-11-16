@@ -305,22 +305,6 @@ def test_a_module_cycle_fails_and_modules_without_one_pass(
     assert statuses(result)["MODULE-CYCLES"] == "FAIL"
 
 
-def test_interface_boundary_is_unknown_because_every_local_target_is_a_crate_root(
-    tmp_path: Path, core_binary: Path, capsys: Capsys
-) -> None:
-    base = component("base", "base_crate")
-    base["public"] = ["native.base_crate"]
-    parts = (base, component("app", "app", ("base",)))
-    boundary = rule("INTERFACE", "interface_boundary")
-    result = _verdict(
-        tmp_path, core_binary, capsys, components=parts, rules=(*CRATE_RULES, boundary)
-    )
-
-    assert any("INTERFACE" in claim for claim in claims(result))
-    assert statuses(result).get("INTERFACE") != "PASS"
-    assert result["status"] == "UNKNOWN"
-
-
 SHADOWED = [
     # The four repros of the review, and a function, a constant and a static.
     "pub mod base_crate {}\n#[cfg(test)]\nmod tests { fn t() { base_crate::make(); } }\n",

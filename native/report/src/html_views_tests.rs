@@ -31,15 +31,15 @@ fn frame() -> Value {
         "topology": {
             "components": [component("API", "api", "edge", &[]),
                 component("CLI", "cli", "edge", &[]),
-                component("CORE", "core", "core", &["app.core", "app.core:Port"]),
-                component("STORE", "store", "core", &[])],
-            "modules": [module("api", "API"), module("cli", "CLI"), module("core", "CORE"),
+                component("DOMAIN", "domain", "domain", &["app.domain", "app.domain:Port"]),
+                component("STORE", "store", "domain", &[])],
+            "modules": [module("api", "API"), module("cli", "CLI"), module("domain", "DOMAIN"),
                 module("store", "STORE")],
-            "component_edges": [edge("API", "CORE", 2), edge("API", "STORE", 1),
-                edge("CLI", "CORE", 1)],
-            "requires": [require("API", "CORE", 2), require("CLI", "CORE", 1),
-                require("CORE", "STORE", 0)],
-            "layers": [{"rule": "LAYERS", "layers": ["core", "edge"]}],
+            "component_edges": [edge("API", "DOMAIN", 2), edge("API", "STORE", 1),
+                edge("CLI", "DOMAIN", 1)],
+            "requires": [require("API", "DOMAIN", 2), require("CLI", "DOMAIN", 1),
+                require("DOMAIN", "STORE", 0)],
+            "layers": [{"rule": "LAYERS", "layers": ["domain", "edge"]}],
             "total": {"components": 4, "modules": 4, "component_edges": 3, "requires": 3,
                 "layers": 1}}})
 }
@@ -80,13 +80,13 @@ fn each_view_marks_a_pair_from_the_facts_of_the_frame() {
     };
     let (plain, fail) = (Some(Mark::Plain), Some(Mark::Fail));
     // Observed and declared: As-Is and Target show it, Diff does not.
-    assert_eq!(marks("API", "CORE"), [plain, plain, None]);
+    assert_eq!(marks("API", "DOMAIN"), [plain, plain, None]);
     // Observed and against a rule: no requirement declares it, so Target does not show it.
     assert_eq!(marks("API", "STORE"), [fail, None, fail]);
     // Held by a gap and not observed: only Diff shows it.
     assert_eq!(marks("CLI", "STORE"), [None, None, Some(Mark::Unknown)]);
     // Declared and without an observed import: Target shows it, Diff names it.
-    assert_eq!(marks("CORE", "STORE"), [None, plain, Some(Mark::Unused)]);
+    assert_eq!(marks("DOMAIN", "STORE"), [None, plain, Some(Mark::Unused)]);
     assert_eq!(found.len(), 5);
     assert_eq!(failing.into_iter().collect::<Vec<_>>(), ["API"]);
 }
@@ -114,7 +114,7 @@ fn one_mark_is_one_element_that_names_each_view_that_shows_it() {
         "<a class=\"rp-u rp-in rp-d\" href=\"#unknown\" title=\"cli to store: a gap holds this pair\">?</a>"
     ));
     assert!(page.contains(
-        "<span class=\"rp-un rp-in rp-d\" title=\"core to store: declared, no observed import uses it\"></span>"
+        "<span class=\"rp-un rp-in rp-d\" title=\"domain to store: declared, no observed import uses it\"></span>"
     ));
 }
 
@@ -132,9 +132,11 @@ fn diff_names_each_difference_and_target_states_the_declared_structure() {
     assert!(page.contains("The frame names 2 of 3 pairs that a gap holds for a rule."));
     assert!(page.contains("Declared and without an observed import, for information: 1"));
     // Target states the layers and the public surface that the contract declares.
-    assert!(page.contains("Layers of <b class=\"rp-code\">LAYERS</b>, inner to outer: core, edge."));
-    assert!(page.contains(">core &#183; 2 public</text>"));
-    assert!(page.contains("title=\"app.core, app.core:Port\">2</td>"));
+    assert!(
+        page.contains("Layers of <b class=\"rp-code\">LAYERS</b>, inner to outer: domain, edge.")
+    );
+    assert!(page.contains(">domain &#183; 2 public</text>"));
+    assert!(page.contains("title=\"app.domain, app.domain:Port\">2</td>"));
 }
 
 #[test]

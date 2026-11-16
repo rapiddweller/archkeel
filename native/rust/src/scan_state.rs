@@ -90,6 +90,9 @@ pub(crate) struct Scan {
     pub shadows: BTreeSet<String>,
     /// How many times the file declares or imports each name, in any namespace and at any depth.
     pub counts: BTreeMap<String, usize>,
+    /// The same count for each inline module of the file (its names from the file down), with the
+    /// function bodies in it: a declaration in a child module is no name of its parent (AD-614).
+    pub scoped_counts: BTreeMap<(Vec<String>, String), usize>,
     /// The inline modules of the file, each as the names from the file down.
     pub inlines: Vec<Vec<String>>,
     pub macro_defs: Vec<MacroDef>,

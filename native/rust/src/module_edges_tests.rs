@@ -447,3 +447,40 @@ fn the_route_of_a_member_carries_each_root_name_of_its_type() {
         ]
     );
 }
+
+#[test]
+fn a_declaration_of_a_child_module_is_no_name_of_its_parent() {
+    // AD-614: `Shape` is declared once in `a` and once in its inline module `tests`. The path in
+    // `a` resolves by the leaf of `a`; before, the count of the whole file made it UNKNOWN.
+    let files = [
+        ("crates/app/src/lib.rs", "mod a;\nmod c;\n"),
+        ("crates/app/src/c.rs", "pub enum Shape {\n    Round,\n}\n"),
+        (
+            "crates/app/src/a.rs",
+            "use crate::c::Shape;\npub fn f() -> Shape {\n    Shape::Round\n}\nmod tests {\n    use crate::c::Shape;\n    fn g() -> Shape {\n        Shape::Round\n    }\n}\n",
+        ),
+    ];
+    // One record for each distinct path of a file: the leaf and the path `Shape::Round`.
+    let shape = Some("Shape".to_owned());
+    assert_eq!(
+        module_edges(&files),
+        [
+            (
+                "import",
+                "ns.app.a".to_owned(),
+                "ns.app.c".to_owned(),
+                shape.clone(),
+                None,
+                0
+            ),
+            (
+                "import",
+                "ns.app.a".to_owned(),
+                "ns.app.c".to_owned(),
+                shape.clone(),
+                shape,
+                0
+            ),
+        ]
+    );
+}
