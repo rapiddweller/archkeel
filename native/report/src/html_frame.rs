@@ -40,6 +40,7 @@ row! {
     RuleHolds { kind: String, pairs: Vec<Pair>, total: usize, unnamed_imports: usize }
     CollectionGap { kind: String, subjects: Vec<String>, reason: String, evidence: Vec<String>, detail: Option<String> }
     Holds { rules: BTreeMap<String, RuleHolds> }
+    Interface { id: String, source: String, target: String, title: String, schema: String }
     Explain { rules: BTreeMap<String, Shape>, cycles: BTreeMap<String, Cycles>, holds: Holds }
 }
 
@@ -60,6 +61,8 @@ pub(super) struct Frame {
     pub(super) details: BTreeMap<String, Vec<Detail>>,
     pub(super) locations: BTreeMap<String, Location>,
     pub(super) topology: Option<Topology>,
+    /// What crosses between the parts of a system: a crossing that is no import.
+    pub(super) interfaces: Vec<Interface>,
     pub(super) explain: Explain,
     pub(super) head: String,
     pub(super) explained: BTreeMap<String, String>,
@@ -124,6 +127,7 @@ impl Frame {
             locations: field(frame, "locations"),
             topology: serde_json::from_value(frame["topology"].clone()).ok(),
             explain: field(frame, "explain"),
+            interfaces: field(&frame["system"], "interfaces"),
             accepted: field(&frame["baseline"], "accepted_rules"),
             baseline: frame["baseline"]["state"].as_str().map(|state| {
                 let accepted = frame["baseline"]["accepted_unknowns"].as_u64();

@@ -17,13 +17,16 @@ from tools.report_product import Part
 from tools.report_product_page import product_page
 from tools.system_parts import DOCUMENT, ROOT, load
 
-SHAPE = {"schema_version", "kind", "title", "parts", "rules"}
+SHAPE = {"schema_version", "kind", "title", "parts", "interfaces", "rules"}
+PART = {"id", "title", "config", "responsibilities", "forbidden_responsibilities", "provides"}
 
 
 def test_the_document_has_the_shape_of_the_first_slice_of_the_system_contract() -> None:
     data = json.loads(DOCUMENT.read_text())
     assert set(data) == SHAPE and data["kind"] == "system" and data["rules"] == []
-    assert all(set(part) == {"id", "title", "config"} for part in data["parts"])
+    assert all(set(part) == PART for part in data["parts"])
+    # Every part writes what it is for, what it is not for and what it provides.
+    assert all(part[key] for part in data["parts"] for key in PART - {"id", "title", "config"})
     # No field that a contract reads names a language (a title is text for people): the language
     # and the roots come from the scan configuration.
     read = [data["kind"], data["schema_version"]]
