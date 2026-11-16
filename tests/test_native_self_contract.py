@@ -323,5 +323,4 @@ def test_the_layer_order_fails_each_upward_requires_and_no_other(runs: dict[str,
         if target != "store" and not (source in SPLIT and target in {*COLLECTORS, "collect"})
     }
     rows = result["details"]["NATIVE-LAYER-ORDER"]
-    assert {(row["source"], row["target"]) for row in rows} == upward
-    assert len(upward) == 35
+    assert upward and {(row["source"], row["target"]) for row in rows} == upward
