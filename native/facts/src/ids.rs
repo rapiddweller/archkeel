@@ -22,10 +22,12 @@ macro_rules! text_id {
         pub struct $name(String);
 
         impl $name {
+            /// Wraps the text, which the caller has checked.
             pub fn new(text: impl Into<String>) -> Self {
                 Self(text.into())
             }
 
+            /// The id as text.
             pub fn as_str(&self) -> &str {
                 &self.0
             }

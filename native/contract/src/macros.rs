@@ -49,19 +49,28 @@ macro_rules! text_type {
 /// read accessor for each field. It serializes in the order of its fields: the canonical order.
 /// A field attribute (a document or a serde skip) applies to the field only.
 macro_rules! record {
-    ($inner:vis, $(#[$meta:meta])* $name:ident { $($(#[$field_meta:meta])* $field:ident: $kind:ty),* $(,)? }) => {
+    ($inner:vis, $(#[$meta:meta])* $name:ident { $($(#[$($fm:tt)*])* $field:ident: $kind:ty),* $(,)? }) => {
         $(#[$meta])*
         #[derive(Clone, Debug, PartialEq, Eq, ::serde::Serialize)]
         pub struct $name {
-            $($(#[$field_meta])* $inner $field: $kind),*
+            $($(#[$($fm)*])* $inner $field: $kind),*
         }
 
         impl $name {
-            $(
-                pub fn $field(&self) -> &$kind {
-                    &self.$field
-                }
-            )*
+            $(record!(@accessor [] $field $kind; $(#[$($fm)*])*);)*
+        }
+    };
+    // The accessor takes the documents of its field and no other attribute of it.
+    (@accessor [$($docs:tt)*] $field:ident $kind:ty; #[doc = $text:literal] $($rest:tt)*) => {
+        record!(@accessor [$($docs)* #[doc = $text]] $field $kind; $($rest)*);
+    };
+    (@accessor [$($docs:tt)*] $field:ident $kind:ty; #[$($other:tt)*] $($rest:tt)*) => {
+        record!(@accessor [$($docs)*] $field $kind; $($rest)*);
+    };
+    (@accessor [$($docs:tt)*] $field:ident $kind:ty;) => {
+        $($docs)*
+        pub fn $field(&self) -> &$kind {
+            &self.$field
         }
     };
 }

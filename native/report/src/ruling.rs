@@ -65,7 +65,9 @@ pub struct Named {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(untagged)]
 pub enum RuleReasons {
+    /// One reason for each rule, by rule id.
     Each(BTreeMap<String, String>),
+    /// One reason for all rules.
     All(String),
 }
 

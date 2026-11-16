@@ -19,7 +19,9 @@ record!(
     /// An inside contract with the claims of its components clipped to its parent, and the id of
     /// each component that claimed a package or an exact module outside the parent.
     Clipped {
+        /// The contract.
         contract: Contract,
+        /// The part of the contract that lies outside the clip.
         outside: Vec<ItemId>,
     }
 );

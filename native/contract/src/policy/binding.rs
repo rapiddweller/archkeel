@@ -28,8 +28,15 @@ const NOT_BOUND: &str = "amendment does not bind this contract and baseline comp
 /// makes the change and the digest of it.
 #[derive(Clone, Copy, Debug)]
 pub enum OldContract<'a> {
+    /// The assembled tree of the old revision.
     Tree(&'a ContractTree),
-    Introduced { path: &'a str, against: &'a str },
+    /// The revision holds no contract at the path: the contract is new.
+    Introduced {
+        /// The repository path of the contract.
+        path: &'a str,
+        /// The revision that holds no blob at the path.
+        against: &'a str,
+    },
 }
 
 /// The baseline fact of the run, which the shell must state (lead decision L-34a). Python binds
@@ -120,7 +127,9 @@ record!(
     pub(crate),
     /// The decision of the gate and its failure messages, in the order of Python.
     Verdict {
+        /// The status of the check.
         status: GateStatus,
+        /// The failures that the check found.
         failures: Vec<String>,
     }
 );
@@ -136,9 +145,13 @@ record!(
     pub(crate),
     /// One comparison and the four digests that an amendment of it must hold.
     Binding {
+        /// The comparison of the old and the new contract.
         comparison: Comparison,
+        /// The digest of the contract before the change.
         before_digest: AmendmentDigest,
+        /// The digest of the contract after the change.
         after_digest: AmendmentDigest,
+        /// The baselines that the run binds.
         baselines: Baselines,
     }
 );

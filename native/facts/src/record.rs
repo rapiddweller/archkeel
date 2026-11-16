@@ -52,9 +52,13 @@ pub trait FactData: Sized + Clone {
 /// One fact: its id and its data.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Record<D> {
+    /// The id of the fact.
     pub id: FactId,
+    /// How strong the evidence of the fact is.
     pub evidence_class: EvidenceClass,
+    /// The area of the work that the fact belongs to.
     pub area: Area,
+    /// The short title of the fact.
     pub title: String,
     /// Sorted, as `classified` sorts them.
     pub subjects: Vec<String>,
@@ -62,6 +66,7 @@ pub struct Record<D> {
     pub evidence_ids: Vec<EvidenceId>,
     /// In the order of the producer: the Python collector does not sort them.
     pub fact_ids: Vec<FactId>,
+    /// The data of the fact, by its kind.
     pub data: D,
 }
 
