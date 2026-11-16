@@ -27,7 +27,7 @@
 //!
 //! A proof of one model cannot decide a rule of another model:
 //!
-//! ```compile_fail
+//! ```compile_fail,E0521
 //! fn decide(a: &archkeel_model::Model, b: &archkeel_model::Model, rule: &archkeel_contract::Rule) {
 //!     a.scope(|a| b.scope(|b| a.complete(rule).ok().map(|proof| b.pass(proof))));
 //! }
@@ -35,17 +35,19 @@
 //!
 //! A proof cannot leave its scope:
 //!
-//! ```compile_fail
+//! ```compile_fail,E0521
 //! fn keep(model: &archkeel_model::Model, rule: &archkeel_contract::Rule) {
-//!     let _proof = model.scope(|scope| scope.complete(rule).ok());
+//!     let mut proof = None;
+//!     model.scope(|scope| proof = scope.complete(rule).ok());
+//!     drop(proof);
 //! }
 //! ```
 //!
 //! A crate outside the model cannot make the proof:
 //!
-//! ```compile_fail
-//! fn forge<'id>() -> archkeel_model::ScopeComplete<'id> {
-//!     archkeel_model::ScopeComplete { brand: std::marker::PhantomData }
+//! ```compile_fail,E0603
+//! fn forge<'id>() -> archkeel_model::scope::ScopeComplete<'id> {
+//!     archkeel_model::scope::ScopeComplete { brand: std::marker::PhantomData, rule: String::new() }
 //! }
 //! ```
 
