@@ -73,7 +73,8 @@ pub enum Unexplained {
 /// the units are not complete. The other relations of `run.not_carried` (calls, references,
 /// implements, uses_type, fields, signatures, code_lines, contract_lines) are display parts:
 /// every 2.0 payload leaves them out, and the evaluator decides its rules without them.
-pub const PASS_NEEDS: [Relation; 3] = [Relation::Imports, Relation::Reexports, Relation::Variants];
+pub(crate) const PASS_NEEDS: [Relation; 3] =
+    [Relation::Imports, Relation::Reexports, Relation::Variants];
 
 impl fmt::Display for Unexplained {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {

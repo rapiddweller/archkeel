@@ -202,7 +202,7 @@ pub use engine_frame::{EngineFrame, FrameError};
 pub use frame::build;
 pub use head::{
     Component, Counts, Coverage, GapRow, NotRanked, PayloadBudget, RuleReason, RuleResult,
-    RuleVerdict, Run, RunContract, Source, Status, Summary, TrendPoint,
+    RuleVerdict, Run, RunContract, Source, Status, Summary,
 };
 #[cfg(test)]
 pub(crate) use input::RuleDecision;
@@ -217,12 +217,16 @@ pub use payload::{DecodeError, MAX_BYTES, SCHEMA_VERSION};
 pub use problem::Problem;
 pub use report::{Decided, ReadError, Recorded, Report};
 pub use ruling::{rule, rule_with_edge_links, Explain, Named, RuleReasons, Ruling};
+pub use status::Unexplained;
+#[cfg(test)]
+pub(crate) use status::PASS_NEEDS;
 #[cfg(test)]
 pub(crate) use status::{status_of, unexplained};
-pub use status::{Unexplained, PASS_NEEDS};
+#[cfg(test)]
+pub(crate) use tables::opt_gap;
 pub use tables::{
-    opt_gap, Carriers, Crossings, Edges, Fields, Findings, Flag, Id, Measures, Nodes, OptGap,
-    OptId, OptStr, Params, Permissions, StrId, Units, Unknowns, Variants, Violations,
+    Carriers, Crossings, Edges, Fields, Findings, Measures, Nodes, OptGap, Params, Permissions,
+    Units, Unknowns, Variants, Violations,
 };
 pub use why::WhyUnknown;
 
