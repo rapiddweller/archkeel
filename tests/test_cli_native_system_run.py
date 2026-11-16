@@ -5,7 +5,7 @@
 
 Each part is the scan of one configuration. The status of the system comes from the status rule of
 the core: a part that FAILs fails the system. A rule id that two parts use, a rule between parts,
-and a page or a baseline for a system run refuse the run: UNKNOWN, never a PASS.
+and a baseline for a system run refuse the run: UNKNOWN, never a PASS.
 """
 
 from __future__ import annotations
@@ -105,7 +105,7 @@ def test_the_system_status_is_the_status_rule_over_its_parts(
     [
         ({"one": PASSING, "two": PASSING}, [], (), "two parts name the rule"),
         ({"one": PASSING}, [{"id": "X"}], (), "a rule between parts"),
-        ({"one": PASSING}, [], ("--baseline", "baseline.json"), "no page, topology or baseline"),
+        ({"one": PASSING}, [], ("--baseline", "baseline.json"), "no baseline"),
     ],
 )
 def test_a_system_run_that_the_core_cannot_decide_is_refused(
@@ -123,6 +123,46 @@ def test_a_system_run_that_the_core_cannot_decide_is_refused(
     assert exit_code != 0, result
     assert result["status"] == "UNKNOWN"
     assert cause in json.dumps(result), result
+
+
+def _report(root: Path, core: Path, name: str) -> tuple[int, str | None]:
+    target = root / name
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(core_only, "locate_core", lambda: core)
+        code, _ = run(
+            "report", "--root", str(root), "--config", "system.json", "--output", str(target)
+        )
+    return code, target.read_text() if target.exists() else None
+
+
+def test_the_report_of_a_system_is_one_page_with_the_part_as_a_top_component(
+    tmp_path: Path, core_binary: Path
+) -> None:
+    root = _system(tmp_path, core_binary, {"one": PASSING}, [])
+    code, page = _report(root, core_binary, "page.html")
+
+    assert page is not None
+    data = json.loads(
+        page.split('id="flow-data" type="application/json">')[1].split("</script>")[0]
+    )
+    tops = [c for c in data["atlas"]["components"] if c["parent_id"] is None]
+    assert code == 0
+    assert [(c["id"], c["label"], c["language"]) for c in tops] == [
+        ("PART:one", "Part one", "rust")
+    ]
+    assert "<h1>Verdict: PASS</h1>" in page
+
+
+def test_the_report_of_two_parts_that_name_one_component_is_refused(
+    tmp_path: Path, core_binary: Path
+) -> None:
+    root = _system(tmp_path, core_binary, {"one": PASSING, "two": ()}, [])
+    code, page = _report(root, core_binary, "page.html")
+
+    # The fixture gives both parts the same components, so no id names one thing: no page is
+    # written, and the exit is not a PASS.
+    assert code != 0
+    assert page is None
 
 
 def test_a_part_that_the_core_cannot_run_leaves_the_system_unknown(

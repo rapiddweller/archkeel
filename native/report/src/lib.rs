@@ -115,7 +115,7 @@ mod violation_detail;
 mod why;
 
 pub use build_error::BuildError;
-pub use engine_frame::{EngineFrame, FrameError};
+pub use engine_frame::{page, EngineFrame, FrameError};
 pub use head::{RuleVerdict, Status};
 pub use report::Decided;
 pub use ruling::{rule, rule_with_edge_links, Explain, Named, RuleReasons, Ruling};

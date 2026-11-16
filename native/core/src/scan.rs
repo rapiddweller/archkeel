@@ -40,7 +40,7 @@ const PROTOCOL: &str = "archkeel-core-scan-1";
 const MAX_ROUNDS: usize = 901;
 const MAX_BYTES: u64 = 64 << 20;
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ScanRequest {
     // Checked before through `dual_run::decode`.
@@ -94,21 +94,27 @@ fn system_run(
     identity: &Identity<'_>,
     system: &archkeel_collect::System,
 ) -> Result<Answered, crate::refusal::Error> {
-    if request.html || request.topology || request.baseline.is_some() || request.write_baseline {
-        let reason = "collect: unsupported: a system run has no page, topology or baseline";
+    if request.baseline.is_some() || request.write_baseline {
+        let reason = "collect: unsupported: a system run has no baseline";
         return dual_run::refused_scan(reason, request.html).map_err(Into::into);
     }
+    // Each part gives its topology to the page of the system; the page is one for all parts.
+    let part_request = ScanRequest {
+        html: false,
+        topology: request.topology || request.html,
+        ..request.clone()
+    };
     let (mut frames, mut names_a_gap) = (Vec::new(), false);
     for part in &system.parts {
         let part_identity = Identity {
             config: &part.config,
             ..*identity
         };
-        let answered = one(request, &part_identity)?;
+        let answered = one(&part_request, &part_identity)?;
         names_a_gap |= answered.names_a_gap;
         frames.push(answered.frame);
     }
-    let frame = crate::system::join(system, &frames)?;
+    let frame = crate::system::join(system, &frames, (request.html, request.topology))?;
     Ok(Answered { frame, names_a_gap })
 }
 

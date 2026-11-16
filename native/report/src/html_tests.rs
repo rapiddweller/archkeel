@@ -452,3 +452,37 @@ fn a_gap_that_names_no_owned_module_holds_every_component() {
         assert_eq!(found[1].1, "UNKNOWN", "{found:?}");
     }
 }
+
+// AD-618: a part of a system is one top box; its layers are boxes inside it, and its components
+// sit in the layer that they name. The verdict of the part is the weakest verdict inside it.
+#[test]
+fn a_part_of_a_system_holds_its_own_layers() {
+    let comp = |id: &str, parent: Option<&str>, layer: Option<&str>| json!({"id": id, "name": id, "parent": parent, "layer": layer});
+    let frame = json!({"status": "UNKNOWN", "topology": {
+        "components": [comp("PART:a", None, None), comp("A1", Some("PART:a"), Some("L1")),
+            comp("A2", Some("PART:a"), Some("L2")), comp("PART:b", None, None),
+            comp("B1", Some("PART:b"), Some("L1"))],
+        "modules": [{"name": "m.a1", "path": "a1", "component": "A1", "language": "python"},
+            {"name": "m.b1", "path": "b1", "component": "B1", "language": "rust"}],
+        "layers": [{"rule": "R", "layers": ["L1", "L2"]}]},
+        "collection_gaps": [{"kind": "collection_gap", "subjects": ["m.b1"], "reason": "macro"}]});
+    let data = payload(&document(&frame));
+    let parent = |id: &str| {
+        let found = data["atlas"]["components"].as_array().unwrap();
+        let of = |id: &str| found.iter().find(|c| c["id"] == id).unwrap().clone();
+        (
+            of(id)["parent_id"].clone(),
+            of(id)["status"].clone(),
+            of(id)["language"].clone(),
+        )
+    };
+    assert_eq!(parent("LAYER:PART:a:L1").0, json!("PART:a"));
+    assert_eq!(parent("A1").0, json!("LAYER:PART:a:L1"));
+    assert_eq!(parent("A2").0, json!("LAYER:PART:a:L2"));
+    assert_eq!(parent("B1").0, json!("LAYER:PART:b:L1"));
+    // Each part names the language of its modules; the gap in b holds part b only.
+    assert_eq!(parent("PART:a").2, json!("python"));
+    assert_eq!(parent("PART:b").2, json!("rust"));
+    assert_eq!(parent("PART:a").1, json!("PASS"));
+    assert_eq!(parent("PART:b").1, json!("UNKNOWN"));
+}

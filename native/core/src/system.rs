@@ -26,7 +26,11 @@ const RULE_MAPS: [&str; 6] = [
 ];
 
 /// The frame bytes of the system from the frame bytes of its parts.
-pub(crate) fn join(system: &System, parts: &[Vec<u8>]) -> Result<Vec<u8>, String> {
+pub(crate) fn join(
+    system: &System,
+    parts: &[Vec<u8>],
+    (html, topology): (bool, bool),
+) -> Result<Vec<u8>, String> {
     let frames = parts
         .iter()
         .map(|part| serde_json::from_slice::<Map<String, Value>>(part))
@@ -69,8 +73,27 @@ pub(crate) fn join(system: &System, parts: &[Vec<u8>]) -> Result<Vec<u8>, String
         document: system.document.0.clone(),
         parts,
     };
+    if topology || html {
+        let sources: Vec<_> = system
+            .parts
+            .iter()
+            .zip(&frames)
+            .zip(&described.parts)
+            .map(|((part, found), row)| (part, row.profile.as_deref(), found))
+            .collect();
+        if let Some(found) = crate::system_topology::topology(&sources)? {
+            frame.insert("topology".to_owned(), found);
+        }
+        if let Some(found) = crate::system_topology::explain(&frames) {
+            frame.insert("explain".to_owned(), found);
+        }
+    }
     let described = serde_json::to_value(described).map_err(|error| error.to_string())?;
     frame.insert("system".to_owned(), described);
+    if html {
+        let page = archkeel_report::page(&frame).map_err(|error| error.to_string())?;
+        frame.insert("html".to_owned(), page);
+    }
     serde_json::to_vec(&frame).map_err(|error| error.to_string())
 }
 

@@ -872,7 +872,7 @@
   min-height:300px;
   background:var(--surface-0);
   border:1px solid var(--line);
-  border-radius:8px}
+  border-radius:var(--radius-md)}
 .rp-explorer .flow[data-atlas] .flow-inspector{height: auto;
   position:sticky;
   top:20px;
@@ -883,7 +883,7 @@
   min-width:0;
   background:var(--surface-1);
   border:1px solid var(--line);
-  border-radius:8px;
+  border-radius:var(--radius-md);
   padding:20px}
 .rp-explorer .flow[data-atlas] .flow-inspector h2{font-size:20px}
 .rp-explorer .flow[data-atlas] .flow-inspector h3{font-size:13px;
@@ -936,7 +936,7 @@
 .rp-explorer .flow-explore{margin-top:var(--space-5);
   padding:20px;
   border:1px solid var(--line);
-  border-radius:8px;
+  border-radius:var(--radius-md);
   background:var(--surface-1);
   min-width:0}
 .rp-explorer .flow-explore h3{margin:0 0 var(--space-2)}
@@ -956,7 +956,7 @@
 .rp-explorer .atlas-chip{display:inline-block;
   background:var(--surface-2);
   border:1px solid var(--line);
-  border-radius:4px;
+  border-radius:var(--radius-sm);
   padding:2px 6px;
   font-size:11px}
 .rp-explorer .flow-explore button{background:transparent;
@@ -1003,7 +1003,7 @@
   overflow: auto;
   padding: var(--space-3);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface-1);}
 .rp-explorer .flow-element-index h3{margin: 0 0 var(--space-2);}
 .rp-explorer .flow-element-index ul{columns: 3; padding-left: 20px;}
@@ -1113,7 +1113,7 @@ html.ak-canvas .rp-explorer .flow-alternative:not([hidden]){ height: 100%; }
 html.ak-canvas .rp-explorer .flow-graph.space-pan,
 html.ak-canvas .rp-explorer .flow-graph.space-pan *{ cursor: grab !important; }
 html.ak-canvas .rp-explorer .flow[data-atlas] .flow-inspector{
-  position: absolute; top: 68px; right: 12px; bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+  position: absolute; top: 68px; right: var(--space-3); bottom: calc(68px + env(safe-area-inset-bottom, 0px));
   width: 380px; height: auto; max-height: none; z-index: 60;
   background: var(--surface-1); border: 1px solid var(--line); border-radius: 14px;
   box-shadow: var(--shadow-pop); padding: 18px 20px;
@@ -1148,22 +1148,22 @@ html.ak-canvas .rp-explorer .ak-tag text{ fill: var(--on-accent); font: 600 11px
   background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius-lg);
   box-shadow: var(--shadow-pop); color: var(--ink); font: 13px var(--font-sans);
 }
-.rp-explorer .ak-top-left{ top: 12px; left: 12px; max-width: calc(50cqw - 200px); }
-.rp-explorer .ak-top-center{ top: 12px; left: 50%; transform: translateX(-50%); }
-.rp-explorer .ak-top-right{ top: 12px; right: 12px; }
-.rp-explorer .ak-bottom-left{ bottom: calc(12px + env(safe-area-inset-bottom, 0px)); left: 12px; max-width: 24vw; }
+.rp-explorer .ak-top-left{ top: var(--space-3); left: var(--space-3); max-width: calc(50cqw - 200px); }
+.rp-explorer .ak-top-center{ top: var(--space-3); left: 50%; transform: translateX(-50%); }
+.rp-explorer .ak-top-right{ top: var(--space-3); right: var(--space-3); }
+.rp-explorer .ak-bottom-left{ bottom: calc(12px + env(safe-area-inset-bottom, 0px)); left: var(--space-3); max-width: 24vw; }
 .rp-explorer .ak-detail .ak-bottom-left{ max-width: calc(100% - 280px); }
 .rp-explorer .ak-detail-actions{ display: flex; min-width: 0; overflow-x: auto; }
 .rp-explorer .ak-bottom-left .flow-filters{ position: static; }
 .rp-explorer .ak-bottom-left .flow-filter-controls{ max-width: 100%; }
 .rp-explorer .ak-bottom-center{ bottom: calc(12px + env(safe-area-inset-bottom, 0px)); left: 360px; right: 265px; overflow-x: auto; }
-.rp-explorer .ak-bottom-right{ bottom: calc(12px + env(safe-area-inset-bottom, 0px)); right: 12px; }
-.rp-explorer .ak-rail{ top: 68px; left: 12px; flex-direction: column; }
+.rp-explorer .ak-bottom-right{ bottom: calc(12px + env(safe-area-inset-bottom, 0px)); right: var(--space-3); }
+.rp-explorer .ak-rail{ top: 68px; left: var(--space-3); flex-direction: column; }
 .rp-explorer .ak-sep{ width: 1px; align-self: stretch; margin: var(--space-1) var(--space-1); background: var(--line); }
 .rp-explorer .ak-bar button,
 .rp-explorer .ak-bar .flow-fit,
 .rp-explorer .ak-bar [data-flow-view]{
-  height: 32px; min-width: 32px; padding: 0 10px; border: 0; border-radius: 8px;
+  height: 32px; min-width: 32px; padding: 0 10px; border: 0; border-radius: var(--radius-md);
   background: transparent; color: inherit; font: 500 13px var(--font-sans);
   display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; box-shadow: none;
   white-space: nowrap; flex: none;
@@ -1210,11 +1210,11 @@ html.ak-canvas .rp-explorer .ak-bar .flow-zoom-controls .flow-zoom-100{ display:
 }
 html.ak-canvas .rp-explorer .ak-bar .atlas-summary{ font-size: 12px; color: var(--ink-muted); padding: 0 var(--space-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html.ak-canvas .rp-explorer .ak-bar details.flow-legend-panel{ position: relative; }
-html.ak-canvas .rp-explorer .ak-bar details.flow-legend-panel > summary{ list-style: none; cursor: pointer; padding: 6px 10px; border-radius: 8px; }
+html.ak-canvas .rp-explorer .ak-bar details.flow-legend-panel > summary{ list-style: none; cursor: pointer; padding: 6px 10px; border-radius: var(--radius-md); }
 html.ak-canvas .rp-explorer .ak-bar details.flow-legend-panel > summary:hover{ background: var(--surface-2); }
 html.ak-canvas .rp-explorer .ak-bar details.flow-legend-panel[open] .flow-legend{
   position: absolute; bottom: 44px; left: 0; width: 380px; padding: var(--space-3); font-size: 12px;
-  background: var(--surface-1); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-pop);
+  background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-pop);
 }
 .rp-explorer .ak-tagbar-label{ font-size: 12px; color: var(--ink-muted); padding: 0 6px 0 var(--space-2); }
 .rp-explorer .ak-chip{
@@ -1228,12 +1228,12 @@ html.ak-canvas .rp-explorer .ak-bar details.flow-legend-panel[open] .flow-legend
 .rp-explorer .ak-pop{
   position: absolute; z-index: 120; min-width: 260px; max-height: 60vh; overflow: auto; padding: 6px;
   background: var(--surface-1); color: var(--ink); border: 1px solid var(--line);
-  border-radius: 12px; box-shadow: var(--shadow-pop); font: 13px var(--font-sans);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-pop); font: 13px var(--font-sans);
 }
 .rp-explorer .ak-pop h4{ margin: var(--space-2) 10px var(--space-1); font-size: 12px; font-weight: 500; color: var(--ink-muted); }
 .rp-explorer .ak-pop button{
   display: flex; width: 100%; align-items: center; gap: var(--space-2); text-align: left;
-  padding: 7px 10px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; cursor: pointer;
+  padding: 7px 10px; border: 0; border-radius: var(--radius-md); background: transparent; color: inherit; font: inherit; cursor: pointer;
 }
 .rp-explorer .ak-pop button:hover,
 .rp-explorer .ak-pop button:focus-visible{ background: var(--surface-2); outline: none; }
@@ -1241,7 +1241,7 @@ html.ak-canvas .rp-explorer .ak-bar details.flow-legend-panel[open] .flow-legend
 .rp-explorer .ak-pop .ak-current{ font-weight: 600; color: var(--accent-text); }
 .rp-explorer .ak-pop .flow-legend{ display: flex; max-width: min(460px, 80vw); padding: 10px; }
 .rp-explorer .ak-drawer{
-  position: absolute; z-index: 65; top: 68px; left: 64px; bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+  position: absolute; z-index: 65; top: 68px; left: var(--space-8); bottom: calc(68px + env(safe-area-inset-bottom, 0px));
   width: min(460px, calc(100vw - 90px)); overflow: auto; padding: var(--space-4) 18px;
   background: var(--surface-1); color: var(--ink); border: 1px solid var(--line);
   border-radius: 14px; box-shadow: var(--shadow-pop); font: 13px var(--font-sans);
@@ -1249,7 +1249,7 @@ html.ak-canvas .rp-explorer .ak-bar details.flow-legend-panel[open] .flow-legend
 .rp-explorer .ak-drawer h2{ margin: 0 0 var(--space-3); font-size: 16px; }
 .rp-explorer .ak-drawer input[type="search"]{
   width: 100%; box-sizing: border-box; height: 34px; padding: 0 10px; margin-bottom: 10px;
-  border: 1px solid var(--line); border-radius: 8px; background: var(--surface-0); color: var(--ink); font: inherit;
+  border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-0); color: var(--ink); font: inherit;
 }
 .rp-explorer .ak-table{ width: 100%; border-collapse: collapse; }
 .rp-explorer .ak-table th{
@@ -1298,7 +1298,7 @@ html.ak-canvas .rp-explorer .ak-bar details.flow-legend-panel[open] .flow-legend
 .rp-explorer .ak-group{ padding: 10px var(--space-3) var(--space-1); font-size: 12px; color: var(--ink-muted); }
 .rp-explorer .ak-result{
   display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px; align-items: center;
-  padding: 7px 10px; border-radius: 8px; cursor: pointer;
+  padding: 7px 10px; border-radius: var(--radius-md); cursor: pointer;
 }
 .rp-explorer .ak-result[aria-selected="true"]{ background: var(--accent-subtle); }
 .rp-explorer .ak-result .ak-name{ font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1327,21 +1327,21 @@ html.ak-canvas .rp-explorer .edge,
 html.ak-canvas .rp-explorer .node .card{ transition: none; }
 }
 @container (max-width: 1320px){
-  .rp-explorer .ak-top-left { right: 12px; max-width: none; }
-  .rp-explorer .ak-top-center { top: 62px; left: 12px; transform: none; }
+  .rp-explorer .ak-top-left { right: var(--space-3); max-width: none; }
+  .rp-explorer .ak-top-center { top: 62px; left: var(--space-3); transform: none; }
   .rp-explorer .ak-top-right { top: 62px; }
   .rp-explorer .ak-rail { top: 112px; }
   html.ak-canvas .rp-explorer .flow-map-column { top: 110px; }
   html.ak-canvas .rp-explorer .flow[data-atlas] .flow-inspector { top: 112px; }
   .rp-explorer .ak-drawer { top: 112px; }
 }
-@media (max-width: 900px){.rp-explorer .ak-top-left{ right: 12px; max-width: none; }
-.rp-explorer .ak-top-center{ top: 62px; left: 12px; transform: none; }
-.rp-explorer .ak-top-right{ top: 108px; left: 12px; right: auto; }
+@media (max-width: 900px){.rp-explorer .ak-top-left{ right: var(--space-3); max-width: none; }
+.rp-explorer .ak-top-center{ top: 62px; left: var(--space-3); transform: none; }
+.rp-explorer .ak-top-right{ top: 108px; left: var(--space-3); right: auto; }
 .rp-explorer .ak-top-right .flow-open-selected,
 .rp-explorer .ak-top-right kbd,
 .rp-explorer .ak-bottom-left{ display: none !important; }
-.rp-explorer .ak-rail{ top: 108px; left: auto; right: 12px; flex-direction: row; }
+.rp-explorer .ak-rail{ top: 108px; left: auto; right: var(--space-3); flex-direction: row; }
 .rp-explorer .ak-rail button{ width: 28px; height: 32px; }
 .rp-explorer .ak-top-right .flow-details-toggle{ font-size: 0 !important; gap: 0 !important; width: 34px; padding: 0 !important; }
 .rp-explorer .ak-top-right .flow-fullscreen{ width: 34px; padding: 0 !important; font-size: 0 !important; }
@@ -1349,7 +1349,7 @@ html.ak-canvas .rp-explorer .node .card{ transition: none; }
 .rp-explorer .flow[data-expanded] .flow-fullscreen::before{ content: "⤡"; }
 .rp-explorer .ak-search-btn{ min-width: 0 !important; width: 34px; padding: 0 !important; background: transparent !important; }
 .rp-explorer .ak-search-btn span{ font-size: 0; }
-.rp-explorer .ak-bottom-center{ left: 12px; right: 166px; transform: none; max-width: none; }
+.rp-explorer .ak-bottom-center{ left: var(--space-3); right: 166px; transform: none; max-width: none; }
 .rp-explorer .ak-tagbar-label{ display: none; }
 .rp-explorer .ak-top-left .ak-sep{ display: none; }
 html.ak-canvas .rp-explorer .ak-bar .flow-breadcrumb{ max-width: 32vw; }
@@ -1358,22 +1358,22 @@ html.ak-canvas .rp-explorer .ak-bar .atlas-content-choice{ overflow-x: auto; min
 html.ak-canvas .rp-explorer .flow-map-column{ inset: 156px 0 58px 0; }
 html.ak-canvas .rp-explorer .flow[data-details-open="true"] .flow-map-column{ right: 0; bottom: calc(38% + 70px); }
 html.ak-canvas .rp-explorer .flow[data-atlas] .flow-inspector{
-    left: 12px; right: 12px; width: auto; top: auto; height: 38%;
+    left: var(--space-3); right: var(--space-3); width: auto; top: auto; height: 38%;
     bottom: calc(62px + env(safe-area-inset-bottom, 0px));
   }
-.rp-explorer .ak-drawer{ left: 12px; top: 156px; width: auto; right: 12px; }
+.rp-explorer .ak-drawer{ left: var(--space-3); top: 156px; width: auto; right: var(--space-3); }
 html.ak-canvas .rp-explorer .ak-detail .ak-bottom-left{ display: flex !important; max-width: calc(100% - 24px); bottom: 62px; }
 .rp-explorer .ak-detail .ak-bottom-left button{ max-width: 130px; overflow: hidden; text-overflow: ellipsis; }
 html.ak-canvas .rp-explorer .ak-detail .flow-map-column{ bottom: 108px; }
 html.ak-canvas .rp-explorer .ak-detail[data-details-open="true"] .flow-map-column{ bottom: calc(38% + 116px); }
 html.ak-canvas .rp-explorer .ak-detail .flow-inspector{ bottom: 108px; }
 }
-@media (min-width: 600px) and (max-width: 900px) and (max-height: 600px){.rp-explorer .ak-top-right{ top: 62px; left: auto; right: 12px; }
-.rp-explorer .ak-rail{ top: 112px; left: 12px; right: auto; flex-direction: column; }
+@media (min-width: 600px) and (max-width: 900px) and (max-height: 600px){.rp-explorer .ak-top-right{ top: 62px; left: auto; right: var(--space-3); }
+.rp-explorer .ak-rail{ top: 112px; left: var(--space-3); right: auto; flex-direction: column; }
 html.ak-canvas .rp-explorer .flow .flow-map-column{ inset: 110px 0 58px 60px; }
 html.ak-canvas .rp-explorer .flow[data-details-open="true"] .flow-map-column{ right: 304px; bottom: 58px; }
 html.ak-canvas .rp-explorer .flow[data-atlas] .flow-inspector{
-    top: 112px; left: auto; right: 12px; bottom: 62px; width: 280px; height: auto;
+    top: 112px; left: auto; right: var(--space-3); bottom: 62px; width: 280px; height: auto;
   }
-html.ak-canvas .rp-explorer .ak-detail .ak-bottom-left{ bottom: 12px; max-width: calc(100% - 180px); }
+html.ak-canvas .rp-explorer .ak-detail .ak-bottom-left{ bottom: var(--space-3); max-width: calc(100% - 180px); }
 }

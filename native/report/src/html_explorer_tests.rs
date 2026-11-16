@@ -191,21 +191,31 @@ fn every_explorer_rule_stays_inside_the_explorer() {
 }
 
 #[test]
-fn explorer_spacing_that_a_token_names_uses_the_token() {
+fn explorer_spacing_and_radius_that_a_token_names_use_the_token() {
     let css = include_str!("../assets/explorer/explorer.css");
     for declaration in css.split([';', '{', '}']) {
         let Some((property, value)) = declaration.split_once(':') else {
             continue;
         };
         let property = property.trim();
-        if !["padding", "margin", "gap"]
+        let (spacing, radius) = (
+            [
+                "padding", "margin", "gap", "top", "left", "right", "bottom", "inset",
+            ]
             .iter()
-            .any(|p| property == *p || property.starts_with(&format!("{p}-")))
-        {
+            .any(|p| property == *p || property.starts_with(&format!("{p}-"))),
+            property.starts_with("border") && property.contains("radius"),
+        );
+        if (!spacing && !radius) || value.contains("calc(") {
             continue;
         }
-        for token in ["4px", "8px", "12px", "16px", "24px", "32px", "48px", "64px"] {
-            let literal = value.split_whitespace().any(|word| word == token);
+        let steps: &[&str] = if radius {
+            &["4px", "8px", "12px"]
+        } else {
+            &["4px", "8px", "12px", "16px", "24px", "32px", "48px", "64px"]
+        };
+        for token in steps {
+            let literal = value.split_whitespace().any(|word| word == *token);
             assert!(
                 !literal,
                 "{property}: {value} writes {token}: use a --space token"
