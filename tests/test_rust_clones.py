@@ -102,10 +102,92 @@ def test_a_duplicated_table_of_rows_of_one_shape_is_skipped(tmp_path: Path) -> N
     assert run(native).returncode == 0
 
 
-def test_a_table_with_its_own_header_is_a_clone_with_the_code_around_it(tmp_path: Path) -> None:
+def kinds(name: str, body: str) -> dict[str, str]:
+    """Two files that hold `body` and own, apart from it, code that differs."""
+    return {
+        "a/src/one.rs": body + f"fn first() -> u8 {{ {name}(1) }}\n",
+        "a/src/two.rs": body + "fn second() -> u8 { 9 }\n",
+    }
+
+
+def test_a_const_table_of_literals_and_paths_is_not_a_clone(tmp_path: Path) -> None:
     table = "const T: &[(&str, K)] = &[\n" + rows("n", 40) + "];\n"
-    native = scratch(tmp_path, {"a/src/one.rs": table, "a/src/two.rs": table})
-    assert run(native).returncode == 1
+    assert run(scratch(tmp_path, kinds("a", table))).returncode == 0
+    strings = (
+        "pub const NAMES: [&str; 40] = [\n" + "".join(f'    "w{i}",\n' for i in range(40)) + "];\n"
+    )
+    assert run(scratch(tmp_path / "b", kinds("a", strings))).returncode == 0
+
+
+def test_a_const_with_a_call_in_its_rows_is_logic(tmp_path: Path) -> None:
+    table = "const T: &[K] = &[\n" + "".join(f"    K::new({i}),\n" for i in range(40)) + "];\n"
+    assert run(scratch(tmp_path, kinds("a", table))).returncode == 1
+
+
+def test_a_use_list_is_not_a_clone(tmp_path: Path) -> None:
+    names = ", ".join(f"Name{i}" for i in range(40))
+    uses = f"use crate::model::{{{names}}};\nuse crate::more::Other;\n"
+    assert run(scratch(tmp_path, kinds("a", uses))).returncode == 0
+
+
+def arms(prefix: str, count: int, extra: str = "") -> str:
+    lines = "".join(f'        E::V{i} => "{prefix}{i}",\n' for i in range(count))
+    return f"fn word(e: E) -> &'static str {{\n    match e {{\n{lines}{extra}    }}\n}}\n"
+
+
+def test_a_match_of_variants_and_words_is_not_a_clone(tmp_path: Path) -> None:
+    assert run(scratch(tmp_path, kinds("a", arms("x", 30)))).returncode == 0
+    reverse = (
+        "fn kind(w: &str) -> E {\n    match w {\n"
+        + "".join(f'        "w{i}" | "v{i}" => E::V{i},\n' for i in range(30))
+        + "        _ => E::Other,\n    }\n}\n"
+    )
+    assert run(scratch(tmp_path / "b", kinds("a", reverse))).returncode == 0
+
+
+def test_a_match_of_variants_and_tuples_of_words_is_not_a_clone(tmp_path: Path) -> None:
+    lines = "".join(f'        E::V{i} => ("N{i}", "t{i}"),\n' for i in range(30))
+    body = f"fn pair(e: E) -> (&'static str, &'static str) {{\n    match e {{\n{lines}    }}\n}}\n"
+    assert run(scratch(tmp_path, kinds("a", body))).returncode == 0
+
+
+def test_declarations_of_words_and_names_are_not_clones(tmp_path: Path) -> None:
+    words = (
+        "closed! {\n    pub enum E {\n"
+        + "".join(f'        V{i} = "v{i}",\n' for i in range(30))
+        + "    }\n}\n"
+    )
+    assert run(scratch(tmp_path, kinds("a", words))).returncode == 0
+    mods = "".join(f"mod m{i};\n" for i in range(40))
+    assert run(scratch(tmp_path / "b", kinds("a", mods))).returncode == 0
+    fields = (
+        "#[derive(Clone)]\nstruct S {\n"
+        + "".join(f"    f{i}: Vec<String>,\n" for i in range(30))
+        + "}\n"
+    )
+    assert run(scratch(tmp_path / "c", kinds("a", fields))).returncode == 0
+
+
+def test_a_macro_call_with_a_call_in_its_body_is_logic(tmp_path: Path) -> None:
+    body = "closed! {\n" + "".join(f"    V{i} = make({i}),\n" for i in range(40)) + "}\n"
+    assert run(scratch(tmp_path, kinds("a", body))).returncode == 1
+
+
+def test_a_match_with_a_guard_or_an_expression_arm_is_logic(tmp_path: Path) -> None:
+    guarded = arms("x", 30, '        E::Z if flag() => "z",\n')
+    assert run(scratch(tmp_path, kinds("a", guarded))).returncode == 1
+    computed = arms("x", 30, "        E::Z => name_of(1),\n")
+    assert run(scratch(tmp_path / "b", kinds("a", computed))).returncode == 1
+
+
+def test_logic_in_a_file_with_tables_is_still_found(tmp_path: Path) -> None:
+    table = "const T: &[(&str, K)] = &[\n" + rows("n", 40) + "];\n"
+    native = scratch(
+        tmp_path,
+        {"a/src/one.rs": table + ORIGINAL, "a/src/two.rs": ORIGINAL + table},
+    )
+    result = run(native)
+    assert result.returncode == 1 and "New clone" in result.stderr
 
 
 def test_fourteen_equal_lines_inside_two_function_bodies_are_reported() -> None:
