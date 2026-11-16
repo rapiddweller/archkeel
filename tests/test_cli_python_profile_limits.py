@@ -187,3 +187,38 @@ def test_assert_uses_its_function_owner_and_exact_line(release_core: Path, tmp_p
     assert [result["frame"]["locations"][item] for item in evidence] == [
         {"path": "src/app/client/page.py", "line": 6}
     ]
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("try:\n    pass\nexcept:\n    pass\n", "FAIL"),
+        ("try:\n    pass\nexcept Exception:\n    pass\n", "FAIL"),
+        ("try:\n    pass\nexcept (ValueError, Exception):\n    pass\n", "FAIL"),
+        ("def check():\n    return True\n", "PASS"),
+        ("E = Exception\ntry:\n    pass\nexcept E:\n    pass\n", "UNKNOWN"),
+        ("try:\n    pass\nexcept ValueError:\n    pass\n", "UNKNOWN"),
+        ("Exception = ValueError\ntry:\n    pass\nexcept Exception:\n    pass\n", "UNKNOWN"),
+        (
+            "try:\n    pass\nexcept ValueError:\n    pass\ntry:\n    pass\nexcept:\n    pass\n",
+            "FAIL",
+        ),
+    ],
+)
+def test_broad_handler_is_proven_or_left_unknown(
+    release_core: Path, tmp_path: Path, source: str, expected: str
+) -> None:
+    rule = {**CONSTRUCT, "id": "NO-BROAD-EXCEPT", "constructs": ["broad_except"]}
+    result = scanned(
+        release_core, tmp_path, Plant({"src/app/client/page.py": source}, [rule], [], {}, {})
+    )
+    assert rows(result)["NO-BROAD-EXCEPT"] == expected, result["frame"]["explained"]
+    if expected == "UNKNOWN":
+        assert (
+            "construct absence is not completely observed"
+            in result["frame"]["explained"]["NO-BROAD-EXCEPT"]
+        )
+    if expected == "FAIL":
+        frame = result["frame"]
+        evidence = frame["details"]["NO-BROAD-EXCEPT"][0]["evidence"]
+        assert frame["locations"][evidence[0]]["path"] == "src/app/client/page.py"
