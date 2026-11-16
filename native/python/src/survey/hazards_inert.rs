@@ -17,7 +17,7 @@ pub(super) fn modules(
                 if unique.contains(name)
                     && matches!(
                         origin.as_str(),
-                        "pickle" | "importlib.metadata" | "importlib.abc"
+                        "pickle" | "dill" | "importlib.metadata" | "importlib.abc"
                     ) =>
             {
                 Some((name.clone(), origin.clone()))
@@ -36,6 +36,7 @@ pub(super) fn read(modules: &HashMap<String, String>, name: &str, attrs: &[&str]
                 ["UnpicklingError" | "PickleError" | "HIGHEST_PROTOCOL"]
             ) | ("importlib.metadata", ["PackageNotFoundError"])
                 | ("importlib.abc", ["Traversable"])
+                | ("dill", ["settings"])
         )
     })
 }
