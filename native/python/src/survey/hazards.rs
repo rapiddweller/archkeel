@@ -14,7 +14,7 @@
 use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{Expr, ExprContext, ModModule, Stmt, StmtFunctionDef};
+use ruff_python_ast::{Expr, ExprContext, ModModule, Stmt};
 use ruff_text_size::{Ranged, TextRange};
 
 use super::binders::Binders;
@@ -25,8 +25,10 @@ use super::literal::{self, Proof};
 use super::syspath;
 use crate::module::Module;
 
-use names::{doors, ANY_ATTRIBUTE, BUILTIN_DOORS, DOOR_STRINGS, IMPORT_FUNCTIONS, STATE};
-pub(super) use names::{DYNAMIC, IMPORT_SYSTEM};
+use names::{
+    above, first_hazard, store, ANY_ATTRIBUTE, BUILTIN_DOORS, DOOR_STRINGS, IMPORT_FUNCTIONS,
+};
+pub(super) use names::{hazard, DYNAMIC, IMPORT_SYSTEM};
 
 #[path = "hazards_comprehension.rs"]
 mod comprehension;
@@ -80,38 +82,6 @@ pub(super) fn sites(
         }
     }
     walk.found
-}
-
-/// The names of a door module that cannot import a module by a name given at run time (AD-472).
-const INERT: [&str; 2] = [
-    "importlib.metadata.version",
-    "importlib.metadata.PackageNotFoundError",
-];
-
-/// The gap of a qualified name: a door, the import state, or a name below one of them.
-pub(super) fn hazard(name: &str) -> Option<&'static str> {
-    if INERT.contains(&name) {
-        return None;
-    }
-    let under = |entry: &&str| {
-        name == *entry
-            || name
-                .strip_prefix(*entry)
-                .is_some_and(|rest| rest.starts_with('.'))
-    };
-    if STATE.iter().any(under) {
-        Some(IMPORT_SYSTEM)
-    } else if doors().any(|door| under(&door)) {
-        Some(DYNAMIC)
-    } else {
-        None
-    }
-}
-
-/// True for a module above a hazard name, such as `sys` or `importlib.metadata`.
-fn above(name: &str) -> bool {
-    let prefix = format!("{name}.");
-    doors().chain(STATE).any(|entry| entry.starts_with(&prefix))
 }
 
 /// The qualified names that the import statements of a module bind, in any scope.
@@ -198,11 +168,25 @@ struct Walk<'r> {
     class_body: bool,
     proof: Proof,
     reads: &'r HashSet<TextRange>,
-    locals: Vec<HashSet<String>>,
+    // Class namespaces are skipped by nested function and comprehension lookups.
+    locals: Vec<(HashSet<String>, HashSet<String>, bool)>,
     getattr_bound: bool,
 }
 
 impl Walk<'_> {
+    fn lambda(&mut self, node: &ruff_python_ast::ExprLambda) {
+        if let Some(parameters) = &node.parameters {
+            self.visit_parameters(parameters);
+        }
+        self.locals.push((
+            super::globals_locals::lambda_names(node),
+            HashSet::new(),
+            false,
+        ));
+        self.visit_expr(&node.body);
+        self.locals.pop();
+    }
+
     fn push(&mut self, kind: &'static str, detail: &str, node: &impl Ranged) {
         self.found.push(Site {
             kind,
@@ -228,7 +212,21 @@ impl Walk<'_> {
 
     /// True when a function binds `id` and no import binds it: a local value, no door (AD-530).
     fn local(&self, id: &str) -> bool {
-        !self.bound.contains_key(id) && self.locals.iter().any(|names| names.contains(id))
+        if self.bound.contains_key(id) {
+            return false;
+        }
+        for (depth, (names, globals, class)) in self.locals.iter().rev().enumerate() {
+            if *class && depth > 0 {
+                continue;
+            }
+            if globals.contains(id) {
+                return false;
+            }
+            if names.contains(id) {
+                return true;
+            }
+        }
+        false
     }
 
     /// `getattr(name, "attr")` and `getattr(name, "attr", default)` with a literal attribute that
@@ -346,29 +344,6 @@ impl Walk<'_> {
     }
 }
 
-/// The names that a function binds (AD-530): see `globals_locals.rs`.
-fn bound_in(def: &StmtFunctionDef) -> HashSet<String> {
-    super::globals_locals::local_names(def)
-}
-
-/// The first hazard on the names `origin`, `origin.a`, `origin.a.b`, ..., or a module above a
-/// hazard as the value of the whole chain.
-fn first_hazard(origin: String, attributes: &[&str]) -> Option<(&'static str, String)> {
-    let mut name = origin;
-    for attribute in attributes {
-        name = format!("{name}.{attribute}");
-        if let Some(kind) = hazard(&name) {
-            return Some((kind, name));
-        }
-    }
-    above(&name).then_some((DYNAMIC, name))
-}
-
-/// True for an attribute in a write or a delete.
-fn store(expr: &Expr) -> bool {
-    matches!(expr, Expr::Attribute(node) if node.ctx != ExprContext::Load)
-}
-
 impl<'a> Visitor<'a> for Walk<'_> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
         if matches!(stmt, Stmt::ImportFrom(node)
@@ -394,14 +369,33 @@ impl<'a> Visitor<'a> for Walk<'_> {
             self.visit_parameters(&node.parameters);
             node.returns.iter().for_each(|item| self.visit_expr(item));
             self.class_body = false;
-            self.locals.push(bound_in(node));
+            let (locals, globals) = super::globals_locals::local_scope(node);
+            self.locals.push((locals, globals, false));
             self.visit_body(&node.body);
             self.locals.pop();
             self.class_body = previous;
             return;
         }
-        if matches!(stmt, Stmt::ClassDef(_)) {
+        if let Stmt::ClassDef(node) = stmt {
             self.class_body = true;
+            node.decorator_list
+                .iter()
+                .for_each(|item| self.visit_decorator(item));
+            if let Some(params) = &node.type_params {
+                self.visit_type_params(params);
+            }
+            node.arguments
+                .iter()
+                .for_each(|item| self.visit_arguments(item));
+            self.locals.push((
+                HashSet::new(),
+                super::globals_locals::class_blockers(&node.body),
+                true,
+            ));
+            self.visit_body(&node.body);
+            self.locals.pop();
+            self.class_body = previous;
+            return;
         }
         visitor::walk_stmt(self, stmt);
         self.class_body = previous;
@@ -410,7 +404,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
     fn visit_expr(&mut self, expr: &'a Expr) {
         if let Some((first, rest, targets, values)) = comprehension::parts(expr) {
             self.visit_expr(&first.iter);
-            self.locals.push(targets);
+            self.locals.push((targets, HashSet::new(), false));
             self.visit_expr(&first.target);
             first.ifs.iter().for_each(|test| self.visit_expr(test));
             rest.iter().for_each(|item| self.visit_comprehension(item));
@@ -419,6 +413,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
             return;
         }
         match expr {
+            Expr::Lambda(node) => self.lambda(node),
             // AD-472: only the callee of a proven literal call is exempt; its one argument is a
             // string literal, so nothing below the call is left to read.
             Expr::Call(call) => match self.proof.target(call) {
