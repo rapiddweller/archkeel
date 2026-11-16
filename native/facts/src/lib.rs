@@ -55,7 +55,7 @@ mod vocab_constructs;
 pub use record::{FactData, Record};
 pub use sections::{
     BindingFact, CallFact, ConstructFact, GapFact, ImportFact, IntoSection, ReferenceFact, Section,
-    SignalFact, SymbolFact,
+    SymbolFact,
 };
 
 /// The provenance of a linked native collector of `profile` (a variant of

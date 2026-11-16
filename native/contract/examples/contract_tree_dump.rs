@@ -8,18 +8,11 @@
 
 use std::io::{self, BufRead, Write};
 
-use archkeel_contract::policy::{assemble_tree, ContractTree, SourceProblem, TreeError, TreeIssue};
-use archkeel_contract::{canonical_bytes, parse, ErrorKind};
+use archkeel_contract::policy::{
+    assemble_tree, ContractTree, IssueKind, SourceProblem, TreeError, TreeIssue,
+};
+use archkeel_contract::{canonical_bytes, parse};
 use serde_json::{json, Value};
-
-fn parse_kind(kind: ErrorKind) -> &'static str {
-    match kind {
-        ErrorKind::Invalid => "invalid",
-        ErrorKind::Version => "version",
-        ErrorKind::Input => "input",
-        ErrorKind::DuplicateKey => "duplicate_key",
-    }
-}
 
 fn issue(item: &TreeIssue) -> Value {
     json!({
@@ -109,7 +102,11 @@ fn line(text: &str) -> Option<Value> {
         .collect();
     let root = match parse(root_bytes) {
         Ok(root) => root,
-        Err(failure) => return Some(json!({"kind": "root", "error": parse_kind(failure.kind)})),
+        Err(failure) => {
+            return Some(
+                json!({"kind": "root", "error": IssueKind::Contract(failure.kind).word().trim_start_matches("contract_")}),
+            )
+        }
     };
     Some(match assemble_tree(root_path, root, &insides) {
         Ok(value) => tree(&value),
