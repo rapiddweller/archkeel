@@ -56,6 +56,8 @@ pub(crate) struct Crate {
     pub roots: Vec<Root>,
     /// The module and file that other crates reach: the library, else the main binary.
     pub primary: Option<Root>,
+    /// The crate has a library target, so its primary root publishes names to other crates.
+    pub library: bool,
     pub registry: crate::registry::Registry,
 }
 
@@ -262,6 +264,7 @@ impl Workspace {
             lines: LineIndex::new(text),
             roots,
             primary,
+            library: has_lib,
             registry,
         });
     }

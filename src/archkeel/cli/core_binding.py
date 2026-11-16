@@ -57,15 +57,19 @@ def bind_request(
         raw = stream.read((1 << 20) + 1)
     if len(raw) > 1 << 20:
         raise RequestMismatch("the configuration exceeds the core byte limit")
-    scan = as_object(tomllib.loads(raw.decode("utf-8-sig")).get("scan"), "scan")
-    reference = as_text(scan.get("contract"), "scan.contract")
-    contract = resolve_root(root / reference, strict=True)
-    if not contract.is_relative_to(root):
-        raise RequestMismatch("the contract leaves the requested root")
-    with contract.open("rb") as stream:
-        payload = stream.read(_BYTES + 1)
-    if len(payload) > _BYTES:
-        raise RequestMismatch("the contract exceeds the core byte limit")
+    if config.suffix == ".json":
+        # AD-616: a system document is the contract of a system run; the core names its digest.
+        reference, payload = config.relative_to(root).as_posix(), raw
+    else:
+        scan = as_object(tomllib.loads(raw.decode("utf-8-sig")).get("scan"), "scan")
+        reference = as_text(scan.get("contract"), "scan.contract")
+        contract = resolve_root(root / reference, strict=True)
+        if not contract.is_relative_to(root):
+            raise RequestMismatch("the contract leaves the requested root")
+        with contract.open("rb") as stream:
+            payload = stream.read(_BYTES + 1)
+        if len(payload) > _BYTES:
+            raise RequestMismatch("the contract exceeds the core byte limit")
     if frame.get("contract_digest") != hashlib.sha256(payload).hexdigest():
         raise RequestMismatch("the core frame contract digest differs from the requested contract")
     test = as_object(frame["self_test"], "self_test")

@@ -131,8 +131,8 @@ def _claims(component: dict[str, Any], module: str) -> bool:
 def test_each_requirement_names_its_ports() -> None:
     """AD-588: a requirement without `through` permits each module of its target.
 
-    `NATIVE-REQUIRES-COMPLETE` judges the ports. A module port keeps the rule readable for each
-    profile; a symbol crossing is the job of `public` and `NATIVE-INTERFACE-BOUNDARY` (AD-604).
+    `NATIVE-REQUIRES-COMPLETE` judges the ports. A module port is a prefix, so a crate root port
+    permits the whole crate; a use of a name at the root is a symbol port instead (AD-616).
     """
     components = {
         c["label"]: c for c in json.loads(CONTRACT.read_text(encoding="utf-8"))["components"]
@@ -144,8 +144,12 @@ def test_each_requirement_names_its_ports() -> None:
             where = f"{label} -> {target['label']}"
             assert ports, f"{where} has no port"
             assert ports == _minimal(ports), f"{where}: the ports are not sorted and minimal"
-            assert all(_claims(target, port) for port in ports), f"{where}: a port of another part"
-            assert all(":" not in port for port in ports), f"{where}: a symbol port"
+            modules = [port.partition(":")[0] for port in ports]
+            assert all(_claims(target, module) for module in modules), f"{where}: another part"
+            # AD-616: a crate root is a port only for an import of the whole crate (a manifest
+            # dependency); each other use of the root is a symbol port `root:Name`.
+            symbols = {port.partition(":")[0] for port in ports if ":" in port}
+            assert not symbols & set(ports), f"{where}: a root port and its symbol ports"
 
 
 def test_each_component_lists_the_names_that_it_publishes() -> None:

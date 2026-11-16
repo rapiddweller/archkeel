@@ -52,7 +52,19 @@ Each other name is kept: it is a type, a vocabulary or a step that the responsib
 offers. 71 more root re-exports have no user in another crate; a sibling part uses the same entry,
 so no rule fails them.
 
+## Amendment: a crate root publishes only listed names
+The intent review kept 71 root re-exports that no other crate uses, because a sibling part uses the
+same entry. The rule now sees the publication itself. The Rust collector states `published_as` on a
+`pub use` at module level of the root of a library crate (`*` for a glob; not for `pub(crate)` or a
+binary root). `NATIVE-INTERFACE-BOUNDARY` fails such a record when its component does not list
+`module:name` (or the whole module): "publication outside the public interface". A published glob
+holds the rule. A re-export used only inside its own crate is then no public name. The 70 entries
+that the review removed as "re-export for nobody" come back: the root publication is the one place
+of that cause, so each dead re-export gives one row and not two. A glob of a child module by one name
+(`use child::*;`) gave no edge before; it now names the module.
+
 ## Limits
 - The root publications come from the scan. A root leaf that a macro writes is not read.
 - A procedural macro is not read (as in AD-604): it can only add a FAIL where the truth is PASS.
 - A name that the root does not publish is not moved to the root by this rule.
+- A `pub` item that the root defines (not a re-export) is not judged as a publication yet.

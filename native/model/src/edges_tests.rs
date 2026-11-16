@@ -15,12 +15,14 @@ use flate2::write::ZlibEncoder;
 use flate2::Compression;
 
 use super::{both, Edge, Level};
-use crate::imports::{split, Import, Resolved};
+use crate::imports::{split, Import, Published, Resolved};
 
 fn import(id: &str, from: (&str, &str), to: (&str, &str), type_checking: bool) -> Import {
     Import {
-        reexport_chain: Vec::new(),
-        route_complete: true,
+        published: Published {
+            complete: true,
+            ..Published::default()
+        },
         id: id.to_owned(),
         source_module: from.0.to_owned(),
         target_module: to.0.to_owned(),

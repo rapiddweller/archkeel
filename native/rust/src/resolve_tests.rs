@@ -38,6 +38,7 @@ fn krate() -> Crate {
         lines: crate::manifest_lines::LineIndex::new(""),
         roots: Vec::new(),
         primary: None,
+        library: false,
         registry: crate::registry::Registry::default(),
     }
 }

@@ -14,7 +14,7 @@ use crate::tokens::plain;
 
 /// A name that the file declares or imports, anywhere in it.
 pub(super) fn bind(walker: &mut Walker<'_>, name: String) {
-    *walker.out.counts.entry(name.clone()).or_default() += 1;
+    count(walker, &name);
     walker.out.shadows.insert(name.clone());
     walker.out.names.insert(name);
 }
@@ -23,11 +23,18 @@ pub(super) fn bind(walker: &mut Walker<'_>, name: String) {
 /// the binding is no shadow of that crate.
 pub(super) fn bind_leaf(walker: &mut Walker<'_>, name: String, prefix: &[String]) {
     if prefix.first() == Some(&name) {
-        *walker.out.counts.entry(name.clone()).or_default() += 1;
+        count(walker, &name);
         walker.out.names.insert(name);
     } else {
         bind(walker, name);
     }
+}
+
+/// One declaration of `name` in the file and in its inline module.
+fn count(walker: &mut Walker<'_>, name: &str) {
+    *walker.out.counts.entry(name.to_owned()).or_default() += 1;
+    let key = (walker.inline.clone(), name.to_owned());
+    *walker.out.scoped_counts.entry(key).or_default() += 1;
 }
 
 pub(super) fn use_item(walker: &mut Walker<'_>, node: &ItemUse) {
