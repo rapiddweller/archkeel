@@ -13,6 +13,8 @@ import pytest
 from core_support import ROOT, run
 from frozen_native import frozen_root as frozen_root
 from planted_cycle import cycle_root as cycle_root
+from rust_repository import CRATE_RULES, report, repository
+from rust_repository import rule as crate_rule
 
 from archkeel.cli import core_only
 
@@ -99,18 +101,47 @@ def test_an_unknown_run_names_the_gaps_of_each_rule_and_the_rules_of_each_gap(
     assert frame["scope"].endswith("71 coverage gaps")
 
 
+LIB = "mod a;\nmod b;\nmod c;\n"
+
+
+def _calls(name: str, impl: str) -> str:
+    """A module that calls `s.name(1)` on a receiver that the scan cannot prove (`let s = s;`),
+    and holds `impl crate::c::S { pub fn impl(&self, x) }`: the pair gap of the call."""
+    return (
+        f"pub fn call_{name}(s: &crate::c::S) {{\n    let s = s;\n    s.{name}(1);\n}}\n"
+        f"impl crate::c::S {{\n    pub fn {impl}(&self, x: u8) {{}}\n}}\n"
+    )
+
+
 def test_a_pair_gap_holds_only_the_rules_that_it_can_change(
-    release_core: Path, monkeypatch: pytest.MonkeyPatch, frozen_root: Path
+    tmp_path: Path, core_binary: Path
 ) -> None:
-    _, frame = frame_of(release_core, monkeypatch, frozen_root, "native/archkeel.toml")
+    # The self run has no pair gap any more, so this project holds two: `a -> b` and `b -> a`,
+    # each through a method that the scan cannot tie to its type. The cycle rule and the
+    # requires rule can change with them; a rule that already holds cannot.
+    files = {
+        "lib.rs": LIB,
+        "c.rs": "pub struct S;\n",
+        "a.rs": _calls("m", "n"),
+        "b.rs": _calls("n", "m"),
+    }
+    cycles = crate_rule("MODULE-CYCLES", "no_component_cycles", level="module")
+    root = repository(
+        tmp_path,
+        core_binary,
+        {f"crates/app/src/{name}": text for name, text in files.items()},
+        rules=(*CRATE_RULES, cycles),
+    )
+    frame = report(root)["frame"]
     holds = frame["explain"]["holds"]
     pair_rules = {r: h for r, h in holds["rules"].items() if h["kind"] == "pair_gaps"}
-    assert pair_rules
+    unknown = {r for r, row in frame["rules"].items() if row[1] == "UNKNOWN"}
+    assert "MODULE-CYCLES" in pair_rules and set(pair_rules) <= unknown
     by_gap = {gap["id"]: gap for gap in holds["gaps"]}
-    for rule, held in pair_rules.items():
+    for rule_id, held in pair_rules.items():
         assert held["pairs"] and held["total"] >= len(held["pairs"])
-        assert held["gaps"], rule
-        assert all(rule in by_gap[gap]["rules"] for gap in held["gaps"])
+        assert held["gaps"], rule_id
+        assert all(rule_id in by_gap[gap]["rules"] for gap in held["gaps"])
     # A rule that no kept gap can change has no hold of this kind.
     passing = {r for r, row in frame["rules"].items() if row[1] == "PASS"}
-    assert not passing & set(holds["rules"])
+    assert passing and not passing & set(holds["rules"])
