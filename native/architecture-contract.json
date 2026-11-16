@@ -1710,7 +1710,8 @@
         "native.archkeel_core.sections",
         "native.archkeel_core.topology",
         "native.archkeel_core.report",
-        "native.archkeel_core.topology_projection"
+        "native.archkeel_core.topology_projection",
+        "native.archkeel_core.topology_declared"
       ],
       "responsibilities": [
         "Keep the contract and the reply of one run and answer each typed request: ingest, rules, sections, report and the topology projection (design WP6-0, AD-359)."
