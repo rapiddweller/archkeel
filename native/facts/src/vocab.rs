@@ -416,6 +416,13 @@ closed! {
     }
 }
 
+impl Signal {
+    /// The contract construct observed by this signal, if it observes one.
+    pub fn construct(self) -> Option<&'static str> {
+        Kind::parse(self.as_str()).and_then(Kind::construct)
+    }
+}
+
 #[cfg(test)]
 #[path = "vocab_tests.rs"]
 mod tests;

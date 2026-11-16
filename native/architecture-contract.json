@@ -1185,6 +1185,7 @@
           "rationale": "Read and write the typed payload: codes, head and tables.",
           "through": [
             "native.archkeel_report.codes",
+            "native.archkeel_report.code",
             "native.archkeel_report.head",
             "native.archkeel_report.payload",
             "native.archkeel_report.tables"
@@ -1237,6 +1238,7 @@
       "layer": "report",
       "packages": [
         "native.archkeel_report.codes",
+        "native.archkeel_report.code",
         "native.archkeel_report.head",
         "native.archkeel_report.tables",
         "native.archkeel_report.payload"
@@ -1254,6 +1256,7 @@
       ],
       "public": [
         "native.archkeel_report.codes",
+        "native.archkeel_report.code",
         "native.archkeel_report.head",
         "native.archkeel_report.payload",
         "native.archkeel_report.tables"
@@ -1298,6 +1301,7 @@
           "rationale": "Read and write the typed payload: codes, head and tables.",
           "through": [
             "native.archkeel_report.codes",
+            "native.archkeel_report.code",
             "native.archkeel_report.head",
             "native.archkeel_report.payload",
             "native.archkeel_report.tables"
@@ -1374,6 +1378,7 @@
           "rationale": "Read and write the typed payload: codes, head and tables.",
           "through": [
             "native.archkeel_report.codes",
+            "native.archkeel_report.code",
             "native.archkeel_report.head",
             "native.archkeel_report.payload",
             "native.archkeel_report.tables"

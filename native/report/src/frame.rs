@@ -17,8 +17,9 @@ use archkeel_model::{Model, ModelTree, RunGap, RunPass};
 use crate::build_error::BuildError;
 use crate::build_tables::{self as layout, node_of, Strings, UnknownCell, CROSSING_CAP};
 use crate::check_rows::counted;
+use crate::code::Code;
 use crate::codes::{
-    Code, Disposition, EdgeTarget, FindingKind, Gap, Kind, NodeLevel, Relation, UnknownSource,
+    Disposition, EdgeTarget, FindingKind, Gap, Kind, NodeLevel, Relation, UnknownSource,
     NOT_CARRIED,
 };
 use crate::frame_rules::rule_rows;
