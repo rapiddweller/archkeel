@@ -368,7 +368,10 @@ fn a_gap_of_the_reply_gives_unknown_and_a_violation_still_fails() {
     let refusal = reply_or_refusal(with_gap).err();
     assert_eq!(refusal, None, "the store accepts a reply with a gap");
     let clean = run(unchanged, with_gap);
-    let expected = Decision::unknown(Reason::Incomplete(Incomplete::CoverageGaps(1)));
+    let expected = Decision::unknown(Reason::Incomplete(Incomplete::CoverageGaps {
+        whole: 1,
+        reported: 1,
+    }));
     assert_eq!(decision(&clean, "ASSIGNMENT"), Some(expected.clone()));
     assert_eq!(decision(&clean, "LAYOUT"), Some(expected));
     let failed = run(

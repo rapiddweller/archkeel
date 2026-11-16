@@ -26,9 +26,15 @@ use archkeel_facts::GapFact;
 pub enum Incomplete {
     /// The collector selected no source file.
     NoSourceFiles,
-    /// The collector reports gaps that leave the whole scope unknown (their number): no
-    /// contract can drop one, and none states an effect (AD-564).
-    CoverageGaps(usize),
+    /// The collector reports gaps, and some of them leave the whole scope unknown. Both numbers
+    /// come from the one class of each gap (`gap_class::classes`).
+    CoverageGaps {
+        /// The gaps that leave the whole scope unknown: no contract can drop one, and none
+        /// states an effect (AD-564).
+        whole: usize,
+        /// Each coverage gap of the reply: the gaps that the report lists (`gaps::coverage_gaps`).
+        reported: usize,
+    },
     /// Imports that the collector cannot resolve and that no gap names (their number).
     UnknownImports(usize),
 }
@@ -45,7 +51,8 @@ pub(crate) fn incomplete(
         return Some(Incomplete::NoSourceFiles);
     }
     if whole > 0 {
-        return Some(Incomplete::CoverageGaps(whole));
+        let reported = coverage.gaps.len();
+        return Some(Incomplete::CoverageGaps { whole, reported });
     }
     (unknown_imports > 0).then_some(Incomplete::UnknownImports(unknown_imports))
 }

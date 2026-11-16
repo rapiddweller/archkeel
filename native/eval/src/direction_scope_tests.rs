@@ -380,7 +380,10 @@ fn a_coverage_gap_is_a_fact_for_each_kind_also_for_complete_requires_of_this_run
         reply["facts"]["coverage"]["gaps"] = json!([gap]);
         reply["facts"]["coverage"]["full_scope"] = json!(false);
     };
-    let fact = Some(Reason::Incomplete(Incomplete::CoverageGaps(1)));
+    let fact = Some(Reason::Incomplete(Incomplete::CoverageGaps {
+        whole: 1,
+        reported: 1,
+    }));
     assert_eq!(
         word(seen("DOMAIN-NO-DATA", unchanged, gap, PLAIN)),
         unknown(fact.clone())

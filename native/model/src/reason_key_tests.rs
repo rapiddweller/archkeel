@@ -18,8 +18,14 @@ fn held(pairs: &[(&str, &str)]) -> Held {
 
 #[test]
 fn the_count_of_coverage_gaps_is_not_in_the_key() {
-    let one = stable(&Reason::Incomplete(Incomplete::CoverageGaps(1)));
-    let many = stable(&Reason::Incomplete(Incomplete::CoverageGaps(157)));
+    let one = stable(&Reason::Incomplete(Incomplete::CoverageGaps {
+        whole: 1,
+        reported: 1,
+    }));
+    let many = stable(&Reason::Incomplete(Incomplete::CoverageGaps {
+        whole: 157,
+        reported: 157,
+    }));
     assert_eq!(one, many);
     assert_eq!(one[0].count, 1);
 }

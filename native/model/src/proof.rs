@@ -15,7 +15,9 @@
 //!    S7 it holds only the rules that it can change, so it is not part of this state;
 //! 3. a work tree that the host could not read, a runtime outside its requirement, a reply of an
 //!    external collector (`observation_diagnostics`, AD-344);
-//! 4. the profile limits of the contract and the layer metadata of `layer_order` (`limits.rs`);
+//! 4. the layer metadata of `layer_order` (`limits.rs`); since AD-644 a profile limit is not part
+//!    of this state: `hold_rule` holds each rule that reads the limited part, and `hold_run`
+//!    holds the run with the limits that no rule reads;
 //! 5. the subject check of every rule (`subjects.rs`).
 //!
 //! A cause that holds in every profile is `Cause` (a fact: the reference engine gives UNKNOWN). A
@@ -100,14 +102,14 @@ pub(crate) fn state(
         return cause(Cause::OutsideNamespace(reference));
     }
     let all = names(graph, contract.components(), None);
-    if let Some(found) = contract_failures(contract, observed, &all, &mut unread) {
+    if let Some(found) = rule_failures(contract, &all, &mut unread) {
         return cause(found);
     }
     if let Some(path) = split_owner(contract.components(), observed) {
         return cause(Cause::OwnedFileOwner(path));
     }
-    // `_inside_rule_results`: the clip, the limits and the subject check of each mount are
-    // coverage failures of the whole run.
+    // `_inside_rule_results`: the clip and the subject check of each mount are coverage failures
+    // of the whole run; the limits of a mount hold what reads them (AD-644).
     for mount in mounts.into_iter().flatten() {
         if mount.outside {
             return cause(Cause::InsideSourceDomain(mount.parent_id.to_owned()));
@@ -116,7 +118,7 @@ pub(crate) fn state(
             return cause(Cause::OwnedFileOwner(path));
         }
         let scoped = names(graph, mount.contract.components(), Some(&mount.domain));
-        if let Some(found) = contract_failures(mount.contract, observed, &scoped, &mut unread) {
+        if let Some(found) = rule_failures(mount.contract, &scoped, &mut unread) {
             return cause(found);
         }
     }
@@ -181,21 +183,44 @@ fn in_module_domain(graph: &Graph, domain: Option<&[&str]>, module: &str) -> boo
         && domain.is_none_or(|d| d.contains(&module))
 }
 
-/// The profile limits and the first rule failure of one contract (`root_limits` or
-/// `inside_limits`, then `rule_subject_failures`).
-fn contract_failures(
+/// The hold of one rule by its profile limit (AD-644, `limits::rule_limit`), then by a feature
+/// that the collector states as unsupported and that the rule reads (AD-500). `Scope::complete`
+/// reads it after the state of the scope.
+pub(crate) fn hold_rule(
     contract: &Contract,
-    observed: &crate::observed::Observed,
-    names: &Names<'_>,
+    graph: &Graph,
+    rule: &Rule,
     unread: &mut Option<Part>,
-) -> Option<Cause> {
-    for limit in limits::limits(contract, observed) {
-        match limit {
-            Limit::Certain(subject) => return Some(Cause::ProfileLimit(subject)),
-            Limit::Unread(subject) => note(unread, Part::ProfileLimit(subject)),
-        }
+) -> Result<(), Reason> {
+    let observed = graph.observed();
+    hold(limits::rule_limit(contract, rule, observed), unread)?;
+    match limits::stated_hold(contract, rule, observed) {
+        Some(subject) => Err(Reason::NotComplete(Cause::ProfileLimit(subject))),
+        None => Ok(()),
     }
-    rule_failures(contract, names, unread)
+}
+
+/// The hold of the run by the profile limits that no rule reads (AD-644, `limits::run_limits`):
+/// the first part of some profiles, if no limit is a fact. `Scope::run` reads it.
+pub(crate) fn hold_run(contract: &Contract, graph: &Graph) -> Result<Option<Part>, Reason> {
+    let mut unread = None;
+    for limit in limits::run_limits(contract, graph.observed()) {
+        hold(Some(limit), &mut unread)?;
+    }
+    Ok(unread)
+}
+
+/// A limit of every store-accepted profile is a fact (`Cause::ProfileLimit`); a limit of some
+/// profiles is a named part, and `unread` keeps the first part.
+fn hold(limit: Option<Limit>, unread: &mut Option<Part>) -> Result<(), Reason> {
+    match limit {
+        Some(Limit::Certain(subject)) => Err(Reason::NotComplete(Cause::ProfileLimit(subject))),
+        Some(Limit::Unread(subject)) => {
+            unread.get_or_insert(Part::ProfileLimit(subject));
+            Ok(())
+        }
+        None => Ok(()),
+    }
 }
 
 /// The first module reference of a component outside the namespace: a package, an exact module,
@@ -239,8 +264,9 @@ fn note(unread: &mut Option<Part>, part: Part) {
     }
 }
 
-/// The first rule failure of `rule_subject_failures` (with the layer metadata of each
-/// `layer_order` rule); an unread subject count goes to `unread`.
+/// The first rule failure of one contract, `rule_subject_failures` (with the layer metadata of
+/// each `layer_order` rule); an unread subject count goes to `unread`. The profile limits of
+/// `root_limits` and `inside_limits` hold only what reads them (AD-644, `limits::rule_limit`).
 fn rule_failures(
     contract: &Contract,
     names: &Names<'_>,
