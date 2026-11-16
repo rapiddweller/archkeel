@@ -17,23 +17,24 @@ use crate::discover::Source;
 use crate::records::{cite, gap};
 use crate::syntax::Span;
 
-/// The closed vocabulary of the gap names: each name is the text of its variant.
+/// The closed vocabulary of the gap names: each name has the Dart prefix.
 macro_rules! gap_names {
-    ($($name:ident),+ $(,)?) => {
+    ($vis:vis, $($name:ident),+ $(,)?) => {
         /// Each case that the survey does not prove. A gap keeps the scope UNKNOWN.
         #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        pub enum GapName {
+        $vis enum GapName {
             $(#[doc = concat!("The gap `", stringify!($name), "`.")] $name),+
         }
 
         impl GapName {
             /// Each name, in the order of the declaration.
-            pub const ALL: &'static [Self] = &[$(Self::$name),+];
+            #[cfg(test)]
+            $vis const ALL: &'static [Self] = &[$(Self::$name),+];
 
             /// The name as the gap message starts with it.
-            pub fn as_str(self) -> &'static str {
+            $vis fn as_str(self) -> &'static str {
                 match self {
-                    $(Self::$name => stringify!($name)),+
+                    $(Self::$name => concat!("Dart", stringify!($name))),+
                 }
             }
         }
@@ -41,38 +42,36 @@ macro_rules! gap_names {
 }
 
 gap_names! {
-    DartTargetMissing,
-    DartTargetNotSelected,
-    DartTargetOutside,
-    DartTargetIsPart,
-    DartTargetUnparsed,
-    DartUnsupportedUri,
-    DartUriNotLiteral,
-    DartMirrors,
-    DartIsolate,
-    DartPartUnowned,
-    DartPartNotPart,
-    DartPartConflict,
-    DartWorkspace,
-    DartPathDependency,
-    DartNestedPackage,
-    DartPackageConfig,
-    DartParseBudget,
+    pub(crate),
+    TargetMissing,
+    TargetNotSelected,
+    TargetOutside,
+    TargetIsPart,
+    TargetUnparsed,
+    UnsupportedUri,
+    UriNotLiteral,
+    Mirrors,
+    Isolate,
+    PartUnowned,
+    PartNotPart,
+    PartConflict,
+    Workspace,
+    PathDependency,
+    NestedPackage,
+    PackageConfig,
+    ParseBudget,
 }
 
 impl GapName {
     /// The protocol kind of the gap record: the nearest existing Dart problem kind.
     fn exception(self) -> ExceptionName {
         match self {
-            Self::DartTargetIsPart | Self::DartPartUnowned | Self::DartPartNotPart => {
-                ExceptionName::PartError
+            Self::TargetIsPart | Self::PartUnowned | Self::PartNotPart => ExceptionName::PartError,
+            Self::PartConflict => ExceptionName::PartOwnershipConflict,
+            Self::Workspace | Self::PathDependency | Self::NestedPackage | Self::PackageConfig => {
+                ExceptionName::SnapshotError
             }
-            Self::DartPartConflict => ExceptionName::PartOwnershipConflict,
-            Self::DartWorkspace
-            | Self::DartPathDependency
-            | Self::DartNestedPackage
-            | Self::DartPackageConfig => ExceptionName::SnapshotError,
-            Self::DartParseBudget => ExceptionName::DartSyntaxError,
+            Self::ParseBudget => ExceptionName::DartSyntaxError,
             _ => ExceptionName::DirectiveError,
         }
     }
@@ -80,7 +79,7 @@ impl GapName {
 
 /// One named gap: its name and the id of its record in `unknowns`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct NamedGap {
+pub(crate) struct NamedGap {
     /// The name of the gap.
     pub name: GapName,
     /// The id of the gap record in `unknowns`.

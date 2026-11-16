@@ -4,9 +4,8 @@
 
 //! The native Dart collector of Archkeel as a library (#880, AD-454).
 //!
-//! `survey` gives the typed import survey of one request: the selected sources, the file facts,
-//! the part owners, the import records with their targets and the named gaps. `typed_reply`
-//! assembles it as a reply with the sections `imports` and `unknowns`. The binary
+//! `typed_reply` assembles the import survey as a reply with the sections `imports` and
+//! `unknowns`. The binary
 //! `archkeel-dart-collector` decodes a request and still writes no reply. `archkeel-collect`
 //! links this crate and runs `typed_reply` in the process of the core (AD-468).
 
@@ -49,7 +48,7 @@ mod work;
 #[cfg(feature = "dump")]
 pub mod dump;
 
-pub use import_survey::reply::{decode, typed_reply, SURVEY_SECTIONS};
+pub use import_survey::reply::{decode, typed_reply};
 
 /// The test features of this build. A build with one of them is refused by `archkeel-collect`
 /// (AD-406). The release build has none.
@@ -74,11 +73,6 @@ pub fn provenance() -> archkeel_facts::envelope::Provenance {
         COMPILER,
     )
 }
-pub use import_survey::{
-    survey, GapName, NamedGap, PartOwner, Survey, PARSE_BUDGET_BYTES, PARSE_BUDGET_TOKENS,
-    SURVEY_BUDGET_BYTES,
-};
-
 #[cfg(test)]
 #[path = "lib_tests.rs"]
 mod tests;

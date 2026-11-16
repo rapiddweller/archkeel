@@ -14,7 +14,7 @@ use archkeel_wire::stream::{Head, SectionSink, Tail};
 use super::survey;
 
 /// The sections of the survey reply, in their order. No other section is collected.
-pub const SURVEY_SECTIONS: [&str; 2] = ["imports", "unknowns"];
+const SURVEY_SECTIONS: [&str; 2] = ["imports", "unknowns"];
 
 /// Decode a Dart request with the shared wire, as the binary reads it on stdin.
 pub fn decode(payload: &[u8]) -> Result<DartRequest, String> {
