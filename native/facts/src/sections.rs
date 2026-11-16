@@ -23,6 +23,7 @@ use crate::vocab::{ExceptionName, Kind};
 
 /// The data of a section: it gives the section that holds its records.
 pub trait IntoSection: FactData {
+    /// Wraps the records into the section that holds this data.
     fn section(records: Vec<Record<Self>>) -> Section;
 
     /// The name of the section on the wire.
@@ -82,6 +83,7 @@ impl ImportFact {
         import_data!(self)
     }
 
+    /// The import data that the record holds, for an edit.
     pub fn data_mut(&mut self) -> &mut ImportData {
         import_data!(self)
     }
@@ -320,6 +322,7 @@ impl Section {
         }
     }
 
+    /// The name of the section.
     pub fn name(&self) -> &'static str {
         match self {
             Section::Imports(_) => "imports",
@@ -349,6 +352,7 @@ impl Section {
         }
     }
 
+    /// True when the section holds no record.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }

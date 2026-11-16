@@ -24,8 +24,11 @@ pub struct Proven {
 /// `Verdict`.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Verdict {
+    /// The rule holds, with the proof.
     Pass(Proven),
+    /// The rule is broken.
     Fail,
+    /// The facts do not decide the rule.
     Unknown,
 }
 

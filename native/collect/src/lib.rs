@@ -54,7 +54,9 @@ pub struct Identity<'a> {
 pub struct Scanned {
     /// The profile whose collector made the reply.
     pub profile: Profile,
+    /// The scan roots of the contract.
     pub roots: Vec<String>,
+    /// The namespace of the scanned code.
     pub namespace: String,
     /// The repository path of the root contract and its bytes.
     pub contract: (String, Vec<u8>),

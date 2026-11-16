@@ -13,8 +13,11 @@ use crate::coverage::{data_of, droppable};
 /// One coverage gap of the reply.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CoverageGap {
+    /// The id of the gap.
     pub id: String,
+    /// The kind of the gap.
     pub kind: String,
+    /// The short title of the gap.
     pub title: String,
     /// The source module of a gap between two modules.
     pub source: Option<String>,

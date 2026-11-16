@@ -14,9 +14,13 @@ use crate::reason::Reason;
 /// One original observation. No rule result or completeness claim is stored here.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConstructSite {
+    /// The id of the site.
     pub id: String,
+    /// The component that owns the site.
     pub owner: String,
+    /// The name of the construct that the site observes.
     pub construct: String,
+    /// The evidence rows of the observation.
     pub evidence: Vec<String>,
     pub(crate) signal: Option<SignalData>,
     pub(crate) selector: Option<SelectorData>,
@@ -36,7 +40,9 @@ pub(crate) struct Constructs {
 /// One matched site and whether its selected identity is proven.
 #[derive(Debug)]
 pub struct ConstructMatch<'a> {
+    /// The matched site.
     pub site: &'a ConstructSite,
+    /// True when the identity that the selector reads at the site is proven.
     pub known: bool,
 }
 

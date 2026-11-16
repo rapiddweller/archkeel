@@ -19,7 +19,9 @@ pub type Link = (usize, String, String);
 /// One step of the path: the two members and the imports that make the step.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Step {
+    /// The member where the step starts.
     pub from: String,
+    /// The member where the step ends.
     pub to: String,
     /// The indexes of the imports from `from` to `to`, sorted.
     pub imports: Vec<usize>,

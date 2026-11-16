@@ -43,8 +43,11 @@ pub enum UmlTarget {
 /// The typed result of the target row.
 #[derive(Clone, Debug)]
 pub enum UmlOutcome {
+    /// Every assessment holds.
     Pass(Decision),
+    /// At least one assessment differs from the facts.
     Fail(Vec<UmlDiff>),
+    /// The core does not decide the row, for the stated gap.
     Unknown(UmlGap),
 }
 
