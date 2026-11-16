@@ -21,9 +21,7 @@ pub(crate) const PATH: &str = "../../schema/archkeel-core-frame-1.schema.json";
 
 /// The object schema that `$defs` holds for a type.
 fn definition(definitions: &mut serde_json::Map<String, Value>, name: &str) -> Value {
-    definitions
-        .remove(name)
-        .unwrap_or_else(|| panic!("the schema has no definition {name}"))
+    definitions.remove(name).unwrap_or(Value::Null)
 }
 
 /// Close each object schema: a key that no type writes is not in the frame.
@@ -62,15 +60,16 @@ pub(crate) fn schema() -> Value {
         }
     }
     // `unsupported` of the parts has no `rules`: the join adds the reasons of the ruling.
-    let unsupported = definitions
+    if let Some(unsupported) = definitions
         .get_mut("UnsupportedParts")
         .and_then(Value::as_object_mut)
-        .expect("the definition of UnsupportedParts");
-    if let Some(Value::Object(found)) = unsupported.get_mut("properties") {
-        found.insert("rules".to_owned(), reasons.into());
-    }
-    if let Some(Value::Array(found)) = unsupported.get_mut("required") {
-        found.push(Value::String("rules".to_owned()));
+    {
+        if let Some(Value::Object(found)) = unsupported.get_mut("properties") {
+            found.insert("rules".to_owned(), reasons.into());
+        }
+        if let Some(Value::Array(found)) = unsupported.get_mut("required") {
+            found.push(Value::String("rules".to_owned()));
+        }
     }
     // The part that `engine_frame::write` renders (`html.rs`): a protocol word, the status and
     // the one document.

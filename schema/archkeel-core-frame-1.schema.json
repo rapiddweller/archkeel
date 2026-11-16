@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "archkeel core frame, protocol archkeel-core-frame-1",
-  "description": "The one frame that the core writes and the shell reads. Generated from the Rust types.",
+  "description": "The one frame that the core writes and the shell reads. Generated from the types that write it.",
   "type": "object",
   "properties": {
     "protocol": {
@@ -205,30 +205,58 @@
           "type": "object",
           "additionalProperties": {
             "type": "string"
-          }
+          },
+          "description": "One reason for each rule, by rule id."
         },
         {
-          "type": "string"
+          "type": "string",
+          "description": "One reason for all rules."
         }
       ],
       "description": "The reasons of the rules without a decision: one for each rule, or one for the contract."
     },
     "Status": {
-      "type": "string",
-      "enum": [
-        "PASS",
-        "FAIL",
-        "UNKNOWN"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "PASS",
+          "description": "Every rule passes."
+        },
+        {
+          "type": "string",
+          "const": "FAIL",
+          "description": "At least one rule fails."
+        },
+        {
+          "type": "string",
+          "const": "UNKNOWN",
+          "description": "At least one rule is unknown and none fails."
+        }
       ],
       "description": "The status of a run or of its observation: the three verdicts of the Decision."
     },
     "RuleVerdict": {
-      "type": "string",
-      "enum": [
-        "PASS",
-        "FAIL",
-        "UNKNOWN",
-        "DECLARATION"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "PASS",
+          "description": "The rule holds."
+        },
+        {
+          "type": "string",
+          "const": "FAIL",
+          "description": "The rule is broken."
+        },
+        {
+          "type": "string",
+          "const": "UNKNOWN",
+          "description": "The facts do not decide the rule."
+        },
+        {
+          "type": "string",
+          "const": "DECLARATION",
+          "description": "The rule only declares and has no verdict."
+        }
       ],
       "description": "The encoded verdict of one rule row. It is the wire form only: a built report writes it from\na `Decision` of the model, and a decoded report holds it as read bytes (AD-363 point 4)."
     },
@@ -263,13 +291,32 @@
       "additionalProperties": false
     },
     "WhyUnknown": {
-      "type": "string",
-      "enum": [
-        "scope_incomplete",
-        "no_receipt",
-        "undecided",
-        "ownership_blocker",
-        "no_decided_rule"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "scope_incomplete",
+          "description": "The scope of the run is not complete."
+        },
+        {
+          "type": "string",
+          "const": "no_receipt",
+          "description": "No receipt proves the pass."
+        },
+        {
+          "type": "string",
+          "const": "undecided",
+          "description": "Some assessments are not decided."
+        },
+        {
+          "type": "string",
+          "const": "ownership_blocker",
+          "description": "A module with no owner blocks the rule."
+        },
+        {
+          "type": "string",
+          "const": "no_decided_rule",
+          "description": "No rule of the kind decides."
+        }
       ],
       "description": "Why the evaluator left a rule UNKNOWN. The builder derives the reason of every other verdict\nfrom the `Decision`: PASS is `evaluated`, FAIL `violations`, a declaration `declaration`."
     },

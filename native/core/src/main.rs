@@ -22,7 +22,6 @@ mod baseline_frame;
 mod contract;
 mod dual_run;
 mod engine;
-mod frame_schema;
 mod gap_key;
 mod hygiene;
 mod hygiene_boundary;
@@ -149,6 +148,8 @@ fn respond_with<E: From<String>>(
     }
 }
 
+#[cfg(test)]
+mod frame_schema;
 #[cfg(test)]
 #[path = "main_tests.rs"]
 mod tests;

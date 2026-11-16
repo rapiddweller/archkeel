@@ -17,6 +17,7 @@ use std::collections::BTreeMap;
 
 use archkeel_contract::policy::{budget_word, BaselineBudget, BaselineRole, ValidationBaseline};
 use archkeel_contract::BudgetName;
+use schemars::JsonSchema;
 use serde::Serialize;
 
 use crate::gap_key::{Gaps, Key};
@@ -51,7 +52,7 @@ pub(crate) struct Budgets {
 }
 
 /// One difference between the run and the file.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 pub(crate) struct Difference {
     pub(crate) what: &'static str,
     pub(crate) kind: String,
@@ -62,7 +63,7 @@ pub(crate) struct Difference {
 }
 
 /// A part of the baseline that the core names and does not decide.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 pub(crate) struct Named {
     pub(crate) kind: &'static str,
     pub(crate) subject: String,
@@ -70,7 +71,7 @@ pub(crate) struct Named {
 }
 
 /// The result of the compare. `exit_code` is the exit code of the command.
-#[derive(Debug, Default, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, JsonSchema)]
 pub(crate) struct Compared {
     pub(crate) state: &'static str,
     pub(crate) exit_code: u8,
