@@ -65,7 +65,7 @@ def test_a_real_pass_has_no_python_collector_ir_or_checker(
         done = command(built / f"archkeel-core{SUFFIX}", root, form, verb=verb)
     assert done.returncode == (2 if verb == "check" else 0), done.stdout + done.stderr
     assert "Traceback" not in done.stderr
-    assert "#1103" in done.stdout if verb == "check" else "PASS" in done.stdout
+    assert "not ported" in done.stdout if verb == "check" else "PASS" in done.stdout
 
 
 def test_a_real_rust_pass_also_blocks_python_decision_imports(built: Path, tmp_path: Path) -> None:
@@ -83,7 +83,7 @@ def test_a_real_failure_names_its_edge_and_source_location(built: Path) -> None:
         )
         done = command(built / f"archkeel-core{SUFFIX}", root, "--text")
     assert done.returncode == 1, done.stdout + done.stderr
-    for text in ("REQUIRES", "app.src.a.a_x2e_ts -> app.src.b.t_x2e_ts", "src/a/a.ts:1", "Action:"):
+    for text in ("REQUIRES", "app.src.a.a_x2e_ts -> app.src.b.t_x2e_ts", "src/a/a.ts:1", "Next:"):
         assert text in done.stdout
 
 
@@ -93,7 +93,7 @@ def test_an_unknown_source_gap_names_its_collector_cause_and_file(built: Path) -
         done = command(built / f"archkeel-core{SUFFIX}", root, "--text")
     assert done.returncode == 2, done.stdout + done.stderr
     assert "src/b/t.ts" in done.stdout
-    assert "Source gap" in done.stdout and "Action:" in done.stdout
+    assert "Gaps in the scan" in done.stdout and "Next:" in done.stdout
 
 
 def test_a_construct_failure_from_main_keeps_its_cause_and_location(built: Path) -> None:

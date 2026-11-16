@@ -56,7 +56,11 @@ def test_the_rule_row_is_the_pinned_row(release_core: Path, tmp_path: Path, name
     result = json.loads(command(release_core, root, "--json").stdout)
     assert "refusal" not in result, result
     assert result["frame"]["rules"][RULE] == ["boundary_types", expected], result["frame"]
-    text = command(release_core, root, "--text").stdout
+    # The causes are machine words: the JSON keeps them, the text puts them in plain words (#1319).
+    frame = result["frame"]
+    rows = [gap["reason"] for gap in result["gaps"]] + list(frame["explained"].values())
+    rows += [row["cause"] for found in frame["details"].values() for row in found]
+    text = "\n".join(rows)
     found = {match.group(1) for line in text.splitlines() if (match := CAUSE.search(line))}
     if "boundary_type_allowance_stale:" in text:
         found.add("stale_allowance")
