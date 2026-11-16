@@ -11,7 +11,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::cases::{one_line, Names};
 use super::components;
-use super::frame::{Component, Frame, Topology};
+use super::frame::Frame;
+use super::map::Picture;
 use super::markup::{anchor, count, escape, status_icon};
 use super::places::Places;
 use super::views::{self, Link, Mark, LEGEND};
@@ -20,21 +21,6 @@ const MAP_COMPONENTS: usize = 12;
 const MAP_EDGES: usize = 30;
 /// The names of a public surface that a title lists.
 const MAX_PUBLIC: usize = 8;
-
-pub(super) struct Picture<'a> {
-    pub(super) topology: &'a Topology,
-    /// Component ids in drawing order: a component stands above what it depends on.
-    pub(super) order: Vec<&'a str>,
-    pub(super) rank: BTreeMap<&'a str, usize>,
-    /// The pairs of all views. The form and the place of a box are the same in each view.
-    pub(super) links: Vec<Link<'a>>,
-    pub(super) failing: BTreeSet<String>,
-    pub(super) modules: BTreeMap<&'a str, usize>,
-    /// The components that have a block on the page: only these names are links.
-    pub(super) linked: BTreeSet<String>,
-    /// The rows of the components, for what the contract declares about each.
-    pub(super) declared: BTreeMap<&'a str, &'a Component>,
-}
 
 /// The rank of each component: the longest path from a component that nothing depends on. An edge
 /// that would close a cycle does not count, so a cycle still has a finite picture.
@@ -84,11 +70,6 @@ impl<'a> Picture<'a> {
                 .map(|c| (c.id.as_str(), c))
                 .collect(),
         })
-    }
-
-    /// The observed dependencies between two components.
-    pub(super) fn observed(&self) -> usize {
-        self.links.iter().filter(|link| link.imports > 0).count()
     }
 
     fn small(&self) -> bool {

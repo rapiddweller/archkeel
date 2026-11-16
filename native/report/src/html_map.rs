@@ -5,10 +5,10 @@
 //! The component map of the architecture picture (AD-496): the boxes and the arrows as one SVG.
 //! Each pair has one path; a view shows the marks of the pair that name it (AD-594).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
-use super::arch::Picture;
 use super::cases::Names;
+use super::frame::{Component, Topology};
 use super::markup::{anchor, count, escape, status_icon};
 use super::views::{declared_note, Link, Mark};
 
@@ -21,6 +21,22 @@ const LEFT: usize = 50;
 const LANE: usize = 10;
 
 type Positions<'a> = BTreeMap<&'a str, (usize, usize)>;
+
+/// The facts of the picture, the same for the map and for the matrix.
+pub(super) struct Picture<'a> {
+    pub(super) topology: &'a Topology,
+    /// Component ids in drawing order: a component stands above what it depends on.
+    pub(super) order: Vec<&'a str>,
+    pub(super) rank: BTreeMap<&'a str, usize>,
+    /// The pairs of all views. The form and the place of a box are the same in each view.
+    pub(super) links: Vec<Link<'a>>,
+    pub(super) failing: BTreeSet<String>,
+    pub(super) modules: BTreeMap<&'a str, usize>,
+    /// The components that have a block on the page: only these names are links.
+    pub(super) linked: BTreeSet<String>,
+    /// The rows of the components, for what the contract declares about each.
+    pub(super) declared: BTreeMap<&'a str, &'a Component>,
+}
 
 /// One row for each mark: the id of its arrowhead, the class of its path and the class of the
 /// arrowhead.
@@ -60,6 +76,11 @@ fn arrowheads() -> String {
 }
 
 impl<'a> Picture<'a> {
+    /// The observed dependencies between two components.
+    pub(super) fn observed(&self) -> usize {
+        self.links.iter().filter(|link| link.imports > 0).count()
+    }
+
     /// The top left corner of a node.
     fn at(&self, positions: &Positions<'_>, id: &str) -> (usize, usize) {
         positions.get(id).copied().unwrap_or((20, 20))
