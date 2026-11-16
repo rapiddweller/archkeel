@@ -22,8 +22,19 @@ collector (a clone of 75 tokens), as one shared macro would have been a gap.
 4. `facts` exports `native_provenance!`. The Rust and the TypeScript collector call it, so the clone
    is gone and `tests/test_rust_clones.py` passes.
 
+## An unlisted name with a proven route fails
+A use of a name that a module defines twice under `cfg` (`plant::skip` of the TypeScript collector)
+was UNKNOWN: the route needed one declaration of the name, so it stopped after the first hop, and an
+unlisted name with no public hop kept the gap "unproven publication route". When no `use` leaf, glob
+or `extern crate` of the module binds the name, only a definition of the module gives it, whatever
+the number of declarations, so the route ends there (`routes::defined_here`). The use of an unlisted
+name then fails. A route that the scan does not prove (a macro may write `pub use`) stays UNKNOWN.
+A route of a type (AD-608) still needs one written type.
+
 ## Tests
 `tests/test_cli_native_rust_macro_crate.py` (rustc accepts each plant):
 - a portable call by path and through a `use` gives the edge of the expansion, which fails the
   interface rule for an unlisted name and passes for a listed one;
-- a body with a bare `crate` path keeps the gap (UNKNOWN).
+- a body with a bare `crate` path keeps the gap (UNKNOWN);
+- `tests/test_cli_native_rust_interface.py`: a name with two definitions under `cfg` fails when it
+  is unlisted and passes when it is listed; a name that a macro may publish further stays UNKNOWN.

@@ -27,12 +27,17 @@ pytestmark = pytest.mark.skipif(shutil.which("cargo") is None, reason="rustc is 
 
 BASE = {
     "crates/base/src/lib.rs": (
-        "pub mod shapes;\npub mod relay;\nmod inner;\nmod extra;\npub mod made;\n"
+        "pub mod shapes;\npub mod relay;\npub mod gated;\nmod inner;\nmod extra;\npub mod made;\n"
         "pub use inner::Thing;\n"
         "pub fn make() {}\npub fn secret() {}\npub struct Tool;\n"
     ),
     "crates/base/src/inner.rs": "pub struct Thing;\n",
     "crates/base/src/shapes.rs": "pub struct Circle;\npub struct Square;\n",
+    # AD-614: one name, two definitions under `cfg`: each is a definition of `gated`.
+    "crates/base/src/gated.rs": (
+        "#[cfg(test)]\npub fn skip() -> bool {\n    true\n}\n"
+        "#[cfg(not(test))]\npub fn skip() -> bool {\n    false\n}\n"
+    ),
     # AD-608: a macro whose expansion writes `pub use` may publish its name further.
     "crates/base/src/relay.rs": (
         "macro_rules! pass {\n    () => {\n        pub use std::string::String as Text;\n"
@@ -100,6 +105,20 @@ PLANTS = [
         [],
         "FAIL",
         VIOLATION.format("native.base_crate.made:Gen"),
+    ),
+    (
+        "name with two definitions under cfg",
+        "pub fn run() -> bool { base_crate::gated::skip() }\n",
+        [],
+        "FAIL",
+        VIOLATION.format("native.base_crate.gated:skip"),
+    ),
+    (
+        "listed name with two definitions under cfg",
+        "pub fn run() -> bool { base_crate::gated::skip() }\n",
+        ["native.base_crate.gated:skip"],
+        "PASS",
+        None,
     ),
     (
         "item that a macro may publish further",
@@ -196,7 +215,7 @@ def test_a_member_of_a_type_is_published_by_the_type_in_the_module_of_its_block(
         "crates/app/src/lib.rs": "pub fn run() {}\n",
     }
     root["exact_modules"] += [
-        f"native.base_crate.{m}" for m in ("shapes", "inner", "made", "relay")
+        f"native.base_crate.{m}" for m in ("shapes", "inner", "made", "relay", "gated")
     ]
     found_status, found = _run(tmp_path, core_binary, files, (root, extra, manifest, app))
     assert found_status == status, found
