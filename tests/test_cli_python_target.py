@@ -94,11 +94,16 @@ def test_a_range_below_3_11_that_reaches_it_is_read_as_3_11_and_says_so(
 ) -> None:
     """K14: `>=3.10` (pydantic) is not a refusal; 3.11 is the lowest supported version inside."""
     root = target_project(tmp_path)
-    (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.10"\n')
-    done = command(release_core, root, "--text")
-    assert done.returncode == 0, done.stdout
-    assert "Python 3.11" in done.stdout and "Python 3.10 is not supported" in done.stdout
-    assert ">=3.10" in done.stdout
+    for requires, unsupported in (
+        (">=3.10", "Python 3.10 is"),
+        (">=3.9", "Python 3.9 and 3.10 are"),
+    ):
+        (root / "pyproject.toml").write_text(f'[project]\nrequires-python = "{requires}"\n')
+        done = command(release_core, root, "--text")
+        assert done.returncode == 0, done.stdout
+        assert "reads this project as Python 3.11" in done.stdout, done.stdout
+        assert f'requires-python "{requires}"' in done.stdout
+        assert f"{unsupported} not supported" in done.stdout, done.stdout
 
 
 def test_a_range_entirely_below_3_11_keeps_the_refusal(release_core: Path, tmp_path: Path) -> None:

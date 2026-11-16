@@ -82,6 +82,12 @@ def test_init_drafts_one_component_for_each_subpackage_and_the_walk_ends_in_pass
     assert code == 2 and first["status"] == "UNKNOWN"
     opened = [s for s in subjects if s.startswith("hygiene:responsibility.missing")]
     assert len(opened) == 4, subjects
+    # K13: the text says why a run of passing rules stays UNKNOWN.
+    assert core_only.run(["validate", "--root", str(root), "--text"]) == 2
+    text = capsys.readouterr().out
+    head = text.splitlines()[0]
+    assert "the run stays UNKNOWN because the contract draft has" in head
+    assert head.startswith("validate: UNKNOWN -> exit 2 (all ")
     # A second init replaces nothing.
     code, again = run(capsys, root, "init")
     refused = again["refusal"]
