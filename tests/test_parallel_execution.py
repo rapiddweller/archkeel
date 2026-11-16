@@ -14,8 +14,8 @@ import pytest
 
 ROOT = Path(__file__).parents[1]
 PARALLEL = ["-n", "2", "--dist=loadfile", "--max-worker-restart=0"]
-# The copy of conftest.py imports its helper modules, which stay in tests/.
-ENV = {**os.environ, "PYTHONPATH": str(ROOT / "tests")}
+# The copy of conftest.py imports its helper modules, which stay in tests/ and in tools/.
+ENV = {**os.environ, "PYTHONPATH": os.pathsep.join((str(ROOT / "tests"), str(ROOT)))}
 
 
 @pytest.mark.parametrize("phase", ["collection", "body"])
