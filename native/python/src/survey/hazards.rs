@@ -231,6 +231,11 @@ impl Walk<'_> {
         if self.local(id) {
             return;
         }
+        if matches!(expr, Expr::Name(node) if node.ctx == ExprContext::Load)
+            && inert::read(&self.inert_modules, id, &[])
+        {
+            return;
+        }
         if BUILTIN_DOORS.contains(&id) || IMPORT_FUNCTIONS.contains(&id) {
             return self.push(DYNAMIC, id, expr);
         }
