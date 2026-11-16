@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-684 | [A written Python string equality is a construct](ad-684-a-written-python-string-equality-is-a-construct.md) |
 | AD-682 | [A proven Python vars call is a construct](ad-682-a-proven-python-vars-call-is-a-construct.md) |
 | AD-668 | [A neutral crate names no language](ad-668-a-neutral-crate-names-no-language.md) |
 | AD-660 | [`init` drafts a system for a mixed repository](ad-660-init-drafts-a-system-for-a-mixed-repository.md) |
