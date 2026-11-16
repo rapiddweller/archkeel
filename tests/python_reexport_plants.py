@@ -236,6 +236,13 @@ REEXPORT: dict[str, Plant] = {
         "UNKNOWN",
         "app.pkg.sub",
     ),
+    "frame-globals-write-at-import": Plant(
+        tree(IMPORT_SUB, pkg="import sys\nsys._getframe().f_globals['sub'] = 1\n"),
+        "PASS",
+        "PASS",
+        "UNKNOWN",
+        "type:int",
+    ),
 }
 
 # Group B: a read of the globals of a function, and the two other forms of the same gap.

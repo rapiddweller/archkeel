@@ -187,3 +187,24 @@ fn a_getattr_with_a_literal_attribute_reads_that_attribute_only() {
         assert!(!clean(source), "{source}");
     }
 }
+
+/// The namespace of a frame is read like the namespace of a function (AD-530): a lookup of a
+/// literal key is inert; a write, an iteration and a computed key are not.
+#[test]
+fn a_frame_namespace_follows_the_rules_of_a_function_namespace() {
+    for source in [
+        "def f(frame):\n    return frame.f_globals.get('__name__')\n",
+        "def f(frame):\n    return frame.f_globals['__name__']\n",
+        "def f(frame):\n    return '__name__' in frame.f_globals\n",
+    ] {
+        assert!(clean(source), "{source}");
+    }
+    for source in [
+        "def f(frame):\n    frame.f_globals['sub'] = 1\n",
+        "def f(frame, key):\n    return frame.f_globals[key]\n",
+        "def f(frame):\n    return list(frame.f_globals.items())\n",
+        "def f(frame):\n    return frame.f_globals\n",
+    ] {
+        assert!(!clean(source), "{source}");
+    }
+}

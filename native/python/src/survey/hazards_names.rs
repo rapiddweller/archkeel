@@ -11,7 +11,8 @@ pub(in crate::survey) const IMPORT_SYSTEM: &str = "import_system_change";
 pub(super) const DOORS: &str = "\
     builtins importlib __builtins__ ctypes.pythonapi types.FunctionType types.CodeType \
     unittest.mock.patch mock.patch pytest.importorskip sys.__dict__ pkgutil pydoc runpy imp \
-    zipimport code codeop timeit doctest marshal pickle _pickle shelve dill cloudpickle";
+    zipimport code codeop timeit doctest marshal pickle _pickle shelve dill cloudpickle \
+    inspect.getmodule gc.get_objects gc.get_referrers gc.get_referents";
 
 /// Each door as one qualified name.
 pub(super) fn doors() -> impl Iterator<Item = &'static str> {
@@ -71,7 +72,8 @@ pub(super) const IMPORT_FUNCTIONS: [&str; 9] = [
 /// The attributes that are hazards on any value: the attributes that reach the builtins, a
 /// loader or the importer classes (`f.__globals__`, `len.__self__`, `object.__subclasses__`),
 /// the state of the import system, and modules that another module can re-export (`os.sys`).
-pub(super) const ANY_ATTRIBUTE: [&str; 12] = [
+pub(super) const ANY_ATTRIBUTE: [&str; 13] = [
+    "f_globals",
     "__self__",
     "__globals__",
     "__subclasses__",

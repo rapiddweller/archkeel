@@ -384,3 +384,22 @@ fn only_the_inert_names_of_importlib_metadata_are_no_site() {
         assert!(has(source, DYNAMIC), "{source}");
     }
 }
+
+/// AD-530, decision 5: a call that hands out a module object, and a frame namespace, are doors,
+/// because a `setattr` on a local object is no write to a module of the scan only if no door
+/// gives that module to the local.
+#[test]
+fn a_getter_of_module_objects_and_a_frame_namespace_are_doors() {
+    for source in [
+        "import inspect\nm = inspect.getmodule(f)\n",
+        "from inspect import getmodule\nm = getmodule(f)\n",
+        "import gc\nobjects = gc.get_objects()\n",
+        "import gc\nowners = gc.get_referrers(f)\n",
+        "import sys\nsys._getframe().f_globals['sub'] = 1\n",
+        "def f(frame):\n    return frame.f_globals\n",
+    ] {
+        assert!(has(source, DYNAMIC), "{source}");
+    }
+    assert!(!has("import gc\ngc.collect()\n", DYNAMIC));
+    assert!(!has("import inspect\ninspect.signature(f)\n", DYNAMIC));
+}

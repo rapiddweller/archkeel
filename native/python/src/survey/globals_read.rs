@@ -62,7 +62,7 @@ struct Functions<'p, 'm> {
 }
 
 /// The marker range of a source of globals: the string of `getattr(f, "__globals__")`, or the
-/// attribute `__globals__`.
+/// attribute `__globals__` of a function or `f_globals` of a frame.
 fn source(expr: &Expr) -> Option<TextRange> {
     match expr {
         Expr::Call(call) => {
@@ -81,7 +81,8 @@ fn source(expr: &Expr) -> Option<TextRange> {
             }
         }
         Expr::Attribute(node)
-            if node.attr.as_str() == "__globals__" && node.ctx == ExprContext::Load =>
+            if matches!(node.attr.as_str(), "__globals__" | "f_globals")
+                && node.ctx == ExprContext::Load =>
         {
             Some(node.range())
         }

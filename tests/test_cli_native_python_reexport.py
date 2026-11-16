@@ -18,7 +18,8 @@ import sys
 from pathlib import Path
 
 import pytest
-from python_reexport_plants import PLANTS, Plant
+from python_reexport_plants import Plant
+from python_setattr_plants import ALL as PLANTS
 from test_cli_native_python_imports import RULE, project, rows, verdict
 
 FORBID = [
@@ -41,7 +42,11 @@ MOVED = {
     "globals-passed-to-an-external-call",
     "parameter-named-like-a-door-module",
     "literal-getattr-of-a-module-attribute",
+    "setattr-on-a-copied-local",
+    "setattr-on-a-deepcopy-of-the-copy-module",
 }
+# The plants where the core is stricter than main was: a frame namespace is a door now.
+STRICTER = {"frame-globals-write-at-import"}
 # How CPython runs an inert read: the call, and the modules that it imports (none).
 CALLS = {
     "globals-read-with-a-literal-key": "c.f(c.f)",
@@ -107,7 +112,7 @@ def test_each_row_that_moves_toward_pass_is_listed_and_is_a_release_pass() -> No
     assert moved == MOVED
     assert all(PLANTS[name].release == "PASS" for name in moved)
     # No plant gets worse than before, and none moves from FAIL.
-    assert all(p.after in {p.before, "PASS"} for p in PLANTS.values())
+    assert all(p.after in {p.before, "PASS"} or n in STRICTER for n, p in PLANTS.items())
 
 
 @pytest.mark.parametrize("name", sorted(CALLS))
@@ -118,3 +123,11 @@ def test_an_inert_read_of_the_globals_imports_no_module(tmp_path: Path, name: st
         f"{CALLS[name]}\nprint(sorted(set(sys.modules) - before))\n"
     )
     assert run_python(root, code).strip() == "[]"
+
+
+def test_a_python_verdict_states_its_assumption(release_core: Path, tmp_path: Path) -> None:
+    """The proofs rest on one premise, and the frame says it with the verdict (AD-530)."""
+    for name in ("plain-submodule", "init-rebinds-after-the-import"):
+        result = verdict(release_core, write(tmp_path / name, PLANTS[name]))
+        premise = "code outside the scan roots hands in no module object of the scan"
+        assert result["frame"]["premise"] == premise

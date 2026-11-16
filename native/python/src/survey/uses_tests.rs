@@ -10,6 +10,8 @@ use crate::survey::targets::tests::surveyed;
 
 #[path = "uses_construct_tests.rs"]
 mod construct;
+#[path = "uses_copy_local_tests.rs"]
+mod copy_local;
 #[path = "uses_typing_guard_tests.rs"]
 mod typing_guard;
 
