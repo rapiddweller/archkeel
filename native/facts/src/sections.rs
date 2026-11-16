@@ -35,6 +35,17 @@ pub trait IntoSection: FactData {
     fn records(section: &Section) -> Option<&[Record<Self>]>;
 }
 
+/// The common typed payload of each kind of a section whose kinds share one data type. A trait
+/// declared here, so the impl that `section_facts!` writes in this module is anchored here
+/// (AD-662).
+pub trait CommonData {
+    /// The data type of every kind.
+    type Data;
+
+    /// The payload of this kind.
+    fn data(&self) -> &Self::Data;
+}
+
 impl IntoSection for GapFact {
     fn section(records: Vec<Record<Self>>) -> Section {
         Section::Unknowns(records)

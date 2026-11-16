@@ -16,7 +16,9 @@ use archkeel_facts::{ImportFact, Record};
 
 use crate::builder::{import_record, Builder};
 use crate::crates::Root;
-use crate::definitions::{Form, MethodCall};
+use crate::crates::Workspace;
+use crate::definitions::MethodCall;
+use crate::derive_imports::Local;
 use crate::modules::{Edge, Index, Outcome};
 use crate::names::{self, published, with_name, ImportName};
 use crate::resolve::{classify, Found, Named};
@@ -157,7 +159,12 @@ impl Builder {
     /// module that its body names, also through the macros that its body calls. A name that two
     /// modules define, a call that the scan cannot place, and a body that it cannot read are
     /// UNKNOWN in the module of the call.
-    pub(crate) fn macro_calls(&mut self, index: &Index<'_>, modules: &[Module]) {
+    pub(crate) fn macro_calls(
+        &mut self,
+        workspace: &Workspace,
+        index: &Index<'_>,
+        modules: &[Module],
+    ) {
         let mut defs = Defs::new();
         for module in modules {
             for def in &module.scan.macro_defs {
@@ -166,15 +173,22 @@ impl Builder {
             }
         }
         for module in modules {
+            let local = Local::of(module);
             for call in &module.scan.macro_calls {
-                self.expand(index, &defs, module, call);
+                self.expand((workspace, index, modules), &defs, &local, call);
                 *self.ended_calls.entry(module.rel.clone()).or_default() += 1;
             }
         }
     }
 
-    fn expand(&mut self, index: &Index<'_>, defs: &Defs<'_>, module: &Module, call: &MacroCall) {
-        let name = call.name.as_str();
+    fn expand(
+        &mut self,
+        (workspace, index, modules): (&Workspace, &Index<'_>, &[Module]),
+        defs: &Defs<'_>,
+        local: &Local<'_>,
+        call: &MacroCall,
+    ) {
+        let (module, name) = (local.module, call.name.as_str());
         if call.path.len() == 1
             && index.frame(&module.module).is_some_and(|frame| {
                 frame
@@ -196,6 +210,8 @@ impl Builder {
             // AD-614: a portable macro of another crate names the same edges in this module.
             if let Some(owner_def) = exported(index, defs, module, call) {
                 self.expand_uses(index, module, call, owner_def);
+            } else {
+                self.unread_call((workspace, index, modules), local, call);
             }
             return;
         }
@@ -211,6 +227,7 @@ impl Builder {
         if let Some(reason) = reason {
             let evidence = self.cite(&module.rel, &call.site);
             self.gap(&reason, Some(&evidence), &module.module);
+            self.impl_home(module, call);
             return;
         }
         let mut seen = BTreeSet::new();
@@ -219,12 +236,20 @@ impl Builder {
             if !seen.insert(next.clone()) {
                 continue;
             }
-            if let [(owner, def)] = visible(defs, module, call, &next)[..] {
+            let found = visible(defs, module, call, &next);
+            if let [(owner, def)] = found[..] {
                 queue.extend(def.calls.iter().cloned());
                 self.expand_methods(module, call, def);
                 self.call_edge(index, module, owner, (&next, &call.site));
                 self.unknown_expansion(module, call, (owner, def));
                 self.expand_uses(index, module, call, (owner, def));
+            } else if found.is_empty() && next != name {
+                // A plain name in a body names a macro at the place of the call (#1371).
+                let inner = crate::macro_identity::inner(call, &next);
+                match exported(index, defs, module, &inner) {
+                    Some(owner_def) => self.expand_uses(index, module, &inner, owner_def),
+                    None => self.unread_call((workspace, index, modules), local, &inner),
+                }
             }
         }
     }
@@ -234,14 +259,13 @@ impl Builder {
         // A `fn $name` takes its name from the call tokens (#1196). A macro that defines the type
         // and its impl together adds such a name only to its own type, which no written type of
         // a receiver proof is: only a foreign impl holds back a proof by the name (AD-383).
-        let declared = |name: &str| {
-            module.scan.definitions.iter().any(|item| {
-                item.scope.is_empty()
-                    && item.name == name
-                    && matches!(item.form, Form::Struct | Form::Enum | Form::Trait)
-            })
-        };
-        let foreign = def.item_level.foreign_impl(&def.name, declared);
+        // A struct, enum or trait at module level that every configuration has (#1374).
+        let declared =
+            |name: &str| (module.scan.exact_items).contains(&(Vec::new(), name.to_owned()));
+        let foreign = def.item_level.foreign_impl(&def.name, declared) || call.writes_impl;
+        if def.item_level.trait_home(declared) || call.writes_impl {
+            self.impl_home(module, call);
+        }
         let from_call = def.members.contains(NAME_FROM_CALL) && foreign;
         let named = def.members.iter().filter(|name| *name != NAME_FROM_CALL);
         let names = named.chain(call.idents.iter().filter(|_| from_call));
