@@ -109,7 +109,7 @@ fn route_in(index: &Index<'_>, at: &str, name: &str, of_type: bool) -> Route {
 /// one, two under `cfg`, or one of a macro call in item place. Each call in item place is a call by
 /// its plain name of the one crate-wide `macro_rules!` of that name in the crate. The call writes
 /// no import, and the expansion writes none at item level and calls only such macros there
-/// (`tokens::item_level`). Such a call can add a definition, never a re-export.
+/// (`macro_items::item_level`). Such a call can add a definition, never a re-export.
 fn defined_here(index: &Index<'_>, frame: &Frame<'_>, name: &str) -> bool {
     let scan = &frame.module.scan;
     if !frame.bound(name).is_empty()
