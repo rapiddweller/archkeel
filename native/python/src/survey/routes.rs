@@ -20,6 +20,9 @@
 //! - a package name that may be the attribute or the submodule (`from pkg import name` where
 //!   the package body binds `name` in any form), and a guarded import that passes a re-export.
 //!
+//! AD-654: a proven key of a lazy table is a hop to the attribute that it gives. Each binder of
+//! the key in its module gives the same value (`lazy_agree.rs`), so the hop is certain.
+//!
 //! 4.0.1 follows a route past an unproven hop and judges it `UNKNOWN` only when no hop is public.
 //! This survey withholds it at once, so it is never less strict.
 
@@ -27,6 +30,8 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 
 use archkeel_facts::envelope::FileFact;
 use archkeel_facts::{ImportFact, Record};
+
+use super::lazy_cover::{self, Sources};
 
 type Aliases = HashMap<String, BTreeSet<String>>;
 
@@ -44,8 +49,8 @@ pub(crate) fn resolve(
     imports: &mut [Record<ImportFact>],
     files: &[FileFact],
     opaque: &HashSet<String>,
-    sole: &HashSet<String>,
-    ambiguous: &HashSet<String>,
+    (sole, ambiguous): (&HashSet<String>, &HashSet<String>),
+    sources: &Sources,
 ) {
     let stable: HashMap<&str, HashSet<&str>> = files
         .iter()
@@ -81,6 +86,11 @@ pub(crate) fn resolve(
         } else {
             uncertain.insert(item.binding.clone());
         }
+    }
+    for (binding, target) in lazy_cover::links(sources) {
+        uncertain.remove(&binding);
+        aliases.insert(binding.clone(), BTreeSet::from([target.clone()]));
+        reexports.insert(binding, target);
     }
     for record in imports.iter_mut() {
         let skipped = ambiguous.contains(record.id.as_str());
