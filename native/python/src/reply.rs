@@ -6,8 +6,8 @@
 //! `imports` (`collect.collect`), with the typed records of `archkeel-facts` (AD-345).
 //!
 //! The survey is not the whole collection. The protocol says so with the capabilities of the
-//! import survey, written `assert` statements and broad exception handlers (AD-658, AD-666).
-//! The linked path gives the same survey as a typed reply (AD-450).
+//! import survey and written constructs (AD-658, AD-666, AD-680). The linked path gives the same
+//! survey as a typed reply (AD-450).
 
 use archkeel_facts::envelope::{
     Adapter, Coverage, Evidence, Input, Profile, Provenance, Reply, Runtime, TargetSource,
@@ -154,6 +154,14 @@ fn parts(
             (
                 "broad_except",
                 if survey.broad_complete {
+                    "supported"
+                } else {
+                    "partial"
+                },
+            ),
+            (
+                "dunder_dict",
+                if survey.dict_complete {
                     "supported"
                 } else {
                     "partial"

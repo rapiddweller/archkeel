@@ -222,3 +222,35 @@ def test_broad_handler_is_proven_or_left_unknown(
         frame = result["frame"]
         evidence = frame["details"]["NO-BROAD-EXCEPT"][0]["evidence"]
         assert frame["locations"][evidence[0]]["path"] == "src/app/client/page.py"
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("value = item.__dict__\n", "FAIL"),
+        ("value = item.__dict__.__dict__\n", "FAIL"),
+        ("value = item.__dict__.key.__dict__\n", "FAIL"),
+        ("value = 1\n", "PASS"),
+        ("value = getattr(item, '__dict__')\n", "UNKNOWN"),
+        ("value = item.__getattribute__('__' + 'dict__')\n", "UNKNOWN"),
+        ("f = getattr\nvalue = f(item, name)\n", "UNKNOWN"),
+        ("value = item.__dict__\nother = f(item)\n", "FAIL"),
+    ],
+)
+def test_dunder_dict_is_proven_or_left_unknown(
+    release_core: Path, tmp_path: Path, source: str, expected: str
+) -> None:
+    rule = {**CONSTRUCT, "id": "NO-DICT", "constructs": ["dunder_dict"]}
+    result = scanned(
+        release_core, tmp_path, Plant({"src/app/client/page.py": source}, [rule], [], {}, {})
+    )
+    assert rows(result)["NO-DICT"] == expected, result["frame"]["explained"]
+    if expected == "UNKNOWN":
+        assert (
+            "construct absence is not completely observed"
+            in result["frame"]["explained"]["NO-DICT"]
+        )
+    if expected == "FAIL":
+        frame = result["frame"]
+        evidence = frame["details"]["NO-DICT"][0]["evidence"]
+        assert frame["locations"][evidence[0]] == {"path": "src/app/client/page.py", "line": 1}
