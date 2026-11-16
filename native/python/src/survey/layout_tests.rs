@@ -220,3 +220,44 @@ fn a_file_with_an_encoding_declaration_other_than_utf8_is_a_gap() {
     );
     assert_eq!(found.files.len(), 1);
 }
+
+#[test]
+fn a_script_file_is_no_module_of_the_layout_and_keeps_its_imports() {
+    // AD-648: `demo-x` is no identifier, and `run.scr.py` has a dot in its stem. No import
+    // statement can name either file, so neither has a place in the layout to prove.
+    let found = surveyed_in(
+        &[
+            ("src/app/__init__.py", ""),
+            ("src/app/util.py", ""),
+            ("src/app/demo-x/run.scr.py", "from app import util\n"),
+            ("src/app/tool.v2.py", "import app.util\n"),
+        ],
+        &["src"],
+        "app",
+    );
+    assert!(reasons(&found).is_empty(), "{:?}", reasons(&found));
+    let local = |file: &str| {
+        found.targets.iter().any(|target| {
+            matches!(target, crate::survey::Target::Local { file: found, .. } if found == file)
+        })
+    };
+    assert!(
+        local("src/app/util.py"),
+        "the imports of a script are edges"
+    );
+}
+
+#[test]
+fn a_real_module_above_its_root_stays_a_gap_beside_a_script() {
+    let found = surveyed_in(
+        &[
+            ("src/app/inner/app/deep.py", ""),
+            ("src/app/inner/demo-x/run.scr.py", ""),
+        ],
+        &["src/app/inner"],
+        "app",
+    );
+    let gaps = reasons(&found);
+    assert_eq!(gaps.len(), 1, "{gaps:?}");
+    assert!(gaps[0].starts_with(OUTSIDE_LAYOUT) && gaps[0].contains("app.inner.app.deep"));
+}
