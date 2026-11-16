@@ -63,6 +63,7 @@
         "native.archkeel_facts.envelope:State",
         "native.archkeel_facts.envelope:Target",
         "native.archkeel_facts.envelope:source_digest",
+        "native.archkeel_facts.envelope:test_features",
         "native.archkeel_facts.fields:Fields",
         "native.archkeel_facts.fields:Named",
         "native.archkeel_facts.gap:GapData",

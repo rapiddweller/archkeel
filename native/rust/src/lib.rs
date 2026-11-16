@@ -44,25 +44,12 @@ mod tokens;
 mod toml;
 mod tree;
 
-use archkeel_facts::envelope::{Profile, Provenance, Reply};
+use archkeel_facts::envelope::{test_features, Profile, Provenance, Reply};
 use archkeel_facts::request::RustRequest;
 use archkeel_wire::protocol::Version;
 
 /// Test features read planted faults, so `archkeel-collect` refuses a build with one (AD-406).
-pub const TEST_FEATURES: &[&str] = if cfg!(feature = "dump") {
-    &["dump"]
-} else {
-    &[]
-};
-
-/// The compressed reply of the subprocess path.
-pub fn reply(
-    request: &RustRequest,
-    provenance: Provenance,
-    version: Version,
-) -> Result<Vec<u8>, String> {
-    collect::collect(request, provenance).encode(version)
-}
+pub const TEST_FEATURES: &[&str] = test_features(cfg!(feature = "dump"));
 
 /// The provenance of this build: the collector of its profile with the code digest of the workspace.
 pub fn provenance() -> Provenance {
@@ -74,6 +61,15 @@ pub fn provenance() -> Provenance {
             env!("CARGO_PKG_RUST_VERSION"),
         ),
     )
+}
+
+/// The compressed reply of the subprocess path.
+pub fn reply(
+    request: &RustRequest,
+    provenance: Provenance,
+    version: Version,
+) -> Result<Vec<u8>, String> {
+    collect::collect(request, provenance).encode(version)
 }
 
 /// The same records through the typed sink, without reply bytes from a caller.
