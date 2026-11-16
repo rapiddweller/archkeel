@@ -58,7 +58,7 @@
     "J-compass": {
       "language": "dart",
       "runs": [
-      {"name": "J-compass", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 7}, "scope": "incomplete scope: the collector reports 2 coverage gaps", "gaps": {}, "refusal": null}}
+      {"name": "J-compass", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 7}, "scope": "incomplete scope: 2 gaps leave unknown what the rule reads: the code of every module", "gaps": {}, "refusal": null}}
       ]
     },
     "K-python-realworld": {
@@ -82,12 +82,12 @@
     "golden-python": {
       "language": "python",
       "runs": [
-      {"name": "golden-python-fastapi-encoders", "root": "golden-python/fastapi-encoders", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 3 coverage gaps", "gaps": {"no_decided_rule": 1}, "refusal": null}},
-      {"name": "golden-python-fastapi-security", "root": "golden-python/fastapi-security", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 10 coverage gaps", "gaps": {"no_decided_rule": 1}, "refusal": null}},
-      {"name": "golden-python-synthetic-constructs", "root": "golden-python/synthetic-constructs", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 2 coverage gaps", "gaps": {"no_decided_rule": 1}, "refusal": null}},
-      {"name": "golden-python-synthetic-excluded-tests", "root": "golden-python/synthetic-excluded-tests", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "unsupported: the scope proof: a runtime requirement that the core does not read", "gaps": {"no_decided_rule": 1}, "refusal": null}},
+      {"name": "golden-python-fastapi-encoders", "root": "golden-python/fastapi-encoders", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: 3 gaps leave unknown what the rule reads: the code of every module", "gaps": {"no_decided_rule": 1}, "refusal": null}},
+      {"name": "golden-python-fastapi-security", "root": "golden-python/fastapi-security", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: 10 gaps leave unknown what the rule reads: the code of every module", "gaps": {"no_decided_rule": 1}, "refusal": null}},
+      {"name": "golden-python-synthetic-constructs", "root": "golden-python/synthetic-constructs", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: 2 gaps leave unknown what the rule reads: the code of every module", "gaps": {"no_decided_rule": 1}, "refusal": null}},
+      {"name": "golden-python-synthetic-excluded-tests", "root": "golden-python/synthetic-excluded-tests", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"no_decided_rule": 1}, "refusal": null}},
       {"name": "golden-python-synthetic-gaps", "root": "golden-python/synthetic-gaps", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "incomplete scope: the collector reports 4 coverage gaps", "gaps": {"no_decided_rule": 1}, "refusal": null}},
-      {"name": "golden-python-synthetic-tests-only", "root": "golden-python/synthetic-tests-only", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "unsupported: the scope proof: a runtime requirement that the core does not read", "gaps": {"no_decided_rule": 1}, "refusal": null}}
+      {"name": "golden-python-synthetic-tests-only", "root": "golden-python/synthetic-tests-only", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"no_decided_rule": 1}, "refusal": null}}
       ]
     },
     "python-newer-syntax-demo": {
