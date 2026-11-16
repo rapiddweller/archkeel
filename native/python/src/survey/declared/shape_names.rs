@@ -17,7 +17,8 @@ use ruff_python_ast::{Expr, ModModule};
 
 use crate::module::first_part;
 use crate::survey::binders::Binders;
-use crate::survey::bound::{Bound, Kind};
+use crate::survey::bound::Bound;
+use crate::survey::bound_kind::Kind;
 
 /// The builtin classes that a written type can name. Another builtin is a name with no proof.
 const BUILTIN_TYPES: [&str; 12] = [

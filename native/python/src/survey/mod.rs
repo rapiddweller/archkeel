@@ -30,7 +30,9 @@ use failures::{early, NOT_FOUND};
 
 pub(crate) mod binders;
 pub(crate) mod bound;
+pub(crate) mod bound_kind;
 mod call_count;
+mod copy_local;
 mod declared;
 mod excluded;
 mod failures;

@@ -16,7 +16,8 @@ use ruff_python_ast::{Expr, ExprContext};
 
 use std::collections::{HashMap, HashSet};
 
-use super::bound::{Bound, Kind};
+use super::bound::Bound;
+use super::bound_kind::Kind;
 use super::uses_typing_guard::{stdlib_value, withheld};
 use crate::module::Module;
 
@@ -31,6 +32,8 @@ pub(super) struct Scan<'m> {
     pub(super) typing_values: HashSet<(String, String)>,
     /// A statement of the scan can change the class of a class or its `__new__` (AD-566).
     pub(super) class_patch: bool,
+    /// A module of the scan names a copy hook, or is `copy` or `copyreg` (`copy_local.rs`).
+    pub(super) copy_hook: bool,
     /// The imports of each module by bound name: (target module, symbol).
     pub(super) imports: HashMap<(&'m str, &'m str), Vec<Origin<'m>>>,
 }
@@ -93,7 +96,8 @@ impl Scan<'_> {
         self.bounds.get(module).filter(|bound| {
             depth < 8
                 && !bound.getattr
-                && !bound.attribute_write
+                && !bound.foreign_write
+                && !(bound.copy_write && self.copy_hook)
                 && !self.hazardous.contains(module)
                 && !self.modules.contains(format!("{module}.{name}").as_str())
         })

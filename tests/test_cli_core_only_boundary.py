@@ -66,12 +66,25 @@ def test_a_premise_that_is_no_text_is_refused(value: object) -> None:
         _read(document)
 
 
-def test_a_typescript_scan_frame_must_state_its_premise() -> None:
+# The resolver of each language whose collector states a premise, in the form of the frame schema.
+RESOLVERS = {
+    "typescript": {"language": "typescript", "tsconfig": "tsconfig.json"},
+    "python": {
+        "language": "python",
+        "phase": "imports",
+        "interpreter": {
+            "version": "3.12.10",
+            "stdlib_module_names": [],
+            "builtin_module_names": [],
+        },
+    },
+}
+
+
+@pytest.mark.parametrize("language", sorted(RESOLVERS))
+def test_a_scan_frame_of_a_language_with_a_premise_must_state_it(language: str) -> None:
     document = json.loads(frame())
-    document["self_test"]["collect"]["request"]["resolver"] = {
-        "language": "typescript",
-        "tsconfig": "tsconfig.json",
-    }
+    document["self_test"]["collect"]["request"]["resolver"] = RESOLVERS[language]
     with pytest.raises(CoreError):
         _read(document)
     document["premise"] = "code outside the scan roots hands in no global object"
