@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 """AD-644: a profile limit holds only what reads the part that it limits, through the release core.
 
-Consumer: a CI job that reads the row of each rule. The Python collector examines no construct,
-decides no `symbol_placement` rule and measures no `private_crossings` budget. Each such limit
+Consumer: a CI job that reads the row of each rule. The Python collector decides no
+`symbol_placement` rule and measures no `private_crossings` budget. Each such limit
 keeps its own rule (or, for a budget, the run) UNKNOWN; the rules on the import edges and the
 files decide. A violation that the scan sees stays FAIL, and a hidden construct never passes:
 Python runs the truth of each plant.
@@ -31,6 +31,7 @@ CONSTRUCT = {
     "allowed_sources": [],
     "exact_sources": [],
 }
+UNREAD_CONSTRUCT = {**CONSTRUCT, "id": "NO-SETATTR", "constructs": ["setattr"]}
 PLACEMENT = {
     **RULE,
     "id": "PROTOCOLS-IN-SERVICE",
@@ -68,18 +69,18 @@ PLANTS = {
     # Before AD-644 the construct limit held every rule of the run.
     "construct": Plant(
         {"src/app/client/page.py": GETATTR_PAGE},
-        [CONSTRUCT],
+        [CONSTRUCT, UNREAD_CONSTRUCT],
         [],
-        {"NO-GETATTR": "UNKNOWN"},
-        {"NO-GETATTR": "the profile cannot decide NO-GETATTR: the collector examines no getattr"},
+        {"NO-GETATTR": "FAIL", "NO-SETATTR": "UNKNOWN"},
+        {"NO-SETATTR": "the collector examines no setattr"},
         truth=CALLS_GETATTR,
     ),
     "construct beside a seen violation": Plant(
         {"src/app/client/page.py": "import app.service.secret\n" + GETATTR_PAGE},
-        [CONSTRUCT],
+        [CONSTRUCT, UNREAD_CONSTRUCT],
         [],
-        {"NO-GETATTR": "UNKNOWN", "CLIENT-NO-SECRET": "FAIL"},
-        {"NO-GETATTR": "the collector examines no getattr"},
+        {"NO-GETATTR": "FAIL", "NO-SETATTR": "UNKNOWN", "CLIENT-NO-SECRET": "FAIL"},
+        {"NO-SETATTR": "the collector examines no setattr"},
         truth=LOADS_SECRET,
     ),
     # An unported rule kind is an unsupported row; it holds no rule on the edges.
@@ -317,4 +318,35 @@ def test_literal_comparison_is_proven_or_left_unknown(
     if expected == "FAIL":
         frame = result["frame"]
         evidence = frame["details"]["NO-STRING-COMPARE"][0]["evidence"]
+        assert frame["locations"][evidence[0]] == {"path": "src/app/client/page.py", "line": 1}
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("value = getattr(item, 'name')\n", "FAIL"),
+        ("value = 1\n", "PASS"),
+        ("f = getattr\nvalue = f(item, 'name')\n", "UNKNOWN"),
+        ("f = getattr\n", "UNKNOWN"),
+        ("getattr = other\nvalue = getattr(item, 'name')\n", "UNKNOWN"),
+        ("value = f(item, 'name')\n", "UNKNOWN"),
+        ("value = getattr(item, 'name')\nother = f(item)\n", "FAIL"),
+    ],
+)
+def test_getattr_call_is_proven_or_left_unknown(
+    release_core: Path, tmp_path: Path, source: str, expected: str
+) -> None:
+    rule = {**CONSTRUCT, "id": "NO-GETATTR", "constructs": ["getattr"]}
+    result = scanned(
+        release_core, tmp_path, Plant({"src/app/client/page.py": source}, [rule], [], {}, {})
+    )
+    assert rows(result)["NO-GETATTR"] == expected, result["frame"]["explained"]
+    if expected == "UNKNOWN":
+        assert (
+            "construct absence is not completely observed"
+            in result["frame"]["explained"]["NO-GETATTR"]
+        )
+    if expected == "FAIL":
+        frame = result["frame"]
+        evidence = frame["details"]["NO-GETATTR"][0]["evidence"]
         assert frame["locations"][evidence[0]] == {"path": "src/app/client/page.py", "line": 1}
