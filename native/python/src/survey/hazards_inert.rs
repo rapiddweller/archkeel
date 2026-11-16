@@ -15,10 +15,13 @@ pub(super) fn modules(
         .filter_map(|(name, origins)| match origins.as_slice() {
             [origin]
                 if unique.contains(name)
-                    && matches!(
+                    && (matches!(
                         origin.as_str(),
-                        "pickle" | "importlib.metadata" | "importlib.abc"
-                    ) =>
+                        "pickle" | "dill" | "importlib.metadata" | "importlib.abc"
+                    ) || super::names::hazard(origin).is_some()
+                        && origin
+                            .rsplit_once('.')
+                            .is_some_and(|(module, attr)| attribute(module, attr))) =>
             {
                 Some((name.clone(), origin.clone()))
             }
@@ -28,14 +31,23 @@ pub(super) fn modules(
 }
 
 pub(super) fn read(modules: &HashMap<String, String>, name: &str, attrs: &[&str]) -> bool {
-    modules.get(name).is_some_and(|module| {
-        matches!(
-            (module.as_str(), attrs),
-            (
-                "pickle",
-                ["UnpicklingError" | "PickleError" | "HIGHEST_PROTOCOL"]
-            ) | ("importlib.metadata", ["PackageNotFoundError"])
-                | ("importlib.abc", ["Traversable"])
-        )
+    modules.get(name).is_some_and(|module| match attrs {
+        [attr] => attribute(module, attr),
+        [] => module
+            .rsplit_once('.')
+            .is_some_and(|(parent, attr)| attribute(parent, attr)),
+        _ => false,
     })
+}
+
+fn attribute(module: &str, attr: &str) -> bool {
+    matches!(
+        (module, attr),
+        (
+            "pickle",
+            "UnpicklingError" | "PickleError" | "HIGHEST_PROTOCOL"
+        ) | ("importlib.metadata", "PackageNotFoundError")
+            | ("importlib.abc", "Traversable")
+            | ("dill", "settings")
+    )
 }

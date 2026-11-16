@@ -15,12 +15,11 @@ use archkeel_facts::ids::{FactId, ModuleName, PackageName};
 use archkeel_facts::{ImportFact, Record};
 
 use crate::builder::{import_record, Builder};
-use crate::crates::Root;
 use crate::crates::Workspace;
 use crate::definitions::MethodCall;
 use crate::derive_imports::Local;
 use crate::modules::{Edge, Index, Outcome};
-use crate::names::{self, published, with_name, ImportName};
+use crate::names::{self, published, with_name};
 use crate::resolve::{classify, Found, Named};
 use crate::scan::{MacroCall, MacroDef, Reference, Site, Via};
 use crate::tokens::NAME_FROM_CALL;
@@ -113,6 +112,10 @@ impl Builder {
             // A path inside one crate that no module edge names: a local outcome.
             Outcome::None => self.ended += 1,
             Outcome::Unknown(reason) => self.unreadable(module, reference, reason),
+            Outcome::Edge(edge) if glob.is_none() && index.module_or_item(&edge).is_some() => {
+                let reason = index.module_or_item(&edge).unwrap_or_default();
+                self.unreadable(module, reference, reason);
+            }
             Outcome::Edge(edge) => match &reference.in_macro {
                 None => self.module_import(index, module, reference, &edge),
                 Some(_) => self.macro_use(index, module, reference, edge),
@@ -455,38 +458,6 @@ fn module_record(
         (None, false) => ImportFact::Import(data),
     };
     import_record((identity, evidence), at, subjects, fact)
-}
-
-/// The target of a path into another crate of the workspace: the deepest module that the path
-/// names below the root of that crate. Without an index (a declared dependency) it is the root.
-/// The name is the item after that module and its route (AD-604); a declared dependency names the
-/// whole crate.
-pub(crate) fn local_target(
-    index: Option<&Index<'_>>,
-    root: &Root,
-    reference: &Reference,
-    import_id: FactId,
-) -> (Target, String, ImportName) {
-    let rest = reference.names.get(1..).unwrap_or(&[]);
-    let deepest = index.and_then(|index| {
-        let Outcome::Edge(edge) = index.reach(&root.module, rest) else {
-            return None;
-        };
-        let rel = index.rel(&edge.module)?.to_owned();
-        let named = names::item(index, &edge.lexical, edge.symbol.as_deref());
-        Some((edge.module, rel, named))
-    });
-    let whole = ImportName::whole();
-    let (module, file, named) =
-        deepest.unwrap_or_else(|| (root.module.clone(), root.rel.clone(), whole));
-    let target = Target::Local {
-        import_id,
-        module: ModuleName::new(module.as_str()),
-        file: file.clone(),
-        runtime_file: Some(file),
-        declaration_file: None,
-    };
-    (target, module, named)
 }
 
 #[cfg(test)]

@@ -10,6 +10,7 @@
 //! callable type, a list of types) is `Unreadable` and a user generic is `Applied`: the model reads
 //! both as a named gap and never as a plain type.
 
+use crate::module::builtin_roles::{self, Role};
 use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::type_shape::{Binding, Family, TypeShape, Unreadable};
@@ -25,9 +26,6 @@ use crate::survey::binders::Binders;
 
 /// The deepest type expression that the reader follows.
 const MAX_DEPTH: u32 = 24;
-
-/// The primitives among the builtin classes.
-const PRIMITIVES: [&str; 6] = ["int", "str", "bytes", "bool", "float", "complex"];
 
 /// The collections of the language and of its standard library, by qualified name.
 const COLLECTIONS: &[(&str, Family)] = &[
@@ -189,7 +187,7 @@ impl Shaper<'_> {
     fn named(&self, expr: &Expr, text: String, hidden: &HashSet<String>) -> TypeShape {
         let binding = self.names.binding(expr, hidden);
         match &binding {
-            Binding::Builtin { target } if PRIMITIVES.contains(&target.as_str()) => {
+            Binding::Builtin { target } if builtin_roles::has(target.as_str(), Role::PRIMITIVE) => {
                 TypeShape::Primitive {
                     name: target.clone(),
                     text,
