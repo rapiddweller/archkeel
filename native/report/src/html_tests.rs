@@ -16,6 +16,18 @@ fn document(frame: &Value) -> String {
 }
 
 #[test]
+fn the_light_palette_matches_the_design_tokens() {
+    let tokens = include_str!("../assets/tokens.css");
+    let palette = tokens
+        .split_once("[data-theme=\"light\"]{")
+        .and_then(|(_, rest)| rest.split_once('}'))
+        .map(|(body, _)| body)
+        .expect("the light token block");
+    let page = document(&json!({"status": "PASS"}));
+    assert!(page.contains(&format!("{{{palette}color-scheme:light}}")));
+}
+
+#[test]
 fn all_text_is_escaped_without_truncation() {
     let plant = format!("<script>\"'&\u{fffd}{}", "x".repeat(100_000));
     let safe = escape(&plant);
