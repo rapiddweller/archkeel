@@ -63,7 +63,12 @@ fn the_reply_declares_only_the_sections_of_the_import_survey() {
         .collect();
     assert_eq!(sections, SURVEY_SECTIONS);
     assert!(capabilities.resolution_features.is_empty());
-    assert!(capabilities.constructs.is_empty());
+    assert_eq!(capabilities.constructs.len(), 1);
+    assert_eq!(capabilities.constructs[0].name, "assert");
+    assert_eq!(
+        capabilities.constructs[0].status,
+        archkeel_facts::envelope::ConstructSupport::Supported
+    );
     let written: Vec<&str> = reply
         .facts
         .sections
