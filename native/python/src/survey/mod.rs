@@ -244,7 +244,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     for (index, site) in hazards {
         let module = &modules[index];
         let id = module.evidence(&mut evidence, &site.range);
-        let (key, gap) = targets::site_gap(site.kind, &site.detail, &module.name, &id);
+        let (key, gap) = targets::hazard_gap(site, module, &id);
         sites.insert(key, gap);
     }
     unknowns.extend(found);

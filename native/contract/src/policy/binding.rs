@@ -166,7 +166,7 @@ pub(crate) fn absent_contract_digest(path: &str) -> String {
 
 /// The comparison when the old revision holds no contract at `path`: the whole contract is one
 /// widening (Python `_contract_widening_findings` with `_Introduced`). No narrowing is named.
-pub(crate) fn compare_introduced(path: &str, against: &str) -> Comparison {
+fn compare_introduced(path: &str, against: &str) -> Comparison {
     let message = format!("contract introduced: {path} does not exist at {against}");
     let subject = format!("contract {path}");
     let change = ContractChange::widened(ChangeKind::Presence, &subject, "presence", message);

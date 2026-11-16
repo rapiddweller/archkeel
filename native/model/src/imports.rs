@@ -199,8 +199,10 @@ pub(crate) struct Split {
     pub(crate) unknown: usize,
 }
 
-/// A gap of the import resolution: the module and the evidence that it names, and its effect.
+/// A gap of the import resolution: its id, the module and the evidence that it names, and its
+/// effect.
 struct Site<'f> {
+    id: &'f str,
     module: Option<&'f str>,
     evidence: Vec<&'f str>,
     effect: Option<&'f GapEffect>,
@@ -231,25 +233,14 @@ impl Site<'_> {
 
 /// Split the imports of a reply. An unresolved import leaves first, then a macro body, as
 /// `split_imports` checks them.
-pub(crate) fn split(facts: &Facts) -> Split {
+pub(crate) fn split(facts: &Facts, declared: impl Fn(&str) -> bool) -> Split {
     let targets: HashMap<&str, &Target> = facts
         .imports
         .iter()
         .map(|target| (target.import_id().as_str(), target))
         .collect();
-    let sites: Vec<Site<'_>> = facts
-        .coverage
-        .gaps
-        .iter()
-        .filter_map(|gap| {
-            let data = crate::coverage::data_of(&gap.data);
-            (data.resolution_dimension == Some(ResolutionDimension::Imports)).then(|| Site {
-                module: data.module.as_ref().map(|m| m.as_str()),
-                evidence: evidence(gap),
-                effect: data.effect.as_ref(),
-            })
-        })
-        .collect();
+    let mut sites = resolution_sites(facts);
+    sites.retain(|site| !declared(site.id));
     let named: HashSet<(Option<&str>, Vec<&str>)> = sites
         .iter()
         .filter(|site| site.effect.is_none())
@@ -306,6 +297,48 @@ pub(crate) fn split(facts: &Facts) -> Split {
             resolved,
             evidence: sorted(evidence(record)),
         });
+    }
+    found
+}
+
+/// The gaps of the import resolution, in the order of the reply.
+fn resolution_sites(facts: &Facts) -> Vec<Site<'_>> {
+    facts
+        .coverage
+        .gaps
+        .iter()
+        .filter_map(|gap| {
+            let data = crate::coverage::data_of(&gap.data);
+            (data.resolution_dimension == Some(ResolutionDimension::Imports)).then(|| Site {
+                id: gap.id.as_str(),
+                module: data.module.as_ref().map(|m| m.as_str()),
+                evidence: evidence(gap),
+                effect: data.effect.as_ref(),
+            })
+        })
+        .collect()
+}
+
+/// The number of unresolved imports that each gap covers (AD-664): a declared reach cannot
+/// narrow such a gap, because it does not resolve the imports.
+pub(crate) fn covered(facts: &Facts) -> HashMap<&str, usize> {
+    let targets: HashSet<&str> = facts
+        .imports
+        .iter()
+        .filter(|target| matches!(target, Target::Unresolved { .. }))
+        .map(|target| target.import_id().as_str())
+        .collect();
+    let sites = resolution_sites(facts);
+    let mut found = HashMap::new();
+    for record in facts.sections.iter().flat_map(records) {
+        if !targets.contains(record.id.as_str()) {
+            continue;
+        }
+        let source = record.data.data().source_module.as_str();
+        let cited = evidence(record);
+        for site in sites.iter().filter(|site| site.covers(source, &cited)) {
+            *found.entry(site.id).or_default() += 1;
+        }
     }
     found
 }

@@ -16,7 +16,7 @@ use super::contain::Sweep;
 use crate::syntax::{Context, Span};
 use crate::tree::{children, named, named_children, walk_with_path, Gap, Source, Work};
 
-pub(crate) const SCOPE_KINDS: [&str; 3] = ["function_body", "function_expression_body", "block"];
+const SCOPE_KINDS: [&str; 3] = ["function_body", "function_expression_body", "block"];
 const BODIES: [&str; 2] = ["function_body", "function_expression_body"];
 const DECLARED: [&str; 2] = ["function_signature", "method_signature"];
 const BODY_STOPS: [&str; 3] = [
@@ -276,7 +276,7 @@ pub(crate) fn callable_decl_name<'t>(node: Node<'t>) -> Option<Node<'t>> {
 }
 
 /// `_callable_body`: the body after a signature. `parent` is the parent of `owner`.
-pub(crate) fn callable_body<'t>(
+fn callable_body<'t>(
     owner: Node<'t>,
     parent: Option<Node<'t>>,
     work: &Work<'t>,
@@ -300,7 +300,7 @@ pub(crate) fn callable_body<'t>(
 }
 
 /// `_callable_name`: the name of the nearest named callable of `node` or of its ancestors.
-pub(crate) fn callable_name<'t>(
+fn callable_name<'t>(
     node: Node<'t>,
     ancestors: &[Node<'t>],
     source: &Source<'_>,

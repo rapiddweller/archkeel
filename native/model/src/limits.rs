@@ -252,7 +252,7 @@ pub(crate) fn stated_hold(contract: &Contract, rule: &Rule, observed: &Observed)
 /// The first symbol selector of the contract that the evaluation of `rule` reads (`reads`), by
 /// its subject: a `target_symbol` rule, a component with a `through` symbol port or a component
 /// with a `public` symbol entry. Each other kind reads no symbol fact.
-pub(crate) fn symbol_reader(contract: &Contract, rule: &Rule) -> Option<String> {
+fn symbol_reader(contract: &Contract, rule: &Rule) -> Option<String> {
     let components = contract.components();
     let symbolic = |entry: &str| entry.contains(':');
     let ports = || {

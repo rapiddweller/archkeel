@@ -23,6 +23,12 @@ fn word(status: &str) -> &'static str {
 fn title(frame: &Frame, places: &Places) -> String {
     let (fail, unknown) = (frame.rules_with("FAIL"), frame.rules_with("UNKNOWN"));
     match frame.status.as_str() {
+        "PASS" if !frame.assumed.is_empty() => format!(
+            "All {} hold; {} {}",
+            count(frame.rules_with("PASS"), "rule"),
+            frame.assumed.len(),
+            super::rules::qualifier(frame.doors).replacen("PASS", "hold", 1)
+        ),
         "PASS" => format!("All {} hold", count(frame.rules_with("PASS"), "rule")),
         "FAIL" => format!(
             "{} violated in {}, {unknown} unknown",
@@ -47,6 +53,19 @@ fn premise(frame: &Frame) -> String {
     format!(
         "<p class=\"body-sm ak-verdict__note\">Stated assumption: {}</p>",
         escape(&frame.premise)
+    )
+}
+
+/// The premise of the declared door reaches (AD-664): a PASS under it is never a plain PASS.
+fn doors(frame: &Frame) -> String {
+    if frame.doors == 0 {
+        return String::new();
+    }
+    let qualifier = super::rules::qualifier(frame.doors);
+    format!(
+        "<p class=\"body-sm ak-verdict__note\">{qualifier}: {} hold only under the declared \
+reach of the door sites; the reach is a premise of the contract, not a proof.</p>",
+        count(frame.assumed.len(), "rule")
     )
 }
 
@@ -276,7 +295,7 @@ pub(super) fn section(frame: &Frame, places: &Places) -> String {
     format!(
         "<div class=\"rp-head\"><h1>Verdict: {}</h1><section class=\"ak-verdict ak-verdict--{state}\" aria-label=\"Verdict\">\
 <span class=\"ak-badge ak-badge--{state} tag\">{}{}</span><h2 class=\"h2 ak-verdict__title\">{}</h2>\
-<p class=\"body-sm ak-verdict__note\">{}</p>{}{}{}{}<dl class=\"ak-verdict__stats\">{}{}{}{}</dl></section>{}</div>
+<p class=\"body-sm ak-verdict__note\">{}</p>{}{}{}{}{}<dl class=\"ak-verdict__stats\">{}{}{}{}</dl></section>{}</div>
 ",
         escape(status),
         status_icon(status),
@@ -285,6 +304,7 @@ pub(super) fn section(frame: &Frame, places: &Places) -> String {
         note(status),
         baseline(frame),
         premise(frame),
+        doors(frame),
         calls(frame),
         top_causes(frame),
         stat("Rules PASS", frame.rules_with("PASS")),

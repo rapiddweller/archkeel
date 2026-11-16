@@ -75,6 +75,12 @@ pub(crate) struct ScriptAlias {
 /// A write: the published name, or `None` where the write is not known, and where it is.
 pub(crate) type Write = (Option<String>, Span);
 
+/// The phrase of a run-time key that can name `constructor`: a door whose reach a contract can
+/// declare (AD-664).
+pub(crate) fn key_form() -> &'static str {
+    "a key that is no literal and can name constructor"
+}
+
 /// A direct form that can write any global: its place and the kind of the form (AD-540).
 pub(crate) type Blocker = (Span, &'static str);
 

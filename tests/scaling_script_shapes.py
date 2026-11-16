@@ -10,7 +10,7 @@ one scope), and the facts of each must cost one lookup. `.js` files are global s
 
 from __future__ import annotations
 
-from scaling_shapes import Shape
+from scaling_shape_kit import Shape
 
 
 def _each(template: str, n: int) -> str:

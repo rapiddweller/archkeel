@@ -33,9 +33,9 @@ use crate::ownership::in_scope;
 use crate::reason::Refusal;
 
 /// The largest number of standard library names that a request can carry.
-pub(crate) const STANDARD_LIBRARY_LIMIT: usize = 1024;
+const STANDARD_LIBRARY_LIMIT: usize = 1024;
 /// The longest standard library name in bytes.
-pub(crate) const STANDARD_NAME_LIMIT: usize = 128;
+const STANDARD_NAME_LIMIT: usize = 128;
 
 /// The settings of one run.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

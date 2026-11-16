@@ -128,7 +128,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// `_script_assignment_publication`.
-    pub(crate) fn assignment_publication(
+    fn assignment_publication(
         &self,
         node: Node<'t>,
         target: Node<'t>,
@@ -165,7 +165,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// `_script_return_publication`: `var name = (function () { return {...}; })();`.
-    pub(crate) fn return_publication(
+    fn return_publication(
         &self,
         node: Node<'t>,
         call: Node<'t>,

@@ -17,7 +17,7 @@ use crate::json::{self, field, keys, Json, Object};
 use crate::policy::reference::python_repr;
 
 /// The only schema version that this module reads and writes.
-pub(crate) const AMENDMENT_VERSION: &str = "2.0.0";
+const AMENDMENT_VERSION: &str = "2.0.0";
 
 text_type!(
     pub(crate),

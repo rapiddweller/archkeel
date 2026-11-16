@@ -17,13 +17,13 @@ use std::path::{Component, Path, PathBuf};
 /// The largest configuration file that the core reads.
 pub(crate) const MAX_CONFIG_BYTES: u64 = 1 << 20;
 /// The work budget of the survey: the most directory entries below the root (AD-406, #1099).
-pub(crate) const MAX_ENTRIES: usize = 100_000;
+const MAX_ENTRIES: usize = 100_000;
 /// The most directory entries below the proven cache directories of the root (AD-432).
-pub(crate) const MAX_CACHE_ENTRIES: usize = 1_000_000;
+const MAX_CACHE_ENTRIES: usize = 1_000_000;
 /// The deepest directory below the root that the survey enters.
-pub(crate) const MAX_DEPTH: usize = 256;
+const MAX_DEPTH: usize = 256;
 /// The most bytes of all regular files below the root.
-pub(crate) const MAX_TOTAL_BYTES: u64 = 1 << 30;
+const MAX_TOTAL_BYTES: u64 = 1 << 30;
 
 /// The repository root: a canonical absolute directory.
 #[derive(Debug)]
@@ -119,7 +119,7 @@ impl Root {
     }
 
     /// The real path of `relative` when it resolves inside the root, else `None`.
-    pub(crate) fn contained(&self, relative: &str) -> Option<PathBuf> {
+    fn contained(&self, relative: &str) -> Option<PathBuf> {
         let target = local_path(&fs::canonicalize(self.0.join(relative)).ok()?)?;
         target.starts_with(&self.0).then_some(target)
     }

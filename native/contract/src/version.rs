@@ -69,6 +69,9 @@ pub enum ContractVersion {
     /// Contract schema 3.14.0.
     #[serde(rename = "3.14.0")]
     V3_14,
+    /// Contract schema 3.15.0.
+    #[serde(rename = "3.15.0")]
+    V3_15,
 }
 
 /// The version of its spelling, or `None` for an unknown spelling.
@@ -98,6 +101,7 @@ pub(crate) enum Feature {
     SourceOwnership,
     GuardedEffect,
     Catalog,
+    DoorReach,
 }
 
 /// The first version that holds the feature (`_FEATURE_START`).
@@ -117,6 +121,7 @@ fn start(feature: Feature) -> ContractVersion {
         Feature::SourceOwnership => ContractVersion::V3_12,
         Feature::GuardedEffect => ContractVersion::V3_13,
         Feature::Catalog => ContractVersion::V3_14,
+        Feature::DoorReach => ContractVersion::V3_15,
     }
 }
 

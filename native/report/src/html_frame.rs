@@ -81,6 +81,10 @@ pub(super) struct Frame {
     pub(super) premise: String,
     /// The call counts of the core (#1327), or `None` when it did not measure.
     pub(super) calls: Option<Calls>,
+    /// Each PASS rule that holds only under declared door reaches, with the sites (AD-664).
+    pub(super) assumed: BTreeMap<String, Vec<String>>,
+    /// The number of applied door reach declarations of the run (AD-664).
+    pub(super) doors: usize,
 }
 
 /// The call counts that the page shows: the classes of `Measures` of the model.
@@ -135,6 +139,8 @@ impl Frame {
             cause,
             premise: text(&frame["premise"]).unwrap_or_default(),
             calls: serde_json::from_value(frame["measures"].clone()).ok(),
+            assumed: field(frame, "assumed"),
+            doors: frame["door_reach"].as_array().map_or(0, Vec::len),
             status: frame["status"].as_str().unwrap_or("unavailable").to_owned(),
             rules: field(frame, "rules"),
             details: field(frame, "details"),
