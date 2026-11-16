@@ -55,17 +55,13 @@ def decided(document: dict[str, object]) -> str:
     return json.dumps([document["status"], document["gaps"], frame.get("rules")])
 
 
-def test_a_project_without_configuration_is_told_the_next_command(
+def test_a_project_without_configuration_gets_a_draft_not_a_dead_end(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """#1314, then AD-638: the project without `archkeel.toml` reaches a verdict by itself."""
     code, document = run(capsys, plant(tmp_path), "validate")
-    refusal = document["refusal"]
-    assert isinstance(refusal, dict) and code == 2
-    assert (
-        refusal["kind"] == "collection_refused"
-        and "cannot read archkeel.toml" in refusal["message"]
-    )
-    assert "archkeel init" in refusal["message"] and "docs/onboarding.md" in refusal["message"]
+    assert code == 2 and document["status"] == "UNKNOWN" and "refusal" not in document
+    assert "archkeel.toml" in document["init"]["written"]  # type: ignore[index]
 
 
 def test_init_drafts_one_component_for_each_subpackage_and_the_walk_ends_in_pass_and_fail(
@@ -131,12 +127,9 @@ def test_init_drafts_one_component_for_each_subpackage_and_the_walk_ends_in_pass
     assert (code, third["status"]) == (1, "FAIL"), decided(third)
 
 
-def test_a_layout_without_one_package_is_refused_with_the_manual_way(tmp_path: Path) -> None:
-    (tmp_path / "src/one").mkdir(parents=True)
-    (tmp_path / "src/two").mkdir()
-    for name in ("one", "two"):
-        (tmp_path / "src" / name / "__init__.py").write_text("", encoding="utf-8")
-    with pytest.raises(NothingToDraft, match=r"found: src/one, src/two.*onboarding\.md"):
+def test_a_layout_without_a_package_is_refused_with_the_manual_way(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    with pytest.raises(NothingToDraft, match=r"no top-level Python package.*onboarding\.md"):
         draft(tmp_path)
 
 

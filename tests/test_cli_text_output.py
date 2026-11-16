@@ -325,8 +325,10 @@ def test_a_configuration_error_says_missing_or_not_a_file(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """#1324: `cannot read archkeel.toml` is split into its causes, each with the way forward."""
+    # AD-638: a missing `archkeel.toml` is drafted, so the missing file here is another name.
+    name = "other.toml" if expected.startswith("the file") else "archkeel.toml"
     (tmp_path / "archkeel.toml").unlink()
-    make(tmp_path / "archkeel.toml")
+    make(tmp_path / name)
     (tmp_path / "README").write_text("x")
     for step in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "x"]):
         subprocess.run(
@@ -335,10 +337,10 @@ def test_a_configuration_error_says_missing_or_not_a_file(
     monkeypatch.undo()
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
-    core_only.run(["validate", "--text"])
+    core_only.run(["validate", "--text", "--config", name])
     text = capsys.readouterr().out
     assert text.splitlines()[0] == "validate: REFUSED -> exit 2"
-    assert expected in text and "archkeel.toml" in text
+    assert expected in text and name in text
     assert "archkeel init" in text or "--config" in text
 
 

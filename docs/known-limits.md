@@ -49,6 +49,10 @@ The Python collector does not follow a value from an unknown object to a loader.
 The same limit applies when the local name is `c`. A forbidden dependency reached only through
 such a value can give PASS. This is an open false-PASS class, not an accepted limit.
 
+**Python module and class bindings (AD-642, #1360).** A module- or class-level binding such as
+`for site in sites: site.id` can retain an `import_system_change` gap. These namespaces resolve
+names in execution order. The survey does not yet prove the binding at each read.
+
 **Open false-PASS class (TypeScript, shared with 4.0.1): code of an installed package is outside
 the model.** The collector does not read a package in `node_modules`, `jspm_packages` or
 `bower_components` beside a valid manifest when only a `node_modules` search reaches it, for
@@ -72,7 +76,7 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 - The core decides on Windows since AD-442, and the installed Windows wheel must equal the core of
   the checkout. A release from `main` is open (AD-476): it publishes the sdist and the six platform
   wheels that Full builds and runs. The Windows wheel writes no report file (see `report --output`).
-- `init` is served (AD-626): Python only, one top-level package, folder layout only, every decision a `TODO`. `check`, `explore`, `guide`, `story`, `view` and `studio` give the typed refusal
+- `init` is served (AD-626, AD-638): Python packages, a Cargo workspace or a `package.json` workspace; folder layout only, every decision a `TODO`; `validate` and `report` run it when `archkeel.toml` is missing, and a run that may not write stops (no in-memory configuration). `check`, `explore`, `guide`, `story`, `view` and `studio` give the typed refusal
   `not_on_this_development_line`, exit 2. Interactive reports, `architecture.json`, saved and focused
   reports, amendments and `--write-graph` are refused by option name. `--baseline` and
   `--write-baseline` are served ([reference](reference.md#baselines)).

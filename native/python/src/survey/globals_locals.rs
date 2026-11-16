@@ -7,7 +7,11 @@
 use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{Expr, ExprContext, Stmt, StmtFunctionDef};
+use ruff_python_ast::{
+    Decorator, ExceptHandler, Expr, ExprContext, Parameters, Pattern, Stmt, StmtFunctionDef,
+};
+
+use super::binders::{handler_name, pattern_name};
 
 /// The names that a function binds: its parameters, its assignments, and what it declares.
 #[derive(Default)]
@@ -19,6 +23,7 @@ pub(super) struct Locals<'f> {
     /// True while a comprehension target is read.
     pub(super) in_target: bool,
     pub(super) declared: HashSet<String>,
+    pub(super) globals: HashSet<String>,
     /// The value of each name that the function writes exactly once by `name = value`.
     pub(super) assigned: HashMap<String, &'f Expr>,
     pub(super) stored: HashMap<String, usize>,
@@ -27,7 +32,12 @@ pub(super) struct Locals<'f> {
 impl<'f> Locals<'f> {
     pub(super) fn of(def: &'f StmtFunctionDef) -> Self {
         let mut found = Locals::default();
-        let parameters = &def.parameters;
+        found.parameters(&def.parameters);
+        found.visit_body(&def.body);
+        found
+    }
+
+    fn parameters(&mut self, parameters: &Parameters) {
         let all = parameters
             .posonlyargs
             .iter()
@@ -37,12 +47,24 @@ impl<'f> Locals<'f> {
             .chain(parameters.vararg.as_deref())
             .chain(parameters.kwarg.as_deref());
         for parameter in all {
-            found.names.insert(parameter.name.to_string());
-            found.scoped.insert(parameter.name.to_string());
-            *found.stored.entry(parameter.name.to_string()).or_default() += 1;
+            self.bind(parameter.name.as_str());
         }
-        found.visit_body(&def.body);
-        found
+    }
+
+    fn bind(&mut self, name: &str) {
+        self.names.insert(name.to_owned());
+        if !self.in_target {
+            self.scoped.insert(name.to_owned());
+        }
+        *self.stored.entry(name.to_owned()).or_default() += 1;
+    }
+
+    fn definition(&mut self, name: &str, decorators: &'f [Decorator]) {
+        self.bind(name);
+        self.bind(name);
+        decorators
+            .iter()
+            .for_each(|item| self.visit_decorator(item));
     }
 
     /// True when the function writes `name` more than once (a parameter counts as one write).
@@ -57,34 +79,33 @@ impl Locals<'_> {
         if node.ctx == ExprContext::Load {
             return;
         }
-        let name = node.id.to_string();
-        self.names.insert(name.clone());
-        if !self.in_target {
-            self.scoped.insert(name.clone());
-        }
-        *self.stored.entry(name).or_default() += 1;
+        self.bind(node.id.as_str());
     }
 }
 
 impl<'a> Visitor<'a> for Locals<'a> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
         match stmt {
-            Stmt::Global(node) => self
-                .declared
-                .extend(node.names.iter().map(ToString::to_string)),
+            Stmt::Global(node) => {
+                self.declared
+                    .extend(node.names.iter().map(ToString::to_string));
+                self.globals
+                    .extend(node.names.iter().map(ToString::to_string));
+            }
             Stmt::Nonlocal(node) => self
                 .declared
                 .extend(node.names.iter().map(ToString::to_string)),
             Stmt::FunctionDef(node) => {
-                self.names.insert(node.name.to_string());
-                self.scoped.insert(node.name.to_string());
-                *self.stored.entry(node.name.to_string()).or_default() += 2;
+                self.definition(node.name.as_str(), &node.decorator_list);
+                self.visit_parameters(&node.parameters);
+                node.returns.iter().for_each(|item| self.visit_expr(item));
                 return;
             }
             Stmt::ClassDef(node) => {
-                self.names.insert(node.name.to_string());
-                self.scoped.insert(node.name.to_string());
-                *self.stored.entry(node.name.to_string()).or_default() += 2;
+                self.definition(node.name.as_str(), &node.decorator_list);
+                node.arguments
+                    .iter()
+                    .for_each(|item| self.visit_arguments(item));
                 return;
             }
             Stmt::Assign(node) => {
@@ -98,10 +119,30 @@ impl<'a> Visitor<'a> for Locals<'a> {
     }
 
     fn visit_expr(&mut self, expr: &'a Expr) {
+        if let Expr::Lambda(node) = expr {
+            if let Some(parameters) = &node.parameters {
+                self.visit_parameters(parameters);
+            }
+            return;
+        }
         if let Expr::Name(node) = expr {
             self.store(node);
         }
         visitor::walk_expr(self, expr);
+    }
+
+    fn visit_except_handler(&mut self, handler: &'a ExceptHandler) {
+        if let Some(name) = handler_name(handler) {
+            self.bind(name);
+        }
+        visitor::walk_except_handler(self, handler);
+    }
+
+    fn visit_pattern(&mut self, pattern: &'a Pattern) {
+        if let Some(name) = pattern_name(pattern) {
+            self.bind(name);
+        }
+        visitor::walk_pattern(self, pattern);
     }
 
     fn visit_comprehension(&mut self, comprehension: &'a ruff_python_ast::Comprehension) {
@@ -126,10 +167,35 @@ pub(super) fn stores(body: &[Stmt]) -> HashSet<String> {
 /// The local names of a function for the door check of `hazards.rs`: each parameter and each
 /// written name, less a name that a `global` or `nonlocal` line declares.
 pub(super) fn local_names(def: &StmtFunctionDef) -> HashSet<String> {
+    local_scope(def).0
+}
+
+/// The local and explicitly global names of a function.
+pub(super) fn local_scope(def: &StmtFunctionDef) -> (HashSet<String>, HashSet<String>) {
     let found = Locals::of(def);
-    found
+    let local = found
         .scoped
         .into_iter()
         .filter(|name| !found.declared.contains(name))
-        .collect()
+        .collect();
+    (local, found.globals)
+}
+
+/// The names bound in a lambda, including assignment expressions in its body.
+pub(super) fn lambda_names(lambda: &ruff_python_ast::ExprLambda) -> HashSet<String> {
+    let mut found = Locals::default();
+    if let Some(parameters) = &lambda.parameters {
+        found.parameters(parameters);
+    }
+    found.visit_expr(&lambda.body);
+    found.scoped
+}
+
+/// Class lookup is ordered; a possible class or global binding blocks an outer-local proof.
+pub(super) fn class_blockers(body: &[Stmt]) -> HashSet<String> {
+    let mut found = Locals::default();
+    found.visit_body(body);
+    found.scoped.retain(|name| !found.declared.contains(name));
+    found.scoped.extend(found.globals);
+    found.scoped
 }

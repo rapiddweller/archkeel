@@ -34,7 +34,7 @@ use ruff_python_ast::{
 };
 use ruff_text_size::TextSize;
 
-use super::binders::{declared, import_bindings};
+use super::binders::{declared, handler_name, import_bindings, pattern_name};
 
 /// The names of `copy` whose result is a copy.
 const COPIERS: [&str; 2] = ["copy", "deepcopy"];
@@ -270,22 +270,15 @@ impl<'a> Visitor<'a> for Binds<'a> {
     }
 
     fn visit_except_handler(&mut self, handler: &'a ExceptHandler) {
-        let ExceptHandler::ExceptHandler(node) = handler;
-        if let Some(name) = &node.name {
-            self.count(name.as_str(), 1);
+        if let Some(name) = handler_name(handler) {
+            self.count(name, 1);
         }
         visitor::walk_except_handler(self, handler);
     }
 
     fn visit_pattern(&mut self, pattern: &'a Pattern) {
-        let name = match pattern {
-            Pattern::MatchAs(node) => node.name.as_ref(),
-            Pattern::MatchStar(node) => node.name.as_ref(),
-            Pattern::MatchMapping(node) => node.rest.as_ref(),
-            _ => None,
-        };
-        if let Some(name) = name {
-            self.count(name.as_str(), 1);
+        if let Some(name) = pattern_name(pattern) {
+            self.count(name, 1);
         }
         visitor::walk_pattern(self, pattern);
     }

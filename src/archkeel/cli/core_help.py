@@ -29,7 +29,8 @@ _COMMON: Final = """\
   --text          Print text also without a terminal.
   --summary       Print at most fifteen lines of text: for a CI log.
   --all           List every violation, rule and gap, not the first few of each group.
-  --verbose       Also print the core binary, its engine and its code digest."""
+  --verbose       Also print the core binary, its engine and its code digest.
+  --no-init       Without archkeel.toml, write nothing (ARCHKEEL_NO_INIT=1 does the same)."""
 _VALIDATE: Final = """\
 usage: archkeel validate [--root PATH] [--config PATH] [--baseline FILE | --write-baseline FILE]
                          [--json | --text | --summary] [--all] [--verbose]
@@ -44,6 +45,11 @@ options:
                          A baseline records UNKNOWN items; it does not decide them.
 
 {output}
+
+Without archkeel.toml, the command first drafts it, as `archkeel init` does, writes no existing
+file, says what it wrote, then checks with the new files (UNKNOWN with the open decisions is the
+honest first verdict). With --no-init, or ARCHKEEL_NO_INIT=1, or a folder that cannot be written,
+it writes nothing, says what the layout would give, and exits 2.
 
 exit codes:
 {table}
@@ -96,8 +102,10 @@ _INIT: Final = """\
 usage: archkeel init [--root PATH] [--json]
 
 Draft the files of a first contract below the root: archkeel.toml, a contract of open decisions
-(every decision is a TODO) and its provenance page. For a Python project with one top-level
-package. It replaces no file and starts no scan.
+(every decision is a TODO) and its provenance page. It reads the folder layout only: the
+top-level Python packages (or the subpackages of the one package), the crates of a Cargo workspace,
+or the packages of a package.json workspace. It replaces no file and starts no scan. It prints text;
+--json prints JSON.
 
 exit codes:
   0  drafted
@@ -122,7 +130,7 @@ each run; this command line prints the result.
 commands:
   validate   Check the contract: PASS, FAIL or UNKNOWN. `archkeel validate --help` lists options.
   report     Print the same result as a report; with --output, write an HTML page.
-  init       Draft archkeel.toml and a first contract for a Python project.
+  init       Draft archkeel.toml and a first contract from the folder layout.
   skill      Install the agent skill: archkeel skill install {{claude,codex}}
 
 not available yet (exit 2): check (use release {release}); explore, guide, story, view, studio
