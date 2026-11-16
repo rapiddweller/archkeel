@@ -18,7 +18,8 @@ import sys
 from pathlib import Path
 
 import pytest
-from python_reexport_plants import PLANTS, Plant
+from python_reexport_plants import Plant
+from python_setattr_plants import ALL as PLANTS
 from test_cli_native_python_imports import RULE, project, rows, verdict
 
 FORBID = [
@@ -41,8 +42,8 @@ MOVED = {
     "globals-passed-to-an-external-call",
     "parameter-named-like-a-door-module",
     "literal-getattr-of-a-module-attribute",
-    "setattr-on-a-parameter",
-    "delattr-on-an-attribute-of-a-parameter",
+    "setattr-on-a-copied-local",
+    "setattr-on-a-deepcopy-of-the-copy-module",
 }
 # The plants where the core is stricter than main was: a frame namespace is a door now.
 STRICTER = {"frame-globals-write-at-import"}

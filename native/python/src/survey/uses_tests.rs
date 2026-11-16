@@ -10,6 +10,8 @@ use crate::survey::targets::tests::surveyed;
 
 #[path = "uses_construct_tests.rs"]
 mod construct;
+#[path = "uses_copy_local_tests.rs"]
+mod copy_local;
 #[path = "uses_typing_guard_tests.rs"]
 mod typing_guard;
 
@@ -401,55 +403,4 @@ fn writing_the_runtime_type_of_a_typing_alias_blocks_the_factory_proof() {
         ("src/app/writer.py", "from app.lib import VALUE\nuse(VALUE)\n"),
     ]);
     assert!(found.opaque_surface.contains("app.lib"));
-}
-
-/// AD-530, decision 5: a `setattr` or `delattr` on a local name of a function, or on an attribute
-/// of one, is no write to a module of the scan. Any other first argument keeps the escape.
-#[test]
-fn a_setattr_on_a_local_object_keeps_the_names_of_its_module_inert() {
-    for (source, escaped) in [
-        (
-            "def f(): pass\ndef g(obj, v):\n    setattr(obj, 'a', v)\n",
-            false,
-        ),
-        (
-            "def f(): pass\ndef g(obj):\n    delattr(obj.inner, 'a')\n",
-            false,
-        ),
-        (
-            "def f(): pass\ndef g():\n    o = make()\n    setattr(o['k'], 'a', 1)\n",
-            false,
-        ),
-        ("def f(): pass\nsetattr(module, 'f', other)\n", true),
-        (
-            "def f(): pass\ndef g():\n    setattr(make(), 'f', 1)\n",
-            true,
-        ),
-        (
-            "def f(): pass\ndef g(obj):\n    global lib\n    setattr(lib, 'f', 1)\n",
-            true,
-        ),
-        (
-            "def f(): pass\nimport sys\ndef g():\n    setattr(sys.modules[__name__], 'f', 1)\n",
-            true,
-        ),
-        (
-            "def f(): pass\ndef g():\n    def h():\n        setattr(shared, 'f', 1)\n",
-            true,
-        ),
-    ] {
-        let found = surveyed(&[
-            ("src/app/__init__.py", ""),
-            ("src/app/lib.py", source),
-            (
-                "src/app/writer.py",
-                "from app.lib import f\nuse(f)\nf.run = 1\n",
-            ),
-        ]);
-        assert_eq!(
-            found.opaque_surface.contains("app.lib"),
-            escaped,
-            "{source}"
-        );
-    }
 }

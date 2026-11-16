@@ -23,6 +23,8 @@ use ruff_text_size::{Ranged, TextSize};
 use super::binders::{
     bind_handler, bind_handler_and_pattern, bind_pattern, declared, import_bindings, Bind,
 };
+use super::bound_kind::{scalar_literal, value_kind, Kind};
+use super::copy_local::{self, CopyWrites};
 use super::value::{value_deps, Deps};
 use crate::module::plain_name;
 
@@ -33,26 +35,6 @@ struct Site {
     plain: bool,
     start: TextSize,
     kind: Kind,
-}
-
-/// What the statement of a site binds the name to.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum Kind {
-    /// A `def` or a `class`: the name is a function or a class, never a module.
-    Callable,
-    /// A display or literal makes a value, not a module.
-    Value,
-    /// A subscript of a builtin generic, if the module does not bind that builtin.
-    BuiltinGeneric(&'static str),
-    /// A call of a plain name: the value is an instance when that name is a bare class (AD-566).
-    Call,
-    /// An import: the name is whatever the imported name is.
-    Import,
-    /// A plain assignment of a name, or of a builtin call, that `value_kind` does not take as a
-    /// value (`value.rs`, AD-530): `Bound::deps` says what it reads.
-    Derived,
-    /// Any other binder: the value is unknown.
-    Other,
 }
 
 /// The module-scope binders of one module body.
@@ -69,9 +51,13 @@ pub(super) struct Bound {
     pub(super) getattr: bool,
     /// A namespace write through a runtime attribute helper can change a binding.
     pub(super) attribute_write: bool,
-    /// `setattr` or `delattr` on an object that is no local name of a function: it can write a
-    /// module of the scan (AD-530, decision 5).
+    /// `setattr` or `delattr` on an object that is no copied local (`copy_local.rs`): it can
+    /// write a module of the scan (AD-530, decision 5).
     pub(super) foreign_write: bool,
+    /// `setattr` or `delattr` on a copied local: no write to a module while the scan names no hook.
+    pub(super) copy_write: bool,
+    /// The module names a word of a copy hook (`copy_local::names_a_hook`).
+    pub(super) copy_hook: bool,
     /// The callee of `name = callee(...)`, for the names whose kind is `Kind::Call`.
     callees: HashMap<String, String>,
     /// The class statements of the module scope (AD-566).
@@ -92,6 +78,12 @@ impl Bound {
     pub(super) fn of(body: &[Stmt]) -> Self {
         let mut walk = Walk::default();
         walk.visit_body(body);
+        let (proven, any) = walk
+            .copy
+            .resolved(|name, start| walk.bound.sole(name, start));
+        walk.bound.foreign_write |= !proven;
+        walk.bound.copy_write = proven && any;
+        walk.bound.copy_hook = copy_local::names_a_hook(body);
         walk.bound
     }
 
@@ -191,6 +183,8 @@ struct Walk {
     depth: usize,
     /// The local names of each enclosing function, the innermost last (AD-530).
     locals: Vec<HashSet<String>>,
+    /// The `setattr` and `delattr` calls on copied locals (`copy_local.rs`).
+    copy: CopyWrites,
 }
 
 impl Walk {
@@ -217,20 +211,6 @@ impl Walk {
         };
         let star = node.names.iter().any(|alias| alias.name.as_str() == "*");
         self.bound.opaque |= star && self.scope == 0;
-    }
-
-    /// True when `expr` is a local name of a function, or an attribute or a subscript of one: a
-    /// write to it is no write to a module of the scan (AD-530, decision 5).
-    fn local(&self, expr: &Expr) -> bool {
-        match expr {
-            Expr::Name(name) => self
-                .locals
-                .iter()
-                .any(|names| names.contains(name.id.as_str())),
-            Expr::Attribute(node) => self.local(&node.value),
-            Expr::Subscript(node) => self.local(&node.value),
-            _ => false,
-        }
     }
 
     /// The body of a definition: the names of its statements bind in a scope of their own.
@@ -316,7 +296,9 @@ impl<'a> Visitor<'a> for Walk {
                 self.visit_parameters(&node.parameters);
                 node.returns.iter().for_each(|item| self.visit_expr(item));
                 self.locals.push(super::globals_locals::local_names(node));
+                self.copy.enter(node);
                 self.body_scope(&node.body);
+                self.copy.leave();
                 self.locals.pop();
             }
             Stmt::ClassDef(node) => {
@@ -333,6 +315,9 @@ impl<'a> Visitor<'a> for Walk {
             }
             Stmt::Import(_) | Stmt::ImportFrom(_) => {
                 self.star(stmt);
+                if self.scope == 0 {
+                    self.copy.import(stmt, start);
+                }
                 for name in import_bindings(stmt) {
                     self.site(&name, start, true, Kind::Import);
                 }
@@ -384,12 +369,13 @@ impl<'a> Visitor<'a> for Walk {
                 _ => None,
             };
             let helper = matches!(name, Some("setattr" | "delattr"));
-            let first = call.arguments.args.first();
             self.bound.attribute_write |= helper;
             // A method named `setattr` (`monkeypatch.setattr("app.lib.f", 1)`) can take a path.
             let builtin = matches!(&*call.func, Expr::Name(_));
-            let local = builtin && first.is_some_and(|expr| self.local(expr));
-            self.bound.foreign_write |= helper && !local;
+            let first = call.arguments.args.first();
+            let first = first.filter(|_| helper && builtin);
+            let copied = first.is_some_and(|expr| self.copy.write(expr, &self.locals));
+            self.bound.foreign_write |= helper && !copied;
         }
         if let Expr::Name(node) = expr {
             if matches!(node.ctx, ExprContext::Store | ExprContext::Del) {
@@ -408,87 +394,6 @@ impl<'a> Visitor<'a> for Walk {
     }
 
     bind_handler_and_pattern!();
-}
-
-fn scalar_literal(value: &Expr) -> bool {
-    matches!(
-        value,
-        Expr::NumberLiteral(_)
-            | Expr::StringLiteral(_)
-            | Expr::BytesLiteral(_)
-            | Expr::BooleanLiteral(_)
-            | Expr::NoneLiteral(_)
-    )
-}
-
-/// The builtin types whose call makes an instance of that type, never another object.
-const BUILTIN_VALUES: [&str; 10] = [
-    "list",
-    "dict",
-    "tuple",
-    "set",
-    "frozenset",
-    "int",
-    "str",
-    "float",
-    "bool",
-    "bytes",
-];
-
-/// True for arithmetic over number literals: its value is a number.
-fn number_arithmetic(value: &Expr) -> bool {
-    match value {
-        Expr::NumberLiteral(_) => true,
-        Expr::UnaryOp(node) => number_arithmetic(&node.operand),
-        Expr::BinOp(node) => number_arithmetic(&node.left) && number_arithmetic(&node.right),
-        _ => false,
-    }
-}
-
-/// The kind of the value of an assignment, and the callee name of a call of a plain name.
-fn value_kind(value: &Expr) -> (Kind, Option<&str>) {
-    if let Expr::Call(call) = value {
-        if let Expr::Name(name) = &*call.func {
-            let name = name.id.as_str();
-            if let Some(builtin) = BUILTIN_VALUES.iter().find(|builtin| **builtin == name) {
-                return (Kind::BuiltinGeneric(builtin), None);
-            }
-            return (Kind::Call, Some(name));
-        }
-    }
-    if number_arithmetic(value) && !matches!(value, Expr::NumberLiteral(_)) {
-        return (Kind::Value, None);
-    }
-    (plain_kind(value), None)
-}
-
-fn plain_kind(value: &Expr) -> Kind {
-    if let Expr::Subscript(subscript) = value {
-        if let Expr::Name(name) = &*subscript.value {
-            let builtin = match name.id.as_str() {
-                "list" => Some("list"),
-                "dict" => Some("dict"),
-                "tuple" => Some("tuple"),
-                "set" => Some("set"),
-                "frozenset" => Some("frozenset"),
-                "type" => Some("type"),
-                _ => None,
-            };
-            if let Some(builtin) = builtin {
-                return Kind::BuiltinGeneric(builtin);
-            }
-        }
-    }
-    if scalar_literal(value)
-        || matches!(
-            value,
-            Expr::Tuple(_) | Expr::List(_) | Expr::Dict(_) | Expr::Set(_) | Expr::FString(_)
-        )
-    {
-        Kind::Value
-    } else {
-        Kind::Other
-    }
 }
 
 impl<'a> Bind<'a> for Walk {

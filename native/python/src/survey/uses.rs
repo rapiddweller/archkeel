@@ -27,7 +27,8 @@ use archkeel_facts::{ImportFact, Record};
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, ExprAttribute, ExprContext, Stmt};
 
-use super::bound::{Bound, Kind};
+use super::bound::Bound;
+use super::bound_kind::Kind;
 use super::uses_scan::{class_patch, Scan};
 use crate::module::Module;
 
@@ -58,6 +59,7 @@ pub(super) fn escaped(modules: &[Module], imports: &[Record<ImportFact>]) -> Has
             .collect(),
         typing_values: HashSet::new(),
         class_patch: false,
+        copy_hook: false,
         bounds: modules
             .iter()
             .map(|module| (module.name.as_str(), Bound::of(&module.tree.body)))
@@ -95,6 +97,10 @@ pub(super) fn escaped(modules: &[Module], imports: &[Record<ImportFact>]) -> Has
             .push(kind);
     }
     scan.class_patch = class_patch(&scan, modules);
+    scan.copy_hook = scan.bounds.values().any(|bound| bound.copy_hook)
+        || ["copy", "copyreg"]
+            .iter()
+            .any(|name| scan.modules.contains(name));
     scan.typing_values = typing_values(modules, imports, &scan);
     for module in modules {
         let mut walk = Uses {

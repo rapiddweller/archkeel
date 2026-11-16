@@ -5,10 +5,8 @@
 **Context.** On FastAPI 0.163.0 release 4.0.1 gives PASS for 3 rules. The core gave UNKNOWN: 13
 `source_resolution_gap` held every rule and refused the `REQUIRES` scope proof. All 13 are
 stricter than 4.0.1, and none is a real hazard.
-- 8 `reexport_ambiguity` (`from fastapi import params`): `__init__` binds none of the names, but
-  `fastapi` and `fastapi._compat` were *written* (`uses.rs`, AD-504). A bare use of an imported
-  name of unknown kind escapes its package. Examples: `from fastapi import __version__` passed as a
-  value, and `Undefined = PydanticUndefined`.
+- 8 `reexport_ambiguity` (`from fastapi import params`): `fastapi` and `fastapi._compat` were
+  *written* (`uses.rs`, AD-504): a bare use of an imported name of unknown kind escapes its package.
 - 3 `__globals__` (AD-450): `getattr(fn, "__globals__", {})` fed a lookup and a type evaluation.
 - 1 `code`: a parameter named like the door module `code`. 1 `types`: `getattr(types, "UnionType")`.
 
@@ -34,14 +32,18 @@ stricter than 4.0.1, and none is a real hazard.
 4. Both candidate edges are not written for a really ambiguous name. A possible edge that does
    not exist gives a false FAIL for `forbidden_dependency` and `complete_requires`; the model has
    no grade for it. A shadowed, open or written package keeps its gap.
-
-5. A `setattr` or `delattr` call whose first argument is a local name of a function, or an
-   attribute or a subscript of one, does not stop a name of its module from being inert
-   (`bound.rs`, `foreign_write`). Any other first argument (a global name, a call result) and each
-   method named `setattr` (`monkeypatch.setattr("app.lib.f", 1)`) keep it. The doors list gains
-   `inspect.getmodule`, `gc.get_objects`, `gc.get_referrers`, `gc.get_referents` and the
-   attribute `f_globals`: they hand a module object or a module namespace to a local. A read of
-   `f_globals` follows the rules of `__globals__` (decision 2).
+5. `setattr`/`delattr` writes no module of the scan when its first argument is a plain name that
+   the innermost function, with its nested scopes, binds once, in its own scope, by `copy(arg)` or
+   `deepcopy(arg)` (one positional argument) of the one plain module-scope import of `copy`
+   (`copy_local.rs`), and no module of the scan is `copy`, `copyreg` or names a hook word
+   (`__copy__`, `__deepcopy__`, `__reduce__`, `__reduce_ex__`, `__new__`, `copyreg`, the dispatch
+   tables of `copy`, `f_locals`, `settrace`, `setprofile`). A parameter, an attribute or subscript
+   of a local, a second binding, a global, a call result and a method `setattr` keep the gap.
+   Truth (CPython 3.12): a copy of a module raises `TypeError`; only a hook, a `__new__`, a
+   `copyreg` reductor or the memo of `deepcopy(x, memo)` gives a module; a copy keeps attributes;
+   a frame write can rebind a local. A hook built at run time gives a module of the scan only by a
+   use of it as a value: an escape (decision 1). The doors gain `inspect.getmodule`, the three `gc`
+   object walkers and `f_globals`; a read of `f_globals` follows decision 2.
 
 **Proof.** A bare use matters only if the value can be a module of the scan. Constants, scalars
 and callables are not modules, and a container holds a module only through a name that is not
@@ -49,23 +51,19 @@ inert, or a call. A module that a container names is already a bare use of that 
 module. Release 4.0.1 counts no edge for any of the 13 forms: its edge for `from p import x` is
 the submodule unless `__init__` binds `x`, and it reads `__globals__` as nothing.
 
-**Where the core differs from 4.0.1.** The core stays stricter: a package that another module
-writes, a name that `__init__` rebinds, deletes or binds conditionally, and a dict that is
-iterated or passed to an unknown callee keep their gap, where 4.0.1 gives PASS.
+**Where the core differs from 4.0.1.** Stricter: a package that another module writes, a name
+that `__init__` rebinds, deletes or binds conditionally, and a dict that is iterated or passed to
+an unknown callee keep their gap, where 4.0.1 gives PASS.
 
-**Limits.** A module object of the scan reaches a local name only by a binding (an escape), by a
-door or by code outside the scan that the doors do not list.  A library function that returns the dict, and project code that then reads
-`__builtins__` from it by a computed key, is not seen (the survey does not read library code). A
-value with an external origin may carry a scan module only through code outside the scan.
+**Limits.** The survey reads no library code: a library function that returns the globals dict,
+read by a computed key of the project, is not seen.
 
 **Premise.** The Python collector states one assumption with each verdict (`Facts.scope_premise`,
 AD-540): "code outside the scan roots hands in no module object of the scan". Decisions 1 and 5
 rest on it. A PASS of a Python scan without it is refused by the frame reader.
 
-**Results.** On main `fd4ec13f4` against this change, gaps before to after: FastAPI 0.163.0 6 to 0
-and UNKNOWN 0/0/3 to PASS 3/0/0 (as release 4.0.1), pydantic v2.14.3 171 to 163 (a frame
-namespace and `inspect.getmodule` are doors now), DATAMIMIC CE 46 to 46.
+**Results.** With decision 5 (2026-11-16): FastAPI 0.163.0 0 gaps, PASS 3/0/0 as 4.0.1 (main: 2
+gaps of `copy_field_info`); pydantic v2.14.3 163. DATAMIMIC CE is not measured again.
 
-**Tests.** `tests/test_cli_native_python_reexport.py` (33 plants: the row of the core before and
-after, the row of 4.0.1, and a run under CPython), and the Rust tests `uses_tests.rs`,
-`globals_read_tests.rs`.
+**Tests.** `tests/test_cli_native_python_reexport.py` (plants of `python_reexport_plants.py`
+and `python_setattr_plants.py`), `uses_*tests.rs`, `globals_read_tests.rs`.
