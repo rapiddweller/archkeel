@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-628 | [Comprehension targets have their own scope](ad-628-comprehension-targets-have-their-own-scope.md) |
 | AD-626 | [`init` drafts open decisions from the folder layout and decides nothing](ad-626-init-drafts-open-decisions-from-the-folder-layout-and-decides-nothing.md) |
 | AD-624 | [The system report keeps part ownership and unchecked interfaces](ad-624-the-system-report-keeps-part-ownership-and-unchecked-interfaces.md) |
 | AD-622 | [A binary target is a consumer, and an unused entry leaves public](ad-622-a-binary-target-is-a-consumer-and-an-unused-entry-leaves-public.md) |

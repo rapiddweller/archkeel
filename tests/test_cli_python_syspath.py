@@ -49,6 +49,21 @@ def test_the_form_of_k_is_no_gap_and_each_rule_passes(release_core: Path, tmp_pa
     assert (result["status"], result["exit_code"]) == ("PASS", 0)
 
 
+def test_comprehension_local_has_no_import_gap_but_site_module_does(
+    release_core: Path, tmp_path: Path
+) -> None:
+    """The target of a comprehension is not the standard library module of the same name."""
+    local = Plant("local", "result = {site.id: site for site in sites}\n" * 13)
+    result = verdict(release_core, tree(tmp_path / "local", local))
+    assert "import_system_change" not in json.dumps(result)
+    assert rows(result) == dict.fromkeys(NAMES, "PASS")
+
+    module = Plant("module", "import site\nsite.addsitedir('x')\n")
+    result = verdict(release_core, tree(tmp_path / "module", module))
+    assert "import_system_change" in json.dumps(result)
+    assert result["status"] == "UNKNOWN"
+
+
 @pytest.mark.parametrize("plant", PLANTS, ids=[plant.name for plant in PLANTS])
 def test_each_other_write_keeps_the_gap_of_the_whole_run(
     release_core: Path, tmp_path: Path, plant: Plant
