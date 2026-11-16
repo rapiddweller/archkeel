@@ -44,11 +44,11 @@ The first verdict is `UNKNOWN`. That is correct: the draft decided nothing. The 
 ```text
 validate: UNKNOWN -> exit 2 (0 of 2 rules cannot be decided)
 Parts that are not decided (8):
-  4 x responsibility missing
+  4 x a component without a written responsibility
       architecture-contract.json/components/0/responsibilities billing: The architect-decided component has no substantive responsibility.
-  2 x rationale placeholder
+  2 x a rationale that is still a placeholder
       architecture-contract.json/rules/0/rationale ASSIGNMENT-COMPLETE: The rationale is a placeholder.
-  1 x decision open
+  1 x an open decision in the contract (a TODO)
       architecture-contract.json/rules 12 open dependency decisions: Component dependency directions remain undecided.
   1 x graph drift
       ... found and not drawn: billing->orders, orders->catalog.

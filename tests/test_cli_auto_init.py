@@ -21,7 +21,7 @@ GIT = ["git", "-c", "user.email=a@b", "-c", "user.name=a"]
 CRATE = '[package]\nname = "{}"\nversion = "0.1.0"\nedition = "2021"\n'
 IMPORT = 'import {a} from "../../api-core/src/index";\nexport const w = a;\n'
 CONFIG = '{"compilerOptions": {"strict": true, "noEmit": true, "moduleResolution": "Node"}, '
-OPEN = "responsibility missing"
+OPEN = "a component without a written responsibility"
 
 
 def commit(root: Path) -> Path:
