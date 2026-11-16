@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-// The second UX test (AD-640): a capped list names both numbers, a group says why it is one, a
+// The second UX test (AD-652): a capped list names both numbers, a group says why it is one, a
 // drafted text is shown as not written yet, an empty Target says so, and NEXT names the jobs.
 
 use super::*;
