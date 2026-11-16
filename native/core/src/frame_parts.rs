@@ -13,6 +13,8 @@ use archkeel_report::Named;
 use archkeel_store::Ingested;
 use serde::Serialize;
 
+use crate::section_rows::SectionRow;
+
 /// The code digest of this build: the digest of each native collector of the same source. It is
 /// public text, so it detects a stale build and proves no producer (AD-390).
 pub(crate) const CODE_DIGEST: &str = env!("ARCHKEEL_CODE_DIGEST");
@@ -43,25 +45,8 @@ pub(crate) struct Parts {
     pub(super) baseline: Option<crate::baseline_frame::Part>,
 }
 
-/// One row of a section: the envelope that every row has. `data` is the payload of the row kind,
-/// which the harness compares with the rows of the reference engine; it is the one open leaf.
-#[derive(Serialize, serde::Deserialize, schemars::JsonSchema)]
-pub(crate) struct SectionRow {
-    id: String,
-    evidence_class: String,
-    area: String,
-    kind: String,
-    title: String,
-    subjects: Vec<String>,
-    evidence_ids: Vec<String>,
-    rule_ids: Vec<String>,
-    fact_ids: Vec<String>,
-    provenance: Vec<String>,
-    data: serde_json::Value,
-}
-
 /// The rows of each section, as rows of the envelope or an error that names the bad row.
-pub(super) fn typed_rows(
+pub(crate) fn typed_rows(
     rows: BTreeMap<&'static str, Vec<serde_json::Value>>,
 ) -> Result<BTreeMap<&'static str, Vec<SectionRow>>, String> {
     rows.into_iter()

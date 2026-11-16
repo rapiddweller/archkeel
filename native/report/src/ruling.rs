@@ -84,6 +84,7 @@ impl RuleReasons {
 /// The decided head of the engine frame. The fields are private: only `rule` makes one.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 pub struct Ruling {
+    #[schemars(extend("const" = "archkeel-core-frame-1"))]
     protocol: &'static str,
     #[serde(skip)]
     html: bool,

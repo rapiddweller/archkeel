@@ -272,6 +272,10 @@
         {
           "component": "json",
           "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "schema",
+          "rationale": "The explain limits are read from the one schema of the frame (AD-600)."
         }
       ],
       "decided_by": "architect",
@@ -439,7 +443,8 @@
       ],
       "public": [
         "archkeel.cli.core_schema:check_frame",
-        "archkeel.cli.core_schema:check_refusal"
+        "archkeel.cli.core_schema:check_refusal",
+        "archkeel.cli.core_schema:budget"
       ],
       "decided_by": "architect"
     },

@@ -221,3 +221,15 @@ def _array(
         if found is not None:
             return found
     return None
+
+
+def budget(name: str) -> int:
+    """One list limit of the explain part, as the schema states it."""
+    node: object = _schema(SCHEMA_NAME)
+    for key in ("$defs", "Explain", "properties", "budgets", "properties", name, "const"):
+        if not isinstance(node, dict) or key not in node:
+            raise CoreError(f"the frame schema has no explain budget {name}")
+        node = node[key]
+    if isinstance(node, bool) or not isinstance(node, int):
+        raise CoreError(f"the frame schema has an explain budget {name} that is no count")
+    return node
