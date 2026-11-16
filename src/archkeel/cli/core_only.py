@@ -25,6 +25,7 @@ from .core_baseline import as_json as baseline_json
 from .core_baseline import lines as baseline_lines
 from .core_binary import CoreBinaryNotFound, confirm, locate_core
 from .core_binding import resolve_root
+from .core_evidence import call_lines
 from .core_frame import CoreCommand as Command
 from .core_frame import (
     CoreError,
@@ -314,6 +315,8 @@ def render_text(command: Command, frame: CoreFrame) -> None:
             f"{len(topology.edges)}/{topology.total['edges']} edges; "
             f"complete: {topology.complete}; truncated: {topology.truncated}"
         )
+    for line in call_lines(frame.measures):
+        print(line)
     if frame.baseline is not None:
         for line in baseline_lines(frame.baseline):
             print(line)

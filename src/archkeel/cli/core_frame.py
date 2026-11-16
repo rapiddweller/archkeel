@@ -202,6 +202,8 @@ class CoreFrame:
     explain: Explain | None = None
     html: str | None = None
     baseline: BaselineResult | None = None
+    # The call-resolution counts of the core, or `None` when it did not measure (#1327).
+    measures: Mapping[str, int] | None = None
     # AD-540: the one assumption that the collector states for its proofs, when it states one.
     premise: str | None = None
 
@@ -433,7 +435,7 @@ def read_frame(
     }
     _check_rows(require_protocol, unknown_kinds, explained, violations, details)
     as_object(frame["sections"], "sections")
-    check_measures(frame.get("measures"))
+    measures = check_measures(frame.get("measures"))
     gaps, missing, derived = _gaps(frame, scan)
     if request is not None and derived is not None:
         bind_request(frame, request, derived, started_ns)
@@ -476,5 +478,6 @@ def read_frame(
         explain=read_explain(frame["explain"], violations) if "explain" in frame else None,
         html=read_html(frame, status, request),
         baseline=read_baseline(frame["baseline"], status) if "baseline" in frame else None,
+        measures=measures,
         premise=_premise(frame, scan, status),
     )

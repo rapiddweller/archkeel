@@ -401,3 +401,14 @@ fn a_rule_row_that_the_baseline_accepts_says_accepted_and_the_others_do_not() {
     assert!(page.contains(">A</span> <span class=\"caption rp-acc\">(accepted"));
     assert!(!document(&unknown_frame()).contains("still UNKNOWN"));
 }
+
+#[test]
+fn the_page_shows_the_call_resolution_and_what_an_unresolved_call_does() {
+    let mut frame = unknown_frame();
+    frame["measures"] = json!({"calls_total": 6399, "calls_resolved": 370, "calls_partial": 0,
+        "calls_builtin": 100, "calls_external": 200, "calls_unresolved": 5729});
+    let page = document(&frame);
+    assert!(page.contains("Calls: 370 of 6399 resolved (5.8%)"));
+    assert!(page.contains("An unresolved call has no proven target and is no edge."));
+    assert!(!document(&unknown_frame()).contains("Calls:"));
+}

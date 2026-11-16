@@ -159,8 +159,8 @@ def read_baseline(value: object, status: str) -> BaselineResult:
 def lines(result: BaselineResult) -> Sequence[str]:
     """The text lines of the part. An accepted UNKNOWN keeps its word: it says "accepted"."""
     out = [
-        f"Baseline: {result.state}; {result.accepted_entries} entries "
-        f"({result.accepted_unknowns} UNKNOWN items, an entry has a count)"
+        f"Baseline: {result.state}; {result.accepted_entries} accepted entries match this run "
+        f"({result.accepted_unknowns} UNKNOWN items; one entry can stand for several items)"
     ]
     if result.accepted_unknowns:
         out.append(
@@ -168,11 +168,13 @@ def lines(result: BaselineResult) -> Sequence[str]:
         )
     for side, rows in (("new", result.new), ("stale", result.gone)):
         for row in rows:
+            label = row.what if row.kind == row.what else f"{row.what} {row.kind}"
+            note = f": {row.reason}" if row.reason else ""
             out.append(
-                f"Baseline {side}: {row.what}: {row.kind}: {row.subject}: {row.reason} "
-                f"(run {row.run}, file {row.file})"
+                f"Baseline {side} {label}: {row.subject}{note} "
+                f"(this run has {row.run}, the file lists {row.file})"
             )
-    out.extend(f"Baseline gap: {gap.kind}: {gap.subject}: {gap.reason}" for gap in result.gaps)
+    out.extend(f"Baseline gap {gap.kind}: {gap.subject}: {gap.reason}" for gap in result.gaps)
     if result.new or result.gone:
         out.append("Action: Fix the new item, or rewrite the file with --write-baseline.")
     return out
