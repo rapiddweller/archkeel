@@ -41,7 +41,7 @@
         "archkeel.cli.core_only"
       ],
       "responsibilities": [
-        "Parse the arguments, send the scan identity, print the frame as text or JSON and map the status to the exit code."
+        "Run one command line: send the scan identity, print the frame as text or JSON and map the status to the exit code."
       ],
       "forbidden_responsibilities": [
         "Interpret a rule row, read a contract or source, or decide a status."
@@ -81,12 +81,49 @@
         {
           "component": "baseline",
           "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "arguments",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
         }
       ],
       "decided_by": "architect",
       "public": [
         "archkeel.cli.core_only:run"
       ]
+    },
+    {
+      "id": "SHELL-ARGUMENTS",
+      "label": "arguments",
+      "role": "component",
+      "layer": "process",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.core_arguments"
+      ],
+      "responsibilities": [
+        "Read the command line into typed options: the help text, the options of each served command, and the refusal by name of each command or option of the deleted Python shell."
+      ],
+      "forbidden_responsibilities": [
+        "Start a process, find the core binary, read a frame or decide a status."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "frame",
+          "rationale": "The command and the check words that the options name are the words of the frame (see docs/architecture/shell.md)."
+        }
+      ],
+      "public": [
+        "archkeel.cli.core_arguments:HELP",
+        "archkeel.cli.core_arguments:NotOnThisLine",
+        "archkeel.cli.core_arguments:Options",
+        "archkeel.cli.core_arguments:command_of",
+        "archkeel.cli.core_arguments:parse"
+      ],
+      "decided_by": "architect"
     },
     {
       "id": "SHELL-LOCATE",
@@ -192,6 +229,10 @@
         {
           "component": "baseline",
           "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "schema",
+          "rationale": "The frame is read against the one schema of the core (AD-596)."
         }
       ],
       "decided_by": "architect",
@@ -242,7 +283,10 @@
         "archkeel.cli.core_explain:read_explain",
         "archkeel.cli.core_topology:Topology",
         "archkeel.cli.core_topology:frame_topology",
-        "archkeel.cli.core_topology:require_topology"
+        "archkeel.cli.core_topology:require_topology",
+        "archkeel.cli.core_evidence:read_details",
+        "archkeel.cli.core_evidence:read_locations",
+        "archkeel.cli.core_evidence:read_collection_gaps"
       ]
     },
     {
@@ -361,8 +405,43 @@
         "archkeel.cli.core_json:CoreError",
         "archkeel.cli.core_json:Gap",
         "archkeel.cli.core_json:GapKind",
-        "archkeel.cli.core_json:RequestMismatch"
+        "archkeel.cli.core_json:RequestMismatch",
+        "archkeel.cli.core_json:as_object",
+        "archkeel.cli.core_json:as_text",
+        "archkeel.cli.core_json:as_texts",
+        "archkeel.cli.core_json:as_count",
+        "archkeel.cli.core_json:as_fields",
+        "archkeel.cli.core_json:check_measures"
       ]
+    },
+    {
+      "id": "SHELL-SCHEMA",
+      "label": "schema",
+      "role": "component",
+      "layer": "foundation",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.core_schema"
+      ],
+      "responsibilities": [
+        "Check a frame against the one JSON schema that the core generates from its types (`schema/archkeel-core-frame-1.schema.json`). The shell keeps no list of frame keys."
+      ],
+      "forbidden_responsibilities": [
+        "Decide a verdict, read a frame field for its meaning, or start a process."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "json",
+          "rationale": "The error type of the shell: the schema part refuses with it."
+        }
+      ],
+      "public": [
+        "archkeel.cli.core_schema:check_frame"
+      ],
+      "decided_by": "architect"
     },
     {
       "id": "SHELL-SKILL",
@@ -484,9 +563,9 @@
       "kind": "external_dependency_scope",
       "dependency": "argparse",
       "allowed_sources": [
-        "archkeel.cli.core_only"
+        "archkeel.cli.core_arguments"
       ],
-      "rationale": "Only the commands read the command line.",
+      "rationale": "Only the arguments part reads the command line.",
       "provenance": [
         "docs/architecture/decisions/ad-432-the-rust-core-is-the-only-decision-path.md"
       ],

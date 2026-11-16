@@ -28,6 +28,8 @@ use archkeel_report::Named;
 
 #[path = "frame_parts.rs"]
 mod frame_parts;
+#[cfg(test)]
+pub(crate) use frame_parts::Parts as FrameParts;
 pub(crate) use frame_parts::{refused_scan, Answered, CODE_DIGEST};
 use frame_parts::{ContractCheck, Parts, ReplyCheck, SelfTest, UnsupportedParts, ENGINE};
 

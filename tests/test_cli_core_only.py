@@ -12,6 +12,9 @@ from pathlib import Path
 
 import pytest
 
+from archkeel.cli import core_arguments, core_only
+from archkeel.cli.core_frame import RefusalKind, Status
+
 ROOT = Path(__file__).resolve().parents[1]
 GUARD = """
 import importlib.abc, sys
@@ -104,3 +107,90 @@ def test_check_names_each_check_that_is_not_ported() -> None:
     for name in ("ratchets", "guardrails", "selected changes", "Git order", "host publication"):
         assert name in message
     assert "#1103" in message
+
+
+@pytest.mark.parametrize("kind", list(core_arguments.CheckKind))
+@pytest.mark.parametrize(
+    "flags",
+    [
+        [],
+        [
+            "--baseline",
+            "b",
+            "--expectation-commit",
+            "e",
+            "--head",
+            "h",
+            "--expected",
+            "expectation.json",
+            "--expected-digest",
+            "digest",
+            "--branch",
+            "origin/feature",
+            "--accepted-branch",
+            "origin/main",
+            "--host-records",
+            "host.json",
+        ],
+    ],
+)
+def test_each_mandatory_merge_check_is_named_without_a_scan(
+    kind: core_arguments.CheckKind,
+    flags: list[str],
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def no_binary() -> Path:
+        pytest.fail("a refused check must not start the core")
+
+    monkeypatch.setattr(core_only, "locate_core", no_binary)
+    assert core_only.run(["check", "--json", *flags]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert kind in result["refusal"]["message"] and "#1103" in result["refusal"]["message"]
+
+
+@pytest.mark.parametrize(
+    ("command", "option"),
+    [
+        (command, option)
+        for command in ("validate", "report")
+        for option in sorted(core_arguments.REMOVED_OPTIONS)
+        if (command, option) != ("report", "--output")
+    ],
+)
+def test_each_option_of_the_release_line_refuses_by_name(
+    command: str,
+    option: str,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def no_binary() -> Path:
+        pytest.fail("a refused option must not start the core")
+
+    monkeypatch.setattr(core_only, "locate_core", no_binary)
+    for flags in ([option], [option, "value"], [f"{option}=value"]):
+        assert core_only.run([command, "--json", *flags]) == 2
+        refusal = json.loads(capsys.readouterr().out)["refusal"]
+        assert refusal["kind"] == RefusalKind.NOT_ON_THIS_LINE
+        assert f"{command} {option} is not available" in refusal["message"]
+        released = option not in core_arguments.UNRELEASED_OPTIONS
+        assert ("use release 4.0.1" in refusal["message"]) == released
+        assert ("no release has it" in refusal["message"]) != released
+        assert "#880" in refusal["message"]
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [["nothing"], ["validate", "--unknown"], ["validate", "extra"], ["--json", "validate"]],
+)
+def test_an_unknown_command_or_argument_is_invalid_input(
+    arguments: list[str], capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def no_binary() -> Path:
+        pytest.fail("an invalid command line must not start the core")
+
+    monkeypatch.setattr(core_only, "locate_core", no_binary)
+    assert core_only.run([*arguments, "--json"]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == Status.UNKNOWN
+    assert result["refusal"]["kind"] == RefusalKind.INVALID_INPUT

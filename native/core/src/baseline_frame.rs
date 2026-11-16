@@ -36,7 +36,7 @@ pub(crate) struct Input {
 }
 
 /// The part of the frame. `file` holds the bytes to write, as text.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, schemars::JsonSchema)]
 pub(crate) struct Part {
     #[serde(flatten)]
     compared: Compared,
@@ -45,7 +45,7 @@ pub(crate) struct Part {
 }
 
 /// One gap of the result, with the word that the shell reads (AD-546).
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, schemars::JsonSchema)]
 pub(crate) struct GapRow {
     kind: &'static str,
     subject: String,

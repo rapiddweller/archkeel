@@ -13,7 +13,7 @@ import tomllib
 from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
 
-from .core_json import RequestMismatch, _object, _text, _texts
+from .core_json import RequestMismatch, as_object, as_text, as_texts
 
 _BYTES = 64 << 20
 
@@ -38,27 +38,27 @@ def bind_request(
     frame: Mapping[str, object], request: Mapping[str, object], derived: str, started_ns: int | None
 ) -> None:
     """Check identity, not verdicts. Only the located core proves the rule rows."""
-    root = resolve_root(Path(_text(request["root"], "request.root")))
+    root = resolve_root(Path(as_text(request["root"], "request.root")))
     if request.get("discover_root") is True:
         root = next((path for path in (root, *root.parents) if (path / ".git").exists()), root)
-    collected = _object(json.loads(derived), "collect.request")
-    snapshot = _object(collected.get("snapshot"), "collect.request.snapshot")
-    if _text(snapshot.get("root"), "snapshot.root") != str(root):
+    collected = as_object(json.loads(derived), "collect.request")
+    snapshot = as_object(collected.get("snapshot"), "collect.request.snapshot")
+    if as_text(snapshot.get("root"), "snapshot.root") != str(root):
         raise RequestMismatch("the core frame answers another root")
     head, dirty = request.get("git_head"), request.get("dirty")
     if not isinstance(head, str) or snapshot.get("git_head") != head:
         raise RequestMismatch("the core frame answers another commit than the shell read")
     if not isinstance(dirty, bool) or snapshot.get("dirty") is not dirty:
         raise RequestMismatch("the core frame answers another work tree state than the shell read")
-    config = resolve_root(root / _text(request["config"], "request.config"), strict=True)
+    config = resolve_root(root / as_text(request["config"], "request.config"), strict=True)
     if not config.is_relative_to(root):
         raise RequestMismatch("the configuration leaves the requested root")
     with config.open("rb") as stream:
         raw = stream.read((1 << 20) + 1)
     if len(raw) > 1 << 20:
         raise RequestMismatch("the configuration exceeds the core byte limit")
-    scan = _object(tomllib.loads(raw.decode("utf-8-sig")).get("scan"), "scan")
-    reference = _text(scan.get("contract"), "scan.contract")
+    scan = as_object(tomllib.loads(raw.decode("utf-8-sig")).get("scan"), "scan")
+    reference = as_text(scan.get("contract"), "scan.contract")
     contract = resolve_root(root / reference, strict=True)
     if not contract.is_relative_to(root):
         raise RequestMismatch("the contract leaves the requested root")
@@ -68,11 +68,11 @@ def bind_request(
         raise RequestMismatch("the contract exceeds the core byte limit")
     if frame.get("contract_digest") != hashlib.sha256(payload).hexdigest():
         raise RequestMismatch("the core frame contract digest differs from the requested contract")
-    test = _object(frame["self_test"], "self_test")
-    collect = _object(test["collect"], "self_test.collect")
+    test = as_object(frame["self_test"], "self_test")
+    collect = as_object(test["collect"], "self_test.collect")
     if "contract_files" not in collect:
         raise RequestMismatch("the core frame has no contract file digests")
-    files = _texts(collect.get("contract_files"), "self_test.collect.contract_files")
+    files = as_texts(collect.get("contract_files"), "self_test.collect.contract_files")
     if files.get(reference) != frame.get("contract_digest") or len(files) > 1025:
         raise RequestMismatch(
             "the core frame contract file list differs from the requested contract"
