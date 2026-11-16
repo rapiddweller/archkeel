@@ -426,10 +426,9 @@
       "label": "display",
       "role": "component",
       "layer": "decoding",
-      "packages": [
-        "archkeel.cli.core_doors"
-      ],
+      "packages": [],
       "exact_modules": [
+        "archkeel.cli.core_doors",
         "archkeel.cli.core_evidence",
         "archkeel.cli.core_explain",
         "archkeel.cli.core_topology"

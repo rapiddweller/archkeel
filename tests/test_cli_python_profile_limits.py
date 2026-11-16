@@ -254,3 +254,34 @@ def test_dunder_dict_is_proven_or_left_unknown(
         frame = result["frame"]
         evidence = frame["details"]["NO-DICT"][0]["evidence"]
         assert frame["locations"][evidence[0]] == {"path": "src/app/client/page.py", "line": 1}
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("value = vars(item)\n", "FAIL"),
+        ("value = 1\n", "PASS"),
+        ("f = vars\nvalue = f(item)\n", "UNKNOWN"),
+        ("f = vars\n", "UNKNOWN"),
+        ("vars = other\nvalue = vars(item)\n", "UNKNOWN"),
+        ("value = f(item)\n", "UNKNOWN"),
+        ("value = vars(item)\nother = f(item)\n", "FAIL"),
+    ],
+)
+def test_vars_call_is_proven_or_left_unknown(
+    release_core: Path, tmp_path: Path, source: str, expected: str
+) -> None:
+    rule = {**CONSTRUCT, "id": "NO-VARS", "constructs": ["vars"]}
+    result = scanned(
+        release_core, tmp_path, Plant({"src/app/client/page.py": source}, [rule], [], {}, {})
+    )
+    assert rows(result)["NO-VARS"] == expected, result["frame"]["explained"]
+    if expected == "UNKNOWN":
+        assert (
+            "construct absence is not completely observed"
+            in result["frame"]["explained"]["NO-VARS"]
+        )
+    if expected == "FAIL":
+        frame = result["frame"]
+        evidence = frame["details"]["NO-VARS"][0]["evidence"]
+        assert frame["locations"][evidence[0]] == {"path": "src/app/client/page.py", "line": 1}

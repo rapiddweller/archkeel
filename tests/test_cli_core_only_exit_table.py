@@ -84,6 +84,9 @@ def test_the_default_path_gives_the_exit_code_of_its_table(
         document
     )
     assert not names or any(names in claim for claim in claims(document)), claims(document)
-    # Code 0 needs a PASS for each rule; no other line of the table may hold only PASS rows.
+    # Code 0 needs a PASS for each rule; no other line of the table may hold only PASS rows. A rule
+    # without a decision has no row: the frame names it in `unsupported.rules` (AD-564).
     rows = set(statuses(document).values())
+    if document["frame"].get("unsupported", {}).get("rules"):
+        rows.add("UNKNOWN")
     assert (rows == {"PASS"}) == (code == 0), statuses(document)
