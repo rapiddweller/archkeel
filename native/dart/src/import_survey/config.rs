@@ -40,11 +40,11 @@ pub(crate) fn config_gaps(
         .flatten();
     let Some(raw) = raw else {
         let message = "the package configuration is a link or cannot be read";
-        gaps.named(GapName::DartPackageConfig, Place::File(CONFIG), message);
+        gaps.named(GapName::PackageConfig, Place::File(CONFIG), message);
         return None;
     };
     if let Err(message) = check(&raw, root, own) {
-        gaps.named(GapName::DartPackageConfig, Place::File(CONFIG), &message);
+        gaps.named(GapName::PackageConfig, Place::File(CONFIG), &message);
     }
     Some(Input {
         digest: sha256_hex(&raw),
