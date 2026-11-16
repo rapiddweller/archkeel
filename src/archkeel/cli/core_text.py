@@ -18,7 +18,8 @@ from .core_evidence import call_lines
 from .core_exit import word_of
 from .core_frame import CoreCommand as Command
 from .core_frame import CoreFrame, GapKind, RuleStatus, Status
-from .core_words import kind_label, plain
+from .core_json import Gap
+from .core_words import contract_fix, kind_label, plain
 
 SHOWN = 3
 #: A named part that is an error of the input, not a limit of the scan: it is printed first.
@@ -69,6 +70,8 @@ def reason_of(frame: CoreFrame, code: int) -> str:
         return "nothing differs from the baseline"
     if refused:
         return "the scan did not run"
+    if not frame.rules and any(gap.kind in PROBLEM_KINDS for gap in frame.gaps):
+        return "no rule could be read: see the problem below"
     if word_of(code) != frame.status:
         return f"the run is {frame.status}; the exit is {code} because a file could not be written"
     if frame.status is Status.PASS:
@@ -167,6 +170,15 @@ def _named_lines(frame: CoreFrame, show_all: bool) -> tuple[list[str], list[tupl
     return lines, [(kind_label(kind), len(rows)) for kind, rows in ranked]
 
 
+def _problem(gap: Gap, files: Sequence[str]) -> list[str]:
+    """One error of the input: the file, what the core read, and what to write instead."""
+    reason = plain(gap.reason).removeprefix("refused: ")
+    if gap.kind is not GapKind.CONTRACT_REFUSED:
+        return [f"Problem: {kind_label(gap.kind)}: {reason}"]
+    where = files[0] if len(files) == 1 else "the contract"
+    return [f"Problem: {where}: {reason}", f"Fix: {contract_fix(reason)}"]
+
+
 def render(
     command: Command,
     frame: CoreFrame,
@@ -175,16 +187,20 @@ def render(
     problems: Sequence[str] = (),
     show_all: bool = False,
     system: Mapping[str, object] | None = None,
+    contract_files: Sequence[str] = (),
 ) -> list[str]:
     """The text of one run, in reading order. `problems` are the errors of the command."""
     gap_lines, ranking = _group_lines(frame, show_all)
     named_lines, named_ranking = _named_lines(frame, show_all)
     ranking = sorted([*ranking, *named_ranking], key=lambda item: -item[1])
-    errors = [
-        f"Problem: {kind_label(gap.kind)}: {plain(gap.reason)}"
-        for gap in frame.gaps
-        if gap.kind in PROBLEM_KINDS
-    ]
+    errors = list(
+        dict.fromkeys(
+            line
+            for gap in frame.gaps
+            if gap.kind in PROBLEM_KINDS
+            for line in _problem(gap, contract_files)
+        )
+    )
     out = [header(command, frame, code), *errors, *problems]
     if errors:
         ranking = [("the problem above", len(errors)), *ranking]

@@ -204,6 +204,13 @@ def _located(options: Options) -> Options:
     return located
 
 
+def _contract_files(document: Mapping[str, object]) -> list[str]:
+    """The contract files that the scan read, as the core named them."""
+    collect = (document.get("self_test") or {}).get("collect")  # type: ignore[attr-defined]
+    files = collect.get("contract_files") if isinstance(collect, dict) else None
+    return sorted(files) if isinstance(files, dict) else []
+
+
 def _print_text(
     options: Options,
     frame: CoreFrame,
@@ -234,6 +241,7 @@ def _print_text(
             problems=problems,
             show_all=options.all,
             system=system if isinstance(system, dict) else None,
+            contract_files=_contract_files(document),
         )
         print("\n".join(lines))
         if options.output is not None and file_error is None:
@@ -286,7 +294,7 @@ def _decide(options: Options, as_json: bool) -> int:
     collected = next((gap for gap in frame.gaps if gap.kind is GapKind.COLLECT), None)
     if collected is not None and _NO_CONFIG in collected.reason:
         # The core names the cause; the way forward is the shell's to name (#1314).
-        collected = replace(collected, reason=f"{collected.reason}. {_FIRST_RUN}")
+        collected = replace(collected, reason=_config_reason(options, root, collected.reason))
     if collected is not None:
         result["refusal"] = {"kind": RefusalKind.COLLECTION_REFUSED, "message": collected.reason}
     file_error = _deliver(options, frame, stdout, root)
@@ -302,10 +310,24 @@ def _decide(options: Options, as_json: bool) -> int:
 
 
 _NO_CONFIG: Final = "config: cannot read"
-_FIRST_RUN: Final = (
-    "A new project: run `archkeel init` to draft archkeel.toml and a first contract, then "
-    f"`archkeel validate --text`. Guide: {DOCUMENT}"
+_MISSING_FIX: Final = (
+    "create it (`archkeel init` drafts one) or name another file with --config PATH."
 )
+
+
+def _config_reason(options: Options, root: Path, reason: str) -> str:
+    """Say whether the configuration file is missing, a folder or unreadable, and what to do."""
+    path = root / options.config
+    where = options.root or "the current folder"
+    if not path.exists():
+        return (
+            f"{reason}: the file does not exist in {where}. A new project: run `archkeel init` to "
+            "draft it, or name another file with --config PATH. "
+            f"Guide: {DOCUMENT}"
+        )
+    if path.is_dir():
+        return f"{reason}: {options.config} is a folder, not a file; name the file with --config."
+    return f"{reason}: the file exists but cannot be read; check its permissions and encoding."
 
 
 def _write_baseline(options: Options, frame: CoreFrame, root: Path) -> None:

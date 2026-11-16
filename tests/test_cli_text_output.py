@@ -8,6 +8,8 @@ UX issues #1317 (default output), #1318 (structure), #1319 (vocabulary), #1320 (
 
 import json
 import re
+import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -251,3 +253,88 @@ def test_a_reason_of_the_core_is_put_in_plain_words() -> None:
     assert plain("collect: unsupported: config: cannot read x (#880) AD-522") == (
         "config: cannot read x"
     )
+
+
+def _scan(
+    tmp_path: Path,
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    mutate: Callable[[Path], None],
+) -> list[str]:
+    root = project(tmp_path / "p", release_core, "rust", "PASS")
+    mutate(root)
+    monkeypatch.undo()
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    core_only.run(["validate", "--root", str(root), "--text"])
+    return capsys.readouterr().out.splitlines()
+
+
+def test_a_broken_contract_names_the_file_the_place_and_the_fix(
+    tmp_path: Path,
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """#1324: file, what the core read, what to write; the error is the second line."""
+    lines = _scan(
+        tmp_path,
+        release_core,
+        monkeypatch,
+        capsys,
+        lambda root: (root / "architecture-contract.json").write_text("{ broken"),
+    )
+    assert lines[1].startswith("Problem: architecture-contract.json: invalid JSON: ")
+    assert lines[1].endswith("at line 1 column 3")
+    assert lines[2].startswith("Fix: fix the JSON syntax at line 1, column 3")
+
+
+def test_a_requires_entry_that_is_no_object_says_what_the_object_holds(
+    tmp_path: Path,
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def mutate(root: Path) -> None:
+        path = root / "architecture-contract.json"
+        contract = json.loads(path.read_text())
+        contract["components"][0]["requires"] = ["X"]
+        path.write_text(json.dumps(contract))
+
+    lines = _scan(tmp_path, release_core, monkeypatch, capsys, mutate)
+    assert lines[1].endswith("components[0].requires[0] must be an object")
+    assert '{"component": "model", "rationale"' in lines[2]
+
+
+@pytest.mark.parametrize(
+    ("make", "expected"),
+    [
+        (lambda path: None, "the file does not exist in the current folder"),
+        (lambda path: path.mkdir(), "is a folder, not a file"),
+    ],
+    ids=["missing", "folder"],
+)
+def test_a_configuration_error_says_missing_or_not_a_file(
+    make: Callable[[Path], None],
+    expected: str,
+    tmp_path: Path,
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """#1324: `cannot read archkeel.toml` is split into its causes, each with the way forward."""
+    (tmp_path / "archkeel.toml").unlink()
+    make(tmp_path / "archkeel.toml")
+    (tmp_path / "README").write_text("x")
+    for step in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "x"]):
+        subprocess.run(
+            ["git", "-c", "user.email=a@b", "-c", "user.name=n", *step], cwd=tmp_path, check=True
+        )
+    monkeypatch.undo()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
+    core_only.run(["validate", "--text"])
+    text = capsys.readouterr().out
+    assert text.splitlines()[0] == "validate: REFUSED -> exit 2"
+    assert expected in text and "archkeel.toml" in text
+    assert "archkeel init" in text or "--config" in text

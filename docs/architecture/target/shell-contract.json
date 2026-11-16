@@ -53,7 +53,8 @@
       "public": [
         "archkeel.cli.core_words:FIXES",
         "archkeel.cli.core_words:kind_label",
-        "archkeel.cli.core_words:plain"
+        "archkeel.cli.core_words:plain",
+        "archkeel.cli.core_words:contract_fix"
       ],
       "decided_by": "architect"
     },
@@ -126,6 +127,10 @@
         {
           "component": "display",
           "rationale": "The call-resolution summary is a display value (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "json",
+          "rationale": "The gap row that the text prints is a typed value of the shell (see docs/architecture/shell.md)."
         }
       ],
       "public": [
