@@ -2750,8 +2750,8 @@
           if (node.component) group.dataset.assessmentStatus = node.component.status;
           const weight = el("text", { class: "atlas-weight", x: "16", y: "129" });
           const inventoryComplete = atlasGlobalSymbolsComplete();
-          weight.textContent = node.module ? `${node.module.symbols ?? "UNKNOWN"} observed symbols`
-            : `${node.component.observed_modules} mod · ${node.component.observed_symbols ?? "?"} sym${node.component.symbols_complete === inventoryComplete ? "" : node.component.symbols_complete ? " · complete" : " · partial"}`;
+          weight.textContent = node.module ? `${node.module.symbols == null ? "no symbol count in this run" : `${node.module.symbols} observed symbols`}`
+            : `${node.component.observed_modules} mod${node.component.observed_symbols == null ? "" : ` · ${node.component.observed_symbols} sym`}${node.component.symbols_complete === inventoryComplete ? "" : node.component.symbols_complete ? " · complete" : " · partial"}`;
           group.appendChild(weight);
         }
         if (viewMode !== "target" && !scene.moduleOverview && node.component) {

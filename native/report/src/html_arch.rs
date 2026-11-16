@@ -11,7 +11,7 @@ use super::atlas;
 use super::cases::Names;
 use super::explorer;
 use super::frame::Frame;
-use super::markup::count;
+use super::markup::{count, escape};
 use super::places::{Kind, Places};
 
 /// The components of the contract with a status, without the boxes of the layers.
@@ -52,6 +52,10 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
         failing,
         unknown
     );
+    if let Some(note) = payload["atlas"]["language_note"].as_str() {
+        lede.push(' ');
+        lede.push_str(&escape(note));
+    }
     if lost > 0 {
         lede.push_str(&format!(
             " {} in no component: see the violations below.",

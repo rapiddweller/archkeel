@@ -617,6 +617,20 @@
             "type": "string"
           },
           "description": "What the component is responsible for, as the contract states it."
+        },
+        "forbidden_responsibilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "What the component must not do, as the contract states it."
+        },
+        "planned_public": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The selectors of its planned surface. Empty when the contract states none."
         }
       },
       "required": [
@@ -628,7 +642,9 @@
         "planned",
         "layer",
         "public",
-        "responsibilities"
+        "responsibilities",
+        "forbidden_responsibilities",
+        "planned_public"
       ],
       "additionalProperties": false
     },
@@ -746,12 +762,25 @@
           "format": "uint",
           "minimum": 0,
           "description": "Zero says that no observed import uses the permission."
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Why the contract allows the pair."
+        },
+        "through": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The selectors that an import of the pair must pass through; empty when the entry names none."
         }
       },
       "required": [
         "source",
         "target",
-        "imports"
+        "imports",
+        "rationale",
+        "through"
       ],
       "description": "One `requires` entry: the two components by id, and the observed imports that use it.",
       "additionalProperties": false

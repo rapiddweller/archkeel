@@ -14,7 +14,7 @@ use serde_json::{json, Value};
 use super::atlas_levels::{levels, Levels};
 use super::atlas_tree::{held, Finding, Refs, Tree};
 use super::cases::{one_line, Names};
-use super::frame::Frame;
+use super::frame::{Frame, Topology};
 use super::places::{Kind, Places};
 
 fn findings(frame: &Frame, places: &Places, names: &Names<'_>, refs: &mut Refs) -> Vec<Finding> {
@@ -103,6 +103,42 @@ fn status(fail: usize, unknown: usize) -> (&'static str, String) {
     }
 }
 
+/// The `requires` entries of a node: a component lists its own entries, with their rationale and
+/// ports; a layer lists the pairs of its components, rolled up to the layers.
+fn requires(
+    i: usize,
+    tree: &Tree,
+    levels: &Levels,
+    topology: &Topology,
+    refs: &mut Refs,
+) -> Vec<Value> {
+    let node = &tree.nodes[i];
+    if node.rank.is_some() {
+        let rolled = refs.id("Declared between components of the two layers.");
+        return levels
+            .requires(i)
+            .iter()
+            .map(|(target, imports)| json!({
+                "id": format!("REQ:{}>{}", node.id, tree.nodes[*target].id), "target_id": target,
+                "observed_imports": imports, "rationale_ref": rolled, "decided_by": "architect", "through": [],
+            }))
+            .collect();
+    }
+    topology
+        .requires
+        .iter()
+        .filter(|r| r.source == node.id)
+        .filter_map(|r| {
+            let target = tree.nodes.iter().position(|n| n.id == r.target)?;
+            Some(json!({
+                "id": format!("REQ:{}>{}", r.source, r.target), "target_id": target,
+                "observed_imports": r.imports, "rationale_ref": refs.id(&r.rationale),
+                "decided_by": "architect", "through": r.through,
+            }))
+        })
+        .collect()
+}
+
 fn components(
     tree: &Tree,
     levels: &Levels,
@@ -117,25 +153,50 @@ fn components(
             modules[node] += 1;
         }
     }
-    let declared = refs.id("Declared in the contract.");
-    tree.nodes
-        .iter()
-        .enumerate()
-        .map(|(i, node)| {
+    let empty = Topology::default();
+    let topology = frame.topology.as_ref().unwrap_or(&empty);
+    (0..tree.nodes.len())
+        .map(|i| {
+            let node = &tree.nodes[i];
             let (state, reason) = status(fail[i], unknown[i]);
-            let public: Vec<usize> = node.public.iter().map(|p| refs.id(p)).collect();
-            let requires: Vec<Value> = levels.requires(i).iter().map(|(target, imports)| json!({
-                "id": format!("REQ:{}>{}", node.id, tree.nodes[*target].id), "target_id": target,
-                "observed_imports": imports, "rationale_ref": declared, "decided_by": "architect", "through": [],
-            })).collect();
+            // A layer is no component of the contract: it states no surface.
+            let public = node
+                .rank
+                .is_none()
+                .then(|| node.public.iter().map(|p| refs.id(p)).collect::<Vec<_>>());
+            let requires = requires(i, tree, levels, topology, refs);
+            let language = (!tree.languages[i].is_empty())
+                .then(|| tree.languages[i].iter().cloned().collect::<Vec<_>>().join(" + "));
             json!({
                 "id": node.id, "label": node.label, "parent_id": node.parent.map(|p| &tree.nodes[p].id),
-                "layer": node.layer, "path": node.path, "scope": node.label, "status": state,
-                "language": (!tree.languages[i].is_empty()).then(|| tree.languages[i].iter().cloned().collect::<Vec<_>>().join(" + ")),
-                "reason_ref": refs.id(&reason), "observed_modules": modules[i], "observed_symbols": null,
-                "symbols_complete": false, "public": public, "requires": requires,
-                "used_by": levels.used_by(i), "responsibilities": node.about, "not_responsible_for": [],
-                "provenance": [], "planned": null, "decided_by": "architect",
+                "layer": node.layer, "layer_rank": node.rank, "path": node.path, "scope": node.label,
+                "status": state, "language": language, "reason_ref": refs.id(&reason),
+                "observed_modules": modules[i], "observed_symbols": null, "symbols_complete": false,
+                "public": public, "requires": requires, "used_by": levels.used_by(i),
+                "responsibilities": node.about, "not_responsible_for": node.forbidden,
+                "planned": (!node.planned.is_empty()).then_some(&node.planned),
+                "provenance": [], "decided_by": "architect",
+            })
+        })
+        .collect()
+}
+
+/// The ports of each `requires` entry as declared boundary permissions: an import of the pair
+/// must pass through one of them. The frame names no applied port.
+fn permissions(topology: &Topology) -> Vec<Value> {
+    topology
+        .requires
+        .iter()
+        .flat_map(|r| {
+            r.through.iter().enumerate().map(move |(n, selector)| {
+                json!({
+                    "id": format!("PORT:{}>{}:{n}", r.source, r.target), "rule_id": "requires",
+                    "component_ids": [r.source, r.target], "qualified_name": selector,
+                    "position": format!("through, {} to {}", r.source, r.target),
+                    "rationale": r.rationale, "decided_by": "architect", "source": "contract",
+                    "contract_scope_id": null, "rule_ids": [], "fact_ids": [], "evidence_ids": [],
+                    "provenance": [], "locations": [], "routes": [],
+                })
             })
         })
         .collect()
@@ -186,6 +247,18 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
     let coverage = json!([[{"entity_kinds": ["module"], "relationship_kinds": [], "scope_id": "",
         "status": "unavailable", "reason": "The 5.0 frame names no symbol inventory."}]]);
     let complete = if topology.complete { "PASS" } else { "UNKNOWN" };
+    let languages: BTreeSet<&str> = topology
+        .modules
+        .iter()
+        .map(|m| m.language.as_str())
+        .filter(|l| !l.is_empty())
+        .collect();
+    let note = (languages.len() == 1).then(|| {
+        format!(
+            "This run scans one part of the system: its {} modules. Another part is checked by its own run and contract until the system contract joins them (AD-522).",
+            languages.iter().next().copied().unwrap_or_default()
+        )
+    });
     let atlas = json!({
         "repository": "System", "status": frame.status, "declared_rules": frame.status,
         "observation_complete": complete, "reason": frame.cause,
@@ -199,11 +272,12 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
         "symbol_coverages": coverage, "architecture_href": "#next", "detail_page": null,
         "unassigned_detail_href": null,
         "cell_permission_reason_ref": refs.id("The page names no permission for one pair of modules."),
+        "language_note": note,
         "reference_ids": refs.list,
     });
     Some(json!({
         "schema_version": "1.0.0", "atlas": atlas,
-        "boundary_permissions": {"applied": [], "declared": []},
+        "boundary_permissions": {"applied": [], "declared": permissions(topology)},
         "navigation": {"repository": "System", "main_href": ""},
     }))
 }

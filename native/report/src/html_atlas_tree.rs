@@ -37,8 +37,13 @@ pub(super) struct Node {
     pub(super) layer: Option<String>,
     pub(super) public: Vec<String>,
     pub(super) path: String,
-    /// What the box is responsible for; a layer names the components that it holds.
+    /// What the box is responsible for; a layer names the count of its components.
     pub(super) about: Vec<String>,
+    /// What the component must not do, and its planned surface, as the contract states them.
+    pub(super) forbidden: Vec<String>,
+    pub(super) planned: Vec<String>,
+    /// The place of a layer in its layer order, from the inner layer; `None` for a component.
+    pub(super) rank: Option<usize>,
 }
 
 /// The components as a tree, and the component that owns each module.
@@ -81,11 +86,14 @@ impl Tree {
                     public: Vec::new(),
                     path: format!("layer {layer}"),
                     about: vec![format!(
-                        "Layer {} of {}, from the inner layer: {}.",
+                        "Layer {} of {}: {}.",
                         step + 1,
                         order.map_or(0, Vec::len),
                         members.join(", ")
                     )],
+                    forbidden: Vec::new(),
+                    planned: Vec::new(),
+                    rank: Some(step),
                 });
             }
         }
@@ -113,6 +121,9 @@ impl Tree {
                 public: component.public.clone(),
                 path: component.packages.join(", "),
                 about: component.responsibilities.clone(),
+                forbidden: component.forbidden_responsibilities.clone(),
+                planned: component.planned_public.clone(),
+                rank: None,
             });
         }
         let owner: BTreeMap<String, usize> = topology

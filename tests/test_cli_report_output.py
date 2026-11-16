@@ -90,10 +90,11 @@ def test_files_keep_the_frame_and_exit(
         # AD-498: the Counts, Rules, Gaps, Unsupported, Identity and Tool parts are gone.
         for old in ("Counts", "Rules", "Gaps", "Unsupported", "Request identity", "Tool"):
             assert f"<h2>{old}</h2>" not in text
-        assert "<footer" in text and "<pre" not in text
-        # AD-496: one script (the theme switch, admitted by hash) and links inside the page only.
-        assert text.count("<script>") == 1 and "src=" not in text
-        assert not re.findall(r'href="(?!#)', text)
+        # AD-606: the scripts of the Explorer are checked by their hashes; the markup is checked here.
+        page = re.sub(r"(<script[^>]*>).*?</script>", r"\1</script>", text, flags=re.S)
+        assert "<footer" in page and "<pre" not in page
+        assert page.count("<script>") == 1 and "src=" not in page
+        assert not re.findall(r'href="(?!#)', page)
         # AD-510: each rule is on the page: a rule that fails in its block, an UNKNOWN rule in the
         # card of its cause, a rule that holds in the fold of its kind.
         for identifier in found["frame"]["rules"]:
@@ -468,7 +469,8 @@ def test_native_static_page_stays_below_the_review_size_budget(
         str(target),
     )
     assert code == 2 and found["status"] == "UNKNOWN", found
-    assert target.stat().st_size < 600_000
+    # AD-606: the Explorer scripts and style are about 2.1 MB of the page.
+    assert target.stat().st_size < 3_500_000
 
 
 def test_tool_identity_does_not_claim_the_crate_version_is_the_package_version(

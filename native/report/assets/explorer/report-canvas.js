@@ -321,6 +321,9 @@
           onclick: () => { pinnedTag = pinnedTag === value ? null : value; highlightTag(pinnedTag); renderTagBar(); } },
           h("i"), value, h("b", {}, String(count)))) : []),
       active && !counts.size ? h("span", { class: "ak-tagbar-label" }, "No tagged objects on this diagram") : null,
+      // AD-606: a run of one part says so next to its language.
+      perspective === "language" && A?.language_note
+        ? h("span", { class: "ak-tagbar-label", title: A.language_note }, "one part of the system: see the legend") : null,
     ].filter(Boolean));
     if (focusKey) [...tagBar.querySelectorAll("button")].find((button) => button.dataset.focusKey === focusKey)?.focus({ preventScroll: true });
   }
@@ -519,7 +522,8 @@
   const legendContent = move(".flow-legend");
   legendPanel?.remove();
   const legendButton = h("button", { "data-ak-pop": "", title: "What the lines mean",
-    onclick: (event) => openPop(event.currentTarget, [h("h4", {}, "Legend"), legendContent]) }, "Legend");
+    onclick: (event) => openPop(event.currentTarget, [h("h4", {}, "Legend"), legendContent,
+      A?.language_note ? h("p", { class: "ak-sub" }, A.language_note) : null]) }, "Legend");
   root.append(h("div", { hidden: true }, legendPanel));
   const bottomLeft = h("div", { class: "ak-bar ak-bottom-left" }, legendButton, move(".flow-filters"),
     A ? h("span", { class: "ak-run-status" }, `Rules: ${A.declared_rules} · Observation: ${A.observation_complete}`) : null);
@@ -545,6 +549,12 @@
   // Open each diagram fitted without magnifying small graphs.
   let fittedKey = null;
   if (A) F.setMaxFitScale(1);
+  // AD-606: in the report the diagram starts with the whole width; a click on a box opens the
+  // panel of its facts, and "Details" opens and closes it.
+  if (A && root.dataset.detailsOpen === "true" && !root.hasAttribute("data-expanded")) detailsToggle?.click();
+  if (A) F.nodeLayer.addEventListener("click", () => {
+    if (root.dataset.detailsOpen !== "true") detailsToggle?.click();
+  });
   const fitDiagram = () => F.fit(true);
   root.addEventListener("archkeel:rendered", () => {
     back?.setAttribute("aria-label", back.textContent);

@@ -65,6 +65,10 @@ struct Component {
     public: Vec<String>,
     /// What the component is responsible for, as the contract states it.
     responsibilities: Vec<String>,
+    /// What the component must not do, as the contract states it.
+    forbidden_responsibilities: Vec<String>,
+    /// The selectors of its planned surface. Empty when the contract states none.
+    planned_public: Vec<String>,
 }
 
 #[derive(Serialize, schemars::JsonSchema)]
@@ -249,6 +253,13 @@ fn component_rows(models: &ModelTree) -> Vec<Component> {
                     .map(|p| p.as_text().to_owned())
                     .collect(),
                 responsibilities: component.responsibilities().clone(),
+                forbidden_responsibilities: component.forbidden_responsibilities().clone(),
+                planned_public: component
+                    .planned()
+                    .iter()
+                    .flatten()
+                    .map(|p| p.as_text().to_owned())
+                    .collect(),
             });
         }
     }

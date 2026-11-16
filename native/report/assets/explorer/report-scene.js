@@ -7,7 +7,7 @@
     const DATA = { ...data, atlas: ATLAS };
     const NAV = DATA.navigation || null;
     const countLabel = (value, singular, plural = `${singular}s`) =>
-      value === null || value === undefined ? `UNKNOWN ${plural}` : `${value} ${value === 1 ? singular : plural}`;
+      value === null || value === undefined ? (singular.endsWith("symbol") ? "no symbol count in this run" : `UNKNOWN ${plural}`) : `${value} ${value === 1 ? singular : plural}`;
     if (ATLAS) {
       ATLAS.rule_assessments = (ATLAS.rule_assessments || []).map((item) => ({
         ...item,
@@ -127,9 +127,10 @@
         ...edge, id: `observed:${edge.source_id}>${edge.target_id}`,
         layoutId: `observed:${edge.source_id}>${edge.target_id}`,
         source: edge.source_id, target: edge.target_id, kind: "dependency", relationshipKind: "imports",
-        state: isDiff ? undeclared ? "violation" : edge.status === "UNKNOWN" ? "undecided" : "observed"
+        // AD-606: in Diff an edge that a failing rule cites is red as an undeclared edge is.
+        state: isDiff ? undeclared || edge.status === "FAIL" ? "violation" : edge.status === "UNKNOWN" ? "undecided" : "observed"
           : edge.status === "FAIL" ? "violation" : edge.status === "UNKNOWN" ? "undecided" : "observed",
-        edgeClass: isDiff ? undeclared ? "atlas-undeclared" : allowed ? "atlas-permitted" : "atlas-observed" : "",
+        edgeClass: isDiff ? undeclared || edge.status === "FAIL" ? "atlas-undeclared" : allowed ? "atlas-permitted" : "atlas-observed" : "",
         tooltip: `Observed imports: ${edge.import_sites ?? "UNKNOWN"}. Core ${edge.status}; ${undeclared ? "recorded as undeclared." : allowed ? "declared dependency in use." : "no deviation recorded."}`,
         label: countLabel(edge.import_sites, "import"),
       });

@@ -13,3 +13,6 @@ html.ak-canvas .rp-explorer .flow:not([data-expanded])[data-atlas] .flow-inspect
    the zoom leave. */
 html.ak-canvas .rp-explorer .flow:not([data-expanded]) .ak-bottom-left { max-width: 240px; }
 html.ak-canvas .rp-explorer .flow:not([data-expanded]) .ak-bottom-center { left: 264px; right: 212px; }
+/* A box that holds a violated place has the FAIL border; one that a gap holds the UNKNOWN border. */
+html.ak-canvas .rp-explorer g.node[data-assessment-status="FAIL"] .card { stroke: var(--fail); stroke-width: 2.5; }
+html.ak-canvas .rp-explorer g.node[data-assessment-status="UNKNOWN"] .card { stroke: var(--unknown); stroke-width: 2; stroke-dasharray: 6 4; }

@@ -28,7 +28,19 @@ and 6 of AD-496. AD-594 points 1 to 4 stay: the three views and the declared str
    `explorer.css` read the tokens directly and define none. `explorer-theme.css` only places the
    Explorer in the page: the width of the report column, a height of 680 px and a narrower panel.
    Fullscreen uses the whole window; "Back to report" and Esc return and keep the level and the view.
-7. The policy admits each script by its SHA-256: the theme switch and the eight Explorer scripts.
+7. The fact sheet shows what the contract states: the responsibilities, the forbidden
+   responsibilities ("Not responsible for"), the public surface ("Provides"), the planned surface,
+   and each `requires` entry with its rationale and its `through` ports. Each port is a declared
+   boundary permission; the frame names no applied one. Diff draws an edge red when it is
+   undeclared or when a failing rule cites it; a box with a violated place has the FAIL border, a
+   box that a gap holds the UNKNOWN border. A run of one collector names that limit in the lede and
+   in the legend. Each violated place is a full block.
+8. In the report the Explorer starts with the panel closed, so that the diagram has the whole
+   width; a click on a box opens the panel.
+9. Without `--root`, a configuration outside the repository of the working directory names its own
+   root: the Git root above the file. A refused collection states its own refusal, not a missing
+   topology.
+10. The policy admits each script by its SHA-256: the theme switch and the eight Explorer scripts.
    The page still loads no resource (`default-src 'none'`).
 
 **Reason.** The owner rejected the static picture: a reader needs the structure, a drill-down to the
@@ -38,8 +50,9 @@ keeps the frame the only source.
 **Rejected.** A new viewer: the 4.0.1 Explorer exists and is the bar. Copying the 4.0.1 page:
 it has its own header, verdict and colours. Layouts in Rust: ELK in the page lays out each level.
 
-**Limits.** The page is at most 3,500,000 bytes on the core self run (about 2,560,000 today; ELK is
-1.6 MB). The frame names no symbol, so a box shows "? sym". One run has one collector reply, so the
+**Limits.** The page is at most 3,500,000 bytes on the core self run (about 3,000,000 today; ELK is
+1.6 MB). The frame names no symbol count; a module says "no symbol count in this run". A Cargo
+manifest is a module of the reply until the collector states the kind of each file. One run has one collector reply, so the
 self report names one language (Rust); a report of the whole system with its Python and Rust parts
 needs the system contract (AD-522). The links of 4.0.1 to its JSON file and its detail page point to
 the steps on this page. The scripts keep about 40 `innerHTML` sinks of 4.0.1; the browser self-check
