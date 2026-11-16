@@ -22,6 +22,11 @@ no place until someone wrote its pairs. The order was only in a test (`tests/nat
    Each part has one responsibility and one forbidden responsibility from the `//!` text of its
    modules, and each `requires` is an import that the scan sees. No code moved. A part stays in the
    layer of its crate. `NATIVE-REQUIRES-COMPLETE` and the cycle rules hold the direction in a crate.
+4. Each `requires` names its ports in `through`: the modules of the target that the source enters,
+   the smallest set that the scan sees. `NATIVE-REQUIRES-COMPLETE` fails for an import through
+   another module. Each component names in `public` the modules that another component enters. No
+   rule reads `public` for Rust, so `tests/test_native_contract_rules.py` holds it equal to the ports.
+   Two requirements had no use and are removed: `ts-dump` to `wire` and `rs-flow` to `wire`.
 
 All 62 forbidden rules stay. The order rule reads the declared `requires`. A forbidden rule reads the
 import facts by module name, with no declaration and no owner between. The two guards fail for
@@ -37,9 +42,24 @@ different mistakes, and a forbidden rule gives its own reason in the result.
 The crate order test stays. It permits less than a linear order: `model-barrier` reaches nothing above
 `facts`, and `contract` reaches no collector.
 
+## Not decided here: the symbols of a crossing
+The order asked for symbols in `public` and an `interface_boundary` rule. The scan of `native/` cannot
+check them, and the statement would remove the guard of the other rules. Measured on this contract:
+- With an `interface_boundary` rule no rule has a verdict (85 `scope_proof` gaps), and a planted
+  import from `model` to `eval` gives no FAIL.
+- One `module:Name` entry in `public` holds all rules, with or without the rule.
+
+The Rust collector states no profile limits (AD-500; the three other collectors do), and it reads no
+use of an item (slice 5b-4b). `boundary_types` needs type shapes, which only the Python collector
+writes (AD-550). The contract gets the symbols and the rule when the Rust collector states its limits.
+
 ## Price
 The order has 11 names for 78 components (56 before). A new crate needs a `layer`, or the self-check
 is UNKNOWN. A new module of a crate with parts needs a part that claims it, or
-`NATIVE-ASSIGNMENT-COMPLETE` fails. The self-check has 85 rules (84 before) and 343 `requires` (215).
+`NATIVE-ASSIGNMENT-COMPLETE` fails. The self-check has 85 rules (84 before) and 341 `requires` (215).
 15 of them go to an inner part of another crate, for example `eval-rules` to `model-run`: a method
 call is a use of the module that defines the method (#953). The crate level did not show them.
+A port is a module prefix. A port on the root of a crate without parts permits the whole crate, so
+154 of the 341 requirements are narrower than before and 187 are not. A new use of another module of
+a required part needs a port and a `public` entry. A pair gap along a requirement with ports is kept,
+not dropped (AD-418), so it holds the rules that read it.

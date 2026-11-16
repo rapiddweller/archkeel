@@ -196,6 +196,10 @@ def _code_forms(native: Path) -> list[Plant]:
     for number, (crate, cargo, text, rule) in enumerate(OTHER):
         plants.append((rule, _plant(native, crate, cargo, f"planted_other_{number}", text)))
     _own(native, plants)
+    # AD-588: `core-frame` requires `core-engine` through its ports, and `rules` is no port.
+    frame = native / "core/src/dual_run.rs"
+    frame.write_text(frame.read_text() + "\npub use crate::rules::outcomes as planted;\n")
+    plants.append(("NATIVE-REQUIRES-COMPLETE", "native/core/src/dual_run.rs"))
     # AD-588: a new module of a crate with parts that no part claims has no owner.
     (native / "model/src/lib.rs").write_text(
         (native / "model/src/lib.rs").read_text() + "\nmod planted_free;\n"

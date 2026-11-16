@@ -33,6 +33,14 @@ these crates has no owner until a part claims it, and `NATIVE-ASSIGNMENT-COMPLET
 crate make no cycle (`NATIVE-NO-COMPONENT-CYCLES`). A method call into a part of another crate is a use of
 that part (#953), so the contract states it: for example `eval-rules` requires `model-run`.
 
+Each `requires` names its ports in `through`: the modules of the target that the source enters (AD-588).
+`NATIVE-REQUIRES-COMPLETE` fails for an import through a module that is no port. A port is a module prefix,
+so a port on the root of a crate without parts permits the whole crate. Each component names in `public`
+the modules that another component enters; `tests/test_native_contract_rules.py` holds `public` equal to
+the ports of the other components. The contract has no `interface_boundary` rule and no symbol in `public`:
+for a Rust scan such a statement holds every rule of the run
+([known limits](../known-limits.md#the-core-path-on-main)).
+
 The core chain is core -> report -> eval -> model -> contract, store and facts
 ([AD-382](decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md)).
 The `NATIVE-NO-*-TO-*` rules forbid each upward direction also when a `requires` entry allows it.

@@ -132,6 +132,12 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   A nested file changed since the request started is refused. Keep the snapshot unchanged during a run.
 - ArchKeel checks its Rust source in `native/` with the core: 85 rules PASS, 0 FAIL, 0 UNKNOWN, 0 violations,
   pinned in `native/expected-gaps.json`. The Python shell and the tools have no architecture contract.
+  This contract states each crossing as a module port (`through`), not as a symbol
+  ([AD-588](architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md)). With an
+  `interface_boundary` rule the scan of `native/` has no verdict for any rule, and it reports no violation of
+  another rule; a `module:Name` entry in `public` holds each rule too. The Rust collector states no profile
+  limits (AD-500) and reads no use of an item. `boundary_types` needs type shapes, which only the Python
+  collector writes (AD-550).
 
 Archkeel observes one static snapshot, not runtime behavior, data flow, performance
 or responsibility fulfillment. A rationale proves recorded intent, not truth.
