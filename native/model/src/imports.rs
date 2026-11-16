@@ -197,6 +197,9 @@ pub(crate) struct Split {
     /// The number of unresolved imports that no collector gap names (each is a coverage
     /// failure of the reference engine).
     pub(crate) unknown: usize,
+    /// Each name that a record binds under another name (`use a::Profile as Lang`), in any
+    /// record of the reply: a macro body and an unresolved import too (AD-668).
+    pub(crate) renamed: HashSet<String>,
 }
 
 /// A gap of the import resolution: its id, the module and the evidence that it names, and its
@@ -251,6 +254,11 @@ pub(crate) fn split(facts: &Facts, declared: impl Fn(&str) -> bool) -> Split {
     let mut found = Split::default();
     for record in facts.sections.iter().flat_map(records) {
         let data = record.data.data();
+        if let (Some(symbol), Some(binding)) = (&data.symbol, &data.binding) {
+            if symbol != binding {
+                found.renamed.insert(symbol.clone());
+            }
+        }
         let resolved = match targets.get(record.id.as_str()) {
             Some(Target::Unresolved { .. }) => {
                 let source = data.source_module.as_str();

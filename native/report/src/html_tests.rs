@@ -197,6 +197,16 @@ fn rules_that_fail_at_one_import_share_one_block() {
     assert!(page.contains("Violates <b class=\"rp-code\">R</b>"));
 }
 
+// AD-668: two sites of one import that break one rule give one line of the rule and both places.
+#[test]
+fn a_rule_that_two_sites_of_one_import_break_is_listed_once() {
+    let mut frame = dependency_frame(2);
+    frame["details"]["R"][1]["source"] = json!("app.a0");
+    let page = document(&frame);
+    assert_eq!(page.matches("Violates <b class=\"rp-code\">R</b>").count(), 1);
+    assert!(page.contains("src/a0.rs:1") && page.contains("src/a1.rs:2"));
+}
+
 #[test]
 fn a_cut_of_the_places_states_both_numbers() {
     let page = document(&dependency_frame(120));
