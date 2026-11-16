@@ -4,8 +4,6 @@
 
 //! The vocabularies of the construct, source role and typing signal records.
 
-use crate::vocab::Kind;
-
 closed! {
     /// The role that a selector plays at its site.
     pub enum SelectorRole {
@@ -171,12 +169,5 @@ closed! {
         TypeIgnore = "type_ignore",
         /// A position that crosses a package with no annotation.
         MissingCrossPackageAnnotation = "missing_cross_package_annotation",
-    }
-}
-
-impl Signal {
-    /// The contract construct observed by this signal, if it observes one.
-    pub fn construct(self) -> Option<&'static str> {
-        Kind::parse(self.as_str()).and_then(Kind::construct)
     }
 }
