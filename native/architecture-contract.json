@@ -255,6 +255,7 @@
         "native.archkeel_store:ingest_typed",
         "native.archkeel_store:sdk_libraries",
         "native.archkeel_store:standard_library",
+        "native.archkeel_store:standard_library_at",
         "native.archkeel_store:standard_library_everywhere"
       ],
       "decided_by": "architect"
@@ -2743,6 +2744,7 @@
             "native.archkeel_store:Ingested",
             "native.archkeel_store:sdk_libraries",
             "native.archkeel_store:standard_library",
+            "native.archkeel_store:standard_library_at",
             "native.archkeel_store:standard_library_everywhere"
           ]
         },
@@ -6039,11 +6041,19 @@
           "through": [
             "native.archkeel_python_collector.dump"
           ]
+        },
+        {
+          "component": "py-inputs",
+          "rationale": "Read the declared Python requirement before deriving the target version.",
+          "through": [
+            "native.archkeel_python_collector.requirement:requirement"
+          ]
         }
       ],
       "public": [
         "native.archkeel_python_collector:BUILD",
         "native.archkeel_python_collector:TEST_FEATURES",
+        "native.archkeel_python_collector:python_requirement",
         "native.archkeel_python_collector:typed_reply"
       ],
       "decided_by": "architect"

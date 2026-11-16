@@ -259,6 +259,11 @@ def _decide(options: Options, as_json: bool) -> int:
         if collected is None:
             _system_lines(document.get("system"))
             render_text(options.command, frame)
+            test = document.get("self_test")
+            if isinstance(test, dict) and isinstance(test.get("collect"), dict):
+                target = test["collect"].get("target")
+                if isinstance(target, str):
+                    print(target)
         else:
             _refused(RefusalKind.COLLECTION_REFUSED, collected.reason, False)
         print(f"Core: {binary}; engine: {frame.engine}; code digest: {frame.code_digest}")

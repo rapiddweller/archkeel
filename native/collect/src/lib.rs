@@ -66,6 +66,8 @@ pub struct Scanned {
     pub contract: (String, Vec<u8>),
     /// The collection request that the core derived, as the wire writes it.
     pub request: Value,
+    /// The target selected by the collector, for the run summary.
+    pub target: Option<String>,
     /// The reply of the linked collector, validated once by the store.
     pub reply: Ingested,
     root: repository::Root,
@@ -136,7 +138,18 @@ pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Re
         git_head: Some(&head),
         dirty: Some(dirty),
     };
-    let request = request(&derived, &config);
+    let target = if config.profile == Profile::Python {
+        Some(
+            python::target(&root, config.python.as_deref())
+                .map_err(|why| refused("python", why))?,
+        )
+    } else {
+        None
+    };
+    let mut request = request(&derived, &config);
+    if let Some((version, _)) = &target {
+        request["resolver"] = python::resolver(version);
+    }
     let bytes =
         serde_json::to_vec(&request).map_err(|error| refused("request", error.to_string()))?;
     let reply = run::collect(config.profile, &bytes)?;
@@ -146,6 +159,14 @@ pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Re
         Profile::TypeScript | Profile::Rust => Ok(()),
     };
     bound.map_err(|why| refused("collector", why))?;
+    if config.profile == Profile::Python
+        && python::target(&root, config.python.as_deref()).ok() != target
+    {
+        return Err(refused(
+            "python",
+            "the Python target changed during the scan",
+        ));
+    }
     let contract = match root.read(&config.contract, contract_budget) {
         Ok(Some((_, bytes))) => bytes,
         Ok(None) => return Err(refused("contract", "the core cannot read the contract")),
@@ -162,6 +183,7 @@ pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Re
         namespace: config.namespace,
         contract: (config.contract, contract),
         request,
+        target: target.map(|(_, message)| message),
         reply,
         root,
     })
@@ -240,7 +262,7 @@ fn request(identity: &Identity<'_>, config: &config::Config) -> Value {
     };
     let mut resolver = match config.profile {
         Profile::Rust => json!({"language": "rust"}),
-        Profile::Python => python::resolver(),
+        Profile::Python => python::resolver(python::GRAMMAR),
         Profile::Dart => dart::resolver(),
         _ => json!({"language": "typescript", "tsconfig": config.tsconfig}),
     };

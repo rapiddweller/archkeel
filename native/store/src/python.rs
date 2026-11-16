@@ -12,7 +12,7 @@ use std::collections::HashSet;
 use archkeel_facts::envelope::{Facts, LimitSupport, Profile, ProtocolVersion, Target};
 use archkeel_facts::{ImportFact, Section};
 
-use crate::standard::standard_library_everywhere;
+use crate::standard::standard_library_at;
 
 /// The protocol of a profile: 10.0.0 is the Python survey, and Python has no other protocol.
 pub(crate) fn version(version: ProtocolVersion, profile: Profile) -> Result<(), String> {
@@ -76,7 +76,8 @@ pub(crate) fn survey(facts: &Facts) -> Result<(), String> {
         .iter()
         .map(|file| first_part(file.module.as_str()))
         .collect();
-    let standard = standard_library_everywhere(Profile::Python);
+    let standard = standard_library_at(Profile::Python, &facts.runtime.version)
+        .ok_or("the Python target has no standard library table")?;
     for target in &facts.imports {
         match target {
             Target::Builtin { name, .. } => {

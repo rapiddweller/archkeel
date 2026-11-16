@@ -41,6 +41,11 @@ not globs. Optional `language` is `rust`, `typescript`, `python` or `dart`; a mi
 selects `python`. A Dart run refuses `exclude_test_sources`. TypeScript also uses `tsconfig`; roots may be files or directories.
 Inputs must exist inside `--root`.
 
+For Python, set `python = "3.13"` in `[scan]` to select a target version. Without it,
+ArchKeel uses the lowest version in `requires-python`, or its default when no requirement exists.
+The collector supports Python 3.11 through 3.14. It does not run an interpreter or read `PATH`.
+The summary names the target. Unread requirement forms and unsupported targets are refused.
+
 An explicit component `inside` mounts a child contract over the same scan. Its path is
 relative to `--root`, not to its parent contract. `validate` and `report` read all mounts
 through the core. Labels and rule IDs are mount-qualified; each mount keeps its own source domain.

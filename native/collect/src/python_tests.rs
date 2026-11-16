@@ -24,7 +24,7 @@ fn reply(tree: &Tree) -> Reply {
         "protocol_version": "10.0.0",
         "snapshot": {"root": tree.path(), "git_head": "a".repeat(40), "dirty": false},
         "scope": {"roots": ["src"], "namespace": "app", "exclude_test_sources": false},
-        "resolver": resolver(),
+        "resolver": resolver(GRAMMAR),
     });
     crate::run::reply_of(Profile::Python, request.to_string().as_bytes()).unwrap()
 }
@@ -45,15 +45,39 @@ fn project() -> Tree {
 }
 
 #[test]
-fn the_request_names_the_grammar_and_only_names_standard_in_each_minor() {
-    let resolver = resolver();
+fn the_request_names_the_grammar_and_the_standard_names_of_that_minor() {
+    let resolver = resolver(GRAMMAR);
     assert_eq!(resolver["interpreter"]["version"], GRAMMAR);
     let names = resolver["interpreter"]["stdlib_module_names"]
         .as_array()
         .unwrap();
     assert!(names.contains(&json!("os")));
     assert!(!names.contains(&json!("distutils")));
-    assert!(!names.contains(&json!("_interpreters")));
+    assert!(names.contains(&json!("_interpreters")));
+}
+
+#[test]
+fn the_project_requirement_selects_a_target_and_unsupported_targets_are_refused() {
+    let tree = Tree::new(&[(
+        "pyproject.toml",
+        "[project]\nrequires-python = '>=3.13,<3.14'\n",
+    )]);
+    let root = root(&tree);
+    let (version, message) = target(&root, None).unwrap();
+    assert_eq!(version, "3.13.0");
+    assert!(message.contains(">=3.13,<3.14"));
+    assert_eq!(target(&root, Some("3.12")).unwrap().0, "3.12.0");
+    let error = target(&root, Some("3.10")).unwrap_err();
+    assert!(
+        error.contains("3.10") && error.contains("3.11–3.14"),
+        "{error}"
+    );
+    fs::write(
+        tree.root.join("pyproject.toml"),
+        "[project]\nrequires-python = '>=3.13,!=3.13.1'\n",
+    )
+    .unwrap();
+    assert!(target(&root, None).is_err());
 }
 
 #[test]

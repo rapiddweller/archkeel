@@ -74,6 +74,8 @@ pub(crate) enum Collect {
         #[schemars(with = "archkeel_facts::request::Request")]
         request: serde_json::Value,
         contract_files: BTreeMap<String, String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        target: Option<String>,
     },
     Refused {
         refused: String,

@@ -38,6 +38,7 @@ mod inputs;
 mod names;
 mod parse;
 mod requirement;
+pub use requirement::requirement as python_requirement;
 
 mod source;
 

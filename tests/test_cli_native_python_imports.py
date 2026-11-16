@@ -194,14 +194,24 @@ def test_a_component_cycle_fails(release_core: Path, tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    ("source", "expected"),
-    [("import json\n", "PASS"), ("import requests\n", "FAIL"), ("import distutils\n", "FAIL")],
+    ("source", "target", "expected"),
+    [
+        ("import json\n", "3.11", "PASS"),
+        ("import requests\n", "3.11", "FAIL"),
+        ("import distutils\n", "3.11", "PASS"),
+        ("import distutils\n", "3.12", "FAIL"),
+        ("import _interpreters\n", "3.12", "FAIL"),
+        ("import _interpreters\n", "3.13", "PASS"),
+    ],
 )
-def test_a_standard_name_must_be_standard_in_each_supported_minor(
-    release_core: Path, tmp_path: Path, source: str, expected: str
+def test_a_standard_name_must_be_standard_in_the_target_minor(
+    release_core: Path, tmp_path: Path, source: str, target: str, expected: str
 ) -> None:
     files = {**BASE, "src/app/client.py": source}
-    result = verdict(release_core, project(tmp_path, files))
+    root = project(tmp_path, files)
+    config = root / "archkeel.toml"
+    config.write_text(config.read_text() + f'python = "{target}"\n')
+    result = verdict(release_core, root)
     assert rows(result)["EXTERNAL"] == expected, result
 
 
@@ -423,6 +433,10 @@ def test_a_poetry_caret_requirement_is_read(release_core: Path, tmp_path: Path) 
             "GIT_COMMITTER_EMAIL": "t@t",
         },
     )
+    refused = command(release_core, root, "--text")
+    assert refused.returncode == 2 and "3.9" in refused.stdout, refused.stdout
+    config = root / "archkeel.toml"
+    config.write_text(config.read_text() + 'python = "3.11"\n')
     result = verdict(release_core, root)
     assert set(rows(result).values()) == {"PASS"}, result
 
