@@ -9,39 +9,25 @@
 //! - `Report<Decided>` from `build`: the outcome of the evaluator and the rows of the model. Its
 //!   rule verdicts come from a `Decision` of the model, its observation from the scope of the
 //!   model and a PASS status from the run proof, so no other crate writes a PASS (AD-363, AD-381).
-//! - `Report<Recorded>` from `Report::read`: canonical bytes that pass the check. Its verdicts are
-//!   read bytes; a recorded report never becomes a decided one.
 //!
-//! The fields are private, so a payload that breaks a rule cannot become a `Report`:
-//!
-//! ```compile_fail
-//! fn forge(payload: archkeel_report::Payload) -> archkeel_report::Report<archkeel_report::Recorded> {
-//!     archkeel_report::Report { payload, source: archkeel_report::Recorded(()) }
-//! }
-//! ```
-//!
-//! A decoded payload has no way to a decided report:
-//!
-//! ```compile_fail
-//! fn promote(
-//!     report: archkeel_report::Report<archkeel_report::Recorded>,
-//! ) -> archkeel_report::Report<archkeel_report::Decided> {
-//!     report.into()
-//! }
-//! ```
+//! The fields are private, so a payload that breaks a rule cannot become a `Report`.
 
+#[cfg(test)]
 use std::fmt;
 
 use archkeel_model::{Decision, RunPass};
 
 use crate::check::problems;
 use crate::head::Status;
-use crate::payload::{DecodeError, Payload, MAX_BYTES};
+use crate::payload::Payload;
+#[cfg(test)]
+use crate::payload::{DecodeError, MAX_BYTES};
 use crate::problem::Problem;
 
 /// The mark of a report read from bytes.
+#[cfg(test)]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Recorded(());
+pub(crate) struct Recorded(());
 
 /// The mark of a report built from the Decision of the evaluator. It keeps that Decision.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -85,8 +71,9 @@ pub struct Report<S> {
 }
 
 /// Why bytes are no `Report`.
+#[cfg(test)]
 #[derive(Debug)]
-pub enum ReadError {
+pub(crate) enum ReadError {
     /// The bytes are no canonical payload.
     Decode(DecodeError),
     /// The payload breaks the named rules.
@@ -98,6 +85,7 @@ pub enum ReadError {
     },
 }
 
+#[cfg(test)]
 impl fmt::Display for ReadError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -113,9 +101,10 @@ impl fmt::Display for ReadError {
     }
 }
 
+#[cfg(test)]
 impl Report<Recorded> {
     /// Read canonical payload bytes and check them.
-    pub fn read(bytes: &[u8]) -> Result<Report<Recorded>, ReadError> {
+    pub(crate) fn read(bytes: &[u8]) -> Result<Report<Recorded>, ReadError> {
         let size = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
         if size > MAX_BYTES {
             return Err(ReadError::TooLarge { bytes: size });
@@ -153,5 +142,26 @@ impl Report<Decided> {
     /// report has no such path.
     pub fn encode(&self) -> Result<Vec<u8>, serde_json::Error> {
         self.payload.encode()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Decided, Recorded, Report};
+
+    trait AmbiguousIfPromotable<T> {
+        fn marker() {}
+    }
+    impl<T> AmbiguousIfPromotable<()> for T {}
+    impl<T: Into<Report<Decided>>> AmbiguousIfPromotable<u8> for T {}
+
+    #[test]
+    fn reading_a_report_keeps_its_recorded_mark_and_rejects_invalid_bytes() {
+        // A conversion makes the marker type ambiguous and the test fail to compile.
+        let recorded: Report<Recorded> =
+            Report::read(&crate::test_support::bytes("E-runtime")).unwrap();
+        let _ = <Report<Recorded> as AmbiguousIfPromotable<_>>::marker;
+        assert_eq!(recorded.source(), &Recorded(()));
+        assert!(Report::read(b"{}").is_err());
     }
 }
