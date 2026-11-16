@@ -401,3 +401,39 @@ fn a_rule_row_that_the_baseline_accepts_says_accepted_and_the_others_do_not() {
     assert!(page.contains(">A</span> <span class=\"caption rp-acc\">(accepted"));
     assert!(!document(&unknown_frame()).contains("still UNKNOWN"));
 }
+
+// AD-630 (#1325): each number on the page is a count of its list. The heading of the causes, the
+// stats of the card and the cards of the Unknown section come from the same rows.
+#[test]
+fn each_count_of_the_verdict_equals_the_length_of_its_list() {
+    let mut frame = unknown_frame();
+    frame["unsupported"] = json!({"rules": {"hygiene:a": "gap one", "hygiene:b": "gap two"}});
+    let page = document(&frame);
+    let section = page
+        .split("id=\"unknown\"")
+        .nth(1)
+        .unwrap()
+        .split("</section>")
+        .next()
+        .unwrap();
+    let cards = section.matches("class=\"rp-cause\"").count();
+    let card = page.split("class=\"ak-verdict__stats\"").nth(1).unwrap();
+    let stat = |label: &str| -> usize {
+        let after = card
+            .split(&format!("{label}</dt><dd class=\"ak-num h2\">"))
+            .nth(1)
+            .unwrap();
+        after.split('<').next().unwrap().parse().unwrap()
+    };
+    let rules_unknown = 4; // A, B, C and D of the fixture
+    assert_eq!(stat("Rules UNKNOWN"), rules_unknown);
+    assert_eq!(stat("Gaps with no rule"), 2);
+    assert!(
+        page.contains(&format!(
+            "{cards} causes keep the run open: {rules_unknown} unknown rules and 2 gaps with no rule."
+        )),
+        "{cards} cards"
+    );
+    // The listed causes hold exactly the unknown rules and the named gaps.
+    assert_eq!(cards, 5);
+}

@@ -1,4 +1,4 @@
-# AD-624: The system report keeps part ownership and unchecked interfaces
+# AD-630: The system report keeps part ownership and unchecked interfaces
 
 ## Context
 

@@ -17,3 +17,6 @@ html.ak-canvas .rp-explorer .flow:not([data-expanded]) .ak-bottom-center { left:
 /* They win over the colour of a perspective: an exception is never a decoration. */
 html.ak-canvas .rp-explorer g.node[data-assessment-status="FAIL"] .card { stroke: var(--fail) !important; stroke-width: 2.5 !important; }
 html.ak-canvas .rp-explorer g.node[data-assessment-status="UNKNOWN"] .card { stroke: var(--unknown) !important; stroke-width: 2 !important; stroke-dasharray: 6 4; }
+/* A diagram that is smaller than the window sits in its middle, not in its corner. */
+.rp-explorer .flow-canvas { display: flex; }
+.rp-explorer .flow-canvas > svg { margin: auto; flex: none; }
