@@ -7,7 +7,7 @@
 //! that it must not hold. A gap whose effect meets what a rule reads keeps the rule UNKNOWN: the
 //! edge that the gap hides can be the violation. The run stays UNKNOWN with each such gap.
 
-use archkeel_model::{Cause, Doubt, Incomplete, Reason};
+use archkeel_model::{Cause, Incomplete, Reason};
 use serde_json::{json, Value};
 
 use crate::direction_tests::{both, point, unchanged, LOCAL, MAIN, PAGE_IMPORT};
@@ -54,12 +54,12 @@ fn every_module(module: &'static str) -> impl FnOnce(&mut Value) + Clone {
 }
 
 /// The doubts of the gaps that hold the rule, when the rule is UNKNOWN because of them.
-fn doubts(found: &Run, rule: &str) -> Option<Vec<Doubt>> {
+fn doubts(found: &Run, rule: &str) -> Option<Vec<String>> {
     match found.0.get(rule) {
         Some((word, Some(Reason::NotComplete(Cause::ScopedGaps(scoped))))) => {
             assert_eq!(word, "UNKNOWN", "{rule}");
             assert_eq!(scoped.ids(), [ID], "{rule}");
-            Some(scoped.doubts().to_vec())
+            Some(scoped.doubts().iter().map(|doubt| doubt.word()).collect())
         }
         _ => None,
     }
@@ -67,11 +67,11 @@ fn doubts(found: &Run, rule: &str) -> Option<Vec<Doubt>> {
 
 /// Each rule of `held` is UNKNOWN because of `doubt`; each rule of `decided` passes; the run is
 /// UNKNOWN because of the gap.
-fn assert_scope(found: &Run, doubt: &Doubt, held: &[&str], decided: &[&str]) {
+fn assert_scope(found: &Run, doubt: &str, held: &[&str], decided: &[&str]) {
     assert_eq!(found.0.len(), 9, "each rule has a verdict");
     assert_eq!(held.len() + decided.len(), 9, "the test names each rule");
     for rule in held {
-        let expected = Some(vec![doubt.clone()]);
+        let expected = Some(vec![doubt.to_owned()]);
         assert_eq!(
             doubts(found, rule),
             expected,
@@ -105,7 +105,7 @@ fn the_edges_of_a_source_module_hold_the_rules_that_read_them_and_no_other_rule(
     ]
     .concat();
     let decided = [&FILES_ONLY[..], &["DATA-PEERS"]].concat();
-    assert_scope(&found, &Doubt::Edges(INDEX.to_owned()), &held, &decided);
+    assert_scope(&found, &format!("edges: {}", INDEX), &held, &decided);
 }
 
 #[test]
@@ -115,7 +115,7 @@ fn the_edges_of_a_member_hold_the_sibling_rule_and_not_the_rules_that_exempt_the
     let found = run(unchanged, edges(LOCAL.0), rooted()).unwrap_or_else(failed);
     let held = [&EVERY_EDGE[..], &["EXTERNAL-COMPLETE", "DATA-PEERS"]].concat();
     let decided = [&FILES_ONLY[..], &["EXTERNAL-SHOP", "DOMAIN-NO-DATA"]].concat();
-    assert_scope(&found, &Doubt::Edges(LOCAL.0.to_owned()), &held, &decided);
+    assert_scope(&found, &format!("edges: {}", LOCAL.0), &held, &decided);
 }
 
 #[test]
@@ -123,7 +123,7 @@ fn the_code_of_a_module_holds_each_rule_that_reads_its_edges() {
     let found = run(unchanged, code(PAGE), rooted()).unwrap_or_else(failed);
     let held = [&EVERY_EDGE[..], &["EXTERNAL-COMPLETE", "EXTERNAL-SHOP"]].concat();
     let decided = [&FILES_ONLY[..], &["DOMAIN-NO-DATA", "DATA-PEERS"]].concat();
-    assert_scope(&found, &Doubt::Code(PAGE.to_owned()), &held, &decided);
+    assert_scope(&found, &format!("modules: {}", PAGE), &held, &decided);
 }
 
 #[test]
@@ -139,7 +139,7 @@ fn the_code_of_every_module_holds_each_rule_but_the_rules_of_the_files() {
         ],
     ]
     .concat();
-    assert_scope(&found, &Doubt::EveryModule, &held, &FILES_ONLY);
+    assert_scope(&found, "every_module", &held, &FILES_ONLY);
 }
 
 #[test]
@@ -150,7 +150,7 @@ fn an_unowned_module_can_be_a_source_of_the_forbidden_rule() {
         contract["components"][0]["public"] = json!(["shop.elsewhere"]);
     };
     let found = run(unowned, edges(MAIN.0), rooted()).unwrap_or_else(failed);
-    let expected = Some(vec![Doubt::Edges(MAIN.0.to_owned())]);
+    let expected = Some(vec![format!("edges: {}", MAIN.0)]);
     assert_eq!(doubts(&found, "DOMAIN-NO-DATA"), expected);
     // The twin: the owned `main` is not a source, so the rule is decided.
     let owned = run(unchanged, edges(MAIN.0), rooted()).unwrap_or_else(failed);
@@ -171,7 +171,7 @@ fn a_symbol_rule_reads_the_code_of_each_module_and_the_edges_of_its_sources() {
         }
     };
     let found = run(symbol, code(LOCAL.0), rooted()).unwrap_or_else(failed);
-    let expected = Some(vec![Doubt::Code(LOCAL.0.to_owned())]);
+    let expected = Some(vec![format!("modules: {}", LOCAL.0)]);
     assert_eq!(doubts(&found, "SYMBOL"), expected);
     // The twin: the edges of a module that is no source are not in the read set of the rule.
     let found = run(symbol, edges(LOCAL.0), rooted()).unwrap_or_else(failed);
@@ -182,7 +182,7 @@ fn a_symbol_rule_reads_the_code_of_each_module_and_the_edges_of_its_sources() {
         found.0.get("SYMBOL")
     );
     let found = run(symbol, edges(PAGE), rooted()).unwrap_or_else(failed);
-    let expected = Some(vec![Doubt::Edges(PAGE.to_owned())]);
+    let expected = Some(vec![format!("edges: {}", PAGE)]);
     assert_eq!(doubts(&found, "SYMBOL"), expected);
 }
 
