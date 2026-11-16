@@ -413,7 +413,9 @@ def test_delivery_failure_keeps_the_verdict_but_replaces_the_exit(
         ["report", "--root", str(root), "--output", str(tmp_path / "missing/report"), "--text"]
     )
     text = capsys.readouterr().out
-    assert text_code == 2 and f"report: {status}" in text and "REFUSED: io_error:" in text
+    assert text_code == 2 and "report: UNKNOWN -> exit 2" in text.splitlines()[0]
+    assert f"the run is {status}" in text.splitlines()[0] and "Problem: cannot write" in text
+    assert "io_error" not in text
 
 
 def test_compact_report_has_evidence_locations_and_an_honest_tool_identity(

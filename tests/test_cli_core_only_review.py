@@ -87,7 +87,8 @@ def test_unexpected_exception_is_not_an_architecture_failure(
     if form == "--json":
         assert json.loads(captured.out)["refusal"]["kind"] == "internal_error"
     else:
-        assert captured.out.startswith("REFUSED:") and "internal_error" in captured.out
+        assert "REFUSED -> exit 2" in captured.out and "planted internal fault" in captured.out
+        assert "internal_error" not in captured.out
 
 
 @pytest.mark.parametrize("form", ["--text", "--json"])
@@ -99,9 +100,9 @@ def test_a_refusal_is_not_presented_as_an_unknown_rule(
     text = capsys.readouterr().out
     if form == "--json":
         refusal = json.loads(text)["refusal"]
-        assert refusal["kind"] == "not_on_this_development_line" and "#1103" in refusal["message"]
+        assert refusal["kind"] == "not_on_this_development_line" and "#" not in refusal["message"]
     else:
-        assert text.startswith("REFUSED:")
+        assert "REFUSED -> exit 2" in text.splitlines()[0] and "not_on_this" not in text
 
 
 @pytest.mark.parametrize("form", ["--text", "--json"])
@@ -120,7 +121,7 @@ def test_a_native_collection_refusal_is_also_typed(
     if form == "--json":
         assert json.loads(text)["refusal"]["kind"] == "collection_refused"
     else:
-        assert text.startswith("REFUSED:")
+        assert "REFUSED -> exit 2" in text.splitlines()[0] and "not_on_this" not in text
 
 
 @pytest.mark.parametrize("form", ["--text", "--json"])
@@ -133,7 +134,7 @@ def test_the_real_core_path_and_code_digest_are_visible(
     binary = built / f"archkeel-core{SUFFIX}"
     monkeypatch.setattr(core_only, "locate_core", lambda: binary)
     with case_root(HONEST) as root:
-        assert core_only.run(["validate", "--root", str(root), form]) == 0
+        assert core_only.run(["validate", "--root", str(root), form, "--verbose"]) == 0
         result = capsys.readouterr().out
         if form == "--json":
             payload = json.loads(result)

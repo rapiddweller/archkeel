@@ -11,10 +11,11 @@ from pathlib import Path
 
 import pytest
 
-from archkeel.cli import core_arguments, core_binary, core_only, native_scan
+from archkeel.cli import core_arguments, core_binary, core_only, core_text, native_scan
 from archkeel.cli.core_frame import CoreError, RefusalKind, Status
 
 HEAD = "a" * 40
+EXIT = {Status.PASS: 0, Status.FAIL: 1, Status.UNKNOWN: 2}
 OLD_STAGE_ONE_VARIABLE = "ARCHKEEL_NATIVE_CORE"
 
 
@@ -97,10 +98,10 @@ def test_the_text_verdict_prints_the_assumption(
 ) -> None:
     document = json.loads(frame(status))
     document["premise"] = "code outside the scan roots hands in no global object"
-    core_only.render_text("validate", _read(document))
+    print("\n".join(core_text.render("validate", _read(document), EXIT[status])))
     lines = capsys.readouterr().out.splitlines()
-    assert lines[0] == f"validate: {status}"
-    assert lines[1] == "Assumption: code outside the scan roots hands in no global object"
+    assert lines[0].startswith(f"validate: {status} -> exit {EXIT[status]} (")
+    assert "Assumption: code outside the scan roots hands in no global object" in lines
 
 
 def _stated_once_frame() -> dict:
@@ -122,11 +123,10 @@ def _stated_once_frame() -> dict:
 def test_a_collection_gap_may_carry_a_detail_and_the_text_names_it_once(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    core_only.render_text("validate", _read(_stated_once_frame()))
-    lines = [line for line in capsys.readouterr().out.splitlines() if line.startswith("Source gap")]
-    assert len(lines) == 1
-    assert "(7 uses of 2 free standard names depend on it)" in lines[0]
-    assert "src/u1.ts:1, src/u2.ts:2, src/u3.ts:3, +4 more" in lines[0]
+    print("\n".join(core_text.render("validate", _read(_stated_once_frame()), 2)))
+    text = capsys.readouterr().out
+    assert text.count("7 uses of 2 free standard names depend on it") == 1
+    assert "src/u1.ts:1" in text and "source_resolution_gap" not in text
 
 
 @pytest.mark.parametrize("detail", [1, ["a"], None, {"a": 1}])
@@ -307,7 +307,7 @@ def test_text_names_each_failure_cause_edge_location_and_action(
     monkeypatch.setattr(core_only, "exchange", lambda *_: (frame(Status.FAIL), 0))
     assert core_only.run(["validate", "--text"]) == 1
     text = capsys.readouterr().out
-    for word in ("R1", "forbidden dependency", "app.a -> app.b", "src/a.ts:4", "Action:"):
+    for word in ("R1", "forbidden dependency", "app.a -> app.b", "src/a.ts:4", "Next:"):
         assert word in text
 
 
@@ -319,8 +319,9 @@ def test_text_names_each_unknown_kind_cause_location_and_action(
     monkeypatch.setattr(core_only, "exchange", lambda *_: (frame(Status.UNKNOWN), 0))
     assert core_only.run(["validate", "--text"]) == 2
     text = capsys.readouterr().out
-    for word in ("R1", "scope_incomplete", "pair gap", "src/a.ts:4", "Action:"):
+    for word in ("R1", "pair gap", "src/a.ts:4", "Next:"):
         assert word in text
+    assert "scope_incomplete" not in text
 
 
 def test_an_unported_rule_names_its_missing_kind(
@@ -336,8 +337,8 @@ def test_an_unported_rule_names_its_missing_kind(
     monkeypatch.setattr(core_only, "exchange", lambda *_: (json.dumps(document).encode(), 3))
     assert core_only.run(["validate", "--text"]) == 2
     text = capsys.readouterr().out
-    assert "R2: UNKNOWN: rule kind not decided by the core" in text
-    assert "symbol_placement" in text and "Action:" in text
+    assert "R2" in text and "rule kind that the core does not decide yet" in text
+    assert "symbol_placement" in text and "Next:" in text and "rule_kind_not_ported" not in text
 
 
 @pytest.mark.parametrize(
