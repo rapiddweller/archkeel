@@ -113,7 +113,9 @@ def kinds(name: str, body: str) -> dict[str, str]:
 def test_a_const_table_of_literals_and_paths_is_not_a_clone(tmp_path: Path) -> None:
     table = "const T: &[(&str, K)] = &[\n" + rows("n", 40) + "];\n"
     assert run(scratch(tmp_path, kinds("a", table))).returncode == 0
-    strings = "pub const NAMES: [&str; 40] = [\n" + "".join(f'    "w{i}",\n' for i in range(40)) + "];\n"
+    strings = (
+        "pub const NAMES: [&str; 40] = [\n" + "".join(f'    "w{i}",\n' for i in range(40)) + "];\n"
+    )
     assert run(scratch(tmp_path / "b", kinds("a", strings))).returncode == 0
 
 
@@ -135,9 +137,11 @@ def arms(prefix: str, count: int, extra: str = "") -> str:
 
 def test_a_match_of_variants_and_words_is_not_a_clone(tmp_path: Path) -> None:
     assert run(scratch(tmp_path, kinds("a", arms("x", 30)))).returncode == 0
-    reverse = "fn kind(w: &str) -> E {\n    match w {\n" + "".join(
-        f'        "w{i}" | "v{i}" => E::V{i},\n' for i in range(30)
-    ) + "        _ => E::Other,\n    }\n}\n"
+    reverse = (
+        "fn kind(w: &str) -> E {\n    match w {\n"
+        + "".join(f'        "w{i}" | "v{i}" => E::V{i},\n' for i in range(30))
+        + "        _ => E::Other,\n    }\n}\n"
+    )
     assert run(scratch(tmp_path / "b", kinds("a", reverse))).returncode == 0
 
 
@@ -148,23 +152,31 @@ def test_a_match_of_variants_and_tuples_of_words_is_not_a_clone(tmp_path: Path) 
 
 
 def test_declarations_of_words_and_names_are_not_clones(tmp_path: Path) -> None:
-    words = "closed! {\n    pub enum E {\n" + "".join(f'        V{i} = "v{i}",\n' for i in range(30)) + "    }\n}\n"
+    words = (
+        "closed! {\n    pub enum E {\n"
+        + "".join(f'        V{i} = "v{i}",\n' for i in range(30))
+        + "    }\n}\n"
+    )
     assert run(scratch(tmp_path, kinds("a", words))).returncode == 0
     mods = "".join(f"mod m{i};\n" for i in range(40))
     assert run(scratch(tmp_path / "b", kinds("a", mods))).returncode == 0
-    fields = "#[derive(Clone)]\nstruct S {\n" + "".join(f"    f{i}: Vec<String>,\n" for i in range(30)) + "}\n"
+    fields = (
+        "#[derive(Clone)]\nstruct S {\n"
+        + "".join(f"    f{i}: Vec<String>,\n" for i in range(30))
+        + "}\n"
+    )
     assert run(scratch(tmp_path / "c", kinds("a", fields))).returncode == 0
 
 
 def test_a_macro_call_with_a_call_in_its_body_is_logic(tmp_path: Path) -> None:
-    body = "closed! {\n" + "".join(f'    V{i} = make({i}),\n' for i in range(40)) + "}\n"
+    body = "closed! {\n" + "".join(f"    V{i} = make({i}),\n" for i in range(40)) + "}\n"
     assert run(scratch(tmp_path, kinds("a", body))).returncode == 1
 
 
 def test_a_match_with_a_guard_or_an_expression_arm_is_logic(tmp_path: Path) -> None:
     guarded = arms("x", 30, '        E::Z if flag() => "z",\n')
     assert run(scratch(tmp_path, kinds("a", guarded))).returncode == 1
-    computed = arms("x", 30, '        E::Z => name_of(1),\n')
+    computed = arms("x", 30, "        E::Z => name_of(1),\n")
     assert run(scratch(tmp_path / "b", kinds("a", computed))).returncode == 1
 
 

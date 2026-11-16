@@ -13,8 +13,8 @@ two of them that look alike are no clone:
   of names and types;
 - a declaration macro (`closed! { pub enum E { A = "a", } }`) whose body is names, literals and
   brackets, each `=` followed by a literal;
-- a `match` in which each arm is `path => literal` (or a tuple of literals) or `literal => path`, with no guard and no other
-  expression: a table of words and variants.
+- a `match` in which each arm is `path => literal` (or a tuple of literals) or
+  `literal => path`, with no guard and no other expression: a table of words and variants.
 
 Each rule is strict. A call, an operator, a block, a guard or a second expression in the item
 makes it logic again, and logic in the same file stays visible to the check.
@@ -202,7 +202,11 @@ def _literals(tokens: Sequence[Token]) -> bool:
 
 def _mod_end(tokens: Sequence[Token], start: int) -> int | None:
     """Return the index after `mod name;`."""
-    if start + 3 < len(tokens) + 0 and tokens[start + 1].kind == "name" and _is(tokens[start + 2], ";"):
+    if (
+        start + 3 < len(tokens) + 0
+        and tokens[start + 1].kind == "name"
+        and _is(tokens[start + 2], ";")
+    ):
         return start + 3
     return None
 
@@ -234,7 +238,17 @@ def _struct_end(tokens: Sequence[Token], start: int) -> int | None:
     for index, token in enumerate(body):
         if token.kind == "literal":
             return None
-        if token.kind == "punct" and token.text not in {",", ":", "<", ">", "&", "'", "[", "]", ";"}:
+        if token.kind == "punct" and token.text not in {
+            ",",
+            ":",
+            "<",
+            ">",
+            "&",
+            "'",
+            "[",
+            "]",
+            ";",
+        }:
             return None
         if token.kind == "name" and index + 1 < len(body) and _is(body[index + 1], "("):
             return None
