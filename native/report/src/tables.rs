@@ -11,23 +11,25 @@
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(test)]
+use crate::codes::Gap;
 use crate::codes::{
-    BudgetVerdict, Code, Disposition, EdgeTarget, FindingKind, FindingReason, Gap, Kind,
-    MeasureDef, MeasureState, NodeLevel, Permission, UnknownReason, UnknownSource, Vis,
+    BudgetVerdict, Code, Disposition, EdgeTarget, FindingKind, FindingReason, Kind, MeasureDef,
+    MeasureState, NodeLevel, Permission, UnknownReason, UnknownSource, Vis,
 };
 
 /// A row index into the table that the column names.
-pub type Id = u32;
+pub(crate) type Id = u32;
 /// A row index, or -1 for absent.
-pub type OptId = i64;
+pub(crate) type OptId = i64;
 /// An index into `strings`.
-pub type StrId = u32;
+pub(crate) type StrId = u32;
 /// An index into `strings`, or -1 for absent.
-pub type OptStr = i64;
+pub(crate) type OptStr = i64;
 /// A code of `Gap`, or -1 for absent.
 pub type OptGap = i64;
 /// The value of `Flag`: 0 or 1.
-pub type Flag = u8;
+pub(crate) type Flag = u8;
 
 /// The column lengths of a table, in key order, for the check.
 pub(crate) trait Columns {
@@ -318,6 +320,7 @@ table!(
 );
 
 /// The gap of an `OptGap` cell, or `None` for -1 and for a value beyond `u32`.
-pub fn opt_gap(cell: OptGap) -> Option<Code<Gap>> {
+#[cfg(test)]
+pub(crate) fn opt_gap(cell: OptGap) -> Option<Code<Gap>> {
     u32::try_from(cell).ok().map(Code::raw)
 }

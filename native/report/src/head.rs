@@ -266,7 +266,7 @@ pub struct Component {
 /// The system measures of one earlier commit.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct TrendPoint {
+pub(crate) struct TrendPoint {
     /// The commit of the point.
     pub commit: String,
     /// The date of the point.

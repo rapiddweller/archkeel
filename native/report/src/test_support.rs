@@ -11,9 +11,10 @@
 
 use std::path::PathBuf;
 
+use crate::tables::OptId;
 use crate::{
     Code, CodeList, ComponentText, CrossingRow, Diagnostic, EdgeRow, FindingRow, GraphRows,
-    MeasureRow, NodeLevel, NodeRow, OptId, Payload, PermissionRow, Produced, Records, RuleDecision,
+    MeasureRow, NodeLevel, NodeRow, Payload, PermissionRow, Produced, Records, RuleDecision,
     RuleOutcome, RuleReason, RuleText, RuleVerdict, RunFacts, RunOutcome, Status, Target, Tree,
     Undecided, UnitRow, UnknownRecord, UnknownSource, ViolationRow, WhyUnknown,
 };
