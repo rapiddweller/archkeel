@@ -153,7 +153,7 @@ pub(crate) struct MacroDef {
     /// A definition in a function body is visible only in the rest of that body.
     pub local: Option<Local>,
     /// What its expansion writes at item level (AD-608).
-    pub item_level: crate::tokens::ItemLevel,
+    pub item_level: crate::macro_items::ItemLevel,
     /// An exported macro whose body names only `$crate` paths and `std` expression macros: it
     /// expands to the same edges in each crate that calls it (AD-614).
     pub portable: bool,
