@@ -8,8 +8,8 @@ use std::io::{Read, Write};
 
 use archkeel_facts::envelope::{FileFact, Reply, Target};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
-use archkeel_facts::sections::{GapFact, ImportFact, Section};
 use archkeel_facts::Record;
+use archkeel_facts::{GapFact, ImportFact, Section};
 use flate2::read::GzDecoder;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;

@@ -18,7 +18,7 @@ use crate::builder::{import_record, Builder};
 use crate::crates::Root;
 use crate::definitions::MethodCall;
 use crate::modules::{Edge, Index, Outcome};
-use crate::routes::{route, Route};
+use crate::routes::{route, Publications, Route};
 use crate::scan::{MacroCall, MacroDef, Reference, Site, Via};
 use crate::tree::Module;
 
@@ -290,7 +290,7 @@ impl Builder {
             runtime_file: Some(target_rel.to_owned()),
             declaration_file: None,
         });
-        let named = named(index, edge, &reference.via);
+        let named = named(index, &mut self.publications, edge, &reference.via);
         let record = module_record(module, reference, edge, &identity, evidence);
         self.imports.push(with_name(record, named));
         self.ended += 1;
@@ -314,19 +314,20 @@ impl ImportName {
     }
 }
 
-fn named(index: &Index<'_>, edge: &Edge, via: &Via) -> ImportName {
+fn named(index: &Index<'_>, roots: &mut Publications, edge: &Edge, via: &Via) -> ImportName {
     if matches!(via, Via::Glob { .. }) {
         return ImportName::glob();
     }
-    // A member of an `impl` block: the hop is the type in the module of the block.
-    if let Some(ty) = &edge.member_of {
-        let hop = (edge.lexical == edge.module).then(|| format!("{}.{ty}", edge.module));
+    // A member of an `impl` block: the type in the module of the block, and its publications.
+    if let Some((at, ty)) = &edge.member_of {
+        let route = if edge.lexical == edge.module {
+            roots.member(index, &edge.module, at, ty)
+        } else {
+            Route::none()
+        };
         return ImportName {
             symbol: Some(ty.clone()),
-            route: Route {
-                hops: hop.into_iter().collect(),
-                complete: true,
-            },
+            route,
         };
     }
     item(index, &edge.lexical, edge.symbol.as_deref())
