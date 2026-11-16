@@ -37,12 +37,14 @@ pub fn sdk(text: &str) -> Result<String, String> {
     })
 }
 
+/// Build declaration results from JSON input lines.
 pub fn declarations(text: &str) -> Result<String, String> {
     rows(text, |input: crate::declarations::types::Input| {
         crate::declarations::build(&input)
     })
 }
 
+/// Build collection results from JSON input lines.
 pub fn collection(text: &str) -> Result<String, String> {
     rows(text, |input: crate::collection::types::Input| {
         crate::collection::build(&input)

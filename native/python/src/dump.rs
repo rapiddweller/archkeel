@@ -58,6 +58,7 @@ fn each_file(
     Ok(())
 }
 
+/// Print the parse outcome and stack for each snapshot path on stdin.
 pub fn run(minor: &str, root: &str) -> Result<(), String> {
     each_file(minor, root, |raw, rel, minor| {
         let text = raw.as_deref().and_then(decode);
