@@ -112,6 +112,19 @@ fn layer_nodes(topology: &Topology, grouped: &[Group<'_>]) -> Vec<Node> {
     nodes
 }
 
+/// The word that `init` drafts for a text that nobody has written yet.
+pub(super) const DRAFT_WORD: &str = "TODO";
+
+/// A text of the contract as the page shows it: a drafted `TODO` is a text that is not written yet,
+/// not a defect of the page.
+fn written(text: &str, what: &str) -> String {
+    if text.trim().starts_with(DRAFT_WORD) {
+        format!("{what} not written yet.")
+    } else {
+        text.to_owned()
+    }
+}
+
 /// The box of one component under `parent`.
 fn component_node(component: &Component, parent: Option<usize>) -> Node {
     Node {
@@ -121,8 +134,16 @@ fn component_node(component: &Component, parent: Option<usize>) -> Node {
         layer: component.layer.clone(),
         public: component.public.clone(),
         path: component.packages.join(", "),
-        about: component.responsibilities.clone(),
-        forbidden: component.forbidden_responsibilities.clone(),
+        about: component
+            .responsibilities
+            .iter()
+            .map(|t| written(t, "Responsibility"))
+            .collect(),
+        forbidden: component
+            .forbidden_responsibilities
+            .iter()
+            .map(|t| written(t, "Boundary"))
+            .collect(),
         planned: component.planned_public.clone(),
         rank: None,
     }

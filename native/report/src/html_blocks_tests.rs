@@ -333,14 +333,28 @@ fn a_cycle_over_two_modules_of_one_component_is_one_violation() {
 }
 
 #[test]
-fn the_next_step_counts_only_the_causes_that_hold_a_rule() {
+fn the_next_step_names_each_job_with_its_own_count() {
     let frame = json!({"status": "UNKNOWN",
         "rules": {"R": ["k", "UNKNOWN"]}, "explained": {"R": "why"},
         "unsupported": {"rules": {"h:a": "named one", "h:b": "named two"}}});
     let page = document(&frame);
+    // Each job is one cause with the number of what it holds: 1 unknown rule, 1 and 1 named gap.
+    let next = page
+        .split("id=\"next\"")
+        .nth(1)
+        .unwrap()
+        .split("</ol>")
+        .next()
+        .unwrap();
     assert!(
-        page.contains("1 unknown rule: 1 cause holds them."),
-        "{page}"
+        next.contains("Close the gaps behind 1 unknown rule: why."),
+        "{next}"
+    );
+    assert!(
+        next.matches("Remove the cause that keeps the run open (1 gap)")
+            .count()
+            == 2,
+        "{next}"
     );
 }
 

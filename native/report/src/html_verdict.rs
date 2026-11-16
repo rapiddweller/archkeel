@@ -5,6 +5,7 @@
 //! The verdict and the next steps (AD-496). The heading `<h1>Verdict: STATUS</h1>` is fixed text
 //! that the shell checks; the card shows the same status and the counts of the frame.
 
+use super::atlas_tree::DRAFT_WORD;
 use super::causes;
 use super::frame::Frame;
 use super::markup::{count, escape, status_icon};
@@ -97,59 +98,108 @@ baseline; the status stays {}, and an accepted UNKNOWN is not a pass.</p>",
     )
 }
 
+/// The components whose responsibility `init` drafted and nobody wrote yet.
+fn unwritten(frame: &Frame) -> usize {
+    frame.topology.as_ref().map_or(0, |topology| {
+        topology
+            .components
+            .iter()
+            .filter(|c| {
+                c.responsibilities
+                    .iter()
+                    .any(|t| t.trim().starts_with(DRAFT_WORD))
+            })
+            .count()
+    })
+}
+
+/// The jobs of a run that is not PASS, each with its count, the largest first (at most three).
+fn jobs(frame: &Frame, places: &Places) -> Vec<(usize, String)> {
+    let mut jobs: Vec<(usize, String)> = Vec::new();
+    if places.total > 0 {
+        // All the places up to nine; else the first five and a link to the whole section.
+        let shown = if places.shown.len() <= 9 {
+            places.shown.len()
+        } else {
+            5
+        };
+        let mut links: Vec<String> = places
+            .shown
+            .iter()
+            .take(shown)
+            .map(|place| format!("<a href=\"#x{n}\">{n}</a>", n = place.number))
+            .collect();
+        if places.total > shown {
+            links.push(format!(
+                "<a href=\"#violations\">+{} more</a>",
+                places.total - shown
+            ));
+        }
+        jobs.push((
+            places.total,
+            format!(
+                "Remove {}. Evidence: {}.",
+                count(places.total, "violated place"),
+                links.join(", ")
+            ),
+        ));
+    }
+    let todo = unwritten(frame);
+    if todo > 0 {
+        jobs.push((
+            todo,
+            format!(
+                "Write the responsibility of {} (the contract still says TODO).",
+                count(todo, "component")
+            ),
+        ));
+    }
+    for cause in causes::grouped(frame) {
+        if cause.rules.is_empty() {
+            jobs.push((
+                cause.named,
+                format!(
+                    "Remove the cause that keeps the run open ({}): {}.",
+                    count(cause.named, "gap"),
+                    escape(&causes::title(&cause))
+                ),
+            ));
+        } else {
+            jobs.push((
+                cause.rules.len(),
+                format!(
+                    "Close the gaps behind {}: {}. <a href=\"#unknown\">Causes</a>.",
+                    count(cause.rules.len(), "unknown rule"),
+                    escape(&causes::title(&cause))
+                ),
+            ));
+        }
+    }
+    if jobs.is_empty() && frame.status == "UNKNOWN" {
+        jobs.push((
+            1,
+            format!(
+                "Remove the cause that keeps the run open: {}",
+                escape(&frame.cause)
+            ),
+        ));
+    }
+    jobs.sort_by_key(|(size, _)| std::cmp::Reverse(*size));
+    jobs
+}
+
 fn next(frame: &Frame, places: &Places) -> String {
     let mut steps = Vec::new();
-    match frame.status.as_str() {
-        "PASS" => steps
-            .push("Nothing to do. Keep the contract and this report with the commit.".to_owned()),
-        status => {
-            if places.total > 0 {
-                // All the places up to nine; else the first five and a link to the whole section.
-                let shown = if places.shown.len() <= 9 {
-                    places.shown.len()
-                } else {
-                    5
-                };
-                let mut links: Vec<String> = places
-                    .shown
-                    .iter()
-                    .take(shown)
-                    .map(|place| format!("<a href=\"#x{n}\">{n}</a>", n = place.number))
-                    .collect();
-                if places.total > shown {
-                    links.push(format!(
-                        "<a href=\"#violations\">+{} more</a>",
-                        places.total - shown
-                    ));
-                }
-                steps.push(format!(
-                    "Remove {}. Evidence: {}.",
-                    count(places.total, "violated place"),
-                    links.join(", ")
-                ));
-            }
-            if frame.rules_with("UNKNOWN") > 0 {
-                let held = causes::grouped(frame)
-                    .iter()
-                    .filter(|cause| !cause.rules.is_empty())
-                    .count();
-                steps.push(format!(
-                    "Close the gaps behind the {}: {} {} them. <a href=\"#unknown\">Causes</a>.",
-                    count(frame.rules_with("UNKNOWN"), "unknown rule"),
-                    count(held, "cause"),
-                    if held == 1 { "holds" } else { "hold" }
-                ));
-            } else if status == "UNKNOWN" {
-                // No rule row is UNKNOWN: a named gap or the run itself keeps it open.
-                steps.push(if causes::grouped(frame).is_empty() {
-                    format!(
-                        "Remove the cause that keeps the run open: {}",
-                        escape(&frame.cause)
-                    )
-                } else {
-                    "Remove the causes named under the verdict.".to_owned()
-                });
-            }
+    if frame.status == "PASS" {
+        steps.push("Nothing to do. Keep the contract and this report with the commit.".to_owned());
+    } else {
+        let all = jobs(frame, places);
+        steps.extend(all.iter().take(3).map(|(_, text)| text.clone()));
+        if all.len() > 3 {
+            steps.push(format!(
+                "{} more: <a href=\"#unknown\">see the causes</a>.",
+                count(all.len() - 3, "job")
+            ));
         }
     }
     steps.push(

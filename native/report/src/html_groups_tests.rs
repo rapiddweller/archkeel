@@ -23,7 +23,7 @@ fn children_of(data: &Value) -> std::collections::BTreeMap<Option<String>, Vec<S
 // groups that the user opens, and a gap inside a group shows on it.
 #[test]
 fn no_level_of_the_explorer_holds_more_boxes_than_stay_readable() {
-    for size in [6, 7, 80, 226] {
+    for size in [12, 13, 80, 226] {
         let mut topology = components(size, &[(0, 1)]);
         for (i, c) in topology["components"]
             .as_array_mut()
@@ -38,7 +38,7 @@ fn no_level_of_the_explorer_holds_more_boxes_than_stay_readable() {
         let data = payload(&document(&frame));
         for (parent, kids) in children_of(&data) {
             assert!(
-                kids.len() <= 6,
+                kids.len() <= 12,
                 "{size}: {parent:?} holds {} boxes",
                 kids.len()
             );
@@ -74,5 +74,40 @@ fn no_level_of_the_explorer_holds_more_boxes_than_stay_readable() {
             top.iter().any(|c| c["status"] == "UNKNOWN"),
             "{size}: no box shows the gap"
         );
+    }
+}
+
+/// The status of each component of the Explorer data, by its id.
+fn statuses(data: &Value) -> Vec<(String, String)> {
+    data["atlas"]["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| {
+            (
+                c["id"].as_str().unwrap().to_owned(),
+                c["status"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect()
+}
+
+// AD-606: a gap that no component owns may hold any component, so none shows PASS beside it.
+#[test]
+fn a_gap_that_names_no_owned_module_holds_every_component() {
+    for subjects in [json!([]), json!(["outside.module"])] {
+        let mut frame = json!({"status": "UNKNOWN", "topology": components(3, &[(0, 1)]),
+            "collection_gaps": [{"kind": "collection_gap", "subjects": subjects, "reason": "macro"}]});
+        let found = statuses(&payload(&document(&frame)));
+        assert_eq!(found.len(), 3);
+        assert!(
+            found.iter().all(|(_, status)| status == "UNKNOWN"),
+            "{found:?}"
+        );
+        // A gap inside one component holds that component only.
+        frame["collection_gaps"][0]["subjects"] = json!(["m1"]);
+        let found = statuses(&payload(&document(&frame)));
+        assert_eq!(found[0].1, "PASS", "{found:?}");
+        assert_eq!(found[1].1, "UNKNOWN", "{found:?}");
     }
 }

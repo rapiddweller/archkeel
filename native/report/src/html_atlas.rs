@@ -99,6 +99,33 @@ fn exceptions(frame: &Frame, tree: &Tree, found: &[Finding]) -> (Vec<usize>, Vec
     (fail, unknown)
 }
 
+/// The line that Target and Diff show when the contract declares no dependency: the number of open
+/// dependency decisions comes from the gap that names them (`null` when the contract declares one).
+fn declared_note(frame: &Frame, topology: &Topology) -> Option<String> {
+    if !topology.requires.is_empty() {
+        return None;
+    }
+    const OPEN: &str = " open dependency decisions";
+    let open = frame.named.values().find_map(|reason| {
+        let before = &reason[..reason.find(OPEN)?];
+        let digits: String = before
+            .chars()
+            .rev()
+            .take_while(char::is_ascii_digit)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect();
+        digits.parse::<usize>().ok()
+    });
+    Some(match open {
+        Some(n) => {
+            format!("The contract declares no dependencies yet: {n} open dependency decisions.")
+        }
+        None => "The contract declares no dependencies yet.".to_owned(),
+    })
+}
+
 fn status(fail: usize, unknown: usize) -> (&'static str, String) {
     match (fail, unknown) {
         (0, 0) => ("PASS", "No violated place and no gap inside.".to_owned()),
@@ -274,6 +301,7 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
         "cells": levels.cells, "levels": levels.rows, "deviations": levels.deviations,
         "balance": levels.balance, "findings": found.iter().map(|f| &f.value).collect::<Vec<_>>(),
         "rule_assessments": rule_assessments, "unknowns": unknowns(frame),
+        "declared_note": declared_note(frame, topology),
         "unknown_count": frame.collection_gaps.len(), "questions": [], "declared_modules": [],
         "module_correspondences": [], "module_inventories": [], "symbols_complete": false,
         "symbol_coverages": coverage, "architecture_href": "#next", "detail_page": null,
