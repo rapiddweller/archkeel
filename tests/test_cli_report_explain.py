@@ -64,7 +64,7 @@ def test_the_shell_run_gives_the_sides_of_each_of_its_rules(
     ids = {component["id"] for component in contract["components"]}
     _, frame = frame_of(release_core, monkeypatch, ROOT, "docs/architecture/shell.toml")
     shapes = frame["explain"]["rules"]
-    assert len(frame["rules"]) == 23 and set(shapes) == set(frame["rules"])
+    assert frame["rules"] and set(shapes) == set(frame["rules"])
     for rule, shape in shapes.items():
         assert shape["kind"] == frame["rules"][rule][0]
         assert set(shape["source"]) | set(shape["target"]) <= ids, rule

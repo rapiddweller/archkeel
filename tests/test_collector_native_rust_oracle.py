@@ -87,7 +87,8 @@ def test_the_scan_of_native_is_complete(facts: dict[str, Any]) -> None:
     # The host drops the gaps that the contract allows, and native/expected-gaps.json pins the
     # rest. Any other gap means the scan of native/ missed something.
     gaps = facts["coverage"]["gaps"]
-    assert [gap["title"] for gap in gaps if not gap["data"].get("source_module")] == []
+    own = [gap for gap in gaps if not gap["data"].get("source_module")]
+    assert [(gap["title"], gap["data"]) for gap in own] == []
     assert facts["coverage"]["full_scope"] is (not gaps)
     assert len(facts["files"]) == len(facts["coverage"]["selected_files"])
 
