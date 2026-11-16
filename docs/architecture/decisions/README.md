@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-680 | [A written Python dunder dict is a construct](ad-680-a-written-python-dunder-dict-is-a-construct.md) |
 | AD-662 | [A macro whose expansion the scan does not read gives a gap](ad-662-a-macro-whose-expansion-the-scan-does-not-read-gives-a-gap.md) |
 | AD-672 | [A self-check pin may only shrink, and growth needs a reason](ad-672-a-self-check-pin-may-only-shrink-and-growth-needs-a-reason.md) |
 | AD-666 | [A Python broad exception handler keeps unread types partial](ad-666-a-python-broad-exception-handler-keeps-unread-types-partial.md) |
