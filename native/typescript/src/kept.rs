@@ -21,8 +21,8 @@ use crate::source::{FileSite, Span};
 pub(crate) struct Kept {
     pub module: String,
     pub has_error: bool,
-    /// The definitions with the qualified name of their parent inside the module.
-    pub definitions: Vec<(Definition, Option<String>)>,
+    /// The definitions and their parent scope indices.
+    pub definitions: Vec<Definition>,
     /// The span of each written string and the qualified name of the definition that holds it.
     pub comparisons: Vec<(Span, Option<String>)>,
     /// The names that each import statement binds, by the line and column of the statement.
@@ -53,11 +53,7 @@ impl Kept {
         script: ScriptFile,
     ) -> Self {
         let syntax = &mut parsed.syntax;
-        let definitions = syntax
-            .definitions
-            .iter()
-            .map(|item| (item.clone(), syntax.parent_name(item)))
-            .collect();
+        let definitions = std::mem::take(&mut syntax.definitions);
         let comparisons = syntax
             .sites
             .comparisons
@@ -87,7 +83,7 @@ impl Kept {
                     .locally(&name.decode(text.as_bytes()), name.start)
             });
         }
-        for (definition, _) in &mut kept.definitions {
+        for definition in &mut kept.definitions {
             for base in &mut definition.bases {
                 base.shadowed = kept.shadow.locally(&base.name, base.start);
             }
@@ -100,7 +96,7 @@ impl Kept {
     pub(crate) fn new(
         module: String,
         has_error: bool,
-        definitions: Vec<(Definition, Option<String>)>,
+        definitions: Vec<Definition>,
         comparisons: Vec<(Span, Option<String>)>,
         import_bindings: &[ImportBinding],
         module_exports: &[ExportBinding],
