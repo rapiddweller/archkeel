@@ -21,10 +21,13 @@ run `make core` to build the core binary first.
   frame instead: `archkeel report --output report.json --format json`. Without `--output`, the
   format option is refused. No file is written by default. The parent of `PATH` must exist.
 - `archkeel skill install claude` or `archkeel skill install codex` writes this skill file.
+- `archkeel init` drafts `archkeel.toml` and a contract for a Python project with one top-level
+  package. Every decision in it is a `TODO`: the first verdict is UNKNOWN and lists them. Ask the
+  owner for each decision; never fill one in alone. The walk is in `docs/onboarding.md`.
 
-`check`, `init`, `explore`, `guide`, `story`, `view` and `studio` are refused with exit 2 and the
-reason `not available on this development line`. Release 4.0.1 has `check` and `init`; no release
-has the other five. Saved reports, `architecture.json`, amendments, `--component` and
+`check`, `explore`, `guide`, `story`, `view` and `studio` are refused with exit 2 and the
+reason `not available on this development line`. Release 4.0.1 has `check`; no release
+has the other four. Saved reports, `architecture.json`, amendments, `--component` and
 `--write-graph` are refused by option name. A refusal is not a result: never report PASS after one,
 and never run a refused command in a loop. Tell the owner and use release 4.0.1 when they need it.
 

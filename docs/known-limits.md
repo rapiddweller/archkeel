@@ -72,7 +72,7 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 - The core decides on Windows since AD-442, and the installed Windows wheel must equal the core of
   the checkout. A release from `main` is open (AD-476): it publishes the sdist and the six platform
   wheels that Full builds and runs. The Windows wheel writes no report file (see `report --output`).
-- `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give the typed refusal
+- `init` is served (AD-626): Python only, one top-level package, folder layout only, every decision a `TODO`. `check`, `explore`, `guide`, `story`, `view` and `studio` give the typed refusal
   `not_on_this_development_line`, exit 2. Interactive reports, `architecture.json`, saved and focused
   reports, amendments and `--write-graph` are refused by option name. `--baseline` and
   `--write-baseline` are served ([reference](reference.md#baselines)).

@@ -43,7 +43,7 @@ jobs:
           version: "0.12.13"
 
       - name: Build distributions after full verification
-        run: make build
+        run: make sdist
 
       - name: Download the platform wheels that full verification built
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1

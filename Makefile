@@ -6,7 +6,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static pr-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build smoke release-check browser-runtime-install browser-architecture-check typescript-libs-check    core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
+.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static pr-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build sdist smoke release-check browser-runtime-install browser-architecture-check typescript-libs-check    core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static
@@ -69,7 +69,7 @@ native-check:
 	cd native && cargo clippy --locked --all-targets --features dump,harness -- -D warnings
 	cd native && cargo deny --locked check
 	cd native && cargo test --locked
-	$(UV) run --locked python -m pytest -q tests/test_repository_hygiene.py tests/test_ir_owners.py tests/test_rust_clones.py tests/test_rust_api.py tests/test_rust_source.py tests/test_native_contract_rules.py tests/test_native_expected_gaps.py tests/test_native_report.py tests/test_native_core.py tests/test_cli_core_only.py tests/test_cli_core_only_boundary.py tests/test_cli_core_only_build_output.py tests/test_cli_core_only_exit_table.py tests/test_cli_core_only_review.py tests/test_cli_core_only_scan.py tests/test_cli_native_dart_grammar_gate.py tests/test_cli_native_profile_limits.py tests/test_cli_native_core_scan.py tests/test_cli_native_core_scan_rust.py tests/test_cli_native_core_scan_work.py tests/test_cli_native_core_scan_large.py tests/test_collector_native_rust_module_oracle.py tests/test_collector_native_rust_definitions_oracle.py tests/test_collector_native_rust_receivers_compiled.py
+	$(UV) run --locked python -m pytest -q tests/test_repository_hygiene.py tests/test_ir_owners.py tests/test_rust_clones.py tests/test_rust_api.py tests/test_rust_source.py tests/test_native_contract_rules.py tests/test_native_expected_gaps.py tests/test_native_report.py tests/test_native_core.py tests/test_cli_core_only.py tests/test_cli_help.py tests/test_cli_text_output.py tests/test_cli_core_only_boundary.py tests/test_cli_core_only_build_output.py tests/test_cli_core_only_exit_table.py tests/test_cli_core_only_review.py tests/test_cli_core_only_scan.py tests/test_cli_native_dart_grammar_gate.py tests/test_cli_native_profile_limits.py tests/test_cli_native_core_scan.py tests/test_cli_native_core_scan_rust.py tests/test_cli_native_core_scan_work.py tests/test_cli_native_core_scan_large.py tests/test_collector_native_rust_module_oracle.py tests/test_collector_native_rust_definitions_oracle.py tests/test_collector_native_rust_receivers_compiled.py
 	$(UV) run --locked python -m pytest -q -n 0 tests/test_native_self_rules.py tests/test_native_self_contract.py tests/test_native_self_core_rows.py
 	$(MAKE) self-validate-native
 

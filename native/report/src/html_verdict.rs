@@ -49,6 +49,32 @@ fn premise(frame: &Frame) -> String {
     )
 }
 
+/// How many calls the core resolved and what an unresolved call does to a verdict (#1327). The
+/// same words as the text summary of the shell.
+fn calls(frame: &Frame) -> String {
+    let Some(found) = &frame.calls else {
+        return String::new();
+    };
+    let share = if found.calls_total == 0 {
+        "n/a".to_owned()
+    } else {
+        format!(
+            "{:.1}%",
+            100.0 * found.calls_resolved as f64 / found.calls_total as f64
+        )
+    };
+    format!(
+        "<p class=\"body-sm ak-verdict__note\">Calls: {} of {} resolved ({share}); {} partly resolved, {} builtin, {} outside the scan, {} unresolved.</p>\
+<p class=\"body-sm ak-verdict__note\">An unresolved call has no proven target and is no edge. A rule that reads calls cannot decide from it and stays UNKNOWN; a rule of imports does not read it.</p>",
+        found.calls_resolved,
+        found.calls_total,
+        found.calls_partial,
+        found.calls_builtin,
+        found.calls_external,
+        found.calls_unresolved
+    )
+}
+
 fn note(status: &str) -> &'static str {
     match status {
         "PASS" => "No violation. No unknown.",
@@ -200,7 +226,8 @@ pub(super) fn section(frame: &Frame, places: &Places) -> String {
     format!(
         "<div class=\"rp-head\"><h1>Verdict: {}</h1><section class=\"ak-verdict ak-verdict--{state}\" aria-label=\"Verdict\">\
 <span class=\"ak-badge ak-badge--{state} tag\">{}{}</span><h2 class=\"h2 ak-verdict__title\">{}</h2>\
-<p class=\"body-sm ak-verdict__note\">{}</p>{}{}{}<dl class=\"ak-verdict__stats\">{}{}{}{}</dl></section>{}</div>\n",
+<p class=\"body-sm ak-verdict__note\">{}</p>{}{}{}{}<dl class=\"ak-verdict__stats\">{}{}{}{}</dl></section>{}</div>
+",
         escape(status),
         status_icon(status),
         escape(status),
@@ -208,6 +235,7 @@ pub(super) fn section(frame: &Frame, places: &Places) -> String {
         note(status),
         baseline(frame),
         premise(frame),
+        calls(frame),
         top_causes(frame),
         stat("Rules PASS", frame.rules_with("PASS")),
         stat("Rules FAIL", frame.rules_with("FAIL")),

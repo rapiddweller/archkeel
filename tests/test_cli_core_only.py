@@ -37,7 +37,7 @@ raise SystemExit(code)
 """
 
 
-REFUSED = ("check", "explore", "init", "guide", "story", "view", "studio")
+REFUSED = ("check", "explore", "guide", "story", "view", "studio")
 
 
 def shell(*arguments: str) -> subprocess.CompletedProcess[str]:
@@ -76,7 +76,7 @@ def test_a_switch_with_a_value_refuses_without_python_decision_imports(value: st
     assert '"kind": "invalid_input"' in done.stdout
 
 
-@pytest.mark.parametrize("extra", [(), ("--help",), ("--output", "x.html"), ("--core-only",)])
+@pytest.mark.parametrize("extra", [(), ("--output", "x.html"), ("--core-only",)])
 @pytest.mark.parametrize("command", REFUSED)
 def test_a_command_of_the_release_line_stays_registered_and_refuses_with_its_kind(
     command: str, extra: tuple[str, ...]
@@ -92,13 +92,14 @@ def test_a_command_of_the_release_line_stays_registered_and_refuses_with_its_kin
     assert document["refusal"]["kind"] == "not_on_this_development_line"
     message = document["refusal"]["message"]
     assert message.startswith(f"{command} is not available on this development line")
-    # Release 4.0.1 has only `check` and `init` of the refused commands.
-    remedy = "use release 4.0.1" if command in {"check", "init"} else "no release has it"
-    assert remedy in message and "#880" in message
-    assert ("use release" in message) == (command in {"check", "init"})
+    # Release 4.0.1 has only `check` of the refused commands.
+    remedy = "use release 4.0.1" if command == "check" else "no release has it"
+    assert remedy in message and "#" not in message
+    assert ("use release" in message) == (command == "check")
     text = shell(command, *extra, "--text")
     assert text.returncode == 2 and text.stderr == ""
-    assert text.stdout == f"REFUSED: not_on_this_development_line: {message}\n"
+    assert text.stdout.splitlines()[:2] == [f"{command}: REFUSED -> exit 2", f"Problem: {message}"]
+    assert "not_on_this_development_line" not in text.stdout
 
 
 def test_check_names_each_check_that_is_not_ported() -> None:
@@ -106,7 +107,7 @@ def test_check_names_each_check_that_is_not_ported() -> None:
     message = json.loads(done.stdout)["refusal"]["message"]
     for name in ("ratchets", "guardrails", "selected changes", "Git order", "host publication"):
         assert name in message
-    assert "#1103" in message
+    assert "#" not in message
 
 
 @pytest.mark.parametrize("kind", list(core_arguments.CheckKind))
@@ -146,7 +147,7 @@ def test_each_mandatory_merge_check_is_named_without_a_scan(
     monkeypatch.setattr(core_only, "locate_core", no_binary)
     assert core_only.run(["check", "--json", *flags]) == 2
     result = json.loads(capsys.readouterr().out)
-    assert kind in result["refusal"]["message"] and "#1103" in result["refusal"]["message"]
+    assert kind in result["refusal"]["message"] and "#" not in result["refusal"]["message"]
 
 
 @pytest.mark.parametrize(
@@ -176,7 +177,7 @@ def test_each_option_of_the_release_line_refuses_by_name(
         released = option not in core_arguments.UNRELEASED_OPTIONS
         assert ("use release 4.0.1" in refusal["message"]) == released
         assert ("no release has it" in refusal["message"]) != released
-        assert "#880" in refusal["message"]
+        assert "#" not in refusal["message"]
 
 
 @pytest.mark.parametrize(

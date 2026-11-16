@@ -5,8 +5,9 @@
 
 The shell parses the arguments, finds the core binary, sends the scan identity, reads one frame
 with `read_frame`, prints it as text or JSON, and maps the status to the exit code. It holds no
-rule, fact or contract logic. A command that the core does not serve stays registered and gives a
-typed refusal with exit 2; it never falls back and never reports success.
+rule, fact or contract logic. `init` drafts the files of a new project (`init_draft`, AD-626) and
+starts no core. A command that the core does not serve stays registered and gives a typed refusal
+with exit 2; it never falls back and never reports success.
 """
 
 from __future__ import annotations
@@ -20,11 +21,11 @@ from pathlib import Path
 from time import time_ns
 from typing import Final
 
-from .core_arguments import HELP, NotOnThisLine, Options, command_of, parse
+from .core_arguments import NotOnThisLine, Options, command_of, parse
 from .core_baseline import as_json as baseline_json
-from .core_baseline import lines as baseline_lines
 from .core_binary import CoreBinaryNotFound, confirm, locate_core
 from .core_binding import resolve_root
+from .core_exit import exit_code
 from .core_frame import CoreCommand as Command
 from .core_frame import (
     CoreError,
@@ -34,12 +35,13 @@ from .core_frame import (
     Status,
     read_frame,
 )
-from .core_json import RequestMismatch
+from .core_help import help_for
+from .core_json import Gap, RequestMismatch
 from .core_output import write_output
+from .core_text import header, refusal, render
+from .core_words import FIXES, plain
+from .init_draft import CONFIG, CONTRACT, DOCUMENT, PROVENANCE, write_draft
 from .native_scan import SCAN_PROTOCOL, exchange, identity
-
-# The process exit of the core is not a command verdict (0 and 3 describe frame completeness).
-EXIT_CODES: Final[Mapping[Status, int]] = {Status.PASS: 0, Status.FAIL: 1, Status.UNKNOWN: 2}
 
 
 def _wants_json(argv: Sequence[str]) -> bool:
@@ -52,27 +54,42 @@ def run(argv: Sequence[str]) -> int:
     as_json = _wants_json(argv)
     try:
         if not argv or argv[0] in {"-h", "--help"}:
-            print(HELP, end="")
+            print(help_for(None), end="")
             return 0
         if argv[0] == "--version":
             print(f"archkeel {_version()}")
             return 0
-        command_of(argv)
         if {"-h", "--help"} & set(argv):
-            print(HELP, end="")
+            print(help_for(_command_or_none(argv)), end="")
             return 0
+        command_of(argv)
         options = parse(argv)
         if options.command is Command.SKILL:
             return _install_skill(options, as_json)
+        if options.command is Command.INIT:
+            return _init(options, as_json)
         return _decide(options, as_json)
     except (CoreError, OSError, ValueError) as error:
         message = str(error)
         if any(arg == "--output" or arg.startswith("--output=") for arg in argv):
             message += "; no report file was written"
-        return _refused(_refusal_kind(error), message, as_json)
+        return _refused(_command_or_none(argv), _refusal_kind(error), message, as_json)
     except Exception as error:
         traceback.print_exc()
-        return _refused(RefusalKind.INTERNAL_ERROR, f"{type(error).__name__}: {error}", as_json)
+        return _refused(
+            _command_or_none(argv),
+            RefusalKind.INTERNAL_ERROR,
+            f"{type(error).__name__}: {error}",
+            as_json,
+        )
+
+
+def _command_or_none(argv: Sequence[str]) -> Command | None:
+    """The command that the arguments name, if they name one that exists."""
+    try:
+        return Command(argv[0])
+    except (ValueError, IndexError):
+        return None
 
 
 def _refusal_kind(error: Exception) -> RefusalKind:
@@ -110,6 +127,27 @@ def _install_skill(options: Options, as_json: bool) -> int:
     return 0
 
 
+def _init(options: Options, as_json: bool) -> int:
+    """Draft the three files of a first contract below the root (AD-626). It decides nothing."""
+    root = resolve_root(options.root or Path.cwd())
+    result = write_draft(root)
+    files = [CONFIG, CONTRACT, PROVENANCE]
+    if as_json:
+        document = {"command": Command.INIT, "exit_code": 0, "files": files}
+        document |= {"components": result.components, "root": result.root, "note": result.note}
+        print(json.dumps(document))
+        return 0
+    print(f"Drafted for the package {result.namespace} ({result.root}): {len(files)} files")
+    for name in files:
+        print(f"  {name}")
+    print(f"Components: {', '.join(result.components)}")
+    if result.note:
+        print(f"Note: {result.note}")
+    print("Next: replace each TODO with your decision (responsibilities, rationales), then run")
+    print(f"  archkeel validate --text\nGuide: {DOCUMENT}")
+    return 0
+
+
 def _request(options: Options, root: Path) -> dict[str, object]:
     """The scan identity that the core answers, with the parts of the page and the baseline."""
     request: dict[str, object] = {
@@ -132,19 +170,6 @@ def _request(options: Options, root: Path) -> dict[str, object]:
     if options.write_baseline is not None:
         request["write_baseline"] = True
     return request
-
-
-def _exit_code(options: Options, frame: CoreFrame) -> int:
-    """The status maps to the exit code. With a baseline, the core decided the code (AD-546)."""
-    asked = options.baseline is not None or options.write_baseline is not None
-    collect_refused = any(gap.kind is GapKind.COLLECT for gap in frame.gaps)
-    if asked and frame.baseline is None and not collect_refused:
-        raise CoreError("the core frame lacks the baseline part that the request asked for")
-    if frame.baseline is not None:
-        return frame.baseline.exit_code
-    if options.baseline is not None and collect_refused:
-        return 1  # AD-546: a refused scan has nothing to compare; exit 2 means all accepted
-    return EXIT_CODES[frame.status]
 
 
 def _deliver(options: Options, frame: CoreFrame, stdout: bytes, root: Path) -> str | None:
@@ -179,6 +204,44 @@ def _located(options: Options) -> Options:
     return located
 
 
+def _print_text(
+    options: Options,
+    frame: CoreFrame,
+    document: Mapping[str, object],
+    outcome: tuple[int, Gap | None, str | None],
+    where: tuple[Path, Path],
+) -> None:
+    """Print one run as text: the problems first, then the summary, or one line for a report."""
+    code, collected, file_error = outcome
+    binary, root = where
+    typed = (options.root, root)
+    problems = [
+        f"Problem: {plain(message, *typed)}"
+        for message in (collected.reason if collected else None, file_error)
+        if message is not None
+    ]
+    if options.output is not None and not options.text and file_error is None and not problems:
+        print(f"{header(options.command, frame, code)}; report written to {options.output}")
+    elif collected is not None:
+        fix = FIXES[RefusalKind.COLLECTION_REFUSED]
+        print("\n".join(refusal(options.command, code, plain(collected.reason, *typed), fix)))
+    else:
+        system = document.get("system")
+        lines = render(
+            options.command,
+            frame,
+            code,
+            problems=problems,
+            show_all=options.all,
+            system=system if isinstance(system, dict) else None,
+        )
+        print("\n".join(lines))
+        if options.output is not None and file_error is None:
+            print(f"Report written to {options.output}")
+        if options.verbose:
+            print(f"Core: {binary}; engine: {frame.engine}; code digest: {frame.code_digest}")
+
+
 def _decide(options: Options, as_json: bool) -> int:
     """Send the scan identity to the core and print the one frame that it gives."""
     options = _located(options)
@@ -203,11 +266,15 @@ def _decide(options: Options, as_json: bool) -> int:
     if "topology" in request and not options.topology:
         document.pop("topology", None)
         frame = replace(frame, topology=None)
-    exit_code = _exit_code(options, frame)
+    code = exit_code(
+        frame,
+        baseline=options.baseline is not None,
+        write_baseline=options.write_baseline is not None,
+    )
     result: dict[str, object] = {
         "command": options.command,
         "status": frame.status,
-        "exit_code": exit_code,
+        "exit_code": code,
         "frame": document,
         "core": {"path": str(binary), "engine": frame.engine, "code_digest": frame.code_digest},
         "gaps": [
@@ -217,25 +284,28 @@ def _decide(options: Options, as_json: bool) -> int:
     if frame.baseline is not None:
         result["baseline"] = baseline_json(frame.baseline)
     collected = next((gap for gap in frame.gaps if gap.kind is GapKind.COLLECT), None)
+    if collected is not None and _NO_CONFIG in collected.reason:
+        # The core names the cause; the way forward is the shell's to name (#1314).
+        collected = replace(collected, reason=f"{collected.reason}. {_FIRST_RUN}")
     if collected is not None:
         result["refusal"] = {"kind": RefusalKind.COLLECTION_REFUSED, "message": collected.reason}
     file_error = _deliver(options, frame, stdout, root)
     if file_error is not None:
-        exit_code = 2
-        result["exit_code"] = exit_code
+        code = 2
+        result["exit_code"] = code
         result["refusal"] = {"kind": RefusalKind.IO_ERROR, "message": file_error}
-    if as_json:
+    if as_json and (options.json or options.output is None):
         print(json.dumps(result))
-    else:
-        if collected is None:
-            _system_lines(document.get("system"))
-            render_text(options.command, frame)
-        else:
-            _refused(RefusalKind.COLLECTION_REFUSED, collected.reason, False)
-        print(f"Core: {binary}; engine: {frame.engine}; code digest: {frame.code_digest}")
-        if file_error is not None:
-            _refused(RefusalKind.IO_ERROR, file_error, False)
-    return exit_code
+        return code
+    _print_text(options, frame, document, (code, collected, file_error), (binary, root))
+    return code
+
+
+_NO_CONFIG: Final = "config: cannot read"
+_FIRST_RUN: Final = (
+    "A new project: run `archkeel init` to draft archkeel.toml and a first contract, then "
+    f"`archkeel validate --text`. Guide: {DOCUMENT}"
+)
 
 
 def _write_baseline(options: Options, frame: CoreFrame, root: Path) -> None:
@@ -267,80 +337,18 @@ def _write_report(options: Options, frame: CoreFrame, stdout: bytes) -> None:
     write_output(options.output, payload)
 
 
-def _refused(kind: RefusalKind, message: str, as_json: bool) -> int:
-    refusal = {
-        "status": Status.UNKNOWN,
-        "exit_code": 2,
-        "refusal": {"kind": kind, "message": message},
-    }
-    print(json.dumps(refusal) if as_json else f"REFUSED: {kind}: {message}")
-    return 2
-
-
-_MAX_PLACES = 3
-
-
-def _places(frame: CoreFrame, evidence: Sequence[str]) -> str:
-    places = [
-        f"{location.path}:{location.line}" if location.line else location.path
-        for key in evidence
-        if (location := frame.locations.get(key))
-    ]
-    # A gap that cites many places (AD-540: the uses behind a blocking form) names the first few.
-    shown = places[:_MAX_PLACES]
-    more = f", +{len(places) - len(shown)} more" if len(places) > len(shown) else ""
-    return f" ({', '.join(shown)}{more})" if places else ""
-
-
-def _system_lines(system: object) -> None:
-    """AD-616: the title of a system run, then one line for each part, as the core named it."""
-    if not isinstance(system, dict):
-        return
-    print(f"System {system.get('title')}:")
-    for part in system.get("parts", []):
-        if isinstance(part, dict):
-            named = f"{part.get('title')} ({part.get('profile')})"
-            print(f"  {named}: {part.get('status')}, {len(part.get('rules', []))} rules")
-
-
-def render_text(command: Command, frame: CoreFrame) -> None:
-    """Print a frame as text."""
-    print(f"{command}: {frame.status}")
-    if frame.premise is not None:
-        print(f"Assumption: {frame.premise}")
-    if (topology := frame.topology) is not None:
+def _refused(command: Command | None, kind: RefusalKind, message: str, as_json: bool) -> int:
+    """The refusal of a command that could not run: JSON, or the problem and the fix as text."""
+    if as_json:
         print(
-            f"Topology: {len(topology.modules)}/{topology.total['modules']} modules, "
-            f"{len(topology.edges)}/{topology.total['edges']} edges; "
-            f"complete: {topology.complete}; truncated: {topology.truncated}"
-        )
-    if frame.baseline is not None:
-        for line in baseline_lines(frame.baseline):
-            print(line)
-    if not frame.complete_scope:
-        print(f"Scope: {frame.scope}")
-        print("Action: Resolve the named scope gap and run again.")
-    for source_gap in frame.collection_gaps:
-        detail = f" ({source_gap.detail})" if source_gap.detail else ""
-        print(
-            f"Source gap: {source_gap.kind}: {', '.join(source_gap.subjects)}: "
-            f"{source_gap.reason}{detail}{_places(frame, source_gap.evidence)}"
-        )
-        print("Action: Resolve the collector cause and run again.")
-    for rule, rows in frame.details.items():
-        for row in rows:
-            edge = row.source if row.target is None else f"{row.source} -> {row.target}"
-            print(f"{rule}: FAIL: {row.cause}: {edge}{_places(frame, row.evidence)}")
-            print("Action: Remove the violation or review the declared restriction.")
-    for rule, reason in frame.explained.items():
-        print(f"{rule}: UNKNOWN: {frame.unknown_kinds[rule]}: {reason}")
-        print("Action: Resolve the named gap and run again.")
-    for gap in frame.gaps:
-        if gap.kind is GapKind.RULE_KIND_NOT_PORTED:
-            print(f"{gap.subject}: UNKNOWN: rule kind not decided by the core: {gap.reason}")
-            print(
-                "Action: Do not treat this rule as passed. The core has no port of its kind (#880)."
+            json.dumps(
+                {
+                    "status": Status.UNKNOWN,
+                    "exit_code": 2,
+                    "refusal": {"kind": kind, "message": message},
+                }
             )
-        else:
-            print(f"{gap.subject}: UNKNOWN: {gap.kind}: {gap.reason}")
-            print("Action: Resolve the named part and run again (#880).")
+        )
+    else:
+        print("\n".join(refusal(command, 2, plain(message), FIXES.get(kind))))
+    return 2

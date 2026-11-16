@@ -32,6 +32,147 @@
       "public": []
     },
     {
+      "id": "SHELL-WORDS",
+      "label": "words",
+      "role": "component",
+      "layer": "foundation",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.core_words"
+      ],
+      "responsibilities": [
+        "Say in plain words what a machine word means, and strip internal numbers and prefixes from a message."
+      ],
+      "forbidden_responsibilities": [
+        "Print, read a frame or decide a status."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [],
+      "public": [
+        "archkeel.cli.core_words:FIXES",
+        "archkeel.cli.core_words:kind_label",
+        "archkeel.cli.core_words:plain"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-EXIT",
+      "label": "exit",
+      "role": "component",
+      "layer": "process",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.core_exit"
+      ],
+      "responsibilities": [
+        "State the one exit table and the exit code of one run."
+      ],
+      "forbidden_responsibilities": [
+        "Print or read the command line."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "frame",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        }
+      ],
+      "public": [
+        "archkeel.cli.core_exit:exit_code",
+        "archkeel.cli.core_exit:table_lines",
+        "archkeel.cli.core_exit:word_of"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-TEXT",
+      "label": "text",
+      "role": "component",
+      "layer": "present",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.core_text"
+      ],
+      "responsibilities": [
+        "Write the text of a run for a person: the header with the exit code and its reason, then problems, violations and grouped causes."
+      ],
+      "forbidden_responsibilities": [
+        "Decide a verdict, start a process or print a machine code."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "frame",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "baseline",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "exit",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "words",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "display",
+          "rationale": "The call-resolution summary is a display value (see docs/architecture/shell.md)."
+        }
+      ],
+      "public": [
+        "archkeel.cli.core_text:header",
+        "archkeel.cli.core_text:refusal",
+        "archkeel.cli.core_text:render"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-HELP",
+      "label": "help",
+      "role": "component",
+      "layer": "present",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.core_help"
+      ],
+      "responsibilities": [
+        "Write the help of the tool and of each command, with the exit table."
+      ],
+      "forbidden_responsibilities": [
+        "Parse arguments or run a command."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "arguments",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "exit",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "frame",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        }
+      ],
+      "public": [
+        "archkeel.cli.core_help:help_for"
+      ],
+      "decided_by": "architect"
+    },
+    {
       "id": "SHELL-COMMANDS",
       "label": "commands",
       "role": "component",
@@ -85,6 +226,26 @@
         {
           "component": "arguments",
           "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "init",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "text",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "exit",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "help",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "words",
+          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
         }
       ],
       "decided_by": "architect",
@@ -117,11 +278,12 @@
         }
       ],
       "public": [
-        "archkeel.cli.core_arguments:HELP",
         "archkeel.cli.core_arguments:NotOnThisLine",
         "archkeel.cli.core_arguments:Options",
         "archkeel.cli.core_arguments:command_of",
-        "archkeel.cli.core_arguments:parse"
+        "archkeel.cli.core_arguments:parse",
+        "archkeel.cli.core_arguments:RELEASE",
+        "archkeel.cli.core_arguments:RELEASED"
       ],
       "decided_by": "architect"
     },
@@ -245,7 +407,8 @@
         "archkeel.cli.core_frame:RefusalKind",
         "archkeel.cli.core_frame:Status",
         "archkeel.cli.core_frame:read_frame",
-        "archkeel.cli.core_frame:read_refusal"
+        "archkeel.cli.core_frame:read_refusal",
+        "archkeel.cli.core_frame:RuleStatus"
       ]
     },
     {
@@ -290,7 +453,8 @@
         "archkeel.cli.core_topology:require_topology",
         "archkeel.cli.core_evidence:read_details",
         "archkeel.cli.core_evidence:read_locations",
-        "archkeel.cli.core_evidence:read_collection_gaps"
+        "archkeel.cli.core_evidence:read_collection_gaps",
+        "archkeel.cli.core_evidence:call_lines"
       ]
     },
     {
@@ -315,6 +479,10 @@
         {
           "component": "json",
           "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+        },
+        {
+          "component": "words",
+          "rationale": "The baseline lines are written in the user vocabulary (see docs/architecture/shell.md)."
         }
       ],
       "decided_by": "architect",
@@ -472,6 +640,34 @@
         "archkeel.cli.skill:InstallationAgent",
         "archkeel.cli.skill:install_skill"
       ]
+    },
+    {
+      "id": "SHELL-INIT",
+      "label": "init",
+      "role": "component",
+      "layer": "foundation",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.init_draft"
+      ],
+      "responsibilities": [
+        "Draft archkeel.toml, a first contract and its provenance document from the folder layout of a Python project. Every decision in the draft is a TODO."
+      ],
+      "forbidden_responsibilities": [
+        "Read a frame, read a source file, start the core or decide a verdict."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [],
+      "decided_by": "architect",
+      "public": [
+        "archkeel.cli.init_draft:CONFIG",
+        "archkeel.cli.init_draft:CONTRACT",
+        "archkeel.cli.init_draft:DOCUMENT",
+        "archkeel.cli.init_draft:PROVENANCE",
+        "archkeel.cli.init_draft:write_draft"
+      ]
     }
   ],
   "rules": [
@@ -531,6 +727,7 @@
         "decoding",
         "frame",
         "process",
+        "present",
         "commands",
         "entry"
       ],
@@ -719,6 +916,18 @@
       "target": "archkeel.cli.core_frame",
       "include_type_checking": true,
       "rationale": "The skill installer reads no frame.",
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-NO-INIT-TO-FRAME",
+      "kind": "forbidden_dependency",
+      "source": "archkeel.cli.init_draft",
+      "target": "archkeel.cli.core_frame",
+      "include_type_checking": true,
+      "rationale": "The draft reads no frame.",
       "provenance": [
         "docs/architecture/shell.md"
       ],

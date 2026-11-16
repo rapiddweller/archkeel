@@ -23,7 +23,12 @@ Archkeel checks the shell with its own core and the contract in
 | `output` | `core_output` | Read the presentation of the core and write the received bytes to one file. |
 | `json` | `core_json` | Checked readers and the shared error type. |
 | `schema` | `core_schema` | Check a frame against the one schema that the core generates from its types (AD-596). |
+| `words` | `core_words` | Say in plain words what a machine word means; strip internal numbers from a message (AD-432). |
+| `exit` | `core_exit` | The one exit table and the exit code of one run. |
+| `text` | `core_text` | The text of a run for a person: header with exit code and reason, then problems, violations, grouped causes. |
+| `help` | `core_help` | The help of the tool and of each command. |
 | `skill` | `skill` | Install the coding-agent skill. |
+| `init` | `init_draft` | Draft `archkeel.toml`, a first contract and its document from the folder layout of a Python project (AD-626). It reads no source. |
 
 An arrow points down only. The entry calls the commands, the commands call the other parts, and
 no part calls up. Rule `SHELL-REQUIRES-COMPLETE` allows only the arrows in the contract.
@@ -54,16 +59,22 @@ flowchart LR
     n_3["commands"]
     n_4["display"]
     n_5["entry"]
-    n_6["frame"]
-    n_7["json"]
-    n_8["launch"]
-    n_9["locate"]
-    n_10["output"]
-    n_11["schema"]
-    n_12["skill"]
-    n_0 --> n_6
-    n_1 --> n_7
-    n_2 --> n_7
+    n_6["exit"]
+    n_7["frame"]
+    n_8["help"]
+    n_9["init"]
+    n_10["json"]
+    n_11["launch"]
+    n_12["locate"]
+    n_13["output"]
+    n_14["schema"]
+    n_15["skill"]
+    n_16["text"]
+    n_17["words"]
+    n_0 --> n_7
+    n_1 --> n_10
+    n_1 --> n_17
+    n_2 --> n_10
     n_3 --> n_0
     n_3 --> n_1
     n_3 --> n_2
@@ -72,19 +83,33 @@ flowchart LR
     n_3 --> n_8
     n_3 --> n_9
     n_3 --> n_10
+    n_3 --> n_11
     n_3 --> n_12
-    n_4 --> n_7
-    n_4 --> n_11
+    n_3 --> n_13
+    n_3 --> n_15
+    n_3 --> n_16
+    n_3 --> n_17
+    n_4 --> n_10
+    n_4 --> n_14
     n_5 --> n_3
-    n_6 --> n_1
-    n_6 --> n_2
-    n_6 --> n_4
     n_6 --> n_7
-    n_6 --> n_10
-    n_6 --> n_11
+    n_7 --> n_1
+    n_7 --> n_2
+    n_7 --> n_4
+    n_7 --> n_10
+    n_7 --> n_13
+    n_7 --> n_14
+    n_8 --> n_0
     n_8 --> n_6
     n_8 --> n_7
-    n_9 --> n_7
-    n_10 --> n_7
     n_11 --> n_7
+    n_11 --> n_10
+    n_12 --> n_10
+    n_13 --> n_10
+    n_14 --> n_10
+    n_16 --> n_1
+    n_16 --> n_4
+    n_16 --> n_6
+    n_16 --> n_7
+    n_16 --> n_17
 ```

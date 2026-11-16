@@ -127,7 +127,8 @@ class Installed:
         assert result["status"] == "UNKNOWN" and result["exit_code"] == 2, result
         text = self.validate(root, "--text")
         assert text.returncode == 2, (text.stdout, text.stderr)
-        assert text.stdout.startswith(f"REFUSED: {result['refusal']['kind']}: "), text.stdout
+        assert "REFUSED -> exit 2" in text.stdout.splitlines()[0], text.stdout
+        assert result["refusal"]["kind"] not in text.stdout
         assert "PASS" not in text.stdout
         refusal: dict[str, Any] = result["refusal"]
         return refusal

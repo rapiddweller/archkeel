@@ -163,7 +163,7 @@ jobs:
 
       - name: Verify package build and installed CLI
         shell: bash
-        run: make build smoke SHELL=bash
+        run: make sdist smoke SHELL=bash
 
   # AD-317, AD-436: build each platform wheel on its own target, then install it alone and read
   # the verdicts of its core.
