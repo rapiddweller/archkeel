@@ -1,4 +1,4 @@
-# AD-640: A group says why it is a group, and a capped list names both numbers
+# AD-652: A group says why it is a group, and a capped list names both numbers
 
 Status: accepted (owner order, second UX test of 2026-11-16, #1349, #1352, #1354, #1351). Part of
 #880. It amends AD-630.
