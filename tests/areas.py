@@ -38,6 +38,7 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_merge_check.py",
         "test_native_ci.py",
         "test_native_conventions.py",
+        "test_table_overlap.py",
         "test_native_contract_rules.py",
         "test_native_report.py",
         "test_native_standard_library.py",
