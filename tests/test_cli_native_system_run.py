@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -226,3 +227,93 @@ def test_a_part_that_the_core_cannot_run_leaves_the_system_unknown(
     assert (exit_code, result["status"]) == (2, "UNKNOWN"), result.get("refusal")
     rows = {part["id"]: part["status"] for part in result["frame"]["system"]["parts"]}
     assert rows == {"one": "PASS", "lost": "UNKNOWN"}
+
+
+def test_parallel_interface_graph_ids_are_unique() -> None:
+    script = """
+global.window = global;
+global.ArchkeelGraphScene = {create: () => ({})};
+global.ArchkeelAtlasDeviations = {create: () => ({isUndeclared: () => false, unused: () => []})};
+require('./native/report/assets/explorer/report-scene.js');
+const components = ['a', 'b'].map(id => ({id, parent_id: null, responsibilities: [],
+  requires: [], provenance: [], public: null, used_by: []}));
+const edges = ['one', 'two'].map(interface_id => ({interface_id, source_id: 'a', target_id: 'b',
+  status: 'UNKNOWN', crossing: interface_id}));
+const atlas = {components, levels: [], cells: [], assignments: [], modules: [], findings: [],
+  reference_ids: []};
+const scene = ArchkeelReportScene.create({atlas}).atlasScene({parent_id: null, edges}, 'observed');
+if (new Set(scene.edges.map(e => e.id)).size !== 2 || scene.layoutEdges.length !== 2)
+  process.exit(1);
+"""
+    result = subprocess.run(
+        ["node", "-e", script], cwd=Path(__file__).resolve().parents[1], check=False
+    )
+    assert result.returncode == 0
+
+
+def test_system_report_keeps_each_parts_order_and_unchecked_interfaces(
+    tmp_path: Path, core_binary: Path
+) -> None:
+    interfaces = [
+        {"id": name, "source": "one", "target": "two", "title": name, "schema": "unrelated.json"}
+        for name in ("wire-a", "wire-b")
+    ]
+    root = _system(tmp_path, core_binary, {"one": (), "two": ()}, [], interfaces)
+    (root / "unrelated.json").write_text('{"unrelated": true}')
+    for name, layers in (("one", ["core", "ui"]), ("two", ["ui", "core"])):
+        components = [
+            {
+                **component("base", "base_crate"),
+                "id": f"{name}-base",
+                "packages": [f"{name}.base_crate"],
+                "layer": layers[0],
+            },
+            {
+                **component("app", "app", ("base",)),
+                "id": f"{name}-app",
+                "packages": [f"{name}.app"],
+                "layer": layers[1],
+            },
+        ]
+        contract = {
+            "schema_version": "2.3.0",
+            "components": components,
+            "rules": [
+                *[
+                    {**r, "id": f"{name}-{r['id']}", **({"source": name} if "source" in r else {})}
+                    for r in CRATE_RULES
+                ],
+                rule(f"{name}-layers", "layer_order", layers=layers),
+            ],
+        }
+        (root / f"{name}-contract.json").write_text(json.dumps(contract))
+        (root / f"{name}.toml").write_text(
+            SCAN.format(f"{name}-contract.json").replace(
+                'namespace = "native"', f'namespace = "{name}"'
+            )
+        )
+    commit_tree(root)
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(core_only, "locate_core", lambda: core_binary)
+        code, result = run(
+            "report",
+            "--root",
+            str(root),
+            "--config",
+            "system.json",
+            "--output",
+            str(root / "page.html"),
+        )
+    assert (root / "page.html").exists(), (code, result)
+    page = (root / "page.html").read_text()
+    data = json.loads(
+        page.split('id="flow-data" type="application/json">')[1].split("</script>")[0]
+    )
+    components_by_id = {c["id"]: c for c in data["atlas"]["components"]}
+    assert components_by_id["LAYER:PART:one:core"]["layer_rank"] == 0
+    assert components_by_id["LAYER:PART:two:core"]["layer_rank"] == 1
+    edges = next(level["edges"] for level in data["atlas"]["levels"] if level["parent_id"] is None)
+    assert {(edge["interface_id"], edge["status"]) for edge in edges} == {
+        ("wire-a", "UNKNOWN"),
+        ("wire-b", "UNKNOWN"),
+    }

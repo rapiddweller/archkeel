@@ -123,16 +123,17 @@
         const undeclared = deviationIndex.isUndeclared(level.parent_id, edge.source_id, edge.target_id);
         const allowed = permitted.has(pairKey(edge.source_id, edge.target_id));
         const isDiff = viewMode === "diff";
+        const edgeId = edge.interface_id !== undefined ? `interface:${edge.interface_id}`
+          : `observed:${edge.source_id}>${edge.target_id}`;
         return ({
-        ...edge, id: `observed:${edge.source_id}>${edge.target_id}`,
-        layoutId: `observed:${edge.source_id}>${edge.target_id}`,
+        ...edge, id: edgeId, layoutId: edgeId,
         source: edge.source_id, target: edge.target_id, kind: "dependency", relationshipKind: "imports",
         // AD-606: in Diff an edge that a failing rule cites is red as an undeclared edge is.
         state: isDiff ? undeclared || edge.status === "FAIL" ? "violation" : edge.status === "UNKNOWN" ? "undecided" : "observed"
           : edge.status === "FAIL" ? "violation" : edge.status === "UNKNOWN" ? "undecided" : "observed",
         edgeClass: isDiff ? undeclared || edge.status === "FAIL" ? "atlas-undeclared" : allowed ? "atlas-permitted" : "atlas-observed" : "",
         // A crossing between two parts of a system is no import: its title names it.
-        tooltip: edge.crossing ? `${edge.crossing}. Schema: ${edge.schema}.`
+        tooltip: edge.crossing ? `${edge.crossing}. Schema: ${edge.schema}. Interface not checked.`
           : `Observed imports: ${edge.import_sites ?? "UNKNOWN"}. Core ${edge.status}; ${undeclared ? "recorded as undeclared." : allowed ? "declared dependency in use." : "no deviation recorded."}`,
         label: edge.crossing || countLabel(edge.import_sites, "import"),
       });
