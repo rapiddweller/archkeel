@@ -158,16 +158,27 @@ def read_baseline(value: object, status: str) -> BaselineResult:
 
 
 def lines(result: BaselineResult) -> Sequence[str]:
-    """The text lines of the part. An accepted UNKNOWN keeps its word: it says "accepted"."""
+    """The text lines of the part. A refusal or a migration hint of the file comes first.
+
+    A file of release 4.0.1 holds no accepted UNKNOWN, so its entries are a count, not a list.
+    """
     out = [
+        f"Baseline gap {kind_label(gap.kind)}: {gap.subject}: {plain(gap.reason)}"
+        for gap in result.gaps
+    ]
+    old = any(gap.kind == "baseline.older_schema" for gap in result.gaps)
+    out.append(
         f"Baseline: {result.state}; {result.accepted_entries} accepted entries match this run "
         f"({result.accepted_unknowns} UNKNOWN items; one entry can stand for several items)"
-    ]
+    )
     if result.accepted_unknowns:
         out.append(
             "Each accepted UNKNOWN stays UNKNOWN: it is known, not decided, and the run exits 2."
         )
     for side, rows in (("new", result.new), ("stale", result.gone)):
+        if old and rows:
+            out.append(f"Baseline {side}: {len(rows)} entries, not listed (see the hint above).")
+            continue
         for row in rows:
             label = row.what if row.kind == row.what else f"{row.what} {kind_label(row.kind)}"
             note = f": {plain(row.reason)}" if row.reason else ""
@@ -175,11 +186,7 @@ def lines(result: BaselineResult) -> Sequence[str]:
                 f"Baseline {side} {label}: {row.subject}{note} "
                 f"(this run has {row.run}, the file lists {row.file})"
             )
-    out.extend(
-        f"Baseline gap {kind_label(gap.kind)}: {gap.subject}: {plain(gap.reason)}"
-        for gap in result.gaps
-    )
-    if result.new or result.gone:
+    if (result.new or result.gone) and not old:
         out.append("Next: fix the new item, or rewrite the file with --write-baseline.")
     return out
 

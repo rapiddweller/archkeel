@@ -21,7 +21,7 @@ from .core_frame import CoreCommand as Command
 # Accepted and ignored: the core is the only path, so the switch selects nothing.
 VARIABLE: Final = "ARCHKEEL_CORE_ONLY"
 RELEASE: Final = "4.0.1"
-_LINE: Final = "not available on this development line"
+_LINE: Final = "not available in ArchKeel 5.0 yet"
 SERVED: Final = frozenset({Command.VALIDATE, Command.REPORT, Command.INIT})
 # Release 4.0.1 has `check`. No release has the other refused commands.
 RELEASED: Final = frozenset({Command.CHECK})
@@ -61,13 +61,15 @@ REMOVED_OPTIONS: Final = frozenset(
 
 
 class NotOnThisLine(CoreError):
-    """A command or option of the deleted Python shell that this development line does not serve."""
+    """A command or option of the deleted Python shell that ArchKeel 5.0 does not serve yet."""
 
 
 def _remedy(released: bool) -> str:
     """The true way to get the refused part: a release that has it, or the fact that none has."""
     return (
-        f"use release {RELEASE}" if released else f"no release has it; release {RELEASE} is older"
+        f"use release {RELEASE} for it"
+        if released
+        else f"no release has it; release {RELEASE} is older"
     )
 
 
@@ -83,6 +85,7 @@ class Options(argparse.Namespace):
     topology: bool = False
     all: bool = False
     verbose: bool = False
+    summary: bool = False
     action: str = ""
     agent: str = ""
     output: Path | None = None
@@ -149,7 +152,7 @@ def parse(argv: Sequence[str]) -> Options:
     parser = Parser(prog=f"archkeel {command}", add_help=False, allow_abbrev=False)
     parser.add_argument("--root", type=Path)
     form = parser.add_mutually_exclusive_group()
-    for flag in ("json", "text"):
+    for flag in ("json", "text", "summary") if command is not Command.SKILL else ("json", "text"):
         form.add_argument(f"--{flag}", action="store_true")
     if command is not Command.SKILL:
         parser.add_argument("--all", action="store_true")

@@ -282,7 +282,10 @@ def test_a_baseline_of_release_4_0_1_prints_one_migration_command_and_no_doubled
     assert "release 4.0.1" in text and "archkeel validate --write-baseline old.json" in text
     assert "amendment file" in text and "not compared" in text
     assert "violation: violation" not in text and ":  (" not in text
-    assert "this run has 0, the file lists 1" in text
+    # #1354: the migration hint is the first baseline line, and the stale entries are one count.
+    assert lines[0].startswith("Baseline gap a baseline file from release 4.0.1")
+    assert any(line.startswith("Baseline stale: 1 entries, not listed") for line in lines)
+    assert "this run has 0, the file lists 1" not in text
 
 
 def test_the_call_summary_shows_the_percentage_and_the_meaning() -> None:
@@ -300,3 +303,17 @@ def test_the_call_summary_shows_the_percentage_and_the_meaning() -> None:
     assert first.startswith("Calls: 370 of 6399 resolved (5.8%)")
     assert "stays UNKNOWN" in meaning
     assert call_lines(None) == [] and call_lines({**counts, "calls_total": 0})[0].count("n/a")
+
+
+def test_an_invalid_baseline_is_a_refusal_that_the_first_line_names(built: Path) -> None:
+    """#1348: a file that fits no schema supports no comparison; the line must not say
+    `nothing differs`."""
+    with case_root(HONEST) as root:
+        (root / "bad.json").write_text('{"schema_version": "1.4.0", "violations": 3}')
+        done = command(built / f"archkeel-core{SUFFIX}", root, "--text", "--baseline", "bad.json")
+    lines = done.stdout.splitlines()
+    assert done.returncode == 1
+    assert lines[0].startswith("validate: REFUSED -> exit 1 (baseline bad.json is not valid: ")
+    assert lines[1].startswith("Problem: baseline bad.json is not valid")
+    assert lines[2].startswith("Fix: write the file again with --write-baseline FILE")
+    assert "nothing differs" not in done.stdout and "Baseline: invalid" not in done.stdout
