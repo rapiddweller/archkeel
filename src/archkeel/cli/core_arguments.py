@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: MIT
 """Read the command line of the shell into typed options (AD-596).
 
-The shell serves `validate`, `report` and `skill`. This part owns the help text, the options and
-the refusal of each command or option of the deleted Python shell by name. It reads the arguments
-only: it starts no process, finds no binary and reads no frame.
+The shell serves `validate`, `report`, `init` and `skill`. This part owns the help text, the
+options and the refusal of each command or option of the deleted Python shell by name. It
+reads the arguments only: it starts no process, finds no binary and reads no frame.
 """
 
 from __future__ import annotations
@@ -22,9 +22,9 @@ from .core_frame import CoreCommand as Command
 VARIABLE: Final = "ARCHKEEL_CORE_ONLY"
 RELEASE: Final = "4.0.1"
 _LINE: Final = "not available on this development line"
-SERVED: Final = frozenset({Command.VALIDATE, Command.REPORT})
-# Release 4.0.1 has `check` and `init`. No release has the other refused commands.
-RELEASED: Final = frozenset({Command.CHECK, Command.INIT})
+SERVED: Final = frozenset({Command.VALIDATE, Command.REPORT, Command.INIT})
+# Release 4.0.1 has `check`. No release has the other refused commands.
+RELEASED: Final = frozenset({Command.CHECK})
 # The options of the deleted Python shell that release 4.0.1 does not have.
 UNRELEASED_OPTIONS: Final = frozenset(
     {"--collector-timeout-seconds", "--html", "--native-core", "--strict", "--timings"}
@@ -67,10 +67,12 @@ commands:
   validate   Check the contract. PASS exits 0, FAIL exits 1, UNKNOWN and a refusal exit 2.
              With --baseline, a difference from the file exits 1 and an accepted UNKNOWN exits 2.
   report     Print the same frame of the core as a report. The exit codes are the same.
+  init       Draft archkeel.toml and a first contract (every decision is a TODO) for a Python
+             project with one top-level package. Replaces no file. See docs/onboarding.md.
   skill      Install the agent skill: archkeel skill install {{claude,codex}} [--root PATH]
 
 {_LINE} (#880), exit 2:
-  check, init                           Use release {RELEASE}.
+  check                                 Use release {RELEASE}.
   explore, guide, story, view, studio   No release has them.
 
 options:
@@ -186,7 +188,8 @@ def parse(argv: Sequence[str]) -> Options:
         parser.add_argument("agent", choices=["claude", "codex"])
     else:
         parser.add_argument("--core-only", action="store_true")
-        parser.add_argument("--config", default="archkeel.toml")
+        if command is not Command.INIT:
+            parser.add_argument("--config", default="archkeel.toml")
         if command is Command.VALIDATE:
             parser.add_argument("--baseline", type=_baseline_path)
             parser.add_argument("--write-baseline", type=_baseline_path)

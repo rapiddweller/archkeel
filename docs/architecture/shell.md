@@ -24,6 +24,7 @@ Archkeel checks the shell with its own core and the contract in
 | `json` | `core_json` | Checked readers and the shared error type. |
 | `schema` | `core_schema` | Check a frame against the one schema that the core generates from its types (AD-596). |
 | `skill` | `skill` | Install the coding-agent skill. |
+| `init` | `init_draft` | Draft `archkeel.toml`, a first contract and its document from the folder layout of a Python project (AD-626). It reads no source. |
 
 An arrow points down only. The entry calls the commands, the commands call the other parts, and
 no part calls up. Rule `SHELL-REQUIRES-COMPLETE` allows only the arrows in the contract.
@@ -55,15 +56,16 @@ flowchart LR
     n_4["display"]
     n_5["entry"]
     n_6["frame"]
-    n_7["json"]
-    n_8["launch"]
-    n_9["locate"]
-    n_10["output"]
-    n_11["schema"]
-    n_12["skill"]
+    n_7["init"]
+    n_8["json"]
+    n_9["launch"]
+    n_10["locate"]
+    n_11["output"]
+    n_12["schema"]
+    n_13["skill"]
     n_0 --> n_6
-    n_1 --> n_7
-    n_2 --> n_7
+    n_1 --> n_8
+    n_2 --> n_8
     n_3 --> n_0
     n_3 --> n_1
     n_3 --> n_2
@@ -73,19 +75,20 @@ flowchart LR
     n_3 --> n_8
     n_3 --> n_9
     n_3 --> n_10
-    n_3 --> n_12
-    n_4 --> n_7
-    n_4 --> n_11
+    n_3 --> n_11
+    n_3 --> n_13
+    n_4 --> n_8
+    n_4 --> n_12
     n_5 --> n_3
     n_6 --> n_1
     n_6 --> n_2
     n_6 --> n_4
-    n_6 --> n_7
-    n_6 --> n_10
+    n_6 --> n_8
     n_6 --> n_11
-    n_8 --> n_6
-    n_8 --> n_7
-    n_9 --> n_7
-    n_10 --> n_7
-    n_11 --> n_7
+    n_6 --> n_12
+    n_9 --> n_6
+    n_9 --> n_8
+    n_10 --> n_8
+    n_11 --> n_8
+    n_12 --> n_8
 ```
