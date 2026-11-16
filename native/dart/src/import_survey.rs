@@ -32,14 +32,14 @@ use crate::pytext::is_blank;
 use crate::records::{discovery_gaps, file_evidence, inputs, parse_gaps};
 use crate::syntax::DirectiveKind;
 use index::{Index, Kind};
-pub use names::{GapName, NamedGap};
-use names::{Gaps, Place};
+use names::{GapName, Gaps, NamedGap, Place};
 
-pub use budget::{PARSE_BUDGET_BYTES, PARSE_BUDGET_TOKENS, SURVEY_BUDGET_BYTES};
+#[cfg(test)]
+use budget::PARSE_BUDGET_BYTES;
 
 /// The owner of one part file: the library whose module holds the edges of the part.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PartOwner {
+pub(crate) struct PartOwner {
     /// The path of the part file.
     pub part: String,
     /// The path of the library that the part belongs to.
@@ -52,7 +52,7 @@ pub struct PartOwner {
 
 /// The typed result of the survey. `unknowns` and `coverage.gaps` hold the same records.
 #[derive(Debug)]
-pub struct Survey {
+pub(crate) struct Survey {
     /// Sorted by path: the selected sources and the `pubspec.yaml`.
     pub inputs: Vec<Input>,
     /// The glob of each scan root.
@@ -76,7 +76,7 @@ pub struct Survey {
 }
 
 /// The survey of `request`. An error is a refusal of the whole request, never a partial survey.
-pub fn survey(request: &DartRequest) -> Result<Survey, String> {
+pub(crate) fn survey(request: &DartRequest) -> Result<Survey, String> {
     if request.excludes_test_sources() {
         return Err("the Dart import survey does not support exclude_test_sources".to_owned());
     }
@@ -159,7 +159,7 @@ fn parse_sources<'a>(found: &'a Discovery, gaps: &mut Gaps) -> Result<Index<'a>,
             isolate_loader = true;
             let message = format!("{reason}; it is not parsed");
             gaps.named(
-                GapName::DartParseBudget,
+                GapName::ParseBudget,
                 Place::File(&source.rel_path),
                 &message,
             );
@@ -170,14 +170,14 @@ fn parse_sources<'a>(found: &'a Discovery, gaps: &mut Gaps) -> Result<Index<'a>,
         let (parsed, loader, mirrors) = parser.directives(&source.content);
         if let Some(span) = loader.as_ref() {
             gaps.named(
-                GapName::DartIsolate,
+                GapName::Isolate,
                 Place::Span(source, span),
                 "spawnUri can run another library",
             );
         }
         if let Some(span) = mirrors.as_ref() {
             gaps.named(
-                GapName::DartMirrors,
+                GapName::Mirrors,
                 Place::Span(source, span),
                 "mirror access can reach code without an import",
             );
@@ -193,11 +193,7 @@ fn parse_sources<'a>(found: &'a Discovery, gaps: &mut Gaps) -> Result<Index<'a>,
         });
         for (span, kind, message) in parse_gaps(&parsed) {
             if kind == archkeel_facts::vocab::ExceptionName::DirectiveError {
-                gaps.named(
-                    GapName::DartUriNotLiteral,
-                    Place::Span(source, span),
-                    message,
-                );
+                gaps.named(GapName::UriNotLiteral, Place::Span(source, span), message);
             } else {
                 let cited = crate::records::cite(&mut gaps.evidence, source, span);
                 gaps.plain((&source.rel_path, span.line), kind, message, Some(cited));

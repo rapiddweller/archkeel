@@ -40,7 +40,7 @@ pub(crate) fn owners(snapshot: &mut Snapshot, index: &Index<'_>, gaps: &mut Gaps
                     "the part of directive does not name the library {} that claims it",
                     index.sources[*library].rel_path
                 );
-                gaps.named(GapName::DartPartUnowned, Place::File(rel), &message);
+                gaps.named(GapName::PartUnowned, Place::File(rel), &message);
             }
             Some(libraries) if libraries.len() > 1 => {
                 let paths: Vec<&str> = libraries
@@ -51,11 +51,11 @@ pub(crate) fn owners(snapshot: &mut Snapshot, index: &Index<'_>, gaps: &mut Gaps
                     "more than one library claims the part: {}",
                     paths.join(", ")
                 );
-                gaps.named(GapName::DartPartConflict, Place::File(rel), &message);
+                gaps.named(GapName::PartConflict, Place::File(rel), &message);
             }
             _ => {
                 let message = "no selected library claims the part with a part directive";
-                gaps.named(GapName::DartPartUnowned, Place::File(rel), message);
+                gaps.named(GapName::PartUnowned, Place::File(rel), message);
             }
         }
     }
@@ -95,7 +95,7 @@ fn claimed(
         Uri::Local(rel) => rel,
         Uri::Outside => {
             gaps.named(
-                GapName::DartTargetOutside,
+                GapName::TargetOutside,
                 at,
                 "the part URI leaves the package",
             );
@@ -103,7 +103,7 @@ fn claimed(
         }
         _ => {
             let message = "the part URI is not a path of this package";
-            gaps.named(GapName::DartUnsupportedUri, at, message);
+            gaps.named(GapName::UnsupportedUri, at, message);
             return None;
         }
     };
@@ -113,16 +113,16 @@ fn claimed(
         Located::Source(part) if index.kinds[part] == Kind::Unknown => None,
         Located::Source(_) => {
             let message = format!("the part URI gives {rel}, which has no part of directive");
-            gaps.named(GapName::DartPartNotPart, at, &message);
+            gaps.named(GapName::PartNotPart, at, &message);
             None
         }
         Located::NotSelected => {
             let message = format!("the part {rel} is not a selected source");
-            gaps.named(GapName::DartTargetNotSelected, at, &message);
+            gaps.named(GapName::TargetNotSelected, at, &message);
             None
         }
         Located::Missing => {
-            gaps.named(GapName::DartTargetMissing, at, &missing(&rel));
+            gaps.named(GapName::TargetMissing, at, &missing(&rel));
             None
         }
     }

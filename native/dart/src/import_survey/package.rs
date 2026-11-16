@@ -61,10 +61,10 @@ pub(crate) fn package_gaps(
     for rel in files.iter().filter(|rel| rel.as_str() != PUBSPEC) {
         if rel.rsplit('/').next() == Some(PUBSPEC) {
             let message = "a second package holds or is in a scan root; its URIs are not resolved";
-            gaps.named(GapName::DartNestedPackage, Place::File(rel), message);
+            gaps.named(GapName::NestedPackage, Place::File(rel), message);
         } else {
             let message = "this file can map a package to another directory; it is not read";
-            gaps.named(GapName::DartPackageConfig, Place::File(rel), message);
+            gaps.named(GapName::PackageConfig, Place::File(rel), message);
         }
     }
     inputs
@@ -337,15 +337,15 @@ fn pubspec_gaps(
     {
         let message =
             "the package is a workspace or a member of one; its packages are not resolved";
-        gaps.named(GapName::DartWorkspace, Place::File(PUBSPEC), message);
+        gaps.named(GapName::Workspace, Place::File(PUBSPEC), message);
     }
     if found.path {
         let message = "a dependency has a local path; that package is outside the survey";
-        gaps.named(GapName::DartPathDependency, Place::File(PUBSPEC), message);
+        gaps.named(GapName::PathDependency, Place::File(PUBSPEC), message);
     }
     if found.escape && !found.path {
         let message = "the pubspec is not fully read; it can hide a local path key";
-        gaps.named(GapName::DartPathDependency, Place::File(PUBSPEC), message);
+        gaps.named(GapName::PathDependency, Place::File(PUBSPEC), message);
     }
 }
 
