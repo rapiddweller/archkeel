@@ -6,7 +6,8 @@
 
 use crate::error::{invalid, Parsed};
 use crate::json::{field, has, Json, Object};
-use crate::model::{ConstructSelector, ForbiddenConstruct, Selector, SelectorRole, TypeIgnore};
+use crate::model::Selector;
+use crate::model_constructs::{ConstructSelector, ForbiddenConstruct, SelectorRole, TypeIgnore};
 use crate::names::{python_identifier, qualified_identifier};
 use crate::read::{
     fields, listed_sources, nonempty, nonempty_field, positive, present, repeats, rule_record,

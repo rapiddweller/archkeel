@@ -74,7 +74,7 @@ fn matched(subject: &str, before: &Rule, after: &Rule) -> Vec<ContractChange> {
             changes
         }
         (R::ForbiddenConstruct(old), R::ForbiddenConstruct(new)) => {
-            let words = |items: &[crate::model::ConstructKind]| -> Vec<String> {
+            let words = |items: &[crate::model_constructs::ConstructKind]| -> Vec<String> {
                 items.iter().map(word).collect()
             };
             let (was, now) = (words(&old.constructs), words(&new.constructs));

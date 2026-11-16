@@ -84,15 +84,14 @@ def test_no_module_or_crate_is_named_like_a_junk_drawer() -> None:
     assert problems == [], "\n".join(problems)
 
 
-def test_only_the_listed_crates_may_skip_missing_docs() -> None:
-    """AD-590: `missing_docs` is deny; this list only shrinks."""
-    allowed = {"native/facts/src/lib.rs", "native/contract/src/lib.rs", "native/report/src/lib.rs"}
-    skipping = {
+def test_no_crate_skips_missing_docs() -> None:
+    """AD-590: `missing_docs` is deny for every crate; none may allow it."""
+    skipping = [
         name
         for name in TRACKED
         if name.startswith("native/") and name.endswith(".rs") and not _is_rust_test_file(name)
-        if "#![allow(missing_docs" in (ROOT / name).read_text(encoding="utf-8")
-    }
-    assert skipping <= allowed, sorted(skipping - allowed)
+        if "allow(missing_docs" in (ROOT / name).read_text(encoding="utf-8")
+    ]
+    assert skipping == [], skipping
     manifest = (ROOT / "native/Cargo.toml").read_text(encoding="utf-8")
     assert 'missing_docs = "deny"' in manifest

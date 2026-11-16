@@ -49,22 +49,33 @@ text_type!(
 closed_enum!(
     /// Who decided a component, an edge or a rule.
     DecidedBy {
+        /// The architect decided it.
         Architect,
+        /// An agent decided it.
         Agent,
     }
 );
 
-closed_enum!(ComponentRole {
-    Component,
-    Interface,
-    Contract,
-    Projection,
-    Foundation,
-});
+closed_enum!(
+    /// What a component is for.
+    ComponentRole {
+        /// An ordinary component.
+        Component,
+        /// An interface that others import.
+        Interface,
+        /// A contract that others follow.
+        Contract,
+        /// A view of another component.
+        Projection,
+        /// A base that every component may use.
+        Foundation,
+    }
+);
 
 closed_enum!(
     /// A planned component owns no module yet.
     Lifecycle {
+        /// The component is planned.
         Planned,
     }
 );
@@ -73,9 +84,13 @@ record!(
     pub(crate),
     /// One component that its owner can import, and the reason (AD-32).
     Requirement {
+        /// The component that may be imported.
         component: ComponentLabel,
+        /// Why the item exists, as the contract states it.
         rationale: String,
+        /// The selectors that the import must pass through.
         through: Vec<Selector>,
+        /// Who decided it.
         #[serde(skip_serializing_if = "Option::is_none")]
         decided_by: Option<DecidedBy>,
     }
@@ -85,32 +100,48 @@ record!(
     pub(crate),
     /// One component. An absent optional field stays absent in the canonical bytes.
     Component {
+        /// The id of the component.
         id: ItemId,
+        /// The name that a person reads.
         label: ComponentLabel,
+        /// The role that the rule reads.
         role: ComponentRole,
+        /// The packages that the component owns.
         packages: Vec<Package>,
+        /// What the element is responsible for.
         responsibilities: Vec<String>,
+        /// What the component must not do.
         forbidden_responsibilities: Vec<String>,
+        /// Where the item comes from.
         provenance: Vec<String>,
+        /// The id of the capability that the component serves.
         #[serde(skip_serializing_if = "Option::is_none")]
         capability_id: Option<ItemId>,
+        /// The components that this one may import.
         #[serde(skip_serializing_if = "Option::is_none")]
         requires: Option<Vec<Requirement>>,
+        /// The path of the inside contract of the component.
         #[serde(skip_serializing_if = "Option::is_none")]
         inside: Option<InsidePath>,
+        /// The selectors of the public surface.
         #[serde(skip_serializing_if = "Option::is_none")]
         public: Option<Vec<Selector>>,
+        /// The selectors of the planned surface.
         #[serde(skip_serializing_if = "Option::is_none")]
         planned: Option<Vec<Selector>>,
+        /// Who decided it.
         #[serde(skip_serializing_if = "Option::is_none")]
         decided_by: Option<DecidedBy>,
+        /// The namespace of the component.
         #[serde(skip_serializing_if = "Option::is_none")]
         namespace: Option<Package>,
         /// Empty when the contract declares no exact module.
         #[serde(skip_serializing_if = "Vec::is_empty")]
         exact_modules: Vec<Package>,
+        /// The layer of the component.
         #[serde(skip_serializing_if = "Option::is_none")]
         layer: Option<String>,
+        /// The lifecycle of the component.
         #[serde(skip_serializing_if = "Option::is_none")]
         lifecycle: Option<Lifecycle>,
     }
@@ -119,27 +150,49 @@ record!(
 closed_enum!(
     /// The 22 rule kinds of the grammar (`ArchitectureRuleKind`).
     RuleKind {
+        /// A rule on who may call a target.
         CallOwner,
+        /// A rule on an argument that no call may pass.
         ForbiddenCallArgument,
+        /// A rule on an argument that a catalog limits.
         CatalogArgument,
+        /// A rule on the use of a catalog value.
         CatalogUse,
+        /// A rule on an effect that a condition forbids.
         ForbiddenEffectUnderCondition,
+        /// A rule on an import that is forbidden.
         ForbiddenDependency,
+        /// A rule on an import that is allowed.
         AllowedDependency,
+        /// A rule on a written construct that is forbidden.
         ForbiddenConstruct,
+        /// A rule on who owns a source value.
         SourceOwnership,
+        /// A rule on where an external dependency may be imported.
         ExternalDependencyScope,
+        /// A rule that each module has one owner.
         CompleteAssignment,
+        /// A rule on the children of a root.
         RootLayout,
+        /// A rule that each external import is declared.
         CompleteExternalScope,
+        /// A rule that each import is a declared requirement.
         CompleteRequires,
+        /// A rule on the order of layers.
         LayerOrder,
+        /// A rule that no cycle exists.
         NoComponentCycles,
+        /// A rule on what an interface exposes.
         InterfaceBoundary,
+        /// A rule that siblings do not import each other.
         SiblingIsolation,
+        /// A rule on where a kind of class may live.
         SymbolPlacement,
+        /// A rule on the types at a boundary.
         BoundaryTypes,
+        /// A rule on a bounded numeric operand.
         BoundedNumericOperand,
+        /// A rule on the declarations of a protocol.
         ProtocolDeclarations,
     }
 );
@@ -148,185 +201,205 @@ record!(
     pub(crate),
     /// The fields that each rule holds.
     RuleHead {
+        /// The id of the item, unique in the contract.
         id: ItemId,
+        /// Why the item exists, as the contract states it.
         rationale: String,
+        /// Where the item comes from.
         provenance: Vec<String>,
+        /// Who decided it.
         decided_by: DecidedBy,
     }
 );
 
-closed_enum!(SelectorMatch { Prefix, Exact });
-
-closed_enum!(TargetKind {
-    Module,
-    ImportNamespace,
-});
-
-record!(pub(crate), ForbiddenDependency {
-    head: RuleHead,
-    source: Selector,
-    target: Selector,
-    include_type_checking: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    target_symbol: Option<String>,
-    allowed_sources: Vec<Selector>,
-    #[serde(skip_serializing_if = "is_prefix")]
-    source_match: SelectorMatch,
-    #[serde(skip_serializing_if = "is_prefix")]
-    target_match: SelectorMatch,
-    #[serde(skip_serializing_if = "is_module")]
-    target_kind: TargetKind,
-});
-
-record!(
-    pub(crate),
-    AllowedDependency {
-        head: RuleHead,
-        source: Selector,
-        target: Selector,
+closed_enum!(
+    /// How a selector matches a name.
+    SelectorMatch {
+        /// The selector matches the name and what is below it.
+        Prefix,
+        /// The selector matches the name only.
+        Exact,
     }
 );
 
 closed_enum!(
-    /// The constructs that `forbidden_construct` names (`ForbiddenConstructKind`).
-    ConstructKind {
-        Getattr,
-        Hasattr,
-        Cast,
-        Eval,
-        Exec,
-        DynamicImport,
-        TypeIgnore,
-        AnyAnnotation,
-        PlaceholderBody,
-        Assert,
-        BroadExcept,
-        Setattr,
-        Delattr,
-        Vars,
-        DunderDict,
-        StringLiteralCompare,
+    /// What the target of a dependency rule is.
+    TargetKind {
+        /// A module.
+        Module,
+        /// The namespace that an import binds.
+        ImportNamespace,
     }
 );
 
 record!(
     pub(crate),
-    /// One allowed suppression: its scope, line, statement and exact tag.
-    TypeIgnore {
-        qualified_name: Selector,
-        line: u64,
-        statement: String,
-        tag: String,
+    /// A rule that forbids an import of the target.
+    ForbiddenDependency {
+        /// The id, rationale, provenance and decider that every rule holds.
+        head: RuleHead,
+        /// The selector of the modules that the rule judges.
+        source: Selector,
+        /// The selector of the modules that the rule names as the other side.
+        target: Selector,
+        /// True when an import under `TYPE_CHECKING` counts.
+        include_type_checking: bool,
+        /// The imported name that the rule forbids.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        target_symbol: Option<String>,
+        /// The sources that the rule excepts by prefix.
+        allowed_sources: Vec<Selector>,
+        /// Whether the source selector matches by prefix or by exact name.
+        #[serde(skip_serializing_if = "is_prefix")]
+        source_match: SelectorMatch,
+        /// Whether the target selector matches by prefix or by exact name.
+        #[serde(skip_serializing_if = "is_prefix")]
+        target_match: SelectorMatch,
+        /// Whether the target is a module or an import namespace.
+        #[serde(skip_serializing_if = "is_module")]
+        target_kind: TargetKind,
     }
 );
-
-closed_enum!(SelectorRole {
-    Read,
-    Write,
-    Call,
-    Reflect,
-    Constructor,
-    TypeProbe,
-    Equality,
-    Membership,
-    Match,
-    Startswith,
-    Endswith,
-});
 
 record!(
     pub(crate),
-    /// One nominal receiver and member, with an optional literal operand.
-    ConstructSelector {
-        receiver: Selector,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        member: Option<String>,
-        role: SelectorRole,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        literal: Option<String>,
+    /// A rule that allows an import of the target.
+    AllowedDependency {
+        /// The id, rationale, provenance and decider that every rule holds.
+        head: RuleHead,
+        /// The selector of the modules that the rule judges.
+        source: Selector,
+        /// The selector of the modules that the rule names as the other side.
+        target: Selector,
     }
 );
 
-record!(pub(crate), ForbiddenConstruct {
-    head: RuleHead,
-    source: Selector,
-    constructs: Vec<ConstructKind>,
-    allowed_sources: Vec<Selector>,
-    exact_sources: Vec<Selector>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    allowed_type_ignores: Vec<TypeIgnore>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    selector: Option<ConstructSelector>,
-});
-
-record!(pub(crate), ExternalDependencyScope {
-    head: RuleHead,
-    dependency: Selector,
-    allowed_sources: Vec<Selector>,
-    exact_sources: Vec<Selector>,
-});
+record!(
+    pub(crate),
+    /// A rule on where an external dependency may be imported.
+    ExternalDependencyScope {
+        /// The id, rationale, provenance and decider that every rule holds.
+        head: RuleHead,
+        /// The external dependency that the rule names.
+        dependency: Selector,
+        /// The sources that the rule excepts by prefix.
+        allowed_sources: Vec<Selector>,
+        /// The sources that the rule excepts by exact name.
+        exact_sources: Vec<Selector>,
+    }
+);
 
 record!(
     pub(crate),
     /// `complete_assignment` and `complete_external_scope`: a rule over one source prefix.
     SourceRule {
+        /// The id, rationale, provenance and decider that every rule holds.
         head: RuleHead,
+        /// The selector of the modules that the rule judges.
         source: Selector,
     }
 );
 
-record!(pub(crate), RootLayout {
-    head: RuleHead,
-    root: Selector,
-    allowed_children: Vec<Selector>,
-});
+record!(
+    pub(crate),
+    /// A rule on the children of a root.
+    RootLayout {
+        /// The id, rationale, provenance and decider that every rule holds.
+        head: RuleHead,
+        /// The root contract.
+        root: Selector,
+        /// The children that the root may have.
+        allowed_children: Vec<Selector>,
+    }
+);
 
 record!(
     pub(crate),
+    /// A rule that each import is a declared requirement.
     CompleteRequires {
+        /// The id, rationale, provenance and decider that every rule holds.
         head: RuleHead,
+        /// True when an import under `TYPE_CHECKING` counts.
         include_type_checking: bool,
     }
 );
 
-record!(pub(crate), LayerOrder {
-    head: RuleHead,
-    layers: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    components: Option<Vec<ComponentLabel>>,
-});
+record!(
+    pub(crate),
+    /// A rule on the order of layers.
+    LayerOrder {
+        /// The id, rationale, provenance and decider that every rule holds.
+        head: RuleHead,
+        /// The layers from top to bottom.
+        layers: Vec<String>,
+        /// The components that the rule names.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        components: Option<Vec<ComponentLabel>>,
+    }
+);
 
-closed_enum!(CycleLevel { Component, Module });
+closed_enum!(
+    /// The level at which a cycle rule looks.
+    CycleLevel {
+        /// The cycles between components.
+        Component,
+        /// The cycles between modules.
+        Module,
+    }
+);
 
-record!(pub(crate), NoComponentCycles {
-    head: RuleHead,
-    #[serde(skip_serializing_if = "is_component")]
-    level: CycleLevel,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    components: Option<Vec<ComponentLabel>>,
-});
+record!(
+    pub(crate),
+    /// A rule that no cycle exists.
+    NoComponentCycles {
+        /// The id, rationale, provenance and decider that every rule holds.
+        head: RuleHead,
+        /// The level at which the rule looks for cycles.
+        #[serde(skip_serializing_if = "is_component")]
+        level: CycleLevel,
+        /// The components that the rule names.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        components: Option<Vec<ComponentLabel>>,
+    }
+);
 
 record!(
     pub(crate),
     /// One exact caller module can import one exact module object.
     ModuleObjectGrant {
+        /// The module that holds the import.
         source_module: Selector,
+        /// The module that the import reaches.
         target_module: Selector,
     }
 );
 
-record!(pub(crate), InterfaceBoundary {
-    head: RuleHead,
-    include_type_checking: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    module_object_grants: Option<Vec<ModuleObjectGrant>>,
-});
+record!(
+    pub(crate),
+    /// A rule on what an interface exposes.
+    InterfaceBoundary {
+        /// The id, rationale, provenance and decider that every rule holds.
+        head: RuleHead,
+        /// True when an import under `TYPE_CHECKING` counts.
+        include_type_checking: bool,
+        /// The module objects that the interface may expose.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        module_object_grants: Option<Vec<ModuleObjectGrant>>,
+    }
+);
 
-record!(pub(crate), SiblingIsolation {
-    head: RuleHead,
-    members: Vec<Selector>,
-    include_type_checking: bool,
-});
+record!(
+    pub(crate),
+    /// A rule that siblings do not import each other.
+    SiblingIsolation {
+        /// The id, rationale, provenance and decider that every rule holds.
+        head: RuleHead,
+        /// The members that the rule names.
+        members: Vec<Selector>,
+        /// True when an import under `TYPE_CHECKING` counts.
+        include_type_checking: bool,
+    }
+);
 
 /// The defaults that the canonical bytes leave out: an absent permission keeps the amendment
 /// digests of older contracts.

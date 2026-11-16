@@ -22,14 +22,23 @@ record!(
     pub(crate),
     /// One mounted inside contract. Its IDs are in the scope of the component that names it.
     InsideMount {
+        /// The component that names the inside contract.
         parent: Component,
+        /// The id of the component that owns the mount.
         owner_id: String,
+        /// The id of the parent contract.
         parent_id: String,
+        /// The JSON pointer to the mount in the parent contract.
         pointer: String,
+        /// The repository path of the inside contract.
         path: String,
+        /// The identity of the inside contract in the tree.
         identity: String,
+        /// The inside contract.
         contract: Contract,
+        /// The digest of the contract file.
         digest: ContractDigest,
+        /// The digest of the canonical bytes.
         canonical_digest: ContractDigest,
     }
 );
@@ -38,11 +47,17 @@ record!(
     pub(crate),
     /// A root contract and every inside contract that it mounts, checked as one value.
     ContractTree {
+        /// The root contract.
         root: Contract,
+        /// The inside contracts that the root mounts.
         mounts: Vec<InsideMount>,
+        /// The read and write paths.
         paths: Vec<String>,
+        /// The digest of the contract file.
         digest: ContractDigest,
+        /// The digest that the comparison uses.
         comparison_digest: ContractDigest,
+        /// The comparison of the old and the new contract.
         comparison: Contract,
     }
 );

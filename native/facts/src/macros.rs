@@ -57,46 +57,50 @@ macro_rules! facts_data {
     (
         $(#[$doc:meta])*
         pub struct $name:ident {
-            $([$mode:ident $($mark:ident)? $($key:literal)?] $field:ident : $ty:ty,)*
+            $($(#[$fdoc:meta])* [$mode:ident $($mark:ident)? $($key:literal)?] $field:ident : $ty:ty,)*
         }
     ) => {
-        facts_data!(@fields pub [$(#[$doc])* $name] [] $([$($mark)? $($key)?] $field : $ty,)*);
+        facts_data!(@fields pub [$(#[$doc])* $name] [] $([$($mark)? $($key)?] [$(#[$fdoc])*] $field : $ty,)*);
     };
-    // The fields, one by one, each with its `serde` attributes. The last step writes the type.
+    // The fields, one by one, each with its document and its `serde` attributes. The last step
+    // writes the type.
     (@fields $v:tt [$(#[$doc:meta])* $name:ident] [$($done:tt)*]) => {
         $(#[$doc])*
         #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
         #[serde(deny_unknown_fields)]
         pub struct $name { $($done)* }
     };
-    (@fields $v:tt $head:tt $done:tt [skip $($key:literal)?] $($rest:tt)*) => {
+    (@fields $v:tt $head:tt $done:tt [skip $($key:literal)?] $fd:tt $($rest:tt)*) => {
         facts_data!(@push $v $head $done
             [#[serde($(rename = $key,)? default, skip_serializing_if = "crate::skip::omitted")]]
-            $($rest)*);
+            $fd $($rest)*);
     };
-    (@fields $v:tt $head:tt $done:tt [required] $($rest:tt)*) => {
+    (@fields $v:tt $head:tt $done:tt [required] $fd:tt $($rest:tt)*) => {
         facts_data!(@push $v $head $done
             [#[serde(deserialize_with = "crate::nullable::required")] #[schemars(required)]]
-            $($rest)*);
+            $fd $($rest)*);
     };
-    (@fields $v:tt $head:tt $done:tt [never] $($rest:tt)*) => {
-        facts_data!(@push $v $head $done [#[serde(skip)]] $($rest)*);
+    (@fields $v:tt $head:tt $done:tt [never] $fd:tt $($rest:tt)*) => {
+        facts_data!(@push $v $head $done [#[serde(skip)]] $fd $($rest)*);
     };
-    (@fields $v:tt $head:tt $done:tt [$key:literal] $($rest:tt)*) => {
-        facts_data!(@push $v $head $done [#[serde(rename = $key)]] $($rest)*);
+    (@fields $v:tt $head:tt $done:tt [$key:literal] $fd:tt $($rest:tt)*) => {
+        facts_data!(@push $v $head $done [#[serde(rename = $key)]] $fd $($rest)*);
     };
-    (@fields $v:tt $head:tt $done:tt [] $($rest:tt)*) => {
-        facts_data!(@push $v $head $done [] $($rest)*);
+    (@fields $v:tt $head:tt $done:tt [] $fd:tt $($rest:tt)*) => {
+        facts_data!(@push $v $head $done [] $fd $($rest)*);
     };
-    (@push $v:tt $head:tt [$($done:tt)*] [$($attr:tt)*] $field:ident : $ty:ty, $($rest:tt)*) => {
-        facts_data!(@fields $v $head [$($done)* $($attr)* $v $field: $ty,] $($rest)*);
+    (@push $v:tt $head:tt [$($done:tt)*] [$($attr:tt)*] [$($fd:tt)*] $field:ident : $ty:ty, $($rest:tt)*) => {
+        facts_data!(@fields $v $head [$($done)* $($fd)* $($attr)* $v $field: $ty,] $($rest)*);
     };
 }
 
 /// The data enum of a section: one variant for each kind, and the data type of that kind.
 macro_rules! section_facts {
-    (pub enum $name:ident in $section:ident with $data:ty { $($variant:ident,)* }) => {
-        section_facts! { pub enum $name in $section { $($variant($data),)* } }
+    (
+        $(#[$doc:meta])*
+        pub enum $name:ident in $section:ident with $data:ty { $($(#[$vdoc:meta])* $variant:ident,)* }
+    ) => {
+        section_facts! { $(#[$doc])* pub enum $name in $section { $($(#[$vdoc])* $variant($data),)* } }
         impl $name {
             /// The common typed payload of each kind of this section.
             pub fn data(&self) -> &$data {
@@ -106,12 +110,12 @@ macro_rules! section_facts {
     };
     (
         $(#[$doc:meta])*
-        pub enum $name:ident in $section:ident { $($variant:ident($data:ty),)* }
+        pub enum $name:ident in $section:ident { $($(#[$vdoc:meta])* $variant:ident($data:ty),)* }
     ) => {
         $(#[$doc])*
         #[derive(Clone, Debug, PartialEq)]
         pub enum $name {
-            $($variant($data),)*
+            $($(#[$vdoc])* $variant($data),)*
         }
 
         impl $crate::sections::IntoSection for $name {

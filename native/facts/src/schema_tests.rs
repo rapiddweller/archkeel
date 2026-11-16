@@ -6,6 +6,20 @@ use std::path::Path;
 
 use super::{request_schema, request_text, schema, text, PATH, REQUEST_PATH};
 
+/// The words of a closed vocabulary: a plain `enum`, or a `oneOf` of `const` words once the
+/// variants carry documents.
+fn words(definition: &serde_json::Value) -> Vec<&str> {
+    match definition["enum"].as_array() {
+        Some(list) => list.iter().filter_map(|word| word.as_str()).collect(),
+        None => definition["oneOf"]
+            .as_array()
+            .expect("the list of words")
+            .iter()
+            .filter_map(|word| word["const"].as_str())
+            .collect(),
+    }
+}
+
 fn committed() -> String {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(PATH);
     std::fs::read_to_string(&path).unwrap_or_default()
@@ -35,12 +49,7 @@ fn the_schema_defines_each_section_and_the_closed_vocabularies() {
     ] {
         assert!(definitions.contains_key(name), "no definition {name}");
     }
-    let kinds: Vec<&str> = definitions["Kind"]["enum"]
-        .as_array()
-        .expect("the list of kinds")
-        .iter()
-        .filter_map(|kind| kind.as_str())
-        .collect();
+    let kinds = words(&definitions["Kind"]);
     assert_eq!(kinds.len(), crate::vocab::Kind::ALL.len());
     assert!(kinds.contains(&"exception_gap"));
     // The edge of a macro template is its own kind, so no cycle or layer rule reads it (AD-349).
@@ -72,12 +81,7 @@ fn the_committed_request_schema_equals_the_generated_schema() {
 #[test]
 fn the_request_schema_lists_the_versions_of_the_one_list() {
     let value = request_schema();
-    let versions: Vec<&str> = value["$defs"]["Version"]["enum"]
-        .as_array()
-        .expect("the list of versions")
-        .iter()
-        .filter_map(|version| version.as_str())
-        .collect();
+    let versions = words(&value["$defs"]["Version"]);
     let listed: Vec<&str> = crate::protocol::Version::ALL
         .iter()
         .map(|version| version.as_str())

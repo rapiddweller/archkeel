@@ -13,10 +13,6 @@
 //! It covers the whole grammar of `parse_contract`: components, the 22 rule kinds and the
 //! `declarations` object with its UML Target and the checks of `declared_graph`.
 
-// AD-590: not yet enforced here: about 130 accessors, variants and structs come from the `record!` and `closed_enum!` macros and name the contract file keys. Items outside macros carry docs.
-#![allow(missing_docs)]
-
-
 #![deny(unreachable_pub)]
 
 #[macro_use]
@@ -36,6 +32,7 @@ mod graph_check;
 mod graph_link;
 mod json;
 mod model;
+mod model_constructs;
 mod model_declarations;
 mod model_rules;
 mod model_uml;
@@ -59,6 +56,7 @@ pub use error::{ErrorKind, ParseError};
 pub use graph::uml_target_id;
 pub use graph_link::bare_reference;
 pub use model::*;
+pub use model_constructs::*;
 pub use model_declarations::*;
 pub use model_rules::*;
 pub use model_uml::*;

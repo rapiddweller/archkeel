@@ -12,10 +12,10 @@ places. `docs/architecture/target/design.md` still described the deleted Python 
    responsibility. `tests/test_native_conventions.py` checks it.
 2. `missing_docs` is `deny` in `[workspace.lints.rust]`. A public item has a short `///` that says
    what it is or what it means, not how it works. `pub(crate)` items are out of scope.
-   `archkeel-facts`, `archkeel-contract` and `archkeel-report` carry `#![allow(missing_docs)]` with
-   a stated reason in `lib.rs`: their fields and variants (the schema keys and the report columns)
-   are not documented yet, and some come from macros. Items outside macros there have docs.
-   Remove the allow when the last one is documented; the test lists the crates that may carry it.
+   Every crate takes the lint; none may carry `#![allow(missing_docs)]` (the test checks it). A
+   macro that declares fields, variants or accessors takes the doc of each one from its input, so
+   the doc stands next to the declaration. The JSON schema of `archkeel-facts` takes these docs as
+   descriptions (a documented variant makes a `oneOf` of `const` words in place of an `enum`).
 3. There is no central utils module. A helper lives in the component that owns its meaning. Code
    that several crates share lives in the lowest crate that owns that meaning (`pytext`,
    `snapshot`, `facts`, `build-support`). A helper that one crate uses stays in that crate. No

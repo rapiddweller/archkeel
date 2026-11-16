@@ -9,9 +9,13 @@ use serde::{Deserialize, Serialize};
 /// A minor release of Python 3 that the collector supports.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PyMinor {
+    /// Python 3.11.
     Py311,
+    /// Python 3.12.
     Py312,
+    /// Python 3.13.
     Py313,
+    /// Python 3.14.
     Py314,
 }
 
