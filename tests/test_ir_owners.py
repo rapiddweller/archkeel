@@ -36,6 +36,7 @@ SHELL = frozenset(
         "cli/core_words.py",
         "cli/core_arguments.py",
         "cli/core_json.py",
+        "cli/init_draft.py",
         "cli/core_schema.py",
         "cli/core_only.py",
         "cli/core_topology.py",

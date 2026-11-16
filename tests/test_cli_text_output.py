@@ -201,7 +201,7 @@ def test_no_internal_word_reaches_the_text(capsys: pytest.CaptureFixture[str]) -
     machine += ["import_system_change", "source_resolution_gap", "collect: unsupported"]
     for word in machine:
         assert word not in text, word
-    assert not re.search(r"#\d+|AD-\d+|Core:|archkeel-core", text)
+    assert not re.search(r"#\d+|AD-\d+|Core:|archkeel-core|contract hygiene", text)
     machine_json = json.loads(_run(document, ["validate", "--json"], capsys)[1])
     assert "rule_kind_not_ported" in json.dumps(machine_json)
 
@@ -241,3 +241,13 @@ def test_report_output_prints_one_line_and_json_stays_available(
     assert json.loads(capsys.readouterr().out)["frame"]
     assert core_only.run([*base, "--text"]) == 0
     assert f"Report written to {target}" in capsys.readouterr().out
+
+
+def test_a_reason_of_the_core_is_put_in_plain_words() -> None:
+    from archkeel.cli.core_words import plain
+
+    reason = "contract hygiene boundary_type_position: c.json/rules/39 a.b: unresolved_name: Order"
+    assert plain(reason) == "c.json/rules/39 a.b: name not resolved: Order"
+    assert plain("collect: unsupported: config: cannot read x (#880) AD-522") == (
+        "config: cannot read x"
+    )

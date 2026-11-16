@@ -43,6 +43,13 @@ FIXES: Final = {
     "core_binary_not_found": "install a build of archkeel that includes its core, or build it.",
     "not_on_this_development_line": "use the release named above, or leave this option out.",
 }
+#: Machine words inside a reason of the core, in the words of a reader.
+REASON_WORDS: Final = {
+    "unresolved_name": "name not resolved",
+    "external_type": "type from outside the scan",
+    "scope_incomplete": "the scan has gaps",
+}
+_HYGIENE: Final = re.compile(r"contract hygiene [a-z_.]+: ")
 _NUMBERS: Final = re.compile(r"\s*\((?:#|AD-)\d+(?:[^)]*)\)|\bAD-\d+\b|\s#\d+\b")
 _PREFIXES: Final = ("collect: unsupported: ", "unsupported: ")
 
@@ -56,7 +63,9 @@ def plain(text: str, typed_root: Path | None = None, resolved_root: Path | None 
     """A message for a user: no issue or decision number, no machine prefix, the path as typed."""
     for prefix in _PREFIXES:
         text = text.replace(prefix, "")
-    text = _NUMBERS.sub("", text)
+    text = _HYGIENE.sub("", _NUMBERS.sub("", text)).strip()
+    for word, words in REASON_WORDS.items():
+        text = re.sub(rf"\b{word}\b", words, text)
     if typed_root is not None and resolved_root is not None:
         text = text.replace(str(resolved_root), str(typed_root))
     return text

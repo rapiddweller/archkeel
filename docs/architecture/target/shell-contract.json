@@ -232,10 +232,6 @@
           "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
         },
         {
-          "component": "display",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
-        },
-        {
           "component": "text",
           "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
         },

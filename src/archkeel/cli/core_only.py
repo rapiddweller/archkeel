@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import sys
 import traceback
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 from time import time_ns
@@ -36,7 +36,7 @@ from .core_frame import (
     read_frame,
 )
 from .core_help import help_for
-from .core_json import RequestMismatch
+from .core_json import Gap, RequestMismatch
 from .core_output import write_output
 from .core_text import header, refusal, render
 from .core_words import FIXES, plain
@@ -204,6 +204,44 @@ def _located(options: Options) -> Options:
     return located
 
 
+def _print_text(
+    options: Options,
+    frame: CoreFrame,
+    document: Mapping[str, object],
+    outcome: tuple[int, Gap | None, str | None],
+    where: tuple[Path, Path],
+) -> None:
+    """Print one run as text: the problems first, then the summary, or one line for a report."""
+    code, collected, file_error = outcome
+    binary, root = where
+    typed = (options.root, root)
+    problems = [
+        f"Problem: {plain(message, *typed)}"
+        for message in (collected.reason if collected else None, file_error)
+        if message is not None
+    ]
+    if options.output is not None and not options.text and file_error is None and not problems:
+        print(f"{header(options.command, frame, code)}; report written to {options.output}")
+    elif collected is not None:
+        fix = FIXES[RefusalKind.COLLECTION_REFUSED]
+        print("\n".join(refusal(options.command, code, plain(collected.reason, *typed), fix)))
+    else:
+        system = document.get("system")
+        lines = render(
+            options.command,
+            frame,
+            code,
+            problems=problems,
+            show_all=options.all,
+            system=system if isinstance(system, dict) else None,
+        )
+        print("\n".join(lines))
+        if options.output is not None and file_error is None:
+            print(f"Report written to {options.output}")
+        if options.verbose:
+            print(f"Core: {binary}; engine: {frame.engine}; code digest: {frame.code_digest}")
+
+
 def _decide(options: Options, as_json: bool) -> int:
     """Send the scan identity to the core and print the one frame that it gives."""
     options = _located(options)
@@ -259,32 +297,7 @@ def _decide(options: Options, as_json: bool) -> int:
     if as_json and (options.json or options.output is None):
         print(json.dumps(result))
         return code
-    typed = (options.root, root)
-    problems = [
-        f"Problem: {plain(message, *typed)}"
-        for message in (collected.reason if collected else None, file_error)
-        if message is not None
-    ]
-    if options.output is not None and not options.text and file_error is None and not problems:
-        print(f"{header(options.command, frame, code)}; report written to {options.output}")
-    elif collected is not None:
-        fix = FIXES[RefusalKind.COLLECTION_REFUSED]
-        print("\n".join(refusal(options.command, code, plain(collected.reason, *typed), fix)))
-    else:
-        system = document.get("system")
-        lines = render(
-            options.command,
-            frame,
-            code,
-            problems=problems,
-            show_all=options.all,
-            system=system if isinstance(system, dict) else None,
-        )
-        print("\n".join(lines))
-        if options.output is not None and file_error is None:
-            print(f"Report written to {options.output}")
-        if options.verbose:
-            print(f"Core: {binary}; engine: {frame.engine}; code digest: {frame.code_digest}")
+    _print_text(options, frame, document, (code, collected, file_error), (binary, root))
     return code
 
 
