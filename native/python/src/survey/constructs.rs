@@ -2,15 +2,15 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Written asserts, broad handlers, `__dict__` reads and `vars` calls (AD-658, AD-666, AD-680, AD-682).
+//! Written constructs with lexical owners (AD-658, AD-666, AD-680, AD-682, AD-684).
 
 use archkeel_facts::data::{ConstructData, PlainConstructData};
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId};
-use archkeel_facts::vocab::{Area, EvidenceClass};
+use archkeel_facts::vocab::{Area, ConstructForm, EvidenceClass};
 use archkeel_facts::{ConstructFact, Record};
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{ExceptHandler, Expr, Stmt};
+use ruff_python_ast::{CmpOp, ExceptHandler, Expr, Stmt};
 use ruff_text_size::Ranged;
 
 use super::binders::Binders;
@@ -20,26 +20,34 @@ pub(super) fn collect(
     modules: &[Module],
     binders: &[Binders],
     evidence: &mut EvidenceMap,
-) -> (Vec<Record<ConstructFact>>, bool, bool, bool) {
+) -> (Vec<Record<ConstructFact>>, bool, bool, bool, bool) {
     let mut records = Vec::new();
     let mut complete = true;
     let mut dict_complete = true;
     let mut vars_complete = true;
+    let mut compare_complete = true;
     for (module, binders) in modules.iter().zip(binders) {
-        let (found, read, dict_read, vars_read) = one(module, binders, evidence);
+        let (found, read, dict_read, vars_read, compare_read) = one(module, binders, evidence);
         records.extend(found);
         complete &= read;
         dict_complete &= dict_read;
         vars_complete &= vars_read;
+        compare_complete &= compare_read;
     }
-    (records, complete, dict_complete, vars_complete)
+    (
+        records,
+        complete,
+        dict_complete,
+        vars_complete,
+        compare_complete,
+    )
 }
 
 fn one(
     module: &Module,
     binders: &Binders,
     evidence: &mut EvidenceMap,
-) -> (Vec<Record<ConstructFact>>, bool, bool, bool) {
+) -> (Vec<Record<ConstructFact>>, bool, bool, bool, bool) {
     let mut walk = Walk {
         module,
         binders,
@@ -49,6 +57,7 @@ fn one(
         complete: true,
         dict_complete: true,
         vars_complete: true,
+        compare_complete: true,
     };
     walk.visit_body(&module.tree.body);
     (
@@ -56,6 +65,7 @@ fn one(
         walk.complete,
         walk.dict_complete,
         walk.vars_complete,
+        walk.compare_complete,
     )
 }
 
@@ -68,10 +78,14 @@ struct Walk<'a> {
     complete: bool,
     dict_complete: bool,
     vars_complete: bool,
+    compare_complete: bool,
 }
 
 impl<'a> Visitor<'a> for Walk<'_> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        if matches!(stmt, Stmt::Match(_)) {
+            self.compare_complete = false;
+        }
         if matches!(stmt, Stmt::Assert(_)) {
             let place = self.module.location(stmt);
             let evidence = self.module.evidence(self.evidence, stmt);
@@ -122,6 +136,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
         }
         if let Expr::Call(call) = expr {
             self.dict_complete = false;
+            self.compare_complete = false;
             let known = matches!(&*call.func, Expr::Name(name)
                 if name.id.as_str() == "vars" && self.binders.builtin_visible("vars"));
             if known {
@@ -130,7 +145,39 @@ impl<'a> Visitor<'a> for Walk<'_> {
                 self.vars_complete = false;
             }
         }
+        if let Expr::Compare(node) = expr {
+            self.compare_complete = false;
+            let literal =
+                |value: &Expr| matches!(value, Expr::StringLiteral(_) | Expr::BytesLiteral(_));
+            let found = node
+                .ops
+                .iter()
+                .zip(node.operands.windows(2))
+                .any(|(op, pair)| {
+                    matches!(op, CmpOp::Eq | CmpOp::NotEq)
+                        && (literal(&pair[0]) || literal(&pair[1]))
+                });
+            if found {
+                let place = self.module.location(expr);
+                let evidence = self.module.evidence(self.evidence, expr);
+                let mut data = self.data("string_literal_compare");
+                data.form = Some(ConstructForm::Compare);
+                self.record(
+                    place,
+                    evidence,
+                    "string_literal_compare",
+                    "string_literal_compare",
+                    ConstructFact::StringLiteralCompare(data),
+                );
+            }
+        }
         if let Expr::Attribute(node) = expr {
+            if matches!(
+                node.attr.as_str(),
+                "startswith" | "endswith" | "__eq__" | "__ne__" | "__contains__"
+            ) {
+                self.compare_complete = false;
+            }
             if node.attr.as_str() == "__dict__" {
                 let place = self.module.location(&node.attr);
                 let evidence = self.module.evidence(self.evidence, &node.attr);

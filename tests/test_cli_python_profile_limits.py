@@ -285,3 +285,36 @@ def test_vars_call_is_proven_or_left_unknown(
         frame = result["frame"]
         evidence = frame["details"]["NO-VARS"][0]["evidence"]
         assert frame["locations"][evidence[0]] == {"path": "src/app/client/page.py", "line": 1}
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("value = item == 'ready'\n", "FAIL"),
+        ("value = b'ready' != item\n", "FAIL"),
+        ("value = low < item == 'ready'\n", "FAIL"),
+        ("value = 1\n", "PASS"),
+        ("READY = 'ready'\nvalue = item == READY\n", "UNKNOWN"),
+        ("value = item in ('ready', 'done')\n", "UNKNOWN"),
+        ("value = item.startswith('ready')\n", "UNKNOWN"),
+        ("predicate = item.startswith\n", "UNKNOWN"),
+        ("match item:\n    case 'ready': pass\n", "UNKNOWN"),
+    ],
+)
+def test_literal_comparison_is_proven_or_left_unknown(
+    release_core: Path, tmp_path: Path, source: str, expected: str
+) -> None:
+    rule = {**CONSTRUCT, "id": "NO-STRING-COMPARE", "constructs": ["string_literal_compare"]}
+    result = scanned(
+        release_core, tmp_path, Plant({"src/app/client/page.py": source}, [rule], [], {}, {})
+    )
+    assert rows(result)["NO-STRING-COMPARE"] == expected, result["frame"]["explained"]
+    if expected == "UNKNOWN":
+        assert (
+            "construct absence is not completely observed"
+            in result["frame"]["explained"]["NO-STRING-COMPARE"]
+        )
+    if expected == "FAIL":
+        frame = result["frame"]
+        evidence = frame["details"]["NO-STRING-COMPARE"][0]["evidence"]
+        assert frame["locations"][evidence[0]] == {"path": "src/app/client/page.py", "line": 1}
