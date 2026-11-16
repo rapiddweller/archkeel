@@ -91,7 +91,7 @@ def test_a_command_of_the_release_line_stays_registered_and_refuses_with_its_kin
     assert document["status"] == "UNKNOWN" and document["exit_code"] == 2
     assert document["refusal"]["kind"] == "not_on_this_development_line"
     message = document["refusal"]["message"]
-    assert message.startswith(f"{command} is not available on this development line")
+    assert message.startswith(f"{command} is not available in ArchKeel 5.0 yet")
     # Release 4.0.1 has only `check` of the refused commands.
     remedy = "use release 4.0.1" if command == "check" else "no release has it"
     assert remedy in message and "#" not in message

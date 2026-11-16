@@ -19,17 +19,20 @@ _OUTPUT: Final = """\
 Output: in a terminal, a short text summary (verdict first, then violations, then the causes
 that hold rules, each group with a count). `--json` prints one JSON object, also in a terminal.
 Without a terminal (a pipe or a file) the default is JSON; `--text` asks for text there.
-`--all` lists every item instead of the first few. `--verbose` adds the core binary and digest."""
+`--all` lists every item instead of the first few. `--verbose` adds the core binary and digest.
+For a CI log use `--summary`: at most fifteen lines of text in any case (the verdict and its exit
+code, the errors, the top jobs, a few violations), also when stdout is a pipe or a file."""
 _COMMON: Final = """\
   --root PATH     Repository root. Default: the Git work tree of the current directory.
   --config PATH   Configuration file below the root. Default: archkeel.toml.
   --json          Print JSON also in a terminal.
   --text          Print text also without a terminal.
+  --summary       Print at most fifteen lines of text: for a CI log.
   --all           List every violation, rule and gap, not the first few of each group.
   --verbose       Also print the core binary, its engine and its code digest."""
 _VALIDATE: Final = """\
 usage: archkeel validate [--root PATH] [--config PATH] [--baseline FILE | --write-baseline FILE]
-                         [--json | --text] [--all] [--verbose]
+                         [--json | --text | --summary] [--all] [--verbose]
 
 Check the contract of a repository. The Rust core decides each run; this command prints it.
 
@@ -50,11 +53,12 @@ exit codes:
 
 examples:
   archkeel validate
+  archkeel validate --summary     # in CI: a short log, the exit code decides the job
   archkeel validate --baseline archkeel-baseline.json --text
 """
 _REPORT: Final = """\
 usage: archkeel report [--root PATH] [--config PATH] [--output FILE [--format html|json]]
-                       [--topology] [--json | --text] [--all] [--verbose]
+                       [--topology] [--json | --text | --summary] [--all] [--verbose]
 
 Print the frame of the core as a report. With --output, write one file and print one line.
 
@@ -106,7 +110,7 @@ examples:
 _NOT_YET: Final = """\
 usage: archkeel {command}
 
-`{command}` is not available on this development line. {where}
+`{command}` is not available in ArchKeel 5.0 yet. {where}
 Nothing runs; the exit code is 2. Use `archkeel validate` or `archkeel report`.
 """
 _TOOL: Final = """\
@@ -149,7 +153,7 @@ def help_for(command: Command | None) -> str:
     if command is None:
         return _TOOL.format(**fields)
     where = (
-        f"Release {RELEASE} has it."
+        f"Use release {RELEASE} for it."
         if command in RELEASED
         else f"No release has it; release {RELEASE} is older."
     )
