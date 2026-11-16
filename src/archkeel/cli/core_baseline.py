@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from .core_json import CoreError, as_count, as_object, as_text
+from .core_words import kind_label, plain
 
 
 class BaselineState(StrEnum):
@@ -168,15 +169,18 @@ def lines(result: BaselineResult) -> Sequence[str]:
         )
     for side, rows in (("new", result.new), ("stale", result.gone)):
         for row in rows:
-            label = row.what if row.kind == row.what else f"{row.what} {row.kind}"
-            note = f": {row.reason}" if row.reason else ""
+            label = row.what if row.kind == row.what else f"{row.what} {kind_label(row.kind)}"
+            note = f": {plain(row.reason)}" if row.reason else ""
             out.append(
                 f"Baseline {side} {label}: {row.subject}{note} "
                 f"(this run has {row.run}, the file lists {row.file})"
             )
-    out.extend(f"Baseline gap {gap.kind}: {gap.subject}: {gap.reason}" for gap in result.gaps)
+    out.extend(
+        f"Baseline gap {kind_label(gap.kind)}: {gap.subject}: {plain(gap.reason)}"
+        for gap in result.gaps
+    )
     if result.new or result.gone:
-        out.append("Action: Fix the new item, or rewrite the file with --write-baseline.")
+        out.append("Next: fix the new item, or rewrite the file with --write-baseline.")
     return out
 
 

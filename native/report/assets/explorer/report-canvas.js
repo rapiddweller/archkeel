@@ -548,7 +548,6 @@
   // ---------- keep the chrome in sync with every rendered scene ----------
   // Open each diagram fitted without magnifying small graphs.
   let fittedKey = null;
-  const READABLE_ZOOM = 0.6;
   if (A) F.setMaxFitScale(1);
   // AD-606: in the report the diagram starts with the whole width; a click on a box opens the
   // panel of its facts, and "Details" opens and closes it.
@@ -568,17 +567,8 @@
     const key = `${viewMode}|${scope}|${query().get("content") || ""}`;
     if (key !== fittedKey) {
       fittedKey = key;
-      requestAnimationFrame(() => {
-        F.fit(!F.state().scene?.moduleOverview);
-        // A wide diagram opens at a size that the titles of its boxes can be read at; the rest of
-        // it is one pan away.
-        const zoom = F.state().zoom;
-        if (zoom > 0 && zoom < READABLE_ZOOM) {
-          F.zoomBy(READABLE_ZOOM / zoom);
-          F.canvas.scrollLeft = 0;
-          F.canvas.scrollTop = 0;
-        }
-      });
+      // Every diagram opens fitted to the view: nothing is clipped, nothing is off-centre.
+      requestAnimationFrame(() => F.fit(!F.state().scene?.moduleOverview));
     }
   });
   addEventListener("popstate", () => {

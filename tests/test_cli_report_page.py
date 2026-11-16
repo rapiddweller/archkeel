@@ -128,7 +128,7 @@ def test_the_self_run_page_holds_the_explorer_with_the_components_of_its_line(
     data = re.search(r'<script id="flow-data" type="application/json">(.*?)</script>', self_page)
     assert count and data
     components = json.loads(data.group(1))["atlas"]["components"]
-    real = [c for c in components if not c["id"].startswith("LAYER:")]
+    real = [c for c in components if not c["id"].startswith(("LAYER:", "GROUP:"))]
     assert int(count.group(1)) == len(real) > 12
     assert all(c["language"] == "rust" for c in real if c["observed_modules"])
 

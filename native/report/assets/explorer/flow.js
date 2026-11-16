@@ -1222,7 +1222,7 @@
     const children = entityGraph.entities.filter((item) => REPORT_SCENE.parent(item, entityGraph) === entity?.id);
     const boundary = !edge && (entityGraph.origin === "observed" ? DATA.target?.component_intents || [] : entityGraph.component_intents)
       .find((item) => item.component_id === scope);
-    const entries = (items) => items === null ? "Not declared" : items.length ? items.map(esc).join("<br>") : "Explicitly empty";
+    const entries = (items) => items === null ? "Nothing stated in the contract" : items.length ? items.map(esc).join("<br>") : "None";
     const physicalScope = !edge && graph.origin === "declared" && (!entity || entity.kind === "component");
     const inventories = physicalScope ? graph.module_inventories.filter((item) => item.component_id === scope) : [];
     const assignedLayouts = new Set(graph.component_intents.flatMap((item) => item.layout_rule_ids));
@@ -2329,8 +2329,8 @@
     const component = REPORT_SCENE.atlasComponent(umlSelection?.id || level.parent_id);
     const inventory = viewMode === "target" ? moduleInventoryMarkup(ATLAS.module_inventories
       .filter((item) => item.component_id === (component?.id || null))) : "";
-    const entries = (items) => items === null || items === undefined ? "Not declared"
-      : items.length ? items.map((item) => `<li>${esc(item)}</li>`).join("") : "Explicitly empty";
+    const entries = (items) => items === null || items === undefined ? "Nothing stated in the contract"
+      : items.length ? items.map((item) => `<li>${esc(item)}</li>`).join("") : "None";
     const list = (title, items) => `<h3>${title}</h3><ul class="plain">${entries(items)}</ul>`;
     const link = (href, label) => `<a href="${esc(href)}">${esc(label)}</a>`;
     if (viewMode !== "target" && atlasCell !== null) {
