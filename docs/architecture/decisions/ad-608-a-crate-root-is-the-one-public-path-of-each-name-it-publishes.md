@@ -38,6 +38,20 @@ name of `facts` by a deeper module path (`archkeel_facts::sections::GapFact`) al
 The 18 deep uses and the 20 paths through their bindings fail (38 rows, all into `facts`). The
 code then uses the root path, and the rule holds for every crate.
 
+## Intent review of the surfaces
+AD-604 took each `public` list from the uses of today, so it froze them. Each list was reviewed
+against the responsibility of its component. A name that belongs inside is removed, and each of its
+uses fails (80 rows). Three causes, one line each in #1291:
+- A test hook (`plant` of the Rust and TypeScript collectors) exists only with the test feature
+  `dump`. It is no task of the text and input parts that hold it (5 names).
+- A re-export for nobody: the crate root publishes the crate to other crates, and no production
+  code of another crate uses this name. The part offered it to the root only (70 names).
+- Request decoding (`decode`, `hex`, `INFLATE_LIMIT`, `ReplyBytes`, `InsideJson`, `insides` of
+  `dual_run`) is the task of `core-requests`, not of `core-frame`, which builds a frame (6 names).
+Each other name is kept: it is a type, a vocabulary or a step that the responsibility of its component
+offers. 71 more root re-exports have no user in another crate; a sibling part uses the same entry,
+so no rule fails them.
+
 ## Limits
 - The root publications come from the scan. A root leaf that a macro writes is not read.
 - A procedural macro is not read (as in AD-604): it can only add a FAIL where the truth is PASS.
