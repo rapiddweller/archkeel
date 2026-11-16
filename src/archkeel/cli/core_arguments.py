@@ -89,6 +89,7 @@ class Options(argparse.Namespace):
     format: str = "html"
     baseline: str | None = None
     write_baseline: str | None = None
+    no_init: bool = False
 
 
 class Parser(argparse.ArgumentParser):
@@ -161,6 +162,8 @@ def parse(argv: Sequence[str]) -> Options:
         parser.add_argument("--core-only", action="store_true")
         if command is not Command.INIT:
             parser.add_argument("--config", default="archkeel.toml")
+        if command in {Command.VALIDATE, Command.REPORT}:
+            parser.add_argument("--no-init", action="store_true")
         if command is Command.VALIDATE:
             parser.add_argument("--baseline", type=_baseline_path)
             parser.add_argument("--write-baseline", type=_baseline_path)

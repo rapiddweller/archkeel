@@ -48,8 +48,7 @@ See the [known limits](docs/known-limits.md).
 
 ```bash
 ARCHKEEL_BUNDLE_NATIVE=1 uv tool install git+https://github.com/rapiddweller/archkeel
-archkeel init --root /path/to/project       # a new Python project: draft archkeel.toml and a contract
-archkeel validate --root /path/to/project   # first verdict; see docs/onboarding.md
+archkeel validate --root /path/to/project   # no archkeel.toml? it is drafted, then checked; see docs/onboarding.md
 ```
 
 [Install](#install) · [Quick start](#quick-start) · [Why](#why-archkeel) · [Compared](#archkeel-floorplan-or-understand-anything) · [Features](#features) · [FAQ](#faq)
@@ -176,8 +175,10 @@ archkeel report --output report.html  # one static page; the parent must exist
 ```
 
 `validate` and `report` need an `archkeel.toml` with `language = "rust"` or `"typescript"` (or
-`"python"` or `"dart"` for import rules) and a contract. In a new Python project, `archkeel init`
-drafts both from the folder layout; every decision in the draft is a `TODO`, so the first verdict
+`"python"` or `"dart"` for import rules) and a contract. Without one, `validate` and `report`
+draft both from the folder layout (Python packages, a Cargo workspace or a `package.json` workspace),
+say what they wrote, and never replace a file (`--no-init` or `ARCHKEEL_NO_INIT=1` writes nothing;
+`archkeel init` drafts without a run). Every decision in the draft is a `TODO`, so the first verdict
 is UNKNOWN and lists the decisions that you make. The whole walk, ending in PASS or FAIL, is in
 [docs/onboarding.md](docs/onboarding.md). A minimal `archkeel.toml`:
 
