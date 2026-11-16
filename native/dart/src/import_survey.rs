@@ -40,8 +40,11 @@ pub use budget::{PARSE_BUDGET_BYTES, PARSE_BUDGET_TOKENS, SURVEY_BUDGET_BYTES};
 /// The owner of one part file: the library whose module holds the edges of the part.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PartOwner {
+    /// The path of the part file.
     pub part: String,
+    /// The path of the library that the part belongs to.
     pub library: String,
+    /// The module that holds the edges of the part.
     pub module: ModuleName,
     /// The module that the path of the part would name if it were a library.
     pub part_module: ModuleName,
@@ -60,11 +63,13 @@ pub struct Survey {
     pub parts: Vec<PartOwner>,
     /// Sorted by id; `targets` holds one target for each record, in the same order.
     pub imports: Vec<Record<ImportFact>>,
+    /// The target of each import record, in the order of `imports`.
     pub targets: Vec<Target>,
     /// Sorted by id.
     pub unknowns: Vec<Record<GapFact>>,
     /// The survey gaps of `unknowns` with their names, sorted by id.
     pub named: Vec<NamedGap>,
+    /// The coverage of the survey, with its gaps.
     pub coverage: Coverage,
     /// Sorted by id.
     pub evidence: Vec<Evidence>,

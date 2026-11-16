@@ -12,6 +12,7 @@ use crate::nullable::Nullable;
 use crate::type_shape::TypeShape;
 use crate::vocab::{InventoryStatus, MemberKind, RelationshipKind, Status};
 
+/// One attribute of a class as the collector declares it.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AttributeDeclaration {
@@ -34,6 +35,7 @@ pub struct AttributeDeclaration {
     pub visibility: VisibilityDetail,
 }
 
+/// One base that a class names, with the targets that it resolves to.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct BaseDeclaration {
@@ -50,6 +52,7 @@ pub struct BaseDeclaration {
     pub targets: Vec<String>,
 }
 
+/// The scope that a binding is made in.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct BindingScope {
@@ -58,6 +61,7 @@ pub struct BindingScope {
     pub scope_symbol_id: FactId,
 }
 
+/// One argument of a call.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CallArgument {
@@ -72,6 +76,7 @@ pub struct CallArgument {
     pub value_kind: String,
 }
 
+/// What a call binds to, with its origin and proof.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CallBinding {
@@ -82,6 +87,7 @@ pub struct CallBinding {
     pub target: String,
 }
 
+/// What a construction expression builds: the status and the candidate targets.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Construction {
@@ -91,6 +97,7 @@ pub struct Construction {
     pub targets: Vec<String>,
 }
 
+/// The signature facts of a context manager factory.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ContextmanagerSignature {
@@ -102,6 +109,7 @@ pub struct ContextmanagerSignature {
     pub support_evidence_ids: Vec<EvidenceId>,
 }
 
+/// The place where a definition is made, such as a branch of a condition.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DefinitionContext {
@@ -110,6 +118,7 @@ pub struct DefinitionContext {
     pub kind: String,
 }
 
+/// One field of a class: its name and written type.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Field {
@@ -117,6 +126,7 @@ pub struct Field {
     pub name: String,
 }
 
+/// A generic base with the arguments that it is applied to.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct GenericBase {
@@ -125,6 +135,7 @@ pub struct GenericBase {
     pub base: String,
 }
 
+/// A boolean member that a guard reads.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct GuardBooleanMember {
@@ -132,6 +143,7 @@ pub struct GuardBooleanMember {
     pub name: String,
 }
 
+/// An effect that only runs under a guard, with the proof of the guard.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct GuardedEffect {
@@ -149,6 +161,7 @@ pub struct GuardedEffect {
     pub unknown_reason: Option<String>,
 }
 
+/// The inventory of the members of one kind that a class has, and whether it is complete.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MemberInventory {
@@ -161,6 +174,7 @@ pub struct MemberInventory {
     pub status: InventoryStatus,
 }
 
+/// One parameter of a function: its name, kind, annotation and default.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Parameter {
@@ -178,6 +192,7 @@ pub struct Parameter {
     pub shape: Option<TypeShape>,
 }
 
+/// The binding that a property operation makes.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PropertyBinding {
@@ -187,6 +202,7 @@ pub struct PropertyBinding {
     pub source_line: i64,
 }
 
+/// What the receiver of a call binds to.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiverBinding {
@@ -195,6 +211,7 @@ pub struct ReceiverBinding {
     pub target: String,
 }
 
+/// The binding of a result to a name, with its initializer.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ResultBinding {
@@ -209,6 +226,7 @@ pub struct ResultBinding {
     pub target_kind: String,
 }
 
+/// A write of a parameter into a field of the receiver.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StoredFieldWrite {
@@ -219,6 +237,7 @@ pub struct StoredFieldWrite {
     pub receiver: String,
 }
 
+/// How the visibility of a name is written and why it holds.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct VisibilityDetail {
@@ -227,6 +246,7 @@ pub struct VisibilityDetail {
     pub spelling: String,
 }
 
+/// The proof that supports a call binding.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CallBindingProof {
@@ -254,6 +274,7 @@ pub struct CallBindingProof {
     pub witness_evidence_ids: Option<Vec<EvidenceId>>,
 }
 
+/// The condition of a guard.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Condition {
@@ -262,6 +283,7 @@ pub struct Condition {
     pub owner: String,
 }
 
+/// The abstract base that proves a context manager.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ContextmanagerAbc {
@@ -271,6 +293,7 @@ pub struct ContextmanagerAbc {
     pub origin: String,
 }
 
+/// The partial application that proves a context manager.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ContextmanagerPartial {
@@ -281,6 +304,7 @@ pub struct ContextmanagerPartial {
     pub version: String,
 }
 
+/// The type that a context manager factory returns after its wrapper.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EffectiveReturn {

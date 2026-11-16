@@ -8,6 +8,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | Decision | Title |
 |---|---|
 | AD-592 | [The shell contract declares each crossing and each public name has a docstring](ad-592-the-shell-contract-declares-each-crossing-and-each-public-name-has-a-docstring.md) |
+| AD-590 | [Every Rust public item is documented, and a helper lives with its owner](ad-590-every-rust-public-item-is-documented-and-a-helper-lives-with-its-owner.md) |
 | AD-582 | [The unused browser and Studio assets are removed](ad-582-the-unused-browser-and-studio-assets-are-removed.md) |
 | AD-580 | [A declared signature that names a type reaches its public entry](ad-580-a-declared-signature-that-names-a-type-reaches-its-public-entry.md) |
 | AD-568 | [Narrow the typing factory proof to the statements that can replace a factory](ad-568-narrow-the-typing-factory-proof-to-the-statements-that-can-replace-a-factory.md) |

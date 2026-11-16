@@ -11,9 +11,13 @@ use std::fmt;
 /// A missing fact of the interface import verdict, not a lifecycle diagnosis.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InterfaceGap {
+    /// The binding of the import is not read.
     UnreadBinding,
+    /// The route by which the target publishes the name is not proven.
     PublicationRoute,
+    /// The published surface of the target is not read.
     PublicationSurface,
+    /// The type that the interface publishes is not proven.
     TypePublication,
 }
 

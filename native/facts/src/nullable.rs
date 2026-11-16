@@ -20,6 +20,7 @@ pub enum Nullable<T> {
 }
 
 impl<T> Nullable<T> {
+    /// True when the field was absent from the text.
     pub fn is_absent(&self) -> bool {
         matches!(self, Nullable::Absent)
     }

@@ -30,6 +30,7 @@ cc = "1.2"
 # on that one item. The other lints are the same as the workspace lints.
 [lints.rust]
 unsafe_code = "deny"
+missing_docs = "deny"
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }

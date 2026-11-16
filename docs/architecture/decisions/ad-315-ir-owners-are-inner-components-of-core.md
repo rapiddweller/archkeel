@@ -38,8 +38,8 @@ component `governance` held 46 modules for several reasons to change. Epic #880 
 before a collector or a fact store changes.
 
 **Supersedes.** This decision replaces three passages, only for owners inside `ir`:
-- `target/design.md`: "Do not mandate seven new physical packages" (IR governance row).
-- `target/design.md`: "no speculative package migration" (`ir` row).
+- `target/design.md` (deleted by AD-590; see Git history): "Do not mandate seven new physical packages" (IR governance row).
+- `target/design.md` (same): "no speculative package migration" (`ir` row).
 - AD-239: "Rejected: a codec package".
 
 Owner subpackages inside `ir` are now allowed. A codec package outside `ir`, a registry, injected

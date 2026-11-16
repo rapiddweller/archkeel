@@ -10,15 +10,20 @@ pub const REFUSED: &str = "collect";
 /// A part that the in-process path cannot run, by name.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Refusal {
+    /// The part of the input that the collector refuses.
     pub part: &'static str,
+    /// Why the collector refuses it.
     pub reason: String,
+    /// How the shell must treat the refusal.
     pub kind: RefusalKind,
 }
 
 /// Whether the shell can use its stage 1 path, or must stop without an artifact.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RefusalKind {
+    /// The input uses a feature that this binary does not support.
     Unsupported,
+    /// The parse of the input exceeds the work limit.
     ParseWork,
 }
 

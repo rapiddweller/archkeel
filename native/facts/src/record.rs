@@ -49,6 +49,7 @@ pub trait FactData: Sized + Clone {
     fn variants(generator: &mut SchemaGenerator) -> Vec<(Value, Schema)>;
 }
 
+/// One fact: its id and its data.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Record<D> {
     pub id: FactId,
@@ -65,6 +66,7 @@ pub struct Record<D> {
 }
 
 impl<D: FactData> Record<D> {
+    /// The kind of the fact, which the data decides.
     pub fn kind(&self) -> Kind {
         self.data.kind()
     }

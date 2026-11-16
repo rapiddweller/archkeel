@@ -95,9 +95,13 @@ pub fn peers<'m>(model: &'m Model, rule: &'m SiblingIsolation) -> Vec<(&'m Impor
 /// One import between two components that a `complete_requires` rule judges.
 #[derive(Clone, Copy, Debug)]
 pub struct Crossing<'m> {
+    /// The import that crosses.
     pub import: &'m Import,
+    /// The component of the importing module.
     pub source: &'m Component,
+    /// The component of the imported module.
     pub target: &'m Component,
+    /// How the rule judged the crossing.
     pub judged: Judged,
 }
 
