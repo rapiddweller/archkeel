@@ -20,6 +20,7 @@
 mod baseline;
 mod baseline_frame;
 mod contract;
+mod decode;
 mod dual_run;
 mod engine;
 mod gap_key;
@@ -38,6 +39,7 @@ mod rules;
 mod scan;
 mod section_rows;
 mod sections;
+mod system;
 mod topology;
 mod topology_declared;
 mod topology_projection;

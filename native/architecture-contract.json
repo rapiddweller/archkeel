@@ -582,7 +582,6 @@
       "public": [
         "native.archkeel_model.brand:Brand",
         "native.archkeel_model.causes:Cause",
-        "native.archkeel_model.causes:HELD_SHOWN",
         "native.archkeel_model.causes:Held",
         "native.archkeel_model.causes:InterfaceGap",
         "native.archkeel_model.causes:Part",
@@ -607,9 +606,7 @@
         "native.archkeel_model.reason_key:Stable",
         "native.archkeel_model.reason_key:gap_kind",
         "native.archkeel_model.reason_key:stable",
-        "native.archkeel_model.section:Porting",
-        "native.archkeel_model.section:Section",
-        "native.archkeel_model.section:Slice"
+        "native.archkeel_model.section:Section"
       ],
       "decided_by": "architect"
     },
@@ -736,8 +733,6 @@
         "native.archkeel_model.ownership:owners",
         "native.archkeel_model.ownership:source_modules",
         "native.archkeel_model.settings:Producer",
-        "native.archkeel_model.settings:STANDARD_LIBRARY_LIMIT",
-        "native.archkeel_model.settings:STANDARD_NAME_LIMIT",
         "native.archkeel_model.settings:Settings",
         "native.archkeel_model.symbols:Entity",
         "native.archkeel_model.symbols:Signature",
@@ -829,7 +824,6 @@
         "native.archkeel_model.limits:undecided_kind",
         "native.archkeel_model.limits:word",
         "native.archkeel_model.pair_gaps:Pairs",
-        "native.archkeel_model.pair_gaps:Reads",
         "native.archkeel_model.pair_gaps:pairs",
         "native.archkeel_model.pair_gaps:reads",
         "native.archkeel_model.roots:Roots",
@@ -1240,7 +1234,6 @@
         "native.archkeel_model.uml:UmlDiff",
         "native.archkeel_model.uml:UmlOutcome",
         "native.archkeel_model.uml:UmlTarget",
-        "native.archkeel_model.uml:compare",
         "native.archkeel_model.uml_declared:UmlDeclared",
         "native.archkeel_model.uml_declared:UmlPart",
         "native.archkeel_model.uml_tree:compare_tree"
@@ -1638,7 +1631,8 @@
       "provenance": [
         "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
         "docs/architecture/decisions/ad-361-the-report-payload-is-columnar-and-derives-from-records-only.md",
-        "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md"
+        "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md",
+        "docs/architecture/decisions/ad-612-remove-the-unused-report-v2-pipeline.md"
       ],
       "requires": [
         {
@@ -1666,18 +1660,13 @@
           "component": "report-payload",
           "rationale": "Read and write the typed payload: codes, head and tables.",
           "through": [
-            "native.archkeel_report.code",
-            "native.archkeel_report.codes",
-            "native.archkeel_report.head",
-            "native.archkeel_report.payload",
-            "native.archkeel_report.tables"
+            "native.archkeel_report.head"
           ]
         },
         {
           "component": "report-check",
           "rationale": "Check a payload against the status rule and name its problems (AD-371).",
           "through": [
-            "native.archkeel_report.problem",
             "native.archkeel_report.report",
             "native.archkeel_report.status"
           ]
@@ -1688,8 +1677,6 @@
           "through": [
             "native.archkeel_report.build_error",
             "native.archkeel_report.construct",
-            "native.archkeel_report.frame",
-            "native.archkeel_report.input",
             "native.archkeel_report.why"
           ]
         },
@@ -1716,7 +1703,8 @@
         "native.archkeel_report:Status",
         "native.archkeel_report:construct_row",
         "native.archkeel_report:rule",
-        "native.archkeel_report:rule_with_edge_links"
+        "native.archkeel_report:rule_with_edge_links",
+        "native.archkeel_report:system_status"
       ],
       "decided_by": "architect"
     },
@@ -1726,14 +1714,10 @@
       "role": "component",
       "layer": "report",
       "packages": [
-        "native.archkeel_report.codes",
-        "native.archkeel_report.code",
-        "native.archkeel_report.head",
-        "native.archkeel_report.tables",
-        "native.archkeel_report.payload"
+        "native.archkeel_report.head"
       ],
       "responsibilities": [
-        "Hold the typed payload of report v2: the code lists, the head, the columnar tables and the canonical bytes (AD-361)."
+        "Define the status and rule verdict of the engine frame."
       ],
       "forbidden_responsibilities": [
         "Checking a payload and reading the model."
@@ -1741,61 +1725,12 @@
       "provenance": [
         "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
         "docs/architecture/decisions/ad-361-the-report-payload-is-columnar-and-derives-from-records-only.md",
-        "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md"
+        "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md",
+        "docs/architecture/decisions/ad-612-remove-the-unused-report-v2-pipeline.md"
       ],
       "public": [
-        "native.archkeel_report.code:Code",
-        "native.archkeel_report.codes:BudgetVerdict",
-        "native.archkeel_report.codes:Code",
-        "native.archkeel_report.codes:CodeList",
-        "native.archkeel_report.codes:Disposition",
-        "native.archkeel_report.codes:EdgeTarget",
-        "native.archkeel_report.codes:FindingKind",
-        "native.archkeel_report.codes:FindingReason",
-        "native.archkeel_report.codes:Gap",
-        "native.archkeel_report.codes:Kind",
-        "native.archkeel_report.codes:MeasureDef",
-        "native.archkeel_report.codes:MeasureState",
-        "native.archkeel_report.codes:NOT_CARRIED",
-        "native.archkeel_report.codes:NodeLevel",
-        "native.archkeel_report.codes:Permission",
-        "native.archkeel_report.codes:Relation",
-        "native.archkeel_report.codes:UnknownReason",
-        "native.archkeel_report.codes:UnknownSource",
-        "native.archkeel_report.codes:Vis",
-        "native.archkeel_report.head:Component",
-        "native.archkeel_report.head:Counts",
-        "native.archkeel_report.head:Coverage",
-        "native.archkeel_report.head:GapRow",
-        "native.archkeel_report.head:NotRanked",
-        "native.archkeel_report.head:PayloadBudget",
-        "native.archkeel_report.head:RuleReason",
-        "native.archkeel_report.head:RuleResult",
         "native.archkeel_report.head:RuleVerdict",
-        "native.archkeel_report.head:Run",
-        "native.archkeel_report.head:RunContract",
-        "native.archkeel_report.head:Source",
-        "native.archkeel_report.head:Status",
-        "native.archkeel_report.head:Summary",
-        "native.archkeel_report.payload:DecodeError",
-        "native.archkeel_report.payload:MAX_BYTES",
-        "native.archkeel_report.payload:Payload",
-        "native.archkeel_report.payload:SCHEMA_VERSION",
-        "native.archkeel_report.tables:Carriers",
-        "native.archkeel_report.tables:Columns",
-        "native.archkeel_report.tables:Crossings",
-        "native.archkeel_report.tables:Edges",
-        "native.archkeel_report.tables:Fields",
-        "native.archkeel_report.tables:Findings",
-        "native.archkeel_report.tables:Measures",
-        "native.archkeel_report.tables:Nodes",
-        "native.archkeel_report.tables:OptGap",
-        "native.archkeel_report.tables:Params",
-        "native.archkeel_report.tables:Permissions",
-        "native.archkeel_report.tables:Units",
-        "native.archkeel_report.tables:Unknowns",
-        "native.archkeel_report.tables:Variants",
-        "native.archkeel_report.tables:Violations"
+        "native.archkeel_report.head:Status"
       ],
       "decided_by": "architect"
     },
@@ -1805,16 +1740,11 @@
       "role": "component",
       "layer": "report",
       "packages": [
-        "native.archkeel_report.check",
-        "native.archkeel_report.check_order",
-        "native.archkeel_report.check_rows",
-        "native.archkeel_report.check_structure",
         "native.archkeel_report.status",
-        "native.archkeel_report.problem",
         "native.archkeel_report.report"
       ],
       "responsibilities": [
-        "Check a payload and hold the checked Report frame: the semantic check, the status rule and the named problems (AD-361, AD-371)."
+        "Apply the status rule and hold the decided mark of the engine ruling."
       ],
       "forbidden_responsibilities": [
         "Building a row from an outcome of the evaluator."
@@ -1822,7 +1752,8 @@
       "provenance": [
         "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
         "docs/architecture/decisions/ad-361-the-report-payload-is-columnar-and-derives-from-records-only.md",
-        "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md"
+        "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md",
+        "docs/architecture/decisions/ad-612-remove-the-unused-report-v2-pipeline.md"
       ],
       "requires": [
         {
@@ -1837,24 +1768,15 @@
           "component": "report-payload",
           "rationale": "Read and write the typed payload: codes, head and tables.",
           "through": [
-            "native.archkeel_report.code",
-            "native.archkeel_report.codes",
-            "native.archkeel_report.head",
-            "native.archkeel_report.payload",
-            "native.archkeel_report.tables"
+            "native.archkeel_report.head"
           ]
         }
       ],
       "public": [
-        "native.archkeel_report.check_rows:counted",
-        "native.archkeel_report.problem:Problem",
         "native.archkeel_report.report:Decided",
-        "native.archkeel_report.report:ReadError",
-        "native.archkeel_report.report:Recorded",
-        "native.archkeel_report.report:Report",
         "native.archkeel_report.status:Unexplained",
         "native.archkeel_report.status:run_status",
-        "native.archkeel_report.status:status_of"
+        "native.archkeel_report.status:system_status"
       ],
       "decided_by": "architect"
     },
@@ -1864,17 +1786,13 @@
       "role": "component",
       "layer": "report",
       "packages": [
-        "native.archkeel_report.input",
         "native.archkeel_report.kind",
         "native.archkeel_report.why",
-        "native.archkeel_report.build_tables",
         "native.archkeel_report.build_error",
-        "native.archkeel_report.frame",
-        "native.archkeel_report.frame_rules",
         "native.archkeel_report.construct"
       ],
       "responsibilities": [
-        "Build the Report frame from the outcome of the evaluator and the rows of the model: the inputs, the rule rows, the reason codes and the build error (AD-371, AD-381)."
+        "Name ruling errors, rule kinds and UNKNOWN reasons, and write construct violation rows."
       ],
       "forbidden_responsibilities": [
         "Deciding a verdict and writing the bytes of an engine frame."
@@ -1882,7 +1800,8 @@
       "provenance": [
         "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
         "docs/architecture/decisions/ad-361-the-report-payload-is-columnar-and-derives-from-records-only.md",
-        "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md"
+        "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md",
+        "docs/architecture/decisions/ad-612-remove-the-unused-report-v2-pipeline.md"
       ],
       "requires": [
         {
@@ -1928,19 +1847,13 @@
           "component": "report-payload",
           "rationale": "Read and write the typed payload: codes, head and tables.",
           "through": [
-            "native.archkeel_report.code",
-            "native.archkeel_report.codes",
-            "native.archkeel_report.head",
-            "native.archkeel_report.payload",
-            "native.archkeel_report.tables"
+            "native.archkeel_report.head"
           ]
         },
         {
           "component": "report-check",
           "rationale": "Check a payload against the status rule and name its problems (AD-371).",
           "through": [
-            "native.archkeel_report.check_rows",
-            "native.archkeel_report.problem",
             "native.archkeel_report.report",
             "native.archkeel_report.status"
           ]
@@ -1949,28 +1862,6 @@
       "public": [
         "native.archkeel_report.build_error:BuildError",
         "native.archkeel_report.construct:construct_row",
-        "native.archkeel_report.frame:build",
-        "native.archkeel_report.input:ComponentText",
-        "native.archkeel_report.input:CrossingRow",
-        "native.archkeel_report.input:Diagnostic",
-        "native.archkeel_report.input:EdgeRow",
-        "native.archkeel_report.input:FindingRow",
-        "native.archkeel_report.input:GraphRows",
-        "native.archkeel_report.input:MeasureRow",
-        "native.archkeel_report.input:NodeRow",
-        "native.archkeel_report.input:PermissionRow",
-        "native.archkeel_report.input:Produced",
-        "native.archkeel_report.input:Records",
-        "native.archkeel_report.input:RuleOutcome",
-        "native.archkeel_report.input:RuleText",
-        "native.archkeel_report.input:RunFacts",
-        "native.archkeel_report.input:RunOutcome",
-        "native.archkeel_report.input:Target",
-        "native.archkeel_report.input:Tree",
-        "native.archkeel_report.input:Undecided",
-        "native.archkeel_report.input:UnitRow",
-        "native.archkeel_report.input:UnknownRecord",
-        "native.archkeel_report.input:ViolationRow",
         "native.archkeel_report.kind:word",
         "native.archkeel_report.why:WhyUnknown"
       ],
@@ -2675,6 +2566,13 @@
       ],
       "requires": [
         {
+          "component": "core-decode",
+          "rationale": "Decode the shared request protocol and byte fields.",
+          "through": [
+            "native.archkeel_core.decode"
+          ]
+        },
+        {
           "component": "model",
           "rationale": "Derive the model of the run and ask it for each section (AD-363).",
           "through": [
@@ -2694,6 +2592,7 @@
           "through": [
             "native.archkeel_report:Explain",
             "native.archkeel_report:Named",
+            "native.archkeel_report:Status",
             "native.archkeel_report:rule"
           ]
         },
@@ -2758,15 +2657,53 @@
         "native.archkeel_core.dual_run:BaseOf",
         "native.archkeel_core.dual_run:CODE_DIGEST",
         "native.archkeel_core.dual_run:Collect",
+        "native.archkeel_core.dual_run:PartRow",
         "native.archkeel_core.dual_run:ReplyInput",
         "native.archkeel_core.dual_run:Run",
         "native.archkeel_core.dual_run:Shared",
+        "native.archkeel_core.dual_run:SystemFrame",
         "native.archkeel_core.dual_run:Trust",
         "native.archkeel_core.dual_run:TrustOf",
         "native.archkeel_core.dual_run:answer",
         "native.archkeel_core.dual_run:refused_scan",
         "native.archkeel_core.dual_run:run",
         "native.archkeel_core.dual_run:settings_of"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-CORE-DECODE",
+      "label": "core-decode",
+      "role": "component",
+      "layer": "core",
+      "packages": [
+        "native.archkeel_core.decode"
+      ],
+      "responsibilities": [
+        "Decode request protocols, reply bytes and inside-contract bytes shared by the request kinds."
+      ],
+      "forbidden_responsibilities": [
+        "Reading files, trusting a reply or deciding a rule."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md"
+      ],
+      "requires": [
+        {
+          "component": "core-contract",
+          "rationale": "Name the decoded inside-contract input.",
+          "through": [
+            "native.archkeel_core.contract"
+          ]
+        }
+      ],
+      "public": [
+        "native.archkeel_core.decode:INFLATE_LIMIT",
+        "native.archkeel_core.decode:InsideJson",
+        "native.archkeel_core.decode:ReplyBytes",
+        "native.archkeel_core.decode:decode",
+        "native.archkeel_core.decode:hex",
+        "native.archkeel_core.decode:insides"
       ],
       "decided_by": "architect"
     },
@@ -2779,7 +2716,8 @@
         "native.archkeel_core.scan",
         "native.archkeel_core.check",
         "native.archkeel_core.base",
-        "native.archkeel_core.refusal"
+        "native.archkeel_core.refusal",
+        "native.archkeel_core.system"
       ],
       "responsibilities": [
         "Serve the request kinds of the shell: the scan request that runs the collector in the process, the check request with its base, and the typed refusal (AD-390, AD-399, AD-406, AD-420)."
@@ -2793,6 +2731,13 @@
         "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
       ],
       "requires": [
+        {
+          "component": "core-decode",
+          "rationale": "Decode the shared request protocol and byte fields.",
+          "through": [
+            "native.archkeel_core.decode"
+          ]
+        },
         {
           "component": "model",
           "rationale": "Derive the model of the run and ask it for each section (AD-363).",
@@ -2835,6 +2780,9 @@
             "native.archkeel_collect:Refusal",
             "native.archkeel_collect:RefusalKind",
             "native.archkeel_collect:Scanned",
+            "native.archkeel_collect:System",
+            "native.archkeel_collect:SystemPart",
+            "native.archkeel_collect:read_system",
             "native.archkeel_collect:scan"
           ]
         },
@@ -2873,6 +2821,14 @@
           "rationale": "Build the engine frame of one request (AD-360).",
           "through": [
             "native.archkeel_core.dual_run"
+          ]
+        },
+        {
+          "component": "report",
+          "rationale": "Join the statuses of the parts of a system by the status rule of the report (AD-616).",
+          "through": [
+            "native.archkeel_report:Status",
+            "native.archkeel_report:system_status"
           ]
         }
       ],
@@ -2965,6 +2921,9 @@
         "native.archkeel_collect:Refusal",
         "native.archkeel_collect:RefusalKind",
         "native.archkeel_collect:Scanned",
+        "native.archkeel_collect:System",
+        "native.archkeel_collect:SystemPart",
+        "native.archkeel_collect:read_system",
         "native.archkeel_collect:scan"
       ],
       "decided_by": "architect"
@@ -6341,7 +6300,7 @@
       "rationale": "A component uses another component only where requires says so; absence forbids. This is the crate direction of AD-327 and the module direction of each collector.",
       "provenance": [
         "docs/architecture/decisions/ad-327-rust-architecture-rules-are-measured-in-the-gate.md",
-        "docs/architecture/decisions/ad-612-exact-ports-and-one-system-run.md"
+        "docs/architecture/decisions/ad-616-exact-ports-and-one-system-run.md"
       ],
       "decided_by": "architect"
     },

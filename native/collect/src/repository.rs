@@ -9,6 +9,7 @@
 //! out of the root give no bytes. The root comes from the caller; nothing here reads an
 //! environment variable, `PATH` or a directory beside the binary.
 
+use crate::refusal::{refused, Refusal};
 use std::fs;
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
@@ -306,3 +307,20 @@ fn charged(total: u64, size: u64) -> Result<u64, String> {
 #[cfg(test)]
 #[path = "repository_tests.rs"]
 pub(crate) mod tests;
+
+/// A configuration path must be a safe POSIX relative path.
+pub(crate) fn safe_config(path: &str) -> Result<(), Refusal> {
+    let safe = !path.is_empty()
+        && path != "."
+        && !path.starts_with('/')
+        && !path.split('/').any(|part| part == "..")
+        && !path.contains(['\0', '\\', ':', '*', '?', '[', ']', '{', '}', '!']);
+    if safe {
+        Ok(())
+    } else {
+        Err(refused(
+            "config",
+            "--config must be a safe POSIX relative path",
+        ))
+    }
+}

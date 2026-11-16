@@ -52,7 +52,7 @@ pub enum UmlOutcome {
 }
 
 /// Compare the root target with the model of the root of the run; `id` is the row id.
-pub fn compare(model: &Model, target: &Target, id: &str) -> UmlOutcome {
+pub(crate) fn compare(model: &Model, target: &Target, id: &str) -> UmlOutcome {
     let modules: Vec<&str> = target
         .entities()
         .iter()

@@ -132,7 +132,7 @@ def test_each_requirement_names_its_ports() -> None:
     """AD-588: a requirement without `through` permits each module of its target.
 
     `NATIVE-REQUIRES-COMPLETE` judges the ports. A module port is a prefix, so a crate root port
-    permits the whole crate; a use of a name at the root is a symbol port instead (AD-612).
+    permits the whole crate; a use of a name at the root is a symbol port instead (AD-616).
     """
     components = {
         c["label"]: c for c in json.loads(CONTRACT.read_text(encoding="utf-8"))["components"]
@@ -146,7 +146,7 @@ def test_each_requirement_names_its_ports() -> None:
             assert ports == _minimal(ports), f"{where}: the ports are not sorted and minimal"
             modules = [port.partition(":")[0] for port in ports]
             assert all(_claims(target, module) for module in modules), f"{where}: another part"
-            # AD-612: a crate root is a port only for an import of the whole crate (a manifest
+            # AD-616: a crate root is a port only for an import of the whole crate (a manifest
             # dependency); each other use of the root is a symbol port `root:Name`.
             symbols = {port.partition(":")[0] for port in ports if ":" in port}
             assert not symbols & set(ports), f"{where}: a root port and its symbol ports"

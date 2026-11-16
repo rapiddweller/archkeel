@@ -70,7 +70,7 @@ struct ScanRequest {
 
 /// The frame of one scan request. An error is a request that the core cannot read.
 pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
-    let request: ScanRequest = dual_run::decode(input, PROTOCOL)?;
+    let request: ScanRequest = crate::decode::decode(input, PROTOCOL)?;
     let identity = Identity {
         root: &request.root,
         config: &request.config,
@@ -78,7 +78,43 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
         git_head: request.git_head.as_deref(),
         dirty: request.dirty,
     };
-    match archkeel_collect::scan(&identity, MAX_BYTES) {
+    match archkeel_collect::read_system(&identity) {
+        Ok(Some(system)) => return system_run(&request, &identity, &system),
+        Ok(None) => {}
+        Err(refusal) => return refused(&refusal, request.html).map_err(Into::into),
+    }
+    one(&request, &identity)
+}
+
+/// The run of a system document (AD-616): one scan for each part, joined into one frame. A part
+/// is a scan with the identity of the request and the configuration of the part. The page, the
+/// topology and the baseline belong to one part, so a system run refuses them.
+fn system_run(
+    request: &ScanRequest,
+    identity: &Identity<'_>,
+    system: &archkeel_collect::System,
+) -> Result<Answered, crate::refusal::Error> {
+    if request.html || request.topology || request.baseline.is_some() || request.write_baseline {
+        let reason = "collect: unsupported: a system run has no page, topology or baseline";
+        return dual_run::refused_scan(reason, request.html).map_err(Into::into);
+    }
+    let (mut frames, mut names_a_gap) = (Vec::new(), false);
+    for part in &system.parts {
+        let part_identity = Identity {
+            config: &part.config,
+            ..*identity
+        };
+        let answered = one(request, &part_identity)?;
+        names_a_gap |= answered.names_a_gap;
+        frames.push(answered.frame);
+    }
+    let frame = crate::system::join(system, &frames)?;
+    Ok(Answered { frame, names_a_gap })
+}
+
+/// The frame of the scan of one configuration.
+fn one(request: &ScanRequest, identity: &Identity<'_>) -> Result<Answered, crate::refusal::Error> {
+    match archkeel_collect::scan(identity, MAX_BYTES) {
         Ok(scanned) => {
             if request.root_only {
                 let input = ContractInput {
@@ -97,7 +133,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
                     .map_err(Into::into);
                 }
             }
-            let accept = baseline_input(&scanned, request.baseline, request.write_baseline);
+            let accept = baseline_input(&scanned, request.baseline.clone(), request.write_baseline);
             decide(scanned, (request.html, request.topology), accept).map_err(Into::into)
         }
         Err(refusal) if refusal.kind == RefusalKind::ParseWork => {

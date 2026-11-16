@@ -43,6 +43,9 @@ pub(crate) struct Parts {
     pub(super) gaps: Vec<crate::baseline_frame::GapRow>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) baseline: Option<crate::baseline_frame::Part>,
+    /// The parts of a system run (AD-616); `crate::system::join` writes it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) system: Option<SystemFrame>,
 }
 
 /// The rows of each section, as rows of the envelope or an error that names the bad row.
@@ -286,6 +289,7 @@ pub(crate) fn refused_scan(reason: &str, html: bool) -> Result<Answered, String>
         contract_digest: None,
         gaps: crate::baseline_frame::gap_rows(&ruling),
         baseline: None,
+        system: None,
         unsupported: UnsupportedParts {
             sections: BTreeMap::new(),
             report: None,
@@ -326,4 +330,29 @@ mod tests {
             assert!(locations(None, "contract.json", b"[]", &settings).is_empty());
         }
     }
+}
+
+/// The part `system` of a frame (AD-616): `crate::system::join` writes it.
+#[derive(Serialize, schemars::JsonSchema)]
+pub(crate) struct SystemFrame {
+    /// The title of the system.
+    pub(crate) title: String,
+    /// The repository path of the system document.
+    pub(crate) document: String,
+    /// Each part, in the order of the document.
+    pub(crate) parts: Vec<PartRow>,
+}
+
+/// One part of a system frame.
+#[derive(Serialize, schemars::JsonSchema)]
+pub(crate) struct PartRow {
+    pub(crate) id: String,
+    pub(crate) title: String,
+    /// The repository path of the configuration of the part.
+    pub(crate) config: String,
+    /// The profile of the collector that read the part, from its collection request.
+    pub(crate) profile: Option<String>,
+    pub(crate) status: archkeel_report::Status,
+    /// The ids of the rules of the part.
+    pub(crate) rules: Vec<String>,
 }

@@ -40,7 +40,7 @@ fn read(base: Base, candidate: Option<&Ingested>, shared: Shared) -> Result<(), 
     let mut engine = Engine::default();
     match engine.answer(Request::Ingest {
         reply: base.reply,
-        inflate_limit: dual_run::INFLATE_LIMIT,
+        inflate_limit: crate::decode::INFLATE_LIMIT,
     }) {
         Answer::Reply(ReplyState::Ingested(_)) => {}
         Answer::Reply(ReplyState::Refused(message)) => {
