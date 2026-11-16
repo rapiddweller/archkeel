@@ -50,7 +50,7 @@ jobs:
         run: rustup toolchain install
 
       - name: Restore the Rust build cache of main
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry
@@ -68,6 +68,16 @@ jobs:
 
       - name: Check native/ and the Python shell with the core against their pinned results
         run: make self-validate
+
+      - name: Save the Rust build cache
+        if: always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/target
+          key: rust-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
 
   tests:
     name: "Tests: ${{ matrix.area }}"

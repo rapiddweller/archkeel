@@ -183,11 +183,13 @@ def _floors(tier: str) -> dict[str, int]:
 @pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     # Imported here: some tests copy this file alone into a temporary project.
-    from areas import AREAS, area_of, is_slow
+    from areas import AREAS, area_of, is_heavy, is_slow
 
     for item in items:
         if is_slow(item.path.name):
             item.add_marker(pytest.mark.slow)
+        if is_heavy(item.path.name):
+            item.add_marker(pytest.mark.heavy)
         if DEBUG_BUILD_FIXTURES & set(getattr(item, "fixturenames", ())):
             item.add_marker(pytest.mark.debug_build)
     wanted = config.getoption("area")
@@ -200,7 +202,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         expression = str(config.getoption("markexpr"))
         tier = "pr" if "not debug_build" in expression else "fast"
         if "not slow" in expression:
-            skipped = {"slow", "debug_build"} if tier == "pr" else {"slow"}
+            skipped = {"slow", "debug_build", "heavy"} if tier == "pr" else {"slow"}
             floors = _floors(tier)
             for area in wanted:
                 count = sum(

@@ -98,6 +98,7 @@ addopts = "-rs -p no:cacheprovider -m 'not native_wheel'"
 markers = [
     "native_wheel: builds or installs the platform wheel; make native-wheel runs it",
     "slow: scaling, memory and large-scan tests of tests/areas.py SLOW_FILES; only the nightly run runs them",
+    "heavy: a file of HEAVY_FILES in tests/areas.py; the PR gate leaves it out, the main tier runs it",
     "debug_build: needs a debug build of the workspace; the PR gate leaves it out, the main tier runs it",
 ]
 

@@ -85,6 +85,35 @@ SLOW_FILES = frozenset(
     }
 )
 
+# AD-674: files that a PR gate of 3 minutes cannot afford (measured: each took 8 s or more of summed test
+# time in the full run of 2026-11-16, or builds a workspace copy). The main tier runs them; the PR tier does not.
+HEAVY_FILES = frozenset(
+    {
+        "test_cli_baseline.py",
+        "test_cli_boundary_types.py",
+        "test_cli_core_inside_trees.py",
+        "test_cli_core_uml_symbols.py",
+        "test_cli_native_core_scan_work.py",
+        "test_cli_native_dart_imports.py",
+        "test_cli_native_global_code.py",
+        "test_cli_native_global_forms.py",
+        "test_cli_native_global_writes.py",
+        "test_cli_native_python_imports.py",
+        "test_cli_native_python_reexport.py",
+        "test_cli_python_symbols.py",
+        "test_collector_native_digest.py",
+        "test_collector_native_records.py",
+        "test_collector_native_rust_definitions_oracle.py",
+        "test_collector_native_rust_module_oracle.py",
+        "test_collector_native_rust_oracle.py",
+        "test_collector_native_rust_receivers_compiled.py",
+        "test_native_report.py",
+        "test_native_self_contract.py",
+        "test_native_self_core_rows.py",
+        "test_parallel_execution.py",
+    }
+)
+
 # AD-674: the PR tier runs the fast tests of the areas that a change can reach. The first matching
 # pattern wins; a changed path that matches no pattern selects every area, so a new directory can
 # never run no test. A changed test file always selects its own area (`area_of`).
@@ -116,6 +145,10 @@ TOUCHES: tuple[tuple[str, tuple[str, ...] | str], ...] = (
 
 def is_slow(file_name: str) -> bool:
     return file_name in SLOW_FILES
+
+
+def is_heavy(file_name: str) -> bool:
+    return file_name in HEAVY_FILES
 
 
 def areas_of_change(paths: list[str]) -> list[str]:

@@ -34,7 +34,7 @@ pr-gate: ci-pr-static self-validate pr-selected-test
 
 pr-selected-test: browser-runtime-install
 	@areas=$$($(UV) run --locked python tools/select_areas.py "$(PR_BASE)") && echo "areas: $$areas" && \
-		eval "$(FAST_TEST) -m 'not native_wheel and not slow and not debug_build' $$areas"
+		eval "$(FAST_TEST) -m 'not native_wheel and not slow and not debug_build and not heavy' $$areas"
 
 # Checks a pull request before its merge: make merge-check PR=<number> (tools/merge_check.py).
 merge-check:

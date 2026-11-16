@@ -7,10 +7,10 @@
     "reports": 60
   },
   "pr": {
-    "self-check and CI": 437,
-    "CLI and core": 2332,
-    "collectors": 83,
-    "native collectors": 164,
+    "self-check and CI": 436,
+    "CLI and core": 1129,
+    "collectors": 78,
+    "native collectors": 153,
     "reports": 60
   }
 }
