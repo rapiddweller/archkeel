@@ -18,7 +18,6 @@ use crate::crates::{Crate, Workspace};
 use crate::derive_imports::Local;
 use crate::module_edges::{local_target, with_name, ImportName};
 use crate::modules::Index;
-use crate::plant;
 use crate::resolve::{classify, linked, Found, Named};
 use crate::scan::Reference;
 use crate::tree::Module;
@@ -61,8 +60,19 @@ impl Builder {
         };
         let mut covered = BTreeSet::new();
         let before = self.ended;
-        for (at, reference) in module.scan.references.iter().enumerate() {
-            if plant::skip(&module.rel, at) {
+        #[cfg(feature = "dump")]
+        let references = module.scan.references.iter().enumerate();
+        #[cfg(not(feature = "dump"))]
+        let references = module
+            .scan
+            .references
+            .iter()
+            .map(|reference| (0, reference));
+        for (_at, reference) in references {
+            #[cfg(feature = "dump")]
+            if std::env::var("ARCHKEEL_PLANT_SKIP")
+                .is_ok_and(|value| value == format!("{}:{_at}", module.rel))
+            {
                 continue;
             }
             // An alias of `extern crate self` beats a dependency and a name of the sysroot.
@@ -78,7 +88,10 @@ impl Builder {
                 covered.insert(reference.root.clone());
             }
             match found {
-                Some(Found::Edge(_)) if plant::arm(&module.rel, at) => {}
+                #[cfg(feature = "dump")]
+                Some(Found::Edge(_))
+                    if std::env::var("ARCHKEEL_PLANT_ARM")
+                        .is_ok_and(|value| value == format!("{}:{_at}", module.rel)) => {}
                 Some(Found::Edge(named)) => {
                     self.import(
                         workspace,
