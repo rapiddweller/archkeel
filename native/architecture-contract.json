@@ -105,6 +105,7 @@
         "native.archkeel_facts.request:Request",
         "native.archkeel_facts.request:RustRequest",
         "native.archkeel_facts.request:TypeScriptRequest",
+        "native.archkeel_facts.sections:SignalFact",
         "native.archkeel_facts.type_shape:Binding",
         "native.archkeel_facts.type_shape:Family",
         "native.archkeel_facts.type_shape:TypeShape",
@@ -139,7 +140,6 @@
         "native.archkeel_facts:IntoSection",
         "native.archkeel_facts:Record",
         "native.archkeel_facts:ReferenceFact",
-        "native.archkeel_facts.sections:SignalFact",
         "native.archkeel_facts:STANDARD_LIBRARY",
         "native.archkeel_facts:Section",
         "native.archkeel_facts:SymbolFact",
@@ -5407,8 +5407,10 @@
         }
       ],
       "public": [
+        "native.archkeel_python_collector.module.builtin_roles:Role",
+        "native.archkeel_python_collector.module.builtin_roles:has",
+        "native.archkeel_python_collector.module.builtin_roles:named",
         "native.archkeel_python_collector.module.definition:Def",
-        "native.archkeel_python_collector.module.namespace_tables:CONTAINERS",
         "native.archkeel_python_collector.module.namespace_tables:GLOBAL",
         "native.archkeel_python_collector.module.namespace_tables:GLOBALS",
         "native.archkeel_python_collector.module.namespace_tables:LOCAL",
@@ -5631,6 +5633,7 @@
             "native.archkeel_facts.nullable",
             "native.archkeel_facts.pyminor",
             "native.archkeel_facts.request",
+            "native.archkeel_facts.sections:SignalFact",
             "native.archkeel_facts.type_shape",
             "native.archkeel_facts.vocab",
             "native.archkeel_facts:CallFact",
@@ -5640,7 +5643,6 @@
             "native.archkeel_facts:ImportFact",
             "native.archkeel_facts:Record",
             "native.archkeel_facts:ReferenceFact",
-            "native.archkeel_facts.sections:SignalFact",
             "native.archkeel_facts:SymbolFact"
           ]
         },
@@ -5717,13 +5719,13 @@
           "through": [
             "native.archkeel_facts.envelope",
             "native.archkeel_facts.request",
+            "native.archkeel_facts.sections:SignalFact",
             "native.archkeel_facts:CallFact",
             "native.archkeel_facts:ConstructFact",
             "native.archkeel_facts:GapFact",
             "native.archkeel_facts:ImportFact",
             "native.archkeel_facts:Record",
             "native.archkeel_facts:ReferenceFact",
-            "native.archkeel_facts.sections:SignalFact",
             "native.archkeel_facts:SymbolFact"
           ]
         },

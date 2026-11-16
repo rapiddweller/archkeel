@@ -20,6 +20,7 @@
 //!
 //! A `setattr` or `delattr` call is a flag of the bound module table (`Bound::attribute_write`).
 
+use crate::module::builtin_roles::{self, Role};
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, ExprContext, Stmt};
 
@@ -76,9 +77,6 @@ const SPECIAL: [&str; 6] = [
 
 /// The methods of a mapping that change nothing.
 const READS: [&str; 5] = ["keys", "items", "values", "get", "copy"];
-
-/// The builtins that only read the mapping that they receive.
-const READERS: [&str; 6] = ["len", "list", "dict", "sorted", "tuple", "set"];
 
 /// True when a statement of one of the modules can change what a typing factory makes.
 pub(super) fn withheld(modules: &[Module]) -> bool {
@@ -176,7 +174,8 @@ impl Guard {
                 return;
             }
         }
-        if matches!(&*call.func, Expr::Name(name) if READERS.contains(&name.id.as_str())) {
+        if matches!(&*call.func, Expr::Name(name) if builtin_roles::has(name.id.as_str(), Role::MAPPING_READER))
+        {
             call.arguments.args.iter().for_each(|arg| self.read(arg));
             call.arguments
                 .keywords

@@ -5,7 +5,7 @@
 use serde_json::{json, Value};
 
 use super::{answer, hex};
-use crate::engine::tests::{golden_profile, golden_reply, NATIVE_CONTRACT};
+use crate::engine::tests::{golden_profile, golden_reply, native_rule_count, NATIVE_CONTRACT};
 
 fn request(reply: Option<&[u8]>, sections: &[&str]) -> Value {
     request_with(NATIVE_CONTRACT, reply, sections)
@@ -50,7 +50,7 @@ fn the_frame_shows_what_the_core_read_and_decides_the_s1_kinds() {
     // the reference engine refuses such a contract, so the scope is not complete and each
     // decided rule is UNKNOWN with its reason (AD-378, AD-450).
     let decided = got["rules"].as_object().cloned().unwrap_or_default();
-    assert_eq!(decided.len(), 86);
+    assert_eq!(decided.len(), native_rule_count());
     assert!(decided.values().all(|value| value[1] == "UNKNOWN"));
     assert_eq!(
         got["explained"]["NATIVE-EXTERNAL-SYN"],

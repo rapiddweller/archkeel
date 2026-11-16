@@ -5,6 +5,7 @@
 //! What the value of a module-scope assignment binds its name to (`bound.rs`, AD-566): a value, a
 //! builtin generic, a call of a plain name, or an unknown object.
 
+use crate::module::builtin_roles::{self, Role};
 use ruff_python_ast::Expr;
 
 /// What the statement of a site binds the name to.
@@ -39,20 +40,6 @@ pub(super) fn scalar_literal(value: &Expr) -> bool {
     )
 }
 
-/// The builtin types whose call makes an instance of that type, never another object.
-const BUILTIN_VALUES: [&str; 10] = [
-    "list",
-    "dict",
-    "tuple",
-    "set",
-    "frozenset",
-    "int",
-    "str",
-    "float",
-    "bool",
-    "bytes",
-];
-
 /// True for arithmetic over number literals: its value is a number.
 fn number_arithmetic(value: &Expr) -> bool {
     match value {
@@ -68,7 +55,9 @@ pub(super) fn value_kind(value: &Expr) -> (Kind, Option<&str>) {
     if let Expr::Call(call) = value {
         if let Expr::Name(name) = &*call.func {
             let name = name.id.as_str();
-            if let Some(builtin) = BUILTIN_VALUES.iter().find(|builtin| **builtin == name) {
+            if let Some(builtin) =
+                builtin_roles::named(Role::VALUE_CALL).find(|builtin| *builtin == name)
+            {
                 return (Kind::BuiltinGeneric(builtin), None);
             }
             return (Kind::Call, Some(name));
