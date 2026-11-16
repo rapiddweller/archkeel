@@ -1,6 +1,6 @@
 {
-  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
-  "schema_version": "2.3.0",
+  "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract-3.14.schema.json",
+  "schema_version": "3.14.0",
   "components": [
     {
       "id": "SHELL-ENTRY",
