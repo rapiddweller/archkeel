@@ -49,6 +49,17 @@ jobs:
         working-directory: native
         run: rustup toolchain install
 
+      - name: Restore the Rust build cache of main
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/target
+          key: rust-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
+          restore-keys: |
+            rust-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
+
       - name: Check architecture, format, lint and Python types
         env:
           # A dispatch has no previous push; one squash merge is one commit on main.
@@ -107,10 +118,10 @@ jobs:
       - name: Show the runner CPU
         run: lscpu | grep -E '^(Model name|CPU\(s\)):'
 
-      - name: Run the selected tests of this area
+      - name: Run the fast tests of this area
         env:
           AREA: ${{ matrix.area }}
-        run: make pr-test AREA="$AREA"
+        run: make fast-test AREA="$AREA"
 
       - name: Upload JUnit results
         if: always()

@@ -35,15 +35,17 @@ Merge rules ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-an
 
 1. One review per PR. A PR that can enable a PASS also gets the false-PASS probes (the five `tests/test_collector_false_pass_*.py` files; four run in each PR and all run in Full); a probe expects UNKNOWN or FAIL, never PASS. The author fixes the findings and the lead checks the fixes. There is no second review round. A problem found later becomes a follow-up issue. The goal is a good solution, not perfection.
 2. Local gate on the final head: `make ci-pr-static BASE=origin/main`, the area tests, `make native-check` when `native/` changes, `make merge-check`, and the lead's merge-tree check. Push only on a green local gate.
-3. Merge when the review and the local gate are green. Pipelines run only on `main`: a push to `main` runs CI, and Full runs nightly. No PR runs CI or Full. This is the rule of [AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md).
+3. Merge only on green (AD-674): the check `PR gate` of the PR must pass, and `tools/merge_pr.sh` refuses a red or missing required check. Three tiers: the PR gate (at most 3 minutes: static checks, core build, self and system check, the fast tests of the touched areas), the main tier (a push to `main`: the whole fast suite and `make native-check`, at most 15 minutes) and the nightly Full run (scaling, large scans, Windows and Python matrix, at most 45 minutes). AD-674 amends [AD-348](docs/architecture/decisions/ad-348-a-pr-gets-one-class-and-the-lead-dispatches-full.md).
 4. Do not update the branch unless the merge-tree shows a real conflict.
 5. Full runs on `main` nightly, and by dispatch when useful. A failure on `main` becomes a backlog issue with a priority, except when `main` no longer builds locally: then fix it at once, because no agent can work.
 6. Run `python3 tools/ci_daily.py` for the daily line. Targets: CI at most 10 min, queue wait at most 3 min.
 7. Revisit these rules when the Rust corpus is complete, or after a second red `main` of more than 1 hour.
 
-Each CI run (a push to `main`) runs the same fixed set of checks. Each test job runs one area.
-The `PR_TEST_FILES` list in `tests/pr-test.mk` names this fixed set file by file and test by test;
-there is no rule that selects it. Samples do not replace testing the behavior you change.
+Each CI run (a push to `main`) runs the fast tests, one area in each job (`make fast-test AREA=...`).
+The PR gate runs the areas that `tools/select_areas.py` derives from the changed paths with the rules
+of `tests/areas.py`; a path that no rule names selects every area. The slow files of `SLOW_FILES` in
+`tests/areas.py` (scaling, memory, large scans) carry the marker `slow` and run only in the nightly Full run.
+`tests/area_floors.json` gives each area a floor of fast tests, so an empty selection fails. Samples do not replace testing the behavior you change.
 Python import rules run through the release core in `tests/test_cli_native_python_imports.py`.
 Dart import rules run through the release core in `tests/test_cli_native_dart_imports.py`.
 No new recordings replace the other Dart project tests.
@@ -70,7 +72,8 @@ aggregate would count as passed.
 | Workflow and job | Runs on | Command to reproduce |
 |---|---|---|
 | CI: Lint, types and architecture | each push to `main` | `make ci-pr-static BASE=origin/main`, then `make self-validate` |
-| CI: Tests: `<area>` | each push to `main` | `make pr-test AREA="<area>"` |
+| PR gate: PR gate | each pull request | `make pr-gate` |
+| CI: Tests: `<area>` | each push to `main` | `make fast-test AREA="<area>"` |
 | CI: Docs diagrams | each push to `main` | `make mermaid`; the job also runs `tests/test_mermaid.py` |
 | CI: Native: Rust checks and dependency policy | each push to `main` | `make native-check` |
 | CI: Publish the report gallery | each push to `main`, and dispatch on `main` | `make report-gallery` |
@@ -83,12 +86,12 @@ aggregate would count as passed.
 | Release: Full, build, publish and gallery refresh | each version tag | `make build plugin-release VERSION=<version>` |
 
 A red job means its command failed: run the command in the third column to reproduce it.
-`tests/areas.py` puts each test file in exactly one area. CI runs the `make pr-test` selection;
+`tests/areas.py` puts each test file in exactly one area. The main tier runs `make fast-test`;
 Full runs all tests, on `main` nightly, by dispatch, or when a release calls it. No PR runs Full. Full covers changes to these paths, and a PR that changes them gets no run before its merge:
 `.github/workflows/**`, `.github/actions/**`, `.python-version`, `pyproject.toml`, `uv.lock`,
 `tools/browser-runtime/package*.json`, `tests/conftest.py` and `tools/full.mk`. `tools/full.mk`
 holds each Make recipe that CI does not run, such as `full-test` and `shell-compat`. The `Makefile`, the
-`pr-test` list and `tests/areas.py` do not start Full. Tests in CI check that `tests/areas.py`
+`tests/areas.py` do not start Full. Tests in CI check that `tests/areas.py`
 still gives each area its files and matches the Full job matrix. A change to a `Makefile` variable
 (`UV`, `TEST_WORKERS`) does not start Full: the nightly run covers it. Full on `main` checks it
 after the merge. Name a new test file so that an area pattern matches it.

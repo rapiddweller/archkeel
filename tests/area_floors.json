@@ -1,0 +1,7 @@
+{
+  "self-check and CI": 429,
+  "CLI and core": 2513,
+  "collectors": 451,
+  "native collectors": 521,
+  "reports": 60
+}
