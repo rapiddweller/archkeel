@@ -42,13 +42,6 @@
 //! // 10, 16, 17: the verdict of a decision is read by reference.
 //! fn read(decision: &Decision) -> &Verdict { decision.verdict() }
 //! fn passed(decision: &Decision) -> bool { matches!(decision.verdict(), Verdict::Pass(_)) }
-//! // 18: the sides of a dependency rule come from the model (slice S5, AD-380).
-//! fn sides<'c>(
-//!     rule: &'c archkeel_contract::ForbiddenDependency,
-//!     components: &'c [archkeel_contract::Component],
-//! ) -> [archkeel_model::Selection<'c>; 2] {
-//!     archkeel_model::dependency_sides(rule, components)
-//! }
 //! // 19: a judgement of an import is compared, never used as a decision.
 //! fn judged(found: archkeel_model::Judged) -> bool { found == archkeel_model::Judged::Pass }
 //! // 20: the contract source comes from its bytes.
@@ -86,46 +79,48 @@
 //!
 //! 1. A decision literal: the fields of `Decision` are private.
 //!
-//! ```compile_fail
+//! ```compile_fail,E0451
 //! fn forge() -> archkeel_model::Decision {
-//!     archkeel_model::Decision { verdict: archkeel_model::Verdict::Fail, reason: None }
+//!     archkeel_model::Decision { verdict: archkeel_model::Verdict::Fail, reason: None, bound: None }
 //! }
 //! ```
 //!
 //! 2. The constructor of a PASS: `Decision::passed` is private to the model.
 //!
-//! ```compile_fail
-//! fn forge() -> archkeel_model::Decision { archkeel_model::Decision::passed() }
+//! ```compile_fail,E0624
+//! fn forge() -> archkeel_model::Decision {
+//!     archkeel_model::Decision::passed("rule".to_owned(), 0)
+//! }
 //! ```
 //!
-//! 3. A PASS verdict: the mark `Proven` has a private field.
+//! 3. A PASS verdict: the mark `Proven` is in the private `verdict` module.
 //!
-//! ```compile_fail
+//! ```compile_fail,E0603
 //! fn forge() -> archkeel_model::Verdict {
-//!     archkeel_model::Verdict::Pass(archkeel_model::Proven { _scope: () })
+//!     archkeel_model::Verdict::Pass(archkeel_model::verdict::Proven { _scope: () })
 //! }
 //! ```
 //!
-//! 4. A proof literal: the brand of `ScopeComplete` is private.
+//! 4. A proof literal: `ScopeComplete` is in the private `scope` module.
 //!
-//! ```compile_fail
-//! fn forge<'id>() -> archkeel_model::ScopeComplete<'id> {
-//!     archkeel_model::ScopeComplete { brand: std::marker::PhantomData }
+//! ```compile_fail,E0603
+//! fn forge<'id>() -> archkeel_model::scope::ScopeComplete<'id> {
+//!     archkeel_model::scope::ScopeComplete { brand: std::marker::PhantomData, rule: String::new() }
 //! }
 //! ```
 //!
-//! 5. A scope literal: only `Model::scope` makes a scope.
+//! 5. A scope literal: `Scope` is in the private `scope` module.
 //!
-//! ```compile_fail
+//! ```compile_fail,E0603
 //! fn forge(model: &archkeel_model::Model) -> archkeel_model::Decision {
-//!     let scope = archkeel_model::Scope { model, _brand: std::marker::PhantomData };
+//!     let scope = archkeel_model::scope::Scope { model, _brand: std::marker::PhantomData };
 //!     scope.pass(scope.complete(&model.contract().rules()[0]).ok().unwrap())
 //! }
 //! ```
 //!
 //! 6. A proof of one model passes a rule of another model.
 //!
-//! ```compile_fail
+//! ```compile_fail,E0521
 //! use archkeel_contract::Rule;
 //! use archkeel_model::{Decision, Model};
 //! fn two(a: &Model, b: &Model, rule: &Rule) -> Option<Decision> {
@@ -135,7 +130,7 @@
 //!
 //! 7. A proof of one scope passes in a second scope of the same model.
 //!
-//! ```compile_fail
+//! ```compile_fail,E0521
 //! use archkeel_contract::Rule;
 //! use archkeel_model::{Decision, Model};
 //! fn twice(model: &Model, rule: &Rule) -> Option<Decision> {
@@ -145,18 +140,23 @@
 //!
 //! 8. A proof leaves its scope as the return value.
 //!
-//! ```compile_fail
+//! ```compile_fail,E0521
 //! use archkeel_contract::Rule;
 //! use archkeel_model::Model;
 //! fn keep(model: &Model, rule: &Rule) {
-//!     let proof = model.scope(|scope| scope.complete(rule).ok());
+//!     fn needs_static<T: 'static>(_: &T) {}
+//!     let proof = model.scope(|scope| {
+//!         let proof = scope.complete(rule).ok();
+//!         needs_static(&proof);
+//!         proof
+//!     });
 //!     drop(proof);
 //! }
 //! ```
 //!
 //! 9. A proof leaves its scope through a capture.
 //!
-//! ```compile_fail
+//! ```compile_fail,E0521
 //! use archkeel_contract::Rule;
 //! use archkeel_model::Model;
 //! fn keep(model: &Model, rule: &Rule) {
@@ -168,7 +168,7 @@
 //!
 //! 10. A proof is cloned to pass two rules: `ScopeComplete` is not `Clone`.
 //!
-//! ```compile_fail
+//! ```compile_fail,E0599
 //! use archkeel_contract::Rule;
 //! use archkeel_model::{Decision, Model};
 //! fn two(model: &Model, rule: &Rule) -> Option<(Decision, Decision)> {
@@ -180,7 +180,7 @@
 //!
 //! 11. A proof is used two times: `pass` moves it.
 //!
-//! ```compile_fail
+//! ```compile_fail,E0382
 //! use archkeel_contract::Rule;
 //! use archkeel_model::{Decision, Model};
 //! fn two(model: &Model, rule: &Rule) -> Option<(Decision, Decision)> {
@@ -193,25 +193,31 @@
 //!
 //! 12. A scope with a fixed brand: `Model::scope` takes only a closure for each brand.
 //!
-//! ```compile_fail
+//! ```compile_fail,E0521
 //! use archkeel_contract::Rule;
-//! use archkeel_model::{Decision, Model, Scope};
+//! use archkeel_model::{Decision, Model};
+//! fn requires_static<T: 'static>(_: &T) {}
 //! fn fixed(model: &Model, rule: &Rule) -> Option<Decision> {
-//!     model.scope(|scope: Scope<'static, '_>| {
-//!         scope.complete(rule).ok().map(|proof| scope.pass(proof))
+//!     model.scope(|scope| {
+//!         scope.complete(rule).ok().map(|proof| {
+//!             requires_static(&proof);
+//!             scope.pass(proof)
+//!         })
 //!     })
 //! }
 //! ```
 //!
 //! 13. A default proof: `ScopeComplete` has no `Default`.
 //!
-//! ```compile_fail
-//! fn forge<'id>() -> archkeel_model::ScopeComplete<'id> { Default::default() }
+//! ```compile_fail,E0277
+//! fn forge(model: &archkeel_model::Model) -> archkeel_model::Decision {
+//!     model.scope(|scope| scope.pass(Default::default()))
+//! }
 //! ```
 //!
 //! 14. A decision from a verdict: no conversion builds a `Decision`.
 //!
-//! ```compile_fail
+//! ```compile_fail,E0308
 //! fn forge(verdict: archkeel_model::Verdict) -> archkeel_model::Decision {
 //!     archkeel_model::Decision::from(verdict)
 //! }
@@ -219,9 +225,9 @@
 //!
 //! 15. A model literal with a scope state of its own: the fields of `Model` are private.
 //!
-//! ```compile_fail
-//! fn forge(graph: archkeel_model::Graph) -> archkeel_model::Model {
-//!     archkeel_model::Model { graph }
+//! ```compile_fail,E0451
+//! fn forge(model: archkeel_model::Model) -> archkeel_model::Model {
+//!     archkeel_model::Model { ..model }
 //! }
 //! ```
 //!
@@ -245,17 +251,17 @@
 //! }
 //! ```
 //!
-//! 18. A selection literal: a side of a dependency rule comes only from `dependency_sides`.
+//! 18. A selection literal: `Selection` is in the private `selection` module.
 //!
-//! ```compile_fail
-//! fn forge<'c>() -> archkeel_model::Selection<'c> {
-//!     archkeel_model::Selection { packages: Vec::new(), exact: Vec::new() }
+//! ```compile_fail,E0603
+//! fn forge<'c>() -> archkeel_model::selection::Selection<'c> {
+//!     archkeel_model::selection::Selection { packages: Vec::new(), exact: Vec::new() }
 //! }
 //! ```
 //!
 //! 19. A judgement as a decision: an import that a matcher accepts is no PASS of its rule.
 //!
-//! ```compile_fail
+//! ```compile_fail,E0308
 //! fn forge() -> archkeel_model::Decision { archkeel_model::Judged::Pass }
 //! ```
 //!
@@ -263,7 +269,7 @@
 //!     are bound to the parsed contract by their digest; the path is not bound, it sets only
 //!     the evidence id of a `layer_order` row.
 //!
-//! ```compile_fail
+//! ```compile_fail,E0451
 //! fn forge() -> archkeel_model::Settings {
 //!     archkeel_model::Settings { contract_source: None, ..Default::default() }
 //! }
@@ -271,43 +277,46 @@
 //!
 //! # The proofs of slice S7 (AD-384)
 //!
-//! 25. A gap scope without the model: the proof that no kept pair gap can change a rule has a
-//!     private brand (slice S7, AD-384).
+//! 25. A gap scope without the model: `GapScope` is in the private `receipts` module.
 //!
-//! ```compile_fail
-//! fn forge<'id>() -> archkeel_model::GapScope<'id> {
-//!     archkeel_model::GapScope { brand: std::marker::PhantomData }
+//! ```compile_fail,E0603
+//! fn forge<'id>() -> archkeel_model::receipts::GapScope<'id> {
+//!     archkeel_model::receipts::GapScope { brand: std::marker::PhantomData }
 //! }
 //! ```
 //!
 //! 26. A gap scope that leaves its scope: it carries the brand of one `Model::scope` call.
 //!
-//! ```compile_fail
+//! ```compile_fail,E0521
 //! fn keep(model: &archkeel_model::Model, rule: &archkeel_contract::Rule) {
-//!     let _gaps = model.scope(|scope| scope.gaps(rule).ok());
+//!     let mut gaps = None;
+//!     model.scope(|scope| gaps = scope.gaps(rule).ok());
+//!     drop(gaps);
 //! }
 //! ```
 //!
-//! 27. A scan proof without the model: its roots are the bound roots of the settings.
+//! 27. A scan proof without the model: `ScanProof` is in the private `receipts` module.
 //!
-//! ```compile_fail
-//! fn forge<'id, 'm>() -> archkeel_model::ScanProof<'id, 'm> {
-//!     archkeel_model::ScanProof { brand: std::marker::PhantomData, roots: todo!() }
+//! ```compile_fail,E0603
+//! fn forge<'id, 'm>() -> archkeel_model::receipts::ScanProof<'id, 'm> {
+//!     archkeel_model::receipts::ScanProof { brand: std::marker::PhantomData, roots: todo!() }
 //! }
 //! ```
 //!
 //! 28. A scan proof that leaves its scope.
 //!
-//! ```compile_fail
+//! ```compile_fail,E0521
 //! fn keep(model: &archkeel_model::Model) {
-//!     let _scan = model.scope(|scope| scope.scan().ok());
+//!     let mut scan = None;
+//!     model.scope(|scope| scan = scope.scan().ok());
+//!     drop(scan);
 //! }
 //! ```
 //!
 //! 29. Scan roots set by a field: the roots are private, and `Graph::derive` refuses roots that
 //!     are not the scope labels of the reply.
 //!
-//! ```compile_fail
+//! ```compile_fail,E0451
 //! fn forge() -> archkeel_model::Settings {
 //!     archkeel_model::Settings { roots: Some(vec![".".to_owned()]), ..Default::default() }
 //! }
@@ -330,11 +339,11 @@
 //! fn of(pass: &RunPass, model: &Model) -> bool { pass.of(model) }
 //! ```
 //!
-//! 21. A run proof literal: the brand of `RunComplete` is private (E0451).
+//! 21. A run proof literal: the `run` module is private (E0603).
 //!
-//! ```compile_fail,E0451
-//! fn forge<'id>() -> archkeel_model::RunComplete<'id> {
-//!     archkeel_model::RunComplete { brand: std::marker::PhantomData }
+//! ```compile_fail,E0603
+//! fn forge<'id>() -> archkeel_model::run::RunComplete<'id> {
+//!     archkeel_model::run::RunComplete { brand: std::marker::PhantomData }
 //! }
 //! ```
 //!

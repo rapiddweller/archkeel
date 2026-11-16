@@ -15,9 +15,9 @@
 //!
 //! A crate outside the model cannot make the proof:
 //!
-//! ```compile_fail,E0451
-//! fn forge<'id>() -> archkeel_model::RunComplete<'id> {
-//!     archkeel_model::RunComplete { brand: std::marker::PhantomData }
+//! ```compile_fail,E0603
+//! fn forge<'id>() -> archkeel_model::run::RunComplete<'id> {
+//!     archkeel_model::run::RunComplete { brand: std::marker::PhantomData }
 //! }
 //! ```
 
