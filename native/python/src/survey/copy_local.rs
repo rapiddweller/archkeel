@@ -313,32 +313,27 @@ impl HookWatch {
 
 impl<'a> Visitor<'a> for HookWatch {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
-        match stmt {
-            Stmt::FunctionDef(node) => self.word(node.name.as_str()),
-            Stmt::ClassDef(node) => self.word(node.name.as_str()),
-            Stmt::Import(node) => node.names.iter().for_each(|alias| {
-                self.word(alias.name.as_str());
-            }),
-            Stmt::ImportFrom(node) => {
-                node.module
-                    .iter()
-                    .for_each(|module| self.word(module.as_str()));
-                node.names
-                    .iter()
-                    .for_each(|alias| self.word(alias.name.as_str()));
-            }
-            _ => {}
-        }
+        let texts: Vec<&str> = match stmt {
+            Stmt::FunctionDef(node) => vec![node.name.as_str()],
+            Stmt::ClassDef(node) => vec![node.name.as_str()],
+            Stmt::Import(node) => node.names.iter().map(|a| a.name.as_str()).collect(),
+            Stmt::ImportFrom(node) => (node.module.iter().map(|m| m.as_str()))
+                .chain(node.names.iter().map(|a| a.name.as_str()))
+                .collect(),
+            _ => Vec::new(),
+        };
+        texts.into_iter().for_each(|text| self.word(text));
         visitor::walk_stmt(self, stmt);
     }
 
     fn visit_expr(&mut self, expr: &'a Expr) {
-        match expr {
-            Expr::Name(node) => self.word(node.id.as_str()),
-            Expr::Attribute(node) => self.word(node.attr.as_str()),
-            Expr::StringLiteral(node) => self.word(node.value.to_str()),
-            _ => {}
-        }
+        let text = match expr {
+            Expr::Name(node) => Some(node.id.as_str()),
+            Expr::Attribute(node) => Some(node.attr.as_str()),
+            Expr::StringLiteral(node) => Some(node.value.to_str()),
+            _ => None,
+        };
+        text.into_iter().for_each(|text| self.word(text));
         visitor::walk_expr(self, expr);
     }
 
