@@ -36,6 +36,7 @@ GAP_KINDS: Final = {
     "decision.open": "an open decision in the contract (a TODO)",
     "responsibility.missing": "a component without a written responsibility",
     "rationale.placeholder": "a rationale that is still a placeholder",
+    "graph.drift": "a drawn component graph that differs from the imports",
     "baseline.invalid": "a baseline file that is not valid",
     "baseline.older_schema": "a baseline file from release 4.0.1",
 }
@@ -92,6 +93,8 @@ REASON_WORDS: Final = {
     "external_type": "type from outside the scan",
     "scope_incomplete": "the scan has gaps",
 }
+_NOT_FOUND: Final = re.compile(r"project_module_not_found: (\S+)")
+NOT_FOUND_PREFIX: Final = "project_module_not_found: "
 _HYGIENE: Final = re.compile(r"contract hygiene [a-z_.]+: ")
 _NUMBERS: Final = re.compile(r"\s*\((?:#|AD-)\d+(?:[^)]*)\)|\bAD-\d+\b|\s#\d+\b")
 _PREFIXES: Final = ("collect: unsupported: ", "unsupported: ")
@@ -131,6 +134,7 @@ def plain(text: str, typed_root: Path | None = None, resolved_root: Path | None 
     for pattern, words in _OS_ERRORS:
         text = pattern.sub(words, text)
     text = _HYGIENE.sub("", _NUMBERS.sub("", text)).strip()
+    text = _NOT_FOUND.sub(r"imported module \1 has no file in the scan", text)
     for word, words in REASON_WORDS.items():
         text = re.sub(rf"\b{word}\b", words, text)
     if typed_root is not None and resolved_root is not None:

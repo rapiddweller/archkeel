@@ -55,7 +55,8 @@
         "archkeel.cli.core_words:plain",
         "archkeel.cli.core_words:contract_fix",
         "archkeel.cli.core_words:fix_for",
-        "archkeel.cli.core_words:CAUSE_FIXES"
+        "archkeel.cli.core_words:CAUSE_FIXES",
+        "archkeel.cli.core_words:NOT_FOUND_PREFIX"
       ],
       "decided_by": "architect"
     },
@@ -358,7 +359,8 @@
       "public": [
         "archkeel.cli.native_scan:SCAN_PROTOCOL",
         "archkeel.cli.native_scan:exchange",
-        "archkeel.cli.native_scan:identity"
+        "archkeel.cli.native_scan:identity",
+        "archkeel.cli.native_scan:ignored_by"
       ]
     },
     {

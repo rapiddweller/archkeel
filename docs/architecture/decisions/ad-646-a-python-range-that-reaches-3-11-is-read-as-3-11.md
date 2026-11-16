@@ -11,8 +11,9 @@ supported versions, and the user had to write `python = "3.11"` in `[scan]`.
    holds 3.11 (no upper bound, or an upper bound above 3.11), the target is 3.11, the lowest version
    of the range that the collector supports.
 2. The description says so: `ArchKeel reads this project as Python 3.11 (from requires-python
-   ">=3.10" in pyproject.toml; Python 3.10 is not supported, so the lowest supported version inside
-   that range is used)`.
+   ">=3.9" in pyproject.toml; Python 3.9 and 3.10 are not supported, so the lowest supported
+   version inside that range is used)`. The fixture K-python-realworld (`>=3.9`) gives its pinned
+   rows again.
 3. A range that ends at or below 3.11 (`>=3.9,<3.11`) selects no supported version and keeps the
    refusal that names `python = "3.13"`. A version written in `[scan]` is never changed.
 

@@ -15,14 +15,23 @@ from collections.abc import Mapping, Sequence
 
 from .core_baseline import BaselineResult, BaselineState
 from .core_baseline import lines as baseline_lines
-from .core_evidence import call_lines
+from .core_evidence import CollectionGap, call_lines
 from .core_exit import word_of
 from .core_frame import CoreCommand as Command
 from .core_frame import CoreFrame, GapKind, RuleStatus, Status
 from .core_json import Gap
-from .core_words import CAUSE_FIXES, contract_fix, kind_label, plain
+from .core_words import CAUSE_FIXES, NOT_FOUND_PREFIX, contract_fix, kind_label, plain
 
 SHOWN = 3
+#: The named parts that an `init` draft leaves: decisions that the person has not made yet.
+DRAFT_KINDS = frozenset(
+    {
+        GapKind.DECISION_OPEN,
+        GapKind.RESPONSIBILITY_MISSING,
+        GapKind.RATIONALE_PLACEHOLDER,
+        GapKind.RATIONALE_REPEATED,
+    }
+)
 #: A named part that is an error of the input, not a limit of the scan: it is printed first.
 PROBLEM_KINDS = frozenset(
     {
@@ -91,6 +100,16 @@ def reason_of(frame: CoreFrame, code: int) -> str:
         return f"all {total} rules pass"
     if frame.status is Status.FAIL:
         return f"{sum(frame.violations.values())} violations in {counts[RuleStatus.FAIL]} rules"
+    if not counts[RuleStatus.UNKNOWN] and total:
+        held = [gap for gap in frame.gaps if gap.kind is not GapKind.COLLECT]
+        draft = [gap for gap in held if gap.kind in DRAFT_KINDS | {GapKind.GRAPH_DRIFT}]
+        if held and len(draft) == len(held) and any(gap.kind in DRAFT_KINDS for gap in draft):
+            return (
+                f"all {total} rules pass; the run stays UNKNOWN because the contract draft "
+                f"has {len(draft)} open decisions"
+            )
+        parts = len(held) + len(frame.collection_gaps)
+        return f"all {total} rules pass; the run stays UNKNOWN because {parts} gaps are open"
     return f"{counts[RuleStatus.UNKNOWN]} of {total} rules cannot be decided"
 
 
@@ -139,24 +158,59 @@ def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
     return lines
 
 
-def _group_lines(frame: CoreFrame, show_all: bool) -> tuple[list[str], list[tuple[str, int]]]:
-    """The source gaps grouped by cause, the largest group first, and the ranking."""
+NOT_FOUND_LABEL = "an imported module that has no file in the scan"
+
+
+def _missing(gap: CollectionGap) -> str | None:
+    """The module name of a gap `project_module_not_found: NAME`, or `None`."""
+    return (
+        gap.reason.removeprefix(NOT_FOUND_PREFIX)
+        if gap.reason.startswith(NOT_FOUND_PREFIX)
+        else None
+    )
+
+
+def _group_lines(
+    frame: CoreFrame, show_all: bool, ignored: Mapping[str, str] | None = None
+) -> tuple[list[str], list[tuple[str, int]]]:
+    """The source gaps grouped by cause, the largest group first, and the ranking.
+
+    A module that is imported and has no file is its own group: the line says whether a Git ignore
+    rule covers the file (the usual case of a generated module) and what to do.
+    """
     groups: dict[str, list[int]] = {}
     for index, gap in enumerate(frame.collection_gaps):
-        groups.setdefault(gap.kind, []).append(index)
+        key = NOT_FOUND_LABEL if _missing(gap) is not None else kind_label(gap.kind)
+        groups.setdefault(key, []).append(index)
     ranked = sorted(groups.items(), key=lambda item: (-len(item[1]), item[0]))
     lines: list[str] = []
-    for kind, members in ranked:
+    for label, members in ranked:
         first = frame.collection_gaps[members[0]]
-        lines.append(f"  {len(members)} x {kind_label(kind)}: {plain(first.reason)}")
-        shown = members if show_all else members[:SHOWN]
-        for index in shown:
+        lead = "" if label == NOT_FOUND_LABEL else f": {plain(first.reason)}"
+        lines.append(f"  {len(members)} x {label}{lead}")
+        for index in members if show_all else members[:SHOWN]:
             gap = frame.collection_gaps[index]
             where = ", ".join(_places(frame, gap.evidence, 1)) or ", ".join(gap.subjects[:1])
-            lines.append(f"      {where}" + (f" ({plain(gap.detail)})" if gap.detail else ""))
+            name = _missing(gap)
+            note = _generated(name, ignored or {}) if name is not None else ""
+            tail = f" ({plain(gap.detail)})" if gap.detail else ""
+            lines.append(f"      {where}{': ' + name if name else ''}{note}{tail}")
         if more := _more(len(members), SHOWN, show_all):
             lines.append(f"      {more.strip()}")
-    return lines, [(kind_label(kind), len(members)) for kind, members in ranked]
+        if label == NOT_FOUND_LABEL:
+            lines.append(
+                "      Fix: generate or build the module before the scan, or leave out the files "
+                "that import it."
+            )
+    return lines, [(label, len(members)) for label, members in ranked]
+
+
+def _generated(name: str, ignored: Mapping[str, str]) -> str:
+    """What a Git ignore rule says about the missing module, or what to check without one."""
+    rule = ignored.get(name)
+    if rule is None:
+        return " (no file; it may be generated, or the import is wrong)"
+    return f" (no file; the ignore rule {rule} covers it, so it is probably generated)"
 
 
 def _waiting_lines(frame: CoreFrame, show_all: bool) -> list[str]:
@@ -234,9 +288,13 @@ def render(
     show_all: bool = False,
     system: Mapping[str, object] | None = None,
     contract_files: Sequence[str] = (),
+    ignored: Mapping[str, str] | None = None,
 ) -> list[str]:
-    """The text of one run, in reading order. `problems` are the errors of the command."""
-    gap_lines, ranking = _group_lines(frame, show_all)
+    """The text of one run, in reading order. `problems` are the errors of the command.
+
+    `ignored` maps a missing module to the Git ignore rule that covers its file.
+    """
+    gap_lines, ranking = _group_lines(frame, show_all, ignored)
     named_lines, named_ranking = _named_lines(frame, show_all)
     ranking = sorted([*ranking, *named_ranking], key=lambda item: -item[1])
     errors = _errors(frame, contract_files)
@@ -293,12 +351,13 @@ def summary(
     code: int,
     contract_files: Sequence[str] = (),
     problems: Sequence[str] = (),
+    ignored: Mapping[str, str] | None = None,
 ) -> list[str]:
     """The text for a CI log: the header, the errors, the top jobs and a few violations.
 
     It prints about fifteen lines at most, whatever the size of the run.
     """
-    _, ranking = _group_lines(frame, False)
+    _, ranking = _group_lines(frame, False, ignored)
     _, named = _named_lines(frame, False)
     errors = _errors(frame, contract_files)
     ranking = sorted([*ranking, *named], key=lambda item: -item[1])
