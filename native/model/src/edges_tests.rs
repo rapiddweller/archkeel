@@ -164,7 +164,12 @@ fn golden() -> Option<Reply> {
     facts["source"]["git_head"] = serde_json::json!("a");
     facts["source"]["dirty"] = serde_json::json!(false);
     facts["provider_bindings"] = serde_json::json!([]);
-    value["protocol_version"] = serde_json::json!("9.0.0");
+    value["protocol_version"] = serde_json::json!("11.0.0");
+    // The golden form drops the validation table of the collector (AD-688); put it back.
+    value["facts"]["validation"] = serde_json::from_str(include_str!(
+        "../../../tests/golden/typescript/validation.json"
+    ))
+    .unwrap_or_default();
     value["provider_sources"] = serde_json::json!([]);
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
     encoder.write_all(value.to_string().as_bytes()).ok()?;
