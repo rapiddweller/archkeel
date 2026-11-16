@@ -37,9 +37,12 @@ With the test sources (the oracle `test_the_scan_of_native_is_complete`), the sc
 - 44: a name that an inline module (`mod tests`) imports again counted twice in its file. A name
   of a child module is no name of its parent, so the one declaration is read in the inline module
   of the path (`scoped_counts`); the alias check keeps the count of the file.
-- 9: a glob of a module with macro calls in item place may bring in a name that a macro defines.
-  A call whose expansion writes no `use`, `extern` or `mod` at item level defines no module of the
-  name (`filled::binds_nothing`, the proof of item 5 of AD-608).
+- 9: a glob of a module with macro calls in item place. Retracted (#1346): reading such a glob
+  as safe gave a false PASS. A macro of the crate named like a `std` macro, a `#[macro_use]` crate,
+  a path call and a macro that defines a macro all reach the module unseen. The glob rule of
+  `docs/known-limits.md` holds again: any module-level macro call keeps a glob UNKNOWN. The nine
+  globs of `type_shape_tests.rs` are explicit imports now. `filled::binds_nothing` stays only for
+  the route of a name (`routes::defined_here`) and refuses each of the four forms.
 - 2: the word `core` in a string. A string of code, or of a `std` macro, is a value: it stays in the
   net only when it is path-shaped (`name::rest`). A string of `json!` (a macro of another crate)
   stays a gap, so the test data of `html_views_tests.rs` names its component `domain`.
@@ -52,3 +55,5 @@ With the test sources (the oracle `test_the_scan_of_native_is_complete`), the sc
 - a renamed import and a renamed reexport keep a gap (UNKNOWN);
 - `tests/test_cli_native_rust_interface.py`: a name with two definitions under `cfg` fails when it
   is unlisted and passes when it is listed; a name that a macro may publish further stays UNKNOWN.
+- `tests/test_collector_false_pass_rust_macro_written_use.py` (#1346, rustc accepts each plant): a
+  glob over a module whose macro writes `pub use` is never PASS, for nine forms.
