@@ -18,7 +18,7 @@
         "Reading source files to collect facts."
       ],
       "provides": [
-        "The archkeel command: validate, report and skill install."
+        "The archkeel command: validate, report, init and skill install."
       ]
     },
     {
