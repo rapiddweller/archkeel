@@ -265,11 +265,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         Answer::Sections(rows) => rows,
         _ => Vec::new(),
     };
-    let report: Result<(), String> = match engine.answer(Request::Report) {
-        _ if !run.report => Ok(()),
-        Answer::Report(reason) => Err(reason.to_string()),
-        other => Err(format!("unexpected answer {other:?}")),
-    };
+    let report = report_check(&mut engine, run.report);
     // AD-466: a request without documents names the hygiene that it cannot check.
     let hygiene = frame_parts::hygiene_of(
         &mut engine,
@@ -336,6 +332,14 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         .map_err(|error| format!("{}: an inconsistent frame: {error}", run.case))?
         .into_bytes();
     Ok(Answered { frame, names_a_gap })
+}
+
+fn report_check(engine: &mut Engine, requested: bool) -> Result<(), String> {
+    match engine.answer(Request::Report) {
+        _ if !requested => Ok(()),
+        Answer::Report(reason) => Err(reason.to_string()),
+        other => Err(format!("unexpected answer {other:?}")),
+    }
 }
 
 /// The settings of a run: the trusted settings, bound to the root contract and to the scan roots.

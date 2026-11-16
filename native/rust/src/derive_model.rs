@@ -107,6 +107,7 @@ enum ValueKind {
     Default,
     Borrow,
     SplitText,
+    Extension,
 }
 
 /// Sources per key: serde.rs/field-attrs.html#<key>, container-attrs.html#<key>, and
@@ -143,6 +144,7 @@ const HELPERS: &[(&str, &str, ValueKind)] = &[
     ("schemars", "rename rename_all rename_all_fields", ValueKind::SplitText),
     // https://graham.cool/schemars/deriving/attributes/#tag, #title-description.
     ("schemars", "tag content title description", ValueKind::Text),
+    ("schemars", "extend", ValueKind::Extension),
     // https://graham.cool/schemars/deriving/attributes/#skip, #flatten, #deny_unknown_fields,
     // #transparent, #inline, #required, #deprecated.
     ("schemars", "skip skip_serializing skip_deserializing flatten deny_unknown_fields transparent untagged inline required deprecated", ValueKind::Flag),
@@ -162,8 +164,26 @@ fn string(meta: &Meta) -> Option<&syn::LitStr> {
     Some(value)
 }
 
+fn extensions(input: syn::parse::ParseStream<'_>) -> syn::Result<()> {
+    while !input.is_empty() {
+        input.parse::<syn::LitStr>()?;
+        input.parse::<Token![=]>()?;
+        input.parse::<Lit>()?;
+        if !input.is_empty() {
+            input.parse::<Token![,]>()?;
+        }
+    }
+    Ok(())
+}
+
 fn value(kind: ValueKind, meta: &Meta, found: &mut Vec<crate::tokens::Chain>) -> bool {
     use ValueKind as K;
+    if matches!(kind, K::Extension) {
+        let Meta::List(list) = meta else {
+            return false;
+        };
+        return extensions.parse2(list.tokens.clone()).is_ok();
+    }
     if matches!(kind, K::Flag | K::Default | K::Borrow) && matches!(meta, Meta::Path(_)) {
         return true;
     }
@@ -209,7 +229,7 @@ fn value(kind: ValueKind, meta: &Meta, found: &mut Vec<crate::tokens::Chain>) ->
                     check.0
                 })
         }
-        K::Flag => false,
+        K::Flag | K::Extension => false,
     }
 }
 
