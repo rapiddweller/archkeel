@@ -36,7 +36,8 @@ fn advice(kind: &str) -> Option<&'static str> {
     }
 }
 
-fn module(names: &Names<'_>, name: &str) -> String {
+/// A module name with its component, escaped.
+pub(super) fn module(names: &Names<'_>, name: &str) -> String {
     match names.component(name) {
         Some((_, component)) => format!(
             "{} <span class=\"rp-at\">({})</span>",

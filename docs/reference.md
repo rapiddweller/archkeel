@@ -139,13 +139,16 @@ A difference is a refusal. The rule rows are trusted to the located core binary.
 Neither stdout form is a complete `architecture.json` or an HTML report.
 `report --topology` adds a bounded `topology` section: components, modules, edges, completeness, budgets
 and the rules that cite each edge (AD-464). Without the option the frame and its time do not change.
+The section also states the declared structure: the `layer` and the public surfaces of each component,
+each `requires` with the number of observed imports, and each `layer_order` (AD-594).
 A total over a budget sets `truncated` and keeps the exact total. The section never changes a verdict.
 `topology.complete` means only: the scope is complete and no list is truncated. It is not the verdict
 and does not mean that the run has no gap: an UNKNOWN run can show `complete: true`.
 
 `report --output PATH` writes one static HTML page. `--format json` writes the core frame instead.
 `--format html` is the default and needs `--output`. Without an output path, no file is written.
-The HTML comes from the same ruling in the Rust core. It has no scripts, external resources or graph.
+The HTML comes from the same ruling in the Rust core. It has one script, the theme switch, and no external resource (AD-496).
+Its architecture picture has three views: As-Is, Target and Diff (AD-594).
 It includes verdicts, counts, rule rows, violations, evidence locations, gaps, unsupported parts and request identity.
 The identity block lists each bound contract file and its SHA-256 digest, including nested contracts (AD-438).
 UNKNOWN and collection-refused frames write reports that show their verdict and causes.
