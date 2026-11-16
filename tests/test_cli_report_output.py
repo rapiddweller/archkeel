@@ -20,7 +20,7 @@ from corpus_support import commit_tree
 from frozen_native import frozen_root as frozen_root
 from rust_repository import CRATE_RULES, GRAPH_PAGE, component, repository, rule
 
-from archkeel.cli import core_only, core_output
+from archkeel.cli import core_arguments, core_only, core_output
 
 
 def project(root: Path, binary: Path, profile: str, status: str) -> Path:
@@ -101,7 +101,7 @@ def test_files_keep_the_frame_and_exit(
 
 
 def test_report_file_options_are_explicit_and_validate_stays_refused() -> None:
-    options = core_only.parse(["report", "--output", "one.html"])
+    options = core_arguments.parse(["report", "--output", "one.html"])
     assert options.format == "html"
     code, found = run("validate", "--output", "one.html")
     assert code == 2 and found["refusal"]["kind"] == "not_on_this_development_line"

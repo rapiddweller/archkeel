@@ -39,6 +39,7 @@ DECIDED_KINDS = {
     "complete_external_scope",
     "external_dependency_scope",
     "forbidden_dependency",
+    "interface_boundary",
     "layer_order",
     "no_component_cycles",
 }

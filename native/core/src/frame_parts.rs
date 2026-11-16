@@ -23,8 +23,8 @@ pub(super) const ENGINE: &str = concat!("archkeel-core ", env!("ARCHKEEL_CODE_DI
 #[cfg(feature = "harness")]
 pub(super) const ENGINE: &str = concat!("archkeel-core ", env!("ARCHKEEL_CODE_DIGEST"), "+harness");
 
-#[derive(Serialize)]
-pub(super) struct Parts {
+#[derive(Serialize, schemars::JsonSchema)]
+pub(crate) struct Parts {
     pub(super) measures: Option<archkeel_model::Measures>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) topology: Option<crate::topology_projection::Topology>,
@@ -43,7 +43,7 @@ pub(super) struct Parts {
     pub(super) baseline: Option<crate::baseline_frame::Part>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 pub(super) struct CollectionGap {
     kind: String,
     subjects: Vec<String>,
@@ -80,19 +80,19 @@ pub(super) fn collection_metadata(
     (collection_gaps(reply), measures)
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 pub(super) struct Location {
     path: String,
     line: i64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 pub(super) struct UnsupportedParts {
     pub(super) sections: BTreeMap<&'static str, String>,
     pub(super) report: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 pub(super) struct SelfTest {
     pub(super) contract: ContractCheck,
     pub(super) reply: ReplyCheck,
@@ -100,16 +100,16 @@ pub(super) struct SelfTest {
     pub(super) collect: Option<serde_json::Value>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub(super) enum ContractCheck {
-    Rules(BTreeMap<String, RuleKind>),
+    Rules(#[schemars(with = "BTreeMap<String, String>")] BTreeMap<String, RuleKind>),
     Missing(Vec<String>),
     Refused(String),
     NotRead(String),
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub(super) enum ReplyCheck {
     Files(usize),

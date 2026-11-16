@@ -150,5 +150,7 @@ fn respond_with<E: From<String>>(
 }
 
 #[cfg(test)]
+mod frame_schema;
+#[cfg(test)]
 #[path = "main_tests.rs"]
 mod tests;

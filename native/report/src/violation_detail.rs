@@ -7,7 +7,7 @@
 use archkeel_eval::{Cited, Violation};
 use serde::Serialize;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 pub(crate) struct ViolationDetail {
     source: String,
     target: Option<String>,

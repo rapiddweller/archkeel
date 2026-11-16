@@ -12,7 +12,7 @@ use archkeel_facts::{CallFact, Section};
 use serde::Serialize;
 
 /// The counts of one complete source inventory.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 pub struct Measures {
     /// All calls that the inventory found.
     pub calls_total: u64,

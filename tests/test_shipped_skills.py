@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from archkeel.cli.core_only import NotOnThisLine, parse
+from archkeel.cli.core_arguments import NotOnThisLine, parse
 
 ROOT = Path(__file__).parents[1]
 SKILLS = sorted(ROOT.glob("skills/*/SKILL.md"))
