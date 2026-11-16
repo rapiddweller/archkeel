@@ -181,12 +181,36 @@ GAPS: dict[str, dict[str, str]] = {
 }
 
 
+# AD-630: these gaps state an effect on the code of every library: the files and their names
+# stay known, so the rule on the files has its verdict.
+EVERY_LIBRARY = {"DartWorkspace", "DartPathDependency", "DartPackageConfig"}
+# These sites in `shop.data.x` leave the code of that library unknown. `FORBID` reads the edges
+# of `shop.domain` only, so it decides too. Each other gap can put code or a file in a library
+# that it does not name: it holds each rule.
+OWN_LIBRARY = {
+    "DartTargetMissing",
+    "DartTargetNotSelected",
+    "DartTargetOutside",
+    "DartUnsupportedUri",
+    "DartUriNotLiteral",
+    "DartMirrors",
+    "DartIsolate",
+}
+
+
 @pytest.mark.parametrize("name", sorted(GAPS))
-def test_each_survey_gap_makes_each_rule_unknown(
+def test_each_survey_gap_holds_each_rule_that_reads_it(
     release_core: Path, tmp_path: Path, name: str
 ) -> None:
     result = verdict(release_core, project(tmp_path, {**BASE, **GAPS[name]}))
-    all_unknown(result)
+    if name in EVERY_LIBRARY | OWN_LIBRARY:
+        expected = {**dict.fromkeys(RULES, "UNKNOWN"), "ASSIGN": "PASS"}
+        if name in OWN_LIBRARY:
+            expected["FORBID"] = "PASS"
+        assert rows(result) == expected, result["frame"]["explained"]
+        assert result["status"] == "UNKNOWN" and result["exit_code"] == 2
+    else:
+        all_unknown(result)
     assert name in json.dumps(result["frame"]["collection_gaps"]), result["frame"]["scope"]
 
 

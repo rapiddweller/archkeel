@@ -163,15 +163,7 @@ fn reads(rule: &Rule) -> Reads {
         Rule::ForbiddenConstruct(_) => Reads::Constructs,
         Rule::ForbiddenDependency(rule) if rule.target_symbol().is_some() => Reads::OwnSymbol,
         Rule::CompleteRequires(_) => Reads::Ports,
-        Rule::CallOwner(_)
-        | Rule::ForbiddenCallArgument(_)
-        | Rule::CatalogArgument(_)
-        | Rule::CatalogUse(_)
-        | Rule::ForbiddenEffectUnderCondition(_)
-        | Rule::SourceOwnership(_)
-        | Rule::SymbolPlacement(_)
-        | Rule::BoundedNumericOperand(_)
-        | Rule::ProtocolDeclarations(_) => Reads::Undecided,
+        undecided_rule!() => Reads::Undecided,
         Rule::BoundaryTypes(_) => Reads::Shapes,
         Rule::ForbiddenDependency(_)
         | Rule::AllowedDependency(_)

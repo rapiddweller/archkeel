@@ -42,6 +42,8 @@
 //!
 #![deny(unreachable_pub)]
 
+#[macro_use]
+mod rule_kinds;
 mod construct_match;
 pub use construct_match::matches as construct_matches;
 mod constructs;
