@@ -13,7 +13,7 @@ use ruff_text_size::{Ranged, TextRange};
 
 use super::globals_locals::Locals;
 use super::globals_project::{Callee, Project, DEPTH};
-use super::hazards_names::DOOR_STRINGS;
+use super::hazards::names::DOOR_STRINGS;
 
 impl Project<'_> {
     /// True when the parameter `param` of the scan function `def` is used in inert forms only.

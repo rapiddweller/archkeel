@@ -35,7 +35,7 @@ mod comprehension;
 #[path = "hazards_inert.rs"]
 mod inert;
 #[path = "hazards_names.rs"]
-mod names;
+pub(super) mod names;
 #[path = "hazards_reflect.rs"]
 mod reflect;
 
