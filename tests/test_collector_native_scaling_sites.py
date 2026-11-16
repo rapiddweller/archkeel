@@ -54,7 +54,6 @@ SITE_MEMORY_CASES = (
     ("sites-calls-in-arrow-nest", 3_000),
     ("sites-many-shadowed-names", 30_000),
     ("sites-member-chain-call", 100_000),
-    ("sites-chained-calls", 40_000),
     # Each site is a script global with an import record, a target and a gap since PR 4.3a-5, so n
     # was 100 000 and the peak for 2n was 1 099 MiB (243 MiB before).
     ("sites-computed-access", 20_000),

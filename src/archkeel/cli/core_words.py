@@ -33,6 +33,11 @@ GAP_KINDS: Final = {
     "contract_refused": "the contract file cannot be read",
     "producer_not_verified": "a scan result that the core cannot verify",
     "inside_contract_missing": "a contract file that the tree names and that is missing",
+    "decision.open": "an open decision in the contract (a TODO)",
+    "responsibility.missing": "a component without a written responsibility",
+    "rationale.placeholder": "a rationale that is still a placeholder",
+    "baseline.invalid": "a baseline file that is not valid",
+    "baseline.older_schema": "a baseline file from release 4.0.1",
 }
 #: What to do after a refusal, by the kind of the refusal (the JSON keeps the machine kind).
 FIXES: Final = {
@@ -42,7 +47,45 @@ FIXES: Final = {
     "io_error": "check that the path exists and that you may write there.",
     "core_binary_not_found": "install a build of archkeel that includes its core, or build it.",
     "not_on_this_development_line": "use the release named above, or leave this option out.",
+    "core_error": "run again; if it repeats, keep the output and report it with the version.",
+    "internal_error": "run again with --verbose and report what it prints; it is a fault.",
 }
+#: What to do for a refusal whose message starts with a part of the scan (first match wins).
+PART_FIXES: Final = (
+    ("config:", "create archkeel.toml (`archkeel init` drafts one) or pass --config PATH."),
+    ("root:", "run inside a Git work tree, or pass --root PATH to one."),
+    ("contract:", "check `contract` under [scan] in archkeel.toml and that the file exists."),
+    ("system:", "check the system document that --config names, and its parts."),
+    ("file or folder not found", "check the path and run again."),
+    ("permission denied", "check the permissions of that path, or pass another path."),
+)
+#: A finding of the core and what to write to remove it (printed once for each cause).
+CAUSE_FIXES: Final = {
+    "module has no unique owner": (
+        "add the package to the `packages` of one component in the contract; a root package "
+        "such as `backend/__init__.py` needs that too, or a component of its own."
+    ),
+}
+_OS_ERRORS: Final = (
+    (re.compile(r"\s*\(os error \d+\)"), ""),
+    (re.compile(r"\[Errno \d+\]\s*"), ""),
+    (re.compile(r"No such file or directory", re.I), "file or folder not found"),
+    (re.compile(r"Permission denied", re.I), "permission denied"),
+    (re.compile(r"Is a directory", re.I), "it is a folder"),
+    (re.compile(r"Not a directory", re.I), "a part of the path is not a folder"),
+)
+
+
+def fix_for(kind: str, message: str) -> str | None:
+    """What to do after a refusal: a refused scan by the part its message names, else by kind."""
+    if kind == "collection_refused":
+        lowered = message.lower()
+        for start, fix in PART_FIXES:
+            if lowered.startswith(start) or (not start.endswith(":") and start in lowered):
+                return fix
+    return FIXES.get(kind)
+
+
 #: Machine words inside a reason of the core, in the words of a reader.
 REASON_WORDS: Final = {
     "unresolved_name": "name not resolved",
@@ -85,6 +128,8 @@ def plain(text: str, typed_root: Path | None = None, resolved_root: Path | None 
     """A message for a user: no issue or decision number, no machine prefix, the path as typed."""
     for prefix in _PREFIXES:
         text = text.replace(prefix, "")
+    for pattern, words in _OS_ERRORS:
+        text = pattern.sub(words, text)
     text = _HYGIENE.sub("", _NUMBERS.sub("", text)).strip()
     for word, words in REASON_WORDS.items():
         text = re.sub(rf"\b{word}\b", words, text)

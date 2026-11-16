@@ -13,13 +13,14 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Mapping, Sequence
 
+from .core_baseline import BaselineResult, BaselineState
 from .core_baseline import lines as baseline_lines
 from .core_evidence import call_lines
 from .core_exit import word_of
 from .core_frame import CoreCommand as Command
 from .core_frame import CoreFrame, GapKind, RuleStatus, Status
 from .core_json import Gap
-from .core_words import contract_fix, kind_label, plain
+from .core_words import CAUSE_FIXES, contract_fix, kind_label, plain
 
 SHOWN = 3
 #: A named part that is an error of the input, not a limit of the scan: it is printed first.
@@ -33,6 +34,9 @@ PROBLEM_KINDS = frozenset(
     }
 )
 VIOLATIONS_SHOWN = 10
+MAX_JOBS = 3
+SUMMARY_LINES = 15
+SUMMARY_VIOLATIONS = 5
 
 
 def _more(total: int, shown: int, show_all: bool) -> str:
@@ -47,6 +51,13 @@ def _places(frame: CoreFrame, evidence: Sequence[str], limit: int) -> list[str]:
     ][:limit]
 
 
+def _invalid(baseline: BaselineResult) -> str:
+    """`FILE is not valid: why`, from the one gap that the core names for an invalid file."""
+    gap = baseline.gaps[0]
+    why = plain(gap.reason).removeprefix(f"{gap.subject}: ")
+    return f"{gap.subject} is not valid: {why}"
+
+
 def reason_of(frame: CoreFrame, code: int) -> str:
     """Why the run exits with `code`: one sentence for the header."""
     counts = Counter(verdict.status for verdict in frame.rules.values())
@@ -58,6 +69,8 @@ def reason_of(frame: CoreFrame, code: int) -> str:
                 f"the run differs from the baseline: {len(baseline.new)} new, "
                 f"{len(baseline.gone)} no longer present"
             )
+        if baseline.state == "invalid":
+            return f"baseline {_invalid(baseline)}"
         if baseline.state == "not_compared":
             return "the baseline cannot be compared: a part of the run is refused"
         if code == 0 and frame.status is Status.FAIL:
@@ -83,20 +96,29 @@ def reason_of(frame: CoreFrame, code: int) -> str:
 
 def header(command: Command, frame: CoreFrame, code: int) -> str:
     """The first line: the word of the exit code, the code and the reason."""
-    return f"{command}: {word_of(code)} -> exit {code} ({reason_of(frame, code)})"
+    invalid = frame.baseline is not None and frame.baseline.state is BaselineState.INVALID
+    word = "REFUSED" if invalid else word_of(code)
+    return f"{command}: {word} -> exit {code} ({reason_of(frame, code)})"
 
 
 def _next_action(frame: CoreFrame, groups: Sequence[tuple[str, int]]) -> str | None:
+    """The top jobs, in the order to do them, each with its count (at most three)."""
+    jobs = []
     if frame.details:
-        return "Remove the violations or review the declared restriction."
-    if groups:
-        top, count = groups[0]
-        if top == "the problem above":
-            return "Fix the problem above, then run again."
-        return f"Resolve the largest cause first: {top} ({count}). Then run again."
-    if frame.explained or any(gap.kind is not GapKind.COLLECT for gap in frame.gaps):
-        return "Resolve the named parts below and run again."
-    return None
+        count = sum(len(rows) for rows in frame.details.values())
+        jobs.append(f"remove the {count} violations, or review the declared restriction")
+    for label, count in groups:
+        jobs.append(
+            "fix the problem above" if label == "the problem above" else f"{count} x {label}"
+        )
+    if not jobs and (frame.explained or any(gap.kind is not GapKind.COLLECT for gap in frame.gaps)):
+        jobs.append("resolve the named parts below")
+    if not jobs:
+        return None
+    top = jobs[:MAX_JOBS]
+    listed = top[0] if len(top) == 1 else "; ".join(f"{n}. {job}" for n, job in enumerate(top, 1))
+    more = f" ({len(jobs) - MAX_JOBS} more below)" if len(jobs) > MAX_JOBS else ""
+    return f"{listed}{more}. Then run again."
 
 
 def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
@@ -110,6 +132,10 @@ def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
         lines.append(f"  {rule}: {row.cause}: {edge}" + (f" ({where})" if where else ""))
     if more := _more(len(rows), VIOLATIONS_SHOWN, show_all):
         lines.append(f"  {more.strip()}")
+    causes = dict.fromkeys(row.cause for _, row in rows)
+    lines.extend(
+        f"  Fix for '{cause}': {CAUSE_FIXES[cause]}" for cause in causes if cause in CAUSE_FIXES
+    )
     return lines
 
 
@@ -179,6 +205,26 @@ def _problem(gap: Gap, files: Sequence[str]) -> list[str]:
     return [f"Problem: {where}: {reason}", f"Fix: {contract_fix(reason)}"]
 
 
+def _errors(frame: CoreFrame, contract_files: Sequence[str]) -> list[str]:
+    """The errors of the input and of the baseline file, each printed once."""
+    errors = list(
+        dict.fromkeys(
+            line
+            for gap in frame.gaps
+            if gap.kind in PROBLEM_KINDS
+            for line in _problem(gap, contract_files)
+        )
+    )
+    baseline = frame.baseline
+    if baseline is not None and baseline.state is BaselineState.INVALID:
+        errors += [
+            f"Problem: baseline {_invalid(baseline)}",
+            "Fix: write the file again with --write-baseline FILE. A baseline of release 4.0.1, "
+            "or one that was edited, does not fit schema 1.4.0; the run is not compared with it.",
+        ]
+    return errors
+
+
 def render(
     command: Command,
     frame: CoreFrame,
@@ -193,14 +239,8 @@ def render(
     gap_lines, ranking = _group_lines(frame, show_all)
     named_lines, named_ranking = _named_lines(frame, show_all)
     ranking = sorted([*ranking, *named_ranking], key=lambda item: -item[1])
-    errors = list(
-        dict.fromkeys(
-            line
-            for gap in frame.gaps
-            if gap.kind in PROBLEM_KINDS
-            for line in _problem(gap, contract_files)
-        )
-    )
+    errors = _errors(frame, contract_files)
+    refused_file = frame.baseline is not None and frame.baseline.state is BaselineState.INVALID
     out = [header(command, frame, code), *errors, *problems]
     if errors:
         ranking = [("the problem above", len(errors)), *ranking]
@@ -216,7 +256,7 @@ def render(
         out.append(f"Gaps in the scan ({len(frame.collection_gaps)}):")
         out.extend(gap_lines)
     out.extend(named_lines)
-    if frame.baseline is not None:
+    if frame.baseline is not None and not refused_file:
         out.extend(baseline_lines(frame.baseline))
     if (topology := frame.topology) is not None:
         out.append(
@@ -245,3 +285,33 @@ def refusal(command: Command | None, code: int, message: str, fix: str | None) -
     if fix:
         out.append(f"Fix: {fix}")
     return out
+
+
+def summary(
+    command: Command,
+    frame: CoreFrame,
+    code: int,
+    contract_files: Sequence[str] = (),
+    problems: Sequence[str] = (),
+) -> list[str]:
+    """The text for a CI log: the header, the errors, the top jobs and a few violations.
+
+    It prints about fifteen lines at most, whatever the size of the run.
+    """
+    _, ranking = _group_lines(frame, False)
+    _, named = _named_lines(frame, False)
+    errors = _errors(frame, contract_files)
+    ranking = sorted([*ranking, *named], key=lambda item: -item[1])
+    if errors:
+        ranking = [("the problem above", len(errors)), *ranking]
+    out = [header(command, frame, code), *errors, *problems]
+    if (action := _next_action(frame, ranking)) is not None:
+        out.append(f"Next: {action}")
+    rows = [(rule, row) for rule, found in frame.details.items() for row in found]
+    for rule, row in rows[:SUMMARY_VIOLATIONS]:
+        edge = row.source if row.target is None else f"{row.source} -> {row.target}"
+        out.append(f"  {rule}: {row.cause}: {edge}")
+    if len(rows) > SUMMARY_VIOLATIONS:
+        out.append(f"  and {len(rows) - SUMMARY_VIOLATIONS} more violations")
+    out.append("Details: archkeel validate --text (all: --all); machine output: --json")
+    return out[:SUMMARY_LINES]

@@ -170,7 +170,9 @@ def test_a_project_with_78_gaps_fits_two_screens_and_names_the_top_cause_first(
     lines = text.splitlines()
     assert len(lines) <= 40, text
     assert lines[0].startswith("validate: UNKNOWN -> exit 2 (")
-    assert lines[1].startswith("Next: Resolve the largest cause first: a name or import")
+    assert lines[1].startswith(
+        "Next: 1. 59 x a name or import that the scan cannot resolve; 2. 19 x"
+    )
     assert "59 x a name or import that the scan cannot resolve" in text
     assert "and 56 more (--all lists them)" in text
     assert text.count("Next:") == 1 and "Action:" not in text
@@ -338,3 +340,79 @@ def test_a_configuration_error_says_missing_or_not_a_file(
     assert text.splitlines()[0] == "validate: REFUSED -> exit 2"
     assert expected in text and "archkeel.toml" in text
     assert "archkeel init" in text or "--config" in text
+
+
+def test_a_violation_that_has_a_usual_cause_names_the_fix_once(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """#1351: `module has no unique owner` says what to add to the contract."""
+    document = json.loads(frame(Status.FAIL))
+    row = document["details"]["R1"][0]
+    row["cause"], row["target"] = "module has no unique owner", None
+    document["details"]["R1"].append(dict(row, source="backend.api"))
+    document["violations"] = {"R1": 2}
+    _, text = _run(document, ["validate", "--text"], capsys)
+    assert text.count("Fix for 'module has no unique owner'") == 1
+    assert "`packages` of one component" in text and "backend/__init__.py" in text
+
+
+def test_the_next_step_names_at_most_three_jobs_with_counts(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """#1354: the jobs are in order, each with its count, and the rest is counted."""
+    document = _many_gaps(40)
+    for number, gap in enumerate(document["collection_gaps"]):
+        gap["kind"] = ("a_gap", "b_gap", "c_gap", "d_gap")[number % 4] if number < 30 else "d_gap"
+    _, text = _run(document, ["validate", "--text"], capsys)
+    next_line = next(line for line in text.splitlines() if line.startswith("Next:"))
+    assert next_line.startswith("Next: 1. 17 x d gap; 2. 8 x a gap; 3. 8 x b gap")
+    assert "3. " in next_line and "4. " not in next_line and "(1 more below)" in next_line
+
+
+def test_the_summary_is_text_in_a_pipe_and_has_at_most_fifteen_lines(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """#1355: `--summary` is the CI path, also when stdout is no terminal."""
+    document = json.loads(frame(Status.FAIL))
+    row = document["details"]["R1"][0]
+    document["details"]["R1"] = [dict(row, source=f"app.m{n}") for n in range(40)]
+    document["violations"] = {"R1": 40}
+    done, text = _run(document, ["validate", "--summary"], capsys)
+    lines = text.splitlines()
+    assert done == 1 and 3 <= len(lines) <= 15 and not text.startswith("{")
+    assert lines[0].startswith("validate: FAIL -> exit 1 (40 violations")
+    assert any("and 35 more violations" in line for line in lines)
+    assert lines[-1].startswith("Details: archkeel validate --text")
+
+
+def test_the_readme_ci_example_prints_at_most_one_screen() -> None:
+    readme = (Path(__file__).parents[1] / "README.md").read_text(encoding="utf-8")
+    section = readme.split("### In CI", 1)[1].split("\n### ", 1)[0].split("\n## ", 1)[0]
+    assert "archkeel validate --summary" in section
+    printed = section.split("```text", 1)[1].split("```", 1)[0].strip().splitlines()
+    assert len(printed) <= 15
+    assert core_only.help_for(core_only.Command.VALIDATE).count("--summary") >= 3
+
+
+@pytest.mark.parametrize(
+    "kind",
+    ["collection_refused", "request_mismatch", "invalid_input", "io_error",
+     "core_binary_not_found", "not_on_this_development_line", "core_error", "internal_error"],
+)  # fmt: skip
+def test_each_refusal_kind_has_plain_words_and_its_own_fix(
+    kind: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """#1353: no OS error code, no `development line`, and a fix for the kind."""
+    from archkeel.cli.core_frame import RefusalKind
+
+    message = "cannot open x [Errno 2] No such file or directory: 'x' (os error 2)"
+    core_only._refused(core_only.Command.VALIDATE, RefusalKind(kind), message, False)
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "validate: REFUSED -> exit 2"
+    assert not re.search(r"Errno|os error|development line|No such file", "\n".join(lines))
+    assert "file or folder not found" in lines[1] and lines[2].startswith("Fix: ")
+    FIXED.setdefault(lines[2], kind)
+    assert FIXED[lines[2]] == kind, f"{kind} shares its fix with {FIXED[lines[2]]}"
+
+
+FIXED: dict[str, str] = {}

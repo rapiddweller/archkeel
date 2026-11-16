@@ -30,7 +30,8 @@ def test_the_help_of_a_served_command_has_options_the_exit_table_and_two_example
     text = capsys.readouterr().out
     for line in core_exit.table_lines():
         assert line in text
-    assert text.count("\n  archkeel ") == 2 and "examples:" in text
+    assert text.count("\n  archkeel ") == {"validate": 3, "report": 2}[command]
+    assert "examples:" in text
     assert "--all" in text and "--verbose" in text and "Output:" in text
 
 
@@ -71,7 +72,8 @@ def test_a_flag_that_does_not_exist_yet_refuses_in_plain_words(
 ) -> None:
     assert core_only.run(["report", flag, "x", "--text"]) == 2
     text = capsys.readouterr().out
-    assert f"report {flag} is not available on this development line" in text
+    assert f"report {flag} is not available in ArchKeel 5.0 yet" in text
+    assert "development line" not in text
     assert "release 4.0.1" in text and "#" not in text
 
 
