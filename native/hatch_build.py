@@ -35,8 +35,9 @@ LINUX = re.compile(r"(manylinux_\d+_\d+_(?:x86_64|aarch64)|musllinux_\d+_\d+_x86
 SUPPORTED = "macOS x86_64 and arm64, manylinux x86_64 and aarch64, musllinux x86_64, win_amd64"
 NO_CORE = (
     f"A wheel of archkeel must carry the core binary {BINARY}, and this build has none. "
-    f"Install a platform wheel ({SUPPORTED}). Or build the core from the Git tag "
-    f"(cargo build --release -p {BINARY} in native/) and set {REQUEST} to its absolute path."
+    f"From a checkout run `make build` (it writes the wheel to dist/), or set {REQUEST}=1 "
+    f"(needs cargo and cargo-auditable) or {REQUEST} to the absolute path of a prebuilt core. "
+    f"Platform wheels exist for {SUPPORTED}."
 )
 
 
@@ -277,6 +278,10 @@ def get_build_hook() -> type:
             # An editable install never builds or bundles the binary.
             if version != "editable":
                 request = os.environ.get(REQUEST, "")
-                bundle(Path(self.root), self.metadata.version, request, build_data)
+                try:
+                    bundle(Path(self.root), self.metadata.version, request, build_data)
+                except ValueError as error:
+                    # One line for the user: a traceback of the hook helps nobody (#1313).
+                    raise SystemExit(f"archkeel: {error}") from None
 
     return CoreHook
