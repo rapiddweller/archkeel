@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-646 | [A Python range that reaches 3.11 is read as 3.11](ad-646-a-python-range-that-reaches-3-11-is-read-as-3-11.md) |
 | AD-640 | [CI gets a fifteen-line summary, and the text names the top jobs](ad-640-ci-gets-a-fifteen-line-summary-and-the-text-names-the-top-jobs.md) |
 | AD-652 | [A group says why it is a group, and a capped list names both numbers](ad-652-a-group-says-why-and-a-capped-list-names-both-numbers.md) |
 | AD-642 | [Python local bindings use their own scope](ad-642-python-local-bindings-use-their-own-scope.md) |

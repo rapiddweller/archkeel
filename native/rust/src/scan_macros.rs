@@ -13,11 +13,12 @@ use syn::{ItemMacro, Macro};
 use super::attributes::concern;
 use super::state::{Local, MacroCall, MacroDef, Walker};
 use crate::definitions::{Holder, MethodCall};
+use crate::macro_items::item_level;
 use crate::net;
 use crate::plant;
 use crate::tokens::{
-    chains, fn_names, item_level, macro_names, method_names, names_relative, only_dollar_crate,
-    plain, string_paths, writes_use, Chain, EXPRESSION_MACROS, NO_BIND_MACROS,
+    chains, fn_names, macro_names, method_names, names_relative, only_dollar_crate, plain,
+    string_paths, writes_use, Chain, EXPRESSION_MACROS, NO_BIND_MACROS,
 };
 
 /// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path

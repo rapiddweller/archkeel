@@ -193,12 +193,19 @@ fn provenance(
             }
             None => "scan.python in archkeel.toml".to_owned(),
         },
-        TargetSource::Requirement => format!(
-            "requires-python {:?} in pyproject.toml",
-            required
+        TargetSource::Requirement => {
+            let text = required
                 .as_deref()
-                .ok_or("the Python requirement changed")?
-        ),
+                .ok_or("the Python requirement changed")?;
+            let mut said = format!("requires-python {text:?} in pyproject.toml");
+            if let Some([major, minor, _]) = requirement::clamped_from(text) {
+                said.push_str(&format!(
+                    "; Python {major}.{minor} is not supported, so the lowest supported version \
+                     inside that range is used"
+                ));
+            }
+            said
+        }
         TargetSource::Default => "the collector default".to_owned(),
         TargetSource::Legacy => String::new(),
     };

@@ -4750,7 +4750,8 @@
         "native.archkeel_rust_collector.definitions",
         "native.archkeel_rust_collector.site",
         "native.archkeel_rust_collector.scan.define",
-        "native.archkeel_rust_collector.plant"
+        "native.archkeel_rust_collector.plant",
+        "native.archkeel_rust_collector.macro_items"
       ],
       "responsibilities": [
         "Lexical reading of Rust source: tokens, attributes, nesting, nets and the scan of items, definitions, use paths and macros."
@@ -5537,6 +5538,7 @@
       "public": [
         "native.archkeel_python_collector.inputs:inputs",
         "native.archkeel_python_collector.inputs:with_listings",
+        "native.archkeel_python_collector.requirement:clamped_from",
         "native.archkeel_python_collector.requirement:requirement",
         "native.archkeel_python_collector.requirement:target"
       ],
@@ -6647,6 +6649,7 @@
       "dependency": "proc_macro2",
       "allowed_sources": [
         "native.archkeel_rust_collector.tokens",
+        "native.archkeel_rust_collector.macro_items",
         "native.archkeel_rust_collector.net",
         "native.archkeel_rust_collector.scan",
         "native.archkeel_rust_collector.scan.attributes",
