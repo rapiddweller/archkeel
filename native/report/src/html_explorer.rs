@@ -53,7 +53,7 @@ pub(super) const SCRIPTS: [(&str, &str, &str); 8] = [
     (
         include_str!("../assets/explorer/report-canvas.js"),
         " data-report-asset=\"canvas\"",
-        "JrlrwvDAwKWdTT02saEVpKXy7p7vnWR849395VkrpW4=",
+        "TNPGxbeN132ly9ZbDv5X7Q3SAiGnyhu7bbvmh26zau0=",
     ),
 ];
 

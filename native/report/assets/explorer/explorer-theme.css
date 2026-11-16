@@ -20,3 +20,5 @@ html.ak-canvas .rp-explorer g.node[data-assessment-status="UNKNOWN"] .card { str
 /* A diagram that is smaller than the window sits in its middle, not in its corner. */
 .rp-explorer .flow-canvas { display: flex; }
 .rp-explorer .flow-canvas > svg { margin: auto; flex: none; }
+/* The line of an empty Target or Diff: what the contract has not declared yet. */
+.rp-explorer .rp-empty-note { position: absolute; left: 50%; bottom: calc(var(--space-8) + var(--space-5)); transform: translateX(-50%); z-index: 3; max-width: 60%; margin: 0; padding: var(--space-2) var(--space-4); background: var(--surface-1); border: 1px solid var(--line-strong); border-radius: var(--radius-md); color: var(--ink); font-family: var(--font-sans); text-align: center; }
