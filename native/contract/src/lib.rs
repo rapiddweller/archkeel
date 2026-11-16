@@ -49,10 +49,12 @@ mod uml_merge;
 mod version;
 mod words;
 
-pub use canonical::{canonical_bytes, canonical_digest};
+pub use canonical::canonical_bytes;
+#[cfg(test)]
+pub(crate) use canonical::canonical_digest;
 pub use contract::parse;
-pub use document::{Contract, InsideRef, NeedsTree, ParsedContract};
-pub use error::{ErrorKind, ParseError};
+pub use document::{Contract, ParsedContract};
+pub(crate) use error::ErrorKind;
 pub use graph::uml_target_id;
 pub use graph_link::bare_reference;
 pub use model::*;
@@ -62,4 +64,3 @@ pub use model_rules::*;
 pub use model_uml::*;
 pub use rule::{head_of, kind_of, Rule};
 pub use uml_merge::merge_targets;
-pub use version::{version_text, ContractVersion};

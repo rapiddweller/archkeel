@@ -14,7 +14,6 @@ use crate::kept_script::ScriptFile;
 use crate::manifest::Lookup;
 use crate::options::ModuleKind;
 use crate::parse::{parse_for, Parsed};
-use crate::plant;
 use crate::references::{Form, Reference};
 use crate::resolve::format_of;
 use crate::source_input::{classify_file, classify_specifier, ModuleFormat, SourceKind};
@@ -66,9 +65,17 @@ impl Collection<'_> {
             || (format == Lookup::Hit(ModuleFormat::Cjs)
                 && matches!(explicit, Some(ModuleKind::NodeNext | ModuleKind::Node16)));
         let mut handled = 0usize;
-        for (index, reference) in parsed.references.iter().enumerate() {
-            if plant::skip(rel, index) {
-                continue;
+        #[cfg(feature = "dump")]
+        let mut index = 0;
+        for reference in &parsed.references {
+            #[cfg(feature = "dump")]
+            {
+                let skip = std::env::var("ARCHKEEL_PLANT_SKIP")
+                    .is_ok_and(|planted| planted == format!("{rel}:{index}"));
+                index += 1;
+                if skip {
+                    continue;
+                }
             }
             let evidence = self.cite(rel, &reference.span);
             if reference.form == Form::Require && (!cjs || parsed.shadows_require) {

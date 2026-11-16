@@ -68,7 +68,7 @@ pub(crate) fn isolated<T: Send + 'static>(
 }
 
 /// The typed reply without the store, for the comparison with the bytes of the binary.
-pub fn reply_of(profile: Profile, request: &[u8]) -> Result<Reply, String> {
+pub(crate) fn reply_of(profile: Profile, request: &[u8]) -> Result<Reply, String> {
     archkeel_snapshot::work::bounded(|| match profile {
         Profile::Rust => {
             let request = archkeel_wire::request::decode_rust(request)?;
