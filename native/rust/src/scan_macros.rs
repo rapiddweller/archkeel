@@ -173,6 +173,14 @@ pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
     // The tokens of a macro are not code that the scan reads: a call in them is not placed.
     let mut inner = BTreeSet::new();
     macro_names(node.tokens.clone(), 0, &mut inner);
+    // AD-614: a silent or expression macro of `std`, by its plain name, with only such macros in
+    // its tokens, reads no string as a path. A macro of the file of that name is not `std`.
+    let std_only = |name: &str| NO_BIND_MACROS.contains(&name) || EXPRESSION_MACROS.contains(&name);
+    let local = |name: &str| walker.out.macro_defs.iter().any(|def| def.name == name);
+    let plain_strings = node.path.segments.len() == 1
+        && std_only(&name)
+        && !local(&name)
+        && inner.iter().all(|inner| std_only(inner) && !local(inner));
     let hidden = inner.into_iter().map(|name| MacroCall {
         name,
         placed: false,
@@ -207,7 +215,11 @@ pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
         );
         return;
     }
-    net::walk(node.tokens.clone(), &mut walker.out.mentioned);
+    if plain_strings {
+        net::walk_code(node.tokens.clone(), &mut walker.out.mentioned);
+    } else {
+        net::walk(node.tokens.clone(), &mut walker.out.mentioned);
+    }
     let Some(found) = chains(node.tokens.clone()) else {
         concern(
             walker,

@@ -21,7 +21,15 @@ from typing import Any
 
 import pytest
 from corpus_support import commit_tree
-from rust_repository import claims, component, repository, rule, statuses, validate
+from rust_repository import (
+    CRATE_RULES,
+    claims,
+    component,
+    repository,
+    rule,
+    statuses,
+    validate,
+)
 
 pytestmark = pytest.mark.skipif(shutil.which("cargo") is None, reason="rustc is the oracle")
 
@@ -283,3 +291,36 @@ def test_a_crate_root_publishes_only_names_that_its_component_lists(
     found_status, found = _run(tmp_path, core_binary, files, (base, app))
     assert found_status == status, (name, found)
     assert (PUBLISHED in found) == (status == "FAIL"), (name, found)
+
+
+# AD-604: the Rust collector names the item and the route of each import, so the core decides the
+# rule. `make` is a definition of the root of `base`; a glob names no known name.
+INTERFACE_PLANTS = [
+    ("the whole root is public", ["native.base_crate"], "use base_crate::make;\n", "PASS"),
+    ("the name is public", ["native.base_crate:make"], "use base_crate::make;\n", "PASS"),
+    ("another name is public", ["native.base_crate:other"], "use base_crate::make;\n", "FAIL"),
+    ("a glob", ["native.base_crate:make"], "use base_crate::*;\n", "UNKNOWN"),
+]
+
+
+@pytest.mark.parametrize(("name", "public", "head", "status"), INTERFACE_PLANTS)
+def test_the_core_decides_interface_boundary_from_the_item_of_each_import(
+    tmp_path: Path,
+    core_binary: Path,
+    name: str,
+    public: list[str],
+    head: str,
+    status: str,
+) -> None:
+    base = {**component("base", "base_crate"), "public": public}
+    parts = (base, component("app", "app", ("base",)))
+    boundary = rule("INTERFACE", "interface_boundary")
+    source = {"crates/app/src/lib.rs": head + "pub fn run() { make(); }\n"}
+    result = validate(repository(tmp_path, core_binary, source, parts, (*CRATE_RULES, boundary)))
+
+    assert statuses(result).get("INTERFACE") == status, (name, claims(result))
+    if status == "FAIL":
+        assert (
+            "INTERFACE: native.app -> native.base_crate:make: import outside the public interface"
+            in claims(result)
+        )

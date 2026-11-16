@@ -131,13 +131,14 @@ fn each_name(
     }
 }
 
-/// Whether the stream may write an import: a `use` or an `extern` word in any group, or a group
+/// Whether the stream may write an import or a module: a `use`, `extern` or `mod` word in any
+/// group, or a group
 /// deeper than the scan reads (AD-608). Tokens without one cannot make a name a re-export.
 pub(crate) fn writes_use(stream: TokenStream, depth: usize) -> bool {
     depth > MAX_DEPTH
         || stream.into_iter().any(|token| match token {
             TokenTree::Group(group) => writes_use(group.stream(), depth + 1),
-            TokenTree::Ident(word) => word == "use" || word == "extern",
+            TokenTree::Ident(word) => word == "use" || word == "extern" || word == "mod",
             _ => false,
         })
 }
@@ -148,7 +149,7 @@ pub(crate) fn writes_use(stream: TokenStream, depth: usize) -> bool {
 /// expansion binds no name of that module.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct ItemLevel {
-    /// A `use` or an `extern` at item level, or anywhere in a `macro_rules!` at item level.
+    /// A `use`, `extern` or `mod` at item level, or anywhere in a `macro_rules!` at item level.
     pub writes_use: bool,
     /// The macros that the expansion calls at item level, by their last name.
     pub calls: BTreeSet<String>,
@@ -178,7 +179,9 @@ fn items(stream: TokenStream, depth: usize, found: &mut ItemLevel) {
             TokenTree::Group(group) if at > 0 && is_punct(&tokens[at - 1], '$') => {
                 items(group.stream(), depth + 1, found);
             }
-            TokenTree::Ident(word) if word == "use" || word == "extern" => found.writes_use = true,
+            TokenTree::Ident(word) if word == "use" || word == "extern" || word == "mod" => {
+                found.writes_use = true
+            }
             TokenTree::Ident(word) if called(next(1), next(2)) && word == "macro_rules" => {
                 if let Some(TokenTree::Group(body)) = next(2) {
                     found.writes_use |= writes_use(body.stream(), depth);

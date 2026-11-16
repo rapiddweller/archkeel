@@ -382,6 +382,10 @@ fn the_net_collects_names_only_from_macros_attribute_streams_and_strings() {
     assert!(mentioned("fn f() { mac!(url); }").contains(&"url".to_owned()));
     assert!(mentioned("#[other::attr(url)]\nstruct S;").contains(&"url".to_owned()));
     assert!(mentioned("const A: &str = \"url::x\";").contains(&"url".to_owned()));
+    // AD-614: a bare word in a string of code or of a `std` macro is a value, never a crate.
+    assert_eq!(mentioned("const A: &str = \"url\";"), none);
+    assert!(!mentioned("fn f() { assert_eq!(1, \"url\".len()); }").contains(&"url".to_owned()));
+    assert!(mentioned("fn f() { mac!(\"url\"); }").contains(&"url".to_owned()));
     assert!(mentioned("#[serde(with = \"url\")]\nstruct S;").contains(&"url".to_owned()));
 }
 

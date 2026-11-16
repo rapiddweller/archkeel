@@ -31,6 +31,18 @@ the number of declarations, so the route ends there (`routes::defined_here`). Th
 name then fails. A route that the scan does not prove (a macro may write `pub use`) stays UNKNOWN.
 A route of a type (AD-608) still needs one written type.
 
+## The scan of the test sources has no gap left
+With the test sources (the oracle `test_the_scan_of_native_is_complete`), the scan named 55 gaps.
+- 44: a name that an inline module (`mod tests`) imports again counted twice in its file. A name
+  of a child module is no name of its parent, so the one declaration is read in the inline module
+  of the path (`scoped_counts`); the alias check keeps the count of the file.
+- 9: a glob of a module with macro calls in item place may bring in a name that a macro defines.
+  A call whose expansion writes no `use`, `extern` or `mod` at item level defines no module of the
+  name (`filled::binds_nothing`, the proof of item 5 of AD-608).
+- 2: the word `core` in a string. A string of code, or of a `std` macro, is a value: it stays in the
+  net only when it is path-shaped (`name::rest`). A string of `json!` (a macro of another crate)
+  stays a gap, so the test data of `html_views_tests.rs` names its component `domain`.
+
 ## Tests
 `tests/test_cli_native_rust_macro_crate.py` (rustc accepts each plant):
 - a portable call by path and through a `use` gives the edge of the expansion, which fails the
