@@ -1339,6 +1339,7 @@
         "native.archkeel_eval:Cyclic",
         "native.archkeel_eval:Layered",
         "native.archkeel_eval:Outcome",
+        "native.archkeel_eval:Published",
         "native.archkeel_eval:Violation",
         "native.archkeel_eval:evaluate",
         "native.archkeel_eval:evaluate_tree"
@@ -1404,6 +1405,7 @@
         "native.archkeel_eval.violation:CycleStep",
         "native.archkeel_eval.violation:Cyclic",
         "native.archkeel_eval.violation:Layered",
+        "native.archkeel_eval.violation:Published",
         "native.archkeel_eval.violation:Violation"
       ],
       "decided_by": "architect"
@@ -2290,6 +2292,7 @@
             "native.archkeel_eval:Cyclic",
             "native.archkeel_eval:Layered",
             "native.archkeel_eval:Outcome",
+            "native.archkeel_eval:Published",
             "native.archkeel_eval:Violation",
             "native.archkeel_eval:evaluate_tree"
           ]
@@ -3367,16 +3370,8 @@
         }
       ],
       "public": [
-        "native.archkeel_dart_collector.import_survey.reply:SURVEY_SECTIONS",
         "native.archkeel_dart_collector.import_survey.reply:decode",
         "native.archkeel_dart_collector.import_survey.reply:typed_reply",
-        "native.archkeel_dart_collector.import_survey:GapName",
-        "native.archkeel_dart_collector.import_survey:NamedGap",
-        "native.archkeel_dart_collector.import_survey:PARSE_BUDGET_BYTES",
-        "native.archkeel_dart_collector.import_survey:PARSE_BUDGET_TOKENS",
-        "native.archkeel_dart_collector.import_survey:PartOwner",
-        "native.archkeel_dart_collector.import_survey:SURVEY_BUDGET_BYTES",
-        "native.archkeel_dart_collector.import_survey:Survey",
         "native.archkeel_dart_collector.import_survey:edge_rows",
         "native.archkeel_dart_collector.import_survey:gap_rows",
         "native.archkeel_dart_collector.import_survey:survey"

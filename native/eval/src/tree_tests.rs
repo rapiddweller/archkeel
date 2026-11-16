@@ -125,14 +125,14 @@ pub(crate) fn rows(outcomes: &[Outcome], rule: &str) -> Vec<String> {
         | Violation::Forbidden { cited, .. }
         | Violation::Peer { cited, .. }
         | Violation::Unrequired { cited, .. }
-        | Violation::PrivateImport { cited, .. }
-        | Violation::Publication { cited, .. } => {
+        | Violation::PrivateImport { cited, .. } => {
             format!(
                 "{} -> {}",
                 short(&cited.source_module),
                 short(&cited.target_module)
             )
         }
+        Violation::Publication(found) => found.name.clone(),
         Violation::OuterLayer(layered) => layered.id.clone(),
         Violation::Cycle(..) => "cycle".to_owned(),
         Violation::Construct(row) => row.owner.clone(),
