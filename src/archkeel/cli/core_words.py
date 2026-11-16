@@ -54,6 +54,28 @@ _NUMBERS: Final = re.compile(r"\s*\((?:#|AD-)\d+(?:[^)]*)\)|\bAD-\d+\b|\s#\d+\b"
 _PREFIXES: Final = ("collect: unsupported: ", "unsupported: ")
 
 
+_REQUIRES: Final = '{"component": "model", "rationale": "why this part uses the other"}'
+_SCHEMA: Final = "schema/architecture-contract.schema.json"
+_JSON_AT: Final = re.compile(r"line (\d+) column (\d+)")
+_SHAPES: Final = re.compile(r"^(?P<path>\S+) must be (?P<what>.+)$")
+
+
+def contract_fix(message: str) -> str:
+    """What to write in a contract file to remove the error that the core named (display only)."""
+    if message.startswith("invalid JSON"):
+        place = _JSON_AT.search(message)
+        at = f" at line {place[1]}, column {place[2]}" if place else ""
+        return f"fix the JSON syntax{at}; every key is a quoted text, and commas separate entries."
+    shape = _SHAPES.match(message)
+    if shape and re.search(r"requires\[\d+\]$", shape["path"]):
+        return f"write {shape['what']} there, for example {_REQUIRES}."
+    if shape:
+        return f"write {shape['what']} at {shape['path']}; the fields are in {_SCHEMA}."
+    if message.endswith("fields mismatch") or message.endswith("is missing"):
+        return f"give that object exactly the fields that {_SCHEMA} lists, no other."
+    return f"correct that part of the contract; its form is in {_SCHEMA}."
+
+
 def kind_label(kind: str) -> str:
     """A gap or cause kind as words: the plain label, or the kind with spaces for dots and bars."""
     return GAP_KINDS.get(kind) or UNKNOWN_CAUSES.get(kind) or re.sub(r"[_.]+", " ", kind)
