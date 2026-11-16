@@ -28,7 +28,7 @@ mod repository;
 mod run;
 mod system;
 
-pub use system::{System, SystemInterface, SystemPart};
+pub use system::{System, SystemPart};
 
 use archkeel_store::Ingested;
 use serde_json::{json, Value};

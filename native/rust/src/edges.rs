@@ -176,6 +176,9 @@ impl Builder {
         );
         let evidence = self.cite(from.rel, site);
         let import_id = FactId::new(identity.as_str());
+        // AD-622: a crate never names itself as a dependency, so a workspace root of
+        // `Named::Package` is another crate.
+        let mut other_crate = false;
         let (target, target_module, name) = match named {
             Named::Sysroot(name) => (
                 Target::Builtin {
@@ -195,6 +198,7 @@ impl Builder {
             ),
             Named::Package(package) => match workspace.primary_of(package) {
                 Some(root) => {
+                    other_crate = true;
                     let (target, module, name) = local_target(index, root, reference, import_id);
                     let glob = matches!(reference.via, crate::scan::Via::Glob { .. });
                     (
@@ -233,6 +237,7 @@ impl Builder {
         };
         record.data.data_mut().published_as =
             index.and_then(|index| published(index, from.module, reference));
+        record.data.data_mut().other_crate = other_crate.then_some(true);
         self.imports.push(record);
         self.ended += 1;
     }
