@@ -39,9 +39,9 @@ from .core_help import help_for
 from .core_json import Gap, RequestMismatch
 from .core_output import write_output
 from .core_text import header, refusal, render, summary
-from .core_words import fix_for, plain
+from .core_words import NOT_FOUND_PREFIX, fix_for, plain
 from .init_draft import CONFIG, CONTRACT, DOCUMENT, PROVENANCE, write_draft
-from .native_scan import SCAN_PROTOCOL, exchange, identity
+from .native_scan import SCAN_PROTOCOL, exchange, identity, ignored_by
 
 
 def _wants_json(argv: Sequence[str]) -> bool:
@@ -213,6 +213,37 @@ def _contract_files(document: Mapping[str, object]) -> list[str]:
     return sorted(files) if isinstance(files, dict) else []
 
 
+def _ignored_modules(
+    frame: CoreFrame, document: Mapping[str, object], root: Path
+) -> dict[str, str]:
+    """For each imported module without a file: the Git ignore rule that covers the file, if any.
+
+    The candidates are the paths that the module would have below each scan root.
+    """
+    names = sorted(
+        {
+            gap.reason.removeprefix(NOT_FOUND_PREFIX)
+            for gap in frame.collection_gaps
+            if gap.reason.startswith(NOT_FOUND_PREFIX)
+        }
+    )[:_IGNORE_CHECKS]
+    if not names:
+        return {}
+    request = (document.get("self_test") or {}).get("collect", {}).get("request", {})  # type: ignore[attr-defined]
+    scope = request.get("scope", {}) if isinstance(request, dict) else {}
+    roots = [str(item) for item in scope.get("roots", [])] if isinstance(scope, dict) else []
+    candidates: dict[str, str] = {}
+    for name in names:
+        path = name.replace(".", "/")
+        below = path.partition("/")[2]
+        for base in roots or ["."]:
+            for tail in (path, below):
+                for form in (f"{tail}.py", f"{tail}/__init__.py") if tail else ():
+                    candidates[(Path(base) / form).as_posix()] = name
+    found = ignored_by(root, list(candidates))
+    return {candidates[path]: rule for path, rule in found.items() if path in candidates}
+
+
 def _print_text(
     options: Options,
     frame: CoreFrame,
@@ -241,7 +272,8 @@ def _print_text(
         print("\n".join(refusal(options.command, code, message, fix)))
     elif options.summary:
         files = _contract_files(document)
-        print("\n".join(summary(options.command, frame, code, files, problems)))
+        ignored = _ignored_modules(frame, document, root)
+        print("\n".join(summary(options.command, frame, code, files, problems, ignored)))
     else:
         system = document.get("system")
         lines = render(
@@ -252,6 +284,7 @@ def _print_text(
             show_all=options.all,
             system=system if isinstance(system, dict) else None,
             contract_files=_contract_files(document),
+            ignored=_ignored_modules(frame, document, root),
         )
         print("\n".join(lines))
         if isinstance(target, str):
@@ -321,6 +354,7 @@ def _decide(options: Options, as_json: bool) -> int:
     return code
 
 
+_IGNORE_CHECKS: Final = 50
 _NO_CONFIG: Final = "config: cannot read"
 _MISSING_FIX: Final = (
     "create it (`archkeel init` drafts one) or name another file with --config PATH."

@@ -416,3 +416,48 @@ def test_each_refusal_kind_has_plain_words_and_its_own_fix(
 
 
 FIXED: dict[str, str] = {}
+
+
+def _hygiene_gaps(kinds: list[str]) -> dict:
+    """A run whose one rule passes and whose named parts are contract-hygiene rows."""
+    document = json.loads(frame(Status.PASS))
+    document["status"] = "UNKNOWN"
+    rows = {
+        f"hygiene:{kind}:{n}": f"contract hygiene {kind}: C{n} is open"
+        for n, kind in enumerate(kinds)
+    }
+    document["unsupported"]["rules"] = rows
+    document["gaps"] = [
+        {
+            "kind": kind,
+            "subject": f"hygiene:{kind}:{n}",
+            "reason": f"contract hygiene {kind}: C{n} is open",
+        }
+        for n, kind in enumerate(kinds)
+    ]
+    return document
+
+
+def test_a_draft_that_leaves_only_open_decisions_says_why_the_run_stays_unknown(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """K13: every rule passes; the open decisions of the `init` draft hold the run."""
+    kinds = ["decision.open", "decision.open", "responsibility.missing"]
+    done, text = _run(_hygiene_gaps(kinds), ["validate", "--text"], capsys)
+    lines = text.splitlines()
+    assert done == 2
+    assert lines[0] == (
+        "validate: UNKNOWN -> exit 2 (all 1 rules pass; the run stays UNKNOWN because the "
+        "contract draft has 3 open decisions)"
+    )
+    assert "2 x an open decision in the contract (a TODO)" in text
+    assert "1 x a component without a written responsibility" in text
+
+
+def test_another_named_part_is_not_called_a_draft(capsys: pytest.CaptureFixture[str]) -> None:
+    done, text = _run(
+        _hygiene_gaps(["decision.open", "reference.provenance"]), ["validate", "--text"], capsys
+    )
+    first = text.splitlines()[0]
+    assert done == 2 and "contract draft" not in first
+    assert "all 1 rules pass; the run stays UNKNOWN because 2 gaps are open" in first

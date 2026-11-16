@@ -18,6 +18,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Final
 
@@ -66,6 +67,35 @@ def identity(root: Path) -> tuple[str, bool] | None:
     if done.returncode != 0 or len(heads) != 1:
         return None
     return heads[0], any(not line.startswith("# ") for line in lines)
+
+
+def ignored_by(root: Path, paths: Sequence[str]) -> dict[str, str]:
+    """For each path that a Git ignore rule covers: `FILE:LINE` of the rule (`git check-ignore`).
+
+    A path that is not covered, and any failure of Git, gives no entry: the text then says less,
+    never something false.
+    """
+    if not paths:
+        return {}
+    command = [_GIT, "--no-optional-locks", "-C", str(root), "check-ignore", "-v", "-z", "--stdin"]
+    environment = {key: os.environ[key] for key in _GIT_ENVIRONMENT if key in os.environ}
+    try:
+        done = subprocess.run(
+            command,
+            env=environment,
+            input="\0".join(paths).encode("utf-8"),
+            capture_output=True,
+            check=False,
+            timeout=TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return {}
+    fields = done.stdout.decode("utf-8", "replace").split("\0")
+    found: dict[str, str] = {}
+    for source, line, _pattern, path in zip(*[iter(fields)] * 4, strict=False):
+        if source:
+            found[path] = f"{source}:{line}"
+    return found
 
 
 def exchange(binary: str, kind: str, request: bytes) -> tuple[bytes, int]:

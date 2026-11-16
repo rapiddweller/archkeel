@@ -174,6 +174,16 @@ fn same_inputs(inputs: &[Input], parsed: &[Input]) -> Result<(), String> {
 
 /// The adapter of this binary, and the runtime that the Python collector claims: the version of
 /// the interpreter block and the requirement of `pyproject.toml` (`runtime.collector_provenance`).
+/// `Python 3.9 and 3.10 are` / `Python 3.10 is`: the versions of the range below 3.11.
+fn unsupported_below(major: u32, minor: u32) -> String {
+    let names: Vec<String> = (minor..=10).map(|each| format!("{major}.{each}")).collect();
+    match names.as_slice() {
+        [] => format!("Python {major}.{minor} is"),
+        [one] => format!("Python {one} is"),
+        [head @ .., last] => format!("Python {} and {last} are", head.join(", ")),
+    }
+}
+
 fn provenance(
     request: &PythonRequest,
     snapshot: &mut Snapshot,
@@ -200,8 +210,8 @@ fn provenance(
             let mut said = format!("requires-python {text:?} in pyproject.toml");
             if let Some([major, minor, _]) = requirement::clamped_from(text) {
                 said.push_str(&format!(
-                    "; Python {major}.{minor} is not supported, so the lowest supported version \
-                     inside that range is used"
+                    "; {} not supported, so the lowest supported version inside that range is used",
+                    unsupported_below(major, minor)
                 ));
             }
             said
