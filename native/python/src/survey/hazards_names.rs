@@ -94,8 +94,9 @@ pub(super) const BUILTIN_DOORS: [&str; 10] = [
     "breakpoint",
 ];
 
-/// The string values that name a door: `getattr(x, "__import__")` and `d["__builtins__"]`.
-pub(super) const DOOR_STRINGS: [&str; 7] = [
+/// The string values that name a door: `getattr(x, "__import__")` and `d["__builtins__"]`. A key
+/// with one of them is never read as data.
+pub(in crate::survey) const DOOR_STRINGS: [&str; 7] = [
     "__import__",
     "__builtins__",
     "import_module",
