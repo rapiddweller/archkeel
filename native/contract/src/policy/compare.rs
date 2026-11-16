@@ -9,6 +9,7 @@
 use std::collections::BTreeMap;
 
 use crate::document::Contract;
+use crate::door_reach::DoorReach;
 use crate::model::Selector;
 use crate::model_declarations::{
     Capability, Command, Declarations, FlowPath, Lifetime, ModuleTarget, ReviewScope, SpotOwner,
@@ -192,6 +193,7 @@ type Unenumerated<'a> = (
     &'a [SpotOwner],
     Option<&'a Vec<ModuleTarget>>,
     Option<&'a Target>,
+    &'a [DoorReach],
 );
 
 /// Python `_unenumerated(declarations)`: every field except the four that a classifier above
@@ -214,9 +216,10 @@ fn unenumerated(item: Option<&Declarations>) -> Unenumerated<'_> {
         coupling_budgets: _,
         modules,
         uml,
+        door_reach,
     }) = item
     else {
-        return (&[], &[], &[], &[], &[], &[], &[], &[], &[], None, None);
+        return (&[], &[], &[], &[], &[], &[], &[], &[], &[], None, None, &[]);
     };
     (
         capabilities,
@@ -230,6 +233,7 @@ fn unenumerated(item: Option<&Declarations>) -> Unenumerated<'_> {
         spot_owners,
         modules.as_ref(),
         uml.as_ref(),
+        door_reach,
     )
 }
 

@@ -34,6 +34,7 @@ impl GapData {
             source_module: None,
             under_type_checking: None,
             effect: None,
+            door: None,
         }
     }
 }

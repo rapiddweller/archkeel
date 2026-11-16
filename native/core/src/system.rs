@@ -58,6 +58,18 @@ pub(crate) fn join(
         let rows = frames.iter().flat_map(|part| list(part, key)).collect();
         frame.insert(key.to_owned(), Value::Array(rows));
     }
+    // AD-664: a PASS under a declared door reach stays qualified in the system frame.
+    let assumed = disjoint(&frames, "assumed")?;
+    if !assumed.is_empty() {
+        frame.insert("assumed".to_owned(), Value::Object(assumed));
+    }
+    let doors: Vec<Value> = frames
+        .iter()
+        .flat_map(|part| list(part, "door_reach"))
+        .collect();
+    if !doors.is_empty() {
+        frame.insert("door_reach".to_owned(), Value::Array(doors));
+    }
     frame.insert("scope".to_owned(), scope(&frames));
     if let Some(premise) = premise(&frames) {
         frame.insert("premise".to_owned(), json!(premise));

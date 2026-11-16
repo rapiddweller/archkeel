@@ -97,6 +97,12 @@ impl Usable {
             .map(archkeel_contract::kind_of)
             .chain(self.inside.iter().map(|(_, kind)| *kind))
             .any(facade);
+        // AD-664: the root contract declares the reach of its door sites.
+        let doors = self
+            .root
+            .declarations()
+            .as_ref()
+            .map_or_else(Vec::new, |declarations| declarations.door_reach().clone());
         Needs::from_reasons(
             target
                 .then_some(Need::UmlTarget)
@@ -104,6 +110,7 @@ impl Usable {
                 .chain(boundary.then_some(Need::BoundaryTypes))
                 .chain(interface.then_some(Need::InterfaceBoundary)),
         )
+        .with_doors(doors)
     }
 }
 

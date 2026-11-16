@@ -25,13 +25,18 @@ use super::literal::{self, Proof};
 use super::syspath;
 use crate::module::Module;
 
+use bind::{bindings, imported};
 use names::{
     above, first_hazard, store, ANY_ATTRIBUTE, BUILTIN_DOORS, DOOR_STRINGS, IMPORT_FUNCTIONS,
 };
 pub(super) use names::{hazard, DYNAMIC, IMPORT_SYSTEM};
 
+#[path = "hazards_bind.rs"]
+mod bind;
 #[path = "hazards_comprehension.rs"]
 mod comprehension;
+#[path = "hazards_door.rs"]
+mod door;
 #[path = "hazards_inert.rs"]
 mod inert;
 #[path = "hazards_names.rs"]
@@ -42,11 +47,15 @@ mod reflect;
 /// A proven literal import call: a static edge, not a gap (AD-472, `literal.rs`).
 pub(super) const LITERAL: &str = "literal_import";
 
-/// One site: its gap, a short text and its range.
+/// One site: its gap, a short text and its range. A door site has its form, the dotted names of
+/// the classes and functions that hold it, and the name that an import statement binds (AD-664).
 pub(super) struct Site {
     pub kind: &'static str,
     pub detail: String,
     pub range: TextRange,
+    pub door: Option<archkeel_facts::data::DoorForm>,
+    pub scope: String,
+    pub binding: Option<String>,
 }
 
 /// The sites of a module, in source order.
@@ -68,6 +77,7 @@ pub(super) fn sites(
         reads,
         locals: Vec::new(),
         getattr_bound: !Bound::of(&tree.body).unbound("getattr"),
+        scope: Vec::new(),
     };
     for stmt in &tree.body {
         // AD-538: an expression statement of the module body that appends a directory of the
@@ -77,87 +87,14 @@ pub(super) fn sites(
                 kind: syspath::PATH_WRITE,
                 detail: count.to_string(),
                 range: stmt.range(),
+                door: None,
+                scope: String::new(),
+                binding: None,
             }),
             None => walk.visit_stmt(stmt),
         }
     }
     walk.found
-}
-
-/// The qualified names that the import statements of a module bind, in any scope.
-fn bindings(tree: &ModModule) -> HashMap<String, Vec<String>> {
-    struct Imports(HashMap<String, Vec<String>>);
-    impl<'a> Visitor<'a> for Imports {
-        fn visit_stmt(&mut self, stmt: &'a Stmt) {
-            for (name, origin) in bound(stmt) {
-                self.0.entry(name).or_default().push(origin);
-            }
-            visitor::walk_stmt(self, stmt);
-        }
-    }
-    let mut walk = Imports(HashMap::new());
-    walk.visit_body(&tree.body);
-    reflect::aliases(tree, &mut walk.0);
-    walk.0
-}
-
-/// The names that one import statement binds and their qualified origins. A relative import
-/// names a module of the project and binds nothing here.
-fn bound(stmt: &Stmt) -> Vec<(String, String)> {
-    match stmt {
-        Stmt::Import(node) => node
-            .names
-            .iter()
-            .map(|alias| {
-                let name = alias.name.as_str();
-                match &alias.asname {
-                    Some(asname) => (asname.to_string(), name.to_owned()),
-                    None => {
-                        let first = name.split('.').next().unwrap_or(name);
-                        (first.to_owned(), first.to_owned())
-                    }
-                }
-            })
-            .collect(),
-        Stmt::ImportFrom(node) if node.level == 0 => {
-            let module = node.module.as_ref().map_or("", |module| module.as_str());
-            node.names
-                .iter()
-                .map(|alias| {
-                    let name = alias.name.as_str();
-                    let local = alias.asname.as_ref().map_or(name, |asname| asname.as_str());
-                    (local.to_owned(), format!("{module}.{name}"))
-                })
-                .collect()
-        }
-        _ => Vec::new(),
-    }
-}
-
-/// The names that an import statement imports, as qualified names, for the door check: each
-/// module of `import a.b`, and each name of `from m import n`. A star import names its module.
-fn imported(stmt: &Stmt) -> Vec<String> {
-    match stmt {
-        // A plain `import importlib` binds the module of the accepted literal call (AD-472);
-        // each use of the name is still read. Each other import of `importlib` is a reference.
-        Stmt::Import(node) => node
-            .names
-            .iter()
-            .filter(|a| a.asname.is_some() || a.name.as_str() != "importlib")
-            .map(|a| a.name.to_string())
-            .collect(),
-        Stmt::ImportFrom(node) if node.level == 0 => {
-            let module = node.module.as_ref().map_or("", |module| module.as_str());
-            node.names
-                .iter()
-                .map(|alias| match alias.name.as_str() {
-                    "*" => module.to_owned(),
-                    name => format!("{module}.{name}"),
-                })
-                .collect()
-        }
-        _ => Vec::new(),
-    }
 }
 
 struct Walk<'r> {
@@ -171,6 +108,8 @@ struct Walk<'r> {
     // Class namespaces are skipped by nested function and comprehension lookups.
     locals: Vec<(HashSet<String>, HashSet<String>, bool)>,
     getattr_bound: bool,
+    /// The names of the classes and functions that hold the walk, outermost first.
+    scope: Vec<String>,
 }
 
 impl Walk<'_> {
@@ -187,12 +126,39 @@ impl Walk<'_> {
         self.locals.pop();
     }
 
+    /// A site of a name, an attribute or an import: a door when its name is one (AD-664).
     fn push(&mut self, kind: &'static str, detail: &str, node: &impl Ranged) {
+        let door = door::form(kind, detail);
+        self.add(kind, detail, node, door);
+    }
+
+    /// A site that is never a door site: a string that names a door.
+    fn push_text(&mut self, kind: &'static str, detail: &str, node: &impl Ranged) {
+        self.add(kind, detail, node, None);
+    }
+
+    fn add(
+        &mut self,
+        kind: &'static str,
+        detail: &str,
+        node: &impl Ranged,
+        door: Option<archkeel_facts::data::DoorForm>,
+    ) {
         self.found.push(Site {
             kind,
             detail: detail.to_owned(),
             range: node.range(),
+            door,
+            scope: door.map(|_| self.scope.join(".")).unwrap_or_default(),
+            binding: None,
         });
+    }
+
+    /// AD-664: the name that an import statement binds for the door site just pushed.
+    fn bind_door(&mut self, stmt: &Stmt, name: &str) {
+        if let Some(site) = self.found.last_mut().filter(|site| site.door.is_some()) {
+            site.binding = bind::local_of(stmt, name);
+        }
     }
 
     /// The qualified origins of a plain name: its import bindings, else the name itself.
@@ -356,6 +322,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
                 self.push(DYNAMIC, &name, stmt);
             } else if let Some(kind) = hazard(&name) {
                 self.push(kind, &name, stmt);
+                self.bind_door(stmt, &name);
             }
         }
         let previous = self.class_body;
@@ -371,7 +338,9 @@ impl<'a> Visitor<'a> for Walk<'_> {
             self.class_body = false;
             let (locals, globals) = super::globals_locals::local_scope(node);
             self.locals.push((locals, globals, false));
+            self.scope.push(node.name.to_string());
             self.visit_body(&node.body);
+            self.scope.pop();
             self.locals.pop();
             self.class_body = previous;
             return;
@@ -392,7 +361,9 @@ impl<'a> Visitor<'a> for Walk<'_> {
                 super::globals_locals::class_blockers(&node.body),
                 true,
             ));
+            self.scope.push(node.name.to_string());
             self.visit_body(&node.body);
+            self.scope.pop();
             self.locals.pop();
             self.class_body = previous;
             return;
@@ -445,7 +416,7 @@ impl<'a> Visitor<'a> for Walk<'_> {
                 if DOOR_STRINGS.contains(&node.value.to_str())
                     && !self.reads.contains(&node.range()) =>
             {
-                self.push(DYNAMIC, node.value.to_str(), expr);
+                self.push_text(DYNAMIC, node.value.to_str(), expr);
             }
             Expr::Name(node) if node.id.as_str() == "__path__" => {
                 if node.ctx != ExprContext::Load {

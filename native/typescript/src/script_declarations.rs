@@ -14,7 +14,7 @@ use crate::script_names::bound_scope;
 use crate::script_scope::is_root;
 use crate::script_syntax::{unique, Producer};
 use crate::script_tree::Tree;
-use crate::script_types::{Member, Write};
+use crate::script_types::{key_form, Member, Write};
 use crate::script_window::Written;
 use crate::source::Span;
 
@@ -242,7 +242,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
 /// The kind of the form at a node that writes an unknown global, as a short phrase (AD-540).
 fn form_of(node: Node) -> &'static str {
     match node.kind() {
-        "subscript_expression" => "a key that is no literal and can name constructor",
+        "subscript_expression" => key_form(),
         "call_expression" => "a call that can run code or open a window",
         "string" | "template_string" => "a text that can run as code",
         "assignment_expression" | "augmented_assignment_expression" | "for_in_statement" => {

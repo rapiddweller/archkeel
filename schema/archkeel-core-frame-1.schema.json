@@ -66,6 +66,23 @@
       },
       "description": "Each PASS rule of a run with kept pair gaps: the reference engine gives it UNKNOWN, and\nthe model proves that no kept gap can change it (AD-384 point 4)."
     },
+    "assumed": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "description": "Each PASS rule that holds only under the declared reach of door sites, with the sites\n(AD-664): never a plain PASS."
+    },
+    "door_reach": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DoorRow"
+      },
+      "description": "Each applied declaration of a door reach of the run (AD-664)."
+    },
     "scope": {
       "type": "string",
       "description": "Why the scope of the run is not complete, or `complete`."
@@ -333,6 +350,53 @@
         }
       ],
       "description": "Why the evaluator left a rule UNKNOWN. The builder derives the reason of every other verdict\nfrom the `Decision`: PASS is `evaluated`, FAIL `violations`, a declaration `declaration`."
+    },
+    "DoorRow": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The id of the declaration."
+        },
+        "module": {
+          "type": "string",
+          "description": "The module of the door."
+        },
+        "line": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "description": "The line of the door site."
+        },
+        "door": {
+          "type": "string",
+          "description": "The form of the door."
+        },
+        "loads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The declared module prefixes that the door may import."
+        },
+        "changes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The declared module prefixes whose names the door may change."
+        }
+      },
+      "required": [
+        "id",
+        "module",
+        "line",
+        "door",
+        "loads",
+        "changes"
+      ],
+      "description": "One applied declaration as the frame writes it.",
+      "additionalProperties": false
     },
     "InterfaceRow": {
       "type": "object",

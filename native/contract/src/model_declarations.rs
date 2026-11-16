@@ -4,6 +4,7 @@
 
 //! The `declarations` object of a contract (`ContractDeclarations` in `ir/model.py`).
 
+use crate::door_reach::DoorReach;
 use crate::model::{ComponentLabel, ItemId, Package, Selector, SourcePath};
 use crate::model_uml::Target;
 
@@ -197,6 +198,9 @@ record!(
     Declarations {
         /// The capabilities of the product.
         capabilities: Vec<Capability>,
+        /// The declared reach of each door site (AD-664); an empty list is not written.
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        door_reach: Vec<DoorReach>,
         /// The scopes of the review.
         review_scopes: Vec<ReviewScope>,
         /// The names of the public API.
