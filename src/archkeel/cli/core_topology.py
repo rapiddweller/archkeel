@@ -139,7 +139,9 @@ def _edge(value: object, rules: Mapping[str, object]) -> Edge:
     evidence = []
     for item in _list(row["evidence"], LIMITS["evidence_per_edge"]):
         location = as_fields(item, "topology.location", frozenset({"path", "line"}))
-        evidence.append(Location(as_text(location["path"], "path"), as_count(location["line"], "line")))
+        evidence.append(
+            Location(as_text(location["path"], "path"), as_count(location["line"], "line"))
+        )
     count = as_count(row["count"], "count")
     total = as_count(row["evidence_total"], "evidence_total")
     linked = _strings(row["rules"])

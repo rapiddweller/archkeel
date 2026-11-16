@@ -29,7 +29,7 @@ from .core_explain import Explain, read_explain
 from .core_json import CoreError as CoreError
 from .core_json import Gap as Gap
 from .core_json import GapKind as GapKind
-from .core_json import check_measures, as_count, as_fields, as_object, as_text, as_texts
+from .core_json import as_count, as_fields, as_object, as_text, as_texts, check_measures
 from .core_output import read_html
 from .core_topology import Topology, frame_topology, require_topology
 

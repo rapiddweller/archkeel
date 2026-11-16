@@ -242,7 +242,10 @@
         "archkeel.cli.core_explain:read_explain",
         "archkeel.cli.core_topology:Topology",
         "archkeel.cli.core_topology:frame_topology",
-        "archkeel.cli.core_topology:require_topology"
+        "archkeel.cli.core_topology:require_topology",
+        "archkeel.cli.core_evidence:read_details",
+        "archkeel.cli.core_evidence:read_locations",
+        "archkeel.cli.core_evidence:read_collection_gaps"
       ]
     },
     {
@@ -361,7 +364,13 @@
         "archkeel.cli.core_json:CoreError",
         "archkeel.cli.core_json:Gap",
         "archkeel.cli.core_json:GapKind",
-        "archkeel.cli.core_json:RequestMismatch"
+        "archkeel.cli.core_json:RequestMismatch",
+        "archkeel.cli.core_json:as_object",
+        "archkeel.cli.core_json:as_text",
+        "archkeel.cli.core_json:as_texts",
+        "archkeel.cli.core_json:as_count",
+        "archkeel.cli.core_json:as_fields",
+        "archkeel.cli.core_json:check_measures"
       ]
     },
     {
