@@ -34,6 +34,7 @@ mod plant;
 mod registry;
 mod reply;
 mod resolve;
+mod routes;
 mod scan;
 mod site;
 mod source;

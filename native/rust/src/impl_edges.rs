@@ -264,12 +264,16 @@ impl Builder {
             let (open, hidden): (Vec<_>, Vec<_>) = typed.partition(seen);
             let doubt = |block: &&Foreign<'_>| (path_call(reference), block.module.module.clone());
             out.doubts.extend(hidden.iter().map(doubt));
+            let TypeOf::Known(_, type_name) = &known else {
+                continue;
+            };
             for block in open {
                 let edge = Edge {
                     module: block.module.module.clone(),
                     lexical: block.lexical.clone(),
                     symbol: Some(member.clone()),
                     level: 0,
+                    member_of: Some(type_name.clone()),
                 };
                 self.module_import(index, module, reference, &edge);
             }
@@ -307,6 +311,7 @@ impl Builder {
             lexical: block.to_owned(),
             symbol: Some(member.clone()),
             level: 0,
+            member_of: Some(name),
         })
     }
 

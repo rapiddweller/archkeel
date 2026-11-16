@@ -15,6 +15,9 @@ pub(crate) struct Edge {
     pub symbol: Option<String>,
     /// 0 for `crate::`, 1 for `self::` and a child name, `n + 1` for `super::` n times.
     pub level: i64,
+    /// The type of the `impl` block when the edge names a member of it (#953): its name as the
+    /// type defines it. `None` for an edge that names an item or a module.
+    pub member_of: Option<String>,
 }
 
 /// The type that a path names, for the members of its `impl` blocks (#953).

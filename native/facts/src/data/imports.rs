@@ -40,6 +40,9 @@ facts_data! {
         [read] module_level_import: bool,
         /// The names whose route the collector records.
         [read skip] reexport_chain: Option<Vec<String>>,
+        /// `false` when the collector proves only the first hops of `reexport_chain`: a later
+        /// hop may follow (AD-604). Absent: the route is complete, or there is none.
+        [read skip] route_complete: Option<bool>,
         /// True when `__all__` lists the name.
         [read skip] declared_in_all: Option<bool>,
         /// True when the target is an ordinary module.
@@ -84,6 +87,7 @@ impl ImportData {
             reexport: false,
             module_level_import: false,
             reexport_chain: None,
+            route_complete: None,
             declared_in_all: None,
             ordinary_module: None,
             origin_binding_unique: None,

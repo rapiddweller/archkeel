@@ -177,3 +177,31 @@ fn typed_profile_statements_must_match_the_symbol_capability() {
         "profile symbol statement does not match its capability"
     );
 }
+
+/// AD-604: a Rust statement of symbols and of the interface binds to the feature of its routes.
+#[test]
+fn a_rust_interface_statement_needs_the_feature_of_its_routes() {
+    use archkeel_facts::envelope::{LimitSupport, ProfileLimits, Reply};
+    let stated = |features: Value, interface: LimitSupport| {
+        let mut value = golden("h-typescript");
+        rust_profile(&mut value);
+        value["facts"]["capabilities"]["resolution_features"] = features;
+        let mut reply: Reply = serde_json::from_value(value).unwrap();
+        reply.facts.profile_limits = Some(ProfileLimits {
+            dependency_symbols: LimitSupport::Supported,
+            interface_boundary: interface,
+        });
+        crate::ingest_typed(reply).err().unwrap_or_default()
+    };
+    let routes = json!(["rust-crate-edges", "rust-item-routes-v1"]);
+    let edges = json!(["rust-crate-edges"]);
+    assert_eq!(stated(routes.clone(), LimitSupport::Supported), "");
+    assert_eq!(
+        stated(edges, LimitSupport::Supported),
+        "profile symbol statement does not match its capability"
+    );
+    assert_eq!(
+        stated(routes, LimitSupport::Unsupported),
+        "a Rust interface statement needs the feature rust-item-routes-v1"
+    );
+}

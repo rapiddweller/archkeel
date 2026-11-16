@@ -132,12 +132,9 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   A nested file changed since the request started is refused. Keep the snapshot unchanged during a run.
 - ArchKeel checks its Rust source in `native/` with the core: 85 rules PASS, 0 FAIL, 0 UNKNOWN, 0 violations,
   pinned in `native/expected-gaps.json`. The Python shell and the tools have no architecture contract.
-  This contract states each crossing as a module port (`through`), not as a symbol
-  ([AD-588](architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md)). With an
-  `interface_boundary` rule the scan of `native/` has no verdict for any rule, and it reports no violation of
-  another rule; a `module:Name` entry in `public` holds each rule too. The Rust collector states no profile
-  limits (AD-500) and reads no use of an item. `boundary_types` needs type shapes, which only the Python
-  collector writes (AD-550).
+  This contract states each crossing as a module port (`through`)
+  ([AD-588](architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md)).
+  `boundary_types` needs type shapes, which only the Python collector writes (AD-550).
 
 Archkeel observes one static snapshot, not runtime behavior, data flow, performance
 or responsibility fulfillment. A rationale proves recorded intent, not truth.
@@ -451,8 +448,14 @@ The native Rust collector reads the crate edges: a `use` path or a qualified pat
 segment names another crate, and the module edges inside a crate: a path that starts at `crate`,
 `self`, `super`, a child `mod`, a `use` binding or a glob `use` and names another module. A path
 into another crate of the workspace names its deepest module. The collector also reads the
-definitions of each module (symbols, AD-351). `interface_boundary`, calls, types and constructs
-are unsupported, so they stay UNKNOWN and never PASS. A name that a
+definitions of each module (symbols, AD-351). Calls, types and constructs are unsupported, so they
+stay UNKNOWN and never PASS. The linked collector names the item of each import and its
+publication route, so the core decides `interface_boundary` and symbol selectors
+([AD-604](architecture/decisions/ad-604-the-rust-collector-states-the-item-and-route-of-each-import.md)).
+A glob into another component, a name that a macro may publish further (unless a hop of its route
+is public), a method call whose receiver the scan does not know and a procedural macro are not
+read: they hold the rule. A procedural macro that adds a `use` of a defined name can only give a
+FAIL where the truth is PASS. A run through the subprocess reply states no interface. A name that a
 file declares more than once and that may name a module, a glob that the scan cannot follow, a
 `use` path that starts with a name that a glob may bring in, a `super` above the crate root, two
 `macro_rules!` of one name and a path in a `macro_rules!` body that is relative to the place of the
@@ -540,8 +543,7 @@ refuses with `core_binary_not_found`
   generates give no method. A gap would make the whole scan incomplete, so the report says
   `partial` for the symbols of each module and for the methods of each type. A field, an
   associated type and the visibility of a `mod` are not read. A definition under a `cfg` that the
-  scan does not know is read (the union of the cases). `interface_boundary` stays unsupported until
-  the uses of an item are resolved (slice 5b-4b).
+  scan does not know is read (the union of the cases).
 - **`extern crate` without a manifest entry.** `extern crate base_crate;` with no entry in
   `Cargo.toml` is UNKNOWN, never PASS. It compiles only when a `build.rs` prints
   `cargo:rustc-link-search=crate=...`. Such a link is not read

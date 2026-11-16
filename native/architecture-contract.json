@@ -3886,7 +3886,8 @@
         "native.archkeel_rust_collector.modules",
         "native.archkeel_rust_collector.resolve",
         "native.archkeel_rust_collector.derive_identity",
-        "native.archkeel_rust_collector.derive_imports"
+        "native.archkeel_rust_collector.derive_imports",
+        "native.archkeel_rust_collector.routes"
       ],
       "responsibilities": [
         "Build the module tree of a crate and resolve a path to a module."
@@ -3933,6 +3934,7 @@
         "native.archkeel_rust_collector.derive_imports",
         "native.archkeel_rust_collector.modules",
         "native.archkeel_rust_collector.resolve",
+        "native.archkeel_rust_collector.routes",
         "native.archkeel_rust_collector.tree"
       ],
       "decided_by": "architect"
@@ -4056,6 +4058,7 @@
             "native.archkeel_rust_collector.derive_imports",
             "native.archkeel_rust_collector.modules",
             "native.archkeel_rust_collector.resolve",
+            "native.archkeel_rust_collector.routes",
             "native.archkeel_rust_collector.tree"
           ]
         },
