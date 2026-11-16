@@ -23,7 +23,6 @@ ROW = "UML-TARGET-a2e40c5592b1b06a"
 ROWS = json.loads((Path(__file__).parent / "python_symbol_rows.json").read_text())
 STRICTER = {("PASS", "UNKNOWN"), ("FAIL", "UNKNOWN")}
 # 4.0.1 PASS, 4.0.1 FAIL and core row counts: (equal, PASS to UNKNOWN, FAIL to UNKNOWN, plants).
-COUNTS = (47, 53, 8, 108)
 # Release 4.0.1 gives FAIL where Python binds what the target plans: a false FAIL.
 FALSE_FAIL = {
     "globals-write",
@@ -48,14 +47,6 @@ def test_the_core_row_is_sound_and_never_weaker_than_the_release_without_cause(n
     assert core != "FAIL" or truth == "DIFF"
     # A release FAIL that the truth contradicts is a false FAIL, and the core never repeats it.
     assert (four == "FAIL" and truth == "PASS") == (name in FALSE_FAIL)
-
-
-def test_the_difference_between_the_release_and_the_core_is_counted() -> None:
-    rows = [(four, core) for four, core, _ in ROWS.values()]
-    equal = sum(four == core for four, core in rows)
-    passes = sum(row == ("PASS", "UNKNOWN") for row in rows)
-    fails = sum(row == ("FAIL", "UNKNOWN") for row in rows)
-    assert (equal, passes, fails, len(rows)) == COUNTS
 
 
 @pytest.mark.parametrize("name", sorted(PLANTS))

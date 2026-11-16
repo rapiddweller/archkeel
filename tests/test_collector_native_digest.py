@@ -14,6 +14,7 @@ import json
 import os
 import shutil
 import subprocess
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
@@ -54,37 +55,47 @@ def workspace(tmp_path: Path, frozen_root: Path) -> Path:
 
 
 def _digest(workspace: Path, features: tuple[str, ...] = ()) -> str:
-    """Build the collector in `workspace` and return the digest that its build script emitted.
+    """Run the build script of the collector in `workspace` and return the digest that it emitted.
 
     Cargo hashes a path package by its path relative to the workspace root, so copies share one
     build directory. Each copy therefore gets its own target directory, or its fingerprints mix.
+    `cargo check` stops after the message of the build script of the collector: the digest is
+    known then, and the rest of the compile would test nothing about it.
     """
-    built = subprocess.run(
-        [
-            "cargo",
-            "build",
-            "--locked",
-            "-p",
-            PACKAGE,
-            "--message-format=json",
-            *(["--features", ",".join(features)] if features else []),
-        ],
-        cwd=workspace,
-        env={**os.environ, "CARGO_TARGET_DIR": str(workspace.parent / "target")},
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert built.returncode == 0, built.stderr
-    digests: set[str] = set()
-    for line in built.stdout.splitlines():
-        if not line.startswith("{"):
-            continue
-        message = json.loads(line)
-        if message.get("reason") != "build-script-executed":
-            continue
-        digests.update(value for key, value in message["env"] if key == "ARCHKEEL_CODE_DIGEST")
-    assert len(digests) == 1, built.stdout
+    command = [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        PACKAGE,
+        "--message-format=json",
+        *(["--features", ",".join(features)] if features else []),
+    ]
+    with tempfile.TemporaryFile("w+") as errors:
+        process = subprocess.Popen(
+            command,
+            cwd=workspace,
+            env={**os.environ, "CARGO_TARGET_DIR": str(workspace.parent / "target")},
+            stdout=subprocess.PIPE,
+            stderr=errors,
+            text=True,
+        )
+        assert process.stdout is not None
+        digests: set[str] = set()
+        for line in process.stdout:
+            if not line.startswith("{"):
+                continue
+            message = json.loads(line)
+            if (
+                message.get("reason") == "build-script-executed"
+                and PACKAGE in message["package_id"]
+            ):
+                digests.update(v for key, v in message["env"] if key == "ARCHKEEL_CODE_DIGEST")
+                break
+        process.terminate()
+        process.wait()
+        errors.seek(0)
+        assert len(digests) == 1, errors.read()
     (digest,) = digests
     assert len(digest) == 64
     return digest
