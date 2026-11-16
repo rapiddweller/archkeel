@@ -16,11 +16,12 @@ use archkeel_facts::{ImportFact, Record};
 
 use crate::builder::{import_record, Builder};
 use crate::crates::Root;
-use crate::definitions::MethodCall;
+use crate::definitions::{Form, MethodCall};
 use crate::modules::{Edge, Index, Outcome};
 use crate::names::{self, published, with_name, ImportName};
 use crate::resolve::{classify, Found, Named};
 use crate::scan::{MacroCall, MacroDef, Reference, Site, Via};
+use crate::tokens::NAME_FROM_CALL;
 use crate::tree::Module;
 
 /// The `macro_rules!` definitions of each crate, by name: the module, and the definition.
@@ -230,9 +231,27 @@ impl Builder {
 
     /// The methods that the body of a macro calls are calls of the module of the call (#953).
     fn expand_methods(&mut self, module: &Module, call: &MacroCall, def: &MacroDef) {
-        for name in &def.members {
+        // A `fn $name` takes its name from the call tokens (#1196). A macro that defines the type
+        // and its impl together adds such a name only to its own type, which no written type of
+        // a receiver proof is: only a foreign impl holds back a proof by the name (AD-383).
+        let declared = |name: &str| {
+            module.scan.definitions.iter().any(|item| {
+                item.scope.is_empty()
+                    && item.name == name
+                    && matches!(item.form, Form::Struct | Form::Enum | Form::Trait)
+            })
+        };
+        let foreign = def.item_level.foreign_impl(&def.name, declared);
+        let from_call = def.members.contains(NAME_FROM_CALL) && foreign;
+        let named = def.members.iter().filter(|name| *name != NAME_FROM_CALL);
+        let names = named.chain(call.idents.iter().filter(|_| from_call));
+        for name in names {
             let modules = self.macro_members.entry(name.clone()).or_default();
             modules.insert(module.module.clone());
+            if foreign {
+                let modules = self.macro_foreign_members.entry(name.clone()).or_default();
+                modules.insert(module.module.clone());
+            }
         }
         let calls = def.methods.iter().map(|name| MethodCall {
             name: name.clone(),

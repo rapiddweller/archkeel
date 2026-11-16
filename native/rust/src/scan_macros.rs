@@ -17,7 +17,7 @@ use crate::macro_items::item_level;
 use crate::net;
 use crate::plant;
 use crate::tokens::{
-    chains, fn_names, macro_names, method_names, names_relative, only_dollar_crate, plain,
+    chains, fn_names, idents, macro_names, method_names, names_relative, only_dollar_crate, plain,
     string_paths, writes_use, Chain, EXPRESSION_MACROS, NO_BIND_MACROS,
 };
 
@@ -170,6 +170,11 @@ pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
         fills: module_level,
         writes_use: writes_use(node.tokens.clone(), 0),
         path: node.path.segments.iter().map(|s| plain(&s.ident)).collect(),
+        idents: {
+            let mut found = BTreeSet::new();
+            idents(node.tokens.clone(), 0, &mut found);
+            found
+        },
     };
     // The tokens of a macro are not code that the scan reads: a call in them is not placed.
     let mut inner = BTreeSet::new();

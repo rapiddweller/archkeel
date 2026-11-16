@@ -190,6 +190,8 @@ pub(crate) struct MacroCall {
     pub writes_use: bool,
     /// The path of the macro as written (`dep::m` or `m`).
     pub path: Vec<String>,
+    /// Each identifier of the call tokens: a `fn $name` of the macro takes one of them (#1196).
+    pub idents: BTreeSet<String>,
 }
 
 pub(super) struct Walker<'a> {

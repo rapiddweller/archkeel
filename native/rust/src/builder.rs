@@ -80,6 +80,9 @@ pub(crate) struct Builder {
     /// (AD-383): a call on `self` of that name is not resolved, since the expansion may be a
     /// member that the scan does not see.
     pub(crate) macro_members: BTreeMap<String, BTreeSet<String>>,
+    /// The members that a macro call can add to an `impl` block outside the file of its type,
+    /// by name, with the modules of the calls: a method call gets a pair gap to each (#1196).
+    pub(crate) macro_foreign_members: BTreeMap<String, BTreeSet<String>>,
     /// The pairs that have a pair gap: one gap is enough for each pair.
     pub(crate) gapped: BTreeSet<(String, String)>,
     /// The outcomes that the edges ended, for the invariant of the extraction
