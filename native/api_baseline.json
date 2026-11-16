@@ -2456,6 +2456,7 @@
     "fn graph::edges(&self,level:Level)->&[Edge]",
     "fn graph::imports(&self)->&[Import]",
     "fn graph::incomplete(&self)->Option<Incomplete>",
+    "fn graph::language(&self)->&'static str",
     "fn graph::module_measure(&self,module:ModuleId)->Measure",
     "fn graph::modules(&self)->&Table<ModuleId,Module>",
     "fn graph::package_measure(&self,package:PackageId)->Measure",

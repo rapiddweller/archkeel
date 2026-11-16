@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "target": "es2022",
+    "module": "esnext",
+    "lib": [
+      "es2022",
+      "dom"
+    ],
+    "moduleResolution": "node"
+  },
+  "files": [
+    "../../native/report/assets/explorer/flow.js",
+    "../../native/report/assets/explorer/report-canvas.js",
+    "../../native/report/assets/explorer/report-scene.js",
+    "../../native/report/assets/explorer/report-graph-scene.js",
+    "../../native/report/assets/explorer/report-graph-protocol.js",
+    "../../native/report/assets/explorer/report-atlas-deviations.js",
+    "../../native/report/assets/explorer/report-layout.js"
+  ]
+}

@@ -335,19 +335,8 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
             } => import_block(frame, names, place, (source, target.as_deref(), evidence)),
             Kind::Cycle(cycle) => cycle_block(frame, names, place, cycle),
         };
-        if place.number <= OPEN_PLACES {
-            page.push_str(&block);
-        } else {
-            // A place after the first ones is folded under its line. The id moves to the fold, so
-            // a link to the place opens it.
-            let id = format!("id=\"x{}\"", place.number);
-            page.push_str(&format!(
-                "<details class=\"rp-fold rp-place\" {id}><summary class=\"body-sm\"><span class=\"rp-no\">{}</span> {}</summary>{}</details>",
-                place.number,
-                escape(&one_line(names, place)),
-                block.replacen(&format!(" {id}"), "", 1)
-            ));
-        }
+        // AD-606: each place is one full block, the first as the last.
+        page.push_str(&block);
     }
     for (rule, cycles) in &frame.explain.cycles {
         if cycles.total > cycles.items.len() {
@@ -370,9 +359,6 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
     page.push_str("</section>\n");
     page
 }
-
-/// The violated places that show open; the others are folded under one line.
-const OPEN_PLACES: usize = 2;
 
 /// A place as one line of text, for the list of the exceptions.
 pub(super) fn one_line(names: &Names<'_>, place: &Place) -> String {
