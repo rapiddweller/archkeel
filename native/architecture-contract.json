@@ -2184,7 +2184,8 @@
         "native.archkeel_core.sections",
         "native.archkeel_core.topology",
         "native.archkeel_core.report",
-        "native.archkeel_core.topology_projection"
+        "native.archkeel_core.topology_projection",
+        "native.archkeel_core.topology_declared"
       ],
       "responsibilities": [
         "Keep the contract and the reply of one run and answer each typed request: ingest, rules, sections, report and the topology projection (design WP6-0, AD-359)."
@@ -2451,7 +2452,8 @@
       "role": "component",
       "layer": "core",
       "packages": [
-        "native.archkeel_core.dual_run"
+        "native.archkeel_core.dual_run",
+        "native.archkeel_core.section_rows"
       ],
       "responsibilities": [
         "Turn one request into one engine frame: send the typed requests to the engine and add the frame metadata and the source locations (AD-360)."
@@ -2495,9 +2497,10 @@
         },
         {
           "component": "facts",
-          "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422).",
+          "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422), and name the request type that the self-test of a scan echoes, so that the frame schema states it (AD-600).",
           "through": [
-            "native.archkeel_facts.identity"
+            "native.archkeel_facts.identity",
+            "native.archkeel_facts.request"
           ]
         },
         {
