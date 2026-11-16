@@ -36,6 +36,11 @@ fn each_doubt_of_a_gap_goes_to_the_wider_class() {
             modules: names(modules),
         })
     };
+    let layout = |modules: &[&str]| {
+        Some(GapEffect::Layout {
+            modules: names(modules),
+        })
+    };
     let rows = [
         (gap(None, None), Class::Whole),
         (gap(Some("shop.b"), None), Class::Pair),
@@ -48,6 +53,10 @@ fn each_doubt_of_a_gap_goes_to_the_wider_class() {
         (gap(None, modules(&[])), Class::Whole),
         (gap(None, edges(&["shop.a", "shop.c"])), Class::Whole),
         (gap(None, modules(&["shop.c"])), Class::Whole),
+        (gap(None, layout(&["shop.a"])), Class::Effect),
+        (gap(None, layout(&[])), Class::Whole),
+        (gap(None, layout(&["shop.c"])), Class::Whole),
+        (gap(Some("shop.b"), layout(&["shop.a"])), Class::Whole),
         (gap(Some("shop.b"), edges(&["shop.a"])), Class::Whole),
         (
             gap(Some("shop.b"), Some(GapEffect::EveryModule)),

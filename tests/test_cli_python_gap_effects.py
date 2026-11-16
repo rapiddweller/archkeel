@@ -132,8 +132,12 @@ PLANTS = {
         },
         files_pass(**{"CLIENT-NO-SECRET": "FAIL"}),
     ),
-    # The twin: a gap that states no effect holds each rule.
-    "no effect": Plant({"src/app/service/model.py": "import app.service.missing\n"}, {}),
+    # An import of a project module that the scan does not find can load a file that the scan
+    # does not see: the code of every module is unknown, the files are known.
+    "not found": Plant({"src/app/service/model.py": "import app.service.missing\n"}, files_pass()),
+    # The twin: a gap that states no effect (a module that Python imports and the scan cannot
+    # read) holds each rule, also the rules on the files.
+    "no effect": Plant({"src/app/service/window.pyw": "import app.client\n"}, {}),
 }
 
 

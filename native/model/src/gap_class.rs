@@ -46,7 +46,9 @@ fn class(data: &GapData, is_module: &impl Fn(&str) -> bool) -> Class {
         return if pair { Class::Pair } else { Class::Whole };
     };
     let named = match effect {
-        GapEffect::Edges { sources: names } | GapEffect::Modules { modules: names } => {
+        GapEffect::Edges { sources: names }
+        | GapEffect::Modules { modules: names }
+        | GapEffect::Layout { modules: names } => {
             !names.is_empty() && names.iter().all(|name| is_module(name.as_str()))
         }
         GapEffect::EveryModule => true,
@@ -90,6 +92,8 @@ pub enum Doubt {
     Code(String),
     /// The code of every module.
     EveryModule,
+    /// The file and the place in the layout of this module.
+    Layout(String),
 }
 
 impl Doubt {
@@ -99,6 +103,7 @@ impl Doubt {
             Doubt::Edges(module) => format!("edges: {module}"),
             Doubt::Code(module) => format!("modules: {module}"),
             Doubt::EveryModule => "every_module".to_owned(),
+            Doubt::Layout(module) => format!("layout: {module}"),
         }
     }
 }
@@ -109,6 +114,7 @@ impl fmt::Display for Doubt {
             Doubt::Edges(module) => write!(formatter, "the import edges of {module}"),
             Doubt::Code(module) => write!(formatter, "the code of {module}"),
             Doubt::EveryModule => formatter.write_str("the code of every module"),
+            Doubt::Layout(module) => write!(formatter, "the file and the layout of {module}"),
         }
     }
 }
@@ -140,7 +146,8 @@ impl Scoped {
         (!ids.is_empty()).then_some(Scoped { ids, doubts })
     }
 
-    /// `{count} gaps leave unknown what the rule reads: ...` with at most `limit` doubts, and
+    /// `{count} gaps leave unknown what the rule reads: ...` (`1 gap leaves` for one) with at most
+    /// `limit` doubts, and
     /// the number of the doubts that it does not show.
     pub(crate) fn write(&self, formatter: &mut fmt::Formatter<'_>, limit: usize) -> fmt::Result {
         let shown: Vec<String> = self
@@ -149,10 +156,13 @@ impl Scoped {
             .take(limit)
             .map(Doubt::to_string)
             .collect();
+        let count = match self.ids.len() {
+            1 => "1 gap leaves".to_owned(),
+            many => format!("{many} gaps leave"),
+        };
         write!(
             formatter,
-            "{} gaps leave unknown what the rule reads: {}",
-            self.ids.len(),
+            "{count} unknown what the rule reads: {}",
             shown.join(", ")
         )?;
         match self.doubts.len() - shown.len() {

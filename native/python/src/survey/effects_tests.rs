@@ -30,8 +30,8 @@ fn each_kind_of_site_states_its_effect_and_an_unnamed_kind_states_none() {
         (hazards::IMPORT_SYSTEM, Some(GapEffect::EveryModule)),
         (STAR, code_of(CLIENT)),
         (AMBIGUOUS, code_of(CLIENT)),
-        (BEYOND_TOP, None),
-        (NOT_FOUND, None),
+        (BEYOND_TOP, Some(GapEffect::EveryModule)),
+        (NOT_FOUND, Some(GapEffect::EveryModule)),
         (hazards::LITERAL, None),
         (syspath::PATH_WRITE, None),
         (layout::OUTSIDE_LAYOUT, None),
@@ -85,8 +85,8 @@ fn the_gap_of_each_site_of_a_survey_carries_the_effect_of_its_kind() {
             AMBIGUOUS,
             &code_of(CLIENT),
         ),
-        ("import app.missing\n", "", NOT_FOUND, &None),
-        ("from ... import other\n", "", BEYOND_TOP, &None),
+        ("import app.missing\n", "", NOT_FOUND, &every),
+        ("from ... import other\n", "", BEYOND_TOP, &every),
     ] {
         let found = effects(source, init);
         let of_kind: Vec<_> = found

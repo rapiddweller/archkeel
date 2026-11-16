@@ -17,15 +17,27 @@ use crate::{Graph, Model, Producer, Settings};
 
 const ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
 
-const NONE: ReadSet = ReadSet::NONE;
+const NONE: ReadSet = ReadSet {
+    edges: false,
+    code: false,
+    layout: false,
+};
 const BOTH: ReadSet = ReadSet::BOTH;
 const EDGES: ReadSet = ReadSet {
     edges: true,
     code: false,
+    layout: false,
 };
 const CODE: ReadSet = ReadSet {
     edges: false,
     code: true,
+    layout: false,
+};
+/// The file and the place in the layout of the module: only a layout effect leaves it unknown.
+const LAYOUT: ReadSet = ReadSet {
+    edges: false,
+    code: false,
+    layout: true,
 };
 
 fn contract() -> Result<Contract, Box<dyn std::error::Error>> {
@@ -84,8 +96,9 @@ const LOOSE: &str = "shop.loose";
 
 /// What each rule reads of some module, of `APP`, of `STORE` and of `LOOSE`.
 const ROWS: [(&str, [ReadSet; 4]); 22] = [
-    ("ROOT-LAYOUT", [NONE; 4]),
-    ("ASSIGNMENT-COMPLETE", [NONE; 4]),
+    // The root and the source are `shop`: each module below it.
+    ("ROOT-LAYOUT", [LAYOUT; 4]),
+    ("ASSIGNMENT-COMPLETE", [LAYOUT; 4]),
     ("LAYERS-MODEL", [NONE; 4]),
     ("DEP-APP-ALLOWS-STORE", [NONE; 4]),
     // The sources are the modules of `app`, and a module without an owner.
@@ -136,6 +149,11 @@ fn each_rule_kind_reads_the_facts_that_its_row_states() -> Result<(), Box<dyn st
     assert_eq!(reads(&model, plain, Some("other.loose")), NONE);
     let complete = rule("EXTERNAL-COMPLETE").ok_or("EXTERNAL-COMPLETE")?;
     assert_eq!(reads(&model, complete, Some("other.loose")), NONE);
+    // A module outside the root and the source is no file that the layout rules read.
+    for id in ["ROOT-LAYOUT", "ASSIGNMENT-COMPLETE"] {
+        let layout = rule(id).ok_or(id)?;
+        assert_eq!(reads(&model, layout, Some("other.loose")), NONE, "{id}");
+    }
     // An exact allowed source of a forbidden dependency is no source.
     let sqlite = rule("DEP-APP-NO-STORE-SQLITE").ok_or("DEP-APP-NO-STORE-SQLITE")?;
     assert_eq!(reads(&model, sqlite, Some("shop.app.maintenance")), NONE);

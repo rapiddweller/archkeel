@@ -28,20 +28,35 @@ struct ReadSet {
     edges: bool,
     /// The code of the module: its members, its positions and its constructs.
     code: bool,
+    /// The file of the module and its place in the layout (`L`).
+    layout: bool,
 }
 
 impl ReadSet {
-    const NONE: ReadSet = ReadSet {
-        edges: false,
-        code: false,
-    };
     const BOTH: ReadSet = ReadSet {
         edges: true,
         code: true,
+        layout: false,
+    };
+    /// Each fact of each module: the run reads all of them.
+    const ALL: ReadSet = ReadSet {
+        edges: true,
+        code: true,
+        layout: true,
     };
 
     fn edges(edges: bool) -> ReadSet {
-        ReadSet { edges, code: false }
+        ReadSet {
+            edges,
+            ..ReadSet::default()
+        }
+    }
+
+    fn layout(layout: bool) -> ReadSet {
+        ReadSet {
+            layout,
+            ..ReadSet::default()
+        }
     }
 
     fn any(self) -> bool {
@@ -56,7 +71,7 @@ pub(crate) fn held(model: &Model, rule: &Rule) -> Option<Scoped> {
 
 /// Each gap with an effect: with one, the scope of the whole run is not complete.
 pub(crate) fn every(model: &Model) -> Option<Scoped> {
-    scoped(model, |_| ReadSet::BOTH)
+    scoped(model, |_| ReadSet::ALL)
 }
 
 fn scoped(model: &Model, reads: impl Fn(Option<&str>) -> ReadSet) -> Option<Scoped> {
@@ -89,6 +104,12 @@ fn met(effect: &GapEffect, reads: &impl Fn(Option<&str>) -> ReadSet) -> Vec<Doub
             .collect(),
         GapEffect::EveryModule if reads(None).any() => vec![Doubt::EveryModule],
         GapEffect::EveryModule => Vec::new(),
+        GapEffect::Layout { modules } => modules
+            .iter()
+            .map(|name| name.as_str())
+            .filter(|module| reads(Some(module)).layout)
+            .map(|module| Doubt::Layout(module.to_owned()))
+            .collect(),
     }
 }
 
@@ -110,12 +131,16 @@ fn reads(model: &Model, rule: &Rule, module: Option<&str>) -> ReadSet {
     // one component claims has no owner, but it counts here (the wider reading).
     let owned = on(&claimed);
     match rule {
-        // The files and their module names, the components and the contract: each effect
-        // leaves them known.
-        Rule::RootLayout(_)
-        | Rule::CompleteAssignment(_)
-        | Rule::LayerOrder(_)
-        | Rule::AllowedDependency(_) => ReadSet::NONE,
+        // The files and their module names below the root or the source (`layout::check`,
+        // `assignment::check`): only a layout effect leaves them unknown.
+        Rule::RootLayout(rule) => ReadSet::layout(on(&|name| {
+            model.selects(name) && in_scope(name, rule.root().as_text())
+        })),
+        Rule::CompleteAssignment(rule) => ReadSet::layout(on(&|name| {
+            model.selects(name) && in_scope(name, rule.source().as_text())
+        })),
+        // The components and the contract: each effect leaves them known.
+        Rule::LayerOrder(_) | Rule::AllowedDependency(_) => ReadSet::default(),
         // The external imports of each module that the rule does not exempt.
         Rule::ExternalDependencyScope(rule) => ReadSet::edges(on(&|name| {
             let exact = rule.exact_sources().iter().any(|e| e.as_text() == name);
@@ -139,6 +164,7 @@ fn reads(model: &Model, rule: &Rule, module: Option<&str>) -> ReadSet {
                     model.selects(name) && (sources.matches(name) || unowned(name)) && !exempt(name)
                 }),
                 code: rule.target_symbol().is_some(),
+                layout: false,
             }
         }
         Rule::SiblingIsolation(rule) => ReadSet::edges(on(&|name| {
@@ -149,11 +175,13 @@ fn reads(model: &Model, rule: &Rule, module: Option<&str>) -> ReadSet {
         Rule::CompleteRequires(_) => ReadSet {
             edges: owned,
             code: owned,
+            layout: false,
         },
         // A publication route can go through any module.
         Rule::InterfaceBoundary(_) => ReadSet {
             edges: owned,
             code: true,
+            layout: false,
         },
         // A module cycle can close through any module.
         Rule::NoComponentCycles(rule) => {
@@ -167,6 +195,7 @@ fn reads(model: &Model, rule: &Rule, module: Option<&str>) -> ReadSet {
             ReadSet {
                 edges: read,
                 code: read,
+                layout: false,
             }
         }
         // AD-550 reads the written types of each module, and a type name through its imports.
