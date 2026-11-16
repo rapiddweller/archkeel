@@ -31,28 +31,13 @@ use ruff_python_ast::{
     Expr, ExprAttribute, ExprCall, ExprContext, Parameter, Stmt, StmtClassDef, StmtFunctionDef,
 };
 
+use super::kind::BUILTIN_BASES;
 use crate::module::Module;
 use crate::survey::binders::Binders;
 use crate::survey::bound::Bound;
 
 /// The methods whose first parameter is not an instance of the class.
 const NOT_INSTANCE: [&str; 3] = ["__init_subclass__", "__class_getitem__", "__new__"];
-
-/// The builtin bases that make a class no metaclass (as the kind reader accepts them).
-const PLAIN_BASES: [&str; 12] = [
-    "object",
-    "Exception",
-    "BaseException",
-    "ValueError",
-    "TypeError",
-    "RuntimeError",
-    "KeyError",
-    "dict",
-    "list",
-    "tuple",
-    "str",
-    "int",
-];
 
 /// What the visitor finds in a module.
 #[derive(Default)]
@@ -194,7 +179,7 @@ impl Walk<'_> {
                 Expr::Name(name) => {
                     let name = name.id.as_str();
                     self.plain.contains(name)
-                        || (PLAIN_BASES.contains(&name) && self.binders.builtin_visible(name))
+                        || (BUILTIN_BASES.contains(&name) && self.binders.builtin_visible(name))
                 }
                 _ => false,
             })

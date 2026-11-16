@@ -25,8 +25,9 @@ pub(super) enum Kind {
     Enum,
 }
 
-/// The builtin classes that give a class no other kind and no namespace.
-const BUILTIN_BASES: [&str; 12] = [
+/// The builtin classes that give a class no other kind, no namespace and no metaclass (as the kind
+/// reader accepts them; `escapes` reads the same set).
+pub(super) const BUILTIN_BASES: [&str; 12] = [
     "object",
     "Exception",
     "BaseException",
