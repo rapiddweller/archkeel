@@ -41,6 +41,8 @@ pub struct Graph {
     gaps: Vec<crate::gaps::CoverageGap>,
     settings: Settings,
     imports: Vec<Import>,
+    /// Each name that a record of the reply binds under another name (AD-668).
+    renamed: std::collections::HashSet<String>,
     module_edges: Vec<Edge>,
     package_edges: Vec<Edge>,
     module_measures: Vec<Measure>,
@@ -126,6 +128,7 @@ impl Graph {
             gaps,
             settings,
             imports: split.imports,
+            renamed: split.renamed,
             module_edges,
             package_edges,
             module_measures: module_measured.measures,
@@ -179,6 +182,12 @@ impl Graph {
     /// The resolved imports that are not macro bodies, in the order of the reply.
     pub fn imports(&self) -> &[Import] {
         &self.imports
+    }
+
+    /// Whether a record of the reply binds `symbol` under another name (`use a::Profile as Lang`,
+    /// AD-668). Only such a record can give the item a second name; a glob keeps the name.
+    pub(crate) fn renamed(&self, symbol: &str) -> bool {
+        self.renamed.contains(symbol)
     }
 
     /// The edges of one level, in the order of their (source, target) pairs.

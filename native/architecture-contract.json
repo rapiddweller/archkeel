@@ -7506,6 +7506,95 @@
         "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_store",
+      "target": "native",
+      "target_symbol": "Profile",
+      "include_type_checking": true,
+      "rationale": "Cut A: `store` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "provenance": [
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NEUTRAL-MODEL-NO-PROFILE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_model",
+      "target": "native",
+      "target_symbol": "Profile",
+      "include_type_checking": true,
+      "rationale": "Cut A: `model` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "provenance": [
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NEUTRAL-EVAL-NO-PROFILE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_eval",
+      "target": "native",
+      "target_symbol": "Profile",
+      "include_type_checking": true,
+      "rationale": "Cut A: `eval` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "provenance": [
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NEUTRAL-REPORT-NO-PROFILE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_report",
+      "target": "native",
+      "target_symbol": "Profile",
+      "include_type_checking": true,
+      "rationale": "Cut A: `report` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "provenance": [
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NEUTRAL-CORE-NO-PROFILE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_core",
+      "target": "native",
+      "target_symbol": "Profile",
+      "include_type_checking": true,
+      "rationale": "Cut A: `core` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
+      "provenance": [
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NEUTRAL-STORE-NO-PYTHON-MODULE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_store",
+      "target": "native.archkeel_store.python",
+      "include_type_checking": true,
+      "rationale": "Cut A: `store` names no language. The module `store.python` holds rules of one language; they belong to its collector, which states them in its reply (AD-668).",
+      "provenance": [
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "NATIVE-NEUTRAL-STORE-NO-DART-MODULE",
+      "kind": "forbidden_dependency",
+      "source": "native.archkeel_store",
+      "target": "native.archkeel_store.dart",
+      "include_type_checking": true,
+      "rationale": "Cut A: `store` names no language. The module `store.dart` holds rules of one language; they belong to its collector, which states them in its reply (AD-668).",
+      "provenance": [
+        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
+      ],
+      "decided_by": "architect"
     }
   ]
 }

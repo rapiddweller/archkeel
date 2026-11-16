@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from core_support import run
+from core_support import pinned_self_status, run
 from corpus_support import commit_tree
 from frozen_native import frozen_root as frozen_root
 from rust_repository import CRATE_RULES, GRAPH_PAGE, component, repository, rule
@@ -470,7 +470,7 @@ def test_native_static_page_stays_below_the_review_size_budget(
         "--output",
         str(target),
     )
-    assert code == 0 and found["status"] == "PASS", found
+    assert (code, found["status"]) == pinned_self_status(), found
     # AD-606: the Explorer scripts and style are about 2.1 MB of the page.
     assert target.stat().st_size < 3_500_000
 

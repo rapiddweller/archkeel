@@ -44,7 +44,7 @@ pub(crate) fn named(
     via: &Via,
 ) -> ImportName {
     if matches!(via, Via::Glob { .. }) {
-        return ImportName::glob();
+        return glob_of(item(index, &edge.lexical, edge.symbol.as_deref()));
     }
     // A member of an `impl` block: the type in the module of the block, and its publications.
     if let Some((at, ty)) = &edge.member_of {
@@ -59,6 +59,16 @@ pub(crate) fn named(
         };
     }
     item(index, &edge.lexical, edge.symbol.as_deref())
+}
+
+/// What a glob names (AD-668): a glob of an item (`use E::*`, the variants of an enum) names that
+/// item, as the path names it; a glob of a module takes names that the scan does not list (`*`).
+pub(crate) fn glob_of(name: ImportName) -> ImportName {
+    if name.symbol.is_some() {
+        name
+    } else {
+        ImportName::glob()
+    }
 }
 
 /// The item that a path names after the module `lexical`, and its route; `None` for a module.
