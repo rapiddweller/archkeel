@@ -38,13 +38,15 @@ from .core_frame import (
 from .core_help import help_for
 from .core_json import Gap, RequestMismatch
 from .core_output import write_output
-from .core_text import header, refusal, render
-from .core_words import FIXES, plain
+from .core_text import header, refusal, render, summary
+from .core_words import fix_for, plain
 from .init_draft import CONFIG, CONTRACT, DOCUMENT, PROVENANCE, write_draft
 from .native_scan import SCAN_PROTOCOL, exchange, identity
 
 
 def _wants_json(argv: Sequence[str]) -> bool:
+    if "--summary" in argv:
+        return False
     return "--json" in argv or (not sys.stdout.isatty() and "--text" not in argv)
 
 
@@ -234,8 +236,12 @@ def _print_text(
         detail = f"; {target}" if isinstance(target, str) else ""
         print(f"{header(options.command, frame, code)}; report written to {options.output}{detail}")
     elif collected is not None:
-        fix = FIXES[RefusalKind.COLLECTION_REFUSED]
-        print("\n".join(refusal(options.command, code, plain(collected.reason, *typed), fix)))
+        message = plain(collected.reason, *typed)
+        fix = fix_for(RefusalKind.COLLECTION_REFUSED, message)
+        print("\n".join(refusal(options.command, code, message, fix)))
+    elif options.summary:
+        files = _contract_files(document)
+        print("\n".join(summary(options.command, frame, code, files, problems)))
     else:
         system = document.get("system")
         lines = render(
@@ -378,5 +384,5 @@ def _refused(command: Command | None, kind: RefusalKind, message: str, as_json: 
             )
         )
     else:
-        print("\n".join(refusal(command, 2, plain(message), FIXES.get(kind))))
+        print("\n".join(refusal(command, 2, plain(message), fix_for(kind, plain(message)))))
     return 2

@@ -51,10 +51,11 @@
       ],
       "requires": [],
       "public": [
-        "archkeel.cli.core_words:FIXES",
         "archkeel.cli.core_words:kind_label",
         "archkeel.cli.core_words:plain",
-        "archkeel.cli.core_words:contract_fix"
+        "archkeel.cli.core_words:contract_fix",
+        "archkeel.cli.core_words:fix_for",
+        "archkeel.cli.core_words:CAUSE_FIXES"
       ],
       "decided_by": "architect"
     },
@@ -136,7 +137,8 @@
       "public": [
         "archkeel.cli.core_text:header",
         "archkeel.cli.core_text:refusal",
-        "archkeel.cli.core_text:render"
+        "archkeel.cli.core_text:render",
+        "archkeel.cli.core_text:summary"
       ],
       "decided_by": "architect"
     },
@@ -495,7 +497,8 @@
         "archkeel.cli.core_baseline:BaselineResult",
         "archkeel.cli.core_baseline:read_baseline",
         "archkeel.cli.core_baseline:as_json",
-        "archkeel.cli.core_baseline:lines"
+        "archkeel.cli.core_baseline:lines",
+        "archkeel.cli.core_baseline:BaselineState"
       ]
     },
     {
