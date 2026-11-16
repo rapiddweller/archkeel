@@ -130,16 +130,19 @@
       "label": "model",
       "role": "component",
       "layer": "model",
-      "packages": [
-        "native.archkeel_model"
+      "packages": [],
+      "exact_modules": [
+        "native.archkeel_model",
+        "native.archkeel_model.cargo_toml"
       ],
       "responsibilities": [
-        "Derive the typed model of one run from the contract and the validated reply: ids, tables, components, and slice by slice the modules, packages, edges, cycles and the scope proof (AD-363)."
+        "Publish the model to the evaluator, the report and the core through one root, and hold the manifest of the crate (AD-363)."
       ],
       "forbidden_responsibilities": [
-        "Reading a file, parsing source, naming a language, and making a PASS without the scope proof."
+        "Holding a derivation, a matcher or a proof."
       ],
       "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
         "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md"
       ],
       "requires": [
@@ -154,6 +157,371 @@
         {
           "component": "facts",
           "rationale": "Read the records of the reply through the typed facts, the one read path of the model (AD-363 amendment)."
+        },
+        {
+          "component": "model-terms",
+          "rationale": "Name an id, a section, a coverage fact or the reason that a part has no result."
+        },
+        {
+          "component": "model-graph",
+          "rationale": "Read the modules, owners, imports, edges and symbols of the reply."
+        },
+        {
+          "component": "model-selection",
+          "rationale": "Read what a rule selects: its sides, subjects, limits, roots and pair gaps."
+        },
+        {
+          "component": "model-run",
+          "rationale": "Read the model of the run or of a mount of its contract tree."
+        },
+        {
+          "component": "model-match",
+          "rationale": "Ask a matcher what the facts say for one rule."
+        },
+        {
+          "component": "model-proof",
+          "rationale": "Take the scope proof, a receipt or the verdict that only the proof gives (AD-363)."
+        },
+        {
+          "component": "model-uml",
+          "rationale": "Publish the comparison of a UML target (AD-494)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-MODEL-TERMS",
+      "label": "model-terms",
+      "role": "component",
+      "layer": "model",
+      "packages": [
+        "native.archkeel_model.ids",
+        "native.archkeel_model.section",
+        "native.archkeel_model.causes",
+        "native.archkeel_model.coverage",
+        "native.archkeel_model.reason",
+        "native.archkeel_model.reason_key",
+        "native.archkeel_model.brand",
+        "native.archkeel_model.needs"
+      ],
+      "responsibilities": [
+        "Name the ids, the sections, the coverage facts of the reply and the reasons why a part of a run has no result."
+      ],
+      "forbidden_responsibilities": [
+        "Deriving a graph, selecting the side of a rule and deciding a verdict."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md"
+      ],
+      "requires": [
+        {
+          "component": "contract",
+          "rationale": "Name the rule kind in a reason (AD-359)."
+        },
+        {
+          "component": "facts",
+          "rationale": "Read the coverage and the gap facts of the reply through the typed facts (AD-363 amendment)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-MODEL-GRAPH",
+      "label": "model-graph",
+      "role": "component",
+      "layer": "model",
+      "packages": [
+        "native.archkeel_model.modules",
+        "native.archkeel_model.ownership",
+        "native.archkeel_model.settings",
+        "native.archkeel_model.imports",
+        "native.archkeel_model.edges",
+        "native.archkeel_model.condensation",
+        "native.archkeel_model.topology",
+        "native.archkeel_model.cycles",
+        "native.archkeel_model.gaps",
+        "native.archkeel_model.observed",
+        "native.archkeel_model.measures",
+        "native.archkeel_model.constructs",
+        "native.archkeel_model.symbols",
+        "native.archkeel_model.symbol_table",
+        "native.archkeel_model.symbol_sites",
+        "native.archkeel_model.symbol_values",
+        "native.archkeel_model.boundary_facts",
+        "native.archkeel_model.graph"
+      ],
+      "responsibilities": [
+        "Derive what the reply and the settings give without a rule: the modules, owners, imports, edges, ranks, cycles, measures, constructs and symbols (slices S1 to S3)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading a rule of the contract and proving a scope."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md"
+      ],
+      "requires": [
+        {
+          "component": "contract",
+          "rationale": "Read the typed components and rules of the parsed contract (AD-359)."
+        },
+        {
+          "component": "store",
+          "rationale": "Read the records of the validated reply in their typed form (AD-359)."
+        },
+        {
+          "component": "facts",
+          "rationale": "Read the records of the reply through the typed facts, the one read path of the model (AD-363 amendment)."
+        },
+        {
+          "component": "model-terms",
+          "rationale": "Name an id, a section, a coverage fact or the reason that a part has no result."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-MODEL-SELECTION",
+      "label": "model-selection",
+      "role": "component",
+      "layer": "model",
+      "packages": [
+        "native.archkeel_model.selection",
+        "native.archkeel_model.sides",
+        "native.archkeel_model.subjects",
+        "native.archkeel_model.limits",
+        "native.archkeel_model.roots",
+        "native.archkeel_model.domain",
+        "native.archkeel_model.pair_gaps",
+        "native.archkeel_model.dropped_gaps"
+      ],
+      "responsibilities": [
+        "Say what each rule reads: its sides, subjects, profile limits, scan roots, domain and pair gaps (slices S4, S5 and S7)."
+      ],
+      "forbidden_responsibilities": [
+        "Matching an import with a rule and deciding a verdict."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md"
+      ],
+      "requires": [
+        {
+          "component": "contract",
+          "rationale": "Read the typed components and rules of the parsed contract (AD-359)."
+        },
+        {
+          "component": "facts",
+          "rationale": "Read the records of the reply through the typed facts, the one read path of the model (AD-363 amendment)."
+        },
+        {
+          "component": "model-terms",
+          "rationale": "Name an id, a section, a coverage fact or the reason that a part has no result."
+        },
+        {
+          "component": "model-graph",
+          "rationale": "Read the modules, owners, imports, edges and symbols of the reply."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-MODEL-RUN",
+      "label": "model-run",
+      "role": "component",
+      "layer": "model",
+      "packages": [
+        "native.archkeel_model.model",
+        "native.archkeel_model.proof",
+        "native.archkeel_model.tree"
+      ],
+      "responsibilities": [
+        "Build the model of one run and of each mount of its contract tree, with the facts behind the scope proof (AD-363, AD-378, AD-385)."
+      ],
+      "forbidden_responsibilities": [
+        "Matching an import with a rule and making a PASS."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md"
+      ],
+      "requires": [
+        {
+          "component": "contract",
+          "rationale": "Read the typed components and rules of the parsed contract (AD-359)."
+        },
+        {
+          "component": "store",
+          "rationale": "Read the records of the validated reply in their typed form (AD-359)."
+        },
+        {
+          "component": "model-terms",
+          "rationale": "Name an id, a section, a coverage fact or the reason that a part has no result."
+        },
+        {
+          "component": "model-graph",
+          "rationale": "Read the modules, owners, imports, edges and symbols of the reply."
+        },
+        {
+          "component": "model-selection",
+          "rationale": "Read what a rule selects: its sides, subjects, limits, roots and pair gaps."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-MODEL-MATCH",
+      "label": "model-match",
+      "role": "component",
+      "layer": "model",
+      "packages": [
+        "native.archkeel_model.direction",
+        "native.archkeel_model.interface",
+        "native.archkeel_model.construct_match",
+        "native.archkeel_model.component_cycles",
+        "native.archkeel_model.closed_path",
+        "native.archkeel_model.boundary_judge",
+        "native.archkeel_model.boundary_positions",
+        "native.archkeel_model.boundary_surface",
+        "native.archkeel_model.facade_reach"
+      ],
+      "responsibilities": [
+        "Match the facts of the model with one rule: the direction kinds, the interface, the constructs, the boundary types and the component cycles (AD-380, AD-408, AD-428, AD-550)."
+      ],
+      "forbidden_responsibilities": [
+        "Writing a violation and making a PASS."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md"
+      ],
+      "requires": [
+        {
+          "component": "contract",
+          "rationale": "Read the typed components and rules of the parsed contract (AD-359)."
+        },
+        {
+          "component": "facts",
+          "rationale": "Read the records of the reply through the typed facts, the one read path of the model (AD-363 amendment)."
+        },
+        {
+          "component": "model-terms",
+          "rationale": "Name an id, a section, a coverage fact or the reason that a part has no result."
+        },
+        {
+          "component": "model-graph",
+          "rationale": "Read the modules, owners, imports, edges and symbols of the reply."
+        },
+        {
+          "component": "model-selection",
+          "rationale": "Read what a rule selects: its sides, subjects, limits, roots and pair gaps."
+        },
+        {
+          "component": "model-run",
+          "rationale": "Read the model of the run or of a mount of its contract tree."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-MODEL-PROOF",
+      "label": "model-proof",
+      "role": "component",
+      "layer": "model",
+      "packages": [
+        "native.archkeel_model.scope",
+        "native.archkeel_model.verdict",
+        "native.archkeel_model.receipts",
+        "native.archkeel_model.run"
+      ],
+      "responsibilities": [
+        "Prove that a rule and a run saw their whole scope, and make the only PASS: the scope, the receipts, the verdict and the run proof (AD-363, AD-378, AD-384)."
+      ],
+      "forbidden_responsibilities": [
+        "Writing a violation and reading a record of the reply that the model did not derive."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md"
+      ],
+      "requires": [
+        {
+          "component": "contract",
+          "rationale": "Read the typed components and rules of the parsed contract (AD-359)."
+        },
+        {
+          "component": "facts",
+          "rationale": "Read the records of the reply through the typed facts, the one read path of the model (AD-363 amendment)."
+        },
+        {
+          "component": "model-terms",
+          "rationale": "Name an id, a section, a coverage fact or the reason that a part has no result."
+        },
+        {
+          "component": "model-graph",
+          "rationale": "Read the modules, owners, imports, edges and symbols of the reply."
+        },
+        {
+          "component": "model-selection",
+          "rationale": "Read what a rule selects: its sides, subjects, limits, roots and pair gaps."
+        },
+        {
+          "component": "model-run",
+          "rationale": "Read the model of the run or of a mount of its contract tree."
+        },
+        {
+          "component": "model-match",
+          "rationale": "Ask a matcher what the facts say for one rule."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-MODEL-UML",
+      "label": "model-uml",
+      "role": "component",
+      "layer": "model",
+      "packages": [
+        "native.archkeel_model.uml",
+        "native.archkeel_model.uml_declared",
+        "native.archkeel_model.uml_details",
+        "native.archkeel_model.uml_facts",
+        "native.archkeel_model.uml_scope",
+        "native.archkeel_model.uml_scope_symbols",
+        "native.archkeel_model.uml_symbols",
+        "native.archkeel_model.uml_tree"
+      ],
+      "responsibilities": [
+        "Compare a UML target with the facts of the model (AD-494, AD-512, AD-526)."
+      ],
+      "forbidden_responsibilities": [
+        "Deciding a rule of the contract."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md"
+      ],
+      "requires": [
+        {
+          "component": "contract",
+          "rationale": "Read the typed components and rules of the parsed contract (AD-359)."
+        },
+        {
+          "component": "model-terms",
+          "rationale": "Name an id, a section, a coverage fact or the reason that a part has no result."
+        },
+        {
+          "component": "model-graph",
+          "rationale": "Read the modules, owners, imports, edges and symbols of the reply."
+        },
+        {
+          "component": "model-run",
+          "rationale": "Read the model of the run or of a mount of its contract tree."
+        },
+        {
+          "component": "model-proof",
+          "rationale": "Take the scope proof, a receipt or the verdict that only the proof gives (AD-363)."
         }
       ],
       "decided_by": "architect"
@@ -163,16 +531,19 @@
       "label": "eval",
       "role": "component",
       "layer": "evaluation",
-      "packages": [
-        "native.archkeel_eval"
+      "packages": [],
+      "exact_modules": [
+        "native.archkeel_eval",
+        "native.archkeel_eval.cargo_toml"
       ],
       "responsibilities": [
-        "Decide each rule of the contract over the model: one outcome with a decision and its violations per rule, and a named reason for each rule kind that no slice ports (AD-363, AD-370)."
+        "Publish the evaluator to the report and the core through one root: one outcome for each rule of the contract, and the manifest of the crate (AD-363, AD-370)."
       ],
       "forbidden_responsibilities": [
-        "Reading a file, naming a language, deriving the model, and making a PASS without the scope proof."
+        "Holding the violations of a rule kind."
       ],
       "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
         "docs/architecture/decisions/ad-370-the-core-decides-the-rule-kinds-of-modules-and-ownership.md"
       ],
       "requires": [
@@ -187,6 +558,155 @@
         {
           "component": "facts",
           "rationale": "Give a violation the record id of Python with the one stable_id of the typed facts (AD-370)."
+        },
+        {
+          "component": "model-run",
+          "rationale": "Call the methods of the model and of its contract tree (#953: a method of another module is a use of that module)."
+        },
+        {
+          "component": "model-proof",
+          "rationale": "Call the methods of the scope, the verdict and the run proof (#953: a method of another module is a use of that module)."
+        },
+        {
+          "component": "eval-violation",
+          "rationale": "Write a violation of the rule."
+        },
+        {
+          "component": "eval-rules",
+          "rationale": "Publish the rule families of the evaluator."
+        },
+        {
+          "component": "eval-decide",
+          "rationale": "Publish the status fold of one rule."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-EVAL-VIOLATION",
+      "label": "eval-violation",
+      "role": "component",
+      "layer": "evaluation",
+      "packages": [
+        "native.archkeel_eval.violation"
+      ],
+      "responsibilities": [
+        "Write each violation with the record id of the reference engine (AD-370)."
+      ],
+      "forbidden_responsibilities": [
+        "Deciding the status of a rule."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-370-the-core-decides-the-rule-kinds-of-modules-and-ownership.md"
+      ],
+      "requires": [
+        {
+          "component": "model",
+          "rationale": "Read the modules, packages, owners and the scope proof of the run (AD-363)."
+        },
+        {
+          "component": "contract",
+          "rationale": "Read the typed rules of the parsed contract (AD-359)."
+        },
+        {
+          "component": "facts",
+          "rationale": "Give a violation the record id of Python with the one stable_id of the typed facts (AD-370)."
+        },
+        {
+          "component": "model-graph",
+          "rationale": "Call the methods of the modules, the imports and the graph of the model (#953: a method of another module is a use of that module)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-EVAL-RULES",
+      "label": "eval-rules",
+      "role": "component",
+      "layer": "evaluation",
+      "packages": [
+        "native.archkeel_eval.assignment",
+        "native.archkeel_eval.boundary_types",
+        "native.archkeel_eval.constructs",
+        "native.archkeel_eval.cycles",
+        "native.archkeel_eval.direction",
+        "native.archkeel_eval.external",
+        "native.archkeel_eval.interface",
+        "native.archkeel_eval.layout"
+      ],
+      "responsibilities": [
+        "Turn what the model matched into the violations of each rule kind: assignment, layout, external scope, direction, cycles, interface, boundary types and constructs (AD-370, AD-372, AD-380, AD-384)."
+      ],
+      "forbidden_responsibilities": [
+        "Matching an import again and making a PASS."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-370-the-core-decides-the-rule-kinds-of-modules-and-ownership.md"
+      ],
+      "requires": [
+        {
+          "component": "model",
+          "rationale": "Read the modules, packages, owners and the scope proof of the run (AD-363)."
+        },
+        {
+          "component": "contract",
+          "rationale": "Read the typed rules of the parsed contract (AD-359)."
+        },
+        {
+          "component": "facts",
+          "rationale": "Give a violation the record id of Python with the one stable_id of the typed facts (AD-370)."
+        },
+        {
+          "component": "model-graph",
+          "rationale": "Call the methods of the modules, the imports and the graph of the model (#953: a method of another module is a use of that module)."
+        },
+        {
+          "component": "model-run",
+          "rationale": "Call the methods of the model and of its contract tree (#953: a method of another module is a use of that module)."
+        },
+        {
+          "component": "eval-violation",
+          "rationale": "Write a violation of the rule."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-EVAL-DECIDE",
+      "label": "eval-decide",
+      "role": "component",
+      "layer": "evaluation",
+      "packages": [
+        "native.archkeel_eval.decide"
+      ],
+      "responsibilities": [
+        "Fold the violations and the scope proof of one rule into its decision (AD-363)."
+      ],
+      "forbidden_responsibilities": [
+        "Finding a violation."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-370-the-core-decides-the-rule-kinds-of-modules-and-ownership.md"
+      ],
+      "requires": [
+        {
+          "component": "model",
+          "rationale": "Read the modules, packages, owners and the scope proof of the run (AD-363)."
+        },
+        {
+          "component": "contract",
+          "rationale": "Read the typed rules of the parsed contract (AD-359)."
+        },
+        {
+          "component": "model-proof",
+          "rationale": "Call the methods of the scope, the verdict and the run proof (#953: a method of another module is a use of that module)."
+        },
+        {
+          "component": "eval-violation",
+          "rationale": "Write a violation of the rule."
         }
       ],
       "decided_by": "architect"
@@ -225,17 +745,19 @@
       "label": "report",
       "role": "component",
       "layer": "report",
-      "packages": [
-        "native.archkeel_report"
+      "packages": [],
+      "exact_modules": [
+        "native.archkeel_report",
+        "native.archkeel_report.cargo_toml"
       ],
       "responsibilities": [
-        "Own the report v2 payload: the typed Report frame, its canonical bytes, the status rule and the check that refuses a frame whose status has no explaining row (AD-361, AD-371).",
-        "Render the static HTML presentation of the same ruling in engine_frame.html (AD-440)."
+        "Publish the report to the core through one root: the Report frame, its check and the ruling, and the manifest of the crate (AD-361, AD-371)."
       ],
       "forbidden_responsibilities": [
-        "Reading a file, deciding a verdict, naming a language, and writing a PASS that no Decision of the model holds."
+        "Holding a check, a builder or markup."
       ],
       "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
         "docs/architecture/decisions/ad-361-the-report-payload-is-columnar-and-derives-from-records-only.md",
         "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md"
       ],
@@ -251,6 +773,251 @@
         {
           "component": "contract",
           "rationale": "Write the contract word of each rule kind with an exhaustive match (AD-381)."
+        },
+        {
+          "component": "report-payload",
+          "rationale": "Read and write the typed payload: codes, head and tables."
+        },
+        {
+          "component": "report-check",
+          "rationale": "Check a payload against the status rule and name its problems (AD-371)."
+        },
+        {
+          "component": "report-build",
+          "rationale": "Use the inputs, the rule kind word, the reason code and the build error of the frame builder."
+        },
+        {
+          "component": "report-frame",
+          "rationale": "Write the bytes of the engine frame (AD-388)."
+        },
+        {
+          "component": "report-ruling",
+          "rationale": "Publish the ruling, the one writer of a status and a rule verdict (AD-388)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-REPORT-PAYLOAD",
+      "label": "report-payload",
+      "role": "component",
+      "layer": "report",
+      "packages": [
+        "native.archkeel_report.codes",
+        "native.archkeel_report.head",
+        "native.archkeel_report.tables",
+        "native.archkeel_report.payload"
+      ],
+      "responsibilities": [
+        "Hold the typed payload of report v2: the code lists, the head, the columnar tables and the canonical bytes (AD-361)."
+      ],
+      "forbidden_responsibilities": [
+        "Checking a payload and reading the model."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-361-the-report-payload-is-columnar-and-derives-from-records-only.md",
+        "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-REPORT-CHECK",
+      "label": "report-check",
+      "role": "component",
+      "layer": "report",
+      "packages": [
+        "native.archkeel_report.check",
+        "native.archkeel_report.check_order",
+        "native.archkeel_report.check_rows",
+        "native.archkeel_report.check_structure",
+        "native.archkeel_report.status",
+        "native.archkeel_report.problem",
+        "native.archkeel_report.report"
+      ],
+      "responsibilities": [
+        "Check a payload and hold the checked Report frame: the semantic check, the status rule and the named problems (AD-361, AD-371)."
+      ],
+      "forbidden_responsibilities": [
+        "Building a row from an outcome of the evaluator."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-361-the-report-payload-is-columnar-and-derives-from-records-only.md",
+        "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md"
+      ],
+      "requires": [
+        {
+          "component": "model",
+          "rationale": "Hold the Decision and the run proof that a PASS of the frame needs (AD-381)."
+        },
+        {
+          "component": "report-payload",
+          "rationale": "Read and write the typed payload: codes, head and tables."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-REPORT-BUILD",
+      "label": "report-build",
+      "role": "component",
+      "layer": "report",
+      "packages": [
+        "native.archkeel_report.input",
+        "native.archkeel_report.kind",
+        "native.archkeel_report.why",
+        "native.archkeel_report.build_tables",
+        "native.archkeel_report.build_error",
+        "native.archkeel_report.frame",
+        "native.archkeel_report.frame_rules",
+        "native.archkeel_report.construct"
+      ],
+      "responsibilities": [
+        "Build the Report frame from the outcome of the evaluator and the rows of the model: the inputs, the rule rows, the reason codes and the build error (AD-371, AD-381)."
+      ],
+      "forbidden_responsibilities": [
+        "Deciding a verdict and writing the bytes of an engine frame."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-361-the-report-payload-is-columnar-and-derives-from-records-only.md",
+        "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md"
+      ],
+      "requires": [
+        {
+          "component": "model",
+          "rationale": "Copy the Decision of each rule and of the run, and name the slice of a table that is not produced (AD-363)."
+        },
+        {
+          "component": "eval",
+          "rationale": "Take each rule row from an outcome of the evaluator, so that the rule id and its decision come together (AD-359, AD-381)."
+        },
+        {
+          "component": "contract",
+          "rationale": "Write the contract word of each rule kind with an exhaustive match (AD-381)."
+        },
+        {
+          "component": "model-proof",
+          "rationale": "Call the methods of the scope, the verdict and the run proof (#953: a method of another module is a use of that module)."
+        },
+        {
+          "component": "report-payload",
+          "rationale": "Read and write the typed payload: codes, head and tables."
+        },
+        {
+          "component": "report-check",
+          "rationale": "Check a payload against the status rule and name its problems (AD-371)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-REPORT-PAGE",
+      "label": "report-page",
+      "role": "component",
+      "layer": "report",
+      "packages": [
+        "native.archkeel_report.engine_frame.html"
+      ],
+      "responsibilities": [
+        "Render the static HTML page of one engine frame (AD-440, AD-496, AD-498)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading the model, the evaluator or the contract, and inferring a verdict."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-361-the-report-payload-is-columnar-and-derives-from-records-only.md",
+        "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md"
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-REPORT-FRAME",
+      "label": "report-frame",
+      "role": "component",
+      "layer": "report",
+      "packages": [],
+      "exact_modules": [
+        "native.archkeel_report.engine_frame"
+      ],
+      "responsibilities": [
+        "Write the bytes of one engine frame of the core (AD-388)."
+      ],
+      "forbidden_responsibilities": [
+        "Deciding a key of the frame."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-361-the-report-payload-is-columnar-and-derives-from-records-only.md",
+        "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md"
+      ],
+      "requires": [
+        {
+          "component": "report-page",
+          "rationale": "Render the page of the frame (AD-496)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-REPORT-RULING",
+      "label": "report-ruling",
+      "role": "component",
+      "layer": "report",
+      "packages": [
+        "native.archkeel_report.ruling",
+        "native.archkeel_report.edge_links",
+        "native.archkeel_report.violation_detail"
+      ],
+      "responsibilities": [
+        "Decide the head of the engine frame: evaluate the model once and give the status, the rule verdicts, the violation evidence and the explain part (AD-388, AD-484)."
+      ],
+      "forbidden_responsibilities": [
+        "Rendering markup and checking a payload."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-361-the-report-payload-is-columnar-and-derives-from-records-only.md",
+        "docs/architecture/decisions/ad-371-the-report-crate-owns-the-payload-and-builds-only-an-explained-frame.md"
+      ],
+      "requires": [
+        {
+          "component": "model",
+          "rationale": "Copy the Decision of each rule and of the run, and name the slice of a table that is not produced (AD-363)."
+        },
+        {
+          "component": "eval",
+          "rationale": "Take each rule row from an outcome of the evaluator, so that the rule id and its decision come together (AD-359, AD-381)."
+        },
+        {
+          "component": "contract",
+          "rationale": "Write the contract word of each rule kind with an exhaustive match (AD-381)."
+        },
+        {
+          "component": "model-run",
+          "rationale": "Call the methods of the model and of its contract tree (#953: a method of another module is a use of that module)."
+        },
+        {
+          "component": "model-proof",
+          "rationale": "Call the methods of the scope, the verdict and the run proof (#953: a method of another module is a use of that module)."
+        },
+        {
+          "component": "report-payload",
+          "rationale": "Read and write the typed payload: codes, head and tables."
+        },
+        {
+          "component": "report-check",
+          "rationale": "Check a payload against the status rule and name its problems (AD-371)."
+        },
+        {
+          "component": "report-build",
+          "rationale": "Use the inputs, the rule kind word, the reason code and the build error of the frame builder."
+        },
+        {
+          "component": "report-frame",
+          "rationale": "Write the bytes of the engine frame (AD-388)."
         }
       ],
       "decided_by": "architect"
@@ -260,16 +1027,20 @@
       "label": "core",
       "role": "component",
       "layer": "core",
-      "packages": [
-        "native.archkeel_core"
+      "packages": [],
+      "exact_modules": [
+        "native.archkeel_core",
+        "native.archkeel_core.build_script",
+        "native.archkeel_core.cargo_toml"
       ],
       "responsibilities": [
-        "Run the one process after the collector: take the typed requests (contract bytes, collector reply, rules, sections, report) and answer each part, or name the slice that ports it (AD-359, AD-363, AD-370); for the scan request, take the typed reply of the collector that archkeel-collect ran in the process (AD-406)."
+        "Start the one process after the collector: read the arguments, select the request kind and return its exit code; the build script records the code digest of the binary (AD-359, AD-335)."
       ],
       "forbidden_responsibilities": [
-        "Reading a file, naming a language, and giving a verdict to the host before a slice owns it."
+        "Answering a request."
       ],
       "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
         "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md",
         "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
       ],
@@ -305,6 +1076,346 @@
         {
           "component": "collect",
           "rationale": "Run the linked collector of the scan request in the process of the core and take its typed reply (AD-406)."
+        },
+        {
+          "component": "core-frame",
+          "rationale": "Build the engine frame of one request (AD-360)."
+        },
+        {
+          "component": "core-requests",
+          "rationale": "Serve the request kind that the arguments name."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-CORE-CONTRACT",
+      "label": "core-contract",
+      "role": "component",
+      "layer": "core",
+      "packages": [
+        "native.archkeel_core.contract"
+      ],
+      "responsibilities": [
+        "Parse the root contract and assemble its inside-contract tree from the bytes that the shell sends (AD-366, AD-379)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading a file and deciding a rule."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md",
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "requires": [
+        {
+          "component": "model",
+          "rationale": "Name the needs of the run and the declared UML target for the model (AD-512, AD-526)."
+        },
+        {
+          "component": "contract",
+          "rationale": "Parse the contract bytes that the shell sends (AD-359)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-CORE-ENGINE",
+      "label": "core-engine",
+      "role": "component",
+      "layer": "core",
+      "packages": [
+        "native.archkeel_core.engine",
+        "native.archkeel_core.request",
+        "native.archkeel_core.ingest",
+        "native.archkeel_core.rules",
+        "native.archkeel_core.sections",
+        "native.archkeel_core.topology",
+        "native.archkeel_core.report",
+        "native.archkeel_core.topology_projection"
+      ],
+      "responsibilities": [
+        "Keep the contract and the reply of one run and answer each typed request: ingest, rules, sections, report and the topology projection (design WP6-0, AD-359)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading a file and writing a verdict that the ruling of the report did not give."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md",
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "requires": [
+        {
+          "component": "model",
+          "rationale": "Derive the model of the run and ask it for each section (AD-363)."
+        },
+        {
+          "component": "eval",
+          "rationale": "Decide the rules of the run and write the violation rows of the decided kinds (AD-370)."
+        },
+        {
+          "component": "report",
+          "rationale": "Write the status of the run and each rule verdict only through the ruling of the report (AD-388)."
+        },
+        {
+          "component": "contract",
+          "rationale": "Parse the contract bytes that the shell sends (AD-359)."
+        },
+        {
+          "component": "store",
+          "rationale": "Validate the collector reply once before the model reads it (AD-346)."
+        },
+        {
+          "component": "facts",
+          "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422)."
+        },
+        {
+          "component": "model-run",
+          "rationale": "Call the methods of the model and of its contract tree (#953: a method of another module is a use of that module)."
+        },
+        {
+          "component": "report-ruling",
+          "rationale": "Call the methods of the ruling (#953: a method of another module is a use of that module)."
+        },
+        {
+          "component": "core-contract",
+          "rationale": "Read the parsed contract tree of the run."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-CORE-BASELINE",
+      "label": "core-baseline",
+      "role": "component",
+      "layer": "core",
+      "packages": [
+        "native.archkeel_core.baseline",
+        "native.archkeel_core.baseline_frame",
+        "native.archkeel_core.gap_key"
+      ],
+      "responsibilities": [
+        "Compare a run with a baseline file in both directions and write the baseline part of the frame (AD-546)."
+      ],
+      "forbidden_responsibilities": [
+        "Reading a file and changing a verdict."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md",
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "requires": [
+        {
+          "component": "model",
+          "rationale": "Derive the model of the run and ask it for each section (AD-363)."
+        },
+        {
+          "component": "report",
+          "rationale": "Write the status of the run and each rule verdict only through the ruling of the report (AD-388)."
+        },
+        {
+          "component": "contract",
+          "rationale": "Parse the contract bytes that the shell sends (AD-359)."
+        },
+        {
+          "component": "store",
+          "rationale": "Validate the collector reply once before the model reads it (AD-346)."
+        },
+        {
+          "component": "facts",
+          "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422)."
+        },
+        {
+          "component": "model-graph",
+          "rationale": "Call the methods of the modules, the imports and the graph of the model (#953: a method of another module is a use of that module)."
+        },
+        {
+          "component": "report-ruling",
+          "rationale": "Call the methods of the ruling (#953: a method of another module is a use of that module)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-CORE-HYGIENE",
+      "label": "core-hygiene",
+      "role": "component",
+      "layer": "core",
+      "packages": [
+        "native.archkeel_core.hygiene",
+        "native.archkeel_core.hygiene_boundary",
+        "native.archkeel_core.hygiene_graph",
+        "native.archkeel_core.hygiene_interface",
+        "native.archkeel_core.hygiene_pairs",
+        "native.archkeel_core.hygiene_refs",
+        "native.archkeel_core.provenance"
+      ],
+      "responsibilities": [
+        "Check the hygiene of the contract tree against its provenance documents: references, marked graphs, component pairs, interface lifecycle and boundary rows (AD-466, AD-514, AD-550)."
+      ],
+      "forbidden_responsibilities": [
+        "Deciding a rule of the contract."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md",
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "requires": [
+        {
+          "component": "model",
+          "rationale": "Derive the model of the run and ask it for each section (AD-363)."
+        },
+        {
+          "component": "contract",
+          "rationale": "Parse the contract bytes that the shell sends (AD-359)."
+        },
+        {
+          "component": "facts",
+          "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422)."
+        },
+        {
+          "component": "collect",
+          "rationale": "Read each provenance document with the safe reader of the scan (AD-466)."
+        },
+        {
+          "component": "model-graph",
+          "rationale": "Call the methods of the modules, the imports and the graph of the model (#953: a method of another module is a use of that module)."
+        },
+        {
+          "component": "model-run",
+          "rationale": "Call the methods of the model and of its contract tree (#953: a method of another module is a use of that module)."
+        },
+        {
+          "component": "core-contract",
+          "rationale": "Read the parsed contract tree of the run."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-CORE-FRAME",
+      "label": "core-frame",
+      "role": "component",
+      "layer": "core",
+      "packages": [
+        "native.archkeel_core.dual_run"
+      ],
+      "responsibilities": [
+        "Turn one request into one engine frame: send the typed requests to the engine and add the frame metadata and the source locations (AD-360)."
+      ],
+      "forbidden_responsibilities": [
+        "Writing a verdict; only the ruling of the report writes one."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md",
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "requires": [
+        {
+          "component": "model",
+          "rationale": "Derive the model of the run and ask it for each section (AD-363)."
+        },
+        {
+          "component": "report",
+          "rationale": "Write the status of the run and each rule verdict only through the ruling of the report (AD-388)."
+        },
+        {
+          "component": "contract",
+          "rationale": "Parse the contract bytes that the shell sends (AD-359)."
+        },
+        {
+          "component": "store",
+          "rationale": "Validate the collector reply once before the model reads it (AD-346)."
+        },
+        {
+          "component": "facts",
+          "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422)."
+        },
+        {
+          "component": "core-contract",
+          "rationale": "Read the parsed contract tree of the run."
+        },
+        {
+          "component": "core-engine",
+          "rationale": "Send a typed request to the engine of the run."
+        },
+        {
+          "component": "core-baseline",
+          "rationale": "Write the baseline part of the frame (AD-546)."
+        },
+        {
+          "component": "core-hygiene",
+          "rationale": "Read the provenance documents and the hygiene of the contract tree (AD-466)."
+        }
+      ],
+      "decided_by": "architect"
+    },
+    {
+      "id": "COMP-NATIVE-CORE-REQUESTS",
+      "label": "core-requests",
+      "role": "component",
+      "layer": "core",
+      "packages": [
+        "native.archkeel_core.scan",
+        "native.archkeel_core.check",
+        "native.archkeel_core.base",
+        "native.archkeel_core.refusal"
+      ],
+      "responsibilities": [
+        "Serve the request kinds of the shell: the scan request that runs the collector in the process, the check request with its base, and the typed refusal (AD-390, AD-399, AD-406, AD-420)."
+      ],
+      "forbidden_responsibilities": [
+        "Deciding a rule and reading a file that the scan does not own."
+      ],
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md",
+        "docs/architecture/decisions/ad-363-a-pass-needs-a-scope-proof-that-only-the-model-can-make.md",
+        "docs/architecture/decisions/ad-406-the-core-runs-the-typescript-collector-in-its-own-process.md"
+      ],
+      "requires": [
+        {
+          "component": "model",
+          "rationale": "Derive the model of the run and ask it for each section (AD-363)."
+        },
+        {
+          "component": "contract",
+          "rationale": "Parse the contract bytes that the shell sends (AD-359)."
+        },
+        {
+          "component": "store",
+          "rationale": "Validate the collector reply once before the model reads it (AD-346)."
+        },
+        {
+          "component": "facts",
+          "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422)."
+        },
+        {
+          "component": "collect",
+          "rationale": "Run the linked collector of the scan request in the process of the core and take its typed reply or its refusal (AD-406, AD-420)."
+        },
+        {
+          "component": "core-contract",
+          "rationale": "Read the parsed contract tree of the run."
+        },
+        {
+          "component": "core-engine",
+          "rationale": "Send a typed request to the engine of the run."
+        },
+        {
+          "component": "core-baseline",
+          "rationale": "Write the baseline part of the frame (AD-546)."
+        },
+        {
+          "component": "core-hygiene",
+          "rationale": "Read the provenance documents and the hygiene of the contract tree (AD-466)."
+        },
+        {
+          "component": "core-frame",
+          "rationale": "Build the engine frame of one request (AD-360)."
         }
       ],
       "decided_by": "architect"

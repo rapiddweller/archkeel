@@ -13,13 +13,25 @@ Each component has a `layer`, and rule `NATIVE-LAYER-ORDER` gives the layers fro
 `contract`, `model`, `barrier` (`model-barrier`), `evaluation`, `report` and `core`.
 A declared `requires` points down or stays in its layer. A component without a layer holds every rule UNKNOWN.
 
-The contract has two levels. The crates are the base (`facts`, `wire`, `snapshot`, `store`, `contract`, `build`, `pytext`) and the core after the collector (`model`, `report`, `core`, AD-359). Each
+Below the order the contract has two levels. The crates are the base (`facts`, `wire`, `snapshot`, `store`, `contract`, `build`, `pytext`) and the core after the collector (`model`, `report`, `core`, AD-359). Each
 collector crate is split into components by responsibility, and an arrow points down only:
 the entry calls the flow, the flow calls the parts (discover, parse, resolve, records), and
 the records component builds the records of the collector. Rule `NATIVE-REQUIRES-COMPLETE` allows only the
 arrows in the contract, and rule `NATIVE-NO-MODULE-CYCLES` forbids a module cycle. No module is out of scope: the macro cycle of `archkeel-facts` ([#954](https://github.com/rapiddweller/archkeel/issues/954)) is gone since #961.
 The old layer file and its test are removed (AD-327): a declared
 Cargo dependency that no module uses is a crate edge, and the contract rejects it.
+
+Four crates of the decision side have parts by responsibility too (AD-588). No code moved for this:
+- `model`: `model-terms`, `model-graph`, `model-selection`, `model-run`, `model-match`, `model-proof`, `model-uml`.
+- `eval`: `eval-violation`, `eval-rules`, `eval-decide`.
+- `report`: `report-payload`, `report-check`, `report-build`, `report-page`, `report-frame`, `report-ruling`.
+- `core`: `core-contract`, `core-engine`, `core-baseline`, `core-hygiene`, `core-frame`, `core-requests`.
+
+The component with the name of the crate is the root part. It owns the root file and the manifest, and it
+publishes the parts. A part claims its modules by name and stays in the layer of its crate. A new module of
+these crates has no owner until a part claims it, and `NATIVE-ASSIGNMENT-COMPLETE` fails. The parts of one
+crate make no cycle (`NATIVE-NO-COMPONENT-CYCLES`). A method call into a part of another crate is a use of
+that part (#953), so the contract states it: for example `eval-rules` requires `model-run`.
 
 The core chain is core -> report -> eval -> model -> contract, store and facts
 ([AD-382](decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md)).
@@ -472,4 +484,154 @@ flowchart LR
     n_39 --> n_49
     n_39 --> n_50
     n_39 --> n_51
+    n_56["core-baseline"]
+    n_57["core-contract"]
+    n_58["core-engine"]
+    n_59["core-frame"]
+    n_60["core-hygiene"]
+    n_61["core-requests"]
+    n_62["eval-decide"]
+    n_63["eval-rules"]
+    n_64["eval-violation"]
+    n_65["model-graph"]
+    n_66["model-match"]
+    n_67["model-proof"]
+    n_68["model-run"]
+    n_69["model-selection"]
+    n_70["model-terms"]
+    n_71["model-uml"]
+    n_72["report-build"]
+    n_73["report-check"]
+    n_74["report-frame"]
+    n_75["report-page"]
+    n_76["report-payload"]
+    n_77["report-ruling"]
+    n_2 --> n_59
+    n_2 --> n_61
+    n_56 --> n_1
+    n_56 --> n_4
+    n_56 --> n_5
+    n_56 --> n_65
+    n_56 --> n_41
+    n_56 --> n_77
+    n_56 --> n_15
+    n_57 --> n_1
+    n_57 --> n_5
+    n_58 --> n_1
+    n_58 --> n_57
+    n_58 --> n_31
+    n_58 --> n_4
+    n_58 --> n_5
+    n_58 --> n_68
+    n_58 --> n_41
+    n_58 --> n_77
+    n_58 --> n_15
+    n_59 --> n_1
+    n_59 --> n_56
+    n_59 --> n_57
+    n_59 --> n_58
+    n_59 --> n_60
+    n_59 --> n_4
+    n_59 --> n_5
+    n_59 --> n_41
+    n_59 --> n_15
+    n_60 --> n_53
+    n_60 --> n_1
+    n_60 --> n_57
+    n_60 --> n_4
+    n_60 --> n_5
+    n_60 --> n_65
+    n_60 --> n_68
+    n_61 --> n_53
+    n_61 --> n_1
+    n_61 --> n_56
+    n_61 --> n_57
+    n_61 --> n_58
+    n_61 --> n_59
+    n_61 --> n_60
+    n_61 --> n_4
+    n_61 --> n_5
+    n_61 --> n_15
+    n_31 --> n_62
+    n_31 --> n_63
+    n_31 --> n_64
+    n_31 --> n_67
+    n_31 --> n_68
+    n_62 --> n_1
+    n_62 --> n_64
+    n_62 --> n_5
+    n_62 --> n_67
+    n_63 --> n_1
+    n_63 --> n_64
+    n_63 --> n_4
+    n_63 --> n_5
+    n_63 --> n_65
+    n_63 --> n_68
+    n_64 --> n_1
+    n_64 --> n_4
+    n_64 --> n_5
+    n_64 --> n_65
+    n_5 --> n_65
+    n_5 --> n_66
+    n_5 --> n_67
+    n_5 --> n_68
+    n_5 --> n_69
+    n_5 --> n_70
+    n_5 --> n_71
+    n_65 --> n_1
+    n_65 --> n_4
+    n_65 --> n_70
+    n_65 --> n_15
+    n_66 --> n_1
+    n_66 --> n_4
+    n_66 --> n_65
+    n_66 --> n_68
+    n_66 --> n_69
+    n_66 --> n_70
+    n_67 --> n_1
+    n_67 --> n_4
+    n_67 --> n_65
+    n_67 --> n_66
+    n_67 --> n_68
+    n_67 --> n_69
+    n_67 --> n_70
+    n_68 --> n_1
+    n_68 --> n_65
+    n_68 --> n_69
+    n_68 --> n_70
+    n_68 --> n_15
+    n_69 --> n_1
+    n_69 --> n_4
+    n_69 --> n_65
+    n_69 --> n_70
+    n_70 --> n_1
+    n_70 --> n_4
+    n_71 --> n_1
+    n_71 --> n_65
+    n_71 --> n_67
+    n_71 --> n_68
+    n_71 --> n_70
+    n_41 --> n_72
+    n_41 --> n_73
+    n_41 --> n_74
+    n_41 --> n_76
+    n_41 --> n_77
+    n_72 --> n_1
+    n_72 --> n_31
+    n_72 --> n_5
+    n_72 --> n_67
+    n_72 --> n_73
+    n_72 --> n_76
+    n_73 --> n_5
+    n_73 --> n_76
+    n_74 --> n_75
+    n_77 --> n_1
+    n_77 --> n_31
+    n_77 --> n_5
+    n_77 --> n_67
+    n_77 --> n_68
+    n_77 --> n_72
+    n_77 --> n_73
+    n_77 --> n_74
+    n_77 --> n_76
 ```
