@@ -19,7 +19,7 @@ import pytest
 from areas import AREAS, area_of
 
 ROOT = Path(__file__).parents[1]
-GATE_STEPS = ["check", "build", "smoke"]
+GATE_STEPS = ["check", "sdist", "smoke"]
 CI_CHECK_STEPS = [
     "ci-artifacts-clean",
     *GATE_STEPS,

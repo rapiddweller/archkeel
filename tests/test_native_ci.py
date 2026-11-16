@@ -359,7 +359,7 @@ def test_native_check_runs_the_clone_and_api_tools_only_through_their_tests() ->
 def test_make_build_writes_the_installable_wheel_and_the_release_builds_only_the_sdist() -> None:
     """#1313: `make build` is the user command (sdist and host wheel); the release job and the
     package smoke test take the sdist alone, so `dist/` keeps the asset set of AD-476."""
-    recipes = (ROOT / "tools/full.mk").read_text(encoding="utf-8")
+    recipes = (ROOT / "Makefile").read_text(encoding="utf-8")
     build = recipes[recipes.index("\nbuild: sdist") :].split("\n\n", 1)[0]
     assert "ARCHKEEL_BUNDLE_NATIVE=1" in build and "--wheel" in build
     release = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")

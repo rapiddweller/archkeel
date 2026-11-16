@@ -23,7 +23,8 @@ PR_TEST_FILES := \
 	tests/test_native_self_rules.py \
 	tests/test_native_self_contract.py \
 	tests/test_native_report.py \
-	tests/test_report_renderer_units.py \
+	tests/test_report_gallery.py \
+	tests/test_report_page_scripts.py \
 	tests/test_ci_daily.py \
 	tests/test_collector_native_catalog.py \
 	tests/test_make_gate.py \
@@ -46,7 +47,6 @@ PR_TEST_FILES := \
 	tests/test_rust_clones.py \
 	tests/test_rust_api.py \
 	tests/test_rust_source.py \
-	tests/test_browser_markers.py \
 	tests/test_publish_release.py \
 	tests/test_repository_hygiene.py \
 	tests/test_ir_owners.py \

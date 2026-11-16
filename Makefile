@@ -174,6 +174,14 @@ flutter-demo-check:
 	cd fixtures/I-flutter-shop && "$(FLUTTER_EXECUTABLE)" test
 	cd fixtures/I-flutter-shop && "$(FLUTTER_EXECUTABLE)" build web --output "$(abspath test-artifacts/flutter-demo/web)"
 
+# #1313: what a user runs on a checkout. The sdist cannot be installed alone (it has no core), so
+# this also builds the platform wheel of this host with the core in `dist/`. It installs
+# cargo-auditable when `cargo auditable` is missing; `make native-wheel` adds the full checks.
+build: sdist
+	@cargo auditable --version >/dev/null 2>&1 || cargo install --locked cargo-auditable@$(CARGO_AUDITABLE_VERSION)
+	ARCHKEEL_BUNDLE_NATIVE=1 $(UV) build --wheel --no-sources --out-dir dist
+	$(UV) tool run --from twine==7.0.0 twine check --strict dist/*
+
 plugin:
 	@test -n "$(OUTPUT)" || { echo "OUTPUT is required"; exit 2; }
 	$(UV) run --locked python -m tools.package_plugin "$(OUTPUT)"
