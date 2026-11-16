@@ -49,10 +49,14 @@ mod hazards;
 mod imports;
 mod layout;
 mod lazy;
+mod lazy_agree;
 mod lazy_binds;
 mod lazy_cover;
 mod lazy_flow;
+mod lazy_return;
+mod lazy_shape;
 mod lazy_table;
+mod lazy_value;
 mod lazy_writes;
 mod literal;
 mod namespace;
@@ -82,6 +86,8 @@ pub(crate) struct Survey {
     pub listings: Vec<pathscope::Listing>,
     /// The ids of the imports that are the one plain binder of their name (`bound.rs`).
     pub sole_binders: HashSet<String>,
+    /// The proven keys of the lazy modules (AD-654), for the routes.
+    pub sources: lazy_cover::Sources,
     /// The ids of each `from pkg import name` where `pkg` binds `name` or can give it (AD-450):
     /// the name may be the attribute or the submodule, so no route is written for it.
     pub ambiguous: HashSet<String>,
@@ -164,15 +170,18 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .iter()
         .flat_map(|module| constructs::asserts(module, &mut evidence))
         .collect();
-    let (collected, written) = collect(modules, &binders, namespace, &mut evidence);
+    let lazy = lazy::find(modules, &binders, namespace);
+    // AD-472: a proven literal import call is an import record; each other site is a gap.
+    let (literals, hazards) = hazards::split(modules, &binders, Some(&lazy));
+    // AD-654: a module with a hazard site keeps no proven key.
+    let names = modules.iter().map(|module| module.name.as_str());
+    let mut sources = lazy_cover::by_module(names, &lazy);
+    for (index, _) in &hazards {
+        sources.remove(&modules[*index].name);
+    }
+    let (collected, written) = collect(modules, &binders, namespace, &mut evidence, &mut sources);
     let (mut imports, aliases) = (collected.records, collected.aliases);
     let (sole_binders, ambiguous) = (collected.sole, collected.ambiguous.clone());
-    // AD-472: a proven literal import call is an import record; each other site is a gap.
-    let (literals, hazards) = hazards::split(
-        modules,
-        &binders,
-        Some(&lazy::find(modules, &binders, namespace)),
-    );
     let calls = imports::literal_records(modules, &binders, namespace, &mut evidence, &literals);
     imports.extend(calls);
     imports.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
@@ -185,11 +194,13 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .map(|(module, _)| module.name.clone())
         .collect();
     opaque_surface.extend(written);
-    opaque_surface.extend(uses::escaped(modules, &imports));
+    opaque_surface.extend(uses::settled(modules, &imports, &mut sources));
+    // AD-654: the symbol facts and the call count read a proven lazy key as its source.
+    let viewed = lazy_cover::viewed(&imports, &sources);
     let symbols = declarations(
         modules,
         &binders,
-        &imports,
+        &viewed,
         (&sole_binders, &ambiguous),
         &mut evidence,
         |index, module| {
@@ -245,7 +256,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     unknowns.extend(layout::problems(&snapshot.problems));
     let selected: HashSet<&str> = scope.selected.iter().map(String::as_str).collect();
     let count_context = call_count::Context::new(
-        &imports,
+        &viewed,
         &resolved.targets,
         &sole_binders,
         &ambiguous,
@@ -282,6 +293,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         opaque_surface,
         listings,
         sole_binders,
+        sources,
         ambiguous,
         parsed: snapshot
             .inputs()
@@ -350,17 +362,29 @@ fn declarations(
 /// The import records, after a first pass that names the modules that another module may change
 /// (`uses.rs`, AD-504): such a module may bind a name of its own to a package attribute that hides
 /// a submodule, so the second pass reads the written modules.
+///
+/// AD-654: the walk repeats until no escaped module loses the proof of its lazy keys, so the
+/// ambiguous records and the escaped modules read the same proven keys.
 fn collect(
     modules: &[Module],
     binders: &[Binders],
     namespace: &str,
     evidence: &mut EvidenceMap,
+    sources: &mut lazy_cover::Sources,
 ) -> (imports::Collected, HashSet<String>) {
-    let scratch = &mut EvidenceMap::new();
-    let first = imports::collect_all(modules, binders, namespace, scratch, &HashSet::new());
-    let written = uses::escaped(modules, &first.records);
-    let collected = imports::collect_all(modules, binders, namespace, evidence, &written);
-    (collected, written)
+    let none = HashSet::new();
+    loop {
+        let scratch = &mut EvidenceMap::new();
+        let first = imports::collect_all(modules, binders, namespace, scratch, (&none, sources));
+        let written = uses::settled(modules, &first.records, sources);
+        let set = (&written, &*sources);
+        let collected = imports::collect_all(modules, binders, namespace, evidence, set);
+        let before = sources.len();
+        uses::settled(modules, &collected.records, sources);
+        if sources.len() == before {
+            return (collected, written);
+        }
+    }
 }
 
 struct Parsed {

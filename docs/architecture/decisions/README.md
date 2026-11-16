@@ -9,6 +9,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 |---|---|
 | AD-658 | [A Python assert is a written construct](ad-658-a-python-assert-is-a-written-construct.md) |
 | AD-656 | [A macro that adds a method outside the file of its type gives a pair gap](ad-656-a-macro-that-adds-a-method-outside-the-file-of-its-type-gives-a-pair-gap.md) |
+| AD-654 | [A proven lazy table key is a re-export of its target](ad-654-a-proven-lazy-table-key-is-a-re-export-of-its-target.md) |
 | AD-648 | [A file that no import can name is a script and has no layout](ad-648-a-file-that-no-import-can-name-is-a-script-and-has-no-layout.md) |
 | AD-650 | [The text says why a run of passing rules stays UNKNOWN and where a module went](ad-650-the-text-says-why-a-run-of-passing-rules-stays-unknown-and-where-a-module-went.md) |
 | AD-646 | [A Python range that reaches 3.11 is read as 3.11](ad-646-a-python-range-that-reaches-3-11-is-read-as-3-11.md) |

@@ -20,6 +20,11 @@
 //! A write through `sys.modules`, a computed import, `globals()` of another module, a writer
 //! outside the scan roots and a C extension are not seen here: the first two are survey gaps
 //! (AD-450); the rest is listed in `docs/known-limits.md`.
+//!
+//! AD-654: `from P import k`, where `k` is a proven key of the lazy table of `P`, reads what the
+//! key gives: the attribute of the target module, or the target module. A use of the name is then
+//! the use of `from target import name`, or of `import target`. A module that escapes loses the
+//! proof of its keys, since another module can then write a key, and the walk runs again.
 
 use std::collections::{HashMap, HashSet};
 
@@ -29,6 +34,7 @@ use ruff_python_ast::{Expr, ExprAttribute, ExprContext, Stmt};
 
 use super::bound::Bound;
 use super::bound_kind::Kind;
+use super::lazy_cover::{view, Sources};
 use super::uses_scan::{class_patch, Scan};
 use crate::module::Module;
 
@@ -43,8 +49,28 @@ enum Binding {
     Attribute(String, String),
 }
 
+/// The escaped modules once no escaped module keeps the proof of its keys (AD-654).
+pub(super) fn settled(
+    modules: &[Module],
+    imports: &[Record<ImportFact>],
+    sources: &mut Sources,
+) -> HashSet<String> {
+    loop {
+        let found = escaped_with(modules, imports, sources);
+        let before = sources.len();
+        sources.retain(|module, _| !found.contains(module));
+        if sources.len() == before {
+            return found;
+        }
+    }
+}
+
 /// The modules that a use of a module binding in `modules` can change.
-pub(super) fn escaped(modules: &[Module], imports: &[Record<ImportFact>]) -> HashSet<String> {
+fn escaped_with(
+    modules: &[Module],
+    imports: &[Record<ImportFact>],
+    sources: &Sources,
+) -> HashSet<String> {
     let binders: Vec<_> = modules
         .iter()
         .map(|module| super::binders::Binders::of(&module.tree))
@@ -70,11 +96,11 @@ pub(super) fn escaped(modules: &[Module], imports: &[Record<ImportFact>]) -> Has
     let mut found = HashSet::new();
     for record in imports {
         let data = record.data.data();
-        let (source, target) = (data.source_module.as_str(), data.target_module.as_str());
+        let source = data.source_module.as_str();
         let Some(binding) = data.binding.as_deref().filter(|name| *name != "*") else {
             continue;
         };
-        let symbol = data.symbol.as_deref();
+        let (target, symbol) = view(sources, data.target_module.as_str(), data.symbol.as_deref());
         scan.imports
             .entry((source, binding))
             .or_default()

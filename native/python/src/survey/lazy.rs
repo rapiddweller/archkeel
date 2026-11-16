@@ -12,8 +12,12 @@
 //! package of the project holds is no import. The sites that the proof covers are not gaps: the
 //! calls, their import statement, the `globals()` writes of the keys and the `__spec__.parent`
 //! reads of the table. Any other site of the module stays a gap.
+//!
+//! AD-654: the value that the function returns for each key (`lazy_return.rs`), when each binder
+//! of the key in the module agrees with it (`lazy_agree.rs`) and the key names no submodule that
+//! the value is not.
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, Stmt, StmtFunctionDef};
@@ -21,8 +25,11 @@ use ruff_text_size::{Ranged, TextRange};
 
 use super::binders::{first_part, Binders};
 use super::hazards;
+use super::lazy_agree::{agrees, import_values};
 pub(super) use super::lazy_cover::Lazy;
+use super::lazy_cover::Source;
 use super::lazy_flow::{self as flow, Call, Callee};
+use super::lazy_return;
 use super::lazy_table as table;
 use super::literal;
 use crate::module::Module;
@@ -72,9 +79,18 @@ impl World<'_> {
         }
         let callee = callee(module, &count);
         let flow = flow::analyze(function, &table, callee.0);
+        let free = |name: &str| count(name) == Some(0);
+        let resolve = |name: &str, package: Option<&str>| self.module_name(name, package);
+        let cx = lazy_return::Context {
+            callee: callee.0,
+            free: &free,
+            resolve: &resolve,
+        };
+        let sources = lazy_return::sources(function, &table, &cx);
         let mut found = Lazy {
             exempt: table.exempt.clone(),
             targets: Vec::new(),
+            sources: self.agreed(index, sources),
         };
         found.exempt.extend(flow.exempt);
         let mut by_name = false;
@@ -93,6 +109,73 @@ impl World<'_> {
             found.exempt.extend(callee.1);
         }
         Some(found)
+    }
+
+    /// The module that `import_module(name, package)` names, when it is a module name and no door.
+    fn module_name(&self, name: &str, package: Option<&str>) -> Option<String> {
+        let target = match (name.starts_with('.'), package) {
+            (false, _) => name.to_owned(),
+            (true, Some(package)) if !package.is_empty() => resolve(name, package)?,
+            (true, _) => return None,
+        };
+        let named = target
+            .split('.')
+            .all(archkeel_facts::identity::is_identifier);
+        (named && hazards::hazard(&target).is_none()).then_some(target)
+    }
+
+    /// The proven keys whose binders in the module agree with the value, and whose name is no
+    /// submodule or package directory unless the value is that module.
+    fn agreed(&self, index: usize, sources: BTreeMap<String, Source>) -> BTreeMap<String, Source> {
+        let module = &self.modules[index];
+        let binders = &self.binders[index];
+        let package = table::parent(module);
+        let imports = import_values(&module.tree.body, &package);
+        let mut stars = Vec::new();
+        for (level, name) in &binders.stars {
+            let dots = ".".repeat(*level as usize);
+            let target = match *level {
+                0 => Some(name.clone()),
+                _ => resolve(&format!("{dots}{name}"), &package),
+            };
+            let Some(other) = target
+                .as_ref()
+                .and_then(|name| self.known.get(name.as_str()))
+            else {
+                return BTreeMap::new();
+            };
+            if !self.binders[*other].all_literal {
+                return BTreeMap::new();
+            }
+            stars.push((
+                target.unwrap_or_default(),
+                &self.binders[*other].all_exports,
+            ));
+        }
+        sources
+            .into_iter()
+            .filter(|(key, source)| {
+                let child = format!("{}.{key}", module.name);
+                let below = format!("{child}.");
+                let named = self.known.contains_key(child.as_str())
+                    || self
+                        .modules
+                        .iter()
+                        .any(|item| item.name.starts_with(&below));
+                if named && *source != Source::Module(child) {
+                    return false;
+                }
+                let plain = imports.iter().filter(|(name, _)| name == key);
+                let agreeing = plain
+                    .filter(|(_, value)| agrees(value, source, &module.name))
+                    .count();
+                let starred = stars.iter().filter(|(_, all)| all.contains(key));
+                let star_ok = starred
+                    .clone()
+                    .all(|(target, _)| *source == Source::Attr(target.clone(), key.clone()));
+                binders.count_beside_stars(key) == Some(agreeing) && star_ok
+            })
+            .collect()
     }
 
     /// How often a binder binds the name in the module. A star import binds a name only when the
