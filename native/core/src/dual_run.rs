@@ -28,9 +28,9 @@ use archkeel_report::Named;
 
 #[path = "frame_parts.rs"]
 mod frame_parts;
-#[cfg(test)]
-pub(crate) use frame_parts::Parts as FrameParts;
 pub(crate) use frame_parts::{refused_scan, Answered, Collect, CODE_DIGEST};
+#[cfg(test)]
+pub(crate) use frame_parts::{typed_rows, Parts as FrameParts};
 use frame_parts::{ContractCheck, Parts, ReplyCheck, SelfTest, UnsupportedParts, ENGINE};
 
 /// Version 2 adds the settings of the shell: `namespace` and `standard_library` (AD-372).

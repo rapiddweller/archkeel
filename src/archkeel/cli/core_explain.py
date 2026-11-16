@@ -14,15 +14,7 @@ from enum import StrEnum
 from typing import Final, TypeVar
 
 from .core_json import CoreError, as_count, as_object, as_text
-
-BUDGETS: Final = {
-    "cycles_per_rule": 50,
-    "path_steps": 64,
-    "evidence_per_step": 5,
-    "held_per_rule": 20,
-    "rules_per_gap": 200,
-    "gaps": 500,
-}
+from .core_schema import budget
 
 
 class Direction(StrEnum):
@@ -175,9 +167,9 @@ def _shape(value: object, where: str) -> RuleShape:
 
 def _step(value: object, where: str) -> Step:
     row = as_object(value, where)
-    evidence = _texts(row["evidence"], where, BUDGETS["evidence_per_step"])
+    evidence = _texts(row["evidence"], where, budget("evidence_per_step"))
     total = as_count(row["evidence_total"], where)
-    if len(evidence) != min(total, BUDGETS["evidence_per_step"]):
+    if len(evidence) != min(total, budget("evidence_per_step")):
         raise CoreError(f"the core frame field {where} has an inconsistent evidence count")
     return Step(
         as_text(row["from"], where),
@@ -201,12 +193,12 @@ def _closed(path: tuple[Step, ...], truncated: bool, where: str) -> None:
 
 def _cycle(value: object, where: str) -> CyclePath:
     row = as_object(value, where)
-    steps = _list(row["path"], where, BUDGETS["path_steps"])
+    steps = _list(row["path"], where, budget("path_steps"))
     path = tuple(_step(item, where) for item in steps)
     total = as_count(row["steps_total"], where)
     truncated = _bool(row["truncated"], where)
-    cut = total > BUDGETS["path_steps"]
-    if len(path) != min(total, BUDGETS["path_steps"]) or truncated != cut:
+    cut = total > budget("path_steps")
+    if len(path) != min(total, budget("path_steps")) or truncated != cut:
         raise CoreError(f"the core frame field {where} has an inconsistent step count")
     _closed(path, truncated, where)
     return CyclePath(
@@ -221,12 +213,12 @@ def _cycle(value: object, where: str) -> CyclePath:
 
 def _cycles(value: object, where: str) -> Cycles:
     row = as_object(value, where)
-    listed = _list(row["items"], where, BUDGETS["cycles_per_rule"])
+    listed = _list(row["items"], where, budget("cycles_per_rule"))
     items = tuple(_cycle(item, where) for item in listed)
     total = as_count(row["total"], where)
     truncated = _bool(row["truncated"], where)
-    cut = total > BUDGETS["cycles_per_rule"]
-    if len(items) != min(total, BUDGETS["cycles_per_rule"]) or truncated != cut:
+    cut = total > budget("cycles_per_rule")
+    if len(items) != min(total, budget("cycles_per_rule")) or truncated != cut:
         raise CoreError(f"the core frame field {where} has an inconsistent cycle count")
     return Cycles(total, truncated, items)
 
@@ -241,7 +233,7 @@ def _rule_holds(value: object, where: str) -> RuleHolds:
     cause = as_text(row["cause"], where)
     if cause not in _CAUSES:
         raise CoreError(f"the core frame field {where} has an unknown cause")
-    limit = BUDGETS["held_per_rule"]
+    limit = budget("held_per_rule")
     gaps = _texts(row["gaps"], where, limit)
     pairs = tuple(_pair(item, where) for item in _list(row["pairs"], where, limit))
     total = as_count(row["total"], where)
@@ -261,11 +253,11 @@ def _rule_holds(value: object, where: str) -> RuleHolds:
 
 def _gap(value: object, where: str) -> GapHolds:
     row = as_object(value, where)
-    rules = _texts(row["rules"], where, BUDGETS["rules_per_gap"])
+    rules = _texts(row["rules"], where, budget("rules_per_gap"))
     total = as_count(row["rules_total"], where)
     truncated = _bool(row["truncated"], where)
-    cut = total > BUDGETS["rules_per_gap"]
-    if len(rules) != min(total, BUDGETS["rules_per_gap"]) or truncated != cut:
+    cut = total > budget("rules_per_gap")
+    if len(rules) != min(total, budget("rules_per_gap")) or truncated != cut:
         raise CoreError(f"the core frame field {where} has an inconsistent rule count")
     return GapHolds(
         as_text(row["id"], where),
@@ -283,10 +275,6 @@ def read_explain(value: object, violations: Mapping[str, int]) -> Explain:
     A hold can name a row that is no rule of the contract: a named gap or the UML target row.
     """
     row = as_object(value, "explain")
-    if as_count(row["version"], "explain.version") != 1:
-        raise CoreError("the core frame field explain has an unknown version")
-    if as_object(row["budgets"], "explain.budgets") != BUDGETS:
-        raise CoreError("the core frame field explain has other budgets")
     shapes = {
         rule: _shape(shape, f"explain.rules.{rule}")
         for rule, shape in as_object(row["rules"], "explain.rules").items()
@@ -304,12 +292,12 @@ def read_explain(value: object, violations: Mapping[str, int]) -> Explain:
         rule: _rule_holds(item, f"explain.holds.rules.{rule}")
         for rule, item in as_object(holds["rules"], "explain.holds.rules").items()
     }
-    listed = _list(holds["gaps"], "explain.holds.gaps", BUDGETS["gaps"])
+    listed = _list(holds["gaps"], "explain.holds.gaps", budget("gaps"))
     gaps = tuple(_gap(item, "explain.holds.gaps") for item in listed)
     gaps_holding = as_count(holds["gaps_holding"], "explain.holds")
     gaps_truncated = _bool(holds["gaps_truncated"], "explain.holds")
-    cut = gaps_holding > BUDGETS["gaps"]
-    if len(gaps) != min(gaps_holding, BUDGETS["gaps"]) or gaps_truncated != cut:
+    cut = gaps_holding > budget("gaps")
+    if len(gaps) != min(gaps_holding, budget("gaps")) or gaps_truncated != cut:
         raise CoreError("the core frame field explain.holds has an inconsistent gap count")
     return Explain(
         shapes,

@@ -5,7 +5,8 @@
   "type": "object",
   "properties": {
     "protocol": {
-      "type": "string"
+      "type": "string",
+      "const": "archkeel-core-frame-1"
     },
     "status": {
       "$ref": "#/$defs/Status"
@@ -766,13 +767,39 @@
       "type": "object",
       "properties": {
         "version": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0,
-          "maximum": 255
+          "const": 1
         },
         "budgets": {
-          "$ref": "#/$defs/Budgets"
+          "type": "object",
+          "properties": {
+            "cycles_per_rule": {
+              "const": 50
+            },
+            "path_steps": {
+              "const": 64
+            },
+            "evidence_per_step": {
+              "const": 5
+            },
+            "held_per_rule": {
+              "const": 20
+            },
+            "rules_per_gap": {
+              "const": 200
+            },
+            "gaps": {
+              "const": 500
+            }
+          },
+          "required": [
+            "cycles_per_rule",
+            "path_steps",
+            "evidence_per_step",
+            "held_per_rule",
+            "rules_per_gap",
+            "gaps"
+          ],
+          "additionalProperties": false
         },
         "rules": {
           "type": "object",
@@ -798,50 +825,6 @@
         "holds"
       ],
       "description": "The `explain` part of the frame.",
-      "additionalProperties": false
-    },
-    "Budgets": {
-      "type": "object",
-      "properties": {
-        "cycles_per_rule": {
-          "type": "integer",
-          "format": "uint",
-          "minimum": 0
-        },
-        "path_steps": {
-          "type": "integer",
-          "format": "uint",
-          "minimum": 0
-        },
-        "evidence_per_step": {
-          "type": "integer",
-          "format": "uint",
-          "minimum": 0
-        },
-        "held_per_rule": {
-          "type": "integer",
-          "format": "uint",
-          "minimum": 0
-        },
-        "rules_per_gap": {
-          "type": "integer",
-          "format": "uint",
-          "minimum": 0
-        },
-        "gaps": {
-          "type": "integer",
-          "format": "uint",
-          "minimum": 0
-        }
-      },
-      "required": [
-        "cycles_per_rule",
-        "path_steps",
-        "evidence_per_step",
-        "held_per_rule",
-        "rules_per_gap",
-        "gaps"
-      ],
       "additionalProperties": false
     },
     "RuleShape": {
@@ -1163,69 +1146,1860 @@
     },
     "SectionRow": {
       "type": "object",
+      "description": "One row of a section: the envelope and the typed body (`kind` and `data`).",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "package_dependency"
+            },
+            "data": {
+              "$ref": "#/$defs/EdgeData"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "module_dependency"
+            },
+            "data": {
+              "$ref": "#/$defs/EdgeData"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "module"
+            },
+            "data": {
+              "$ref": "#/$defs/ModuleData"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "package"
+            },
+            "data": {
+              "$ref": "#/$defs/PackageData"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "package_scc"
+            },
+            "data": {
+              "$ref": "#/$defs/SccData"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "module_scc"
+            },
+            "data": {
+              "$ref": "#/$defs/SccData"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "complete_assignment"
+            },
+            "data": {
+              "$ref": "#/$defs/CompleteAssignment"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "root_layout"
+            },
+            "data": {
+              "$ref": "#/$defs/RootLayout"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "external_dependency_scope"
+            },
+            "data": {
+              "$ref": "#/$defs/ExternalDependencyScope"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "complete_external_scope"
+            },
+            "data": {
+              "$ref": "#/$defs/CompleteExternalScope"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "sibling_isolation"
+            },
+            "data": {
+              "$ref": "#/$defs/SiblingIsolation"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "complete_requires"
+            },
+            "data": {
+              "$ref": "#/$defs/CompleteRequires"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "forbidden_dependency"
+            },
+            "data": {
+              "$ref": "#/$defs/ForbiddenDependency"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "interface_boundary"
+            },
+            "data": {
+              "$ref": "#/$defs/InterfaceBoundary"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "layer_order"
+            },
+            "data": {
+              "$ref": "#/$defs/LayerOrder2"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "no_component_cycles"
+            },
+            "data": {
+              "$ref": "#/$defs/ComponentCycle"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "module_cycle"
+            },
+            "data": {
+              "$ref": "#/$defs/ModuleCycle"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "boundary_types"
+            },
+            "data": {
+              "$ref": "#/$defs/BoundaryTypes"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "evidence_class": {
+              "$ref": "#/$defs/EvidenceClass"
+            },
+            "area": {
+              "$ref": "#/$defs/Area"
+            },
+            "title": {
+              "type": "string"
+            },
+            "subjects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rule_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "provenance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "forbidden_construct"
+            },
+            "data": {
+              "$ref": "#/$defs/ConstructData"
+            }
+          },
+          "required": [
+            "id",
+            "evidence_class",
+            "area",
+            "title",
+            "subjects",
+            "evidence_ids",
+            "rule_ids",
+            "fact_ids",
+            "provenance",
+            "kind",
+            "data"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "EvidenceClass": {
+      "type": "string",
+      "enum": [
+        "FACT",
+        "VIOLATION"
+      ],
+      "description": "Whether the row states a fact of the code or a violation of a rule."
+    },
+    "Area": {
+      "type": "string",
+      "enum": [
+        "package_topology",
+        "module_topology",
+        "cycles",
+        "components",
+        "dependency_violations",
+        "api_surface",
+        "source",
+        "type_architecture"
+      ],
+      "description": "The area of the picture that a row belongs to."
+    },
+    "EdgeData": {
+      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "id": {
+        "level": {
           "type": "string"
         },
-        "evidence_class": {
+        "source": {
           "type": "string"
         },
-        "area": {
+        "target": {
           "type": "string"
         },
-        "kind": {
-          "type": "string"
+        "count": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
         },
-        "title": {
-          "type": "string"
+        "type_checking_count": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
         },
-        "subjects": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "runtime_count": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
         },
-        "evidence_ids": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "source_rank": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
         },
-        "rule_ids": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "target_rank": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
         },
-        "fact_ids": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "provenance": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "data": true
+        "bidirectional": {
+          "type": "boolean"
+        }
       },
       "required": [
-        "id",
-        "evidence_class",
-        "area",
-        "kind",
-        "title",
-        "subjects",
-        "evidence_ids",
-        "rule_ids",
-        "fact_ids",
-        "provenance",
-        "data"
+        "level",
+        "source",
+        "target",
+        "count",
+        "type_checking_count",
+        "runtime_count",
+        "source_rank",
+        "target_rank",
+        "bidirectional"
+      ]
+    },
+    "ModuleData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "qualified_name": {
+          "type": "string"
+        },
+        "package": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "symbol_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint",
+          "minimum": 0
+        },
+        "fan_in": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "fan_out": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "rank": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "all_exports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "all_literal": {
+          "type": "boolean"
+        },
+        "compatibility_logic_free": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "qualified_name",
+        "package",
+        "file",
+        "symbol_count",
+        "fan_in",
+        "fan_out",
+        "rank",
+        "all_exports",
+        "all_literal",
+        "compatibility_logic_free"
+      ]
+    },
+    "PackageData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "qualified_name": {
+          "type": "string"
+        },
+        "module_count": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "fan_in": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "fan_out": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "rank": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "qualified_name",
+        "module_count",
+        "fan_in",
+        "fan_out",
+        "rank",
+        "dependencies"
+      ]
+    },
+    "SccData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "type": "string"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "internal_edges": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "backed_by": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "level",
+        "members",
+        "internal_edges"
+      ]
+    },
+    "CompleteAssignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "module": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "module"
+      ]
+    },
+    "RootLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string"
+        },
+        "child": {
+          "type": "string"
+        },
+        "allowed_children": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "root",
+        "child",
+        "allowed_children"
+      ]
+    },
+    "ExternalDependencyScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_module": {
+          "type": "string"
+        },
+        "target_module": {
+          "type": "string"
+        },
+        "dependency": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_module",
+        "target_module",
+        "dependency"
+      ]
+    },
+    "CompleteExternalScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "source_module": {
+          "type": "string"
+        },
+        "target_module": {
+          "type": "string"
+        },
+        "dependency": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "source_module",
+        "target_module",
+        "dependency"
+      ]
+    },
+    "SiblingIsolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_module": {
+          "type": "string"
+        },
+        "target_module": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_module",
+        "target_module",
+        "source"
+      ]
+    },
+    "CompleteRequires": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_module": {
+          "type": "string"
+        },
+        "target_module": {
+          "type": "string"
+        },
+        "source_component": {
+          "type": "string"
+        },
+        "target_component": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_module",
+        "target_module",
+        "source_component",
+        "target_component"
+      ]
+    },
+    "ForbiddenDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "symbol": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "under_type_checking": {
+          "type": "boolean"
+        },
+        "source_module": {
+          "type": "string"
+        },
+        "target_module": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "symbol",
+        "under_type_checking",
+        "source_module",
+        "target_module"
+      ]
+    },
+    "InterfaceBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "symbol": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_component": {
+          "type": "string"
+        },
+        "target_component": {
+          "type": "string"
+        },
+        "source_module": {
+          "type": "string"
+        },
+        "target_module": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "symbol",
+        "source_component",
+        "target_component",
+        "source_module",
+        "target_module"
+      ]
+    },
+    "LayerOrder2": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_component": {
+          "type": "string"
+        },
+        "target_component": {
+          "type": "string"
+        },
+        "source_layer": {
+          "type": "string"
+        },
+        "target_layer": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_component",
+        "target_component",
+        "source_layer",
+        "target_layer",
+        "rationale"
+      ]
+    },
+    "ComponentCycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "members"
+      ]
+    },
+    "ModuleCycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      },
+      "required": [
+        "members",
+        "edges"
+      ]
+    },
+    "BoundaryTypes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "qualified_name": {
+          "type": "string"
+        },
+        "position": {
+          "type": "string"
+        },
+        "annotation": {
+          "type": "string"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "qualified_name",
+        "position",
+        "annotation",
+        "reasons"
+      ]
+    },
+    "ConstructData": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SelectedConstruct"
+        },
+        {
+          "$ref": "#/$defs/PlainConstruct"
+        }
       ],
-      "description": "One row of a section: the envelope that every row has. `data` is the payload of the row kind,\nwhich the harness compares with the rows of the reference engine; it is the one open leaf.",
-      "additionalProperties": false
+      "description": "A forbidden construct: with the selector of the rule, or the plain construct name."
+    },
+    "SelectedConstruct": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "selector_role": {
+          "type": "string"
+        },
+        "receiver": {
+          "type": "string"
+        },
+        "member": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "literal": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "source",
+        "selector_role",
+        "receiver",
+        "member",
+        "literal"
+      ]
+    },
+    "PlainConstruct": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "construct": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "construct"
+      ]
     },
     "UnsupportedParts": {
       "type": "object",

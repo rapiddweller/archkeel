@@ -24,6 +24,57 @@ fn definition(definitions: &mut serde_json::Map<String, Value>, name: &str) -> V
     definitions.remove(name).unwrap_or(Value::Null)
 }
 
+/// One branch of a flattened `oneOf` with the own properties and the own required names added.
+fn merged_branch(
+    mut branch: Value,
+    own: &serde_json::Map<String, Value>,
+    required: &[Value],
+) -> Value {
+    let Value::Object(object) = &mut branch else {
+        return branch;
+    };
+    let mut properties = own.clone();
+    if let Some(Value::Object(found)) = object.get("properties") {
+        properties.extend(found.clone());
+    }
+    object.insert("properties".to_owned(), Value::Object(properties));
+    let mut names = required.to_vec();
+    if let Some(Value::Array(found)) = object.get("required") {
+        names.extend(found.iter().cloned());
+    }
+    object.insert("required".to_owned(), Value::Array(names));
+    branch
+}
+
+/// A flattened tagged enum gives a node with its own `properties` beside a `oneOf` of objects.
+/// Each branch becomes the whole object (the own properties and the branch properties), so that
+/// closing the branch does not refuse the fields of the envelope.
+fn merge_flattened(value: &mut Value) {
+    match value {
+        Value::Object(map) => {
+            map.values_mut().for_each(merge_flattened);
+            let own = map.get("properties").and_then(Value::as_object).cloned();
+            let branches = map.get("oneOf").and_then(Value::as_array).cloned();
+            if let (Some(own), Some(branches)) = (own, branches) {
+                let required = map
+                    .get("required")
+                    .and_then(Value::as_array)
+                    .cloned()
+                    .unwrap_or_default();
+                let merged = branches
+                    .into_iter()
+                    .map(|branch| merged_branch(branch, &own, &required))
+                    .collect();
+                map.remove("properties");
+                map.remove("required");
+                map.insert("oneOf".to_owned(), Value::Array(merged));
+            }
+        }
+        Value::Array(items) => items.iter_mut().for_each(merge_flattened),
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => {}
+    }
+}
+
 /// Close each object schema: a key that no type writes is not in the frame.
 fn close(value: &mut Value) {
     match value {
@@ -96,6 +147,7 @@ pub(crate) fn schema() -> Value {
         "required": required,
         "$defs": definitions,
     });
+    merge_flattened(&mut schema);
     close(&mut schema);
     schema
 }

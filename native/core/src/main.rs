@@ -36,6 +36,7 @@ mod report;
 mod request;
 mod rules;
 mod scan;
+mod section_rows;
 mod sections;
 mod topology;
 mod topology_declared;
