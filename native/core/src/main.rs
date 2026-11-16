@@ -38,6 +38,7 @@ mod rules;
 mod scan;
 mod sections;
 mod topology;
+mod topology_declared;
 mod topology_projection;
 
 /// The exit code of a frame that names an unsupported or refused part.
