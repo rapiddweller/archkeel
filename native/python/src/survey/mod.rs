@@ -97,6 +97,7 @@ pub(crate) struct Survey {
     pub references: Vec<Record<ReferenceFact>>,
     pub constructs: Vec<Record<ConstructFact>>,
     pub broad_complete: bool,
+    pub dict_complete: bool,
 }
 
 /// The parsed modules of a request and their binders, as the survey reads them (the dump of
@@ -165,7 +166,8 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         .map(|module| Binders::of(&module.tree))
         .collect();
     let mut evidence = EvidenceMap::new();
-    let (constructs, broad_complete) = constructs::collect(modules, &binders, &mut evidence);
+    let (constructs, broad_complete, dict_complete) =
+        constructs::collect(modules, &binders, &mut evidence);
     let lazy = lazy::find(modules, &binders, namespace);
     // AD-472: a proven literal import call is an import record; each other site is a gap.
     let (literals, hazards) = hazards::split(modules, &binders, Some(&lazy));
@@ -301,6 +303,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         references: symbols.references,
         constructs,
         broad_complete,
+        dict_complete,
     })
 }
 
