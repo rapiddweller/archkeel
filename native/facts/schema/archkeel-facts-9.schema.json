@@ -418,6 +418,13 @@
           },
           "description": "The names whose route the collector records."
         },
+        "route_complete": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "`false` when the collector proves only the first hops of `reexport_chain`: a later\nhop may follow (AD-604). Absent: the route is complete, or there is none."
+        },
         "declared_in_all": {
           "type": [
             "boolean",

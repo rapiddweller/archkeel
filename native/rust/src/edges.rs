@@ -16,7 +16,7 @@ use archkeel_facts::{ImportFact, Record};
 use crate::builder::{import_record, Builder, Origin};
 use crate::crates::{Crate, Workspace};
 use crate::derive_imports::Local;
-use crate::module_edges::local_target;
+use crate::module_edges::{local_target, with_name, ImportName};
 use crate::modules::Index;
 use crate::plant;
 use crate::resolve::{classify, linked, Found, Named};
@@ -94,7 +94,12 @@ impl Builder {
                     self.gap(&reason, Some(&evidence), &module.module);
                     self.ended += 1;
                 }
-                None => self.module_edge(index, module, reference),
+                None => match bound_crate_path(index, krate, module, reference) {
+                    Some((full, named)) => {
+                        self.import(workspace, Some(index), Origin::of(module), &full, &named);
+                    }
+                    None => self.module_edge(index, module, reference),
+                },
             }
         }
         let ended = self.ended - before;
@@ -157,13 +162,14 @@ impl Builder {
         );
         let evidence = self.cite(from.rel, site);
         let import_id = FactId::new(identity.as_str());
-        let (target, target_module) = match named {
+        let (target, target_module, name) = match named {
             Named::Sysroot(name) => (
                 Target::Builtin {
                     import_id,
                     name: name.clone(),
                 },
                 target_module,
+                None,
             ),
             Named::Registry(package) => (
                 Target::External {
@@ -171,15 +177,25 @@ impl Builder {
                     package: PackageName::new(package.as_str()),
                 },
                 target_module,
+                None,
             ),
             Named::Package(package) => match workspace.primary_of(package) {
-                Some(root) => local_target(index, root, reference, import_id),
+                Some(root) => {
+                    let (target, module, name) = local_target(index, root, reference, import_id);
+                    let glob = matches!(reference.via, crate::scan::Via::Glob { .. });
+                    (
+                        target,
+                        module,
+                        Some(if glob { ImportName::glob() } else { name }),
+                    )
+                }
                 None => (
                     Target::External {
                         import_id,
                         package: PackageName::new(package.as_str()),
                     },
                     target_module,
+                    None,
                 ),
             },
         };
@@ -188,15 +204,48 @@ impl Builder {
             _ => target_module.clone(),
         };
         self.targets.push(target);
-        self.imports.push(record(
+        let record = record(
             from.module,
             reference,
             &identity,
             evidence,
             &target_module,
             &target_package,
-        ));
+        );
+        // AD-604: an import into the workspace names its item; an external one is not read.
+        self.imports.push(match name {
+            Some(name) => with_name(record, name),
+            None => record,
+        });
         self.ended += 1;
+    }
+}
+
+/// A path that names another crate of the workspace through a `use` leaf of its file
+/// (`use dep::m; m::f()`), as the path from that crate and its crate. Without its own record, the
+/// interface rule would not see the name that such a path uses (AD-604).
+fn bound_crate_path(
+    index: &Index<'_>,
+    krate: &Crate,
+    module: &Module,
+    reference: &Reference,
+) -> Option<(Reference, Named)> {
+    if reference.in_macro.is_some() || reference.names.len() < 2 {
+        return None;
+    }
+    let names = index.crate_path(index.frame(&module.module)?, reference)?;
+    match classify(&names[0], krate, &module.scan.shadows, false)? {
+        Found::Edge(named @ Named::Package(_)) => {
+            let full = Reference {
+                root: names[0].clone(),
+                names,
+                via: crate::scan::Via::Path,
+                ..reference.clone()
+            };
+            Some((full, named))
+        }
+        // A path into a crate outside the workspace is no crossing of a component.
+        _ => None,
     }
 }
 

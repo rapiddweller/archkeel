@@ -29,7 +29,8 @@ const TYPESCRIPT_FEATURES: [&str; 8] = [
 ];
 
 /// The feature of the Rust collector. No Python check reads it, so it asks for no proof.
-const RUST_FEATURES: [&str; 1] = ["rust-crate-edges"];
+/// AD-604: the Rust collector states the item and the route of each import with its own feature.
+const RUST_FEATURES: [&str; 2] = ["rust-crate-edges", crate::features::RUST_ROUTES_FEATURE];
 
 /// `_unique` of the Python checks: no duplicate and no empty value.
 pub(crate) fn unique<'a, I: IntoIterator<Item = &'a str>>(
