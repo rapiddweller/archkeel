@@ -13,7 +13,7 @@
 //!   PASS has an explaining row (`unexplained`);
 //! - the check (`problems`), with every rule of the oracle checker and more;
 //! - `Report`: a payload that passed the check. `build` makes a `Report<Decided>` from the
-//!   outcomes of the evaluator, the rows and the model; `Report::read` a `Report<Recorded>`;
+//!   outcomes of the evaluator, the rows and the model;
 //! - the reason code of an UNKNOWN rule from the reason of the model (`WhyUnknown::of`).
 //!
 //! A PASS needs the model (AD-381): a rule row only with a PASS of its own rule of the model, the
@@ -64,13 +64,6 @@
 //! fn bytes(text: &[u8]) -> Vec<u8> {
 //!     archkeel_report::Payload::decode(text).ok().and_then(|p| p.encode().ok()).unwrap_or_default()
 //! }
-//! ```
-//!
-//! R4. The bytes of a recorded report: only a decided report has `encode` (E0599).
-//!
-//! ```compile_fail,E0599
-//! use archkeel_report::{Recorded, Report};
-//! fn bytes(report: &Report<Recorded>) -> Option<Vec<u8>> { report.encode().ok() }
 //! ```
 //!
 //! # The barrier of the engine frame (AD-388)
@@ -215,7 +208,9 @@ pub use input::{
 pub(crate) use payload::Payload;
 pub use payload::{DecodeError, MAX_BYTES, SCHEMA_VERSION};
 pub use problem::Problem;
-pub use report::{Decided, ReadError, Recorded, Report};
+#[cfg(test)]
+pub(crate) use report::ReadError;
+pub use report::{Decided, Report};
 pub use ruling::{rule, rule_with_edge_links, Explain, Named, RuleReasons, Ruling};
 pub use status::Unexplained;
 #[cfg(test)]
