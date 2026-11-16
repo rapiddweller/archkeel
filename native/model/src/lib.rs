@@ -39,6 +39,20 @@
 //!   the source domain of its mount and the one scope state of the tree.
 //!
 //! The model names no language: a rule of the native contract and a test check that.
+//!
+//! Callers can name the results and proofs that the model's public functions return:
+//!
+//! ```
+//! use archkeel_model::{ComponentCycle, Crossing, Direction, GapCause, GapRow, GapScope, Leaf,
+//!     Measure, Package, Proven, Reading, Rows, RunComplete, ScanProof, Scope, ScopeComplete,
+//!     Selection, Stable, Stale, Step};
+//! fn boundary(reading: &Reading) -> (&[GapRow], &[Stale]) {
+//!     (&reading.gaps, &reading.stale)
+//! }
+//! fn scope<'id>(scope: Scope<'id, '_>, proof: ScopeComplete<'id>) {
+//!     let _decision = scope.pass(proof);
+//! }
+//! ```
 
 #![deny(unreachable_pub)]
 
@@ -114,7 +128,7 @@ pub use modules::{Module, Package};
 pub use ownership::{claims, in_scope};
 pub use reason::{Hygiene, Input, Reason, Refusal, UmlGap, Unsupported};
 pub use scope::{Scope, ScopeComplete};
-pub use section::{Porting, Section, Slice};
+pub use section::Section;
 pub use settings::{Producer, Settings};
 pub use topology::Measure;
 pub use uml::{UmlDiff, UmlOutcome, UmlTarget};
@@ -156,7 +170,6 @@ pub use causes::Held;
 pub use closed_path::{cycle_path, Link, Step};
 pub use component_cycles::{cycles_of_components, ComponentCycle};
 pub use gaps::CoverageGap;
-pub use pair_gaps::{reads, Reads};
 pub use receipts::{GapScope, ScanProof};
 pub use sides::{shape, Direction, Shape};
 

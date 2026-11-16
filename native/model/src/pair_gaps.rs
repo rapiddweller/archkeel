@@ -54,7 +54,7 @@ pub(crate) struct Pairs {
 /// What a rule reads of the import edges between two modules. A rule kind states its reading;
 /// a kept gap holds the rule only when it can change that reading.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Reads<'r> {
+pub(crate) enum Reads<'r> {
     /// No edge between two modules: the layout, the layers, the symbols and a permission.
     NoEdge,
     /// The set of modules only (`complete_assignment`): an edge adds no module.
@@ -73,7 +73,7 @@ pub enum Reads<'r> {
 
 /// The reading of a rule. Each kind has an arm; a kind without a proof of a narrower reading
 /// reads every edge.
-pub fn reads<'r>(rule: &'r Rule, components: &'r [Component]) -> Reads<'r> {
+pub(crate) fn reads<'r>(rule: &'r Rule, components: &'r [Component]) -> Reads<'r> {
     match rule {
         Rule::ForbiddenDependency(rule) => Reads::Sides(dependency_sides(rule, components)),
         Rule::SiblingIsolation(rule) => {
