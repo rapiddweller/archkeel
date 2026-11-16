@@ -7,7 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
-| AD-630 | [The system report keeps part ownership and unchecked interfaces](ad-624-the-system-report-keeps-part-ownership-and-unchecked-interfaces.md) |
+| AD-624 | [The system report keeps part ownership and unchecked interfaces](ad-624-the-system-report-keeps-part-ownership-and-unchecked-interfaces.md) |
 | AD-630 | [The Explorer shows at most six boxes of a level, and each count names its list](ad-630-the-explorer-shows-at-most-six-boxes-of-a-level-and-counts-name-their-list.md) |
 | AD-622 | [A binary target is a consumer, and an unused entry leaves public](ad-622-a-binary-target-is-a-consumer-and-an-unused-entry-leaves-public.md) |
 | AD-620 | [The system document states each part and the interface between the parts](ad-620-the-system-document-states-each-part-and-the-interface-between-them.md) |
