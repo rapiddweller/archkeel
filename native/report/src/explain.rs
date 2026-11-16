@@ -38,7 +38,7 @@ const MAX_RULES: usize = 200;
 /// The most gaps that the part lists.
 const MAX_GAPS: usize = 500;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 struct Budgets {
     cycles_per_rule: usize,
     path_steps: usize,
@@ -46,6 +46,30 @@ struct Budgets {
     held_per_rule: usize,
     rules_per_gap: usize,
     gaps: usize,
+}
+
+/// The schema of the budgets: each field is a constant, the value of `BUDGETS`. The shell reads
+/// the limits from the schema and keeps no copy of them.
+fn budgets_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    let values = serde_json::to_value(BUDGETS).unwrap_or_default();
+    let fields: serde_json::Map<String, serde_json::Value> = values
+        .as_object()
+        .into_iter()
+        .flatten()
+        .map(|(name, value)| (name.clone(), serde_json::json!({"const": value})))
+        .collect();
+    let required: Vec<&String> = fields.keys().collect();
+    schemars::json_schema!({
+        "type": "object",
+        "properties": fields,
+        "required": required,
+        "additionalProperties": false,
+    })
+}
+
+/// The schema of the version of the part: the constant `VERSION`.
+fn version_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    schemars::json_schema!({"const": VERSION})
 }
 
 const BUDGETS: Budgets = Budgets {
@@ -287,7 +311,9 @@ struct Holds {
 /// The `explain` part of the frame.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 pub struct Explain {
+    #[schemars(schema_with = "version_schema")]
     version: u8,
+    #[schemars(schema_with = "budgets_schema")]
     budgets: Budgets,
     rules: BTreeMap<String, RuleShape>,
     cycles: BTreeMap<String, Cycles>,
