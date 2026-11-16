@@ -32,3 +32,5 @@ command and a full JSON frame printed after `report --output`.
    JSON, an example for a `requires` entry, the schema file for the other forms. A configuration
    file that cannot be read is split into missing (with `archkeel init`), a folder, and unreadable.
    The advice is display only (`core_words.contract_fix`); the core still decides every verdict.
+   It is chosen from the shape of the core message; a better message for each form needs the
+   contract crate.
