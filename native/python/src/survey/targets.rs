@@ -46,6 +46,25 @@ pub(super) fn site_gap(
     Record::unknown_gap(&reason, Some(evidence), module, gap)
 }
 
+/// The gap of a hazard site of `module` with the evidence `id`. A door site states its form, its
+/// line, its scope and the name that it binds (AD-664); the id of the gap does not read the door.
+pub(super) fn hazard_gap(
+    site: super::hazards::Site,
+    module: &crate::module::Module,
+    id: &str,
+) -> (String, Record<GapFact>) {
+    let (key, mut gap) = site_gap(site.kind, &site.detail, &module.name, id);
+    if let (Some(form), GapFact::SourceResolutionGap(data)) = (site.door, &mut gap.data) {
+        data.door = Some(archkeel_facts::data::DoorSite {
+            form,
+            line: u32::try_from(module.location(&site.range).line).unwrap_or(0),
+            scope: Some(site.scope).filter(|scope| !scope.is_empty()),
+            binding: site.binding,
+        });
+    }
+    (key, gap)
+}
+
 /// `collect._import_targets` with the classification of AD-450, and the gaps of the sites.
 pub(super) fn resolve(
     imports: &[Record<ImportFact>],

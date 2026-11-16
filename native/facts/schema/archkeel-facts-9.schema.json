@@ -5605,6 +5605,17 @@
             }
           ],
           "description": "The facts that the gap leaves unknown (AD-564). A gap without an effect leaves the whole\nscope unknown."
+        },
+        "door": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DoorSite"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The door of the site, when the gap is a door whose reach a contract can declare\n(AD-664)."
         }
       },
       "description": "An UNKNOWN gap of the coverage or of the `unknowns` section."
@@ -5716,6 +5727,81 @@
         }
       ],
       "description": "The facts that one gap leaves unknown. Each variant leaves the files of the scan and the\nnames of their modules known."
+    },
+    "DoorSite": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "form": {
+          "$ref": "#/$defs/DoorForm",
+          "description": "The form of the door."
+        },
+        "line": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0,
+          "description": "The line of the site in the file of the module, counted from 1."
+        },
+        "scope": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The dotted names of the classes and functions that hold the site, outermost first. The\nmodule level has none."
+        },
+        "binding": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The name that an import statement binds to the door in its module, when the site is such\na statement. Another module can import that name, so the model checks that none does."
+        }
+      },
+      "required": [
+        "form",
+        "line"
+      ],
+      "description": "The door of a gap: its form, the line of the site and the scope that holds it."
+    },
+    "DoorForm": {
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "eval",
+          "description": "A reference to the builtin that evaluates a text as an expression."
+        },
+        {
+          "type": "string",
+          "const": "exec",
+          "description": "A reference to the builtin that runs a text as statements."
+        },
+        {
+          "type": "string",
+          "const": "compile",
+          "description": "A reference to the builtin that compiles a text to code."
+        },
+        {
+          "type": "string",
+          "const": "unpickle",
+          "description": "A function that loads objects from bytes and imports the module that the bytes name."
+        },
+        {
+          "type": "string",
+          "const": "loader",
+          "description": "A loader function that imports the module of a name that the scan does not know."
+        },
+        {
+          "type": "string",
+          "const": "dunder_import",
+          "description": "A reference to the builtin import function."
+        },
+        {
+          "type": "string",
+          "const": "computed_key",
+          "description": "A call through a key that the scan does not know and that can name the constructor."
+        }
+      ],
+      "description": "The form of a door whose reach a contract can declare. A site of another form has no door\nrecord: its gap stays as it is."
     },
     "Kind": {
       "oneOf": [

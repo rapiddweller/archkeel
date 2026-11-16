@@ -101,6 +101,13 @@ pub struct Ruling {
     /// Each PASS rule of a run with kept pair gaps: the reference engine gives it UNKNOWN, and
     /// the model proves that no kept gap can change it (AD-384 point 4).
     beyond: BTreeMap<String, String>,
+    /// Each PASS rule that holds only under the declared reach of door sites, with the sites
+    /// (AD-664): never a plain PASS.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    assumed: BTreeMap<String, Vec<String>>,
+    /// Each applied declaration of a door reach of the run (AD-664).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    door_reach: Vec<crate::assumed::DoorRow>,
     /// Why the scope of the run is not complete, or `complete`.
     scope: String,
     /// The one assumption that the collector states for its proofs (AD-540). The word of `scope`
@@ -195,11 +202,9 @@ pub fn rule_with_edge_links(
             .find_map(|checked: &Model| checked.scope(|scope| scope.run()).err()),
         Err(reason) => Some(reason.clone()),
     };
-    let premise = models.ok().and_then(|models| {
-        models
-            .models()
-            .find_map(archkeel_model::Model::scope_premise)
-    });
+    let premise = models
+        .ok()
+        .and_then(|tree| tree.models().find_map(Model::scope_premise));
     let complete = scope.is_none();
     let scope = scope.map_or_else(|| "complete".to_owned(), |reason| reason.to_string());
     let mut rows = Rows::default();
@@ -284,6 +289,8 @@ pub fn rule_with_edge_links(
         details: rows.details,
         unknown_kinds: rows.unknown_kinds,
         beyond: rows.beyond,
+        assumed: rows.assumed,
+        door_reach: crate::assumed::rows(models.ok()),
         scope,
         premise,
         unsupported,
@@ -305,6 +312,7 @@ struct Rows {
     unknown_kinds: BTreeMap<String, WhyUnknown>,
     causes: BTreeMap<String, Reason>,
     beyond: BTreeMap<String, String>,
+    assumed: BTreeMap<String, Vec<String>>,
     decisions: Vec<(String, Option<Decision>)>,
     explain: explain::Collected,
 }
@@ -346,6 +354,8 @@ impl Rows {
                         if let Some(why) = crate::beyond::reason(model) {
                             self.beyond.insert(id.clone(), why);
                         }
+                        let sites = crate::assumed::sites(model, &id);
+                        self.assumed.extend(sites.map(|sites| (id.clone(), sites)));
                         RuleVerdict::Pass
                     }
                 },

@@ -35,12 +35,23 @@ impl Need {
 
 /// The needs of one run. The default is no need.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Needs(BTreeSet<Need>);
+pub struct Needs(BTreeSet<Need>, Vec<archkeel_contract::DoorReach>);
 
 impl Needs {
     /// The needs of a run, from its reasons.
     pub fn from_reasons(needs: impl IntoIterator<Item = Need>) -> Self {
-        Needs(needs.into_iter().collect())
+        Needs(needs.into_iter().collect(), Vec::new())
+    }
+
+    /// These needs and the declared reach of the door sites of the root contract (AD-664): the
+    /// graph matches them to the doors of the reply and reads the declared imports as edges.
+    pub fn with_doors(self, doors: Vec<archkeel_contract::DoorReach>) -> Self {
+        Needs(self.0, doors)
+    }
+
+    /// The declared reach of the door sites.
+    pub(crate) fn doors(&self) -> &[archkeel_contract::DoorReach] {
+        &self.1
     }
 
     /// True when a need of the run reads the symbol facts.

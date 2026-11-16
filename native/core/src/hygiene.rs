@@ -23,7 +23,9 @@ use std::iter;
 
 use archkeel_contract::policy::InsideMount;
 use archkeel_contract::{Contract, Rule};
-use archkeel_model::{in_scope, Graph, Hygiene, ModelTree, Reason, Unsupported};
+use archkeel_model::{
+    in_scope, DoorProblem, Doors, Graph, Hygiene, ModelTree, Reason, Unsupported,
+};
 
 use crate::contract::Usable;
 use crate::hygiene_boundary;
@@ -158,9 +160,35 @@ pub(crate) fn check(
         if place != path && has(|rule| matches!(rule, Rule::AllowedDependency(_))) {
             found.gap(place, "inside", INSIDE);
         }
+        if place != path {
+            inside_doors(&mut found, place, contract);
+        }
     }
     root(&mut found, documents, &usable.root, models, path);
     found
+}
+
+/// AD-664: a door declaration that the model does not apply is a defect: it never holds silently.
+fn door_defects(found: &mut Found, path: &str, doors: &Doors) {
+    for (index, id, problem) in doors.problems() {
+        let problem: &DoorProblem = problem;
+        let pointer = format!("/declarations/door_reach/{index}");
+        found.defect(path, (problem.code(), pointer, id.clone(), problem.text()));
+    }
+}
+
+/// AD-664: only the root contract declares the reach of a door; a declaration of an inside
+/// contract is a defect and never applies.
+fn inside_doors(found: &mut Found, place: &str, contract: &Contract) {
+    let declared = contract.declarations().iter().flat_map(|d| d.door_reach());
+    for (index, door) in declared.enumerate() {
+        let pointer = format!("/declarations/door_reach/{index}");
+        let claim = "an inside contract cannot declare the reach of a door; declare it in the \
+                     root contract; the declaration is not applied"
+            .to_owned();
+        let subject = door.id().as_text().to_owned();
+        found.defect(place, ("door_reach.inside", pointer, subject, claim));
+    }
 }
 
 /// The interface lifecycle rows of one contract: from the models when there are some (AD-514), else
@@ -204,6 +232,7 @@ fn root(
         return;
     };
     let graph = models.root().graph();
+    door_defects(found, path, graph.doors());
     for finding in unscanned(contract, graph)
         .into_iter()
         .chain(api_surface(contract, graph))
