@@ -51,14 +51,6 @@ sdist:
 	$(UV) build --sdist --no-sources --clear
 	$(UV) tool run --from twine==7.0.0 twine check --strict dist/*
 
-# #1313: what a user runs on a checkout. The sdist cannot be installed alone (it has no core), so
-# this also builds the platform wheel of this host with the core in `dist/`. It installs
-# cargo-auditable when `cargo auditable` is missing; `make native-wheel` adds the full checks.
-build: sdist
-	@cargo auditable --version >/dev/null 2>&1 || cargo install --locked cargo-auditable@$(CARGO_AUDITABLE_VERSION)
-	ARCHKEEL_BUNDLE_NATIVE=1 $(UV) build --wheel --no-sources --out-dir dist
-	$(UV) tool run --from twine==7.0.0 twine check --strict dist/*
-
 # The installed package with the release core of this checkout: the wheel of this host, then the
 # wheel that an installer builds from the sdist with the same prebuilt core (AD-436).
 SMOKE_CORE = $(abspath native/target/release/archkeel-core)
