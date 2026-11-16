@@ -104,12 +104,17 @@ target-version = "py311"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "ARG", "RUF059"]
+select = ["E", "F", "I", "UP", "B", "ARG", "RUF059", "D100", "D101", "D102", "D103", "D104"]
 
 [tool.ruff.lint.per-file-ignores]
 # A double must match the signature it replaces, including arguments it ignores.
-"tests/*" = ["ARG"]
-"fixtures/*" = ["ARG"]
+# Only a missing docstring of a public module, class, function or method is a rule: src/ states
+# the responsibility of each public name; tests, fixtures and tools are not a public surface.
+"tests/*" = ["ARG", "D"]
+"fixtures/*" = ["ARG", "D"]
+"tools/*" = ["D"]
+"native/*" = ["D"]
+"skills/*" = ["D"]
 
 [tool.mypy]
 python_version = "3.11"

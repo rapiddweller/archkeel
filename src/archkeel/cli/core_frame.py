@@ -43,6 +43,8 @@ class Status(StrEnum):
 
 
 class RefusalKind(StrEnum):
+    """The closed set of reasons for which the shell refuses to give a verdict."""
+
     CORE_ERROR = "core_error"
     COLLECTION_REFUSED = "collection_refused"
     REQUEST_MISMATCH = "request_mismatch"
@@ -70,6 +72,8 @@ class CoreCommand(StrEnum):
 
 
 class CheckKind(StrEnum):
+    """The kinds of check that a run states as active."""
+
     LOCK = "accepted lock authentication"
     RATCHETS = "measurement ratchets"
     GUARDRAILS = "architecture guardrails"
@@ -88,6 +92,8 @@ class RuleStatus(StrEnum):
 
 
 class UnknownKind(StrEnum):
+    """The closed set of causes of an UNKNOWN rule."""
+
     SCOPE_INCOMPLETE = "scope_incomplete"
     NO_RECEIPT = "no_receipt"
     UNDECIDED = "undecided"
@@ -100,6 +106,8 @@ class _ScopeWord(StrEnum):
 
 
 class FrameProtocol(StrEnum):
+    """The one protocol word of a core frame that this shell reads."""
+
     FRAME = "archkeel-core-frame-1"
 
 
@@ -169,6 +177,8 @@ _SCAN: Final = frozenset({"collect"})
 
 @dataclass(frozen=True, slots=True)
 class RuleVerdict:
+    """The kind and the status of one rule row."""
+
     kind: str
     status: RuleStatus
 
@@ -207,6 +217,8 @@ def _premise(frame: Mapping[str, object], scan: bool, status: Status) -> str | N
 
 @dataclass(frozen=True, slots=True)
 class CoreFrame:
+    """One core frame as typed values: the status, the rule rows and the evidence."""
+
     engine: str
     status: Status
     scope: str
@@ -232,10 +244,14 @@ class CoreFrame:
 
     @property
     def complete_scope(self) -> bool:
+        """Whether the core states that the scope of the run is complete."""
+
         return self.scope == _ScopeWord.COMPLETE
 
     @property
     def code_digest(self) -> str:
+        """The code digest of the core that wrote the frame."""
+
         return self.engine.removeprefix("archkeel-core ")
 
 

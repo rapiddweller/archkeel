@@ -20,6 +20,8 @@ def read_html(
     status: str,
     request: Mapping[str, object] | None,
 ) -> str | None:
+    """The HTML part of a frame if the request asked for it, else `None`."""
+
     if "html" not in frame and not (request and request.get("html")):
         return None
     part = _fields(frame.get("html"), "html", frozenset({"protocol", "status", "document"}))

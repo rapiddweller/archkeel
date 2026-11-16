@@ -45,6 +45,8 @@ def confirm(binary: Path) -> None:
 
 
 def locate_core(package: Path | None = None) -> Path:
+    """The core binary of this install, verified; never one that the scanned repository selects."""
+
     package = package or Path(__file__).resolve().parents[1]
     name = "archkeel-core" + (sysconfig.get_config_var("EXE") or "")
     bundled = package / "_native" / name

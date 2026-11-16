@@ -125,6 +125,8 @@ def _remedy(released: bool) -> str:
 
 
 class Options(argparse.Namespace):
+    """The options of one command line, as read by the parser."""
+
     command: Command
     root: Path | None = None
     config: str = "archkeel.toml"
@@ -141,7 +143,10 @@ class Options(argparse.Namespace):
 
 
 class Parser(argparse.ArgumentParser):
+    """An argument parser that raises `ValueError` and never exits or prints."""
+
     def error(self, message: str) -> NoReturn:
+        """Refuse the arguments with a `ValueError`."""
         raise ValueError(message)
 
 
@@ -234,6 +239,8 @@ def _wants_json(argv: Sequence[str]) -> bool:
 
 
 def run(argv: Sequence[str]) -> int:
+    """Run one command line and return its exit code. The core decides; the shell only maps."""
+
     as_json = _wants_json(argv)
     try:
         if not argv or argv[0] in {"-h", "--help"}:
@@ -458,6 +465,7 @@ def _places(frame: CoreFrame, evidence: Sequence[str]) -> str:
 
 
 def render_text(command: Command, frame: CoreFrame) -> None:
+    """Print a frame as text."""
     print(f"{command}: {frame.status}")
     if frame.premise is not None:
         print(f"Assumption: {frame.premise}")

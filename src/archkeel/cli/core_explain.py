@@ -26,6 +26,8 @@ BUDGETS: Final = {
 
 
 class Direction(StrEnum):
+    """The direction that a rule gives to the pairs it judges."""
+
     FORBIDS = "forbids"
     ALLOWS = "allows"
     REQUIRES = "requires"
@@ -36,6 +38,8 @@ class Direction(StrEnum):
 
 
 class HoldKind(StrEnum):
+    """The reason class that holds a rule at UNKNOWN."""
+
     COVERAGE_GAPS = "coverage_gaps"
     PAIR_GAPS = "pair_gaps"
     ALLOWED_PAIR_GAPS = "allowed_pair_gaps"
@@ -52,6 +56,8 @@ _Word = TypeVar("_Word", bound=StrEnum)
 
 @dataclass(frozen=True, slots=True)
 class RuleShape:
+    """The kind of a rule, its direction and the sources and targets it selects."""
+
     kind: str
     direction: Direction
     source: tuple[str, ...]
@@ -60,6 +66,8 @@ class RuleShape:
 
 @dataclass(frozen=True, slots=True)
 class Step:
+    """One import edge on a path of a cycle, with the evidence for it."""
+
     source: str
     target: str
     source_component: str | None
@@ -71,6 +79,8 @@ class Step:
 
 @dataclass(frozen=True, slots=True)
 class CyclePath:
+    """One cycle: its members and the import path through them."""
+
     id: str
     index: int
     members: tuple[str, ...]
@@ -81,6 +91,8 @@ class CyclePath:
 
 @dataclass(frozen=True, slots=True)
 class Cycles:
+    """The cycles of one rule, counted and possibly truncated."""
+
     total: int
     truncated: bool
     items: tuple[CyclePath, ...]
@@ -88,6 +100,8 @@ class Cycles:
 
 @dataclass(frozen=True, slots=True)
 class RuleHolds:
+    """What holds one rule at UNKNOWN: the cause, the gaps and the pairs."""
+
     cause: str
     kind: HoldKind
     gaps: tuple[str, ...]
@@ -99,6 +113,8 @@ class RuleHolds:
 
 @dataclass(frozen=True, slots=True)
 class GapHolds:
+    """One gap and the rules that it holds at UNKNOWN."""
+
     id: str
     kind: str
     reason: str
@@ -109,6 +125,8 @@ class GapHolds:
 
 @dataclass(frozen=True, slots=True)
 class Explain:
+    """The explanation part of a frame: rule shapes, cycles, holds and gaps."""
+
     rules: Mapping[str, RuleShape]
     cycles: Mapping[str, Cycles]
     holds: Mapping[str, RuleHolds]
