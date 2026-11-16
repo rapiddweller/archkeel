@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -60,6 +61,84 @@ def test_comprehension_local_has_no_import_gap_but_site_module_does(
 
     module = Plant("module", "import site\nsite.addsitedir('x')\n")
     result = verdict(release_core, tree(tmp_path / "module", module))
+    assert "import_system_change" in json.dumps(result)
+    assert result["status"] == "UNKNOWN"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "assert (lambda site: site.id)(value) == 17",
+        "def f(site): return site.id\nassert f(value) == 17",
+        "def f():\n for site in [value]: return site.id\nassert f() == 17",
+        "def f():\n with manager as site: return site.id\nassert f() == 17",
+        "def f():\n try: raise ValueError('x')\n"
+        " except ValueError as site: return site.args[0]\nassert f() == 'x'",
+        "def f():\n if (site := value): return site.id\nassert f() == 17",
+        "def f():\n match {'key': value}:\n  case {'key': site}: return site.id\nassert f() == 17",
+        "def f():\n match [value]:\n  case [*site]: return site[0].id\nassert f() == 17",
+        "def f():\n match {'key': value}:\n"
+        "  case {**site}: return site['key'].id\nassert f() == 17",
+        "def f():\n site = value\n def g():\n  nonlocal site\n"
+        "  return site.id\n return g()\nassert f() == 17",
+        "def f():\n site = value\n class C:\n  global site\n  get = lambda: site.id\n"
+        " return C.get()\nassert f() == 17",
+    ],
+)
+def test_local_bindings_match_python312(release_core: Path, tmp_path: Path, body: str) -> None:
+    """Python binds each local form without resolving the standard-library module."""
+    source = (
+        "from types import SimpleNamespace\n"
+        "from contextlib import nullcontext\n"
+        "value = SimpleNamespace(id=17)\nmanager = nullcontext(value)\n" + body + "\n"
+    )
+    subprocess.run(
+        ["uv", "run", "--no-project", "--python", "3.12.10", "python", "-c", source],
+        check=True,
+        capture_output=True,
+    )
+    result = verdict(release_core, tree(tmp_path, Plant("binding", source)))
+    assert "import_system_change" not in json.dumps(result)
+    assert rows(result) == dict.fromkeys(NAMES, "PASS")
+
+
+def test_module_use_beside_lambda_binding_keeps_gap(release_core: Path, tmp_path: Path) -> None:
+    """A local parameter does not change the module binding beside the lambda."""
+    source = (
+        "import site\n"
+        "f = lambda site: site.id\n"
+        "assert f(type('Value', (), {'id': 17})()) == 17\n"
+        "def module_use():\n global site\n return site.addsitedir\n"
+        "assert callable(module_use())\n"
+        "def outer():\n site = 17\n class C:\n  global site\n  module_use = site.addsitedir\n"
+        " return C.module_use\nassert callable(outer())\n"
+    )
+    subprocess.run(
+        ["uv", "run", "--no-project", "--python", "3.12.10", "python", "-c", source],
+        check=True,
+        capture_output=True,
+    )
+    result = verdict(release_core, tree(tmp_path, Plant("module", source)))
+    assert "import_system_change" in json.dumps(result)
+    assert result["status"] == "UNKNOWN"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "for site in sites:\n assert site.id == 17\n",
+        "class C:\n for site in sites:\n  assert site.id == 17\n",
+    ],
+)
+def test_module_and_class_bindings_keep_gap(release_core: Path, tmp_path: Path, body: str) -> None:
+    """Execution-order scopes remain conservative until #1360."""
+    source = "from types import SimpleNamespace\nsites = [SimpleNamespace(id=17)]\n" + body
+    subprocess.run(
+        ["uv", "run", "--no-project", "--python", "3.12.10", "python", "-c", source],
+        check=True,
+        capture_output=True,
+    )
+    result = verdict(release_core, tree(tmp_path, Plant("scope", source)))
     assert "import_system_change" in json.dumps(result)
     assert result["status"] == "UNKNOWN"
 

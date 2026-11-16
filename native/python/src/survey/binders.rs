@@ -227,13 +227,13 @@ pub(crate) fn declared(stmt: &Stmt) -> &[Identifier] {
 }
 
 /// The name that `except ... as name` binds.
-fn handler_name(handler: &ExceptHandler) -> Option<&str> {
+pub(super) fn handler_name(handler: &ExceptHandler) -> Option<&str> {
     let ExceptHandler::ExceptHandler(node) = handler;
     node.name.as_ref().map(Identifier::as_str)
 }
 
 /// The name that a capture, a star or a mapping rest pattern binds.
-fn pattern_name(pattern: &Pattern) -> Option<&str> {
+pub(super) fn pattern_name(pattern: &Pattern) -> Option<&str> {
     let name = match pattern {
         Pattern::MatchAs(node) => node.name.as_ref(),
         Pattern::MatchStar(node) => node.name.as_ref(),

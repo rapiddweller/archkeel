@@ -7,6 +7,55 @@
 /// The named gaps of the sites.
 pub(in crate::survey) const DYNAMIC: &str = "dynamic_import";
 pub(in crate::survey) const IMPORT_SYSTEM: &str = "import_system_change";
+
+/// The inert literal import names (AD-472).
+const INERT: [&str; 2] = [
+    "importlib.metadata.version",
+    "importlib.metadata.PackageNotFoundError",
+];
+
+/// The gap of a qualified name: a door, the import state, or a name below one of them.
+pub(in crate::survey) fn hazard(name: &str) -> Option<&'static str> {
+    if INERT.contains(&name) {
+        return None;
+    }
+    let under = |entry: &&str| {
+        name == *entry
+            || name
+                .strip_prefix(*entry)
+                .is_some_and(|rest| rest.starts_with('.'))
+    };
+    if STATE.iter().any(under) {
+        Some(IMPORT_SYSTEM)
+    } else if doors().any(|door| under(&door)) {
+        Some(DYNAMIC)
+    } else {
+        None
+    }
+}
+
+/// True for a module above a hazard name.
+pub(super) fn above(name: &str) -> bool {
+    let prefix = format!("{name}.");
+    doors().chain(STATE).any(|entry| entry.starts_with(&prefix))
+}
+
+/// True for an attribute in a write or a delete.
+pub(super) fn store(expr: &ruff_python_ast::Expr) -> bool {
+    matches!(expr, ruff_python_ast::Expr::Attribute(node) if node.ctx != ruff_python_ast::ExprContext::Load)
+}
+
+/// The first hazard on a qualified attribute chain.
+pub(super) fn first_hazard(origin: String, attributes: &[&str]) -> Option<(&'static str, String)> {
+    let mut name = origin;
+    for attribute in attributes {
+        name = format!("{name}.{attribute}");
+        if let Some(kind) = hazard(&name) {
+            return Some((kind, name));
+        }
+    }
+    above(&name).then_some((DYNAMIC, name))
+}
 /// The door names and their children, unless a bounded inert read is proven.
 pub(super) const DOORS: &str = "\
     builtins importlib __builtins__ ctypes.pythonapi types.FunctionType types.CodeType \

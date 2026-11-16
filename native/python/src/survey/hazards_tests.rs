@@ -390,6 +390,51 @@ fn comprehension_targets_shadow_module_names_only_in_their_scope() {
 }
 
 #[test]
+fn local_binding_forms_are_not_module_references() {
+    for source in [
+        "sorted(sites, key=lambda site: site.id)\n",
+        "def f(site): return site.id\n",
+        "def f():\n    for site in sites: print(site.id)\n",
+        "def f():\n    with manager as site: print(site.id)\n",
+        "def f():\n    try: pass\n    except Exception as site: print(site.id)\n",
+        "def f():\n    if (site := value): print(site.id)\n",
+        "def f():\n    match value:\n        case {'key': site}: print(site.id)\n",
+        "def f():\n    match value:\n        case [*site]: print(site.id)\n",
+        "def f():\n    match value:\n        case {**site}: print(site.id)\n",
+        "def outer():\n    site = value\n    def inner():\n        nonlocal site\n        return site.id\n",
+        "f = lambda: ((site := value), site.id)\n",
+        "def outer():\n    def f(x=(site := value)): pass\n    return site.id\n",
+        "def outer():\n    site = value\n    class C:\n        global site\n        f = lambda: site.id\n",
+        "def outer():\n    site = value\n    class C:\n        global site\n        def f(self): return site.id\n",
+    ] {
+        assert!(!has(source, IMPORT_SYSTEM), "{source}");
+    }
+    for source in [
+        "import site\nsorted(sites, key=lambda site: site.id)\nsite.addsitedir('x')\n",
+        "import site\ndef f():\n    global site\n    site.addsitedir('x')\n",
+        "def outer():\n    import site\n    def inner():\n        nonlocal site\n        site.addsitedir('x')\n",
+        "def f():\n    import site\n    site.addsitedir('x')\n",
+        "def outer():\n    site = value\n    def inner():\n        global site\n        site.addsitedir('x')\n",
+        "def outer():\n    site = value\n    class C:\n        global site\n        site.addsitedir('x')\n",
+        "def f():\n    (lambda: (site := value))\n    site.addsitedir('x')\n",
+        "f = lambda site=site.addsitedir('x'): site.id\n",
+    ] {
+        assert!(has(source, IMPORT_SYSTEM), "{source}");
+    }
+}
+
+#[test]
+fn module_and_class_loop_targets_keep_the_conservative_gap() {
+    let sources = [
+        "for site in sites:\n    print(site.id)\n",
+        "class C:\n    for site in sites:\n        print(site.id)\n",
+    ];
+    for source in sources {
+        assert!(has(source, IMPORT_SYSTEM), "{source}");
+    }
+}
+
+#[test]
 fn only_the_inert_names_of_importlib_metadata_are_no_site() {
     let inert = "from importlib.metadata import PackageNotFoundError, version\ntry:\n    v = version('x')\nexcept PackageNotFoundError:\n    v = None\n";
     assert!(kinds(inert).is_empty(), "{:?}", kinds(inert));
