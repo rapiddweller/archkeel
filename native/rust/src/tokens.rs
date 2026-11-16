@@ -157,12 +157,32 @@ pub(crate) fn fn_names(stream: TokenStream, depth: usize, found: &mut BTreeSet<S
     each_name(stream, depth, fn_name, found);
 }
 
+/// The member name of a `fn $name` of a macro body: a metavariable, so the call gives the name
+/// (#1196). A `macro_rules!` body makes no new identifier, so the name is one of the call tokens.
+pub(crate) const NAME_FROM_CALL: &str = "$";
+
 fn fn_name(token: &TokenTree, rest: &Rest) -> Option<String> {
     let keyword = matches!(token, TokenTree::Ident(word) if word == "fn");
     match rest.clone().next() {
         Some(TokenTree::Ident(name)) if keyword => Some(plain(&name)),
+        Some(TokenTree::Punct(dollar)) if keyword && dollar.as_char() == '$' => {
+            Some(NAME_FROM_CALL.to_owned())
+        }
         _ => None,
     }
+}
+
+/// Each identifier of the stream, in any group down to `MAX_DEPTH` (#1196).
+pub(crate) fn idents(stream: TokenStream, depth: usize, found: &mut BTreeSet<String>) {
+    each_name(
+        stream,
+        depth,
+        |token, _| match token {
+            TokenTree::Ident(word) => Some(plain(word)),
+            _ => None,
+        },
+        found,
+    );
 }
 
 /// The names that the stream calls as macros: an identifier, `!`, and a group.

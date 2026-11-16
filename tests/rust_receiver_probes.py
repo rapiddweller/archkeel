@@ -344,6 +344,6 @@ CASES: dict[str, dict[str, str]] = {
 }
 
 # The cases where the collector, before AD-383 or after it, gave neither the exact edge nor a gap.
-KNOWN_MISSES: dict[str, str] = {
-    "member made by a macro_rules impl": "#1020: a member that a macro expands is no gap yet",
-}
+# AD-656 (#1196) closed the last one: a member that a `macro_rules!` impl adds outside the file of
+# its type gives a pair gap.
+KNOWN_MISSES: dict[str, str] = {}

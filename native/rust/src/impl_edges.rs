@@ -405,6 +405,17 @@ impl Builder {
                 );
                 self.reached_gap(reached, call, target, &reason);
             }
+            // #1196: a macro call can define the method in an impl block outside the file of its
+            // type, which the scan does not see; its visibility is not read either. A macro that
+            // defines the type and its impl together adds a member of its own file (AD-357).
+            let defined = (self.macro_foreign_members.get(&call.name).cloned()).unwrap_or_default();
+            for target in &defined {
+                let reason = format!(
+                    "A method call may reach the method {} that a macro call in {target} may define",
+                    call.name
+                );
+                self.reached_gap(reached, call, target, &reason);
+            }
             if at_index < own {
                 *self.ended_methods.entry(module.rel.clone()).or_default() += 1;
             }
