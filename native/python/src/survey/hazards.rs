@@ -3,17 +3,11 @@
 // SPDX-License-Identifier: MIT
 
 //! The sites that can import a module that no `import` statement names (AD-450).
-//!
 //! A door or state reference is a hazard. A proven inert read keeps its import gap (AD-574).
-//!
-//! - A dynamic import is a reference to a door: a standard-library name that imports a module
-//!   from a value or runs text (`DOORS`), a builtin such as `exec`, or an attribute with the name
-//!   of an import function on any value.
+//! - A dynamic import is a reference to a door, builtin or import function.
 //! - An import-system change is a reference to the state of the import system (`STATE`) or a
 //!   write to a package `__path__`.
-//! - A module above a hazard name (`sys`, `importlib`, `builtins`) that is used as a value, not as
-//!   the base of an attribute, is a dynamic import too: `getattr(sys, "path")` and `x = importlib`
-//!   reach any name of it. An attribute `sys`, `builtins` or `importlib` of any value is the same.
+//! - A module above a hazard name used as a value is a dynamic import too.
 //!
 //! Unproved names remain gaps (AD-539).
 
@@ -34,6 +28,8 @@ use crate::module::Module;
 use names::{doors, ANY_ATTRIBUTE, BUILTIN_DOORS, DOOR_STRINGS, IMPORT_FUNCTIONS, STATE};
 pub(super) use names::{DYNAMIC, IMPORT_SYSTEM};
 
+#[path = "hazards_comprehension.rs"]
+mod comprehension;
 #[path = "hazards_inert.rs"]
 mod inert;
 #[path = "hazards_names.rs"]
@@ -87,9 +83,6 @@ pub(super) fn sites(
 }
 
 /// The names of a door module that cannot import a module by a name given at run time (AD-472).
-/// `importlib.metadata.version` reads the version from the metadata files of an installed
-/// distribution, and `PackageNotFoundError` is an exception class. A reference to one of these
-/// exact names is no gap; any name below it, and each other name of the module, still is.
 const INERT: [&str; 2] = [
     "importlib.metadata.version",
     "importlib.metadata.PackageNotFoundError",
@@ -204,11 +197,8 @@ struct Walk<'r> {
     uncertain_code: bool,
     class_body: bool,
     proof: Proof,
-    /// The sources of `__globals__` that only a literal lookup reads (`globals_read.rs`).
     reads: &'r HashSet<TextRange>,
-    /// The names that each enclosing function binds, the innermost last.
     locals: Vec<HashSet<String>>,
-    /// The module binds `getattr` itself: a call of it is no read of an attribute.
     getattr_bound: bool,
 }
 
@@ -418,6 +408,16 @@ impl<'a> Visitor<'a> for Walk<'_> {
     }
 
     fn visit_expr(&mut self, expr: &'a Expr) {
+        if let Some((first, rest, targets, values)) = comprehension::parts(expr) {
+            self.visit_expr(&first.iter);
+            self.locals.push(targets);
+            self.visit_expr(&first.target);
+            first.ifs.iter().for_each(|test| self.visit_expr(test));
+            rest.iter().for_each(|item| self.visit_comprehension(item));
+            values.into_iter().for_each(|value| self.visit_expr(value));
+            self.locals.pop();
+            return;
+        }
         match expr {
             // AD-472: only the callee of a proven literal call is exempt; its one argument is a
             // string literal, so nothing below the call is left to read.
