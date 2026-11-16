@@ -82,7 +82,7 @@ pub struct Held {
 }
 
 /// The largest number of gaps that a reason shows.
-pub const HELD_SHOWN: usize = 5;
+pub(crate) const HELD_SHOWN: usize = 5;
 
 impl Held {
     /// The gaps `(source, target)` that hold a rule, or `None` for no gap. A `Held` is a reason,
