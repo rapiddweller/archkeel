@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-692 | [A path that ends at a module may name a value of its name](ad-692-a-path-that-ends-at-a-module-may-name-a-value-of-its-name.md) |
 | AD-686 | [A proven Python getattr call is a construct](ad-686-a-proven-python-getattr-call-is-a-construct.md) |
 | AD-684 | [A written Python string equality is a construct](ad-684-a-written-python-string-equality-is-a-construct.md) |
 | AD-682 | [A proven Python vars call is a construct](ad-682-a-proven-python-vars-call-is-a-construct.md) |

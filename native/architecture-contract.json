@@ -5337,13 +5337,6 @@
           ]
         },
         {
-          "component": "rs-reply",
-          "rationale": "Encode the reply.",
-          "through": [
-            "native.archkeel_rust_collector.reply"
-          ]
-        },
-        {
           "component": "rs-flow",
           "rationale": "Run one collection.",
           "through": [
