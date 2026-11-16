@@ -8,6 +8,7 @@
 //!   the scan does not know (#1000). The survey keeps neither file as a module.
 //! - A module whose top package directory lies above its scan root: the parent rule of the scan
 //!   receipt does not hold for it.
+//! - A script file (a name that no import can spell) is no module: it has no layout and no gap.
 //! - A stub or compiled module file below a root: Python can import it, the survey cannot read it.
 //! - A directory or entry that the snapshot cannot read (#1043).
 
@@ -91,10 +92,28 @@ fn in_layout(root: &str, module: &Module) -> bool {
     top.starts_with(&parts(root))
 }
 
-/// A gap for each module that is not in the layout of any scan root.
+/// True when no import statement can name the file: it is a script, not a module (AD-648).
+///
+/// A part of its dotted name is no identifier (`demo-custom-components`), or its stem holds a dot
+/// (`converter.scr.py`: `import pkg.converter.scr` looks for `pkg/converter/scr.py`). Python runs such
+/// a file only when a loader is given its path, and a loader call is its own gap. The imports
+/// that the script writes are still edges of its file.
+pub(super) fn is_script(module: &Module) -> bool {
+    let stem = module.rel.rsplit('/').next().unwrap_or(&module.rel);
+    let stem = stem.strip_suffix(".py").unwrap_or(stem);
+    stem.contains('.')
+        || !module
+            .name
+            .split('.')
+            .all(archkeel_facts::identity::is_identifier)
+}
+
+/// A gap for each module that is not in the layout of any scan root. A script has no place in a
+/// layout, so it has no gap.
 pub(super) fn outside(modules: &[Module], roots: &[String]) -> Vec<Record<GapFact>> {
     modules
         .iter()
+        .filter(|module| !is_script(module))
         .filter(|module| !roots.iter().any(|root| in_layout(root, module)))
         .map(|module| {
             let reason = format!(

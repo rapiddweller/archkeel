@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-648 | [A file that no import can name is a script and has no layout](ad-648-a-file-that-no-import-can-name-is-a-script-and-has-no-layout.md) |
 | AD-650 | [The text says why a run of passing rules stays UNKNOWN and where a module went](ad-650-the-text-says-why-a-run-of-passing-rules-stays-unknown-and-where-a-module-went.md) |
 | AD-646 | [A Python range that reaches 3.11 is read as 3.11](ad-646-a-python-range-that-reaches-3-11-is-read-as-3-11.md) |
 | AD-640 | [CI gets a fifteen-line summary, and the text names the top jobs](ad-640-ci-gets-a-fifteen-line-summary-and-the-text-names-the-top-jobs.md) |
