@@ -760,7 +760,8 @@
         "native.archkeel_model.roots",
         "native.archkeel_model.domain",
         "native.archkeel_model.pair_gaps",
-        "native.archkeel_model.dropped_gaps"
+        "native.archkeel_model.dropped_gaps",
+        "native.archkeel_model.rule_kinds"
       ],
       "responsibilities": [
         "Say what each rule reads: its sides, subjects, profile limits, scan roots, domain and pair gaps (slices S4, S5 and S7)."
@@ -832,6 +833,7 @@
         "native.archkeel_model.pair_gaps:pairs",
         "native.archkeel_model.pair_gaps:reads",
         "native.archkeel_model.roots:Roots",
+        "native.archkeel_model.rule_kinds:undecided_rule",
         "native.archkeel_model.selection:dependency_sides",
         "native.archkeel_model.selection:layer_components",
         "native.archkeel_model.sides:Shape",
@@ -1104,6 +1106,7 @@
             "native.archkeel_model.limits",
             "native.archkeel_model.pair_gaps",
             "native.archkeel_model.roots",
+            "native.archkeel_model.rule_kinds",
             "native.archkeel_model.selection"
           ]
         },
