@@ -14,7 +14,6 @@ import json
 import subprocess
 import sys
 import zlib
-from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -25,7 +24,7 @@ from frozen_native import frozen_root as frozen_root
 from archkeel.cli import core_only
 
 sys.path.insert(0, str(ROOT / "tools"))
-from native_expected import problems  # noqa: E402
+from native_expected import expected_exit, problems  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -47,8 +46,11 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     assert core, "the self-contract has rules"
     # No rule names a part of the scope proof: each one has a decision.
     assert result["gaps"] == []
-    assert Counter(core.values()) == {"PASS": len(core)}
-    assert (code, result["status"], frame["status"]) == (0, "PASS", "PASS")
+    # AD-668: a known violation stays FAIL, as pinned (honesty rule); no rule is UNKNOWN.
+    assert "UNKNOWN" not in core.values()
+    assert core == expected["rules"]
+    status = "FAIL" if "FAIL" in core.values() else "PASS"
+    assert (code, result["status"], frame["status"]) == (expected_exit(expected), status, status)
     assert set(frame["unknown_kinds"]) == {r for r, status in core.items() if status == "UNKNOWN"}
     assert frame["scope"] == "complete"
 

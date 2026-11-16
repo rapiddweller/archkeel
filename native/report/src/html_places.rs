@@ -69,8 +69,16 @@ struct Group {
 type Grouped = BTreeMap<(String, Option<String>), Group>;
 
 impl Group {
+    /// Add one row. A place lists each rule and cause once, also when several sites of the place
+    /// break it (AD-668); the evidence of each site stays.
     fn add(&mut self, violated: Violated, evidence: &[String]) {
-        self.rules.push(violated);
+        let seen = self
+            .rules
+            .iter()
+            .any(|old| old.rule == violated.rule && old.cause == violated.cause);
+        if !seen {
+            self.rules.push(violated);
+        }
         let new: Vec<&String> = evidence
             .iter()
             .filter(|id| !self.evidence.contains(id))

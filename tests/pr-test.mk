@@ -49,6 +49,7 @@ PR_TEST_FILES := \
 	tests/test_rust_source.py \
 	tests/test_publish_release.py \
 	tests/test_repository_hygiene.py \
+	tests/test_native_neutral_crates.py \
 	tests/test_table_overlap.py \
 	tests/test_ir_owners.py \
 	tests/test_skill.py \

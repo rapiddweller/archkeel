@@ -134,6 +134,14 @@ Earlier contract versions reject the new fields; omitted defaults retain canonic
 bytes and digests. `target_symbol`, type-checking filters and allowances keep their
 existing meanings.
 
+A `forbidden_dependency` with `target_symbol` forbids the use of one item, for
+example the vocabulary of the languages in a crate that must name no language
+(AD-668). An import uses the item when it names it, by its own name or through a
+re-export under another name (`pub use vocab::Profile as Lang`). A glob is UNKNOWN.
+A route that the collector does not prove is UNKNOWN when some import of the run
+binds the item under another name. A type alias is an item of its own, in the
+same way as a function that returns the type: the alias itself names the item.
+
 Core and reports share immutable typed selections, including all packages and exact
 modules of a uniquely selected legacy component pair. Component display labels do
 not affect matching. See [dependency selection](architecture/dependency-selection.md)

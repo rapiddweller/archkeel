@@ -7,6 +7,8 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-682 | [A proven Python vars call is a construct](ad-682-a-proven-python-vars-call-is-a-construct.md) |
+| AD-668 | [A neutral crate names no language](ad-668-a-neutral-crate-names-no-language.md) |
 | AD-660 | [`init` drafts a system for a mixed repository](ad-660-init-drafts-a-system-for-a-mixed-repository.md) |
 | AD-680 | [A written Python dunder dict is a construct](ad-680-a-written-python-dunder-dict-is-a-construct.md) |
 | AD-662 | [A macro whose expansion the scan does not read gives a gap](ad-662-a-macro-whose-expansion-the-scan-does-not-read-gives-a-gap.md) |

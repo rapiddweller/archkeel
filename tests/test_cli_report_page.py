@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 
 import pytest
-from core_support import ROOT, run
+from core_support import ROOT, pinned_self_status, run
 from frozen_native import frozen_root as frozen_root
 from planted_cycle import cycle_root as cycle_root
 
@@ -47,7 +47,7 @@ def self_page(
         code, text, found = write_page(
             release_core, patch, frozen_root, "native/archkeel.toml", target
         )
-    assert (code, found["status"]) == (0, "PASS")
+    assert (code, found["status"]) == pinned_self_status()
     return text
 
 
@@ -193,14 +193,18 @@ def visible_text(page: str) -> str:
 
 
 WORD_BUDGET = 6_000
+# AD-668: the self page shows each violated place of the self-contract (honesty rule); each block
+# adds its own text to the budget, and no more than this.
+PLACE_BUDGET = 400
 
 
 def test_the_word_budget_of_the_core_self_page_and_no_json_block(self_page: str) -> None:
     """The page is a report for people: its visible text stays short, and it holds no JSON dump.
     Before (main at e65cbe009): 83,356 characters and 46,862 px."""
     words = visible_text(self_page)
-    print(f"visible characters of the core self page: {len(words)}")
-    assert len(words) < WORD_BUDGET
+    places = self_page.count('class="rp-dos"')
+    print(f"visible characters of the core self page: {len(words)} with {places} places")
+    assert len(words) < WORD_BUDGET + PLACE_BUDGET * places
     page = markup(self_page)
     assert "<pre" not in page and '"kind":' not in page and "&quot;kind&quot;" not in page
 
