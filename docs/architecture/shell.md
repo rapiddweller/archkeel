@@ -23,7 +23,7 @@ Archkeel checks the shell with its own core and the contract in
 | `output` | `core_output` | Read the presentation of the core and write the received bytes to one file. |
 | `json` | `core_json` | Checked readers and the shared error type. |
 | `schema` | `core_schema` | Check a frame against the one schema that the core generates from its types (AD-596). |
-| `words` | `core_words` | Say in plain words what a machine word means; strip internal numbers from a message (AD-432). |
+| `words` | `core_words` | Say in plain words what a machine word means; strip internal numbers from a message (AD-632). |
 | `exit` | `core_exit` | The one exit table and the exit code of one run. |
 | `text` | `core_text` | The text of a run for a person: header with exit code and reason, then problems, violations, grouped causes. |
 | `help` | `core_help` | The help of the tool and of each command. |
