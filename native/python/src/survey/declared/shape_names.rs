@@ -9,6 +9,7 @@
 //! plain statement of the module body binds it: a `def`, a `class`, a value, or one plain import.
 //! Any other name carries the cause that stopped the proof, and the model reads it as a named gap.
 
+use crate::module::builtin_roles::{self, Role};
 use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::type_shape::{Binding, Unproven};
@@ -19,22 +20,6 @@ use crate::module::first_part;
 use crate::survey::binders::Binders;
 use crate::survey::bound::Bound;
 use crate::survey::bound_kind::Kind;
-
-/// The builtin classes that a written type can name. Another builtin is a name with no proof.
-const BUILTIN_TYPES: [&str; 12] = [
-    "int",
-    "str",
-    "bytes",
-    "bool",
-    "float",
-    "complex",
-    "object",
-    "dict",
-    "list",
-    "set",
-    "frozenset",
-    "tuple",
-];
 
 /// What a plain import of the module brings.
 enum Import {
@@ -146,7 +131,9 @@ impl<'a> Names<'a> {
                 _ => unproven(Unproven::UnreadImport),
             },
             None if self.names.contains(name) => unproven(Unproven::NotSole),
-            None if BUILTIN_TYPES.contains(&name) && self.binders.builtin_visible(name) => {
+            None if builtin_roles::has(name, Role::WRITTEN_TYPE)
+                && self.binders.builtin_visible(name) =>
+            {
                 Binding::Builtin {
                     target: name.to_owned(),
                 }

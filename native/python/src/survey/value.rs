@@ -12,15 +12,8 @@
 //! `uses.rs` decides each of them. Any other form (a call, an attribute, a subscript, an
 //! operator, a comprehension, a starred item) is no value of this kind.
 
+use crate::module::builtin_roles::{self, Role};
 use ruff_python_ast::{Expr, ExprCall};
-
-/// The builtins whose call gives a container of its arguments.
-const CONTAINERS: [&str; 6] = ["tuple", "list", "set", "frozenset", "dict", "sorted"];
-
-/// The builtins whose call gives a scalar, whatever the arguments are.
-const SCALARS: [&str; 10] = [
-    "str", "int", "float", "bool", "bytes", "complex", "len", "repr", "hash", "ord",
-];
 
 /// The names and the builtins that a value reads.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -69,11 +62,15 @@ fn call_value(call: &ExprCall, deps: &mut Deps) -> bool {
     match &*call.func {
         Expr::Name(name) => {
             let id = name.id.as_str();
-            if let Some(scalar) = SCALARS.iter().find(|candidate| **candidate == id) {
+            if let Some(scalar) =
+                builtin_roles::named(Role::SCALAR_CALL).find(|candidate| *candidate == id)
+            {
                 deps.builtins.push(scalar);
                 return true;
             }
-            let Some(container) = CONTAINERS.iter().find(|candidate| **candidate == id) else {
+            let Some(container) =
+                builtin_roles::named(Role::CONTAINER_CALL).find(|candidate| *candidate == id)
+            else {
                 return false;
             };
             deps.builtins.push(container);
