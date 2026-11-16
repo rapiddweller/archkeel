@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::Value;
 
-use super::frame::{Frame, Topology};
+use super::frame::{Component, Frame, Topology};
 
 /// The texts that the payload names by index.
 #[derive(Default)]
@@ -54,70 +54,101 @@ pub(super) struct Tree {
     pub(super) languages: Vec<BTreeSet<String>>,
 }
 
-impl Tree {
-    /// The children of a scope (the top of the tree, or one part of a system) are drawn by layer
-    /// first when each of them names a layer of one layer order: each layer is one box above its
-    /// components (AD-606, AD-618).
-    pub(super) fn of(topology: &Topology) -> Tree {
-        let scopes: Vec<Option<&str>> = std::iter::once(None)
-            .chain(
-                topology
-                    .components
-                    .iter()
-                    .filter(|c| c.parent.is_none() && c.layer.is_none())
-                    .map(|c| Some(c.id.as_str())),
-            )
+/// A scope (the top of the tree, or one part of a system) whose children all name a layer of one
+/// layer order, with that order.
+type Group<'a> = (Option<&'a str>, &'a [String]);
+
+fn layer_id(scope: Option<&str>, layer: &str) -> String {
+    match scope {
+        None => format!("LAYER:{layer}"),
+        Some(part) => format!("LAYER:{part}:{layer}"),
+    }
+}
+
+/// The scopes whose children are drawn by layer first (AD-606, AD-618).
+fn grouped_scopes(topology: &Topology) -> Vec<Group<'_>> {
+    let scopes = std::iter::once(None).chain(
+        topology
+            .components
+            .iter()
+            .filter(|c| c.parent.is_none() && c.layer.is_none())
+            .map(|c| Some(c.id.as_str())),
+    );
+    let mut grouped = Vec::new();
+    for scope in scopes {
+        let children: Vec<_> = topology
+            .components
+            .iter()
+            .filter(|c| c.parent.as_deref() == scope)
             .collect();
-        // (scope, layer order) of each scope whose children all name a layer of one order.
-        let mut grouped: Vec<(Option<&str>, &[String])> = Vec::new();
-        for scope in scopes {
-            let children: Vec<_> = topology
+        let order = topology.layers.iter().find(|o| {
+            !children.is_empty()
+                && children
+                    .iter()
+                    .all(|c| c.layer.as_ref().is_some_and(|l| o.layers.contains(l)))
+        });
+        if let Some(order) = order {
+            grouped.push((scope, order.layers.as_slice()));
+        }
+    }
+    grouped
+}
+
+/// One box for each layer of each grouped scope, without a parent yet.
+fn layer_nodes(topology: &Topology, grouped: &[Group<'_>]) -> Vec<Node> {
+    let mut nodes = Vec::new();
+    for (scope, order) in grouped {
+        for (step, layer) in order.iter().enumerate() {
+            let members: Vec<&str> = topology
                 .components
                 .iter()
-                .filter(|c| c.parent.as_deref() == scope)
+                .filter(|c| c.parent.as_deref() == *scope && c.layer.as_ref() == Some(layer))
+                .map(|c| c.name.as_str())
                 .collect();
-            let order = topology.layers.iter().find(|o| {
-                !children.is_empty()
-                    && children
-                        .iter()
-                        .all(|c| c.layer.as_ref().is_some_and(|l| o.layers.contains(l)))
+            nodes.push(Node {
+                id: layer_id(*scope, layer),
+                label: layer.clone(),
+                parent: None,
+                layer: Some(layer.clone()),
+                public: Vec::new(),
+                path: format!("layer {layer}"),
+                about: vec![format!(
+                    "Layer {} of {}: {}.",
+                    step + 1,
+                    order.len(),
+                    members.join(", ")
+                )],
+                forbidden: Vec::new(),
+                planned: Vec::new(),
+                rank: Some(step),
             });
-            if let Some(order) = order {
-                grouped.push((scope, &order.layers));
-            }
         }
-        let layer_id = |scope: Option<&str>, layer: &str| match scope {
-            None => format!("LAYER:{layer}"),
-            Some(part) => format!("LAYER:{part}:{layer}"),
-        };
-        let mut nodes: Vec<Node> = Vec::new();
-        for (scope, order) in &grouped {
-            for (step, layer) in order.iter().enumerate() {
-                let members: Vec<&str> = topology
-                    .components
-                    .iter()
-                    .filter(|c| c.parent.as_deref() == *scope && c.layer.as_ref() == Some(layer))
-                    .map(|c| c.name.as_str())
-                    .collect();
-                nodes.push(Node {
-                    id: layer_id(*scope, layer),
-                    label: layer.clone(),
-                    parent: None,
-                    layer: Some(layer.clone()),
-                    public: Vec::new(),
-                    path: format!("layer {layer}"),
-                    about: vec![format!(
-                        "Layer {} of {}: {}.",
-                        step + 1,
-                        order.len(),
-                        members.join(", ")
-                    )],
-                    forbidden: Vec::new(),
-                    planned: Vec::new(),
-                    rank: Some(step),
-                });
-            }
-        }
+    }
+    nodes
+}
+
+/// The box of one component under `parent`.
+fn component_node(component: &Component, parent: Option<usize>) -> Node {
+    Node {
+        id: component.id.clone(),
+        label: component.name.clone(),
+        parent,
+        layer: component.layer.clone(),
+        public: component.public.clone(),
+        path: component.packages.join(", "),
+        about: component.responsibilities.clone(),
+        forbidden: component.forbidden_responsibilities.clone(),
+        planned: component.planned_public.clone(),
+        rank: None,
+    }
+}
+
+impl Tree {
+    /// The children of a scope are drawn by layer first when each of them names a layer of one
+    /// layer order: each layer is one box above its components (AD-606, AD-618).
+    pub(super) fn of(topology: &Topology) -> Tree {
+        let grouped = grouped_scopes(topology);
+        let mut nodes = layer_nodes(topology, &grouped);
         let first = nodes.len();
         let index: BTreeMap<&str, usize> = topology
             .components
@@ -147,18 +178,7 @@ impl Tree {
                 (Some(parent), _) => index.get(parent.as_str()).copied(),
                 (None, _) => None,
             };
-            nodes.push(Node {
-                id: component.id.clone(),
-                label: component.name.clone(),
-                parent,
-                layer: component.layer.clone(),
-                public: component.public.clone(),
-                path: component.packages.join(", "),
-                about: component.responsibilities.clone(),
-                forbidden: component.forbidden_responsibilities.clone(),
-                planned: component.planned_public.clone(),
-                rank: None,
-            });
+            nodes.push(component_node(component, parent));
         }
         let owner: BTreeMap<String, usize> = topology
             .modules
