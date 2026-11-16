@@ -27,11 +27,14 @@ use crate::paths::{dirname, is_outside, join};
 /// The kind of one entry of a listing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Entry {
+    /// A regular file.
     File,
+    /// A directory.
     Directory,
     /// A symbolic link. `to_directory` is true when its target is a directory, so a walk can sort
     /// the link with the directories or with the files, as `os.walk` does.
     Link {
+        /// True when the target of the link is a directory.
         to_directory: bool,
     },
     /// A socket, a pipe or a device.
@@ -43,6 +46,7 @@ pub enum Entry {
 pub enum RootCheck {
     /// A directory inside the snapshot, and not a link: the walk can start here.
     Contained,
+    /// A root that is a symbolic link: the walk does not follow it.
     Link,
     /// Missing, or not a directory.
     NotDirectory,

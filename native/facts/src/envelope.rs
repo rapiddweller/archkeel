@@ -252,6 +252,7 @@ object! {
     }
 }
 
+/// The runtime that made the reply: its name, version and requirement.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Runtime {
@@ -288,6 +289,7 @@ closed! {
     }
 }
 
+/// The source that the reply covers: commit, dirty state, scope and digest.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Source {
@@ -297,6 +299,7 @@ pub struct Source {
     pub source_digest: String,
 }
 
+/// What the collector declares that it can read.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Capabilities {
@@ -320,6 +323,7 @@ object! {
     }
 }
 
+/// The facts of one source file.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FileFact {
@@ -385,6 +389,7 @@ impl Target {
     }
 }
 
+/// How much of the scope the collection read, and its gaps.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Coverage {
@@ -397,6 +402,7 @@ pub struct Coverage {
     pub selected_files: Vec<String>,
 }
 
+/// One place in a source file that a fact cites.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Evidence {

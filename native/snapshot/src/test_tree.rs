@@ -20,11 +20,14 @@ pub fn read_bytes() -> Option<u64> {
     crate::work::read_bytes()
 }
 
+/// A temporary tree of files that a unit test writes and removes.
 pub struct Tree {
+    /// The directory that holds the tree.
     pub root: PathBuf,
 }
 
 impl Tree {
+    /// Writes the given `(path, content)` files into a new temporary directory.
     pub fn new(files: &[(&str, &str)]) -> Self {
         let name = format!(
             "archkeel-native-{}-{}",
@@ -41,6 +44,7 @@ impl Tree {
         Self { root }
     }
 
+    /// The root of the tree as text.
     pub fn path(&self) -> String {
         self.root.to_string_lossy().into_owned()
     }

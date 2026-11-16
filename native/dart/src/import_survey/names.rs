@@ -23,7 +23,7 @@ macro_rules! gap_names {
         /// Each case that the survey does not prove. A gap keeps the scope UNKNOWN.
         #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub enum GapName {
-            $($name),+
+            $(#[doc = concat!("The gap `", stringify!($name), "`.")] $name),+
         }
 
         impl GapName {
@@ -81,7 +81,9 @@ impl GapName {
 /// One named gap: its name and the id of its record in `unknowns`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NamedGap {
+    /// The name of the gap.
     pub name: GapName,
+    /// The id of the gap record in `unknowns`.
     pub id: FactId,
 }
 

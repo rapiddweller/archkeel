@@ -112,6 +112,7 @@ impl Import {
         self.unbound_type
     }
 
+    /// True when the collector read the imported names, so a use of a name can be judged.
     pub fn symbols_known(&self) -> bool {
         self.symbols_known
     }
@@ -121,6 +122,7 @@ impl Import {
         &self.reexport_chain
     }
 
+    /// True for a relative import, which names its target by position and not by name.
     pub fn relative(&self) -> bool {
         self.relative
     }

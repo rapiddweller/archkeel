@@ -26,62 +26,100 @@ use archkeel_model::{Import, Module, ModuleId};
 pub enum Violation {
     /// `complete_assignment`: a module below `source` with zero or many owners.
     Unassigned {
+        /// The id of the violation record.
         id: String,
+        /// The id of the rule that the violation breaks.
         rule: String,
+        /// The source side that the rule names.
         source: String,
+        /// The module record that the violation is about.
         module: ModuleId,
+        /// The name of the module.
         name: String,
+        /// The id of the fact record that the violation cites.
         fact_id: String,
+        /// The evidence rows that back the violation.
         evidence: String,
     },
     /// `root_layout`: a direct child of `root` that is not an allowed child.
     NotAllowedChild {
+        /// The id of the violation record.
         id: String,
+        /// The id of the rule that the violation breaks.
         rule: String,
+        /// The root whose layout the rule fixes.
         root: String,
+        /// The direct child of the root that the rule rejects.
         child: String,
+        /// The children that the rule allows.
         allowed: Vec<String>,
+        /// The module record that the violation cites.
         record: ModuleId,
+        /// The id of the fact record that the violation cites.
         fact_id: String,
+        /// The evidence rows that back the violation.
         evidence: String,
     },
     /// `external_dependency_scope`: an import of `dependency` from a source that it does not allow.
     OutsideScope {
+        /// The id of the violation record.
         id: String,
+        /// The id of the rule that the violation breaks.
         rule: String,
+        /// The external dependency that the rule names.
         dependency: String,
+        /// The import or module record that the violation cites.
         cited: Cited,
     },
     /// `complete_external_scope`: an import below `source` of an external `dependency` that no
     /// rule declares.
     Undeclared {
+        /// The id of the violation record.
         id: String,
+        /// The id of the rule that the violation breaks.
         rule: String,
+        /// The source side that the rule names.
         source: String,
+        /// The external dependency that the rule names.
         dependency: String,
+        /// The import or module record that the violation cites.
         cited: Cited,
     },
     /// `forbidden_dependency`: an import that the rule rejects.
     Forbidden {
+        /// The id of the violation record.
         id: String,
+        /// The id of the rule that the violation breaks.
         rule: String,
+        /// The import or module record that the violation cites.
         cited: Cited,
+        /// The imported name, when the import names one.
         symbol: Option<String>,
+        /// True when the import sits under `TYPE_CHECKING`.
         under_type_checking: bool,
     },
     /// `sibling_isolation`: an import from the member `source` to another member.
     Peer {
+        /// The id of the violation record.
         id: String,
+        /// The id of the rule that the violation breaks.
         rule: String,
+        /// The import or module record that the violation cites.
         cited: Cited,
+        /// The source side that the rule names.
         source: String,
     },
     /// `complete_requires`: an import between two components that no `requires` entry covers.
     Unrequired {
+        /// The id of the violation record.
         id: String,
+        /// The id of the rule that the violation breaks.
         rule: String,
+        /// The import or module record that the violation cites.
         cited: Cited,
+        /// The component of the importing module.
         source_component: String,
+        /// The component of the imported module.
         target_component: String,
     },
     /// `layer_order`: a `requires` entry from an inner to an outer layer.
@@ -94,11 +132,17 @@ pub enum Violation {
     BoundaryType(Box<BoundaryViolation>),
     /// An import outside the target component's public interface.
     PrivateImport {
+        /// The id of the violation record.
         id: String,
+        /// The id of the rule that the violation breaks.
         rule: String,
+        /// The import or module record that the violation cites.
         cited: Cited,
+        /// The imported name, when the import names one.
         symbol: Option<String>,
+        /// The component of the importing module.
         source_component: String,
+        /// The component of the imported module.
         target_component: String,
     },
 }
@@ -106,37 +150,53 @@ pub enum Violation {
 /// The record of one position that breaks `boundary_types` (AD-550).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BoundaryViolation {
+    /// The id of the violation record.
     pub id: String,
+    /// The id of the rule that the violation breaks.
     pub rule: String,
     /// `<facade name>:<position>`.
     pub subject: String,
+    /// The qualified name of the symbol.
     pub qualified_name: String,
+    /// The parameter name, or `return`.
     pub position: String,
     /// The written type.
     pub text: String,
     /// One reason for each leaf that breaks the rule.
     pub reasons: Vec<String>,
+    /// The evidence rows that back the violation.
     pub evidence: Vec<String>,
 }
 
 /// The row data of a forbidden construct, without a verdict or a scope claim.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ConstructViolation {
+    /// The id of the violation record.
     pub id: String,
+    /// The id of the rule that the violation breaks.
     pub rule: String,
+    /// The source side that the rule names.
     pub source: String,
+    /// The component that owns the construct.
     pub owner: String,
+    /// The name of the construct.
     pub construct: String,
+    /// The ids of the facts that the violation rests on.
     pub facts: Vec<String>,
+    /// The evidence rows that back the violation.
     pub evidence: Vec<String>,
+    /// Where the facts of the violation come from.
     pub provenance: Vec<String>,
+    /// The selector of the construct rule.
     pub selector: Option<archkeel_contract::ConstructSelector>,
 }
 
 /// The record of a cycle violation: its members and the imports between two members.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Cyclic {
+    /// The id of the violation record.
     pub id: String,
+    /// The id of the rule that the violation breaks.
     pub rule: String,
     /// The members, sorted: component labels or module names.
     pub members: Vec<String>,
@@ -155,11 +215,14 @@ pub struct Cyclic {
 /// One step of the path of a cycle: two members and the imports that make the step.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CycleStep {
+    /// The importing side of the edge.
     pub from: String,
+    /// The target of the import as written.
     pub to: String,
     /// The one component that owns each end of a module step; the id of the member of a
     /// component step. `None` for a module without exactly one owner.
     pub from_component: Option<String>,
+    /// The component of the target, when it has one.
     pub to_component: Option<String>,
     /// The ids of the imports of the step, sorted.
     pub imports: Vec<String>,
@@ -170,26 +233,38 @@ pub struct CycleStep {
 /// The record of a `layer_order` violation: the components, their layers and the contract cites.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Layered {
+    /// The id of the violation record.
     pub id: String,
+    /// The id of the rule that the violation breaks.
     pub rule: String,
     /// The id of the receipt of the rule (`stable_id("RULE-EVALUATION", scope, rule)`).
     pub receipt: String,
     /// The evidence of the contract file.
     pub evidence: String,
+    /// Where the facts of the violation come from.
     pub provenance: Vec<String>,
+    /// The component of the importing module.
     pub source_component: String,
+    /// The component of the imported module.
     pub target_component: String,
+    /// The layer of the source module.
     pub source_layer: String,
+    /// The layer of the target module.
     pub target_layer: String,
+    /// Why the rule exists, as the contract states it.
     pub rationale: String,
 }
 
 /// The import record that a violation cites.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Cited {
+    /// The import that the violation cites.
     pub import: String,
+    /// The module that holds the import.
     pub source_module: String,
+    /// The module that the import reaches.
     pub target_module: String,
+    /// The evidence rows that back the violation.
     pub evidence: Vec<String>,
 }
 
@@ -332,6 +407,7 @@ impl Violation {
         }))
     }
 
+    /// The id of the violation record, whatever its kind.
     pub fn id(&self) -> &str {
         self.head()[0]
     }

@@ -49,9 +49,13 @@ impl Direction {
 /// contract order. `source` and `target` can be the same set.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Shape {
+    /// The kind of the rule.
     pub kind: RuleKind,
+    /// The direction that the rule judges.
     pub direction: Direction,
+    /// The component ids of the source side.
     pub source: Vec<String>,
+    /// The component ids of the target side.
     pub target: Vec<String>,
 }
 

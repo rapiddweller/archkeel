@@ -28,12 +28,18 @@ pub enum Hidden {
     /// A symlink whose target does not exist.
     Dangling(String),
     /// A name that is not UTF-8, written with replacement characters.
-    NotUtf8 { name: String, directory: bool },
+    NotUtf8 {
+        /// The name of the entry, written with replacement characters.
+        name: String,
+        /// True when the entry is a directory.
+        directory: bool,
+    },
     /// An entry inside the snapshot that is neither a file nor a directory: a FIFO, a socket or a
     /// device. A read of it can block, so no collector reads it.
     Special(String),
 }
 
+/// A read-only view of one source tree that every collector reads through, so that all collectors see the same files.
 pub struct Snapshot {
     root: PathBuf,
     // The directories above the root, which the format lookup must also cover.
@@ -62,6 +68,7 @@ impl Snapshot {
         }
     }
 
+    /// Opens the view of the tree at `root`.
     pub fn new(root: &str) -> Self {
         let root = fs::canonicalize(root).unwrap_or_else(|_| PathBuf::from(root));
         let depth = root
@@ -118,6 +125,7 @@ impl Snapshot {
         real
     }
 
+    /// True when `rel` is a file inside the snapshot.
     pub fn is_file(&mut self, rel: &str) -> bool {
         if is_outside(rel) {
             if self.absolute(rel).exists() {
@@ -129,6 +137,7 @@ impl Snapshot {
             .is_some_and(|real| self.absolute(&real).is_file())
     }
 
+    /// True when `rel` is a directory inside the snapshot.
     pub fn is_dir(&mut self, rel: &str) -> bool {
         self.real(rel)
             .is_some_and(|real| self.absolute(&real).is_dir())
