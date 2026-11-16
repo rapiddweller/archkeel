@@ -2,11 +2,11 @@
 
 **Decision.**
 - `archkeel guide` reads the contract and writes Markdown, by default to
-  `docs/architecture/contract-guide.md`. It needs no source scan and never changes the contract.
+  `docs/architecture/contract-guide.md` (removed later). It needs no source scan and never changes the contract.
   `--check` writes nothing and exits 1 when the file on disk differs, so CI can keep it fresh.
 - The output is a pure function of the contract: no dates, no hashes of the repository, stable order.
   The same contract gives the same bytes.
-- It is a separate file from `docs/architecture/architecture.md`. That file is written once by
+- It is a separate file from `docs/architecture/architecture.md` (a file of the user's project). That file is written once by
   `init` and edited by people; the guide is regenerated and is never edited.
 - With no contract, `archkeel guide` exits 2 and says what to do first: `archkeel init`. It
   does not invent a guide. `init` writes the guide as its last step (AD-266), so a first-time

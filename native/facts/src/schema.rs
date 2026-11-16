@@ -6,7 +6,7 @@
 //!
 //! The schema is a bundle: each type is a definition under `$defs`. A reader refers to
 //! `#/$defs/Section` for a section and to `#/$defs/Record_GapFact` for a coverage gap. The
-//! committed file `schema/archkeel-facts-9.schema.json` must equal `schema()` (`schema_tests`).
+//! committed file `native/facts/schema/archkeel-facts-9.schema.json` must equal `schema()` (`schema_tests`).
 //! A published schema never changes, so a type change that changes the schema needs a new protocol.
 
 use schemars::generate::SchemaSettings;

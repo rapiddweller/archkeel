@@ -2,8 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Read and write an amendment of schema 2.0.0, as Python `parse_amendment` and `amendment_bytes`
-//! (`ir/amendment_codec.py`) do. An amendment is the record of a person who decided to widen the
+//! Read and write an amendment of schema 2.0.0. An amendment is the record of a person who decided to widen the
 //! contract from one exact comparison to another (AD-61). This module does not decide whether an
 //! amendment covers a change: `policy::bind` does.
 //!
@@ -21,7 +20,7 @@ const AMENDMENT_VERSION: &str = "2.0.0";
 
 text_type!(
     pub(crate),
-    /// A lowercase SHA-256 digest in hex, as Python `_amendment_digest` accepts it.
+    /// A lowercase SHA-256 digest in hex.
     AmendmentDigest
 );
 
@@ -172,7 +171,7 @@ pub(crate) fn computed_digest(value: &str) -> AmendmentDigest {
     AmendmentDigest(value.to_owned())
 }
 
-/// Read amendment bytes in the order of the checks of Python `parse_amendment`.
+/// Read amendment bytes, checking the schema and fields in order.
 pub fn parse_amendment(bytes: &[u8]) -> Result<Amendment, AmendmentError> {
     let value = json::read(bytes).map_err(|error| match error.kind {
         crate::ErrorKind::DuplicateKey => AmendmentError::DuplicateKey(error.message),
@@ -255,7 +254,7 @@ fn nonempty(document: &Object, item: AmendmentField) -> Result<String, Amendment
     nonempty_text(text(document, item)?, item)
 }
 
-/// The bytes of Python `amendment_bytes`: `json.dumps(sort_keys=True, indent=2,
+/// Canonical amendment bytes: `json.dumps(sort_keys=True, indent=2,
 /// ensure_ascii=False)` and a line feed, in UTF-8.
 pub fn amendment_bytes(amendment: &Amendment) -> Vec<u8> {
     let optional = |value: &Option<AmendmentDigest>| {

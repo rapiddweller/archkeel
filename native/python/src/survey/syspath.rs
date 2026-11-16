@@ -10,7 +10,7 @@
 //! module-like entry named like a first segment that the scan imports. An entry that is not
 //! imported cannot change what an import finds. Every other form keeps the gap.
 //!
-//! The refusals, each proven by a plant (`tests/python_syspath_trees.py`):
+//! The refusals, each proven by a plant (the deleted `tests/python_syspath_trees.py`):
 //!
 //! - R1 `append` only: `insert` at any index puts `P` before the standard library and the project.
 //! - R2 the conflict set holds the first segment of each import target, of the scan namespace and

@@ -15,7 +15,7 @@ use crate::policy::pyrepr::{list, texts, word};
 use crate::policy::reference::python_repr;
 use crate::rule::{body_of, head_of, Rule};
 
-/// The canonical fields of a rule that Python `asdict` holds, without the head but with its
+/// The canonical fields of a rule that `dataclasses.asdict` holds, without the head but with its
 /// author.
 fn rule_fields(rule: &Rule) -> Option<Map<String, Value>> {
     let Value::Object(mut fields) = body_of(rule) else {

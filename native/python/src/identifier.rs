@@ -11,7 +11,7 @@
 //! a later one, on CPython 3.11.12, 3.12.10, 3.13.15 and 3.14.7. The ranges are in
 //! `identifier.txt`; `build.rs` fails the build when a line of it does not parse, so the lookup
 //! below never skips a range.
-//! `tests/test_collector_native_python_hostile.py` compares the ends of each range with the running
+//! The deleted test `tests/test_collector_native_python_hostile.py` compared the ends of each range with the running
 //! interpreter.
 
 /// One range a line: `<version> <start|continue> <first> <last>` (see `identifier.txt`).

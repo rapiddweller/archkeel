@@ -59,4 +59,4 @@ schema equals the generated one), `vocab_tests.rs`, and
 
 ## Note, 2026-11-10: the request is a typed definition too
 
-The collection request of the protocols 3.0.0, 8.0.0 and 9.0.0 is a closed serde type in `archkeel-facts` (`request`), with a generated schema in `schema/archkeel-request.schema.json`. The wire only frames it. A request with a duplicate JSON key, for example `scope.namespace` twice, is refused with `duplicate field`. The old decoder let the last key win. The request is ambiguous, and the host never writes a duplicate key, so the stricter rule stays.
+The collection request of the protocols 3.0.0, 8.0.0 and 9.0.0 is a closed serde type in `archkeel-facts` (`request`), with a generated schema in `native/facts/schema/archkeel-request.schema.json`. The wire only frames it. A request with a duplicate JSON key, for example `scope.namespace` twice, is refused with `duplicate field`. The old decoder let the last key win. The request is ambiguous, and the host never writes a duplicate key, so the stricter rule stays.
