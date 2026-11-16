@@ -11,7 +11,7 @@
    - **Nightly** (`full-verification.yml`, at most 45 minutes): every test including `SLOW_FILES`, Windows, the Python matrix, wheels.
 2. `SLOW_FILES` (scaling, memory, large scans) carry the marker `slow`; PR and main run `-m "not slow"`. No guarantee is dropped: the nightly run runs all.
 3. A change selects areas by path. A path that no rule names selects every area. `tests/area_floors.json` gives each area a floor of fast tests; a selection below its floor fails (pytest exit 5 can no longer pass unseen).
-4. The check `PR gate` is a required status check of the branch `main`, with no bypass. `tools/merge_pr.sh` merges only when it is green.
+4. The check `PR gate` is a required status check of the branch `main`, with no bypass. `tools/merge_pr.py` merges only when it is green.
 
 **Rejected.** A matrix of area jobs on each PR (20-job limit, queue wait); keeping `PR_TEST_FILES` by hand (it named deleted files).
 
