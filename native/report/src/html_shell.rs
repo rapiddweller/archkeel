@@ -11,12 +11,21 @@ use super::markup::{base64, escape};
 const TOKENS: &str = include_str!("../assets/tokens.css");
 const BUNDLE: &str = include_str!("../assets/bundle.css");
 const LOCAL: &str = include_str!("../assets/report.css");
-const LIGHT: &str = include_str!("../assets/theme-light.css");
 /// The one script of the page: the theme switch of the design system, byte for byte.
 pub(super) const THEME_SCRIPT: &str = include_str!("../assets/archkeel-theme.js");
 pub(super) const THEME_HASH: &str = env!("REPORT_THEME_HASH");
 const GEIST: &[u8] = include_bytes!("../assets/Geist-Variable.woff2");
 const MONO: &[u8] = include_bytes!("../assets/JetBrainsMono-Variable.woff2");
+
+/// The light palette: the declarations of the `[data-theme="light"]` block of `tokens.css`, the one
+/// place that writes them. Without the script the page follows the system, and print is light.
+fn light() -> &'static str {
+    const OPEN: &str = "[data-theme=\"light\"]{";
+    TOKENS
+        .split_once(OPEN)
+        .and_then(|(_, rest)| rest.split_once('}'))
+        .map_or("", |(declarations, _)| declarations)
+}
 
 fn font(family: &str, weight: &str, bytes: &[u8]) -> String {
     format!(
@@ -35,9 +44,10 @@ fn style() -> String {
         css.push_str(part);
     }
     css.push_str(&explorer::style());
+    let light = light();
     css.push_str(&format!(
-        "@media (prefers-color-scheme:light){{html:not([data-theme]){{{LIGHT}color-scheme:light}}}}\
-@media print{{:root,[data-theme]{{{LIGHT}color-scheme:light}}}}"
+        "@media (prefers-color-scheme:light){{html:not([data-theme]){{{light}color-scheme:light}}}}\
+@media print{{:root,[data-theme]{{{light}color-scheme:light}}}}"
     ));
     css
 }

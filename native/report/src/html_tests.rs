@@ -213,7 +213,10 @@ fn a_rule_that_two_sites_of_one_import_break_is_listed_once() {
     let mut frame = dependency_frame(2);
     frame["details"]["R"][1]["source"] = json!("app.a0");
     let page = document(&frame);
-    assert_eq!(page.matches("Violates <b class=\"rp-code\">R</b>").count(), 1);
+    assert_eq!(
+        page.matches("Violates <b class=\"rp-code\">R</b>").count(),
+        1
+    );
     assert!(page.contains("src/a0.rs:1") && page.contains("src/a1.rs:2"));
 }
 

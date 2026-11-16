@@ -433,6 +433,10 @@ impl<'a> Visitor<'a> for Walk<'_> {
 #[path = "hazards_tests.rs"]
 mod tests;
 
+#[cfg(test)]
+#[path = "hazards_inert_tests.rs"]
+mod inert_tests;
+
 /// The proven literal import calls of the modules, and their hazard sites, each with the index
 /// of its module.
 pub(super) type Split = (Vec<(usize, TextRange, String)>, Vec<(usize, Site)>);

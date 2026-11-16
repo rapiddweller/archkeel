@@ -86,8 +86,10 @@ def _font(family: str, weight: str, name: str) -> str:
 
 def style() -> str:
     """The fonts, the tokens, the components and the local rules of the report page, then ours."""
-    light = (ASSETS / "theme-light.css").read_text()
-    system = "".join((ASSETS / name).read_text() + "\n" for name in ("tokens.css", "bundle.css"))
+    tokens = (ASSETS / "tokens.css").read_text()
+    # The light palette is the `[data-theme="light"]` block of tokens.css: its one place.
+    light = tokens.split('[data-theme="light"]{', 1)[1].split("}", 1)[0]
+    system = tokens + "\n" + (ASSETS / "bundle.css").read_text() + "\n"
     return (
         _font("Geist", "100 900", "Geist-Variable.woff2")
         + _font("JetBrains Mono", "100 800", "JetBrainsMono-Variable.woff2")

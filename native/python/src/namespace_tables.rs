@@ -17,7 +17,6 @@ pub(crate) const GLOBAL: [&str; 9] = [
 ];
 pub(crate) const LOCAL: [&str; 4] = ["locals", "vars", "builtins.locals", "builtins.vars"];
 pub(crate) const GLOBALS: [&str; 2] = ["globals", "builtins.globals"];
-pub(crate) const CONTAINERS: [&str; 6] = ["set", "frozenset", "sorted", "list", "tuple", "len"];
 #[cfg(any(test, feature = "dump"))]
 pub(crate) const TYPE_READERS: [&str; 3] = [
     "typing.get_type_hints",

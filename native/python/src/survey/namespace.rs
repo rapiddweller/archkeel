@@ -14,7 +14,8 @@ use ruff_python_ast::{AnyNodeRef, CmpOp, Expr, ExprAttribute, ExprContext};
 use super::binders::Binders;
 use super::imports::Aliases;
 
-use crate::module::namespace_tables::{CONTAINERS, GLOBAL, GLOBALS, LOCAL};
+use crate::module::builtin_roles::{self, Role};
+use crate::module::namespace_tables::{GLOBAL, GLOBALS, LOCAL};
 
 /// `resolve_static_name` of a name or a name-rooted attribute. Any other node has the text of
 /// `ast.unparse`, which never equals one of the names above, so it is `None`.
@@ -169,7 +170,7 @@ fn consumed_as_names(node: AnyNodeRef, parents: &[AnyNodeRef], binders: &Binders
 /// `_bare_builtin` of `_NAME_CONTAINERS`: a module-level `def set(...)` is not the builtin.
 fn bare_builtin(func: &Expr, binders: &Binders) -> bool {
     matches!(func, Expr::Name(name)
-        if CONTAINERS.contains(&name.id.as_str()) && binders.builtin_visible(name.id.as_str()))
+        if builtin_roles::has(name.id.as_str(), Role::NAME_CONTAINER) && binders.builtin_visible(name.id.as_str()))
 }
 
 #[cfg(test)]
