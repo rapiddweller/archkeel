@@ -38,6 +38,9 @@ pub(crate) struct Require {
 pub(crate) struct LayerOrder {
     rule: String,
     layers: Vec<String>,
+    /// The component id of the owning system part, absent for a single project.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    part: Option<String>,
 }
 
 /// Each declared pair of the tree, by component id, with its rationale and its ports. A label is
@@ -111,6 +114,7 @@ pub(crate) fn layers(models: &ModelTree) -> Vec<LayerOrder> {
             Rule::LayerOrder(order) => Some(LayerOrder {
                 rule: head_of(rule).id().as_text().to_owned(),
                 layers: order.layers().clone(),
+                part: None,
             }),
             _ => None,
         })

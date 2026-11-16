@@ -819,6 +819,13 @@
           "items": {
             "type": "string"
           }
+        },
+        "part": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The component id of the owning system part, absent for a single project."
         }
       },
       "required": [

@@ -338,9 +338,9 @@ fn level_row(
             .map(|((s, t), (sites, status))| json!({"source_id": id(*s), "target_id": id(*t), "import_sites": sites, "status": status}))
             .chain(crossings.iter().filter_map(|(s, t, i)| {
                 let ends = (tree.child_under(level, *s)?, tree.child_under(level, *t)?);
-                (ends.0 != ends.1 && !observed.contains_key(&ends)).then(|| json!({
+                (ends.0 != ends.1).then(|| json!({
                     "source_id": id(ends.0), "target_id": id(ends.1), "import_sites": 0,
-                    "status": "PASS", "crossing": i.title, "schema": i.schema,
+                    "status": "UNKNOWN", "interface_id": i.id, "crossing": i.title, "schema": i.schema,
                 }))
             }))
             .collect(),

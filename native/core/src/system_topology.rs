@@ -88,11 +88,17 @@ pub(crate) fn topology(
             unique(&mut names, "module", module["name"].as_str())?;
             modules.push(module.clone());
         }
-        for (slot, key) in ["edges", "component_edges", "requires", "layers", "gaps"]
-            .iter()
-            .enumerate()
-        {
+        for (slot, key) in [
+            (0, "edges"),
+            (1, "component_edges"),
+            (2, "requires"),
+            (4, "gaps"),
+        ] {
             lists[slot].extend(rows(topology, key).iter().cloned());
+        }
+        for mut layer in rows(topology, "layers").iter().cloned() {
+            layer["part"] = json!(part_id);
+            lists[3].push(layer);
         }
         for (key, value) in topology
             .get("total")
