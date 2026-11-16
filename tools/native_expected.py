@@ -12,6 +12,13 @@ missing gap, a new or a missing violation, a violation without an issue number, 
 another reason kind, a refusal, or another exit code. The exit code comes from the pinned
 statuses: 1 with a FAIL, else 2 with an UNKNOWN or a gap, else 0.
 
+Ratchet (AD-672): a pin may only shrink. Growth is a gap, a violation, an UNKNOWN reason, or a
+rule that is new and not PASS or has a worse status (PASS < UNKNOWN < FAIL) than before. Growth
+enters only through the growth file next to the pin (`--growth`): one entry with a `reason` for
+each grown item. `--write` refuses growth that the growth file does not list, and
+`--base-ref <ref>` fails when the pin has growth against its version at `<ref>` that the growth
+file does not list. The lead raises the ratchet and logs the reason in the decision log.
+
 Run: `python tools/native_expected.py <result.json> <expected-gaps.json> [--write]`. `--write`
 keeps the issue of each violation that the old file pins; a new violation gets no issue, and the
 gate fails until a person writes one in. The gate checks only that a positive issue number is
@@ -21,6 +28,7 @@ present; it does not call the network, so it does not check that the issue exist
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from collections import Counter
 from pathlib import Path
@@ -153,17 +161,79 @@ def written(result: dict[str, Any], old: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+RANK = {"PASS": 0, "UNKNOWN": 1, "FAIL": 2}
+
+
+def growth(new: dict[str, Any], old: dict[str, Any]) -> list[list[str]]:
+    """Each item of the pin `new` that the pin `old` does not hold or holds with a better status."""
+    grown: list[list[str]] = []
+    old_gaps = Counter(tuple(map(str, gap)) for gap in old.get("gaps") or ())
+    new_gaps = Counter(tuple(map(str, gap)) for gap in new.get("gaps") or ())
+    grown += [["gap", *gap] for gap in sorted((new_gaps - old_gaps).elements())]
+    known = set(_pinned_violations(old))
+    grown += [["violation", *item] for item in sorted(_pinned_violations(new)) if item not in known]
+    old_rules = old.get("rules") or {}
+    for rule, status in sorted((new.get("rules") or {}).items()):
+        if RANK.get(status, 2) > RANK.get(old_rules.get(rule, "PASS"), 2):
+            grown.append(["rule", str(rule), str(status)])
+    old_unknown = old.get("unknown") or {}
+    grown += [
+        ["unknown", str(rule), str(kind)]
+        for rule, kind in sorted((new.get("unknown") or {}).items())
+        if old_unknown.get(rule) != kind
+    ]
+    return grown
+
+
+def unlisted(grown: list[list[str]], listed: dict[str, Any]) -> list[str]:
+    """The grown items that the growth file lists without a reason or does not list at all."""
+    reasons = {
+        tuple(map(str, item.get("entry") or ())): str(item.get("reason") or "").strip()
+        for item in listed.get("raised") or ()
+    }
+    return [
+        f"growth without a reason in the growth file: {item}"
+        for item in grown
+        if len(reasons.get(tuple(item), "")) < 10
+    ]
+
+
+def _git_show(ref: str, path: Path) -> dict[str, Any] | None:
+    shown = subprocess.run(
+        ["git", "show", f"{ref}:{path.as_posix()}"], capture_output=True, text=True, check=False
+    )
+    return json.loads(shown.stdout) if shown.returncode == 0 else None
+
+
+def _option(argv: list[str], name: str) -> str | None:
+    return argv[argv.index(name) + 1] if name in argv else None
+
+
 def main(argv: list[str]) -> int:
     result = json.loads(Path(argv[0]).read_text(encoding="utf-8"))
     path = Path(argv[1])
     old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-    if argv[2:] == ["--write"]:
+    growth_path = Path(_option(argv, "--growth") or "")
+    listed = json.loads(growth_path.read_text(encoding="utf-8")) if growth_path.is_file() else {}
+    if "--write" in argv:
         if "refusal" in result:
             print(f"refused: {result['refusal']}", file=sys.stderr)
             return 1
-        path.write_text(json.dumps(written(result, old), indent=2) + "\n", encoding="utf-8")
+        new = written(result, old)
+        refused = unlisted(growth(new, old), listed)
+        for line in refused:
+            print(line, file=sys.stderr)
+        if refused:
+            print(
+                "--write refused: add each item with a reason to the growth file", file=sys.stderr
+            )
+            return 1
+        path.write_text(json.dumps(new, indent=2) + "\n", encoding="utf-8")
         return 0
     found = problems(result, old)
+    base = _option(argv, "--base-ref")
+    if base and (before := _git_show(base, path)) is not None:
+        found += unlisted(growth(old, before), listed)
     for line in found:
         print(line, file=sys.stderr)
     print(summary(result, str(old.get("name", "native"))))

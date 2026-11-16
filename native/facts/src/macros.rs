@@ -101,9 +101,10 @@ macro_rules! section_facts {
         pub enum $name:ident in $section:ident with $data:ty { $($(#[$vdoc:meta])* $variant:ident,)* }
     ) => {
         section_facts! { $(#[$doc])* pub enum $name in $section { $($(#[$vdoc])* $variant($data),)* } }
-        impl $name {
-            /// The common typed payload of each kind of this section.
-            pub fn data(&self) -> &$data {
+        impl CommonData for $name {
+            type Data = $data;
+
+            fn data(&self) -> &$data {
                 match self { $(Self::$variant(data) => data,)* }
             }
         }

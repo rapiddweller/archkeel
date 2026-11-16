@@ -112,6 +112,9 @@ pub(crate) struct Scan {
     pub orphans: crate::definitions::OrphanFacts,
     /// The structs and enums at module level that are in every configuration (AD-383).
     pub exact_types: BTreeSet<String>,
+    /// The structs, enums and traits at module level that every configuration has, by their
+    /// inline scope: only they anchor an impl of a macro expansion (#1374).
+    pub exact_items: BTreeSet<(Vec<String>, String)>,
     /// Written types whose derive-helper identity needs the workspace proof.
     pub helper_types: Vec<(String, Vec<Concern>)>,
     pub fields: BTreeMap<(String, String), Vec<Field>>,
@@ -192,6 +195,15 @@ pub(crate) struct MacroCall {
     pub path: Vec<String>,
     /// Each identifier of the call tokens: a `fn $name` of the macro takes one of them (#1196).
     pub idents: BTreeSet<String>,
+    /// The inline modules that enclose the call, and whether a block holds it (#1371).
+    pub scope: Vec<String>,
+    pub block: bool,
+    /// No `no_implicit_prelude` holds the call: a plain name may name a macro of the prelude.
+    pub prelude: bool,
+    /// The path of the macro starts with `::`.
+    pub absolute: bool,
+    /// The call tokens hold an `impl`, which the expansion may write as an item (#1371).
+    pub writes_impl: bool,
 }
 
 pub(super) struct Walker<'a> {

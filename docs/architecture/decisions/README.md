@@ -8,6 +8,11 @@ such a link has no target on `main`. The files are in the Git history before tha
 | Decision | Title |
 |---|---|
 | AD-668 | [A neutral crate names no language](ad-668-a-neutral-crate-names-no-language.md) |
+| AD-660 | [`init` drafts a system for a mixed repository](ad-660-init-drafts-a-system-for-a-mixed-repository.md) |
+| AD-680 | [A written Python dunder dict is a construct](ad-680-a-written-python-dunder-dict-is-a-construct.md) |
+| AD-662 | [A macro whose expansion the scan does not read gives a gap](ad-662-a-macro-whose-expansion-the-scan-does-not-read-gives-a-gap.md) |
+| AD-672 | [A self-check pin may only shrink, and growth needs a reason](ad-672-a-self-check-pin-may-only-shrink-and-growth-needs-a-reason.md) |
+| AD-666 | [A Python broad exception handler keeps unread types partial](ad-666-a-python-broad-exception-handler-keeps-unread-types-partial.md) |
 | AD-664 | [A contract can declare the reach of a door site](ad-664-a-contract-can-declare-the-reach-of-a-door-site.md) |
 | AD-658 | [A Python assert is a written construct](ad-658-a-python-assert-is-a-written-construct.md) |
 | AD-656 | [A macro that adds a method outside the file of its type gives a pair gap](ad-656-a-macro-that-adds-a-method-outside-the-file-of-its-type-gives-a-pair-gap.md) |

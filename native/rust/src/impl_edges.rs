@@ -218,6 +218,10 @@ impl Builder {
             let Some((member, ty)) = reference.names.split_last() else {
                 continue;
             };
+            // A macro may define the member outside the file of its type (#1371, AD-656).
+            if !ty.is_empty() && self.macro_foreign_members.contains_key(member.as_str()) {
+                out.unresolved.push(path_call(reference));
+            }
             let Some(blocks) = (found.foreign.get(member.as_str())).filter(|_| !ty.is_empty())
             else {
                 continue;

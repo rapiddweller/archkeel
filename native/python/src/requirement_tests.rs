@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
+use archkeel_facts::request::PythonPhase;
 use archkeel_snapshot::test_tree::Tree;
 
 use super::*;
@@ -13,7 +14,6 @@ fn state(text: &str) -> (Option<String>, RequirementState) {
 
 #[test]
 fn target_is_selected_inside_the_collector() {
-    use archkeel_facts::request::PythonPhase;
     let tree = Tree::new(&[(
         "pyproject.toml",
         "[project]\nrequires-python = '>=3.13,<3.14'\n",
@@ -109,7 +109,6 @@ fn a_datetime_that_tomllib_refuses_is_invalid() {
 }
 
 fn selected(requires: &str) -> Result<String, String> {
-    use archkeel_facts::request::PythonPhase;
     let tree = Tree::new(&[(
         "pyproject.toml",
         &format!("[project]\nrequires-python = '{requires}'\n"),
