@@ -23,7 +23,7 @@ pub enum Status {
 /// The encoded verdict of one rule row. It is the wire form only: a built report writes it from
 /// a `Decision` of the model, and a decoded report holds it as read bytes (AD-363 point 4).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
-pub enum RuleVerdict {
+pub(crate) enum RuleVerdict {
     /// The rule holds.
     #[serde(rename = "PASS")]
     Pass,

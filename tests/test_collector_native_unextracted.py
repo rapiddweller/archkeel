@@ -5,7 +5,7 @@
 
 Consumer: `imports.rs` (`check_extracted`). Every import-bearing node of the tree must end as a
 record or as a gap. A bug in the extraction that skips a node would otherwise leave no trace, and
-the scan would read as complete. The test plants that bug (`plant.rs`, only in the test binary)
+the scan would read as complete. The test plants that bug (only in the test binary)
 and checks that the node becomes a collection gap named `unextracted`.
 """
 

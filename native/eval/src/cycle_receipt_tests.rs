@@ -36,7 +36,7 @@ fn roots_that_are_not_the_scope_of_the_reply_refuse_the_settings() {
         let found = Model::derive(&contract, &reply, settings).err();
         let refused = matches!(
             found,
-            Some(Reason::Refused(archkeel_model::Refusal::ScanRoots))
+            Some(Reason::Refused(ref refusal)) if refusal.to_string() == "the scan roots of the settings are not the scope of the reply"
         );
         assert!(refused, "{roots:?}: {found:?}");
     }

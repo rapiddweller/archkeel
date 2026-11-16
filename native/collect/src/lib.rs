@@ -34,9 +34,10 @@ use archkeel_store::Ingested;
 use serde_json::{json, Value};
 
 use crate::refusal::refused;
-pub use crate::refusal::{Refusal, RefusalKind, REFUSED};
+pub use crate::refusal::{Refusal, RefusalKind};
 pub use crate::repository::Over;
-pub use crate::run::reply_of;
+#[cfg(test)]
+pub(crate) use crate::run::reply_of;
 pub use archkeel_facts::envelope::Profile;
 
 /// What the caller gives: the scan identity, never facts.

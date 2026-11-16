@@ -77,7 +77,7 @@ pub(crate) fn version_of(text: &str) -> Option<ContractVersion> {
 }
 
 /// The spelling of a version, as the contract writes it.
-pub fn version_text(version: ContractVersion) -> String {
+pub(crate) fn version_text(version: ContractVersion) -> String {
     spelling(&version)
 }
 

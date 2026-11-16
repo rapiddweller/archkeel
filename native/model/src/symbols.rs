@@ -78,7 +78,7 @@ pub(crate) struct Edge {
 
 /// The symbol table of one reply.
 #[derive(Debug, Default)]
-pub struct Symbols {
+pub(crate) struct Symbols {
     pub(crate) entities: Vec<Entity>,
     pub(crate) edges: Vec<Edge>,
     /// The entities of each qualified name, in the order of the table.

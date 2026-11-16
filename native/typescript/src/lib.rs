@@ -47,7 +47,6 @@ mod options;
 mod options_target;
 mod parse;
 mod places;
-mod plant;
 mod pytext;
 mod records;
 #[cfg(any(test, feature = "dump"))]

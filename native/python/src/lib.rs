@@ -44,7 +44,7 @@ mod source;
 use archkeel_facts::envelope::{LimitSupport, ProfileLimits, Reply};
 use archkeel_facts::request::PythonRequest;
 
-pub use crate::reply::Build;
+pub(crate) use crate::reply::Build;
 
 /// Test features read planted inputs. The composition refuses a build with one.
 pub const TEST_FEATURES: &[&str] = if cfg!(feature = "dump") {
