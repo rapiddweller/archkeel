@@ -60,7 +60,10 @@ impl<'a> Builder<'a> {
                 files.push(file.clone());
             }
         }
-        self.decl.run(&decl::Input { files })?;
+        crate::declarations::Assembly::build_declaration_records(
+            &mut self.decl,
+            &decl::Input { files },
+        )?;
         for (index, scope) in self.decl.output.scope_candidates.iter().enumerate() {
             self.decl.work.copies(scope)?;
             self.scopes

@@ -16,10 +16,12 @@ use std::collections::BTreeMap;
 use archkeel_model::Producer;
 use archkeel_model::Settings;
 use archkeel_store::Ingested;
-use serde::de::DeserializeOwned;
+#[cfg(any(test, feature = "harness"))]
 use serde::Deserialize;
 
 use crate::contract::{ContractInput, ContractState, InsideFile};
+#[cfg(any(test, feature = "harness"))]
+use crate::decode::{decode, hex, insides, InsideJson, ReplyBytes, INFLATE_LIMIT};
 use crate::engine::{Answer, Engine};
 use crate::ingest::ReplyState;
 use crate::request::{self, Request};
@@ -28,7 +30,9 @@ use archkeel_report::Named;
 
 #[path = "frame_parts.rs"]
 mod frame_parts;
-pub(crate) use frame_parts::{refused_scan, Answered, CODE_DIGEST};
+pub(crate) use frame_parts::{refused_scan, Answered, Collect, CODE_DIGEST};
+#[cfg(test)]
+pub(crate) use frame_parts::{typed_rows, Parts as FrameParts};
 use frame_parts::{ContractCheck, Parts, ReplyCheck, SelfTest, UnsupportedParts, ENGINE};
 
 /// Version 2 adds the settings of the shell: `namespace` and `standard_library` (AD-372).
@@ -41,10 +45,6 @@ const PROTOCOL: &str = "archkeel-dual-run-5";
 /// dual-run request is the word of a test caller, not evidence).
 #[cfg(any(test, feature = "harness"))]
 const ARGV_LIMIT: usize = 64;
-/// The decompressed size limit of a reply in the dual run.
-#[cfg(any(test, feature = "harness"))]
-pub(crate) const INFLATE_LIMIT: u64 = 1 << 32;
-
 #[cfg(any(test, feature = "harness"))]
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -77,41 +77,6 @@ struct DualRunRequest {
     /// The scan roots of the configuration, which the shell reads (AD-384). The model binds
     /// them to the scope of the reply, so they are not the word of the caller.
     roots: Vec<String>,
-}
-
-/// One inside contract of a request: the reference of the mount, the repository-relative path
-/// that the shell resolved it to, and the bytes in hex.
-#[cfg(any(test, feature = "harness"))]
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct InsideJson {
-    reference: String,
-    identity: String,
-    hex: String,
-}
-
-/// The protocol of a request, read before the fields that the protocol defines.
-#[derive(Deserialize)]
-struct Head {
-    protocol: String,
-}
-
-#[cfg(any(test, feature = "harness"))]
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct ReplyBytes {
-    pub(crate) hex: String,
-}
-
-/// A request of one protocol: the protocol is read before the fields that it defines. An error
-/// is a request that the core cannot read.
-pub(crate) fn decode<T: DeserializeOwned>(input: &[u8], protocol: &str) -> Result<T, String> {
-    let head: Head =
-        serde_json::from_slice(input).map_err(|error| format!("invalid request: {error}"))?;
-    if head.protocol != protocol {
-        return Err(format!("unknown protocol {}", head.protocol));
-    }
-    serde_json::from_slice(input).map_err(|error| format!("invalid request: {error}"))
 }
 
 /// The frame of one request. An error is a request that the core cannot read.
@@ -198,7 +163,7 @@ pub(crate) struct Run {
     /// the whole contract when the request kind does not trust the reply.
     pub(crate) trust: TrustOf,
     /// The `collect` part of the self-test of a scan request (AD-406); `None` for the others.
-    pub(crate) collect: Option<serde_json::Value>,
+    pub(crate) collect: Option<Collect>,
     /// The provenance documents that a scan request read (AD-466); `None` for the others.
     pub(crate) documents: Option<crate::provenance::Documents>,
     /// The SDK libraries of the profile that a contract can forbid by name (`reference.namespace`).
@@ -251,7 +216,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
     let trust = (run.trust)(run.namespace, engine.reply());
     let settings = settings_of(trust.settings, &input, run.roots);
     let locations = frame_parts::locations(engine.reply(), &input.path, &input.bytes, &settings);
-    let collection_gaps = frame_parts::collection_gaps(engine.reply());
+    let (collection_gaps, measures) = frame_parts::collection_metadata(engine.reply());
     let contract_digest = Some(archkeel_facts::identity::sha256_hex(&input.bytes));
     engine.answer(Request::Settings(settings));
     let path = input.path.clone();
@@ -263,12 +228,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         Answer::Sections(rows) => rows,
         _ => Vec::new(),
     };
-    // The report holds a reason until slice 0d writes the payload, so it is a named gap.
-    let report: Result<(), String> = match engine.answer(Request::Report) {
-        _ if !run.report => Ok(()),
-        Answer::Report(reason) => Err(reason.to_string()),
-        other => Err(format!("unexpected answer {other:?}")),
-    };
+    let report = report_check(&mut engine, run.report);
     // AD-466: a request without documents names the hygiene that it cannot check.
     let hygiene = frame_parts::hygiene_of(
         &mut engine,
@@ -305,6 +265,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         || !matches!(reply, ReplyCheck::Files(_))
         || !matches!(contract, ContractState::Parsed(_));
     let parts = Parts {
+        measures,
         topology,
         explain,
         contract_digest,
@@ -312,7 +273,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         gaps,
         baseline,
         engine: ENGINE,
-        sections: rows,
+        sections: frame_parts::typed_rows(rows)?,
         unsupported: UnsupportedParts {
             sections,
             report: report.err(),
@@ -334,6 +295,14 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         .map_err(|error| format!("{}: an inconsistent frame: {error}", run.case))?
         .into_bytes();
     Ok(Answered { frame, names_a_gap })
+}
+
+fn report_check(engine: &mut Engine, requested: bool) -> Result<(), String> {
+    match engine.answer(Request::Report) {
+        _ if !requested => Ok(()),
+        Answer::Report(reason) => Err(reason.to_string()),
+        other => Err(format!("unexpected answer {other:?}")),
+    }
 }
 
 /// The settings of a run: the trusted settings, bound to the root contract and to the scan roots.
@@ -424,44 +393,6 @@ fn ingest(engine: &mut Engine, reply: ReplyInput) -> Result<ReplyCheck, String> 
         Answer::Reply(ReplyState::Refused(message)) => ReplyCheck::Refused(message),
         other => ReplyCheck::Refused(format!("unexpected answer {other:?}")),
     })
-}
-
-/// The inside contracts of the request, decoded. The whole request is already read, so the
-/// bounds of the count and the size are checked in `contract::answer` and give a named refusal
-/// (exit 3), not an unreadable request (AD-379).
-#[cfg(any(test, feature = "harness"))]
-pub(crate) fn insides(files: Vec<InsideJson>) -> Result<Vec<InsideFile>, String> {
-    files
-        .into_iter()
-        .map(|file| {
-            Ok(InsideFile {
-                bytes: hex(&file.hex)?,
-                reference: file.reference,
-                identity: file.identity,
-            })
-        })
-        .collect()
-}
-
-/// The bytes of a hex text.
-#[cfg(any(test, feature = "harness"))]
-pub(crate) fn hex(text: &str) -> Result<Vec<u8>, String> {
-    let digits = text.as_bytes();
-    if !digits.len().is_multiple_of(2) {
-        return Err("the reply hex has an odd length".to_owned());
-    }
-    digits
-        .chunks(2)
-        .map(|pair| {
-            let high = (pair[0] as char).to_digit(16);
-            let low = (pair[1] as char).to_digit(16);
-            match (high, low) {
-                (Some(high), Some(low)) => u8::try_from(high * 16 + low)
-                    .map_err(|_| "the reply hex is not a byte".to_owned()),
-                _ => Err("the reply hex has a character that is not a hex digit".to_owned()),
-            }
-        })
-        .collect()
 }
 
 #[cfg(test)]

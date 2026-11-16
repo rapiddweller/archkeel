@@ -12,30 +12,58 @@ facts_data! {
     /// An import: one record for each statement or bound name (TypeScript, Rust), or for each
     /// imported name (Python, Dart). `script_global` and `script_member` belong to `script_global`.
     pub struct ImportData {
+        /// The module that holds the source.
         [read] source_module: ModuleName,
+        /// The package that holds the source module.
         [read] source_package: PackageName,
+        /// The module that the import reaches.
         [read] target_module: ModuleName,
+        /// The package that the import reaches.
         [read] target_package: PackageName,
+        /// The imported name.
         [read required] symbol: Option<String>,
+        /// The name that the import binds.
         [read required] binding: Option<String>,
+        /// True when the collector reads the imported names.
         [read] symbols_known: bool,
+        /// The text of the import as written.
         [wire skip] specifier: Option<String>,
+        /// True for an import that only types use.
         [wire skip] type_only: Option<bool>,
+        /// The number of leading dots of a relative import.
         [read] relative_level: i64,
+        /// True when the import sits under `TYPE_CHECKING`.
         [read] under_type_checking: bool,
+        /// True when the import publishes the name again.
         [read] reexport: bool,
+        /// True when the import sits at module level.
         [read] module_level_import: bool,
+        /// The names whose route the collector records.
         [read skip] reexport_chain: Option<Vec<String>>,
+        /// `false` when the collector proves only the first hops of `reexport_chain`: a later
+        /// hop may follow (AD-604). Absent: the route is complete, or there is none.
+        [read skip] route_complete: Option<bool>,
+        /// True when `__all__` lists the name.
         [read skip] declared_in_all: Option<bool>,
+        /// True when the target is an ordinary module.
         [read skip] ordinary_module: Option<bool>,
+        /// True when one statement binds the name in the origin.
         [read skip] origin_binding_unique: Option<bool>,
+        /// The id of the definition at the origin.
         [read skip] origin_definition: Nullable<String>,
+        /// True when no statement rebinds the member at the origin.
         [read skip] origin_member_binding_static: Option<bool>,
+        /// True when the import can publish the name again.
         [read skip] reexport_candidate: Option<bool>,
+        /// The global that a script import binds.
         [read skip] script_global: Option<String>,
+        /// The member of the global that a script import reads.
         [read skip] script_member: Nullable<String>,
+        /// True when one statement binds the name in the source.
         [read skip] source_binding_unique: Option<bool>,
+        /// True when no statement rebinds the member.
         [read skip] source_member_binding_static: Option<bool>,
+        /// The visibility of the imported symbol.
         [read skip] symbol_visibility: Nullable<Visibility>,
     }
 }
@@ -59,6 +87,7 @@ impl ImportData {
             reexport: false,
             module_level_import: false,
             reexport_chain: None,
+            route_complete: None,
             declared_in_all: None,
             ordinary_module: None,
             origin_binding_unique: None,

@@ -118,10 +118,10 @@ fn a_forbidden_edge_behind_a_local_name_a_glob_and_a_path_module_is_still_an_edg
     let found = module_edges(&files);
     let targets: BTreeSet<&str> = found.iter().map(|r| r.2.as_str()).collect();
     assert_eq!(targets, BTreeSet::from(["ns.app.b", "ns.app.c"]));
-    // The glob has no symbol and the use leaf has its own binding.
+    // The glob names every name (`*`, AD-604) and binds none; the use leaf has its own binding.
     assert!(found
         .iter()
-        .any(|r| r.2 == "ns.app.c" && r.3.is_none() && r.4.is_none()));
+        .any(|r| r.2 == "ns.app.c" && r.3.as_deref() == Some("*") && r.4.is_none()));
 }
 
 #[test]
@@ -358,5 +358,92 @@ fn a_call_before_the_macro_of_a_body_does_not_see_it() {
     assert!(
         found.iter().all(|r| r.2 != "ns.app.b" || r.0 != "import"),
         "{found:?}"
+    );
+}
+
+/// The route of each record into another module (AD-604): its true hops, and whether each step
+/// is proven to the definition.
+fn routes(files: &[(&str, &str)]) -> Vec<(String, Vec<String>, Option<bool>)> {
+    let mut all = vec![APP_MANIFEST];
+    all.extend_from_slice(files);
+    let facts = run(&all, false);
+    let mut found: Vec<_> = facts
+        .imports
+        .iter()
+        .map(|record| record.data.data())
+        .filter(|data| data.source_module.as_str() == "ns.app.a")
+        .map(|data| {
+            let symbol = data.symbol.clone().unwrap_or_default();
+            let hops = data.reexport_chain.clone().unwrap_or_default();
+            (symbol, hops, data.route_complete)
+        })
+        .collect();
+    found.sort();
+    found
+}
+
+#[test]
+fn a_route_follows_each_reexport_and_ends_at_a_macro_that_writes_no_import() {
+    let made = "macro_rules! def {\n    ($n:ident) => {\n        pub struct $n;\n        impl $n {\n            fn f() { use std::fmt; }\n        }\n    };\n}\ndef!(Made);\n";
+    let passed = "macro_rules! pass {\n    ($p:path) => {\n        $(pub use $p;)?\n    };\n}\npass!(crate::c::Shape);\n";
+    let files = [
+        (
+            "crates/app/src/lib.rs",
+            "mod a;\nmod b;\nmod c;\nmod d;\nmod e;\npub use b::Shape;\n",
+        ),
+        ("crates/app/src/b.rs", "pub use crate::c::Shape;\n"),
+        ("crates/app/src/c.rs", "pub struct Shape;\n"),
+        ("crates/app/src/d.rs", made),
+        ("crates/app/src/e.rs", passed),
+        (
+            "crates/app/src/a.rs",
+            "use crate::Shape;\nuse crate::d::Made;\nuse crate::e::Shape as Other;\nuse crate::c::*;\npub fn f(_: Shape, _: Made, _: Other) {}\n",
+        ),
+    ];
+    let hops = |names: &[&str]| names.iter().map(|n| format!("ns.app{n}")).collect();
+    // A `use` in a function body of the expansion binds no name of `d`; a `use` at item level of
+    // the expansion of `pass!` may publish `Shape` in `e`, so its route is not complete (AD-608).
+    assert_eq!(
+        routes(&files),
+        [
+            ("*".to_owned(), Vec::new(), None),
+            ("Made".to_owned(), hops(&[".d.Made"]), None),
+            (
+                "Shape".to_owned(),
+                hops(&[".Shape", ".b.Shape", ".c.Shape"]),
+                None
+            ),
+            ("Shape".to_owned(), hops(&[".e.Shape"]), Some(false)),
+        ]
+    );
+}
+
+#[test]
+fn the_route_of_a_member_carries_each_root_name_of_its_type() {
+    let files = [
+        (
+            "crates/app/src/lib.rs",
+            "mod a;\nmod t;\nmod x;\npub use t::T;\n",
+        ),
+        ("crates/app/src/t.rs", "pub struct T;\n"),
+        (
+            "crates/app/src/x.rs",
+            "impl crate::t::T {\n    pub fn make() -> Self {\n        crate::t::T\n    }\n}\n",
+        ),
+        (
+            "crates/app/src/a.rs",
+            "use crate::t::T;\npub fn f() -> T {\n    T::make()\n}\n",
+        ),
+    ];
+    let hops = |names: &[&str]| names.iter().map(|n| format!("ns.app{n}")).collect();
+    // AD-608: the member reaches the block in `x`; the root publishes `T`, so a root entry of
+    // `T` covers the call, and the use leaf and the path `T::make` keep the route of `crate::t::T`.
+    assert_eq!(
+        routes(&files),
+        [
+            ("T".to_owned(), hops(&[".t.T"]), None),
+            ("T".to_owned(), hops(&[".t.T"]), None),
+            ("T".to_owned(), hops(&[".x.T", ".T", ".t.T"]), None),
+        ]
     );
 }

@@ -25,11 +25,13 @@ row! {
     pub(super),
     Location { path: String, line: i64 }
     Detail { source: String, target: Option<String>, cause: String, evidence: Vec<String> }
-    Component { id: String, name: String }
+    Component { id: String, name: String, layer: Option<String>, public: Vec<String> }
     Module { name: String, path: String, component: Option<String> }
     Edge { source: String, target: String, resolution: String, count: usize, evidence: Vec<Location>, evidence_total: usize }
-    Totals { components: usize, modules: usize, component_edges: usize }
-    Topology { total: Totals, components: Vec<Component>, modules: Vec<Module>, component_edges: Vec<Edge> }
+    Totals { components: usize, modules: usize, component_edges: usize, requires: usize, layers: usize }
+    Require { source: String, target: String, imports: usize }
+    LayerOrder { rule: String, layers: Vec<String> }
+    Topology { total: Totals, components: Vec<Component>, modules: Vec<Module>, component_edges: Vec<Edge>, requires: Vec<Require>, layers: Vec<LayerOrder> }
     Shape { direction: String, source: Vec<String>, target: Vec<String> }
     Step { from: String, to: String, from_component: Option<String>, to_component: Option<String>, evidence: Vec<String>, evidence_total: usize }
     CyclePath { index: usize, members: Vec<String>, path: Vec<Step>, steps_total: usize, truncated: bool }

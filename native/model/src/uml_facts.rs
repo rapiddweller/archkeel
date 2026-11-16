@@ -16,7 +16,9 @@ pub struct UmlDiff {
     pub subject: String,
     /// The fact that differs: a module or an import edge `source -> target`.
     pub fact: String,
+    /// The closed word that names why the fact differs.
     pub cause: &'static str,
+    /// The evidence rows of the difference.
     pub evidence: Vec<String>,
 }
 

@@ -13,19 +13,13 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final, TypeVar
 
-from .core_json import CoreError, _count, _fields, _object, _text
-
-BUDGETS: Final = {
-    "cycles_per_rule": 50,
-    "path_steps": 64,
-    "evidence_per_step": 5,
-    "held_per_rule": 20,
-    "rules_per_gap": 200,
-    "gaps": 500,
-}
+from .core_json import CoreError, as_count, as_object, as_text
+from .core_schema import budget
 
 
 class Direction(StrEnum):
+    """The direction that a rule gives to the pairs it judges."""
+
     FORBIDS = "forbids"
     ALLOWS = "allows"
     REQUIRES = "requires"
@@ -36,6 +30,8 @@ class Direction(StrEnum):
 
 
 class HoldKind(StrEnum):
+    """The reason class that holds a rule at UNKNOWN."""
+
     COVERAGE_GAPS = "coverage_gaps"
     PAIR_GAPS = "pair_gaps"
     ALLOWED_PAIR_GAPS = "allowed_pair_gaps"
@@ -52,6 +48,8 @@ _Word = TypeVar("_Word", bound=StrEnum)
 
 @dataclass(frozen=True, slots=True)
 class RuleShape:
+    """The kind of a rule, its direction and the sources and targets it selects."""
+
     kind: str
     direction: Direction
     source: tuple[str, ...]
@@ -60,6 +58,8 @@ class RuleShape:
 
 @dataclass(frozen=True, slots=True)
 class Step:
+    """One import edge on a path of a cycle, with the evidence for it."""
+
     source: str
     target: str
     source_component: str | None
@@ -71,6 +71,8 @@ class Step:
 
 @dataclass(frozen=True, slots=True)
 class CyclePath:
+    """One cycle: its members and the import path through them."""
+
     id: str
     index: int
     members: tuple[str, ...]
@@ -81,6 +83,8 @@ class CyclePath:
 
 @dataclass(frozen=True, slots=True)
 class Cycles:
+    """The cycles of one rule, counted and possibly truncated."""
+
     total: int
     truncated: bool
     items: tuple[CyclePath, ...]
@@ -88,6 +92,8 @@ class Cycles:
 
 @dataclass(frozen=True, slots=True)
 class RuleHolds:
+    """What holds one rule at UNKNOWN: the cause, the gaps and the pairs."""
+
     cause: str
     kind: HoldKind
     gaps: tuple[str, ...]
@@ -99,6 +105,8 @@ class RuleHolds:
 
 @dataclass(frozen=True, slots=True)
 class GapHolds:
+    """One gap and the rules that it holds at UNKNOWN."""
+
     id: str
     kind: str
     reason: str
@@ -109,6 +117,8 @@ class GapHolds:
 
 @dataclass(frozen=True, slots=True)
 class Explain:
+    """The explanation part of a frame: rule shapes, cycles, holds and gaps."""
+
     rules: Mapping[str, RuleShape]
     cycles: Mapping[str, Cycles]
     holds: Mapping[str, RuleHolds]
@@ -131,24 +141,24 @@ def _list(value: object, where: str, limit: int) -> list[object]:
 
 
 def _texts(value: object, where: str, limit: int = 100_000) -> tuple[str, ...]:
-    return tuple(_text(item, where) for item in _list(value, where, limit))
+    return tuple(as_text(item, where) for item in _list(value, where, limit))
 
 
 def _word(kind: type[_Word], value: object, where: str) -> _Word:
     try:
-        return kind(_text(value, where))
+        return kind(as_text(value, where))
     except ValueError as error:
         raise CoreError(f"the core frame field {where} has an unknown word") from error
 
 
 def _optional(value: object, where: str) -> str | None:
-    return None if value is None else _text(value, where)
+    return None if value is None else as_text(value, where)
 
 
 def _shape(value: object, where: str) -> RuleShape:
-    row = _fields(value, where, frozenset({"kind", "direction", "source", "target"}))
+    row = as_object(value, where)
     return RuleShape(
-        _text(row["kind"], where),
+        as_text(row["kind"], where),
         _word(Direction, row["direction"], where),
         _texts(row["source"], where),
         _texts(row["target"], where),
@@ -156,20 +166,17 @@ def _shape(value: object, where: str) -> RuleShape:
 
 
 def _step(value: object, where: str) -> Step:
-    names = frozenset(
-        {"from", "to", "from_component", "to_component", "imports", "evidence", "evidence_total"}
-    )
-    row = _fields(value, where, names)
-    evidence = _texts(row["evidence"], where, BUDGETS["evidence_per_step"])
-    total = _count(row["evidence_total"], where)
-    if len(evidence) != min(total, BUDGETS["evidence_per_step"]):
+    row = as_object(value, where)
+    evidence = _texts(row["evidence"], where, budget("evidence_per_step"))
+    total = as_count(row["evidence_total"], where)
+    if len(evidence) != min(total, budget("evidence_per_step")):
         raise CoreError(f"the core frame field {where} has an inconsistent evidence count")
     return Step(
-        _text(row["from"], where),
-        _text(row["to"], where),
+        as_text(row["from"], where),
+        as_text(row["to"], where),
         _optional(row["from_component"], where),
         _optional(row["to_component"], where),
-        _count(row["imports"], where),
+        as_count(row["imports"], where),
         evidence,
         total,
     )
@@ -185,19 +192,18 @@ def _closed(path: tuple[Step, ...], truncated: bool, where: str) -> None:
 
 
 def _cycle(value: object, where: str) -> CyclePath:
-    names = frozenset({"id", "index", "members", "path", "steps_total", "truncated"})
-    row = _fields(value, where, names)
-    steps = _list(row["path"], where, BUDGETS["path_steps"])
+    row = as_object(value, where)
+    steps = _list(row["path"], where, budget("path_steps"))
     path = tuple(_step(item, where) for item in steps)
-    total = _count(row["steps_total"], where)
+    total = as_count(row["steps_total"], where)
     truncated = _bool(row["truncated"], where)
-    cut = total > BUDGETS["path_steps"]
-    if len(path) != min(total, BUDGETS["path_steps"]) or truncated != cut:
+    cut = total > budget("path_steps")
+    if len(path) != min(total, budget("path_steps")) or truncated != cut:
         raise CoreError(f"the core frame field {where} has an inconsistent step count")
     _closed(path, truncated, where)
     return CyclePath(
-        _text(row["id"], where),
-        _count(row["index"], where),
+        as_text(row["id"], where),
+        as_count(row["index"], where),
         _texts(row["members"], where),
         path,
         total,
@@ -206,32 +212,31 @@ def _cycle(value: object, where: str) -> CyclePath:
 
 
 def _cycles(value: object, where: str) -> Cycles:
-    row = _fields(value, where, frozenset({"total", "truncated", "items"}))
-    listed = _list(row["items"], where, BUDGETS["cycles_per_rule"])
+    row = as_object(value, where)
+    listed = _list(row["items"], where, budget("cycles_per_rule"))
     items = tuple(_cycle(item, where) for item in listed)
-    total = _count(row["total"], where)
+    total = as_count(row["total"], where)
     truncated = _bool(row["truncated"], where)
-    cut = total > BUDGETS["cycles_per_rule"]
-    if len(items) != min(total, BUDGETS["cycles_per_rule"]) or truncated != cut:
+    cut = total > budget("cycles_per_rule")
+    if len(items) != min(total, budget("cycles_per_rule")) or truncated != cut:
         raise CoreError(f"the core frame field {where} has an inconsistent cycle count")
     return Cycles(total, truncated, items)
 
 
 def _pair(value: object, where: str) -> tuple[str, str]:
-    row = _fields(value, where, frozenset({"source", "target"}))
-    return _text(row["source"], where), _text(row["target"], where)
+    row = as_object(value, where)
+    return as_text(row["source"], where), as_text(row["target"], where)
 
 
 def _rule_holds(value: object, where: str) -> RuleHolds:
-    names = frozenset({"cause", "kind", "gaps", "pairs", "total", "truncated", "unnamed_imports"})
-    row = _fields(value, where, names)
-    cause = _text(row["cause"], where)
+    row = as_object(value, where)
+    cause = as_text(row["cause"], where)
     if cause not in _CAUSES:
         raise CoreError(f"the core frame field {where} has an unknown cause")
-    limit = BUDGETS["held_per_rule"]
+    limit = budget("held_per_rule")
     gaps = _texts(row["gaps"], where, limit)
     pairs = tuple(_pair(item, where) for item in _list(row["pairs"], where, limit))
-    total = _count(row["total"], where)
+    total = as_count(row["total"], where)
     truncated = _bool(row["truncated"], where)
     if truncated != (total > limit) or max(len(gaps), len(pairs)) > min(total, limit):
         raise CoreError(f"the core frame field {where} has an inconsistent hold count")
@@ -242,23 +247,22 @@ def _rule_holds(value: object, where: str) -> RuleHolds:
         pairs,
         total,
         truncated,
-        _count(row["unnamed_imports"], where),
+        as_count(row["unnamed_imports"], where),
     )
 
 
 def _gap(value: object, where: str) -> GapHolds:
-    names = frozenset({"id", "kind", "reason", "rules", "rules_total", "truncated"})
-    row = _fields(value, where, names)
-    rules = _texts(row["rules"], where, BUDGETS["rules_per_gap"])
-    total = _count(row["rules_total"], where)
+    row = as_object(value, where)
+    rules = _texts(row["rules"], where, budget("rules_per_gap"))
+    total = as_count(row["rules_total"], where)
     truncated = _bool(row["truncated"], where)
-    cut = total > BUDGETS["rules_per_gap"]
-    if len(rules) != min(total, BUDGETS["rules_per_gap"]) or truncated != cut:
+    cut = total > budget("rules_per_gap")
+    if len(rules) != min(total, budget("rules_per_gap")) or truncated != cut:
         raise CoreError(f"the core frame field {where} has an inconsistent rule count")
     return GapHolds(
-        _text(row["id"], where),
-        _text(row["kind"], where),
-        _text(row["reason"], where),
+        as_text(row["id"], where),
+        as_text(row["kind"], where),
+        as_text(row["reason"], where),
         rules,
         total,
         truncated,
@@ -270,42 +274,37 @@ def read_explain(value: object, violations: Mapping[str, int]) -> Explain:
 
     A hold can name a row that is no rule of the contract: a named gap or the UML target row.
     """
-    row = _fields(value, "explain", frozenset({"version", "budgets", "rules", "cycles", "holds"}))
-    if _count(row["version"], "explain.version") != 1:
-        raise CoreError("the core frame field explain has an unknown version")
-    if _object(row["budgets"], "explain.budgets") != BUDGETS:
-        raise CoreError("the core frame field explain has other budgets")
+    row = as_object(value, "explain")
     shapes = {
         rule: _shape(shape, f"explain.rules.{rule}")
-        for rule, shape in _object(row["rules"], "explain.rules").items()
+        for rule, shape in as_object(row["rules"], "explain.rules").items()
     }
     cycles = {
         rule: _cycles(item, f"explain.cycles.{rule}")
-        for rule, item in _object(row["cycles"], "explain.cycles").items()
+        for rule, item in as_object(row["cycles"], "explain.cycles").items()
     }
     for rule, found in cycles.items():
         count = violations.get(rule)
         if count is None or any(item.index >= count for item in found.items):
             raise CoreError(f"the core frame field explain.cycles.{rule} names no violation")
-    names = frozenset({"rules", "gaps", "gaps_total", "gaps_holding", "gaps_truncated"})
-    holds = _fields(row["holds"], "explain.holds", names)
+    holds = as_object(row["holds"], "explain.holds")
     per_rule = {
         rule: _rule_holds(item, f"explain.holds.rules.{rule}")
-        for rule, item in _object(holds["rules"], "explain.holds.rules").items()
+        for rule, item in as_object(holds["rules"], "explain.holds.rules").items()
     }
-    listed = _list(holds["gaps"], "explain.holds.gaps", BUDGETS["gaps"])
+    listed = _list(holds["gaps"], "explain.holds.gaps", budget("gaps"))
     gaps = tuple(_gap(item, "explain.holds.gaps") for item in listed)
-    gaps_holding = _count(holds["gaps_holding"], "explain.holds")
+    gaps_holding = as_count(holds["gaps_holding"], "explain.holds")
     gaps_truncated = _bool(holds["gaps_truncated"], "explain.holds")
-    cut = gaps_holding > BUDGETS["gaps"]
-    if len(gaps) != min(gaps_holding, BUDGETS["gaps"]) or gaps_truncated != cut:
+    cut = gaps_holding > budget("gaps")
+    if len(gaps) != min(gaps_holding, budget("gaps")) or gaps_truncated != cut:
         raise CoreError("the core frame field explain.holds has an inconsistent gap count")
     return Explain(
         shapes,
         cycles,
         per_rule,
         gaps,
-        _count(holds["gaps_total"], "explain.holds"),
+        as_count(holds["gaps_total"], "explain.holds"),
         gaps_holding,
         gaps_truncated,
     )

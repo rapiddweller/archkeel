@@ -29,6 +29,7 @@ pub(crate) struct Declarations {
     /// Some node writes an unknown name through an amplifier form (AD-540).
     pub amplified: bool,
     pub blockers: Vec<crate::script_types::Blocker>,
+    pub amp_blockers: Vec<crate::script_types::Blocker>,
     /// An empty path that no blocker names.
     pub unlabelled_empty: bool,
 }
@@ -46,6 +47,7 @@ struct Gathered<'t> {
     /// A node of an amplifier form wrote an unknown name (AD-540).
     amplified: bool,
     blockers: Vec<crate::script_types::Blocker>,
+    amp_blockers: Vec<crate::script_types::Blocker>,
     /// The empty paths that a blocker names.
     labelled_empty: usize,
 }
@@ -63,6 +65,9 @@ impl<'t> Gathered<'t> {
         // An amplifier form leaves the unknown write of the file but no empty path: the project
         // decides with its host entry whether the write blocks every name.
         self.amplified |= amplifier;
+        if amplifier {
+            self.amp_blockers.push((span.clone(), form));
+        }
         if name.is_none() && !amplifier {
             self.blockers.push((span.clone(), form));
             self.labelled_empty += 1;
@@ -229,6 +234,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             amplified: found.amplified,
             unlabelled_empty,
             blockers: unique(found.blockers),
+            amp_blockers: unique(found.amp_blockers),
         }
     }
 }
@@ -243,6 +249,8 @@ fn form_of(node: Node) -> &'static str {
             "a write of markup or code"
         }
         "shorthand_property_identifier_pattern" | "pair_pattern" => "a pattern that takes a window",
+        "member_expression" => "a member that can be the window or can reach code",
+        "this" => "a this that a caller can give the window",
         _ => "a name that is the global object or runs code",
     }
 }

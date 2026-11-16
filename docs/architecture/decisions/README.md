@@ -7,11 +7,29 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-612 | [Remove the unused report v2 pipeline](ad-612-remove-the-unused-report-v2-pipeline.md) |
+| AD-610 | [Check literal schema extensions](ad-610-check-literal-schema-extensions.md) |
+| AD-608 | [A crate root is the one public path of each name it publishes](ad-608-a-crate-root-is-the-one-public-path-of-each-name-it-publishes.md) |
+| AD-604 | [The Rust collector states the item and the route of each import](ad-604-the-rust-collector-states-the-item-and-route-of-each-import.md) |
+| AD-600 | [Every section row kind is a typed variant and the frame states its constants](ad-600-every-section-row-kind-is-a-typed-variant-and-the-frame-states-its-constants.md) |
+| AD-598 | [The shell reads no field list and the frame schema is closed](ad-598-the-shell-reads-no-field-list-and-the-frame-schema-is-closed.md) |
+| AD-596 | [The core frame has one generated schema and the shell reads it](ad-596-the-core-frame-has-one-generated-schema-and-the-shell-reads-it.md) |
+| AD-594 | [The architecture picture has three views: As-Is, Target and Diff](ad-594-the-architecture-picture-has-three-views-as-is-target-and-diff.md) |
+| AD-588 | [The self-contract states layers, parts and crossings](ad-588-the-self-contract-states-layers-parts-and-crossings.md) |
+| AD-592 | [The shell contract declares each crossing and each public name has a docstring](ad-592-the-shell-contract-declares-each-crossing-and-each-public-name-has-a-docstring.md) |
+| AD-590 | [Every Rust public item is documented, and a helper lives with its owner](ad-590-every-rust-public-item-is-documented-and-a-helper-lives-with-its-owner.md) |
+| AD-584 | [The clone check skips token runs that carry no logic](ad-584-the-clone-check-skips-token-runs-that-carry-no-logic.md) |
+| AD-582 | [The unused browser and Studio assets are removed](ad-582-the-unused-browser-and-studio-assets-are-removed.md) |
+| AD-580 | [A declared signature that names a type reaches its public entry](ad-580-a-declared-signature-that-names-a-type-reaches-its-public-entry.md) |
+| AD-568 | [Narrow the typing factory proof to the statements that can replace a factory](ad-568-narrow-the-typing-factory-proof-to-the-statements-that-can-replace-a-factory.md) |
+| AD-578 | [Make the remaining self-check calls explicit](ad-578-make-the-remaining-self-check-calls-explicit.md) |
+| AD-568 | [Narrow the typing factory proof to the statements that can replace a factory](ad-568-narrow-the-typing-factory-proof-to-the-statements-that-can-replace-a-factory.md) |
 | AD-576 | [A read of a host name that nothing writes is no gap](ad-576-a-read-of-a-host-name-that-nothing-writes-is-no-gap.md) |
+| AD-574 | [Inert door attributes keep the module import gap](ad-574-inert-door-attributes-keep-the-module-import-gap.md) |
+| AD-568 | [Narrow the typing factory proof to the statements that can replace a factory](ad-568-narrow-the-typing-factory-proof-to-the-statements-that-can-replace-a-factory.md) |
 | AD-566 | [A call of a bare class or a builtin value type is no module](ad-566-a-call-of-a-bare-class-or-a-builtin-value-type-is-no-module.md) |
-| AD-562 | [Inert door attributes keep the module import gap](ad-562-inert-door-attributes-keep-the-module-import-gap.md) |
+| AD-564 | [A gap states its effect and holds only the rules that read it](ad-564-a-gap-states-its-effect-and-holds-only-the-rules-that-read-it.md) |
 | AD-562 | [Dart names loader tokens and relative package roots](ad-562-dart-names-loader-tokens-and-relative-package-roots.md) |
-| AD-560 | [A gap states its effect and holds only the rules that read it](ad-560-a-gap-states-its-effect-and-holds-only-the-rules-that-read-it.md) |
 | AD-560 | [A lazy import table bounds the import calls of a module `__getattr__`](ad-560-a-lazy-import-table-bounds-the-import-calls-of-a-module-getattr.md) |
 | AD-558 | [A lazy import table bounds the import calls of a module `__getattr__`](ad-558-a-lazy-import-table-bounds-the-import-calls-of-a-module-getattr.md) |
 | AD-558 | [An import counts as a use when every boundary up to the root publishes it](ad-558-an-import-counts-as-a-use-when-every-boundary-up-to-the-root-publishes-it.md) |
@@ -19,6 +37,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-554 | [Prove two written field steps in a Rust receiver](ad-554-prove-two-written-field-steps-in-a-rust-receiver.md) |
 | AD-552 | [A literal binding is not a module object](ad-552-a-literal-binding-is-not-a-module-object.md) |
 | AD-550 | [The Python collector writes the shape of each written signature type](ad-550-the-python-collector-writes-the-shape-of-each-written-signature-type.md) |
+| AD-548 | [Count call and typing sites in the core](ad-548-count-call-and-typing-sites-in-the-core.md) |
 | AD-544 | [A Rust receiver type can follow workspace re-exports](ad-544-a-rust-receiver-type-can-follow-workspace-reexports.md) |
 | AD-543 | [A written local type proves a Rust receiver](ad-543-a-written-local-type-proves-a-rust-receiver.md) |
 | AD-542 | [Dart isolate and package keys need evidence](ad-542-dart-isolate-and-package-keys-need-evidence.md) |

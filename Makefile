@@ -6,10 +6,10 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check pr-test merge-check pr-report-test ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build smoke release-check browser-runtime-install browser-runtime-generate browser-runtime-check typescript-libs-check browser-graph-generate browser-graph-check browser-architecture-check core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
+.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static pr-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build smoke release-check browser-runtime-install  typescript-libs-check    core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
-.NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static ci-pr-report-check
+.NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static
 
 ci: ci-check mermaid
 
@@ -17,9 +17,7 @@ ci-check: ci-artifacts-clean ci-core-check self-validate-native self-validate-sh
 
 ci-pr-check: ci-pr-static pr-test
 
-ci-pr-static: lint typecheck browser-architecture-check
-
-ci-pr-report-check: browser-runtime-check browser-graph-check pr-report-test
+ci-pr-static: lint typecheck
 
 pr-test: browser-runtime-install
 	$(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
@@ -30,11 +28,6 @@ pr-test: browser-runtime-install
 merge-check:
 	@test -n "$(PR)" || { echo "PR is required"; exit 2; }
 	$(UV) run --locked python -m tools.merge_check "$(PR)"
-
-pr-report-test:
-	$(UV) run --locked python -m pytest -n 2 --dist=loadfile --max-worker-restart=0 -q \
-		--junitxml=test-artifacts/pytest/pr-report.xml \
-		tests/test_report_renderer_units.py
 
 ci-artifacts-clean:
 	rm -rf test-artifacts/validation test-artifacts/validation-native
@@ -148,7 +141,7 @@ cargo-deny-install:
 		install -m 0755 "$$work/$$name/cargo-deny" "$${CARGO_HOME:-$$HOME/.cargo}/bin/cargo-deny"
 
 LINT_PATHS := src tests tools/mermaid_blocks.py tools/package_plugin.py \
-	tools/browser_runtime.py tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_product.py tools/report_product_page.py \
+	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_product.py tools/report_product_page.py \
 	native/hatch_build.py
 
 lint:
@@ -159,7 +152,7 @@ lint:
 HATCHLING_VERSION := 1.33.0
 
 typecheck:
-	$(UV) run --locked mypy src/archkeel tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py
+	$(UV) run --locked mypy src/archkeel tools/publish_release.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py
 	$(UV) run --locked --with hatchling==$(HATCHLING_VERSION) mypy --strict native/hatch_build.py
 
 flutter-demo-check:
@@ -182,44 +175,7 @@ plugin-release:
 	$(UV) run --locked python -m tools.package_plugin --release-version "$(VERSION)" --expected-version "$(VERSION)" "build/plugin-release/archkeel-plugin-$(VERSION)"
 	$(UV) run --locked python -m tools.package_plugin --check --release-version "$(VERSION)" --expected-version "$(VERSION)" "build/plugin-release/archkeel-plugin-$(VERSION).zip"
 
-# Development publication only; reports and Python package builds load committed assets.
+# The pinned TypeScript compiler: the standard-library catalog check and the compiler check read it.
 browser-runtime-install:
 	npm ci --prefix tools/browser-runtime --ignore-scripts --no-audit --no-fund
-	$(UV) run --locked python -m tools.browser_runtime --prepare-dependencies
 
-browser-runtime-generate: browser-runtime-install
-	uv run --locked python -m tools.browser_runtime
-
-browser-runtime-check: browser-runtime-install
-	uv run --locked mypy --strict tools/browser_runtime.py
-	uv run --locked python -m tools.browser_runtime --check
-	uv run --locked python -m pytest -q tests/test_flow_runtime_publication.py
-
-# AD-290, AD-432: the browser assets and the Studio UI are TypeScript projects that the core checks.
-# The Studio UI result must equal its pinned result (one typed UNKNOWN), so it is not a PASS.
-browser-architecture-check: browser-runtime-install core
-	@mkdir -p test-artifacts/validation
-	@$(UV) run --locked archkeel validate --config docs/architecture/browser.toml --json > test-artifacts/validation/browser.json || true
-	$(UV) run --locked python tools/native_expected.py test-artifacts/validation/browser.json docs/architecture/target/browser-expected.json
-	@$(UV) run --locked archkeel validate --config docs/architecture/studio-ui.toml --json > test-artifacts/validation/studio-ui.json || true
-	$(UV) run --locked python tools/native_expected.py test-artifacts/validation/studio-ui.json docs/architecture/target/studio-ui-expected.json
-
-BROWSER_GRAPH_PROTOCOL := src/archkeel/render/assets/report-graph-vocabulary.ts src/archkeel/render/assets/report-graph-schema.ts
-BROWSER_GRAPH_COMPILER := node tools/browser-runtime/node_modules/typescript/bin/tsc --strict --target ES2022 --module none --newLine lf
-
-browser-graph-generate: browser-runtime-install
-	$(BROWSER_GRAPH_COMPILER) --outFile src/archkeel/render/assets/report-graph-protocol.js $(BROWSER_GRAPH_PROTOCOL)
-	cat tools/browser-runtime/protocol-exports.js >> src/archkeel/render/assets/report-graph-protocol.js
-	$(BROWSER_GRAPH_COMPILER) --declaration --emitDeclarationOnly --outFile src/archkeel/render/assets/report-graph-protocol.types.d.ts $(BROWSER_GRAPH_PROTOCOL)
-	cat tools/browser-runtime/protocol-exports.types.d.ts >> src/archkeel/render/assets/report-graph-protocol.types.d.ts
-
-browser-graph-check: browser-runtime-install
-	@set -e; browser_graph_stage=$$(mktemp -d); \
-		trap 'rm -rf "$$browser_graph_stage"' EXIT; \
-		$(BROWSER_GRAPH_COMPILER) --outFile "$$browser_graph_stage/protocol.js" $(BROWSER_GRAPH_PROTOCOL); \
-		cat tools/browser-runtime/protocol-exports.js >> "$$browser_graph_stage/protocol.js"; \
-		cmp src/archkeel/render/assets/report-graph-protocol.js "$$browser_graph_stage/protocol.js"; \
-		$(BROWSER_GRAPH_COMPILER) --declaration --emitDeclarationOnly --outFile "$$browser_graph_stage/protocol.types.d.ts" $(BROWSER_GRAPH_PROTOCOL); \
-		cat tools/browser-runtime/protocol-exports.types.d.ts >> "$$browser_graph_stage/protocol.types.d.ts"; \
-		cmp src/archkeel/render/assets/report-graph-protocol.types.d.ts "$$browser_graph_stage/protocol.types.d.ts"
-	$(BROWSER_GRAPH_COMPILER) --module esnext --moduleResolution node --moduleSuffixes .types, --allowJs --checkJs --noEmit src/archkeel/render/assets/report-graph-scene.js tests/browser_graph_scene_target.ts src/archkeel/render/assets/report-atlas-deviations.js

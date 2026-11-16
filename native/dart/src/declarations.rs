@@ -24,7 +24,7 @@ pub(crate) fn build(input: &Input) -> Output {
     if let Err(stop) = assembly
         .work
         .input(input)
-        .and_then(|()| assembly.run(input))
+        .and_then(|()| assembly.build_declaration_records(input))
     {
         let (_, gap) = crate::records::gap(
             ".",
@@ -58,7 +58,7 @@ pub(crate) fn build(input: &Input) -> Output {
 }
 
 impl Assembly {
-    pub(crate) fn run(&mut self, input: &Input) -> Result<(), Stop> {
+    pub(crate) fn build_declaration_records(&mut self, input: &Input) -> Result<(), Stop> {
         let mut files: Vec<_> = input.files.iter().collect();
         for file in &files {
             self.work.charge(1)?;

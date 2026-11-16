@@ -89,6 +89,18 @@ pub(super) fn lexical(frame: &Frame<'_>, scope: &[String]) -> String {
     })
 }
 
+impl<'a> Frame<'a> {
+    /// The module id of the root of the crate target that holds the file.
+    pub(crate) fn root(&self) -> &'a str {
+        self.root
+    }
+
+    /// The crate that holds the file.
+    pub(crate) fn krate(&self) -> &'a Crate {
+        self.krate
+    }
+}
+
 impl Frame<'_> {
     /// The lexical module of a place in the file: the file module and the enclosing inline ones.
     pub(crate) fn lexical_at(&self, scope: &[String]) -> String {
@@ -112,6 +124,11 @@ impl Frame<'_> {
 }
 
 impl<'a> Index<'a> {
+    /// The workspace of the walk.
+    pub(crate) fn workspace(&self) -> &'a Workspace {
+        self.workspace
+    }
+
     pub(crate) fn file_of(&self, lexical: &str) -> Option<&str> {
         self.lexical.get(lexical).copied()
     }
@@ -127,6 +144,11 @@ impl<'a> Index<'a> {
                 && types.contains(&d.form)
                 && self::lexical(frame, &d.scope) == lexical
         })
+    }
+
+    /// Each file of the walk.
+    pub(crate) fn frames(&self) -> impl Iterator<Item = &Frame<'a>> {
+        self.frames.values()
     }
 
     pub(crate) fn frame(&self, module: &str) -> Option<&Frame<'a>> {
@@ -188,12 +210,13 @@ impl Index<'_> {
             lexical: at,
             symbol: Some(last.clone()),
             level: 0,
+            member_of: None,
         }))
     }
 }
 
 /// The deepest chain of explicit imports that the resolver follows.
-pub(super) const MAX_HOPS: usize = 8;
+pub(crate) const MAX_HOPS: usize = 8;
 
 impl Index<'_> {
     /// Follow an explicit path to a workspace type. Every ambiguous step is refused (AD-544).

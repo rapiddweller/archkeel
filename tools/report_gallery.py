@@ -67,11 +67,9 @@ def self_runs(system: System) -> tuple[dict[str, str], ...]:
 
 
 SELF_RUNS = self_runs(load())
-# The other own contracts: one line on the product page each, no report file of their own.
-OTHER_RUNS: tuple[dict[str, str], ...] = (
-    {"title": "Browser assets", "config": "docs/architecture/browser.toml"},
-    {"title": "Studio UI", "config": "docs/architecture/studio-ui.toml"},
-)
+# The other own contracts: one line on the product page each, no report file of their own. None
+# today: the browser assets and the Studio UI returned to history (AD-582).
+OTHER_RUNS: tuple[dict[str, str], ...] = ()
 # Shields endpoint colours (design-system palette): pass, fail and unknown. No result is grey.
 COLORS = {"PASS": "46bfd0", "FAIL": "f2606b", "UNKNOWN": "ecb64a"}
 

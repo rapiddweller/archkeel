@@ -39,6 +39,7 @@ fn proven_registry_derives_keep_helper_paths_as_edges_without_an_expansion_gap()
         "use serde::Serialize; #[derive(Serialize)] struct S { #[serde(with = \"crate::r#b::helper\")] x: u8 }",
         "use serde::Deserialize as De; #[derive(De)] struct S { #[serde(default)] x: u8 }",
         "#[derive(schemars::JsonSchema)] struct S { #[schemars(with = \"crate::b::T\")] x: u8 }",
+        "#[derive(serde::Serialize, schemars::JsonSchema)] struct S { #[schemars(extend(\"const\" = \"value\"))] x: u8 }",
     ] {
         let found = facts(MANIFEST, source, LOCK);
         assert!(derive_gaps(&found).is_empty(), "{:?}", derive_gaps(&found));
@@ -78,6 +79,11 @@ fn unproved_sources_globs_patches_and_helper_values_keep_the_gap() {
         (
             MANIFEST.to_owned(),
             "#[derive(serde::Serialize)] #[serde(unknown_key)] struct S;",
+            LOCK.to_owned(),
+        ),
+        (
+            MANIFEST.to_owned(),
+            "#[derive(schemars::JsonSchema)] struct S { #[schemars(extend(\"const\" = crate::b::value()))] x: u8 }",
             LOCK.to_owned(),
         ),
         (
@@ -324,6 +330,25 @@ fn a_shadowed_derive_attribute_does_not_prove_registered_helpers() {
         .gaps
         .iter()
         .any(|g| g.title.contains("attribute macro serde")));
+}
+
+#[test]
+fn shadowed_schemars_and_a_foreign_attribute_keep_expansion_gaps() {
+    let shadowed = facts(
+        MANIFEST,
+        "mod schemars { pub use mac::JsonSchema; } #[derive(schemars::JsonSchema)] struct S;",
+        LOCK,
+    );
+    assert!(!derive_gaps(&shadowed).is_empty());
+    let foreign = facts(
+        MANIFEST,
+        "#[mac::schemars] #[derive(schemars::JsonSchema)] struct S { #[schemars(extend(\"const\" = \"value\"))] x: u8 }",
+        LOCK,
+    );
+    assert!(foreign
+        .gaps
+        .iter()
+        .any(|gap| gap.title.contains("attribute macro mac::schemars")));
 }
 
 #[test]

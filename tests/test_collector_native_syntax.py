@@ -30,7 +30,6 @@ from script_fields import SCRIPT_FIELDS
 
 ROOT = Path(__file__).parents[1]
 NATIVE = ROOT / "native"
-STUDIO_UI = "src/archkeel/studio/ui"
 FIXTURES = (
     "fixtures/H-typescript",
     "fixtures/H-uml-typescript",
@@ -456,7 +455,7 @@ def test_the_dump_binary_holds_the_markers(dump_binary: Path) -> None:
 
 
 def test_two_runs_give_the_same_bytes(tmp_path: Path, dump_binary: Path) -> None:
-    files = _sources(ROOT, STUDIO_UI)[:40] + _sources(ROOT / FIXTURES[3])[:40]
+    files = _sources(ROOT / FIXTURES[3])[:80]
     request = "".join(json.dumps({"rel": rel, "file": str(path)}) + "\n" for rel, path in files)
     runs = {
         subprocess.run(

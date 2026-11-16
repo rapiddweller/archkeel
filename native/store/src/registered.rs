@@ -20,7 +20,7 @@ use std::collections::BTreeSet;
 
 use archkeel_facts::envelope::{ConstructSupport, Facts, LimitSupport, Profile};
 
-use crate::features::ROUTES_FEATURE;
+use crate::features::{ROUTES_FEATURE, RUST_ROUTES_FEATURE};
 
 const NATIVE_IMPORTS: [&str; 4] = [
     "literal-imports",
@@ -40,14 +40,26 @@ fn names<'a>(items: impl IntoIterator<Item = &'a str>) -> BTreeSet<&'a str> {
 pub(crate) fn registered(facts: &Facts) -> Result<(), String> {
     if let Some(limits) = facts.profile_limits {
         // AD-504: the Python statement binds to the feature of its routes, as TypeScript binds
-        // its statement to `script-globals-v1`.
+        // its statement to `script-globals-v1`. AD-604: the Rust statement binds to its routes.
         let symbols = facts
             .capabilities
             .resolution_features
             .iter()
-            .any(|feature| feature == "script-globals-v1" || feature == ROUTES_FEATURE);
+            .any(|feature| {
+                feature == "script-globals-v1"
+                    || feature == ROUTES_FEATURE
+                    || feature == RUST_ROUTES_FEATURE
+            });
         if (limits.dependency_symbols == LimitSupport::Supported) != symbols {
             return Err("profile symbol statement does not match its capability".to_owned());
+        }
+        let rust_routes = facts.profile == Profile::Rust && symbols;
+        if facts.profile == Profile::Rust
+            && (limits.interface_boundary == LimitSupport::Supported) != rust_routes
+        {
+            return Err(
+                "a Rust interface statement needs the feature rust-item-routes-v1".to_owned(),
+            );
         }
     }
     let sections = names(facts.capabilities.sections.iter().map(|name| name.as_str()));

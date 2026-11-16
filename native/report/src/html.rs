@@ -14,10 +14,14 @@ mod cases;
 mod causes;
 #[path = "html_components.rs"]
 mod components;
+#[path = "html_diff.rs"]
+mod diff;
 #[path = "html_footer.rs"]
 mod footer;
 #[path = "html_frame.rs"]
 mod frame;
+#[path = "html_map.rs"]
+mod map;
 #[path = "html_text.rs"]
 mod markup;
 #[path = "html_places.rs"]
@@ -30,6 +34,8 @@ mod shell;
 mod unknown;
 #[path = "html_verdict.rs"]
 mod verdict;
+#[path = "html_views.rs"]
+mod views;
 
 pub(super) fn render(frame: &Map<String, Value>) -> Result<Value, serde_json::Error> {
     let value = Value::Object(frame.clone());
@@ -60,3 +66,6 @@ mod blocks_tests;
 #[cfg(test)]
 #[path = "html_tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "html_views_tests.rs"]
+mod views_tests;

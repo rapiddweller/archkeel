@@ -99,7 +99,7 @@ def test_the_core_scans_its_own_workspace_with_no_shell_reply(
     # AD-418: the core decides each rule of its own contract, so the frame names no part (exit 0).
     assert code == 0, frame["unsupported"]
     assert not frame["unsupported"]["rules"]
-    assert frame["status"] in {"FAIL", "UNKNOWN"}
+    assert frame["status"] == "PASS"
     assert frame["self_test"]["collect"]["request"]["resolver"] == {"language": "rust"}
     assert frame["self_test"]["reply"]["files"] > 200
     assert "producer not verified" not in json.dumps(frame["unsupported"])

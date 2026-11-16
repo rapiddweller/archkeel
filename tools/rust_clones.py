@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import itertools
 import json
 import sys
 from collections import defaultdict
@@ -28,6 +29,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from rust_inert import inert_mask
 from rust_source import inline_test_mask, read_sources, test_files, tokenize
 
 WINDOW = 70
@@ -38,6 +40,7 @@ KEYWORDS = frozenset(
     "loop match mod move mut pub ref return self Self static struct super trait true type unsafe "
     "use where while".split()
 )
+INERT_IDS = itertools.count()
 NAME, LITERAL = "\0name", "\0literal"
 
 
@@ -59,15 +62,21 @@ def _texts(text: str, exact: bool) -> tuple[list[str], list[int], list[bool]]:
     tokens = tokenize(text)
     inside = inline_test_mask(tokens)
     if exact:
-        return [token.text for token in tokens], [token.line for token in tokens], inside
-    texts = [
-        LITERAL
-        if token.kind == "literal"
-        else NAME
-        if token.kind == "name" and token.text not in KEYWORDS
-        else token.text
-        for token in tokens
-    ]
+        texts = [token.text for token in tokens]
+    else:
+        texts = [
+            LITERAL
+            if token.kind == "literal"
+            else NAME
+            if token.kind == "name" and token.text not in KEYWORDS
+            else token.text
+            for token in tokens
+        ]
+    # A token without logic (an import, a data table) gets its own text, so no window that holds
+    # it equals another window (AD-584).
+    for index, inert in enumerate(inert_mask(tokens)):
+        if inert:
+            texts[index] = f"\0inert{next(INERT_IDS)}"
     return texts, [token.line for token in tokens], inside
 
 

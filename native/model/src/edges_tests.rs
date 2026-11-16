@@ -8,8 +8,8 @@ use std::io::{Read, Write};
 
 use archkeel_facts::envelope::{FileFact, Reply, Target};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
-use archkeel_facts::sections::{GapFact, ImportFact, Section};
 use archkeel_facts::Record;
+use archkeel_facts::{GapFact, ImportFact, Section};
 use flate2::read::GzDecoder;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
@@ -20,6 +20,7 @@ use crate::imports::{split, Import, Resolved};
 fn import(id: &str, from: (&str, &str), to: (&str, &str), type_checking: bool) -> Import {
     Import {
         reexport_chain: Vec::new(),
+        route_complete: true,
         id: id.to_owned(),
         source_module: from.0.to_owned(),
         target_module: to.0.to_owned(),

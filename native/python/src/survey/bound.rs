@@ -24,6 +24,7 @@ use super::binders::{
     bind_handler, bind_handler_and_pattern, bind_pattern, declared, import_bindings, Bind,
 };
 use super::value::{value_deps, Deps};
+use crate::module::plain_name;
 
 /// One statement that binds a name at module scope.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -148,6 +149,9 @@ impl Bound {
     }
 
     pub(super) fn inert_typing_arg(&self, expr: &Expr) -> bool {
+        if scalar_literal(expr) {
+            return true;
+        }
         match expr {
             Expr::Name(name) => {
                 matches!(
@@ -155,11 +159,6 @@ impl Bound {
                     "int" | "str" | "float" | "bool" | "bytes" | "object"
                 ) && self.unbound(name.id.as_str())
             }
-            Expr::NumberLiteral(_)
-            | Expr::StringLiteral(_)
-            | Expr::BytesLiteral(_)
-            | Expr::BooleanLiteral(_)
-            | Expr::NoneLiteral(_) => true,
             Expr::Tuple(tuple) => tuple.elts.iter().all(|item| self.inert_typing_arg(item)),
             _ => false,
         }
@@ -258,13 +257,10 @@ impl Walk {
             .decorator_list
             .iter()
             .map(|item| match &item.expression {
-                Expr::Name(name) => Some(name.id.to_string()),
-                Expr::Call(call) => match &*call.func {
-                    Expr::Name(name) => Some(name.id.to_string()),
-                    _ => None,
-                },
-                _ => None,
+                Expr::Call(call) => plain_name(&call.func),
+                other => plain_name(other),
             })
+            .map(|name| name.map(str::to_owned))
             .collect();
         let class = Class {
             bare,
@@ -414,6 +410,17 @@ impl<'a> Visitor<'a> for Walk {
     bind_handler_and_pattern!();
 }
 
+fn scalar_literal(value: &Expr) -> bool {
+    matches!(
+        value,
+        Expr::NumberLiteral(_)
+            | Expr::StringLiteral(_)
+            | Expr::BytesLiteral(_)
+            | Expr::BooleanLiteral(_)
+            | Expr::NoneLiteral(_)
+    )
+}
+
 /// The builtin types whose call makes an instance of that type, never another object.
 const BUILTIN_VALUES: [&str; 10] = [
     "list",
@@ -472,19 +479,12 @@ fn plain_kind(value: &Expr) -> Kind {
             }
         }
     }
-    if matches!(
-        value,
-        Expr::NumberLiteral(_)
-            | Expr::StringLiteral(_)
-            | Expr::BytesLiteral(_)
-            | Expr::BooleanLiteral(_)
-            | Expr::NoneLiteral(_)
-            | Expr::Tuple(_)
-            | Expr::List(_)
-            | Expr::Dict(_)
-            | Expr::Set(_)
-            | Expr::FString(_)
-    ) {
+    if scalar_literal(value)
+        || matches!(
+            value,
+            Expr::Tuple(_) | Expr::List(_) | Expr::Dict(_) | Expr::Set(_) | Expr::FString(_)
+        )
+    {
         Kind::Value
     } else {
         Kind::Other

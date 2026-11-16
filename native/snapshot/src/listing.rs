@@ -27,11 +27,14 @@ use crate::paths::{dirname, is_outside, join};
 /// The kind of one entry of a listing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Entry {
+    /// A regular file.
     File,
+    /// A directory.
     Directory,
     /// A symbolic link. `to_directory` is true when its target is a directory, so a walk can sort
     /// the link with the directories or with the files, as `os.walk` does.
     Link {
+        /// True when the target of the link is a directory.
         to_directory: bool,
     },
     /// A socket, a pipe or a device.
@@ -43,6 +46,7 @@ pub enum Entry {
 pub enum RootCheck {
     /// A directory inside the snapshot, and not a link: the walk can start here.
     Contained,
+    /// A root that is a symbolic link: the walk does not follow it.
     Link,
     /// Missing, or not a directory.
     NotDirectory,
@@ -51,19 +55,6 @@ pub enum RootCheck {
 }
 
 impl Snapshot {
-    /// Open a snapshot whose root must be a directory and not a symbolic link.
-    pub fn open_root(root: &str) -> Result<Self, String> {
-        let link = fs::symlink_metadata(root).is_ok_and(|found| found.file_type().is_symlink());
-        if link {
-            return Err("snapshot root must not be a symlink".to_owned());
-        }
-        match fs::metadata(root) {
-            Ok(found) if found.is_dir() => Ok(Self::new(root)),
-            Ok(_) => Err("snapshot root is not a directory".to_owned()),
-            Err(error) => Err(format!("cannot resolve snapshot root: {error}")),
-        }
-    }
-
     /// Check the scan root `rel` once, with its real path. A contained root starts a walk.
     pub fn check_root(&mut self, rel: &str) -> RootCheck {
         if is_outside(rel) {

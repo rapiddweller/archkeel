@@ -15,13 +15,11 @@ from pathlib import Path
 from collector_wire import collect, request_bytes
 
 ROOT = Path(__file__).parents[1]
-STUDIO_UI = "src/archkeel/studio/ui"
 FIXTURES = (
     ("fixtures/H-typescript", "shop", "tsconfig.json"),
     ("fixtures/H-uml-typescript", "uml", "tsconfig.json"),
     ("fixtures/F-typescript-story", "demo", "tsconfig.json"),
     ("fixtures/L-nest-realworld", "nestjs.realworld", "tsconfig.build.json"),
-    (".", "archkeel.studio.ui", f"{STUDIO_UI}/tsconfig.json"),
 )
 
 
@@ -55,8 +53,7 @@ def test_the_reply_is_the_same_bytes_on_every_run(native_binary: Path) -> None:
     # A hash map that leaked its order into a record or the source digest would show here: each
     # process seeds its hashes at random.
     for path, namespace, tsconfig in FIXTURES[3:]:
-        scope = (STUDIO_UI,) if path == "." else ("src",)
-        request = request_bytes(ROOT / path, namespace, tsconfig, roots=scope)
+        request = request_bytes(ROOT / path, namespace, tsconfig, roots=("src",))
         replies = {
             subprocess.run(
                 [str(native_binary)],

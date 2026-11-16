@@ -6,7 +6,7 @@ use archkeel_contract::{Component, ParsedContract};
 use archkeel_facts::data::GapData;
 use archkeel_facts::envelope::{Coverage, FileFact};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
-use archkeel_facts::sections::GapFact;
+use archkeel_facts::GapFact;
 use archkeel_facts::Record;
 
 use crate::coverage::{incomplete, Incomplete};
@@ -285,6 +285,7 @@ fn a_package_of_two_components_selects_the_modules_of_the_last_one() {
 
 fn coverage(selected: &[&str], gaps: Vec<Record<GapFact>>) -> Coverage {
     Coverage {
+        measures: None,
         files_parsed: 1,
         files_read: 1,
         full_scope: gaps.is_empty(),

@@ -16,16 +16,21 @@ pub const MAX_NESTING: usize = 512;
 /// The most distinct input bytes in one in-process collection.
 pub const MAX_SCAN_BYTES: u64 = 64 << 20;
 
+/// The part of the work that a limit stops.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WorkScope {
+    /// One file is too large to parse.
     File,
+    /// The whole scan is too large.
     Scan,
 }
 
 /// A file that the in-process collector must not parse.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WorkLimit {
+    /// The path of the file that the limit stops.
     pub path: String,
+    /// Which limit applies to it.
     pub scope: WorkScope,
 }
 

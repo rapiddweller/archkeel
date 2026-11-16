@@ -10,6 +10,8 @@ from collections.abc import Sequence
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """The entry point of the `archkeel` command: run the arguments and return the exit code."""
+
     from .core_only import run
 
     return run(list(sys.argv[1:] if argv is None else argv))

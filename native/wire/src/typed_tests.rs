@@ -52,6 +52,7 @@ fn gap() -> Record<GapFact> {
 
 fn tail() -> Tail {
     Tail {
+        measures: None,
         selected_files: vec!["src/a.ts".to_owned()],
         files_read: 1,
         gaps: vec![gap()],

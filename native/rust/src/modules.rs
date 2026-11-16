@@ -22,8 +22,9 @@ use alias::Aliases;
 use climb::ascend;
 pub(crate) use climb::inside;
 pub(crate) use outcome::{Edge, Outcome, TypeOf};
+use state::lexical;
+pub(crate) use state::MAX_HOPS;
 pub(crate) use state::{index, Frame, Index};
-use state::{lexical, MAX_HOPS};
 
 impl<'a> Index<'a> {
     /// From the module `start` of the walk, down the modules that `rest` names.
@@ -159,13 +160,36 @@ impl<'a> Index<'a> {
         };
         self.follow(&cur, level, &names[at..])
     }
-    /// The file module of the deepest module that `rest` names below `start`.
-    pub(crate) fn deepest(&self, start: &str, rest: &[String]) -> String {
-        match self.follow(start, 0, rest) {
-            Outcome::Edge(edge) => edge.module,
-            _ => start.to_owned(),
+    /// The path that `reference` names through the `use` leaves of its file when it starts at
+    /// another crate: `use dep::m; m::f()` names `dep::m::f` (AD-604). Each step needs the one
+    /// declaration of its name, with no attribute that can remove the leaf, as `bare` does.
+    pub(crate) fn crate_path(
+        &self,
+        frame: &Frame<'_>,
+        reference: &Reference,
+    ) -> Option<Vec<String>> {
+        let scan = &frame.module.scan;
+        let mut names = reference.names.clone();
+        for _ in 0..=MAX_HOPS {
+            let first = names.first()?;
+            let alias = self.aliases.in_prelude(frame.root, first);
+            let found = classify(first, frame.krate, &scan.shadows, false).filter(|_| !alias);
+            if matches!(found, Some(crate::resolve::Found::Edge(_))) {
+                return (names.len() > 1).then_some(names);
+            }
+            let [leaf] = frame.bound(first) else {
+                return None;
+            };
+            if scan.counts.get(first) != Some(&1) || scan.conditional_bindings.contains(first) {
+                return None;
+            }
+            let mut full = leaf.names.clone();
+            full.extend_from_slice(&names[1..]);
+            names = full;
         }
+        None
     }
+
     /// Whether `name` is an alias of the extern prelude for the target that holds `module`.
     pub(crate) fn is_alias(&self, module: &str, name: &str) -> bool {
         let root = self.frames.get(module).map(|frame| frame.root);
@@ -200,6 +224,7 @@ impl<'a> Index<'a> {
             lexical: cur,
             symbol: rest.get(used).cloned(),
             level,
+            member_of: None,
         })
     }
 

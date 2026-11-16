@@ -21,16 +21,17 @@ from .core_evidence import (
     CollectionGap,
     Location,
     ViolationDetail,
-    _collection_gaps,
-    _details,
-    _locations,
+    read_collection_gaps,
+    read_details,
+    read_locations,
 )
 from .core_explain import Explain, read_explain
 from .core_json import CoreError as CoreError
 from .core_json import Gap as Gap
 from .core_json import GapKind as GapKind
-from .core_json import _count, _fields, _object, _text, _texts
+from .core_json import as_count, as_object, as_text, as_texts, check_measures
 from .core_output import read_html
+from .core_schema import check_frame, check_refusal
 from .core_topology import Topology, frame_topology, require_topology
 
 
@@ -43,6 +44,8 @@ class Status(StrEnum):
 
 
 class RefusalKind(StrEnum):
+    """The closed set of reasons for which the shell refuses to give a verdict."""
+
     CORE_ERROR = "core_error"
     COLLECTION_REFUSED = "collection_refused"
     REQUEST_MISMATCH = "request_mismatch"
@@ -70,6 +73,8 @@ class CoreCommand(StrEnum):
 
 
 class CheckKind(StrEnum):
+    """The kinds of check that a run states as active."""
+
     LOCK = "accepted lock authentication"
     RATCHETS = "measurement ratchets"
     GUARDRAILS = "architecture guardrails"
@@ -88,6 +93,8 @@ class RuleStatus(StrEnum):
 
 
 class UnknownKind(StrEnum):
+    """The closed set of causes of an UNKNOWN rule."""
+
     SCOPE_INCOMPLETE = "scope_incomplete"
     NO_RECEIPT = "no_receipt"
     UNDECIDED = "undecided"
@@ -100,6 +107,8 @@ class _ScopeWord(StrEnum):
 
 
 class FrameProtocol(StrEnum):
+    """The one protocol word of a core frame that this shell reads."""
+
     FRAME = "archkeel-core-frame-1"
 
 
@@ -121,53 +130,17 @@ class _CollectRead(StrEnum):
     REFUSED = "refused"
 
 
-class _RefusalProtocol(StrEnum):
-    V1 = "archkeel-core-refusal-1"
-
-
 _Word = TypeVar("_Word", bound=StrEnum)
 # The exit codes of the core: a frame without a named part, and a frame that names one.
 DECIDED_EXIT: Final = 0
 NAMES_A_GAP_EXIT: Final = 3
-_FIELDS: Final = frozenset(
-    {
-        "engine",
-        "status",
-        "rules",
-        "explained",
-        "violations",
-        "beyond",
-        "scope",
-        "sections",
-        "unsupported",
-        "self_test",
-    }
-)
 FRAME_PROTOCOL: Final = FrameProtocol.FRAME
-_EVIDENCE_FIELDS: Final = frozenset(
-    {
-        "protocol",
-        "details",
-        "locations",
-        "unknown_kinds",
-        "collection_gaps",
-        "contract_digest",
-        "topology",
-        "explain",
-        "html",
-        "gaps",
-        "baseline",
-        "premise",
-    }
-)
-_UNSUPPORTED: Final = frozenset({"rules", "sections", "report"})
-_SELF_TEST: Final = frozenset({"contract", "reply"})
-# AD-406: the self-test of a scan frame has the `collect` part too.
-_SCAN: Final = frozenset({"collect"})
 
 
 @dataclass(frozen=True, slots=True)
 class RuleVerdict:
+    """The kind and the status of one rule row."""
+
     kind: str
     status: RuleStatus
 
@@ -178,12 +151,12 @@ def read_refusal(stderr: bytes) -> Gap | None:
         value = json.loads(stderr, object_pairs_hook=_unique)
     except (UnicodeDecodeError, ValueError):
         return None
-    fields = _fields(value, "refusal", frozenset({"protocol", "kind", "subject", "reason"}))
-    _word(_RefusalProtocol, fields["protocol"], "refusal.protocol")
+    check_refusal(value)
+    fields = as_object(value, "refusal")
     kind = _word(GapKind, fields["kind"], "refusal.kind")
     if kind is not GapKind.PARSE_WORK_LIMIT:
         raise CoreError(f"the core refusal has an unsupported kind {kind}")
-    return Gap(kind, _text(fields["subject"], "subject"), _text(fields["reason"], "reason"))
+    return Gap(kind, as_text(fields["subject"], "subject"), as_text(fields["reason"], "reason"))
 
 
 def _premise(frame: Mapping[str, object], scan: bool, status: Status) -> str | None:
@@ -191,11 +164,11 @@ def _premise(frame: Mapping[str, object], scan: bool, status: Status) -> str | N
     A PASS of a TypeScript or a Python scan always states it (AD-530, AD-540): a PASS without one
     is refused."""
     if "premise" not in frame:
-        collect = _object(
-            _object(frame.get("self_test", {}), "self_test").get("collect", {}), "collect"
+        collect = as_object(
+            as_object(frame.get("self_test", {}), "self_test").get("collect", {}), "collect"
         )
-        request = _object(collect.get("request", {}), "request")
-        resolver = _object(request.get("resolver", {}), "resolver")
+        request = as_object(collect.get("request", {}), "request")
+        resolver = as_object(request.get("resolver", {}), "resolver")
         if scan and status is Status.PASS and resolver.get("language") in {"typescript", "python"}:
             raise CoreError("the core frame of a TypeScript or Python scan states no premise")
         return None
@@ -207,6 +180,8 @@ def _premise(frame: Mapping[str, object], scan: bool, status: Status) -> str | N
 
 @dataclass(frozen=True, slots=True)
 class CoreFrame:
+    """One core frame as typed values: the status, the rule rows and the evidence."""
+
     engine: str
     status: Status
     scope: str
@@ -232,24 +207,28 @@ class CoreFrame:
 
     @property
     def complete_scope(self) -> bool:
+        """Whether the core states that the scope of the run is complete."""
+
         return self.scope == _ScopeWord.COMPLETE
 
     @property
     def code_digest(self) -> str:
+        """The code digest of the core that wrote the frame."""
+
         return self.engine.removeprefix("archkeel-core ")
 
 
 def _word(kind: type[_Word], value: object, where: str) -> _Word:
     """The member of a closed vocabulary, or `CoreError` for another word."""
     try:
-        return kind(_text(value, where))
+        return kind(as_text(value, where))
     except ValueError as error:
         raise CoreError(f"the core frame field {where} has the unknown word {value!r}") from error
 
 
 def _one(value: object, where: str, tags: type[_Word]) -> tuple[_Word, object]:
     """The one tag of a tagged object and its value."""
-    found = _object(value, where)
+    found = as_object(value, where)
     if len(found) != 1:
         raise CoreError(f"the core frame field {where} must hold exactly one tag")
     [(tag, item)] = found.items()
@@ -277,16 +256,17 @@ def _document(stdout: bytes) -> dict[str, object]:
         raise CoreError(f"the core frame is not JSON: {error}") from error
     if text[end:].strip():
         raise CoreError("the core wrote more than one frame")
-    found = _object(value, "frame")
-    return _fields(found, "frame", _FIELDS | (_EVIDENCE_FIELDS & found.keys()))
+    found = as_object(value, "frame")
+    check_frame(found)
+    return found
 
 
 def _rules(frame: Mapping[str, object]) -> dict[str, RuleVerdict]:
     rules: dict[str, RuleVerdict] = {}
-    for rule, pair in _object(frame["rules"], "rules").items():
+    for rule, pair in as_object(frame["rules"], "rules").items():
         if not isinstance(pair, list) or len(pair) != 2:
             raise CoreError(f"the core frame rule {rule} is not a kind and a status")
-        kind = _text(pair[0], f"rules.{rule}")
+        kind = as_text(pair[0], f"rules.{rule}")
         rules[rule] = RuleVerdict(kind, _word(RuleStatus, pair[1], f"rules.{rule}"))
     return rules
 
@@ -294,26 +274,26 @@ def _rules(frame: Mapping[str, object]) -> dict[str, RuleVerdict]:
 def _contract_gaps(value: object) -> tuple[list[Gap], tuple[str, ...]]:
     tag, found = _one(value, "self_test.contract", _ContractRead)
     if tag is _ContractRead.NOT_READ:
-        _text(found, "self_test.contract.not_read")
+        as_text(found, "self_test.contract.not_read")
         return [], ()
     if tag is _ContractRead.MISSING:
         if not isinstance(found, list) or not found:
             raise CoreError("the core frame field self_test.contract.missing is not a path list")
-        return [], tuple(_text(path, "self_test.contract.missing") for path in found)
+        return [], tuple(as_text(path, "self_test.contract.missing") for path in found)
     if tag is _ContractRead.REFUSED:
-        refused = _text(found, "self_test.contract")
+        refused = as_text(found, "self_test.contract")
         return [Gap(GapKind.CONTRACT_REFUSED, "contract", refused)], ()
-    _texts(found, "self_test.contract.rules")
+    as_texts(found, "self_test.contract.rules")
     return [], ()
 
 
 def _reply_gaps(value: object) -> list[Gap]:
     tag, found = _one(value, "self_test.reply", _ReplyRead)
     if tag is _ReplyRead.FILES:
-        _count(found, "self_test.reply.files")
+        as_count(found, "self_test.reply.files")
         return []
     kind = GapKind.REPLY_REFUSED if tag is _ReplyRead.REFUSED else GapKind.REPLY_ABSENT
-    return [Gap(kind, "reply", _text(found, f"self_test.reply.{tag}"))]
+    return [Gap(kind, "reply", as_text(found, f"self_test.reply.{tag}"))]
 
 
 def _core_gaps(frame: Mapping[str, object], named: object) -> list[Gap]:
@@ -325,19 +305,19 @@ def _core_gaps(frame: Mapping[str, object], named: object) -> list[Gap]:
     rows = frame.get("gaps")
     if not isinstance(rows, list):
         raise CoreError("the core frame has no gaps list")
-    found = [_fields(row, "gaps", frozenset({"kind", "subject", "reason"})) for row in rows]
+    found = [as_object(row, "gaps") for row in rows]
     gaps = [
         Gap(
             _word(GapKind, row["kind"], "gaps.kind"),
-            _text(row["subject"], "gaps.subject"),
-            _text(row["reason"], "gaps.reason"),
+            as_text(row["subject"], "gaps.subject"),
+            as_text(row["reason"], "gaps.reason"),
         )
         for row in found
     ]
     expected = (
         {("the whole contract", named)}
         if isinstance(named, str)
-        else set(_texts(named, "unsupported.rules").items())
+        else set(as_texts(named, "unsupported.rules").items())
     )
     if {(gap.subject, gap.reason) for gap in gaps} != expected or len(gaps) != len(expected):
         raise CoreError("the core frame gaps list differs from its unsupported rules")
@@ -347,32 +327,36 @@ def _core_gaps(frame: Mapping[str, object], named: object) -> list[Gap]:
 def _gaps(
     frame: Mapping[str, object], scan: bool
 ) -> tuple[tuple[Gap, ...], tuple[str, ...], str | None]:
-    unsupported = _fields(frame["unsupported"], "unsupported", _UNSUPPORTED)
+    unsupported = as_object(frame["unsupported"], "unsupported")
     named = unsupported["rules"]
     gaps = _core_gaps(frame, named)
-    sections = _texts(unsupported["sections"], "unsupported.sections")
+    sections = as_texts(unsupported["sections"], "unsupported.sections")
     gaps += [Gap(GapKind.SECTION, name, why) for name, why in sections.items()]
     if unsupported["report"] is not None:
-        report = _text(unsupported["report"], "unsupported.report")
+        report = as_text(unsupported["report"], "unsupported.report")
         gaps.append(Gap(GapKind.REPORT, "report", report))
-    test = _fields(frame["self_test"], "self_test", _SELF_TEST | _SCAN if scan else _SELF_TEST)
+    test = as_object(frame["self_test"], "self_test")
     contract, missing = _contract_gaps(test["contract"])
     # AD-406: the `collect` part of a scan frame: the derived request, or the refusal.
     collected: list[Gap] = []
     derived: str | None = None
+    if scan == ("collect" not in test):
+        raise CoreError("the core frame has self_test.collect only for a scan, and always for it")
     if scan:
-        collect = _object(test["collect"], "self_test.collect")
+        if "collect" not in test:
+            raise CoreError("the core frame of a scan has no self_test.collect")
+        collect = as_object(test["collect"], "self_test.collect")
         tag, found = _one(
             {key: value for key, value in collect.items() if key != "contract_files"},
             "self_test.collect",
             _CollectRead,
         )
         if "contract_files" in collect:
-            _texts(collect["contract_files"], "self_test.collect.contract_files")
+            as_texts(collect["contract_files"], "self_test.collect.contract_files")
         if tag is _CollectRead.REQUEST:
-            derived = json.dumps(_object(found, "self_test.collect.request"))
+            derived = json.dumps(as_object(found, "self_test.collect.request"))
         else:
-            reason = _text(found, "self_test.collect.refused")
+            reason = as_text(found, "self_test.collect.refused")
             collected = [Gap(GapKind.COLLECT, "collect", reason)]
     return (*collected, *gaps, *contract, *_reply_gaps(test["reply"])), missing, derived
 
@@ -437,26 +421,27 @@ def read_frame(
     )
     status = _word(Status, frame["status"], "status")
     rules = _rules(frame)
-    counts = _object(frame["violations"], "violations")
-    violations = {rule: _count(count, f"violations.{rule}") for rule, count in counts.items()}
-    explained = _texts(frame["explained"], "explained")
+    counts = as_object(frame["violations"], "violations")
+    violations = {rule: as_count(count, f"violations.{rule}") for rule, count in counts.items()}
+    explained = as_texts(frame["explained"], "explained")
     _explained(rules, violations, explained)
-    details = _details(frame.get("details", {}))
-    locations = _locations(frame.get("locations", {}))
+    details = read_details(frame.get("details", {}))
+    locations = read_locations(frame.get("locations", {}))
     unknown_kinds = {
         rule: _word(UnknownKind, kind, "unknown_kinds")
-        for rule, kind in _object(frame.get("unknown_kinds", {}), "unknown_kinds").items()
+        for rule, kind in as_object(frame.get("unknown_kinds", {}), "unknown_kinds").items()
     }
     _check_rows(require_protocol, unknown_kinds, explained, violations, details)
-    _object(frame["sections"], "sections")
+    as_object(frame["sections"], "sections")
+    check_measures(frame.get("measures"))
     gaps, missing, derived = _gaps(frame, scan)
     if request is not None and derived is not None:
         bind_request(frame, request, derived, started_ns)
-    beyond = _texts(frame["beyond"], "beyond")
+    beyond = as_texts(frame["beyond"], "beyond")
     passing = {rule for rule, verdict in rules.items() if verdict.status is RuleStatus.PASS}
     if not passing.issuperset(beyond):
         raise CoreError("the core frame names a rule beyond the reference that is not PASS")
-    engine = _text(frame["engine"], "engine")
+    engine = as_text(frame["engine"], "engine")
     if status is Status.PASS and not rules:
         raise CoreError("the core frame is PASS with zero rules")
     if status is Status.PASS and frame["scope"] != _ScopeWord.COMPLETE:
@@ -475,7 +460,7 @@ def read_frame(
     return CoreFrame(
         engine=engine,
         status=status,
-        scope=_text(frame["scope"], "scope"),
+        scope=as_text(frame["scope"], "scope"),
         rules=rules,
         violations=violations,
         explained=explained,
@@ -486,7 +471,7 @@ def read_frame(
         details=details,
         locations=locations,
         unknown_kinds=unknown_kinds,
-        collection_gaps=_collection_gaps(frame.get("collection_gaps", [])),
+        collection_gaps=read_collection_gaps(frame.get("collection_gaps", [])),
         topology=frame_topology(frame, rules),
         explain=read_explain(frame["explain"], violations) if "explain" in frame else None,
         html=read_html(frame, status, request),

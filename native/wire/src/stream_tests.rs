@@ -47,6 +47,7 @@ fn head() -> Head {
 
 fn tail() -> Tail {
     Tail {
+        measures: None,
         selected_files: vec![],
         files_read: 0,
         gaps: vec![],

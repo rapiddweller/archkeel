@@ -29,10 +29,12 @@ mod macros;
 
 pub mod data;
 pub mod envelope;
+mod envelope_vocab;
 pub mod fields;
 mod gap;
 pub mod identity;
 pub mod ids;
+pub mod measures;
 pub mod nested;
 pub mod nullable;
 mod printable;
@@ -48,6 +50,7 @@ pub mod sections;
 mod skip;
 pub mod type_shape;
 pub mod vocab;
+mod vocab_constructs;
 
 pub use record::{FactData, Record};
 pub use sections::{

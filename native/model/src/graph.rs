@@ -11,8 +11,8 @@
 use std::collections::HashMap;
 
 use archkeel_facts::envelope::{Facts, Target};
-use archkeel_facts::record::FactData;
-use archkeel_facts::sections::Section;
+use archkeel_facts::FactData;
+use archkeel_facts::Section;
 use archkeel_store::Ingested;
 
 use crate::constructs::Constructs;

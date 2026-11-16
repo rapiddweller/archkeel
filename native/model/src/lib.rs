@@ -39,6 +39,20 @@
 //!   the source domain of its mount and the one scope state of the tree.
 //!
 //! The model names no language: a rule of the native contract and a test check that.
+//!
+//! Callers can name the results and proofs that the model's public functions return:
+//!
+//! ```
+//! use archkeel_model::{ComponentCycle, Crossing, Direction, GapCause, GapRow, GapScope, Leaf,
+//!     Measure, Package, Proven, Reading, Rows, RunComplete, ScanProof, Scope, ScopeComplete,
+//!     Selection, Stable, Stale, Step};
+//! fn boundary(reading: &Reading) -> (&[GapRow], &[Stale]) {
+//!     (&reading.gaps, &reading.stale)
+//! }
+//! fn scope<'id>(scope: Scope<'id, '_>, proof: ScopeComplete<'id>) {
+//!     let _decision = scope.pass(proof);
+//! }
+//! ```
 
 #![deny(unreachable_pub)]
 
@@ -57,8 +71,10 @@ mod boundary_facts;
 mod boundary_judge;
 mod boundary_positions;
 mod boundary_surface;
+mod facade_reach;
 pub use boundary_judge::{GapCause, GapRow, Leaf};
 pub use boundary_positions::{read as boundary_reading, Position, Reading, Stale};
+pub use facade_reach::facade_types;
 
 mod closed_path;
 mod condensation;
@@ -71,7 +87,9 @@ mod ids;
 mod imports;
 mod interface;
 pub use interface::{interface_crossings, publishes};
+mod measures;
 mod model;
+pub use measures::{measure_facts, Measures};
 mod modules;
 mod needs;
 pub use needs::{Need, Needs};
@@ -110,10 +128,10 @@ pub use modules::{Module, Package};
 pub use ownership::{claims, in_scope};
 pub use reason::{Hygiene, Input, Reason, Refusal, UmlGap, Unsupported};
 pub use scope::{Scope, ScopeComplete};
-pub use section::{Porting, Section, Slice};
-pub use settings::{Producer, Settings, STANDARD_LIBRARY_LIMIT, STANDARD_NAME_LIMIT};
+pub use section::Section;
+pub use settings::{Producer, Settings};
 pub use topology::Measure;
-pub use uml::{compare as compare_uml, UmlDiff, UmlOutcome, UmlTarget};
+pub use uml::{UmlDiff, UmlOutcome, UmlTarget};
 pub use uml_declared::{UmlDeclared, UmlPart};
 pub use uml_tree::compare_tree as compare_uml_tree;
 pub use verdict::{Decision, Proven, Verdict};
@@ -148,11 +166,10 @@ mod pair_gaps;
 mod receipts;
 mod roots;
 
-pub use causes::{Held, HELD_SHOWN};
+pub use causes::Held;
 pub use closed_path::{cycle_path, Link, Step};
 pub use component_cycles::{cycles_of_components, ComponentCycle};
 pub use gaps::CoverageGap;
-pub use pair_gaps::{reads, Reads};
 pub use receipts::{GapScope, ScanProof};
 pub use sides::{shape, Direction, Shape};
 

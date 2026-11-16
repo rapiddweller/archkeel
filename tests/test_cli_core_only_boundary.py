@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from archkeel.cli import core_binary, core_only, native_scan
+from archkeel.cli import core_arguments, core_binary, core_only, native_scan
 from archkeel.cli.core_frame import CoreError, RefusalKind, Status
 
 HEAD = "a" * 40
@@ -69,7 +69,10 @@ def test_a_premise_that_is_no_text_is_refused(value: object) -> None:
 @pytest.mark.parametrize("language", ["typescript", "python"])
 def test_a_scan_frame_of_a_language_with_a_premise_must_state_it(language: str) -> None:
     document = json.loads(frame())
-    document["self_test"]["collect"]["request"]["resolver"] = {"language": language}
+    document["self_test"]["collect"]["request"]["resolver"] = {
+        "language": language,
+        "tsconfig": "tsconfig.json",
+    }
     with pytest.raises(CoreError):
         _read(document)
     document["premise"] = "code outside the scan roots hands in no global object"
@@ -160,13 +163,22 @@ def frame(status: Status = Status.PASS) -> bytes:
             "unknown_kinds": {"R1": "scope_incomplete"} if status is Status.UNKNOWN else {},
             "unsupported": {"rules": {}, "sections": {}, "report": None},
             "gaps": [],
+            "collection_gaps": [],
+            "measures": None,
             "self_test": {
                 "contract": {"rules": {"R1": "forbidden_dependency"}},
                 "reply": {"files": 2},
                 "collect": {
                     "contract_files": {"contract.json": hashlib.sha256(b"contract").hexdigest()},
                     "request": {
-                        "snapshot": {"root": str(Path.cwd()), "git_head": HEAD, "dirty": False}
+                        "protocol_version": "9.0.0",
+                        "snapshot": {"root": str(Path.cwd()), "git_head": HEAD, "dirty": False},
+                        "scope": {
+                            "roots": ["src"],
+                            "namespace": "app",
+                            "exclude_test_sources": False,
+                        },
+                        "resolver": {"language": "rust"},
                     },
                 },
             },
@@ -174,9 +186,37 @@ def frame(status: Status = Status.PASS) -> bytes:
     ).encode()
 
 
+def test_call_measure_is_checked_before_the_frame_is_accepted() -> None:
+    from archkeel.cli.core_frame import read_frame
+
+    document = json.loads(frame())
+    measure = dict.fromkeys(
+        (
+            "calls_total",
+            "calls_resolved",
+            "calls_partial",
+            "calls_builtin",
+            "calls_external",
+            "calls_unresolved",
+            "unresolved_self",
+            "unresolved_attribute",
+            "unresolved_name",
+            "unresolved_dynamic",
+            "typing_positions",
+            "untyped_private_accesses",
+        ),
+        0,
+    )
+    document["measures"] = measure
+    read_frame(json.dumps(document).encode(), 0, scan=True, require_protocol=True)
+    measure["calls_unresolved"] = 1
+    with pytest.raises(CoreError, match="inconsistent call measures"):
+        read_frame(json.dumps(document).encode(), 0, scan=True, require_protocol=True)
+
+
 @pytest.fixture(autouse=True)
 def no_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.delenv(core_only.VARIABLE, raising=False)
+    monkeypatch.delenv(core_arguments.VARIABLE, raising=False)
     monkeypatch.delenv(OLD_STAGE_ONE_VARIABLE, raising=False)
     monkeypatch.setattr(core_only, "identity", lambda _: (HEAD, False))
     monkeypatch.chdir(tmp_path)
@@ -184,7 +224,7 @@ def no_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     (tmp_path / "contract.json").write_bytes(b"contract")
 
 
-@pytest.mark.parametrize("variable", [core_only.VARIABLE, OLD_STAGE_ONE_VARIABLE])
+@pytest.mark.parametrize("variable", [core_arguments.VARIABLE, OLD_STAGE_ONE_VARIABLE])
 @pytest.mark.parametrize("value", ["1", "0", "wrong"])
 def test_an_old_engine_variable_selects_nothing(
     variable: str,
@@ -342,93 +382,6 @@ def test_real_process_faults_are_typed_refusals(
         monkeypatch.setattr(native_scan, "TIMEOUT_SECONDS", 0.05)
     assert core_only.run(["validate", "--json"]) == 2
     assert json.loads(capsys.readouterr().out)["status"] == Status.UNKNOWN
-
-
-@pytest.mark.parametrize("kind", list(core_only.CheckKind))
-@pytest.mark.parametrize(
-    "flags",
-    [
-        [],
-        [
-            "--baseline",
-            "b",
-            "--expectation-commit",
-            "e",
-            "--head",
-            "h",
-            "--expected",
-            "expectation.json",
-            "--expected-digest",
-            "digest",
-            "--branch",
-            "origin/feature",
-            "--accepted-branch",
-            "origin/main",
-            "--host-records",
-            "host.json",
-        ],
-    ],
-)
-def test_each_mandatory_merge_check_is_named_without_a_scan(
-    kind: core_only.CheckKind,
-    flags: list[str],
-    capsys: pytest.CaptureFixture[str],
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def no_binary() -> Path:
-        pytest.fail("a refused check must not start the core")
-
-    monkeypatch.setattr(core_only, "locate_core", no_binary)
-    assert core_only.run(["check", "--json", *flags]) == 2
-    result = json.loads(capsys.readouterr().out)
-    assert kind in result["refusal"]["message"] and "#1103" in result["refusal"]["message"]
-
-
-@pytest.mark.parametrize(
-    ("command", "option"),
-    [
-        (command, option)
-        for command in ("validate", "report")
-        for option in sorted(core_only.REMOVED_OPTIONS)
-        if (command, option) != ("report", "--output")
-    ],
-)
-def test_each_option_of_the_release_line_refuses_by_name(
-    command: str,
-    option: str,
-    capsys: pytest.CaptureFixture[str],
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def no_binary() -> Path:
-        pytest.fail("a refused option must not start the core")
-
-    monkeypatch.setattr(core_only, "locate_core", no_binary)
-    for flags in ([option], [option, "value"], [f"{option}=value"]):
-        assert core_only.run([command, "--json", *flags]) == 2
-        refusal = json.loads(capsys.readouterr().out)["refusal"]
-        assert refusal["kind"] == RefusalKind.NOT_ON_THIS_LINE
-        assert f"{command} {option} is not available" in refusal["message"]
-        released = option not in core_only.UNRELEASED_OPTIONS
-        assert ("use release 4.0.1" in refusal["message"]) == released
-        assert ("no release has it" in refusal["message"]) != released
-        assert "#880" in refusal["message"]
-
-
-@pytest.mark.parametrize(
-    "arguments",
-    [["nothing"], ["validate", "--unknown"], ["validate", "extra"], ["--json", "validate"]],
-)
-def test_an_unknown_command_or_argument_is_invalid_input(
-    arguments: list[str], capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    def no_binary() -> Path:
-        pytest.fail("an invalid command line must not start the core")
-
-    monkeypatch.setattr(core_only, "locate_core", no_binary)
-    assert core_only.run([*arguments, "--json"]) == 2
-    result = json.loads(capsys.readouterr().out)
-    assert result["status"] == Status.UNKNOWN
-    assert result["refusal"]["kind"] == RefusalKind.INVALID_INPUT
 
 
 def test_lookup_uses_checkout_or_verified_installed_layout(tmp_path: Path) -> None:

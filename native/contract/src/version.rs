@@ -12,42 +12,61 @@ use crate::words::{spelling, value_of};
 /// A contract schema version. The order of the variants is the order of contract evolution.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ContractVersion {
+    /// Contract schema 2.1.0.
     #[serde(rename = "2.1.0")]
     V2_1,
+    /// Contract schema 2.2.0.
     #[serde(rename = "2.2.0")]
     V2_2,
+    /// Contract schema 2.3.0.
     #[serde(rename = "2.3.0")]
     V2_3,
+    /// Contract schema 2.4.0.
     #[serde(rename = "2.4.0")]
     V2_4,
+    /// Contract schema 3.0.0.
     #[serde(rename = "3.0.0")]
     V3_0,
+    /// Contract schema 3.1.0.
     #[serde(rename = "3.1.0")]
     V3_1,
+    /// Contract schema 3.2.0.
     #[serde(rename = "3.2.0")]
     V3_2,
+    /// Contract schema 3.3.0.
     #[serde(rename = "3.3.0")]
     V3_3,
+    /// Contract schema 3.4.0.
     #[serde(rename = "3.4.0")]
     V3_4,
+    /// Contract schema 3.5.0.
     #[serde(rename = "3.5.0")]
     V3_5,
+    /// Contract schema 3.6.0.
     #[serde(rename = "3.6.0")]
     V3_6,
+    /// Contract schema 3.7.0.
     #[serde(rename = "3.7.0")]
     V3_7,
+    /// Contract schema 3.8.0.
     #[serde(rename = "3.8.0")]
     V3_8,
+    /// Contract schema 3.9.0.
     #[serde(rename = "3.9.0")]
     V3_9,
+    /// Contract schema 3.10.0.
     #[serde(rename = "3.10.0")]
     V3_10,
+    /// Contract schema 3.11.0.
     #[serde(rename = "3.11.0")]
     V3_11,
+    /// Contract schema 3.12.0.
     #[serde(rename = "3.12.0")]
     V3_12,
+    /// Contract schema 3.13.0.
     #[serde(rename = "3.13.0")]
     V3_13,
+    /// Contract schema 3.14.0.
     #[serde(rename = "3.14.0")]
     V3_14,
 }

@@ -64,6 +64,7 @@ dependencies = [
  "archkeel-report",
  "archkeel-store",
  "flate2",
+ "schemars",
  "serde",
  "serde_json",
 ]
@@ -125,6 +126,7 @@ dependencies = [
  "archkeel-facts",
  "archkeel-store",
  "flate2",
+ "schemars",
  "serde",
  "serde_json",
 ]
@@ -168,6 +170,7 @@ dependencies = [
  "archkeel-model",
  "archkeel-store",
  "flate2",
+ "schemars",
  "serde",
  "serde_json",
 ]

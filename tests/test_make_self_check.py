@@ -22,8 +22,6 @@ REFUSED = '{"status": "UNKNOWN", "exit_code": 2, "refusal": {"kind": "core_error
         ("self-validate-native", "", "JSONDecodeError"),
         ("self-validate-shell", REFUSED, "refused: core_error: x"),
         ("self-validate-shell", "", "JSONDecodeError"),
-        ("browser-architecture-check", REFUSED, "core_error"),
-        ("browser-architecture-check", "", "JSONDecodeError"),
     ],
 )
 def test_a_self_check_without_the_pinned_core_result_fails(
@@ -41,8 +39,6 @@ def test_a_self_check_without_the_pinned_core_result_fails(
     for name in (
         "native/expected-gaps.json",
         "docs/architecture/target/shell-expected.json",
-        "docs/architecture/target/studio-ui-expected.json",
-        "docs/architecture/target/browser-expected.json",
         "tools/native_expected.py",
     ):
         (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)

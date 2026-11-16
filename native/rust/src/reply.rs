@@ -4,7 +4,7 @@
 
 //! The reply: the typed records of one request and their encoding into the compressed stream.
 
-use archkeel_facts::envelope::{Evidence, Provenance, Reply};
+use archkeel_facts::envelope::{Evidence, LimitSupport, ProfileLimits, Provenance, Reply};
 use archkeel_facts::request::RustRequest;
 use archkeel_facts::{GapFact, ImportFact, Record, SymbolFact};
 use archkeel_wire::protocol::Version;
@@ -17,6 +17,8 @@ use archkeel_snapshot::Snapshot;
 
 const SECTIONS: [&str; 3] = ["imports", "symbols", "unknowns"];
 const FEATURES: [&str; 1] = ["rust-crate-edges"];
+/// The feature of the linked reply: each import names its item and its route (AD-604).
+const ROUTES_FEATURE: &str = "rust-item-routes-v1";
 
 /// The facts of one request, as the typed records of `archkeel-facts` (AD-345) and the small lists.
 /// `encode` writes the gaps once: they are the section `unknowns` and the gaps of the coverage.
@@ -39,10 +41,20 @@ impl Collected {
         Ok(bytes)
     }
 
-    /// The typed reply uses the same record producer as the compressed stream.
+    /// The typed reply uses the same record producer as the compressed stream. The linked reply
+    /// states that each import names its item with its publication route, so the core can
+    /// decide the symbol selectors and the interface rule (AD-500, AD-604). The compressed
+    /// stream keeps its frozen statement set, as the Python survey does (AD-504).
     pub(crate) fn typed(self, version: Version) -> Result<Reply, String> {
         let (head, records) = self.parts();
-        assemble(version, head, |writer| records.produce(writer))
+        let mut reply = assemble(version, head, |writer| records.produce(writer))?;
+        reply.facts.profile_limits = Some(ProfileLimits {
+            dependency_symbols: LimitSupport::Supported,
+            interface_boundary: LimitSupport::Supported,
+        });
+        let features = &mut reply.facts.capabilities.resolution_features;
+        features.push(ROUTES_FEATURE.to_owned());
+        Ok(reply)
     }
 
     fn parts(self) -> (Head, Records) {
@@ -61,6 +73,7 @@ impl Collected {
                 imports,
                 symbols,
                 tail: Tail {
+                    measures: None,
                     selected_files,
                     files_read,
                     gaps,

@@ -114,23 +114,16 @@ mod umd_publication;
 mod unselected;
 mod walk;
 
-use archkeel_facts::envelope::{Profile, Provenance, Reply};
+use archkeel_facts::envelope::{test_features, Profile, Provenance, Reply};
 use archkeel_facts::request::TypeScriptRequest;
 use archkeel_wire::protocol::Version;
 
 pub use crate::collect::reply;
 
-/// The test features that this build of the collector has. A build with one of them reads the
-/// planted faults of `plant.rs` from the environment, so `archkeel-collect` refuses its facts
-/// (AD-406). The release build has none.
-pub const TEST_FEATURES: &[&str] = if cfg!(feature = "dump") {
-    &["dump"]
-} else {
-    &[]
-};
+/// Test features read planted faults, so `archkeel-collect` refuses a build with one (AD-406).
+pub const TEST_FEATURES: &[&str] = test_features(cfg!(feature = "dump"));
 
-/// The provenance of this build: the collector of the TypeScript profile with the code digest of
-/// the workspace.
+/// The provenance of this build: the collector of its profile with the code digest of the workspace.
 pub fn provenance() -> Provenance {
     Provenance::native(
         Profile::TypeScript,

@@ -7,7 +7,8 @@ The tree and the contract come from `python_interface_plants.build`. `codes` is 
 `interface.*` diagnostics that release 4.0.1 gives for the plant, one `validate --json` of an
 installed 4.0.1 for each plant. The core gives a hygiene row for a finding; it gives
 `interface.usage_unknown` where 4.0.1 gives `interface.unused` or `interface.missing`, because
-the core reads no declared facade signature.
+the core cannot exclude a facade signature that it does not read. It reads the written type of
+a declared signature since AD-580.
 """
 
 from __future__ import annotations
@@ -163,7 +164,6 @@ def lifecycles() -> list[Lifecycle]:
                 },
             ),
             clear,
-            frozenset({"interface.usage_unknown"}),
-            "4.0.1 reads the type of a declared signature; the core does not",
+            clear,
         ),
     ]

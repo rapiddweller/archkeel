@@ -69,10 +69,15 @@ record!(
     pub(crate),
     /// One declared inside that cannot be mounted, at the JSON pointer of its `inside` field.
     TreeIssue {
+        /// The kind of the value.
         kind: IssueKind,
+        /// The JSON pointer to the place in the contract.
         pointer: String,
+        /// The id of the parent element.
         parent_id: String,
+        /// The path of the value.
         path: String,
+        /// Why it holds or fails.
         reason: String,
     }
 );

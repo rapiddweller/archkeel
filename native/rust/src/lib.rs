@@ -34,6 +34,7 @@ mod plant;
 mod registry;
 mod reply;
 mod resolve;
+mod routes;
 mod scan;
 mod site;
 mod source;
@@ -43,18 +44,14 @@ mod tokens;
 mod toml;
 mod tree;
 
-use archkeel_facts::envelope::{Profile, Provenance, Reply};
+use archkeel_facts::envelope::{test_features, Profile, Provenance, Reply};
 use archkeel_facts::request::RustRequest;
 use archkeel_wire::protocol::Version;
 
-/// Test features read planted faults. The composition refuses a build with one.
-pub const TEST_FEATURES: &[&str] = if cfg!(feature = "dump") {
-    &["dump"]
-} else {
-    &[]
-};
+/// Test features read planted faults, so `archkeel-collect` refuses a build with one (AD-406).
+pub const TEST_FEATURES: &[&str] = test_features(cfg!(feature = "dump"));
 
-/// The provenance of this linked collector and its workspace source digest.
+/// The provenance of this build: the collector of its profile with the code digest of the workspace.
 pub fn provenance() -> Provenance {
     Provenance::native(
         Profile::Rust,

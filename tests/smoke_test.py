@@ -10,25 +10,12 @@ of that binary, and a command that is not on this line must refuse. Run: `make s
 import json
 import subprocess
 import sys
-from hashlib import sha256
 from importlib.resources import files
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 
 def files_of_the_package() -> None:
-    assets = files("archkeel").joinpath("render", "assets")
-    flow_digest = sha256(assets.joinpath("flow.js").read_bytes()).hexdigest()
-    assert f"// Generated from flow.js; source-sha256={flow_digest}" in assets.joinpath(
-        "flow.runtime.js"
-    ).read_text(encoding="utf-8")
-    for name in ("report-graph-protocol.js", "report-graph-scene.js", "report-atlas-deviations.js"):
-        assert "Archkeel" in assets.joinpath(name).read_text(encoding="utf-8")
-    # AD-290: the wheel ships what the Studio server serves, not the sources of the bundle.
-    studio = files("archkeel").joinpath("studio", "ui")
-    shipped = {item.name for item in studio.iterdir()}
-    served = {"index.html", "studio.js", "tokens.css", "studio.css", "PREACT-LICENSE.md"}
-    assert shipped == served, shipped
     schemas = files("archkeel").joinpath("schema")
     result_schema = json.loads(
         schemas.joinpath("command-result.schema.json").read_text(encoding="utf-8")

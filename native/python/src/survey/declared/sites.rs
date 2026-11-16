@@ -129,13 +129,17 @@ pub(crate) fn site_records(
     found: &Found<'_>,
     context: &Context,
     evidence: &mut EvidenceMap,
-) -> (Vec<Record<CallFact>>, Vec<Record<ReferenceFact>>) {
+) -> (
+    Vec<Record<CallFact>>,
+    Vec<Record<ReferenceFact>>,
+    HashSet<String>,
+) {
     let mut reader = Reader {
         module,
         evidence_map: evidence,
         shadowed: Reader::shadowed(binders),
     };
-    let (mut calls, mut references) = (Vec::new(), Vec::new());
+    let (mut calls, mut references, mut dead_sites) = (Vec::new(), Vec::new(), HashSet::new());
     for source in &found.sources {
         let params = scope::parameters(source.node);
         let mut hidden = Bound::of(&source.node.body).names();
@@ -149,14 +153,18 @@ pub(crate) fn site_records(
         let uses = Uses::of(source.node);
         let stored = scope::stored(source.node, &reader, &params);
         for (call, dead) in &uses.calls {
-            calls.push(call_record(&mut reader, &reading, (call, *dead), &stored));
+            let record = call_record(&mut reader, &reading, (call, *dead), &stored);
+            if *dead {
+                dead_sites.extend(record.evidence_ids.iter().map(|id| id.as_str().to_owned()));
+            }
+            calls.push(record);
         }
         for (name, _) in uses.names.iter().filter(|(_, dead)| !dead) {
             references.extend(reference(&mut reader, &reading, name));
         }
         references.extend(annotations(&mut reader, &reading));
     }
-    (calls, references)
+    (calls, references, dead_sites)
 }
 
 /// What the sites of one source read.

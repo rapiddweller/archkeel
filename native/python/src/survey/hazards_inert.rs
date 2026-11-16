@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Bounded inert reads of imported door modules (AD-562). The import gap stays.
+//! Bounded inert reads of imported door modules (AD-574). The import gap stays.
 
 use std::collections::{HashMap, HashSet};
 

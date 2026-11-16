@@ -29,19 +29,24 @@ use crate::reason::{Hygiene, Reason, Unsupported};
 pub struct Position {
     /// `<facade name>:<position>`.
     pub subject: String,
+    /// The qualified name of the symbol that holds the position.
     pub qualified_name: String,
     /// The parameter name as the record writes it, or `return`.
     pub position: String,
     /// The written type.
     pub text: String,
+    /// The leaves of the written type that break the rule.
     pub leaves: Vec<Leaf>,
+    /// The evidence rows of the position.
     pub evidence: Vec<String>,
 }
 
 /// An exception of the contract that matches no position of the surface.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Stale {
+    /// The facade position that the exception names.
     pub subject: String,
+    /// The annotation that the exception accepts.
     pub annotation: String,
 }
 
@@ -50,13 +55,16 @@ pub struct Stale {
 pub struct Reading {
     /// The number of positions that the rule read.
     pub positions: usize,
+    /// The positions that break the rule.
     pub violations: Vec<Position>,
+    /// The positions and entries that syntax does not decide.
     pub gaps: Vec<GapRow>,
+    /// The exceptions that match no position.
     pub stale: Vec<Stale>,
 }
 
 /// True for the name of a method that is part of an interface (`is_public_method_name`).
-fn method_name(name: &str) -> bool {
+pub(crate) fn method_name(name: &str) -> bool {
     !name.starts_with('_') || (name.starts_with("__") && name.ends_with("__"))
 }
 

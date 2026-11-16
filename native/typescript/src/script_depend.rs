@@ -10,7 +10,7 @@ use archkeel_facts::data::BindingData;
 use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName};
-use archkeel_facts::sections::GapFact;
+use archkeel_facts::GapFact;
 
 use crate::script_project::{source_origin, stable_publication, Publisher};
 use crate::script_records::{binding, global_id, import_record, GapRecord, Use};
@@ -197,7 +197,7 @@ impl<'a, 'p> Run<'a, 'p> {
             specifier: first.to_owned(),
             reason: reason.clone(),
         });
-        if self.behind_named_blockers((rel, probe), first, publishers) {
+        if Self::behind_named_blockers(self, (rel, probe), first, publishers) {
             self.sink.blocked.push((first.to_owned(), evidence));
         } else {
             self.sink.gap(&reason, &[evidence], &module);
@@ -219,7 +219,7 @@ impl<'a, 'p> Run<'a, 'p> {
             names.len()
         );
         let project = self.project;
-        for (at, (file, span, form)) in project.paths.blockers.iter().enumerate() {
+        for (at, (file, span, form)) in project.paths.named_blockers().iter().enumerate() {
             if blocked.is_empty() {
                 break;
             }

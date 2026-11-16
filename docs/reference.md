@@ -19,7 +19,8 @@ Interactive reports, `architecture.json`, saved reports, focused reports, amendm
 `validate --baseline` and `validate --write-baseline` are on `main` ([baselines](#baselines)).
 
 Release 4.0.1 has the Python engine: `check`, `init`, full reports and baselines for Python,
-Dart and TypeScript projects. It has no Rust profile, `explore`, Studio, stories or views.
+Dart and TypeScript projects. It has no Rust profile, `explore`, Studio, stories or views. The Explorer and Studio browser assets are
+not in the tree on `main` (AD-582); they return with the port of `explore` and Studio to the core (5.1).
 Its documents are at the [tag 4.0.1](https://github.com/rapiddweller/archkeel/tree/4.0.1/docs).
 This page and [known limits](known-limits.md) describe `main`.
 
@@ -63,7 +64,7 @@ equal tsconfig `paths`, which is not verified. See
 For supported UMD vendors, the `tsconfig` extension `archkeel` declares
 `scriptHost: "classic-browser"` and `scriptProviders`, each with `source` and
 `provenance` paths relative to `--root`. See the
-[provenance example](../src/archkeel/render/assets/ELKJS-LICENSE.md).
+[provenance example](https://github.com/rapiddweller/archkeel/blob/4.0.1/src/archkeel/render/assets/ELKJS-LICENSE.md).
 Provenance records the package, version, bundle SHA-256 and license; the hash binds
 the exact bundle bytes. Publication identity does not bound factory effects: unproved
 calls or constructors leave standard-global and vendor dependencies UNKNOWN.
@@ -138,13 +139,16 @@ A difference is a refusal. The rule rows are trusted to the located core binary.
 Neither stdout form is a complete `architecture.json` or an HTML report.
 `report --topology` adds a bounded `topology` section: components, modules, edges, completeness, budgets
 and the rules that cite each edge (AD-464). Without the option the frame and its time do not change.
+The section also states the declared structure: the `layer` and the public surfaces of each component,
+each `requires` with the number of observed imports, and each `layer_order` (AD-594).
 A total over a budget sets `truncated` and keeps the exact total. The section never changes a verdict.
 `topology.complete` means only: the scope is complete and no list is truncated. It is not the verdict
 and does not mean that the run has no gap: an UNKNOWN run can show `complete: true`.
 
 `report --output PATH` writes one static HTML page. `--format json` writes the core frame instead.
 `--format html` is the default and needs `--output`. Without an output path, no file is written.
-The HTML comes from the same ruling in the Rust core. It has no scripts, external resources or graph.
+The HTML comes from the same ruling in the Rust core. It has one script, the theme switch, and no external resource (AD-496).
+Its architecture picture has three views: As-Is, Target and Diff (AD-594).
 It includes verdicts, counts, rule rows, violations, evidence locations, gaps, unsupported parts and request identity.
 The identity block lists each bound contract file and its SHA-256 digest, including nested contracts (AD-438).
 UNKNOWN and collection-refused frames write reports that show their verdict and causes.

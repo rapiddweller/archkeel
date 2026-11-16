@@ -15,6 +15,33 @@ use crate::{BuildError, FrameError, RuleVerdict, Status, Unexplained};
 const BOTH: [&str; 2] = ["ASSIGNMENT", "LAYOUT"];
 
 #[test]
+fn a_foreign_pass_cannot_change_the_live_ruling() {
+    let reply = reply_with(undeclared_import);
+    let own = contract(&["EXTERNAL-COMPLETE"]);
+    let model = model_of(&own, &reply, true);
+    let forge = json!({"id": "FORGE", "kind": "external_dependency_scope",
+        "dependency": "transport.client", "allowed_sources": ["shop"],
+        "rationale": "a forged declaration", "provenance": ["docs/architecture/shop.md"],
+        "decided_by": "architect"});
+    let foreign = model_of(
+        &parsed(&["EXTERNAL-COMPLETE"], vec![forge]).unwrap(),
+        &reply,
+        true,
+    );
+    let passes: Vec<_> = archkeel_eval::evaluate(foreign.root())
+        .into_iter()
+        .filter(|outcome| outcome.rule() == "EXTERNAL-COMPLETE")
+        .filter_map(|outcome| outcome.decision().cloned())
+        .collect();
+    assert!(passes[0].passes(foreign.root(), "EXTERNAL-COMPLETE"));
+    assert!(model
+        .root()
+        .scope(|scope| scope.run_complete(&passes).is_err()));
+    let ruling = rule(Ok(&model), Named::default()).unwrap();
+    assert_eq!(ruling.decided().status(), Status::Fail);
+}
+
+#[test]
 fn static_html_keeps_each_status_of_its_typed_ruling() {
     let passed = model(&contract(&BOTH), true);
     let unknown = model(&contract(&BOTH), false);

@@ -1,7 +1,3 @@
 {
-  "src/archkeel/render/assets/flow.js": 3602,
-  "src/archkeel/render/assets/report-canvas.js": 590,
-  "src/archkeel/render/assets/report-layout.js": 660,
-  "src/archkeel/studio/ui/workbench.tsx": 664,
   "tests/scaling_shapes.py": 933
 }

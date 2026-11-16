@@ -84,33 +84,43 @@ class RequestMismatch(CoreError):
     """The frame does not bind to the request or its current contract bytes."""
 
 
-def _object(value: object, where: str) -> dict[str, object]:
+def as_object(value: object, where: str) -> dict[str, object]:
+    """An object with string keys, else `CoreError`."""
     if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
         raise CoreError(f"the core frame field {where} is not an object")
     return {str(key): item for key, item in value.items()}
 
 
-def _text(value: object, where: str) -> str:
+def as_text(value: object, where: str) -> str:
+    """A text, else `CoreError`."""
     if not isinstance(value, str):
         raise CoreError(f"the core frame field {where} is not a text")
     return value
 
 
-def _texts(value: object, where: str) -> dict[str, str]:
-    return {key: _text(item, f"{where}.{key}") for key, item in _object(value, where).items()}
+def as_texts(value: object, where: str) -> dict[str, str]:
+    """An object whose values are all texts."""
+    return {key: as_text(item, f"{where}.{key}") for key, item in as_object(value, where).items()}
 
 
-def _count(value: object, where: str) -> int:
+def as_count(value: object, where: str) -> int:
+    """A non-negative integer that is no boolean, else `CoreError`."""
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise CoreError(f"the core frame field {where} is not a count")
     return value
 
 
-def _fields(value: object, where: str, names: frozenset[str]) -> dict[str, object]:
-    """An object with exactly these fields."""
-    found = _object(value, where)
-    if missing := sorted(names - found.keys()):
-        raise CoreError(f"the core frame field {where} has no field {', '.join(missing)}")
-    if extra := sorted(found.keys() - names):
-        raise CoreError(f"the core frame field {where} has an unknown field {', '.join(extra)}")
-    return found
+_CALL_CLASSES = "calls_resolved calls_partial calls_builtin calls_external calls_unresolved".split()
+_CALL_CAUSES = "unresolved_self unresolved_attribute unresolved_name unresolved_dynamic".split()
+
+
+def check_measures(value: object) -> None:
+    """Refuse call measures that do not add up; `None` is no measures."""
+    if value is None:
+        return
+    fields = as_object(value, "measures")
+    counts = {name: as_count(item, f"measures.{name}") for name, item in fields.items()}
+    if counts["calls_total"] != sum(counts[name] for name in _CALL_CLASSES) or counts[
+        "calls_unresolved"
+    ] != sum(counts[name] for name in _CALL_CAUSES):
+        raise CoreError("the core frame has inconsistent call measures")

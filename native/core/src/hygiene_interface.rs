@@ -10,8 +10,8 @@
 //! reached by no import and no declared facade signature (`interface.unused`, `interface.missing`,
 //! `interface.usage_unknown`), or when a built `planned` entry is reached (`interface.planned_built`).
 //!
-//! The core reads the imports and no declared facade signature, so it can prove a use and never
-//! an absence of use. It counts only a use that it can prove, and it names each other case:
+//! The core reads the imports and, since AD-580, the written types of the declared facade
+//! signatures, so it can prove a use and never an absence of use. It counts only a use that it can prove, and it names each other case:
 //!
 //! - a component that receives imports and has no `public` entry: `interface.undeclared`;
 //! - a `public` entry that no proven import reaches: `interface.usage_unknown`, because a facade
@@ -27,7 +27,7 @@ use std::collections::{HashMap, HashSet};
 
 use archkeel_contract::policy::InsideMount;
 use archkeel_contract::Component;
-use archkeel_model::{publishes, ComponentId, Import, Model, ModelTree};
+use archkeel_model::{facade_types, publishes, ComponentId, Import, Model, ModelTree};
 
 use crate::hygiene_refs::Finding;
 
@@ -48,6 +48,7 @@ pub(crate) fn findings(
         },
     };
     let uses = uses(tree, mounts, index, model);
+    let signatures = facade_types(model);
     let scanned: HashSet<&str> = model
         .graph()
         .modules()
@@ -76,7 +77,12 @@ pub(crate) fn findings(
                 entries
                     .iter()
                     .enumerate()
-                    .filter(|(_, entry)| !used(entry.as_text(), records))
+                    .filter(|(_, entry)| {
+                        !used(entry.as_text(), records)
+                            && !signatures
+                                .as_ref()
+                                .is_some_and(|names| exposed(entry.as_text(), names))
+                    })
                     .map(|(item, entry)| {
                         unknown(format!("{place}/public/{item}"), entry.as_text())
                     }),
@@ -281,6 +287,18 @@ fn published(tree: &ModelTree, mounts: &[InsideMount], at: usize, import: &Impor
         }
     }
     false
+}
+
+/// A declared signature names the entry: the dotted name `module.Name` for a `module:Name` entry,
+/// any name of the module for a `module` entry (`_entry_reached_by` of 4.0.1, AD-580).
+fn exposed(entry: &str, names: &std::collections::HashSet<String>) -> bool {
+    match entry.split_once(':') {
+        Some((module, name)) => names.contains(&format!("{module}.{name}")),
+        None => names.iter().any(|name| {
+            name.rsplit_once('.')
+                .is_some_and(|(module, _)| module == entry)
+        }),
+    }
 }
 
 /// `_entry_used`: a name of the route reaches the entry, or the import names the entry's module

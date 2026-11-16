@@ -20,6 +20,7 @@
 mod baseline;
 mod baseline_frame;
 mod contract;
+mod decode;
 mod dual_run;
 mod engine;
 mod gap_key;
@@ -36,8 +37,10 @@ mod report;
 mod request;
 mod rules;
 mod scan;
+mod section_rows;
 mod sections;
 mod topology;
+mod topology_declared;
 mod topology_projection;
 
 /// The exit code of a frame that names an unsupported or refused part.
@@ -148,6 +151,8 @@ fn respond_with<E: From<String>>(
     }
 }
 
+#[cfg(test)]
+mod frame_schema;
 #[cfg(test)]
 #[path = "main_tests.rs"]
 mod tests;

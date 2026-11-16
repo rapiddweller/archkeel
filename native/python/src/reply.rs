@@ -31,7 +31,9 @@ pub(crate) const SURVEY_SECTIONS: [&str; 5] =
 
 /// The version and the code digest of this binary (`archkeel-build-support`).
 pub struct Build<'a> {
+    /// The version of the binary.
     pub version: &'a str,
+    /// The digest of the code of the binary.
     pub code_digest: &'a str,
 }
 
@@ -96,6 +98,7 @@ impl Records {
         let files_read =
             usize::try_from(self.coverage.files_read).map_err(std::io::Error::other)?;
         Ok(Tail {
+            measures: self.coverage.measures,
             selected_files: self.coverage.selected_files,
             files_read,
             gaps: self.coverage.gaps,
@@ -190,11 +193,12 @@ fn provenance(request: &PythonRequest, snapshot: &mut Snapshot, build: &Build<'_
 /// survey says, so a difference is an error and no reply.
 fn same_coverage(coverage: &Coverage, files: usize) -> Result<(), String> {
     let files_read = usize::try_from(coverage.files_read).map_err(|error| error.to_string())?;
-    let written = Coverage::of(
+    let mut written = Coverage::of(
         (files_read, files),
         coverage.selected_files.clone(),
         coverage.gaps.clone(),
     );
+    written.measures.clone_from(&coverage.measures);
     if written == *coverage {
         Ok(())
     } else {

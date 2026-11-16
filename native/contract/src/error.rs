@@ -27,7 +27,9 @@ pub enum ErrorKind {
 /// A parse error: its kind and a message for a person.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ParseError {
+    /// The closed kind of the error.
     pub kind: ErrorKind,
+    /// The text for a person.
     pub message: String,
 }
 

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! What a gap leaves unknown, as typed data (AD-560).
+//! What a gap leaves unknown, as typed data (AD-564).
 //!
 //! A collector writes three sorts of facts for each module: its file and its name, the import
 //! edges that leave it, and its code (its members, its positions and its constructs). An effect
@@ -23,10 +23,16 @@ use crate::ids::ModuleName;
 pub enum GapEffect {
     /// The import edges that leave each module of `sources` are not complete: an edge to any
     /// module or package can be absent. The code of each module is known.
-    Edges { sources: Vec<ModuleName> },
+    Edges {
+        /// The modules whose outgoing edges are not complete.
+        sources: Vec<ModuleName>,
+    },
     /// The code of each module of `modules` is not known: its import edges, its members, its
     /// positions and its constructs.
-    Modules { modules: Vec<ModuleName> },
+    Modules {
+        /// The modules whose code is not known.
+        modules: Vec<ModuleName>,
+    },
     /// The code of every module is not known: an import of any module can give another module
     /// than the one that it names.
     EveryModule,

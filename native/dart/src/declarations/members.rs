@@ -59,7 +59,7 @@ impl Assembly {
                     None,
                     true,
                     None,
-                    Visibility::of(literal),
+                    Visibility::from_name(literal),
                 )?);
             }
         }
@@ -328,20 +328,20 @@ impl Assembly {
             id = coverage_id;
             gap.id = archkeel_facts::ids::FactId::new(id.clone());
             let data = match gap.data {
-                archkeel_facts::sections::GapFact::ExceptionGap { mut data, .. } => {
+                archkeel_facts::GapFact::ExceptionGap { mut data, .. } => {
                     data.module = Some(archkeel_facts::ids::ModuleName::new(&file.module));
                     data.resolution_dimension =
                         Some(archkeel_facts::vocab::ResolutionDimension::Signature);
                     data
                 }
-                archkeel_facts::sections::GapFact::CollectionGap(_)
-                | archkeel_facts::sections::GapFact::SourceResolutionGap(_)
-                | archkeel_facts::sections::GapFact::DynamicImportLimit(_)
-                | archkeel_facts::sections::GapFact::PrivateAttributeAccessLimit(_) => {
+                archkeel_facts::GapFact::CollectionGap(_)
+                | archkeel_facts::GapFact::SourceResolutionGap(_)
+                | archkeel_facts::GapFact::DynamicImportLimit(_)
+                | archkeel_facts::GapFact::PrivateAttributeAccessLimit(_) => {
                     return Err(Stop::Input)
                 }
             };
-            gap.data = archkeel_facts::sections::GapFact::SourceResolutionGap(data);
+            gap.data = archkeel_facts::GapFact::SourceResolutionGap(data);
             gap.subjects = vec![file.module.clone()];
             gap.fact_ids = vec![archkeel_facts::ids::FactId::new(identity)];
         }

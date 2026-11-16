@@ -9,18 +9,22 @@ use std::collections::{BTreeMap, BTreeSet};
 use archkeel_contract::Lifecycle;
 use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{stable_id, Part};
-use archkeel_facts::sections::Section;
+use archkeel_facts::Section;
 use archkeel_model::{claims, Model, ModelTree, Reason, Resolved};
 use archkeel_report::Ruling;
 use archkeel_store::Ingested;
 use serde::Serialize;
 
+use crate::topology_declared::{self as declared, LayerOrder, Require};
+
 const MAX_COMPONENTS: usize = 4_096;
 const MAX_MODULES: usize = 10_000;
 const MAX_EDGES: usize = 20_000;
 const MAX_EVIDENCE: usize = 5;
+const MAX_REQUIRES: usize = 20_000;
+const MAX_LAYER_ORDERS: usize = 4_096;
 
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 pub(crate) struct Topology {
     version: u8,
     complete: bool,
@@ -32,18 +36,23 @@ pub(crate) struct Topology {
     modules: Vec<Module>,
     edges: Vec<Edge>,
     component_edges: Vec<Edge>,
+    /// The declared structure (AD-594): each `requires` entry and each `layer_order`.
+    requires: Vec<Require>,
+    layers: Vec<LayerOrder>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 struct Counts {
     components: usize,
     modules: usize,
     edges: usize,
     component_edges: usize,
     evidence_per_edge: usize,
+    requires: usize,
+    layers: usize,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 struct Component {
     id: String,
     name: String,
@@ -51,9 +60,12 @@ struct Component {
     packages: Vec<String>,
     exact_modules: Vec<String>,
     planned: bool,
+    /// The declared layer and the declared public surface. Empty when the contract states none.
+    layer: Option<String>,
+    public: Vec<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 struct Module {
     name: String,
     path: String,
@@ -61,13 +73,13 @@ struct Module {
     ownership: &'static str,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, schemars::JsonSchema)]
 struct Location {
     path: String,
     line: i64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, schemars::JsonSchema)]
 struct Edge {
     id: String,
     source: String,
@@ -114,11 +126,15 @@ pub(crate) fn project(
     let mut modules = Vec::new();
     let mut edges = Vec::new();
     let mut component_edges = Vec::new();
+    let mut requires = Vec::new();
+    let mut layers = Vec::new();
     match (models, reply) {
         (Ok(models), Some(reply)) => {
             components = component_rows(models);
             modules = module_rows(models);
             (edges, component_edges) = edge_rows(models, reply, links, &modules);
+            requires = require_rows(models, &components, &component_edges);
+            layers = declared::layers(models);
         }
         (Err(reason), _) => {
             gaps.insert(reason.to_string());
@@ -139,16 +155,22 @@ pub(crate) fn project(
         edges: edges.len(),
         component_edges: component_edges.len(),
         evidence_per_edge,
+        requires: requires.len(),
+        layers: layers.len(),
     };
     let truncated = total.components > MAX_COMPONENTS
         || total.modules > MAX_MODULES
         || total.edges > MAX_EDGES
         || total.component_edges > MAX_EDGES
-        || evidence_per_edge > MAX_EVIDENCE;
+        || evidence_per_edge > MAX_EVIDENCE
+        || total.requires > MAX_REQUIRES
+        || total.layers > MAX_LAYER_ORDERS;
     components.truncate(MAX_COMPONENTS);
     modules.truncate(MAX_MODULES);
     edges.truncate(MAX_EDGES);
     component_edges.truncate(MAX_EDGES);
+    requires.truncate(MAX_REQUIRES);
+    layers.truncate(MAX_LAYER_ORDERS);
     Topology {
         version: 1,
         complete: gaps.is_empty() && !truncated,
@@ -161,12 +183,30 @@ pub(crate) fn project(
             edges: MAX_EDGES,
             component_edges: MAX_EDGES,
             evidence_per_edge: MAX_EVIDENCE,
+            requires: MAX_REQUIRES,
+            layers: MAX_LAYER_ORDERS,
         },
         components,
         modules,
         edges,
         component_edges,
+        requires,
+        layers,
     }
+}
+
+/// The declared pairs with the observed imports of each. It reads the whole list of the edges,
+/// before the budget cuts it.
+fn require_rows(models: &ModelTree, components: &[Component], edges: &[Edge]) -> Vec<Require> {
+    let parents = components
+        .iter()
+        .filter_map(|row| Some((row.id.as_str(), row.parent.as_deref()?)))
+        .collect();
+    let observed = edges
+        .iter()
+        .filter(|edge| edge.resolution == "resolved")
+        .map(|edge| (edge.source.as_str(), edge.target.as_str(), edge.count));
+    declared::requires(declared::pairs(models), &parents, observed)
 }
 
 fn component_rows(models: &ModelTree) -> Vec<Component> {
@@ -197,6 +237,13 @@ fn component_rows(models: &ModelTree) -> Vec<Component> {
                     .map(|p| p.as_text().to_owned())
                     .collect(),
                 planned: component.lifecycle() == &Some(Lifecycle::Planned),
+                layer: component.layer().clone(),
+                public: component
+                    .public()
+                    .iter()
+                    .flatten()
+                    .map(|p| p.as_text().to_owned())
+                    .collect(),
             });
         }
     }

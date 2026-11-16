@@ -9,16 +9,20 @@
       "additionalProperties": false,
       "properties": {
         "protocol_version": {
-          "$ref": "#/$defs/Version"
+          "$ref": "#/$defs/Version",
+          "description": "The protocol version that the reply must use."
         },
         "snapshot": {
-          "$ref": "#/$defs/Snapshot"
+          "$ref": "#/$defs/Snapshot",
+          "description": "The tree that the collector reads."
         },
         "scope": {
-          "$ref": "#/$defs/Scope"
+          "$ref": "#/$defs/Scope",
+          "description": "The files that the collector reads."
         },
         "resolver": {
-          "$ref": "#/$defs/Resolver"
+          "$ref": "#/$defs/Resolver",
+          "description": "The resolver settings of the language."
         }
       },
       "required": [
@@ -111,12 +115,27 @@
       ]
     },
     "Version": {
-      "type": "string",
-      "enum": [
-        "3.0.0",
-        "8.0.0",
-        "9.0.0",
-        "10.0.0"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "3.0.0",
+          "description": "Protocol 3, the oldest request."
+        },
+        {
+          "type": "string",
+          "const": "8.0.0",
+          "description": "Protocol 8."
+        },
+        {
+          "type": "string",
+          "const": "9.0.0",
+          "description": "Protocol 9: the scope can exclude test sources."
+        },
+        {
+          "type": "string",
+          "const": "10.0.0",
+          "description": "Protocol 10: the request of the native Python collector."
+        }
       ],
       "description": "A request version that the host sends to a native collector."
     },
@@ -129,7 +148,8 @@
           "description": "The absolute snapshot root."
         },
         "git_head": {
-          "type": "string"
+          "type": "string",
+          "description": "The commit that the tree is at."
         },
         "dirty": {
           "$ref": "#/$defs/Dirty",
@@ -146,19 +166,25 @@
     "Dirty": {
       "anyOf": [
         {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether the tree has uncommitted changes."
         },
         {
-          "$ref": "#/$defs/UnknownDirty"
+          "$ref": "#/$defs/UnknownDirty",
+          "description": "The tool could not tell."
         }
       ],
       "description": "`dirty` is a Boolean, or the text `unknown` when the host could not read the work tree."
     },
     "UnknownDirty": {
-      "type": "string",
-      "enum": [
-        "unknown"
-      ]
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "unknown",
+          "description": "The tool could not tell whether the tree is dirty."
+        }
+      ],
+      "description": "The value of `dirty` when the tool cannot tell."
     },
     "Scope": {
       "type": "object",
@@ -209,12 +235,12 @@
             "language",
             "tsconfig"
           ],
-          "description": "The settings of the TypeScript collector."
+          "description": "The settings of the TypeScript resolver."
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "description": "The Rust collector has no settings: its resolver is `{\"language\": \"rust\"}`.",
+          "description": "The settings of the Rust resolver.",
           "properties": {
             "language": {
               "type": "string",
@@ -234,10 +260,12 @@
               "const": "python"
             },
             "phase": {
-              "$ref": "#/$defs/PythonPhase"
+              "$ref": "#/$defs/PythonPhase",
+              "description": "The phase of the Python collection."
             },
             "interpreter": {
-              "$ref": "#/$defs/Interpreter"
+              "$ref": "#/$defs/Interpreter",
+              "description": "The interpreter that the collector runs."
             }
           },
           "required": [
@@ -245,12 +273,12 @@
             "phase",
             "interpreter"
           ],
-          "description": "The settings of the Python collector (AD-334). Only protocol 10.0.0 carries them."
+          "description": "The settings of the Python resolver."
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "description": "The Dart collector has no settings: its resolver is `{\"language\": \"dart\"}`, as\n`ir/protocol.DartSettings` writes it. Protocol 10.0.0 stays Python only (AD-334, AD-368).",
+          "description": "The settings of the Dart resolver.",
           "properties": {
             "language": {
               "type": "string",
@@ -265,9 +293,12 @@
       "description": "The settings of one language. The tag is the language that the collector reads."
     },
     "PythonPhase": {
-      "type": "string",
-      "enum": [
-        "imports"
+      "oneOf": [
+        {
+          "type": "string",
+          "const": "imports",
+          "description": "The import survey."
+        }
       ],
       "description": "The part of the Python collection that the request asks for. Slice 1 has the import survey."
     },

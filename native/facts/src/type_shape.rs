@@ -66,15 +66,27 @@ closed! {
 pub enum Binding {
     /// A builtin of the language that no statement of the module hides. `target` is the name in
     /// the namespace of the builtins.
-    Builtin { target: String },
+    Builtin {
+        /// The qualified name that the binding reads.
+        target: String,
+    },
     /// One plain statement of the module body binds the name: a class, a function or a value.
     /// `target` is the qualified name in this module.
-    Defined { target: String },
+    Defined {
+        /// The qualified name that the binding reads.
+        target: String,
+    },
     /// One plain import binds the name. `target` is the qualified name that the import reads: a
     /// name of another module, or an attribute of one module object.
-    Imported { target: String },
+    Imported {
+        /// The qualified name that the binding reads.
+        target: String,
+    },
     /// The collector does not prove the binding.
-    Unproven { cause: Unproven },
+    Unproven {
+        /// Why the collector does not prove it.
+        cause: Unproven,
+    },
 }
 
 /// The written type of one position.
@@ -89,37 +101,83 @@ pub enum TypeShape {
     /// The type of the one value that means "nothing".
     Nothing {},
     /// A scalar of the language that holds no named data and is not hidden: `int`, `str`.
-    Primitive { text: String, name: String },
+    Primitive {
+        /// The text of the node, as the reference collector writes it.
+        text: String,
+        /// The name of the type.
+        name: String,
+    },
     /// A type that holds anything: `object`, `Any`. The binding is proven.
-    Dynamic { text: String, name: String },
+    Dynamic {
+        /// The text of the node, as the reference collector writes it.
+        text: String,
+        /// The name of the type.
+        name: String,
+    },
     /// A collection of the language or its standard library, by proven binding. `args` empty is
     /// the bare name. `open_end` is a tuple of any length of one element type (`tuple[X, ...]`).
     Collection {
+        /// The text of the node, as the reference collector writes it.
         text: String,
+        /// The family of the collection.
         family: Family,
+        /// The name as written.
         name: String,
+        /// The type arguments, in order.
         args: Vec<TypeShape>,
+        /// True for a tuple of any length of one element type.
         open_end: bool,
     },
     /// One of several types, flattened: `X | Y`, `Union[X, Y]`, `Optional[X]` (`X` and nothing).
-    Union { text: String, arms: Vec<TypeShape> },
+    Union {
+        /// The text of the node, as the reference collector writes it.
+        text: String,
+        /// The types that the union joins, flattened.
+        arms: Vec<TypeShape>,
+    },
     /// Constant values as a type. `plain`: each value is a string, a number, a boolean, bytes or
     /// the nothing value.
-    Literal { text: String, plain: bool },
+    Literal {
+        /// The text of the node, as the reference collector writes it.
+        text: String,
+        /// True when each value is a string, a number, a boolean, bytes or nothing.
+        plain: bool,
+    },
     /// A type with metadata that does not change it: the inner type decides.
-    Annotated { text: String, inner: Box<TypeShape> },
+    Annotated {
+        /// The text of the node, as the reference collector writes it.
+        text: String,
+        /// The type that decides.
+        inner: Box<TypeShape>,
+    },
     /// A name, with its binding.
-    Named { text: String, binding: Binding },
+    Named {
+        /// The text of the node, as the reference collector writes it.
+        text: String,
+        /// What the name is bound to.
+        binding: Binding,
+    },
     /// A name applied to arguments that the collector does not model: a user generic.
     Applied {
+        /// The text of the node, as the reference collector writes it.
         text: String,
+        /// The generic name that the arguments apply to.
         head: Box<TypeShape>,
+        /// The type arguments, in order.
         args: Vec<TypeShape>,
     },
     /// A type written as a string: the collector does not resolve it.
-    Forward { text: String },
+    Forward {
+        /// The text of the node, as the reference collector writes it.
+        text: String,
+    },
     /// A form that the collector does not read.
-    Unreadable { text: String, cause: Unreadable },
+    Unreadable {
+        /// The text of the node, as the reference collector writes it.
+        text: String,
+        /// Why the collector does not prove it.
+        cause: Unreadable,
+    },
 }
 
 impl TypeShape {

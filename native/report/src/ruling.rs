@@ -11,8 +11,7 @@
 //! (`Scope::run_complete`), as `build` does. The core adds only gaps (`Named`): a gap can make a
 //! status stricter, never PASS.
 //!
-//! A full `Report<Decided>` needs tables that no slice produces yet (`BuildError::NotProduced`),
-//! so the engine frame keeps its rows and holds the same `Decided` mark.
+//! The engine frame keeps its rows and the `Decided` mark.
 
 #![deny(
     clippy::wildcard_enum_match_arm,
@@ -62,10 +61,12 @@ pub struct Named {
 }
 
 /// The reasons of the rules without a decision: one for each rule, or one for the contract.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 #[serde(untagged)]
 pub enum RuleReasons {
+    /// One reason for each rule, by rule id.
     Each(BTreeMap<String, String>),
+    /// One reason for all rules.
     All(String),
 }
 
@@ -80,8 +81,9 @@ impl RuleReasons {
 }
 
 /// The decided head of the engine frame. The fields are private: only `rule` makes one.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 pub struct Ruling {
+    #[schemars(extend("const" = "archkeel-core-frame-1"))]
     protocol: &'static str,
     #[serde(skip)]
     html: bool,

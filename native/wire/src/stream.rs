@@ -36,29 +36,43 @@ use archkeel_facts::envelope::{
 /// What the reply says before the records: who made it, what it declares, and the small lists.
 #[derive(Clone)]
 pub struct Head {
+    /// Who made the reply and with which tool.
     pub provenance: Provenance,
+    /// The commit that the scanned tree is at.
     pub git_head: String,
+    /// Whether the tree has uncommitted changes, as the host reports it.
     pub dirty: Value,
+    /// The paths that the scan covers.
     pub scope: Vec<String>,
     /// The sections that the capability declares, in the order that they are written.
     pub sections: Vec<&'static str>,
+    /// The features that the collector declares.
     pub features: Vec<&'static str>,
+    /// The constructs that the collector declares, each as a name and its meaning.
     pub constructs: Vec<(&'static str, &'static str)>,
+    /// The inputs that the scan read, with their digests.
     pub inputs: Vec<Input>,
     /// The source digest of a collector that digests its inputs in its own way, as the Python
     /// collector does (`collect._inputs`). `None` is the digest of the input listing.
     pub source_digest: Option<String>,
+    /// The files that the scan found, with their per-file facts.
     pub files: Vec<FileFact>,
+    /// The targets that the imports of the files resolve to.
     pub imports: Vec<Target>,
 }
 
 /// What the reply says after the records.
 #[derive(Clone)]
 pub struct Tail {
+    /// The per-file measures, when the request asks for them.
+    pub measures: Option<Vec<archkeel_facts::measures::FileMeasures>>,
+    /// The files that the scan selected, in the order of the records.
     pub selected_files: Vec<String>,
+    /// How many files the scan read.
     pub files_read: usize,
     /// Coverage gaps. The collection is complete only when there is none.
     pub gaps: Vec<archkeel_facts::Record<archkeel_facts::GapFact>>,
+    /// The evidence that the collector gathered besides the records.
     pub evidence: Vec<Evidence>,
 }
 
@@ -239,11 +253,12 @@ pub(crate) fn counted(
 ) -> io::Result<(Capabilities, Coverage, Vec<Evidence>)> {
     let capabilities =
         Capabilities::of(&head.sections, &head.features, &head.constructs).map_err(invalid)?;
-    let coverage = Coverage::of(
+    let mut coverage = Coverage::of(
         (tail.files_read, head.files.len()),
         tail.selected_files,
         tail.gaps,
     );
+    coverage.measures = tail.measures;
     Ok((capabilities, coverage, tail.evidence))
 }
 

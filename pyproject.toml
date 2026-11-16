@@ -55,15 +55,7 @@ replacement = '](https://github.com/rapiddweller/archkeel/blob/main/\1)'
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/archkeel"]
-# AD-290: the Studio sources build studio.js; the wheel ships only what the server serves.
-exclude = [
-  "src/archkeel/cli/assets/SKILL.md",
-  "src/archkeel/studio/ui/*.ts",
-  "src/archkeel/studio/ui/*.tsx",
-  "src/archkeel/studio/ui/views",
-  "src/archkeel/studio/ui/tsconfig.json",
-  "src/archkeel/studio/ui/AGENTS.md",
-]
+exclude = ["src/archkeel/cli/assets/SKILL.md"]
 
 # AD-436: the hook puts the core into each wheel and refuses a wheel without the core.
 [tool.hatch.build.targets.wheel.hooks.custom]
@@ -102,9 +94,8 @@ dev = [
 testpaths = ["tests"]
 # Tests import repository tools such as tools/publish_release.py.
 pythonpath = ["."]
-addopts = "-rs -p no:cacheprovider -m 'not browser and not native_wheel'"
+addopts = "-rs -p no:cacheprovider -m 'not native_wheel'"
 markers = [
-    "browser: runs the rendered report in Chromium",
     "native_wheel: builds or installs the platform wheel; make native-wheel runs it",
 ]
 
@@ -113,12 +104,17 @@ target-version = "py311"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "ARG", "RUF059"]
+select = ["E", "F", "I", "UP", "B", "ARG", "RUF059", "D100", "D101", "D102", "D103", "D104"]
 
 [tool.ruff.lint.per-file-ignores]
 # A double must match the signature it replaces, including arguments it ignores.
-"tests/*" = ["ARG"]
-"fixtures/*" = ["ARG"]
+# Only a missing docstring of a public module, class, function or method is a rule: src/ states
+# the responsibility of each public name; tests, fixtures and tools are not a public surface.
+"tests/*" = ["ARG", "D"]
+"fixtures/*" = ["ARG", "D"]
+"tools/*" = ["D"]
+"native/*" = ["D"]
+"skills/*" = ["D"]
 
 [tool.mypy]
 python_version = "3.11"

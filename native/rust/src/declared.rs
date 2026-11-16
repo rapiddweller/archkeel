@@ -22,7 +22,7 @@ impl Builder {
     /// declared in. Source can hide a use (a macro, a generated token), but it cannot use a crate
     /// that the manifest does not declare. The edge starts in the main module of the crate; the
     /// kind of the section is in the text of the specifier, until module scope exists (5b-2).
-    pub(crate) fn declared(
+    pub(crate) fn declare_dependencies(
         &mut self,
         workspace: &Workspace,
         namespace: &str,

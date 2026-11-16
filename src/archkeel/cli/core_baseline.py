@@ -13,9 +13,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final
 
-from .core_json import CoreError, _count, _fields, _object, _text
+from .core_json import CoreError, as_count, as_object, as_text
 
 
 class BaselineState(StrEnum):
@@ -30,6 +29,8 @@ class BaselineState(StrEnum):
 
 
 class Difference(StrEnum):
+    """What a baseline comparison found: an UNKNOWN, a violation or a budget."""
+
     UNKNOWN = "unknown"
     VIOLATION = "violation"
     BUDGET = "budget"
@@ -49,6 +50,8 @@ class Changed:
 
 @dataclass(frozen=True, slots=True)
 class NamedBaselineGap:
+    """A gap that the core names about the baseline: its kind, subject and reason."""
+
     kind: str
     subject: str
     reason: str
@@ -56,6 +59,8 @@ class NamedBaselineGap:
 
 @dataclass(frozen=True, slots=True)
 class BaselineResult:
+    """The baseline part of a frame: its state, the exit code that the core decided and the rows."""
+
     state: BaselineState
     exit_code: int
     accepted_entries: int
@@ -69,40 +74,24 @@ class BaselineResult:
     file: str | None
 
 
-_FIELDS: Final = frozenset(
-    {
-        "state",
-        "exit_code",
-        "accepted_entries",
-        "accepted_unknowns",
-        "new",
-        "gone",
-        "gaps",
-        "accepted_rules",
-    }
-)
-_CHANGED: Final = frozenset({"what", "kind", "subject", "reason", "run", "file"})
-_NAMED: Final = frozenset({"kind", "subject", "reason"})
-
-
 def _changed(value: object, where: str) -> tuple[Changed, ...]:
     if not isinstance(value, list):
         raise CoreError(f"the core frame field {where} is not a list")
     found: list[Changed] = []
     for index, item in enumerate(value):
-        row = _fields(item, f"{where}[{index}]", _CHANGED)
+        row = as_object(item, f"{where}[{index}]")
         try:
-            what = Difference(_text(row["what"], f"{where}.what"))
+            what = Difference(as_text(row["what"], f"{where}.what"))
         except ValueError as error:
             raise CoreError(f"the core frame field {where} has an unknown difference") from error
         found.append(
             Changed(
                 what,
-                _text(row["kind"], f"{where}.kind"),
-                _text(row["subject"], f"{where}.subject"),
-                _text(row["reason"], f"{where}.reason"),
-                _count(row["run"], f"{where}.run"),
-                _count(row["file"], f"{where}.file"),
+                as_text(row["kind"], f"{where}.kind"),
+                as_text(row["subject"], f"{where}.subject"),
+                as_text(row["reason"], f"{where}.reason"),
+                as_count(row["run"], f"{where}.run"),
+                as_count(row["file"], f"{where}.file"),
             )
         )
     return tuple(found)
@@ -111,12 +100,12 @@ def _changed(value: object, where: str) -> tuple[Changed, ...]:
 def _named(value: object) -> tuple[NamedBaselineGap, ...]:
     if not isinstance(value, list):
         raise CoreError("the core frame field baseline.gaps is not a list")
-    rows = [_fields(item, "baseline.gaps", _NAMED) for item in value]
+    rows = [as_object(item, "baseline.gaps") for item in value]
     return tuple(
         NamedBaselineGap(
-            _text(row["kind"], "baseline.gaps.kind"),
-            _text(row["subject"], "baseline.gaps.subject"),
-            _text(row["reason"], "baseline.gaps.reason"),
+            as_text(row["kind"], "baseline.gaps.kind"),
+            as_text(row["subject"], "baseline.gaps.subject"),
+            as_text(row["reason"], "baseline.gaps.reason"),
         )
         for row in rows
     )
@@ -125,19 +114,19 @@ def _named(value: object) -> tuple[NamedBaselineGap, ...]:
 def _rules(value: object) -> tuple[str, ...]:
     if not isinstance(value, list):
         raise CoreError("the core frame field baseline.accepted_rules is not a list")
-    return tuple(_text(item, "baseline.accepted_rules") for item in value)
+    return tuple(as_text(item, "baseline.accepted_rules") for item in value)
 
 
 def read_baseline(value: object, status: str) -> BaselineResult:
     """The checked part. `status` is the status of the run: UNKNOWN never gives exit code 0."""
-    found = _object(value, "baseline")
+    found = as_object(value, "baseline")
     file = found.pop("file", None)
-    part = _fields(found, "baseline", _FIELDS)
+    part = as_object(found, "baseline")
     try:
-        state = BaselineState(_text(part["state"], "baseline.state"))
+        state = BaselineState(as_text(part["state"], "baseline.state"))
     except ValueError as error:
         raise CoreError("the core frame field baseline.state has an unknown word") from error
-    exit_code = _count(part["exit_code"], "baseline.exit_code")
+    exit_code = as_count(part["exit_code"], "baseline.exit_code")
     new, gone = _changed(part["new"], "baseline.new"), _changed(part["gone"], "baseline.gone")
     gaps = _named(part["gaps"])
     if exit_code > 2:
@@ -157,8 +146,8 @@ def read_baseline(value: object, status: str) -> BaselineResult:
     return BaselineResult(
         state,
         exit_code,
-        _count(part["accepted_entries"], "baseline.accepted_entries"),
-        _count(part["accepted_unknowns"], "baseline.accepted_unknowns"),
+        as_count(part["accepted_entries"], "baseline.accepted_entries"),
+        as_count(part["accepted_unknowns"], "baseline.accepted_unknowns"),
         new,
         gone,
         gaps,
@@ -204,6 +193,8 @@ def as_json(result: BaselineResult) -> Mapping[str, object]:
 
 
 def vars_of(row: Changed) -> Mapping[str, object]:
+    """The JSON fields of one changed baseline row."""
+
     return {
         "what": row.what,
         "kind": row.kind,

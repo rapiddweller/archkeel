@@ -6,13 +6,46 @@ Archkeel checks this workspace with its own Rust collector and the contract in
 Run `make self-validate-native` to check it. The target runs the default `archkeel validate`,
 which the core decides ([AD-432](decisions/ad-432-the-rust-core-is-the-only-decision-path.md)).
 
-The contract has two levels. The crates are the base (`facts`, `wire`, `snapshot`, `store`, `contract`, `build`, `pytext`) and the core after the collector (`model`, `report`, `core`, AD-359). Each
+The contract states the order first ([AD-588](decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md)).
+Each component has a `layer`, and rule `NATIVE-LAYER-ORDER` gives the layers from the inside to the outside:
+`foundation` (`facts`, `build`, `pytext`, `dart-grammar`), `transport` (`snapshot`, `wire`, `store`),
+`collector` (the parts of the four collectors), `collector-entry` (their entries), `collection` (`collect`),
+`contract`, `model`, `barrier` (`model-barrier`), `evaluation`, `report` and `core`.
+A declared `requires` points down or stays in its layer. A component without a layer holds every rule UNKNOWN.
+
+Below the order the contract has two levels. The crates are the base (`facts`, `wire`, `snapshot`, `store`, `contract`, `build`, `pytext`) and the core after the collector (`model`, `report`, `core`, AD-359). Each
 collector crate is split into components by responsibility, and an arrow points down only:
 the entry calls the flow, the flow calls the parts (discover, parse, resolve, records), and
 the records component builds the records of the collector. Rule `NATIVE-REQUIRES-COMPLETE` allows only the
 arrows in the contract, and rule `NATIVE-NO-MODULE-CYCLES` forbids a module cycle. No module is out of scope: the macro cycle of `archkeel-facts` ([#954](https://github.com/rapiddweller/archkeel/issues/954)) is gone since #961.
 The old layer file and its test are removed (AD-327): a declared
 Cargo dependency that no module uses is a crate edge, and the contract rejects it.
+
+Four crates of the decision side have parts by responsibility too (AD-588). No code moved for this:
+- `model`: `model-terms`, `model-graph`, `model-selection`, `model-run`, `model-match`, `model-proof`, `model-uml`.
+- `eval`: `eval-violation`, `eval-rules`, `eval-decide`.
+- `report`: `report-payload`, `report-check`, `report-build`, `report-page`, `report-frame`, `report-ruling`.
+- `core`: `core-contract`, `core-decode`, `core-engine`, `core-baseline`, `core-hygiene`, `core-frame`, `core-requests`.
+
+The component with the name of the crate is the root part. It owns the root file and the manifest, and it
+publishes the parts. A part claims its modules by name and stays in the layer of its crate. A new module of
+these crates has no owner until a part claims it, and `NATIVE-ASSIGNMENT-COMPLETE` fails. The parts of one
+crate make no cycle (`NATIVE-NO-COMPONENT-CYCLES`). A method call into a part of another crate is a use of
+that part (#953), so the contract states it: for example `eval-rules` requires `model-run`.
+
+Each `requires` names its ports in `through`: the modules of the target that the source enters (AD-588).
+`NATIVE-REQUIRES-COMPLETE` fails for an import through a module that is no port. A port is a module prefix,
+so a port on the root of a crate without parts permits the whole crate.
+
+Each component lists in `public` the names that other components use, as `module:Name`, and rule
+`NATIVE-INTERFACE-BOUNDARY` fails for a use of any other name
+([AD-604](decisions/ad-604-the-rust-collector-states-the-item-and-route-of-each-import.md)). A use
+passes when one hop of the publication route of its name is listed: a re-export at a crate root, or
+the module that defines the name. A crate root is the one public path of each name that it
+publishes ([AD-608](decisions/ad-608-a-crate-root-is-the-one-public-path-of-each-name-it-publishes.md)):
+a component that owns a crate root lists such a name only at the root, so another crate that takes a
+deeper path fails. A method call passes through a root entry of its type. `model-barrier` and `core`
+list no name, because no other component uses them.
 
 The core chain is core -> report -> eval -> model -> contract, store and facts
 ([AD-382](decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md)).
@@ -33,7 +66,7 @@ the public API of each library by name and signature. #1075 lists what the scan 
 | `archkeel-model` | The typed model of one run: ids, tables, the components, the modules, packages and owners of slice S1, the imports and the module and package edges of slice S2, what the reply proves not seen, the cycles and ranks of slice S3, and the scope proof that a PASS needs: slice S4 checks each cause that makes the scope incomplete one time per model, the import matchers of the direction kinds of slice S5 that the evaluator and the scope proof share, and the scan roots, the component cycles, the cycle receipts and the rules that each pair gap can change of slice S7 (AD-363, AD-370, AD-372, AD-374, AD-378, AD-380, AD-384). | `archkeel-contract`, `archkeel-store`, `archkeel-facts` |
 | `archkeel-model-barrier` | A test crate without code: each document test tries to build a PASS without the scope proof of the same model, from outside the model, and has a twin that compiles (AD-378). It also tries a run PASS without the run proof; the report and the evaluator hold their own attempts as document tests (AD-381, AD-382). Attempts 25 to 29 try the gap scope and the scan proof of slice S7 (AD-384). | `archkeel-model`, `archkeel-contract` |
 | `archkeel-eval` | Decides each rule over the model: an outcome with a decision and its violations. Slice S1 decides `complete_assignment` and `root_layout`, slice S2 `external_dependency_scope` and `complete_external_scope`, slice S5 the direction kinds (`forbidden_dependency`, `allowed_dependency` as a declaration, `sibling_isolation`, `layer_order`, `complete_requires`), slice S7 `no_component_cycles`; each other kind names its slice (AD-370, AD-372, AD-380, AD-384). | `archkeel-model`, `archkeel-contract`, `archkeel-facts` |
-| `archkeel-report` | The report v2 payload: the typed `Report` frame, its canonical bytes, the status rule and the check. A frame whose status has no explaining row cannot be built (AD-361, AD-371). A rule row comes from an outcome of the evaluator; a PASS row, a PASS observation and a PASS status each need the model (AD-381). The core writes its status and rule verdicts only through its `Ruling` (AD-388). | `archkeel-eval`, `archkeel-model`, `archkeel-contract` |
+| `archkeel-report` | The engine ruling, its frame and the HTML presentation. The core writes its status and rule verdicts only through its `Ruling` (AD-388). A PASS needs the model and the run proof. The unused report v2 builder and checker are removed (AD-612). | `archkeel-eval`, `archkeel-model`, `archkeel-contract` |
 | `archkeel-core` | The one process after the collector and the only binary of WP6. It speaks the engine command of the dual run (AD-363), the check request of the shell and the scan request; `archkeel report --native-core` and `archkeel check --native-core` take their rule verdicts when it decides every rule (AD-390, AD-399). For the scan request it runs the collector in its own process (AD-406). It takes the status of a frame from the report (AD-388). | `archkeel-collect`, `archkeel-report`, `archkeel-eval`, `archkeel-model`, `archkeel-contract`, `archkeel-store`, `archkeel-build-support` |
 | `archkeel-collect` | The composition between the core and the collectors and the only crate that names a language: it reads the repository configuration, derives the collection request, runs the linked TypeScript or Rust collector and gives the store its typed reply; each other profile and a configured collector are refused by name (AD-406). It enables the snapshot work charge before any linked collector runs (AD-420). | `archkeel-typescript-collector`, `archkeel-rust-collector`, `archkeel-store`, `archkeel-wire`, `archkeel-facts`, `archkeel-snapshot` |
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
@@ -465,4 +498,156 @@ flowchart LR
     n_39 --> n_49
     n_39 --> n_50
     n_39 --> n_51
+    n_56["core-baseline"]
+    n_57["core-contract"]
+    n_58["core-engine"]
+    n_59["core-frame"]
+    n_60["core-hygiene"]
+    n_61["core-requests"]
+    n_78["core-decode"]
+    n_62["eval-decide"]
+    n_63["eval-rules"]
+    n_64["eval-violation"]
+    n_65["model-graph"]
+    n_66["model-match"]
+    n_67["model-proof"]
+    n_68["model-run"]
+    n_69["model-selection"]
+    n_70["model-terms"]
+    n_71["model-uml"]
+    n_72["report-build"]
+    n_73["report-check"]
+    n_74["report-frame"]
+    n_75["report-page"]
+    n_76["report-payload"]
+    n_77["report-ruling"]
+    n_2 --> n_59
+    n_2 --> n_61
+    n_56 --> n_1
+    n_56 --> n_4
+    n_56 --> n_5
+    n_56 --> n_65
+    n_56 --> n_41
+    n_56 --> n_77
+    n_56 --> n_15
+    n_57 --> n_1
+    n_57 --> n_5
+    n_78 --> n_57
+    n_58 --> n_1
+    n_58 --> n_57
+    n_58 --> n_31
+    n_58 --> n_4
+    n_58 --> n_5
+    n_58 --> n_68
+    n_58 --> n_41
+    n_58 --> n_77
+    n_58 --> n_15
+    n_59 --> n_1
+    n_59 --> n_56
+    n_59 --> n_57
+    n_59 --> n_58
+    n_59 --> n_60
+    n_59 --> n_78
+    n_59 --> n_4
+    n_59 --> n_5
+    n_59 --> n_41
+    n_59 --> n_15
+    n_60 --> n_53
+    n_60 --> n_1
+    n_60 --> n_57
+    n_60 --> n_4
+    n_60 --> n_5
+    n_60 --> n_65
+    n_60 --> n_68
+    n_61 --> n_53
+    n_61 --> n_1
+    n_61 --> n_56
+    n_61 --> n_57
+    n_61 --> n_58
+    n_61 --> n_59
+    n_61 --> n_60
+    n_61 --> n_78
+    n_61 --> n_4
+    n_61 --> n_5
+    n_61 --> n_15
+    n_31 --> n_62
+    n_31 --> n_63
+    n_31 --> n_64
+    n_31 --> n_67
+    n_31 --> n_68
+    n_62 --> n_1
+    n_62 --> n_64
+    n_62 --> n_5
+    n_62 --> n_67
+    n_63 --> n_1
+    n_63 --> n_64
+    n_63 --> n_4
+    n_63 --> n_5
+    n_63 --> n_65
+    n_63 --> n_68
+    n_64 --> n_1
+    n_64 --> n_4
+    n_64 --> n_5
+    n_64 --> n_65
+    n_5 --> n_65
+    n_5 --> n_66
+    n_5 --> n_67
+    n_5 --> n_68
+    n_5 --> n_69
+    n_5 --> n_70
+    n_5 --> n_71
+    n_65 --> n_1
+    n_65 --> n_4
+    n_65 --> n_70
+    n_65 --> n_15
+    n_66 --> n_1
+    n_66 --> n_4
+    n_66 --> n_65
+    n_66 --> n_68
+    n_66 --> n_69
+    n_66 --> n_70
+    n_67 --> n_1
+    n_67 --> n_4
+    n_67 --> n_65
+    n_67 --> n_66
+    n_67 --> n_68
+    n_67 --> n_69
+    n_67 --> n_70
+    n_68 --> n_1
+    n_68 --> n_65
+    n_68 --> n_69
+    n_68 --> n_70
+    n_68 --> n_15
+    n_69 --> n_1
+    n_69 --> n_4
+    n_69 --> n_65
+    n_69 --> n_70
+    n_70 --> n_1
+    n_70 --> n_4
+    n_71 --> n_1
+    n_71 --> n_65
+    n_71 --> n_67
+    n_71 --> n_68
+    n_71 --> n_70
+    n_41 --> n_72
+    n_41 --> n_73
+    n_41 --> n_74
+    n_41 --> n_76
+    n_41 --> n_77
+    n_72 --> n_1
+    n_72 --> n_31
+    n_72 --> n_5
+    n_72 --> n_73
+    n_73 --> n_5
+    n_73 --> n_76
+    n_74 --> n_75
+    n_77 --> n_1
+    n_77 --> n_31
+    n_77 --> n_5
+    n_77 --> n_67
+    n_77 --> n_68
+    n_77 --> n_72
+    n_77 --> n_73
+    n_77 --> n_74
+    n_77 --> n_76
 ```
