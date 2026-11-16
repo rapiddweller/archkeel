@@ -43,7 +43,7 @@ fn each_kind_of_site_states_its_effect_and_an_unnamed_kind_states_none() {
     }
 }
 
-/// The reason and the effect of each gap of the survey of `src/app/client.py` with `source`.
+/// The reason and the effect of each gap of the survey of the sample `src/app/client.py` with `source`.
 fn effects(source: &str, init: &str) -> Vec<(String, Option<GapEffect>)> {
     let found: Survey = surveyed(&[
         ("src/app/__init__.py", init),

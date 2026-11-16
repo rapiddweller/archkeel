@@ -19,7 +19,7 @@ system run was also refused: its frame lost the premise of the Python part.
    collector records the target of each module and states `other_crate` on an import that names a
    module of another target or another crate of the workspace. The usage check of contract hygiene
    counts such an import also inside one component: the library publishes the name for that crate
-   (AD-608). This proves the uses of `dart::decode` and `typescript::reply` by `src/main.rs`.
+   (AD-608). This proves the uses of `dart::decode` and `typescript::reply` by `native/dart/src/main.rs` and `native/typescript/src/main.rs`.
 3. The root of `contract` re-exports its 38 used types by name, not by five globs (`pub use
    model::*`). The scan cannot read the names of a glob of types that macros define, so AD-608 left
    each glob UNKNOWN. The other 50 types are no longer published: no other crate uses them (the

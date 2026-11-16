@@ -42,7 +42,7 @@ import `evidence`. The module imports only `model`, `facts` and `profiles`.
 - *Absolute roots.* A root must be relative. An absolute root does not cover an absolute file
   path. The old copy in `decisions` said covered. Real collectors record relative paths.
 - *A root that names the file itself.* The domain of a package is a directory. A root such as
-  `src/pkg.py`, `src/pkg/__init__.py` or `src/a.ts` is not that directory, so it covers nothing.
+  `src/pkg.py`, `src/pkg/__init__.py` or `src/a.ts` (sample names) is not that directory, so it covers nothing.
   The old copy in `decisions` said covered.
 - A recorded `root/**/*.py` is the same root as `root`. This is an input form, not a difference.
   `observation_covers_rule` reads it.

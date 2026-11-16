@@ -2,8 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The closed errors of the tree. An issue is one Python `InsideContractIssue`; the kinds of a
-//! source error are the two cases where Rust is stricter than Python (AD-366).
+//! The closed errors of the tree, including source errors (AD-366).
 
 use std::fmt;
 

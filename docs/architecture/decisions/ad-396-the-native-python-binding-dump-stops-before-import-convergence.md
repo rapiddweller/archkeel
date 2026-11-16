@@ -17,10 +17,10 @@ The PR lists modules, function spans and sizes. Use 810 as a lower bound, not a 
 **Budget.** All 4,887 corpus files on 3.11–3.14: maximum 2,846,247 units, a 22.48-fold margin.
 | Top five files (external paths relative to their corpus) | Units |
 |---|---:|
-| pydantic: `tests/benchmarks/corpus/google-genai/google/genai/types.py` | 2,846,247 |
+| pydantic: tests/benchmarks/corpus/google-genai/google/genai/types.py | 2,846,247 |
 | `src/archkeel/ir/facts_validation.py` | 2,520,034 |
 | `src/archkeel/check/evaluation/boundary_types.py` | 2,163,788 |
-| pydantic: `tests/test_json_schema.py` | 1,747,494 |
+| pydantic: tests/test_json_schema.py | 1,747,494 |
 | `src/archkeel/analyzer/typescript/parse.py` | 1,484,327 |
 
 **Decision.**

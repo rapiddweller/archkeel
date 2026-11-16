@@ -62,7 +62,7 @@ the model.** The collector does not read a package in `node_modules`, `jspm_pack
 `bower_components` beside a valid manifest when only a `node_modules` search reaches it, for
 example a bare `import 'local'`. An import in that package code is not an edge. So when the package
 imports project source by a relative path, an undeclared or forbidden dependency can give PASS.
-Plant: `src/b/package.json`, `src/b/node_modules/local/index.ts` holds
+Plant (a sample tree): `src/b/package.json`, `src/b/node_modules/local/index.ts` holds
 `import { a } from '../../../a/a'`, and `src/b/t.ts` holds `import { hidden } from 'local'`; B
 does not require A, and both engines give PASS. This is an open defect, not an accepted limit. A
 TSConfig drop of a source file is no longer in this class: it is a named gap (AD-488).

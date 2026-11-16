@@ -10,7 +10,7 @@
    `Snapshot::open_root` refuses a snapshot root that is a link or not a directory, `check_root`
    resolves the real path of each scan root once, `listing` gives each link as `Entry::Link`
    and walks each real subdirectory, and `read_walked` reads only a file of a walked directory.
-   It compares the file before and after the open (device and inode), as the Python `samestat`
+   It compares the file before and after the open (device and inode), as `os.path.samestat`
    check does. The symlink rule and the containment stay in the snapshot crate.
 3. Each problem that `archkeel-snapshot` records (a name that is not UTF-8, a directory or a
    file that cannot be read) becomes a `SnapshotError` gap. Nothing that the walk cannot see is
@@ -45,7 +45,7 @@ after the open only requires a regular file; AD-369 names this as a gap.
 
 **Measured (2026-11-11, median of 3 interleaved runs, load average about 30).** Equal on every
 fixture, demo variant, the private app and the bench corpora. Discovery time, Rust (with the
-sections) against Python `read_snapshot`: bench `dart-http` 28 against 31 ms, bench `flutter`
+sections) against the deleted Python `read_snapshot`: bench `dart-http` 28 against 31 ms, bench `flutter`
 (6 623 files) 724 against 698 ms. Before `read_walked`, the real-path lookup of each file gave
 2.3 against 1.2 s on `flutter`.
 

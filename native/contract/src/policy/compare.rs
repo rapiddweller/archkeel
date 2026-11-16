@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Compare two contract trees as `validate --against` does (Python `_contract_changes`):
+//! Compare two contract trees as `validate --against` does:
 //! the widenings of the comparison contracts, the widenings of the declarations of each inside
 //! scope, then the narrowings (AD-255). A rename is not recognised (M6b row 4).
 
@@ -58,7 +58,7 @@ pub fn compare_trees(before: &ContractTree, after: &ContractTree) -> Comparison 
     Comparison { changes }
 }
 
-/// Python `contract_widening_changes`.
+/// The widening changes between two contracts.
 fn contract_widenings(before: &Contract, after: &Contract) -> Vec<ContractChange> {
     let mut changes = components_widenings(&before.components, &after.components);
     changes.extend(rules_widenings(&before.rules, &after.rules));
@@ -87,7 +87,7 @@ fn contract_widenings(before: &Contract, after: &Contract) -> Vec<ContractChange
     by_message(changes)
 }
 
-/// The declaration part of Python `contract_widening_changes`. An absent object is the empty
+/// The declaration part of a contract comparison. An absent object is the empty
 /// object.
 fn declaration_widenings(
     before: Option<&Declarations>,
@@ -147,7 +147,7 @@ fn couplings(item: Option<&Declarations>) -> BTreeMap<String, u64> {
         .collect()
 }
 
-/// Python `_ceiling_widenings`: a raised or removed ceiling widens (AD-99).
+/// A raised or removed ceiling widens (AD-99).
 fn ceilings(
     kind: &str,
     before: BTreeMap<String, u64>,
@@ -196,7 +196,7 @@ type Unenumerated<'a> = (
     &'a [DoorReach],
 );
 
-/// Python `_unenumerated(declarations)`: every field except the four that a classifier above
+/// Every declaration field except the four that a classifier above
 /// compares. The pattern names each field, so a new field of `Declarations` does not compile
 /// without a decision. An absent object is `ContractDeclarations()`.
 fn unenumerated(item: Option<&Declarations>) -> Unenumerated<'_> {
@@ -237,12 +237,12 @@ fn unenumerated(item: Option<&Declarations>) -> Unenumerated<'_> {
     )
 }
 
-/// Python `_unenumerated(before) == _unenumerated(after)`.
+/// Whether the unenumerated declarations match.
 fn same_unenumerated(before: Option<&Declarations>, after: Option<&Declarations>) -> bool {
     unenumerated(before) == unenumerated(after)
 }
 
-/// The compatibility part of Python `contract_widening_changes`.
+/// The compatibility part of contract widening changes.
 fn compat_widenings(
     before: Option<&Declarations>,
     after: Option<&Declarations>,
@@ -298,7 +298,7 @@ fn compat_widenings(
     changes
 }
 
-/// Python `_inside_declaration_widenings` without a rename: the declarations of each inside
+/// Compare the declarations of each inside
 /// scope, old scopes first, in the order of their mounts.
 fn inside_widenings(before: &ContractTree, after: &ContractTree) -> Vec<ContractChange> {
     let declarations = |tree: &ContractTree| -> Vec<(String, Option<Declarations>)> {

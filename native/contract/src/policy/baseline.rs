@@ -13,7 +13,7 @@ use crate::policy::baseline_value::{
     MAX_BASELINE_BYTES,
 };
 
-/// Read a baseline with the validation order of Python `parse_validation_baseline`.
+/// Read a baseline with the validation order of the deleted Python `parse_validation_baseline`.
 ///
 /// An unchecked baseline cannot be built outside the crate:
 /// ```compile_fail,E0451

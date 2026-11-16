@@ -1,6 +1,6 @@
 # AD-172 Lexical resolution uses compiler scopes
 
-Use Python `symtable` with AST evidence as the shared call/reference scope index.
+Use the `symtable` module of Python with AST evidence as the shared call/reference scope index.
 Parameters and assignments shadow outer names before their sites; headers and the
 first comprehension iterator use enclosing scope. Class namespaces are not method
 closures.
