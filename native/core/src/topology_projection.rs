@@ -7,7 +7,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use archkeel_contract::Lifecycle;
-use archkeel_facts::envelope::Target;
+use archkeel_facts::envelope::{Profile, Target};
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::sections::Section;
 use archkeel_model::{claims, Model, ModelTree, Reason, Resolved};
@@ -135,7 +135,7 @@ pub(crate) fn project(
     match (models, reply) {
         (Ok(models), Some(reply)) => {
             components = component_rows(models);
-            modules = module_rows(models, reply.reply().facts.profile.language_name());
+            modules = module_rows(models, language(reply.reply().facts.profile));
             (edges, component_edges) = edge_rows(models, reply, links, &modules);
             requires = require_rows(models, &components, &component_edges);
             layers = declared::layers(models);
@@ -254,6 +254,16 @@ fn component_rows(models: &ModelTree) -> Vec<Component> {
     }
     rows.sort_by(|a, b| a.id.cmp(&b.id));
     rows
+}
+
+/// The language of a collector reply, by its profile.
+fn language(profile: Profile) -> &'static str {
+    match profile {
+        Profile::Python => "python",
+        Profile::Dart => "dart",
+        Profile::TypeScript => "typescript",
+        Profile::Rust => "rust",
+    }
 }
 
 fn module_rows(models: &ModelTree, language: &'static str) -> Vec<Module> {
