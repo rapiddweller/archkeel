@@ -105,8 +105,27 @@ fn a_run_with_a_topology_has_the_explorer_and_its_data() {
         let page =
             document(&json!({"status": "PASS", "topology": components(size, &[(0, 1), (1, 2)])}));
         let data = payload(&page);
-        assert_eq!(data["atlas"]["components"].as_array().unwrap().len(), size);
-        assert_eq!(top_edges(&data).len(), 2);
+        let all = data["atlas"]["components"].as_array().unwrap();
+        let real = all
+            .iter()
+            .filter(|c| !c["id"].as_str().unwrap().starts_with("GROUP:"))
+            .count();
+        assert_eq!(real, size);
+        // A level of at most six boxes draws each edge. A larger set is split into groups: an
+        // import between two groups is one edge between them, and one inside a group is drawn
+        // when the group is opened. Each import of the two chains is on some level (AD-630).
+        let edges = top_edges(&data);
+        let drawn: usize = data["atlas"]["levels"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|level| level["edges"].as_array().unwrap().len())
+            .sum();
+        assert!(if size <= 6 {
+            edges.len() == 2
+        } else {
+            drawn >= 2
+        });
         assert!(page.contains("id=\"flow\" class=\"flow\" data-atlas=\"true\""));
         assert_eq!(
             page.matches("<script").count(),
@@ -330,10 +349,12 @@ fn the_verdict_names_the_largest_causes_in_one_line() {
             "C": {"kind": "pair_gaps", "total": 7}}}}});
     let page = document(&frame);
     assert!(page.contains(
-        "<p class=\"body-sm ak-verdict__note\">2 rules: 5 coverage gaps in the scan</p>"
+        "<p class=\"body-sm ak-verdict__note\">2 unknown rules: 5 coverage gaps in the scan</p>"
     ));
-    assert!(page.contains("1 rule: other &lt;b&gt;</p>"));
-    assert!(page.contains("1 rule: 7 gaps between two modules</p>"));
+    assert!(page.contains("1 unknown rule: other &lt;b&gt;</p>"));
+    assert!(page.contains("1 unknown rule: 7 gaps between two modules</p>"));
+    // The heading counts the causes that the list holds: 3 causes, 4 unknown rules, no named gap.
+    assert!(page.contains("3 causes keep the run open: 4 unknown rules and 0 gaps with no rule."));
     // The ids are in the cards, not in the card of the verdict.
     let verdict = page
         .split("<dl class=\"ak-verdict__stats\">")
@@ -351,7 +372,14 @@ fn a_named_gap_without_a_rule_row_shows_its_code_on_the_page() {
         "unsupported": {"rules": {"hygiene:graph.count:a": "contract hygiene graph.count: expected <1>"}}});
     let page = document(&frame);
     assert!(page.contains("contract hygiene graph.count: expected &lt;1&gt;"));
-    assert!(page.contains("1 named gap: contract hygiene graph.count"));
+    assert!(page.contains("1 gap with no rule: contract hygiene graph.count"));
+    // The card counts the gap, so its numbers equal its list: no unknown rule, one gap.
+    assert!(page.contains("Gaps with no rule</dt><dd class=\"ak-num h2\">1</dd>"));
+    assert!(
+        page.contains("1 cause keeps the run open"),
+        "{}",
+        page.len()
+    );
     assert!(page.contains("Remove the causes named under the verdict."));
 }
 
@@ -455,3 +483,6 @@ fn a_gap_that_names_no_owned_module_holds_every_component() {
 
 #[path = "html_system_tests.rs"]
 mod system_tests;
+
+#[path = "html_groups_tests.rs"]
+mod groups_tests;
