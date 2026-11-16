@@ -143,3 +143,18 @@ fn a_raw_identifier_is_the_name_without_its_prefix() {
     let names: Vec<_> = found.iter().map(|c| c.names.join("::")).collect();
     assert_eq!(names, ["base_crate::make", "x::y"]);
 }
+
+#[test]
+fn the_item_level_of_a_macro_names_each_form_that_can_write_a_use() {
+    // #1346: `macro_rules! name { ... }` holds its name between the `!` and the body.
+    let read = |text: &str| crate::macro_items::item_level(text.parse().unwrap());
+    let nested = read("() => { macro_rules! mk { () => { pub use crate::b; }; } mk!(); };");
+    assert!(nested.defines_macros && nested.writes_use);
+    let harmless = read("() => { macro_rules! mk { () => { pub struct T; }; } };");
+    assert!(harmless.defines_macros && !harmless.writes_use);
+    // A call by a path names a macro that is not the one of its last name in the crate.
+    let path = read("() => { dep::mk!(); };");
+    assert!(path.path_calls && path.calls.contains("mk"));
+    let plain = read("() => { mk!(); pub struct T; };");
+    assert!(!plain.path_calls && !plain.defines_macros && !plain.writes_use);
+}

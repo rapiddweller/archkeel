@@ -29,7 +29,7 @@ pub(crate) struct Chain {
 
 /// The nesting of groups that the scan follows. A deeper stream is cut off: its inner paths are
 /// not read, so the caller reports the cut as a concern.
-const MAX_DEPTH: usize = 64;
+pub(crate) const MAX_DEPTH: usize = 64;
 
 /// Each `a::b` chain (two names or more) in `stream`, in source order.
 /// The result is `None` when the stream nests deeper than `MAX_DEPTH`.
@@ -143,64 +143,12 @@ pub(crate) fn writes_use(stream: TokenStream, depth: usize) -> bool {
         })
 }
 
-/// What the expansion of a `macro_rules!` body writes at the item level of the module of its call
-/// (AD-608): the tokens of each transcriber (the group after `=>`), with each `$( .. )` repetition
-/// at the same level. A `use` or a macro call inside a block, an `impl` or an inline `mod` of the
-/// expansion binds no name of that module.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub(crate) struct ItemLevel {
-    /// A `use`, `extern` or `mod` at item level, or anywhere in a `macro_rules!` at item level.
-    pub writes_use: bool,
-    /// The macros that the expansion calls at item level, by their last name.
-    pub calls: BTreeSet<String>,
-}
-
-pub(crate) fn item_level(rules: TokenStream) -> ItemLevel {
-    let mut found = ItemLevel::default();
-    let tokens: Vec<TokenTree> = rules.into_iter().collect();
-    for (at, token) in tokens.iter().enumerate() {
-        let arrow = at >= 2 && is_punct(&tokens[at - 2], '=') && is_punct(&tokens[at - 1], '>');
-        if let (TokenTree::Group(group), true) = (token, arrow) {
-            items(group.stream(), 0, &mut found);
-        }
-    }
-    found
-}
-
-fn items(stream: TokenStream, depth: usize, found: &mut ItemLevel) {
-    if depth > MAX_DEPTH {
-        found.writes_use = true;
-        return;
-    }
-    let tokens: Vec<TokenTree> = stream.into_iter().collect();
-    for (at, token) in tokens.iter().enumerate() {
-        let next = |step: usize| tokens.get(at + step);
-        match token {
-            TokenTree::Group(group) if at > 0 && is_punct(&tokens[at - 1], '$') => {
-                items(group.stream(), depth + 1, found);
-            }
-            TokenTree::Ident(word) if word == "use" || word == "extern" || word == "mod" => {
-                found.writes_use = true
-            }
-            TokenTree::Ident(word) if called(next(1), next(2)) && word == "macro_rules" => {
-                if let Some(TokenTree::Group(body)) = next(2) {
-                    found.writes_use |= writes_use(body.stream(), depth);
-                }
-            }
-            TokenTree::Ident(word) if called(next(1), next(2)) => {
-                found.calls.insert(plain(word));
-            }
-            _ => {}
-        }
-    }
-}
-
 /// A `!` and a group after a name: a macro call.
-fn called(bang: Option<&TokenTree>, group: Option<&TokenTree>) -> bool {
+pub(crate) fn called(bang: Option<&TokenTree>, group: Option<&TokenTree>) -> bool {
     bang.is_some_and(|t| is_punct(t, '!')) && matches!(group, Some(TokenTree::Group(_)))
 }
 
-fn is_punct(token: &TokenTree, ch: char) -> bool {
+pub(crate) fn is_punct(token: &TokenTree, ch: char) -> bool {
     matches!(token, TokenTree::Punct(punct) if punct.as_char() == ch)
 }
 

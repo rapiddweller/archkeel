@@ -69,18 +69,18 @@ fn system_orders_belong_to_their_parts() {
     let frame = json!({"status": "PASS", "topology": {
         "components": [
             {"id": "PART:a", "name": "a"}, {"id": "PART:b", "name": "b"},
-            {"id": "A1", "name": "A1", "parent": "PART:a", "layer": "core"},
+            {"id": "A1", "name": "A1", "parent": "PART:a", "layer": "domain"},
             {"id": "A2", "name": "A2", "parent": "PART:a", "layer": "ui"},
-            {"id": "B1", "name": "B1", "parent": "PART:b", "layer": "core"},
+            {"id": "B1", "name": "B1", "parent": "PART:b", "layer": "domain"},
             {"id": "B2", "name": "B2", "parent": "PART:b", "layer": "ui"}],
         "layers": [
-            {"part": "PART:a", "rule": "A", "layers": ["core", "ui"]},
-            {"part": "PART:b", "rule": "B", "layers": ["ui", "core"]}]}});
+            {"part": "PART:a", "rule": "A", "layers": ["domain", "ui"]},
+            {"part": "PART:b", "rule": "B", "layers": ["ui", "domain"]}]}});
     let data = payload(&document(&frame));
     let components = data["atlas"]["components"].as_array().unwrap();
     let rank = |id: &str| components.iter().find(|c| c["id"] == id).unwrap()["layer_rank"].clone();
-    assert_eq!(rank("LAYER:PART:a:core"), json!(0));
-    assert_eq!(rank("LAYER:PART:b:core"), json!(1));
+    assert_eq!(rank("LAYER:PART:a:domain"), json!(0));
+    assert_eq!(rank("LAYER:PART:b:domain"), json!(1));
 }
 
 #[test]
