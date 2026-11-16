@@ -30,7 +30,7 @@ pub(crate) fn target(
             TargetSource::Config,
         )
     } else if let Some(required) = required {
-        (lower_bound(&required), TargetSource::Requirement)
+        (supported_in(&required), TargetSource::Requirement)
     } else if matches!(
         state,
         RequirementState::MetadataMissing | RequirementState::RequirementMissing
@@ -73,18 +73,45 @@ pub(crate) fn target(
     ))
 }
 
-/// Read numeric `>=` and `<` clauses only.
-fn lower_bound(required: &str) -> Option<[u32; 3]> {
-    let mut lower = None;
+/// The lowest version that the collector supports.
+const LOWEST: [u32; 3] = [3, 11, 0];
+
+/// Read numeric `>=` and `<` clauses only: the lower bound and the upper bound of the range.
+fn bounds(required: &str) -> Option<([u32; 3], Option<[u32; 3]>)> {
+    let (mut lower, mut upper) = (None, None::<[u32; 3]>);
     for clause in required.split(',').map(str::trim) {
         if let Some(value) = clause.strip_prefix(">=") {
             let found = version(value)?;
             lower = Some(lower.map_or(found, |old: [u32; 3]| old.max(found)));
         } else {
-            version(clause.strip_prefix('<')?)?;
+            let found = version(clause.strip_prefix('<')?)
+                .or_else(|| major_only(clause.strip_prefix('<')?))?;
+            upper = Some(upper.map_or(found, |old| old.min(found)));
         }
     }
-    lower
+    Some((lower?, upper))
+}
+
+/// The version that the requirement selects: its lower bound, or the lowest supported version
+/// inside the range when the lower bound is below it (`>=3.10` is read as 3.11). A range that ends
+/// at or below the lowest supported version selects its lower bound, which the caller refuses.
+fn supported_in(required: &str) -> Option<[u32; 3]> {
+    let (lower, upper) = bounds(required)?;
+    let reaches = upper.is_none_or(|end| LOWEST < end);
+    (lower < LOWEST && reaches)
+        .then_some(LOWEST)
+        .or(Some(lower))
+}
+
+/// The version below the supported ones that the requirement allows, when it is read as 3.11.
+pub(crate) fn clamped_from(required: &str) -> Option<[u32; 3]> {
+    let (lower, _) = bounds(required)?;
+    (lower < LOWEST && supported_in(required) == Some(LOWEST)).then_some(lower)
+}
+
+/// `4` in `<4`: the first version of that major.
+fn major_only(text: &str) -> Option<[u32; 3]> {
+    text.trim().parse().ok().map(|major| [major, 0, 0])
 }
 
 fn version(text: &str) -> Option<[u32; 3]> {

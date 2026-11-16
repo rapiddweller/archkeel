@@ -87,3 +87,23 @@ def test_python_target_defaults_when_no_requirement_exists(
     done = command(release_core, root, "--text")
     assert done.returncode == 0, done.stdout
     assert "Python 3.14" in done.stdout and "collector default" in done.stdout
+
+
+def test_a_range_below_3_11_that_reaches_it_is_read_as_3_11_and_says_so(
+    release_core: Path, tmp_path: Path
+) -> None:
+    """K14: `>=3.10` (pydantic) is not a refusal; 3.11 is the lowest supported version inside."""
+    root = target_project(tmp_path)
+    (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.10"\n')
+    done = command(release_core, root, "--text")
+    assert done.returncode == 0, done.stdout
+    assert "Python 3.11" in done.stdout and "Python 3.10 is not supported" in done.stdout
+    assert ">=3.10" in done.stdout
+
+
+def test_a_range_entirely_below_3_11_keeps_the_refusal(release_core: Path, tmp_path: Path) -> None:
+    root = target_project(tmp_path)
+    (root / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.9,<3.11"\n')
+    done = command(release_core, root, "--text")
+    assert done.returncode == 2, done.stdout
+    assert "unsupported" in done.stdout and "3.11" in done.stdout and "python =" in done.stdout
