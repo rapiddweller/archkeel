@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 //! One change between two contract revisions, and the two comparisons that every classifier
-//! shares (Python `ir/widening_change.py`).
+//! shares.
 
 use std::collections::BTreeSet;
 
@@ -55,7 +55,7 @@ pub enum ChangeKind {
 
 record!(
     pub(crate),
-    /// One change, with the subject, field and message of Python `WideningChange`.
+    /// One change, with its subject, field and message.
     ContractChange {
         /// Whether the change widens or narrows the contract.
         #[serde(skip)]
@@ -90,7 +90,7 @@ impl ContractChange {
         }
     }
 
-    /// The change inside the scope of a mounted contract (`_inside_declaration_widenings`).
+    /// The change inside the scope of a mounted contract.
     pub(crate) fn inside(mut self, scope: &str) -> Self {
         let scope = python_repr(scope);
         self.subject = format!("inside {scope}.{}", self.subject);
@@ -105,7 +105,7 @@ pub(crate) fn by_message(mut changes: Vec<ContractChange>) -> Vec<ContractChange
     changes
 }
 
-/// Python `set_widenings`: the entries that widen a set field, in sorted order.
+/// The entries that widen a set field, in sorted order.
 pub(crate) fn set_widenings<'a>(
     subject: &str,
     field: &str,
@@ -128,10 +128,10 @@ pub(crate) fn set_widenings<'a>(
         .collect()
 }
 
-/// The fields that no classifier compares: Python `_ALWAYS_NEUTRAL`.
+/// The fields that no classifier compares.
 const NEUTRAL: [&str; 4] = ["id", "kind", "rationale", "provenance"];
 
-/// Python `generic_field_widenings`: fail closed. Each field that is not neutral and not
+/// Fail closed. Each field that is not neutral and not
 /// `handled` widens when its value differs. The values are the canonical values of the fields;
 /// an absent field is `None`, as in Python.
 pub(crate) fn generic_widenings(

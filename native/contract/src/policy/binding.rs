@@ -2,8 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Bind an amendment to one `--against` comparison, as Python `_widening_failures`,
-//! `verify_amendment` and `_before_digest` (`check/validation/__init__.py`, `ir/amendment.py`) do.
+//! Bind an amendment to one `--against` comparison.
 //!
 //! An amendment covers a comparison when its four digests equal the digests of this comparison:
 //! the comparison digest of the old tree (or the digest of no contract at the old path), the
@@ -20,7 +19,7 @@ use crate::policy::change::{ChangeDirection, ChangeKind, ContractChange};
 use crate::policy::compare::{compare_trees, Comparison};
 use crate::policy::tree::ContractTree;
 
-/// The failure of a stale amendment where no change widened (Python `_widening_failures`).
+/// The failure of a stale amendment where no change widened.
 const NOT_BOUND: &str = "amendment does not bind this contract and baseline comparison";
 
 /// The old side of `--against`: an assembled tree, or no contract at `path` at the revision
@@ -114,12 +113,12 @@ impl std::error::Error for BindError {}
 pub enum GateStatus {
     /// No change widened and no amendment was given.
     Unchanged,
-    /// The amendment binds this comparison (Python `AmendmentStatus.VALID`). It covers each
+    /// The amendment binds this comparison. It covers each
     /// widening.
     Covered,
     /// A change widened and no amendment was given.
     Unamended,
-    /// The amendment does not bind this comparison (Python `AmendmentStatus.STALE`).
+    /// The amendment does not bind this comparison.
     Stale,
 }
 
@@ -156,7 +155,7 @@ record!(
     }
 );
 
-/// The digest that an amendment binds for no contract at `path` (Python `absent_contract_digest`):
+/// The digest that an amendment binds for no contract at `path`:
 /// no canonical contract begins with NUL.
 pub(crate) fn absent_contract_digest(path: &str) -> String {
     let mut bytes = b"\0no contract at ".to_vec();
@@ -165,7 +164,7 @@ pub(crate) fn absent_contract_digest(path: &str) -> String {
 }
 
 /// The comparison when the old revision holds no contract at `path`: the whole contract is one
-/// widening (Python `_contract_widening_findings` with `_Introduced`). No narrowing is named.
+/// widening. No narrowing is named.
 fn compare_introduced(path: &str, against: &str) -> Comparison {
     let message = format!("contract introduced: {path} does not exist at {against}");
     let subject = format!("contract {path}");
@@ -254,7 +253,7 @@ pub fn bind(
 }
 
 impl Binding {
-    /// Python `verify_amendment` for schema 2.0.0: the four digests are equal.
+    /// Whether all four digests of the schema 2.0.0 amendment match.
     fn binds(&self, amendment: &Amendment) -> bool {
         let (before_baseline, after_baseline) = match self.baselines.pair() {
             Some((before, after)) => (Some(before), Some(after)),
@@ -266,7 +265,7 @@ impl Binding {
             && amendment.after_baseline_digest().as_ref() == after_baseline
     }
 
-    /// Decide the gate for an amendment, or for none (Python `_widening_failures`).
+    /// Decide the gate for an amendment, or for none.
     pub fn check(&self, amendment: Option<&Amendment>) -> Verdict {
         let messages: Vec<String> = self
             .comparison
@@ -285,8 +284,8 @@ impl Binding {
         Verdict { status, failures }
     }
 
-    /// The amendment that covers this comparison (Python `_artifact_files`). Rust refuses an
-    /// empty or blank `decided_by` or `rationale`; Python writes it and then cannot read it.
+    /// The amendment that covers this comparison. Refuse an empty or blank `decided_by` or
+    /// `rationale`.
     pub fn amend(&self, decided_by: &str, rationale: &str) -> Result<Amendment, AmendmentError> {
         let (before_baseline, after_baseline) = match self.baselines.pair() {
             Some((before, after)) => (Some(before.clone()), Some(after.clone())),

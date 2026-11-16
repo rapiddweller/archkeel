@@ -41,7 +41,7 @@ fn stable(text: &str, minor: u32) -> Vec<String> {
 
 /// Each source with the `stable_direct_module_bindings` of the Python collector after
 /// `collect_imports` on CPython 3.12. The first cases are `READS` of
-/// `tests/test_loader_exposure_scope.py` behind `import importlib`.
+/// the deleted `tests/test_loader_exposure_scope.py` behind `import importlib`.
 const CASES: &[(&str, &[&str])] = &[
     ("import importlib\nset(globals())\n", &["importlib"]),
     ("import importlib\nfrozenset(globals())\n", &["importlib"]),

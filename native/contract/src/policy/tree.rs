@@ -2,8 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Assemble the tree of a root contract and its inside contracts, as Python
-//! `load_inside_contract_tree` (`ir/codec_inside.py`) does with a reader of Git blobs: the identity
+//! Assemble the tree of a root contract and its inside contracts from Git blobs: the identity
 //! of a mount is its normalized reference. The walk is depth first in the order of the components.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -234,7 +233,7 @@ fn finish(root: Contract, mounts: Vec<InsideMount>, paths: BTreeSet<String>) -> 
 }
 
 impl Walk<'_> {
-    /// Python `_load_inside_children`, with an explicit stack in place of the recursion: depth
+    /// Load inside children with an explicit stack: depth
     /// first in the order of the components, a mount before its own mounts.
     fn children(&mut self, root: &Contract, root_identity: &str) {
         let mut active = BTreeSet::from([root_identity.to_owned()]);
@@ -280,7 +279,7 @@ impl Walk<'_> {
         }
     }
 
-    /// Python `_inside_mount`: the checks of the reference before it is read.
+    /// Check the reference before it is read.
     fn mount(
         &mut self,
         owner_id: &str,
@@ -318,7 +317,7 @@ impl Walk<'_> {
         self.read(owner_id, parent, place, active)
     }
 
-    /// Python `_read_inside_mount`: read, parse, scope and record one inside contract.
+    /// Read, parse, scope and record one inside contract.
     fn read(
         &mut self,
         owner_id: &str,
@@ -384,7 +383,7 @@ impl Walk<'_> {
         })
     }
 
-    /// Python `_record_inside_policy`: an issue for root-only declarations; the mount stays.
+    /// Record an issue for root-only declarations; the mount stays.
     fn record_policy(&mut self, place: &Place, contract: &Contract) {
         let unsupported = unsupported_fields(contract);
         if !unsupported.is_empty() {
@@ -398,7 +397,7 @@ impl Walk<'_> {
         self.paths.extend(provenance_paths(contract));
     }
 
-    /// Python `_duplicate_module_target_issues`: one module target path in one contract only. A
+    /// One module target path may occur in one contract only. A
     /// path that the root declares two times is a parse error of the root, not an issue here.
     fn module_targets(&mut self, root_path: &str, root: &Contract) {
         let mut owners: BTreeMap<String, String> = BTreeMap::new();

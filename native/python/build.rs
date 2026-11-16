@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 //! Record the provenance of the binary when it is built (`archkeel-build-support`), and check the
-//! identifier ranges of `src/identifier.txt` that `src/identifier.rs` reads at run time.
+//! identifier ranges of `src/identifier.txt` that `native/python/src/identifier.rs` reads at run time.
 
 use std::collections::BTreeMap;
 

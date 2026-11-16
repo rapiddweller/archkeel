@@ -2,8 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The widenings of rules (Python `ir/widening_rules.py`) and the rule part of
-//! `contract_narrowing_changes`. A kind without a classifier fails closed: any difference of the
+//! The widenings and narrowings of rules. A kind without a classifier fails closed: any difference of the
 //! whole rule widens.
 
 use std::collections::BTreeMap;
@@ -17,7 +16,7 @@ use crate::policy::widen_rule_parts::{
 };
 use crate::rule::{head_of, kind_of, Rule};
 
-/// Python `_matched_rule_widenings` for two rules of one kind.
+/// Widenings between two rules of one kind.
 #[expect(
     clippy::too_many_lines,
     reason = "one arm for each of the 22 rule kinds, as in Python"
@@ -255,7 +254,7 @@ fn not_enumerated(subject: &str, before: &Rule, after: &Rule) -> Vec<ContractCha
     )]
 }
 
-/// Whether Python `_matched_rule_widenings` has a classifier for the kind. The match names each
+/// Whether the rule kind has a classifier. The match names each
 /// kind, so a new kind does not compile without a decision.
 fn classified(kind: RuleKind) -> bool {
     use RuleKind as K;
@@ -285,7 +284,7 @@ fn classified(kind: RuleKind) -> bool {
     }
 }
 
-/// Python `_rule_presence_widening`: a permission added or a restriction removed widens.
+/// A permission added or a restriction removed widens.
 fn presence(rule: &Rule, added: bool) -> Option<ContractChange> {
     let permission = kind_of(rule) == RuleKind::AllowedDependency;
     if permission != added {
@@ -309,7 +308,7 @@ fn by_id(rules: &[Rule]) -> BTreeMap<&str, &Rule> {
         .collect()
 }
 
-/// Python `rules_widenings`: rules matched by ID.
+/// Rule widenings, matching rules by ID.
 pub(crate) fn rules_widenings(before: &[Rule], after: &[Rule]) -> Vec<ContractChange> {
     let (old, new) = (by_id(before), by_id(after));
     let mut changes: Vec<ContractChange> = new
@@ -348,7 +347,7 @@ pub(crate) fn rules_widenings(before: &[Rule], after: &[Rule]) -> Vec<ContractCh
     changes
 }
 
-/// The rule part of Python `contract_narrowing_changes`: a restriction added, a permission
+/// Rule narrowings: a restriction added, a permission
 /// removed.
 pub(crate) fn rules_narrowings(before: &[Rule], after: &[Rule]) -> Vec<ContractChange> {
     let (old, new) = (by_id(before), by_id(after));

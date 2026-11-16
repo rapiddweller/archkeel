@@ -15,7 +15,7 @@ use std::fmt;
 pub enum ErrorKind {
     /// The bytes are not a valid contract (Python `ValueError`).
     Invalid,
-    /// The schema version is not a known contract version (Python `ContractVersionError`).
+    /// The schema version is not a known contract version (the deleted Python `ContractVersionError`).
     Version,
     /// A component label repeats or a `requires` entry names no label (Python
     /// `ContractInputError`).

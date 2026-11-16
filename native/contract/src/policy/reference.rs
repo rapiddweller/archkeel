@@ -2,8 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The path rules of an inside reference, equal to Python `contract_relative_path`,
-//! `_safe_inside_reference` and `_contract_identity` (`ir/codec_inside.py`). They read no file.
+//! The path rules of an inside reference. They read no file.
 
 use crate::policy::printable::NOT_PRINTABLE;
 
@@ -16,13 +15,12 @@ fn parts(value: &str) -> Vec<&str> {
         .collect()
 }
 
-/// Python `contract_relative_path(value) is not None`: not absolute, no backslash, no `..` part.
+/// A safe reference is not absolute and has no backslash or `..` part.
 fn relative(value: &str) -> bool {
     !value.starts_with('/') && !value.contains('\\') && !value.split('/').any(|part| part == "..")
 }
 
-/// The repository path that a reference names, or `None` when it names no file. Python
-/// `_contract_identity`.
+/// The repository path that a reference names, or `None` when it names no file.
 pub(crate) fn identity(value: &str) -> Option<String> {
     let parts = parts(value);
     (relative(value) && !value.contains('\0') && !parts.is_empty()).then(|| parts.join("/"))

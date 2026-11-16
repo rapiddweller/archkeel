@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 //! `--dump` (feature `dump`, test only, as AD-323 requires): run the discovery and the parse on a
-//! snapshot and print the sections as one JSON object, for `tools/dart_discovery_parity.py`.
+//! snapshot and print the sections as one JSON object, for the deleted parity script `tools/dart_discovery_parity.py`.
 //! The time covers the discovery, the parse and the sections, not the start of the process and
 //! not the JSON output.
 //!
