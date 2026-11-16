@@ -44,7 +44,14 @@ pub(super) fn collect(
     namespace: &str,
     evidence: &mut EvidenceMap,
 ) -> (Vec<Record<ImportFact>>, Vec<Aliases>) {
-    let found = collect_all(modules, binders, namespace, evidence, &HashSet::new());
+    let none = super::lazy_cover::Sources::new();
+    let found = collect_all(
+        modules,
+        binders,
+        namespace,
+        evidence,
+        (&HashSet::new(), &none),
+    );
     (found.records, found.aliases)
 }
 
@@ -60,13 +67,15 @@ pub(super) struct Collected {
     pub sole: HashSet<String>,
 }
 
-/// `collect`, with the ambiguous records.
+/// `collect`, with the ambiguous records. `written` holds the escaped modules; `sources` the
+/// proven keys of the lazy modules (AD-654): a key that gives the submodule of its name gives no
+/// other value, so the import of it is not ambiguous.
 pub(super) fn collect_all(
     modules: &[Module],
     binders: &[Binders],
     namespace: &str,
     evidence: &mut EvidenceMap,
-    written: &HashSet<String>,
+    (written, sources): (&HashSet<String>, &super::lazy_cover::Sources),
 ) -> Collected {
     let names: HashSet<&str> = modules.iter().map(|module| module.name.as_str()).collect();
     // AD-450: a dotted prefix of a module is a package directory, also without `__init__.py`.
@@ -78,7 +87,18 @@ pub(super) fn collect_all(
     let open: HashMap<&str, HashSet<String>> = modules
         .iter()
         .filter(|module| module.is_init() && open_body(module))
-        .map(|module| (module.name.as_str(), own_submodules(module)))
+        .map(|module| {
+            let mut own = own_submodules(module);
+            let keys = sources
+                .get(&module.name)
+                .into_iter()
+                .flat_map(|keys| keys.values());
+            own.extend(keys.filter_map(|source| match source {
+                super::lazy_cover::Source::Module(target) => Some(target.clone()),
+                super::lazy_cover::Source::Attr(..) => None,
+            }));
+            (module.name.as_str(), own)
+        })
         .collect();
     let mut records = Vec::new();
     let mut aliases = Vec::with_capacity(modules.len());

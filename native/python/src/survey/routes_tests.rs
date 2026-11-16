@@ -16,8 +16,8 @@ fn route(files: &[(&str, &str)], source: &str, symbol: &str) -> Option<Vec<Strin
         &mut found.imports,
         &found.files,
         &found.opaque_surface,
-        &found.sole_binders,
-        &found.ambiguous,
+        (&found.sole_binders, &found.ambiguous),
+        &found.sources,
     );
     found.imports.iter().find_map(|record| {
         let data = record.data.data();

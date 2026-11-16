@@ -64,8 +64,8 @@ pub(crate) fn typed(
         &mut survey.imports,
         &survey.files,
         &survey.opaque_surface,
-        &survey.sole_binders,
-        &survey.ambiguous,
+        (&survey.sole_binders, &survey.ambiguous),
+        &survey.sources,
     );
     let (head, records) = parts(request, survey, build, source)?;
     assemble(reply_version(request.protocol_version), head, |writer| {
