@@ -18,7 +18,7 @@ use crate::crates::{Crate, Workspace};
 use crate::derive_imports::Local;
 use crate::module_edges::local_target;
 use crate::modules::Index;
-use crate::names::{published, with_name, ImportName};
+use crate::names::{glob_of, published, with_name};
 use crate::resolve::{classify, linked, Found, Named};
 use crate::scan::Reference;
 use crate::tree::Module;
@@ -204,7 +204,7 @@ impl Builder {
                     (
                         target,
                         module,
-                        Some(if glob { ImportName::glob() } else { name }),
+                        Some(if glob { glob_of(name) } else { name }),
                     )
                 }
                 None => (

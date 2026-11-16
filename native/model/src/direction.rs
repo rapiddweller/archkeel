@@ -55,18 +55,38 @@ pub fn forbidden<'m>(model: &'m Model, rule: &'m ForbiddenDependency) -> Vec<(&'
             // AD-434: named type publication does not lift dependency symbol limits.
             let judged = match rule.target_symbol() {
                 None => Judged::Fail,
-                Some(symbol) if import.symbol() == Some(symbol.as_str()) => Judged::Fail,
-                Some(_)
-                    if import.symbols_known()
-                        && (!import.under_type_checking() || import.symbol().is_none()) =>
-                {
-                    Judged::Pass
-                }
-                Some(_) => Judged::Undecided,
+                Some(symbol) => match names_symbol(import, symbol, model.graph().renamed(symbol)) {
+                    Some(true) => Judged::Fail,
+                    None => Judged::Undecided,
+                    Some(false)
+                        if import.symbols_known()
+                            && (!import.under_type_checking() || import.symbol().is_none()) =>
+                    {
+                        Judged::Pass
+                    }
+                    Some(false) => Judged::Undecided,
+                },
             };
             (import, judged)
         })
         .collect()
+}
+
+/// Whether an import names the item `symbol` (AD-668): by its own name, or by a re-export whose
+/// route passes that name (`pub use vocab::Profile as Lang`). `None` when the import may name it
+/// and the facts do not tell: a glob (`*`) takes names that the scan does not list, and a route
+/// that the collector does not prove to its end may reach a later hop of that name. Such a hop
+/// needs a record that binds `symbol` under another name (`renamed`), so without one the name of
+/// the import is the name of its item.
+fn names_symbol(import: &Import, symbol: &str, renamed: bool) -> Option<bool> {
+    let hop_named = |hop: &String| hop.rsplit_once('.').is_some_and(|(_, name)| name == symbol);
+    match import.symbol() {
+        Some(name) if name == symbol => Some(true),
+        _ if import.reexport_chain().iter().any(hop_named) => Some(true),
+        Some("*") => None,
+        Some(_) if renamed && !import.route_complete() => None,
+        _ => Some(false),
+    }
 }
 
 /// Each import from one member of a `sibling_isolation` rule to another member, with the member
