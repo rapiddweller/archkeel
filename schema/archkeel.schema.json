@@ -42,6 +42,11 @@
           "default": "python",
           "description": "Source language. Absent means python (AD-97)."
         },
+        "python": {
+          "type": "string",
+          "pattern": "^3\\.(11|12|13|14)$",
+          "description": "Python target version. The collector supports Python 3.11 through 3.14."
+        },
         "contract": {
           "$ref": "#/$defs/relativePath",
           "not": {

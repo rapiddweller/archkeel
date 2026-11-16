@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TABLE = ROOT / "native" / "store" / "src" / "standard_library.txt"
+TABLE = ROOT / "native" / "facts" / "src" / "standard_library.txt"
 PYTHON = "archkeel-python-analyzer"
 
 

@@ -29,6 +29,7 @@ pub fn schema() -> Value {
     generator.subschema_for::<Record<GapFact>>();
     generator.subschema_for::<Kind>();
     generator.subschema_for::<ReasonCode>();
+    generator.subschema_for::<crate::envelope::Runtime>();
     let definitions = generator.take_definitions(true);
     json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",

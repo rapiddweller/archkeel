@@ -7,7 +7,7 @@
 
 use std::fs;
 
-use archkeel_facts::envelope::Reply;
+use archkeel_facts::envelope::{Profile, Reply};
 use archkeel_snapshot::test_tree::Tree;
 use serde_json::json;
 
@@ -45,15 +45,9 @@ fn project() -> Tree {
 }
 
 #[test]
-fn the_request_names_the_grammar_and_only_names_standard_in_each_minor() {
-    let resolver = resolver();
-    assert_eq!(resolver["interpreter"]["version"], GRAMMAR);
-    let names = resolver["interpreter"]["stdlib_module_names"]
-        .as_array()
-        .unwrap();
-    assert!(names.contains(&json!("os")));
-    assert!(!names.contains(&json!("distutils")));
-    assert!(!names.contains(&json!("_interpreters")));
+fn the_request_leaves_the_target_to_the_collector() {
+    let request = resolver();
+    assert_eq!(request, json!({"language": "python", "phase": "imports"}));
 }
 
 #[test]
@@ -61,6 +55,11 @@ fn a_reply_of_the_snapshot_is_bound_to_it() {
     let tree = project();
     let root = root(&tree);
     let reply = reply(&tree);
+    assert_eq!(reply.facts.runtime.version, "3.11.0");
+    assert_eq!(
+        reply.facts.runtime.target_source,
+        Some(archkeel_facts::envelope::TargetSource::Requirement)
+    );
     assert!(reply.facts.inputs.len() >= 4, "{:?}", reply.facts.inputs);
     assert_eq!(bound(&root, &reply), Ok(()));
 }

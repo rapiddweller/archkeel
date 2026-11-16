@@ -18,7 +18,7 @@
 
 use archkeel_facts::envelope::Profile;
 
-const TABLE: &str = include_str!("standard_library.txt");
+const TABLE: &str = archkeel_facts::STANDARD_LIBRARY;
 
 /// The SDK libraries that a contract can forbid by name although no scan lists them as a module
 /// (`dart.io`). They are the `sdk_libraries` of the Dart profile of release 4.0.1 (`ir/profiles.py`),
@@ -95,6 +95,27 @@ pub fn standard_library_everywhere(profile: Profile) -> Vec<&'static str> {
     names
 }
 
+/// The pinned names of the selected runtime version, or none when its table is unavailable.
+pub fn standard_library_at(profile: Profile, version: &str) -> Option<Vec<&'static str>> {
+    if profile != Profile::Python {
+        return Some(standard_library_everywhere(profile));
+    }
+    let mut parts = version.split('.');
+    let (Some("3"), Some(minor)) = (parts.next(), parts.next()) else {
+        return None;
+    };
+    if !matches!(minor, "11" | "12" | "13" | "14") {
+        return None;
+    }
+    let owner = format!("{}@3.{minor}", profile.as_str());
+    let names: Vec<_> = TABLE
+        .lines()
+        .filter_map(|line| line.split_once(' '))
+        .filter_map(|(key, name)| (key == owner).then_some(name))
+        .collect();
+    (!names.is_empty()).then_some(names)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -134,5 +155,17 @@ mod tests {
             );
         }
         assert_eq!(standard_library(Profile::Rust).len(), 3);
+    }
+
+    #[test]
+    fn each_python_target_uses_only_its_own_table() {
+        let at_311 = standard_library_at(Profile::Python, "3.11.0").unwrap();
+        let at_312 = standard_library_at(Profile::Python, "3.12.0").unwrap();
+        let at_313 = standard_library_at(Profile::Python, "3.13.0").unwrap();
+        assert!(at_311.contains(&"distutils"));
+        assert!(!at_312.contains(&"distutils"));
+        assert!(!at_312.contains(&"_interpreters"));
+        assert!(at_313.contains(&"_interpreters"));
+        assert!(standard_library_at(Profile::Python, "3.10.0").is_none());
     }
 }

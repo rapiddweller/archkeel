@@ -40,6 +40,11 @@ pub enum TargetMarks {
 }
 
 impl Profile {
+    /// Whether the linked collector selects a target even when the project declares no requirement.
+    pub fn selects_target_without_requirement(self) -> bool {
+        matches!(self, Profile::Python)
+    }
+
     /// How the rules read the import targets of this profile.
     pub fn target_marks(self) -> TargetMarks {
         match self {

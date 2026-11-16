@@ -5,12 +5,98 @@
 //! The Python requirement of the scanned project, as `runtime.python_requirement` reads it:
 //! `project.requires-python`, else the `python` dependency of Poetry with its caret written out.
 
-use archkeel_facts::envelope::RequirementState;
+use archkeel_facts::envelope::{RequirementState, TargetSource};
+use archkeel_facts::request::{Interpreter, PythonSettings};
 use archkeel_snapshot::Snapshot;
 use toml::value::{Datetime, Offset};
 use toml::{Table, Value};
 
 use crate::inputs::PYPROJECT;
+
+/// Select the grammar and standard library from the snapshot and the configured target.
+pub(crate) fn target(
+    snapshot: &mut Snapshot,
+    settings: &PythonSettings,
+) -> Result<(Interpreter, TargetSource), String> {
+    if let Some(interpreter) = &settings.interpreter {
+        return Ok((interpreter.clone(), TargetSource::Legacy));
+    }
+    let (required, state) = requirement(snapshot);
+    let (selected, source) = if let Some(value) = &settings.python {
+        (
+            (value.split('.').count() == 2)
+                .then(|| version(value))
+                .flatten(),
+            TargetSource::Config,
+        )
+    } else if let Some(required) = required {
+        (lower_bound(&required), TargetSource::Requirement)
+    } else if matches!(
+        state,
+        RequirementState::MetadataMissing | RequirementState::RequirementMissing
+    ) {
+        (Some([3, 14, 0]), TargetSource::Default)
+    } else {
+        return Err(
+            "cannot read the Python requirement; set python = \"3.13\" in [scan]".to_owned(),
+        );
+    };
+    let Some([3, minor @ 11..=14, patch]) = selected else {
+        let wanted = selected.map_or_else(
+            || {
+                settings
+                    .python
+                    .as_deref()
+                    .unwrap_or("an unknown version")
+                    .to_owned()
+            },
+            |[major, minor, patch]| format!("{major}.{minor}.{patch}"),
+        );
+        return Err(format!("Python target {wanted} is unsupported or unread; the collector supports Python 3.11–3.14; set python = \"3.13\" in [scan]"));
+    };
+    let owner = format!("archkeel-python-analyzer@3.{minor}");
+    let stdlib_module_names = archkeel_facts::STANDARD_LIBRARY
+        .lines()
+        .filter_map(|line| line.split_once(' '))
+        .filter_map(|(key, name)| (key == owner).then_some(name.to_owned()))
+        .collect::<Vec<_>>();
+    if stdlib_module_names.is_empty() {
+        return Err(format!("Python 3.{minor} has no standard-library table"));
+    }
+    Ok((
+        Interpreter {
+            version: format!("3.{minor}.{patch}").try_into()?,
+            stdlib_module_names,
+            builtin_module_names: Vec::new(),
+        },
+        source,
+    ))
+}
+
+/// Read numeric `>=` and `<` clauses only.
+fn lower_bound(required: &str) -> Option<[u32; 3]> {
+    let mut lower = None;
+    for clause in required.split(',').map(str::trim) {
+        if let Some(value) = clause.strip_prefix(">=") {
+            let found = version(value)?;
+            lower = Some(lower.map_or(found, |old: [u32; 3]| old.max(found)));
+        } else {
+            version(clause.strip_prefix('<')?)?;
+        }
+    }
+    lower
+}
+
+fn version(text: &str) -> Option<[u32; 3]> {
+    let mut parts = text.trim().split('.');
+    let major = parts.next()?.parse().ok()?;
+    let minor = parts.next()?.parse().ok()?;
+    let patch = parts.next().map(str::parse).transpose().ok()?.unwrap_or(0);
+    if parts.next().is_some() {
+        return None;
+    }
+    Some([major, minor, patch])
+}
 
 /// The requirement and its state.
 pub(crate) fn requirement(snapshot: &mut Snapshot) -> (Option<String>, RequirementState) {

@@ -136,7 +136,10 @@ pub fn scan(identity: &Identity<'_>, contract_budget: u64) -> Result<Scanned, Re
         git_head: Some(&head),
         dirty: Some(dirty),
     };
-    let request = request(&derived, &config);
+    let mut request = request(&derived, &config);
+    if let Some(target) = &config.python {
+        request["resolver"]["python"] = json!(target);
+    }
     let bytes =
         serde_json::to_vec(&request).map_err(|error| refused("request", error.to_string()))?;
     let reply = run::collect(config.profile, &bytes)?;

@@ -15,7 +15,7 @@ use toml::{Table, Value};
 
 /// The fields that `[scan]` must have and may have (`_REQUIRED_SCAN`, `_OPTIONAL_SCAN`).
 const REQUIRED: [&str; 3] = ["roots", "namespace", "contract"];
-const OPTIONAL: [&str; 7] = [
+const OPTIONAL: [&str; 8] = [
     "language",
     "tsconfig",
     "collector_argv",
@@ -23,6 +23,7 @@ const OPTIONAL: [&str; 7] = [
     "collector_timeout_seconds",
     "bundler",
     "exclude_test_sources",
+    "python",
 ];
 /// The characters that `_path` refuses: NUL, backslash, colon and the glob tokens.
 const UNSAFE: [char; 10] = ['\0', '\\', ':', '*', '?', '[', ']', '{', '}', '!'];
@@ -50,6 +51,7 @@ pub(crate) struct Config {
     pub tsconfig: String,
     pub bundler: bool,
     pub exclude_test_sources: bool,
+    pub python: Option<String>,
 }
 
 fn invalid(text: &str) -> Refused {
@@ -72,10 +74,19 @@ pub(crate) fn parse(payload: &[u8], name: &str) -> Result<Config, Refused> {
         return Err(invalid(
             "[scan] requires roots, namespace, and contract; language, tsconfig, \
              collector_argv, collector_output_limit_bytes, collector_timeout_seconds, \
-             bundler and exclude_test_sources are optional",
+             bundler, exclude_test_sources and python are optional",
         ));
     }
     let language = language(scan)?;
+    let python = match scan.get("python") {
+        None => None,
+        Some(Value::String(value)) if language == "python" => Some(value.clone()),
+        Some(_) => {
+            return Err(invalid(
+                "scan.python must be a Python target version string",
+            ))
+        }
+    };
     let tsconfig = match scan.get("tsconfig") {
         None => "tsconfig.json".to_owned(),
         Some(_) if language != "typescript" => {
@@ -142,6 +153,7 @@ pub(crate) fn parse(payload: &[u8], name: &str) -> Result<Config, Refused> {
         tsconfig,
         bundler,
         exclude_test_sources,
+        python,
     })
 }
 

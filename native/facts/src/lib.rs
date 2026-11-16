@@ -53,6 +53,8 @@ pub mod vocab;
 mod vocab_constructs;
 
 pub use record::{FactData, Record};
+/// The pinned standard-library tables shared by collectors and the store.
+pub const STANDARD_LIBRARY: &str = include_str!("standard_library.txt");
 pub use sections::{
     BindingFact, CallFact, ConstructFact, GapFact, ImportFact, IntoSection, ReferenceFact, Section,
     SymbolFact,
