@@ -44,6 +44,7 @@ fn edge(module: &str, symbol: Option<&str>, level: i64) -> Outcome {
         lexical: module.to_owned(),
         symbol: symbol.map(str::to_owned),
         level,
+        member_of: None,
     })
 }
 
@@ -361,6 +362,7 @@ fn a_name_that_the_file_declares_hides_the_alias_or_is_unknown() {
             lexical: "ns.app.b.me.a".to_owned(),
             symbol: Some("f".to_owned()),
             level: 1,
+            member_of: None,
         })
     );
 }

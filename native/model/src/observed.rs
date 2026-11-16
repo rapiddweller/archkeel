@@ -84,6 +84,9 @@ pub(crate) struct Observed {
     pub(crate) symbol_sites: bool,
     /// The collector of the profile writes the shape of each written signature type (AD-550).
     pub(crate) type_shapes: bool,
+    /// The collector of the profile writes each use through a whole-module import as a record
+    /// of its own, so such an import binds no name (AD-604).
+    pub(crate) namespace_uses: bool,
     /// Whether the host drops an allowed pair gap of the profile (slice S7).
     pub(crate) pair_gap_drop: PairGapDrop,
     /// The host can accept a dependency scope proof from the runtime of the reply (AD-418).
@@ -173,6 +176,7 @@ pub(crate) fn observed(facts: &Facts) -> Observed {
         symbol_facts: facts.profile.symbol_facts(),
         symbol_sites: facts.profile.symbol_sites(),
         type_shapes: facts.profile.type_shapes(),
+        namespace_uses: facts.profile.namespace_uses_recorded(),
         pair_gap_drop: facts.profile.pair_gap_drop(),
         scope_receipt: facts.runtime.carries_scope_proof(),
         owned_files: facts

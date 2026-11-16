@@ -9,6 +9,7 @@ use std::path::Path;
 
 use super::*;
 use crate::tests::{commit, copy, identity};
+use archkeel_facts::envelope::LimitSupport;
 
 pub(super) fn repository() -> std::path::PathBuf {
     let root = crate::repository::tests::scratch("rust");
@@ -42,8 +43,16 @@ fn equal(request: &[u8]) {
         .unwrap();
     let binary = archkeel_store::ingest_reply(&wire, 1 << 30).unwrap();
     let linked = run::collect(Profile::Rust, request).unwrap();
+    // AD-604: only the linked reply states its routes (as the Python survey of AD-504); each
+    // record and every other fact of both doors is the same.
+    let mut stated = linked.reply().clone();
+    let limits = stated.facts.profile_limits.take().unwrap();
+    assert_eq!(limits.interface_boundary, LimitSupport::Supported);
+    assert_eq!(limits.dependency_symbols, LimitSupport::Supported);
+    let features = &mut stated.facts.capabilities.resolution_features;
+    assert_eq!(features.pop().as_deref(), Some("rust-item-routes-v1"));
     assert_eq!(
-        serde_json::to_vec(linked.reply()).unwrap(),
+        serde_json::to_vec(&stated).unwrap(),
         serde_json::to_vec(binary.reply()).unwrap(),
         "both store doors must keep byte-equal canonical facts"
     );

@@ -18,6 +18,7 @@ use crate::builder::{import_record, Builder};
 use crate::crates::Root;
 use crate::definitions::MethodCall;
 use crate::modules::{Edge, Index, Outcome};
+use crate::routes::{route, Route};
 use crate::scan::{MacroCall, MacroDef, Reference, Site, Via};
 use crate::tree::Module;
 
@@ -236,6 +237,7 @@ impl Builder {
             lexical: owner.module.clone(),
             symbol: Some(name.to_owned()),
             level: 1,
+            member_of: None,
         };
         self.module_import(index, module, &reference, &edge);
     }
@@ -288,10 +290,71 @@ impl Builder {
             runtime_file: Some(target_rel.to_owned()),
             declaration_file: None,
         });
-        self.imports
-            .push(module_record(module, reference, edge, &identity, evidence));
+        let named = named(index, edge, &reference.via);
+        let record = module_record(module, reference, edge, &identity, evidence);
+        self.imports.push(with_name(record, named));
         self.ended += 1;
     }
+}
+
+/// What an import names (AD-604): the item, the type of a member, a glob (`*`) or a whole module
+/// (`None`), with the publication route of the item.
+pub(crate) struct ImportName {
+    symbol: Option<String>,
+    route: Route,
+}
+
+impl ImportName {
+    /// A glob names every name of its module, and the scan does not know which one a use takes.
+    pub(crate) fn glob() -> Self {
+        ImportName {
+            symbol: Some("*".to_owned()),
+            route: Route::none(),
+        }
+    }
+}
+
+fn named(index: &Index<'_>, edge: &Edge, via: &Via) -> ImportName {
+    if matches!(via, Via::Glob { .. }) {
+        return ImportName::glob();
+    }
+    // A member of an `impl` block: the hop is the type in the module of the block.
+    if let Some(ty) = &edge.member_of {
+        let hop = (edge.lexical == edge.module).then(|| format!("{}.{ty}", edge.module));
+        return ImportName {
+            symbol: Some(ty.clone()),
+            route: Route {
+                hops: hop.into_iter().collect(),
+                complete: true,
+            },
+        };
+    }
+    item(index, &edge.lexical, edge.symbol.as_deref())
+}
+
+/// The item that a path names after the module `lexical`, and its route; `None` for a module.
+pub(crate) fn item(index: &Index<'_>, lexical: &str, symbol: Option<&str>) -> ImportName {
+    match symbol.filter(|name| !name.is_empty()) {
+        Some(name) => ImportName {
+            symbol: Some(name.to_owned()),
+            route: route(index, lexical, name),
+        },
+        None => ImportName {
+            symbol: None,
+            route: Route::none(),
+        },
+    }
+}
+
+/// The record with the name that it imports: the collector reads the name of each import.
+pub(crate) fn with_name(mut record: Record<ImportFact>, named: ImportName) -> Record<ImportFact> {
+    let data = record.data.data_mut();
+    data.symbol = named.symbol;
+    data.symbols_known = true;
+    let Route { hops, complete } = named.route;
+    data.route_complete = (!hops.is_empty() && !complete).then_some(false);
+    data.reexport_chain = (!hops.is_empty()).then_some(hops);
+    record
 }
 
 fn module_record(
@@ -335,18 +398,29 @@ fn module_record(
 
 /// The target of a path into another crate of the workspace: the deepest module that the path
 /// names below the root of that crate. Without an index (a declared dependency) it is the root.
+/// The name is the item after that module and its route (AD-604); a declared dependency names the
+/// whole crate.
 pub(crate) fn local_target(
     index: Option<&Index<'_>>,
     root: &Root,
     reference: &Reference,
     import_id: FactId,
-) -> (Target, String) {
+) -> (Target, String, ImportName) {
     let rest = reference.names.get(1..).unwrap_or(&[]);
     let deepest = index.and_then(|index| {
-        let module = index.deepest(&root.module, rest);
-        index.rel(&module).map(|rel| (module, rel.to_owned()))
+        let Outcome::Edge(edge) = index.reach(&root.module, rest) else {
+            return None;
+        };
+        let rel = index.rel(&edge.module)?.to_owned();
+        let named = item(index, &edge.lexical, edge.symbol.as_deref());
+        Some((edge.module, rel, named))
     });
-    let (module, file) = deepest.unwrap_or_else(|| (root.module.clone(), root.rel.clone()));
+    let whole = ImportName {
+        symbol: None,
+        route: Route::none(),
+    };
+    let (module, file, named) =
+        deepest.unwrap_or_else(|| (root.module.clone(), root.rel.clone(), whole));
     let target = Target::Local {
         import_id,
         module: ModuleName::new(module.as_str()),
@@ -354,7 +428,7 @@ pub(crate) fn local_target(
         runtime_file: Some(file),
         declaration_file: None,
     };
-    (target, module)
+    (target, module, named)
 }
 
 #[cfg(test)]

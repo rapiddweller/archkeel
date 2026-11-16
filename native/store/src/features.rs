@@ -8,3 +8,7 @@
 /// The feature of the Python survey that writes the symbol and the route of each named import
 /// (AD-504).
 pub(crate) const ROUTES_FEATURE: &str = "import-routes-v1";
+
+/// The feature of the Rust collector that writes the item and the publication route of each
+/// import (AD-604).
+pub(crate) const RUST_ROUTES_FEATURE: &str = "rust-item-routes-v1";

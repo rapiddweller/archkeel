@@ -39,6 +39,7 @@ pub fn interface_crossings<'m>(model: &'m Model, rule: &InterfaceBoundary) -> Ve
             if !model.selects(import.source_module())
                 || rejected.contains(import.id())
                 || (import.under_type_checking() && !rule.include_type_checking())
+                || namespace(model, import)
             {
                 return None;
             }
@@ -63,6 +64,12 @@ pub fn interface_crossings<'m>(model: &'m Model, rule: &InterfaceBoundary) -> Ve
             })
         })
         .collect()
+}
+
+/// AD-604: an import of a whole module binds no name when the collector writes each use through
+/// it as a record of its own. The uses are the crossings; the import itself publishes nothing.
+fn namespace(model: &Model, import: &Import) -> bool {
+    import.symbols_known() && import.symbol().is_none() && model.graph().observed().namespace_uses
 }
 
 /// A receipt never creates a PASS. `Scope::complete` consumes it with all other proofs.
@@ -146,7 +153,12 @@ fn assess(
             Err(gap) => unread = Some(gap),
         }
     }
-    unread.map_or(Ok(false), Err)
+    match unread {
+        Some(gap) => Err(gap),
+        // AD-604: a later hop of a route that the collector proves only in part may be public.
+        None if !import.route_complete() => Err(InterfaceGap::PublicationRoute),
+        None => Ok(false),
+    }
 }
 
 /// `facade_covers`: one hop of a route against the public entries of the target component.
