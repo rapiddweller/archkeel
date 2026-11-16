@@ -24,6 +24,7 @@ PR_TEST_FILES := \
 	tests/test_native_self_contract.py \
 	tests/test_native_report.py \
 	tests/test_report_gallery.py \
+	tests/test_report_generated_assets.py \
 	tests/test_report_page_scripts.py \
 	tests/test_ci_daily.py \
 	tests/test_collector_native_catalog.py \

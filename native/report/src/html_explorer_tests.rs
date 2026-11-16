@@ -7,6 +7,16 @@
 
 const TOKENS: &str = include_str!("../assets/tokens.css");
 
+#[test]
+fn the_light_palette_matches_the_design_tokens() {
+    let palette = TOKENS
+        .split_once("[data-theme=\"light\"]{")
+        .and_then(|(_, rest)| rest.split_once('}'))
+        .map(|(body, _)| body)
+        .expect("the light token block");
+    assert_eq!(palette, include_str!("../assets/theme-light.css").trim());
+}
+
 /// The files that draw: the local style of the report and each Explorer asset except the vendored
 /// ELK layout, which draws nothing.
 const FILES: [(&str, &str); 10] = [

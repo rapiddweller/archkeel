@@ -24,6 +24,10 @@ serde_json.workspace = true
 [dev-dependencies]
 archkeel-store = { path = "../store" }
 flate2.workspace = true
+sha2.workspace = true
+
+[build-dependencies]
+sha2.workspace = true
 
 [lints]
 workspace = true

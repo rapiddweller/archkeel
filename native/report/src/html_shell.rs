@@ -14,8 +14,7 @@ const LOCAL: &str = include_str!("../assets/report.css");
 const LIGHT: &str = include_str!("../assets/theme-light.css");
 /// The one script of the page: the theme switch of the design system, byte for byte.
 pub(super) const THEME_SCRIPT: &str = include_str!("../assets/archkeel-theme.js");
-/// `script-src` hash of `THEME_SCRIPT` (SHA-256, base64). A test compares it with the file.
-pub(super) const THEME_HASH: &str = "7Nxpcda8Ma/3b9a9tVfzi2nq7DW881vYvx7B8kWdOUQ=";
+pub(super) const THEME_HASH: &str = env!("REPORT_THEME_HASH");
 const GEIST: &[u8] = include_bytes!("../assets/Geist-Variable.woff2");
 const MONO: &[u8] = include_bytes!("../assets/JetBrainsMono-Variable.woff2");
 
