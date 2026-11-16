@@ -41,8 +41,11 @@ Each component lists in `public` the names that other components use, as `module
 `NATIVE-INTERFACE-BOUNDARY` fails for a use of any other name
 ([AD-604](decisions/ad-604-the-rust-collector-states-the-item-and-route-of-each-import.md)). A use
 passes when one hop of the publication route of its name is listed: a re-export at a crate root, or
-the module that defines the name. For a method call, the type is listed in the module of its `impl`
-block. `model-barrier` and `core` list no name, because no other component uses them.
+the module that defines the name. A crate root is the one public path of each name that it
+publishes ([AD-608](decisions/ad-608-a-crate-root-is-the-one-public-path-of-each-name-it-publishes.md)):
+a component that owns a crate root lists such a name only at the root, so another crate that takes a
+deeper path fails. A method call passes through a root entry of its type. `model-barrier` and `core`
+list no name, because no other component uses them.
 
 The core chain is core -> report -> eval -> model -> contract, store and facts
 ([AD-382](decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md)).

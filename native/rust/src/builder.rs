@@ -88,6 +88,8 @@ pub(crate) struct Builder {
     pub(crate) ended_references: BTreeMap<String, usize>,
     pub(crate) ended_calls: BTreeMap<String, usize>,
     pub(crate) ended_methods: BTreeMap<String, usize>,
+    /// The names that each crate root publishes, for the route of a member (AD-608).
+    pub(crate) publications: crate::routes::Publications,
 }
 
 impl Builder {

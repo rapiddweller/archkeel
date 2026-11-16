@@ -17,8 +17,8 @@ use archkeel_facts::data::GapData;
 use archkeel_facts::envelope::{Evidence, FileFact, Input, Role};
 use archkeel_facts::identity::{sha256_hex, stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId};
-use archkeel_facts::sections::GapFact;
 use archkeel_facts::vocab::{Area, EvidenceClass, ExceptionName};
+use archkeel_facts::GapFact;
 use archkeel_facts::Record;
 use serde_json::{Map, Value};
 

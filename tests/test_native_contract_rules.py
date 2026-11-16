@@ -161,3 +161,18 @@ def test_each_component_lists_the_names_that_it_publishes() -> None:
             module, _, name = entry.partition(":")
             assert name and "." not in name, entry
             assert _claims(component, module), f"{component['label']}: {entry} is not its module"
+
+
+def test_a_crate_root_is_the_one_public_path_of_each_name_that_it_publishes() -> None:
+    """AD-608: a component that owns a crate root lists a name of the root only at the root.
+
+    A deeper entry of the same name would be a second public path of it, and a use by the deeper
+    path would pass. `NATIVE-INTERFACE-BOUNDARY` then fails each use that does not take the root.
+    """
+    for component in json.loads(CONTRACT.read_text(encoding="utf-8"))["components"]:
+        claimed = component["packages"] + component.get("exact_modules", [])
+        roots = {module for module in claimed if module.count(".") == 1}
+        entries = [entry.partition(":")[::2] for entry in component["public"]]
+        at_root = {name for module, name in entries if module in roots}
+        deeper = [f"{m}:{n}" for m, n in entries if m not in roots and n in at_root]
+        assert deeper == [], f"{component['label']}: {deeper}"

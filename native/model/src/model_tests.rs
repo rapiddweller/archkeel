@@ -6,7 +6,7 @@ use archkeel_contract::{Component, ParsedContract};
 use archkeel_facts::data::GapData;
 use archkeel_facts::envelope::{Coverage, FileFact};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
-use archkeel_facts::sections::GapFact;
+use archkeel_facts::GapFact;
 use archkeel_facts::Record;
 
 use crate::coverage::{incomplete, Incomplete};

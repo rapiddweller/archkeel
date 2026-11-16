@@ -97,6 +97,76 @@ fn each_name(
     }
 }
 
+/// Whether the stream may write an import: a `use` or an `extern` word in any group, or a group
+/// deeper than the scan reads (AD-608). Tokens without one cannot make a name a re-export.
+pub(crate) fn writes_use(stream: TokenStream, depth: usize) -> bool {
+    depth > MAX_DEPTH
+        || stream.into_iter().any(|token| match token {
+            TokenTree::Group(group) => writes_use(group.stream(), depth + 1),
+            TokenTree::Ident(word) => word == "use" || word == "extern",
+            _ => false,
+        })
+}
+
+/// What the expansion of a `macro_rules!` body writes at the item level of the module of its call
+/// (AD-608): the tokens of each transcriber (the group after `=>`), with each `$( .. )` repetition
+/// at the same level. A `use` or a macro call inside a block, an `impl` or an inline `mod` of the
+/// expansion binds no name of that module.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct ItemLevel {
+    /// A `use` or an `extern` at item level, or anywhere in a `macro_rules!` at item level.
+    pub writes_use: bool,
+    /// The macros that the expansion calls at item level, by their last name.
+    pub calls: BTreeSet<String>,
+}
+
+pub(crate) fn item_level(rules: TokenStream) -> ItemLevel {
+    let mut found = ItemLevel::default();
+    let tokens: Vec<TokenTree> = rules.into_iter().collect();
+    for (at, token) in tokens.iter().enumerate() {
+        let arrow = at >= 2 && is_punct(&tokens[at - 2], '=') && is_punct(&tokens[at - 1], '>');
+        if let (TokenTree::Group(group), true) = (token, arrow) {
+            items(group.stream(), 0, &mut found);
+        }
+    }
+    found
+}
+
+fn items(stream: TokenStream, depth: usize, found: &mut ItemLevel) {
+    if depth > MAX_DEPTH {
+        found.writes_use = true;
+        return;
+    }
+    let tokens: Vec<TokenTree> = stream.into_iter().collect();
+    for (at, token) in tokens.iter().enumerate() {
+        let next = |step: usize| tokens.get(at + step);
+        match token {
+            TokenTree::Group(group) if at > 0 && is_punct(&tokens[at - 1], '$') => {
+                items(group.stream(), depth + 1, found);
+            }
+            TokenTree::Ident(word) if word == "use" || word == "extern" => found.writes_use = true,
+            TokenTree::Ident(word) if called(next(1), next(2)) && word == "macro_rules" => {
+                if let Some(TokenTree::Group(body)) = next(2) {
+                    found.writes_use |= writes_use(body.stream(), depth);
+                }
+            }
+            TokenTree::Ident(word) if called(next(1), next(2)) => {
+                found.calls.insert(plain(word));
+            }
+            _ => {}
+        }
+    }
+}
+
+/// A `!` and a group after a name: a macro call.
+fn called(bang: Option<&TokenTree>, group: Option<&TokenTree>) -> bool {
+    bang.is_some_and(|t| is_punct(t, '!')) && matches!(group, Some(TokenTree::Group(_)))
+}
+
+fn is_punct(token: &TokenTree, ch: char) -> bool {
+    matches!(token, TokenTree::Punct(punct) if punct.as_char() == ch)
+}
+
 /// The names that the stream defines as functions: `fn` and an identifier (AD-383).
 pub(crate) fn fn_names(stream: TokenStream, depth: usize, found: &mut BTreeSet<String>) {
     each_name(stream, depth, fn_name, found);

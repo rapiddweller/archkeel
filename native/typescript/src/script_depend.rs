@@ -10,7 +10,7 @@ use archkeel_facts::data::BindingData;
 use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName};
-use archkeel_facts::sections::GapFact;
+use archkeel_facts::GapFact;
 
 use crate::script_project::{source_origin, stable_publication, Publisher};
 use crate::script_records::{binding, global_id, import_record, GapRecord, Use};
