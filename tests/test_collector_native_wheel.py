@@ -309,6 +309,8 @@ def test_a_wheel_build_without_the_core_refuses_from_the_checkout_and_from_the_s
 ) -> None:
     refused = _build(tmp_path / "wheel", "--wheel", str(ROOT))
     assert refused.returncode != 0 and hook.NO_CORE in refused.stderr, refused.stderr
+    # #1313: one actionable line, no traceback, and the line names the command of the README.
+    assert "Traceback" not in refused.stderr and "make build" in hook.NO_CORE, refused.stderr
     # The sdist has no native sources: it builds without the core, and its wheel needs the core.
     built = _build(tmp_path / "sdist", "--sdist", str(ROOT))
     assert built.returncode == 0, built.stderr

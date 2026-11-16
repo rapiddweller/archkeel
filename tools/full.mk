@@ -7,7 +7,7 @@ check: lint typecheck $(if $(strip $(SKIP_TESTS)),,test)
 
 gate: release-check
 
-release-check: check build smoke
+release-check: check sdist smoke
 
 ci-core-check: PYTEST_STOP := --maxfail=1
 ci-core-check: gate typescript-compiler-check typescript-libs-check
@@ -45,10 +45,18 @@ shell-compat:
 typescript-compiler-check:
 	npx --yes --package typescript@5.9.3 tsc --noEmit --project fixtures/H-uml-typescript/tsconfig.json
 
-# Twine validates PyPI metadata; it is a build-only tool. The sdist is the only distribution
-# without a platform: each wheel carries the core and comes from `make native-wheel` (AD-436).
-build:
+# Twine validates PyPI metadata; it is a build-only tool. `make sdist` is the sdist, the only
+# distribution without a platform: it is what the release job builds (AD-436).
+sdist:
 	$(UV) build --sdist --no-sources --clear
+	$(UV) tool run --from twine==7.0.0 twine check --strict dist/*
+
+# #1313: what a user runs on a checkout. The sdist cannot be installed alone (it has no core), so
+# this also builds the platform wheel of this host with the core in `dist/`. It installs
+# cargo-auditable when `cargo auditable` is missing; `make native-wheel` adds the full checks.
+build: sdist
+	@cargo auditable --version >/dev/null 2>&1 || cargo install --locked cargo-auditable@$(CARGO_AUDITABLE_VERSION)
+	ARCHKEEL_BUNDLE_NATIVE=1 $(UV) build --wheel --no-sources --out-dir dist
 	$(UV) tool run --from twine==7.0.0 twine check --strict dist/*
 
 # The installed package with the release core of this checkout: the wheel of this host, then the
