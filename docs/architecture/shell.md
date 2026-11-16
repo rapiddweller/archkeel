@@ -12,7 +12,7 @@ Archkeel checks the shell with its own core and the contract in
 | Part | Modules | Task |
 |---|---|---|
 | `entry` | `archkeel`, `archkeel.cli`, `archkeel.cli.__main__` | Start the command line and return the exit code. |
-| `commands` | `core_only` | Send the scan identity, print the frame, map the status to an exit code. |
+| `commands` | `core_only`, `core_init` | Send the scan identity, print the frame, map the status to an exit code. |
 | `arguments` | `core_arguments` | Read the command line into typed options and refuse by name what this line does not serve (AD-596). |
 | `locate` | `core_binary` | Find the core binary of this install. |
 | `launch` | `native_scan` | Build the scan request, start the core and return its bytes. |
@@ -28,7 +28,7 @@ Archkeel checks the shell with its own core and the contract in
 | `text` | `core_text` | The text of a run for a person: header with exit code and reason, then problems, violations, grouped causes. |
 | `help` | `core_help` | The help of the tool and of each command. |
 | `skill` | `skill` | Install the coding-agent skill. |
-| `init` | `init_draft` | Draft `archkeel.toml`, a first contract and its document from the folder layout of a Python project (AD-626). It reads no source. |
+| `init` | `init_draft`, `init_layouts` | Draft `archkeel.toml`, a first contract and its document from the folder layout of a Python, Cargo workspace or package.json workspace project (AD-626, AD-638). It reads no source and writes only missing files. |
 
 An arrow points down only. The entry calls the commands, the commands call the other parts, and
 no part calls up. Rule `SHELL-REQUIRES-COMPLETE` allows only the arrows in the contract.
