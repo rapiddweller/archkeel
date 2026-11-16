@@ -9,9 +9,13 @@ use sha2::{Digest, Sha256};
 /// One part of a `stable_id`, written as Python `str()` writes it.
 #[derive(Clone, Copy, Debug)]
 pub enum Part<'a> {
+    /// A text part.
     Text(&'a str),
+    /// A whole number part.
     Number(i64),
+    /// A boolean part.
     Flag(bool),
+    /// A part with no value.
     Nothing,
 }
 

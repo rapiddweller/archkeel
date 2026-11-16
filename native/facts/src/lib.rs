@@ -18,8 +18,6 @@
 //! string. A field that the wire always writes, also as `null`, must be present. The ids have no
 //! conversion between them (`ids`).
 
-// AD-590: not yet enforced here: the wire vocabulary has about 350 fields and variants whose names are the schema keys in schema/ (AD-345). Items outside macros carry docs.
-#![allow(missing_docs)]
 
 
 // AD-327: a public item that no other crate can reach is a lie in a library.

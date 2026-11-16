@@ -26,37 +26,66 @@ pub type Named<'a> = Option<Option<&'a str>>;
 /// that holds `null` (except the two `Named` fields), is `None` or `false`.
 #[derive(Debug, Default)]
 pub struct Fields<'a> {
+    /// The module of the source side.
     pub source_module: Named<'a>,
+    /// The module that the record is about.
     pub module: Named<'a>,
+    /// The symbol that owns the record.
     pub owner: Option<&'a str>,
+    /// The scope of the source side.
     pub source_scope: Option<&'a str>,
+    /// The qualified name of the symbol.
     pub qualified_name: Option<&'a str>,
+    /// The scope that declares the symbol.
     pub declaration_scope: Option<&'a str>,
+    /// The package of the source side.
     pub source_package: Option<&'a str>,
+    /// The module of the target side.
     pub target_module: Option<&'a str>,
+    /// The package of the target side.
     pub target_package: Option<&'a str>,
+    /// The name of the construct.
     pub construct: Option<&'a str>,
+    /// The file of the source side.
     pub source_file: Option<&'a str>,
+    /// The expression as written.
     pub expression: Option<&'a str>,
+    /// The proof state of the record.
     pub status: Option<Status>,
+    /// The qualified names that the record resolves to.
     pub targets: Option<&'a [String]>,
+    /// The dimension of the resolution that the record names.
     pub resolution_dimension: Option<&'a str>,
+    /// The file of the record.
     pub file: Option<&'a str>,
+    /// The id of the symbol that holds it in the source text.
     pub lexical_parent_id: Option<&'a str>,
+    /// The base declarations of a class.
     pub base_declarations: Option<&'a [BaseDeclaration]>,
+    /// The member inventories of a class.
     pub member_inventories: Option<&'a [MemberInventory]>,
+    /// The attribute declarations of a class.
     pub attribute_declarations: Option<&'a [AttributeDeclaration]>,
     /// The fields below hold a value that a Python check proves. The store only sees that the
     /// field is set.
     pub call_binding: bool,
+    /// True when the record carries call arguments.
     pub call_arguments: bool,
+    /// True when the record carries a guarded effect.
     pub guarded_effect: bool,
+    /// True when the record carries a context manager signature.
     pub contextmanager_signature: bool,
+    /// True when the record carries guard boolean members.
     pub guard_boolean_members: bool,
+    /// True when the record carries property members.
     pub property_members: bool,
+    /// True when the record carries a local source binding.
     pub local_source_binding: bool,
+    /// True when the record carries the id of its definition.
     pub declaration_definition_id: bool,
+    /// True when the record carries the scope evidence of an instance member.
     pub instance_member_scope_evidence_id: bool,
+    /// True when the record carries a receiver binding.
     pub receiver_binding: bool,
 }
 

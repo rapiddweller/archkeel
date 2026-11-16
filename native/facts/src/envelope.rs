@@ -39,8 +39,11 @@ macro_rules! object {
 closed! {
     /// The protocol versions of a compressed reply.
     pub enum ProtocolVersion {
+        /// Protocol 8.
         V8 = "8.0.0",
+        /// Protocol 9.
         V9 = "9.0.0",
+        /// Protocol 10.
         V10 = "10.0.0",
     }
 }
@@ -60,12 +63,16 @@ closed! {
     schemars::JsonSchema,
 )]
 pub enum Profile {
+    /// The Python analyzer.
     #[serde(rename = "archkeel-python-analyzer")]
     Python,
+    /// The Dart analyzer.
     #[serde(rename = "archkeel-dart-analyzer")]
     Dart,
+    /// The TypeScript import reader.
     #[serde(rename = "archkeel-typescript-imports")]
     TypeScript,
+    /// The Rust import reader.
     #[serde(rename = "archkeel-rust-imports")]
     Rust,
 }
@@ -99,13 +106,21 @@ impl Profile {
 closed! {
     /// The name of a source section.
     pub enum SectionName {
+        /// The symbols section.
         Symbols = "symbols",
+        /// The imports section.
         Imports = "imports",
+        /// The calls section.
         Calls = "calls",
+        /// The references section.
         References = "references",
+        /// The bindings section.
         Bindings = "bindings",
+        /// The typing signals section.
         TypingSignals = "typing_signals",
+        /// The constructs section.
         Constructs = "constructs",
+        /// The gaps section.
         Unknowns = "unknowns",
     }
 }
@@ -113,7 +128,9 @@ closed! {
 closed! {
     /// The role of a digested input.
     pub enum Role {
+        /// A file that the scan selects.
         Selected = "selected",
+        /// A file that only the resolution reads.
         Resolution = "resolution",
     }
 }
@@ -121,9 +138,13 @@ closed! {
 closed! {
     /// How completely the collector examines one construct kind.
     pub enum ConstructSupport {
+        /// The collector reads the construct in full.
         Supported = "supported",
+        /// The collector reads the construct in part.
         Partial = "partial",
+        /// The collector does not read the construct.
         Unsupported = "unsupported",
+        /// The collector decides the construct by its own rule.
         Decided = "decided",
     }
 }
@@ -138,10 +159,15 @@ impl Profile {
 closed! {
     /// The state of the runtime requirement of the collector.
     pub enum RequirementState {
+        /// The project declares a valid requirement.
         Declared = "declared",
+        /// The project has no metadata file.
         MetadataMissing = "metadata_missing",
+        /// The metadata file is not valid.
         MetadataInvalid = "metadata_invalid",
+        /// The metadata declares no requirement.
         RequirementMissing = "requirement_missing",
+        /// The requirement is not valid.
         RequirementInvalid = "requirement_invalid",
     }
 }
@@ -176,15 +202,21 @@ impl<'de> Deserialize<'de> for NoEntries {
 }
 
 object! {
+    /// One reply of a collector.
     pub struct Reply {
+        /// The protocol version of the reply.
         pub protocol_version: ProtocolVersion,
+        /// Reserved; always empty.
         pub provider_sources: NoEntries,
+        /// The facts of the reply.
         pub facts: Facts,
     }
 }
 
 object! {
+    /// The facts of a reply.
     pub struct Facts {
+        /// The profile of the analyzer.
         pub profile: Profile,
         /// The linked collector's scope statements. Wire replies carry no live authority.
         #[serde(skip)]
@@ -197,20 +229,35 @@ object! {
         /// carry none.
         #[serde(skip)]
         pub owned_files: Vec<OwnedFile>,
+        /// The adapter that wrote the reply.
         pub adapter: Adapter,
+        /// The runtime that ran the adapter.
         pub runtime: Runtime,
+        /// The source that the reply covers.
         pub source: Source,
+        /// What the collector reads.
         pub capabilities: Capabilities,
+        /// The inputs that the scan digests.
         pub inputs: Vec<Input>,
+        /// The facts of the files.
         pub files: Vec<FileFact>,
+        /// The resolved targets of the imports.
         pub imports: Vec<Target>,
+        /// The sections with their records.
         pub sections: Vec<Section>,
+        /// How much of the scope the collection read.
         pub coverage: Coverage,
+        /// The evidence records that the facts cite.
         pub evidence: Vec<Evidence>,
+        /// Reserved; always empty.
         pub uncertain_reexports: NoEntries,
+        /// Reserved; always empty.
         pub type_shapes: NoEntries,
+        /// Reserved state of the Python collector.
         pub state: State,
+        /// Reserved; always empty.
         pub candidate_evidence: NoEntries,
+        /// Reserved; always empty.
         pub provider_bindings: NoEntries,
     }
 }
@@ -220,15 +267,20 @@ object! {
 /// both names; else no rule can rely on the owner (AD-468).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OwnedFile {
+    /// The path of the file, relative to the root.
     pub rel_path: String,
+    /// The module that holds it.
     pub module: ModuleName,
+    /// The module that owns the facts of the file.
     pub owner: ModuleName,
 }
 
 /// Whether a documented profile limit applies to this collection.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LimitSupport {
+    /// The collector supports it.
     Supported,
+    /// The collector does not support it.
     Unsupported,
 }
 
@@ -236,7 +288,9 @@ pub enum LimitSupport {
 /// These statements never replace coverage gaps or a rule's scope proof.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ProfileLimits {
+    /// Whether the profile reads the imported names of a dependency.
     pub dependency_symbols: LimitSupport,
+    /// Whether the profile reads the types of an interface.
     pub interface_boundary: LimitSupport,
 }
 
@@ -245,9 +299,13 @@ pub struct ProfileLimits {
 // collector writes these types as they are. The order of `Facts` does not matter: the stream
 // writes its keys one by one.
 object! {
+    /// The adapter that wrote the reply.
     pub struct Adapter {
+        /// The digest of the code of the adapter.
         pub code_digest: String,
+        /// The name as written.
         pub name: String,
+        /// The version of the adapter.
         pub version: String,
     }
 }
@@ -256,9 +314,13 @@ object! {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Runtime {
+    /// The name as written.
     pub name: String,
+    /// The version requirement that the project declares for the runtime.
     pub required: Option<String>,
+    /// Whether the requirement is declared and valid.
     pub requirement_state: RequirementState,
+    /// The version of the runtime that ran.
     pub version: String,
 }
 
@@ -279,12 +341,16 @@ impl Runtime {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(untagged)]
 pub enum Dirty {
+    /// Whether the tree has uncommitted changes.
     Known(bool),
+    /// The tool could not tell.
     Unknown(UnknownDirty),
 }
 
 closed! {
+    /// The value of `dirty` when the tool cannot tell.
     pub enum UnknownDirty {
+        /// The tool could not tell whether the tree is dirty.
         Unknown = "unknown",
     }
 }
@@ -293,9 +359,13 @@ closed! {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Source {
+    /// Whether the tree has uncommitted changes.
     pub dirty: Dirty,
+    /// The commit that the tree is at.
     pub git_head: String,
+    /// The scan roots that the reply covers.
     pub scope: Vec<String>,
+    /// The digest of the inputs of the reply.
     pub source_digest: String,
 }
 
@@ -303,22 +373,32 @@ pub struct Source {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Capabilities {
+    /// The construct kinds that the collector reads, with their support.
     pub constructs: Vec<ConstructCapability>,
+    /// The resolution features that the collector declares.
     pub resolution_features: Vec<String>,
+    /// The sections that the reply holds.
     pub sections: Vec<SectionName>,
 }
 
 object! {
+    /// The support of one construct kind.
     pub struct ConstructCapability {
+        /// The name as written.
         pub name: String,
+        /// How completely the collector reads the construct.
         pub status: ConstructSupport,
     }
 }
 
 object! {
+    /// One input that the scan digests.
     pub struct Input {
+        /// The digest of the content.
         pub digest: String,
+        /// The path of the input.
         pub path: String,
+        /// The role of the input.
         pub role: Role,
     }
 }
@@ -327,15 +407,25 @@ object! {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FileFact {
+    /// The id of the record.
     pub id: FactId,
+    /// The path of the file, relative to the root.
     pub rel_path: String,
+    /// The module that holds it.
     pub module: ModuleName,
+    /// The package that holds the file.
     pub package: PackageName,
+    /// The names that `__all__` lists, in order.
     pub all_exports: Vec<String>,
+    /// True when `__all__` is a plain list that the collector reads in full.
     pub all_literal: bool,
+    /// True when the file has no version or platform branch that changes its imports.
     pub compatibility_logic_free: bool,
+    /// The names that one plain statement binds and nothing rebinds.
     pub stable_bindings: Vec<String>,
+    /// True when the file has no code.
     pub blank: bool,
+    /// The evidence record of the file.
     pub evidence_id: EvidenceId,
 }
 
@@ -343,24 +433,40 @@ pub struct FileFact {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Target {
+    /// An import of a module that the scan holds.
     Local {
+        /// The id of the import record that the target resolves.
         import_id: FactId,
+        /// The module that holds it.
         module: ModuleName,
+        /// The path of the file of the module.
         file: String,
+        /// The file that the module runs from, when it differs from the declaration.
         runtime_file: Option<String>,
+        /// The file that declares the types of the module.
         declaration_file: Option<String>,
     },
+    /// An import of an installed package.
     External {
+        /// The id of the import record that the target resolves.
         import_id: FactId,
+        /// The package that the import reaches.
         package: PackageName,
     },
+    /// An import of a builtin module.
     Builtin {
+        /// The id of the import record that the target resolves.
         import_id: FactId,
+        /// The name as written.
         name: String,
     },
+    /// An import that no rule resolves.
     Unresolved {
+        /// The id of the import record that the target resolves.
         import_id: FactId,
+        /// The text of the import as written.
         specifier: String,
+        /// Why the collector does not prove it.
         reason: String,
     },
 }
@@ -393,12 +499,18 @@ impl Target {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Coverage {
+    /// How many files the collector parsed.
     pub files_parsed: u64,
+    /// How many files the collector read.
     pub files_read: u64,
+    /// True when the collection covers the whole scope.
     pub full_scope: bool,
+    /// The gaps that keep the scope from being complete.
     pub gaps: Vec<Record<GapFact>>,
+    /// The per-file counts, when the request asks for them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub measures: Option<Vec<FileMeasures>>,
+    /// The paths of the files that the scan selected.
     pub selected_files: Vec<String>,
 }
 
@@ -406,11 +518,17 @@ pub struct Coverage {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Evidence {
+    /// The id of the evidence record.
     pub id: EvidenceId,
+    /// The path of the file, relative to the root.
     pub file: String,
+    /// The line of the place, counted from 1.
     pub line: i64,
+    /// The last line of the place.
     pub end_line: i64,
+    /// The column of the place.
     pub column: i64,
+    /// The text at the place.
     pub excerpt: String,
 }
 
@@ -418,15 +536,20 @@ pub struct Evidence {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct State {
+    /// Reserved for classes that only the Python collector writes; always empty.
     pub classes: NoEntries,
+    /// Reserved for functions that only the Python collector writes; always empty.
     pub functions: NoEntries,
 }
 
 /// The producer of a collector reply: its profile, its adapter and its runtime.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Provenance {
+    /// The profile of the analyzer.
     pub profile: Profile,
+    /// The adapter that wrote the reply.
     pub adapter: Adapter,
+    /// The runtime that ran the adapter.
     pub runtime: Runtime,
 }
 
