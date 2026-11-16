@@ -21,12 +21,16 @@ LIMITS: Final = {
 
 
 class Ownership(StrEnum):
+    """Whether exactly one component owns a module."""
+
     OWNED = "owned"
     UNOWNED = "unowned"
     AMBIGUOUS = "ambiguous"
 
 
 class Resolution(StrEnum):
+    """Whether an import resolved to a module, failed to resolve or is external."""
+
     RESOLVED = "resolved"
     UNRESOLVED = "unresolved"
     EXTERNAL = "external"
@@ -34,6 +38,8 @@ class Resolution(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class Component:
+    """A component of the contract as the topology lists it."""
+
     id: str
     name: str
     parent: str | None
@@ -44,6 +50,8 @@ class Component:
 
 @dataclass(frozen=True, slots=True)
 class Module:
+    """A scanned module, its path and its owning component."""
+
     name: str
     path: str
     component: str | None
@@ -52,6 +60,8 @@ class Module:
 
 @dataclass(frozen=True, slots=True)
 class Edge:
+    """An import edge between two modules or two components, with its evidence and rules."""
+
     id: str
     source: str
     target: str
@@ -64,6 +74,8 @@ class Edge:
 
 @dataclass(frozen=True, slots=True)
 class Topology:
+    """The topology part of a frame: components, modules and edges."""
+
     complete: bool
     truncated: bool
     gaps: tuple[str, ...]
@@ -179,6 +191,8 @@ def _check_references(topology: "Topology") -> None:
 
 
 def read_topology(value: object, scope: str, rules: Mapping[str, object]) -> Topology:
+    """Read the topology part of a frame into typed values and fail closed."""
+
     row = _fields(
         value,
         "topology",

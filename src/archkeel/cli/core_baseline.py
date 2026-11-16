@@ -30,6 +30,8 @@ class BaselineState(StrEnum):
 
 
 class Difference(StrEnum):
+    """What a baseline comparison found: an UNKNOWN, a violation or a budget."""
+
     UNKNOWN = "unknown"
     VIOLATION = "violation"
     BUDGET = "budget"
@@ -49,6 +51,8 @@ class Changed:
 
 @dataclass(frozen=True, slots=True)
 class NamedBaselineGap:
+    """A gap that the core names about the baseline: its kind, subject and reason."""
+
     kind: str
     subject: str
     reason: str
@@ -56,6 +60,8 @@ class NamedBaselineGap:
 
 @dataclass(frozen=True, slots=True)
 class BaselineResult:
+    """The baseline part of a frame: its state, the exit code that the core decided and the rows."""
+
     state: BaselineState
     exit_code: int
     accepted_entries: int
@@ -204,6 +210,8 @@ def as_json(result: BaselineResult) -> Mapping[str, object]:
 
 
 def vars_of(row: Changed) -> Mapping[str, object]:
+    """The JSON fields of one changed baseline row."""
+
     return {
         "what": row.what,
         "kind": row.kind,
