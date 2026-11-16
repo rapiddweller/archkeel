@@ -364,6 +364,32 @@ fn an_unrelated_name_is_no_site() {
 }
 
 #[test]
+fn comprehension_targets_shadow_module_names_only_in_their_scope() {
+    for source in [
+        "result = {site.id: site for site in sites}\n",
+        "result = [site.id for site in sites]\n",
+        "def f(site):\n    return site.id\n",
+    ] {
+        assert!(!has(source, IMPORT_SYSTEM), "{source}");
+    }
+    for source in [
+        "import site\nresult = [site.id for site in sites]\nsite.addsitedir('x')\n",
+        "result = [site.id for site in site.addsitedir('x')]\n",
+        "result = [site.id for site in sites]\nsite.addsitedir('x')\n",
+    ] {
+        assert!(has(source, IMPORT_SYSTEM), "{source}");
+    }
+    let plant = "result = {site.id: site for site in sites}\n".repeat(13);
+    assert_eq!(
+        kinds(&plant)
+            .iter()
+            .filter(|kind| **kind == IMPORT_SYSTEM)
+            .count(),
+        0
+    );
+}
+
+#[test]
 fn only_the_inert_names_of_importlib_metadata_are_no_site() {
     let inert = "from importlib.metadata import PackageNotFoundError, version\ntry:\n    v = version('x')\nexcept PackageNotFoundError:\n    v = None\n";
     assert!(kinds(inert).is_empty(), "{:?}", kinds(inert));
