@@ -130,7 +130,7 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
 - The shell trusts the rule rows of the core binary that it located. It checks the root, the commit,
   the dirty state, the configuration and all contract file digests against its request (AD-438).
   A nested file changed since the request started is refused. Keep the snapshot unchanged during a run.
-- ArchKeel checks its Rust source in `native/` with the core: 84 rules PASS, 0 FAIL, 0 UNKNOWN, 0 violations,
+- ArchKeel checks its Rust source in `native/` with the core: 85 rules PASS, 0 FAIL, 0 UNKNOWN, 0 violations,
   pinned in `native/expected-gaps.json`. The Python shell and the tools have no architecture contract.
 
 Archkeel observes one static snapshot, not runtime behavior, data flow, performance

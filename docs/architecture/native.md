@@ -6,6 +6,13 @@ Archkeel checks this workspace with its own Rust collector and the contract in
 Run `make self-validate-native` to check it. The target runs the default `archkeel validate`,
 which the core decides ([AD-432](decisions/ad-432-the-rust-core-is-the-only-decision-path.md)).
 
+The contract states the order first ([AD-588](decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md)).
+Each component has a `layer`, and rule `NATIVE-LAYER-ORDER` gives the layers from the inside to the outside:
+`foundation` (`facts`, `build`, `pytext`, `dart-grammar`), `transport` (`snapshot`, `wire`, `store`),
+`collector` (the parts of the four collectors), `collector-entry` (their entries), `collection` (`collect`),
+`contract`, `model`, `barrier` (`model-barrier`), `evaluation`, `report` and `core`.
+A declared `requires` points down or stays in its layer. A component without a layer holds every rule UNKNOWN.
+
 The contract has two levels. The crates are the base (`facts`, `wire`, `snapshot`, `store`, `contract`, `build`, `pytext`) and the core after the collector (`model`, `report`, `core`, AD-359). Each
 collector crate is split into components by responsibility, and an arrow points down only:
 the entry calls the flow, the flow calls the parts (discover, parse, resolve, records), and

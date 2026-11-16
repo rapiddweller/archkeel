@@ -10,6 +10,7 @@ from pathlib import Path
 
 CONTRACT = Path(__file__).parents[1] / "native/architecture-contract.json"
 EXPECTED_RULES = [
+    ("NATIVE-LAYER-ORDER", "layer_order"),
     ("NATIVE-PY-SYMBOLS-NO-SURVEY", "forbidden_dependency"),
     ("NATIVE-PY-UNPARSE-NO-SURVEY", "forbidden_dependency"),
     ("NATIVE-PY-UNPARSE-NO-SYMBOLS", "forbidden_dependency"),

@@ -6,6 +6,7 @@
       "id": "COMP-NATIVE-FACTS",
       "label": "facts",
       "role": "component",
+      "layer": "foundation",
       "packages": [
         "native.archkeel_facts"
       ],
@@ -24,6 +25,7 @@
       "id": "COMP-NATIVE-SNAPSHOT",
       "label": "snapshot",
       "role": "component",
+      "layer": "transport",
       "packages": [
         "native.archkeel_snapshot"
       ],
@@ -48,6 +50,7 @@
       "id": "COMP-NATIVE-WIRE",
       "label": "wire",
       "role": "component",
+      "layer": "transport",
       "packages": [
         "native.archkeel_wire"
       ],
@@ -73,6 +76,7 @@
       "id": "COMP-NATIVE-STORE",
       "label": "store",
       "role": "component",
+      "layer": "transport",
       "packages": [
         "native.archkeel_store"
       ],
@@ -97,6 +101,7 @@
       "id": "COMP-NATIVE-CONTRACT",
       "label": "contract",
       "role": "component",
+      "layer": "contract",
       "packages": [
         "native.archkeel_contract"
       ],
@@ -124,6 +129,7 @@
       "id": "COMP-NATIVE-MODEL",
       "label": "model",
       "role": "component",
+      "layer": "model",
       "packages": [
         "native.archkeel_model"
       ],
@@ -156,6 +162,7 @@
       "id": "COMP-NATIVE-EVAL",
       "label": "eval",
       "role": "component",
+      "layer": "evaluation",
       "packages": [
         "native.archkeel_eval"
       ],
@@ -188,6 +195,7 @@
       "id": "COMP-NATIVE-MODEL-BARRIER",
       "label": "model-barrier",
       "role": "component",
+      "layer": "barrier",
       "packages": [
         "native.archkeel_model_barrier"
       ],
@@ -216,6 +224,7 @@
       "id": "COMP-NATIVE-REPORT",
       "label": "report",
       "role": "component",
+      "layer": "report",
       "packages": [
         "native.archkeel_report"
       ],
@@ -250,6 +259,7 @@
       "id": "COMP-NATIVE-CORE",
       "label": "core",
       "role": "component",
+      "layer": "core",
       "packages": [
         "native.archkeel_core"
       ],
@@ -303,6 +313,7 @@
       "id": "COMP-NATIVE-COLLECT",
       "label": "collect",
       "role": "component",
+      "layer": "collection",
       "packages": [
         "native.archkeel_collect"
       ],
@@ -355,6 +366,7 @@
       "id": "COMP-NATIVE-BUILD",
       "label": "build",
       "role": "component",
+      "layer": "foundation",
       "packages": [
         "native.archkeel_build_support"
       ],
@@ -373,6 +385,7 @@
       "id": "COMP-NATIVE-PYTEXT",
       "label": "pytext",
       "role": "component",
+      "layer": "foundation",
       "packages": [
         "native.archkeel_pytext"
       ],
@@ -391,6 +404,7 @@
       "id": "COMP-NATIVE-DART-GRAMMAR",
       "label": "dart-grammar",
       "role": "component",
+      "layer": "foundation",
       "packages": [
         "native.archkeel_dart_grammar"
       ],
@@ -409,6 +423,7 @@
       "id": "COMP-NATIVE-DART-TEXT",
       "label": "dart-text",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_dart_collector.pytext",
         "native.archkeel_dart_collector.module",
@@ -438,6 +453,7 @@
       "id": "COMP-NATIVE-DART-DISCOVER",
       "label": "dart-discover",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_dart_collector.discover"
       ],
@@ -470,6 +486,7 @@
       "id": "COMP-NATIVE-DART-PARSE",
       "label": "dart-parse",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_dart_collector.syntax",
         "native.archkeel_dart_collector.tree",
@@ -513,6 +530,7 @@
       "id": "COMP-NATIVE-DART-RECORDS",
       "label": "dart-records",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_dart_collector.records",
         "native.archkeel_dart_collector.declarations",
@@ -561,6 +579,7 @@
       "id": "COMP-NATIVE-DART-SURVEY",
       "label": "dart-survey",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_dart_collector.import_survey",
         "native.archkeel_dart_collector.import_survey.budget",
@@ -618,6 +637,7 @@
       "id": "COMP-NATIVE-DART-DUMP",
       "label": "dart-dump",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_dart_collector.dump"
       ],
@@ -662,6 +682,7 @@
       "id": "COMP-NATIVE-DART-ENTRY",
       "label": "dart-entry",
       "role": "component",
+      "layer": "collector-entry",
       "packages": [],
       "exact_modules": [
         "native.archkeel_dart_collector",
@@ -719,6 +740,7 @@
       "id": "COMP-NATIVE-TS-INPUT",
       "label": "ts-input",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_typescript_collector.source",
         "native.archkeel_typescript_collector.source_input",
@@ -741,6 +763,7 @@
       "id": "COMP-NATIVE-TS-TREE",
       "label": "ts-tree",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_typescript_collector.tree",
         "native.archkeel_typescript_collector.tree.cx",
@@ -768,6 +791,7 @@
       "id": "COMP-NATIVE-TS-DECLARATIONS",
       "label": "ts-declarations",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_typescript_collector.definitions",
         "native.archkeel_typescript_collector.exports",
@@ -805,6 +829,7 @@
       "id": "COMP-NATIVE-TS-SITES",
       "label": "ts-sites",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_typescript_collector.sites",
         "native.archkeel_typescript_collector.site_local",
@@ -843,6 +868,7 @@
       "id": "COMP-NATIVE-TS-WALK",
       "label": "ts-walk",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_typescript_collector.walk",
         "native.archkeel_typescript_collector.scan",
@@ -886,6 +912,7 @@
       "id": "COMP-NATIVE-TS-SCRIPTS",
       "label": "ts-scripts",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_typescript_collector.script",
         "native.archkeel_typescript_collector.script_alias",
@@ -945,6 +972,7 @@
       "id": "COMP-NATIVE-TS-PARSE",
       "label": "ts-parse",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_typescript_collector.parse",
         "native.archkeel_typescript_collector.syntax",
@@ -990,6 +1018,7 @@
       "id": "COMP-NATIVE-TS-DISCOVER",
       "label": "ts-discover",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_typescript_collector.config",
         "native.archkeel_typescript_collector.discover",
@@ -1029,6 +1058,7 @@
       "id": "COMP-NATIVE-TS-RESOLVE",
       "label": "ts-resolve",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_typescript_collector.resolve",
         "native.archkeel_typescript_collector.resolver",
@@ -1063,6 +1093,7 @@
       "id": "COMP-NATIVE-TS-RECORDS",
       "label": "ts-records",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_typescript_collector.bound_names",
         "native.archkeel_typescript_collector.cited",
@@ -1125,6 +1156,7 @@
       "id": "COMP-NATIVE-TS-SCRIPT-DEPS",
       "label": "ts-script-deps",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_typescript_collector.script_depend",
         "native.archkeel_typescript_collector.script_deps",
@@ -1187,6 +1219,7 @@
       "id": "COMP-NATIVE-TS-FLOW",
       "label": "ts-flow",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_typescript_collector.collect",
         "native.archkeel_typescript_collector.collection",
@@ -1252,6 +1285,7 @@
       "id": "COMP-NATIVE-TS-DUMP",
       "label": "ts-dump",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_typescript_collector.dump"
       ],
@@ -1308,6 +1342,7 @@
       "id": "COMP-NATIVE-TS-ENTRY",
       "label": "ts-entry",
       "role": "component",
+      "layer": "collector-entry",
       "packages": [],
       "exact_modules": [
         "native.archkeel_typescript_collector",
@@ -1365,6 +1400,7 @@
       "id": "COMP-NATIVE-RS-TEXT",
       "label": "rs-text",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_rust_collector.tokens",
         "native.archkeel_rust_collector.attrs",
@@ -1397,6 +1433,7 @@
       "id": "COMP-NATIVE-RS-WORKSPACE",
       "label": "rs-workspace",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_rust_collector.source",
         "native.archkeel_rust_collector.paths",
@@ -1428,6 +1465,7 @@
       "id": "COMP-NATIVE-RS-MODULES",
       "label": "rs-modules",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_rust_collector.tree",
         "native.archkeel_rust_collector.modules",
@@ -1464,6 +1502,7 @@
       "id": "COMP-NATIVE-RS-BUILDER",
       "label": "rs-builder",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_rust_collector.builder"
       ],
@@ -1500,6 +1539,7 @@
       "id": "COMP-NATIVE-RS-EDGES",
       "label": "rs-edges",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_rust_collector.edges",
         "native.archkeel_rust_collector.edges_extracted",
@@ -1550,6 +1590,7 @@
       "id": "COMP-NATIVE-RS-REPLY",
       "label": "rs-reply",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_rust_collector.reply"
       ],
@@ -1590,6 +1631,7 @@
       "id": "COMP-NATIVE-RS-FLOW",
       "label": "rs-flow",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_rust_collector.collect"
       ],
@@ -1642,6 +1684,7 @@
       "id": "COMP-NATIVE-RS-ENTRY",
       "label": "rs-entry",
       "role": "component",
+      "layer": "collector-entry",
       "packages": [],
       "exact_modules": [
         "native.archkeel_rust_collector",
@@ -1690,6 +1733,7 @@
       "id": "COMP-NATIVE-PY-MODULE",
       "label": "py-module",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_python_collector.module"
       ],
@@ -1726,6 +1770,7 @@
       "id": "COMP-NATIVE-PY-TEXT",
       "label": "py-text",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_python_collector.source"
       ],
@@ -1744,6 +1789,7 @@
       "id": "COMP-NATIVE-PY-PARSE",
       "label": "py-parse",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_python_collector.parse"
       ],
@@ -1774,6 +1820,7 @@
       "id": "COMP-NATIVE-PY-SCOPE",
       "label": "py-scope",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_python_collector.discover",
         "native.archkeel_python_collector.names"
@@ -1803,6 +1850,7 @@
       "id": "COMP-NATIVE-PY-INPUTS",
       "label": "py-inputs",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_python_collector.inputs",
         "native.archkeel_python_collector.requirement"
@@ -1832,6 +1880,7 @@
       "id": "COMP-NATIVE-PY-SURVEY",
       "label": "py-survey",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_python_collector.survey"
       ],
@@ -1880,6 +1929,7 @@
       "id": "COMP-NATIVE-PY-REPLY",
       "label": "py-reply",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_python_collector.reply"
       ],
@@ -1920,6 +1970,7 @@
       "id": "COMP-NATIVE-PY-TREE",
       "label": "py-tree",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_python_collector.pyast"
       ],
@@ -1944,6 +1995,7 @@
       "id": "COMP-NATIVE-PY-UNPARSE",
       "label": "py-unparse",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_python_collector.unparse"
       ],
@@ -1972,6 +2024,7 @@
       "id": "COMP-NATIVE-PY-SYMBOLS",
       "label": "py-symbols",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_python_collector.symbols",
         "native.archkeel_python_collector.bindings"
@@ -2017,6 +2070,7 @@
       "id": "COMP-NATIVE-PY-DUMP",
       "label": "py-dump",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_python_collector.dump"
       ],
@@ -2081,6 +2135,7 @@
       "id": "COMP-NATIVE-PY-ENTRY",
       "label": "py-entry",
       "role": "component",
+      "layer": "collector-entry",
       "packages": [],
       "exact_modules": [
         "native.archkeel_python_collector",
@@ -2137,6 +2192,7 @@
       "id": "COMP-NATIVE-PY-DECLARE",
       "label": "py-declare",
       "role": "component",
+      "layer": "collector",
       "packages": [
         "native.archkeel_python_collector.declare"
       ],
@@ -2163,6 +2219,28 @@
     }
   ],
   "rules": [
+    {
+      "id": "NATIVE-LAYER-ORDER",
+      "kind": "layer_order",
+      "layers": [
+        "foundation",
+        "transport",
+        "collector",
+        "collector-entry",
+        "collection",
+        "contract",
+        "model",
+        "barrier",
+        "evaluation",
+        "report",
+        "core"
+      ],
+      "rationale": "A declared requirement points down or stays in its layer, never up: the foundation, the transport, the collectors, their entries and the collection are the read side, and the contract, the model, its barrier, the evaluation, the report and the core are the decision side above it.",
+      "provenance": [
+        "docs/architecture/decisions/ad-588-the-self-contract-states-layers-parts-and-crossings.md"
+      ],
+      "decided_by": "architect"
+    },
     {
       "id": "NATIVE-PY-SYMBOLS-NO-SURVEY",
       "kind": "forbidden_dependency",
