@@ -20,6 +20,7 @@
         "docs/architecture/decisions/ad-345-collector-facts-have-one-typed-definition-in-archkeel-facts.md"
       ],
       "public": [
+        "native.archkeel_facts.data.door:DoorForm",
         "native.archkeel_facts.data.gap_data:GapData",
         "native.archkeel_facts.data:BindingData",
         "native.archkeel_facts.data:CallData",
@@ -27,8 +28,11 @@
         "native.archkeel_facts.data:ClassData",
         "native.archkeel_facts.data:ConstructData",
         "native.archkeel_facts.data:Declared",
+        "native.archkeel_facts.data:DoorForm",
+        "native.archkeel_facts.data:DoorSite",
         "native.archkeel_facts.data:GapEffect",
         "native.archkeel_facts.data:ImportData",
+        "native.archkeel_facts.data:PlainConstructData",
         "native.archkeel_facts.data:ReferenceData",
         "native.archkeel_facts.data:SelectorData",
         "native.archkeel_facts.data:SignalData",
@@ -127,6 +131,7 @@
         "native.archkeel_facts.vocab:Visibility",
         "native.archkeel_facts:BindingFact",
         "native.archkeel_facts:CallFact",
+        "native.archkeel_facts:CommonData",
         "native.archkeel_facts:ConstructFact",
         "native.archkeel_facts:FactData",
         "native.archkeel_facts:GapFact",
@@ -317,6 +322,7 @@
         "native.archkeel_contract:Contract",
         "native.archkeel_contract:CycleLevel",
         "native.archkeel_contract:DecidedBy",
+        "native.archkeel_contract:DoorReach",
         "native.archkeel_contract:Entity",
         "native.archkeel_contract:EntityKind",
         "native.archkeel_contract:ExternalDependencyScope",
@@ -418,6 +424,7 @@
           "through": [
             "native.archkeel_model.constructs",
             "native.archkeel_model.cycles",
+            "native.archkeel_model.door_reach",
             "native.archkeel_model.edges",
             "native.archkeel_model.gaps",
             "native.archkeel_model.graph",
@@ -465,6 +472,7 @@
           "component": "model-proof",
           "rationale": "Take the scope proof, a receipt or the verdict that only the proof gives (AD-363).",
           "through": [
+            "native.archkeel_model.gap_effects",
             "native.archkeel_model.receipts",
             "native.archkeel_model.run",
             "native.archkeel_model.scope",
@@ -482,11 +490,14 @@
         }
       ],
       "public": [
+        "native.archkeel_model:Applied",
         "native.archkeel_model:Cause",
         "native.archkeel_model:ComponentId",
         "native.archkeel_model:CoverageGap",
         "native.archkeel_model:Cycle",
         "native.archkeel_model:Decision",
+        "native.archkeel_model:DoorProblem",
+        "native.archkeel_model:Doors",
         "native.archkeel_model:Edge",
         "native.archkeel_model:Graph",
         "native.archkeel_model:Hygiene",
@@ -521,6 +532,7 @@
         "native.archkeel_model:UmlTarget",
         "native.archkeel_model:Unsupported",
         "native.archkeel_model:Verdict",
+        "native.archkeel_model:assumed",
         "native.archkeel_model:boundary_reading",
         "native.archkeel_model:claims",
         "native.archkeel_model:compare_uml_tree",
@@ -573,6 +585,7 @@
           "component": "contract",
           "rationale": "Name the rule kind in a reason (AD-359).",
           "through": [
+            "native.archkeel_contract:DoorReach",
             "native.archkeel_contract:RuleKind"
           ]
         },
@@ -627,27 +640,29 @@
       "role": "component",
       "layer": "model",
       "packages": [
+        "native.archkeel_model.boundary_facts",
+        "native.archkeel_model.condensation",
+        "native.archkeel_model.constructs",
+        "native.archkeel_model.cycles",
+        "native.archkeel_model.door_reach",
+        "native.archkeel_model.edges",
+        "native.archkeel_model.gaps",
+        "native.archkeel_model.graph",
+        "native.archkeel_model.imports",
+        "native.archkeel_model.measures",
         "native.archkeel_model.modules",
+        "native.archkeel_model.observed",
         "native.archkeel_model.ownership",
         "native.archkeel_model.settings",
-        "native.archkeel_model.imports",
-        "native.archkeel_model.edges",
-        "native.archkeel_model.condensation",
-        "native.archkeel_model.topology",
-        "native.archkeel_model.cycles",
-        "native.archkeel_model.gaps",
-        "native.archkeel_model.observed",
-        "native.archkeel_model.measures",
-        "native.archkeel_model.constructs",
-        "native.archkeel_model.symbols",
-        "native.archkeel_model.symbol_table",
         "native.archkeel_model.symbol_sites",
+        "native.archkeel_model.symbol_table",
         "native.archkeel_model.symbol_values",
-        "native.archkeel_model.boundary_facts",
-        "native.archkeel_model.graph"
+        "native.archkeel_model.symbols",
+        "native.archkeel_model.topology"
       ],
       "responsibilities": [
-        "Derive what the reply and the settings give without a rule: the modules, owners, imports, edges, ranks, cycles, measures, constructs and symbols (slices S1 to S3)."
+        "Derive what the reply and the settings give without a rule: the modules, owners, imports, edges, ranks, cycles, measures, constructs and symbols (slices S1 to S3).",
+        "Match the declared reach of each door site of the root contract to the doors of the reply, add the declared imports as edges and name each declaration that does not apply (AD-664)."
       ],
       "forbidden_responsibilities": [
         "Reading a rule of the contract and proving a scope."
@@ -662,6 +677,7 @@
           "rationale": "Read the typed components and rules of the parsed contract (AD-359).",
           "through": [
             "native.archkeel_contract:Component",
+            "native.archkeel_contract:DoorReach",
             "native.archkeel_contract:EntityKind",
             "native.archkeel_contract:ModifierKind",
             "native.archkeel_contract:ParameterKind",
@@ -693,6 +709,7 @@
             "native.archkeel_facts.type_shape",
             "native.archkeel_facts.vocab",
             "native.archkeel_facts:CallFact",
+            "native.archkeel_facts:CommonData",
             "native.archkeel_facts:ConstructFact",
             "native.archkeel_facts:FactData",
             "native.archkeel_facts:GapFact",
@@ -727,6 +744,9 @@
         "native.archkeel_model.constructs:Constructs",
         "native.archkeel_model.constructs:Work",
         "native.archkeel_model.cycles:Cycle",
+        "native.archkeel_model.door_reach:Applied",
+        "native.archkeel_model.door_reach:DoorProblem",
+        "native.archkeel_model.door_reach:Doors",
         "native.archkeel_model.edges:Edge",
         "native.archkeel_model.edges:Level",
         "native.archkeel_model.gaps:CoverageGap",
@@ -1103,6 +1123,7 @@
           "component": "model-graph",
           "rationale": "Read the modules, owners, imports, edges and symbols of the reply.",
           "through": [
+            "native.archkeel_model.door_reach",
             "native.archkeel_model.ownership"
           ]
         },
@@ -1139,6 +1160,7 @@
         }
       ],
       "public": [
+        "native.archkeel_model.gap_effects:assumed",
         "native.archkeel_model.run:Model",
         "native.archkeel_model.run:ModelTree",
         "native.archkeel_model.run:RunGap",
@@ -1936,13 +1958,15 @@
       "role": "component",
       "layer": "report",
       "packages": [
-        "native.archkeel_report.ruling",
+        "native.archkeel_report.assumed",
+        "native.archkeel_report.beyond",
         "native.archkeel_report.edge_links",
-        "native.archkeel_report.violation_detail",
-        "native.archkeel_report.beyond"
+        "native.archkeel_report.ruling",
+        "native.archkeel_report.violation_detail"
       ],
       "responsibilities": [
-        "Decide the head of the engine frame: evaluate the model once and give the status, the rule verdicts, the violation evidence and the explain part (AD-388, AD-484)."
+        "Decide the head of the engine frame: evaluate the model once and give the status, the rule verdicts, the violation evidence and the explain part (AD-388, AD-484).",
+        "Name each PASS that holds only under a declared door reach, with the door sites, and each applied declaration (AD-664)."
       ],
       "forbidden_responsibilities": [
         "Rendering markup and checking a payload."
@@ -1957,6 +1981,7 @@
           "component": "model",
           "rationale": "Copy the Decision of each rule and of the run, and name the slice of a table that is not produced (AD-363).",
           "through": [
+            "native.archkeel_model:Applied",
             "native.archkeel_model:Cause",
             "native.archkeel_model:CoverageGap",
             "native.archkeel_model:Decision",
@@ -1972,6 +1997,7 @@
             "native.archkeel_model:UmlTarget",
             "native.archkeel_model:Unsupported",
             "native.archkeel_model:Verdict",
+            "native.archkeel_model:assumed",
             "native.archkeel_model:compare_uml_tree",
             "native.archkeel_model:shape"
           ]
@@ -2007,6 +2033,7 @@
           "component": "model-proof",
           "rationale": "Call the methods of the scope, the verdict and the run proof (#953: a method of another module is a use of that module).",
           "through": [
+            "native.archkeel_model.gap_effects",
             "native.archkeel_model.run",
             "native.archkeel_model.scope"
           ]
@@ -2040,6 +2067,13 @@
           "rationale": "Write the bytes of the engine frame (AD-388).",
           "through": [
             "native.archkeel_report.engine_frame"
+          ]
+        },
+        {
+          "component": "model-graph",
+          "rationale": "Read the applied door declarations of the run to write the premise of a PASS (AD-664).",
+          "through": [
+            "native.archkeel_model.door_reach"
           ]
         }
       ],
@@ -2470,6 +2504,8 @@
           "rationale": "Derive the model of the run and ask it for each section (AD-363).",
           "through": [
             "native.archkeel_model:ComponentId",
+            "native.archkeel_model:DoorProblem",
+            "native.archkeel_model:Doors",
             "native.archkeel_model:Graph",
             "native.archkeel_model:Hygiene",
             "native.archkeel_model:Import",
@@ -2519,6 +2555,7 @@
           "component": "model-graph",
           "rationale": "Call the methods of the modules, the imports and the graph of the model (#953: a method of another module is a use of that module).",
           "through": [
+            "native.archkeel_model.door_reach",
             "native.archkeel_model.graph",
             "native.archkeel_model.imports"
           ]
@@ -3878,6 +3915,7 @@
         "native.archkeel_typescript_collector.script_types:ScriptGlobal",
         "native.archkeel_typescript_collector.script_types:ScriptNamespace",
         "native.archkeel_typescript_collector.script_types:Write",
+        "native.archkeel_typescript_collector.script_types:key_form",
         "native.archkeel_typescript_collector.walk:Syntax",
         "native.archkeel_typescript_collector.walk:Walk"
       ],
@@ -4905,6 +4943,8 @@
         }
       ],
       "public": [
+        "native.archkeel_rust_collector.derive_identity:binding",
+        "native.archkeel_rust_collector.derive_identity:namespace",
         "native.archkeel_rust_collector.derive_identity:proven",
         "native.archkeel_rust_collector.derive_imports:Local",
         "native.archkeel_rust_collector.modules.state:Frame",
@@ -4965,7 +5005,8 @@
           "rationale": "Read the lexical shape of a source file.",
           "through": [
             "native.archkeel_rust_collector.definitions",
-            "native.archkeel_rust_collector.scan"
+            "native.archkeel_rust_collector.scan",
+            "native.archkeel_rust_collector.site"
           ]
         },
         {
@@ -4999,14 +5040,15 @@
       "role": "component",
       "layer": "collector",
       "packages": [
+        "native.archkeel_rust_collector.declared",
         "native.archkeel_rust_collector.edges",
         "native.archkeel_rust_collector.edges_extracted",
-        "native.archkeel_rust_collector.module_edges",
-        "native.archkeel_rust_collector.declared",
-        "native.archkeel_rust_collector.symbols",
         "native.archkeel_rust_collector.impl_edges",
         "native.archkeel_rust_collector.impl_globs",
-        "native.archkeel_rust_collector.names"
+        "native.archkeel_rust_collector.macro_identity",
+        "native.archkeel_rust_collector.module_edges",
+        "native.archkeel_rust_collector.names",
+        "native.archkeel_rust_collector.symbols"
       ],
       "responsibilities": [
         "Write the import edges between crates and modules, the declared dependencies and the symbol records of the definitions."
@@ -5046,6 +5088,7 @@
           "component": "rs-text",
           "rationale": "Read the lexical shape of a source file.",
           "through": [
+            "native.archkeel_rust_collector.attrs.model",
             "native.archkeel_rust_collector.definitions",
             "native.archkeel_rust_collector.plant",
             "native.archkeel_rust_collector.scan",
@@ -5590,6 +5633,7 @@
             "native.archkeel_facts.type_shape",
             "native.archkeel_facts.vocab",
             "native.archkeel_facts:CallFact",
+            "native.archkeel_facts:ConstructFact",
             "native.archkeel_facts:FactData",
             "native.archkeel_facts:GapFact",
             "native.archkeel_facts:ImportFact",
@@ -5672,6 +5716,7 @@
             "native.archkeel_facts.envelope",
             "native.archkeel_facts.request",
             "native.archkeel_facts:CallFact",
+            "native.archkeel_facts:ConstructFact",
             "native.archkeel_facts:GapFact",
             "native.archkeel_facts:ImportFact",
             "native.archkeel_facts:Record",
@@ -6573,6 +6618,7 @@
         "native.archkeel_python_collector.parse.depth",
         "native.archkeel_python_collector.survey.binders",
         "native.archkeel_python_collector.survey.call_count",
+        "native.archkeel_python_collector.survey.constructs",
         "native.archkeel_python_collector.survey.typing_count",
         "native.archkeel_python_collector.survey.guard",
         "native.archkeel_python_collector.survey.hazards",

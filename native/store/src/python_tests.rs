@@ -85,6 +85,40 @@ fn the_survey_has_exactly_its_sections_and_no_construct() {
 }
 
 #[test]
+fn python_accepts_only_the_registered_assert_capability_with_its_section() {
+    let mut facts = survey_facts();
+    facts
+        .capabilities
+        .sections
+        .push(archkeel_facts::envelope::SectionName::parse("constructs").expect("a section"));
+    facts.capabilities.constructs = vec![archkeel_facts::envelope::ConstructCapability {
+        name: "assert".to_owned(),
+        status: ConstructSupport::Supported,
+    }];
+    assert_eq!(registered(&facts), Ok(()));
+    facts.capabilities.constructs[0].name = "broad_except".to_owned();
+    assert!(registered(&facts).is_err());
+    facts.capabilities.constructs[0].name = "assert".to_owned();
+    facts.capabilities.constructs[0].status = ConstructSupport::Partial;
+    assert!(registered(&facts).is_err());
+    facts.capabilities.constructs[0].status = ConstructSupport::Supported;
+    facts
+        .capabilities
+        .constructs
+        .push(archkeel_facts::envelope::ConstructCapability {
+            name: "broad_except".to_owned(),
+            status: ConstructSupport::Partial,
+        });
+    assert_eq!(registered(&facts), Ok(()));
+    facts.capabilities.constructs[1].status = ConstructSupport::Supported;
+    assert_eq!(registered(&facts), Ok(()));
+    facts.capabilities.constructs[1].name = "getattr".to_owned();
+    assert!(registered(&facts).is_err());
+    facts.capabilities.constructs.clear();
+    assert!(registered(&facts).is_err());
+}
+
+#[test]
 fn only_the_python_survey_with_its_routes_may_state_an_interface() {
     use archkeel_facts::envelope::ProfileLimits;
     let routes = crate::features::ROUTES_FEATURE.to_owned();

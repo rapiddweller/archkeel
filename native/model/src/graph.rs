@@ -5,6 +5,8 @@
 //! The part of the model that only the reply and the settings give (slices S1 to S3): the
 //! modules, packages, imports, edges, measures and cycles. It needs no contract, so a run whose
 //! contract the core cannot use yet still has its rows. The core derives it one time per run.
+//! The declared reach of the doors of the root contract (AD-664) is the one contract input: it
+//! adds declared imports, so the edges and the cycles read them.
 //! The macro bodies are typed rows of the split (`MacroBody`): the fan counts of the modules
 //! read them while the graph is derived, and nothing reads them after.
 
@@ -18,6 +20,7 @@ use archkeel_store::Ingested;
 use crate::constructs::Constructs;
 use crate::coverage::{self, Incomplete};
 use crate::cycles::{self, Cycle};
+use crate::door_reach::{self, Doors};
 use crate::edges::{self, Edge, Level};
 use crate::gap_class::{self, Class};
 use crate::ids::{Id, ModuleId, PackageId, Table};
@@ -52,6 +55,8 @@ pub struct Graph {
     /// The records that `boundary_types` reads, when the run needs them and the collector writes
     /// shapes (AD-550).
     boundary: Option<crate::boundary_facts::BoundaryFacts>,
+    /// The declared reach of the door sites (AD-664).
+    doors: Doors,
 }
 
 impl Graph {
@@ -69,7 +74,7 @@ impl Graph {
         needs: &Needs,
     ) -> Result<Graph, Reason> {
         let facts = admitted(reply, &settings)?;
-        let mut graph = Self::from_facts(facts, settings)?;
+        let mut graph = Self::from_facts(facts, settings, needs.doors())?;
         if needs.symbols() && graph.observed.symbol_facts {
             graph.symbols = Some(crate::symbol_table::derive(
                 facts,
@@ -83,10 +88,17 @@ impl Graph {
         Ok(graph)
     }
 
-    fn from_facts(facts: &Facts, settings: Settings) -> Result<Graph, Reason> {
+    fn from_facts(
+        facts: &Facts,
+        settings: Settings,
+        declared: &[archkeel_contract::DoorReach],
+    ) -> Result<Graph, Reason> {
         let settings = settings.bound(&facts.adapter.name, facts.profile.as_str());
         let (modules, packages) = modules::tables(&facts.files)?;
-        let split = imports::split(facts);
+        // AD-664: the declared reach of the doors; a declared gap names no unresolved import.
+        let mut doors = door_reach::matched(declared, facts, &settings);
+        let mut split = imports::split(facts, |gap| doors.of_gap(gap).is_some());
+        split.imports.extend(doors.take_imports());
         let (module_edges, package_edges) =
             edges::both(&facts.files, &split.imports, settings.namespace());
         let module_measured = topology::modules(&modules, &module_edges, &split.macro_bodies);
@@ -102,7 +114,8 @@ impl Graph {
             modules.iter().map(|(_, module)| module.name()).collect();
         let classes = gap_class::classes(&facts.coverage, |name| names.contains(name));
         let whole = classes.iter().filter(|c| **c == Class::Whole).count();
-        let observed = observed::observed(facts, &classes);
+        let mut observed = observed::observed(facts, &classes);
+        observed.effect_gaps = door_reach::narrowed(&doors, observed.effect_gaps);
         let gaps = crate::gaps::coverage_gaps(&facts.coverage, &classes);
         drop(names);
         Ok(Graph {
@@ -123,13 +136,19 @@ impl Graph {
             constructs: Constructs::derive(facts)?,
             symbols: None,
             boundary: None,
+            doors,
         })
     }
 
     /// Recorded inputs for unit tests only; no production caller can bypass the store.
     #[cfg(test)]
     pub(crate) fn recorded(facts: &Facts, settings: Settings) -> Result<Graph, Reason> {
-        Self::from_facts(facts, settings)
+        Self::from_facts(facts, settings, &[])
+    }
+
+    /// The declared reach of the door sites, matched to the doors of the reply (AD-664).
+    pub fn doors(&self) -> &Doors {
+        &self.doors
     }
 
     /// The modules of the reply, in the order of the reply.

@@ -27,7 +27,7 @@ pub(crate) struct PublicEntry {
 }
 
 /// True for a name that a facade covers: no leading underscore (`facade_covers`).
-pub(crate) fn covered_name(name: &str) -> bool {
+fn covered_name(name: &str) -> bool {
     !name.starts_with('_')
 }
 

@@ -76,7 +76,7 @@ const NODE16_MODULES: [ModuleKind; 3] =
 
 impl Options {
     /// The emit mode after the compiler's target-dependent default.
-    pub(crate) fn emit_module(&self) -> ModuleKind {
+    fn emit_module(&self) -> ModuleKind {
         match (self.module, self.target) {
             (Some(module), _) => module,
             (None, None | Some(Target::Es3 | Target::Es5)) => ModuleKind::CommonJs,

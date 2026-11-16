@@ -101,7 +101,7 @@ fn repr(text: &str) -> String {
     out
 }
 
-pub(crate) const SHADOWED_KIND: &str = "ShadowedModule";
+const SHADOWED_KIND: &str = "ShadowedModule";
 
 /// The selected modules that a package of the same name shadows, in the order of `selected`.
 pub(crate) fn shadowed(selected: &[String], namespace: &str, minor: PyMinor) -> Vec<Shadowed> {
@@ -124,7 +124,7 @@ pub(crate) fn shadowed(selected: &[String], namespace: &str, minor: PyMinor) -> 
         .collect()
 }
 
-pub(crate) fn is_package(rel: &str) -> bool {
+fn is_package(rel: &str) -> bool {
     rel.rsplit('/').next() == Some("__init__.py")
 }
 

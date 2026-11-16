@@ -132,3 +132,93 @@ def test_an_unported_kind_and_an_unmeasured_budget_name_their_own_rows(
     assert "rule kind SymbolPlacement" in unsupported["PROTOCOLS-IN-SERVICE"], unsupported
     budget = scanned(release_core, tmp_path / "budget", PLANTS["budget"])["frame"]
     assert "declarations.measurement_budgets.private_crossings" in budget["scope"], budget["scope"]
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("def check():\n    assert False\n", "FAIL"),
+        ("def check():\n    return True\n", "PASS"),
+        ("exec('assert False')\n", "UNKNOWN"),
+        ("from builtins import exec as run\nrun('assert False')\n", "UNKNOWN"),
+    ],
+)
+def test_assert_construct_has_evidence_and_hidden_code_does_not_pass(
+    release_core: Path, tmp_path: Path, source: str, expected: str
+) -> None:
+    rule = {**CONSTRUCT, "id": "NO-ASSERT", "constructs": ["assert"]}
+    result = scanned(
+        release_core, tmp_path, Plant({"src/app/client/page.py": source}, [rule], [], {}, {})
+    )
+    assert rows(result)["NO-ASSERT"] == expected, result["frame"]["explained"]
+    if expected == "FAIL":
+        frame = result["frame"]
+        evidence = frame["details"]["NO-ASSERT"][0]["evidence"]
+        assert [frame["locations"][item] for item in evidence] == [
+            {"path": "src/app/client/page.py", "line": 2}
+        ]
+
+
+def test_assert_uses_its_function_owner_and_exact_line(release_core: Path, tmp_path: Path) -> None:
+    rule = {
+        **CONSTRUCT,
+        "id": "NO-ASSERT",
+        "source": "app.client.page",
+        "constructs": ["assert"],
+        "allowed_sources": ["app.client.page.Allowed"],
+    }
+    source = (
+        "class Allowed:\n"
+        "    def check(self):\n"
+        "        assert True\n"
+        "class Forbidden:\n"
+        "    def check(self):\n"
+        "        assert False\n"
+    )
+    result = scanned(
+        release_core, tmp_path, Plant({"src/app/client/page.py": source}, [rule], [], {}, {})
+    )
+    assert rows(result)["NO-ASSERT"] == "FAIL"
+    frame = json.dumps(result["frame"])
+    assert "app.client.page.Forbidden.check" in frame
+    assert "app.client.page.Allowed.check" not in frame
+    details = result["frame"]["details"]["NO-ASSERT"]
+    evidence = details[0]["evidence"]
+    assert [result["frame"]["locations"][item] for item in evidence] == [
+        {"path": "src/app/client/page.py", "line": 6}
+    ]
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("try:\n    pass\nexcept:\n    pass\n", "FAIL"),
+        ("try:\n    pass\nexcept Exception:\n    pass\n", "FAIL"),
+        ("try:\n    pass\nexcept (ValueError, Exception):\n    pass\n", "FAIL"),
+        ("def check():\n    return True\n", "PASS"),
+        ("E = Exception\ntry:\n    pass\nexcept E:\n    pass\n", "UNKNOWN"),
+        ("try:\n    pass\nexcept ValueError:\n    pass\n", "UNKNOWN"),
+        ("Exception = ValueError\ntry:\n    pass\nexcept Exception:\n    pass\n", "UNKNOWN"),
+        (
+            "try:\n    pass\nexcept ValueError:\n    pass\ntry:\n    pass\nexcept:\n    pass\n",
+            "FAIL",
+        ),
+    ],
+)
+def test_broad_handler_is_proven_or_left_unknown(
+    release_core: Path, tmp_path: Path, source: str, expected: str
+) -> None:
+    rule = {**CONSTRUCT, "id": "NO-BROAD-EXCEPT", "constructs": ["broad_except"]}
+    result = scanned(
+        release_core, tmp_path, Plant({"src/app/client/page.py": source}, [rule], [], {}, {})
+    )
+    assert rows(result)["NO-BROAD-EXCEPT"] == expected, result["frame"]["explained"]
+    if expected == "UNKNOWN":
+        assert (
+            "construct absence is not completely observed"
+            in result["frame"]["explained"]["NO-BROAD-EXCEPT"]
+        )
+    if expected == "FAIL":
+        frame = result["frame"]
+        evidence = frame["details"]["NO-BROAD-EXCEPT"][0]["evidence"]
+        assert frame["locations"][evidence[0]]["path"] == "src/app/client/page.py"

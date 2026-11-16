@@ -256,14 +256,18 @@ def test_every_shape_builds_a_crate_with_only_the_expected_expansion_gaps(
 
         facts = json.loads(zlib.decompress(done.stdout))["facts"]
         gaps = facts["coverage"]["gaps"]
-        expected = (
-            {
+        # AD-662: the shape crate has no lock, so no registry identity proves `json!`.
+        unread = (
+            "The macro serde_json::json! is no macro_rules! of the workspace: "
+            "the scan does not read its expansion"
+        )
+        expected = {
+            "attributes": {
                 "The attribute macro serde can add code that the scan does not read": 6,
                 "The derive macro serde::Serialize can add code that the scan does not read": 3,
-            }
-            if shape.name == "attributes"
-            else {}
-        )
+            },
+            "macro-calls": {unread: 3},
+        }.get(shape.name, {})
         assert Counter(gap["title"] for gap in gaps) == expected, shape.name
         assert facts["coverage"]["full_scope"] == (not gaps), shape.name
 

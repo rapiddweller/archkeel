@@ -7,6 +7,7 @@
 //! after the label checks. The functions here keep these three steps, so the first error of a
 //! contract has the same kind in both parsers.
 
+use crate::door_reach::DoorReach;
 use crate::error::{invalid, Parsed};
 use crate::json::{field, has, Json, Object};
 use crate::model::{ComponentLabel, ItemId, Package};
@@ -25,7 +26,7 @@ use crate::uml::target;
 use crate::version::{ContractVersion, Feature};
 use crate::words::value_of;
 
-const KEYS: [&str; 15] = [
+const KEYS: [&str; 16] = [
     "capabilities",
     "review_scopes",
     "public_api",
@@ -41,6 +42,7 @@ const KEYS: [&str; 15] = [
     "coupling_budgets",
     "modules",
     "uml",
+    "door_reach",
 ];
 
 /// The declarations object with only its known keys.
@@ -96,6 +98,7 @@ pub(crate) struct Records {
     coupling_budgets: Option<Vec<CouplingBudget>>,
     modules: Option<Vec<ModuleTarget>>,
     pub(crate) uml: Option<Target>,
+    door_reach: Vec<DoorReach>,
 }
 
 /// The ids of step 2 that the contract ID check counts.
@@ -104,7 +107,9 @@ pub(crate) fn record_ids(records: &Records) -> Vec<&ItemId> {
     let commands = records.public_commands.iter().map(|item| &item.id);
     let paths = records.paths.iter().map(|item| &item.id);
     let owners = records.spot_owners.iter().map(|item| &item.id);
-    scopes.chain(commands).chain(paths).chain(owners).collect()
+    let doors = records.door_reach.iter().map(|item| &item.id);
+    let all = scopes.chain(commands).chain(paths).chain(owners);
+    all.chain(doors).collect()
 }
 
 /// The budgets of step 2, for the interface budget check.
@@ -156,6 +161,7 @@ pub(crate) fn later_records(object: &Object, version: ContractVersion) -> Parsed
         return Err(invalid("contract.declarations.modules repeats a path"));
     }
     let uml = uml(object, version)?;
+    let door_reach = crate::door_reach::door_reach(object, version)?;
     Ok(Records {
         review_scopes,
         public_commands,
@@ -167,6 +173,7 @@ pub(crate) fn later_records(object: &Object, version: ContractVersion) -> Parsed
         coupling_budgets,
         modules,
         uml,
+        door_reach,
     })
 }
 
@@ -212,6 +219,7 @@ pub(crate) fn finish(
         coupling_budgets: records.coupling_budgets,
         modules: records.modules,
         uml: records.uml,
+        door_reach: records.door_reach,
     })
 }
 

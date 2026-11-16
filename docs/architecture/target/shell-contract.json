@@ -426,14 +426,16 @@
       "label": "display",
       "role": "component",
       "layer": "decoding",
-      "packages": [],
+      "packages": [
+        "archkeel.cli.core_doors"
+      ],
       "exact_modules": [
         "archkeel.cli.core_evidence",
         "archkeel.cli.core_explain",
         "archkeel.cli.core_topology"
       ],
       "responsibilities": [
-        "Decode the evidence metadata, the optional topology and the explain part as typed display values."
+        "Decode the evidence metadata, the optional topology, the explain part and the declared door reaches (AD-664) as typed display values."
       ],
       "forbidden_responsibilities": [
         "Supply a verdict, a status or a scope proof."
@@ -464,7 +466,14 @@
         "archkeel.cli.core_evidence:read_details",
         "archkeel.cli.core_evidence:read_locations",
         "archkeel.cli.core_evidence:read_collection_gaps",
-        "archkeel.cli.core_evidence:call_lines"
+        "archkeel.cli.core_evidence:call_lines",
+        "archkeel.cli.core_doors:DECLARED",
+        "archkeel.cli.core_doors:DoorRow",
+        "archkeel.cli.core_doors:declared",
+        "archkeel.cli.core_doors:door_lines",
+        "archkeel.cli.core_doors:qualifier",
+        "archkeel.cli.core_doors:read_doors",
+        "archkeel.cli.core_doors:pass_qualifiers"
       ]
     },
     {

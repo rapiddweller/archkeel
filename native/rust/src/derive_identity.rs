@@ -61,7 +61,7 @@ pub(crate) fn proven(
     }
 }
 
-fn binding(
+pub(crate) fn binding(
     local: &Local<'_>,
     scope: &[String],
     path: &[String],
@@ -173,7 +173,23 @@ fn builtin(
     )
 }
 
-fn prelude(
+pub(crate) fn prelude(
+    workspace: &Workspace,
+    index: &Index<'_>,
+    local: &Local<'_>,
+    scope: &[String],
+    usage: &Usage,
+    name: &str,
+    modules: &[Module],
+) -> bool {
+    !local.module.scan.names.contains(name)
+        && namespace(workspace, index, local, scope, usage, name, modules)
+}
+
+/// No `extern crate` above the module and no glob of the scope can bind the macro `name`, so a
+/// plain name of the prelude names it (AD-535). A `use` or a definition of the name is the
+/// concern of the caller.
+pub(crate) fn namespace(
     workspace: &Workspace,
     index: &Index<'_>,
     local: &Local<'_>,
@@ -184,7 +200,6 @@ fn prelude(
 ) -> bool {
     let module = local.module;
     if !usage.prelude
-        || module.scan.names.contains(name)
         || modules.iter().any(|parent| {
             parent.crate_index == module.crate_index
                 && (parent.module == module.module

@@ -66,6 +66,11 @@ fn a_gap_with_an_effect_names_an_unresolved_import_only_when_the_effect_covers_i
         ),
     ] {
         reply.facts.coverage.gaps = vec![site.clone()];
-        assert_eq!(split(&reply.facts).unknown, unknown, "{:?}", site.data);
+        assert_eq!(
+            split(&reply.facts, |_| false).unknown,
+            unknown,
+            "{:?}",
+            site.data
+        );
     }
 }

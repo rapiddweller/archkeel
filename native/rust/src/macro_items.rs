@@ -9,7 +9,7 @@ use std::collections::BTreeSet;
 
 use proc_macro2::{TokenStream, TokenTree};
 
-use crate::tokens::{called, is_punct, plain, writes_use, MAX_DEPTH};
+use crate::tokens::{called, holds_word, is_punct, plain, writes_use, MAX_DEPTH};
 
 /// What the expansion of a `macro_rules!` body writes at the item level of the module of its call
 /// (AD-608): the tokens of each transcriber (the group after `=>`), with each `$( .. )` repetition
@@ -27,32 +27,48 @@ pub(crate) struct ItemLevel {
     /// A `macro_rules!` at item level: the expansion defines a macro that no scan of a
     /// definition sees (#1346).
     pub defines_macros: bool,
-    /// The types that the expansion defines at item level (`struct`, `enum`, `union`), by their
-    /// name or their metavariable (`$name`).
+    /// The types that one transcriber defines at item level (`struct`, `enum`, `union`), by their
+    /// name or their metavariable (`$name`). A call expands one arm, so a type anchors only an
+    /// impl of its own arm (#1374); `item_level` keeps this set empty.
     pub defines: BTreeSet<String>,
-    /// Each `impl` at item level: its trait (`None` for an inherent impl) and its self type. A
-    /// name is one identifier or a metavariable (`$name`); any other form (a path, a reference, a
-    /// tuple) is the empty string, which no proof anchors.
+    /// Each `impl` at item level that no type of its own arm anchors: its trait (`None` for an
+    /// inherent impl) and its self type. A name is one identifier or a metavariable (`$name`);
+    /// any other form (a path, a reference, a tuple) is the empty string, which no proof anchors.
     pub impls: BTreeSet<(Option<String>, String)>,
 }
 
 impl ItemLevel {
     /// True when the expansion of the macro `own` can add a member to an `impl` block that is
     /// not anchored in the module of the call (#1196, AD-357, AD-516): an impl is anchored when
-    /// the expansion defines its self type, or when the module of the call declares its trait or
+    /// its own arm defines its self type, or when the module of the call declares its trait or
     /// its self type by that one name (`declared`). A call of another macro, a path call and a
     /// macro definition hold an expansion that this reading does not see. A call of `own` expands
     /// to arms that this reading holds already.
     pub(crate) fn foreign_impl(&self, own: &str, declared: impl Fn(&str) -> bool) -> bool {
-        let anchored = |(tr, ty): &(Option<String>, String)| {
-            let written = |name: &str| !name.is_empty() && !name.starts_with('$') && declared(name);
-            self.defines.contains(ty) || written(ty) || tr.as_deref().is_some_and(written)
-        };
+        self.calls.iter().any(|call| call != own)
+            || self.path_calls
+            || self.defines_macros
+            || self.impls.iter().any(|head| !anchored(head, &declared))
+    }
+
+    /// True when the expansion may write a trait impl that is not anchored in the module of the
+    /// call, which code may run without a name of the module (#1371, AD-516): such a trait impl,
+    /// or a path call or a macro definition, whose expansion this reading does not see. A member
+    /// of an inherent impl is reached only by its name, which `foreign_impl` covers. A call of a
+    /// plain name is read on its own.
+    pub(crate) fn trait_home(&self, declared: impl Fn(&str) -> bool) -> bool {
+        let trait_impl = |head: &&(Option<String>, String)| head.0.is_some();
         self.path_calls
             || self.defines_macros
-            || self.calls.iter().any(|call| call != own)
-            || self.impls.iter().any(|head| !anchored(head))
+            || (self.impls.iter().filter(trait_impl)).any(|head| !anchored(head, &declared))
     }
+}
+
+/// An impl is anchored when the module of the call declares its trait or its self type by that
+/// one name in every configuration (`declared`).
+fn anchored((tr, ty): &(Option<String>, String), declared: &impl Fn(&str) -> bool) -> bool {
+    let written = |name: &str| !name.is_empty() && !name.starts_with('$') && declared(name);
+    written(ty) || tr.as_deref().is_some_and(written)
 }
 
 /// The name of a type at `at`: an identifier, or `$` and a metavariable.
@@ -110,7 +126,18 @@ pub(crate) fn item_level(rules: TokenStream) -> ItemLevel {
     for (at, token) in tokens.iter().enumerate() {
         let arrow = at >= 2 && is_punct(&tokens[at - 2], '=') && is_punct(&tokens[at - 1], '>');
         if let (TokenTree::Group(group), true) = (token, arrow) {
-            items(group.stream(), 0, &mut found);
+            let mut arm = ItemLevel::default();
+            items(group.stream(), 0, &mut arm);
+            found.writes_use |= arm.writes_use;
+            found.path_calls |= arm.path_calls;
+            found.defines_macros |= arm.defines_macros;
+            found.calls.extend(arm.calls);
+            let defines = arm.defines;
+            let own = arm
+                .impls
+                .into_iter()
+                .filter(|(_, ty)| !defines.contains(ty));
+            found.impls.extend(own);
         }
     }
     found
@@ -155,4 +182,51 @@ fn items(stream: TokenStream, depth: usize, found: &mut ItemLevel) {
             _ => {}
         }
     }
+}
+
+/// The path of each macro that the stream calls, and whether it starts with `::` (#1371). A call
+/// in the tokens of another macro is no code that the walk reads, so its path is read here.
+pub(crate) fn macro_paths(
+    stream: TokenStream,
+    depth: usize,
+    found: &mut BTreeSet<(bool, Vec<String>)>,
+) {
+    if depth > MAX_DEPTH {
+        return;
+    }
+    let tokens: Vec<TokenTree> = stream.into_iter().collect();
+    for (at, token) in tokens.iter().enumerate() {
+        match token {
+            TokenTree::Group(group) => macro_paths(group.stream(), depth + 1, found),
+            TokenTree::Ident(_) if called(tokens.get(at + 1), tokens.get(at + 2)) => {
+                found.insert(path_before(&tokens, at));
+            }
+            _ => {}
+        }
+    }
+}
+
+/// The path that ends with the name at `at`: the names before it, each with `::`, and whether a
+/// `::` starts it.
+fn path_before(tokens: &[TokenTree], at: usize) -> (bool, Vec<String>) {
+    let colons =
+        |end: usize| end >= 2 && is_punct(&tokens[end - 1], ':') && is_punct(&tokens[end - 2], ':');
+    let mut path = Vec::new();
+    let mut start = at;
+    if let TokenTree::Ident(name) = &tokens[at] {
+        path.push(plain(name));
+    }
+    while colons(start) {
+        let Some(TokenTree::Ident(segment)) = start.checked_sub(3).map(|i| &tokens[i]) else {
+            break;
+        };
+        path.insert(0, plain(segment));
+        start -= 3;
+    }
+    (colons(start), path)
+}
+
+/// True when the stream holds an `impl`, or nests deeper than the scan reads (#1371).
+pub(crate) fn holds_impl(stream: TokenStream) -> bool {
+    holds_word(stream, 0, &["impl"])
 }

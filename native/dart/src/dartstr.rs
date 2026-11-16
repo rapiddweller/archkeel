@@ -141,7 +141,7 @@ pub(crate) fn unclosed_block_comment(content: &[u8]) -> Option<usize> {
 }
 
 /// `_skip_trivia`: skip white space and comments from `index` up to `end`.
-pub(crate) fn skip_trivia(data: &[u8], mut index: usize, end: usize) -> usize {
+fn skip_trivia(data: &[u8], mut index: usize, end: usize) -> usize {
     while index < end {
         let found = delimiter(data, index);
         if matches!(byte(data, index), Some(b' ' | b'\t' | b'\r' | b'\n')) {

@@ -1,0 +1,355 @@
+// Archkeel
+// Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
+// SPDX-License-Identifier: MIT
+
+//! The declared reach of a door site (AD-664), over the frozen H-typescript reply with its scan
+//! root `src`. A door gap in `domain.index` states `every_module`. Without a declaration it holds
+//! each rule but the rules of the files. A matched declaration lets the rules decide, and each
+//! PASS that the door would hold names the declaration; a declared load into `data` is a real
+//! edge and breaks DOMAIN-NO-DATA; a declaration that matches no door is a problem and changes
+//! nothing.
+
+use std::collections::BTreeMap;
+
+use archkeel_model::{Cause, DoorProblem, Graph, Model, Needs, Reason, Verdict};
+use serde_json::{json, Value};
+
+use crate::evaluate;
+use crate::gap_scope_tests::{rooted, INDEX, LOCAL, PAGE};
+use crate::tests::{contract, reply};
+
+const ID: &str = "UNKNOWN-00000000000000dd";
+
+/// The rules of the fixture contract that read no edge and no code of a module.
+const FILES_ONLY: [&str; 2] = ["LAYOUT", "ASSIGNMENT"];
+
+/// A door gap `id` of `domain.index` with the door `site`.
+fn door_gap(id: &str, site: Value) -> Value {
+    json!({
+        "id": id, "evidence_class": "UNKNOWN", "area": "source",
+        "kind": "source_resolution_gap", "title": "site", "subjects": [INDEX],
+        "evidence_ids": [], "fact_ids": [], "rule_ids": [], "provenance": [],
+        "data": {"reason": "site", "module": INDEX, "resolution_dimension": "imports",
+                 "effect": "every_module", "door": site}
+    })
+}
+
+/// The door gaps `gaps` in the coverage and the unknowns of the reply.
+fn doors(reply: &mut Value, gaps: Vec<Value>) {
+    reply["facts"]["sections"][1]["records"] = json!(gaps.clone());
+    reply["facts"]["coverage"]["gaps"] = json!(gaps);
+    reply["facts"]["coverage"]["full_scope"] = json!(false);
+}
+
+/// A door gap of `domain.index` at line 7 with the form `eval`.
+fn door(reply: &mut Value) {
+    doors(
+        reply,
+        vec![door_gap(ID, json!({"form": "eval", "line": 7}))],
+    );
+}
+
+/// A declaration of the door at `site` (extra fields) that loads `loads`.
+fn declared(id: &str, site: Value, loads: &[&str]) -> Value {
+    let mut item = json!({"id": id, "module": INDEX, "door": "eval", "loads": loads,
+                          "rationale": "The text is a formula.", "provenance": ["d.md"]});
+    for (key, value) in site.as_object().into_iter().flatten() {
+        item[key] = value.clone();
+    }
+    item
+}
+
+/// What one run gives: the verdict and reason of each rule, the run, the applied declaration ids,
+/// the problems and the declarations that each PASS assumes.
+struct Found {
+    rules: BTreeMap<String, (&'static str, Option<Reason>)>,
+    run: Result<(), Reason>,
+    applied: Vec<String>,
+    problems: Vec<(String, DoorProblem)>,
+    assumed: BTreeMap<String, Vec<String>>,
+}
+
+fn run(declarations: Vec<Value>) -> Found {
+    run_with(declarations, door)
+}
+
+fn run_with(declarations: Vec<Value>, reply_change: impl FnOnce(&mut Value)) -> Found {
+    let declarations_of = declarations.clone();
+    let contract = contract(move |value: &mut Value| {
+        value["schema_version"] = json!("3.15.0");
+        value["declarations"] = json!({"door_reach": declarations_of});
+    })
+    .expect("the contract parses");
+    let reply = reply(reply_change).expect("the reply");
+    let doors = contract
+        .declarations()
+        .as_ref()
+        .map(|d| d.door_reach().clone())
+        .unwrap_or_default();
+    let needs = Needs::default().with_doors(doors);
+    let graph = Graph::derive_for(&reply, rooted(), &needs).expect("the graph");
+    let model = Model::of(&contract, graph).expect("the model");
+    let mut rules = BTreeMap::new();
+    let mut assumed = BTreeMap::new();
+    for outcome in evaluate(&model) {
+        let Some(decision) = outcome.decision() else {
+            continue;
+        };
+        let word = match decision.verdict() {
+            Verdict::Pass(_) => "PASS",
+            Verdict::Fail => "FAIL",
+            Verdict::Unknown => "UNKNOWN",
+        };
+        let rule = model
+            .contract()
+            .rules()
+            .iter()
+            .find(|rule| archkeel_contract::head_of(rule).id().as_text() == outcome.rule())
+            .expect("the rule");
+        let sites: Vec<String> = archkeel_model::assumed(&model, rule)
+            .iter()
+            .map(|d| d.id.clone())
+            .collect();
+        if word == "PASS" && !sites.is_empty() {
+            assumed.insert(outcome.rule().to_owned(), sites);
+        }
+        rules.insert(
+            outcome.rule().to_owned(),
+            (word, decision.reason().cloned()),
+        );
+    }
+    let doors = model.graph().doors();
+    Found {
+        rules,
+        run: model.scope(|scope| scope.run()),
+        applied: doors.applied().iter().map(|d| d.id.clone()).collect(),
+        problems: doors
+            .problems()
+            .iter()
+            .map(|(_, id, problem)| (id.clone(), problem.clone()))
+            .collect(),
+        assumed,
+    }
+}
+
+fn word(found: &Found, rule: &str) -> &'static str {
+    found.rules.get(rule).map_or("", |(word, _)| *word)
+}
+
+/// Each rule but the rules of the files is UNKNOWN because the door gap holds it.
+fn assert_held_by_door(found: &Found) {
+    assert_eq!(found.rules.len(), 9, "each rule has a verdict");
+    for (rule, (word, why)) in &found.rules {
+        if FILES_ONLY.contains(&rule.as_str()) {
+            assert_eq!(*word, "PASS", "{rule}");
+            continue;
+        }
+        let held =
+            matches!(why, Some(Reason::NotComplete(Cause::ScopedGaps(s))) if s.ids() == [ID]);
+        assert!(*word == "UNKNOWN" && held, "{rule}: {word} {why:?}");
+    }
+}
+
+#[test]
+fn an_undeclared_door_holds_each_rule_but_the_rules_of_the_files() {
+    let found = run(Vec::new());
+    assert_held_by_door(&found);
+    assert!(found.applied.is_empty() && found.problems.is_empty());
+    assert!(found.assumed.is_empty());
+}
+
+#[test]
+fn a_matched_declaration_decides_each_rule_and_each_pass_names_the_door() {
+    let found = run(vec![declared("D-EVAL", json!({"line": 7}), &[])]);
+    assert_eq!(found.applied, ["D-EVAL"]);
+    assert!(found.problems.is_empty());
+    for (rule, (word, why)) in &found.rules {
+        assert_eq!((*word, why), ("PASS", &None), "{rule}");
+        // The rules of the files read nothing that the door can change: a plain PASS.
+        let expected = (!FILES_ONLY.contains(&rule.as_str())).then(|| vec!["D-EVAL".to_owned()]);
+        assert_eq!(found.assumed.get(rule).cloned(), expected, "{rule}");
+    }
+    assert_eq!(found.run, Ok(()));
+}
+
+#[test]
+fn a_scope_selector_matches_the_module_level() {
+    let found = run(vec![declared("D-EVAL", json!({"scope": ""}), &[])]);
+    assert_eq!(found.applied, ["D-EVAL"]);
+}
+
+#[test]
+fn a_declared_load_is_a_real_edge_and_breaks_a_rule_that_forbids_it() {
+    let found = run(vec![declared(
+        "D-EVAL",
+        json!({"line": 7}),
+        &["shop.src.data"],
+    )]);
+    assert_eq!(found.applied, ["D-EVAL"]);
+    assert_eq!(word(&found, "DOMAIN-NO-DATA"), "FAIL");
+}
+
+#[test]
+fn a_declared_change_keeps_the_code_of_the_changed_modules_unknown() {
+    let mut item = declared("D-EVAL", json!({"line": 7}), &[]);
+    item["changes"] = json!(["shop.src.presentation"]);
+    let found = run(vec![item]);
+    assert_eq!(found.applied, ["D-EVAL"]);
+    let doubts = |rule: &str| match found.rules.get(rule) {
+        Some((_, Some(Reason::NotComplete(Cause::ScopedGaps(s))))) => {
+            s.doubts().iter().map(|d| d.word()).collect::<Vec<_>>()
+        }
+        _ => Vec::new(),
+    };
+    assert_eq!(word(&found, "MODULE-CYCLES"), "UNKNOWN");
+    assert_eq!(doubts("MODULE-CYCLES"), [format!("modules: {PAGE}")]);
+    // DOMAIN-NO-DATA reads the edges of `domain` only.
+    assert_eq!(word(&found, "DOMAIN-NO-DATA"), "PASS");
+    assert!(found.assumed.contains_key("DOMAIN-NO-DATA"));
+    assert!(found.run.is_err(), "the changed code holds the run");
+}
+
+#[test]
+fn a_declaration_that_matches_no_door_is_a_problem_and_changes_nothing() {
+    let stale = [
+        (
+            declared("D-MOVED", json!({"line": 8}), &[]),
+            DoorProblem::Unmatched,
+        ),
+        (
+            declared("D-SCOPE", json!({"scope": "Other.run"}), &[]),
+            DoorProblem::Unmatched,
+        ),
+        (
+            {
+                let mut item = declared("D-FORM", json!({"line": 7}), &[]);
+                item["door"] = json!("exec");
+                item
+            },
+            DoorProblem::Unmatched,
+        ),
+        (
+            {
+                let mut item = declared("D-WORD", json!({"line": 7}), &[]);
+                item["door"] = json!("evil");
+                item
+            },
+            DoorProblem::Form,
+        ),
+        (
+            {
+                let mut item = declared("D-OUT", json!({"line": 7}), &[]);
+                item["changes"] = json!(["os"]);
+                item
+            },
+            DoorProblem::ChangesOutside("os".to_owned()),
+        ),
+        (
+            declared("D-NONE", json!({"line": 7}), &["shop.src.nothing"]),
+            DoorProblem::LoadsNothing("shop.src.nothing".to_owned()),
+        ),
+    ];
+    for (item, problem) in stale {
+        let id = item["id"].as_str().unwrap_or_default().to_owned();
+        let found = run(vec![item]);
+        assert_eq!(found.problems, [(id.clone(), problem)], "{id}");
+        assert!(found.applied.is_empty(), "{id}");
+        assert_held_by_door(&found);
+    }
+}
+
+#[test]
+fn two_declarations_of_one_door_apply_neither() {
+    let found = run(vec![
+        declared("D-ONE", json!({"line": 7}), &[]),
+        declared("D-TWO", json!({"scope": ""}), &[]),
+    ]);
+    assert!(found.applied.is_empty());
+    assert_eq!(
+        found.problems,
+        [
+            (
+                "D-ONE".to_owned(),
+                DoorProblem::Repeated(vec!["D-TWO".to_owned()])
+            ),
+            (
+                "D-TWO".to_owned(),
+                DoorProblem::Repeated(vec!["D-ONE".to_owned()])
+            ),
+        ]
+    );
+    assert_held_by_door(&found);
+}
+
+#[test]
+fn an_outside_load_is_an_external_edge_of_the_door_module() {
+    // `lodash` is no package of the scan: the door may import it, so the external rules read it.
+    let found = run(vec![declared("D-EVAL", json!({"line": 7}), &["lodash"])]);
+    assert_eq!(found.applied, ["D-EVAL"]);
+    assert_ne!(word(&found, "EXTERNAL-SHOP"), "UNKNOWN");
+    // A load of a member module of DATA-PEERS from `domain` is no sibling edge.
+    assert_eq!(word(&found, "DATA-PEERS"), "PASS", "{LOCAL}");
+}
+
+#[test]
+fn a_declaration_that_matches_two_doors_applies_to_neither() {
+    let two = |reply: &mut Value| {
+        let site = json!({"form": "eval", "line": 7, "scope": "Calc.run"});
+        let other = json!({"form": "eval", "line": 9, "scope": "Calc.run"});
+        doors(
+            reply,
+            vec![
+                door_gap(ID, site),
+                door_gap("UNKNOWN-0000000000000ddd", other),
+            ],
+        );
+    };
+    let found = run_with(
+        vec![declared("D-EVAL", json!({"scope": "Calc.run"}), &[])],
+        two,
+    );
+    assert!(found.applied.is_empty());
+    assert_eq!(
+        found.problems,
+        [("D-EVAL".to_owned(), DoorProblem::Ambiguous(2))]
+    );
+    let one = |reply: &mut Value| {
+        let site = json!({"form": "eval", "line": 7, "scope": "Calc.run"});
+        let other = json!({"form": "eval", "line": 9, "scope": "Calc.run"});
+        doors(
+            reply,
+            vec![
+                door_gap(ID, site),
+                door_gap("UNKNOWN-0000000000000ddd", other),
+            ],
+        );
+    };
+    let narrowed = declared("D-EVAL", json!({"scope": "Calc.run", "line": 7}), &[]);
+    let found = run_with(vec![narrowed], one);
+    assert_eq!(found.applied, ["D-EVAL"]);
+}
+
+#[test]
+fn a_door_binding_that_another_module_imports_is_not_applied() {
+    // `presentation.page` imports `OrderRepository` from `domain.index`: when the door site binds
+    // that name, the door runs in `page` too, and no edge of `page` names the reach.
+    let bound = |reply: &mut Value| {
+        let site = json!({"form": "loader", "line": 1, "binding": "OrderRepository"});
+        doors(reply, vec![door_gap(ID, site)]);
+    };
+    let mut item = declared("D-LOAD", json!({"line": 1}), &[]);
+    item["door"] = json!("loader");
+    let found = run_with(vec![item.clone()], bound);
+    assert_eq!(
+        found.problems,
+        [(
+            "D-LOAD".to_owned(),
+            DoorProblem::Exported(vec![PAGE.to_owned()])
+        )]
+    );
+    let free = |reply: &mut Value| {
+        let site = json!({"form": "loader", "line": 1, "binding": "load"});
+        doors(reply, vec![door_gap(ID, site)]);
+    };
+    assert_eq!(run_with(vec![item], free).applied, ["D-LOAD"]);
+}

@@ -5,6 +5,7 @@
 //! The data of a gap of the coverage or of the `unknowns` section. It has a file of its own, with
 //! no macro call at module level, so the scan of the Rust collector places the type.
 
+use crate::data::door::DoorSite;
 use crate::data::gap_effect::GapEffect;
 use crate::ids::ModuleName;
 use crate::reason::ReasonCode;
@@ -60,4 +61,8 @@ pub struct GapData {
     /// scope unknown.
     #[serde(default, skip_serializing_if = "crate::skip::omitted")]
     pub effect: Option<GapEffect>,
+    /// The door of the site, when the gap is a door whose reach a contract can declare
+    /// (AD-664).
+    #[serde(default, skip_serializing_if = "crate::skip::omitted")]
+    pub door: Option<DoorSite>,
 }

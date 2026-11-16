@@ -8,6 +8,11 @@ such a link has no target on `main`. The files are in the Git history before tha
 | Decision | Title |
 |---|---|
 | AD-660 | [`init` drafts a system for a mixed repository](ad-660-init-drafts-a-system-for-a-mixed-repository.md) |
+| AD-662 | [A macro whose expansion the scan does not read gives a gap](ad-662-a-macro-whose-expansion-the-scan-does-not-read-gives-a-gap.md) |
+| AD-672 | [A self-check pin may only shrink, and growth needs a reason](ad-672-a-self-check-pin-may-only-shrink-and-growth-needs-a-reason.md) |
+| AD-666 | [A Python broad exception handler keeps unread types partial](ad-666-a-python-broad-exception-handler-keeps-unread-types-partial.md) |
+| AD-664 | [A contract can declare the reach of a door site](ad-664-a-contract-can-declare-the-reach-of-a-door-site.md) |
+| AD-658 | [A Python assert is a written construct](ad-658-a-python-assert-is-a-written-construct.md) |
 | AD-656 | [A macro that adds a method outside the file of its type gives a pair gap](ad-656-a-macro-that-adds-a-method-outside-the-file-of-its-type-gives-a-pair-gap.md) |
 | AD-654 | [A proven lazy table key is a re-export of its target](ad-654-a-proven-lazy-table-key-is-a-re-export-of-its-target.md) |
 | AD-648 | [A file that no import can name is a script and has no layout](ad-648-a-file-that-no-import-can-name-is-a-script-and-has-no-layout.md) |

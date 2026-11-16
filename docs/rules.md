@@ -344,6 +344,20 @@ an unused-consumer check.
 and literal exports resolving to its target; product imports must avoid it.
 Migration shims remain visible work.
 
+Contract **3.15.0** adds `declarations.door_reach` (AD-664). One record names one door site
+(`module`, `door`, and `line` or `scope`) and the module prefixes that the door may import
+(`loads`) or change (`changes`). The forms are `eval`, `exec`, `compile`, `unpickle`, `loader`,
+`dunder_import` and `computed_key`. The reach is a premise, not a proof: a PASS that rests on it
+is "PASS assuming the declared reach of N doors", and a declared load is a real edge that a rule
+can forbid. A declaration that matches no door, more than one door or an invalid reach is a
+named defect and is never applied; without a declaration a door stays UNKNOWN.
+
+```json
+{"id": "DOOR-FORMULA", "module": "app.calc", "door": "eval", "scope": "Formula.value",
+ "loads": [], "changes": [], "rationale": "The text is a formula of numbers.",
+ "provenance": ["docs/calc.md"]}
+```
+
 ## Class D: review claims
 
 Unreferenced symbols, unread bindings, repeated logic and type fan-in are review
