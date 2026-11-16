@@ -109,12 +109,12 @@ fn resolve(
         Uri::Builtin(module) => {
             if module == "dart.mirrors" {
                 let message = "dart:mirrors can reach code without an import; the edge stays";
-                gaps.named(GapName::DartMirrors, at, message);
+                gaps.named(GapName::Mirrors, at, message);
             }
             if module == "dart.isolate" && index.isolate_loader {
                 let message =
                     "dart:isolate can run another library with Isolate.spawnUri; the edge stays";
-                gaps.named(GapName::DartIsolate, at, message);
+                gaps.named(GapName::Isolate, at, message);
             }
             return Some(Resolved::Builtin(module));
         }
@@ -126,25 +126,22 @@ fn resolve(
                     return Some(Resolved::Local { module, rel });
                 }
                 Kind::Part => (
-                    GapName::DartTargetIsPart,
+                    GapName::TargetIsPart,
                     format!("{uri} gives the part file {rel}"),
                 ),
                 Kind::Unknown => (
-                    GapName::DartTargetUnparsed,
+                    GapName::TargetUnparsed,
                     format!("{uri} gives {rel}, which has no proven module"),
                 ),
             },
             Located::NotSelected => (
-                GapName::DartTargetNotSelected,
+                GapName::TargetNotSelected,
                 format!("{uri} gives {rel}, which is not a selected source"),
             ),
-            Located::Missing => (GapName::DartTargetMissing, missing(&rel)),
+            Located::Missing => (GapName::TargetMissing, missing(&rel)),
         },
-        Uri::Outside => (
-            GapName::DartTargetOutside,
-            format!("{uri} leaves the package"),
-        ),
-        Uri::Unsupported(reason) => (GapName::DartUnsupportedUri, format!("{uri}: {reason}")),
+        Uri::Outside => (GapName::TargetOutside, format!("{uri} leaves the package")),
+        Uri::Unsupported(reason) => (GapName::UnsupportedUri, format!("{uri}: {reason}")),
     };
     gaps.named(name, at, &message);
     None

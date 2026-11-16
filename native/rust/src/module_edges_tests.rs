@@ -383,34 +383,67 @@ fn routes(files: &[(&str, &str)]) -> Vec<(String, Vec<String>, Option<bool>)> {
 }
 
 #[test]
-fn a_route_follows_each_reexport_to_the_definition_and_stops_where_a_macro_may_give_the_name() {
+fn a_route_follows_each_reexport_and_ends_at_a_macro_that_writes_no_import() {
+    let made = "macro_rules! def {\n    ($n:ident) => {\n        pub struct $n;\n        impl $n {\n            fn f() { use std::fmt; }\n        }\n    };\n}\ndef!(Made);\n";
+    let passed = "macro_rules! pass {\n    ($p:path) => {\n        $(pub use $p;)?\n    };\n}\npass!(crate::c::Shape);\n";
     let files = [
         (
             "crates/app/src/lib.rs",
-            "mod a;\nmod b;\nmod c;\nmod d;\npub use b::Shape;\n",
+            "mod a;\nmod b;\nmod c;\nmod d;\nmod e;\npub use b::Shape;\n",
         ),
         ("crates/app/src/b.rs", "pub use crate::c::Shape;\n"),
         ("crates/app/src/c.rs", "pub struct Shape;\n"),
-        (
-            "crates/app/src/d.rs",
-            "macro_rules! def {\n    ($n:ident) => {\n        pub struct $n;\n    };\n}\ndef!(Made);\n",
-        ),
+        ("crates/app/src/d.rs", made),
+        ("crates/app/src/e.rs", passed),
         (
             "crates/app/src/a.rs",
-            "use crate::Shape;\nuse crate::d::Made;\nuse crate::c::*;\npub fn f(_: Shape, _: Made) {}\n",
+            "use crate::Shape;\nuse crate::d::Made;\nuse crate::e::Shape as Other;\nuse crate::c::*;\npub fn f(_: Shape, _: Made, _: Other) {}\n",
         ),
     ];
     let hops = |names: &[&str]| names.iter().map(|n| format!("ns.app{n}")).collect();
+    // A `use` in a function body of the expansion binds no name of `d`; a `use` at item level of
+    // the expansion of `pass!` may publish `Shape` in `e`, so its route is not complete (AD-608).
     assert_eq!(
         routes(&files),
         [
             ("*".to_owned(), Vec::new(), None),
-            ("Made".to_owned(), hops(&[".d.Made"]), Some(false)),
+            ("Made".to_owned(), hops(&[".d.Made"]), None),
             (
                 "Shape".to_owned(),
                 hops(&[".Shape", ".b.Shape", ".c.Shape"]),
                 None
             ),
+            ("Shape".to_owned(), hops(&[".e.Shape"]), Some(false)),
+        ]
+    );
+}
+
+#[test]
+fn the_route_of_a_member_carries_each_root_name_of_its_type() {
+    let files = [
+        (
+            "crates/app/src/lib.rs",
+            "mod a;\nmod t;\nmod x;\npub use t::T;\n",
+        ),
+        ("crates/app/src/t.rs", "pub struct T;\n"),
+        (
+            "crates/app/src/x.rs",
+            "impl crate::t::T {\n    pub fn make() -> Self {\n        crate::t::T\n    }\n}\n",
+        ),
+        (
+            "crates/app/src/a.rs",
+            "use crate::t::T;\npub fn f() -> T {\n    T::make()\n}\n",
+        ),
+    ];
+    let hops = |names: &[&str]| names.iter().map(|n| format!("ns.app{n}")).collect();
+    // AD-608: the member reaches the block in `x`; the root publishes `T`, so a root entry of
+    // `T` covers the call, and the use leaf and the path `T::make` keep the route of `crate::t::T`.
+    assert_eq!(
+        routes(&files),
+        [
+            ("T".to_owned(), hops(&[".t.T"]), None),
+            ("T".to_owned(), hops(&[".t.T"]), None),
+            ("T".to_owned(), hops(&[".x.T", ".T", ".t.T"]), None),
         ]
     );
 }

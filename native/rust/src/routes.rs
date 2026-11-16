@@ -16,10 +16,13 @@
 //! and is not complete: a later hop may follow. An item of an inline module has no hop, because
 //! a hop names a file module.
 
-use crate::definitions::Owner;
+use crate::definitions::{Form, Owner};
+use std::collections::{BTreeMap, BTreeSet};
+
 use crate::modules::{Frame, Index, Outcome, MAX_HOPS};
 use crate::resolve::{classify, Found, Named};
 use crate::scan::{Reference, Via};
+use crate::tokens::NO_BIND_MACROS;
 
 /// The hops of a route, and whether the scan proves each step to its end.
 pub(crate) struct Route {
@@ -47,6 +50,18 @@ enum Next {
 
 /// The route of `name` in the lexical module `at`.
 pub(crate) fn route(index: &Index<'_>, at: &str, name: &str) -> Route {
+    route_in(index, at, name, false)
+}
+
+/// The route of `name` when it must end at a type (AD-608). A macro call in item place cannot
+/// add a second type of the name: it would collide with the `use` or the definition of the name
+/// (E0255, E0428). So the macro check is not needed; a route that ends at another item is not
+/// complete.
+fn type_route(index: &Index<'_>, at: &str, name: &str) -> Route {
+    route_in(index, at, name, true)
+}
+
+fn route_in(index: &Index<'_>, at: &str, name: &str, of_type: bool) -> Route {
     let mut hops = Vec::new();
     let (mut at, mut name) = (at.to_owned(), name.to_owned());
     let stop = |hops: Vec<String>, complete: bool| Route { hops, complete };
@@ -60,14 +75,18 @@ pub(crate) fn route(index: &Index<'_>, at: &str, name: &str) -> Route {
         hops.push(format!("{at}.{name}"));
         let scan = &frame.module.scan;
         let opaque = frame.module.gated && frame.module.gates.is_none();
-        if opaque || scan.module_macros || scan.counts.get(&name) != Some(&1) {
+        if !opaque && macro_defines(index, frame, &name) {
+            return stop(hops, true);
+        }
+        if opaque || (scan.module_macros && !of_type) || scan.counts.get(&name) != Some(&1) {
             return stop(hops, false);
         }
-        let defined = scan.definitions.iter().any(|d| {
+        let defined = scan.definitions.iter().find(|d| {
             d.name == name && d.owner == Owner::Module && frame.lexical_at(&d.scope) == at
         });
-        if defined {
-            return stop(hops, true);
+        if let Some(definition) = defined {
+            let a_type = matches!(definition.form, Form::Struct | Form::Enum | Form::Trait);
+            return stop(hops, a_type || !of_type);
         }
         let [leaf] = frame.bound(&name) else {
             return stop(hops, false);
@@ -84,6 +103,62 @@ pub(crate) fn route(index: &Index<'_>, at: &str, name: &str) -> Route {
             None => return stop(hops, false),
         }
     }
+}
+
+/// Whether the name is defined in the file, so the route ends there (AD-608). No `use` leaf, glob or
+/// `extern crate` of the file can bind the name, so only a definition can give it: a written one or
+/// one of a macro call in item place. Each call in item place is a call by its plain name of the one crate-wide
+/// `macro_rules!` of that name in the crate. The call writes no import, and the expansion writes
+/// none at item level and calls only such macros there (`tokens::item_level`). Such a call can add
+/// a definition, never a re-export.
+fn macro_defines(index: &Index<'_>, frame: &Frame<'_>, name: &str) -> bool {
+    let scan = &frame.module.scan;
+    let mut calls = scan.macro_calls.iter().filter(|call| call.fills).peekable();
+    if !frame.bound(name).is_empty()
+        || frame.globs().next().is_some()
+        || !scan.extern_crates.is_empty()
+        || !scan.self_aliases.is_empty()
+        || calls.peek().is_none()
+    {
+        return false;
+    }
+    let mut seen = BTreeSet::new();
+    calls.all(|call| {
+        call.placed
+            && !call.writes_use
+            && frame.bound(&call.name).is_empty()
+            && writes_no_import(index, frame, &call.name, &mut seen)
+    })
+}
+
+/// Whether the macro `name` of the crate of `frame` writes no import when it expands.
+fn writes_no_import(
+    index: &Index<'_>,
+    frame: &Frame<'_>,
+    name: &str,
+    seen: &mut BTreeSet<String>,
+) -> bool {
+    if NO_BIND_MACROS.contains(&name) || !seen.insert(name.to_owned()) {
+        return true;
+    }
+    let crate_index = frame.module.crate_index;
+    let definitions: Vec<_> = index
+        .frames()
+        .filter(|other| other.module.crate_index == crate_index)
+        .flat_map(|other| other.module.scan.macro_defs.iter())
+        .filter(|def| def.name == name)
+        .collect();
+    let [def] = definitions.as_slice() else {
+        return false;
+    };
+    // The tokens of the expansion decide it: a path that the scan cannot place writes no import.
+    let items = &def.item_level;
+    def.local.is_none()
+        && !items.writes_use
+        && items
+            .calls
+            .iter()
+            .all(|inner| writes_no_import(index, frame, inner, seen))
 }
 
 /// The module and the name that a `use` leaf of `frame` names, by the rules of the edges: a
@@ -117,4 +192,87 @@ fn next(index: &Index<'_>, frame: &Frame<'_>, leaf: &Reference) -> Option<Next> 
         }
         Outcome::None | Outcome::Unknown(_) => None,
     }
+}
+
+/// The names that the root of each crate target publishes to other crates, by the last hop of
+/// their route (AD-608): `pub use model::Model;` in the root publishes `root.Model` for the
+/// definition `model.Model`. Only a leaf that is public outside the crate counts.
+#[derive(Default)]
+pub(crate) struct Publications {
+    roots: BTreeMap<String, Published>,
+}
+
+#[derive(Default)]
+struct Published {
+    by_definition: BTreeMap<String, Vec<String>>,
+    /// A leaf of the root whose route the scan does not prove may publish any definition.
+    partial: bool,
+}
+
+impl Publications {
+    /// The route of a member of the type `name`, which the lexical module `at` defines, in an
+    /// `impl` block of the module `block` (#953): the type in the module of the block, each name
+    /// of its crate root that publishes it, and its definition. A use passes when one is public.
+    pub(crate) fn member(&mut self, index: &Index<'_>, block: &str, at: &str, name: &str) -> Route {
+        let definition = format!("{at}.{name}");
+        let mut hops = vec![format!("{block}.{name}")];
+        let frame = index.file_of(at).and_then(|file| index.frame(file));
+        let Some(frame) = frame.filter(|frame| frame.module.module == at) else {
+            return Route {
+                hops,
+                complete: false,
+            };
+        };
+        let root = frame.root();
+        let published = self
+            .roots
+            .entry(root.to_owned())
+            .or_insert_with(|| published(index, root));
+        hops.extend(
+            published
+                .by_definition
+                .get(&definition)
+                .into_iter()
+                .flatten()
+                .cloned(),
+        );
+        hops.push(definition);
+        let mut seen = BTreeSet::new();
+        hops.retain(|hop| seen.insert(hop.clone()));
+        Route {
+            hops,
+            complete: !published.partial,
+        }
+    }
+}
+
+fn published(index: &Index<'_>, root: &str) -> Published {
+    let mut found = Published::default();
+    let Some(frame) = index.frame(root) else {
+        found.partial = true;
+        return found;
+    };
+    let scan = &frame.module.scan;
+    for leaf in frame.leaves() {
+        let Via::Use {
+            binding: Some(name),
+            reexport: true,
+            block: false,
+        } = &leaf.via
+        else {
+            continue;
+        };
+        if scan.restricted_bindings.contains(name) || frame.lexical_at(&leaf.scope) != root {
+            continue;
+        }
+        let Route { hops, complete } = type_route(index, root, name);
+        match hops.last() {
+            Some(last) if complete => {
+                let entry = found.by_definition.entry(last.clone()).or_default();
+                entry.push(format!("{root}.{name}"));
+            }
+            _ => found.partial = true,
+        }
+    }
+    found
 }

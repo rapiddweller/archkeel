@@ -452,6 +452,8 @@ definitions of each module (symbols, AD-351). Calls, types and constructs are un
 stay UNKNOWN and never PASS. The linked collector names the item of each import and its
 publication route, so the core decides `interface_boundary` and symbol selectors
 ([AD-604](architecture/decisions/ad-604-the-rust-collector-states-the-item-and-route-of-each-import.md)).
+A name that a `macro_rules!` call defines ends its route when the expansion writes no import at item
+level ([AD-608](architecture/decisions/ad-608-a-crate-root-is-the-one-public-path-of-each-name-it-publishes.md)).
 A glob into another component, a name that a macro may publish further (unless a hop of its route
 is public), a method call whose receiver the scan does not know and a procedural macro are not
 read: they hold the rule. A procedural macro that adds a `use` of a defined name can only give a

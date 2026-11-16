@@ -27,11 +27,18 @@ pytestmark = pytest.mark.skipif(shutil.which("cargo") is None, reason="rustc is 
 
 BASE = {
     "crates/base/src/lib.rs": (
-        "pub mod shapes;\nmod inner;\nmod extra;\nmod made;\npub use inner::Thing;\n"
+        "pub mod shapes;\npub mod relay;\nmod inner;\nmod extra;\nmod made;\n"
+        "pub use inner::Thing;\n"
         "pub use made::Gen;\npub fn make() {}\npub fn secret() {}\npub struct Tool;\n"
     ),
     "crates/base/src/inner.rs": "pub struct Thing;\n",
     "crates/base/src/shapes.rs": "pub struct Circle;\npub struct Square;\n",
+    # AD-608: a macro whose expansion writes `pub use` may publish its name further.
+    "crates/base/src/relay.rs": (
+        "macro_rules! pass {\n    () => {\n        pub use std::string::String as Text;\n"
+        "    };\n}\n"
+        "pass!();\n"
+    ),
     "crates/base/src/made.rs": (
         "macro_rules! def {\n    ($n:ident) => {\n        pub struct $n;\n    };\n}\ndef!(Gen);\n"
     ),
@@ -88,8 +95,15 @@ PLANTS = [
         "BOUNDARY: incomplete scope: interface_boundary: unread import binding",
     ),
     (
-        "item that a macro publishes",
+        "item that a macro defines",
         "use base_crate::Gen;\npub fn run() -> Gen { Gen }\n",
+        [],
+        "FAIL",
+        VIOLATION.format("native.base_crate:Gen"),
+    ),
+    (
+        "item that a macro may publish further",
+        "pub fn run() -> base_crate::relay::Text { base_crate::relay::Text::new() }\n",
         [],
         "UNKNOWN",
         "BOUNDARY: incomplete scope: interface_boundary: unproven publication route",
@@ -181,7 +195,9 @@ def test_a_member_of_a_type_is_published_by_the_type_in_the_module_of_its_block(
         + "pub fn tool() -> Tool {\n    Tool::build()\n}\n",
         "crates/app/src/lib.rs": "pub fn run() {}\n",
     }
-    root["exact_modules"] += [f"native.base_crate.{m}" for m in ("shapes", "inner", "made")]
+    root["exact_modules"] += [
+        f"native.base_crate.{m}" for m in ("shapes", "inner", "made", "relay")
+    ]
     found_status, found = _run(tmp_path, core_binary, files, (root, extra, manifest, app))
     assert found_status == status, found
     if status == "FAIL":
@@ -191,3 +207,34 @@ def test_a_member_of_a_type_is_published_by_the_type_in_the_module_of_its_block(
             )
             in found
         )
+
+
+ROOT_PUBLIC = ["native.base_crate:Circle", "native.base_crate:make"]
+# AD-608: the root of `base` publishes `Circle`; its one public path is the root.
+ROOT_PLANTS = [
+    ("root path", "use base_crate::Circle;\npub fn run() -> Circle { Circle }\n", "PASS"),
+    (
+        "deeper path of a root name",
+        "use base_crate::shapes::Circle;\npub fn run() -> Circle { Circle }\n",
+        "FAIL",
+    ),
+    (
+        "path through a module binding",
+        "use base_crate::shapes;\npub fn run() -> shapes::Circle { shapes::Circle }\n",
+        "FAIL",
+    ),
+]
+
+
+@pytest.mark.parametrize(("name", "source", "status"), ROOT_PLANTS)
+def test_a_name_that_a_crate_root_publishes_has_the_root_as_its_one_path(
+    core_binary: Path, tmp_path: Path, name: str, source: str, status: str
+) -> None:
+    base = {**component("base", "base_crate"), "public": ROOT_PUBLIC}
+    app = component("app", "app", ("base",))
+    lib = BASE["crates/base/src/lib.rs"] + "pub use shapes::Circle;\n"
+    files = {**BASE, "crates/base/src/lib.rs": lib, "crates/app/src/lib.rs": source}
+    found_status, found = _run(tmp_path, core_binary, files, (base, app))
+    assert found_status == status, (name, found)
+    if status == "FAIL":
+        assert VIOLATION.format("native.base_crate.shapes:Circle") in found, (name, found)

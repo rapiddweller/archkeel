@@ -7,6 +7,9 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-612 | [Remove the unused report v2 pipeline](ad-612-remove-the-unused-report-v2-pipeline.md) |
+| AD-610 | [Check literal schema extensions](ad-610-check-literal-schema-extensions.md) |
+| AD-608 | [A crate root is the one public path of each name it publishes](ad-608-a-crate-root-is-the-one-public-path-of-each-name-it-publishes.md) |
 | AD-606 | [The report page holds the 4.0.1 Explorer with the 5.0 design tokens](ad-606-the-report-page-holds-the-4-0-1-explorer-with-the-5-0-design-tokens.md) |
 | AD-604 | [The Rust collector states the item and the route of each import](ad-604-the-rust-collector-states-the-item-and-route-of-each-import.md) |
 | AD-600 | [Every section row kind is a typed variant and the frame states its constants](ad-600-every-section-row-kind-is-a-typed-variant-and-the-frame-states-its-constants.md) |
@@ -16,6 +19,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-588 | [The self-contract states layers, parts and crossings](ad-588-the-self-contract-states-layers-parts-and-crossings.md) |
 | AD-592 | [The shell contract declares each crossing and each public name has a docstring](ad-592-the-shell-contract-declares-each-crossing-and-each-public-name-has-a-docstring.md) |
 | AD-590 | [Every Rust public item is documented, and a helper lives with its owner](ad-590-every-rust-public-item-is-documented-and-a-helper-lives-with-its-owner.md) |
+| AD-584 | [The clone check skips token runs that carry no logic](ad-584-the-clone-check-skips-token-runs-that-carry-no-logic.md) |
 | AD-582 | [The unused browser and Studio assets are removed](ad-582-the-unused-browser-and-studio-assets-are-removed.md) |
 | AD-580 | [A declared signature that names a type reaches its public entry](ad-580-a-declared-signature-that-names-a-type-reaches-its-public-entry.md) |
 | AD-568 | [Narrow the typing factory proof to the statements that can replace a factory](ad-568-narrow-the-typing-factory-proof-to-the-statements-that-can-replace-a-factory.md) |

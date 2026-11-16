@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use archkeel_contract::Lifecycle;
 use archkeel_facts::envelope::{Profile, Target};
 use archkeel_facts::identity::{stable_id, Part};
-use archkeel_facts::sections::Section;
+use archkeel_facts::Section;
 use archkeel_model::{claims, Model, ModelTree, Reason, Resolved};
 use archkeel_report::Ruling;
 use archkeel_store::Ingested;

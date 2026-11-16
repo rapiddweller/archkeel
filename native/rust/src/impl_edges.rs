@@ -21,7 +21,6 @@ use crate::crates::Workspace;
 use crate::definitions::{Access, Form, ImplBlock, Member, MethodCall};
 use crate::impl_globs::{crate_path, depends, Reached};
 use crate::modules::{inside, Edge, Frame, Index, TypeOf};
-use crate::plant;
 use crate::scan::Via;
 use crate::tree::Module;
 use orphans::orphan_impl_gaps;
@@ -264,7 +263,7 @@ impl Builder {
             let (open, hidden): (Vec<_>, Vec<_>) = typed.partition(seen);
             let doubt = |block: &&Foreign<'_>| (path_call(reference), block.module.module.clone());
             out.doubts.extend(hidden.iter().map(doubt));
-            let TypeOf::Known(_, type_name) = &known else {
+            let TypeOf::Known(type_at, type_name) = &known else {
                 continue;
             };
             for block in open {
@@ -273,7 +272,7 @@ impl Builder {
                     lexical: block.lexical.clone(),
                     symbol: Some(member.clone()),
                     level: 0,
-                    member_of: Some(type_name.clone()),
+                    member_of: Some((type_at.clone(), type_name.clone())),
                 };
                 self.module_import(index, module, reference, &edge);
             }
@@ -311,7 +310,7 @@ impl Builder {
             lexical: block.to_owned(),
             symbol: Some(member.clone()),
             level: 0,
-            member_of: Some(name),
+            member_of: Some((lexical, name)),
         })
     }
 
@@ -384,7 +383,11 @@ impl Builder {
             return;
         };
         for (at_index, call) in reached.calls.iter().enumerate() {
-            if at_index < own && plant::method(&module.rel, at_index) {
+            #[cfg(feature = "dump")]
+            if at_index < own
+                && std::env::var("ARCHKEEL_PLANT_METHOD")
+                    .is_ok_and(|value| value == format!("{}:{at_index}", module.rel))
+            {
                 continue;
             }
             if at_index < own && self.self_call((reached.index, frame), module, call, &found.typed)

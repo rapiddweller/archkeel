@@ -472,3 +472,13 @@ mod build;
 #[cfg(test)]
 #[path = "envelope_tests.rs"]
 mod tests;
+
+/// The test features of a linked collector: `dump` when its crate is built with it. A build with
+/// a test feature is refused by `archkeel-collect` (AD-406).
+pub const fn test_features(dump: bool) -> &'static [&'static str] {
+    if dump {
+        &["dump"]
+    } else {
+        &[]
+    }
+}

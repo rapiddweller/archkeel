@@ -19,7 +19,7 @@
 
 use archkeel_facts::data::GapData;
 use archkeel_facts::envelope::Coverage;
-use archkeel_facts::sections::GapFact;
+use archkeel_facts::GapFact;
 
 /// Why the reply proves that the scope of a run is not complete.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

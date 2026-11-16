@@ -25,7 +25,7 @@ Four crates of the decision side have parts by responsibility too (AD-588). No c
 - `model`: `model-terms`, `model-graph`, `model-selection`, `model-run`, `model-match`, `model-proof`, `model-uml`.
 - `eval`: `eval-violation`, `eval-rules`, `eval-decide`.
 - `report`: `report-payload`, `report-check`, `report-build`, `report-page`, `report-frame`, `report-ruling`.
-- `core`: `core-contract`, `core-engine`, `core-baseline`, `core-hygiene`, `core-frame`, `core-requests`.
+- `core`: `core-contract`, `core-decode`, `core-engine`, `core-baseline`, `core-hygiene`, `core-frame`, `core-requests`.
 
 The component with the name of the crate is the root part. It owns the root file and the manifest, and it
 publishes the parts. A part claims its modules by name and stays in the layer of its crate. A new module of
@@ -41,8 +41,11 @@ Each component lists in `public` the names that other components use, as `module
 `NATIVE-INTERFACE-BOUNDARY` fails for a use of any other name
 ([AD-604](decisions/ad-604-the-rust-collector-states-the-item-and-route-of-each-import.md)). A use
 passes when one hop of the publication route of its name is listed: a re-export at a crate root, or
-the module that defines the name. For a method call, the type is listed in the module of its `impl`
-block. `model-barrier` and `core` list no name, because no other component uses them.
+the module that defines the name. A crate root is the one public path of each name that it
+publishes ([AD-608](decisions/ad-608-a-crate-root-is-the-one-public-path-of-each-name-it-publishes.md)):
+a component that owns a crate root lists such a name only at the root, so another crate that takes a
+deeper path fails. A method call passes through a root entry of its type. `model-barrier` and `core`
+list no name, because no other component uses them.
 
 The core chain is core -> report -> eval -> model -> contract, store and facts
 ([AD-382](decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md)).
@@ -63,7 +66,7 @@ the public API of each library by name and signature. #1075 lists what the scan 
 | `archkeel-model` | The typed model of one run: ids, tables, the components, the modules, packages and owners of slice S1, the imports and the module and package edges of slice S2, what the reply proves not seen, the cycles and ranks of slice S3, and the scope proof that a PASS needs: slice S4 checks each cause that makes the scope incomplete one time per model, the import matchers of the direction kinds of slice S5 that the evaluator and the scope proof share, and the scan roots, the component cycles, the cycle receipts and the rules that each pair gap can change of slice S7 (AD-363, AD-370, AD-372, AD-374, AD-378, AD-380, AD-384). | `archkeel-contract`, `archkeel-store`, `archkeel-facts` |
 | `archkeel-model-barrier` | A test crate without code: each document test tries to build a PASS without the scope proof of the same model, from outside the model, and has a twin that compiles (AD-378). It also tries a run PASS without the run proof; the report and the evaluator hold their own attempts as document tests (AD-381, AD-382). Attempts 25 to 29 try the gap scope and the scan proof of slice S7 (AD-384). | `archkeel-model`, `archkeel-contract` |
 | `archkeel-eval` | Decides each rule over the model: an outcome with a decision and its violations. Slice S1 decides `complete_assignment` and `root_layout`, slice S2 `external_dependency_scope` and `complete_external_scope`, slice S5 the direction kinds (`forbidden_dependency`, `allowed_dependency` as a declaration, `sibling_isolation`, `layer_order`, `complete_requires`), slice S7 `no_component_cycles`; each other kind names its slice (AD-370, AD-372, AD-380, AD-384). | `archkeel-model`, `archkeel-contract`, `archkeel-facts` |
-| `archkeel-report` | The report v2 payload: the typed `Report` frame, its canonical bytes, the status rule and the check. A frame whose status has no explaining row cannot be built (AD-361, AD-371). A rule row comes from an outcome of the evaluator; a PASS row, a PASS observation and a PASS status each need the model (AD-381). The core writes its status and rule verdicts only through its `Ruling` (AD-388). | `archkeel-eval`, `archkeel-model`, `archkeel-contract` |
+| `archkeel-report` | The engine ruling, its frame and the HTML presentation. The core writes its status and rule verdicts only through its `Ruling` (AD-388). A PASS needs the model and the run proof. The unused report v2 builder and checker are removed (AD-612). | `archkeel-eval`, `archkeel-model`, `archkeel-contract` |
 | `archkeel-core` | The one process after the collector and the only binary of WP6. It speaks the engine command of the dual run (AD-363), the check request of the shell and the scan request; `archkeel report --native-core` and `archkeel check --native-core` take their rule verdicts when it decides every rule (AD-390, AD-399). For the scan request it runs the collector in its own process (AD-406). It takes the status of a frame from the report (AD-388). | `archkeel-collect`, `archkeel-report`, `archkeel-eval`, `archkeel-model`, `archkeel-contract`, `archkeel-store`, `archkeel-build-support` |
 | `archkeel-collect` | The composition between the core and the collectors and the only crate that names a language: it reads the repository configuration, derives the collection request, runs the linked TypeScript or Rust collector and gives the store its typed reply; each other profile and a configured collector are refused by name (AD-406). It enables the snapshot work charge before any linked collector runs (AD-420). | `archkeel-typescript-collector`, `archkeel-rust-collector`, `archkeel-store`, `archkeel-wire`, `archkeel-facts`, `archkeel-snapshot` |
 | `archkeel-build-support` | The helper that the `build.rs` of each collector calls: the digest of the sources. | no crate of the workspace |
@@ -501,6 +504,7 @@ flowchart LR
     n_59["core-frame"]
     n_60["core-hygiene"]
     n_61["core-requests"]
+    n_78["core-decode"]
     n_62["eval-decide"]
     n_63["eval-rules"]
     n_64["eval-violation"]
@@ -528,6 +532,7 @@ flowchart LR
     n_56 --> n_15
     n_57 --> n_1
     n_57 --> n_5
+    n_78 --> n_57
     n_58 --> n_1
     n_58 --> n_57
     n_58 --> n_31
@@ -542,6 +547,7 @@ flowchart LR
     n_59 --> n_57
     n_59 --> n_58
     n_59 --> n_60
+    n_59 --> n_78
     n_59 --> n_4
     n_59 --> n_5
     n_59 --> n_41
@@ -560,6 +566,7 @@ flowchart LR
     n_61 --> n_58
     n_61 --> n_59
     n_61 --> n_60
+    n_61 --> n_78
     n_61 --> n_4
     n_61 --> n_5
     n_61 --> n_15
@@ -630,9 +637,7 @@ flowchart LR
     n_72 --> n_1
     n_72 --> n_31
     n_72 --> n_5
-    n_72 --> n_67
     n_72 --> n_73
-    n_72 --> n_76
     n_73 --> n_5
     n_73 --> n_76
     n_74 --> n_75

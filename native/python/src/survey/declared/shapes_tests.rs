@@ -304,3 +304,26 @@ fn a_dataclass_has_no_record_and_so_no_shape_for_its_fields() {
         .iter()
         .all(|record| record.data.fields().qualified_name != Some("app.m.D")));
 }
+
+#[test]
+fn an_import_of_a_module_that_another_module_writes_is_not_the_one_binder() {
+    let found = surveyed(&[
+        ("src/app/__init__.py", ""),
+        ("src/app/api.py", "from app.inner import f\n"),
+        ("src/app/inner.py", "def f(a: dict) -> int:\n    return 1\n"),
+        (
+            "src/app/other.py",
+            "import app.api as api\n\napi.f = lambda a: a\n",
+        ),
+    ]);
+    let unique = |module: &str| {
+        found
+            .imports
+            .iter()
+            .filter(|record| record.data.data().source_module.as_str() == module)
+            .map(|record| record.data.data().source_binding_unique)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(unique("app.api"), [Some(false)]);
+    assert_eq!(unique("app.other"), [Some(true)]);
+}

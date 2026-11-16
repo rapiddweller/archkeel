@@ -90,6 +90,11 @@ pub(super) fn lexical(frame: &Frame<'_>, scope: &[String]) -> String {
 }
 
 impl<'a> Frame<'a> {
+    /// The module id of the root of the crate target that holds the file.
+    pub(crate) fn root(&self) -> &'a str {
+        self.root
+    }
+
     /// The crate that holds the file.
     pub(crate) fn krate(&self) -> &'a Crate {
         self.krate
@@ -139,6 +144,11 @@ impl<'a> Index<'a> {
                 && types.contains(&d.form)
                 && self::lexical(frame, &d.scope) == lexical
         })
+    }
+
+    /// Each file of the walk.
+    pub(crate) fn frames(&self) -> impl Iterator<Item = &Frame<'a>> {
+        self.frames.values()
     }
 
     pub(crate) fn frame(&self, module: &str) -> Option<&Frame<'a>> {

@@ -24,7 +24,7 @@ from test_cli_core_only_scan import command
 ROWS = json.loads((Path(__file__).parent / "boundary_types_rows.json").read_text())
 STRICTER = {("PASS", "UNKNOWN"), ("FAIL", "UNKNOWN")}
 # (equal, PASS to UNKNOWN, FAIL to UNKNOWN, plants) between release 4.0.1 and the core.
-COUNTS = (37, 10, 8, 55)
+COUNTS = (39, 11, 9, 59)
 CAUSE = re.compile(r"boundary_type_position: \S+ \S+: (\w+): ")
 
 

@@ -16,7 +16,8 @@ use crate::definitions::{Holder, MethodCall};
 use crate::net;
 use crate::plant;
 use crate::tokens::{
-    chains, fn_names, macro_names, method_names, names_relative, plain, string_paths,
+    chains, fn_names, item_level, macro_names, method_names, names_relative, plain, string_paths,
+    writes_use,
 };
 
 /// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path
@@ -128,6 +129,7 @@ pub(super) fn macro_rules(walker: &mut Walker<'_>, node: &ItemMacro) {
         members,
         unknowns,
         local,
+        item_level: item_level(node.mac.tokens.clone()),
     });
 }
 
@@ -151,6 +153,7 @@ pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
         site,
         placed: local,
         fills: module_level,
+        writes_use: writes_use(node.tokens.clone(), 0),
     };
     // The tokens of a macro are not code that the scan reads: a call in them is not placed.
     let mut inner = BTreeSet::new();
