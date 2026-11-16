@@ -161,7 +161,7 @@ impl Held {
         };
         if let Reason::Incomplete(incomplete) = reason {
             held.kind = match incomplete {
-                Incomplete::CoverageGaps(_) => HoldKind::CoverageGaps,
+                Incomplete::CoverageGaps { .. } => HoldKind::CoverageGaps,
                 Incomplete::UnknownImports(count) => {
                     held.unnamed_imports = *count;
                     HoldKind::UnknownImports

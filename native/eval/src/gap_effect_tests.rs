@@ -246,7 +246,10 @@ fn a_violation_behind_a_gap_never_passes() {
 
 #[test]
 fn a_gap_without_a_usable_effect_holds_every_rule() {
-    let whole = Some(Reason::Incomplete(Incomplete::CoverageGaps(1)));
+    let whole = Some(Reason::Incomplete(Incomplete::CoverageGaps {
+        whole: 1,
+        reported: 1,
+    }));
     for (name, fields) in [
         ("no effect", json!({})),
         ("no source", json!({"effect": {"edges": {"sources": []}}})),
@@ -267,7 +270,10 @@ fn a_gap_without_a_usable_effect_holds_every_rule() {
         }
         assert_eq!(
             found.1,
-            Err(Reason::Incomplete(Incomplete::CoverageGaps(1)))
+            Err(Reason::Incomplete(Incomplete::CoverageGaps {
+                whole: 1,
+                reported: 1
+            }))
         );
     }
 }
@@ -278,7 +284,10 @@ fn a_gap_between_two_modules_with_an_effect_holds_every_rule() {
     let fields = json!({"source_module": ORDER, "effect": {"edges": {"sources": [ORDER]}}});
     let found = run(unchanged, gap(INDEX, fields), rooted()).unwrap_or_else(failed);
     for (rule, (word, why)) in &found.0 {
-        let whole = Some(Reason::Incomplete(Incomplete::CoverageGaps(1)));
+        let whole = Some(Reason::Incomplete(Incomplete::CoverageGaps {
+            whole: 1,
+            reported: 1,
+        }));
         assert_eq!((word.as_str(), why), ("UNKNOWN", &whole), "{rule}");
     }
 }

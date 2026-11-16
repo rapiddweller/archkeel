@@ -16,7 +16,8 @@ use crate::evaluate;
 use crate::tests::{contract, reply, shop_profile, shop_settings};
 
 /// The four decided rules of the H-typescript contract.
-const DECIDED: [&str; 4] = ["ASSIGNMENT", "LAYOUT", "EXTERNAL-COMPLETE", "EXTERNAL-SHOP"];
+pub(crate) const DECIDED: [&str; 4] =
+    ["ASSIGNMENT", "LAYOUT", "EXTERNAL-COMPLETE", "EXTERNAL-SHOP"];
 
 /// The verdict word and the reason of each decided rule after the changes, or `None` when the
 /// contract or the reply does not load.
@@ -45,7 +46,7 @@ fn decided(
     Some(found)
 }
 
-fn unchanged(_: &mut Value) {}
+pub(crate) fn unchanged(_: &mut Value) {}
 
 /// Each decided rule is UNKNOWN with `reason`.
 fn all_unknown(found: Option<Vec<(String, Option<Reason>)>>, reason: &Reason) {
@@ -56,26 +57,26 @@ fn all_unknown(found: Option<Vec<(String, Option<Reason>)>>, reason: &Reason) {
     }
 }
 
-fn not_complete(cause: Cause) -> Reason {
+pub(crate) fn not_complete(cause: Cause) -> Reason {
     Reason::NotComplete(cause)
 }
 
-fn unread(part: Part) -> Reason {
+pub(crate) fn unread(part: Part) -> Reason {
     Reason::Unsupported(Unsupported::ScopeProof(part))
 }
 
-fn add_rule(contract: &mut Value, rule: Value) {
+pub(crate) fn add_rule(contract: &mut Value, rule: Value) {
     if let Some(rules) = contract["rules"].as_array_mut() {
         rules.push(rule);
     }
 }
 
-fn head(id: &str, kind: &str) -> Value {
+pub(crate) fn head(id: &str, kind: &str) -> Value {
     json!({"id": id, "kind": kind, "rationale": "r", "provenance": ["p"],
            "decided_by": "architect"})
 }
 
-fn with(mut value: Value, fields: Value) -> Value {
+pub(crate) fn with(mut value: Value, fields: Value) -> Value {
     if let (Some(target), Some(source)) = (value.as_object_mut(), fields.as_object()) {
         for (key, field) in source {
             target.insert(key.clone(), field.clone());
@@ -229,87 +230,13 @@ fn a_reply_of_an_external_collector_is_a_fact() {
     assert!(found.iter().all(|(word, _)| word == "PASS"));
 }
 
-#[test]
-fn a_rule_kind_that_no_store_profile_decides_is_a_fact() {
-    let rule = with(
-        head("TYPES", "boundary_types"),
-        json!({"source": "shop.src.domain"}),
-    );
-    let change = |c: &mut Value| {
-        c["schema_version"] = json!("2.3.0");
-        add_rule(c, rule);
-    };
-    let found = decided(change, unchanged, shop_settings());
-    all_unknown(
-        found,
-        &not_complete(Cause::ProfileLimit("TYPES".to_owned())),
-    );
-}
-
-#[test]
-fn a_declaration_that_no_store_profile_measures_is_a_fact() {
-    let roots = |c: &mut Value| c["declarations"]["context_roots"] = json!(["shop.src"]);
-    let found = decided(roots, unchanged, shop_settings());
-    let subject = "declarations.context_roots".to_owned();
-    all_unknown(found, &not_complete(Cause::ProfileLimit(subject)));
-}
-
-#[test]
-fn an_interface_boundary_is_a_limit_of_one_profile_and_a_named_gap() {
-    let rule = with(
-        head("BOUNDARY", "interface_boundary"),
-        json!({"include_type_checking": false}),
-    );
-    let found = decided(|c| add_rule(c, rule), unchanged, shop_settings());
-    all_unknown(found, &unread(Part::ProfileLimit("BOUNDARY".to_owned())));
-}
-
-fn symbol_rule(contract: &mut Value) {
-    let rule = with(
-        head("SYMBOL", "forbidden_dependency"),
-        json!({"source": "shop.src.presentation", "target": "shop.src.domain",
-               "target_symbol": "Order", "include_type_checking": false,
-               "allowed_sources": []}),
-    );
-    add_rule(contract, rule);
-}
-
-#[test]
-fn a_symbol_selector_is_a_fact_without_the_symbol_feature() {
-    let without = |r: &mut Value| {
-        if let Some(features) = r["facts"]["capabilities"]["resolution_features"].as_array_mut() {
-            features.retain(|feature| feature != "script-globals-v1");
-        }
-    };
-    let found = decided(symbol_rule, without, shop_settings());
-    all_unknown(
-        found,
-        &not_complete(Cause::ProfileLimit("SYMBOL".to_owned())),
-    );
-    let found = decided(symbol_rule, unchanged, shop_settings());
-    all_unknown(found, &unread(Part::ProfileLimit("SYMBOL".to_owned())));
-}
-
-fn construct_rule(source: &str, constructs: Value) -> impl FnOnce(&mut Value) {
+pub(crate) fn construct_rule(source: &str, constructs: Value) -> impl FnOnce(&mut Value) {
     let rule = with(
         head("CONSTRUCT", "forbidden_construct"),
         json!({"source": source, "constructs": constructs, "allowed_sources": [],
                "exact_sources": []}),
     );
     move |contract: &mut Value| add_rule(contract, rule)
-}
-
-#[test]
-fn a_construct_that_the_collector_does_not_examine_is_a_fact() {
-    let found = decided(
-        construct_rule("shop", json!(["eval"])),
-        unchanged,
-        shop_settings(),
-    );
-    all_unknown(
-        found,
-        &not_complete(Cause::ProfileLimit("CONSTRUCT".to_owned())),
-    );
 }
 
 /// One change of a reply.
@@ -355,25 +282,6 @@ fn a_capability_set_that_is_not_registered_reaches_no_pass() {
         assert!(no_pass(probe));
     }
     assert!(reply(|r| r["facts"]["capabilities"]["constructs"] = json!([])).is_none());
-}
-
-#[test]
-fn a_construct_selector_is_a_fact_for_every_store_profile() {
-    let rule = with(
-        head("SELECTOR", "forbidden_construct"),
-        json!({"source": "shop", "constructs": ["string_literal_compare"],
-               "allowed_sources": [], "exact_sources": [],
-               "selector": {"receiver": "Order", "member": "id", "role": "read"}}),
-    );
-    let change = |c: &mut Value| {
-        c["schema_version"] = json!("3.11.0");
-        add_rule(c, rule);
-    };
-    let found = decided(change, unchanged, shop_settings());
-    all_unknown(
-        found,
-        &not_complete(Cause::ProfileLimit("SELECTOR".to_owned())),
-    );
 }
 
 #[test]

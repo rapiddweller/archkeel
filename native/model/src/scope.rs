@@ -112,16 +112,13 @@ impl<'id, 'm> Scope<'id, 'm> {
         if let Rule::InterfaceBoundary(rule) = rule {
             crate::interface::receipt(self.model, rule)?;
         }
-        let unread = match self.model.scope_state() {
+        let mut unread = match self.model.scope_state() {
             State::Incomplete(reason) => return Err(rescued(self.model, rule, reason)),
             State::Unread(part) => Some(part.clone()),
             State::Complete => None,
         };
-        // AD-500: a feature that the collector states as unsupported holds each rule that reads it.
-        let observed = self.model.graph().observed();
-        if let Some(subject) = crate::limits::stated_hold(self.model.contract(), rule, observed) {
-            return Err(Reason::NotComplete(Cause::ProfileLimit(subject)));
-        }
+        // AD-500, AD-644: a profile limit holds the rule when the rule reads the part it limits.
+        crate::proof::hold_rule(self.model.contract(), self.model.graph(), rule, &mut unread)?;
         // AD-564: a gap that states its effect holds the rule when the rule reads the effect.
         if let Some(scoped) = crate::gap_effects::held(self.model, rule) {
             return Err(Reason::NotComplete(Cause::ScopedGaps(scoped)));
@@ -156,8 +153,7 @@ impl<'id, 'm> Scope<'id, 'm> {
 
     /// The scope state of the whole run: `Ok` only when the model has no cause and no unread
     /// part. The status of a frame reads it (lead decision L-35b): a run whose scope is not
-    /// complete is never PASS, also with zero rules. It reads the one state that
-    /// `complete` reads.
+    /// complete is never PASS, also with zero rules. It reads the one state that `complete` reads.
     ///
     /// Slice S7 (AD-384): each kept pair gap holds the run. AD-418: a gap that the drop rule
     /// drops holds the run when it can change a rule of the contract; one that changes no rule
@@ -171,6 +167,7 @@ impl<'id, 'm> Scope<'id, 'm> {
         if let State::Incomplete(reason) = self.model.scope_state() {
             return Err(reason.clone());
         }
+        let limited = crate::proof::hold_run(self.model.contract(), self.model.graph())?; // AD-644
         if let Some(held) = Held::of(kept) {
             return Err(Reason::NotComplete(Cause::PairGaps(held)));
         }
@@ -191,7 +188,7 @@ impl<'id, 'm> Scope<'id, 'm> {
         }
         match self.model.scope_state() {
             State::Unread(part) => Err(part.clone().into()),
-            _ => Ok(()),
+            _ => limited.map_or(Ok(()), |part| Err(part.into())),
         }
     }
 
@@ -481,7 +478,7 @@ struct Source<'a> {
 /// the core cannot prove the dependency scope. The former host could accept such a gap (AD-418).
 /// Other gaps keep their existing treatment when the runtime could carry the host proof.
 fn rescued(model: &Model, rule: &Rule, reason: &Reason) -> Reason {
-    if matches!(reason, Reason::Incomplete(Incomplete::CoverageGaps(_)))
+    if matches!(reason, Reason::Incomplete(Incomplete::CoverageGaps { .. }))
         && matches!(rule, Rule::CompleteRequires(_))
         && model.graph().observed().scope_receipt
     {

@@ -220,16 +220,12 @@ fn a_dynamic_import_reaches_a_rule_of_a_mount_only_from_its_domain() {
 }
 
 #[test]
-fn a_profile_limit_of_a_mount_holds_back_each_pass() {
+fn a_profile_limit_of_a_mount_holds_only_the_rule_that_reads_it() {
+    // AD-644: the limit of a mount rule holds that rule; the root rules read no part of it.
     let boundary = rule("IB", "interface_boundary", json!({}));
     let found = domain(three(), vec![boundary]);
-    let part = Reason::Unsupported(Unsupported::ScopeProof(Part::ProfileLimit(
-        "domain:IB".into(),
-    )));
-    assert_eq!(
-        verdict(&found, "ASSIGNMENT"),
-        ("UNKNOWN".to_owned(), Some(part))
-    );
+    assert_eq!(verdict(&found, "ASSIGNMENT").0, "PASS");
+    assert_eq!(verdict(&found, "domain:IB").0, "UNKNOWN");
 }
 
 #[test]

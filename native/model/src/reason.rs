@@ -279,11 +279,23 @@ impl fmt::Display for Reason {
             Reason::Incomplete(Incomplete::NoSourceFiles) => {
                 formatter.write_str("incomplete scope: the collector selected no source file")
             }
-            Reason::Incomplete(Incomplete::CoverageGaps(count)) => write!(
-                formatter,
-                "incomplete scope: the collector reports {count} coverage {}",
-                if *count == 1 { "gap" } else { "gaps" }
-            ),
+            Reason::Incomplete(Incomplete::CoverageGaps { whole, reported }) => {
+                let gaps = if *reported == 1 { "gap" } else { "gaps" };
+                write!(
+                    formatter,
+                    "incomplete scope: the collector reports {reported} coverage {gaps}"
+                )?;
+                // The other gaps state their effect or lie between two modules (AD-564).
+                match (whole == reported, *whole == 1) {
+                    (true, _) => Ok(()),
+                    (false, true) => {
+                        formatter.write_str("; 1 of them leaves the whole scope unknown")
+                    }
+                    (false, false) => {
+                        write!(formatter, "; {whole} of them leave the whole scope unknown")
+                    }
+                }
+            }
             Reason::Incomplete(Incomplete::UnknownImports(count)) => write!(
                 formatter,
                 "incomplete scope: {count} {} not resolved and no gap names {}",
@@ -334,13 +346,26 @@ mod tests {
     #[test]
     fn a_count_of_one_has_the_singular_form() {
         let text = |reason: Reason| reason.to_string();
+        let gaps =
+            |whole, reported| Reason::Incomplete(Incomplete::CoverageGaps { whole, reported });
         assert_eq!(
-            text(Reason::Incomplete(Incomplete::CoverageGaps(1))),
+            text(gaps(1, 1)),
             "incomplete scope: the collector reports 1 coverage gap"
         );
         assert_eq!(
-            text(Reason::Incomplete(Incomplete::CoverageGaps(2))),
+            text(gaps(2, 2)),
             "incomplete scope: the collector reports 2 coverage gaps"
+        );
+        // The line counts each gap that the report lists, and names the gaps of the whole scope.
+        assert_eq!(
+            text(gaps(3, 4)),
+            "incomplete scope: the collector reports 4 coverage gaps; 3 of them leave the whole \
+             scope unknown"
+        );
+        assert_eq!(
+            text(gaps(1, 2)),
+            "incomplete scope: the collector reports 2 coverage gaps; 1 of them leaves the whole \
+             scope unknown"
         );
         assert_eq!(
             text(Reason::Incomplete(Incomplete::UnknownImports(1))),

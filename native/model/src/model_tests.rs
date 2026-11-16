@@ -322,7 +322,13 @@ fn the_reply_proves_an_incomplete_scope_only_with_a_gap_that_no_contract_drops()
         Some(Incomplete::NoSourceFiles)
     );
     let certain = coverage(&["a.ts"], vec![gap(None), gap(Some("shop.a"))]);
-    assert_eq!(found(&certain), Some(Incomplete::CoverageGaps(2)));
+    assert_eq!(
+        found(&certain),
+        Some(Incomplete::CoverageGaps {
+            whole: 2,
+            reported: 2
+        })
+    );
     // A gap between two modules can be allowed by the contract (`drop_allowed_pair_gaps`).
     assert_eq!(found(&coverage(&["a.ts"], vec![gap(Some("shop.b"))])), None);
 }
