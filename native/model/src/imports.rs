@@ -17,6 +17,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use archkeel_facts::data::GapEffect;
 use archkeel_facts::envelope::{Facts, Target};
 use archkeel_facts::profile_traits::TargetMarks;
 use archkeel_facts::vocab::ResolutionDimension;
@@ -198,6 +199,36 @@ pub(crate) struct Split {
     pub(crate) unknown: usize,
 }
 
+/// A gap of the import resolution: the module and the evidence that it names, and its effect.
+struct Site<'f> {
+    module: Option<&'f str>,
+    evidence: Vec<&'f str>,
+    effect: Option<&'f GapEffect>,
+}
+
+impl Site<'_> {
+    /// True when the gap names the unresolved import of `source` at `cited` and its effect leaves
+    /// the code of `source` unknown (AD-564): the same site, or a citation of each evidence of
+    /// the import. An unresolved import can bind or re-export a name, so an effect on the edges
+    /// alone does not cover it. A gap without an effect names an import only by the same site
+    /// (`named` in `split`).
+    fn covers(&self, source: &str, cited: &[&str]) -> bool {
+        let Some(effect) = self.effect else {
+            return false;
+        };
+        let names = (self.module == Some(source) && self.evidence == cited)
+            || (!cited.is_empty() && cited.iter().all(|id| self.evidence.contains(id)));
+        let code = match effect {
+            GapEffect::EveryModule => true,
+            GapEffect::Modules { modules } => {
+                modules.iter().any(|module| module.as_str() == source)
+            }
+            GapEffect::Edges { .. } | GapEffect::Layout { .. } => false,
+        };
+        names && code
+    }
+}
+
 /// Split the imports of a reply. An unresolved import leaves first, then a macro body, as
 /// `split_imports` checks them.
 pub(crate) fn split(facts: &Facts) -> Split {
@@ -206,15 +237,23 @@ pub(crate) fn split(facts: &Facts) -> Split {
         .iter()
         .map(|target| (target.import_id().as_str(), target))
         .collect();
-    let named: HashSet<(Option<&str>, Vec<&str>)> = facts
+    let sites: Vec<Site<'_>> = facts
         .coverage
         .gaps
         .iter()
         .filter_map(|gap| {
             let data = crate::coverage::data_of(&gap.data);
-            (data.resolution_dimension == Some(ResolutionDimension::Imports))
-                .then(|| (data.module.as_ref().map(|m| m.as_str()), evidence(gap)))
+            (data.resolution_dimension == Some(ResolutionDimension::Imports)).then(|| Site {
+                module: data.module.as_ref().map(|m| m.as_str()),
+                evidence: evidence(gap),
+                effect: data.effect.as_ref(),
+            })
         })
+        .collect();
+    let named: HashSet<(Option<&str>, Vec<&str>)> = sites
+        .iter()
+        .filter(|site| site.effect.is_none())
+        .map(|site| (site.module, site.evidence.clone()))
         .collect();
     // A profile without marks reads every resolved target by its module (AD-450).
     let typed = facts.profile.target_marks() == TargetMarks::Typed;
@@ -223,8 +262,10 @@ pub(crate) fn split(facts: &Facts) -> Split {
         let data = record.data.data();
         let resolved = match targets.get(record.id.as_str()) {
             Some(Target::Unresolved { .. }) => {
-                let site = (Some(data.source_module.as_str()), evidence(record));
-                found.unknown += usize::from(!named.contains(&site));
+                let source = data.source_module.as_str();
+                let site = (Some(source), evidence(record));
+                let covered = sites.iter().any(|gap| gap.covers(source, &site.1));
+                found.unknown += usize::from(!named.contains(&site) && !covered);
                 continue;
             }
             _ if matches!(record.data, ImportFact::MacroBody(_)) => {
@@ -286,3 +327,7 @@ fn sorted(mut ids: Vec<&str>) -> Vec<String> {
 fn evidence<D>(record: &Record<D>) -> Vec<&str> {
     record.evidence_ids.iter().map(|id| id.as_str()).collect()
 }
+
+#[cfg(test)]
+#[path = "imports_effect_tests.rs"]
+mod effect_tests;

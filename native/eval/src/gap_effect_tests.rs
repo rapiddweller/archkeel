@@ -142,6 +142,40 @@ fn the_code_of_every_module_holds_each_rule_but_the_rules_of_the_files() {
     assert_scope(&found, "every_module", &held, &FILES_ONLY);
 }
 
+fn layout(module: &'static str) -> impl FnOnce(&mut Value) + Clone {
+    gap(module, json!({"effect": {"layout": {"modules": [module]}}}))
+}
+
+#[test]
+fn the_layout_of_a_module_holds_the_rules_of_the_files_and_no_other_rule() {
+    let found = run(unchanged, layout(ORDER), rooted()).unwrap_or_else(failed);
+    let decided = [
+        &EVERY_EDGE[..],
+        &[
+            "EXTERNAL-COMPLETE",
+            "EXTERNAL-SHOP",
+            "DOMAIN-NO-DATA",
+            "DATA-PEERS",
+        ],
+    ]
+    .concat();
+    assert_scope(&found, &format!("layout: {ORDER}"), &FILES_ONLY, &decided);
+    // The twin: a source that does not hold the module reads nothing of it, so the rule decides.
+    let narrow = |contract: &mut Value| {
+        if let Some(rules) = contract["rules"].as_array_mut() {
+            for rule in rules.iter_mut().filter(|rule| rule["id"] == "ASSIGNMENT") {
+                rule["source"] = json!("shop.src.presentation");
+            }
+        }
+    };
+    let found = run(narrow, layout(ORDER), rooted()).unwrap_or_else(failed);
+    assert_eq!(word(&found, "ASSIGNMENT"), "PASS");
+    assert_eq!(
+        doubts(&found, "LAYOUT"),
+        Some(vec![format!("layout: {ORDER}")])
+    );
+}
+
 #[test]
 fn an_unowned_module_can_be_a_source_of_the_forbidden_rule() {
     // `main` loses its owner, so its hidden edge can be on the source side of DOMAIN-NO-DATA.

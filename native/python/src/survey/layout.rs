@@ -101,7 +101,12 @@ pub(super) fn outside(modules: &[Module], roots: &[String]) -> Vec<Record<GapFac
                 "{OUTSIDE_LAYOUT}: the top package of module {} lies above its scan root",
                 module.name
             );
-            file_gap(&module.rel, &reason)
+            let mut gap = file_gap(&module.rel, &reason);
+            // AD-564: the survey read the module; only its file and layout are not proven.
+            if let GapFact::CollectionGap(data) = &mut gap.data {
+                data.effect = Some(super::effects::layout(&module.name));
+            }
+            gap
         })
         .collect()
 }
