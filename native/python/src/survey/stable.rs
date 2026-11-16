@@ -18,8 +18,34 @@ use ruff_python_ast::{Expr, ExprContext, Stmt};
 use super::binders::{import_bindings, Binders};
 use super::imports::Aliases;
 use super::walks::{Scope, Whole};
-use crate::module::Module;
+use crate::module::{EvidenceMap, Module};
+use archkeel_facts::envelope::FileFact;
+use archkeel_facts::identity::{stable_id, Part};
+use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::pyminor::PyMinor;
+
+/// The file record and the stable bindings that the survey gives it.
+pub(super) fn file_fact(
+    module: &Module,
+    binders: &Binders,
+    stable_bindings: Vec<String>,
+    evidence: &mut EvidenceMap,
+) -> FileFact {
+    let mut exports: Vec<String> = binders.all_exports.iter().cloned().collect();
+    exports.sort();
+    FileFact {
+        id: FactId::new(stable_id("FILE", &[Part::Text(&module.name)])),
+        rel_path: module.rel.clone(),
+        module: ModuleName::new(module.name.as_str()),
+        package: PackageName::new(module.package.as_str()),
+        all_exports: exports,
+        all_literal: binders.all_literal,
+        compatibility_logic_free: binders.logic_free,
+        stable_bindings,
+        blank: module.tree.body.is_empty(),
+        evidence_id: EvidenceId::new(module.file_evidence(evidence)),
+    }
+}
 
 /// The stable bindings of one module, sorted. `minor` is the minor version of the interpreter.
 pub(super) fn bindings(
