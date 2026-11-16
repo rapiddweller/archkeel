@@ -9,7 +9,7 @@
 use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::visitor::{self, Visitor};
-use ruff_python_ast::{Expr, ExprContext, Stmt, StmtFunctionDef};
+use ruff_python_ast::{Expr, ExprContext, ParameterWithDefault, Stmt, StmtFunctionDef};
 
 use super::lazy_binds::Abs;
 
@@ -125,5 +125,19 @@ impl<'a> Visitor<'a> for Reads<'_> {
             }
         }
         visitor::walk_expr(self, expr);
+    }
+}
+
+/// The one parameter of a function that takes no other kind: no positional-only, keyword-only,
+/// `*` or `**` parameter. Its default is the reader's to check.
+pub(super) fn plain_parameter(function: &StmtFunctionDef) -> Option<&ParameterWithDefault> {
+    let parameters = &function.parameters;
+    let plain = parameters.posonlyargs.is_empty()
+        && parameters.kwonlyargs.is_empty()
+        && parameters.vararg.is_none()
+        && parameters.kwarg.is_none();
+    match parameters.args.as_slice() {
+        [one] if plain => Some(one),
+        _ => None,
     }
 }
