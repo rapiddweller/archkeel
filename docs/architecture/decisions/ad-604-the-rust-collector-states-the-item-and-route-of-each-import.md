@@ -36,6 +36,13 @@ measured it on `native/`: 85 `scope_proof` gaps, and a planted use of a private 
 
 `model`, `eval`, `core` and `report` name no language: they read the facts and the profile trait.
 
+## The self-contract
+Each component of `native/architecture-contract.json` lists `public` names, and the rule
+`NATIVE-INTERFACE-BOUNDARY` follows the layer order. Each list is the smallest set that covers each use
+of the component that the scan sees (a greedy cover of the route hops in the component; on a tie, the
+name as the user writes it). So the rule finds no violation today, and a new use of another name
+fails. The owner decides if a name that a crate root publishes may also be used by a deeper path.
+
 ## What stays UNKNOWN (never PASS)
 - a glob into another component; a name that a macro may publish further, unless a hop is public;
 - a method call whose receiver the scan does not know: the pair gap of #953 holds the rule;

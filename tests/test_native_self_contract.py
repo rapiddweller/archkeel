@@ -96,6 +96,8 @@ OTHER = [
     ("report", "regex", "pub use regex::Regex;\n", "NATIVE-EXTERNAL-COMPLETE"),
     ("contract", "facts", "pub use archkeel_facts::Record;\n", "NATIVE-REQUIRES-COMPLETE"),
     ("typescript", "model", "pub use archkeel_model::Model;\n", "NATIVE-REQUIRES-COMPLETE"),
+    # AD-604: `Stable` is public in Rust, and the model does not list it in `public`.
+    ("eval", "model", "pub use archkeel_model::Stable;\n", "NATIVE-INTERFACE-BOUNDARY"),
 ]
 Plant = tuple[str, str]  # (rule, planted file below the copy root)
 # AD-588: the crates with parts. The root part owns the root and the manifest only.

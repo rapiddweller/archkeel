@@ -12,6 +12,7 @@ from typing import Any
 CONTRACT = Path(__file__).parents[1] / "native/architecture-contract.json"
 EXPECTED_RULES = [
     ("NATIVE-LAYER-ORDER", "layer_order"),
+    ("NATIVE-INTERFACE-BOUNDARY", "interface_boundary"),
     ("NATIVE-PY-SYMBOLS-NO-SURVEY", "forbidden_dependency"),
     ("NATIVE-PY-UNPARSE-NO-SURVEY", "forbidden_dependency"),
     ("NATIVE-PY-UNPARSE-NO-SYMBOLS", "forbidden_dependency"),
@@ -127,16 +128,15 @@ def _claims(component: dict[str, Any], module: str) -> bool:
     return exact or any(module == name or module.startswith(f"{name}.") for name in packages)
 
 
-def test_each_requirement_names_its_ports_and_public_is_their_union() -> None:
+def test_each_requirement_names_its_ports() -> None:
     """AD-588: a requirement without `through` permits each module of its target.
 
-    `NATIVE-REQUIRES-COMPLETE` judges the ports. No rule reads `public` for Rust, so this test
-    holds it equal to the ports that the other components declare.
+    `NATIVE-REQUIRES-COMPLETE` judges the ports. A module port keeps the rule readable for each
+    profile; a symbol crossing is the job of `public` and `NATIVE-INTERFACE-BOUNDARY` (AD-604).
     """
     components = {
         c["label"]: c for c in json.loads(CONTRACT.read_text(encoding="utf-8"))["components"]
     }
-    entered: dict[str, set[str]] = {label: set() for label in components}
     for label, component in components.items():
         for required in component.get("requires", []):
             target = components[required["component"]]
@@ -145,7 +145,19 @@ def test_each_requirement_names_its_ports_and_public_is_their_union() -> None:
             assert ports, f"{where} has no port"
             assert ports == _minimal(ports), f"{where}: the ports are not sorted and minimal"
             assert all(_claims(target, port) for port in ports), f"{where}: a port of another part"
-            assert all(":" not in port for port in ports), f"{where}: a symbol port holds the run"
-            entered[target["label"]].update(ports)
-    public = {label: component.get("public") for label, component in components.items()}
-    assert public == {label: _minimal(ports) for label, ports in entered.items()}
+            assert all(":" not in port for port in ports), f"{where}: a symbol port"
+
+
+def test_each_component_lists_the_names_that_it_publishes() -> None:
+    """AD-604: every component states `public` as `module:Name` entries of its own modules.
+
+    An empty list publishes no name: a use of the component from another one fails.
+    """
+    components = json.loads(CONTRACT.read_text(encoding="utf-8"))["components"]
+    for component in components:
+        public = component["public"]
+        assert public == sorted(set(public)), component["label"]
+        for entry in public:
+            module, _, name = entry.partition(":")
+            assert name and "." not in name, entry
+            assert _claims(component, module), f"{component['label']}: {entry} is not its module"

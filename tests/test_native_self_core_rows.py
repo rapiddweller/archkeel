@@ -44,10 +44,10 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     core = {rule: row[1] for rule, row in frame["rules"].items()}
     expected = json.loads((NATIVE / "expected-gaps.json").read_text())
     assert problems(result, expected) == []
-    assert len(core) == 85
+    assert len(core) == 86
     # No rule names a part of the scope proof: each one has a decision.
     assert result["gaps"] == []
-    assert Counter(core.values()) == {"PASS": 85}
+    assert Counter(core.values()) == {"PASS": 86}
     assert (code, result["status"], frame["status"]) == (0, "PASS", "PASS")
     assert set(frame["unknown_kinds"]) == {r for r, status in core.items() if status == "UNKNOWN"}
     assert frame["scope"] == "complete"

@@ -35,11 +35,14 @@ that part (#953), so the contract states it: for example `eval-rules` requires `
 
 Each `requires` names its ports in `through`: the modules of the target that the source enters (AD-588).
 `NATIVE-REQUIRES-COMPLETE` fails for an import through a module that is no port. A port is a module prefix,
-so a port on the root of a crate without parts permits the whole crate. Each component names in `public`
-the modules that another component enters; `tests/test_native_contract_rules.py` holds `public` equal to
-the ports of the other components. The contract has no `interface_boundary` rule and no symbol in `public`:
-for a Rust scan such a statement holds every rule of the run
-([known limits](../known-limits.md#the-core-path-on-main)).
+so a port on the root of a crate without parts permits the whole crate.
+
+Each component lists in `public` the names that other components use, as `module:Name`, and rule
+`NATIVE-INTERFACE-BOUNDARY` fails for a use of any other name
+([AD-604](decisions/ad-604-the-rust-collector-states-the-item-and-route-of-each-import.md)). A use
+passes when one hop of the publication route of its name is listed: a re-export at a crate root, or
+the module that defines the name. For a method call, the type is listed in the module of its `impl`
+block. `model-barrier` and `core` list no name, because no other component uses them.
 
 The core chain is core -> report -> eval -> model -> contract, store and facts
 ([AD-382](decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md)).
