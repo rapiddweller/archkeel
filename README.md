@@ -48,7 +48,8 @@ See the [known limits](docs/known-limits.md).
 
 ```bash
 ARCHKEEL_BUNDLE_NATIVE=1 uv tool install git+https://github.com/rapiddweller/archkeel
-archkeel validate --root /path/to/project   # the project needs archkeel.toml and a contract
+archkeel init --root /path/to/project       # a new Python project: draft archkeel.toml and a contract
+archkeel validate --root /path/to/project   # first verdict; see docs/onboarding.md
 ```
 
 [Install](#install) · [Quick start](#quick-start) · [Why](#why-archkeel) · [Compared](#archkeel-floorplan-or-understand-anything) · [Features](#features) · [FAQ](#faq)
@@ -109,7 +110,7 @@ is the only engine. The Python engine is deleted.
   PASS exits 0, FAIL exits 1, UNKNOWN and a refusal exit 2.
 - Rust, TypeScript, Python and Dart projects run through the core. What each decides: see the
   [known limits](docs/known-limits.md#supported-projects-on-main).
-- `check`, `init`, `explore`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
+- `init` drafts `archkeel.toml` and a contract for a Python project ([guide](docs/onboarding.md)). `check`, `explore`, `guide`, `story`, `view` and `studio` give a typed refusal with exit 2.
   Interactive reports, `architecture.json` and focused reports are not available.
   `validate --baseline FILE` accepts each listed UNKNOWN and keeps exit code 2; see the [reference](docs/reference.md#baselines).
 - `report --output PATH` writes one static HTML page; `--format json` writes the core frame instead.
@@ -119,7 +120,7 @@ is the only engine. The Python engine is deleted.
 - No release carries the core binary yet. The release workflow builds the platform wheels with the
   core (AD-476), but the last release is 4.0.1. Run `main` from a source checkout after `make core`.
   A package without the core refuses each run with `core_binary_not_found`. There is no Python fallback.
-- Release 4.0.1 has `check`, `init` and full reports for Python, Dart and TypeScript projects.
+- Release 4.0.1 has `check`, a larger `init` and full reports for Python, Dart and TypeScript projects.
   No release has Studio or `explore`. See the [state of `main`](docs/reference.md#state-of-main).
 
 ## Install
@@ -175,7 +176,32 @@ archkeel report --output report.html  # one static page; the parent must exist
 ```
 
 `validate` and `report` need an `archkeel.toml` with `language = "rust"` or `"typescript"` (or
-`"python"` or `"dart"` for import rules) and a contract. `init`, which drafts a contract, is in release 4.0.1 and not on `main`.
+`"python"` or `"dart"` for import rules) and a contract. In a new Python project, `archkeel init`
+drafts both from the folder layout; every decision in the draft is a `TODO`, so the first verdict
+is UNKNOWN and lists the decisions that you make. The whole walk, ending in PASS or FAIL, is in
+[docs/onboarding.md](docs/onboarding.md). A minimal `archkeel.toml`:
+
+```toml
+[scan]
+language = "python"
+namespace = "shop"
+roots = ["src/shop"]
+contract = "architecture-contract.json"
+```
+
+A minimal contract, which `init` writes for each subpackage (the list of rules is in
+[rules](docs/rules.md)):
+
+```json
+{"schema_version": "3.14.0",
+ "components": [{"id": "COMP-ORDERS", "label": "orders", "role": "component",
+   "packages": ["shop.orders"], "exact_modules": [],
+   "responsibilities": ["Owns the orders of a customer."], "forbidden_responsibilities": [],
+   "provenance": ["docs/architecture/architecture.md"], "decided_by": "architect", "public": []}],
+ "rules": [{"id": "COMPONENT-NO-CYCLES", "kind": "no_component_cycles",
+   "rationale": "Components stay acyclic.", "provenance": ["docs/architecture/architecture.md"],
+   "decided_by": "architect"}]}
+```
 
 Read the verdicts: on `main`, `report` has the exit codes of `validate`.
 `archkeel --help` lists the commands and options. See the [reference](docs/reference.md).

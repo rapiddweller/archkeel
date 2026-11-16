@@ -5,8 +5,9 @@
 
 The shell parses the arguments, finds the core binary, sends the scan identity, reads one frame
 with `read_frame`, prints it as text or JSON, and maps the status to the exit code. It holds no
-rule, fact or contract logic. A command that the core does not serve stays registered and gives a
-typed refusal with exit 2; it never falls back and never reports success.
+rule, fact or contract logic. `init` drafts the files of a new project (`init_draft`, AD-626) and
+starts no core. A command that the core does not serve stays registered and gives a typed refusal
+with exit 2; it never falls back and never reports success.
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ from .core_frame import (
 )
 from .core_json import RequestMismatch
 from .core_output import write_output
+from .init_draft import CONFIG, CONTRACT, DOCUMENT, PROVENANCE, write_draft
 from .native_scan import SCAN_PROTOCOL, exchange, identity
 
 # The process exit of the core is not a command verdict (0 and 3 describe frame completeness).
@@ -64,6 +66,8 @@ def run(argv: Sequence[str]) -> int:
         options = parse(argv)
         if options.command is Command.SKILL:
             return _install_skill(options, as_json)
+        if options.command is Command.INIT:
+            return _init(options, as_json)
         return _decide(options, as_json)
     except (CoreError, OSError, ValueError) as error:
         message = str(error)
@@ -107,6 +111,27 @@ def _install_skill(options: Options, as_json: bool) -> int:
         name = "$archkeel" if options.agent == InstallationAgent.CODEX else "/archkeel"
         print(f"Installed Archkeel instructions: {path}")
         print(f"Use {name} in your agent session; start a new session if needed.")
+    return 0
+
+
+def _init(options: Options, as_json: bool) -> int:
+    """Draft the three files of a first contract below the root (AD-626). It decides nothing."""
+    root = resolve_root(options.root or Path.cwd())
+    result = write_draft(root)
+    files = [CONFIG, CONTRACT, PROVENANCE]
+    if as_json:
+        document = {"command": Command.INIT, "exit_code": 0, "files": files}
+        document |= {"components": result.components, "root": result.root, "note": result.note}
+        print(json.dumps(document))
+        return 0
+    print(f"Drafted for the package {result.namespace} ({result.root}): {len(files)} files")
+    for name in files:
+        print(f"  {name}")
+    print(f"Components: {', '.join(result.components)}")
+    if result.note:
+        print(f"Note: {result.note}")
+    print("Next: replace each TODO with your decision (responsibilities, rationales), then run")
+    print(f"  archkeel validate --text\nGuide: {DOCUMENT}")
     return 0
 
 
@@ -217,6 +242,9 @@ def _decide(options: Options, as_json: bool) -> int:
     if frame.baseline is not None:
         result["baseline"] = baseline_json(frame.baseline)
     collected = next((gap for gap in frame.gaps if gap.kind is GapKind.COLLECT), None)
+    if collected is not None and _NO_CONFIG in collected.reason:
+        # The core names the cause; the way forward is the shell's to name (#1314).
+        collected = replace(collected, reason=f"{collected.reason}. {_FIRST_RUN}")
     if collected is not None:
         result["refusal"] = {"kind": RefusalKind.COLLECTION_REFUSED, "message": collected.reason}
     file_error = _deliver(options, frame, stdout, root)
@@ -278,6 +306,11 @@ def _refused(kind: RefusalKind, message: str, as_json: bool) -> int:
 
 
 _MAX_PLACES = 3
+_NO_CONFIG: Final = "config: cannot read"
+_FIRST_RUN: Final = (
+    "A new project: run `archkeel init` to draft archkeel.toml and a first contract, then "
+    f"`archkeel validate --text`. Guide: {DOCUMENT}"
+)
 
 
 def _places(frame: CoreFrame, evidence: Sequence[str]) -> str:
