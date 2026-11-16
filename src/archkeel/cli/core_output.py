@@ -12,7 +12,7 @@ import stat
 from collections.abc import Mapping
 from pathlib import Path
 
-from .core_json import CoreError, as_fields, as_text
+from .core_json import CoreError, as_object, as_text
 
 
 def read_html(
@@ -24,7 +24,7 @@ def read_html(
 
     if "html" not in frame and not (request and request.get("html")):
         return None
-    part = as_fields(frame.get("html"), "html", frozenset({"protocol", "status", "document"}))
+    part = as_object(frame.get("html"), "html")
     if part["protocol"] != "archkeel-core-html-1" or part["status"] != status:
         raise CoreError("the core HTML part has another protocol or status")
     document = as_text(part["document"], "html.document")

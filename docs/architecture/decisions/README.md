@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-598 | [The shell reads no field list and the frame schema is closed](ad-598-the-shell-reads-no-field-list-and-the-frame-schema-is-closed.md) |
 | AD-596 | [The core frame has one generated schema and the shell reads it](ad-596-the-core-frame-has-one-generated-schema-and-the-shell-reads-it.md) |
 | AD-594 | [The architecture picture has three views: As-Is, Target and Diff](ad-594-the-architecture-picture-has-three-views-as-is-target-and-diff.md) |
 | AD-588 | [The self-contract states layers, parts and crossings](ad-588-the-self-contract-states-layers-parts-and-crossings.md) |

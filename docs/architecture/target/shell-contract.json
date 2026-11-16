@@ -410,7 +410,6 @@
         "archkeel.cli.core_json:as_text",
         "archkeel.cli.core_json:as_texts",
         "archkeel.cli.core_json:as_count",
-        "archkeel.cli.core_json:as_fields",
         "archkeel.cli.core_json:check_measures"
       ]
     },
@@ -439,7 +438,8 @@
         }
       ],
       "public": [
-        "archkeel.cli.core_schema:check_frame"
+        "archkeel.cli.core_schema:check_frame",
+        "archkeel.cli.core_schema:check_refusal"
       ],
       "decided_by": "architect"
     },

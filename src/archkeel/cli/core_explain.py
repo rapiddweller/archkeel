@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final, TypeVar
 
-from .core_json import CoreError, as_count, as_fields, as_object, as_text
+from .core_json import CoreError, as_count, as_object, as_text
 
 BUDGETS: Final = {
     "cycles_per_rule": 50,
@@ -164,7 +164,7 @@ def _optional(value: object, where: str) -> str | None:
 
 
 def _shape(value: object, where: str) -> RuleShape:
-    row = as_fields(value, where, frozenset({"kind", "direction", "source", "target"}))
+    row = as_object(value, where)
     return RuleShape(
         as_text(row["kind"], where),
         _word(Direction, row["direction"], where),
@@ -174,10 +174,7 @@ def _shape(value: object, where: str) -> RuleShape:
 
 
 def _step(value: object, where: str) -> Step:
-    names = frozenset(
-        {"from", "to", "from_component", "to_component", "imports", "evidence", "evidence_total"}
-    )
-    row = as_fields(value, where, names)
+    row = as_object(value, where)
     evidence = _texts(row["evidence"], where, BUDGETS["evidence_per_step"])
     total = as_count(row["evidence_total"], where)
     if len(evidence) != min(total, BUDGETS["evidence_per_step"]):
@@ -203,8 +200,7 @@ def _closed(path: tuple[Step, ...], truncated: bool, where: str) -> None:
 
 
 def _cycle(value: object, where: str) -> CyclePath:
-    names = frozenset({"id", "index", "members", "path", "steps_total", "truncated"})
-    row = as_fields(value, where, names)
+    row = as_object(value, where)
     steps = _list(row["path"], where, BUDGETS["path_steps"])
     path = tuple(_step(item, where) for item in steps)
     total = as_count(row["steps_total"], where)
@@ -224,7 +220,7 @@ def _cycle(value: object, where: str) -> CyclePath:
 
 
 def _cycles(value: object, where: str) -> Cycles:
-    row = as_fields(value, where, frozenset({"total", "truncated", "items"}))
+    row = as_object(value, where)
     listed = _list(row["items"], where, BUDGETS["cycles_per_rule"])
     items = tuple(_cycle(item, where) for item in listed)
     total = as_count(row["total"], where)
@@ -236,13 +232,12 @@ def _cycles(value: object, where: str) -> Cycles:
 
 
 def _pair(value: object, where: str) -> tuple[str, str]:
-    row = as_fields(value, where, frozenset({"source", "target"}))
+    row = as_object(value, where)
     return as_text(row["source"], where), as_text(row["target"], where)
 
 
 def _rule_holds(value: object, where: str) -> RuleHolds:
-    names = frozenset({"cause", "kind", "gaps", "pairs", "total", "truncated", "unnamed_imports"})
-    row = as_fields(value, where, names)
+    row = as_object(value, where)
     cause = as_text(row["cause"], where)
     if cause not in _CAUSES:
         raise CoreError(f"the core frame field {where} has an unknown cause")
@@ -265,8 +260,7 @@ def _rule_holds(value: object, where: str) -> RuleHolds:
 
 
 def _gap(value: object, where: str) -> GapHolds:
-    names = frozenset({"id", "kind", "reason", "rules", "rules_total", "truncated"})
-    row = as_fields(value, where, names)
+    row = as_object(value, where)
     rules = _texts(row["rules"], where, BUDGETS["rules_per_gap"])
     total = as_count(row["rules_total"], where)
     truncated = _bool(row["truncated"], where)
@@ -288,7 +282,7 @@ def read_explain(value: object, violations: Mapping[str, int]) -> Explain:
 
     A hold can name a row that is no rule of the contract: a named gap or the UML target row.
     """
-    row = as_fields(value, "explain", frozenset({"version", "budgets", "rules", "cycles", "holds"}))
+    row = as_object(value, "explain")
     if as_count(row["version"], "explain.version") != 1:
         raise CoreError("the core frame field explain has an unknown version")
     if as_object(row["budgets"], "explain.budgets") != BUDGETS:
@@ -305,8 +299,7 @@ def read_explain(value: object, violations: Mapping[str, int]) -> Explain:
         count = violations.get(rule)
         if count is None or any(item.index >= count for item in found.items):
             raise CoreError(f"the core frame field explain.cycles.{rule} names no violation")
-    names = frozenset({"rules", "gaps", "gaps_total", "gaps_holding", "gaps_truncated"})
-    holds = as_fields(row["holds"], "explain.holds", names)
+    holds = as_object(row["holds"], "explain.holds")
     per_rule = {
         rule: _rule_holds(item, f"explain.holds.rules.{rule}")
         for rule, item in as_object(holds["rules"], "explain.holds.rules").items()
