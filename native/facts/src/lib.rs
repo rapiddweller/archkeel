@@ -57,3 +57,20 @@ pub use sections::{
     BindingFact, CallFact, ConstructFact, GapFact, ImportFact, IntoSection, ReferenceFact, Section,
     SignalFact, SymbolFact,
 };
+
+/// The provenance of a linked native collector of `profile` (a variant of
+/// [`envelope::Profile`]). The four values come from the build script of the crate that calls it:
+/// `env!` expands where the macro expands.
+#[macro_export]
+macro_rules! native_provenance {
+    ($profile:ident) => {
+        $crate::envelope::Provenance::native(
+            $crate::envelope::Profile::$profile,
+            (env!("ARCHKEEL_VERSION"), env!("ARCHKEEL_CODE_DIGEST")),
+            (
+                env!("ARCHKEEL_RUSTC_VERSION"),
+                env!("CARGO_PKG_RUST_VERSION"),
+            ),
+        )
+    };
+}

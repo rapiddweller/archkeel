@@ -16,8 +16,8 @@ use crate::definitions::{Holder, MethodCall};
 use crate::net;
 use crate::plant;
 use crate::tokens::{
-    chains, fn_names, item_level, macro_names, method_names, names_relative, plain, string_paths,
-    writes_use,
+    chains, fn_names, item_level, macro_names, method_names, names_relative, only_dollar_crate,
+    plain, string_paths, writes_use, Chain, EXPRESSION_MACROS, NO_BIND_MACROS,
 };
 
 /// Macros of the standard library and of `serde_json`. Their bodies are expressions, so a path
@@ -73,12 +73,7 @@ pub(super) fn macro_rules(walker: &mut Walker<'_>, node: &ItemMacro) {
         .attrs
         .iter()
         .any(|attr| attr.path().is_ident("macro_export"));
-    if exported {
-        let reason =
-            format!("The macro_rules! definition {name} is exported: it expands in other crates");
-        concern(walker, reason, span);
-    }
-    // An exported macro is UNKNOWN above; the reasons below belong to each call in this crate.
+    // The reasons below belong to each call in this crate; an exported macro may get one more.
     let first_unknown = walker.out.concerns.len();
     net::walk(node.mac.tokens.clone(), &mut walker.out.mentioned);
     if names_relative(node.mac.tokens.clone()) {
@@ -95,9 +90,19 @@ pub(super) fn macro_rules(walker: &mut Walker<'_>, node: &ItemMacro) {
     fn_names(node.mac.tokens.clone(), 0, &mut members);
     let mut found = Vec::new();
     let strings = string_paths(node.mac.tokens.clone(), 0, &mut found);
+    let mut portable = exported
+        && !names_relative(node.mac.tokens.clone())
+        && only_dollar_crate(node.mac.tokens.clone(), 0)
+        && calls.iter().all(|call| {
+            *call == name
+                || NO_BIND_MACROS.contains(&call.as_str())
+                || EXPRESSION_MACROS.contains(&call.as_str())
+        });
     match chains(node.mac.tokens.clone()).filter(|_| strings.is_some()) {
         Some(more) => {
             found.extend(more);
+            let from_crate = |chain: &Chain| chain.names.first().is_some_and(|n| n == "crate");
+            portable &= found.iter().all(from_crate);
             walker.refer_chains(found);
         }
         None => concern(
@@ -107,9 +112,17 @@ pub(super) fn macro_rules(walker: &mut Walker<'_>, node: &ItemMacro) {
         ),
     }
     walker.in_macro = None;
-    let unknowns = (walker.out.concerns.iter().skip(first_unknown))
+    let unknowns: Vec<String> = (walker.out.concerns.iter().skip(first_unknown))
         .map(|concern| concern.reason.clone())
         .collect();
+    // AD-614: an exported macro expands in other crates. Only a portable body names the same
+    // edges there: its calls in other crates take them. Any other one is UNKNOWN here.
+    portable &= unknowns.is_empty();
+    if exported && !portable {
+        let reason =
+            format!("The macro_rules! definition {name} is exported: it expands in other crates");
+        concern(walker, reason, span);
+    }
     // A macro of a function body is scoped to the rest of that body. An exported one is also
     // a path at the crate root, so it stays crate-wide.
     let from = walker.site(span);
@@ -130,6 +143,7 @@ pub(super) fn macro_rules(walker: &mut Walker<'_>, node: &ItemMacro) {
         unknowns,
         local,
         item_level: item_level(node.mac.tokens.clone()),
+        portable,
     });
 }
 
@@ -154,6 +168,7 @@ pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
         placed: local,
         fills: module_level,
         writes_use: writes_use(node.tokens.clone(), 0),
+        path: node.path.segments.iter().map(|s| plain(&s.ident)).collect(),
     };
     // The tokens of a macro are not code that the scan reads: a call in them is not placed.
     let mut inner = BTreeSet::new();

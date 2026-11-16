@@ -1894,6 +1894,7 @@
     "type request::PythonRequest",
     "type request::RustRequest",
     "type request::TypeScriptRequest",
+    "unexpanded native_provenance!: an exported macro expands in other crates",
     "use BindingFact",
     "use CallFact",
     "use ConstructFact",
