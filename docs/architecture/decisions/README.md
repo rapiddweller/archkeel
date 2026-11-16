@@ -10,6 +10,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | AD-694 | [A path that ends at a module may name a value of its name](ad-694-a-path-that-ends-at-a-module-may-name-a-value-of-its-name.md) |
 | AD-692 | [An imported inert attribute keeps its import gap](ad-692-an-imported-inert-attribute-keeps-its-import-gap.md) |
 | AD-690 | [A dill settings read keeps the import gap](ad-690-a-dill-settings-read-keeps-the-import-gap.md) |
+| AD-688 | [A reply states its validation table, and the store keeps a language-free minimum](ad-688-a-reply-states-its-validation-table-and-the-store-keeps-a-language-free-minimum.md) |
 | AD-686 | [A proven Python getattr call is a construct](ad-686-a-proven-python-getattr-call-is-a-construct.md) |
 | AD-684 | [A written Python string equality is a construct](ad-684-a-written-python-string-equality-is-a-construct.md) |
 | AD-682 | [A proven Python vars call is a construct](ad-682-a-proven-python-vars-call-is-a-construct.md) |

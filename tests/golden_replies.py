@@ -36,6 +36,7 @@ PROVENANCE: dict[tuple[str, ...], str] = {
     ("facts", "runtime"): "the interpreter or binary that ran the producer",
     ("facts", "source", "git_head"): "an echo of the request",
     ("facts", "source", "dirty"): "an echo of the request",
+    ("facts", "validation"): "the check table of the producer (AD-688), not a fact of the source",
 }
 # A key like these in a reply means a run id or a timing: the recorder fails and names the key.
 _VOLATILE_KEY = re.compile(r"run_id|elapsed|duration|timestamp|_seconds$|_ms$", re.IGNORECASE)

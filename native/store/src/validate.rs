@@ -32,6 +32,14 @@ const TYPESCRIPT_FEATURES: [&str; 8] = [
 /// AD-604: the Rust collector states the item and the route of each import with its own feature.
 const RUST_FEATURES: [&str; 2] = ["rust-crate-edges", crate::features::RUST_ROUTES_FEATURE];
 
+/// A resolution feature whose claims the store checks, for some collector (AD-688): the minimum
+/// that a validation block cannot widen.
+pub(crate) fn known_feature(feature: &str) -> bool {
+    TYPESCRIPT_FEATURES.contains(&feature)
+        || RUST_FEATURES.contains(&feature)
+        || feature == crate::features::ROUTES_FEATURE
+}
+
 /// `_unique` of the Python checks: no duplicate and no empty value.
 pub(crate) fn unique<'a, I: IntoIterator<Item = &'a str>>(
     values: I,
@@ -229,7 +237,10 @@ pub(crate) fn envelope(facts: &Facts, names: &[&str]) -> Result<(), String> {
     if files > facts.coverage.files_parsed {
         return Err("observed modules exceed parsed files".to_owned());
     }
-    if facts.profile != Profile::Dart && files != facts.coverage.files_parsed {
+    owned_files(facts)?;
+    // A parsed file that belongs to another module (a Dart part, AD-468) has no module of its own.
+    let owned = facts.owned_files.len() as u64;
+    if files.checked_add(owned) != Some(facts.coverage.files_parsed) {
         return Err("each parsed source file needs an observed module".to_owned());
     }
     if facts.coverage.full_scope && facts.coverage.files_parsed > 0 && files == 0 {
@@ -247,6 +258,33 @@ pub(crate) fn envelope(facts: &Facts, names: &[&str]) -> Result<(), String> {
         Profile::Python => crate::python::survey(facts)?,
         Profile::Dart => crate::dart::survey(facts)?,
         Profile::TypeScript | Profile::Rust => {}
+    }
+    Ok(())
+}
+
+/// Each owned file (a Dart part, AD-468) is a selected input that is no module file, has one owner
+/// that is a module, and names a module that is no module. The store relies on these files for the
+/// evidence of a part and for the parsed count (AD-688), so the check is part of its minimum.
+fn owned_files(facts: &Facts) -> Result<(), String> {
+    // The owned files are few (the parts of a library), so a scan of the modules is cheap.
+    let is_module = |name: &str| facts.files.iter().any(|file| file.module.as_str() == name);
+    let is_module_file = |path: &str| facts.files.iter().any(|file| file.rel_path == path);
+    let selected = &facts.coverage.selected_files;
+    let mut owned: HashSet<&str> = HashSet::new();
+    for file in &facts.owned_files {
+        if is_module_file(&file.rel_path)
+            || !is_module(file.owner.as_str())
+            || is_module(file.module.as_str())
+            || !owned.insert(file.rel_path.as_str())
+        {
+            return Err(format!(
+                "the owned file {} has no unique owner",
+                file.rel_path
+            ));
+        }
+        if !selected.contains(&file.rel_path) {
+            return Err("an owned file needs a selected input".to_owned());
+        }
     }
     Ok(())
 }
