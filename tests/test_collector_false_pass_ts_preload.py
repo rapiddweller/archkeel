@@ -89,7 +89,8 @@ HELD: dict[str, tuple[dict[str, str], str]] = {
     ),
     "missing": (
         _scripts("node -r missing-preload src/a/a.js"),
-        "Preload missing-preload named in package.json:1 is no installed package",
+        "Preload missing-preload named in package.json:1 has no established readable "
+        "Node runtime target",
     ),
     "malformed-config": (
         {"package.json": '{"scripts":'},

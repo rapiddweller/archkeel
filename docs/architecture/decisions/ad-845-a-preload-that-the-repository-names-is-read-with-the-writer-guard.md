@@ -28,12 +28,15 @@ A preload can also patch the module loader and redirect any import.
    source. A type declaration is never accepted as a runtime entry; if the resolver only finds a
    declaration or cannot establish the runtime target, the run is UNKNOWN. Repository-local source
    files named as preloads are entries too. A builtin gives no entry. A name that resolves to no
-   file is a gap of the run: "Preload X named in F:L is no installed package that the scan can
-   read". An unreadable or malformed JSON config, or a dynamic preload target, is a gap.
-3. **Closure and writer guard.** The AD-798 closure of the entries is checked for project-source
-   reach and goes to the writer guard of AD-788 (`script_outside::read`). Node loads an installed
-   preload as a module, so its top-level bindings are no globals. Each global write withholds its
-   proof as in AD-788, and the gap cites the write.
+   file is a gap of the run: "Preload X named in F:L has no established readable Node runtime
+   target". An unreadable or malformed JSON config, or a dynamic preload target, is a gap.
+3. **Closure and writer guard.** Resolve each runtime import in the preload closure as Node runtime
+   JavaScript or JSON, not as a TypeScript source substitution. Keep type-only reach on the compiler
+   resolver. If runtime resolution misses but TypeScript selects a file, report UNKNOWN. Existing
+   `exports` condition checks remain active; an unobserved condition stays UNKNOWN. Check the AD-798
+   closure for project-source reach and pass it to the AD-788 writer guard (`script_outside::read`).
+   Node loads an installed preload as a module, so its top-level bindings are no globals. Each
+   global write withholds its proof as in AD-788, and the gap cites the write.
 4. **Loader patch.** A closure file with `require.cache` or `.prototype.require` patches the module
    loader. So does `._load`, `._resolveFilename` or `._cache` when a file reaches the module object
    (`require('module')`, an import of `module`, `module.constructor`, `mainModule`, `require.main`).
@@ -55,7 +58,7 @@ No PASS turns UNKNOWN on graphql-js v16.15.0 and the TypeScript fixtures F, H, H
 
 ## Tests
 `tests/test_collector_false_pass_ts_preload.py`: the plant of #1750 through 11 naming places,
-runtime-resolution regressions, local and installed loader patches, multi-project dynamic setup
+entry and transitive Node-runtime resolution regressions, local and installed loader patches, multi-project dynamic setup
 and unknown names hold the rule; a preload with no write, a class with its own `_cache` and a
 builtin keep PASS.
 `native/typescript/src/preloads_tests.rs`: the readers and fail-closed handling of malformed configs,

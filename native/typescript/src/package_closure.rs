@@ -47,7 +47,6 @@ pub(super) struct Graph {
 }
 
 impl Collection<'_> {
-    /// The gap of each module whose import of an installed package reaches project source.
     pub(crate) fn package_closure(&mut self) {
         let entries = std::mem::take(&mut self.installed);
         if let Some(graph) = self.closure_graph(&entries) {
@@ -60,7 +59,6 @@ impl Collection<'_> {
         self.tool_preloads();
     }
 
-    /// Read the closure and writes of each preload that the repository names.
     fn tool_preloads(&mut self) {
         let named = self.named_preloads();
         let mut files = Vec::new();
@@ -68,7 +66,7 @@ impl Collection<'_> {
             let Some(entries) = self.preload_entries(&preload.file, &preload.name, preload.mode)
             else {
                 let reason = format!(
-                    "Preload {} named in {}:{} is no installed package that the scan can read",
+                    "Preload {} named in {}:{} has no established readable Node runtime target",
                     preload.name, preload.file, preload.line
                 );
                 self.gap(&reason, None, "", GapKind::Collection);
@@ -106,7 +104,6 @@ impl Collection<'_> {
         self.preload_files = files;
     }
 
-    /// Each preload name of each repository config, with its source location.
     fn named_preloads(&mut self) -> Vec<preloads::Named> {
         let mut found = Vec::new();
         let mut pending = vec![".".to_owned()];
@@ -128,7 +125,6 @@ impl Collection<'_> {
         found
     }
 
-    /// Read one repository data file that names preload entries.
     fn read_named_preload(&mut self, directory: &str, name: &str) -> Option<Vec<preloads::Named>> {
         if !preloads::preload_file(name) {
             return None;
@@ -167,14 +163,12 @@ impl Collection<'_> {
         )
     }
 
-    /// Does code in this closure reach Node's module object?
     fn reaches_module(&mut self, file: &str) -> bool {
         self.snapshot
             .read(file)
             .is_some_and(|data| preloads::reaches_module(&String::from_utf8_lossy(&data)))
     }
 
-    /// Report a loader patch found in one preload-closure file.
     fn loader_patch(&mut self, preload: &preloads::Named, file: &str, module: bool) {
         let Some(data) = self.snapshot.read(file) else {
             return;
@@ -189,7 +183,6 @@ impl Collection<'_> {
         }
     }
 
-    /// Read the closure from the entries, or `None` above the budget.
     pub(super) fn closure_graph(&mut self, entries: &[(String, String, String)]) -> Option<Graph> {
         let mut seen: HashSet<String> = HashSet::new();
         let mut queue: Vec<String> = Vec::new();
@@ -228,7 +221,6 @@ impl Collection<'_> {
         Some(graph)
     }
 
-    /// One gap for each import of the scan whose installed file reaches project source.
     fn closure_gaps(
         &mut self,
         entries: &[(String, String, String)],
@@ -249,7 +241,6 @@ impl Collection<'_> {
         }
     }
 
-    /// The installed files and the first project file that one installed file imports.
     fn package_step(&mut self, file: &str) -> Step {
         let mut step = Step::default();
         let snapshot: &mut Snapshot = &mut self.snapshot;
@@ -304,7 +295,6 @@ impl Collection<'_> {
         step
     }
 
-    /// Resolve one import of an installed file into the step.
     fn package_import(
         &mut self,
         file: &str,
@@ -326,7 +316,6 @@ impl Collection<'_> {
         self.specifier_step(file, (specifier, reference.type_only), mode, step);
     }
 
-    /// A reference path is relative to its file; another name is resolved as a specifier.
     fn path_step(&mut self, file: &str, path: &str, step: &mut Step) {
         let target = join(dirname(file), path);
         let snapshot: &mut Snapshot = &mut self.snapshot;
@@ -344,8 +333,6 @@ impl Collection<'_> {
         }
     }
 
-    /// The installed directory that a `node_modules` search finds for a package name from `file`
-    /// (`@types/<name>` too, for a type reference), or `None` when it is not installed.
     pub(super) fn package_directory(
         &mut self,
         file: &str,
@@ -368,7 +355,6 @@ impl Collection<'_> {
         }
     }
 
-    /// The first `node_modules/<name>` directory below `directory`.
     fn first_directory(&mut self, directory: &str, names: &[String]) -> Option<String> {
         let snapshot: &mut Snapshot = &mut self.snapshot;
         names
@@ -377,7 +363,6 @@ impl Collection<'_> {
             .find(|candidate| snapshot.is_dir(candidate))
     }
 
-    /// The source files of an installed package directory, without its nested packages.
     pub(super) fn package_files(&mut self, directory: &str) -> Vec<String> {
         let mut found = Vec::new();
         let mut pending = vec![directory.to_owned()];
@@ -436,7 +421,6 @@ impl Collection<'_> {
         Some(entries)
     }
 
-    /// Resolve one specifier of an installed file, as the run resolves an import, into the step.
     fn specifier_step(
         &mut self,
         file: &str,
@@ -448,13 +432,18 @@ impl Collection<'_> {
         if class.builtin() && !type_only {
             return;
         }
-        let found = self.resolver.resolve_classified(
-            &mut self.snapshot,
-            (specifier, &class),
-            file,
-            mode,
-            !type_only,
-        );
+        let found = if type_only {
+            self.resolver.resolve_classified(
+                &mut self.snapshot,
+                (specifier, &class),
+                file,
+                mode,
+                false,
+            )
+        } else {
+            let mut resolver = Resolver::for_node_preload(&self.resolver);
+            resolver.resolve_classified(&mut self.snapshot, (specifier, &class), file, mode, true)
+        };
         match found {
             Lookup::Hit(found) if installed(&mut self.snapshot, &found.path) => {
                 let source = classify_file(&found.path).and_then(|suffix| suffix.source_kind());
@@ -465,13 +454,24 @@ impl Collection<'_> {
             Lookup::Hit(found) => step.project = Some(found.path),
             // A path that the resolver cannot decide can name a project file, also through a
             // link in `node_modules`. In an installed package directory each file can be the one.
-            Lookup::Unknown(_) => match self.package_directory(file, &class.package, type_only) {
-                Some(directory) => {
-                    let files = self.package_files(&directory);
-                    Vec::extend(&mut step.installed, files);
+            Lookup::Unknown(reason) => {
+                if !type_only {
+                    step.project = Some(format!(
+                        "Node runtime target for {specifier} is unknown: {}",
+                        reason.reason
+                    ));
                 }
-                None => step.project = Some(format!("{specifier} (not decided)")),
-            },
+                match self.package_directory(file, &class.package, type_only) {
+                    Some(directory) => {
+                        let files = self.package_files(&directory);
+                        Vec::extend(&mut step.installed, files);
+                    }
+                    None => {
+                        step.project
+                            .get_or_insert_with(|| format!("{specifier} (not decided)"));
+                    }
+                }
+            }
             Lookup::Missing => {}
         }
     }
