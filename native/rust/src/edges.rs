@@ -188,18 +188,14 @@ impl Builder {
                 None,
             ),
             Named::Registry(package) => {
-                // #946: Cargo may build the crate of the workspace of this name instead: a Cargo
-                // config outside the repository, a patch, or a git URL of this repository. The
-                // pair to the module that the path reaches there is a gap, neither edge nor none.
-                if let Some(root) = workspace.primary_of(package) {
-                    let id = FactId::new(identity.as_str());
-                    let local = local_target(index, root, reference, id)
-                        .map_or_else(|_| root.module.clone(), |(_, module, _)| module);
-                    let reason = format!(
-                        "The dependency {package} has a registry or git entry, and a crate of the workspace has its name: a redirect that the scan does not read can make it that crate"
-                    );
-                    self.pair_gap(&reason, &evidence, (from.module, &local));
-                }
+                let id = FactId::new(identity.as_str());
+                self.twin_gap(
+                    workspace,
+                    index,
+                    (from.module, &evidence),
+                    reference,
+                    (package, id),
+                );
                 (
                     Target::External {
                         import_id,
@@ -283,6 +279,30 @@ impl Builder {
         record.data.data_mut().other_crate = other_crate.then_some(true);
         self.imports.push(record);
         self.ended += 1;
+    }
+}
+
+impl Builder {
+    /// #946: Cargo may build the crate of the workspace that has the name of a registry or git
+    /// dependency instead: a Cargo config outside the repository, a patch, or a git URL of this
+    /// repository. The pair to the module that the path reaches there is a gap (AD-704).
+    fn twin_gap(
+        &mut self,
+        workspace: &Workspace,
+        index: Option<&Index<'_>>,
+        (source, evidence): (&str, &str),
+        reference: &Reference,
+        (package, id): (&str, FactId),
+    ) {
+        let Some(root) = workspace.primary_of(package) else {
+            return;
+        };
+        let local = local_target(index, root, reference, id)
+            .map_or_else(|_| root.module.clone(), |(_, module, _)| module);
+        let reason = format!(
+            "The dependency {package} has a registry or git entry, and a crate of the workspace has its name: a redirect that the scan does not read can make it that crate"
+        );
+        self.pair_gap(&reason, evidence, (source, &local));
     }
 }
 
