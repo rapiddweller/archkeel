@@ -15,7 +15,7 @@ from typing import Any
 import pytest
 from explorer_support import Browser, browser, serve, write_pages
 
-FILLER = r"\bNone\b|unavailable|Nothing stated|Does this fit"
+FILLER = r"\bNone\b|unavailable|Nothing stated|Does this fit|[Oo]bservation\b"
 SHEETS = """(async (views) => {
   const F = window.ArchkeelFlow, root = F.root;
   const words = new RegExp(%r);

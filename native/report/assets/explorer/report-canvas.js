@@ -378,7 +378,7 @@
   }
   function overviewDrawer() {
     const body = [h("h2", {}, "Health check"),
-      h("p", {}, `Whole-run rules: ${A.declared_rules} · Source observation: ${A.observation_complete}`), summary];
+      h("p", {}, `Result: ${A.result}`), summary];
     if (explore) { explore.hidden = false; body.push(explore); }
     overviewEvidence = [...document.querySelectorAll(".report-shell > .atlas-structure-overview, .report-shell > .atlas-source")];
     body.push(...overviewEvidence);
@@ -546,7 +546,7 @@
       A.language_note ? h("p", { class: "ak-sub" }, A.language_note) : null], "left", "legend") }, "Legend");
   root.append(h("div", { hidden: true }, legendPanel));
   const bottomLeft = h("div", { class: "ak-bar ak-bottom-left" }, legendButton, move(".flow-filters"),
-    h("span", { class: "ak-run-status" }, `Rules: ${A.declared_rules} · Observation: ${A.observation_complete}`));
+    h("span", { class: "ak-run-status" }, `Result: ${A.result}`));
   const summary = move(".atlas-summary");
   if (summary) summary.classList.add("ak-scene-summary");
   const tagBar = h("div", { class: "ak-bar ak-bottom-center", role: "toolbar", "aria-label": "Perspectives" });
