@@ -1,4 +1,4 @@
-# AD-692 A path that ends at a module may name a value of its name
+# AD-694 A path that ends at a module may name a value of its name
 
 **Status.** Accepted (owner order: a false PASS is fixed before anything else). Part of #880. It
 closes #1405 and amends AD-604.
