@@ -138,6 +138,10 @@
         {
           "component": "json",
           "rationale": "Type the gap rows that the text writes with the gap type of the JSON part."
+        },
+        {
+          "component": "gaps",
+          "rationale": "Write the grouped lines of the gaps of a scan."
         }
       ],
       "public": [
@@ -147,6 +151,47 @@
         "archkeel.cli.core_text:summary"
       ],
       "decided_by": "architect"
+    },
+    {
+      "id": "SHELL-GAPS",
+      "label": "gaps",
+      "role": "component",
+      "layer": "present",
+      "packages": [],
+      "exact_modules": [
+        "archkeel.cli.core_gaps"
+      ],
+      "responsibilities": [
+        "Write the gaps of a scan as lines for a person: grouped by cause, with a count and one example each (#1614), and the packages that were not found (#1615)."
+      ],
+      "forbidden_responsibilities": [
+        "Decide a verdict, start a process or print a machine code."
+      ],
+      "provenance": [
+        "docs/architecture/shell.md"
+      ],
+      "requires": [
+        {
+          "component": "frame",
+          "rationale": "Read the gaps and the locations of a frame to write their lines."
+        },
+        {
+          "component": "words",
+          "rationale": "Read the plain words for kinds and reasons."
+        },
+        {
+          "component": "display",
+          "rationale": "Read the typed gap rows and the declared door reaches."
+        }
+      ],
+      "decided_by": "architect",
+      "public": [
+        "archkeel.cli.core_gaps:SHOWN",
+        "archkeel.cli.core_gaps:group_lines",
+        "archkeel.cli.core_gaps:not_installed_lines",
+        "archkeel.cli.core_gaps:places",
+        "archkeel.cli.core_gaps:rest"
+      ]
     },
     {
       "id": "SHELL-HELP",
