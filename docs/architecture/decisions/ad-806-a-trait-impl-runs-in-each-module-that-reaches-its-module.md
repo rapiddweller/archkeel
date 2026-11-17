@@ -1,6 +1,6 @@
 # AD-806 A trait impl runs in each module that reaches its module
 
-**Status.** Accepted (lead order: #1515 and #1516). Part of #880, closes #1515 and #1516. It amends AD-516 (its open false PASS) and uses the value flow of #1571 (`impl_flow.rs`).
+**Status.** Accepted (lead order: #1515 and #1516). Part of #880, closes #1515 and #1516. It amends AD-516 (its open false PASS) and uses the value flow of #1571 (`impl_flow.rs`). The rule is in `orphan_impls.rs`, beside the gaps of AD-516.
 
 **Reason.** `impl Tr for Y` in `b` runs where a value of `Y` meets a use of `Tr`. The caller writes no name of `b`:
 - a method call on a value that another module gives (`c::make().m()`, a field, a closure argument, an alias with `Default`, `impl Tr`, `Box<dyn Tr>`);

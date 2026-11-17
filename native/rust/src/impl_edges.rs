@@ -192,7 +192,7 @@ impl Builder {
             }
             self.glob_trait_gaps(workspace, &reached);
         }
-        pending.extend(dispatch::trait_impl_candidates(workspace, modules));
+        pending.extend(orphans::trait_impl_candidates(workspace, modules));
         flow::settle(self, pending);
     }
 
@@ -478,10 +478,6 @@ mod orphans;
 /// The value flow of a call into the file of a type (#1571).
 #[path = "impl_flow.rs"]
 mod flow;
-
-/// A trait impl runs in code that reaches its module, without a name (#1515, #1516, AD-806).
-#[path = "trait_dispatch.rs"]
-mod dispatch;
 
 /// The resolution of a call on a plain `self` (AD-383).
 #[path = "impl_receivers.rs"]
