@@ -30,6 +30,7 @@ present; it does not call the network, so it does not check that the issue exist
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from collections import Counter
@@ -134,6 +135,39 @@ def problems(result: dict[str, Any], expected: dict[str, Any]) -> list[str]:
     if result.get("exit_code") != exit_code:
         found.append(f"exit code {result.get('exit_code')} differs from {exit_code}")
     return found
+
+
+RECEIVER_GAP = re.compile(r"A method call may reach the method (\S+) of a type in its own file")
+
+
+def receiver_gap_hint(result: dict[str, Any], new: list[Gap]) -> str | None:
+    """A message for the new gaps of the field-receiver class (#1571): the files and the fix.
+
+    A method call on a field or a local of an unproved type may reach a method of a type in its
+    own file: the scan cannot rule it out, so the pair of modules is a gap. The new gaps name the
+    modules of the calls; the evidence of each gap gives the file.
+    """
+    wanted = {gap for gap in new if RECEIVER_GAP.search(gap[2])}
+    if not wanted:
+        return None
+    frame = _frame(result)
+    places = frame.get("locations") or {}
+    files: Counter[str] = Counter()
+    for gap in frame.get("collection_gaps") or ():
+        key = (str(gap["kind"]), ", ".join(sorted(map(str, gap["subjects"]))), str(gap["reason"]))
+        if key not in wanted:
+            continue
+        found = [places[item] for item in gap.get("evidence") or () if item in places]
+        where = str(found[0]["path"]) if found else key[1].replace(".", "/")
+        files[where] += 1
+    listed = ", ".join(f"{name} ({count})" for name, count in files.most_common(8))
+    more = f" and {len(files) - 8} more" if len(files) > 8 else ""
+    count = sum(files.values()) or len(wanted)
+    return (
+        f"your change adds {count} field-receiver gaps in {listed}{more}; "
+        "write the calls as path calls (`Type::method(&value)`) or bind typed locals "
+        "(`let local: Type = ...; local.method()`), then run `make self-validate-native`"
+    )
 
 
 def summary(result: dict[str, Any], name: str = "native") -> str:
@@ -275,6 +309,11 @@ def main(argv: list[str]) -> int:
             print(f"dropped {len(gone)} stale growth entries from {growth_path}", file=sys.stderr)
         return 0
     found = problems(result, old)
+    gaps_seen, _statuses, _violations = observed(result)
+    pinned = Counter((str(k), str(sub), str(why)) for k, sub, why in old.get("gaps") or ())
+    hint = receiver_gap_hint(result, sorted((Counter(gaps_seen) - pinned).elements()))
+    if hint:
+        found.append(hint)
     found += [
         f"stale growth entry (its finding is gone; run --write): {i['entry']}"
         for i in stale(old, listed)
