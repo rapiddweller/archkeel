@@ -344,8 +344,8 @@ fn package_dir(snapshot: &mut Snapshot, roots: &[String]) -> String {
 /// gives an empty name that no import matches; a link, an unreadable file or a missing name stops
 /// the collection.
 fn read_pubspec(snapshot: &mut Snapshot, dir: &str) -> Result<(Pubspec, Option<String>), String> {
-    let path = pubspec_path(dir);
-    let path = path.as_str();
+    let path: String = pubspec_path(dir);
+    let path = String::as_str(&path);
     if Snapshot::is_link(snapshot, path) {
         return Err("regular pubspec.yaml is required inside the snapshot".to_owned());
     }
