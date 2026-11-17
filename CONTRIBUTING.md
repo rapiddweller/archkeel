@@ -78,7 +78,7 @@ aggregate would count as passed.
 | CI: Tests: `<area>` | each push to `main` | `make fast-test AREA="<area>"` |
 | CI: Docs diagrams | each push to `main` | `make mermaid`; the job also runs `tests/test_mermaid.py` |
 | CI: Native: Rust checks and dependency policy | each push to `main` | `make native-check` |
-| CI: Publish the report gallery | each push to `main`, and dispatch on `main` | `make report-gallery` |
+| Pages: Publish the report gallery | each push to `main`, nightly, and dispatch on `main` | `make report-gallery` |
 | CI: All checks passed | each push to `main` | none: it needs every CI job and reports each job time against the budget ([AD-341](docs/architecture/decisions/ad-341-ci-has-a-time-budget-and-a-test-runs-on-any-free-worker.md)) |
 | Full: Architecture, build and report checks | nightly, dispatch, release | `make ci-core-check SKIP_TESTS=1`, `make self-validate`, `make mermaid` |
 | Full: Tests: `<area>` | same as above | `make full-test AREA="<area>"` |
@@ -100,7 +100,7 @@ after the merge. Name a new test file so that an area pattern matches it.
 
 Each push to `main` publishes the report gallery to GitHub Pages
 ([AD-462](docs/architecture/decisions/ad-462-fixture-results-are-pinned-and-the-nightly-run-publishes-a-gallery.md)).
-The job `publish-gallery` of CI runs `make report-gallery` and deploys `test-artifacts/gallery`. It is
+The job `publish-gallery` of the workflow `pages.yml` (AD-740; it ran in CI before, and a newer push cancelled it) runs `make report-gallery` and deploys `test-artifacts/gallery`. It is
 not in the needs of `All checks passed`, so a Pages error never fails CI. The Pages source of the
 repository must be set to GitHub Actions. The gallery has two sections: ArchKeel as one system
 (`self/index.html` and its shield endpoint `self/badge.json`; the weakest verdict of the parts of
