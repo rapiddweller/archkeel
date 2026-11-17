@@ -20,6 +20,7 @@ const MAX_CARDS: usize = 12;
 const MAX_ROWS: usize = 12;
 const MAX_IDS: usize = 5;
 const MAX_LISTED_IDS: usize = 40;
+const MAX_SITES: usize = 100;
 
 /// What to do, for a cause whose meaning is fixed.
 fn advice(kind: &str) -> Option<&'static str> {
@@ -128,6 +129,33 @@ fn stated_once(frame: &Frame) -> String {
         return String::new();
     }
     format!("<p class=\"caption\">Stated once</p><ul>{items}</ul>")
+}
+
+fn scan_sites(frame: &Frame) -> String {
+    let sites: Vec<_> = frame
+        .collection_gaps
+        .iter()
+        .filter_map(|gap| {
+            let place = gap.evidence.first().and_then(|id| frame.place(id))?;
+            Some(format!(
+                "<li class=\"body-sm\"><span class=\"rp-code\">{}</span> &#8212; {}</li>",
+                escape(&place),
+                escape(&gap.reason)
+            ))
+        })
+        .collect();
+    if sites.is_empty() {
+        return String::new();
+    }
+    format!(
+        "<details class=\"rp-fold\"><summary class=\"caption\">Scan gap sites: {} of {}</summary>\
+<p class=\"body-sm\">These are scan gaps; not every gap holds every rule. Review each site. \
+For eligible doors, a declared reach is an assumption, not a proof; a resulting \
+PASS assuming the declared reach is conditional. Not every gap can be declared.</p><ul>{}</ul></details>",
+        sites.len().min(MAX_SITES),
+        sites.len(),
+        sites.into_iter().take(MAX_SITES).collect::<String>()
+    )
 }
 
 /// The kinds of the scan gaps, counted: what the collector could not read.
@@ -267,6 +295,9 @@ pub(super) fn section(frame: &Frame, names: &Names<'_>) -> String {
     cards.truncate(MAX_CARDS);
     for found in &cards {
         html.push_str(&card(frame, names, found));
+    }
+    if cards.iter().any(|card| card.kind == "scoped_gaps") {
+        html.push_str(&scan_sites(frame));
     }
     if total > cards.len() {
         html.push_str(&format!(

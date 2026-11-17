@@ -92,6 +92,27 @@ fn a_gap_that_the_collector_states_once_is_listed_with_its_detail() {
     assert!(!document(&unknown_frame()).contains("Stated once"));
 }
 
+#[test]
+fn unknown_scope_shows_gap_sites_and_conditional_reach_advice() {
+    let mut frame = unknown_frame();
+    frame["explain"]["holds"]["rules"]["A"] = holds("scoped_gaps", 2, &[]);
+    frame["collection_gaps"] = json!([
+        {"kind": "source_resolution_gap", "subjects": ["m.a"],
+         "reason": "dynamic_import: import_module", "evidence": ["E1"]},
+        {"kind": "source_resolution_gap", "subjects": ["m.b"],
+         "reason": "dynamic_import: pickle.loads", "evidence": ["E2"]}]);
+    frame["locations"] = json!({"E1": {"path": "src/a.py", "line": 12},
+                                  "E2": {"path": "src/b.py", "line": 42}});
+    let page = document(&frame);
+    assert!(page.contains("src/a.py:12") && page.contains("src/b.py:42"));
+    assert!(page.contains("not every gap holds every rule"));
+    assert!(page.contains("PASS assuming the declared reach"));
+    frame["collection_gaps"][0]["reason"] = json!("<script>");
+    assert!(document(&frame).contains("&lt;script&gt;"));
+    frame["collection_gaps"] = json!([]);
+    assert!(!document(&frame).contains("Scan gap sites"));
+}
+
 // Consumer: AD-540. A page shows the assumption that the frame states, and none for a frame
 // without one. The page names no language.
 #[test]
