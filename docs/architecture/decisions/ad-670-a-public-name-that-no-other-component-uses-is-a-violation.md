@@ -49,27 +49,17 @@ as rules of the self-contract, and their current FAIL rows stay visible). Part o
 **Self-contract.** `NATIVE-PUBLIC-HAS-A-USER` judges the functions, constants and statics of every
 native crate. Types wait for signature facts of the Rust collector; this is a named gap and the
 next step (#1402).
-- Native self-check: before 89 PASS, 4 FAIL, 0 UNKNOWN (27 violations). After: 89 PASS, 5 FAIL,
-  0 UNKNOWN (48 violations). The rule is FAIL with 21 rows, pinned with #1402:
-  - `facts.schema`: 7 rows;
-  - `contract.policy`: 5 rows;
-  - `snapshot.work` and `snapshot.test_tree`: 5 rows;
-  - `pyast.node`: 2 rows;
-  - `facts.nullable`, `facts.pyrepr` and `collect`: 1 row each.
-- The first build of the rule itself broke the self-contract, and the self-check showed each
-  break. All were fixed in code before the merge, with no pin:
-  - two modules had no owner, and the public entries and ports were not declared;
-  - there was a module cycle `graph -> model -> pair_gaps -> proof -> published -> graph`. The
-    item list moved to `published_items.rs`.
-  - there were four clones, and `scope.rs` had 503 lines.
+- Native self-check: 89 PASS, 4 FAIL before; 89 PASS, 5 FAIL, 0 UNKNOWN after. The rule has 21
+  FAIL rows, pinned with #1402 (`facts.schema` 7, `contract.policy` 5, `snapshot` 5, other 4).
+- The first build of the rule broke the self-contract (owners, public entries, ports, a module
+  cycle, four clones, a file over 500 lines). The self-check showed each break; all were fixed in
+  code, with no pin.
 - The shell contract (Python) adopts the rule as `SHELL-PUBLIC-HAS-A-USER` with all kinds (owner
   decision: Python is judged by name). `archkeel.cli:main` is an external user (the console
   script). Shell self-check: 26 PASS, 1 FAIL, 0 UNKNOWN; 40 rows, pinned with #1412.
 
-**Collector limit found.** `lib.rs` of the Rust collector declares both `mod reply` and
-`pub fn reply`. The collector resolves `use archkeel_rust_collector::reply` to the module only. The
-rule therefore judges an item `x` of `P` as undecided when another component imports the module
-`P.x` as a whole: a whole-module import may name the item too.
+**Collector limit found.** A whole-module import of `P.x` may also name an item `x` of `P` (two
+namespaces), so such an item is undecided. The false PASS behind it is #1405 (AD-694).
 
 **Tests.**
 - `tests/test_cli_native_unused_public.py`: Rust plants that rustc accepts, and Python plants that

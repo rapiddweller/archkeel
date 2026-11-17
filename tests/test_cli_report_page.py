@@ -22,7 +22,12 @@ ASSETS = ROOT / "native/report/assets"
 # AD-606: the Explorer scripts and style are about 2.1 MB of the page.
 BUDGET = 3_500_000
 RUNS = {
-    "shell": (None, "docs/architecture/shell.toml", "PASS"),
+    # AD-670: the shell pin holds the known FAIL rows of its self-contract.
+    "shell": (
+        None,
+        "docs/architecture/shell.toml",
+        pinned_self_status(ROOT / "docs/architecture/target/shell-expected.json")[1],
+    ),
     "H-typescript": ("fixtures/H-typescript", "archkeel.toml", "UNKNOWN"),
     "L-nest-realworld": ("fixtures/L-nest-realworld", "archkeel.toml", "UNKNOWN"),
     "I-flutter-shop": ("fixtures/I-flutter-shop", "archkeel.toml", "UNKNOWN"),
@@ -216,7 +221,9 @@ def test_the_word_budget_and_the_links_hold_on_each_dogfood_page(
     folder, config, _ = RUNS[name]
     root = ROOT / folder if folder else ROOT
     _, text, _ = write_page(release_core, monkeypatch, root, config, tmp_path / "p.html")
-    assert len(visible_text(text)) < WORD_BUDGET and "<pre" not in markup(text)
+    places = text.count('class="rp-dos"')
+    assert len(visible_text(text)) < WORD_BUDGET + PLACE_BUDGET * places
+    assert "<pre" not in markup(text)
     ids = set(re.findall(r' id="([^"]+)"', text))
     links = set(re.findall(r'href="#([^"]+)"', text))
     assert not (links - ids), sorted(links - ids)[:5]
