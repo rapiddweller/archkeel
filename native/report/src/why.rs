@@ -83,7 +83,7 @@ fn unsupported(part: &Unsupported) -> WhyUnknown {
 fn not_complete(cause: &Cause) -> WhyUnknown {
     match cause {
         Cause::Undecided(_) => WhyUnknown::Undecided,
-        Cause::DynamicImport | Cause::Receipt(_) => WhyUnknown::NoReceipt,
+        Cause::DynamicImport | Cause::Receipt(_) | Cause::ClassSite(_) => WhyUnknown::NoReceipt,
         Cause::PairGaps(_)
         | Cause::AllowedPairGaps(_)
         | Cause::ScopedGaps(_)

@@ -7073,7 +7073,8 @@
         "native.archkeel_python_collector.symbols.scan",
         "native.archkeel_python_collector.survey.module_uses",
         "native.archkeel_python_collector.survey.external_loader",
-        "native.archkeel_python_collector.survey.outside.sites"
+        "native.archkeel_python_collector.survey.outside.sites",
+        "native.archkeel_python_collector.survey.stable.class_inventory"
       ],
       "rationale": "Only the survey module and the CPython view, the string check and the definition table of the Python collector read the text ranges of the Python parser (AD-377).",
       "provenance": [

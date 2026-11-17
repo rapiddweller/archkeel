@@ -296,6 +296,10 @@ pub struct FileFact {
     /// A proof that the file has no class declarations; absence is not such a proof.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub class_inventory_empty: Option<bool>,
+    /// A call of the file that can create a class at run time, as `path:line (callee)`; the file
+    /// then has no class inventory receipt (#1713).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class_inventory_site: Option<String>,
     /// The evidence record of the file.
     pub evidence_id: EvidenceId,
 }
