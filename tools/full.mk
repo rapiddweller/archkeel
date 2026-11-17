@@ -17,7 +17,7 @@ full-test: TEST_WORKERS = 4
 full-test: core browser-runtime-install test
 
 test: core
-	ARCHKEEL_PREBUILT_CORE=1 $(UV) run --locked $(PYTEST_EXTRA) python -m pytest -n $(TEST_WORKERS) --dist=loadgroup --max-worker-restart=0 \
+	ARCHKEEL_REQUIRE_PREBUILT=1 $(UV) run --locked $(PYTEST_EXTRA) python -m pytest --tier full -n $(TEST_WORKERS) --dist=loadgroup --max-worker-restart=0 \
 		-q $(PYTEST_STOP) --durations=20 --junitxml=test-artifacts/pytest/results.xml \
 		$(if $(AREA),--area="$(AREA)",)
 
