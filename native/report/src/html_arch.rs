@@ -59,7 +59,7 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
     let modules = payload["atlas"]["modules"].as_array().map_or(0, Vec::len);
     let lost = outside(places, names);
     let mut lede = format!(
-        "{}, {}. {} with a violated place, {} with a gap.",
+        "{}, {}. {} with a violation, {} with an open gap.",
         count(all.len(), "component"),
         count(modules, "module"),
         failing,
@@ -71,9 +71,9 @@ pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> Stri
     }
     if lost > 0 {
         lede.push_str(&format!(
-            " {} in no component: assign the package of its module to a component of the contract, \
-a root package too. See the violations below.",
-            count(lost, "violated place")
+            " {} outside any component (the module has no owner in the contract): assign the package \
+of its module to a component of the contract, a root package too. See the violations below.",
+            count(lost, "violation")
         ));
         if places.total > places.shown.len() {
             lede.push_str(&format!(

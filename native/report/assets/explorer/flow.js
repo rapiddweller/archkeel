@@ -2468,7 +2468,7 @@
     const limit = (module.symbol_coverage || []).find((item) => item.status === "unavailable");
     if (!limit) return "";
     const reason = (limit.reason || "").replace(/\.$/, "");
-    return `Symbols: not counted in this run${reason ? ` (${esc(reason.charAt(0).toLowerCase() + reason.slice(1))})` : ""}`;
+    return `Symbols: not counted${reason ? ` (${esc(reason.charAt(0).toLowerCase() + reason.slice(1))})` : ""}`;
   }
   // What a box is: a layer or a group of components, or a component.
   function atlasBoxKind(component) {
