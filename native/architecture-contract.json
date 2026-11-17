@@ -38,6 +38,11 @@
         "native.archkeel_facts.data:SignalData",
         "native.archkeel_facts.data:ValueData",
         "native.archkeel_facts.envelope.cycle:proves_cycle_scope",
+        "native.archkeel_facts.envelope.validation:InterfaceNeed",
+        "native.archkeel_facts.envelope.validation:Registered",
+        "native.archkeel_facts.envelope.validation:library_family",
+        "native.archkeel_facts.envelope.validation:library_key",
+        "native.archkeel_facts.envelope.validation:versioned_owner",
         "native.archkeel_facts.envelope:Adapter",
         "native.archkeel_facts.envelope:Capabilities",
         "native.archkeel_facts.envelope:ConstructSupport",
@@ -63,6 +68,7 @@
         "native.archkeel_facts.envelope:State",
         "native.archkeel_facts.envelope:Target",
         "native.archkeel_facts.envelope:TargetSource",
+        "native.archkeel_facts.envelope:Validation",
         "native.archkeel_facts.envelope:source_digest",
         "native.archkeel_facts.envelope:test_features",
         "native.archkeel_facts.fields:Fields",
@@ -140,6 +146,7 @@
         "native.archkeel_facts:IntoSection",
         "native.archkeel_facts:Record",
         "native.archkeel_facts:ReferenceFact",
+        "native.archkeel_facts:SDK_LIBRARIES",
         "native.archkeel_facts:STANDARD_LIBRARY",
         "native.archkeel_facts:Section",
         "native.archkeel_facts:SymbolFact",
@@ -2810,8 +2817,9 @@
         },
         {
           "component": "facts",
-          "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422).",
+          "rationale": "Link frame locations to validated evidence and the root contract source identity without another verdict (AD-422); read the standard library key that the reply names (AD-688).",
           "through": [
+            "native.archkeel_facts.envelope.validation",
             "native.archkeel_facts.identity"
           ]
         },

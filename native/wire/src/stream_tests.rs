@@ -42,6 +42,11 @@ fn head() -> Head {
         source_digest: None,
         files: vec![],
         imports: vec![],
+        validation: archkeel_facts::envelope::Validation {
+            registered: Vec::new(),
+            interface: archkeel_facts::envelope::validation::InterfaceNeed::Nothing,
+            standard_library: Profile::TypeScript.as_str().to_owned(),
+        },
     }
 }
 
@@ -104,7 +109,7 @@ fn source_digest_matches_the_python_listing() {
 }
 
 #[test]
-fn the_reply_is_zlib_framed_json_with_the_requested_version() {
+fn the_reply_is_zlib_framed_json_of_protocol_11() {
     for version in [Version::V8, Version::V9] {
         let wire = encode(version, head(), tail()).unwrap();
         // The host reads a first byte 0x78 as the zlib frame of protocols 8.0.0 and 9.0.0.
@@ -114,10 +119,11 @@ fn the_reply_is_zlib_framed_json_with_the_requested_version() {
             .read_to_string(&mut plain)
             .unwrap();
         let reply: Value = serde_json::from_str(&plain).unwrap();
-        assert_eq!(reply["protocol_version"], version.as_str());
+        // AD-688: each request version gets the 11.0.0 reply with the validation block.
+        assert_eq!(reply["protocol_version"], "11.0.0");
         assert_eq!(reply["provider_sources"], Value::Array(vec![]));
         let facts = reply["facts"].as_object().unwrap();
-        assert_eq!(facts.len(), 16);
+        assert_eq!(facts.len(), 17);
         assert_eq!(facts["adapter"]["name"], "archkeel-typescript-imports");
         assert_eq!(facts["coverage"]["full_scope"], true);
     }
@@ -264,7 +270,7 @@ fn the_streamed_reply_decodes_through_the_envelope_and_encodes_to_the_same_value
     for version in [Version::V8, Version::V9] {
         let text = plain(version, full.clone(), last.clone());
         let decoded: Reply = serde_json::from_str(&text).unwrap();
-        assert_eq!(decoded.protocol_version.as_str(), version.as_str());
+        assert_eq!(decoded.protocol_version.as_str(), "11.0.0");
         assert_eq!(decoded.facts.files, full.files);
         assert_eq!(decoded.facts.imports, full.imports);
         assert_eq!(decoded.facts.evidence, last.evidence);

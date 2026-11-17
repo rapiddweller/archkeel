@@ -125,9 +125,12 @@ fn a_changed_reply_fails_with_the_message_of_the_python_check() {
                 }
             },
         ),
-        ("a Python reply must be the 10.0.0 import survey", |v| {
-            v["facts"]["profile"] = json!("archkeel-python-analyzer");
-        }),
+        (
+            "a Python reply must be the 10.0.0 or 11.0.0 import survey",
+            |v| {
+                v["facts"]["profile"] = json!("archkeel-python-analyzer");
+            },
+        ),
         // AD-468: a Dart reply is the import survey; it has no resolution feature.
         ("does not check the resolution feature", |v| {
             v["facts"]["profile"] = json!("archkeel-dart-analyzer");

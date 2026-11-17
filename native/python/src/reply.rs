@@ -9,8 +9,10 @@
 //! import survey and written constructs (AD-658, AD-666, AD-680, AD-682, AD-684). The linked path gives the same
 //! survey as a typed reply (AD-450).
 
+use archkeel_facts::envelope::validation::{versioned_owner, InterfaceNeed, Registered};
 use archkeel_facts::envelope::{
-    Adapter, Coverage, Evidence, Input, Profile, Provenance, Reply, Runtime, TargetSource,
+    Adapter, ConstructSupport, Coverage, Evidence, Input, Profile, Provenance, Reply, Runtime,
+    SectionName, TargetSource, Validation,
 };
 use archkeel_facts::request::PythonRequest;
 use archkeel_facts::sections::SignalFact;
@@ -36,6 +38,51 @@ const SURVEY_SECTIONS: [&str; 7] = [
     "constructs",
     "typing_signals",
 ];
+
+/// The feature of the linked survey: it writes the symbol and the route of each named import
+/// (AD-504).
+const ROUTES_FEATURE: &str = "import-routes-v1";
+
+/// The construct kinds of the survey in their order, after `assert` (AD-666, AD-680, AD-682,
+/// AD-684). The last one, `getattr`, comes with the section `typing_signals` (AD-686).
+const LATER_CONSTRUCTS: [&str; 4] = [
+    "broad_except",
+    "dunder_dict",
+    "vars",
+    "string_literal_compare",
+];
+
+/// The validation table of the survey (AD-688; AD-450, AD-518, AD-520): exactly the sections
+/// `calls`, `imports`, `references`, `symbols` and `unknowns` with no construct capability; or
+/// with the `constructs` section and `assert` `supported`, followed by the first of the later
+/// construct kinds, each `supported` or `partial` (AD-658); all six with the `typing_signals`
+/// section too. The routes feature is optional, and an interface statement holds exactly when
+/// the reply states it (AD-504). The standard library is the list of the minor version of the
+/// target (`version`).
+fn validation(version: &str) -> Validation {
+    use SectionName::{Calls, Constructs, Imports, References, Symbols, TypingSignals, Unknowns};
+    let routes = [ROUTES_FEATURE];
+    let survey = [Calls, Imports, References, Symbols, Unknowns];
+    let with_constructs = [Calls, Constructs, Imports, References, Symbols, Unknowns];
+    let either = [ConstructSupport::Supported, ConstructSupport::Partial];
+    let mut registered = vec![Registered::of(&survey, &[]).with_optional_features(&routes)];
+    let mut constructs = Registered::of(&with_constructs, &[])
+        .with_optional_features(&routes)
+        .with_construct("assert", &[ConstructSupport::Supported]);
+    registered.push(constructs.clone());
+    for name in LATER_CONSTRUCTS {
+        constructs = constructs.with_construct(name, &either);
+        registered.push(constructs.clone());
+    }
+    let mut all = constructs.with_construct("getattr", &either);
+    all.sections.push(TypingSignals);
+    registered.push(all);
+    Validation {
+        registered,
+        interface: InterfaceNeed::Feature(ROUTES_FEATURE.to_owned()),
+        standard_library: versioned_owner(Profile::Python.as_str(), version),
+    }
+}
 
 /// The version and the code digest of this binary (`archkeel-build-support`).
 pub struct Build<'a> {
@@ -76,9 +123,12 @@ pub(crate) fn typed(
         &survey.sources,
     );
     let (head, records) = parts(request, survey, build, source)?;
-    assemble(reply_version(request.protocol_version), head, |writer| {
+    let mut reply = assemble(reply_version(request.protocol_version), head, |writer| {
         records.produce(writer)
-    })
+    })?;
+    let features = &mut reply.facts.capabilities.resolution_features;
+    features.push(ROUTES_FEATURE.to_owned());
+    Ok(reply)
 }
 
 /// The records of the sections and the tail of one survey.
@@ -140,8 +190,10 @@ fn parts(
         .collect();
     let (inputs, source_digest) = inputs::with_listings(&mut snapshot, &selected, &listings);
     same_inputs(&inputs, &survey.parsed)?;
+    let provenance = provenance(request, &mut snapshot, build, source)?;
+    let validation = validation(&provenance.runtime.version);
     let head = Head {
-        provenance: provenance(request, &mut snapshot, build, source)?,
+        provenance,
         git_head: request.snapshot.git_head.clone(),
         dirty: serde_json::to_value(&request.snapshot.dirty).map_err(|error| error.to_string())?,
         scope: request
@@ -200,6 +252,7 @@ fn parts(
         source_digest: Some(source_digest),
         files: survey.files,
         imports: survey.targets,
+        validation,
     };
     same_coverage(&survey.coverage, head.files.len())?;
     let records = Records {

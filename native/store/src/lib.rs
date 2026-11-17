@@ -6,7 +6,7 @@
 //!
 //! The store reads one collector reply through the types of `archkeel-facts`, runs the generic
 //! validation once and keeps the records for the model of the core (`ingest_reply`,
-//! `ingest_typed`). It also holds the pinned standard library of each profile.
+//! `ingest_typed`). It also reads the pinned standard library by the key that a reply names.
 //!
 //! The process, the read-set document and the writer of `architecture.json` for the Python shell
 //! are deleted with the Python engine (AD-432).
@@ -24,6 +24,7 @@ mod registered;
 mod standard;
 mod stored;
 mod validate;
+mod validation;
 mod view;
 
 #[cfg(test)]
@@ -50,7 +51,7 @@ impl Ingested {
     }
 }
 
-/// Decode and validate one compressed reply (protocol 8 or 9) for a library of the core.
+/// Decode and validate one compressed reply (protocol 8 to 11) for a library of the core.
 pub fn ingest_reply(payload: &[u8], inflate_limit: u64) -> Result<Ingested, String> {
     ingest(payload, inflate_limit).map(Ingested)
 }
@@ -74,6 +75,7 @@ fn validated(reply: archkeel_facts::envelope::Reply) -> Result<Store, String> {
     validate::invariants(&reply.facts)?;
     let names: Vec<&str> = reply.facts.sections.iter().map(Section::name).collect();
     validate::envelope(&reply.facts, &names)?;
+    validation::check(reply.protocol_version, &reply.facts)?;
     records::records(&reply.facts, &validate::index(&reply.facts))?;
     Ok(Store::new(reply))
 }
