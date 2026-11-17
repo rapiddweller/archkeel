@@ -36,7 +36,7 @@ from .core_frame import (
     read_frame,
 )
 from .core_help import help_for
-from .core_init import Created, prepare, run_init
+from .core_init import Created, _prepare, _run_init
 from .core_json import Gap, RequestMismatch
 from .core_output import write_output
 from .core_text import header, refusal, render, summary
@@ -70,7 +70,7 @@ def run(argv: Sequence[str]) -> int:
         if options.command is Command.SKILL:
             return _install_skill(options, as_json)
         if options.command is Command.INIT:
-            return run_init("--json" in argv, resolve_root(options.root or Path.cwd()))
+            return _run_init("--json" in argv, resolve_root(options.root or Path.cwd()))
         return _decide(options, as_json)
     except (CoreError, OSError, ValueError) as error:
         message = str(error)
@@ -279,7 +279,7 @@ def _decide(options: Options, as_json: bool) -> int:
     """Send the scan identity to the core and print the one frame that it gives."""
     options = _located(options)
     root = resolve_root(options.root or Path.cwd())
-    options, first = prepare(options, root)  # AD-638, AD-660: a project without a config gets one
+    options, first = _prepare(options, root)  # AD-638, AD-660: a project without a config gets one
     if isinstance(first, str):
         return _refused(options.command, RefusalKind.INVALID_INPUT, first, as_json)
     request = _request(options, root)

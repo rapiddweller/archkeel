@@ -24,11 +24,11 @@ from .init_layouts import (
     Part,
     _escape,
     _name,
+    _python_layouts,
     _refuse,
+    _rust_layout,
     _tsconfig,
-    python_layouts,
-    rust_layout,
-    typescript_layout,
+    _typescript_layout,
 )
 
 _DEPTH: Final = 3
@@ -75,7 +75,7 @@ def _has_code(folder: Path) -> bool:
     return False
 
 
-def typescript_project(repo: Path, folder: Path) -> Layout:
+def _typescript_project(repo: Path, folder: Path) -> Layout:
     """One component for each folder of the project that holds code; the folders inside `src`
     count instead of `src` itself. The files beside them are the component `root`.
 
@@ -123,7 +123,7 @@ def typescript_project(repo: Path, folder: Path) -> Layout:
     return Layout("typescript", namespace, (scan,), tuple(parts), _tsconfig(repo, folder) + _TESTS)
 
 
-def dart_layout(repo: Path, folder: Path) -> Layout:
+def _dart_layout(repo: Path, folder: Path) -> Layout:
     """One component for each folder of `lib`; the files beside them are the component `root`.
     The namespace is the package name of pubspec.yaml; a module is the namespace and the path
     below `lib` without `.dart`."""
@@ -156,19 +156,19 @@ def _workspaces(folder: Path) -> bool:
 
 def _layout_of(repo: Path, folder: Path) -> Layout | None:
     """The layout of a Cargo, package.json or pubspec manifest in `folder`, or `None`."""
-    if (folder / "Cargo.toml").is_file() and (layout := rust_layout(repo, folder)):
+    if (folder / "Cargo.toml").is_file() and (layout := _rust_layout(repo, folder)):
         return layout
     if (folder / "package.json").is_file():
         if _workspaces(folder):
-            return typescript_layout(repo, folder)
+            return _typescript_layout(repo, folder)
         if (folder / "tsconfig.json").is_file():
-            return typescript_project(repo, folder)
+            return _typescript_project(repo, folder)
     if (folder / "pubspec.yaml").is_file():
-        return dart_layout(repo, folder)
+        return _dart_layout(repo, folder)
     return None
 
 
-def discover(repo: Path) -> tuple[list[Area], str]:
+def _discover(repo: Path) -> tuple[list[Area], str]:
     """The areas of `repo`, and the first reason that a folder gave none (for a refusal)."""
     areas: list[Area] = []
     claimed: list[Path] = []
@@ -189,13 +189,13 @@ def discover(repo: Path) -> tuple[list[Area], str]:
         # A Python project can share its folder with a Cargo or Node manifest.
         if folder == repo or any((folder / n).is_file() for n in ("pyproject.toml", "setup.py")):
             try:
-                areas += [Area(layout.roots[0], layout) for layout in python_layouts(repo, folder)]
+                areas += [Area(layout.roots[0], layout) for layout in _python_layouts(repo, folder)]
             except NothingToDraft as error:
                 why = why or str(error)
     return areas, why
 
 
-def unique_ids(areas: list[Area]) -> list[str]:
+def _unique_ids(areas: list[Area]) -> list[str]:
     """One part id for each area: the folder name, or the language for the root, made unique."""
     labels = [area.label for area in areas]
     return [
@@ -204,14 +204,14 @@ def unique_ids(areas: list[Area]) -> list[str]:
     ]
 
 
-def title_of(area: Area, identifier: str) -> str:
+def _title_of(area: Area, identifier: str) -> str:
     """The title of a part: the language and the id."""
     return f"{_NAMES[area.layout.language]} {identifier}"
 
 
-def detect(repo: Path) -> list[Area]:
+def _detect(repo: Path) -> list[Area]:
     """The areas of the repository, or `NothingToDraft` when it has none."""
-    areas, why = discover(repo)
+    areas, why = _discover(repo)
     if not areas:
         raise NothingToDraft(
             why

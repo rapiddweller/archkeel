@@ -22,7 +22,7 @@ LIMITS: Final = {
 }
 
 
-class Ownership(StrEnum):
+class _Ownership(StrEnum):
     """Whether exactly one component owns a module."""
 
     OWNED = "owned"
@@ -30,7 +30,7 @@ class Ownership(StrEnum):
     AMBIGUOUS = "ambiguous"
 
 
-class Resolution(StrEnum):
+class _Resolution(StrEnum):
     """Whether an import resolved to a module, failed to resolve or is external."""
 
     RESOLVED = "resolved"
@@ -62,7 +62,7 @@ class Module:
     name: str
     path: str
     component: str | None
-    ownership: Ownership
+    ownership: _Ownership
     language: str
 
 
@@ -73,7 +73,7 @@ class Edge:
     id: str
     source: str
     target: str
-    resolution: Resolution
+    resolution: _Resolution
     count: int
     evidence: tuple[Location, ...]
     evidence_total: int
@@ -156,11 +156,11 @@ def _component(value: object) -> Component:
 def _module(value: object) -> Module:
     row = as_object(value, "topology.module")
     try:
-        ownership = Ownership(as_text(row["ownership"], "ownership"))
+        ownership = _Ownership(as_text(row["ownership"], "ownership"))
     except ValueError as error:
         raise CoreError("topology: unknown ownership") from error
     component = _optional(row["component"])
-    if (ownership is Ownership.OWNED) != (component is not None):
+    if (ownership is _Ownership.OWNED) != (component is not None):
         raise CoreError("topology: ownership and component differ")
     return Module(
         as_text(row["name"], "name"),
@@ -174,7 +174,7 @@ def _module(value: object) -> Module:
 def _edge(value: object, rules: Mapping[str, object]) -> Edge:
     row = as_object(value, "topology.edge")
     try:
-        resolution = Resolution(as_text(row["resolution"], "resolution"))
+        resolution = _Resolution(as_text(row["resolution"], "resolution"))
     except ValueError as error:
         raise CoreError("topology: unknown resolution") from error
     evidence = []
@@ -228,7 +228,7 @@ def _layer_order(value: object) -> LayerOrder:
 
 # A component edge names a component or one of these labels, never a module.
 _OWNER_LABELS: Final = frozenset({"unowned", "ambiguous"})
-_TARGET_LABELS: Final = _OWNER_LABELS | {resolution.value for resolution in Resolution}
+_TARGET_LABELS: Final = _OWNER_LABELS | {resolution.value for resolution in _Resolution}
 
 
 def _check_references(topology: "Topology") -> None:
@@ -242,7 +242,7 @@ def _check_references(topology: "Topology") -> None:
     cut_components = topology.total["components"] > len(components)
     cut_modules = topology.total["modules"] > len(modules)
     for edge in topology.edges:
-        local = edge.resolution is Resolution.RESOLVED
+        local = edge.resolution is _Resolution.RESOLVED
         if not cut_modules and (
             edge.source not in modules or (local and edge.target not in modules)
         ):
@@ -258,7 +258,7 @@ def _check_references(topology: "Topology") -> None:
             raise CoreError("topology: a requirement names no listed component")
 
 
-def read_topology(value: object, scope: str, rules: Mapping[str, object]) -> Topology:
+def _read_topology(value: object, scope: str, rules: Mapping[str, object]) -> Topology:
     """Read the topology part of a frame into typed values and fail closed."""
 
     row = as_object(value, "topology")
@@ -325,4 +325,4 @@ def frame_topology(frame: Mapping[str, object], rules: Mapping[str, object]) -> 
     """The decoded section of a frame, or `None` when the frame has none."""
     if "topology" not in frame:
         return None
-    return read_topology(frame["topology"], as_text(frame["scope"], "scope"), rules)
+    return _read_topology(frame["topology"], as_text(frame["scope"], "scope"), rules)

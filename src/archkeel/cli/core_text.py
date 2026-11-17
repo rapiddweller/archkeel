@@ -24,7 +24,7 @@ from .core_frame import CoreFrame, GapKind, RuleStatus, Status
 from .core_json import Gap
 from .core_words import CAUSE_FIXES, NOT_FOUND_PREFIX, contract_fix, kind_label, plain
 
-SHOWN = 3
+_SHOWN = 3
 #: The named parts that an `init` draft leaves: decisions that the person has not made yet.
 DRAFT_KINDS = frozenset(
     {
@@ -44,10 +44,10 @@ PROBLEM_KINDS = frozenset(
         GapKind.REQUEST_DIFFERS,
     }
 )
-VIOLATIONS_SHOWN = 10
-MAX_JOBS = 3
-SUMMARY_LINES = 15
-SUMMARY_VIOLATIONS = 5
+_VIOLATIONS_SHOWN = 10
+_MAX_JOBS = 3
+_SUMMARY_LINES = 15
+_SUMMARY_VIOLATIONS = 5
 
 
 def _more(total: int, shown: int, show_all: bool) -> str:
@@ -74,7 +74,7 @@ def _assuming(doors: int) -> str:
     return door_qualifier(doors).replace("PASS", "pass", 1)
 
 
-def reason_of(frame: CoreFrame, code: int) -> str:
+def _reason_of(frame: CoreFrame, code: int) -> str:
     """Why the run exits with `code`: one sentence for the header."""
     counts = Counter(verdict.status for verdict in frame.rules.values())
     total = len(frame.rules)
@@ -126,7 +126,7 @@ def header(command: Command, frame: CoreFrame, code: int) -> str:
     """The first line: the word of the exit code, the code and the reason."""
     invalid = frame.baseline is not None and frame.baseline.state is BaselineState.INVALID
     word = "REFUSED" if invalid else word_of(code)
-    return f"{command}: {word} -> exit {code} ({reason_of(frame, code)})"
+    return f"{command}: {word} -> exit {code} ({_reason_of(frame, code)})"
 
 
 def _next_action(frame: CoreFrame, groups: Sequence[tuple[str, int]]) -> str | None:
@@ -143,9 +143,9 @@ def _next_action(frame: CoreFrame, groups: Sequence[tuple[str, int]]) -> str | N
         jobs.append("resolve the named parts below")
     if not jobs:
         return None
-    top = jobs[:MAX_JOBS]
+    top = jobs[:_MAX_JOBS]
     listed = top[0] if len(top) == 1 else "; ".join(f"{n}. {job}" for n, job in enumerate(top, 1))
-    more = f" ({len(jobs) - MAX_JOBS} more below)" if len(jobs) > MAX_JOBS else ""
+    more = f" ({len(jobs) - _MAX_JOBS} more below)" if len(jobs) > _MAX_JOBS else ""
     return f"{listed}{more}. Then run again."
 
 
@@ -154,11 +154,11 @@ def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
     if not rows:
         return []
     lines = [f"Violations ({len(rows)}):"]
-    for rule, row in rows if show_all else rows[:VIOLATIONS_SHOWN]:
+    for rule, row in rows if show_all else rows[:_VIOLATIONS_SHOWN]:
         edge = row.source if row.target is None else f"{row.source} -> {row.target}"
-        where = ", ".join(_places(frame, row.evidence, SHOWN))
+        where = ", ".join(_places(frame, row.evidence, _SHOWN))
         lines.append(f"  {rule}: {row.cause}: {edge}" + (f" ({where})" if where else ""))
-    if more := _more(len(rows), VIOLATIONS_SHOWN, show_all):
+    if more := _more(len(rows), _VIOLATIONS_SHOWN, show_all):
         lines.append(f"  {more.strip()}")
     causes = dict.fromkeys(row.cause for _, row in rows)
     lines.extend(
@@ -167,7 +167,7 @@ def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
     return lines
 
 
-NOT_FOUND_LABEL = "an imported module that has no file in the scan"
+_NOT_FOUND_LABEL = "an imported module that has no file in the scan"
 
 
 def _missing(gap: CollectionGap) -> str | None:
@@ -193,24 +193,24 @@ def _group_lines(
         if declared(gap.subjects, lines_of, frame.doors):
             key = kind_label(DECLARED)
         else:
-            key = NOT_FOUND_LABEL if _missing(gap) is not None else kind_label(gap.kind)
+            key = _NOT_FOUND_LABEL if _missing(gap) is not None else kind_label(gap.kind)
         groups.setdefault(key, []).append(index)
     ranked = sorted(groups.items(), key=lambda item: (-len(item[1]), item[0]))
     lines: list[str] = []
     for label, members in ranked:
         first = frame.collection_gaps[members[0]]
-        lead = "" if label == NOT_FOUND_LABEL else f": {plain(first.reason)}"
+        lead = "" if label == _NOT_FOUND_LABEL else f": {plain(first.reason)}"
         lines.append(f"  {len(members)} x {label}{lead}")
-        for index in members if show_all else members[:SHOWN]:
+        for index in members if show_all else members[:_SHOWN]:
             gap = frame.collection_gaps[index]
             where = ", ".join(_places(frame, gap.evidence, 1)) or ", ".join(gap.subjects[:1])
             name = _missing(gap)
             note = _generated(name, ignored or {}) if name is not None else ""
             tail = f" ({plain(gap.detail)})" if gap.detail else ""
             lines.append(f"      {where}{': ' + name if name else ''}{note}{tail}")
-        if more := _more(len(members), SHOWN, show_all):
+        if more := _more(len(members), _SHOWN, show_all):
             lines.append(f"      {more.strip()}")
-        if label == NOT_FOUND_LABEL:
+        if label == _NOT_FOUND_LABEL:
             lines.append(
                 "      Fix: generate or build the module before the scan, or leave out the files "
                 "that import it."
@@ -236,8 +236,8 @@ def _waiting_lines(frame: CoreFrame, show_all: bool) -> list[str]:
         return []
     lines = [f"Rules that wait ({len(frame.explained)}):"]
     for reason, rules in sorted(groups.items(), key=lambda item: (-len(item[1]), item[0])):
-        shown = rules if show_all else rules[:SHOWN]
-        more = _more(len(rules), SHOWN, show_all)
+        shown = rules if show_all else rules[:_SHOWN]
+        more = _more(len(rules), _SHOWN, show_all)
         lines.append(f"  {len(rules)} rules: {reason}")
         lines.append(f"      {', '.join(shown)}{more}")
     return lines
@@ -255,11 +255,11 @@ def _named_lines(frame: CoreFrame, show_all: bool) -> tuple[list[str], list[tupl
     )
     for kind, rows in ranked:
         lines.append(f"  {len(rows)} x {kind_label(kind)}")
-        for subject, reason in rows if show_all else rows[:SHOWN]:
+        for subject, reason in rows if show_all else rows[:_SHOWN]:
             lines.append(
                 f"      {reason if subject.startswith('hygiene:') else f'{subject}: {reason}'}"
             )
-        if more := _more(len(rows), SHOWN, show_all):
+        if more := _more(len(rows), _SHOWN, show_all):
             lines.append(f"      {more.strip()}")
     return lines, [(kind_label(kind), len(rows)) for kind, rows in ranked]
 
@@ -320,7 +320,7 @@ def render(
         out.append(f"Next: {action}")
     if frame.premise is not None:
         out.append(f"Assumption: {frame.premise}")
-    out.extend(door_lines(frame.assumed, frame.doors, SHOWN, show_all))
+    out.extend(door_lines(frame.assumed, frame.doors, _SHOWN, show_all))
     if system:
         out.extend(_system(system))
     out.extend(_violation_lines(frame, show_all))
@@ -382,10 +382,10 @@ def summary(
     if (action := _next_action(frame, ranking)) is not None:
         out.append(f"Next: {action}")
     rows = [(rule, row) for rule, found in frame.details.items() for row in found]
-    for rule, row in rows[:SUMMARY_VIOLATIONS]:
+    for rule, row in rows[:_SUMMARY_VIOLATIONS]:
         edge = row.source if row.target is None else f"{row.source} -> {row.target}"
         out.append(f"  {rule}: {row.cause}: {edge}")
-    if len(rows) > SUMMARY_VIOLATIONS:
-        out.append(f"  and {len(rows) - SUMMARY_VIOLATIONS} more violations")
+    if len(rows) > _SUMMARY_VIOLATIONS:
+        out.append(f"  and {len(rows) - _SUMMARY_VIOLATIONS} more violations")
     out.append("Details: archkeel validate --text (all: --all); machine output: --json")
-    return out[:SUMMARY_LINES]
+    return out[:_SUMMARY_LINES]
