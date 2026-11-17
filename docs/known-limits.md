@@ -55,6 +55,9 @@ the last two were fixed after it and are checked on main at `157dc8851`:
 - A patch of a platform prototype (`Object.defineProperty(EventTarget.prototype, …)`, a prototype
   that is passed on, `ev.target.__proto__ = …`) gives UNKNOWN with a source-resolution gap
   (AD-768, #1527). `tests/test_cli_native_prototype_patch.py` holds 18 forms.
+- DOM code from a text (`document.open()` and `write`, a document that is passed on, a link,
+  frame or form address that is no literal, `insertHTML`) gives UNKNOWN with a source-resolution gap
+  (AD-792, #1526). `tests/test_cli_native_dom_code.py` holds 24 forms.
 - Direct aliases of `Object`, `Reflect`, `location` and `open`, and direct timer aliases, give
   UNKNOWN with a source-resolution gap. This does not prove arbitrary value flow safe.
   `tests/test_cli_native_global_forms.py` checks the direct reflection and navigation aliases.
@@ -537,6 +540,14 @@ forms; a write of `__proto__` on a value that is not proven local is an amplifie
 member (`Object.prototype.hasOwnProperty.call`), an element and a comparison keep the proof.
 A reflective write on the prototype of a class of the file stays a false UNKNOWN in a scan with a
 host entry. Plants: `tests/test_cli_native_prototype_patch.py`.
+AD-792 (#1526) reads DOM code from a text: a member `write`, `writeln` or `open` of a document used
+in any way but the direct call `document.write(…)` (`document.open()`, `call`, `bind`, a literal key)
+is a direct form; a document (`document`, `ownerDocument`, `contentDocument`) that is passed, stored
+or returned or taken by a pattern is an amplifier form; a write of `href`, `src`, `action`,
+`formAction`, `data` or `baseVal`, or `setAttribute` of such an attribute, with a value that is no
+literal is an amplifier form; `execCommand('insertHTML', …)` with markup that is no inert literal is a
+direct form. An address that a framework renders from data (`<a href={url}>`) stays open (#1662).
+Plants: `tests/test_cli_native_dom_code.py`.
 Older classes stay open too: a member patch of a platform object that is no
 window (`JSON.parse = …`, `document.open = …`), a use through `opener` or
 `document.defaultView`, and a write in a file outside the scan roots (#1546).
