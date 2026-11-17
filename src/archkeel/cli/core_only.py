@@ -38,7 +38,7 @@ from .core_frame import (
     read_frame,
 )
 from .core_help import help_for
-from .core_init import Created, _prepare, _run_init
+from .core_init import Created, InitOutcome, _prepare, _run_init
 from .core_json import Gap, RequestMismatch
 from .core_output import write_output
 from .core_text import header, refusal, render, summary
@@ -76,9 +76,8 @@ def run(argv: Sequence[str]) -> int:
             return _run_init("--json" in argv, resolve_root(options.root or Path.cwd()))
         return _decide(options, as_json)
     except (CoreError, OSError, ValueError) as error:
-        message = str(error)
-        if any(arg == "--output" or arg.startswith("--output=") for arg in argv):
-            message += "; no report file was written"
+        output = any(arg == "--output" or arg.startswith("--output=") for arg in argv)
+        message = _message(error, output=output)
         kind = _refusal_kind(error)
         return _refused(_command_or_none(argv), kind, message, as_json, baseline=baseline)
     except Exception as error:
@@ -98,6 +97,11 @@ def _command_or_none(argv: Sequence[str]) -> Command | None:
         return Command(argv[0])
     except (ValueError, IndexError):
         return None
+
+
+def _message(error: Exception, *, output: bool) -> str:
+    """The message of a refusal; with `--output`, it says that no report file was written."""
+    return f"{error}; no report file was written" if output else str(error)
 
 
 def _refusal_kind(error: Exception) -> RefusalKind:
@@ -301,16 +305,33 @@ def _print_text(
 
 
 def _decide(options: Options, as_json: bool) -> int:
-    """Send the scan identity to the core and print the one frame that it gives."""
+    """Draft the files of a first run, then scan. A failure after a write still names the files."""
     options = _located(options)
     root = resolve_root(options.root or Path.cwd())
-    options, first = _prepare(options, root)  # AD-638, AD-660: a project without a config gets one
     baseline = options.baseline is not None
-    if isinstance(first, str):
-        kind = RefusalKind.INVALID_INPUT
-        return _refused(options.command, kind, first, as_json, baseline=baseline)
+    binary = locate_core()  # AD-735: the core is found and checked before the draft writes a file
+    options, init = _prepare(options, root)  # AD-638, AD-660: a project without a config gets one
+    if (stop := init.refusal()) is not None:
+        kind, fix = stop
+        return _refused(
+            options.command, kind, init.message, as_json, baseline=baseline, fix=fix, init=init
+        )
+    try:
+        return _scan(options, root, binary, init.created, as_json)
+    except (CoreError, OSError, ValueError) as error:
+        if init.created is None:
+            raise
+        message = _message(error, output=options.output is not None)
+        kind = _refusal_kind(error)
+        return _refused(options.command, kind, message, as_json, baseline=baseline, init=init)
+
+
+def _scan(
+    options: Options, root: Path, binary: Path, created: Created | None, as_json: bool
+) -> int:
+    """Send the scan identity to the core and print the one frame that it gives."""
+    baseline = options.baseline is not None
     request = _request(options, root)
-    binary = locate_core()
     confirm(binary)  # a bundled core is checked again immediately before it starts (#1095)
     started_ns = time_ns()
     stdout, status_code = exchange(str(binary), "scan", json.dumps(request).encode())
@@ -351,13 +372,13 @@ def _decide(options: Options, as_json: bool) -> int:
         result["baseline"] = baseline_json(frame.baseline)
     refusals = [(RefusalKind.COLLECTION_REFUSED, collected.reason)] if collected else []
     result |= _refusal_fields([*refusals, *failures])
-    if isinstance(first, Created):
-        result["init"] = first.as_json()
+    if created is not None:
+        result["init"] = created.as_json()
     if as_json and (options.json or options.output is None):
         print(json.dumps(result))
         return code
-    if isinstance(first, Created):
-        print("\n".join(first.lines()), end="\n\n")
+    if created is not None:
+        print("\n".join(created.lines()), end="\n\n")
     _print_text(options, frame, document, (code, outcome, collected, failures), (binary, root))
     return code
 
@@ -416,13 +437,31 @@ def _write_report(options: Options, frame: CoreFrame, stdout: bytes) -> None:
 
 
 def _refused(
-    command: Command | None, kind: RefusalKind, message: str, as_json: bool, *, baseline: bool
+    command: Command | None,
+    kind: RefusalKind,
+    message: str,
+    as_json: bool,
+    *,
+    baseline: bool,
+    fix: str | None = None,
+    init: InitOutcome | None = None,
 ) -> int:
-    """The refusal of a command that could not run: JSON, or the problem and the fix as text."""
+    """The refusal of a command that could not run: JSON, or the problem and the fix as text.
+
+    `fix` replaces the fix of the kind. `init` is the draft step: the files that it wrote come
+    first, so that a refusal after a write still names them (AD-735).
+    """
     code = exit_for(Outcome.COMMAND_REFUSED, None, baseline=baseline)
+    created = init.created if init is not None else None
     if as_json:
-        refused = {"kind": kind, "message": message}
-        print(json.dumps({"status": Status.UNKNOWN, "exit_code": code, "refusal": refused}))
-    else:
-        print("\n".join(refusal(command, code, plain(message), fix_for(kind, plain(message)))))
+        document: dict[str, object] = {"status": Status.UNKNOWN, "exit_code": code}
+        document["refusal"] = {"kind": kind, "message": message}
+        if init is not None:
+            document["init"] = created.as_json() if created else {"state": init.state}
+        print(json.dumps(document))
+        return code
+    if created is not None:
+        print("\n".join(created.lines()), end="\n\n")
+    words = plain(message)
+    print("\n".join(refusal(command, code, words, fix or fix_for(kind, words))))
     return code

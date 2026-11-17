@@ -116,10 +116,12 @@ def test_an_auto_init_stop_under_a_baseline_exits_1(
 ) -> None:
     root = plant(tmp_path)
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
-    monkeypatch.setattr(core_only, "locate_core", _no_core)
+    # AD-735: the core is found before the draft step, so the test names a core path.
+    monkeypatch.setattr(core_only, "locate_core", lambda: tmp_path / "archkeel-core")
     monkeypatch.setenv("ARCHKEEL_NO_INIT", "1")
     code, document, _ = _run("validate", "--root", str(root), "--baseline", "b.json")
     assert code == 1, document
+    assert document["init"] == {"state": "opted_out"}
     assert not (root / "archkeel.toml").exists()
 
 
