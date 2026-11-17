@@ -261,6 +261,7 @@
     root.toggleAttribute("data-ak-perspective", Boolean(active));
     F.nodeLayer.querySelectorAll("[data-uml-id]").forEach((group) => {
       group.querySelector(".ak-tag")?.remove();
+      group.querySelector(".stereotype")?.removeAttribute("visibility");
       delete group.dataset.akTag;
       group.style.removeProperty("--ex-tag");
       if (!active) return;
@@ -270,30 +271,23 @@
       group.dataset.akTag = value;
       group.style.setProperty("--ex-tag", perspectiveColor(S.perspective, value));
       // The badge sits in the header row of the box, left of its kind icon (icon at CARD.w - 29).
-      const width = Math.min(100, 12 + value.length * 5.7);
+      // It is as wide as its text and never cut; a badge that reaches the kind text of the box
+      // takes its place, and the kind icon still names the kind.
       const tag = s("g", {
         class: S.perspective === "language" ? "ak-tag ak-language-badge" : "ak-tag",
         ...(S.perspective === "language" ? { "data-language": languageKey(value) } : {}),
-        transform: `translate(${171 - 5 - width} 7)`,
       });
-      tag.append(s("rect", { width: String(width), height: "18", rx: "9" }));
+      const rect = s("rect", { height: "18", rx: "9" });
       const text = s("text", { x: "6", y: "13" });
       text.textContent = value;
-      tag.append(text);
+      tag.append(rect, text);
       group.append(tag);
-      // A mixed value (`python + typescript`) can be longer than the badge: it is cut at the badge
-      // with an ellipsis, and the whole value stays as the title of the badge.
-      const room = width - 12;
-      if (text.getComputedTextLength() > room) {
-        let cut = value;
-        while (cut.length > 1 && text.getComputedTextLength() > room) {
-          cut = cut.slice(0, -1);
-          text.textContent = `${cut.trimEnd()}…`;
-        }
-        const title = s("title");
-        title.textContent = value;
-        tag.append(title);
-      }
+      const width = Math.ceil(text.getComputedTextLength() || value.length * 6.6) + 12;
+      const left = 171 - 5 - width;
+      rect.setAttribute("width", String(width));
+      tag.setAttribute("transform", `translate(${left} 7)`);
+      const kind = group.querySelector(".stereotype");
+      if (kind && 16 + kind.getComputedTextLength() + 6 > left) kind.setAttribute("visibility", "hidden");
     });
     if (S.pinnedTag && (!active || !(F.state().scene?.nodes || []).some((node) => active.value(node) === S.pinnedTag))) present({ pinnedTag: null });
     highlightTag(S.pinnedTag);
