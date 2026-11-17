@@ -160,7 +160,13 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                     None if self.numeric_key(index) => None,
                     // A write through a window-like value with a run-time key stays direct: a
                     // value that scanned code receives from a callback can reach the member.
-                    None => self.window_gate(object).map(|_| Written::Unknown),
+                    // Through any other value that the file does not make, it is an amplifier
+                    // form (#1524): with a host entry, an event target, the `this` of a
+                    // listener, or such a value passed, returned or stored can be the window.
+                    None => Some(match self.window_gate(object) {
+                        Some(_) => Written::Unknown,
+                        None => Written::Amplified,
+                    }),
                 }
             }
             _ => None,
@@ -208,12 +214,14 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         }
     }
 
-    /// A value that cannot be a window: a local binding of a new value, or `this` that a
-    /// constructor, a field or a static block binds, or `this` at the top of a module.
-    fn proven_local(&self, object: Node<'t>) -> bool {
+    /// A value that cannot be a window: a new value, a local binding of a new value, or `this`
+    /// that a constructor, a field or a static block binds, or `this` at the top of a module.
+    pub(crate) fn proven_local(&self, object: Node<'t>) -> bool {
         let tree = self.tree;
         let object = tree.cx.unwrapped(object);
         match tree.k(object) {
+            kind if new_value(kind) => true,
+            K::CallExpression => self.object_create(object),
             K::This => match self.receiver(object) {
                 Receiver::Bound => true,
                 Receiver::Top => self.module_syntax,
@@ -222,6 +230,25 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             K::Identifier => self.local_new_value(object),
             _ => false,
         }
+    }
+
+    /// `Object.create(…)` with the free `Object`: it gives a new object.
+    fn object_create(&self, call: Node<'t>) -> bool {
+        let tree = self.tree;
+        let callee = tree.field(call, F::Function).map(|c| tree.cx.unwrapped(c));
+        let Some(callee) = callee.filter(|c| c.kind() == "member_expression") else {
+            return false;
+        };
+        let object = tree.field(callee, F::Object).map(|o| tree.cx.unwrapped(o));
+        let named = tree
+            .field(callee, F::Property)
+            .is_some_and(|p| tree.text(p) == "create");
+        named
+            && object.is_some_and(|o| {
+                o.kind() == "identifier"
+                    && tree.text(o) == "Object"
+                    && bound_scope(tree, o, "Object").is_none()
+            })
     }
 
     /// The one declaration of a name that its scope binds once and that nothing writes again.
@@ -437,3 +464,7 @@ fn new_value(kind: K) -> bool {
 pub(crate) fn named(name: Option<String>) -> Written {
     name.map_or(Written::Unknown, Written::Name)
 }
+
+#[cfg(test)]
+#[path = "script_window_value_tests.rs"]
+mod window_value_tests;
