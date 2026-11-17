@@ -374,12 +374,11 @@ fn unread_names(records: &mut [Record<ImportFact>], escaped: &HashSet<(String, S
             continue;
         };
         let key = (data.source_module.as_str().to_owned(), data.binding.clone());
-        if data.symbol.is_none() {
-            if let (source, Some(binding)) = key {
-                if escaped.contains(&(source, binding)) {
-                    data.symbols_known = false;
-                }
-            }
+        let (source, Some(binding)) = key else {
+            continue;
+        };
+        if data.symbol.is_none() && escaped.contains(&(source, binding)) {
+            data.symbols_known = false;
         }
     }
 }

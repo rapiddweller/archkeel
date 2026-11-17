@@ -364,36 +364,6 @@
       "entry": [
         "violation",
         "SHELL-PUBLIC-HAS-A-USER",
-        "archkeel.cli.init_layouts",
-        "archkeel.cli.init_layouts:python_layouts",
-        "public name that no other component uses"
-      ],
-      "reason": "AD-670: a public shell name that no other component imports (#1412); visible until it takes a leading underscore or is deleted."
-    },
-    {
-      "entry": [
-        "violation",
-        "SHELL-PUBLIC-HAS-A-USER",
-        "archkeel.cli.init_layouts",
-        "archkeel.cli.init_layouts:rust_layout",
-        "public name that no other component uses"
-      ],
-      "reason": "AD-670: a public shell name that no other component imports (#1412); visible until it takes a leading underscore or is deleted."
-    },
-    {
-      "entry": [
-        "violation",
-        "SHELL-PUBLIC-HAS-A-USER",
-        "archkeel.cli.init_layouts",
-        "archkeel.cli.init_layouts:typescript_layout",
-        "public name that no other component uses"
-      ],
-      "reason": "AD-670: a public shell name that no other component imports (#1412); visible until it takes a leading underscore or is deleted."
-    },
-    {
-      "entry": [
-        "violation",
-        "SHELL-PUBLIC-HAS-A-USER",
         "archkeel.cli.native_scan",
         "archkeel.cli.native_scan:TIMEOUT_SECONDS",
         "public name that no other component uses"

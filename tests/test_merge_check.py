@@ -36,6 +36,20 @@ def commit(repo: Path, files: dict[str, str], message: str) -> str:
     return git(repo, "rev-parse", "HEAD")
 
 
+@pytest.fixture(autouse=True)
+def no_network_table(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The decision table asks GitHub; a test of the local checks gives it no reason."""
+    monkeypatch.setattr(
+        merge_check.merge_pr, "assess", lambda run, number: (merge_pr_decision(), {}, ([], ""))
+    )
+
+
+def merge_pr_decision():
+    from merge_pr import Decision
+
+    return Decision()
+
+
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     git(tmp_path, "init", "-q", "-b", "main")
@@ -225,19 +239,35 @@ def test_main_exits_one_when_the_pull_request_conflicts(
     assert "conflict" in capsys.readouterr().out
 
 
-def test_a_pull_request_without_pr_ci_gets_a_note_not_an_error() -> None:
-    # AD-348: CI runs on main only, so a PR without an aggregate check is expected.
-    assert merge_check.ci_note("[]") is not None
-    assert "no PR CI by policy" in str(merge_check.ci_note("[]"))
-    done = '[{"name": "All checks passed", "conclusion": "SUCCESS"}]'
-    assert merge_check.ci_note(done) is None
+def test_the_table_reasons_of_the_merge_decision_are_errors_for_a_refusal_and_warnings_for_a_wait(
+    repo: Path, pr_on_main: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """AD-736: merge_check uses the table of merge_pr; the stale 'no PR CI by policy' is gone."""
+    monkeypatch.setattr(merge_check, "pr_view", lambda number: (pr_on_main, ["new.txt"], {}))
+    monkeypatch.setattr(merge_check, "pr_checks", lambda number: "[]")
+    monkeypatch.setattr(merge_check, "table_reasons", lambda number: ([], ["[check_pending] wait"]))
+    assert merge_check.main(["7"], repo=repo) == 0
+    out = capsys.readouterr().out
+    assert "[check_pending] wait" in out and "no PR CI by policy" not in out
+    monkeypatch.setattr(
+        merge_check,
+        "table_reasons",
+        lambda number: (["[check_failed] 'PR gate' concluded failure"], []),
+    )
+    assert merge_check.main(["7"], repo=repo) == 1
+    assert "[check_failed]" in capsys.readouterr().out
     assert merge_check.aggregate_errors("[]") == []
 
 
-def test_main_keeps_exit_zero_when_the_pull_request_has_no_pr_ci(
-    repo: Path, pr_on_main: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+def test_table_reasons_come_from_the_decision_table_of_merge_pr(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(merge_check, "pr_view", lambda number: (pr_on_main, ["new.txt"], {}))
-    monkeypatch.setattr(merge_check, "pr_checks", lambda number: "[]")
-    assert merge_check.main(["7"], repo=repo) == 0
-    assert "no PR CI by policy" in capsys.readouterr().out
+    from merge_pr import Decision, Reason
+
+    decision = Decision(
+        "REFUSE", [Reason("check_failed", "x", "REFUSE"), Reason("check_pending", "y", "WAIT")]
+    )
+    monkeypatch.setattr(
+        merge_check.merge_pr, "assess", lambda run, number: (decision, {}, ([], ""))
+    )
+    assert merge_check.table_reasons(7) == (["[check_failed] x"], ["[check_pending] y"])

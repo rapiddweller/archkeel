@@ -151,7 +151,7 @@ def test_each_literal_table_of_main_is_one_table_or_a_visible_overlap() -> None:
 
 def test_the_scan_reads_the_tables_of_both_languages() -> None:
     keys = {table.key for table in tables(ROOT)}
-    assert "native/contract/src/paths.rs:SOURCE_SUFFIXES" in keys
+    assert "native/contract/src/component.rs:REQUIRED" in keys
     assert any(key.startswith("src/archkeel/") for key in keys)
 
 

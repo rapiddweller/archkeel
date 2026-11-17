@@ -254,6 +254,14 @@
     categorical[key] = Object.fromEntries(values.map((value, i) => [value, PALETTE[i % PALETTE.length]]));
   }
   const colorOf = (key, value) => (PERSPECTIVES[key].colors || categorical[key])[value] || "var(--ink-subtle)";
+  const languageKey = (value) => ["python", "rust", "typescript", "dart"].includes(value?.toLowerCase())
+    ? value.toLowerCase() : "other";
+  const languageColor = (value) => `var(--lang-${languageKey(value)})`;
+  const perspectiveColor = (key, value) => key === "language" ? languageColor(value) : colorOf(key, value);
+  const languageNames = ["python", "rust", "typescript", "dart", "other"];
+  const languageBadge = (value) => h("span", {
+    class: "ak-language-badge", "data-language": languageKey(value),
+  }, value);
   // AD-606: the report opens with the language of each component on its box; "none" is a choice.
   const readPerspective = () => {
     const value = query().get("perspective");
@@ -275,12 +283,16 @@
       const value = node && active.value(node);
       if (!value) return;
       group.dataset.akTag = value;
-      group.style.setProperty("--ex-tag", colorOf(perspective, value));
-      const height = Number(group.querySelector(".card")?.getAttribute("height") || 120);
-      const width = Math.min(170, 20 + value.length * 6.8);
-      const tag = s("g", { class: "ak-tag", transform: `translate(14 ${height - 11})` });
-      tag.append(s("rect", { width: String(width), height: "22", rx: "11" }));
-      const text = s("text", { x: "10", y: "15" });
+      group.style.setProperty("--ex-tag", perspectiveColor(perspective, value));
+      // The badge sits in the header row of the box, left of its kind icon (icon at CARD.w - 29).
+      const width = Math.min(100, 12 + value.length * 5.7);
+      const tag = s("g", {
+        class: perspective === "language" ? "ak-tag ak-language-badge" : "ak-tag",
+        ...(perspective === "language" ? { "data-language": languageKey(value) } : {}),
+        transform: `translate(${171 - 5 - width} 7)`,
+      });
+      tag.append(s("rect", { width: String(width), height: "18", rx: "9" }));
+      const text = s("text", { x: "6", y: "13" });
       text.textContent = value;
       tag.append(text);
       group.append(tag);
@@ -315,7 +327,10 @@
         onclick: () => { perspective = key || null; pinnedTag = null; setParam("perspective", perspective || "none"); applyPerspective(); } }, label)),
       active ? h("span", { class: "ak-sep" }) : null,
       ...(active ? [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([value, count]) =>
-        h("button", { class: "ak-chip", "data-focus-key": `tag:${value}`, style: `--chip:${colorOf(perspective, value)}`, "aria-pressed": String(pinnedTag === value),
+        h("button", {
+          class: perspective === "language" ? "ak-chip ak-language-badge" : "ak-chip",
+          ...(perspective === "language" ? { "data-language": languageKey(value) } : {}),
+          "data-focus-key": `tag:${value}`, style: `--chip:${perspectiveColor(perspective, value)}`, "aria-pressed": String(pinnedTag === value),
           title: `Highlight ${value}`,
           onpointerenter: () => highlightTag(value), onpointerleave: () => highlightTag(pinnedTag),
           onclick: () => { pinnedTag = pinnedTag === value ? null : value; highlightTag(pinnedTag); renderTagBar(); } },
@@ -522,7 +537,10 @@
   const legendContent = move(".flow-legend");
   legendPanel?.remove();
   const legendButton = h("button", { "data-ak-pop": "", title: "What the lines mean",
-    onclick: (event) => openPop(event.currentTarget, [h("h4", {}, "Legend"), legendContent,
+    onclick: (event) => openPop(event.currentTarget, [
+      h("h4", {}, "Languages"),
+      h("div", { class: "ak-language-legend" }, languageNames.map(languageBadge)),
+      h("h4", {}, "Relationships"), legendContent,
       A?.language_note ? h("p", { class: "ak-sub" }, A.language_note) : null]) }, "Legend");
   root.append(h("div", { hidden: true }, legendPanel));
   const bottomLeft = h("div", { class: "ak-bar ak-bottom-left" }, legendButton, move(".flow-filters"),
@@ -555,6 +573,8 @@
   if (A) F.nodeLayer.addEventListener("click", () => {
     if (root.dataset.detailsOpen !== "true") detailsToggle?.click();
   });
+  // The sheet of a box is set in the small body text of the design system.
+  root.querySelector(".flow-inspector")?.classList.add("body-sm");
   const fitDiagram = () => F.fit(true);
   // The rows of a wrapped layout follow the shape of the view: lay the diagram out again when the
   // Explorer goes to the full window and back.

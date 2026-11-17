@@ -241,3 +241,62 @@ fn the_layout_wraps_rows_only_for_boxes_without_a_layer_order() {
     assert!(layout.contains("\"elk.layered.wrapping.strategy\": \"MULTI_EDGE\""));
     assert!(layout.contains("!nodes.some((node) => node.id.startsWith(\"LAYER:\"))"));
 }
+
+// #1442, #1444: no sheet asks an unanswered question, repeats the 4.0.1 whole-run or observation
+// lines, or fills a field with `None`, `unavailable` or `Nothing stated`. The shipped script is the
+// one source of the sheets, so the lines cannot come back without this test failing.
+#[test]
+fn no_sheet_has_a_question_a_contradiction_or_a_filler_line() {
+    let script = include_str!("../assets/explorer/flow.runtime.js");
+    for banned in [
+        "Does this fit the responsibility",
+        "Source observation:",
+        "Core projection:",
+        "no scoped PASS",
+        "no symbol count",
+        "Symbol coverage",
+        "Path unavailable",
+        "Nothing stated in the contract",
+        "no component-level verdict",
+        "lexical inventory",
+    ] {
+        assert!(!script.contains(banned), "a sheet still says `{banned}`");
+    }
+    // A list with nothing in it is not drawn, so no list falls back to the word `None`.
+    assert!(
+        !script.contains(":\"None\""),
+        "a sheet fills an empty list with None"
+    );
+    // The sheet of a component repeats no line of the whole run: only the card holds it.
+    assert!(script.contains("if(component)return recordedChecks"));
+}
+
+// #1441: the owner of a module comes from the global assignments, so a module outside the level
+// still has its owner on the sheet.
+#[test]
+fn the_sheet_of_a_module_reads_owners_from_the_global_assignments() {
+    let script = include_str!("../assets/explorer/flow.runtime.js");
+    assert!(script.contains("ATLAS.assignments.find(item=>item.id===id)"));
+    assert!(
+        !script.contains("UNKNOWN owner / outside this level\"")
+            || script.contains("ATLAS.assignments.find")
+    );
+}
+
+// #1443: the public names of a box are grouped by module with short names and a count, a long list
+// of through-paths is folded behind a count, and many names fold behind the line that counts them.
+#[test]
+fn the_sheet_groups_provided_names_and_folds_long_lists() {
+    let script = include_str!("../assets/explorer/flow.runtime.js");
+    for needed in [
+        "function atlasProvidesMarkup(",
+        "function atlasRequiresMarkup(",
+        "edge.through.length>2",
+        "names.length>6",
+        "Provides · ",
+    ] {
+        assert!(script.contains(needed), "the sheet lacks `{needed}`");
+    }
+    // The raw list of the through-paths is no longer printed in one line.
+    assert!(!script.contains("`<p>Through: ${edge.through.map(esc).join(\", \")}</p>`"));
+}

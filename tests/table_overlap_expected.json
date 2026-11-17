@@ -1,10 +1,1 @@
-[
-  {
-    "tables": [
-      "native/contract/src/paths.rs:SOURCE_SUFFIXES",
-      "src/archkeel/cli/init_areas.py:_CODE"
-    ],
-    "shared": 8,
-    "issue": 1390
-  }
-]
+[]

@@ -105,6 +105,8 @@ fn layer_nodes(topology: &Topology, grouped: &[Group<'_>]) -> Vec<Node> {
                 )],
                 forbidden: Vec::new(),
                 planned: Vec::new(),
+                provenance: Vec::new(),
+                members: None,
                 rank: Some(step),
             });
         }
@@ -145,6 +147,8 @@ fn component_node(component: &Component, parent: Option<usize>) -> Node {
             .map(|t| written(t, "Boundary"))
             .collect(),
         planned: component.planned_public.clone(),
+        provenance: component.provenance.clone(),
+        members: None,
         rank: None,
     }
 }

@@ -59,6 +59,29 @@ pub(super) fn aggregate(nodes: &mut [Node]) {
             }
         }
         let count = found.len();
+        // A box that holds one component is that component: it shows the facts of the contract
+        // for it, not a generated line (the shell has components that are also layers).
+        if let [only] = found[..] {
+            let own = (
+                nodes[only].about.clone(),
+                nodes[only].forbidden.clone(),
+                nodes[only].public.clone(),
+                nodes[only].provenance.clone(),
+                nodes[only].planned.clone(),
+                nodes[only].path.clone(),
+            );
+            let node = &mut nodes[at];
+            (
+                node.about,
+                node.forbidden,
+                node.public,
+                node.provenance,
+                node.planned,
+                node.path,
+            ) = own;
+            node.members = Some(1);
+            continue;
+        }
         let noun = if count == 1 {
             "component"
         } else {
@@ -88,5 +111,6 @@ pub(super) fn aggregate(nodes: &mut [Node]) {
         node.about = std::iter::once(intro).chain(lines).collect();
         node.public = public.into_iter().collect();
         node.forbidden = forbidden.into_iter().collect();
+        node.members = Some(count);
     }
 }

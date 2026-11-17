@@ -169,7 +169,7 @@ def test_a_page_request_adds_no_topology_to_the_output_of_the_run(
 # AD-496: the design-system files are copies. The hashes pin their bytes, so that a change of the
 # copy is a reviewed change of the hash too.
 DESIGN_SYSTEM = {
-    "tokens.css": "5c19020e154a136f14a86103a117fcf46c7331b7a18d78a3dab0115afd6f26d2",
+    "tokens.css": "282b1f0e7284cc39dbe440ec5d204c90373184962ef69cb5ab125c463501e85b",
     "bundle.css": "88cf31f2cc4c3d830ab611bcd49f92c67131b2b996e9e8de4132a31443974389",
     "Geist-Variable.woff2": "19f9c92546aa300c312235e3125af1b81394d8db9a4bc4a425cd5b641d2d54e1",
     "JetBrainsMono-Variable.woff2": (
