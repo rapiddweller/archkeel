@@ -76,8 +76,8 @@ pub(super) fn start(subject: &str) -> String {
 font-src data:; img-src data:; script-src 'sha256-{THEME_HASH}'{}; base-uri 'none'; form-action 'none'\">\n\
 <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n\
 <title>ArchKeel report</title>\n<script>{THEME_SCRIPT}</script>\n<style>{}</style>\n</head>\n\
-<body class=\"ak-root body\">\n<header class=\"rp-top\"><p class=\"h3 rp-word\">ArchKeel<i>.</i></p>\
-<p class=\"body-sm rp-subject\">{}</p>{}</header>\n<main class=\"rp-main report-shell\">\n",
+<body class=\"ak-root body\">\n<a class=\"ak-skip\" href=\"#result\">Skip to the result</a>\n<header class=\"rp-top\"><p class=\"h3 rp-word\">ArchKeel<i>.</i></p>\
+<p class=\"body-sm rp-subject\">{}</p>{}</header>\n<main class=\"rp-main report-shell\" id=\"result\" tabindex=\"-1\">\n",
         explorer::sources(),
         style(),
         escape(subject),

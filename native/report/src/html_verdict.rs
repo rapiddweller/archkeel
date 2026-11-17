@@ -173,7 +173,10 @@ fn jobs(frame: &Frame, places: &Places) -> Vec<(usize, String)> {
             .shown
             .iter()
             .take(shown)
-            .map(|place| format!("<a href=\"#x{n}\">{n}</a>", n = place.number))
+            .map(|place| {
+                let n = place.number;
+                format!("<a href=\"#x{n}\" aria-label=\"Violated place {n}\">{n}</a>")
+            })
             .collect();
         if places.total > shown {
             links.push(format!(
@@ -214,9 +217,10 @@ fn jobs(frame: &Frame, places: &Places) -> Vec<(usize, String)> {
             jobs.push((
                 cause.rules.len(),
                 format!(
-                    "Close the gaps behind {}: {}. <a href=\"#unknown\">Causes</a>.",
-                    count(cause.rules.len(), "unknown rule"),
-                    escape(&causes::title(&cause))
+                    "Close the gaps behind {rules}: {}. <a href=\"#{}\" aria-label=\"Causes of {rules}\">Causes</a>.",
+                    escape(&causes::title(&cause)),
+                    causes::anchor(&cause),
+                    rules = count(cause.rules.len(), "unknown rule"),
                 ),
             ));
         }

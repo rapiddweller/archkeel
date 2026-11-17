@@ -37,7 +37,7 @@ fn near_identical_hygiene_gaps_are_one_card_with_a_list() {
     assert!(page.contains("Which: 9"));
     assert!(page.contains("contract.json/components/8/responsibilities part8"));
     // the family card, the decision card and the card of the open run
-    assert_eq!(page.matches("<article class=\"rp-cause\">").count(), 3);
+    assert_eq!(page.matches("<article class=\"rp-cause\"").count(), 3);
     // one decision stays a plain card with its own reason
     assert!(page.contains("contract hygiene decision.open"));
 }
