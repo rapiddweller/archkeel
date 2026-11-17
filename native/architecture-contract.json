@@ -4667,7 +4667,8 @@
         "native.archkeel_typescript_collector.collect.imports",
         "native.archkeel_typescript_collector.collect.script_run",
         "native.archkeel_typescript_collector.collect.import_target",
-        "native.archkeel_typescript_collector.collect.import_record"
+        "native.archkeel_typescript_collector.collect.import_record",
+        "native.archkeel_typescript_collector.collect.package_closure"
       ],
       "responsibilities": [
         "Orchestrate one collection: select the files, parse them, resolve the imports and write the reply."
@@ -4701,6 +4702,7 @@
           "rationale": "Read the snapshot through the one owner of paths, symlink rules and limits.",
           "through": [
             "native.archkeel_snapshot.paths",
+            "native.archkeel_snapshot.snapshot",
             "native.archkeel_snapshot.work",
             "native.archkeel_snapshot:Snapshot"
           ]

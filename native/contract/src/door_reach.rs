@@ -14,8 +14,10 @@ use crate::error::{invalid, Parsed};
 use crate::json::{field, Json, Object};
 use crate::model::{ItemId, Package};
 use crate::names::{dotted_name, qualified_identifier};
-use crate::read::{listed_strings, nonempty_field, positive, present, record, text};
-use crate::version::{supports, ContractVersion, Feature};
+use crate::read::{
+    declared_items, listed_strings, nonempty_field, positive, present, record, text,
+};
+use crate::version::{ContractVersion, Feature};
 
 record!(
     pub(crate),
@@ -50,16 +52,15 @@ const OPTIONAL: [&str; 3] = ["line", "scope", "changes"];
 
 /// The door reach records, or none for an absent key.
 pub(crate) fn door_reach(object: &Object, version: ContractVersion) -> Parsed<Vec<DoorReach>> {
-    let items = match field(object, "door_reach") {
-        None => return Ok(Vec::new()),
-        Some(Json::Array(items)) => items,
-        Some(_) => return Err(invalid("contract.declarations.door_reach must be an array")),
+    let Some(items) = declared_items(
+        object,
+        "door_reach",
+        (version, Feature::DoorReach),
+        "door_reach declarations require contract schema_version 3.15.0",
+    )?
+    else {
+        return Ok(Vec::new());
     };
-    if !supports(version, Feature::DoorReach) {
-        return Err(invalid(
-            "door_reach declarations require contract schema_version 3.15.0",
-        ));
-    }
     items
         .iter()
         .enumerate()

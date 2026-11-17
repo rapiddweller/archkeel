@@ -1,7 +1,8 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""Find the language areas of a repository and read the folder layout of each (AD-638, AD-660).
+"""Read the folder layout of one language area of a repository (AD-638, AD-660); `init_draft`
+finds the areas.
 
 An area is one scan: a Python project, a Cargo workspace, a TypeScript project (or workspace) or
 a Dart package. A repository with one area is drafted as one configuration (`init_draft`); a
@@ -299,7 +300,7 @@ def _typescript_layout(repo: Path, root: Path) -> Layout | None:
     members = _members(root, [s for s in spaces if isinstance(s, str)], "package.json")
     if len(members) < 2:
         raise _refuse("package.json workspaces name fewer than two packages")
-    namespace = _name(root.name or repo.name)
+    namespace = _name(repo.name)  # the module identity holds the path already (#1617)
     parts, roots = [], []
     for member in members:
         relative = member.relative_to(repo)
@@ -375,7 +376,9 @@ def _typescript_project(repo: Path, folder: Path) -> Layout:
     The scan root is the project folder, not `src`: an import of a file beside `src` (a config or a
     host list) then resolves to a module of the scan. The identity of a module is the namespace
     and the repository-relative path, each segment escaped as the collector writes it."""
-    namespace = _name(folder.name or repo.name)
+    # A module identity is the namespace and the repository path (#1617): the namespace of the
+    # repository keeps a project below the root from naming its folder twice (`web.src.web`).
+    namespace = _name(repo.name)
 
     def code_dirs(parent: Path) -> list[Path]:
         return [
@@ -463,42 +466,3 @@ def _layout_of(repo: Path, folder: Path) -> Layout | None:
     if (folder / "pubspec.yaml").is_file():
         return _dart_layout(repo, folder)
     return None
-
-
-def _discover(repo: Path) -> tuple[list[Area], str]:
-    """The areas of `repo`, and the first reason that a folder gave none (for a refusal)."""
-    areas: list[Area] = []
-    claimed: list[Path] = []
-    why = ""
-    for folder in _folders(repo):
-        if any(folder.is_relative_to(done) for done in claimed):
-            continue
-        relative = folder.relative_to(repo).as_posix() or "."
-        try:
-            layout = _layout_of(repo, folder)
-            if layout is not None:
-                areas.append(Area(relative, layout))
-                # The members of a workspace are inside it; a project owns its folder.
-                members = [repo / root for root in layout.roots] if _workspaces(folder) else []
-                claimed += members or ([folder] if folder != repo else [])
-        except NothingToDraft as error:
-            why = why or str(error)
-        # A Python project can share its folder with a Cargo or Node manifest.
-        if folder == repo or any((folder / n).is_file() for n in ("pyproject.toml", "setup.py")):
-            try:
-                areas += [Area(layout.roots[0], layout) for layout in _python_layouts(repo, folder)]
-            except NothingToDraft as error:
-                why = why or str(error)
-    return areas, why
-
-
-def _detect(repo: Path) -> list[Area]:
-    """The areas of the repository, or `NothingToDraft` when it has none."""
-    areas, why = _discover(repo)
-    if not areas:
-        raise NothingToDraft(
-            why
-            or "no Python package, Cargo workspace, TypeScript project or Dart package found "
-            "(folder layout and manifest only)."
-        )
-    return areas

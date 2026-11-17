@@ -179,6 +179,22 @@ def contract_fix(message: str) -> str:
     return f"correct that part of the contract; its form is in {_SCHEMA}."
 
 
+_ESCAPE: Final = re.compile(r"_x([0-9a-f]{1,6})_")
+
+
+def readable(text: str) -> str:
+    """A module identity with its real characters (#1617): the collector writes a character of a
+    TypeScript path segment that is no ASCII letter or digit as `_x<hex>_`. Only such an escape is
+    read back; the JSON keeps the identity."""
+
+    def back(found: re.Match[str]) -> str:
+        code = int(found[1], 16)
+        char = chr(code) if code <= 0x10FFFF else ""
+        return char if char.isprintable() and not (char.isascii() and char.isalnum()) else found[0]
+
+    return _ESCAPE.sub(back, text)
+
+
 def kind_label(kind: str) -> str:
     """A gap or cause kind as words: the plain label, or the kind with spaces for dots and bars."""
     return GAP_KINDS.get(kind) or UNKNOWN_CAUSES.get(kind) or re.sub(r"[_.]+", " ", kind)
