@@ -10,11 +10,32 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
 
-from tools import fixture_tree, report_gallery, report_gallery_page
+from tools import fixture_source, fixture_tree, report_gallery, report_gallery_page
+
+
+@contextmanager
+def _fake_checkout(spec: dict, cache: Path | None = None) -> Iterator[Path]:
+    """A checkout without the network: each folder that the fixture copies, with one file."""
+    with tempfile.TemporaryDirectory() as folder:
+        for item in spec["copy"]:
+            target = Path(folder) / item["from"]
+            target.mkdir(parents=True)
+            (target / "upstream.txt").write_text("source\n")
+        yield Path(folder)
+
+
+@pytest.fixture(autouse=True)
+def _no_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test of the gallery fetches a pinned source: the real fetch is tested on a local repo."""
+    monkeypatch.setattr(fixture_source, "checkout", _fake_checkout)
+
 
 # A stand-in for the CLI. The root names the behavior: `served` writes both files and gives rule
 # rows, `refused` gives a refusal and writes no file, `garbage` prints no envelope.

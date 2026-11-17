@@ -86,6 +86,18 @@
       {"name": "M-plant-cycle", "section": "violation", "intent": "FAIL", "blocked_by": [], "about": "A component cycle: pricing imports checkout, which already imports pricing: the two components now depend on each other.", "plant": {"where": "orders/pricing/tax.py", "line": "from orders.checkout import service", "rule": "COMPONENT-NO-CYCLES", "edits": [{"path": "orders/pricing/tax.py", "old": "from orders.pricing.base import Line\n", "new": "from orders.pricing.base import Line\nfrom orders.checkout import service\n"}]}, "root": "M-review-workflow", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 1, "status": "FAIL", "counts": {"PASS": 9, "FAIL": 3, "UNKNOWN": 0}, "scope": "complete", "gaps": {"graph.drift": 1}, "refusal": null}}
       ]
     },
+    "N-fastapi-realworld": {
+      "language": "python",
+      "runs": [
+      {"name": "N-fastapi-realworld", "section": "real", "intent": "PASS", "blocked_by": [], "about": "Real project: FastAPI. Its layering as built at the pin: the components, the import directions that the code shows, and one pair that must stay apart.", "root": "N-fastapi-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 0, "status": "PASS", "counts": {"PASS": 3, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}}
+      ]
+    },
+    "O-bazel-worker-realworld": {
+      "language": "dart",
+      "runs": [
+      {"name": "O-bazel-worker-realworld", "section": "real", "intent": "PASS", "blocked_by": [], "about": "Real project: the bazel_worker package of dart-lang/tools. The driver side and the worker side must not import each other.", "root": "O-bazel-worker-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 0, "status": "PASS", "counts": {"PASS": 4, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}}
+      ]
+    },
     "golden-python": {
       "language": "python",
       "runs": [

@@ -128,11 +128,27 @@ def _planted(row: Mapping[str, Any]) -> str:
     return text + f'Caught by <code>{rule}</code>: <a href="{target}">{title}</a></span>'
 
 
+def _source(row: Mapping[str, Any]) -> str:
+    """The pin of a real project: name, release, licence and commit. Only our contract is ours."""
+    pin = row.get("source")
+    if not pin:
+        return ""
+    release = f" {html.escape(pin['ref'])}" if pin["ref"] else ""
+    repo = html.escape(pin["repo"], quote=True)
+    name = f'<a href="{repo}">{html.escape(pin["name"])}</a>'
+    return (
+        f'<br><span class="caption">Source: {name}{release} ({html.escape(pin["license"])}), '
+        f"pinned commit <code>{html.escape(pin['commit'][:12])}</code>, fetched when the page is "
+        "built. The contract is ours.</span>"
+    )
+
+
 def _scenario(row: Mapping[str, Any]) -> str:
     run = row["run"]
     about = html.escape(str(run.get("about", "")))
     line = intent_line(run, _status_of(row))
-    return f'<td class="body-sm">{about}<br><span class="caption">{line}</span>{_planted(row)}</td>'
+    extra = _planted(row) + _source(row)
+    return f'<td class="body-sm">{about}<br><span class="caption">{line}</span>{extra}</td>'
 
 
 def _section(key: str, title: str, lede: str, body: str, count: int) -> str:

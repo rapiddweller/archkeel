@@ -38,6 +38,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from tools import fixture_source
+from tools.fixture_source import SourceError
 from tools.fixture_tree import fixture_tree, needs_copy
 from tools.report_gallery_page import STATUSES, index
 from tools.report_product import (
@@ -171,7 +173,9 @@ def _reports(
     return row
 
 
-def build_run(cli: Sequence[str], run: Mapping[str, Any], out: Path) -> dict[str, Any]:
+def build_run(
+    cli: Sequence[str], run: Mapping[str, Any], out: Path, cache: Path | None = None
+) -> dict[str, Any]:
     """Write both reports of one matrix run into its folder. Return its row."""
     folder = out / run["name"]
     folder.mkdir(parents=True)
@@ -182,11 +186,18 @@ def build_run(cli: Sequence[str], run: Mapping[str, Any], out: Path) -> dict[str
     if not needs_copy(source, edits):
         return _reports(cli, run, folder, "report", prefix)
     # A fixture with resolver inputs, or with a planted change, runs in a copy (AD-462).
-    with fixture_tree(source, edits) as tree:
-        shown = f"<repo>/fixtures/{run['root']}"
-        copies = {str(tree): shown, str(tree.resolve()): shown}
-        prepared = {**run, "root_path": str(tree)}
-        row = _reports(cli, prepared, folder, "report", prefix, copies)
+    try:
+        with fixture_tree(source, edits, cache) as tree:
+            shown = f"<repo>/fixtures/{run['root']}"
+            copies = {str(tree): shown, str(tree.resolve()): shown}
+            prepared = {**run, "root_path": str(tree)}
+            row = _reports(cli, prepared, folder, "report", prefix, copies)
+    except (SourceError, OSError, subprocess.SubprocessError) as err:
+        # A pinned source that cannot be fetched is no result: the build fails, it never skips.
+        return {"run": run, "links": [], "error": f"{type(err).__name__}: {err}"[:300]}
+    spec = fixture_source.load(source)
+    if spec is not None:
+        row["source"] = fixture_source.pin_facts(spec)
     if plant:
         row["violation"] = violation_block(folder / "report.html", plant["rule"])
     return row
@@ -390,6 +401,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--archkeel", default="archkeel", help="the CLI command, split like a shell"
     )
     parser.add_argument("--system", type=Path, default=DOCUMENT, help="the system document")
+    parser.add_argument(
+        "--source-cache",
+        type=Path,
+        default=None,
+        help="where pinned sources are kept between builds",
+    )
     parser.add_argument("--sha", default=None)
     parser.add_argument("--built-at", default=None)
     args = parser.parse_args(argv)
@@ -401,7 +418,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     sha = args.sha or _head_sha()
     system = load(args.system)
     self_rows = [build_self(cli, entry, args.out) for entry in self_runs(system)]
-    rows = [build_run(cli, run, args.out) for run in showcase_runs(args.matrix)]
+    rows = [build_run(cli, run, args.out, args.source_cache) for run in showcase_runs(args.matrix)]
     built_at = args.built_at or datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     others = [build_other(cli, entry) for entry in OTHER_RUNS]
     parts: list[Part] = [row["part"] for row in self_rows]
