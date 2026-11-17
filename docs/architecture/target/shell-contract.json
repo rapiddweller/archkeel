@@ -1015,31 +1015,6 @@
           "symbol": "archkeel.cli:main",
           "consumer": "the console script archkeel ([project.scripts] in pyproject.toml)",
           "rationale": "The installed command calls main; no module of the scan imports it."
-        },
-        {
-          "symbol": "archkeel.cli.core_arguments:VARIABLE",
-          "consumer": "the tests of the shell (tests/test_cli_core_only_boundary.py, test_cli_core_only_review.py)",
-          "rationale": "The tests read the name of the environment variable that the option table states."
-        },
-        {
-          "symbol": "archkeel.cli.core_frame:NAMES_A_GAP_EXIT",
-          "consumer": "the tests of the shell (tests/test_cli_report_topology_declared.py)",
-          "rationale": "The test checks the exit code that a run with a named gap gives."
-        },
-        {
-          "symbol": "archkeel.cli.core_frame:UnknownKind",
-          "consumer": "the tests of the shell (tests/test_cli_text_output.py)",
-          "rationale": "The test builds each kind of an UNKNOWN row."
-        },
-        {
-          "symbol": "archkeel.cli.init_draft:PAGE",
-          "consumer": "the tests of the shell (tests/test_cli_core_contract_hygiene.py)",
-          "rationale": "The test reads the page name that a draft contract cites."
-        },
-        {
-          "symbol": "archkeel.cli.native_scan:TIMEOUT_SECONDS",
-          "consumer": "the tests of the shell (tests/test_cli_core_only_boundary.py)",
-          "rationale": "The test checks the collector timeout that the shell sets."
         }
       ],
       "rationale": "A module-level name without a leading underscore that no other component imports is a public surface without a need: give it a leading underscore or delete it (PEP 8, AD-670, owner decision).",

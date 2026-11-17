@@ -12,9 +12,9 @@ use std::thread::{self, ThreadId};
 /// One unit per byte plus one per possible token, counted once: at most twice the file byte cap.
 pub(crate) const MAX_PARSE_WORK: u64 = 8 << 20;
 /// A separate bracket-nesting bound for the non-linear parser and nested-fact paths.
-pub const MAX_NESTING: usize = 512;
+pub(crate) const MAX_NESTING: usize = 512;
 /// The most distinct input bytes in one in-process collection.
-pub const MAX_SCAN_BYTES: u64 = 64 << 20;
+pub(crate) const MAX_SCAN_BYTES: u64 = 64 << 20;
 
 /// The part of the work that a limit stops.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -64,19 +64,19 @@ fn limits() -> MutexGuard<'static, HashMap<ThreadId, Budget>> {
 struct Budget {
     remaining: u64,
     seen: HashMap<PathBuf, u64>,
-    #[cfg(any(test, feature = "test-tree"))]
+    #[cfg(test)]
     reads: u64,
     hit: Option<WorkLimit>,
 }
 
-#[cfg(any(test, feature = "test-tree"))]
+#[cfg(test)]
 pub(crate) fn charged_bytes() -> Option<u64> {
     limits()
         .get(&thread::current().id())
         .map(|budget| MAX_SCAN_BYTES - budget.remaining)
 }
 
-#[cfg(any(test, feature = "test-tree"))]
+#[cfg(test)]
 pub(crate) fn read_bytes() -> Option<u64> {
     limits()
         .get(&thread::current().id())
@@ -101,7 +101,7 @@ pub fn bounded<T>(work: impl FnOnce() -> T) -> Result<T, WorkLimit> {
         entry.or_insert(Budget {
             remaining: MAX_SCAN_BYTES,
             seen: HashMap::new(),
-            #[cfg(any(test, feature = "test-tree"))]
+            #[cfg(test)]
             reads: 0,
             hit: None,
         });
@@ -126,7 +126,7 @@ pub(crate) fn permits(root: &Path, path: &str, bytes: &[u8]) -> bool {
     if budget.hit.is_some() {
         return false;
     }
-    #[cfg(any(test, feature = "test-tree"))]
+    #[cfg(test)]
     {
         budget.reads += bytes.len() as u64;
     }

@@ -474,7 +474,10 @@ file declares more than once and that may name a module, a glob that the scan ca
 call are UNKNOWN, and so is a macro call that the scan cannot place (in the tokens of another macro, or by the path of a module). A `crate::` path in a macro body is an edge of each call (AD-349). Edition 2015 (or none named
 in the manifest): a `use` path and a `::` path start at the crate root. A method of an `impl` block
 in another module than its type is an edge when a path names it (`impl crate::c::S { fn m() }` in
-`b` and `crate::c::S::m()` in `a`: `a -> b`). A method call `x.m(..)` that may reach such a method
+`b` and `crate::c::S::m()` in `a`: `a -> b`), when the type is exact and the member and its block
+have no `cfg` or other attribute; else the path gives a gap of the pair (#1276). A derive keeps a
+type exact only when `derive` is the macro of the prelude (`use m::rewrite as derive;` makes it an
+attribute macro). A method call `x.m(..)` that may reach such a method
 (it has `self`, the same number of other arguments, and a visibility that holds the caller), and a
 call of a method of a trait that a glob brings in (`use b::T;` in the parent, `use super::*;` and
 `5u8.m()` in the child), give a gap of the pair `a -> b`. A call on a plain `self` in a method of `impl S`, or a path `Self::m`, is an edge to the module of the one inherent member `m` of `S` and gives no gap when that member has the same `self` form (`self`, `&self`, `&mut self`) and no `cfg` or other attribute can change the member, its block, its module, the type or the caller; any other case keeps the gaps (AD-383). A `cfg_attr` that can add only lint attributes does not change an item (AD-535). A call `x.m()` on a parameter `x: T`, `&T` or `&mut T` is the same edge when `x` is bound once in the `fn`, `T` is a written plain path to one exact struct or enum, and the member has the `self` form of the parameter; a rebinding, a generic or `impl Trait` or `dyn` type, an alias, a mismatched `self` form, a `Deref` impl of the type and a macro that names `x` keep the gaps (AD-524). The host drops that gap only when the

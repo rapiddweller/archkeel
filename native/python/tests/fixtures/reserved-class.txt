@@ -1,0 +1,3 @@
+# A generic class.
+class Example[__classdict__]:
+    pass

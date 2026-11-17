@@ -403,3 +403,18 @@ def test_the_copy_commits_the_resolver_inputs_and_an_overlay_as_tracked_files(
         assert "src/planted.ts" in tracked
         assert (tree / "node_modules").is_dir()
     assert not tree.exists()
+
+
+def test_the_page_navigation_lists_the_system_and_its_parts_first_and_the_fixtures_apart() -> None:
+    page = report_gallery.nav(
+        "<main></main>",
+        [("System", "index.html"), ("Part A", "a.html")],
+        "Part A",
+        ("Fixture reports", "../showcase/index.html"),
+    )
+    labels = re.findall(r">([^<]+)</a>", page)
+    assert labels == ["System", "Part A", "Fixture reports"]
+    # A thin divider sets the other kind of page apart; the open page is marked.
+    assert page.index("rp-pages__divider") < page.index("Fixture reports")
+    assert page.index("rp-pages__divider") > page.index("Part A")
+    assert 'href="a.html" aria-current="page">Part A</a>' in page
