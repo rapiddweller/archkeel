@@ -71,7 +71,9 @@ def test_the_configuration_reason_looks_where_the_core_looked(
     sub = _nested(tmp_path)
     (sub / "other.toml").write_text("[scan]\n", encoding="utf-8")
     monkeypatch.chdir(sub)
-    done = command(built / f"archkeel-core{SUFFIX}", None, "--json", "--config", "other.toml")
+    # AD-776: with --root, a relative --config is below the root, where the core reads it.
+    flags = ("--json", "--config", "other.toml")
+    done = command(built / f"archkeel-core{SUFFIX}", tmp_path, *flags)
     message = json.loads(done.stdout)["refusal"]["message"]
     assert done.returncode == 2
     assert "the file does not exist" in message, message
