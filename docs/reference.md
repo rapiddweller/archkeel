@@ -90,7 +90,19 @@ immutability or dispatch. ArchKeel's [browser configuration](architecture/browse
 uses these explicit ports; [AD-242](architecture/decisions/ad-242-explicit-browser-module-ports.md)
 describes its offline publication checks.
 
-`report` and `validate --config PATH` select a root-relative file. Each language runs its own
+### Root and configuration
+
+Without flags, a run reads the nearest `archkeel.toml` at or above the current folder inside the
+Git work tree, and its folder is the root; without one it uses the top of the work tree.
+`--config PATH` is read from the current folder, as each command line tool reads a path; a file
+that is not there is refused with the path that was tried. Its folder is then the root, unless its
+`[scan]` names another with `root` (`"."` or a path of `..` parts, such as `root = "../.."` for
+`docs/architecture/shell.toml`). A system document names the top of its work tree. With `--root`,
+a relative `--config` is read below that root. The first text line and the JSON result (`root`,
+`config`) name the root and the configuration of the run
+([AD-776](architecture/decisions/ad-776-a-relative-config-is-read-from-the-current-folder.md)).
+
+Each language runs its own
 collector inside the core. A scan with `collector_argv` gives at most UNKNOWN, because an external
 collector cannot prove a rule ([AD-344](architecture/decisions/ad-344-only-a-producer-that-the-host-trusts-can-give-pass.md)).
 

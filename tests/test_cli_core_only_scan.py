@@ -192,8 +192,14 @@ def test_subdirectory_and_selected_config_use_the_repository_root(built: Path) -
         config.write_bytes((root / "archkeel.toml").read_bytes())
         nested = root / "subdirectory"
         nested.mkdir()
+        # AD-776: a relative --config is read from the current folder.
         done = command(
-            built / f"archkeel-core{SUFFIX}", None, "--config", config.name, "--json", cwd=nested
+            built / f"archkeel-core{SUFFIX}",
+            None,
+            "--config",
+            f"../{config.name}",
+            "--json",
+            cwd=nested,
         )
         assert done.returncode == 0, done.stdout + done.stderr
         derived = json.loads(done.stdout)["frame"]["self_test"]["collect"]["request"]

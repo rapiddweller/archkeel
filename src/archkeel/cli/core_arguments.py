@@ -79,6 +79,8 @@ class Options(argparse.Namespace):
     command: Command
     root: Path | None = None
     config: str = "archkeel.toml"
+    # AD-776: the command line names `--config`; a relative path is read from the current folder.
+    config_given: bool = False
     json: bool = False
     text: bool = False
     core_only: bool = False
@@ -219,4 +221,5 @@ def parse(argv: Sequence[str]) -> Options:
         )
     if any(arg == "--format" or arg.startswith("--format=") for arg in argv) and not options.output:
         raise ValueError("--format needs --output; no report file was written")
+    options.config_given = any(arg == "--config" or arg.startswith("--config=") for arg in argv)
     return options
