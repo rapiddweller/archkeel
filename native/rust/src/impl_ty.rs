@@ -158,7 +158,7 @@ pub(in crate::impl_edges) fn std_path(
     names: &[String],
 ) -> Option<Std> {
     let full = match rooted(frame, scope, names)? {
-        Rooted::Written(full) if full.len() == 1 => return prelude(&full[0]),
+        Rooted::Written(full) if matches!(&full[..], [_]) => return prelude(&full[0]),
         Rooted::Written(full) | Rooted::Leaf(full, _) => full,
     };
     let full: Vec<&str> = full.iter().map(String::as_str).collect();
