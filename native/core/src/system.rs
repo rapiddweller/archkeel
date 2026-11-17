@@ -149,17 +149,15 @@ fn join_premises(
     }
     // #1549: each premise of a part stays with its rule, and the run names them in words.
     let premises = disjoint(frames, "premises")?;
-    let pairs = premises
-        .values()
-        .filter_map(Value::as_array)
-        .flatten()
-        .map(|p| {
-            (
-                p["kind"].as_str().unwrap_or(""),
-                p["subject"].as_str().unwrap_or(""),
-            )
-        });
-    let words = archkeel_report::premise_words(door_count, pairs)
+    let mut pairs: Vec<(&str, &str)> = Vec::new();
+    for rows in premises.values() {
+        for row in Value::as_array(rows).into_iter().flatten() {
+            let row: &Value = row;
+            let kind = Value::as_str(&row["kind"]).unwrap_or("");
+            pairs.push((kind, Value::as_str(&row["subject"]).unwrap_or("")));
+        }
+    }
+    let words = archkeel_report::premise_words(door_count, pairs.into_iter())
         .map_err(|why| format!("system: {why}"))?;
     if !premises.is_empty() {
         frame.insert("premises".to_owned(), Value::Object(premises));

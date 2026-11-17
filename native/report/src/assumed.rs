@@ -14,7 +14,7 @@
 use std::collections::BTreeMap;
 
 use archkeel_contract::head_of;
-use archkeel_model::{Applied, Model, ModelTree, PremiseKind};
+use archkeel_model::{Applied, Model, ModelTree, PremiseKind, UsedPremise};
 use serde::Serialize;
 
 /// One premise of a PASS rule as the frame writes it: its kind word and its subject.
@@ -28,18 +28,20 @@ pub(crate) struct Premise {
 
 /// The premises on which the PASS of the rule `id` of `model` rests.
 pub(crate) fn of(model: &Model, id: &str) -> Vec<Premise> {
-    let rule = model
-        .contract()
-        .rules()
-        .iter()
-        .find(|rule| head_of(rule).id().as_text() == id);
-    rule.into_iter()
-        .flat_map(|rule| archkeel_model::rule_premises(model, rule))
-        .map(|used| Premise {
-            kind: used.kind.word().to_owned(),
-            subject: used.subject,
-        })
-        .collect()
+    let mut found: Vec<Premise> = Vec::new();
+    for rule in model.contract().rules() {
+        if head_of(rule).id().as_text() != id {
+            continue;
+        }
+        let used: Vec<UsedPremise> = archkeel_model::rule_premises(model, rule);
+        for premise in used {
+            found.push(Premise {
+                kind: PremiseKind::kind_word(premise.kind).to_owned(),
+                subject: premise.subject,
+            });
+        }
+    }
+    found
 }
 
 /// The premises of a run as the frame writes them. The first two keys are the keys of AD-664.
@@ -66,22 +68,22 @@ impl Premises {
     /// The premises of the PASS rules and the applied door declarations of the run.
     pub(crate) fn of(premises: BTreeMap<String, Vec<Premise>>, models: Option<&ModelTree>) -> Self {
         let door_reach = rows(models);
-        let door = PremiseKind::DoorReach.word();
-        let assumed: BTreeMap<String, Vec<String>> = premises
-            .iter()
-            .map(|(rule, found)| {
-                let sites = found.iter().filter(|p| p.kind == door);
-                let sites: Vec<String> = sites.map(|p| p.subject.clone()).collect();
-                (rule.clone(), sites)
-            })
-            .filter(|(_, sites)| !sites.is_empty())
-            .collect();
-        let pairs = premises
-            .values()
-            .flatten()
-            .map(|p| (p.kind.as_str(), p.subject.as_str()));
-        // Each kind word comes from `PremiseKind::word` in `of`, so it reads back.
-        let assuming = words(door_reach.len(), pairs).unwrap_or_default();
+        let door = PremiseKind::kind_word(PremiseKind::DoorReach);
+        let mut assumed: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        let mut pairs: Vec<(&str, &str)> = Vec::new();
+        for (rule, found) in &premises {
+            let found: &Vec<Premise> = found;
+            let mut sites: Vec<String> = Vec::new();
+            for premise in found {
+                pairs.push((&premise.kind, &premise.subject));
+                sites.extend((premise.kind == door).then(|| premise.subject.clone()));
+            }
+            if !sites.is_empty() {
+                assumed.insert(rule.clone(), sites);
+            }
+        }
+        // Each kind word comes from `PremiseKind::kind_word` in `of`, so it reads back.
+        let assuming = words(door_reach.len(), pairs.into_iter()).unwrap_or_default();
         Premises {
             assumed,
             door_reach,
@@ -97,13 +99,13 @@ pub fn words<'a>(
     doors: usize,
     pairs: impl Iterator<Item = (&'a str, &'a str)>,
 ) -> Result<Option<String>, String> {
-    let used: Vec<(PremiseKind, &str)> = pairs
-        .map(|(word, subject)| {
-            PremiseKind::of_word(word)
-                .map(|kind| (kind, subject))
-                .ok_or_else(|| format!("the frame names a premise of the kind {word}"))
-        })
-        .collect::<Result<_, _>>()?;
+    let mut used: Vec<(PremiseKind, &str)> = Vec::new();
+    for (word, subject) in pairs {
+        let Some(kind) = PremiseKind::of_kind_word(word) else {
+            return Err(format!("the frame names a premise of the kind {word}"));
+        };
+        used.push((kind, subject));
+    }
     Ok(archkeel_model::premise_words(doors, &used))
 }
 

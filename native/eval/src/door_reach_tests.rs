@@ -114,7 +114,7 @@ fn run_with(declarations: Vec<Value>, reply_change: impl FnOnce(&mut Value)) -> 
             .collect();
         let applied = model.graph().doors().applied().iter();
         let sites: Vec<String> = applied
-            .filter(|d| premised.contains(&d.site()))
+            .filter(|d| premised.contains(&archkeel_model::Applied::site(d)))
             .map(|d| d.id.clone())
             .collect();
         if word == "PASS" && !sites.is_empty() {

@@ -21,7 +21,9 @@ use std::collections::BTreeSet;
 
 use archkeel_contract::{PremiseName, Rule};
 
+use crate::door_reach::Applied;
 use crate::model::Model;
+use crate::published_items::PublicItem;
 
 /// What one premise is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -36,22 +38,27 @@ pub enum PremiseKind {
 
 impl PremiseKind {
     /// The word of the kind in the frame.
-    pub fn word(self) -> &'static str {
+    pub fn kind_word(self) -> &'static str {
         match self {
             PremiseKind::DoorReach => "door_reach",
             PremiseKind::ExternalUser => "external_user",
-            PremiseKind::Declared(name) => name.as_text(),
+            PremiseKind::Declared(name) => PremiseName::premise_word(name),
         }
     }
 
     /// The kind of a word of the frame, or `None` for a word that names no kind.
-    pub fn of_word(word: &str) -> Option<PremiseKind> {
-        let fixed = [PremiseKind::DoorReach, PremiseKind::ExternalUser];
-        let declared = PremiseName::ALL.into_iter().map(PremiseKind::Declared);
-        fixed
-            .into_iter()
-            .chain(declared)
-            .find(|kind| kind.word() == word)
+    pub fn of_kind_word(word: &str) -> Option<PremiseKind> {
+        let mut kinds = vec![PremiseKind::DoorReach, PremiseKind::ExternalUser];
+        for name in PremiseName::ALL {
+            kinds.push(PremiseKind::Declared(name));
+        }
+        let mut found = None;
+        for kind in kinds {
+            if PremiseKind::kind_word(kind) == word {
+                found = Some(kind);
+            }
+        }
+        found
     }
 }
 
@@ -67,21 +74,27 @@ pub struct UsedPremise {
 /// The premises that a PASS of `rule` in `model` rests on, in a fixed order: the door sites, the
 /// stated external users, then the declared premises.
 pub fn rule_premises(model: &Model, rule: &Rule) -> Vec<UsedPremise> {
-    let doors = crate::gap_effects::assumed(model, rule)
-        .into_iter()
-        .map(|door| UsedPremise {
+    let mut found: Vec<UsedPremise> = Vec::new();
+    let doors: Vec<&Applied> = crate::gap_effects::assumed(model, rule);
+    for door in doors {
+        let subject = Applied::site(door);
+        found.push(UsedPremise {
             kind: PremiseKind::DoorReach,
-            subject: door.site(),
+            subject,
         });
-    let users = match rule {
-        Rule::UnusedPublic(rule) => crate::published::stated_users(model, rule),
-        _ => Vec::new(),
-    };
-    let users = users.into_iter().map(|item| UsedPremise {
-        kind: PremiseKind::ExternalUser,
-        subject: format!("{}:{}", item.module, item.name),
-    });
-    doors.chain(users).chain(declared(model, rule)).collect()
+    }
+    if let Rule::UnusedPublic(unused) = rule {
+        let items: Vec<&PublicItem> = crate::published::stated_users(model, unused);
+        for item in items {
+            let subject = format!("{}:{}", item.module, item.name);
+            found.push(UsedPremise {
+                kind: PremiseKind::ExternalUser,
+                subject,
+            });
+        }
+    }
+    found.extend(declared(model, rule));
+    found
 }
 
 /// The declared premises that `rule` rests on. No rule reads one yet: the first one,
@@ -94,11 +107,8 @@ fn declared(model: &Model, rule: &Rule) -> Vec<UsedPremise> {
 impl Model {
     /// Whether the contract declares the premise `name` (`declarations.premises`).
     pub fn declares_premise(&self, name: PremiseName) -> bool {
-        self.contract()
-            .declarations()
-            .iter()
-            .flat_map(|declarations| declarations.premises())
-            .any(|premise| *premise.name() == name)
+        let declared: Vec<PremiseName> = archkeel_contract::declared_premises(self.contract());
+        declared.contains(&name)
     }
 }
 
@@ -108,30 +118,33 @@ impl Model {
 /// place of these words.
 pub fn premise_words(doors: usize, used: &[(PremiseKind, &str)]) -> Option<String> {
     let plural = |n: usize| if n == 1 { "" } else { "s" };
-    let users: BTreeSet<&str> = used
-        .iter()
-        .filter(|(kind, _)| *kind == PremiseKind::ExternalUser)
-        .map(|(_, subject)| *subject)
-        .collect();
-    let declared: BTreeSet<PremiseName> = used
-        .iter()
-        .filter_map(|(kind, _)| match kind {
-            PremiseKind::Declared(name) => Some(*name),
-            PremiseKind::DoorReach | PremiseKind::ExternalUser => None,
-        })
-        .collect();
-    let mut parts = Vec::new();
+    let mut users: BTreeSet<&str> = BTreeSet::new();
+    let mut declared: BTreeSet<PremiseName> = BTreeSet::new();
+    for (kind, subject) in used {
+        match kind {
+            PremiseKind::ExternalUser => {
+                users.insert(subject);
+            }
+            PremiseKind::Declared(name) => {
+                declared.insert(*name);
+            }
+            PremiseKind::DoorReach => {}
+        }
+    }
+    let mut parts: Vec<String> = Vec::new();
     if doors > 0 {
         parts.push(format!(
             "the declared reach of {doors} door{}",
             plural(doors)
         ));
     }
-    if !users.is_empty() {
-        let n = users.len();
-        parts.push(format!("{n} stated external user{}", plural(n)));
+    let count = BTreeSet::len(&users);
+    if count > 0 {
+        parts.push(format!("{count} stated external user{}", plural(count)));
     }
-    parts.extend(declared.into_iter().map(|name| name.words().to_owned()));
+    for name in declared {
+        parts.push(PremiseName::assumption_words(name).to_owned());
+    }
     (!parts.is_empty()).then(|| parts.join(" and "))
 }
 
@@ -146,9 +159,9 @@ mod tests {
             PremiseKind::ExternalUser,
             PremiseKind::Declared(PremiseName::StandardLibraryUnchanged),
         ] {
-            assert_eq!(PremiseKind::of_word(kind.word()), Some(kind));
+            assert_eq!(PremiseKind::of_kind_word(kind.kind_word()), Some(kind));
         }
-        assert_eq!(PremiseKind::of_word("other"), None);
+        assert_eq!(PremiseKind::of_kind_word("other"), None);
         assert_eq!(premise_words(0, &[]), None);
         assert_eq!(
             premise_words(1, &[(PremiseKind::DoorReach, "D")]).as_deref(),

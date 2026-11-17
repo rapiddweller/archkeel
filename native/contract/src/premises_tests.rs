@@ -32,7 +32,10 @@ fn a_declared_premise_parses_with_its_name_and_reason() -> Result<(), String> {
     assert_eq!(*premise.name(), PremiseName::StandardLibraryUnchanged);
     assert_eq!(premise.id().as_text(), "P-1");
     assert!(premise.rationale().contains("patches"));
-    assert_eq!(premise.name().words(), "an unchanged standard library");
+    assert_eq!(
+        PremiseName::assumption_words(*premise.name()),
+        "an unchanged standard library"
+    );
     Ok(())
 }
 

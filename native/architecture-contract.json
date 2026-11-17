@@ -366,6 +366,7 @@
         "native.archkeel_contract:VisibilityKind",
         "native.archkeel_contract:bare_reference",
         "native.archkeel_contract:canonical_bytes",
+        "native.archkeel_contract:declared_premises",
         "native.archkeel_contract:head_of",
         "native.archkeel_contract:kind_of",
         "native.archkeel_contract:merge_targets",
@@ -548,6 +549,7 @@
         "native.archkeel_model:UmlTarget",
         "native.archkeel_model:Unsupported",
         "native.archkeel_model:Unused",
+        "native.archkeel_model:UsedPremise",
         "native.archkeel_model:Verdict",
         "native.archkeel_model:boundary_reading",
         "native.archkeel_model:claims",
@@ -1130,6 +1132,7 @@
             "native.archkeel_contract:PremiseName",
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:RuleKind",
+            "native.archkeel_contract:declared_premises",
             "native.archkeel_contract:head_of",
             "native.archkeel_contract:kind_of"
           ]
@@ -1196,6 +1199,7 @@
       ],
       "public": [
         "native.archkeel_model.premises:PremiseKind",
+        "native.archkeel_model.premises:UsedPremise",
         "native.archkeel_model.premises:premise_words",
         "native.archkeel_model.premises:rule_premises",
         "native.archkeel_model.run:Model",
@@ -2059,6 +2063,7 @@
             "native.archkeel_model:UmlOutcome",
             "native.archkeel_model:UmlTarget",
             "native.archkeel_model:Unsupported",
+            "native.archkeel_model:UsedPremise",
             "native.archkeel_model:Verdict",
             "native.archkeel_model:compare_uml_tree",
             "native.archkeel_model:premise_words",

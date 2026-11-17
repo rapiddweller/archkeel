@@ -12,6 +12,7 @@
 
 use serde::Serialize;
 
+use crate::document::Contract;
 use crate::error::{invalid, Parsed};
 use crate::json::{field, Json, Object};
 use crate::model::ItemId;
@@ -32,24 +33,39 @@ impl PremiseName {
     pub const ALL: [PremiseName; 1] = [PremiseName::StandardLibraryUnchanged];
 
     /// The word of the premise in the contract and in the frame.
-    pub fn as_text(self) -> &'static str {
+    pub fn premise_word(self) -> &'static str {
         match self {
             PremiseName::StandardLibraryUnchanged => "standard_library_unchanged",
         }
     }
 
     /// The premise in words, as "PASS assuming <words>" reads it.
-    pub fn words(self) -> &'static str {
+    pub fn assumption_words(self) -> &'static str {
         match self {
             PremiseName::StandardLibraryUnchanged => "an unchanged standard library",
         }
     }
 
     fn of(text: &str) -> Option<PremiseName> {
-        PremiseName::ALL
-            .into_iter()
-            .find(|name| name.as_text() == text)
+        let mut found = None;
+        for name in PremiseName::ALL {
+            if PremiseName::premise_word(name) == text {
+                found = Some(name);
+            }
+        }
+        found
     }
+}
+
+/// The names of the premises that `contract` declares, in contract order.
+pub fn declared_premises(contract: &Contract) -> Vec<PremiseName> {
+    let mut names: Vec<PremiseName> = Vec::new();
+    if let Some(declarations) = &contract.declarations {
+        for premise in &declarations.premises {
+            names.push(premise.name);
+        }
+    }
+    names
 }
 
 record!(
@@ -84,9 +100,16 @@ pub(crate) fn premises(object: &Object, version: ContractVersion) -> Parsed<Vec<
         .enumerate()
         .map(|(index, raw)| one(raw, &format!("contract.declarations.premises[{index}]")))
         .collect::<Parsed<_>>()?;
-    let mut names: Vec<PremiseName> = found.iter().map(|p| p.name).collect();
+    let mut names: Vec<PremiseName> = Vec::new();
+    for premise in &found {
+        names.push(premise.name);
+    }
     names.sort();
-    if names.windows(2).any(|pair| pair[0] == pair[1]) {
+    let mut repeated = false;
+    for pair in names.windows(2) {
+        repeated |= pair[0] == pair[1];
+    }
+    if repeated {
         return Err(invalid("contract.declarations.premises repeats a name"));
     }
     Ok(found)
@@ -95,7 +118,7 @@ pub(crate) fn premises(object: &Object, version: ContractVersion) -> Parsed<Vec<
 fn one(raw: &Json, label: &str) -> Parsed<DeclaredPremise> {
     let (item, id, provenance) = record(raw, &["name", "rationale"], &[], label)?;
     let text: String = nonempty_field(item, "name", label)?;
-    let known: Vec<&str> = PremiseName::ALL.iter().map(|n| n.as_text()).collect();
+    let known: Vec<&str> = PremiseName::ALL.map(PremiseName::premise_word).to_vec();
     let Some(name) = PremiseName::of(&text) else {
         return Err(invalid(format!(
             "{label}.name {text:?} names no premise that the core knows ({})",
