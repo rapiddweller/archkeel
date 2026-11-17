@@ -108,7 +108,7 @@ fn check(raw: &[u8], root: &str, own: &str) -> Result<(), String> {
             ));
         }
     }
-    if own_found || own.is_empty() {
+    if own_found || str::is_empty(own) {
         Ok(())
     } else {
         Err(format!(
