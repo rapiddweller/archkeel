@@ -45,6 +45,7 @@ pub(in crate::survey) mod placeholder;
 mod reader;
 mod scope;
 mod shape_names;
+mod shape_standard;
 mod shape_text;
 mod shapes;
 mod sites;
@@ -53,7 +54,8 @@ mod wrapped;
 mod wrapped_read;
 
 pub(crate) use found::{Decorated, Found, Source};
-pub(crate) use shapes::{attach as attach_shapes, collection_names};
+pub(crate) use shape_standard::positions as standard_positions;
+pub(crate) use shapes::{attach as attach_shapes, collection_names, FORMS};
 pub(crate) use sites::{site_records, Context};
 pub(crate) use wrapped::forms as wrapped_forms;
 

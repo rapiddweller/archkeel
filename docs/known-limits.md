@@ -410,6 +410,21 @@ body ([#775](https://github.com/rapiddweller/archkeel/issues/775)):
   of the run (AD-770).
 - On every version: a metaclass `__prepare__` that puts the name in the class namespace.
 
+A name of the standard library is an identity that the scan cannot prove: code outside the
+repository can replace it before the module runs. So `boundary_types` counts such a name only under
+the opt-in contract premise `standard_library_unchanged`, and the PASS reads "PASS assuming outside
+code leaves the standard library unchanged" (AD-782). This covers the closed table of value types
+and markers (`pathlib.Path`, `datetime`, `typing.Final`, ...), the decorators that the collector
+models, and, since #1718, the collections and special forms that the shape reader reads by name
+(`typing.List`, `collections.abc.Sequence`, `typing.Optional`, `typing.Union`, `typing.Literal`,
+`typing.Annotated`). Without the premise each of these positions is UNKNOWN and the cause names the
+premise. A builtin of the language (`list[int]`, `dict`, `int | None`) needs no premise. A name that a
+file of the repository may change (an attribute store of that name, a computed store, a store through
+`vars`, `__dict__`, `sys.modules` or `globals`, or code run from a text) stays UNKNOWN even under the
+premise. Before #1718 the shape reader counted `typing.List` and the other named collections with no
+premise, so a scanned `typing.List = Secret` gave a false PASS
+(`tests/test_cli_boundary_stdlib_collections.py`).
+
 See [AD-283](architecture/decisions/ad-283-a-later-class-binding-blocks-every-annotation.md).
 
 Inherited boundary methods follow a uniquely resolved local single-base chain.

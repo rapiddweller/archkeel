@@ -12,7 +12,9 @@
 //! - `TYPES`: types that hold no open record: value types and markers. A mapping, `object`, a
 //!   callable type or any other name of the standard library is not here: it stays a type outside
 //!   the scan, because a broad type must not become an allowed leaf.
-//! - the qualified collections of `shapes::COLLECTIONS`, as names that a facade re-exports.
+//! - the special forms of `typing` that the shape reader normalizes (#1718), from its table.
+//! - the qualified collections of `shapes::COLLECTIONS`: the shape reader and a facade read them
+//!   by name, so they count only under the premise too (#1718).
 //! - the decorators that `declared::wrapped` models, which it names itself.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -51,6 +53,9 @@ const TYPES: [&str; 26] = [
     "typing_extensions.Final",
 ];
 
+/// The names that a written position reads, by `<qualified name>:<position>` (#1718).
+pub(crate) type Positions = BTreeMap<String, BTreeSet<String>>;
+
 /// Why code of the repository may change the standard library name `qualified`, if it may. A
 /// builtin is an attribute of the module `builtins`.
 pub(super) fn changed(writes: &ClassWrites, qualified: &str) -> Option<String> {
@@ -63,11 +68,12 @@ pub(super) fn changed(writes: &ClassWrites, qualified: &str) -> Option<String> {
 /// decorated definitions.
 pub(super) fn facts(
     writes: &ClassWrites,
-    collections: &[&str],
-    wrapped: BTreeMap<String, Wrapped>,
+    (collections, forms): (&[&str], &[&str]),
+    (wrapped, positions): (BTreeMap<String, Wrapped>, Positions),
 ) -> StandardFacts {
     let qualified = collections.iter().filter(|name| name.contains('.'));
-    let names = TYPES.iter().chain(qualified).map(|name| (*name).to_owned());
+    let names = TYPES.iter().chain(forms).chain(qualified);
+    let names = names.map(|name| (*name).to_owned());
     let mut types = BTreeSet::new();
     let mut changes = BTreeMap::new();
     for name in names {
@@ -84,5 +90,6 @@ pub(super) fn facts(
         types,
         changed: changes,
         wrapped,
+        positions,
     }
 }

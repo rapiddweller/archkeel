@@ -782,6 +782,8 @@
         "native.archkeel_model.boundary_facts:Origin",
         "native.archkeel_model.boundary_facts:Slot",
         "native.archkeel_model.boundary_facts:Standard",
+        "native.archkeel_model.boundary_facts:positions_of",
+        "native.archkeel_model.boundary_facts:slots_of",
         "native.archkeel_model.boundary_facts:standard_of",
         "native.archkeel_model.boundary_facts:wrapped_of",
         "native.archkeel_model.condensation:condense",
