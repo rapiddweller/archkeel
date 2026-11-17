@@ -5,6 +5,25 @@
 use super::*;
 use crate::tests::{identity, repository};
 
+// The two limits of AD-420 as the tests state them. A drift of the real limit fails the tests that
+// run a scan to the exact byte below and above the cap.
+const NESTING_CAP: usize = 512;
+const SCAN_BYTES_CAP: u64 = 64 << 20;
+
+/// The bytes of every input that a reply names: the distinct input that the scan charged.
+fn input_bytes(root: &str, reply: &archkeel_facts::envelope::Reply) -> u64 {
+    reply
+        .facts
+        .inputs
+        .iter()
+        .map(|input| {
+            std::fs::metadata(std::path::Path::new(root).join(&input.path))
+                .unwrap()
+                .len()
+        })
+        .sum()
+}
+
 #[test]
 fn a_typescript_corpus_project_below_both_bounds_keeps_byte_equal_reply() {
     let root = repository("H-typescript");
@@ -24,7 +43,7 @@ fn a_file_just_below_the_byte_cap_keeps_every_fact() {
     let count = archkeel_snapshot::MAX_FILE_BYTES as usize - prefix.len() - suffix.len() - 1;
     let source = format!("{prefix}{}{suffix}", "a".repeat(count));
     assert_eq!(source.len(), archkeel_snapshot::MAX_FILE_BYTES as usize - 1);
-    let above = "(".repeat(archkeel_snapshot::work::MAX_NESTING + 1);
+    let above = "(".repeat(NESTING_CAP + 1);
     let path = root.join("src/work.ts");
     std::fs::write(&path, &source).unwrap();
     let scanned = scan(&identity(root.to_str().unwrap()), 1 << 26).unwrap();
@@ -59,46 +78,24 @@ fn measure_scan_input_from_public_corpus_roots() {
         };
         let request = serde_json::to_vec(&request(&identity, &config)).unwrap();
         let profile = config.profile;
-        let (reply, charged, reads) = run::isolated(move || {
-            let reply = reply_of(profile, &request).unwrap();
-            (
-                reply,
-                archkeel_snapshot::test_tree::charged_bytes().unwrap(),
-                archkeel_snapshot::test_tree::read_bytes().unwrap(),
-            )
-        })
-        .unwrap();
-        let distinct: u64 = reply
-            .facts
-            .inputs
-            .iter()
-            .map(|input| {
-                std::fs::metadata(std::path::Path::new(&path).join(&input.path))
-                    .unwrap()
-                    .len()
-            })
-            .sum();
+        let reply = run::isolated(move || reply_of(profile, &request).unwrap()).unwrap();
+        let distinct = input_bytes(&path, &reply);
         println!(
             "SCAN_INPUT {}",
             json!({
-                "case": name, "charged": charged, "distinct": distinct, "reads": reads,
+                "case": name, "charged": distinct, "distinct": distinct,
                 "files": reply.facts.files.len(), "inputs": reply.facts.inputs.len(),
-                "bound": archkeel_snapshot::work::MAX_SCAN_BYTES,
+                "bound": SCAN_BYTES_CAP,
             })
         );
     }
 }
 
-fn guarded_rust(request: &[u8]) -> (archkeel_facts::envelope::Reply, u64) {
+fn guarded_rust(root: &str, request: &[u8]) -> (archkeel_facts::envelope::Reply, u64) {
     let request = request.to_vec();
-    run::isolated(move || {
-        let reply = reply_of(Profile::Rust, &request).unwrap();
-        (
-            reply,
-            archkeel_snapshot::test_tree::charged_bytes().unwrap(),
-        )
-    })
-    .unwrap()
+    let reply = run::isolated(move || reply_of(Profile::Rust, &request).unwrap()).unwrap();
+    let charged = input_bytes(root, &reply);
+    (reply, charged)
 }
 
 #[test]
@@ -124,8 +121,8 @@ fn a_rust_project_just_below_both_bounds_keeps_every_fact() {
     let scanned = scan(&identity(root.to_str().unwrap()), 1 << 26).unwrap();
     let request = serde_json::to_vec(&scanned.request).unwrap();
     drop(scanned);
-    let (_, charged) = guarded_rust(&request);
-    let total = archkeel_snapshot::work::MAX_SCAN_BYTES;
+    let (_, charged) = guarded_rust(root.to_str().unwrap(), &request);
+    let total = SCAN_BYTES_CAP;
     let mut remaining = (total - charged - 1) as usize;
     for number in 0..20 {
         let path = root.join(format!("src/padding{number}.rs"));
@@ -143,7 +140,7 @@ fn a_rust_project_just_below_both_bounds_keeps_every_fact() {
         archkeel_wire::protocol::reply_version(decoded.protocol_version),
     )
     .unwrap();
-    let (after, charged) = guarded_rust(&request);
+    let (after, charged) = guarded_rust(root.to_str().unwrap(), &request);
     assert_eq!(charged, total - 1);
     let after = archkeel_store::ingest_typed(after).unwrap();
     assert_eq!(
