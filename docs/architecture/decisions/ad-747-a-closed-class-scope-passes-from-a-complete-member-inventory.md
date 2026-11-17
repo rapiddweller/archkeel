@@ -53,6 +53,9 @@ closed scopes pass. `User`, `Article`, `Comment` and `Tag` stay UNKNOWN: each de
 with a computed symbol key (`[EntityName]?: ...`). H-uml-typescript: 3 undecided, as before; its
 closed module scopes now name the cause.
 
+**Caveat.** A class decorator can return a different class at run time; the UML check compares the
+declared types, as AD-748 does: a UML target is a structural declaration, not a runtime claim.
+
 **Rejected.** Keeping each decorated class partial: NestJS and MikroORM classes all have decorators,
 and `tsc` gives a decorated class the type of its body. The per-library coverage proof of 4.0.1
 (AD-229): the scope proof of the run holds the row.

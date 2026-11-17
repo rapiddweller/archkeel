@@ -327,7 +327,7 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
     let (components, marks) = components(&tree, &levels, frame, &found, &mut refs);
     let rule_assessments = rule_assessments(frame, &found, &mut refs);
     let coverage = json!([[{"entity_kinds": ["module"], "relationship_kinds": [], "scope_id": "",
-        "status": "unavailable", "reason": "The 5.0 frame names no symbol inventory."}]]);
+        "status": "unavailable", "reason": "This version does not list symbols."}]]);
     let complete = if topology.complete {
         Shown::Pass
     } else {

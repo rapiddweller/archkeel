@@ -36,10 +36,7 @@ pub(crate) struct Parsed {
 /// Parse one file of a project without `paths` and `baseUrl`; the dump and the tests read it.
 #[cfg(any(test, feature = "dump"))]
 pub(crate) fn parse(parsers: &mut Parsers, rel: &str, data: &[u8]) -> Parsed {
-    let reach = Reach {
-        aliased: false,
-        type_roots: false,
-    };
+    let reach = Reach::default();
     parse_for(parsers, rel, data, reach, None)
 }
 
