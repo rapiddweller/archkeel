@@ -109,3 +109,41 @@ fn an_empty_target_says_what_is_missing() {
     let data = payload(&document(&json!({"status": "PASS", "topology": declared})));
     assert!(data["atlas"]["declared_note"].is_null());
 }
+
+// The verdict and the next steps are one block: the steps sit inside the card, no panel is empty.
+#[test]
+fn the_next_steps_are_inside_the_verdict_card() {
+    let page = document(&json!({"status": "UNKNOWN", "rules": {"A": ["k", "UNKNOWN"]}}));
+    let card = page
+        .split("aria-label=\"Verdict\">")
+        .nth(1)
+        .unwrap()
+        .split("</section></div>")
+        .next()
+        .unwrap();
+    assert!(card.contains("class=\"rp-next\""), "{card}");
+    assert!(card.contains("ak-verdict__stats"));
+    assert_eq!(page.matches("class=\"rp-next\"").count(), 1);
+}
+
+// The detail fold of an Unknown card is offered only when it adds to the title.
+#[test]
+fn the_core_detail_is_offered_only_when_it_adds_to_the_title() {
+    let same = document(
+        &json!({"status": "UNKNOWN", "rules": {"D": ["k", "UNKNOWN"]},
+        "explained": {"D": "short reason"}}),
+    );
+    assert!(
+        !same.contains("What the core says"),
+        "the text equals the title"
+    );
+    let long = "a long reason that goes on and on about nothing of use to anybody ".repeat(6);
+    let more = document(
+        &json!({"status": "UNKNOWN", "rules": {"D": ["k", "UNKNOWN"]},
+        "explained": {"D": long}}),
+    );
+    assert!(
+        more.contains("What the core says"),
+        "the title is cut: the fold has the rest"
+    );
+}

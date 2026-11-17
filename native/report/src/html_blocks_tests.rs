@@ -468,12 +468,9 @@ fn each_count_of_the_verdict_equals_the_length_of_its_list() {
     let rules_unknown = 4; // A, B, C and D of the fixture
     assert_eq!(stat("Rules UNKNOWN"), rules_unknown);
     assert_eq!(stat("Gaps with no rule"), 2);
-    assert!(
-        page.contains(&format!(
-            "{cards} causes keep the run open: {rules_unknown} unknown rules and 2 gaps with no rule."
-        )),
-        "{cards} cards"
-    );
+    // The cards of the Unknown section are the one place of the causes: the verdict block does not
+    // list them a second time.
+    assert!(!page.contains("keep the run open"), "{cards} cards");
     // The listed causes hold exactly the unknown rules and the named gaps.
     assert_eq!(cards, 5);
 }

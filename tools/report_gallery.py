@@ -224,13 +224,18 @@ def build_other(cli: Sequence[str], entry: Mapping[str, str]) -> Contract:
     return contract_of(envelope, entry["title"], problem)
 
 
-def nav(page: str, links: Sequence[tuple[str, str]]) -> str:
-    """The page with one bar of links to its neighbour pages, first in its `<main>`."""
-    items = " \u00b7 ".join(
-        f'<a href="{html.escape(href, quote=True)}">{html.escape(label)}</a>'
-        for label, href in links
-    )
-    bar = f'<nav class="caption rp-note" aria-label="Report pages">{items}</nav>'
+def nav(page: str, links: Sequence[tuple[str, str]], current: str = "") -> str:
+    """The page with one visible navigation of its neighbour pages, first in its `<main>`.
+
+    The link of the page that is open is marked with `aria-current="page"`; it is `current`.
+    """
+
+    def link(label: str, href: str) -> str:
+        mark = ' aria-current="page"' if label == current else ""
+        return f'<a href="{html.escape(href, quote=True)}"{mark}>{html.escape(label)}</a>'
+
+    items = "".join(link(label, href) for label, href in links)
+    bar = f'<nav class="rp-pages" aria-label="Report pages">{items}</nav>'
     # The bar sits first inside `<main>`, where the links have the style of the report.
     if not re.search(r"<main[^>]*>", page):
         return bar + page
@@ -256,15 +261,25 @@ def build_system(cli: Sequence[str], system: System, document: Path, out: Path) 
         return row
     parts = [(part.title, f"{part.id}.html") for part in system.parts]
     text = page.read_text()
+    shown = "System"
+    siblings = [(shown, "index.html"), *parts]
     (folder / "index.html").write_text(
-        nav(text, [("Fixture reports", "../showcase/index.html"), *parts])
+        nav(text, [("Fixture reports", "../showcase/index.html"), *siblings], shown)
     )
-    entry = [(label, f"self/{href}") for label, href in parts]
-    (out / "index.html").write_text(nav(text, [("Fixture reports", "showcase/index.html"), *entry]))
+    entry = [(label, f"self/{href}") for label, href in siblings]
+    (out / "index.html").write_text(
+        nav(text, [("Fixture reports", "showcase/index.html"), *entry], shown)
+    )
     for part in system.parts:
         each = folder / f"{part.id}.html"
         if each.is_file():
-            each.write_text(nav(each.read_text(), [("Back to the system report", "index.html")]))
+            each.write_text(
+                nav(
+                    each.read_text(),
+                    [("Fixture reports", "../showcase/index.html"), *siblings],
+                    part.title,
+                )
+            )
     return row
 
 
