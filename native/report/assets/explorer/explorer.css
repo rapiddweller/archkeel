@@ -1239,6 +1239,11 @@ html.ak-canvas .rp-explorer .ak-bar .flow-breadcrumb > *:not(button){ color: var
 html.ak-canvas .rp-explorer .ak-bar .flow-breadcrumb button{ height: 28px; padding: 0 6px; font-weight: 600; color: var(--ink); }
 html.ak-canvas .rp-explorer .ak-bar .flow-breadcrumb button:not(:last-child){ color: var(--ink-muted); font-weight: 500; }
 html.ak-canvas .rp-explorer .ak-bar .flow-breadcrumb a{ flex: none; padding: 0 var(--space-1); }
+/* E3: the current crumb stays whole; the crumbs above it shorten, each with its full name as a title. */
+html.ak-canvas .rp-explorer .ak-bar .flow-breadcrumb{ overflow-x: hidden; }
+html.ak-canvas .rp-explorer .ak-bar .flow-breadcrumb > *{ flex: none; }
+html.ak-canvas .rp-explorer .ak-bar .flow-breadcrumb button:not([aria-current]){ flex: 0 1 auto; min-width: calc(2.5ch + 12px); }
+html.ak-canvas .rp-explorer .ak-bar .flow-breadcrumb button > span{ display: block; overflow: hidden; text-overflow: ellipsis; }
 html.ak-canvas .rp-explorer .ak-bar .flow-zoom-controls{ display: flex; align-items: center; gap: 2px; }
 html.ak-canvas .rp-explorer .ak-bar .flow-zoom-value{ min-width: 46px; text-align: center; font-variant-numeric: tabular-nums; color: var(--ink-muted); }
 html.ak-canvas .rp-explorer .ak-bar .flow-zoom-controls .flow-zoom-100{ display: none; }
