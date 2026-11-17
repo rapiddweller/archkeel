@@ -59,6 +59,11 @@ At the same audit base, these tested forms no longer give a false PASS:
 - A git URL of the same repository, an outside Cargo patch, a command-line patch and a repository
   patch each give UNKNOWN with a crate-pair gap (AD-704, #946).
   `tests/test_collector_false_pass_rust_redirect.py` holds the four compiling fixtures.
+- A Rust path through a re-exported name of a module gives FAIL: `crate::c::other::b::g()` where
+  `c` re-exports a module, the crate root, an alias of `extern crate self`, another crate of the
+  workspace, or brings the name in by a glob (also `use base::*; hidden::g()`). A route that a
+  macro call writes, or one over the hop limit, gives UNKNOWN. The 17 compiling fixtures are in
+  `tests/test_collector_false_pass_rust_root_reexports.py` (AD-772, #1517).
 - Direct aliases of `Object`, `Reflect`, `location` and `open`, and direct timer aliases, give
   UNKNOWN with a source-resolution gap. This does not prove arbitrary value flow safe.
   `tests/test_cli_native_global_forms.py` checks the direct reflection and navigation aliases.
