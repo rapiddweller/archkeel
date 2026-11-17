@@ -97,7 +97,7 @@
  "declared-dto": [
   "FAIL",
   "UNKNOWN",
-  "field_walk; member_no_record"
+  "field_walk"
  ],
  "decorated-function": [
   "PASS",
