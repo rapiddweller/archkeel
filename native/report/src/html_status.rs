@@ -179,7 +179,7 @@ mod tests {
             rules: rules(verdicts),
             ..Frame::default()
         };
-        use RuleVerdict::{Fail, Pass, Unknown};
+        use crate::head::RuleVerdict::{Fail, Pass, Unknown};
         let run = |status, verdicts: &[RuleVerdict]| Floors::of(&frame(status, verdicts)).run;
         assert_eq!(run(Some(Status::Pass), &[Pass]), Shown::Pass);
         assert_eq!(run(Some(Status::Fail), &[Fail, Pass]), Shown::Pass);
