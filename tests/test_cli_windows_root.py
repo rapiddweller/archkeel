@@ -29,7 +29,7 @@ def test_windows_redirected_output_uses_utf8(monkeypatch: pytest.MonkeyPatch) ->
         patch.delenv("PYTHONIOENCODING", raising=False)
         patch.setattr("archkeel.cli.core_only.run", lambda _: print(" · 漢") or 0)
         assert main([]) == 0
-    assert output.getvalue().decode("utf-8") == " · 漢\n"
+    assert output.getvalue().decode("utf-8").splitlines() == [" · 漢"]
 
 
 def test_text_header_uses_absolute_paths_when_the_root_is_on_another_drive(
