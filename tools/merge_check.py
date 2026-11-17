@@ -9,7 +9,8 @@ GitHub lists for the pull request. A branch that is behind main is only a warnin
 does not require an up-to-date branch. A file that main changed in its last merges is a warning
 only when the pull request removes lines from it: that is what a revert looks like. An append is
 a normal change. It fails when an aggregate check is skipped, because GitHub counts a skipped
-required check as passed. CI runs on main only (AD-348): a pull request without PR CI gets a note.
+required check as passed. It uses the decision table of `merge_pr.py` (AD-736) for the state of the
+PR gate and adds its local file checks as further reasons.
 """
 
 from __future__ import annotations
@@ -21,6 +22,11 @@ import sys
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+
+try:
+    from tools import merge_pr
+except ImportError:  # run as a script from tools/
+    import merge_pr
 
 BASE = "origin/main"
 RECENT_MERGES = 10
@@ -241,15 +247,21 @@ def aggregate_errors(rollup: str) -> list[str]:
         raise MergeCheckError("gh pr view gave an unexpected check rollup") from error
 
 
-def ci_note(rollup: str) -> str | None:
-    """A note when the pull request has no aggregate check: CI runs on main only (AD-348)."""
+def table_reasons(number: int) -> tuple[list[str], list[str]]:
+    """The reasons of the merge decision table (AD-736) as errors (REFUSE) and warnings (WAIT)."""
+    decision, _pr, _required = merge_pr.assess(_run_gh, str(number))
+    errors, warnings = [], []
+    for reason in decision.reasons:
+        text = f"[{reason.code}] {reason.detail}"
+        (errors if reason.verdict == merge_pr.REFUSE else warnings).append(text)
+    return errors, warnings
+
+
+def _run_gh(*args: str) -> str:
     try:
-        names = {str(check["name"]) for check in json.loads(rollup or "[]")}
-    except (json.JSONDecodeError, KeyError, TypeError) as error:
-        raise MergeCheckError("gh pr view gave an unexpected check rollup") from error
-    if names & set(AGGREGATES):
-        return None
-    return "no PR CI by policy: CI runs on main only, so the local gate is the only PR check"
+        return _gh(*args)
+    except MergeCheckError as error:
+        raise SystemExit(str(error)) from error
 
 
 def fetch_pr(repo: Path, number: int) -> str:
@@ -274,8 +286,9 @@ def main(argv: list[str] | None = None, *, repo: Path | None = None) -> int:
         report = check(root, BASE, head, pr_files, renamed_from)
         rollup = pr_checks(args.number)
         report.errors.extend(aggregate_errors(rollup))
-        if note := ci_note(rollup):
-            report.warnings.append(note)
+        table_errors, table_warnings = table_reasons(args.number)
+        report.errors.extend(table_errors)
+        report.warnings.extend(table_warnings)
     except MergeCheckError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
