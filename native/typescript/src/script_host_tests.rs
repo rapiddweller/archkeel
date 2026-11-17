@@ -382,3 +382,35 @@ fn an_amplifier_form_in_a_scan_with_a_host_entry_is_stated_once() {
         .unwrap_or_default()
         .contains("depend on it"));
 }
+
+#[test]
+fn a_run_time_key_gap_says_what_the_user_can_do() {
+    // #1504: the two lines of graphql-js v16.15.0 that keep every free standard name from a proof.
+    let b = "export function f(o: any, k: string, t: any) { return o[k](t); }\n\
+             export function g(r: any, n: number, b: any[]) { return r[n % 3][b.length]; }\n\
+             export function h(k: string) { eval(k); }\n";
+    let found = titles_of(&[("src/b.ts", b)]);
+    let said = |form: &str| -> Vec<String> {
+        found
+            .iter()
+            .filter(|(title, _)| title.ends_with(form))
+            .map(|(_, message)| message.clone().unwrap_or_default())
+            .collect()
+    };
+    let keys = said(crate::script_types::key_form());
+    assert_eq!(keys.len(), 2, "{found:?}");
+    for message in &keys {
+        assert!(message.contains("free standard names depend on it; "), "{message}");
+        let remedy = "use a number key or a literal key at this line, or accept the gap in a \
+                      baseline";
+        assert!(message.ends_with(remedy), "{message}");
+    }
+    let others: Vec<_> = found
+        .iter()
+        .filter(|(title, _)| title.starts_with("A form that can write any global keeps every"))
+        .filter(|(title, _)| !title.ends_with(crate::script_types::key_form()))
+        .collect();
+    assert_eq!(others.len(), 1, "{found:?}");
+    let other = others[0].1.as_deref().unwrap_or_default();
+    assert!(other.ends_with("free standard names depend on it"), "{other}");
+}
