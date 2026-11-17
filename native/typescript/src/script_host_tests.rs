@@ -400,7 +400,10 @@ fn a_run_time_key_gap_says_what_the_user_can_do() {
     let keys = said(crate::script_types::key_form());
     assert_eq!(keys.len(), 2, "{found:?}");
     for message in &keys {
-        assert!(message.contains("free standard names depend on it; "), "{message}");
+        assert!(
+            message.contains("free standard names depend on it; "),
+            "{message}"
+        );
         let remedy = "use a number key or a literal key at this line, or accept the gap in a \
                       baseline";
         assert!(message.ends_with(remedy), "{message}");
@@ -412,5 +415,8 @@ fn a_run_time_key_gap_says_what_the_user_can_do() {
         .collect();
     assert_eq!(others.len(), 1, "{found:?}");
     let other = others[0].1.as_deref().unwrap_or_default();
-    assert!(other.ends_with("free standard names depend on it"), "{other}");
+    assert!(
+        other.ends_with("free standard names depend on it"),
+        "{other}"
+    );
 }

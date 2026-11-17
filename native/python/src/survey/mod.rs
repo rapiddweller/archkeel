@@ -262,26 +262,26 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         &symbols.records,
         &symbols.dead_sites,
     );
-    let coverage = Coverage {
-        files_parsed: modules.len() as u64,
-        files_read: parsed.files_read,
-        full_scope: modules.len() == scope.selected.len() && unknowns.is_empty(),
-        gaps: unknowns.clone(),
-        measures: Some(
-            modules
-                .iter()
-                .zip(&binders)
-                .map(|(module, binders)| {
-                    let mut row =
-                        call_count::count(module, binders, &symbols.calls, &count_context);
-                    (row.typing_positions, row.untyped_private_accesses) =
-                        typing_count::count(module, binders);
-                    row
-                })
-                .collect(),
-        ),
-        selected_files: scope.selected.clone(),
-    };
+    let mut coverage = Coverage::of(
+        (parsed.files_read as usize, modules.len()),
+        scope.selected.clone(),
+        unknowns.clone(),
+    );
+    // A selected module that did not parse keeps the scope from being full, gap or not.
+    coverage.full_scope =
+        Coverage::is_full(unknowns.len(), scope.selected.len().abs_diff(modules.len()));
+    coverage.measures = Some(
+        modules
+            .iter()
+            .zip(&binders)
+            .map(|(module, binders)| {
+                let mut row = call_count::count(module, binders, &symbols.calls, &count_context);
+                (row.typing_positions, row.untyped_private_accesses) =
+                    typing_count::count(module, binders);
+                row
+            })
+            .collect(),
+    );
     Ok(Survey {
         targets: resolved.targets,
         files,
