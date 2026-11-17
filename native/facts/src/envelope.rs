@@ -19,7 +19,9 @@ use std::fmt;
 use serde::de::{self, SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::Value;
 
+use crate::identity::sha256_hex;
 use crate::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use crate::measures::FileMeasures;
 use crate::record::Record;
@@ -461,24 +463,33 @@ impl Provenance {
     }
 }
 
+/// `collect.py`: SHA-256 of the compact JSON input listing, in the given order.
+pub fn source_digest(inputs: &[Input]) -> String {
+    let rows: Vec<String> = inputs
+        .iter()
+        .map(|input| {
+            format!(
+                "{{\"path\":{},\"digest\":{},\"role\":{}}}",
+                Value::from(input.path.as_str()),
+                Value::from(input.digest.as_str()),
+                Value::from(input.role.as_str()),
+            )
+        })
+        .collect();
+    sha256_hex(format!("[{}]", rows.join(",")).as_bytes())
+}
+
 #[path = "envelope_cycle.rs"]
 pub mod cycle;
 
 // The constructors of the envelope types; a child module that uses this one, never the reverse.
 #[path = "envelope_build.rs"]
 mod build;
-pub use build::source_digest;
 
 #[cfg(test)]
 #[path = "envelope_tests.rs"]
 mod tests;
 
-/// The test features of a linked collector: `dump` when its crate is built with it. A build with
-/// a test feature is refused by `archkeel-collect` (AD-406).
-pub const fn test_features(dump: bool) -> &'static [&'static str] {
-    if dump {
-        &["dump"]
-    } else {
-        &[]
-    }
-}
+#[path = "envelope_features.rs"]
+mod features;
+pub use features::test_features;
