@@ -22,17 +22,24 @@ use archkeel_report::{RuleReasons, Ruling, Status};
 use archkeel_store::Ingested;
 use serde::Serialize;
 
-use crate::baseline::{self, Budgets, Compared, Observed, Violation};
+use crate::baseline::{self, BaselineState, Budgets, Compared, Observed, Violation};
 use crate::gap_key;
 
-/// What a request asks of the baseline: the file that it reads and whether it writes one.
-pub(crate) struct Input {
-    /// The path as the request named it, for the messages.
-    pub(crate) path: Option<String>,
-    /// The checked file, or why it is not one. `None` when the request names no file.
-    pub(crate) file: Option<Result<ValidationBaseline, String>>,
-    /// Write the baseline of this run (`--write-baseline`).
-    pub(crate) write: bool,
+/// What a request asks of the baseline (AD-731). `path` is the path of the file to compare with,
+/// as the request named it, and `file` is the checked file or why it is not one.
+pub(crate) enum Input {
+    /// `--baseline FILE`: compare the run with the file.
+    Compare {
+        path: String,
+        file: Result<ValidationBaseline, String>,
+    },
+    /// `--write-baseline FILE` alone: write the baseline of this run.
+    Write,
+    /// Both: compare with one file and write the baseline of this run to another.
+    CompareAndWrite {
+        path: String,
+        file: Result<ValidationBaseline, String>,
+    },
 }
 
 /// The part of the frame. `file` holds the bytes to write, as text.
@@ -167,11 +174,7 @@ pub(crate) fn observed(
 /// A file of schema 1.0.0 to 1.3.0 is from release 4.0.1: say so once, with the one command that
 /// migrates it, and name each section that this core does not read from it (AD-546, #1326). The
 /// named gap holds the exit code at 2, so the old file is never a silent green.
-fn with_migration(
-    mut compared: Compared,
-    file: &ValidationBaseline,
-    path: Option<&str>,
-) -> Compared {
+fn with_migration(mut compared: Compared, file: &ValidationBaseline, path: &str) -> Compared {
     if file.unknowns().is_some() {
         return compared;
     }
@@ -179,43 +182,51 @@ fn with_migration(
         0,
         baseline::Named {
             kind: "baseline.older_schema",
-            subject: path.unwrap_or("").to_owned(),
+            subject: path.to_owned(),
             reason: format!(
                 "this file is from release 4.0.1 (schema before 1.4.0). It lists no accepted \
                  UNKNOWN, so none is accepted. Its budgets calls_unresolved, typing_positions and \
                  untyped_private_accesses are not compared, and the amendment file of the project \
                  is not read. Write it again once: archkeel validate --write-baseline {}",
-                path.unwrap_or("<file>")
+                if path.is_empty() { "<file>" } else { path }
             ),
         },
     );
-    if compared.exit_code == 0 {
-        compared.exit_code = 2;
+    if let BaselineState::Current { open } = &mut compared.state {
+        *open = true;
     }
     compared
 }
 
 /// The part of the frame for the request.
 pub(crate) fn build(input: Input, run: &Observed) -> Part {
-    let compared = match &input.file {
-        Some(Ok(file)) => with_migration(baseline::compare(file, run), file, input.path.as_deref()),
-        Some(Err(why)) => invalid(input.path.as_deref(), why),
-        None => Compared {
-            state: "written",
-            ..Compared::default()
-        },
-    };
-    if !input.write {
-        return Part {
-            compared,
+    match input {
+        Input::Compare { path, file } => Part {
+            compared: compared(&path, &file, run),
             file: None,
-        };
+        },
+        Input::Write => write(run, None),
+        Input::CompareAndWrite { path, file } => write(run, Some(compared(&path, &file, run))),
     }
+}
+
+fn compared(path: &str, file: &Result<ValidationBaseline, String>, run: &Observed) -> Compared {
+    match file {
+        Ok(file) => with_migration(baseline::compare(file, run), file, path),
+        Err(why) => invalid(path, why),
+    }
+}
+
+/// The part of a request that writes: the bytes of this run, or `NotWritten` for a refused part.
+fn write(run: &Observed, compared: Option<Compared>) -> Part {
     if !run.gaps.unacceptable.is_empty() {
         let mut refused = baseline::compare(&empty(), run);
-        refused.state = "not_written";
-        // A write alone has no file to fail: the refused run keeps the exit code of its status.
-        refused.exit_code = if run.unknown_status { 2 } else { 1 };
+        // A write alone keeps the exit code of the run status; a write that also compares has
+        // compared nothing and exits 1, because exit 2 with a baseline means all accepted.
+        refused.state = BaselineState::NotWritten {
+            compared: compared.is_some(),
+            open: run.unknown_status,
+        };
         return Part {
             compared: refused,
             file: None,
@@ -223,27 +234,17 @@ pub(crate) fn build(input: Input, run: &Observed) -> Part {
     }
     // A write without a file compares the run with its own output: no difference, and the exit
     // code is the one that `--baseline` gives for the same tree.
-    let compared = match input.file {
-        None => Compared {
-            exit_code: own_exit(run),
-            // The file that this run writes holds these entries and items.
-            accepted_entries: u64::try_from(run.gaps.keys.len()).unwrap_or(u64::MAX),
-            accepted_unknowns: run.gaps.keys.values().sum(),
-            ..compared
-        },
-        Some(_) => compared,
-    };
+    let compared = compared.unwrap_or_else(|| Compared {
+        // The file that this run writes holds these entries and items.
+        accepted_entries: u64::try_from(run.gaps.keys.len()).unwrap_or(u64::MAX),
+        accepted_unknowns: run.gaps.keys.values().sum(),
+        ..Compared::of(BaselineState::Written {
+            open: !run.gaps.keys.is_empty() || run.unknown_status,
+        })
+    });
     Part {
         compared,
         file: Some(written(run)),
-    }
-}
-
-fn own_exit(run: &Observed) -> u8 {
-    if run.gaps.keys.is_empty() && !run.unknown_status {
-        0
-    } else {
-        2
     }
 }
 
@@ -252,16 +253,14 @@ fn empty() -> ValidationBaseline {
 }
 
 /// A file that cannot be read or checked is red and names why: exit 1, never 2 and never 0.
-fn invalid(path: Option<&str>, why: &str) -> Compared {
+fn invalid(path: &str, why: &str) -> Compared {
     Compared {
-        state: "invalid",
-        exit_code: 1,
         gaps: vec![baseline::Named {
             kind: "baseline.invalid",
-            subject: path.unwrap_or("").to_owned(),
+            subject: path.to_owned(),
             reason: why.to_owned(),
         }],
-        ..Compared::default()
+        ..Compared::of(BaselineState::Invalid)
     }
 }
 

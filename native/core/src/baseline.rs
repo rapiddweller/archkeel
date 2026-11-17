@@ -13,12 +13,13 @@
 //! code stays 2 while the run has any UNKNOWN. Only a run with no UNKNOWN and no difference is 0.
 //! A baseline cannot accept a refused part of the run (`Gaps::unacceptable`).
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use archkeel_contract::policy::{budget_word, BaselineBudget, BaselineRole, ValidationBaseline};
 use archkeel_contract::BudgetName;
-use schemars::JsonSchema;
-use serde::Serialize;
+use schemars::{JsonSchema, Schema, SchemaGenerator};
+use serde::{Serialize, Serializer};
 
 use crate::gap_key::{Gaps, Key};
 
@@ -70,11 +71,96 @@ pub(crate) struct Named {
     pub(crate) reason: String,
 }
 
-/// The result of the compare. `exit_code` is the exit code of the command.
-#[derive(Debug, Default, PartialEq, Eq, Serialize, JsonSchema)]
+/// How the run stands against the baseline file (AD-731). The state gives the word and the exit
+/// code of the frame, so the two cannot disagree.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BaselineState {
+    /// Nothing differs. `open`: the run has an UNKNOWN, so it exits 2 and never 0.
+    Current { open: bool },
+    /// A thing differs in one direction or the other.
+    Drift,
+    /// The file cannot be read or checked.
+    Invalid,
+    /// A part of the run is refused, so nothing is compared.
+    NotCompared,
+    /// `--write-baseline` alone: the file holds this run. `open` as for `Current`.
+    Written { open: bool },
+    /// A part of the run is refused, so no file is written. `compared`: the request also
+    /// compares with a file. `open`: the run status is UNKNOWN.
+    NotWritten { compared: bool, open: bool },
+}
+
+impl BaselineState {
+    /// The word of the state in the frame.
+    pub(crate) fn word(self) -> &'static str {
+        match self {
+            Self::Current { .. } => "current",
+            Self::Drift => "drift",
+            Self::Invalid => "invalid",
+            Self::NotCompared => "not_compared",
+            Self::Written { .. } => "written",
+            Self::NotWritten { .. } => "not_written",
+        }
+    }
+
+    /// The exit code of the command. With a baseline, exit 2 means that every UNKNOWN is
+    /// accepted, and CE treats it as green: a state that compares nothing exits 1 (AD-546).
+    pub(crate) fn exit_code(self) -> u8 {
+        match self {
+            Self::Current { open: true } | Self::Written { open: true } => 2,
+            Self::Current { open: false } | Self::Written { open: false } => 0,
+            Self::Drift | Self::Invalid | Self::NotCompared => 1,
+            Self::NotWritten { compared: true, .. } => 1,
+            Self::NotWritten {
+                compared: false,
+                open,
+            } => {
+                if open {
+                    2
+                } else {
+                    1
+                }
+            }
+        }
+    }
+}
+
+// The two keys that the state writes into the frame; the keys and their schema stay as they were.
+#[derive(Serialize, JsonSchema)]
+struct StateKeys {
+    state: &'static str,
+    exit_code: u8,
+}
+
+impl Serialize for BaselineState {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        StateKeys {
+            state: self.word(),
+            exit_code: self.exit_code(),
+        }
+        .serialize(serializer)
+    }
+}
+
+impl JsonSchema for BaselineState {
+    fn schema_name() -> Cow<'static, str> {
+        StateKeys::schema_name()
+    }
+
+    fn inline_schema() -> bool {
+        true
+    }
+
+    fn json_schema(generator: &mut SchemaGenerator) -> Schema {
+        StateKeys::json_schema(generator)
+    }
+}
+
+/// The result of the compare. The state gives the exit code of the command.
+#[derive(Debug, PartialEq, Eq, Serialize, JsonSchema)]
 pub(crate) struct Compared {
-    pub(crate) state: &'static str,
-    pub(crate) exit_code: u8,
+    #[serde(flatten)]
+    pub(crate) state: BaselineState,
     /// The distinct entries (kind, subject, reason) that the file and the run share.
     pub(crate) accepted_entries: u64,
     /// The items behind them: an entry with a count of 3 is 3 items.
@@ -87,6 +173,21 @@ pub(crate) struct Compared {
     pub(crate) accepted_rules: Vec<String>,
 }
 
+impl Compared {
+    /// A result in `state` with no entry, no difference and no gap.
+    pub(crate) fn of(state: BaselineState) -> Compared {
+        Compared {
+            state,
+            accepted_entries: 0,
+            accepted_unknowns: 0,
+            new: Vec::new(),
+            gone: Vec::new(),
+            gaps: Vec::new(),
+            accepted_rules: Vec::new(),
+        }
+    }
+}
+
 /// Release 4.0.1 measured these three with its own analyzer; a file of an older schema holds its
 /// numbers, and the core does not compare them with its own (the schema is the measure).
 const OTHER_ANALYZER: [BudgetName; 3] = [
@@ -97,7 +198,7 @@ const OTHER_ANALYZER: [BudgetName; 3] = [
 
 /// The run against the file, in both directions.
 pub(crate) fn compare(file: &ValidationBaseline, run: &Observed) -> Compared {
-    let mut found = Compared::default();
+    let mut found = Compared::of(BaselineState::NotCompared);
     if !run.gaps.unacceptable.is_empty() {
         for part in &run.gaps.unacceptable {
             found.gaps.push(Named {
@@ -106,10 +207,7 @@ pub(crate) fn compare(file: &ValidationBaseline, run: &Observed) -> Compared {
                 reason: format!("a baseline cannot accept a refused part of the run: {part}"),
             });
         }
-        found.state = "not_compared";
-        // A refused part cannot be compared. Exit 2 with a baseline means that every UNKNOWN is
-        // accepted, so a refusal exits 1: CE treats exit 2 as green (AD-546).
-        found.exit_code = 1;
+        // A refused part cannot be compared: `NotCompared` exits 1 (AD-546).
         return found;
     }
     violations(file, run, &mut found);
@@ -117,11 +215,10 @@ pub(crate) fn compare(file: &ValidationBaseline, run: &Observed) -> Compared {
     unknowns(file, run, &mut found);
     let drift = !found.new.is_empty() || !found.gone.is_empty();
     let unknown = !run.gaps.keys.is_empty() || !found.gaps.is_empty() || run.unknown_status;
-    found.state = if drift { "drift" } else { "current" };
-    found.exit_code = match (drift, unknown) {
-        (true, _) => 1,
-        (false, true) => 2,
-        (false, false) => 0,
+    found.state = if drift {
+        BaselineState::Drift
+    } else {
+        BaselineState::Current { open: unknown }
     };
     found
 }

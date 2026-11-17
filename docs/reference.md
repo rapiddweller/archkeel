@@ -127,6 +127,11 @@ On `main`:
 
 Exit 0 needs a frame of the core. No path of the shell gives exit 0 for `validate` or `report` without it.
 In JSON, a refusal has the field `refusal` with `kind` and `message`, and no frame. In text, it starts with `REFUSED:`.
+The result of a run that gave a frame also has `refusals`, which lists each refusal in order;
+`refusal` is the first. A run that could not write a file keeps its frame.
+With `--baseline`, exit 2 means that every UNKNOWN is accepted, so only a verdict of the core gives it.
+A refusal, and a baseline file that was not written, exit 1 with `--baseline` and 2 without
+it ([AD-731](architecture/decisions/ad-731-under-a-baseline-only-a-verdict-exits-2.md)).
 A gap has `kind`, `subject` and `reason`. A rule kind without a port is UNKNOWN with the gap `rule_kind_not_ported`.
 
 <a id="core-only-architecture-gate"></a>
@@ -186,6 +191,7 @@ review the file, and keep it in the repository.
 | No difference, and the run has at least one UNKNOWN | `current` | 2 |
 | No difference, and no UNKNOWN | `current` | 0 |
 | A refused part of the run (reply, contract, section, report), or a refused scan | `not_compared` | 1 |
+| `--write-baseline` on a run with a refused part: no file is written | `not_written` | 1 with `--baseline`, else the exit code of the run |
 
 The file lists each accepted UNKNOWN as `kind`, `subject` and `reason`, with a `count` above 1.
 A rule row has the rule id as subject, so a new rule that is UNKNOWN for an accepted cause is a new

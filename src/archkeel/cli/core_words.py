@@ -56,6 +56,7 @@ FIXES: Final = {
     "not_on_this_development_line": "use the release named above, or leave this option out.",
     "core_error": "run again; if it repeats, keep the output and report it with the version.",
     "internal_error": "run again with --verbose and report what it prints; it is a fault.",
+    "baseline_not_written": "fix the refused part named above, then write the baseline again.",
 }
 #: What to do for a refusal whose message starts with a part of the scan (first match wins).
 PART_FIXES: Final = (
