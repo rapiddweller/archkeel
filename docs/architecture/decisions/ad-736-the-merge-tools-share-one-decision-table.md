@@ -10,6 +10,8 @@
 3. Exit codes: 0 merged, 1 refused, 2 empty landing, 3 wait, 4 merged but the landing is not yet visible. Each refusal names the next step.
 4. `merge_check.py` takes the reasons of the same table (REFUSE as errors, WAIT as warnings) and adds its local file checks. Its stale "no PR CI" note is gone.
 
+5. Area selection (Wave 4, item 2): a change to `tests/conftest.py`, `tests/areas.py`, `tests/area_floors.json`, `tests/*_support.py` or `tests/*_plants.py` selects every area, and `tools/select_areas.py` reads the diff with `--no-renames`, so a rename lists both paths. A BLOCKED merge state with green checks is WAIT (GitHub lags a few seconds), not REFUSE.
+
 **Rejected.** Deleting `merge_check.py` (owner: it stays); a second table in each tool.
 
 **Tests.** `tests/test_merge_pr.py` (every row, the exit codes, `--json`, `--wait`), `tests/test_merge_check.py`.

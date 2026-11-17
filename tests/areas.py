@@ -151,6 +151,12 @@ TOUCHES: tuple[tuple[str, tuple[str, ...] | str], ...] = (
     ("schema/*", ("CLI and core", "self-check and CI")),
     ("fixtures/*", ("CLI and core", "collectors")),
     ("tools/*", ("self-check and CI", "reports")),
+    # AD-736: a shared helper of the tests, the area table and its floors can change any area.
+    ("tests/conftest.py", ALL),
+    ("tests/areas.py", ALL),
+    ("tests/area_floors.json", ALL),
+    ("tests/*_support.py", ALL),
+    ("tests/*_plants.py", ALL),
     ("tests/*", ("self-check and CI",)),
     (".github/*", ("self-check and CI",)),
     ("docs/*", ("self-check and CI",)),
