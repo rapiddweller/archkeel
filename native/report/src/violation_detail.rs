@@ -47,6 +47,22 @@ impl PathStep {
 }
 
 impl ViolationDetail {
+    /// A row with a source, an optional target, a cause and its evidence; no members, no path.
+    fn plain(
+        source: String,
+        target: Option<String>,
+        cause: &'static str,
+        evidence: Vec<String>,
+    ) -> Self {
+        Self {
+            source,
+            target,
+            cause,
+            evidence,
+            ..Self::default()
+        }
+    }
+
     pub(crate) fn source(&self) -> &str {
         &self.source
     }
@@ -87,32 +103,29 @@ impl ViolationDetail {
             Violation::Unrequired { cited, .. } => {
                 Self::cited("undeclared component dependency", cited)
             }
-            Violation::Unassigned { name, evidence, .. } => Self {
-                source: name.clone(),
-                target: None,
-                cause: "module has no unique owner",
-                evidence: vec![evidence.clone()],
-                ..Self::default()
-            },
+            Violation::Unassigned { name, evidence, .. } => Self::plain(
+                name.clone(),
+                None,
+                "module has no unique owner",
+                vec![evidence.clone()],
+            ),
             Violation::NotAllowedChild {
                 root,
                 child,
                 evidence,
                 ..
-            } => Self {
-                source: root.clone(),
-                target: Some(child.clone()),
-                cause: "child outside root layout",
-                evidence: vec![evidence.clone()],
-                ..Self::default()
-            },
-            Violation::OuterLayer(layer) => Self {
-                source: layer.source_component.clone(),
-                target: Some(layer.target_component.clone()),
-                cause: "dependency violates layer order",
-                evidence: vec![layer.evidence.clone()],
-                ..Self::default()
-            },
+            } => Self::plain(
+                root.clone(),
+                Some(child.clone()),
+                "child outside root layout",
+                vec![evidence.clone()],
+            ),
+            Violation::OuterLayer(layer) => Self::plain(
+                layer.source_component.clone(),
+                Some(layer.target_component.clone()),
+                "dependency violates layer order",
+                vec![layer.evidence.clone()],
+            ),
             Violation::Cycle(cycle) => Self {
                 source: cycle.members.join(" -> "),
                 target: cycle.members.first().cloned(),
@@ -125,35 +138,31 @@ impl ViolationDetail {
                         .collect(),
                 ),
             },
-            Violation::Construct(row) => Self {
-                source: format!("{} ({})", row.owner, row.construct),
-                target: None,
-                cause: "forbidden construct",
-                evidence: row.evidence.clone(),
-                ..Self::default()
-            },
-            Violation::BoundaryType(row) => Self {
-                source: row.subject.clone(),
-                target: Some(row.text.clone()),
-                cause: "written type outside the boundary types",
-                evidence: row.evidence.clone(),
-                ..Self::default()
-            },
+            Violation::Construct(row) => Self::plain(
+                format!("{} ({})", row.owner, row.construct),
+                None,
+                "forbidden construct",
+                row.evidence.clone(),
+            ),
+            Violation::BoundaryType(row) => Self::plain(
+                row.subject.clone(),
+                Some(row.text.clone()),
+                "written type outside the boundary types",
+                row.evidence.clone(),
+            ),
             // AD-670: the source is the module, the target the item in the form `module:name`.
-            Violation::UnusedPublic(row) => Self {
-                source: row.module.clone(),
-                target: Some(format!("{}:{}", row.module, row.name)),
-                cause: "public name that no other component uses",
-                evidence: row.evidence.clone(),
-                ..Self::default()
-            },
-            Violation::SymbolPlacement(row) => Self {
-                source: row.name.clone(),
-                target: Some(row.module.clone()),
-                cause: "class outside allowed modules",
-                evidence: row.evidence.clone(),
-                ..Self::default()
-            },
+            Violation::UnusedPublic(row) => Self::plain(
+                row.module.clone(),
+                Some(format!("{}:{}", row.module, row.name)),
+                "public name that no other component uses",
+                row.evidence.clone(),
+            ),
+            Violation::SymbolPlacement(row) => Self::plain(
+                row.name.clone(),
+                Some(row.module.clone()),
+                "class outside allowed modules",
+                row.evidence.clone(),
+            ),
             // AD-428: the target names the imported symbol in the selector form `module:name`.
             Violation::PrivateImport { cited, symbol, .. } => Self {
                 source: cited.source_module.clone(),
@@ -166,13 +175,12 @@ impl ViolationDetail {
                 ..Self::default()
             },
             // AD-608: the target is the published name in the selector form `module:name`.
-            Violation::Publication(found) => Self {
-                source: found.cited.source_module.clone(),
-                target: Some(format!("{}:{}", found.cited.source_module, found.name)),
-                cause: "publication outside the public interface",
-                evidence: found.cited.evidence.clone(),
-                ..Self::default()
-            },
+            Violation::Publication(found) => Self::plain(
+                found.cited.source_module.clone(),
+                Some(format!("{}:{}", found.cited.source_module, found.name)),
+                "publication outside the public interface",
+                found.cited.evidence.clone(),
+            ),
         }
     }
 }
