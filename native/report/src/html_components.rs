@@ -14,6 +14,7 @@ use super::cases::Names;
 use super::frame::{Edge, Frame, Module, Topology};
 use super::markup::{anchor, count, escape, level_icon, status_icon};
 use super::places::{Kind, Places};
+use super::status::Shown;
 
 /// The components with all tables; the other components of an exception are one line.
 const FULL: usize = 24;
@@ -131,14 +132,16 @@ fn entries<'a>(frame: &'a Frame, places: &'a Places, names: &Names<'a>) -> Vec<E
 }
 
 fn badge(entry: &Entry<'_>) -> String {
-    let (state, class, text) = match (entry.violations(), entry.gaps.len()) {
+    let (state, text) = match (entry.violations(), entry.gaps.len()) {
         (0, 0) => return String::new(),
-        (0, gaps) => ("UNKNOWN", "unknown", count(gaps, "gap")),
-        (violations, _) => ("FAIL", "fail", count(violations, "violation")),
+        (0, gaps) => (Shown::Unknown, count(gaps, "gap")),
+        (violations, _) => (Shown::Fail, count(violations, "violation")),
     };
     format!(
-        "<span class=\"ak-badge ak-badge--{class} tag\">{}{text}</span><span class=\"rp-vh\">{state}</span>",
-        status_icon(state)
+        "<span class=\"ak-badge ak-badge--{} tag\">{}{text}</span><span class=\"rp-vh\">{}</span>",
+        state.class(),
+        status_icon(state),
+        state.word()
     )
 }
 

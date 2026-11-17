@@ -31,11 +31,11 @@ browser-runtime-generate: browser-runtime-install
 # AD-674: the fast tests (everything but tests/areas.py SLOW_FILES). The main tier runs one area in each
 # job (AREA=...); the PR tier runs the areas that the change selects (make pr-gate). A floor in
 # tests/area_floors.json makes an empty or shrunken selection fail.
-FAST_TEST = ARCHKEEL_PREBUILT_CORE=1 $(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
+FAST_TEST = ARCHKEEL_REQUIRE_PREBUILT=1 $(UV) run --locked python -m pytest -n 4 --dist=loadgroup --max-worker-restart=0 \
 	-q --durations=10 --junitxml=test-artifacts/pytest/fast.xml
 
 fast-test: core browser-runtime-install
-	$(FAST_TEST) -m 'not native_wheel and not slow' $(if $(AREA),--area="$(AREA)",)
+	$(FAST_TEST) --tier fast -m 'not native_wheel and not slow' $(if $(AREA),--area="$(AREA)",)
 
 # AD-674: the PR gate, at most 3 minutes: static checks, the core build, the self and system check,
 # and the fast tests of the areas that the change selects (tools/select_areas.py).
@@ -44,7 +44,7 @@ pr-gate: ci-pr-static self-validate pr-selected-test
 
 pr-selected-test: core browser-runtime-install
 	@areas=$$($(UV) run --locked python tools/select_areas.py "$(PR_BASE)") && echo "areas: $$areas" && \
-		eval "$(FAST_TEST) -m 'not native_wheel and not slow and not debug_build and not heavy' $$areas"
+		eval "$(FAST_TEST) --tier pr -m 'not native_wheel and not slow and not debug_build and not heavy' $$areas"
 
 # Checks a pull request before its merge: make merge-check PR=<number> (tools/merge_check.py).
 merge-check:
@@ -94,12 +94,13 @@ native-check:
 	$(MAKE) self-validate-native
 
 # AD-432: the core is the only decision path. `archkeel` finds this release build of the checkout.
-# AD-732: with ARCHKEEL_NATIVE_TREE (the hash of the native tree, set by CI) the core is reused only when
-# the stamp next to the binary names that tree; else it is built and then stamped. A stale binary of
-# main, restored from a cache, therefore never stands for the tree of a pull request.
+# AD-732, AD-736: with ARCHKEEL_CORE_SOURCE=cache (CI restored the core from its cache) and
+# ARCHKEEL_NATIVE_TREE (the hash of the native tree) the core is reused only when the stamp next to the
+# binary names that tree; else it is built and, with a tree, stamped. A stale binary of main, restored
+# from a cache, therefore never stands for the tree of a pull request. CORE_SOURCE is `build` by default.
 core:
 	@stamp=native/target/release/archkeel-core.tree; tree="$$ARCHKEEL_NATIVE_TREE"; \
-	if [ -n "$$tree" ] && [ -x native/target/release/archkeel-core ] && [ "$$(cat $$stamp 2>/dev/null)" = "$$tree" ]; then \
+	if [ "$$ARCHKEEL_CORE_SOURCE" = cache ] && [ -n "$$tree" ] && [ -x native/target/release/archkeel-core ] && [ "$$(cat $$stamp 2>/dev/null)" = "$$tree" ]; then \
 		echo "core: the release core of tree $$tree is used (AD-732)"; \
 	else \
 		rm -f $$stamp; (cd native && cargo build --locked --release -p archkeel-core) && \

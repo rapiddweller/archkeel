@@ -70,10 +70,12 @@ def test_a_conflict_is_refused(state: dict) -> None:
     assert decision.verdict == "REFUSE" and codes(decision) == ["conflict"]
 
 
-def test_a_draft_a_closed_request_and_a_blocked_state_are_refused() -> None:
+def test_a_draft_a_closed_request_is_refused_and_a_blocked_state_with_green_checks_waits() -> None:
     assert codes(decide({**PR, "isDraft": True}, [], {})) == ["draft"]
     assert codes(decide({**PR, "state": "MERGED"}, [], {})) == ["not_open"]
-    assert codes(decide({**PR, "mergeStateStatus": "BLOCKED"}, ["PR gate"], GREEN)) == ["blocked"]
+
+    blocked = decide({**PR, "mergeStateStatus": "BLOCKED"}, ["PR gate"], GREEN)
+    assert (blocked.verdict, codes(blocked)) == ("WAIT", ["blocked"])  # GitHub lags a few seconds
 
 
 def test_a_head_behind_its_base_may_merge_when_the_gate_is_green() -> None:

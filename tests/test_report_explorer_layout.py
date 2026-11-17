@@ -3,10 +3,10 @@
 # SPDX-License-Identifier: MIT
 """The layout of large and stacked levels of the Explorer, in a headless Chrome.
 
-The self report holds a part with 628 modules ("Rust core"). Its Modules view took three seconds
-of ELK work and then showed an empty corner of a 50000 px sheet (issue 1488); two stacked boxes
-got an edge that ran around the upper box (issue 1489); the first view after a drill was drawn at
-40 percent, too small to read (issue 1490).
+The self report holds a part with more than 600 modules ("Rust core"). Its Modules view took
+three seconds of ELK work and then showed an empty corner of a 50000 px sheet (issue 1488); two
+stacked boxes got an edge that ran around the upper box (issue 1489); the first view after a
+drill was drawn at 40 percent, too small to read (issue 1490).
 """
 
 import time
@@ -79,14 +79,19 @@ def test_a_level_with_too_many_modules_groups_them_by_component(site: str, page:
         " return { nodes: s.nodes.length, grouped: s.grouped,"
         " counts: s.nodes.reduce((sum, n) => sum + (n.group || 0), 0) }; })()"
     )
-    assert scene["grouped"] == {"modules": 628, "limit": 150}
+    modules = scene["grouped"]["modules"]
+    assert modules > scene["grouped"]["limit"] == 150
     assert scene["nodes"] <= 150
-    assert scene["counts"] == 628
-    assert "628 observed modules in" in page.evaluate(
+    assert scene["counts"] == modules
+    assert f"{modules} observed modules in" in page.evaluate(
         "document.querySelector('.atlas-summary').textContent"
     )
-    page.evaluate("ArchkeelFlow.openComponent('LAYER:PART:core:report', 'modules')")
+    page.evaluate(
+        "document.querySelector('#flow [data-uml-id=\"LAYER:PART:core:report\"]')"
+        ".dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))"
+    )
     page.settle()
+    assert page.state()["scope"] == "LAYER:PART:core:report"
     nodes = page.evaluate("ArchkeelFlow.state().scene.nodes.map((n) => n.kind)")
     assert nodes and set(nodes) == {"module"}
 

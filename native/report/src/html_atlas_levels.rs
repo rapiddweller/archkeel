@@ -13,6 +13,8 @@ use serde_json::{json, Value};
 
 use super::atlas_tree::{held, Finding, Refs, Tree};
 use super::frame::{Frame, Topology};
+use super::status::{Floors, Shown};
+use crate::head::RuleVerdict;
 
 /// One import between two modules of the topology.
 struct Cell {
@@ -20,7 +22,7 @@ struct Cell {
     target: usize,
     owners: (Option<usize>, Option<usize>),
     count: usize,
-    status: &'static str,
+    status: Shown,
     findings: Vec<usize>,
 }
 
@@ -51,17 +53,15 @@ impl Levels {
     }
 }
 
-/// The worse of two statuses: FAIL before UNKNOWN before PASS.
-fn worse(a: &'static str, b: &'static str) -> &'static str {
-    let rank = |s: &str| ["PASS", "UNKNOWN", "FAIL"].iter().position(|x| *x == s);
-    if rank(b) > rank(a) {
-        b
-    } else {
-        a
-    }
-}
-
-fn cells(frame: &Frame, topology: &Topology, tree: &Tree, found: &[Finding]) -> Vec<Cell> {
+/// The imports between the modules of the topology. A cell is FAIL when a failing rule names it,
+/// UNKNOWN when a gap holds its pair, else the floor of the run (AD-730).
+fn cells(
+    frame: &Frame,
+    topology: &Topology,
+    tree: &Tree,
+    found: &[Finding],
+    floors: &Floors,
+) -> Vec<Cell> {
     let index: BTreeMap<&str, usize> = topology
         .modules
         .iter()
@@ -70,9 +70,12 @@ fn cells(frame: &Frame, topology: &Topology, tree: &Tree, found: &[Finding]) -> 
         .collect();
     let held = held(frame);
     let failing = |rules: &[String]| {
-        rules
-            .iter()
-            .any(|r| frame.rules.get(r).is_some_and(|row| row.1 == "FAIL"))
+        rules.iter().any(|r| {
+            frame
+                .rules
+                .get(r)
+                .is_some_and(|row| row.1 == RuleVerdict::Fail)
+        })
     };
     topology
         .edges
@@ -84,20 +87,22 @@ fn cells(frame: &Frame, topology: &Topology, tree: &Tree, found: &[Finding]) -> 
                 *index.get(e.target.as_str())?,
             );
             let pair = (e.source.clone(), e.target.clone());
+            let owners = (
+                tree.owner.get(&e.source).copied(),
+                tree.owner.get(&e.target).copied(),
+            );
+            let floor = floors.at(tree, owners.0).max(floors.at(tree, owners.1));
             let status = if failing(&e.rules) {
-                "FAIL"
+                Shown::Fail
             } else if held.contains(&pair) {
-                "UNKNOWN"
+                Shown::Unknown
             } else {
-                "PASS"
+                floor
             };
             Some(Cell {
                 source,
                 target,
-                owners: (
-                    tree.owner.get(&e.source).copied(),
-                    tree.owner.get(&e.target).copied(),
-                ),
+                owners,
                 count: e.count,
                 status,
                 findings: (0..found.len())
@@ -136,16 +141,16 @@ fn modules(
             .map(|n| refs.id(&tree.nodes[*n].id));
         let candidates: Vec<usize> = owner.into_iter().collect();
         let (status, reason) = if owner.is_some() {
-            ("PASS", owned)
+            (Shown::Pass, owned)
         } else {
-            ("UNKNOWN", unowned)
+            (Shown::Unknown, unowned)
         };
         assignments.push(json!([i, owner, candidates, status, reason]));
     }
     (rows, assignments)
 }
 
-type Pairs = BTreeMap<(usize, usize), (usize, &'static str)>;
+type Pairs = BTreeMap<(usize, usize), (usize, Shown)>;
 
 /// The observed and the declared pairs between the children of one level.
 fn pairs(
@@ -162,8 +167,8 @@ fn pairs(
         let ends = (tree.child_under(level, so), tree.child_under(level, to));
         if let (Some(s), Some(t)) = ends {
             if s != t {
-                let row = observed.entry((s, t)).or_insert((0, "PASS"));
-                *row = (row.0 + cell.count, worse(row.1, cell.status));
+                let row = observed.entry((s, t)).or_insert((0, Shown::Pass));
+                *row = (row.0 + cell.count, row.1.max(cell.status));
             }
         }
     }
@@ -175,7 +180,7 @@ fn pairs(
         );
         if let (Some(s), Some(t)) = ends {
             if s != t {
-                permitted.entry((s, t)).or_insert((0, "PASS")).0 += imports;
+                permitted.entry((s, t)).or_insert((0, Shown::Pass)).0 += imports;
             }
         }
     }
@@ -190,7 +195,7 @@ pub(super) fn levels(
     found: &[Finding],
     refs: &mut Refs,
 ) -> Levels {
-    let cells = cells(frame, topology, tree, found);
+    let cells = cells(frame, topology, tree, found, &Floors::of(frame));
     let (modules, assignments) = modules(topology, tree, &cells, refs);
     let ids: BTreeMap<&str, usize> = tree
         .nodes
@@ -231,7 +236,11 @@ pub(super) fn levels(
         requires: BTreeMap::new(),
         used_by: BTreeMap::new(),
     };
-    let complete = if topology.complete { "PASS" } else { "UNKNOWN" };
+    let complete = if topology.complete {
+        Shown::Pass
+    } else {
+        Shown::Unknown
+    };
     let reason = if topology.complete {
         "The scan names each import between the modules."
     } else {
@@ -340,7 +349,7 @@ fn level_row(
                 let ends = (tree.child_under(level, *s)?, tree.child_under(level, *t)?);
                 (ends.0 != ends.1).then(|| json!({
                     "source_id": id(ends.0), "target_id": id(ends.1), "import_sites": 0,
-                    "status": "UNKNOWN", "interface_id": i.id, "crossing": i.title, "schema": i.schema,
+                    "status": Shown::Unknown, "interface_id": i.id, "crossing": i.title, "schema": i.schema,
                 }))
             }))
             .collect(),

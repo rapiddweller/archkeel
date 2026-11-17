@@ -35,10 +35,13 @@ def _fake_cargo(tmp_path: Path, succeed: bool = True) -> dict[str, str]:
 
 
 def _make_core(
-    tmp_path: Path, env: dict[str, str], tree: str | None
+    tmp_path: Path, env: dict[str, str], tree: str | None, source: str = "cache"
 ) -> subprocess.CompletedProcess:
     (tmp_path / "native").mkdir(exist_ok=True)
-    env = {k: v for k, v in env.items() if k != "ARCHKEEL_NATIVE_TREE"}
+    env = {
+        k: v for k, v in env.items() if k not in ("ARCHKEEL_NATIVE_TREE", "ARCHKEEL_CORE_SOURCE")
+    }
+    env["ARCHKEEL_CORE_SOURCE"] = source
     if tree is not None:
         env["ARCHKEEL_NATIVE_TREE"] = tree
     return subprocess.run(
@@ -62,9 +65,15 @@ def test_make_core_reuses_a_core_only_with_the_stamp_of_its_tree(tmp_path: Path)
     assert "is used" in done.stdout and len(calls.read_text().splitlines()) == 1
     assert _make_core(tmp_path, env, "tree-b").returncode == 0
     assert stamp.read_text().strip() == "tree-b" and len(calls.read_text().splitlines()) == 2
+    # AD-736: a core that did not come from the cache is never reused, even with a matching stamp.
+    before = len(calls.read_text().splitlines())
+    assert _make_core(tmp_path, env, "tree-b", source="build").returncode == 0
+    assert len(calls.read_text().splitlines()) == before + 1
+    assert _make_core(tmp_path, env, "tree-b").returncode == 0
+    assert len(calls.read_text().splitlines()) == before + 1
     # No tree: always `cargo build`, no stamp promise.
     assert _make_core(tmp_path, env, None).returncode == 0
-    assert len(calls.read_text().splitlines()) == 3 and not stamp.exists()
+    assert len(calls.read_text().splitlines()) == before + 2 and not stamp.exists()
     failing = _fake_cargo(tmp_path, succeed=False)
     assert _make_core(tmp_path, failing, "tree-c").returncode != 0
     assert not stamp.exists()

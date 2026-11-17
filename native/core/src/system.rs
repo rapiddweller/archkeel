@@ -44,11 +44,10 @@ pub(crate) fn join(
             first.get(key).cloned().unwrap_or(Value::Null),
         );
     }
-    let statuses: Vec<Option<Status>> = frames
-        .iter()
-        .map(|part| serde_json::from_value(part.get("status")?.clone()).ok())
-        .collect();
-    frame.insert("status".to_owned(), json!(system_status(&statuses)));
+    let typed: Vec<PartFrame> = frames.iter().map(PartFrame::of).collect();
+    let statuses: Vec<Option<Status>> = typed.iter().map(|part| part.status).collect();
+    let status = system_status(&statuses);
+    frame.insert("status".to_owned(), json!(status));
     for key in RULE_MAPS {
         frame.insert(key.to_owned(), Value::Object(disjoint(&frames, key)?));
     }
@@ -70,7 +69,9 @@ pub(crate) fn join(
     if !doors.is_empty() {
         frame.insert("door_reach".to_owned(), Value::Array(doors));
     }
-    frame.insert("scope".to_owned(), scope(&frames));
+    let ids: Vec<&str> = system.parts.iter().map(|part| part.id.as_str()).collect();
+    let scope = scope(&ids, &typed, status)?;
+    frame.insert("scope".to_owned(), scope.clone());
     if let Some(premise) = premise(&frames) {
         frame.insert("premise".to_owned(), json!(premise));
     }
@@ -101,7 +102,10 @@ pub(crate) fn join(
     };
     if topology || html {
         let sources: Vec<_> = system.parts.iter().zip(&frames).collect();
-        if let Some(found) = crate::system_topology::topology(&sources)? {
+        if let Some(found) = crate::system_topology::topology(
+            &sources,
+            scope.as_str().filter(|word| *word != "complete"),
+        )? {
             frame.insert("topology".to_owned(), found);
         }
         if let Some(found) = crate::system_topology::explain(&frames) {
@@ -188,13 +192,88 @@ fn premise(frames: &[Map<String, Value>]) -> Option<String> {
     (!found.is_empty()).then(|| found.join("; "))
 }
 
-/// `complete` when each part is complete, else the reason of the first part that is not.
-fn scope(frames: &[Map<String, Value>]) -> Value {
-    let open = frames
+/// The scope of one part: complete, or open with the value that the frame of the part carries.
+#[derive(Clone, Debug, PartialEq)]
+enum PartScope {
+    Complete,
+    Open(Value),
+}
+
+/// What the join reads of the frame of one part, typed once: its status (none when unreadable)
+/// and its scope (a frame without a scope is complete).
+struct PartFrame {
+    status: Option<Status>,
+    scope: PartScope,
+    /// The first row that explains why the part is not PASS: the text of a rule row that is
+    /// UNKNOWN, of a rule without a decision, or of a gap.
+    explanation: Option<String>,
+}
+
+impl PartFrame {
+    fn of(part: &Map<String, Value>) -> Self {
+        let status = part
+            .get("status")
+            .and_then(|status| serde_json::from_value(status.clone()).ok());
+        let scope = match part.get("scope") {
+            None => PartScope::Complete,
+            Some(scope) if scope.as_str() == Some("complete") => PartScope::Complete,
+            Some(open) => PartScope::Open(open.clone()),
+        };
+        PartFrame {
+            status,
+            scope,
+            explanation: explanation(part),
+        }
+    }
+}
+
+/// The first explaining row of a part frame: an UNKNOWN rule (by rule id), a rule without a
+/// decision, or a gap. A part that is UNKNOWN has one, or the frame is unsound.
+fn explanation(part: &Map<String, Value>) -> Option<String> {
+    let text = |value: &Value| value.as_str().map(str::to_owned);
+    let rule = map(part, "explained").find_map(|(_, why)| text(why));
+    let unsupported = || match part.get("unsupported")?.get("rules")? {
+        Value::Object(rules) => rules.values().find_map(text),
+        other => text(other),
+    };
+    let gap = || {
+        ["gaps", "collection_gaps"]
+            .into_iter()
+            .flat_map(|key| list(part, key))
+            .find_map(|gap| text(gap.get("reason")?))
+    };
+    rule.or_else(unsupported).or_else(gap)
+}
+
+/// The scope of the system: the reason of the first open part; else, when the system is UNKNOWN,
+/// the explaining row of the first part that is not PASS (an UNKNOWN system never says
+/// `complete`); else `complete`. An UNKNOWN part without an explaining row refuses the system.
+fn scope(ids: &[&str], parts: &[PartFrame], status: Status) -> Result<Value, String> {
+    let open = parts.iter().find_map(|part| match &part.scope {
+        PartScope::Complete => None,
+        PartScope::Open(reason) => Some(reason.clone()),
+    });
+    if let Some(reason) = open {
+        return Ok(reason);
+    }
+    for (id, part) in ids.iter().zip(parts) {
+        if part.status != Some(Status::Pass)
+            && part.status != Some(Status::Fail)
+            && part.explanation.is_none()
+        {
+            return Err(format!(
+                "system: the part {id} is UNKNOWN without an explaining row"
+            ));
+        }
+    }
+    if status != Status::Unknown {
+        return Ok(json!("complete"));
+    }
+    let why = parts
         .iter()
-        .filter_map(|part| part.get("scope"))
-        .find(|scope| scope.as_str() != Some("complete"));
-    open.cloned().unwrap_or_else(|| json!("complete"))
+        .filter(|part| part.status != Some(Status::Pass))
+        .find_map(|part| part.explanation.clone());
+    Ok(why.map_or_else(|| json!("complete"), Value::from))
 }
 
 /// The self-test of the system: the rule kinds of all parts, the files of all replies, and the

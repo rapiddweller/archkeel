@@ -111,23 +111,14 @@ pub(super) fn macro_rules(walker: &mut Walker<'_>, node: &ItemMacro) {
     });
 }
 
-pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
-    let Some(name) = node.path.segments.last().map(|s| plain(&s.ident)) else {
-        return;
-    };
-    let span = node
-        .path
-        .segments
-        .first()
-        .map_or(Span::call_site(), |s| s.ident.span());
-    let local = node.path.segments.len() == 1
-        || node.path.segments.first().is_some_and(|first| {
-            ["crate", "self", "super"].contains(&first.ident.to_string().as_str())
-        });
-    let site = walker.site(span);
-    let module_level = walker.blocks == 0 && matches!(walker.holder, Holder::Module);
-    let call = MacroCall {
-        name: name.clone(),
+/// The facts of one macro call that the walk reads at its place.
+fn call_of(
+    walker: &Walker<'_>,
+    node: &Macro,
+    (name, site, local, module_level): (String, crate::site::Site, bool, bool),
+) -> MacroCall {
+    MacroCall {
+        name,
         site,
         placed: local,
         fills: module_level,
@@ -143,7 +134,26 @@ pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
         prelude: walker.tools,
         absolute: node.path.leading_colon.is_some(),
         writes_impl: holds_impl(node.tokens.clone()),
+        public: crate::macro_public::CallTokens::of(node.tokens.clone()),
+    }
+}
+
+pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
+    let Some(name) = node.path.segments.last().map(|s| plain(&s.ident)) else {
+        return;
     };
+    let span = node
+        .path
+        .segments
+        .first()
+        .map_or(Span::call_site(), |s| s.ident.span());
+    let local = node.path.segments.len() == 1
+        || node.path.segments.first().is_some_and(|first| {
+            ["crate", "self", "super"].contains(&first.ident.to_string().as_str())
+        });
+    let site = walker.site(span);
+    let module_level = walker.blocks == 0 && matches!(walker.holder, Holder::Module);
+    let call = call_of(walker, node, (name.clone(), site, local, module_level));
     // The tokens of a macro are not code that the scan reads: a call in them is not placed.
     let mut inner = BTreeSet::new();
     macro_names(node.tokens.clone(), 0, &mut inner);
@@ -160,7 +170,7 @@ pub(super) fn macro_call(walker: &mut Walker<'_>, node: &Macro) {
         && inner.iter().all(|inner| std_only(inner) && !local(inner));
     // A call in the tokens keeps its own path: the proof of a macro identity reads it (#1371).
     let mut paths = BTreeSet::new();
-    macro_paths(node.tokens.clone(), 0, &mut paths);
+    macro_paths(node.tokens.clone(), &mut paths);
     let hidden = paths.into_iter().map(|(absolute, path)| MacroCall {
         name: path.last().cloned().unwrap_or_default(),
         placed: false,

@@ -46,10 +46,15 @@ def test_the_core_decides_each_rule_of_the_self_contract(
     assert core, "the self-contract has rules"
     # No rule names a part of the scope proof: each one has a decision.
     assert result["gaps"] == []
-    # AD-668: a known violation stays FAIL, as pinned (honesty rule); no rule is UNKNOWN.
-    assert "UNKNOWN" not in core.values()
+    # AD-668: a known violation stays FAIL, as pinned (honesty rule). An UNKNOWN rule is one that
+    # the pin names with its reason (AD-670: the Rust collector states no public symbol facts yet).
+    assert {rule for rule, status in core.items() if status == "UNKNOWN"} == set(
+        expected["unknown"]
+    )
     assert core == expected["rules"]
-    status = "FAIL" if "FAIL" in core.values() else "PASS"
+    status = (
+        "FAIL" if "FAIL" in core.values() else "UNKNOWN" if "UNKNOWN" in core.values() else "PASS"
+    )
     assert (code, result["status"], frame["status"]) == (expected_exit(expected), status, status)
     assert set(frame["unknown_kinds"]) == {r for r, status in core.items() if status == "UNKNOWN"}
     assert frame["scope"] == "complete"

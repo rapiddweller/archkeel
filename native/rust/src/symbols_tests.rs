@@ -166,7 +166,9 @@ fn an_item_that_a_macro_generates_is_not_invented() {
         impl Real { make_method!(); pub fn plain() {} }\n";
     assert_eq!(
         rows(source, false),
+        // AD-718 (#1450): the call tokens hold `pub struct Generated`, which `$t` writes.
         [
+            "class ns.a.Generated public",
             "class ns.a.Real public",
             "macro ns.a.make package",
             "macro ns.a.shown public",

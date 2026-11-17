@@ -55,3 +55,86 @@ fn the_system_frame_keeps_the_premise_of_each_part_once() {
     );
     assert_eq!(joined(&[part("PASS", None)]).get("premise"), None);
 }
+
+fn part_with_scope(status: &str, scope: &Value) -> Vec<u8> {
+    let frame = json!({"engine": "e", "protocol": "p", "status": status, "scope": scope});
+    serde_json::to_vec(&frame).unwrap()
+}
+
+#[test]
+fn the_scope_of_the_system_is_complete_or_the_reason_of_the_first_open_part() {
+    let all = joined(&[part("PASS", None), part("PASS", None)]);
+    assert_eq!(all["scope"], json!("complete"));
+    let open = |text: &str| part_with_scope("UNKNOWN", &json!(text));
+    let first = joined(&[part("PASS", None), open("one"), open("two")]);
+    assert_eq!(first["scope"], json!("one"));
+    // A frame without a scope is complete; a scope that is no text is open and kept as it is.
+    let bare = serde_json::to_vec(&json!({"engine": "e", "protocol": "p", "status": "PASS"}));
+    assert_eq!(joined(&[bare.unwrap()])["scope"], json!("complete"));
+    let odd = joined(&[part_with_scope("UNKNOWN", &json!(7))]);
+    assert_eq!(odd["scope"], json!(7));
+}
+
+/// A part that is UNKNOWN for a rule: the frame states the rule row that explains it.
+fn unknown_part(rule: &str, why: &str) -> Vec<u8> {
+    let frame = json!({
+        "engine": "e", "protocol": "p", "status": "UNKNOWN", "scope": "complete",
+        "explained": {rule: why},
+    });
+    serde_json::to_vec(&frame).unwrap()
+}
+
+#[test]
+fn an_unknown_system_never_says_that_its_scope_is_complete() {
+    let why = "incomplete scope: the profile cannot decide R1";
+    let frame = joined(&[part("PASS", None), unknown_part("R1", why)]);
+    assert_eq!(frame["status"], json!("UNKNOWN"));
+    assert_eq!(frame["scope"], json!(why));
+    // A PASS system keeps the word complete.
+    assert_eq!(joined(&[part("PASS", None)])["scope"], json!("complete"));
+    // The scope of an open part still wins: it is the first reason.
+    let open = part_with_scope("UNKNOWN", &json!("one"));
+    assert_eq!(
+        joined(&[open, unknown_part("R1", why)])["scope"],
+        json!("one")
+    );
+}
+
+#[test]
+fn a_part_that_is_unknown_without_an_explaining_row_refuses_the_system() {
+    let bare = serde_json::to_vec(&json!({
+        "engine": "e", "protocol": "p", "status": "UNKNOWN", "scope": "complete"
+    }))
+    .unwrap();
+    let ids: Vec<&str> = vec!["p0"];
+    let refused = join(&system(&ids), &[bare], (false, false)).unwrap_err();
+    assert!(
+        refused.contains("UNKNOWN without an explaining row"),
+        "{refused}"
+    );
+    // An unreadable status is UNKNOWN too and needs the same row.
+    let odd = serde_json::to_vec(&json!({"engine": "e", "protocol": "p", "status": "BOGUS"}));
+    assert!(join(&system(&ids), &[odd.unwrap()], (false, false)).is_err());
+}
+
+fn topology_part(why: &str) -> Vec<u8> {
+    let frame = json!({
+        "engine": "e", "protocol": "p", "status": "UNKNOWN", "scope": "complete",
+        "explained": {"R1": why},
+        "topology": {"version": 1, "complete": true, "truncated": false, "gaps": [],
+            "total": {}, "components": [{"id": "C", "parent": null}], "modules": [],
+            "edges": [], "component_edges": [], "requires": [], "layers": []},
+    });
+    serde_json::to_vec(&frame).unwrap()
+}
+
+#[test]
+fn the_topology_of_an_unknown_system_names_the_scope_reason_as_a_gap() {
+    let why = "incomplete scope: the profile cannot decide R1";
+    let ids = ["p0"];
+    let frame = join(&system(&ids), &[topology_part(why)], (false, true)).unwrap();
+    let frame: Value = serde_json::from_slice(&frame).unwrap();
+    assert_eq!(frame["scope"], json!(why));
+    assert_eq!(frame["topology"]["gaps"], json!([why]));
+    assert_eq!(frame["topology"]["complete"], json!(false));
+}
