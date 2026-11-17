@@ -336,7 +336,7 @@ REVIEW_CAUSES: dict[str, str | tuple[str, ...]] = {
 # The core PASS needs resolved definitions and a complete scope. Where 4.0.1 passes on partial
 # coverage, the core stays UNKNOWN (AD-512 lists the forms). Any other difference is a bug.
 # (equal, PASS to UNKNOWN, FAIL to UNKNOWN, all plants)
-COUNTS = (46, 44, 5, 95)
+COUNTS = (45, 45, 5, 95)
 STRICTER = {("PASS", "UNKNOWN"), ("FAIL", "UNKNOWN")}
 # Plants where the 4.0.1 PASS is wrong: the drawn relationship or symbol is absent in the code.
 # The core gives UNKNOWN for them, so they are no limit of the core (AD-512).

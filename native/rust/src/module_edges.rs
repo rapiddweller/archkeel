@@ -288,7 +288,6 @@ impl Builder {
             path: false,
             arity: None,
             on_self: None,
-            owner: None,
         });
         let found = self.macro_methods.entry(module.module.clone()).or_default();
         found.extend(calls);
