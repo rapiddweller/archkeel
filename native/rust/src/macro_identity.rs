@@ -21,46 +21,8 @@ use crate::derive_identity::{binding, namespace};
 use crate::derive_imports::Local;
 use crate::modules::Index;
 use crate::scan::{MacroCall, Via};
+use crate::std_macros;
 use crate::tree::Module;
-
-/// The function-like macros of `std`, `core` and `alloc` whose expansion writes only paths of
-/// those crates and the call tokens. `include!` reads a file and `thread_local!` writes items: they
-/// are not here.
-const STD: &[&str] = &[
-    "assert",
-    "assert_eq",
-    "assert_ne",
-    "debug_assert",
-    "debug_assert_eq",
-    "debug_assert_ne",
-    "format",
-    "format_args",
-    "print",
-    "println",
-    "eprint",
-    "eprintln",
-    "write",
-    "writeln",
-    "panic",
-    "unreachable",
-    "todo",
-    "unimplemented",
-    "vec",
-    "matches",
-    "dbg",
-    "env",
-    "option_env",
-    "concat",
-    "stringify",
-    "line",
-    "file",
-    "column",
-    "module_path",
-    "include_str",
-    "include_bytes",
-    "cfg",
-    "compile_error",
-];
 
 /// A reviewed `macro_rules!` of a registry crate: package, macro, locked version.
 /// - serde_json 1.0.154 `json`: `$crate::json_internal!`, which writes `$crate` paths only.
@@ -145,7 +107,7 @@ pub(crate) fn proven(
             && !krate.manifest.dependencies.contains_key(root)
     };
     match call.path.as_slice() {
-        [name] if STD.contains(&name.as_str()) && !call.absolute => {
+        [name] if std_macros::has(name.as_str(), std_macros::PATHS_ONLY) && !call.absolute => {
             // A function or a type of the name is in another namespace: only a `use`, a
             // `macro_rules!` of the crate, an `extern crate` or a glob can bind the macro.
             let bound = (module.scan.references.iter()).any(|reference| {
@@ -159,7 +121,9 @@ pub(crate) fn proven(
                 && !defined
                 && namespace(workspace, index, local, &call.scope, &usage, name, modules)
         }
-        [root, name] if STD.contains(&name.as_str()) && sysroot(root) => true,
+        [root, name] if std_macros::has(name.as_str(), std_macros::PATHS_ONLY) && sysroot(root) => {
+            true
+        }
         _ => registry(workspace, local, call, &usage),
     }
 }

@@ -6,7 +6,7 @@
 //! ahead of a submodule, whether it can give any name, the submodules that it imports, and the
 //! module that a relative name of the package names.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use ruff_python_ast::{Stmt, StmtImportFrom};
 
@@ -94,4 +94,14 @@ pub(super) fn anchor(node: &StmtImportFrom, package: &str) -> Option<String> {
         return Some(name.to_owned());
     }
     resolve(node.level, name, package)
+}
+
+/// `collect_package_bindings`: for each package, the names that its body binds ahead of a
+/// submodule. A later module of the same name replaces an earlier one, as in the Python dict.
+pub(super) fn package_bindings(modules: &[Module]) -> HashMap<&str, HashSet<String>> {
+    modules
+        .iter()
+        .filter(|module| module.is_init())
+        .map(|module| (module.name.as_str(), shadowing_names(module)))
+        .collect()
 }

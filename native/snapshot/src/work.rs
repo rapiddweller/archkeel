@@ -10,7 +10,7 @@ use std::sync::{LazyLock, Mutex, MutexGuard};
 use std::thread::{self, ThreadId};
 
 /// One unit per byte plus one per possible token, counted once: at most twice the file byte cap.
-pub const MAX_PARSE_WORK: u64 = 8 << 20;
+pub(crate) const MAX_PARSE_WORK: u64 = 8 << 20;
 /// A separate bracket-nesting bound for the non-linear parser and nested-fact paths.
 pub const MAX_NESTING: usize = 512;
 /// The most distinct input bytes in one in-process collection.

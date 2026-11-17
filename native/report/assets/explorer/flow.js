@@ -2100,6 +2100,17 @@
     query.set("view", viewMode);
     return `${location.pathname}?${query}#atlas-rule-${encodeURIComponent(ruleId)}`;
   }
+  // A finding count in plain words, from the phrase that the core page gives each rule kind.
+  function atlasPlainFindings(ruleId, count) {
+    const rule = (ATLAS.rule_assessments || []).find((item) => item.id === ruleId);
+    const phrase = rule && (count === 1 ? rule.plain_one : rule.plain_many);
+    return phrase ? `${count} ${phrase}` : REPORT_SCENE.countLabel(count, "finding");
+  }
+  // The anchor of the first violation block of a rule, on the page.
+  function atlasFindingHref(findings, ruleId) {
+    const found = findings.find((finding) => finding.rule_ids.includes(ruleId));
+    return found ? `#${found.id}` : "";
+  }
   function atlasRuleAssessmentMarkup(level, component = null) {
     const assessments = ATLAS.rule_assessments || [];
     const scopedLevel = component ? ATLAS.levels.find((item) => item.parent_id === component.id) : level;
@@ -2111,9 +2122,9 @@
       `${status} ${assessments.filter((item) => item.status === status).length}`).join(" · ");
     const notChecked = ATLAS.declared_rules === "NOT CHECKED" ? " · NOT CHECKED" : "";
     const recordedChecks = `<section class="atlas-scoped-findings"><h3>Recorded checks${component ? ` · ${esc(component.label)}` : ""}</h3>
-      <p>${findings.length ? `${REPORT_SCENE.countLabel(findings.length, "recorded failing finding")} · no component-level verdict is inferred.` : "No recorded findings in this scope; no scoped PASS is inferred."}</p>
+      <p>${findings.length ? `${REPORT_SCENE.countLabel(findings.length, "finding")} recorded in this scope.` : "No findings recorded in this scope."}</p>
       ${failureGroups.size ? `<ul class="plain">${[...failureGroups].map(([ruleId, count]) =>
-      `<li><a href="${esc(atlasRuleScopeHref(scopedLevel || level, ruleId))}">${esc(ruleId)}</a> · ${REPORT_SCENE.countLabel(count, "finding")}</li>`).join("")}</ul>` : ""}</section>`;
+      `<li><a href="${esc(atlasFindingHref(findings, ruleId) || atlasRuleScopeHref(scopedLevel || level, ruleId))}">${esc(atlasPlainFindings(ruleId, count))}</a> <small class="muted">(${esc(ruleId)})</small></li>`).join("")}</ul>` : ""}</section>`;
     return `${recordedChecks}<details class="atlas-rule-assessments"><summary>Rules · whole run ${esc(ATLAS.declared_rules || "NOT CHECKED")} · ${statuses}${notChecked}</summary>
       <p>Whole-run rule assessments; local findings are scoped separately above. Each UNKNOWN keeps its rule, reason and scope.</p>
       ${assessments.length ? `<ul class="plain">${assessments.map((item) => {
@@ -2325,13 +2336,18 @@
       <p>${[...new Set(inventories.flatMap((item) => item.provenance))].map(esc).join(" · ")}</p></section>`;
   }
 
+  // What a box is: a layer or a group of components, or a component.
+  function atlasBoxKind(component) {
+    if (component.layer_rank !== null && component.layer_rank !== undefined) return "Layer";
+    return component.id.startsWith("GROUP:") ? "Group" : "Component";
+  }
   function atlasSheet(level, scene = renderedScene) {
     const component = REPORT_SCENE.atlasComponent(umlSelection?.id || level.parent_id);
     const inventory = viewMode === "target" ? moduleInventoryMarkup(ATLAS.module_inventories
       .filter((item) => item.component_id === (component?.id || null))) : "";
     const entries = (items) => items === null || items === undefined ? "Nothing stated in the contract"
       : items.length ? items.map((item) => `<li>${esc(item)}</li>`).join("") : "None";
-    const list = (title, items) => `<h3>${title}</h3><ul class="plain">${entries(items)}</ul>`;
+    const list = (title, items) => items && items.length ? `<h3>${title}</h3><ul class="plain">${entries(items)}</ul>` : "";
     const link = (href, label) => `<a href="${esc(href)}">${esc(label)}</a>`;
     if (viewMode !== "target" && atlasCell !== null) {
       const cell = ATLAS.cells[atlasCell];
@@ -2393,13 +2409,13 @@
     }
     const componentLevel = ATLAS.levels.find((item) => item.parent_id === component.id);
     const moduleCount = componentLevel ? REPORT_SCENE.atlasModules(componentLevel, viewMode).length : 0;
-    inspectorContent.innerHTML = `<div class="kicker">Component fact sheet · ${viewMode === "target" ? "Declared intent" : "Core facts"}</div>
+    inspectorContent.innerHTML = `<div class="kicker">${atlasBoxKind(component)} fact sheet · ${viewMode === "target" ? "Declared intent" : "Core facts"}</div>
       ${boundaryPermissionMarkup(component.id)}<h2>${esc(component.label)}</h2><p><button type="button" class="flow-fit" data-browse-component>${moduleCount ? `Browse ${REPORT_SCENE.countLabel(moduleCount, "module")}` : `Browse ${esc(component.label)}`}</button></p>${component.layer ? `<p>Declared layer: ${esc(component.layer)}</p>` : ""}${list("Responsibility", component.responsibilities)}
       ${list("Not responsible for", component.not_responsible_for)}${list("Provides", component.public)}
-      ${list("Planned interface", component.planned)}<h3>Requires · declared permission, not an obligation</h3>
+      ${list("Planned interface", component.planned)}${component.requires.length ? `<h3>Requires · declared permission, not an obligation</h3>
       <ul class="plain">${component.requires.map((edge) => `<li><strong>${esc(REPORT_SCENE.atlasComponent(edge.target_id)?.label || edge.target_id)}</strong>
         <p>${esc(edge.rationale)}</p>${edge.through.length ? `<p>Through: ${edge.through.map(esc).join(", ")}</p>` : ""}
-        <p>Decided by ${esc(edge.decided_by || "Not declared")}${viewMode !== "target" ? ` · ${REPORT_SCENE.countLabel(edge.observed_imports, "observed import")}` : ""}</p></li>`).join("") || "Not declared"}</ul>
+        <p>Decided by ${esc(edge.decided_by || "Not declared")}${viewMode !== "target" ? ` · ${REPORT_SCENE.countLabel(edge.observed_imports, "observed import")}` : ""}</p></li>`).join("")}</ul>` : ""}
       ${viewMode === "target" ? "" : `${atlasRuleAssessmentMarkup(level, component)}${atlasEvidenceMarkup()}`} ${viewMode !== "target" ? `<h3>Observed weight</h3><p>${REPORT_SCENE.countLabel(component.observed_modules, "module")} · ${REPORT_SCENE.countLabel(component.observed_symbols, "observed symbol")}
         ${component.symbols_complete === atlasGlobalSymbolsComplete() ? "" : component.symbols_complete ? "· complete lexical inventory" : "· partial lexical inventory"}</p><h3>Component evidence status</h3><p>${esc(component.status)} · ${esc(component.reason)}</p>
         <h3>Used by</h3><ul class="plain">${component.used_by.map((item) => `<li>${esc(REPORT_SCENE.atlasComponent(item.component_id)?.label || item.component_id)} · ${REPORT_SCENE.countLabel(item.import_sites, "import")}</li>`).join("") || "No recorded component uses."}</ul>` : ""}

@@ -42,10 +42,10 @@ def pass_qualifiers(
     beyond = as_texts(frame["beyond"], "beyond")
     if not passing.issuperset(beyond):
         raise CoreError("the core frame names a rule beyond the reference that is not PASS")
-    return beyond, read_assumed(frame, passing)
+    return beyond, _read_assumed(frame, passing)
 
 
-def read_assumed(frame: Mapping[str, object], passing: set[str]) -> dict[str, tuple[str, ...]]:
+def _read_assumed(frame: Mapping[str, object], passing: set[str]) -> dict[str, tuple[str, ...]]:
     """The door sites of each PASS rule that holds only under a declared reach."""
     found = {
         rule: _texts(sites, f"assumed.{rule}")

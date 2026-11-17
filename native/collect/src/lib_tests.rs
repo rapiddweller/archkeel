@@ -252,3 +252,27 @@ fn the_profile_selects_its_strict_decoder_and_refuses_unlinked_collectors() {
     let error = reply_of(Profile::Python, &request).unwrap_err();
     assert!(error.contains("Python resolver"), "{error}");
 }
+
+/// AD-688: a reply that names another profile keeps the block of its collector, so the store
+/// accepts it; the check of the profile that it names refuses its records, and the trust of the
+/// core names the profile (`scan::in_process`).
+#[test]
+fn a_reply_that_names_the_python_or_the_dart_profile_meets_the_check_of_that_collector() {
+    let root = repository(FIXTURES[0]);
+    let scanned = scan(&identity(root.to_str().unwrap()), 1 << 26).unwrap();
+    for (profile, reason) in [
+        (
+            Profile::Python,
+            "the Python target has no standard library table",
+        ),
+        (Profile::Dart, "a Dart import"),
+    ] {
+        let mut reply = scanned.reply.reply().clone();
+        reply.facts.profile = profile;
+        let ingested = archkeel_store::ingest_typed(reply).unwrap();
+        let refused = crate::check(&ingested.reply().facts)
+            .err()
+            .unwrap_or_default();
+        assert!(refused.contains(reason), "{profile:?}: {refused}");
+    }
+}

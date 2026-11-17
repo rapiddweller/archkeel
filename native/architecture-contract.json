@@ -111,6 +111,7 @@
         "native.archkeel_facts.request:RustRequest",
         "native.archkeel_facts.request:TypeScriptRequest",
         "native.archkeel_facts.sections:SignalFact",
+        "native.archkeel_facts.surveys:gaps_are_unknowns",
         "native.archkeel_facts.type_shape:Binding",
         "native.archkeel_facts.type_shape:Family",
         "native.archkeel_facts.type_shape:TypeShape",
@@ -1930,10 +1931,11 @@
       "role": "component",
       "layer": "report",
       "packages": [
+        "native.archkeel_report.build_script",
         "native.archkeel_report.engine_frame.html"
       ],
       "responsibilities": [
-        "Render the static HTML page of one engine frame (AD-440, AD-496, AD-498)."
+        "Render the static HTML page of one engine frame and derive its script hashes at build time (AD-440, AD-496, AD-498)."
       ],
       "forbidden_responsibilities": [
         "Reading the model, the evaluator or the contract, and inferring a verdict."
@@ -2403,6 +2405,13 @@
           "through": [
             "native.archkeel_core.contract"
           ]
+        },
+        {
+          "component": "collect",
+          "rationale": "Run the checks of the collector of a reply after the store, also for the byte door of the harness (AD-688).",
+          "through": [
+            "native.archkeel_collect:check"
+          ]
         }
       ],
       "public": [
@@ -2854,7 +2863,6 @@
           "through": [
             "native.archkeel_collect:Identity",
             "native.archkeel_collect:Over",
-            "native.archkeel_collect:Profile",
             "native.archkeel_collect:Refusal",
             "native.archkeel_collect:RefusalKind",
             "native.archkeel_collect:Scanned",
@@ -2996,12 +3004,12 @@
       "public": [
         "native.archkeel_collect:Identity",
         "native.archkeel_collect:Over",
-        "native.archkeel_collect:Profile",
         "native.archkeel_collect:Refusal",
         "native.archkeel_collect:RefusalKind",
         "native.archkeel_collect:Scanned",
         "native.archkeel_collect:System",
         "native.archkeel_collect:SystemPart",
+        "native.archkeel_collect:check",
         "native.archkeel_collect:read_system",
         "native.archkeel_collect:scan"
       ],
@@ -3356,6 +3364,7 @@
       "packages": [
         "native.archkeel_dart_collector.import_survey",
         "native.archkeel_dart_collector.import_survey.budget",
+        "native.archkeel_dart_collector.import_survey.claims",
         "native.archkeel_dart_collector.import_survey.config",
         "native.archkeel_dart_collector.import_survey.edges",
         "native.archkeel_dart_collector.import_survey.index",
@@ -3384,10 +3393,12 @@
             "native.archkeel_facts.identity",
             "native.archkeel_facts.ids",
             "native.archkeel_facts.request",
+            "native.archkeel_facts.surveys",
             "native.archkeel_facts.vocab",
             "native.archkeel_facts:GapFact",
             "native.archkeel_facts:ImportFact",
-            "native.archkeel_facts:Record"
+            "native.archkeel_facts:Record",
+            "native.archkeel_facts:Section"
           ]
         },
         {
@@ -3441,6 +3452,7 @@
         }
       ],
       "public": [
+        "native.archkeel_dart_collector.import_survey.claims:check",
         "native.archkeel_dart_collector.import_survey.reply:decode",
         "native.archkeel_dart_collector.import_survey.reply:typed_reply",
         "native.archkeel_dart_collector.import_survey:edge_rows",
@@ -3604,6 +3616,7 @@
       ],
       "public": [
         "native.archkeel_dart_collector:TEST_FEATURES",
+        "native.archkeel_dart_collector:check",
         "native.archkeel_dart_collector:decode",
         "native.archkeel_dart_collector:provenance",
         "native.archkeel_dart_collector:typed_reply"
@@ -4826,7 +4839,8 @@
         "native.archkeel_rust_collector.site",
         "native.archkeel_rust_collector.scan.define",
         "native.archkeel_rust_collector.plant",
-        "native.archkeel_rust_collector.macro_items"
+        "native.archkeel_rust_collector.macro_items",
+        "native.archkeel_rust_collector.std_macros"
       ],
       "responsibilities": [
         "Lexical reading of Rust source: tokens, attributes, nesting, nets and the scan of items, definitions, use paths and macros."
@@ -4863,8 +4877,10 @@
         "native.archkeel_rust_collector.scan:Via",
         "native.archkeel_rust_collector.scan:scan",
         "native.archkeel_rust_collector.site:Site",
-        "native.archkeel_rust_collector.tokens:NAME_FROM_CALL",
-        "native.archkeel_rust_collector.tokens:NO_BIND_MACROS"
+        "native.archkeel_rust_collector.std_macros:NO_BIND",
+        "native.archkeel_rust_collector.std_macros:PATHS_ONLY",
+        "native.archkeel_rust_collector.std_macros:has",
+        "native.archkeel_rust_collector.tokens:NAME_FROM_CALL"
       ],
       "decided_by": "architect"
     },
@@ -4962,6 +4978,7 @@
             "native.archkeel_rust_collector.definitions",
             "native.archkeel_rust_collector.nesting",
             "native.archkeel_rust_collector.scan",
+            "native.archkeel_rust_collector.std_macros",
             "native.archkeel_rust_collector.tokens"
           ]
         },
@@ -5127,6 +5144,7 @@
             "native.archkeel_rust_collector.plant",
             "native.archkeel_rust_collector.scan",
             "native.archkeel_rust_collector.site",
+            "native.archkeel_rust_collector.std_macros",
             "native.archkeel_rust_collector.tokens"
           ]
         },
@@ -5727,7 +5745,8 @@
       "role": "component",
       "layer": "collector",
       "packages": [
-        "native.archkeel_python_collector.reply"
+        "native.archkeel_python_collector.reply",
+        "native.archkeel_python_collector.claims"
       ],
       "responsibilities": [
         "The 10.0.0 reply of the import survey as the Python collector writes it in the phase imports: the provenance with the interpreter version of the request, the inputs, and only the sections of the survey (AD-334)."
@@ -5746,12 +5765,15 @@
             "native.archkeel_facts.envelope",
             "native.archkeel_facts.request",
             "native.archkeel_facts.sections:SignalFact",
+            "native.archkeel_facts.surveys",
             "native.archkeel_facts:CallFact",
             "native.archkeel_facts:ConstructFact",
             "native.archkeel_facts:GapFact",
             "native.archkeel_facts:ImportFact",
             "native.archkeel_facts:Record",
             "native.archkeel_facts:ReferenceFact",
+            "native.archkeel_facts:STANDARD_LIBRARY",
+            "native.archkeel_facts:Section",
             "native.archkeel_facts:SymbolFact"
           ]
         },
@@ -5788,6 +5810,7 @@
         }
       ],
       "public": [
+        "native.archkeel_python_collector.claims:check",
         "native.archkeel_python_collector.reply:Build",
         "native.archkeel_python_collector.reply:reply",
         "native.archkeel_python_collector.reply:typed"
@@ -6136,6 +6159,7 @@
           "component": "py-reply",
           "rationale": "Encode the reply of the survey.",
           "through": [
+            "native.archkeel_python_collector.claims",
             "native.archkeel_python_collector.reply"
           ]
         },
@@ -6157,6 +6181,7 @@
       "public": [
         "native.archkeel_python_collector:BUILD",
         "native.archkeel_python_collector:TEST_FEATURES",
+        "native.archkeel_python_collector:check",
         "native.archkeel_python_collector:typed_reply"
       ],
       "decided_by": "architect"
@@ -6702,7 +6727,8 @@
         "native.archkeel_python_collector.survey.globals_read",
         "native.archkeel_python_collector.survey.globals_uses",
         "native.archkeel_python_collector.survey.value",
-        "native.archkeel_python_collector.survey.uses_typing_guard"
+        "native.archkeel_python_collector.survey.uses_typing_guard",
+        "native.archkeel_python_collector.survey.module_uses"
       ],
       "rationale": "Only the parse modules, the tree readers of the survey, the CPython view of the tree, the expression text and the definition table of the Python collector read the tree of the Python parser; discovery, naming and the entry read owned values.",
       "provenance": [
@@ -6785,7 +6811,8 @@
         "native.archkeel_python_collector.survey.declared.kind",
         "native.archkeel_python_collector.survey.declared.members",
         "native.archkeel_python_collector.survey.declared.reader",
-        "native.archkeel_python_collector.symbols.scan"
+        "native.archkeel_python_collector.symbols.scan",
+        "native.archkeel_python_collector.survey.module_uses"
       ],
       "rationale": "Only the survey module and the CPython view, the string check and the definition table of the Python collector read the text ranges of the Python parser (AD-377).",
       "provenance": [
@@ -6859,9 +6886,11 @@
         "native.archkeel_contract",
         "native.archkeel_facts",
         "native.archkeel_python_collector",
+        "native.archkeel_report.build_script",
+        "native.archkeel_report.cargo_toml",
         "native.archkeel_store"
       ],
-      "rationale": "Only these crates compute a digest; the model, the evaluator, the report and the core copy digests and compute none.",
+      "rationale": "These crates compute source digests, or the report's build-time script hashes; the model, evaluator and core copy digests and compute none.",
       "provenance": [
         "docs/architecture/decisions/ad-382-the-self-contract-pins-the-crate-chain-and-the-external-homes.md"
       ],
@@ -7612,30 +7641,6 @@
       "decided_by": "architect"
     },
     {
-      "id": "NATIVE-NEUTRAL-STORE-NO-PYTHON-MODULE",
-      "kind": "forbidden_dependency",
-      "source": "native.archkeel_store",
-      "target": "native.archkeel_store.python",
-      "include_type_checking": true,
-      "rationale": "Cut A: `store` names no language. The module `store.python` holds rules of one language; they belong to its collector, which states them in its reply (AD-668).",
-      "provenance": [
-        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
-      ],
-      "decided_by": "architect"
-    },
-    {
-      "id": "NATIVE-NEUTRAL-STORE-NO-DART-MODULE",
-      "kind": "forbidden_dependency",
-      "source": "native.archkeel_store",
-      "target": "native.archkeel_store.dart",
-      "include_type_checking": true,
-      "rationale": "Cut A: `store` names no language. The module `store.dart` holds rules of one language; they belong to its collector, which states them in its reply (AD-668).",
-      "provenance": [
-        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
-      ],
-      "decided_by": "architect"
-    },
-    {
       "id": "NATIVE-PUBLIC-HAS-A-USER",
       "kind": "unused_public",
       "source": "native",
@@ -7648,7 +7653,29 @@
       "provenance": [
         "docs/architecture/decisions/ad-670-a-public-name-that-no-other-component-uses-is-a-violation.md"
       ],
-      "decided_by": "architect"
+      "decided_by": "architect",
+      "external_users": [
+        {
+          "symbol": "native.archkeel_snapshot.work:MAX_SCAN_BYTES",
+          "consumer": "the unit tests of archkeel-collect (work_tests.rs, the dev-dependency feature test-tree)",
+          "rationale": "the byte cap of a scan: the tests of collect measure it against the limit of snapshot; no module of the scan names it."
+        },
+        {
+          "symbol": "native.archkeel_snapshot.work:MAX_NESTING",
+          "consumer": "the unit tests of archkeel-collect (work_tests.rs, the dev-dependency feature test-tree)",
+          "rationale": "the nesting cap of a parse: the tests of collect measure it against the limit of snapshot; no module of the scan names it."
+        },
+        {
+          "symbol": "native.archkeel_snapshot.test_tree:read_bytes",
+          "consumer": "the unit tests of archkeel-collect (work_tests.rs, the dev-dependency feature test-tree)",
+          "rationale": "the bytes checked at the read boundary: the tests of collect measure it against the limit of snapshot; no module of the scan names it."
+        },
+        {
+          "symbol": "native.archkeel_snapshot.test_tree:charged_bytes",
+          "consumer": "the unit tests of archkeel-collect (work_tests.rs, the dev-dependency feature test-tree)",
+          "rationale": "the input charge of the active scan: the tests of collect measure it against the limit of snapshot; no module of the scan names it."
+        }
+      ]
     }
   ]
 }

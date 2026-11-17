@@ -107,7 +107,7 @@ class _ScopeWord(StrEnum):
     COMPLETE = "complete"
 
 
-class FrameProtocol(StrEnum):
+class _FrameProtocol(StrEnum):
     """The one protocol word of a core frame that this shell reads."""
 
     FRAME = "archkeel-core-frame-1"
@@ -133,9 +133,9 @@ class _CollectRead(StrEnum):
 
 _Word = TypeVar("_Word", bound=StrEnum)
 # The exit codes of the core: a frame without a named part, and a frame that names one.
-DECIDED_EXIT: Final = 0
+_DECIDED_EXIT: Final = 0
 NAMES_A_GAP_EXIT: Final = 3
-FRAME_PROTOCOL: Final = FrameProtocol.FRAME
+FRAME_PROTOCOL: Final = _FrameProtocol.FRAME
 
 
 @dataclass(frozen=True, slots=True)
@@ -421,13 +421,13 @@ def read_frame(
     started_ns: int | None = None,
 ) -> CoreFrame:
     """Read one bound frame; scan frames also carry the collection self-test (AD-406)."""
-    if exit_code not in (DECIDED_EXIT, NAMES_A_GAP_EXIT):
+    if exit_code not in (_DECIDED_EXIT, NAMES_A_GAP_EXIT):
         signal = f" (signal {-exit_code})" if exit_code < 0 else ""
         raise CoreError(f"the core exits with {exit_code}{signal}")
     frame = _document(stdout)
     require_topology(frame, request)
     _word(
-        FrameProtocol,
+        _FrameProtocol,
         frame.get("protocol", None if require_protocol else FRAME_PROTOCOL),
         "protocol",
     )

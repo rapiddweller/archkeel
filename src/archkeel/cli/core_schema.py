@@ -19,8 +19,8 @@ from typing import Final
 
 from .core_json import CoreError
 
-SCHEMA_NAME: Final = "archkeel-core-frame-1.schema.json"
-REFUSAL_NAME: Final = "archkeel-core-refusal-1.schema.json"
+_SCHEMA_NAME: Final = "archkeel-core-frame-1.schema.json"
+_REFUSAL_NAME: Final = "archkeel-core-refusal-1.schema.json"
 # Keywords that describe and never constrain.
 _NOTES: Final = frozenset({"$schema", "title", "description", "format", "$defs"})
 _CHECKS: Final = frozenset(
@@ -68,12 +68,12 @@ def _schema(name: str) -> Mapping[str, object]:
 
 def check_frame(frame: object) -> None:
     """Refuse a frame that the schema does not accept, with the first path that differs."""
-    _check(frame, SCHEMA_NAME, "frame")
+    _check(frame, _SCHEMA_NAME, "frame")
 
 
 def check_refusal(refusal: object) -> None:
     """Refuse a stderr refusal that the refusal schema does not accept."""
-    _check(refusal, REFUSAL_NAME, "refusal")
+    _check(refusal, _REFUSAL_NAME, "refusal")
 
 
 def _check(value: object, name: str, what: str) -> None:
@@ -225,7 +225,7 @@ def _array(
 
 def budget(name: str) -> int:
     """One list limit of the explain part, as the schema states it."""
-    node: object = _schema(SCHEMA_NAME)
+    node: object = _schema(_SCHEMA_NAME)
     for key in ("$defs", "Explain", "properties", "budgets", "properties", name, "const"):
         if not isinstance(node, dict) or key not in node:
             raise CoreError(f"the frame schema has no explain budget {name}")

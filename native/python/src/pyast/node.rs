@@ -164,7 +164,7 @@ fn pattern_kind(pattern: &Pattern) -> &'static str {
 }
 
 /// The class name of a context: `Load`, `Store` or `Del`.
-pub fn context(ctx: ExprContext) -> &'static str {
+pub(crate) fn context(ctx: ExprContext) -> &'static str {
     match ctx {
         ExprContext::Store => "Store",
         ExprContext::Del => "Del",
@@ -226,6 +226,6 @@ pub fn cmp_op(op: CmpOp) -> (&'static str, &'static str) {
 }
 
 /// The type parameters of a definition, empty without brackets.
-pub fn type_params(params: Option<&TypeParams>) -> &[TypeParam] {
+pub(crate) fn type_params(params: Option<&TypeParams>) -> &[TypeParam] {
     params.map_or(&[], |params| params.type_params.as_slice())
 }

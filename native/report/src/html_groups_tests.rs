@@ -111,3 +111,74 @@ fn a_gap_that_names_no_owned_module_holds_every_component() {
         assert_eq!(found[1].1, "UNKNOWN", "{found:?}");
     }
 }
+
+// AD-710: the sheet of a layer aggregates its members; it says that the box groups N components,
+// and fills no field that no member fills.
+#[test]
+fn a_layer_sheet_aggregates_its_member_components() {
+    let comp = |id: &str, layer: &str, about: &str, public: &[&str], forbidden: &[&str]| {
+        json!({"id": id, "name": id, "parent": null, "layer": layer, "responsibilities": [about],
+            "public": public, "forbidden_responsibilities": forbidden})
+    };
+    let frame = json!({"status": "PASS", "topology": {
+        "components": [
+            comp("A", "L1", "Reads the files. It also hashes.", &["a:read", "a:hash"], &["Parsing"]),
+            comp("B", "L1", "Keeps the replies.", &["b:keep"], &["Parsing", "Output"]),
+            comp("C", "L2", "TODO", &[], &[])],
+        "modules": [], "layers": [{"rule": "R", "layers": ["L1", "L2"]}]}});
+    let data = payload(&document(&frame));
+    let by_id = |id: &str| {
+        data["atlas"]["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["id"] == id)
+            .unwrap()
+            .clone()
+    };
+    let layer = by_id("LAYER:L1");
+    let said: Vec<&str> = layer["responsibilities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t.as_str().unwrap())
+        .collect();
+    assert_eq!(
+        said[0],
+        "This box groups 2 components of layer L1 (layer 1 of 2)."
+    );
+    assert_eq!(said[1..], ["A: Reads the files", "B: Keeps the replies"]);
+    assert_eq!(
+        layer["not_responsible_for"].as_array().unwrap().len(),
+        2,
+        "the union, once each"
+    );
+    assert_eq!(layer["public"].as_array().unwrap().len(), 3);
+    // A layer whose members state nothing has no boundary line and no public name.
+    let empty = by_id("LAYER:L2");
+    assert_eq!(
+        empty["responsibilities"][0],
+        "This box groups 1 component of layer L2 (layer 2 of 2)."
+    );
+    assert_eq!(empty["not_responsible_for"].as_array().unwrap().len(), 0);
+}
+
+// AD-710: each rule says what it finds in plain words, for one finding and for many.
+#[test]
+fn a_rule_has_plain_words_for_its_findings() {
+    let frame = json!({"status": "FAIL", "topology": components(2, &[]),
+        "rules": {"NATIVE-PUBLIC-HAS-A-USER": ["unused_public", "FAIL"], "X": ["other_kind", "PASS"]}});
+    let data = payload(&document(&frame));
+    let rules = data["atlas"]["rule_assessments"].as_array().unwrap();
+    let rule = rules
+        .iter()
+        .find(|r| r["plain_many"].as_str().unwrap().starts_with("public"))
+        .unwrap();
+    assert_eq!(rule["plain_one"], "public name without a user");
+    assert_eq!(rule["plain_many"], "public names without a user");
+    let other = rules
+        .iter()
+        .find(|r| r["plain_one"].as_str().unwrap().contains("other kind"))
+        .unwrap();
+    assert_eq!(other["plain_many"], "findings of other kind");
+}

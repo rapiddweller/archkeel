@@ -39,6 +39,9 @@ mod names;
 mod parse;
 mod requirement;
 
+mod claims;
+pub use crate::claims::check;
+
 mod source;
 
 use archkeel_facts::envelope::{LimitSupport, ProfileLimits, Reply};

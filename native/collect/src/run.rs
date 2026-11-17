@@ -12,7 +12,7 @@
 //! shell then sees a dead core and the run has no verdict (exit 2), never a PASS.
 
 use crate::refusal::{refused, Refusal, RefusalKind};
-use archkeel_facts::envelope::{Profile, Reply};
+use archkeel_facts::envelope::{Facts, Profile, Reply};
 use archkeel_store::Ingested;
 use archkeel_wire::protocol::reply_version;
 
@@ -24,12 +24,30 @@ pub(crate) fn collect(profile: Profile, request: &[u8]) -> Result<Ingested, Refu
     let request = request.to_vec();
     let reply =
         isolated(move || reply_of(profile, &request))?.map_err(|why| refused("collector", why))?;
-    archkeel_store::ingest_typed(reply).map_err(|reason| {
+    let ingested = archkeel_store::ingest_typed(reply).map_err(|reason| {
         refused(
             "collector",
             format!("the store refuses the reply of the collector: {reason}"),
         )
-    })
+    })?;
+    check(&ingested.reply().facts).map_err(|reason| {
+        refused(
+            "collector",
+            format!("the store refuses the reply of the collector: {reason}"),
+        )
+    })?;
+    Ok(ingested)
+}
+
+/// The checks that only the collector of the profile of a reply knows (AD-688). They run after
+/// the store has validated the reply with its language-free minimum and the validation block, so
+/// they only add rules. The TypeScript and the Rust collector state every rule in their block.
+pub fn check(facts: &Facts) -> Result<(), String> {
+    match facts.profile {
+        Profile::Python => archkeel_python_collector::check(facts),
+        Profile::Dart => archkeel_dart_collector::check(facts),
+        Profile::TypeScript | Profile::Rust => Ok(()),
+    }
 }
 
 /// Run `work` on its own thread. A panic is a named error of a test build; see the module text

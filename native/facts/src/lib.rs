@@ -45,9 +45,11 @@ pub mod pyrepr;
 pub mod reason;
 pub mod record;
 pub mod request;
-pub mod schema;
+#[cfg(test)]
+mod schema;
 pub mod sections;
 mod skip;
+pub mod surveys;
 pub mod type_shape;
 pub mod vocab;
 mod vocab_constructs;

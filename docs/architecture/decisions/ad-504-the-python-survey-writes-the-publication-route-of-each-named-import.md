@@ -1,6 +1,6 @@
 # AD-504 The Python survey writes the publication route of each named import
 
-**Status.** Proposed. Part of #880. It amends AD-450 (the survey states no interface) and AD-500.
+**Status.** Proposed. Part of #880. It amends AD-450 (the survey states no interface) and AD-500. AD-708 closes its first open false PASS (a use through a public module object).
 The hygiene checks `interface.*` follow in a second change.
 
 **Reason.** `interface_boundary` on Python was UNKNOWN for each rule: the linked survey stated

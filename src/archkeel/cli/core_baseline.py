@@ -29,7 +29,7 @@ class BaselineState(StrEnum):
     NOT_WRITTEN = "not_written"
 
 
-class Difference(StrEnum):
+class _Difference(StrEnum):
     """What a baseline comparison found: an UNKNOWN, a violation or a budget."""
 
     UNKNOWN = "unknown"
@@ -41,7 +41,7 @@ class Difference(StrEnum):
 class Changed:
     """One thing that the run and the file do not share."""
 
-    what: Difference
+    what: _Difference
     kind: str
     subject: str
     reason: str
@@ -82,7 +82,7 @@ def _changed(value: object, where: str) -> tuple[Changed, ...]:
     for index, item in enumerate(value):
         row = as_object(item, f"{where}[{index}]")
         try:
-            what = Difference(as_text(row["what"], f"{where}.what"))
+            what = _Difference(as_text(row["what"], f"{where}.what"))
         except ValueError as error:
             raise CoreError(f"the core frame field {where} has an unknown difference") from error
         found.append(
@@ -198,14 +198,14 @@ def as_json(result: BaselineResult) -> Mapping[str, object]:
         "exit_code": result.exit_code,
         "accepted_entries": result.accepted_entries,
         "accepted_unknowns": result.accepted_unknowns,
-        "new": [vars_of(row) for row in result.new],
-        "gone": [vars_of(row) for row in result.gone],
+        "new": [_vars_of(row) for row in result.new],
+        "gone": [_vars_of(row) for row in result.gone],
         "accepted_rules": list(result.accepted_rules),
         "gaps": [{"kind": g.kind, "subject": g.subject, "reason": g.reason} for g in result.gaps],
     }
 
 
-def vars_of(row: Changed) -> Mapping[str, object]:
+def _vars_of(row: Changed) -> Mapping[str, object]:
     """The JSON fields of one changed baseline row."""
 
     return {
