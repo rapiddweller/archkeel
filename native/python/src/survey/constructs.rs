@@ -95,14 +95,15 @@ fn one(module: &Module, binders: &Binders, evidence: &mut EvidenceMap) -> Findin
                 target.insert(name.to_owned());
             }
         }
-        if let Stmt::Import(node) = stmt {
-            for alias in &node.names {
-                let name = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
-                if matches!(alias.name.as_str(), "typing" | "typing_extensions")
-                    && unique.contains(name)
-                {
-                    typing_modules.insert(name.to_owned());
-                }
+        let Stmt::Import(node) = stmt else {
+            continue;
+        };
+        for alias in &node.names {
+            let name = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
+            if matches!(alias.name.as_str(), "typing" | "typing_extensions")
+                && unique.contains(name)
+            {
+                typing_modules.insert(name.to_owned());
             }
         }
     }
