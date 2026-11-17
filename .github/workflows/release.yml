@@ -12,6 +12,7 @@ on:
 
 concurrency:
   group: release-${{ github.ref }}
+  # A release must finish without interruption after it starts publishing.
   cancel-in-progress: false
 
 jobs:

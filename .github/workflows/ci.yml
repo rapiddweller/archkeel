@@ -10,7 +10,7 @@ permissions:
 
 # Pipelines run on main only (AD-348): a newer push to main cancels the older run.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
