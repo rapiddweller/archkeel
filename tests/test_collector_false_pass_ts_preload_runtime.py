@@ -94,6 +94,114 @@ def test_custom_node_conditions_apply_to_transitive_exports_too(
     assert any("custom conditions" in gap["reason"] for gap in frame["collection_gaps"])
 
 
+def test_unquoted_node_options_assignment_does_not_leave_preload_as_pass(
+    tmp_path: Path, release_core: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    extra = {
+        **_scripts("NODE_OPTIONS=--conditions=types node --require hook src/a/a.js"),
+        "node_modules/hook/package.json": (
+            '{"name":"hook","exports":{".":{"types":"./custom.cjs","require":"./ordinary.cjs"}}}'
+        ),
+        "node_modules/hook/custom.cjs": PATCH + "console.log('UNQUOTED_CUSTOM');\n",
+        "node_modules/hook/ordinary.cjs": "module.exports = {};\n",
+    }
+    frame = _validate(tmp_path, release_core, extra)["frame"]
+    monkeypatch.setenv("NODE_OPTIONS", "--conditions=types")
+    result = _node(tmp_path / "repo", "--require", "hook", "-e", "console.log('MAIN')")
+    assert result.returncode == 0, result.stderr
+    assert "UNQUOTED_CUSTOM" in result.stdout, result.stdout
+    assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", frame["rules"]
+    assert any("Preload" in gap["reason"] for gap in frame["collection_gaps"])
+
+
+@pytest.mark.parametrize(
+    ("command", "node_options", "config"),
+    [
+        (
+            "env NODE_OPTIONS=--conditions=types node --require hook src/a/a.js",
+            "--conditions=types --require hook",
+            {},
+        ),
+        (
+            "cross-env NODE_OPTIONS=--conditions=types node --require hook src/a/a.js",
+            "--conditions=types --require hook",
+            {},
+        ),
+        (
+            "NODE_OPTIONS=--conditions=other --conditions=types --require hook node src/a/a.js",
+            "--conditions=other --conditions=types --require hook",
+            {},
+        ),
+        (
+            "NODE_OPTIONS=--conditions\\\\=types node --require hook src/a/a.js",
+            "--conditions=types --require hook",
+            {},
+        ),
+        (
+            "NODE_OPTIONS=$CUSTOM node --require hook src/a/a.js",
+            "--conditions=types --require hook",
+            {},
+        ),
+        (
+            "node --require hook src/a/a.js",
+            "--conditions=types --require hook",
+            {".env": "NODE_OPTIONS=--conditions=types --require hook\n"},
+        ),
+        (
+            "node --require hook src/a/a.js",
+            "--conditions=other --conditions=types --require hook",
+            {".npmrc": "node-options='--conditions=other --conditions=types --require hook'\n"},
+        ),
+        (
+            "node --require hook src/a/a.js",
+            "--conditions=types --require hook",
+            {".env": "NODE_OPTIONS=$CUSTOM\n"},
+        ),
+    ],
+    ids=(
+        "env-prefix",
+        "cross-env",
+        "repeated-conditions",
+        "escaped-setting",
+        "dynamic-setting",
+        "env-file",
+        "npmrc-repeated",
+        "env-dynamic",
+    ),
+)
+def test_node_options_sources_and_uncertain_shell_forms_fail_closed(
+    tmp_path: Path,
+    release_core: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    command: str,
+    node_options: str,
+    config: dict[str, str],
+) -> None:
+    extra = {
+        **_scripts(command),
+        **config,
+        "node_modules/hook/package.json": (
+            '{"name":"hook","exports":{".":{"types":"./custom.cjs","require":"./ordinary.cjs"}}}'
+        ),
+        "node_modules/hook/custom.cjs": PATCH + "console.log('CUSTOM_SOURCE');\n",
+        "node_modules/hook/ordinary.cjs": "module.exports = {};\n",
+    }
+    frame = _validate(tmp_path, release_core, extra)["frame"]
+    monkeypatch.setenv("NODE_OPTIONS", node_options)
+    result = _node(tmp_path / "repo", "-e", "console.log('MAIN')")
+    assert result.returncode == 0, result.stderr
+    assert "CUSTOM_SOURCE" in result.stdout, result.stdout
+    assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", frame["rules"]
+    if any("$" in value for value in config.values()):
+        assert any(
+            "<dynamic preload target>" in gap["reason"] for gap in frame["collection_gaps"]
+        ), frame["collection_gaps"]
+    else:
+        assert any("custom conditions" in gap["reason"] for gap in frame["collection_gaps"]), frame[
+            "collection_gaps"
+        ]
+
+
 @pytest.mark.parametrize(
     ("mode", "conditions", "runtime_path", "runtime_code"),
     [

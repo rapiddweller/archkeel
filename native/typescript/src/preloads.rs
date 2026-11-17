@@ -23,6 +23,8 @@ use crate::source_input::{classify_file, ModuleFormat, SourceKind};
 mod conditions;
 #[path = "preloads_dynamic.rs"]
 mod dynamic;
+#[path = "preloads_options.rs"]
+mod options_reader;
 
 /// Whether a repository data filename can name a tool preload.
 pub(super) fn preload_file(name: &str) -> bool {
@@ -64,12 +66,20 @@ pub(super) fn has_custom_conditions(base: &str, text: &str, name: &str) -> bool 
             .into_iter()
             .flat_map(serde_json::Map::into_values)
             .filter_map(|value| value.as_str().map(str::to_owned))
-            .filter(|command| option_names(command).iter().any(|target| target == name))
+            .filter(|command| {
+                options_reader::option_names(command)
+                    .iter()
+                    .any(|target| target == name)
+            })
             .collect()
     } else if base == ".npmrc" || base == ".env" || base.starts_with(".env.") {
         text.lines()
             .filter_map(node_options)
-            .filter(|command| option_names(command).iter().any(|target| target == name))
+            .filter(|command| {
+                options_reader::option_names(command)
+                    .iter()
+                    .any(|target| target == name)
+            })
             .collect()
     } else {
         Vec::new()
@@ -83,15 +93,6 @@ pub(super) fn runtime_source(path: &str) -> bool {
         .and_then(|suffix| suffix.source_kind())
         .is_some_and(|kind| kind != SourceKind::Declaration)
 }
-
-/// The flags of Node that load a module before the program.
-const FLAGS: [&str; 5] = [
-    "-r",
-    "--require",
-    "--import",
-    "--loader",
-    "--experimental-loader",
-];
 
 /// The jest keys that name a module that runs before the tests.
 const JEST_KEYS: [&str; 4] = [
@@ -152,7 +153,13 @@ pub(super) fn names_of(base: &str, text: &str) -> Vec<String> {
         _ if base == ".npmrc" || base == ".env" || base.starts_with(".env.") => text
             .lines()
             .filter_map(node_options)
-            .flat_map(|value| option_names(&value))
+            .flat_map(|value| {
+                let mut names = options_reader::option_names(&value);
+                if conditions::has_opaque_options(&value) {
+                    names.push("<dynamic preload target>".to_owned());
+                }
+                names
+            })
             .collect(),
         _ => {
             let mut found = quoted_list(text, "setupFiles");
@@ -229,24 +236,17 @@ fn script_names(scripts: Option<&Value>) -> Vec<String> {
         .flat_map(serde_json::Map::values)
         .filter_map(Value::as_str)
         .flat_map(|script| {
-            let found = option_names(script);
-            if found.is_empty() && has_preload_flag(script) {
+            let mut found = options_reader::option_names(script);
+            if conditions::has_opaque_preload_command(script) {
+                found.push("<dynamic preload target>".to_owned());
+            }
+            if found.is_empty() && options_reader::has_preload_flag(script) {
                 vec!["<dynamic preload target>".to_owned()]
             } else {
                 found
             }
         })
         .collect()
-}
-
-/// A Node preload flag whose target the plain command reader cannot find.
-fn has_preload_flag(command: &str) -> bool {
-    command.split_whitespace().any(|token| {
-        FLAGS
-            .iter()
-            .any(|flag| token == *flag || token.starts_with(&format!("{flag}=")))
-            || token.starts_with("-r")
-    })
 }
 
 /// The modules that the jest keys of a configuration name.
@@ -268,37 +268,6 @@ fn strings(value: Option<&Value>) -> Vec<String> {
             .collect(),
         _ => Vec::new(),
     }
-}
-
-/// The modules that the Node flags of a command line or of `NODE_OPTIONS` load. Quotes are
-/// dropped, and `NODE_OPTIONS=` before a flag is read as the flag.
-fn option_names(command: &str) -> Vec<String> {
-    let plain: String = command
-        .chars()
-        .map(|c| if matches!(c, '"' | '\'') { ' ' } else { c })
-        .collect();
-    let mut tokens = plain.split_whitespace().map(|token| {
-        let lower = str::to_ascii_lowercase(token);
-        let prefix = ["node_options=", "node-options="]
-            .iter()
-            .find(|prefix| lower.starts_with(*prefix));
-        prefix.map_or(token, |prefix| {
-            token.get(str::len(prefix)..).unwrap_or_default()
-        })
-    });
-    let mut names = Vec::new();
-    while let Some(token) = tokens.next() {
-        if FLAGS.contains(&token) {
-            Vec::extend(&mut names, tokens.next().map(str::to_owned));
-            continue;
-        }
-        let joined = FLAGS
-            .iter()
-            .find_map(|flag| token.strip_prefix(&format!("{flag}=")));
-        Vec::extend(&mut names, joined.map(str::to_owned));
-    }
-    names.retain(|name| !str::is_empty(name));
-    names
 }
 
 /// The value of a `NODE_OPTIONS` (or `node-options`) line of an `.npmrc` or `.env` file.

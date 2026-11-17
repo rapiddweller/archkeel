@@ -30,16 +30,16 @@ A preload can also patch the module loader and redirect any import.
    files named as preloads are entries too. A builtin gives no entry. A name that resolves to no
    file is a gap of the run: "Preload X named in F:L has no established readable Node runtime
    target". An unreadable or malformed JSON config, or a dynamic preload target, is a gap.
-3. **Closure and writer guard.** Resolve each runtime import in the preload closure as Node runtime
+ 3. **Closure and writer guard.** Resolve each runtime import in the preload closure as Node runtime
    JavaScript or JSON, not as a TypeScript source substitution. Keep type-only reach on the compiler
    resolver. Ignore `types` in runtime conditions; use Node's `node` and active `require` or
-   `import` conditions in manifest order, then `default`. Keep type-only reach on the compiler
-   resolver. If runtime resolution misses but TypeScript selects a file, report UNKNOWN. An explicit
-   TypeScript runtime target is UNKNOWN because the Node version is not observed. A preload command
-   with `-C` or `--conditions` is UNKNOWN because the active condition set is not modeled. An
-   unobserved condition stays UNKNOWN. Check the AD-798 closure for project-source reach and pass it
-   to the AD-788 writer guard (`script_outside::read`). Node loads an installed preload as a module,
-   so its top-level bindings are no globals. Each global write withholds its proof as in AD-788.
+   `import` conditions in manifest order, then `default`. An unresolved or explicit TypeScript runtime
+   target is UNKNOWN; the Node version is not observed. A preload command with `-C` or `--conditions`
+   is UNKNOWN because the active condition set is not modeled. Opaque shell expansions or escapes
+   also withhold the proof. Read declared options in scripts, `.env` and `.npmrc`; the caller's
+   inherited environment is outside this scan. Check the AD-798 closure for project-source reach and
+   pass it to the AD-788 writer guard (`script_outside::read`). Node loads an installed preload as a
+   module, so its top-level bindings are no globals. Each global write withholds its proof as in AD-788.
 4. **Loader patch.** A closure file with `require.cache` or `.prototype.require` patches the module
    loader. So does `._load`, `._resolveFilename` or `._cache` when a file reaches the module object
    (`require('module')`, an import of `module`, `module.constructor`, `mainModule`, `require.main`).
@@ -51,8 +51,7 @@ A preload can also patch the module loader and redirect any import.
 Inside the repository, a named preload is read: its global writes and loader patches are no longer
 silent. A preload that a tool adds outside the data files (a JavaScript configuration, a command
 line outside the repository) stays under the printed assumption of AD-788, which names code outside
-the scan roots. A loader patch through a name that the text does not show (`m[k] = f` on the
-module object) stays under the same assumption.
+the scan roots. A hidden computed loader patch (`m[k] = f`) stays under the same assumption.
 
 ## Price
 No PASS turns UNKNOWN on graphql-js v16.15.0 and the TypeScript fixtures F, H, H-uml and L-nest
@@ -63,7 +62,8 @@ No PASS turns UNKNOWN on graphql-js v16.15.0 and the TypeScript fixtures F, H, H
 `tests/test_collector_false_pass_ts_preload.py` and
 `tests/test_collector_false_pass_ts_preload_runtime.py`: the plant of #1750, Node `exports`
 conditions, custom Node conditions, entry and transitive runtime resolution, local and installed
-loader patches, dynamic setup and unknown names hold the rule. A preload with no write, a class with
-its own `_cache` and a builtin keep PASS.
+loader patches, shell assignments, `.env` and `.npmrc` options, repeated flags, escaped and dynamic
+settings, dynamic setup and unknown names hold the rule. A preload with no write, a class with its
+own `_cache` and a builtin keep PASS.
 `native/typescript/src/preloads_tests.rs`: the readers and fail-closed handling of malformed configs,
 dynamic targets, runtime modes and whitespace around the module loader.

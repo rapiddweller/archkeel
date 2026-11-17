@@ -2,9 +2,10 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
+use super::options_reader::{has_preload_flag, option_names};
 use super::{
-    has_preload_flag, malformed_config, mode_of, names_of, node_options, option_names,
-    patches_loader, quoted_list, reaches_module, yaml_list,
+    malformed_config, mode_of, names_of, node_options, patches_loader, quoted_list, reaches_module,
+    yaml_list,
 };
 use crate::source_input::ModuleFormat;
 
