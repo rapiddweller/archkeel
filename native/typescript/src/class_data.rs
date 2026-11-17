@@ -234,7 +234,7 @@ pub(crate) fn classifier(
             .map(|member| member.name.clone())
             .collect()
     });
-    let within = match entry.parent {
+    let within = match entry.parent() {
         Some(parent) => format!("{parent}.{}", definition.name),
         None => definition.name.clone(),
     };

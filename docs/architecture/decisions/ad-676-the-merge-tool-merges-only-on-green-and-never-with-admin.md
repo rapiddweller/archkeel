@@ -4,7 +4,9 @@
 
 **Reason.** The merge helper in `/tmp` used `gh pr merge --admin`, so a red required check did not block, and a broken worktree landed three empty squash commits (#1337, #1338, #1340).
 
-**Decision.** `tools/merge_pr.py <number>` is the one way to merge. It refuses unless the pull request is open, not a draft, mergeable and not behind its base, and each required check of the base branch (the branch protection list, `PR gate` by default) has the conclusion `success` on the head commit. A missing, skipped, pending, neutral or cancelled check refuses. It merges with `--squash --match-head-commit <head>` and has no `--admin` and no `--no-verify`. After the merge it reads the merge commit: a commit that changes no file while the pull request changed files is an error (exit 2).
+**Decision.** `tools/merge_pr.py <number>` is the one way to merge. It refuses unless the pull request is open, not a draft, mergeable (no conflict), and each required check of the base branch (the branch protection list, `PR gate` by default) has the conclusion `success` on the head commit. A missing, skipped, pending, neutral or cancelled check refuses. It merges with `--squash --match-head-commit <head>` and has no `--admin` and no `--no-verify`. After the merge it reads the merge commit: a commit that changes no file while the pull request changed files is an error (exit 2).
+
+**Non-strict.** By owner decision of 2026-11-17 the protection is non-strict: a head behind its base may merge; the main and nightly tiers catch the combination of two green pull requests.
 
 **Rejected.** A shell script in `/tmp` (not reviewed, no test); trusting `gh pr merge` alone (it lands an empty squash without a word).
 
