@@ -39,7 +39,7 @@ Each report shows every FAIL and every UNKNOWN as the core gives it. Each cause 
 
 <!-- tiers:start -->
 Rust and TypeScript projects: each rule kind that the core has ported is decided; a rule kind without a port is UNKNOWN.
-Python and Dart projects: the rules that read the import graph are decided, and both decide `interface_boundary` (AD-504; Dart from the bound names of each import, AD-749, held by a `target_symbol` rule); a Dart cycle rule is always UNKNOWN, and every other rule of both is UNKNOWN.
+Python and Dart projects: the rules that read the import graph are decided, and both decide `interface_boundary` (AD-504; Dart from the bound names of each import, AD-749, held by a `target_symbol` rule); a Dart cycle rule has its receipt from the package map of the survey (AD-800), and every other rule of both is UNKNOWN.
 <!-- tiers:end -->
 
 See the [known limits](docs/known-limits.md).
@@ -244,7 +244,7 @@ and no decided violation. It does not prove runtime behavior or the quality of a
 
 <!-- tiers:start -->
 Rust and TypeScript projects: each rule kind that the core has ported is decided; a rule kind without a port is UNKNOWN.
-Python and Dart projects: the rules that read the import graph are decided, and both decide `interface_boundary` (AD-504; Dart from the bound names of each import, AD-749, held by a `target_symbol` rule); a Dart cycle rule is always UNKNOWN, and every other rule of both is UNKNOWN.
+Python and Dart projects: the rules that read the import graph are decided, and both decide `interface_boundary` (AD-504; Dart from the bound names of each import, AD-749, held by a `target_symbol` rule); a Dart cycle rule has its receipt from the package map of the survey (AD-800), and every other rule of both is UNKNOWN.
 <!-- tiers:end -->
 
 Use archkeel 4.0.1 for the other Python and Dart rules. See the [known limits](docs/known-limits.md).

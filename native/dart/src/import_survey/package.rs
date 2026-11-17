@@ -14,25 +14,28 @@ use saphyr::{LoadableYamlNode, Yaml};
 
 use super::index::Index;
 use super::names::{GapName, Gaps, Place};
+use super::package_map::{self, Origin, PackageMap};
 use crate::discover::{Discovery, PACKAGE_FILES};
 use crate::module::is_identifier;
 
 const PUBSPEC: &str = "pubspec.yaml";
 
 /// Add the package gaps of `discovery`, of the snapshot root and of each directory above a scan
-/// root to `gaps`. A package file above a scan root can own the files below it, as the root
-/// `pubspec.yaml` owns `lib`.
+/// root to `gaps`, and return the inputs and the package map (AD-800). A package file above a
+/// scan root can own the files below it, as the root `pubspec.yaml` owns `lib`.
+/// `.dart_tool/package_config.json` keeps its own check (`config.rs`, AD-454).
 pub(crate) fn package_gaps(
     snapshot: &mut Snapshot,
     discovery: &Discovery,
     roots: &[String],
     index: &Index<'_>,
     gaps: &mut Gaps,
-) -> Vec<Input> {
+) -> (Vec<Input>, PackageMap) {
     let mut inputs = Vec::new();
+    let mut map = PackageMap::default();
     if discovery.pubspec_digest.is_some() {
         if let Some(raw) = snapshot.read(PUBSPEC) {
-            pubspec_gaps(&raw, snapshot, discovery, roots, index, gaps, &mut inputs);
+            map = pubspec_gaps(&raw, snapshot, (discovery, roots, index), gaps, &mut inputs);
         }
     }
     let mut files: Vec<String> = discovery.package_files.clone();
@@ -67,7 +70,27 @@ pub(crate) fn package_gaps(
             gaps.named(GapName::PackageConfig, Place::File(rel), message);
         }
     }
-    inputs
+    (inputs, map)
+}
+
+/// The origin of each dependency of a root `pubspec.yaml`; an override replaces the dependency.
+/// `None` for a document that the survey does not read key by key.
+fn declared(document: &Yaml<'_>) -> Option<std::collections::BTreeMap<String, Origin>> {
+    let mut found = std::collections::BTreeMap::new();
+    for section in ["dependencies", "dev_dependencies", "dependency_overrides"] {
+        let Some(deps) = document.as_mapping_get(section) else {
+            continue;
+        };
+        if deps.is_null() {
+            continue;
+        }
+        for (name, dependency) in deps.as_mapping()? {
+            let name = name.as_str().filter(|name| is_identifier(name))?;
+            let origin = origin(dependency)?;
+            found.insert(name.to_owned(), origin);
+        }
+    }
+    Some(found)
 }
 
 /// The package keys and the marker for an unreadable document.
@@ -177,6 +200,29 @@ fn words(text: &str) -> PubspecWords {
     found
 }
 
+/// The origin of one dependency value: a version text or null is hosted; a mapping states it.
+fn origin(dependency: &Yaml<'_>) -> Option<Origin> {
+    match dependency {
+        Yaml::Value(_) => Some(Origin::Hosted),
+        Yaml::Mapping(keys) => {
+            let mut pairs = Vec::new();
+            for (key, value) in keys {
+                let key = key.as_str()?;
+                let text = if key == "git" && value.is_mapping() {
+                    value.as_mapping_get("url").and_then(Yaml::as_str)
+                } else {
+                    value.as_str()
+                };
+                pairs.push((key, text));
+            }
+            Some(package_map::origin(&pairs))
+        }
+        _ => None,
+    }
+}
+
+/// The member names of the workspace that the root `pubspec.yaml` declares, or `None` when the
+/// survey cannot read it. An import of a member is a gap at the import (AD-800).
 fn workspace(
     text: &str,
     snapshot: &mut Snapshot,
@@ -184,38 +230,31 @@ fn workspace(
     roots: &[String],
     index: &Index<'_>,
     inputs: &mut Vec<Input>,
-) -> bool {
+) -> Option<std::collections::BTreeSet<String>> {
     if text.contains(['&', '*', '!', '\\']) || index.syntax.iter().any(Option::is_none) {
-        return false;
+        return None;
     }
     if snapshot.is_file("pubspec.lock")
         || Snapshot::is_link(snapshot, "pubspec.lock")
         || snapshot.is_file(".dart_tool/package_config.json")
         || Snapshot::is_link(snapshot, ".dart_tool/package_config.json")
     {
-        return false;
+        return None;
     }
-    let Some(document) = yaml(text) else {
-        return false;
-    };
+    let document = yaml(text)?;
     if document.as_mapping_get("dependency_overrides").is_some() {
-        return false;
+        return None;
     }
-    let Some(members) = document
+    let members = document
         .as_mapping_get("workspace")
-        .and_then(Yaml::as_sequence)
-    else {
-        return false;
-    };
+        .and_then(Yaml::as_sequence)?;
     if members.len() > 32 || own.is_empty() {
-        return false;
+        return None;
     }
     let mut names = std::collections::BTreeSet::from([own.to_owned()]);
     let mut read = Vec::new();
     for member in members {
-        let Some(dir) = member.as_str().filter(|s| is_identifier(s)) else {
-            return false;
-        };
+        let dir = member.as_str().filter(|s| is_identifier(s))?;
         if roots
             .iter()
             .any(|root| root == "." || root.split('/').next() == Some(dir))
@@ -223,33 +262,26 @@ fn workspace(
             || snapshot.is_file(&format!("{dir}/pubspec_overrides.yaml"))
             || Snapshot::is_link(snapshot, &format!("{dir}/pubspec_overrides.yaml"))
         {
-            return false;
+            return None;
         }
         let path = format!("{dir}/pubspec.yaml");
         if Snapshot::is_link(snapshot, &path) {
-            return false;
+            return None;
         }
-        let Some(raw) = snapshot.read(&path) else {
-            return false;
-        };
+        let raw = snapshot.read(&path)?;
         let Ok(member_text) = std::str::from_utf8(&raw) else {
-            return false;
+            return None;
         };
         if member_text.contains(['&', '*', '!', '\\']) {
-            return false;
+            return None;
         }
-        let Some(doc) = yaml(member_text) else {
-            return false;
-        };
-        let Some(name) = doc
+        let doc = yaml(member_text)?;
+        let name = doc
             .as_mapping_get("name")
             .and_then(Yaml::as_str)
-            .filter(|s| is_identifier(s))
-        else {
-            return false;
-        };
-        if !names.insert(name.to_owned()) || !member_safe(&doc) || member_imported(index, name) {
-            return false;
+            .filter(|s| is_identifier(s))?;
+        if !names.insert(name.to_owned()) || !member_safe(&doc) {
+            return None;
         }
         read.push(Input {
             digest: sha256_hex(&raw),
@@ -258,7 +290,8 @@ fn workspace(
         });
     }
     inputs.extend(read);
-    true
+    names.remove(own);
+    Some(names)
 }
 
 fn member_safe(doc: &Yaml<'_>) -> bool {
@@ -299,42 +332,52 @@ fn member_safe(doc: &Yaml<'_>) -> bool {
     true
 }
 
-fn member_imported(index: &Index<'_>, name: &str) -> bool {
-    index.syntax.iter().flatten().any(|syntax| syntax.directives.iter().any(|directive| {
-        directive.target.as_deref().into_iter()
-            .chain(directive.alternatives.iter().map(|(_, uri)| uri.as_str()))
-            .any(|uri| matches!(super::uri::classify("", uri, index.package), super::uri::Uri::External { package, .. } if package == name))
-    }))
-}
-
-/// The gaps of the keys of the root `pubspec.yaml`. Bytes that are not UTF-8 already give the
-/// SDK gap of the discovery.
+/// The gaps of the keys of the root `pubspec.yaml` and its package map (AD-800). Bytes that are
+/// not UTF-8 already give the SDK gap of the discovery. A document that the survey does not read
+/// key by key keeps the whole-scope gaps of its words.
 fn pubspec_gaps(
     raw: &[u8],
     snapshot: &mut Snapshot,
-    discovery: &Discovery,
-    roots: &[String],
-    index: &Index<'_>,
+    (discovery, roots, index): (&Discovery, &[String], &Index<'_>),
     gaps: &mut Gaps,
     inputs: &mut Vec<Input>,
-) {
+) -> PackageMap {
     let Ok(text) = std::str::from_utf8(raw) else {
-        return;
+        return PackageMap::default();
     };
     let found = keys(text);
-    if found.workspace
-        && (found.resolution
-            || found.path
-            || found.escape
-            || !workspace(
-                text,
-                snapshot,
-                &discovery.package_name,
-                roots,
-                index,
-                inputs,
-            ))
-    {
+    let document = yaml(text).filter(|_| !found.escape && !text.contains(['&', '*', '!']));
+    let declared = document.as_ref().and_then(declared);
+    let (Some(document), Some(declared)) = (document, declared) else {
+        word_gaps(&found, gaps);
+        return PackageMap::default();
+    };
+    let mut map = PackageMap {
+        read: true,
+        declared,
+        ..PackageMap::default()
+    };
+    let message = "the package is a workspace or a member of one; its packages are not resolved";
+    if let Some(value) = document.as_mapping_get("resolution") {
+        if value.as_str() == Some("workspace") {
+            map.unseen_workspace = true;
+        } else {
+            gaps.named(GapName::Workspace, Place::File(PUBSPEC), message);
+        }
+    }
+    if document.as_mapping_get("workspace").is_some() {
+        let own = &discovery.package_name;
+        match workspace(text, snapshot, own, roots, index, inputs) {
+            Some(members) => map.members = members,
+            None => gaps.named(GapName::Workspace, Place::File(PUBSPEC), message),
+        }
+    }
+    map
+}
+
+/// The whole-scope gaps of a root `pubspec.yaml` that the survey reads only word by word.
+fn word_gaps(found: &PubspecWords, gaps: &mut Gaps) {
+    if found.workspace {
         let message =
             "the package is a workspace or a member of one; its packages are not resolved";
         gaps.named(GapName::Workspace, Place::File(PUBSPEC), message);
@@ -350,72 +393,5 @@ fn pubspec_gaps(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::keys;
-
-    fn words(text: &str) -> (bool, bool, bool) {
-        let found = keys(text);
-        (found.workspace, found.path, found.escape)
-    }
-
-    #[test]
-    fn each_yaml_form_of_a_key_is_a_word_and_an_escape_is_a_gap() {
-        for text in [
-            "a:\n  b:\n    path: x",
-            "a: {\"b\": {\"path\": x}}",
-            "a:\n  'path': x",
-            "a:\n  ? path\n  : x",
-            "a:\n  ? \"path\"\n  : x",
-            "a: {b: {path : x}}",
-        ] {
-            assert_eq!(words(text), (false, true, false), "{text}");
-        }
-        assert_eq!(words("\"workspace\":\n  - x"), (true, false, false));
-        assert_eq!(words("'resolution': workspace"), (true, false, false));
-        // The key alone is a gap: the value need not be the word `workspace`.
-        assert_eq!(words("\"resolution\": x"), (true, false, false));
-        assert_eq!(words("a:\n  \"pa\\x74h\": x"), (false, false, true));
-    }
-
-    #[test]
-    fn a_comment_line_and_a_longer_word_are_no_key() {
-        assert_eq!(words("  # path: x\nclasspath: x"), (false, false, false));
-        assert_eq!(words("description: a pathway"), (false, false, false));
-        assert_eq!(words("name: x # path"), (false, false, false));
-    }
-
-    #[test]
-    fn path_in_package_metadata_is_not_a_dependency_key() {
-        assert_eq!(
-            words(
-                "name: path\ndescription: A path library\nrepository: https://example.org/path\n"
-            ),
-            (false, false, false)
-        );
-    }
-
-    #[test]
-    fn a_hosted_dependency_named_path_is_not_a_path_dependency() {
-        assert_eq!(
-            words("name: shop\ndependencies:\n  path: ^1.9.0\n"),
-            (false, false, false)
-        );
-        assert!(keys("name: shop\ndependencies:\n  path:\n    path: ../local\n").path);
-    }
-
-    #[test]
-    fn path_keys_and_unreadable_yaml_keep_a_gap() {
-        for text in [
-            "dependencies:\n  other:\n    path: ../other\n",
-            "dependency_overrides: {other: {path: ../other}}",
-            "dependencies:\n  other:\n    'path': ../other",
-            "dependencies:\n  other:\n    \"pa\\x74h\": ../other",
-            "name: path\nname: other\n",
-            "name: path\nx: [\n",
-            "name: path\nx: &a {path: ../other}\ny: *a\n",
-        ] {
-            let found = keys(text);
-            assert!(found.path || found.escape, "{text:?}: {found:?}");
-        }
-    }
-}
+#[path = "package_tests.rs"]
+mod tests;

@@ -18,6 +18,7 @@ mod edges;
 mod index;
 mod names;
 mod package;
+mod package_map;
 mod parts;
 pub(crate) mod reply;
 mod uri;
@@ -89,8 +90,9 @@ pub(crate) fn survey(request: &DartRequest) -> Result<Survey, String> {
     discovery_gaps(&found, &mut gaps.evidence, &mut gaps.records);
     let root = &request.snapshot.root;
     let config = config::config_gaps(&mut snapshot, root, &found.package_name, &mut gaps);
-    let index = parse_sources(&found, &mut gaps)?;
-    let packages = package::package_gaps(&mut snapshot, &found, &roots, &index, &mut gaps);
+    let mut index = parse_sources(&found, &mut gaps)?;
+    let (packages, map) = package::package_gaps(&mut snapshot, &found, &roots, &index, &mut gaps);
+    index.packages = map;
     let owners = parts::owners(&mut snapshot, &index, &mut gaps);
     let built = edges::edges(&mut snapshot, &index, &owners, &mut gaps);
     let files = file_facts(&index, &mut gaps);
@@ -228,6 +230,7 @@ fn parse_sources<'a>(found: &'a Discovery, gaps: &mut Gaps) -> Result<Index<'a>,
         syntax,
         kinds,
         isolate_loader,
+        packages: package_map::PackageMap::default(),
     })
 }
 
@@ -290,6 +293,10 @@ pub(crate) fn gap_rows(found: &Survey) -> std::collections::BTreeMap<String, usi
 #[cfg(test)]
 #[path = "import_survey/survey_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "import_survey/survey_package_tests.rs"]
+mod package_tests;
 
 #[cfg(test)]
 #[path = "import_survey/fixture_tests.rs"]

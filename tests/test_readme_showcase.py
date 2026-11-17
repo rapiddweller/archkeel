@@ -103,7 +103,8 @@ def test_the_language_tiers_of_the_readme_are_the_block_of_the_known_limits() ->
     # Outside the block, the known limits say what the block says, so that one cannot change alone.
     body = TIERS.sub("", limits).replace("\n", " ")
     assert "`interface_boundary` and symbol-level" in body and "(AD-504)" in body
-    assert "cycle rule (`no_component_cycles`) is always UNKNOWN" in re.sub(r"\s+", " ", body)
+    flat = re.sub(r"\s+", " ", body)
+    assert "cycle rule (`no_component_cycles`) has its receipt when the package map" in flat
     for sentence in block.splitlines():
         assert sentence.endswith(".")
     # The README names no tier of its own outside the block.

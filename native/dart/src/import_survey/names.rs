@@ -60,6 +60,8 @@ gap_names! {
     PathDependency,
     NestedPackage,
     PackageConfig,
+    LocalPackage,
+    UndeclaredPackage,
     ParseBudget,
 }
 
@@ -69,9 +71,12 @@ impl GapName {
         match self {
             Self::TargetIsPart | Self::PartUnowned | Self::PartNotPart => ExceptionName::PartError,
             Self::PartConflict => ExceptionName::PartOwnershipConflict,
-            Self::Workspace | Self::PathDependency | Self::NestedPackage | Self::PackageConfig => {
-                ExceptionName::SnapshotError
-            }
+            Self::Workspace
+            | Self::PathDependency
+            | Self::NestedPackage
+            | Self::PackageConfig
+            | Self::LocalPackage
+            | Self::UndeclaredPackage => ExceptionName::SnapshotError,
             Self::ParseBudget => ExceptionName::DartSyntaxError,
             _ => ExceptionName::DirectiveError,
         }
@@ -85,7 +90,8 @@ impl GapName {
     /// - A package key or file can make a `package:` URI of any library name another file: the
     ///   edges of every library are unknown. The files below the roots and their names are not.
     /// - A directive, a mirror or an isolate site leaves the targets and the exports of its own
-    ///   library unknown. Dart code cannot change another library, and an isolate shares no
+    ///   library unknown. So does an import of a package that the package map does not prove
+    ///   external (AD-800): only that import can name a local file. Dart code cannot change another library, and an isolate shares no
     ///   library with the code that spawns it.
     /// - A part whose owner is not proven, a second package in a root, an unparsed target and a
     ///   file over the parse budget can put code or a file in a library that the gap does not
@@ -106,7 +112,9 @@ impl GapName {
             | Self::UnsupportedUri
             | Self::UriNotLiteral
             | Self::Mirrors
-            | Self::Isolate => own(),
+            | Self::Isolate
+            | Self::LocalPackage
+            | Self::UndeclaredPackage => own(),
             Self::TargetIsPart
             | Self::TargetUnparsed
             | Self::PartUnowned
