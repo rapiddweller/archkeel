@@ -229,10 +229,16 @@ def build_other(cli: Sequence[str], entry: Mapping[str, str]) -> Contract:
     return contract_of(envelope, entry["title"], problem)
 
 
-def nav(page: str, links: Sequence[tuple[str, str]], current: str = "") -> str:
+def nav(
+    page: str,
+    links: Sequence[tuple[str, str]],
+    current: str = "",
+    apart: tuple[str, str] | None = None,
+) -> str:
     """The page with one visible navigation of its neighbour pages, first in its `<main>`.
 
-    The link of the page that is open is marked with `aria-current="page"`; it is `current`.
+    The link of the page that is open is marked with `aria-current="page"`; it is `current`. The
+    `apart` link, another kind of page, comes last behind a thin divider.
     """
 
     def link(label: str, href: str) -> str:
@@ -240,6 +246,8 @@ def nav(page: str, links: Sequence[tuple[str, str]], current: str = "") -> str:
         return f'<a href="{html.escape(href, quote=True)}"{mark}>{html.escape(label)}</a>'
 
     items = "".join(link(label, href) for label, href in links)
+    if apart:
+        items += '<span class="rp-pages__divider" aria-hidden="true"></span>' + link(*apart)
     bar = f'<nav class="rp-pages" aria-label="Report pages">{items}</nav>'
     # The bar sits first inside `<main>`, where the links have the style of the report.
     if not re.search(r"<main[^>]*>", page):
@@ -269,11 +277,11 @@ def build_system(cli: Sequence[str], system: System, document: Path, out: Path) 
     shown = "System"
     siblings = [(shown, "index.html"), *parts]
     (folder / "index.html").write_text(
-        nav(text, [("Fixture reports", "../showcase/index.html"), *siblings], shown)
+        nav(text, siblings, shown, ("Fixture reports", "../showcase/index.html"))
     )
     entry = [(label, f"self/{href}") for label, href in siblings]
     (out / "index.html").write_text(
-        nav(text, [("Fixture reports", "showcase/index.html"), *entry], shown)
+        nav(text, entry, shown, ("Fixture reports", "showcase/index.html"))
     )
     for part in system.parts:
         each = folder / f"{part.id}.html"
@@ -281,8 +289,9 @@ def build_system(cli: Sequence[str], system: System, document: Path, out: Path) 
             each.write_text(
                 nav(
                     each.read_text(),
-                    [("Fixture reports", "../showcase/index.html"), *siblings],
+                    siblings,
                     part.title,
+                    ("Fixture reports", "../showcase/index.html"),
                 )
             )
     return row
