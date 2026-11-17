@@ -4,7 +4,7 @@
 """The text of a run for a person: the verdict and its reason first, then what to do (AD-432).
 
 Order: the header (verdict word, exit code and reason), the problems of the command, the next
-action, the violations, the rules that wait and the gaps grouped by cause with a count and a few
+action, the violations, the rules that wait and the gaps grouped by cause with a count and some
 examples. `--all` lists everything. The text never prints a machine code; the JSON keeps them.
 """
 
