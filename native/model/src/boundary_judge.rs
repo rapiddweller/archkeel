@@ -175,6 +175,16 @@ pub(crate) struct Surface<'a> {
 /// counts only under the premise `standard_library_unchanged` and while the repository leaves the
 /// name unchanged (#1718); otherwise the position is a gap that names why.
 pub(crate) fn judge_position(shape: &TypeShape, surface: &Surface<'_>, key: &str) -> Judged {
+    judge_position_seen(shape, surface, key, &mut HashSet::new())
+}
+
+/// Judge a position while preserving the dataclass path for recursive field types.
+fn judge_position_seen(
+    shape: &TypeShape,
+    surface: &Surface<'_>,
+    key: &str,
+    seen: &mut HashSet<String>,
+) -> Judged {
     let mut assumed = false;
     for name in positions_of(surface.facts, key).into_iter().flatten() {
         let gate = standard(name, name, surface);
@@ -183,13 +193,18 @@ pub(crate) fn judge_position(shape: &TypeShape, surface: &Surface<'_>, key: &str
         }
         assumed |= gate.assumed;
     }
-    let mut found = judge(shape, surface, 0);
+    let mut found = judge_seen(shape, surface, 0, seen);
     found.assumed |= assumed;
     found
 }
 
-/// The judge of one shape; `depth` counts the collections around it.
-pub(crate) fn judge(shape: &TypeShape, surface: &Surface<'_>, depth: u32) -> Judged {
+/// Judge a shape while keeping the dataclass types on the current field path.
+fn judge_seen(
+    shape: &TypeShape,
+    surface: &Surface<'_>,
+    depth: u32,
+    seen: &mut HashSet<String>,
+) -> Judged {
     match shape {
         TypeShape::Unannotated {} => Judged::gap(GapCause::MissingAnnotation, ""),
         TypeShape::Nothing {} | TypeShape::Primitive { .. } => Judged::default(),
@@ -205,14 +220,14 @@ pub(crate) fn judge(shape: &TypeShape, surface: &Surface<'_>, depth: u32) -> Jud
                 found.merge(Judged::gap(GapCause::Generic, text));
             }
             for arg in args {
-                found.merge(judge(arg, surface, depth + 1));
+                found.merge(judge_seen(arg, surface, depth + 1, seen));
             }
             found
         }
         TypeShape::Union { arms, .. } => {
             let mut found = Judged::default();
             for arm in arms {
-                found.merge(judge(arm, surface, depth));
+                found.merge(judge_seen(arm, surface, depth, seen));
             }
             found
         }
@@ -223,8 +238,8 @@ pub(crate) fn judge(shape: &TypeShape, surface: &Surface<'_>, depth: u32) -> Jud
                 Judged::gap(GapCause::Other, text)
             }
         }
-        TypeShape::Annotated { inner, .. } => judge(inner, surface, depth),
-        TypeShape::Named { text, binding } => named(text, binding, surface),
+        TypeShape::Annotated { inner, .. } => judge_seen(inner, surface, depth, seen),
+        TypeShape::Named { text, binding } => named(text, binding, surface, seen),
         // The head is a type that this reading does not model (`Callable`, a user generic): what
         // it holds is not read, so no leaf of it is a violation either.
         TypeShape::Applied { text, .. } => Judged::gap(GapCause::Generic, text),
@@ -246,7 +261,12 @@ fn broad(text: &str, why: &str, depth: u32) -> Judged {
     }
 }
 
-fn named(text: &str, binding: &Binding, surface: &Surface<'_>) -> Judged {
+fn named(
+    text: &str,
+    binding: &Binding,
+    surface: &Surface<'_>,
+    seen: &mut HashSet<String>,
+) -> Judged {
     match binding {
         Binding::Unproven { cause } => Judged::gap(
             match cause {
@@ -262,31 +282,22 @@ fn named(text: &str, binding: &Binding, surface: &Surface<'_>) -> Judged {
         ),
         Binding::Builtin { .. } => Judged::gap(GapCause::Other, text),
         Binding::Defined { target } | Binding::Imported { target } => {
-            reached(text, target, surface)
+            reached(text, target, surface, seen)
         }
     }
 }
 
 /// The verdict of a name that one plain binder gives to the qualified name `target`.
-fn reached(text: &str, target: &str, surface: &Surface<'_>) -> Judged {
+fn reached(text: &str, target: &str, surface: &Surface<'_>, seen: &mut HashSet<String>) -> Judged {
     match surface.facts.origin_of(target) {
         Origin::Defined(name, Entry::Class(class)) => {
             if class.kind == Some(ClassKind::Enum) {
                 Judged::default()
             } else if surface.declared.contains(name) {
-                // The rule walks the fields of a declared class; syntax does not.
-                Judged::gap(GapCause::FieldWalk, text)
+                dataclass_fields(text, name, surface, seen)
+                    .unwrap_or_else(|| Judged::gap(GapCause::FieldWalk, text))
             } else {
-                Judged {
-                    leaves: vec![Leaf {
-                        text: text.to_owned(),
-                        why: "a class that no component declares".to_owned(),
-                        depth: 0,
-                        broad: false,
-                    }],
-                    gaps: Vec::new(),
-                    assumed: false,
-                }
+                undeclared_class(text, false)
             }
         }
         Origin::Defined(_, Entry::Value) => Judged::gap(GapCause::Alias, text),
@@ -297,33 +308,98 @@ fn reached(text: &str, target: &str, surface: &Surface<'_>) -> Judged {
             if !surface.scanned.contains(module.as_str()) {
                 return standard(text, &qualified, surface);
             }
-            // A class whose standard decorator keeps it a class (AD-782).
-            let class = matches!(
-                wrapped_of(surface.facts, &qualified),
-                Some(Wrapped::Class { .. })
-            );
-            match (
-                class && surface.premise,
-                surface.declared.contains(&qualified),
-            ) {
-                (true, true) => Judged {
-                    assumed: true,
-                    ..Judged::gap(GapCause::FieldWalk, text)
-                },
-                (true, false) => Judged {
-                    leaves: vec![Leaf {
-                        text: text.to_owned(),
-                        why: "a class that no component declares".to_owned(),
-                        depth: 0,
-                        broad: false,
-                    }],
-                    gaps: Vec::new(),
-                    assumed: true,
-                },
-                (false, _) => Judged::gap(GapCause::UnresolvedName, text),
+            match wrapped_of(surface.facts, &qualified) {
+                Some(Wrapped::Unread(reason)) => {
+                    Judged::gap(GapCause::UnresolvedName, &format!("{text}: {reason}"))
+                }
+                Some(Wrapped::Class { .. }) if surface.premise => {
+                    if surface.declared.contains(&qualified) {
+                        dataclass_fields(text, &qualified, surface, seen)
+                            .unwrap_or_else(|| Judged::gap(GapCause::FieldWalk, text))
+                    } else {
+                        undeclared_class(text, true)
+                    }
+                }
+                Some(Wrapped::Class { .. }) => Judged::gap(
+                    GapCause::FieldWalk,
+                    &format!("{text}: the standard dataclass field model requires {NEEDS_PREMISE}"),
+                ),
+                _ => Judged::gap(GapCause::UnresolvedName, text),
             }
         }
     }
+}
+
+/// A repository class that no component declares is a violation, also under the premise.
+fn undeclared_class(text: &str, assumed: bool) -> Judged {
+    Judged {
+        leaves: vec![Leaf {
+            text: text.to_owned(),
+            why: "a class that no component declares".to_owned(),
+            depth: 0,
+            broad: false,
+        }],
+        gaps: Vec::new(),
+        assumed,
+    }
+}
+
+/// Walk only a complete field inventory from the collector's guarded dataclass model.
+fn dataclass_fields(
+    text: &str,
+    target: &str,
+    surface: &Surface<'_>,
+    seen: &mut HashSet<String>,
+) -> Option<Judged> {
+    if !surface.premise {
+        return None;
+    }
+    let Some(Wrapped::Class {
+        init: Some(fields),
+        attributes,
+        ..
+    }) = wrapped_of(surface.facts, target)
+    else {
+        return None;
+    };
+    // The current fact carries types only for generated __init__ parameters. If any class
+    // attribute is absent from that inventory, do not assume it is not an instance field.
+    let names: HashSet<&str> = fields.iter().map(|field| field.name.as_str()).collect();
+    if attributes
+        .iter()
+        .any(|attribute| !names.contains(attribute.as_str()))
+    {
+        return None;
+    }
+    if !seen.insert(target.to_owned()) {
+        return Some(Judged::gap(
+            GapCause::FieldWalk,
+            &format!("{text}: recursive dataclass field walk"),
+        ));
+    }
+    let mut found = Judged {
+        assumed: true,
+        ..Judged::default()
+    };
+    for field in fields {
+        let field_text = format!("{target}.{}", field.name);
+        let judged = if let Some(shape) = &field.shape {
+            let key = format!("{target}.__init__:{}", field.name);
+            let mut judged = judge_position_seen(shape, surface, &key, seen);
+            for leaf in &mut judged.leaves {
+                leaf.text = format!("{field_text}: {}", leaf.text);
+            }
+            for (_, detail) in &mut judged.gaps {
+                *detail = format!("{field_text}: {detail}");
+            }
+            judged
+        } else {
+            Judged::gap(GapCause::MissingAnnotation, &field_text)
+        };
+        found.merge(judged);
+    }
+    seen.remove(target);
+    Some(found)
 }
 
 /// A name outside the scan: a type of the standard library that the collector names counts under

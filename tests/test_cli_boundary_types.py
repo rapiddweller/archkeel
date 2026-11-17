@@ -44,6 +44,216 @@ def use_standard_library_premise(root: Path) -> None:
     path.write_text(json.dumps(contract))
 
 
+@pytest.mark.parametrize(
+    ("model", "expected", "reason"),
+    [
+        (
+            "from dataclasses import dataclass\n"
+            "@dataclass\nclass Amount:\n    cents: int\n"
+            "@dataclass\nclass Order:\n    amount: Amount\n"
+            "__all__ = ['Amount', 'Order']\n",
+            "PASS",
+            None,
+        ),
+        (
+            "from dataclasses import dataclass\n"
+            "@dataclass\nclass Order:\n    values: dict[str, int]\n"
+            "__all__ = ['Order']\n",
+            "FAIL",
+            None,
+        ),
+        (
+            "from dataclasses import dataclass\nfrom typing import Optional\n"
+            "@dataclass\nclass Order:\n    values: Optional[dict]\n"
+            "__all__ = ['Order']\n",
+            "FAIL",
+            None,
+        ),
+        (
+            "from dataclasses import dataclass, field\n"
+            "@dataclass\nclass Order:\n    value: int = field(init=False)\n"
+            "__all__ = ['Order']\n",
+            "UNKNOWN",
+            "field_walk",
+        ),
+        (
+            "from dataclasses import dataclass\nfrom typing import ClassVar\n"
+            "@dataclass\nclass Order:\n    value: ClassVar[int] = 1\n"
+            "__all__ = ['Order']\n",
+            "UNKNOWN",
+            "field_walk",
+        ),
+        (
+            "from dataclasses import dataclass\n"
+            "@dataclass\nclass Order:\n    value: NotScanned\n"
+            "__all__ = ['Order']\n",
+            "UNKNOWN",
+            "unresolved_name",
+        ),
+        (
+            "from dataclasses import dataclass\nfrom typing import Protocol\n"
+            "class Sender(Protocol):\n    def send(self) -> None: ...\n"
+            "@dataclass\nclass Order:\n    sender: Sender\n"
+            "__all__ = ['Order', 'Sender']\n",
+            "UNKNOWN",
+            None,
+        ),
+        (
+            "def custom(cls):\n    return cls\n"
+            "@custom\nclass Order:\n    value: int\n"
+            "__all__ = ['Order']\n",
+            "UNKNOWN",
+            "unresolved_name",
+        ),
+        (
+            "import dataclasses\n"
+            "def replace(cls):\n    return cls\n"
+            "dataclasses.dataclass = replace\n"
+            "@dataclasses.dataclass\nclass Order:\n    value: int\n"
+            "__all__ = ['Order']\n",
+            "UNKNOWN",
+            "unresolved_name",
+        ),
+        (
+            "import typing\nfrom typing import Optional\n"
+            "typing.Optional = dict\n"
+            "from dataclasses import dataclass\n"
+            "@dataclass\nclass Order:\n    value: Optional[int]\n"
+            "__all__ = ['Order']\n",
+            "UNKNOWN",
+            "unresolved_name",
+        ),
+        (
+            "from dataclasses import dataclass\n"
+            "@dataclass\nclass Order:\n    value: int\n"
+            "Order.value = dict\n"
+            "__all__ = ['Order']\n",
+            "UNKNOWN",
+            "unresolved_name",
+        ),
+        (
+            "from dataclasses import dataclass\n"
+            "@dataclass\nclass Order:\n    value: int\n"
+            "vars(Order)['value'] = dict\n"
+            "__all__ = ['Order']\n",
+            "UNKNOWN",
+            "unresolved_name",
+        ),
+        (
+            "from dataclasses import dataclass\n"
+            "@dataclass\nclass Order:\n    value: int\n"
+            "Order.__annotations__['value'] = dict\n"
+            "__all__ = ['Order']\n",
+            "UNKNOWN",
+            "unresolved_name",
+        ),
+        (
+            "from dataclasses import dataclass\n"
+            "@dataclass\nclass Order:\n    value: int\n"
+            "Order.__dataclass_fields__['value'].type = dict\n"
+            "__all__ = ['Order']\n",
+            "UNKNOWN",
+            "unresolved_name",
+        ),
+        (
+            "from dataclasses import dataclass\n"
+            "@dataclass\nclass Order:\n    child: Order | None\n"
+            "__all__ = ['Order']\n",
+            "UNKNOWN",
+            "recursive dataclass field walk",
+        ),
+    ],
+)
+def test_dataclass_return_walk_is_bounded_by_proven_field_shapes(
+    release_core: Path,
+    tmp_path: Path,
+    model: str,
+    expected: str,
+    reason: str | None,
+) -> None:
+    plant = Plant(
+        facade(
+            "def place() -> Order:\n    raise NotImplementedError\n",
+            "'place'",
+            "from app.model import Order\n",
+        ),
+        "PASS",
+        {"model.py": model},
+        public=("app.api", "app.model"),
+    )
+    root = project(tmp_path / "p", plant)
+    use_standard_library_premise(root)
+    result = json.loads(command(release_core, root, "--json").stdout)
+    assert result["frame"]["rules"][RULE] == ["boundary_types", expected], result
+    if reason:
+        assert reason in json.dumps(result), result
+
+
+def test_f_architecture_dataclass_return_pass_names_its_premise(
+    release_core: Path,
+) -> None:
+    root = Path(__file__).parents[1] / "fixtures/F-architecture"
+    result = json.loads(command(release_core, root, "--json", verb="report").stdout)
+    assert result["frame"]["rules"]["APP-TYPES-NOT-DICT"] == ["boundary_types", "PASS"]
+    premises = result["frame"]["premises"]["APP-TYPES-NOT-DICT"]
+    assert any(
+        item["kind"] == "standard_library_unchanged"
+        and item["subject"] == "shop.app.orders.place_order:return"
+        for item in premises
+    )
+
+
+def test_dataclass_return_without_the_premise_stays_unknown(
+    release_core: Path, tmp_path: Path
+) -> None:
+    plant = Plant(
+        facade(
+            "def place() -> Order:\n    raise NotImplementedError\n",
+            "'place'",
+            "from app.model import Order\n",
+        ),
+        "PASS",
+        {
+            "model.py": (
+                "from dataclasses import dataclass\n"
+                "@dataclass\nclass Order:\n    value: int\n"
+                "__all__ = ['Order']\n"
+            )
+        },
+        public=("app.api", "app.model"),
+    )
+    result = json.loads(command(release_core, project(tmp_path / "p", plant), "--json").stdout)
+    assert result["frame"]["rules"][RULE] == ["boundary_types", "UNKNOWN"], result
+    assert "standard_library_unchanged" in json.dumps(result["frame"])
+
+
+def test_dataclass_field_writer_outside_scan_roots_stays_unknown(
+    release_core: Path, tmp_path: Path
+) -> None:
+    plant = Plant(
+        facade(
+            "def place() -> Order:\n    raise NotImplementedError\n",
+            "'place'",
+            "import startup_plugin\nfrom app.model import Order\n",
+        ),
+        "PASS",
+        {
+            "model.py": (
+                "from dataclasses import dataclass\n"
+                "@dataclass\nclass Order:\n    value: int\n"
+                "__all__ = ['Order']\n"
+            )
+        },
+        public=("app.api", "app.model"),
+    )
+    root = project(tmp_path / "p", plant)
+    (root / "startup_plugin.py").write_text("from app.model import Order\nOrder.value = dict\n")
+    use_standard_library_premise(root)
+    result = json.loads(command(release_core, root, "--json").stdout)
+    assert result["frame"]["rules"][RULE] == ["boundary_types", "UNKNOWN"], result
+    assert "may change a dataclass field" in json.dumps(result)
+
+
 def test_every_plant_has_a_pinned_row() -> None:
     assert set(ROWS) == set(PLANTS)
 

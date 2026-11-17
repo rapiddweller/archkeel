@@ -61,6 +61,12 @@ pub(super) struct Reader<'a> {
     pub(super) module: &'a Module,
 }
 
+impl Reader<'_> {
+    pub(super) fn may_write(&self, name: &str) -> bool {
+        crate::survey::class_writes::may_write(self.writes, name)
+    }
+}
+
 pub(super) fn unread(text: &str) -> Wrapped {
     Wrapped::Unread(text.to_owned())
 }

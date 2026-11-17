@@ -73,6 +73,11 @@ impl ClassWrites {
     }
 }
 
+/// True when repository code may change a name, including a store through a namespace.
+pub(crate) fn may_write(writes: &ClassWrites, name: &str) -> bool {
+    writes.any || writes.namespace || HashSet::contains(&writes.names, name)
+}
+
 /// True when the module has `from __future__ import annotations`: its annotations are strings.
 pub(crate) fn future_annotations(tree: &ModModule) -> bool {
     imports_from(tree, "__future__", "annotations")
@@ -94,6 +99,11 @@ impl<'a> Visitor<'a> for Walk<'_> {
         match expr {
             // A read of a namespace: an item load, or a method that does not change it.
             Expr::Subscript(node) if node.ctx == ExprContext::Load && namespace(&node.value) => {
+                self.visit_expr(&node.slice);
+                return;
+            }
+            Expr::Subscript(node) if node.ctx != ExprContext::Load && namespace(&node.value) => {
+                self.0.namespace = true;
                 self.visit_expr(&node.slice);
                 return;
             }
@@ -173,12 +183,13 @@ fn namespace(expr: &Expr) -> bool {
             _ => false,
         },
         Expr::Attribute(node) => match Identifier::as_str(&node.attr) {
-            "__dict__" => true,
+            "__dict__" | "__annotations__" | "__dataclass_fields__" => true,
             "modules" => {
                 matches!(&*node.value, Expr::Name(name) if Name::as_str(&name.id) == "sys")
             }
-            _ => false,
+            _ => namespace(&node.value),
         },
+        Expr::Subscript(node) => namespace(&node.value),
         _ => false,
     }
 }
