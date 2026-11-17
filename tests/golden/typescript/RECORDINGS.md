@@ -40,3 +40,4 @@
 | 2026-11-17 | l-nest-realworld | 513a8818c | AD-788 (#1546): the repository guard reads the source files outside the scan roots, so they are inputs of the reply (cpython 3.11.12) |
 | 2026-11-17 | synthetic-bundler | 513a8818c | AD-788 (#1546): the repository guard reads the source files outside the scan roots, so they are inputs of the reply (cpython 3.11.12) |
 | 2026-11-17 | synthetic-package-maps | 513a8818c | AD-788 (#1546): the repository guard reads the source files outside the scan roots, so they are inputs of the reply (cpython 3.11.12) |
+| 2026-11-17 | synthetic-allowjs | eb5b37d93 | AD-788 amendment (#1674): module.exports = {...} is a member patch of the free name module, so its uses give the patch reason (cpython 3.11.12) |
