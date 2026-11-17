@@ -45,7 +45,8 @@ fast-test: core browser-runtime-install
 # AD-674: the PR gate, at most 3 minutes: static checks, the core build, the self and system check,
 # and the fast tests of the areas that the change selects (tools/select_areas.py).
 PR_BASE ?= origin/main
-pr-gate: ci-pr-static self-validate pr-selected-test
+# SKIP_STATIC=1: the workflow ran `make ci-pr-static` beside the core build (AD-754).
+pr-gate: $(if $(strip $(SKIP_STATIC)),,ci-pr-static) self-validate pr-selected-test
 
 # AD-756: Rust format and lint in the PR gate when the change touches native/: `cargo fmt --check` for the
 # whole workspace (about 2 s) and `clippy -D warnings` for the touched crates only (tools/native_touched.py).
@@ -107,6 +108,10 @@ native-check:
 	cd native && cargo test --locked
 	$(MAKE) self-validate-native
 
+# AD-754: the gate builds the core with a fast profile: no LTO, 16 codegen units. The verdicts do not depend
+# on it; the shipped wheel, the nightly run and a build without ARCHKEEL_CORE_PROFILE keep the release profile.
+CORE_PROFILE_ENV := $(if $(filter gate,$(ARCHKEEL_CORE_PROFILE)),CARGO_PROFILE_RELEASE_LTO=false CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16,)
+
 # AD-432: the core is the only decision path. `archkeel` finds this release build of the checkout.
 # AD-732, AD-736: with ARCHKEEL_CORE_SOURCE=cache (CI restored the core from its cache) and
 # ARCHKEEL_NATIVE_TREE (the hash of the native tree) the core is reused only when the stamp next to the
@@ -117,7 +122,7 @@ core:
 	if [ "$$ARCHKEEL_CORE_SOURCE" = cache ] && [ -n "$$tree" ] && [ -x native/target/release/archkeel-core ] && [ "$$(cat $$stamp 2>/dev/null)" = "$$tree" ]; then \
 		echo "core: the release core of tree $$tree is used (AD-732)"; \
 	else \
-		rm -f $$stamp; (cd native && cargo build --locked --release -p archkeel-core) && \
+		rm -f $$stamp; (cd native && $(CORE_PROFILE_ENV) cargo build --locked --release -p archkeel-core) && \
 		{ [ -z "$$tree" ] || echo "$$tree" > $$stamp; }; \
 	fi
 
