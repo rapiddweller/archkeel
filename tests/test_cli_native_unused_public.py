@@ -10,7 +10,8 @@ an item of a module that `app` takes by a glob are undecided. The Rust collector
 every public symbol, so a run without a violation is UNKNOWN and never PASS.
 
 Python (python3.12 runs each plant): its collector states every public symbol, so a run where
-each public function has a user is PASS, and an unused one is FAIL.
+each public name has a user is PASS. Python is judged by name (owner decision): an unused function
+and an unused class without a leading underscore are FAIL; a name with one is private.
 """
 
 from __future__ import annotations
@@ -136,9 +137,9 @@ def test_a_malformed_external_user_refuses_the_contract(core_binary: Path, tmp_p
 
 PY_BASE = (
     "def used():\n    return 1\n\n\ndef unused():\n    return 2\n\n\n"
-    "def _private():\n    return 3\n"
+    "def _private():\n    return 3\n\n\nclass Shape:\n    pass\n\n\nclass _Hidden:\n    pass\n"
 )
-PY_APP_ALL = "from pkg.base import unused, used\n\nX = used() + unused()\n"
+PY_APP_ALL = "from pkg.base import Shape, unused, used\n\nX = (used() + unused(), Shape)\n"
 PY_APP_ONE = "from pkg.base import used\n\nX = used()\n"
 
 
@@ -158,7 +159,7 @@ def _python(root: Path, binary: Path, app: str) -> dict[str, Any]:
         {**component(label, label), "packages": [f"pkg.{label}"], "requires": []}
         for label in ("base", "app")
     ]
-    unused = rule("UNUSED", "unused_public", source="pkg.base", item_kinds=["function"])
+    unused = rule("UNUSED", "unused_public", source="pkg.base")
     unused["provenance"] = ["docs/target.md"]
     for part in parts:
         part["provenance"] = ["docs/target.md"]
@@ -181,7 +182,7 @@ def _python(root: Path, binary: Path, app: str) -> dict[str, Any]:
 @pytest.mark.skipif(shutil.which("python3.12") is None, reason="python3.12 is the oracle")
 @pytest.mark.parametrize(
     ("app", "status", "targets"),
-    [(PY_APP_ALL, "PASS", []), (PY_APP_ONE, "FAIL", ["pkg.base:unused"])],
+    [(PY_APP_ALL, "PASS", []), (PY_APP_ONE, "FAIL", ["pkg.base:Shape", "pkg.base:unused"])],
     ids=["each function has a user", "one function has no user"],
 )
 def test_python_states_every_public_symbol_so_a_run_can_pass(

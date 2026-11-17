@@ -154,7 +154,10 @@ is FAIL. It is UNKNOWN instead when a use may exist that the facts do not show:
 - another component takes its module by a glob, by a whole-module import or
   through a macro body;
 - another component names the item through a route that is not proven;
-- the item is a type, and a signature of a used item may need it.
+- the item is a type, the language needs public types in a public signature (Rust,
+  TypeScript), and a signature of a used item may need it. In Python and Dart a type
+  is judged by its name like any other item: the fix is a leading underscore or
+  deletion.
 
 A PASS needs a collector that states every public symbol.
 

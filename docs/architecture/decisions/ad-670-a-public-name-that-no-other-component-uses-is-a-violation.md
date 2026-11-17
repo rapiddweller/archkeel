@@ -28,8 +28,12 @@ as rules of the self-contract, and their current FAIL rows stay visible). Part o
      the collector does not write as records of their own (AD-604 `namespace_uses`), or through a
      macro body. An item that such an open module takes in by name is undecided too.
    - another component imports the item's name through a route that is not proven.
-   - the item is a type (a class, an alias or a macro). A signature of a used item may need it,
-     and no collector states resolved signature types yet.
+   - the item is a type (a class, an alias or a macro), and the language needs public types in a
+     public signature (`signatures_need_public_types`: Rust and TypeScript). A signature of a used
+     item may need it, and no collector states resolved signature types yet.
+   In Python and Dart the visibility is a name convention, so a type is judged by its name like
+   any other item (owner decision). The fix of a finding is a leading underscore or deletion
+   (PEP 8), the same meaning as Rust `pub(crate)`.
 5. A PASS needs a collector that states every public symbol (`symbol_facts`). The Rust collector
    does not state every one (AD-351), so on Rust the rule gives FAIL or UNKNOWN, never PASS. A
    collector that states no dependency symbols holds the rule (a missing name would look unused).
@@ -58,10 +62,9 @@ next step (#1402).
   - there was a module cycle `graph -> model -> pair_gaps -> proof -> published -> graph`. The
     item list moved to `published_items.rs`.
   - there were four clones, and `scope.rs` had 503 lines.
-- The shell contract (Python) would show 20 rows. Python has no visibility between module and
-  public, so a helper that another module of the same component uses cannot be narrowed. The
-  owner decides whether the rule judges Python by module or by component before the shell
-  contract adopts it.
+- The shell contract (Python) adopts the rule as `SHELL-PUBLIC-HAS-A-USER` with all kinds (owner
+  decision: Python is judged by name). `archkeel.cli:main` is an external user (the console
+  script). Shell self-check: 26 PASS, 1 FAIL, 0 UNKNOWN; 40 rows, pinned with #1412.
 
 **Collector limit found.** `lib.rs` of the Rust collector declares both `mod reply` and
 `pub fn reply`. The collector resolves `use archkeel_rust_collector::reply` to the module only. The

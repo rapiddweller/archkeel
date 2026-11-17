@@ -14,8 +14,10 @@
 //! - a glob, a whole-module import or a macro body of another component that can take the item
 //!   without its name (the module of the item is open, or an open module takes the item);
 //! - an import of another component with the name of the item whose route is not proven;
-//! - a type (a class, an alias or a macro): a signature of a used item may need it, and the
-//!   collector states no resolved signature types.
+//! - a type (a class, an alias or a macro) in a language whose public signatures need public
+//!   types: a signature of a used item may need it, and no collector states resolved signature
+//!   types. In Python and Dart the visibility is a name convention, so such a type is judged by
+//!   its name like any other item (owner decision).
 //!
 //! A PASS needs every public symbol: a profile whose collector does not state its symbol facts
 //! in full gives FAIL or UNKNOWN (`limits.rs`).
@@ -101,6 +103,9 @@ struct Users {
     reached: HashSet<String>,
     /// Each name that an import of another component names through a route it does not prove.
     unproven: HashSet<String>,
+    /// A public signature of the language needs public types, so a used signature may need a type
+    /// that no other component names (AD-670).
+    signatures: bool,
 }
 
 impl Users {
@@ -116,7 +121,7 @@ impl Users {
             let from = owner(source);
             from.is_none() || from != owner(target)
         };
-        let mut users = Users::default_sets();
+        let mut users = Users::default_sets(model.graph().observed().signatures_need_public_types);
         // AD-604: a profile that writes each use through a whole-module import as a record of
         // its own binds no name with that import.
         let namespace_uses = model.graph().observed().namespace_uses;
@@ -150,12 +155,13 @@ impl Users {
         users
     }
 
-    fn default_sets() -> Self {
+    fn default_sets(signatures: bool) -> Self {
         Users {
             named: HashSet::new(),
             open: HashSet::new(),
             reached: HashSet::new(),
             unproven: HashSet::new(),
+            signatures,
         }
     }
 
@@ -200,13 +206,15 @@ impl Users {
                 Unused::Undecided(
                     "another component imports its name through a route that is not proven",
                 )
-            } else if matches!(
-                item.kind,
-                PublicItemKind::Class
-                    | PublicItemKind::TypeAlias
-                    | PublicItemKind::Alias
-                    | PublicItemKind::Macro
-            ) {
+            } else if self.signatures
+                && matches!(
+                    item.kind,
+                    PublicItemKind::Class
+                        | PublicItemKind::TypeAlias
+                        | PublicItemKind::Alias
+                        | PublicItemKind::Macro
+                )
+            {
                 Unused::Undecided(
                     "a signature of a used item may need it; the facts state no signature types",
                 )
