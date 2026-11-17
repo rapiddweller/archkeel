@@ -107,7 +107,7 @@ impl Builder {
                     self.gap(&reason, Some(&evidence), &module.module);
                     self.ended += 1;
                 }
-                None => match bound_crate_path(index, krate, module, reference) {
+                None => match bound_crate_path(index, workspace, krate, module, reference) {
                     Some((full, named)) => {
                         self.import(workspace, Some(index), Origin::of(module), &full, &named);
                     }
@@ -187,14 +187,28 @@ impl Builder {
                 target_module,
                 None,
             ),
-            Named::Registry(package) => (
-                Target::External {
-                    import_id,
-                    package: PackageName::new(package.as_str()),
-                },
-                target_module,
-                None,
-            ),
+            Named::Registry(package) => {
+                // #946: Cargo may build the crate of the workspace of this name instead: a Cargo
+                // config outside the repository, a patch, or a git URL of this repository. The
+                // pair to the module that the path reaches there is a gap, neither edge nor none.
+                if let Some(root) = workspace.primary_of(package) {
+                    let id = FactId::new(identity.as_str());
+                    let local = local_target(index, root, reference, id)
+                        .map_or_else(|_| root.module.clone(), |(_, module, _)| module);
+                    let reason = format!(
+                        "The dependency {package} has a registry or git entry, and a crate of the workspace has its name: a redirect that the scan does not read can make it that crate"
+                    );
+                    self.pair_gap(&reason, &evidence, (from.module, &local));
+                }
+                (
+                    Target::External {
+                        import_id,
+                        package: PackageName::new(package.as_str()),
+                    },
+                    target_module,
+                    None,
+                )
+            }
             Named::Package(package) => match workspace.primary_of(package) {
                 Some(root) => {
                     other_crate = true;
@@ -257,6 +271,7 @@ impl Builder {
 /// interface rule would not see the name that such a path uses (AD-604).
 fn bound_crate_path(
     index: &Index<'_>,
+    workspace: &Workspace,
     krate: &Crate,
     module: &Module,
     reference: &Reference,
@@ -266,7 +281,9 @@ fn bound_crate_path(
     }
     let names = index.crate_path(index.frame(&module.module)?, reference)?;
     match classify(&names[0], krate, &module.scan.shadows, false)? {
-        Found::Edge(named @ Named::Package(_)) => {
+        // #946: a registry name of a crate of the workspace may be that crate.
+        Found::Edge(named @ (Named::Package(_) | Named::Registry(_))) if !matches!(&named, Named::Registry(p) if workspace.primary_of(p).is_none()) =>
+        {
             let full = Reference {
                 root: names[0].clone(),
                 names,
