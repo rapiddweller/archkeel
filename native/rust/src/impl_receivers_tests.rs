@@ -79,7 +79,7 @@ fn kept() -> Outcome {
     (Vec::new(), names(&["b", "e"]))
 }
 
-/// #1571 (AD-786): the receiver has the exact type `S` with no `Deref` impl, so the call can reach
+/// #1571 (AD-804): the receiver has the exact type `S` with no `Deref` impl, so the call can reach
 /// only a member of `S`: the gap to the `m` of `T` in `e` goes.
 fn narrowed() -> Outcome {
     (Vec::new(), names(&["b"]))
@@ -418,7 +418,7 @@ fn a_receiver_other_than_a_plain_self_or_a_self_that_does_not_reach_keeps_the_ga
     ] {
         assert_eq!(outcome(&m, &caller("&self", body), &[]), kept(), "{body}");
     }
-    // #1571 (AD-786): a parenthesized `self` and a local of `self` are the receiver chain of
+    // #1571 (AD-804): a parenthesized `self` and a local of `self` are the receiver chain of
     // `self`, with the same first step.
     for body in ["(self).m();", "let s = self;\n        s.m();"] {
         assert_eq!(

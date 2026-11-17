@@ -15,7 +15,7 @@
 //! the `impl` is generic, so it is not read. The resolution of the type, its exactness and the
 //! member are the checks of `impl_receivers.rs`.
 //!
-//! #1571 (AD-786): each binding with a proof also keeps its origin, the receiver chain that the
+//! #1571 (AD-804): each binding with a proof also keeps its origin, the receiver chain that the
 //! name stands for: the written type of a parameter, of a typed local or of a typed closure
 //! parameter (with its type arguments), or the chain of the initializer of an untyped top-level
 //! local. `impl_types.rs` resolves it.
@@ -357,7 +357,7 @@ fn macro_hides_type(path: &[String], bound: &Bound) -> bool {
             .is_some_and(|first| !matches!(first.as_str(), "crate" | "self" | "super"))
 }
 
-/// The std adapters whose closure parameter has the item of the iterator (#1571, AD-786).
+/// The std adapters whose closure parameter has the item of the iterator (#1571, AD-804).
 const ADAPTERS: [&str; 13] = [
     "map",
     "filter",

@@ -256,7 +256,7 @@ def test_a_unique_field_behind_a_shared_projection_keeps_the_gap(
 def test_a_chain_of_exact_fields_proves_the_receiver(
     tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """AD-786: three exact fields, the last one `&S`: the first step finds `S::m(&self)`."""
+    """AD-804: three exact fields, the last one `&S`: the first step finds `S::m(&self)`."""
     files = _plant(
         "pub struct W { pub inner: V }\npub struct V { pub inner: X }\n"
         "pub struct X { pub s: &'static crate::c::S }\n"

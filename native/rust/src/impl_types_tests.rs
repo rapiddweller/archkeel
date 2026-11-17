@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 // Consumer: the host reads the edges and the pair gaps of a method call whose receiver type the
-// written types prove (#1571, AD-786). Each fixture is a crate with `mod a; .. mod e;`: `c` defines
+// written types prove (#1571, AD-804). Each fixture is a crate with `mod a; .. mod e;`: `c` defines
 // `S`, `d` defines `T` with its own members, `b` holds an `impl` of `S` and `e` an `impl` of `T`,
 // each with members `m` and `len`; `a` holds the call.
 

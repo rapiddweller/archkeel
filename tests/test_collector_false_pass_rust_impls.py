@@ -344,7 +344,7 @@ def test_an_allowed_pair_that_only_a_dropped_gap_names_is_neither_confirmed_nor_
 def test_a_drawn_pair_of_a_std_receiver_is_refuted(
     tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """AD-786: `v: &[u8]` makes `v.len()` the method of the slice. An inherent impl of a std type is
+    """AD-804: `v: &[u8]` makes `v.len()` the method of the slice. An inherent impl of a std type is
     E0116, so `S::len` of `b` is no candidate: the drawn edge `a -> b` is refuted, not held."""
     components = _modules(("b", "c"), SLICE_LEN)
     drawn = "    root --> base\n    b --> c\n    a --> b"

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! Whether a trait of a dependency can be in scope in a file (#1571, AD-786). A trait method can
+//! Whether a trait of a dependency can be in scope in a file (#1571, AD-804). A trait method can
 //! win a method call at an earlier step than an inherent method of a deref target, or than an
 //! inherent method that needs an autoref. A trait is called only when it is in scope: the
 //! prelude, or a `use` of the module. The traits of the prelude and of `std` are known, and none

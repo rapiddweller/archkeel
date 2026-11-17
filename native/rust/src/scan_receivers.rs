@@ -193,11 +193,11 @@ enum Frame {
 #[path = "scan_params.rs"]
 mod params;
 
-/// The types as written (#1571, AD-786).
+/// The types as written (#1571, AD-804).
 #[path = "scan_written.rs"]
 mod written_types;
 
-/// The receiver of a method call as a chain (#1571, AD-786).
+/// The receiver of a method call as a chain (#1571, AD-804).
 #[path = "scan_chains.rs"]
 mod chains;
 

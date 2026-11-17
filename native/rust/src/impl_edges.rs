@@ -41,7 +41,7 @@ struct Members<'a> {
     aliases: BTreeSet<&'a str>,
     /// The members of every block by placed type, for the calls on `self` (AD-383).
     typed: Typed<'a>,
-    /// The names that the workspace re-exports from another crate (AD-786).
+    /// The names that the workspace re-exports from another crate (AD-804).
     outside: scope::Outside,
 }
 
@@ -482,11 +482,11 @@ mod flow;
 #[path = "impl_receivers.rs"]
 mod receivers;
 
-/// The type of the receiver of a method call (#1571, AD-786).
+/// The type of the receiver of a method call (#1571, AD-804).
 #[path = "impl_types.rs"]
 mod types;
 
-/// Whether a trait of a dependency can be in scope in a file (AD-786).
+/// Whether a trait of a dependency can be in scope in a file (AD-804).
 #[path = "impl_scope.rs"]
 mod scope;
 

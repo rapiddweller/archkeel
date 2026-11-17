@@ -113,7 +113,7 @@ def test_an_exact_field_and_an_exact_impl_give_the_edge(
     assert found.get("NO-A-TO-C") == "FAIL", found
 
 
-# #1571 (AD-786): the receiver type comes from a written return type `&S`, or from the item of a
+# #1571 (AD-804): the receiver type comes from a written return type `&S`, or from the item of a
 # fixed std adapter or loop over `&Vec<S>` / `&[S]` (`&S`): one exact member of the same `self`
 # form, so the call is the edge `a -> c`.
 TYPED = {

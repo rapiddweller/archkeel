@@ -1305,7 +1305,7 @@
         },
         {
           "component": "model-graph",
-          "rationale": "Read the modules, packages, imports, symbols and observed facts of the model graph that a UML target is compared with (AD-786).",
+          "rationale": "Read the modules, packages, imports, symbols and observed facts of the model graph that a UML target is compared with (AD-804).",
           "through": [
             "native.archkeel_model.graph",
             "native.archkeel_model.imports",
@@ -1600,7 +1600,7 @@
         },
         {
           "component": "model-graph",
-          "rationale": "Read the modules, packages, imports, cycles and settings of the model graph that the rules decide on (#953, AD-786).",
+          "rationale": "Read the modules, packages, imports, cycles and settings of the model graph that the rules decide on (#953, AD-804).",
           "through": [
             "native.archkeel_model.cycles",
             "native.archkeel_model.graph",
@@ -2359,7 +2359,7 @@
         },
         {
           "component": "model-terms",
-          "rationale": "Add the declared reach of the door sites of the root contract to the needs of the run (AD-664, AD-786).",
+          "rationale": "Add the declared reach of the door sites of the root contract to the needs of the run (AD-664, AD-804).",
           "through": [
             "native.archkeel_model.needs"
           ]
@@ -2484,7 +2484,7 @@
         },
         {
           "component": "model-run",
-          "rationale": "Call the methods of the model and of its contract tree: the root model gives the graph of the run (#953, AD-786).",
+          "rationale": "Call the methods of the model and of its contract tree: the root model gives the graph of the run (#953, AD-804).",
           "through": [
             "native.archkeel_model.model",
             "native.archkeel_model.tree"
@@ -2513,7 +2513,7 @@
         },
         {
           "component": "model-graph",
-          "rationale": "Read the modules and the imports of the model graph, with their resolution and evidence, for the topology projection (AD-786).",
+          "rationale": "Read the modules and the imports of the model graph, with their resolution and evidence, for the topology projection (AD-804).",
           "through": [
             "native.archkeel_model.graph",
             "native.archkeel_model.imports"
@@ -2598,7 +2598,7 @@
         },
         {
           "component": "model-graph",
-          "rationale": "Read the modules, the imports, the graph and the cycles of the model: the baseline counts the internal edges of each cycle (#953, AD-786).",
+          "rationale": "Read the modules, the imports, the graph and the cycles of the model: the baseline counts the internal edges of each cycle (#953, AD-804).",
           "through": [
             "native.archkeel_model.cycles",
             "native.archkeel_model.graph"
@@ -2613,7 +2613,7 @@
         },
         {
           "component": "report-check",
-          "rationale": "Read the decided status of the ruling to mark a baseline part of an UNKNOWN run (AD-546, AD-786).",
+          "rationale": "Read the decided status of the ruling to mark a baseline part of an UNKNOWN run (AD-546, AD-804).",
           "through": [
             "native.archkeel_report.report"
           ]
@@ -5590,7 +5590,7 @@
         },
         {
           "component": "rs-reply",
-          "rationale": "Encode the reply that one collection builds (AD-345, AD-786).",
+          "rationale": "Encode the reply that one collection builds (AD-345, AD-804).",
           "through": [
             "native.archkeel_rust_collector.reply"
           ]

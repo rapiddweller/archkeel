@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The receiver types of the resolver and the std types that it knows (#1571, AD-786). A path
+//! The receiver types of the resolver and the std types that it knows (#1571, AD-804). A path
 //! names a std type only when the prelude or one `use` leaf of `std`, `core` or `alloc` binds its
 //! first segment for certain: no item, glob or module-level macro of the file can give the name,
 //! and a `use` leaf is unconditional and in the scope of the path.
@@ -44,7 +44,7 @@ pub(in crate::impl_edges) enum Std {
     PathBuf,
     OsStr,
     OsString,
-    /// A std iterator with its item, from the fixed adapters of AD-786.
+    /// A std iterator with its item, from the fixed adapters of AD-804.
     Iter,
 }
 
@@ -195,7 +195,7 @@ fn items(ty: &Ty) -> Ty {
     }
 }
 
-/// The type of the closure parameter of an adapter of AD-786 on a receiver of type `ty`, or of the
+/// The type of the closure parameter of an adapter of AD-804 on a receiver of type `ty`, or of the
 /// variable of `for` (the adapter `for`). A predicate (`filter`, `find`, ..) sees `&Item`. `for`
 /// calls `IntoIterator::into_iter` by its path, with no method lookup. An adapter counts for certain
 /// on an iterator or an `Option` by value when it takes `self`; else only in a `closed` file.

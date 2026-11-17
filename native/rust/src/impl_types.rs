@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The type of the receiver of a method call (#1571, AD-786). The scan reads the receiver as a
+//! The type of the receiver of a method call (#1571, AD-804). The scan reads the receiver as a
 //! chain (`scan_chains.rs`); this resolver follows the written types of the workspace along it:
 //! the type of a parameter, a local or `self`, the declared type of a named field of an exact
 //! struct, the written return type of the one member or function that a call reaches, and a fixed
@@ -425,7 +425,7 @@ fn behind_shared(ty: &Ty) -> bool {
     false
 }
 
-/// The receiver types, and the std types and methods that the resolver knows (#1571, AD-786).
+/// The receiver types, and the std types and methods that the resolver knows (#1571, AD-804).
 #[path = "impl_ty.rs"]
 mod ty;
 

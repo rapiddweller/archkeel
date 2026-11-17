@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The types as written in a signature, a field or a `let` (#1571, AD-786). Rust writes the type
+//! The types as written in a signature, a field or a `let` (#1571, AD-804). Rust writes the type
 //! of each parameter, field and return value, so the scan reads it as a path with its type
 //! arguments, a reference or a slice. A name of a type parameter in scope, `impl Trait`, `dyn
 //! Trait`, a tuple, a qualified or absolute path and a macro stay `Unknown`: the collector keeps

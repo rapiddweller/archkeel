@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The receiver of a method call as a chain (#1571, AD-786): a root and the steps after it. The
+//! The receiver of a method call as a chain (#1571, AD-804): a root and the steps after it. The
 //! root is a name that the `fn` binds with a proof (`self`, a typed parameter, a local), a
 //! literal, a call of a path, a struct literal or a path to a variant. The steps are named fields,
 //! method calls and `?`. The scan reads no types: `impl_types.rs` resolves the chain against the
