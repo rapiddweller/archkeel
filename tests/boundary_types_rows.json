@@ -92,7 +92,7 @@
  "dataclass-dto": [
   "FAIL",
   "UNKNOWN",
-  "no_record; unresolved_name"
+  "field_walk; no_record"
  ],
  "declared-dto": [
   "FAIL",

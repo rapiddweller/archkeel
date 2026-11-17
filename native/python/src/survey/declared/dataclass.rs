@@ -64,6 +64,15 @@ pub(super) fn class(
         Ok(fields) => fields,
         Err(reason) => return Wrapped::Unread(reason),
     };
+    // shortcut: any repository store of a field name blocks the model, including instance stores;
+    // use class-targeted mutation facts to recover precision.
+    if fields
+        .attributes
+        .iter()
+        .any(|name| reader.writes.may_write(name))
+    {
+        return unread("the repository may change a dataclass field");
+    }
     let slots = super::members::slots(&node.body);
     for statement in &node.body {
         if let Stmt::FunctionDef(method) = statement {
