@@ -306,8 +306,11 @@ def test_an_invalid_utf8_name_cannot_publish_a_success_page(
     code, found = run("report", "--root", str(root), "--output", str(target))
     assert code == 2, found
     assert "<h1>Verdict: UNKNOWN</h1>" in target.read_text()
-    # AD-496: the page holds one script, the theme switch. The file name adds no second one.
-    assert target.read_text().count("<script") == 1
+    # AD-496: the page holds one bare theme script. The Explorer scripts carry attributes (CSP
+    # hashes), so the bare `<script>` tag is the one that a file name could add.
+    document = target.read_text()
+    assert document.count("<script>") == 1
+    assert "<script>\ufffd" not in document and "<script>\xff" not in document
 
 
 @pytest.mark.parametrize(
