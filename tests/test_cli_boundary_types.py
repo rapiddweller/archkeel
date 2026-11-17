@@ -17,7 +17,7 @@ import re
 from pathlib import Path
 
 import pytest
-from boundary_types_plants import PLANTS
+from boundary_types_plants import PLANTS, Plant, facade
 from boundary_types_sources import RULE, project
 from test_cli_core_only_scan import command
 
@@ -27,8 +27,78 @@ STRICTER = {("PASS", "UNKNOWN"), ("FAIL", "UNKNOWN")}
 CAUSE = re.compile(r"boundary_type_position: \S+ \S+: (\w+): ")
 
 
+def use_standard_library_premise(root: Path) -> None:
+    path = root / "architecture-contract.json"
+    contract = json.loads(path.read_text())
+    contract["schema_version"] = "3.16.0"
+    contract["declarations"] = {"standard_library_unchanged": True}
+    path.write_text(json.dumps(contract))
+
+
 def test_every_plant_has_a_pinned_row() -> None:
     assert set(ROWS) == set(PLANTS)
+
+
+@pytest.mark.parametrize(
+    ("imports", "annotation"),
+    [("from pathlib import Path\n", "Path"), ("import pathlib\n", "pathlib.Path")],
+)
+def test_a_standard_library_type_without_a_premise_is_unknown(
+    release_core: Path, tmp_path: Path, imports: str, annotation: str
+) -> None:
+    plant = Plant(facade(f"def f(a: {annotation}) -> int:\n    return 1\n", "'f'", imports), "PASS")
+    result = json.loads(command(release_core, project(tmp_path / "p", plant), "--json").stdout)
+    assert result["frame"]["rules"][RULE] == ["boundary_types", "UNKNOWN"], result
+    assert "standard_library_unchanged" in json.dumps(result["frame"])
+
+
+def test_a_standard_library_type_with_a_premise_passes_assuming(
+    release_core: Path, tmp_path: Path
+) -> None:
+    plant = Plant(
+        facade("def f(a: Path) -> int:\n    return 1\n", "'f'", "from pathlib import Path\n"),
+        "PASS",
+    )
+    root = project(tmp_path / "p", plant)
+    use_standard_library_premise(root)
+    result = json.loads(command(release_core, root, "--json").stdout)
+    assert "refusal" not in result, result
+    assert RULE in result["frame"]["rules"], result
+    assert result["frame"]["rules"][RULE] == ["boundary_types", "PASS"], result
+    assert "standard_library_unchanged" in json.dumps(result["frame"]["assumed"])
+
+
+@pytest.mark.parametrize(
+    "write",
+    [
+        "pathlib.Path = dict",
+        "setattr(pathlib, 'Path', dict)",
+        "vars(pathlib)['Path'] = dict",
+        "pathlib.__dict__['Path'] = dict",
+        "sys.modules['pathlib'] = pathlib",
+    ],
+)
+def test_a_changed_standard_library_type_does_not_pass(
+    release_core: Path, tmp_path: Path, write: str
+) -> None:
+    imports = f"import pathlib\nimport sys\n{write}\nfrom pathlib import Path\n"
+    plant = Plant(facade("def f(a: Path) -> int:\n    return 1\n", "'f'", imports), "FAIL")
+    root = project(tmp_path / "p", plant)
+    use_standard_library_premise(root)
+    result = json.loads(command(release_core, root, "--json").stdout)
+    assert result["frame"]["rules"][RULE] == ["boundary_types", "UNKNOWN"], result
+
+
+def test_an_outside_writer_without_a_premise_stays_unknown(
+    release_core: Path, tmp_path: Path
+) -> None:
+    imports = "import startup_plugin\nfrom pathlib import Path\n"
+    plant = Plant(facade("def f(a: Path) -> int:\n    return 1\n", "'f'", imports), "FAIL")
+    root = project(tmp_path / "p", plant)
+    (root / "startup_plugin.py").write_text("import pathlib\npathlib.Path = dict\n")
+    result = json.loads(command(release_core, root, "--json").stdout)
+    assert result["frame"]["rules"][RULE] == ["boundary_types", "UNKNOWN"], result
+    assert "standard_library_unchanged" in json.dumps(result["frame"])
 
 
 @pytest.mark.parametrize("name", sorted(PLANTS))
