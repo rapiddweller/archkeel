@@ -46,6 +46,19 @@ pub(crate) struct Parts {
     /// The parts of a system run (AD-616); `crate::system::join` writes it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) system: Option<SystemFrame>,
+    /// The system of the page of a part (E4): `engine_frame::write` takes it out for the page, so
+    /// the frame does not carry it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
+    pub(super) part_of: Option<PartOf>,
+}
+
+/// The system of the page of one part (E4, #1451): the titles come from the system document.
+#[derive(Serialize)]
+pub(crate) struct PartOf {
+    pub(crate) system: String,
+    pub(crate) part: String,
+    pub(crate) href: Option<String>,
 }
 
 /// The rows of each section, as rows of the envelope or an error that names the bad row.
@@ -292,6 +305,7 @@ pub(crate) fn refused_scan(reason: &str, html: bool) -> Result<Answered, String>
         gaps: crate::baseline_frame::gap_rows(&ruling),
         baseline: None,
         system: None,
+        part_of: None,
         unsupported: UnsupportedParts {
             sections: BTreeMap::new(),
             report: None,
