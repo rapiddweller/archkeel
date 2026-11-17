@@ -56,6 +56,9 @@ the last two were fixed after it and are checked on main at `157dc8851`:
 - A git URL of the same repository, an outside Cargo patch, a command-line patch and a repository
   patch each give UNKNOWN with a crate-pair gap (AD-704, #946).
   `tests/test_collector_false_pass_rust_redirect.py` holds the four compiling fixtures.
+- A patch of a platform prototype (`Object.defineProperty(EventTarget.prototype, …)`, a prototype
+  that is passed on, `ev.target.__proto__ = …`) gives UNKNOWN with a source-resolution gap
+  (AD-768, #1527). `tests/test_cli_native_prototype_patch.py` holds 18 forms.
 - Direct aliases of `Object`, `Reflect`, `location` and `open`, and direct timer aliases, give
   UNKNOWN with a source-resolution gap. This does not prove arbitrary value flow safe.
   `tests/test_cli_native_global_forms.py` checks the direct reflection and navigation aliases.
@@ -520,8 +523,14 @@ form too, so `return map[key]` keeps every free standard name from a proof. A us
 the value keeps the proof: `typeof`, a comparison, a condition, arithmetic, a text, a loop over its
 elements, a member with another plain name, and a pattern of plain names. Plants:
 `native/typescript/src/script_lookup_tests.rs`, `tests/test_collector_false_pass_ts_lookup.py`.
-Older classes stay open too: a prototype change through a call
-(`Object.defineProperty(EventTarget.prototype, …)`), a member patch of a platform object that is no
+AD-768 (#1527) reads a value that may be a prototype of the global object like a window value:
+`X.prototype` of a name that is no class of the file, `x.__proto__` and a `getPrototypeOf` call.
+Its escape (`g(EventTarget.prototype)`) and a write through it with a run-time key are direct
+forms; a write of `__proto__` on a value that is not proven local is an amplifier form. A read of a
+member (`Object.prototype.hasOwnProperty.call`), an element and a comparison keep the proof.
+A reflective write on the prototype of a class of the file stays a false UNKNOWN in a scan with a
+host entry. Plants: `tests/test_cli_native_prototype_patch.py`.
+Older classes stay open too: a member patch of a platform object that is no
 window (`JSON.parse = …`, `document.open = …`), a use through `opener` or
 `document.defaultView`, and a write in a file outside the scan roots (#1546).
 A source file inside the roots that TSConfig `exclude` drops gives a named coverage gap (AD-488),
