@@ -368,9 +368,7 @@ PLANTS: dict[str, dict[str, object]] = {
 # The forms that the core still passes where the truth is FAIL, named in AD-504 and
 # `docs/known-limits.md` and pinned here: a fix removes the name from this set. AD-708 removed
 # `d-S4-attr-through-module` (#1415).
-OPEN = frozenset(
-    {
-        "b-outside-roots-conftest",
-        "b-outside-roots-sitecustomize",
-    }
-)
+OPEN: frozenset[str] = frozenset()
+# AD-770 (#1522, c0962d99a): code outside the scan roots that writes a scan module withholds the
+# routes, so `b-outside-roots-conftest` and `b-outside-roots-sitecustomize` give UNKNOWN now, not
+# PASS. They left this set: the truth is FAIL and the core no longer passes them.
