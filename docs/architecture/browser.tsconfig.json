@@ -16,6 +16,7 @@
     "../../native/report/assets/explorer/report-graph-scene.js",
     "../../native/report/assets/explorer/report-graph-protocol.js",
     "../../native/report/assets/explorer/report-atlas-deviations.js",
-    "../../native/report/assets/explorer/report-layout.js"
+    "../../native/report/assets/explorer/report-layout.js",
+    "../../native/report/assets/explorer/report-routes.js"
   ]
 }

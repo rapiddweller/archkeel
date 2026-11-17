@@ -157,7 +157,8 @@
       "role": "projection",
       "packages": [],
       "exact_modules": [
-        "browser.native.report.assets.explorer.report_x2d_layout_x2e_js"
+        "browser.native.report.assets.explorer.report_x2d_layout_x2e_js",
+        "browser.native.report.assets.explorer.report_x2d_routes_x2e_js"
       ],
       "public": [
         "browser.native.report.assets.explorer.report_x2d_layout_x2e_js:routeUmlRelationships",
@@ -166,7 +167,8 @@
         "browser.native.report.assets.explorer.report_x2d_layout_x2e_js:layoutAtlas"
       ],
       "responsibilities": [
-        "Place and route scene inputs; reject incomplete or invalid layout output."
+        "Place and route scene inputs; reject incomplete or invalid layout output.",
+        "Route the UML relationships between placed boxes (report-routes.js)."
       ],
       "forbidden_responsibilities": [
         "Read DOM state, navigate or derive architecture evidence."

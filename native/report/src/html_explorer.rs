@@ -13,7 +13,7 @@ const RULES: &str = include_str!("../assets/explorer/explorer.css");
 const THEME: &str = include_str!("../assets/explorer/explorer-theme.css");
 
 /// The embedded scripts and the hashes computed from their bytes at build time.
-pub(super) const SCRIPTS: [(&str, &str, &str); 8] = [
+pub(super) const SCRIPTS: [(&str, &str, &str); 9] = [
     (
         include_str!("../assets/explorer/elkjs-0.12.0.bundled.js"),
         " data-elkjs-version=\"0.12.0\"",
@@ -38,6 +38,11 @@ pub(super) const SCRIPTS: [(&str, &str, &str); 8] = [
         include_str!("../assets/explorer/report-scene.js"),
         " data-report-asset=\"scene\"",
         env!("REPORT_SCENE_HASH"),
+    ),
+    (
+        include_str!("../assets/explorer/report-routes.js"),
+        " data-report-asset=\"routes\"",
+        env!("REPORT_ROUTES_HASH"),
     ),
     (
         include_str!("../assets/explorer/report-layout.js"),
