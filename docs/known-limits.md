@@ -6,7 +6,7 @@ What each language decides on main. The README quotes this block, and `tests/tes
 
 <!-- tiers:start -->
 Rust and TypeScript projects: each rule kind that the core has ported is decided; a rule kind without a port is UNKNOWN.
-Python and Dart projects: the rules that read the import graph are decided, and Python also decides `interface_boundary` (AD-504); a Dart cycle rule is always UNKNOWN, and every other rule of both is UNKNOWN.
+Python and Dart projects: the rules that read the import graph are decided, and both decide `interface_boundary` (AD-504; Dart from the bound names of each import, AD-749, held by a `target_symbol` rule); a Dart cycle rule is always UNKNOWN, and every other rule of both is UNKNOWN.
 <!-- tiers:end -->
 
 The details follow.

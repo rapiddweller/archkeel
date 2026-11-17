@@ -201,6 +201,7 @@ fn supported_profile_does_not_remove_the_per_import_symbol_check(
     reply.facts.profile_limits = Some(ProfileLimits {
         dependency_symbols: LimitSupport::Supported,
         interface_boundary: LimitSupport::Supported,
+        publication_surface: LimitSupport::Unsupported,
     });
     let id = reply
         .facts

@@ -3380,6 +3380,7 @@
       "layer": "collector",
       "packages": [
         "native.archkeel_dart_collector.import_survey",
+        "native.archkeel_dart_collector.import_survey.binding",
         "native.archkeel_dart_collector.import_survey.budget",
         "native.archkeel_dart_collector.import_survey.claims",
         "native.archkeel_dart_collector.import_survey.config",

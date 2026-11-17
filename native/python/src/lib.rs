@@ -84,6 +84,7 @@ pub fn typed_reply(request: &PythonRequest, build: &Build<'_>) -> Result<Reply, 
     reply.facts.profile_limits = Some(ProfileLimits {
         dependency_symbols: LimitSupport::Supported,
         interface_boundary: LimitSupport::Supported,
+        publication_surface: LimitSupport::Unsupported,
     });
     reply.facts.scope_premise = Some(PREMISE);
     Ok(reply)

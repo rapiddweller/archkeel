@@ -162,6 +162,13 @@ pub struct ProfileLimits {
     pub dependency_symbols: LimitSupport,
     /// Whether the profile reads the types of an interface.
     pub interface_boundary: LimitSupport,
+    /// Whether the profile states the publication surface of each import without the names of
+    /// every dependency (AD-749): each name that the import binds with the first hop of its
+    /// route, or else a record without a name and without known names, which binds every name
+    /// of its target module; whether each route is complete; and each name that a re-export
+    /// publishes outside the package. A `public` symbol entry is then read by
+    /// `interface_boundary` alone. A profile with `dependency_symbols` needs no such statement.
+    pub publication_surface: LimitSupport,
 }
 
 // The keys of the objects below are in sorted order, as the Python reply has them (`sort_keys`).

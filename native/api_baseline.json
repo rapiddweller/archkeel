@@ -1422,6 +1422,7 @@
     "field envelope::OwnedFile.rel_path: String",
     "field envelope::ProfileLimits.dependency_symbols: LimitSupport",
     "field envelope::ProfileLimits.interface_boundary: LimitSupport",
+    "field envelope::ProfileLimits.publication_surface: LimitSupport",
     "field envelope::Provenance.adapter: Adapter",
     "field envelope::Provenance.profile: Profile",
     "field envelope::Provenance.runtime: Runtime",

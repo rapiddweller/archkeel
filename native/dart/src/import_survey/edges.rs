@@ -5,6 +5,11 @@
 //! The import records and their targets (AD-454, rule 4). Each import and export of a library
 //! or of an owned part gives one record for each URI: the default URI and each conditional
 //! alternative. A URI that gives no proven target gives a named gap and no record.
+//!
+//! AD-749: the records state the publication surface. A `show` list gives one record for each
+//! name that the combinators keep, with the first hop of its route; a directive without `show`
+//! binds the whole namespace of its target. An `export` of a library outside `lib/src/` names
+//! what it publishes outside the package (`binding.rs`).
 
 use archkeel_facts::identity::{package_of, stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
@@ -12,6 +17,7 @@ use archkeel_facts::vocab::{Area, EvidenceClass};
 use archkeel_facts::{data::ImportData, envelope::Target, ImportFact, Record};
 use archkeel_snapshot::Snapshot;
 
+use super::binding::{published, Binding, Surface};
 use super::index::{Index, Kind, Located, Owners};
 use super::names::{GapName, Gaps, Place};
 use super::parts::{directives, missing};
@@ -28,6 +34,7 @@ pub(crate) struct Edges {
 }
 
 /// The resolved target of one URI, before it has a record id.
+#[derive(Clone)]
 enum Resolved {
     Local { module: String, rel: String },
     External { package: String, module: String },
@@ -42,20 +49,28 @@ pub(crate) fn edges(
     gaps: &mut Gaps,
 ) -> Edges {
     let mut found: Vec<(Record<ImportFact>, Target)> = Vec::new();
+    let surface = Surface::of(index, owners);
     for (at, kind) in index.kinds.iter().enumerate() {
-        let module = match kind {
-            Kind::Library => &index.sources[at].module,
+        let library = match kind {
+            Kind::Library => at,
             Kind::Part => match owners.get(&at) {
-                Some(library) => &index.sources[*library].module,
+                Some(library) => *library,
                 // An unowned part already has its gap.
                 None => continue,
             },
             Kind::Unknown => continue,
         };
+        let module = &index.sources[library].module;
+        let publishes = published(&index.sources[library].rel_path);
         let source = &index.sources[at];
         for kind in [DirectiveKind::Import, DirectiveKind::Export] {
             for directive in directives(index, at, kind) {
-                let edges = directive_edges(snapshot, index, (source, module), directive, gaps);
+                let from = From {
+                    source,
+                    module,
+                    publishes,
+                };
+                let edges = directive_edges(snapshot, (index, &surface), &from, directive, gaps);
                 found.extend(edges);
             }
         }
@@ -66,21 +81,50 @@ pub(crate) fn edges(
     Edges { imports, targets }
 }
 
-/// The records of each URI of one directive of `source`, whose edges are edges of `module`.
+/// Where a directive sits: its file, the module whose edges it gives, and whether that library
+/// publishes outside the package (AD-749).
+struct From<'a> {
+    source: &'a Source,
+    module: &'a str,
+    publishes: bool,
+}
+
+/// The records of each URI of one directive: one for each name that it binds (AD-749).
 fn directive_edges(
     snapshot: &mut Snapshot,
-    index: &Index<'_>,
-    (source, module): (&Source, &str),
+    (index, surface): (&Index<'_>, &Surface),
+    from: &From<'_>,
     directive: &Directive,
     gaps: &mut Gaps,
 ) -> Vec<(Record<ImportFact>, Target)> {
+    let binding = Binding::of(directive);
     let mut found = Vec::new();
     for uri in uris(directive) {
-        if let Some(target) = resolve(snapshot, index, (source, directive), uri, gaps) {
-            found.push(record((source, module), directive, uri, target, gaps));
+        let Some(target) = resolve(snapshot, index, (from.source, directive), uri, gaps) else {
+            continue;
+        };
+        // A route ends at its first hop only in a local library that re-exports nothing.
+        let complete = match &target {
+            Resolved::Local { rel, .. } => surface.declares(index, rel),
+            Resolved::External { .. } | Resolved::Builtin(_) => false,
+        };
+        for name in binding.names() {
+            let named = Named {
+                binding: &binding,
+                name,
+                complete,
+            };
+            found.push(record(from, directive, uri, target.clone(), &named, gaps));
         }
     }
     found
+}
+
+/// One record of a binding: the name that it binds, if any, and whether its route is complete.
+struct Named<'a> {
+    binding: &'a Binding,
+    name: Option<&'a str>,
+    complete: bool,
 }
 
 /// The default URI and each alternative of `directive`, without a repeat, in their order.
@@ -150,21 +194,25 @@ fn resolve(
 /// The record and the target of one resolved URI of `directive` in `source`, whose edges are
 /// edges of `module`.
 fn record(
-    (source, module): (&Source, &str),
+    from: &From<'_>,
     directive: &Directive,
     uri: &str,
     target: Resolved,
+    named: &Named<'_>,
     gaps: &mut Gaps,
 ) -> (Record<ImportFact>, Target) {
+    let (source, module) = (from.source, from.module);
     let start = i64::try_from(directive.span.start_byte).unwrap_or(i64::MAX);
-    let identity = stable_id(
-        "DARTIMP",
-        &[
-            Part::Text(&source.rel_path),
-            Part::Number(start),
-            Part::Text(uri),
-        ],
-    );
+    let mut parts = vec![
+        Part::Text(&source.rel_path),
+        Part::Number(start),
+        Part::Text(uri),
+    ];
+    // A record of a whole namespace keeps the id that it had before AD-749.
+    if let Some(name) = named.name {
+        parts.push(Part::Text(name));
+    }
+    let identity = stable_id("DARTIMP", &parts);
     let import_id = FactId::new(identity.clone());
     let (target_module, target_package, resolved) = match target {
         Resolved::Local {
@@ -213,6 +261,12 @@ fn record(
     };
     data.reexport = export;
     data.module_level_import = true;
+    named
+        .binding
+        .state(&mut data, named.name, &target_module, named.complete);
+    if export && from.publishes {
+        data.published_as = Some(named.name.unwrap_or("*").to_owned());
+    }
     let mut subjects = vec![module.to_owned(), target_module];
     subjects.sort();
     subjects.dedup();

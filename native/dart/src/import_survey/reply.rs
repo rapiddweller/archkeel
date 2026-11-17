@@ -20,15 +20,15 @@ use super::survey;
 const SURVEY_SECTIONS: [&str; 2] = ["imports", "unknowns"];
 
 /// The validation table of the survey (AD-688, AD-468): exactly the sections `imports` and
-/// `unknowns`, no feature and no construct capability, and no interface statement. The standard
-/// library is `dart`, and its owner also names the SDK libraries.
+/// `unknowns`, no feature and no construct capability. The interface statement needs no feature
+/// (AD-749). The standard library is `dart`, and its owner also names the SDK libraries.
 fn validation() -> Validation {
     Validation {
         registered: vec![Registered::of(
             &[SectionName::Imports, SectionName::Unknowns],
             &[],
         )],
-        interface: InterfaceNeed::Unsupported,
+        interface: InterfaceNeed::Nothing,
         standard_library: Profile::Dart.as_str().to_owned(),
     }
 }
@@ -75,10 +75,14 @@ pub fn typed_reply(
         writer.write_typed_section::<GapFact>(|emit| tail.gaps.iter().for_each(emit))?;
         Ok(tail)
     })?;
-    // AD-468: the survey reads no symbol and no interface, and each part names its owner.
+    // AD-749: the survey states the publication surface of each import, so the interface rule
+    // decides. It does not state every name that a dependency gives (a directive without `show`
+    // binds the whole namespace), so a `target_symbol` or a `through` symbol port stays held.
+    // AD-468: each part names its owner.
     reply.facts.profile_limits = Some(ProfileLimits {
         dependency_symbols: LimitSupport::Unsupported,
-        interface_boundary: LimitSupport::Unsupported,
+        interface_boundary: LimitSupport::Supported,
+        publication_surface: LimitSupport::Supported,
     });
     // The wire counts a parsed file for each module; a part is a parsed file too (AD-468).
     reply.facts.coverage.files_parsed = parsed;
