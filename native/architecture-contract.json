@@ -4480,6 +4480,7 @@
           "component": "ts-walk",
           "rationale": "Read the script facts that the walk holds.",
           "through": [
+            "native.archkeel_typescript_collector.file_mode",
             "native.archkeel_typescript_collector.script_types"
           ]
         },
@@ -4597,6 +4598,7 @@
           "component": "ts-walk",
           "rationale": "Run the one traversal of a file.",
           "through": [
+            "native.archkeel_typescript_collector.file_mode",
             "native.archkeel_typescript_collector.references"
           ]
         },
