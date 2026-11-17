@@ -164,3 +164,25 @@ def test_a_typescript_project_below_the_root_does_not_repeat_its_path_in_its_nam
     contract = next(f for f in result.files if f.path.endswith("architecture-contract.json"))
     assert '"mono.src.web.src.application"' in contract.text
     assert "web.src.web" not in contract.text
+
+
+def test_the_part_at_the_root_is_named_after_the_project_and_not_its_language(
+    tmp_path: Path,
+) -> None:
+    """#1709, graphql-js 16.15.0: the main project at the repository root became the part
+    `typescript`; the part takes the name of the project (its namespace) instead."""
+    member = {"compilerOptions": {"strict": True}, "include": ["pages"]}
+    root = _write(
+        tmp_path / "graphql-js",
+        {
+            "package.json": '{"name": "graphql"}',
+            "tsconfig.json": '{"include": ["src"]}',
+            "src/error/GraphQLError.ts": "export const e = 1;\n",
+            "website/package.json": '{"name": "site"}',
+            "website/tsconfig.json": json.dumps(member),
+            "website/pages/index.tsx": "export const i = 5;\n",
+        },
+    )
+    result = draft(root)
+    assert result.parts == ("TypeScript graphql_js", "TypeScript website"), result.parts
+    assert "graphql_js/error" in result.components, result.components

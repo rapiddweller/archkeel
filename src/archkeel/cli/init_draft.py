@@ -215,7 +215,8 @@ _NAMES: Final = {"python": "Python", "rust": "Rust", "typescript": "TypeScript",
 
 
 def _unique_ids(areas: list[Area]) -> list[str]:
-    """One part id for each area: the folder name, or the language for the root, made unique."""
+    """One part id for each area: the folder name, or the project name for the root, made
+    unique."""
     labels = [area.label for area in areas]
     return [
         label if labels.count(label) == 1 else f"{area.layout.language}-{label}"

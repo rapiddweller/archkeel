@@ -331,8 +331,9 @@ class Area:
 
     @property
     def label(self) -> str:
-        """The part id before the names of several areas are made unique."""
-        return _name(Path(self.folder).name) if self.folder != "." else self.layout.language
+        """The part id before the names of several areas are made unique: the folder name, or for
+        the root the name of the project (its namespace), not its language (#1709)."""
+        return _name(Path(self.folder).name) if self.folder != "." else self.layout.namespace
 
 
 def _folders(repo: Path) -> list[Path]:
