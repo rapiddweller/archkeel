@@ -109,6 +109,13 @@ fn a_path_to_another_crate_of_the_workspace_is_a_local_edge_to_its_root_module()
     let facts = workspace("use base::f;\nfn g() { base::f(); }");
     assert_eq!(reasons(&facts), Vec::<&str>::new());
     assert_eq!(source_targets(&facts).len(), 1);
+    for import in &facts.imports {
+        let data = import.data.data();
+        if data.target_module.as_str() == "ns.base_crate" {
+            assert_eq!(data.target_package.as_str(), "ns.base_crate");
+            assert_eq!(data.source_package.as_str(), "ns.app");
+        }
+    }
     for target in source_targets(&facts) {
         assert!(matches!(
             target,
@@ -160,7 +167,10 @@ fn a_module_is_named_below_the_namespace_and_the_crate() {
         .filter(|f| !f.module.as_str().ends_with(".cargo_toml"))
         .map(|f| (f.module.as_str(), f.package.as_str()))
         .collect();
-    assert_eq!(modules, [("ns.app", "ns"), ("ns.base_crate", "ns")]);
+    assert_eq!(
+        modules,
+        [("ns.app", "ns.app"), ("ns.base_crate", "ns.base_crate")]
+    );
 }
 
 #[test]

@@ -33,7 +33,11 @@ impl Builder {
         let first = module.first_line.as_str();
         let (line, column) = if first.is_empty() { (0, 0) } else { (1, 0) };
         let cited = Evidence::at(&module.rel, line, line, column, first);
-        self.file((&module.rel, &module.module), module.blank, cited);
+        self.file(
+            (&module.rel, &module.module, module.package()),
+            module.blank,
+            cited,
+        );
         self.edges(workspace, index, module);
         self.symbols(module);
         let local = Local::of(module);
@@ -188,9 +192,7 @@ impl Builder {
                 None,
             ),
             Named::Registry(package) => {
-                // #946: Cargo may build the crate of the workspace of this name instead: a Cargo
-                // config outside the repository, a patch, or a git URL of this repository. The
-                // pair to the module that the path reaches there is a gap, neither edge nor none.
+                // #946: a registry dependency can redirect to a same-named workspace crate.
                 if let Some(root) = workspace.primary_of(package) {
                     let id = FactId::new(identity.as_str());
                     let local = local_target(index, root, reference, id)
@@ -240,19 +242,34 @@ impl Builder {
                 ),
             },
         };
-        let target_package = match &target {
-            Target::Local { module, .. } => package_of(module.as_str()).to_owned(),
-            _ => target_module.clone(),
-        };
-        self.targets.push(target);
-        let record = record(
-            from.module,
+        self.push_import(
+            from,
             reference,
             &identity,
             evidence,
-            &target_module,
-            &target_package,
+            index,
+            (target, target_module, name, other_crate),
         );
+    }
+
+    /// Adds the import record of a resolved path: its target, its item (AD-604) and its published name.
+    fn push_import(
+        &mut self,
+        from: Origin<'_>,
+        reference: &Reference,
+        identity: &str,
+        evidence: String,
+        index: Option<&Index<'_>>,
+        (target, target_module, name, other_crate): (Target, String, Option<ImportName>, bool),
+    ) {
+        let record = record(
+            index,
+            from.module,
+            reference,
+            (identity, evidence),
+            (&target_module, &target),
+        );
+        self.targets.push(target);
         // AD-604: an import into the workspace names its item; an external one is not read.
         let mut record = match name {
             Some(name) => with_name(record, name),
@@ -299,16 +316,24 @@ fn bound_crate_path(
 
 /// The import record of one path that names another crate.
 fn record(
+    index: Option<&Index<'_>>,
     module: &str,
     reference: &Reference,
-    identity: &str,
-    evidence: String,
-    target_module: &str,
-    target_package: &str,
+    (identity, evidence): (&str, String),
+    (target_module, target): (&str, &Target),
 ) -> Record<ImportFact> {
+    let source_package = index
+        .and_then(|index| index.frame(module))
+        .map_or_else(|| package_of(module), |frame| frame.module.package());
+    let target_package = match target {
+        Target::Local { module, .. } => index
+            .and_then(|index| index.frame(module.as_str()))
+            .map_or(module.as_str(), |frame| frame.module.package()),
+        _ => target_module,
+    };
     let data = ImportData {
         source_module: ModuleName::new(module),
-        source_package: PackageName::new(package_of(module)),
+        source_package: PackageName::new(source_package),
         target_module: ModuleName::new(target_module),
         target_package: PackageName::new(target_package),
         specifier: Some(reference.path.clone()),

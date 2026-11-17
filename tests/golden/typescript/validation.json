@@ -1,0 +1,77 @@
+{
+  "registered": [
+    {
+      "sections": [
+        "imports",
+        "unknowns"
+      ],
+      "optional_sections": [],
+      "features": [
+        "literal-imports",
+        "relative-specifiers",
+        "node-builtins",
+        "local-runtime-closure"
+      ],
+      "optional_features": [
+        "bundler-mode-v1"
+      ],
+      "constructs": []
+    },
+    {
+      "sections": [
+        "imports",
+        "unknowns",
+        "symbols",
+        "calls",
+        "references",
+        "bindings"
+      ],
+      "optional_sections": [],
+      "features": [
+        "literal-imports",
+        "relative-specifiers",
+        "node-builtins",
+        "local-runtime-closure",
+        "inner-uml-v1"
+      ],
+      "optional_features": [
+        "bundler-mode-v1",
+        "script-globals-v1"
+      ],
+      "constructs": []
+    },
+    {
+      "sections": [
+        "imports",
+        "unknowns",
+        "symbols",
+        "calls",
+        "references",
+        "bindings",
+        "constructs"
+      ],
+      "optional_sections": [],
+      "features": [
+        "literal-imports",
+        "relative-specifiers",
+        "node-builtins",
+        "local-runtime-closure",
+        "inner-uml-v1"
+      ],
+      "optional_features": [
+        "bundler-mode-v1",
+        "script-globals-v1"
+      ],
+      "constructs": [
+        {
+          "name": "string_literal_compare",
+          "statuses": [
+            "partial"
+          ]
+        }
+      ]
+    }
+  ],
+  "interface": "nothing",
+  "standard_library": "archkeel-typescript-imports"
+}
