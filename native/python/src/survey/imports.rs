@@ -434,7 +434,7 @@ impl Collector<'_, '_> {
         if one {
             self.sole.insert(id.clone());
         }
-        self.records.push(Record {
+        let record = Record {
             id: FactId::new(id),
             evidence_class: EvidenceClass::Fact,
             area: Area::Dependencies,
@@ -448,7 +448,15 @@ impl Collector<'_, '_> {
             } else {
                 ImportFact::DynamicImport(data)
             },
-        });
+        };
+        // `from m import A, A as A` binds one name twice to one target in one statement: both
+        // aliases state the same fact at the same place, so the record is made once. A record of
+        // the statement with the same id but other data is kept, and the store refuses it.
+        let statement = self.records.iter().rev();
+        let mut statement = statement.take_while(|made| made.evidence_ids == record.evidence_ids);
+        if !statement.any(|made| *made == record) {
+            self.records.push(record);
+        }
     }
 }
 
