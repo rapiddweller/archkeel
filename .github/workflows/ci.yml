@@ -27,6 +27,11 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # The hash is taken right after the checkout, before any build writes into native/.
+      - name: Hash the native tree
+        id: native
+        run: echo "hash=${{ hashFiles('native/**', '!native/target/**', '!**/__pycache__/**') }}" >> "$GITHUB_OUTPUT"
+
       - name: Install Node
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
@@ -48,10 +53,6 @@ jobs:
       - name: Install the pinned Rust toolchain once, before any parallel step
         working-directory: native
         run: rustup toolchain install
-
-      - name: Hash the native tree
-        id: native
-        run: echo "hash=${{ hashFiles('native/**', '!native/target/**') }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore the Rust build cache of main
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
