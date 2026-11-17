@@ -113,6 +113,9 @@
         "native.archkeel_facts.request:RustRequest",
         "native.archkeel_facts.request:TypeScriptRequest",
         "native.archkeel_facts.sections:SignalFact",
+        "native.archkeel_facts.standard:StandardFacts",
+        "native.archkeel_facts.standard:Wrapped",
+        "native.archkeel_facts.standard:WrappedSlot",
         "native.archkeel_facts.surveys:gaps_are_unknowns",
         "native.archkeel_facts.type_shape:Binding",
         "native.archkeel_facts.type_shape:Family",
@@ -744,6 +747,7 @@
             "native.archkeel_facts.nested",
             "native.archkeel_facts.nullable",
             "native.archkeel_facts.profile_traits",
+            "native.archkeel_facts.standard",
             "native.archkeel_facts.type_shape",
             "native.archkeel_facts.vocab",
             "native.archkeel_facts:CallFact",
@@ -1033,13 +1037,15 @@
             "native.archkeel_contract:ForbiddenConstruct",
             "native.archkeel_contract:ForbiddenDependency",
             "native.archkeel_contract:InterfaceBoundary",
+            "native.archkeel_contract:PremiseName",
             "native.archkeel_contract:PublicItemKind",
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:RuleKind",
             "native.archkeel_contract:SiblingIsolation",
             "native.archkeel_contract:SymbolClassKind",
             "native.archkeel_contract:SymbolPlacement",
-            "native.archkeel_contract:UnusedPublic"
+            "native.archkeel_contract:UnusedPublic",
+            "native.archkeel_contract:declared_premises"
           ]
         },
         {
@@ -1048,6 +1054,7 @@
           "through": [
             "native.archkeel_facts.data",
             "native.archkeel_facts.envelope",
+            "native.archkeel_facts.standard",
             "native.archkeel_facts.type_shape",
             "native.archkeel_facts.vocab"
           ]
@@ -5839,6 +5846,7 @@
             "native.archkeel_facts.pyminor",
             "native.archkeel_facts.request",
             "native.archkeel_facts.sections:SignalFact",
+            "native.archkeel_facts.standard",
             "native.archkeel_facts.type_shape",
             "native.archkeel_facts.vocab",
             "native.archkeel_facts:CallFact",

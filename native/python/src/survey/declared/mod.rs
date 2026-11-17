@@ -34,6 +34,7 @@ use kind::{BaseSite, Kind, Local, Reading};
 use members::inventory;
 use reader::{header, Reader, Unwritable};
 
+mod dataclass;
 mod decorated;
 mod escapes;
 mod found;
@@ -48,6 +49,7 @@ mod shapes;
 mod sites;
 mod values;
 mod wrapped;
+mod wrapped_read;
 
 pub(crate) use found::{Decorated, Found, Source};
 pub(crate) use shapes::{attach as attach_shapes, collection_names};
@@ -445,6 +447,13 @@ impl<'m> Writer<'m, '_> {
             found.push((record, own));
         }
         Ok(found)
+    }
+
+    /// Note a definition that a decorator may replace (AD-782).
+    fn note_decorated(&mut self, def: Def<'m>, holder: &str, class: Option<(&Bound, &'m [Stmt])>) {
+        let open = (self.open, &self.escaped);
+        let found = decorated::note(&mut self.scan, open, def, holder, class);
+        self.decorated.extend(found);
     }
 
     fn push(

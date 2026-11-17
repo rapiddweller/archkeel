@@ -19,7 +19,9 @@ use archkeel_facts::standard::Wrapped;
 use archkeel_facts::type_shape::TypeShape;
 use archkeel_facts::vocab::{ClassKind, MethodKind};
 
-use crate::boundary_facts::{Callable, Class, Entry, Origin, Slot, Standard};
+use crate::boundary_facts::{
+    standard_of, wrapped_of, Callable, Class, Entry, Origin, Slot, Standard,
+};
 use crate::boundary_judge::{judge, GapCause, GapRow, Leaf, Surface, NEEDS_PREMISE};
 use crate::boundary_surface::{declared, entries, names, PublicEntry};
 use crate::model::Model;
@@ -86,7 +88,10 @@ pub fn read(model: &Model, rule: &BoundaryTypes) -> Result<Reading, Reason> {
             facts,
             declared: &declared,
             scanned: &scanned,
-            premise: model.declares_premise(PremiseName::StandardLibraryUnchanged),
+            premise: <[PremiseName]>::contains(
+                &archkeel_contract::declared_premises(model.contract()),
+                &PremiseName::StandardLibraryUnchanged,
+            ),
         },
         assuming: false,
         allowances: rule.allowed_positions(),
@@ -202,7 +207,7 @@ impl Reader<'_> {
     /// A covered name of a module outside the scan: a type of the standard library that the
     /// collector names counts under the premise (AD-782).
     fn outside(&mut self, subject: String, qualified: &str) {
-        match self.surface.facts.standard(qualified) {
+        match standard_of(self.surface.facts, qualified) {
             None => {
                 let text = "a name of a module outside the scan";
                 self.gap(subject, GapCause::ExternalType, text);
@@ -230,7 +235,7 @@ impl Reader<'_> {
         cause: GapCause,
     ) -> bool {
         let facts = self.surface.facts;
-        let Some(found) = facts.wrapped(qualified) else {
+        let Some(found) = wrapped_of(facts, qualified) else {
             return false;
         };
         if let Wrapped::Unread(reason) = found {
@@ -348,7 +353,7 @@ impl Reader<'_> {
             let known = class.methods.contains(&own)
                 || class.attributes.contains(member)
                 || self.surface.facts.entry(&own).is_some()
-                || self.surface.facts.wrapped(&own).is_some();
+                || wrapped_of(self.surface.facts, &own).is_some();
             if !known {
                 let named = format!("{facade}.{member}");
                 self.gap(named, GapCause::MemberNoRecord, "a member with no record");

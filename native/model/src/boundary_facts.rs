@@ -9,7 +9,7 @@
 //! absent record is a named gap of the rule, never an empty answer. A name has a definition when
 //! the collector wrote the record of its one binder, or a route when one plain import binds it.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use archkeel_facts::envelope::Facts;
 use archkeel_facts::standard::{StandardFacts, Wrapped};
@@ -227,20 +227,6 @@ impl BoundaryFacts {
         Origin::Missing { module, qualified }
     }
 
-    /// What the collector states about the standard library name `qualified`, if anything.
-    pub(crate) fn standard(&self, qualified: &str) -> Option<Standard<'_>> {
-        let facts = &self.standard;
-        if let Some(reason) = facts.changed.get(qualified) {
-            return Some(Standard::Changed(reason));
-        }
-        facts.types.contains(qualified).then_some(Standard::Type)
-    }
-
-    /// The form that a decorated definition of the scan exposes, when the collector models it.
-    pub(crate) fn wrapped(&self, qualified: &str) -> Option<&Wrapped> {
-        self.standard.wrapped.get(qualified)
-    }
-
     /// The origin of a qualified name `module.name`.
     pub(crate) fn origin_of<'a>(&'a self, qualified: &str) -> Origin<'a> {
         match qualified.rsplit_once('.') {
@@ -251,4 +237,18 @@ impl BoundaryFacts {
             },
         }
     }
+}
+
+/// What the collector states about the standard library name `qualified`, if anything (AD-782).
+pub(crate) fn standard_of<'a>(facts: &'a BoundaryFacts, qualified: &str) -> Option<Standard<'a>> {
+    let stated = &facts.standard;
+    if let Some(reason) = BTreeMap::get(&stated.changed, qualified) {
+        return Some(Standard::Changed(reason));
+    }
+    BTreeSet::contains(&stated.types, qualified).then_some(Standard::Type)
+}
+
+/// The form that a decorated definition of the scan exposes, when the collector models it.
+pub(crate) fn wrapped_of<'a>(facts: &'a BoundaryFacts, qualified: &str) -> Option<&'a Wrapped> {
+    BTreeMap::get(&facts.standard.wrapped, qualified)
 }

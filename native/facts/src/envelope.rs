@@ -13,6 +13,7 @@ pub use crate::envelope_vocab::{
     ConstructSupport, Profile, ProtocolVersion, RequirementState, Role, SectionName,
 };
 
+use crate::standard::StandardFacts;
 use std::fmt;
 
 use serde::de::{self, SeqAccess, Visitor};
@@ -101,7 +102,7 @@ object! {
         /// only under the contract premise `standard_library_unchanged` (AD-782). Wire replies
         /// carry none.
         #[serde(skip)]
-        pub standard: Option<crate::standard::StandardFacts>,
+        pub standard: Option<StandardFacts>,
         /// The adapter that wrote the reply.
         pub adapter: Adapter,
         /// The runtime that ran the adapter.

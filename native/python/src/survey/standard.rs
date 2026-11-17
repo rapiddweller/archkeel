@@ -55,7 +55,7 @@ const TYPES: [&str; 26] = [
 /// builtin is an attribute of the module `builtins`.
 pub(super) fn changed(writes: &ClassWrites, qualified: &str) -> Option<String> {
     let name = qualified.rsplit('.').next().unwrap_or(qualified);
-    let reason = writes.change_of(name)?;
+    let reason = ClassWrites::change_of(writes, name)?;
     Some(reason.to_owned())
 }
 

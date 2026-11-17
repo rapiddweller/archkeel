@@ -17,7 +17,7 @@ use archkeel_facts::standard::Wrapped;
 use archkeel_facts::type_shape::{Binding, Family, TypeShape, Unproven};
 use archkeel_facts::vocab::ClassKind;
 
-use crate::boundary_facts::{BoundaryFacts, Entry, Origin, Standard};
+use crate::boundary_facts::{standard_of, wrapped_of, BoundaryFacts, Entry, Origin, Standard};
 
 /// Why a position or an entry of a facade is not decided by syntax. The causes are closed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -279,7 +279,7 @@ fn reached(text: &str, target: &str, surface: &Surface<'_>) -> Judged {
             }
             // A class whose standard decorator keeps it a class (AD-782).
             let class = matches!(
-                surface.facts.wrapped(&qualified),
+                wrapped_of(surface.facts, &qualified),
                 Some(Wrapped::Class { .. })
             );
             match (
@@ -309,7 +309,7 @@ fn reached(text: &str, target: &str, surface: &Surface<'_>) -> Judged {
 /// A name outside the scan: a type of the standard library that the collector names counts under
 /// the premise `standard_library_unchanged` (AD-782); every other name is a type outside the scan.
 pub(crate) fn standard(text: &str, qualified: &str, surface: &Surface<'_>) -> Judged {
-    match surface.facts.standard(qualified) {
+    match standard_of(surface.facts, qualified) {
         None => Judged::gap(GapCause::ExternalType, text),
         Some(Standard::Changed(reason)) => Judged::gap(
             GapCause::ExternalType,

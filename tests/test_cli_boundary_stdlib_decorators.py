@@ -42,7 +42,8 @@ PLANTS: dict[str, tuple[str, dict[str, str], str, str]] = {
         facade(
             "@asynccontextmanager\nasync def f(a: int) -> AsyncIterator[str]:\n    yield ''\n",
             "'f'",
-            "from contextlib import asynccontextmanager\nfrom collections.abc import AsyncIterator\n",
+            "from contextlib import asynccontextmanager\n"
+            "from collections.abc import AsyncIterator\n",
         ),
         {},
         "PASS",
