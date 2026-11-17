@@ -7,8 +7,11 @@ The runs come from `fixtures/matrix.json`.
 The tool decides nothing. It runs `archkeel report --output` for each run, reads the envelope that
 the CLI prints, and shows the verdict, the counts and the refusal of the core as they are.
 A run that gives no envelope gets a row without links and makes the exit code 1.
-The entry page `index.html` is the system page (`tools/report_product_page.py`): a card for
-each part of `docs/architecture/architecture-system.json`. The fixture table is at
+The entry page `index.html` is the report of the system: the core runs
+`docs/architecture/architecture-system.json` in one run and draws one page with the Explorer, which
+starts at the system view and opens each part inside the same page. A link bar leads to the
+fixture table and to the page of each part; the page of a part links back to the system page. The
+fixture table is at
 `showcase/index.html`. The self runs have stable paths (`self/core.html`, `self/core.json`,
 `self/shell.html`, `self/shell.json`) and one shield endpoint file each (`self/core-badge.json`,
 `self/shell-badge.json`). The system of all parts has `self/index.html` and `self/badge.json`, so a
@@ -30,7 +33,6 @@ import sys
 import tempfile
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -42,7 +44,7 @@ from tools.report_product import (
     part_of,
     system,
 )
-from tools.report_product_page import product_page, shell
+from tools.report_product_page import shell
 from tools.system_parts import DOCUMENT, System, load
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -222,6 +224,50 @@ def build_other(cli: Sequence[str], entry: Mapping[str, str]) -> Contract:
     return contract_of(envelope, entry["title"], problem)
 
 
+def nav(page: str, links: Sequence[tuple[str, str]]) -> str:
+    """The page with one bar of links to its neighbour pages, first in its `<main>`."""
+    items = " \u00b7 ".join(
+        f'<a href="{html.escape(href, quote=True)}">{html.escape(label)}</a>'
+        for label, href in links
+    )
+    bar = f'<nav class="caption rp-note" aria-label="Report pages">{items}</nav>'
+    # The bar sits first inside `<main>`, where the links have the style of the report.
+    if not re.search(r"<main[^>]*>", page):
+        return bar + page
+    return re.sub(r"(<main[^>]*>)", lambda found: found.group(1) + bar, page, count=1)
+
+
+def build_system(cli: Sequence[str], system: System, document: Path, out: Path) -> dict[str, Any]:
+    """Write the report of the whole system, drawn by the core, at `self/system.{html,json}`.
+
+    `self/index.html` and `index.html` are this page with a bar of links, and the page of each part
+    links back to it. The page decides nothing: the core drew it from one system run.
+    """
+    folder = out / "self"
+    folder.mkdir(exist_ok=True)
+    try:
+        config = str(document.resolve().relative_to(ROOT.resolve()))
+    except ValueError:
+        config = str(document)
+    run = {"name": "system", "command": "report", "root_path": ".", "config": config}
+    row = _reports(cli, run, folder, "system", "self/")
+    page = folder / "system.html"
+    if not page.is_file():
+        return row
+    parts = [(part.title, f"{part.id}.html") for part in system.parts]
+    text = page.read_text()
+    (folder / "index.html").write_text(
+        nav(text, [("Fixture reports", "../showcase/index.html"), *parts])
+    )
+    entry = [(label, f"self/{href}") for label, href in parts]
+    (out / "index.html").write_text(nav(text, [("Fixture reports", "showcase/index.html"), *entry]))
+    for part in system.parts:
+        each = folder / f"{part.id}.html"
+        if each.is_file():
+            each.write_text(nav(each.read_text(), [("Back to the system report", "index.html")]))
+    return row
+
+
 def build_self(cli: Sequence[str], entry: Mapping[str, str], out: Path) -> dict[str, Any]:
     """Write the reports and the badge file of one self run at their stable paths."""
     folder = out / "self"
@@ -338,17 +384,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     built_at = args.built_at or datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     others = [build_other(cli, entry) for entry in OTHER_RUNS]
     parts: list[Part] = [row["part"] for row in self_rows]
-    ids = {row["part"].key: row["ids"] for row in self_rows}
-    (args.out / "index.html").write_text(
-        product_page(system.name, parts, ids, sha, built_at, others)
-    )
-    # The same page of the system sits in self/, where the part reports are its neighbours.
-    near = [replace(part, report=Path(part.report).name) for part in parts]
-    (args.out / "self" / "index.html").write_text(
-        product_page(
-            system.name, near, ids, sha, built_at, others, showcase="../showcase/index.html"
-        )
-    )
+    system_row = build_system(cli, system, args.system, args.out)
     (args.out / "self" / "badge.json").write_text(
         json.dumps(system_badge(parts), ensure_ascii=False) + "\n", encoding="utf-8"
     )
@@ -357,6 +393,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     failed = [row["run"]["name"] for row in [*self_rows, *rows] if "error" in row]
     failed += [part.key for part in parts if part.error and part.key not in failed]
     failed += [item.title for item in others if item.error]
+    if "error" in system_row or not (args.out / "index.html").is_file():
+        failed.append("system")
     if failed:
         print(f"No result for: {', '.join(failed)}", file=sys.stderr)
     return 1 if failed else 0
