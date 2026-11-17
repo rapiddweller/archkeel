@@ -19,7 +19,8 @@ use crate::hygiene_graph::space;
 pub(crate) type Finding = (&'static str, String, String, String);
 
 /// The rule kinds whose `source` names a module, and the kinds whose other fields do.
-const SOURCE_KINDS: [&str; 7] = [
+const SOURCE_KINDS: [&str; 8] = [
+    "unused_public",
     "forbidden_dependency",
     "allowed_dependency",
     "forbidden_construct",
@@ -120,6 +121,14 @@ fn rule_references(found: &mut Held, index: usize, rule: &Value, sdk: &[String])
     }
     if kind == "sibling_isolation" {
         found.add(at("members"), &rule["members"], false);
+    }
+    // AD-670: each external user names an item of the scan.
+    for (item, user) in list(&rule["external_users"]).iter().enumerate() {
+        found.add(
+            at(&format!("external_users/{item}/symbol")),
+            &user["symbol"],
+            true,
+        );
     }
     for (item, grant) in list(&rule["module_object_grants"]).iter().enumerate() {
         for field in ["source_module", "target_module"] {

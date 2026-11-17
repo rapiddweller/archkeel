@@ -281,6 +281,8 @@ fn classified(kind: RuleKind) -> bool {
         | K::LayerOrder
         | K::SymbolPlacement
         | K::ProtocolDeclarations => false,
+        // AD-670: each change of the rule widens (`not_enumerated`).
+        K::UnusedPublic => false,
     }
 }
 
