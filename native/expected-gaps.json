@@ -4808,22 +4808,12 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.modules",
-      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.modules",
       "A method call may reach the method contains of a type in its own file native.archkeel_rust_collector.crates"
     ],
     [
       "collection_gap",
       "native.archkeel_rust_collector.modules",
       "A method call may reach the method is_empty of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_rust_collector.modules",
-      "A method call may reach the method legacy of a type in its own file native.archkeel_rust_collector.manifest"
     ],
     [
       "collection_gap",
@@ -4848,6 +4838,21 @@
     [
       "collection_gap",
       "native.archkeel_rust_collector.modules.state",
+      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.modules.walk",
+      "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.modules.walk",
+      "A method call may reach the method legacy of a type in its own file native.archkeel_rust_collector.manifest"
+    ],
+    [
+      "collection_gap",
+      "native.archkeel_rust_collector.modules.walk",
       "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
     ],
     [
