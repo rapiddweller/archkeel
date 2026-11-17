@@ -6,11 +6,14 @@
 
 use std::collections::{HashMap, HashSet};
 
+use ruff_python_ast::{ModModule, Stmt};
+
 pub(super) fn modules(
     bound: &HashMap<String, Vec<String>>,
     unique: &HashSet<String>,
+    tree: &ModModule,
 ) -> HashMap<String, String> {
-    bound
+    let mut modules: HashMap<String, String> = bound
         .iter()
         .filter_map(|(name, origins)| match origins.as_slice() {
             [origin]
@@ -27,7 +30,17 @@ pub(super) fn modules(
             }
             _ => None,
         })
-        .collect()
+        .collect();
+    if unique.contains("importlib")
+        && tree.body.iter().any(|stmt| {
+            matches!(stmt, Stmt::Import(node)
+            if node.names.iter().any(|alias| alias.name.as_str() == "importlib.metadata"
+                && alias.asname.is_none()))
+        })
+    {
+        modules.insert("importlib".to_owned(), "importlib".to_owned());
+    }
+    modules
 }
 
 pub(super) fn read(modules: &HashMap<String, String>, name: &str, attrs: &[&str]) -> bool {
@@ -36,6 +49,7 @@ pub(super) fn read(modules: &HashMap<String, String>, name: &str, attrs: &[&str]
         [] => module
             .rsplit_once('.')
             .is_some_and(|(parent, attr)| attribute(parent, attr)),
+        ["metadata", attr] if module == "importlib" => attribute("importlib.metadata", attr),
         _ => false,
     })
 }
@@ -46,8 +60,10 @@ fn attribute(module: &str, attr: &str) -> bool {
         (
             "pickle",
             "UnpicklingError" | "PickleError" | "HIGHEST_PROTOCOL"
-        ) | ("importlib.metadata", "PackageNotFoundError")
-            | ("importlib.abc", "Traversable")
+        ) | (
+            "importlib.metadata",
+            "PackageNotFoundError" | "version" | "distribution" | "distributions"
+        ) | ("importlib.abc", "Traversable")
             | ("dill", "settings")
     )
 }
