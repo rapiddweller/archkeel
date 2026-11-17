@@ -11,9 +11,70 @@ from pathlib import Path
 
 import pytest
 from core_support import EMPTY_GRAPH, ROOT, SUFFIX
-from test_cli_native_core_scan_work import input_measurement, project
+from test_cli_native_core_scan_work import input_measurement, measured_scan, project
 
 from archkeel.cli import native_scan
+
+
+@pytest.mark.parametrize("expression", ["1+" * 2_000_000 + "1", "1" + " as u8" * 600_000])
+def test_a_flat_rust_expression_refuses_without_aborting(
+    release_core: Path, tmp_path: Path, expression: str
+) -> None:
+    root = tmp_path / "project"
+    request = project(root, 1, 0, "rust")
+    (root / "src/deep0.rs").write_text(f"pub fn value() -> u8 {{ {expression} }}")
+    done, peak = measured_scan(release_core, request)
+    assert done.returncode == 2, done.stderr
+    assert done.stdout == b""
+    assert b"parse_work_limit" in done.stderr and b"Rust operator-work units" in done.stderr
+    assert peak is None or peak < 1 << 30
+
+
+def test_a_rust_expression_below_the_work_limit_keeps_a_frame(
+    release_core: Path, tmp_path: Path
+) -> None:
+    root = tmp_path / "project"
+    request = project(root, 1, 0, "rust")
+    (root / "src/deep0.rs").write_text("pub fn value() -> u32 { " + "1+" * 8_000 + "1 }")
+    done, peak = measured_scan(release_core, request)
+    assert done.returncode in (0, 3), done.stderr
+    assert json.loads(done.stdout)["self_test"]["collect"]["request"]
+    assert peak is None or peak < 1 << 30
+
+
+@pytest.mark.parametrize("language", ["typescript", "rust"])
+def test_oversized_source_names_the_gap(release_core: Path, tmp_path: Path, language: str) -> None:
+    root = tmp_path / "project"
+    request = project(root, 1, 0, language)
+    suffix = "rs" if language == "rust" else "ts"
+    (root / f"src/deep0.{suffix}").write_text("x" * 50_000_000)
+    contract = root / "architecture-contract.json"
+    data = json.loads(contract.read_text())
+    data["rules"] = [rule for rule in data["rules"] if rule["id"] == "MODULE-CYCLES"]
+    contract.write_text(json.dumps(data))
+    done, peak = measured_scan(release_core, request)
+    frame = json.loads(done.stdout)
+    assert frame["status"] == "UNKNOWN"
+    assert "over the size limit" in json.dumps(frame["collection_gaps"])
+    assert peak is None or peak < 1 << 30
+
+
+@pytest.mark.parametrize("language", ["typescript", "rust"])
+def test_two_hundred_thousand_tiny_files_hit_the_survey_budget(
+    release_core: Path, tmp_path: Path, language: str
+) -> None:
+    root = tmp_path / "project"
+    request = project(root, 0, 0, language)
+    for group in range(200):
+        directory = root / "src" / f"group{group:03}"
+        directory.mkdir()
+        for number in range(1000):
+            (directory / f"file{number:04}.ts").touch()
+    done, peak = measured_scan(release_core, request)
+    frame = json.loads(done.stdout)
+    assert frame["status"] == "UNKNOWN"
+    assert "more than 100000 entries" in json.dumps(frame["gaps"])
+    assert peak is None or peak < 1 << 30
 
 
 def complete_contract(root: Path) -> None:
