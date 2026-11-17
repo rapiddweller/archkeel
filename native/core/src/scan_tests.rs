@@ -366,12 +366,15 @@ fn ours(value: &mut Value) {
 #[test]
 fn the_in_process_trust_needs_the_profile_the_adapter_and_the_digest_of_this_build() {
     let trust = |profile, reply: &Ingested| in_process(profile)("shop".to_owned(), Some(reply));
-    assert_eq!(trust(Profile::TypeScript, &ingested(ours)).gap, None);
+    assert_eq!(
+        trust("archkeel-typescript-imports", &ingested(ours)).gap,
+        None
+    );
     let refused = [
-        trust(Profile::TypeScript, &ingested(|_| {})),
-        trust(Profile::Rust, &ingested(ours)),
+        trust("archkeel-typescript-imports", &ingested(|_| {})),
+        trust("archkeel-rust-imports", &ingested(ours)),
         trust(
-            Profile::TypeScript,
+            "archkeel-typescript-imports",
             &ingested(|value| {
                 ours(value);
                 value["facts"]["adapter"]["name"] = json!("archkeel-rust-imports");
@@ -441,8 +444,8 @@ fn the_in_process_trust_refuses_a_reply_of_another_profile_with_the_adapter_of_t
     });
     assert_eq!(
         foreign.reply().facts.adapter.name,
-        Profile::TypeScript.as_str()
+        "archkeel-typescript-imports"
     );
-    let gap = in_process(Profile::TypeScript)("shop".to_owned(), Some(&foreign)).gap;
+    let gap = in_process("archkeel-typescript-imports")("shop".to_owned(), Some(&foreign)).gap;
     assert!(gap.is_some_and(|gap| gap.starts_with(PRODUCER_NOT_VERIFIED)));
 }

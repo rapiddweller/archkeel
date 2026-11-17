@@ -170,6 +170,21 @@ fn an_enum_is_not_a_base_class_and_a_nested_class_keeps_its_own_methods() {
 }
 
 #[test]
+fn nested_unicode_names_keep_their_parent_and_lexical_parent_id() {
+    let list = symbols("function äußer() { function 中() { function τέλος() {} } }\n");
+    let parent = named(&list, "中");
+    let child = named(&list, "τέλος");
+    assert!(child.data["parent"]
+        .as_str()
+        .unwrap()
+        .ends_with(".äußer.中"));
+    assert_eq!(
+        child.data["lexical_parent_id"].as_str(),
+        Some(parent.id.as_str())
+    );
+}
+
+#[test]
 fn a_top_level_name_without_a_visibility_is_unknown_and_a_nested_one_is_public() {
     let list = symbols("function top() { function inner() {} }\n");
     let top = &named(&list, "top").data["visibility_detail"];
