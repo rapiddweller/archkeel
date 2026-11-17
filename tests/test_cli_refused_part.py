@@ -95,3 +95,32 @@ def test_a_parse_work_refusal_of_the_core_has_its_own_kind_and_fix(
         "Fix: the file is larger or deeper than the scan reads; split it, or leave it out of "
         "the scan roots."
     )
+
+
+def test_a_refusal_prints_the_paths_that_the_core_gives(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A refusal that names two files shows both (pydantic scan: the duplicate record id)."""
+    message = (
+        "collect: unsupported: collector: the store refuses the reply of the collector: "
+        "duplicate source record id: a/vendor/httpx2/x.py, b/vendor/httpx2/x.py"
+    )
+
+    def refused(*_: object) -> tuple[bytes, int]:
+        raise CoreError(message)
+
+    monkeypatch.setattr(core_only, "locate_core", lambda: tmp_path / "archkeel-core")
+    monkeypatch.setattr(core_only, "exchange", refused)
+    core_only.run(["validate", "--root", str(tmp_path), "--text"])
+    shown = capsys.readouterr().out
+    assert "a/vendor/httpx2/x.py" in shown and "b/vendor/httpx2/x.py" in shown, shown
+    core_only.run(["validate", "--root", str(tmp_path), "--json"])
+    assert "b/vendor/httpx2/x.py" in capsys.readouterr().out
+
+
+def test_a_repository_without_a_commit_has_a_fix_that_says_what_to_do() -> None:
+    message = (
+        "git head: this Git repository has no commit yet (HEAD names refs/heads/main, which no "
+        "commit made); commit once, or run with --root on a folder"
+    )
+    assert _refused_part(message) is _RefusedPart.GIT_HEAD

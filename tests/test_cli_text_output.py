@@ -480,3 +480,15 @@ def test_a_rule_without_a_row_is_not_counted_as_a_pass(capsys: pytest.CaptureFix
     first = text.splitlines()[0]
     assert done == 2 and "all 1 rules pass" not in first
     assert "1 of 2 rules pass; 1 rules have no decision: PROTOCOLS-IN-SERVICE" in first
+
+
+def test_the_named_gaps_are_gaps_with_no_rule_not_parts() -> None:
+    """The pydantic scan read "8 parts not decided" for 8 gaps."""
+    from types import SimpleNamespace
+
+    from archkeel.cli.core_text import _named_lines
+
+    gap = SimpleNamespace(kind="unported", subject="PLACE", reason="unsupported: rule kind")
+    lines, _ = _named_lines(SimpleNamespace(gaps=[gap, gap]), False)  # type: ignore[arg-type]
+    assert lines[0] == "Gaps with no rule of their own (2):"
+    assert not any("Parts that are not decided" in line for line in lines)
