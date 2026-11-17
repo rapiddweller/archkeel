@@ -418,3 +418,36 @@ def test_the_explorer_names_the_result_and_no_observation(site: str, page: Brows
     drawer = page.evaluate("document.querySelector('#flow .ak-drawer').textContent")
     assert "Result: PASS assuming 1 stated external user" in drawer
     assert "bservation" not in page.evaluate("document.getElementById('flow').innerText")
+
+
+def test_the_compact_payload_gives_the_full_rows_that_a_sheet_shows(
+    site: str, page: Browser
+) -> None:
+    # The page budget (#880): the core writes each repeated value once; report-scene.js restores
+    # the full rows, so a fact sheet shows the same declared permissions as before.
+    page.open(f"{site}/system.html")
+    row = page.evaluate("ArchkeelFlow.reportScene.boundaryPermissions.declared[0]")
+    source, target = row["component_ids"]
+    assert row["id"] == f"PORT:{source}>{target}:0"
+    assert row["position"] == f"through, {source} to {target}"
+    assert (row["rule_id"], row["decided_by"], row["source"]) == (
+        "requires",
+        "architect",
+        "contract",
+    )
+    assert isinstance(row["rationale"], str) and row["rationale"]
+    count = page.evaluate(
+        f"ArchkeelFlow.reportScene.boundaryPermissions.declared"
+        f".filter((r) => r.component_ids.includes({source!r})).length"
+    )
+    page.evaluate(f"ArchkeelFlow.selectComponent({source!r})")
+    page.settle()
+    click(page, '#flow [data-flow-view="target"]')
+    sheet = page.evaluate("document.querySelector('#flow .flow-inspector-content').textContent")
+    assert f"Declared boundary permissions · {count}" in sheet
+    module = page.evaluate("ArchkeelFlow.reportScene.atlas.modules[0]")
+    assert (module["name"], module["rank"], module["evidence_ids"]) == (module["id"], None, [])
+    edge = page.evaluate(
+        "ArchkeelFlow.reportScene.atlas.components.find((c) => c.requires.length).requires[0]"
+    )
+    assert edge["id"].startswith("REQ:") and edge["decided_by"] == "architect"
