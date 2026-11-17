@@ -74,7 +74,7 @@ pub use model_uml::{
     RelationshipKind, ResolutionKind, Signature, Target, TargetScope, VisibilityBasis,
     VisibilityKind,
 };
-pub use premises::PremiseName;
+pub use premises::{assumption_words, premise_word, PremiseName};
 pub use rule::{head_of, kind_of, Rule};
 pub use uml_merge::merge_targets;
 pub use unused_public::{PublicItemKind, UnusedPublic};

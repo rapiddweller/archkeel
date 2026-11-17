@@ -30,30 +30,26 @@ pub enum PremiseName {
 impl PremiseName {
     /// Each name, in the order of the frame.
     pub const ALL: [PremiseName; 1] = [PremiseName::StandardLibraryUnchanged];
+}
 
-    /// The word of the premise in the contract and in the frame.
-    pub fn premise_word(self) -> &'static str {
-        match self {
-            PremiseName::StandardLibraryUnchanged => "standard_library_unchanged",
-        }
+/// The word of a premise in the contract and in the frame.
+pub fn premise_word(name: PremiseName) -> &'static str {
+    match name {
+        PremiseName::StandardLibraryUnchanged => "standard_library_unchanged",
     }
+}
 
-    /// The premise in words, as "PASS assuming <words>" reads it.
-    pub fn assumption_words(self) -> &'static str {
-        match self {
-            PremiseName::StandardLibraryUnchanged => "an unchanged standard library",
-        }
+/// A premise in words, as "PASS assuming <words>" reads it.
+pub fn assumption_words(name: PremiseName) -> &'static str {
+    match name {
+        PremiseName::StandardLibraryUnchanged => "an unchanged standard library",
     }
+}
 
-    fn of(text: &str) -> Option<PremiseName> {
-        let mut found = None;
-        for name in PremiseName::ALL {
-            if PremiseName::premise_word(name) == text {
-                found = Some(name);
-            }
-        }
-        found
-    }
+fn premise_of(text: &str) -> Option<PremiseName> {
+    PremiseName::ALL
+        .into_iter()
+        .find(|name| premise_word(*name) == text)
 }
 
 record!(
@@ -106,8 +102,8 @@ pub(crate) fn premises(object: &Object, version: ContractVersion) -> Parsed<Vec<
 fn one(raw: &Json, label: &str) -> Parsed<DeclaredPremise> {
     let (item, id, provenance) = record(raw, &["name", "rationale"], &[], label)?;
     let text: String = nonempty_field(item, "name", label)?;
-    let known: Vec<&str> = PremiseName::ALL.map(PremiseName::premise_word).to_vec();
-    let Some(name) = PremiseName::of(&text) else {
+    let known: Vec<&str> = PremiseName::ALL.map(premise_word).to_vec();
+    let Some(name) = premise_of(&text) else {
         return Err(invalid(format!(
             "{label}.name {text:?} names no premise that the core knows ({})",
             known.join(", ")

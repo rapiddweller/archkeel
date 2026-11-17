@@ -4,7 +4,7 @@
 
 // Consumer: `declarations.premises` (contract 3.17.0, AD-764), the opt-in premises of a contract.
 
-use super::PremiseName;
+use super::{assumption_words, PremiseName};
 use crate::contract::parse_file;
 use crate::document::Contract;
 
@@ -33,7 +33,7 @@ fn a_declared_premise_parses_with_its_name_and_reason() -> Result<(), String> {
     assert_eq!(premise.id().as_text(), "P-1");
     assert!(premise.rationale().contains("patches"));
     assert_eq!(
-        PremiseName::assumption_words(*premise.name()),
+        assumption_words(*premise.name()),
         "an unchanged standard library"
     );
     Ok(())

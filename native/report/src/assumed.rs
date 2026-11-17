@@ -36,7 +36,7 @@ pub(crate) fn of(model: &Model, id: &str) -> Vec<Premise> {
         let used: Vec<UsedPremise> = archkeel_model::rule_premises(model, rule);
         for premise in used {
             found.push(Premise {
-                kind: PremiseKind::kind_word(premise.kind).to_owned(),
+                kind: archkeel_model::kind_word(premise.kind).to_owned(),
                 subject: premise.subject,
             });
         }
@@ -68,17 +68,22 @@ impl Premises {
     /// The premises of the PASS rules and the applied door declarations of the run.
     pub(crate) fn of(premises: BTreeMap<String, Vec<Premise>>, models: Option<&ModelTree>) -> Self {
         let door_reach = rows(models);
-        let door = PremiseKind::kind_word(PremiseKind::DoorReach);
+        let door = archkeel_model::kind_word(PremiseKind::DoorReach);
         let mut assumed: BTreeMap<String, Vec<String>> = BTreeMap::new();
         let mut pairs: Vec<(&str, &str)> = Vec::new();
         for (rule, found) in &premises {
             let found: &Vec<Premise> = found;
-            let mut sites: Vec<String> = Vec::new();
-            for premise in found {
-                pairs.push((&premise.kind, &premise.subject));
-                sites.extend((premise.kind == door).then(|| premise.subject.clone()));
-            }
-            if !sites.is_empty() {
+            pairs.extend(found.iter().map(|p| {
+                let kind: &str = &p.kind;
+                let subject: &str = &p.subject;
+                (kind, subject)
+            }));
+            let sites: Vec<String> = found
+                .iter()
+                .filter(|p| p.kind == door)
+                .map(|p| p.subject.clone())
+                .collect();
+            if let [_, ..] = sites.as_slice() {
                 assumed.insert(rule.clone(), sites);
             }
         }
@@ -99,13 +104,13 @@ pub fn words<'a>(
     doors: usize,
     pairs: impl Iterator<Item = (&'a str, &'a str)>,
 ) -> Result<Option<String>, String> {
-    let mut used: Vec<(PremiseKind, &str)> = Vec::new();
-    for (word, subject) in pairs {
-        let Some(kind) = PremiseKind::of_kind_word(word) else {
-            return Err(format!("the frame names a premise of the kind {word}"));
-        };
-        used.push((kind, subject));
-    }
+    let used: Vec<(PremiseKind, &str)> = pairs
+        .map(|(word, subject)| {
+            archkeel_model::of_kind_word(word)
+                .map(|kind| (kind, subject))
+                .ok_or_else(|| format!("the frame names a premise of the kind {word}"))
+        })
+        .collect::<Result<_, _>>()?;
     Ok(archkeel_model::premise_words(doors, &used))
 }
 

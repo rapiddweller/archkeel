@@ -366,6 +366,7 @@
         "native.archkeel_contract:UnusedPublic",
         "native.archkeel_contract:VisibilityBasis",
         "native.archkeel_contract:VisibilityKind",
+        "native.archkeel_contract:assumption_words",
         "native.archkeel_contract:bare_reference",
         "native.archkeel_contract:canonical_bytes",
         "native.archkeel_contract:declared_premises",
@@ -373,6 +374,7 @@
         "native.archkeel_contract:kind_of",
         "native.archkeel_contract:merge_targets",
         "native.archkeel_contract:parse",
+        "native.archkeel_contract:premise_word",
         "native.archkeel_contract:uml_target_id"
       ],
       "decided_by": "architect"
@@ -568,7 +570,9 @@
         "native.archkeel_model:in_scope",
         "native.archkeel_model:interface_crossings",
         "native.archkeel_model:interface_publications",
+        "native.archkeel_model:kind_word",
         "native.archkeel_model:measure_facts",
+        "native.archkeel_model:of_kind_word",
         "native.archkeel_model:peers",
         "native.archkeel_model:placement_violations",
         "native.archkeel_model:premise_words",
@@ -1146,9 +1150,11 @@
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:RuleKind",
             "native.archkeel_contract:SymbolPlacement",
+            "native.archkeel_contract:assumption_words",
             "native.archkeel_contract:declared_premises",
             "native.archkeel_contract:head_of",
-            "native.archkeel_contract:kind_of"
+            "native.archkeel_contract:kind_of",
+            "native.archkeel_contract:premise_word"
           ]
         },
         {
@@ -1217,6 +1223,8 @@
       "public": [
         "native.archkeel_model.premises:PremiseKind",
         "native.archkeel_model.premises:UsedPremise",
+        "native.archkeel_model.premises:kind_word",
+        "native.archkeel_model.premises:of_kind_word",
         "native.archkeel_model.premises:premise_words",
         "native.archkeel_model.premises:rule_premises",
         "native.archkeel_model.run:Model",
@@ -2094,6 +2102,8 @@
             "native.archkeel_model:UsedPremise",
             "native.archkeel_model:Verdict",
             "native.archkeel_model:compare_uml_tree",
+            "native.archkeel_model:kind_word",
+            "native.archkeel_model:of_kind_word",
             "native.archkeel_model:premise_words",
             "native.archkeel_model:rule_premises",
             "native.archkeel_model:shape"
