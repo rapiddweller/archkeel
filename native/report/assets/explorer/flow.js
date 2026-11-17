@@ -1031,8 +1031,12 @@
     if (SIDECAR) { sidecarNavigation(); return; }
     if (ATLAS) {
       // E3: each crumb names itself in full (a title for a shortened one); the current crumb says so.
-      const crumbs = [ATLAS.repository, ...S.path.map((entry) => REPORT_SCENE.atlasComponent(entry.id)?.label || entry.id)];
-      breadcrumb.innerHTML = crumbs.map((label, depth) => `${depth ? "<span> / </span>" : ""}<button type="button" data-atlas-depth="${depth}" title="${esc(label)}"${depth === crumbs.length - 1 ? ' aria-current="page"' : ""}><span>${esc(label)}</span></button>`).join("");
+      // E4: the page of a part names its system after its root crumb, as a link to the system page.
+      const crumbs = [NAV?.part_title || ATLAS.repository, ...S.path.map((entry) => REPORT_SCENE.atlasComponent(entry.id)?.label || entry.id)];
+      const system = !NAV?.part_title ? "" : NAV.system_href
+        ? `<span> of </span><a href="${esc(NAV.system_href)}" title="${esc(NAV.system_title)}">${esc(NAV.system_title)}</a>`
+        : `<span> of ${esc(NAV.system_title)}</span>`;
+      breadcrumb.innerHTML = crumbs.map((label, depth) => `${depth ? "<span> / </span>" : ""}<button type="button" data-atlas-depth="${depth}" title="${esc(label)}"${depth === crumbs.length - 1 ? ' aria-current="page"' : ""}><span>${esc(label)}</span></button>${depth ? "" : system}`).join("");
       breadcrumb.querySelectorAll("button").forEach((button) => button.onclick = () =>
         dispatch({ type: "goToDepth", depth: Number(button.dataset.atlasDepth) }));
       backButton.hidden = !S.path.length; backButton.textContent = "Back to components"; return;
@@ -2468,7 +2472,7 @@
     const limit = (module.symbol_coverage || []).find((item) => item.status === "unavailable");
     if (!limit) return "";
     const reason = (limit.reason || "").replace(/\.$/, "");
-    return `Symbols: not counted in this run${reason ? ` (${esc(reason.charAt(0).toLowerCase() + reason.slice(1))})` : ""}`;
+    return `Symbols: not counted${reason ? ` (${esc(reason.charAt(0).toLowerCase() + reason.slice(1))})` : ""}`;
   }
   // What a box is: a layer or a group of components, or a component.
   function atlasBoxKind(component) {
@@ -2602,7 +2606,7 @@
       ${list("Not responsible for", component.not_responsible_for)}${atlasProvidesMarkup(component.public)}
       ${list("Planned interface", component.planned)}${atlasRequiresMarkup(component)}
       ${S.view === "target" ? "" : atlasRuleAssessmentMarkup(level, component)}${S.view !== "target" ? `<h3>In this run</h3><p>${REPORT_SCENE.countLabel(component.observed_modules, "module")}${component.observed_symbols == null ? "" : ` · ${REPORT_SCENE.countLabel(component.observed_symbols, "observed symbol")}`} · ${esc(component.status)} · ${esc(component.reason)}</p>${usedBy ? `<h3>Used by</h3><p>${usedBy}</p>` : ""}` : ""}
-      <p class="muted">${component.directory ? `The report made this box from the module paths; ${esc(REPORT_SCENE.atlasComponent(component.parent_id)?.label || component.parent_id)} owns the modules in the contract.` : `Decided by ${esc(component.decided_by || "the contract")}`}</p>${S.view === "target" || !component.path || component.directory ? "" : atlasOwnsMarkup(component.path)}
+      <p class="muted">${component.directory ? `The report made this box from the module paths; ${esc(REPORT_SCENE.atlasComponent(component.parent_id)?.label || component.parent_id)} owns the modules in the contract.` : component.decided_by === "report" ? "Grouped by the report (structure): the report made this box to keep the level readable. Each component inside keeps its own decisions in the contract." : `Decided by ${esc(component.decided_by || "the contract")}`}</p>${S.view === "target" || !component.path || component.directory ? "" : atlasOwnsMarkup(component.path)}
       ${component.provenance.length ? `<details><summary>Reasons · ${REPORT_SCENE.countLabel(component.provenance.length, "document")}</summary><ul class="plain">${component.provenance.map((item) => `<li>${esc(item)}</li>`).join("")}</ul></details>` : ""}${inventory}
       ${S.view === "target" && componentLevel ? `<p><a href="${esc(atlasLevelHref(component.id))}" data-atlas-level-route="${esc(component.id)}">Open declared component details</a></p>` : ""}`;
     inspectorContent.querySelector("[data-browse-component]").onclick = () =>

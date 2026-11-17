@@ -25,7 +25,7 @@ from .core_arguments import NotOnThisLine, Options, OutputMode, command_of, outp
 from .core_baseline import BaselineResult, BaselineState
 from .core_baseline import as_json as baseline_json
 from .core_binary import CoreBinaryNotFound, confirm, locate_core
-from .core_binding import ProjectRoot, RootMode, resolve_root, work_tree_top
+from .core_binding import ProjectRoot, RootMode, resolve_root
 from .core_exit import Outcome, envelope, exit_for, outcome_of, require_baseline_part
 from .core_frame import CoreCommand as Command
 from .core_frame import (
@@ -66,7 +66,7 @@ def run(argv: Sequence[str]) -> int:
         if options.command is Command.SKILL:
             return _install_skill(options, mode)
         if options.command is Command.INIT:
-            return _run_init(mode is OutputMode.JSON, ProjectRoot.of(options.root).path)
+            return _run_init(mode is OutputMode.JSON, ProjectRoot.top(options.root).path)
         return _decide(options, mode)
     except (CoreError, OSError, ValueError) as error:
         output = any(arg == "--output" or arg.startswith("--output=") for arg in argv)
@@ -154,6 +154,11 @@ def _request(options: Options, project: ProjectRoot) -> dict[str, object]:
         request["topology"] = True
     if page:
         request["html"] = True
+    if page and options.part_of is not None:
+        link: dict[str, str] = {"document": options.part_of}
+        if options.system_href is not None:
+            link["href"] = options.system_href
+        request["part_of"] = link
     if options.baseline is not None:
         request["baseline"] = options.baseline
     if options.write_baseline is not None:
@@ -188,24 +193,6 @@ def _deliver(options: Options, frame: CoreFrame, stdout: bytes, root: Path) -> l
         message = f"cannot write the baseline file {error}; no baseline file was written"
         failures.append((RefusalKind.IO_ERROR, message))
     return failures
-
-
-def _located(options: Options) -> Options:
-    """Without `--root`, a configuration outside the repository of the working directory names
-    its own repository: the root is the Git root above the file, and the path is relative to it."""
-    if options.root is not None:
-        return options
-    config = Path(options.config)
-    path = (config if config.is_absolute() else Path.cwd() / config).resolve()
-    if not path.is_file():
-        return options
-    top = work_tree_top(path.parent)
-    if top is None or (not config.is_absolute() and Path.cwd().resolve().is_relative_to(top)):
-        return options
-    located = Options(**vars(options))
-    located.root = top
-    located.config = path.relative_to(top).as_posix()
-    return located
 
 
 def _contract_files(document: Mapping[str, object]) -> list[str]:
@@ -251,11 +238,12 @@ def _print_text(
     frame: CoreFrame,
     document: Mapping[str, object],
     ending: tuple[int, Outcome, Gap | None, list[Refusal]],
-    where: tuple[Path, Path],
+    where: tuple[Path, ProjectRoot],
 ) -> None:
     """Print one run as text: the problems first, then the summary, or one line for a report."""
     code, outcome, collected, failures = ending
-    binary, root = where
+    binary, project = where
+    root, scanned = project.path, _scanned(project)
     typed = (options.root, root)
     problems = [
         f"Problem: {plain(message, *typed)}"
@@ -269,16 +257,19 @@ def _print_text(
     target = collect.get("target") if isinstance(collect, dict) else None
     if options.output is not None and not options.text and not problems:
         detail = f"; {target}" if isinstance(target, str) else ""
-        line = header(options.command, frame, code, outcome)
+        line = header(options.command, frame, code, outcome, scanned)
         print(f"{line}; report written to {options.output}{detail}")
     elif collected is not None:
         message = plain(collected.reason, *typed)
         fix = fix_for(RefusalKind.COLLECTION_REFUSED, message)
-        print("\n".join([*refusal(options.command, code, message, fix), *problems[1:]]))
+        lines = refusal(options.command, code, message, fix, scanned)
+        print("\n".join([*lines, *problems[1:]]))
     elif options.summary:
         files = _contract_files(document)
         ignored = _ignored_modules(frame, document, root)
-        lines = summary(options.command, frame, code, files, problems, ignored, outcome=outcome)
+        lines = summary(
+            options.command, frame, code, files, problems, ignored, outcome=outcome, scanned=scanned
+        )
         print("\n".join(lines))
     else:
         system = document.get("system")
@@ -287,6 +278,7 @@ def _print_text(
             frame,
             code,
             outcome=outcome,
+            scanned=scanned,
             problems=problems,
             show_all=options.all,
             system=system if isinstance(system, dict) else None,
@@ -304,15 +296,25 @@ def _print_text(
 
 def _decide(options: Options, mode: OutputMode) -> int:
     """Draft the files of a first run, then scan. A failure after a write still names the files."""
-    options = _located(options)
-    project = ProjectRoot.of(options.root)  # AD-735: one root for the draft, the scan and the files
+    # AD-735, AD-776: one root and one configuration for the draft, the scan and the files.
+    project = ProjectRoot.of(options.root, options.config if options.config_given else None)
+    options = Options(**vars(options))
+    options.config = project.config
     baseline = options.baseline is not None
     binary = locate_core()  # AD-735: the core is found and checked before the draft writes a file
     options, init = _prepare(options, project)  # AD-638, AD-660: a first run gets its files
+    project = replace(project, config=options.config)
     if (stop := init.refusal()) is not None:
         kind, fix = stop
         return _refused(
-            options.command, kind, init.message, mode, baseline=baseline, fix=fix, init=init
+            options.command,
+            kind,
+            init.message,
+            mode,
+            baseline=baseline,
+            fix=fix,
+            init=init,
+            project=project,
         )
     try:
         return _scan(options, project, binary, init.created, mode)
@@ -321,7 +323,9 @@ def _decide(options: Options, mode: OutputMode) -> int:
             raise
         message = _message(error, output=options.output is not None)
         kind = _refusal_kind(error)
-        return _refused(options.command, kind, message, mode, baseline=baseline, init=init)
+        return _refused(
+            options.command, kind, message, mode, baseline=baseline, init=init, project=project
+        )
 
 
 def _scan(
@@ -357,13 +361,18 @@ def _scan(
     failures = _deliver(options, frame, stdout, root)
     outcome = outcome_of(frame, delivered=not failures)
     code = exit_for(outcome, frame, baseline=baseline)
-    result = envelope(options.command, outcome, frame.status, code) | {
-        "frame": document,
-        "core": {"path": str(binary), "engine": frame.engine, "code_digest": frame.code_digest},
-        "gaps": [
-            {"kind": gap.kind, "subject": gap.subject, "reason": gap.reason} for gap in frame.gaps
-        ],
-    }
+    result = (
+        envelope(options.command, outcome, frame.status, code)
+        | project.as_json()
+        | {
+            "frame": document,
+            "core": {"path": str(binary), "engine": frame.engine, "code_digest": frame.code_digest},
+            "gaps": [
+                {"kind": gap.kind, "subject": gap.subject, "reason": gap.reason}
+                for gap in frame.gaps
+            ],
+        }
+    )
     if frame.baseline is not None:
         result["baseline"] = baseline_json(frame.baseline)
     refusals = [(RefusalKind.COLLECTION_REFUSED, collected.reason)] if collected else []
@@ -375,8 +384,14 @@ def _scan(
         return code
     if created is not None:
         print("\n".join(created.lines()), end="\n\n")
-    _print_text(options, frame, document, (code, outcome, collected, failures), (binary, root))
+    _print_text(options, frame, document, (code, outcome, collected, failures), (binary, project))
     return code
+
+
+def _scanned(project: ProjectRoot) -> str:
+    """The root and the configuration of a run for its header, from the current folder."""
+    root, config = project.named(Path.cwd())
+    return f" · root {root} · config {config}"
 
 
 def _refusal_fields(refusals: Sequence[Refusal]) -> dict[str, object]:
@@ -417,6 +432,8 @@ def _where(options: Options, project: ProjectRoot) -> str:
     match project.mode:
         case RootMode.EXPLICIT:
             return str(options.root)
+        case RootMode.CONFIG:
+            return f"the root that the configuration names ({project.path})"
         case RootMode.WORK_TREE if project.path != resolve_root(Path.cwd()):
             return f"the top of the Git work tree ({project.path})"
         case RootMode.WORK_TREE | RootMode.CURRENT:
@@ -455,6 +472,7 @@ def _refused(
     baseline: bool,
     fix: str | None = None,
     init: InitOutcome | None = None,
+    project: ProjectRoot | None = None,
 ) -> int:
     """The refusal of a command that could not run: JSON, or the problem and the fix as text.
 
@@ -465,6 +483,7 @@ def _refused(
     created = init.created if init is not None else None
     if mode is OutputMode.JSON:
         document = envelope(command, Outcome.COMMAND_REFUSED, Status.UNKNOWN, code)
+        document |= project.as_json() if project is not None else {}
         document["refusal"] = {"kind": kind, "message": message}
         if init is not None:
             document["init"] = created.as_json() if created else {"state": init.state}
@@ -473,5 +492,6 @@ def _refused(
     if created is not None:
         print("\n".join(created.lines()), end="\n\n")
     words = plain(message)
-    print("\n".join(refusal(command, code, words, fix or fix_for(kind, words))))
+    scanned = _scanned(project) if project is not None else ""
+    print("\n".join(refusal(command, code, words, fix or fix_for(kind, words), scanned)))
     return code

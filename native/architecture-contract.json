@@ -74,6 +74,7 @@
         "native.archkeel_facts.fields:Fields",
         "native.archkeel_facts.fields:Named",
         "native.archkeel_facts.identity:Part",
+        "native.archkeel_facts.identity:StreamDigest",
         "native.archkeel_facts.identity:evidence_id",
         "native.archkeel_facts.identity:inside",
         "native.archkeel_facts.identity:is_identifier",
@@ -2792,6 +2793,7 @@
         "native.archkeel_core.dual_run:CODE_DIGEST",
         "native.archkeel_core.dual_run:Collect",
         "native.archkeel_core.dual_run:InterfaceRow",
+        "native.archkeel_core.dual_run:PartOf",
         "native.archkeel_core.dual_run:PartRow",
         "native.archkeel_core.dual_run:ReplyInput",
         "native.archkeel_core.dual_run:Run",
@@ -4040,6 +4042,7 @@
         "native.archkeel_typescript_collector.script_code",
         "native.archkeel_typescript_collector.script_declarations",
         "native.archkeel_typescript_collector.script_declare",
+        "native.archkeel_typescript_collector.script_dom",
         "native.archkeel_typescript_collector.script_factory",
         "native.archkeel_typescript_collector.script_flags",
         "native.archkeel_typescript_collector.script_forms",
@@ -4475,10 +4478,14 @@
       "packages": [
         "native.archkeel_typescript_collector.script_depend",
         "native.archkeel_typescript_collector.script_deps",
-        "native.archkeel_typescript_collector.script_state",
         "native.archkeel_typescript_collector.script_global",
+        "native.archkeel_typescript_collector.script_outside",
+        "native.archkeel_typescript_collector.script_outside_forms",
+        "native.archkeel_typescript_collector.script_outside_names",
+        "native.archkeel_typescript_collector.script_outside_page",
         "native.archkeel_typescript_collector.script_project",
         "native.archkeel_typescript_collector.script_proof",
+        "native.archkeel_typescript_collector.script_state",
         "native.archkeel_typescript_collector.script_vendor"
       ],
       "responsibilities": [
@@ -4502,8 +4509,9 @@
         },
         {
           "component": "snapshot",
-          "rationale": "Read the vendored library and its provenance through the one owner of paths and limits.",
+          "rationale": "Read the vendored library, its provenance and the repository files outside the scan roots (AD-788) through the one owner of paths and limits.",
           "through": [
+            "native.archkeel_snapshot.paths",
             "native.archkeel_snapshot.snapshot",
             "native.archkeel_snapshot:Snapshot"
           ]
@@ -4542,10 +4550,11 @@
         },
         {
           "component": "ts-discover",
-          "rationale": "Read the options, the script environment and the standard globals.",
+          "rationale": "Read the options, the script environment, the standard globals and the test-source rule.",
           "through": [
             "native.archkeel_typescript_collector.options",
-            "native.archkeel_typescript_collector.script_environment"
+            "native.archkeel_typescript_collector.script_environment",
+            "native.archkeel_typescript_collector.test_sources"
           ]
         },
         {
@@ -4568,6 +4577,7 @@
         "docs/architecture/decisions/ad-352-the-native-typescript-collector-equals-the-python-one-and-is-bundled.md"
       ],
       "public": [
+        "native.archkeel_typescript_collector.script_outside:read",
         "native.archkeel_typescript_collector.script_project:Project",
         "native.archkeel_typescript_collector.script_project:Write",
         "native.archkeel_typescript_collector.script_project:WriteIndex",
@@ -4697,6 +4707,7 @@
           "rationale": "Run the analysis of the script dependencies over the files that were read.",
           "through": [
             "native.archkeel_typescript_collector.script_deps",
+            "native.archkeel_typescript_collector.script_outside",
             "native.archkeel_typescript_collector.script_project",
             "native.archkeel_typescript_collector.script_state",
             "native.archkeel_typescript_collector.script_vendor"
@@ -5771,6 +5782,7 @@
           "through": [
             "native.archkeel_snapshot.paths",
             "native.archkeel_snapshot.snapshot",
+            "native.archkeel_snapshot:Entry",
             "native.archkeel_snapshot:Hidden",
             "native.archkeel_snapshot:Snapshot"
           ]
@@ -6572,11 +6584,14 @@
         "native.archkeel_typescript_collector.script_host",
         "native.archkeel_typescript_collector.script_index",
         "native.archkeel_typescript_collector.script_keys",
+        "native.archkeel_typescript_collector.script_dom",
         "native.archkeel_typescript_collector.script_lookup",
         "native.archkeel_typescript_collector.script_reflective",
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
         "native.archkeel_typescript_collector.script_numeric",
+        "native.archkeel_typescript_collector.script_outside",
+        "native.archkeel_typescript_collector.script_outside_forms",
         "native.archkeel_typescript_collector.script_publish",
         "native.archkeel_typescript_collector.script_refs",
         "native.archkeel_typescript_collector.script_scope",
@@ -6606,7 +6621,8 @@
         "native.archkeel_dart_collector.sites.calls",
         "native.archkeel_dart_collector.sites.references",
         "native.archkeel_dart_collector.sites.canonical",
-        "native.archkeel_dart_collector.cargo_toml"
+        "native.archkeel_dart_collector.cargo_toml",
+        "native.archkeel_typescript_collector.script_outside_names"
       ],
       "rationale": "Only a collector parses source with Tree-sitter; no library crate does.",
       "provenance": [
@@ -6643,6 +6659,7 @@
         "native.archkeel_typescript_collector.scan",
         "native.archkeel_typescript_collector.references",
         "native.archkeel_typescript_collector.script_types",
+        "native.archkeel_typescript_collector.script_dom",
         "native.archkeel_typescript_collector.script",
         "native.archkeel_typescript_collector.script_alias",
         "native.archkeel_typescript_collector.script_bind",
@@ -6661,6 +6678,8 @@
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
         "native.archkeel_typescript_collector.script_numeric",
+        "native.archkeel_typescript_collector.script_outside",
+        "native.archkeel_typescript_collector.script_outside_forms",
         "native.archkeel_typescript_collector.script_publish",
         "native.archkeel_typescript_collector.script_refs",
         "native.archkeel_typescript_collector.script_scope",
@@ -6674,7 +6693,8 @@
         "native.archkeel_typescript_collector.concerns",
         "native.archkeel_typescript_collector.jsdoc",
         "native.archkeel_typescript_collector.umd_publication",
-        "native.archkeel_typescript_collector.cargo_toml"
+        "native.archkeel_typescript_collector.cargo_toml",
+        "native.archkeel_typescript_collector.script_outside_names"
       ],
       "rationale": "Only the TypeScript collector loads the TypeScript grammar.",
       "provenance": [
@@ -6820,7 +6840,8 @@
         "native.archkeel_python_collector.survey.uses_typing_guard",
         "native.archkeel_python_collector.survey.module_uses",
         "native.archkeel_python_collector.survey.module_scopes",
-        "native.archkeel_python_collector.survey.external_loader"
+        "native.archkeel_python_collector.survey.external_loader",
+        "native.archkeel_python_collector.survey.outside.sites"
       ],
       "rationale": "Only the parse modules, the tree readers of the survey, the CPython view of the tree, the expression text and the definition table of the Python collector read the tree of the Python parser; discovery, naming and the entry read owned values.",
       "provenance": [
@@ -6906,7 +6927,8 @@
         "native.archkeel_python_collector.survey.declared.reader",
         "native.archkeel_python_collector.symbols.scan",
         "native.archkeel_python_collector.survey.module_uses",
-        "native.archkeel_python_collector.survey.external_loader"
+        "native.archkeel_python_collector.survey.external_loader",
+        "native.archkeel_python_collector.survey.outside.sites"
       ],
       "rationale": "Only the survey module and the CPython view, the string check and the definition table of the Python collector read the text ranges of the Python parser (AD-377).",
       "provenance": [

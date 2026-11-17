@@ -184,3 +184,19 @@ fn one_leading_byte_order_mark_is_read_and_any_other_is_refused() {
     let middle = BASE.replace("namespace", "\u{feff}namespace");
     assert!(matches!(parsed(&middle), Err(Refused::Invalid(_))));
 }
+
+#[test]
+fn a_stated_root_is_a_folder_that_holds_the_file_and_changes_no_setting() {
+    for root in [".", "..", "../.."] {
+        let found = typescript(&format!("root = \"{root}\"\n"));
+        assert_eq!(found, typescript(""), "{root}");
+    }
+    for root in ["", "sub", "../sub", "/abs", "./..", "..\\\\.."] {
+        let found = typescript(&format!("root = \"{root}\"\n"));
+        assert!(
+            matches!(found, Err(Refused::Invalid(_))),
+            "{root}: {found:?}"
+        );
+    }
+    assert!(matches!(typescript("root = 1\n"), Err(Refused::Invalid(_))));
+}

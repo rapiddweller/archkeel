@@ -16,6 +16,10 @@
 
 7. Tier and core source (item 4): the Makefile passes `--tier pr|fast|full` to pytest instead of the test reading a substring of the `-m` expression; the floors of `tests/area_floors.json` apply to `pr` and `fast` only. `ARCHKEEL_PREBUILT_CORE` is split: `ARCHKEEL_REQUIRE_PREBUILT=1` (a test never builds the shared core; a missing core fails) and `ARCHKEEL_CORE_SOURCE=cache|build` (`make core` reuses a binary only when CI restored it from the cache and its tree stamp matches). Behaviour is unchanged.
 
+8. Deletion guard (2026-11-17, after #1636): the table REFUSES with `deletion_unapproved` when the pull request deletes a file, or removes more than 300 lines net across its files, unless it has the label `deletion-approved`; and with `ratchet_removal_unapproved` when `native/expected-gaps.json` or `native/expected-growth.json` loses more than 50 entries (counted at the merge base and at the head) unless it has the label `ratchet-lead`. Only the lead sets these labels, after owner approval. #1636 removed 19,516 lines of other pull requests through a stale tree; no check saw it. `merge_check.py` shows the same reasons.
+
+9. When a commit has several runs of one check name (a re-run), the newest run counts (the highest check-run id), done or not (#1653).
+
 **Rejected.** Deleting `merge_check.py` (owner: it stays); a second table in each tool.
 
 **Tests.** `tests/test_merge_pr.py` (every row, the exit codes, `--json`, `--wait`), `tests/test_merge_check.py`.

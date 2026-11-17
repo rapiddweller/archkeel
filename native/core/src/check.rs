@@ -103,6 +103,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         accept: None,
         report: false,
         html: false,
+        part_of: None,
         base,
         trust: Box::new(stage_one_shell_trust),
         collect: None,

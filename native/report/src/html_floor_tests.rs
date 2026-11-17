@@ -143,7 +143,7 @@ fn a_fail_beside_a_rule_without_a_row_shows_no_pass_box() {
     frame["unsupported"]["rules"] = json!({"PLACE": "unsupported: rule kind"});
     let page = document(&frame);
     assert!(
-        page.contains("1 rule violated in 1 place, 0 unknown, 1 part not decided"),
+        page.contains("1 rule violated in 1 place, 0 unknown, 1 gap with no rule"),
         "{page}"
     );
     assert!(document(&decided_fail()).contains("1 rule violated in 1 place, 0 unknown<"));

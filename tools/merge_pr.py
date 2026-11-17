@@ -31,6 +31,12 @@ MERGE, WAIT, REFUSE = "MERGE", "WAIT", "REFUSE"
 DEFAULT_REQUIRED = ("PR gate",)
 PENDING = {"queued", "in_progress", "pending", "waiting", "requested"}
 EXIT = {MERGE: 0, REFUSE: 1, WAIT: 3}
+# AD-736: the owner rule "ask before you delete anything", enforced by the tool.
+NET_REMOVAL_LIMIT = 300
+RATCHET_FILES = ("native/expected-gaps.json", "native/expected-growth.json")
+RATCHET_REMOVAL_LIMIT = 50
+DELETION_LABEL = "deletion-approved"
+RATCHET_LABEL = "ratchet-lead"
 
 
 @dataclass(frozen=True)
@@ -38,6 +44,19 @@ class Reason:
     code: str
     detail: str
     verdict: str = REFUSE
+
+
+@dataclass
+class Changes:
+    """What the pull request changes: its files, its labels and the entries of the ratchet files.
+
+    `files` holds `{filename, status, additions, deletions}` of the pull request API. `entries`
+    maps a ratchet file to (entries at the merge base, entries at the head).
+    """
+
+    files: list[dict] = field(default_factory=list)
+    labels: set[str] = field(default_factory=set)
+    entries: dict[str, tuple[int, int]] = field(default_factory=dict)
 
 
 @dataclass
@@ -70,7 +89,12 @@ def required_checks(run: Gh, base: str) -> tuple[list[str], str]:
     return (list(names), "protection") if names else (list(DEFAULT_REQUIRED), "default")
 
 
-def decide(pr: dict, required: list[str], runs: dict[str, tuple[str, str]]) -> Decision:
+def decide(
+    pr: dict,
+    required: list[str],
+    runs: dict[str, tuple[str, str]],
+    changes: Changes | None = None,
+) -> Decision:
     """The decision table. `runs` maps a check name to (status, conclusion), both lower case."""
     d = Decision()
     if pr["state"] != "OPEN":
@@ -90,6 +114,9 @@ def decide(pr: dict, required: list[str], runs: dict[str, tuple[str, str]]) -> D
             d.add(WAIT, "check_pending", f"'{name}' is {status or 'pending'}: wait for it")
         elif conclusion != "success":
             d.add(REFUSE, "check_failed", f"'{name}' concluded {conclusion}: fix it and push")
+    if changes is not None:
+        for code, detail in deletions(changes):
+            d.add(REFUSE, code, detail)
     if pr["mergeStateStatus"] == "BLOCKED" and d.verdict == MERGE:
         # GitHub updates the state a few seconds after the last required check turned green. If
         # it stays BLOCKED, a rule of the branch other than a check blocks the merge.
@@ -101,20 +128,90 @@ def decide(pr: dict, required: list[str], runs: dict[str, tuple[str, str]]) -> D
     return d
 
 
+def deletions(changes: Changes) -> list[tuple[str, str]]:
+    """The refusals of the deletion guard: a removed file, a net removal, a ratchet removal."""
+    found: list[tuple[str, str]] = []
+    removed = [item["filename"] for item in changes.files if item.get("status") == "removed"]
+    net = sum(int(item["deletions"]) - int(item["additions"]) for item in changes.files)
+    if (removed or net > NET_REMOVAL_LIMIT) and DELETION_LABEL not in changes.labels:
+        names = ", ".join(removed[:3]) + (" and more" if len(removed) > 3 else "")
+        what = f"deletes {len(removed)} file(s) ({names}) and " if removed else ""
+        found.append(
+            (
+                "deletion_unapproved",
+                f"the pull request {what}removes {net} lines net (limit {NET_REMOVAL_LIMIT}): "
+                f"ask the lead; only the lead sets '{DELETION_LABEL}' after owner approval",
+            )
+        )
+    for path, (before, after) in sorted(changes.entries.items()):
+        if before - after > RATCHET_REMOVAL_LIMIT and RATCHET_LABEL not in changes.labels:
+            found.append(
+                (
+                    "ratchet_removal_unapproved",
+                    f"{path} loses {before - after} entries (limit {RATCHET_REMOVAL_LIMIT}): "
+                    f"only the lead sets the label '{RATCHET_LABEL}'",
+                )
+            )
+    return found
+
+
+def entry_count(text: str) -> int:
+    """The entries of a ratchet file: gaps, violations, rules, unknown reasons, raised items."""
+    document = json.loads(text)
+    return sum(len(v) for k, v in document.items() if isinstance(v, (list, dict)))
+
+
+def read_changes(run: Gh, number: str, pr: dict) -> Changes:
+    """Read the file list, the labels and the ratchet files at the merge base and at the head."""
+    text = run(
+        "api",
+        f"repos/{{owner}}/{{repo}}/pulls/{number}/files",
+        "--paginate",
+        "--jq",
+        ".[] | {filename, status, additions, deletions}",
+    )
+    files = [json.loads(line) for line in text.splitlines() if line.strip()]
+    labels = json.loads(run("pr", "view", number, "--json", "labels"))["labels"]
+    changes = Changes(files=files, labels={item["name"] for item in labels})
+    touched = [item["filename"] for item in files if item["filename"] in RATCHET_FILES]
+    if not touched:
+        return changes
+    compare = f"repos/{{owner}}/{{repo}}/compare/{pr['baseRefName']}...{pr['headRefOid']}"
+    base = json.loads(run("api", compare, "--jq", "{sha: .merge_base_commit.sha}"))["sha"]
+
+    def content(path: str, ref: str) -> str:
+        url = f"repos/{{owner}}/{{repo}}/contents/{path}?ref={ref}"
+        return run("api", "-H", "Accept: application/vnd.github.raw", url)
+
+    for path in touched:
+        changes.entries[path] = (
+            entry_count(content(path, base)),
+            entry_count(content(path, pr["headRefOid"])),
+        )
+    return changes
+
+
 def check_runs(run: Gh, sha: str) -> dict[str, tuple[str, str]]:
+    """The newest run of each check name on the commit: (status, conclusion).
+
+    A re-run adds a second check run with the same name. The newest one counts (the highest id),
+    whether it is done or still running: an older green run does not stand for a newer red one,
+    and a fresh green re-run is not hidden by an older red one (#1653).
+    """
     text = run(
         "api",
         f"repos/{{owner}}/{{repo}}/commits/{sha}/check-runs",
         "--paginate",
         "--jq",
-        '.check_runs[] | [.name, .status, (.conclusion // "")] | @tsv',
+        '.check_runs[] | [.id, .name, .status, (.conclusion // "")] | @tsv',
     )
-    found: dict[str, tuple[str, str]] = {}
+    newest: dict[str, tuple[int, str, str]] = {}
     for line in text.splitlines():
         if line:
-            name, status, conclusion = line.split("\t")
-            found[name] = (status, conclusion)
-    return found
+            run_id, name, status, conclusion = line.split("\t")
+            if name not in newest or int(run_id) > newest[name][0]:
+                newest[name] = (int(run_id), status, conclusion)
+    return {name: (status, conclusion) for name, (_id, status, conclusion) in newest.items()}
 
 
 FIELDS = "state,isDraft,mergeable,mergeStateStatus,headRefOid,baseRefName,changedFiles"
@@ -124,7 +221,8 @@ def assess(run: Gh, number: str) -> tuple[Decision, dict, tuple[list[str], str]]
     """Read the pull request and decide: the decision, the pull request and the required set."""
     pr = json.loads(run("pr", "view", number, "--json", FIELDS))
     required = required_checks(run, pr["baseRefName"])
-    return decide(pr, required[0], check_runs(run, pr["headRefOid"])), pr, required
+    changes = read_changes(run, number, pr)
+    return decide(pr, required[0], check_runs(run, pr["headRefOid"]), changes), pr, required
 
 
 def landed(run: Gh, number: str, expected_files: int) -> tuple[int, str | None]:

@@ -90,7 +90,19 @@ immutability or dispatch. ArchKeel's [browser configuration](architecture/browse
 uses these explicit ports; [AD-242](architecture/decisions/ad-242-explicit-browser-module-ports.md)
 describes its offline publication checks.
 
-`report` and `validate --config PATH` select a root-relative file. Each language runs its own
+### Root and configuration
+
+Without flags, a run reads the nearest `archkeel.toml` at or above the current folder inside the
+Git work tree, and its folder is the root; without one it uses the top of the work tree.
+`--config PATH` is read from the current folder, as each command line tool reads a path; a file
+that is not there is refused with the path that was tried. Its folder is then the root, unless its
+`[scan]` names another with `root` (`"."` or a path of `..` parts, such as `root = "../.."` for
+`docs/architecture/shell.toml`). A system document names the top of its work tree. With `--root`,
+a relative `--config` is read below that root. The first text line and the JSON result (`root`,
+`config`) name the root and the configuration of the run
+([AD-776](architecture/decisions/ad-776-a-relative-config-is-read-from-the-current-folder.md)).
+
+Each language runs its own
 collector inside the core. A scan with `collector_argv` gives at most UNKNOWN, because an external
 collector cannot prove a rule ([AD-344](architecture/decisions/ad-344-only-a-producer-that-the-host-trusts-can-give-pass.md)).
 
@@ -168,6 +180,10 @@ and does not mean that the run has no gap: an UNKNOWN run can show `complete: tr
 
 `report --output PATH` writes one static HTML page. `--format json` writes the core frame instead.
 `--format html` is the default and needs `--output`. Without an output path, no file is written.
+`report --part-of DOCUMENT --system-href URL` writes the page of one part of a system (#1451). The core
+reads the titles of the system and of the part from the system document, so the root of the Explorer reads
+"<part> of <system>" and links to `URL`, the page of the system. A document that is no system document, or
+that names no part with this configuration, is a refusal. Both options need an HTML `--output`.
 The HTML comes from the same ruling in the Rust core. It loads no external resource; each script is admitted by its hash (AD-496).
 Its architecture section is the Explorer: As-Is, Target and Diff for the system and for each component, with a drill-down (AD-606).
 It includes verdicts, counts, rule rows, violations, evidence locations, gaps, unsupported parts and request identity.

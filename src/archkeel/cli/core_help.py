@@ -23,8 +23,11 @@ Without a terminal (a pipe or a file) the default is JSON; `--text` asks for tex
 For a CI log use `--summary`: at most fifteen lines of text in any case (the verdict and its exit
 code, the errors, the top jobs, a few violations), also when stdout is a pipe or a file."""
 _COMMON: Final = """\
-  --root PATH     Repository root. Default: the Git work tree of the current directory.
-  --config PATH   Configuration file below the root. Default: archkeel.toml.
+  --root PATH     Project root. Default: the folder of the configuration (or the folder
+                  that its [scan] root names); without --config, the nearest archkeel.toml
+                  in the Git work tree, else the top of the work tree.
+  --config PATH   Configuration file, read from the current folder (below --root when it
+                  is given). Default: archkeel.toml. The header names the root and the file.
   --json          Print JSON also in a terminal.
   --text          Print text also without a terminal.
   --summary       Print at most fifteen lines of text: for a CI log.
@@ -65,6 +68,7 @@ examples:
 """
 _REPORT: Final = """\
 usage: archkeel report [--root PATH] [--config PATH] [--output FILE [--format html|json]]
+                       [--part-of DOCUMENT [--system-href URL]]
                        [--topology] [--json | --text | --summary] [--all] [--verbose]
 
 Print the frame of the core as a report. With --output, write one file and print one line.
@@ -75,6 +79,11 @@ options:
   --format FORMAT With --output: html (default, a page with the architecture) or json.
   --topology      Add the bounded topology to the printed result (the JSON field `topology`,
                   and a count line in text). The HTML page always draws the architecture.
+  --part-of DOCUMENT
+                  With an HTML --output: the system document that names this configuration as
+                  one part. The page then reads "<part> of <system>".
+  --system-href URL
+                  With --part-of: the link from this page to the page of the system.
 
 {output}
 With --output and no --json or --text, the command prints one line: the verdict and the file.

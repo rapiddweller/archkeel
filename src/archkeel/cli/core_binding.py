@@ -3,14 +3,15 @@
 # SPDX-License-Identifier: MIT
 """Bind a scan frame to its files and request identity. This module reads no rules.
 
-It also names the one project root of a command (`ProjectRoot`, AD-735): `init`, the draft step,
-the configuration reason, the baseline file and the scan request use the same folder.
+It also names the one project root of a command (`ProjectRoot`, AD-735, AD-776): `init`, the
+draft step, the configuration reason, the baseline file and the scan request use the same folder.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 import stat
 import sys
 import tomllib
@@ -40,16 +41,22 @@ def resolve_root(path: Path, *, strict: bool = False) -> Path:
     return resolved
 
 
-def work_tree_top(path: Path) -> Path | None:
+def _work_tree_top(path: Path) -> Path | None:
     """The top of the Git work tree at or above `path`, or `None` outside a work tree."""
     return next((folder for folder in (path, *path.parents) if (folder / ".git").exists()), None)
+
+
+_CONFIG = "archkeel.toml"
 
 
 class RootMode(StrEnum):
     """How a command found its project root."""
 
-    # `--root` names the project.
+    # `--root` names the project; a relative `--config` is read below it.
     EXPLICIT = "explicit"
+    # A configuration file names the project: the folder of the file, or the folder that its
+    # `[scan] root` states; a system document names the top of its work tree (AD-776).
+    CONFIG = "config"
     # The top of the Git work tree at or above the current folder.
     WORK_TREE = "work_tree"
     # No work tree: the current folder. The core then refuses the root and names why.
@@ -58,24 +65,91 @@ class RootMode(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class ProjectRoot:
-    """The folder that holds the configuration and the baseline files, and that the core scans."""
+    """The folder that holds the configuration and the baseline files, and that the core scans,
+    and the configuration as a POSIX path below it."""
 
     path: Path
     mode: RootMode
+    config: str = _CONFIG
 
     @classmethod
-    def of(cls, root: Path | None) -> ProjectRoot:
+    def top(cls, root: Path | None) -> ProjectRoot:
         """An explicit `--root`, else the top of the work tree above the current folder."""
         if root is not None:
             return cls(resolve_root(root), RootMode.EXPLICIT)
         here = resolve_root(Path.cwd())
-        top = work_tree_top(here)
-        return cls(top, RootMode.WORK_TREE) if top is not None else cls(here, RootMode.CURRENT)
+        found = _work_tree_top(here)
+        return cls(found, RootMode.WORK_TREE) if found is not None else cls(here, RootMode.CURRENT)
+
+    @classmethod
+    def of(cls, root: Path | None, config: str | None) -> ProjectRoot:
+        """The root and the configuration of a run (AD-776).
+
+        With `--root`, `config` is below it. Else a `config` that the command line names is read
+        from the current folder, as each command line tool reads a path; without one the nearest
+        `archkeel.toml` at or above the current folder, inside its work tree, names the project.
+        """
+        if root is not None:
+            return cls(resolve_root(root), RootMode.EXPLICIT, config or _CONFIG)
+        here = resolve_root(Path.cwd())
+        if config is not None:
+            file = resolve_root(here / config)
+            if not file.is_file():
+                what = "a folder" if file.is_dir() else "no file"
+                raise ValueError(
+                    f"--config {config}: {file} is {what}; a relative --config is read from the "
+                    "current folder, or below --root when the command line names one"
+                )
+            return cls._named_by(file)
+        start = cls.top(None)
+        stop = start.path if start.mode is RootMode.WORK_TREE else here
+        for folder in (here, *here.parents):
+            if (folder / _CONFIG).is_file():
+                named = cls._named_by(folder / _CONFIG)
+                same = (named.path, named.config) == (start.path, _CONFIG)
+                return start if same else named
+            if folder == stop:
+                break
+        return start
+
+    @classmethod
+    def _named_by(cls, file: Path) -> ProjectRoot:
+        """The root that a configuration file names; a system document names its work tree."""
+        if file.suffix == ".json":
+            base = _work_tree_top(file.parent) or file.parent
+        else:
+            base = resolve_root(file.parent / _stated_root(file))
+        if not file.is_relative_to(base):
+            raise ValueError(f"{file}: the root {base} does not hold the configuration")
+        return cls(base, RootMode.CONFIG, file.relative_to(base).as_posix())
 
     @property
     def discover(self) -> bool:
-        """Whether the core looks for the work tree itself: only without an explicit root."""
-        return self.mode is not RootMode.EXPLICIT
+        """Whether the core looks for the work tree itself: only for a root that no flag and no
+        configuration file named."""
+        return self.mode in {RootMode.WORK_TREE, RootMode.CURRENT}
+
+    def as_json(self) -> dict[str, object]:
+        """The root and the configuration for a JSON result, as absolute paths."""
+        return {"root": str(self.path), "config": str(self.path / self.config)}
+
+    def named(self, here: Path) -> tuple[str, str]:
+        """The root and the configuration as paths from the folder `here`, for the header."""
+        return os.path.relpath(self.path, here), os.path.relpath(self.path / self.config, here)
+
+
+def _stated_root(file: Path) -> str:
+    """The `[scan] root` of a configuration: `.` or a path of `..` parts. A file that cannot be
+    read states none; the core then names why it cannot read it."""
+    try:
+        scan = tomllib.loads(file.read_text(encoding="utf-8")).get("scan")
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError):
+        return "."
+    stated = scan.get("root", ".") if isinstance(scan, dict) else "."
+    parts = stated.split("/") if isinstance(stated, str) else [""]
+    if stated != "." and not all(part == ".." for part in parts):
+        raise ValueError(f'{file}: scan.root must be "." or a path of ".." parts, such as "../.."')
+    return str(stated)
 
 
 def bind_request(
@@ -84,7 +158,7 @@ def bind_request(
     """Check identity, not verdicts. Only the located core proves the rule rows."""
     root = resolve_root(Path(as_text(request["root"], "request.root")))
     if request.get("discover_root") is True:
-        root = work_tree_top(root) or root
+        root = _work_tree_top(root) or root
     collected = as_object(json.loads(derived), "collect.request")
     snapshot = as_object(collected.get("snapshot"), "collect.request.snapshot")
     if as_text(snapshot.get("root"), "snapshot.root") != str(root):

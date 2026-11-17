@@ -17,7 +17,7 @@ from .core_baseline import BaselineResult, BaselineState
 from .core_baseline import lines as baseline_lines
 from .core_doors import door_lines
 from .core_doors import qualifier as door_qualifier
-from .core_evidence import call_lines
+from .core_evidence import ViolationDetail, call_lines
 from .core_exit import Outcome, verdict_code, word_of
 from .core_frame import CoreCommand as Command
 from .core_frame import CoreFrame, GapKind, RuleStatus, Status
@@ -145,11 +145,14 @@ def _reason_of(frame: CoreFrame, code: int, outcome: Outcome) -> str:
     return f"{counts[RuleStatus.UNKNOWN]} of {total} rules cannot be decided"
 
 
-def header(command: Command, frame: CoreFrame, code: int, outcome: Outcome) -> str:
-    """The first line: the word of the exit code, the code and the reason."""
+def header(
+    command: Command, frame: CoreFrame, code: int, outcome: Outcome, scanned: str = ""
+) -> str:
+    """The first line: the word of the exit code, the code, the reason and (AD-776) the root
+    and the configuration that the run scanned."""
     invalid = frame.baseline is not None and frame.baseline.state is BaselineState.INVALID
     word = "REFUSED" if invalid else word_of(code)
-    return f"{command}: {word} -> exit {code} ({_reason_of(frame, code, outcome)})"
+    return f"{command}: {word} -> exit {code} ({_reason_of(frame, code, outcome)}){scanned}"
 
 
 def _new_violations(frame: CoreFrame, total: int) -> int:
@@ -187,6 +190,19 @@ def _next_action(frame: CoreFrame, groups: Sequence[tuple[str, int]]) -> str | N
     return f"{listed}{more}. Then run again."
 
 
+def _edge(frame: CoreFrame, row: ViolationDetail) -> tuple[str, list[str]]:
+    """The words of a violation and its places. A cycle shows its closed path in import order
+    with one import site for each step (#1657); its sorted members are no path."""
+    if row.path:
+        names = [step.source for step in row.path] + [row.path[-1].target]
+        sites = [places(frame, [step.evidence], 1) if step.evidence else [] for step in row.path]
+        return " -> ".join(names), [site for found in sites for site in found]
+    if row.members:
+        return f"cycle among {', '.join(row.members)}", places(frame, row.evidence, SHOWN)
+    edge = row.source if row.target is None else f"{row.source} -> {row.target}"
+    return edge, places(frame, row.evidence, SHOWN)
+
+
 def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
     rows = [(rule, row) for rule, found in frame.details.items() for row in found]
     if not rows:
@@ -202,8 +218,8 @@ def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
         ]
     texts: dict[str, int] = {}
     for rule, row in rows if show_all else rows[:_VIOLATIONS_SHOWN]:
-        edge = row.source if row.target is None else f"{row.source} -> {row.target}"
-        where = ", ".join(places(frame, row.evidence, SHOWN))
+        edge, sites = _edge(frame, row)
+        where = ", ".join(sites)
         text = f"  {rule}: {row.cause}: {edge}" + (f" ({where})" if where else "")
         texts[text] = texts.get(text, 0) + 1  # one line per place; a repeat is counted
     lines.extend(f"{text} (x{n})" if n > 1 else text for text, n in texts.items())
@@ -240,7 +256,9 @@ def _named_lines(frame: CoreFrame, show_all: bool) -> tuple[list[str], list[tupl
             groups.setdefault(gap.kind, []).append((gap.subject, plain(gap.reason)))
     ranked = sorted(groups.items(), key=lambda item: (-len(item[1]), item[0]))
     lines = (
-        [f"Parts that are not decided ({sum(len(rows) for _, rows in ranked)}):"] if ranked else []
+        [f"Gaps with no rule of their own ({sum(len(rows) for _, rows in ranked)}):"]
+        if ranked
+        else []
     )
     for kind, rows in ranked:
         lines.append(f"  {len(rows)} x {kind_label(kind)}")
@@ -288,6 +306,7 @@ def render(
     code: int,
     *,
     outcome: Outcome,
+    scanned: str = "",
     problems: Sequence[str] = (),
     show_all: bool = False,
     system: Mapping[str, object] | None = None,
@@ -303,7 +322,7 @@ def render(
     ranking = sorted([*ranking, *named_ranking], key=lambda item: -item[1])
     errors = _errors(frame, contract_files)
     refused_file = frame.baseline is not None and frame.baseline.state is BaselineState.INVALID
-    out = [header(command, frame, code, outcome), *errors, *problems]
+    out = [header(command, frame, code, outcome, scanned), *errors, *problems]
     if errors:
         ranking = [("the problem above", len(errors)), *ranking]
     if (action := _next_action(frame, ranking)) is not None:
@@ -342,10 +361,12 @@ def _system(system: Mapping[str, object]) -> list[str]:
     return out
 
 
-def refusal(command: Command | None, code: int, message: str, fix: str | None) -> list[str]:
+def refusal(
+    command: Command | None, code: int, message: str, fix: str | None, scanned: str = ""
+) -> list[str]:
     """The text of a command that could not run: the problem, then the fix."""
     head = f"{command}: " if command is not None else ""
-    out = [f"{head}REFUSED -> exit {code}", f"Problem: {message}"]
+    out = [f"{head}REFUSED -> exit {code}{scanned}", f"Problem: {message}"]
     if fix:
         out.append(f"Fix: {fix}")
     return out
@@ -360,6 +381,7 @@ def summary(
     ignored: Mapping[str, str] | None = None,
     *,
     outcome: Outcome,
+    scanned: str = "",
 ) -> list[str]:
     """The text for a CI log: the header, the errors, the top jobs and a few violations.
 
@@ -371,13 +393,12 @@ def summary(
     ranking = sorted([*ranking, *named], key=lambda item: -item[1])
     if errors:
         ranking = [("the problem above", len(errors)), *ranking]
-    out = [header(command, frame, code, outcome), *errors, *problems]
+    out = [header(command, frame, code, outcome, scanned), *errors, *problems]
     if (action := _next_action(frame, ranking)) is not None:
         out.append(f"Next: {action}")
     rows = [(rule, row) for rule, found in frame.details.items() for row in found]
     for rule, row in rows[:_SUMMARY_VIOLATIONS]:
-        edge = row.source if row.target is None else f"{row.source} -> {row.target}"
-        out.append(f"  {rule}: {row.cause}: {edge}")
+        out.append(f"  {rule}: {row.cause}: {_edge(frame, row)[0]}")
     if len(rows) > _SUMMARY_VIOLATIONS:
         out.append(f"  and {len(rows) - _SUMMARY_VIOLATIONS} more violations")
     out.append("Details: archkeel validate --text (all: --all); machine output: --json")

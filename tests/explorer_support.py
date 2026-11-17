@@ -45,19 +45,21 @@ def chrome() -> str:
     return found
 
 
-def write_pages(core: Path, folder: Path, runs: dict[str, tuple[str | None, str]]) -> None:
-    """Write `<name>.html` into the folder for each run (root, config) of this repository."""
+def write_pages(
+    core: Path, folder: Path, runs: dict[str, tuple[str | None, str, *tuple[str, ...]]]
+) -> None:
+    """Write `<name>.html` into the folder for each run (root, config, more arguments)."""
     from core_support import ROOT, run  # noqa: PLC0415 - the test path holds core_support
 
     from archkeel.cli import core_only  # noqa: PLC0415
 
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(core_only, "locate_core", lambda: core)
-        for name, (root, config) in runs.items():
+        for name, (root, config, *more) in runs.items():
             run(
                 "report",
                 *("--root", str(ROOT / root if root else ROOT)),
-                *("--config", config, "--output", str(folder / f"{name}.html")),
+                *("--config", config, *more, "--output", str(folder / f"{name}.html")),
             )
 
 

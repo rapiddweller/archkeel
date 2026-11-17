@@ -27,17 +27,11 @@ Documentation does not accept these defects. They block the 5.0.0 release.
 | Rust root re-export | a re-export of an extern self alias or of another crate's root | false PASS | [#1517](https://github.com/rapiddweller/archkeel/issues/1517) |
 | Rust registry identity | outside source replacement changes a modeled derive expansion | false PASS | [#1518](https://github.com/rapiddweller/archkeel/issues/1518) |
 | Rust field receiver | `p.f.m()`: an inherent method in the file of its type, called through a public field of a typed parameter; no edge and no gap (AD-418) | false PASS | [#1571](https://github.com/rapiddweller/archkeel/issues/1571) |
-| Python external loader | `load("app.lib")` imports the forbidden module and returns `None` | false PASS | [#1519](https://github.com/rapiddweller/archkeel/issues/1519) |
-| Python unknown provider | a parameter supplies `provider.code.interact()` | false PASS | [#1520](https://github.com/rapiddweller/archkeel/issues/1520) |
-| Python library globals | an outside library returns a dict; a computed key selects its importer | false PASS | [#1521](https://github.com/rapiddweller/archkeel/issues/1521) |
-| Python outside writer | an outside script or C extension replaces a re-export with a private function | false PASS | [#1522](https://github.com/rapiddweller/archkeel/issues/1522) |
 | Python lazy annotations | a slot or outside class write changes the allowed `object` annotation | false PASS | [#1523](https://github.com/rapiddweller/archkeel/issues/1523) |
-| TypeScript window flow | callback `this`, event targets, parameters, call results and properties | false PASS | [#1524](https://github.com/rapiddweller/archkeel/issues/1524) |
 | TypeScript DOM code | an `open` result, `document.open`, or a dynamic link and click | false PASS | [#1526](https://github.com/rapiddweller/archkeel/issues/1526) |
 | TypeScript prototype patch | replace `EventTarget.prototype.dispatchEvent`, then use it on `window` | false PASS | [#1527](https://github.com/rapiddweller/archkeel/issues/1527) |
 | TypeScript unread source | imports in Vue, Svelte, Astro, MDX, inline HTML and `.es6` | false PASS | [#1528](https://github.com/rapiddweller/archkeel/issues/1528) |
 | TypeScript installed source | a package in `node_modules` imports project source | false PASS | [#1529](https://github.com/rapiddweller/archkeel/issues/1529) |
-| TypeScript outside writer | an outside script assigns a scanned function to `window.open` | false PASS | [#1546](https://github.com/rapiddweller/archkeel/issues/1546) |
 
 These tested forms no longer give a false PASS. The first ones were measured at the audit base;
 the last two were fixed after it and are checked on main at `157dc8851`:
@@ -56,9 +50,17 @@ the last two were fixed after it and are checked on main at `157dc8851`:
 - A git URL of the same repository, an outside Cargo patch, a command-line patch and a repository
   patch each give UNKNOWN with a crate-pair gap (AD-704, #946).
   `tests/test_collector_false_pass_rust_redirect.py` holds the four compiling fixtures.
+- A Rust path through a re-exported name of a module gives FAIL: `crate::c::other::b::g()` where
+  `c` re-exports a module, the crate root, an alias of `extern crate self`, another crate of the
+  workspace, or brings the name in by a glob (also `use base::*; hidden::g()`). A route that a
+  macro call writes, or one over the hop limit, gives UNKNOWN. The 17 compiling fixtures are in
+  `tests/test_collector_false_pass_rust_root_reexports.py` (AD-772, #1517).
 - A patch of a platform prototype (`Object.defineProperty(EventTarget.prototype, …)`, a prototype
   that is passed on, `ev.target.__proto__ = …`) gives UNKNOWN with a source-resolution gap
   (AD-768, #1527). `tests/test_cli_native_prototype_patch.py` holds 18 forms.
+- DOM code from a text (`document.open()` and `write`, a document that is passed on, a link,
+  frame or form address that is no literal, `insertHTML`) gives UNKNOWN with a source-resolution gap
+  (AD-792, #1526). `tests/test_cli_native_dom_code.py` holds 24 forms.
 - Direct aliases of `Object`, `Reflect`, `location` and `open`, and direct timer aliases, give
   UNKNOWN with a source-resolution gap. This does not prove arbitrary value flow safe.
   `tests/test_cli_native_global_forms.py` checks the direct reflection and navigation aliases.
@@ -169,7 +171,8 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   when its type is an unshadowed builtin (AD-748). A value that is no literal and a mangled `__x`
   are no attribute. A module-level value, a function inside a function and a
   text other than a name, a dotted name, `None`, `True` or `False` in an annotation or a default
-  give none. Open: a write from a C extension or through `globals()` of another module.
+  give none. A write from an extension source of the repository that names the module escapes it
+  (AD-770). Open: a write through `globals()` of another module.
   Every Python member list is `partial`. A target
   in an inside contract and an external import target keep it UNKNOWN too. A target that 4.0.1
   passes with symbol facts (H-uml, H-uml-dart) exits 2. A FAIL for a conflict, a missing base or an
@@ -248,14 +251,20 @@ an argument, a namespace attribute, a store) leaves the names of its import unre
 UNKNOWN for it. A name is read in its scope: a parameter or another local binding of the spelling is
 another value (#1506), and a name that an import and another binding share may be the module.
 
-The core gives PASS where Python binds something else at import time, for one form. 4.0.1 gives
-PASS for it too. It is an open defect, pinned by plants in `tests/python_interface_plants.py`:
+The core gives PASS where Python binds something else at import time only under the stated
+premise. 4.0.1 gives PASS for these forms too. Plants: `tests/python_interface_plants.py`,
+`tests/test_collector_false_pass_python_writers.py`.
 
-- A write to a package from a module outside the scan roots (`conftest.py`, `sitecustomize`, an
-  installed package, a script), or from a C extension (#1522),
-  after its statements ran. A write through `sys.modules` or a computed `importlib.import_module` is a survey
-  gap, so the rule is UNKNOWN. A direct scanned read of another function's `__globals__` also
-  keeps its named gap; the outside-library dictionary defect is #1521.
+- A write to a package that the repository does not show, after its statements ran. The survey
+  reads the code of the repository outside the scan roots (AD-770): a script or an extension source
+  that writes a module of the scan, or names it beside a door, withholds its routes (UNKNOWN). A test
+  file (`test_*.py`, `*_test.py`, a file below `test/` or `tests/`), a name built at run time from
+  data, and code outside the repository (`sitecustomize`, an installed package, a `.pth` file) are
+  the stated premise of the run: "Code outside the scan roots, including test code, hands in no
+  module object of the scan and writes no binding of a module or class of the scan." In the scan, a
+  write through `sys.modules` or a computed `importlib.import_module` is a survey gap, so the rule is
+  UNKNOWN. A direct scanned read of another function's `__globals__` also keeps its named gap, and an
+  outside library dictionary that hides an importer gives the gap of AD-760 (#1521).
 
 ## Before claiming PASS
 
@@ -534,9 +543,28 @@ forms; a write of `__proto__` on a value that is not proven local is an amplifie
 member (`Object.prototype.hasOwnProperty.call`), an element and a comparison keep the proof.
 A reflective write on the prototype of a class of the file stays a false UNKNOWN in a scan with a
 host entry. Plants: `tests/test_cli_native_prototype_patch.py`.
+AD-792 (#1526) reads DOM code from a text: a member `write`, `writeln` or `open` of a document used
+in any way but the direct call `document.write(…)` (`document.open()`, `call`, `bind`, a literal key)
+is a direct form; a document (`document`, `ownerDocument`, `contentDocument`) that is passed, stored
+or returned or taken by a pattern is an amplifier form; a write of `href`, `src`, `action`,
+`formAction`, `data` or `baseVal`, or `setAttribute` of such an attribute, with a value that is no
+literal is an amplifier form; `execCommand('insertHTML', …)` with markup that is no inert literal is a
+direct form. An address that a framework renders from data (`<a href={url}>`) stays open (#1662).
+Plants: `tests/test_cli_native_dom_code.py`.
 Older classes stay open too: a member patch of a platform object that is no
 window (`JSON.parse = …`, `document.open = …`), a use through `opener` or
-`document.defaultView`, and a write in a file outside the scan roots (#1546).
+`document.defaultView`.
+AD-788 (#1546) states the premise of every TypeScript verdict as "code outside the scan roots hands
+in no global or platform object and replaces no global" (text header, JSON `premise`, report). A
+JavaScript, TypeScript or HTML file of the repository outside the scan roots is read for a write
+that replaces a global (`window.x =`, `globalThis.x =`, `self.x =`, an assignment to an undeclared
+name, a top-level binding of a classic script, `Object.defineProperty(window, …)` and the other
+reflective writes on a window name). A member patch of another global (`Math.max = f` in such a
+file) stays open, as above. Each hit withholds the native proof of that name: the use gets the gap "Script global X is
+replaced by a file outside the scan roots", which cites the use and the write. A write whose name
+the guard cannot read withholds every global. Not read: test files (the test-source rule),
+declarations, installed packages, hidden directories; more than 4000 such files withhold every
+global. Code outside the repository stays under the premise only.
 A source file inside the roots that TSConfig `exclude` drops gives a named coverage gap (AD-488),
 including a file that writes a global. It is no longer a silent false PASS.
 A member `source`, `view`, `currentTarget` or a window name is a window, and a member `eval` or

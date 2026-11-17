@@ -60,6 +60,7 @@ mod literal;
 mod module_scopes;
 mod module_uses;
 mod namespace;
+mod outside;
 mod package_body;
 mod parse_files;
 mod pathscope;
@@ -157,6 +158,13 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     found.extend(layout::outside(&parsed.modules, roots));
     found.extend(layout::foreign(&scope.foreign));
     found.extend(layout::linked(&scope.linked));
+    // #1522: the modules that code of the repository outside the scan writes escape (AD-770).
+    let outside = outside::written(
+        &mut snapshot,
+        &mut parsed.modules,
+        &scope.selected,
+        namespace,
+    );
     let modules = &parsed.modules;
     let binders: Vec<Binders> = modules
         .iter()
@@ -172,7 +180,13 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
     for (index, _) in &hazards {
         sources.remove(&modules[*index].name);
     }
-    let (collected, written) = collect(modules, &binders, namespace, &mut evidence, &mut sources);
+    let (collected, written) = collect(
+        (modules, &binders),
+        namespace,
+        &mut evidence,
+        &mut sources,
+        &outside,
+    );
     let (mut imports, aliases) = (collected.records, collected.aliases);
     let (sole_binders, ambiguous) = (collected.sole, collected.ambiguous.clone());
     let calls = imports::literal_records(modules, &binders, namespace, &mut evidence, &literals);
@@ -402,18 +416,19 @@ fn unread_names(records: &mut [Record<ImportFact>], escaped: &HashSet<(String, S
 /// AD-654: the walk repeats until no escaped module loses the proof of its lazy keys, so the
 /// ambiguous records and the escaped modules read the same proven keys.
 fn collect(
-    modules: &[Module],
-    binders: &[Binders],
+    (modules, binders): (&[Module], &[Binders]),
     namespace: &str,
     evidence: &mut EvidenceMap,
     sources: &mut lazy_cover::Sources,
+    outside: &HashSet<String>,
 ) -> (imports::Collected, HashSet<String>) {
     let none = HashSet::new();
     loop {
         let scratch = &mut EvidenceMap::new();
         let first =
             imports::collect_all(modules, binders, namespace, scratch, (&none, sources), &[]);
-        let written = uses::settled(modules, &first.records, sources);
+        let mut written = uses::settled(modules, &first.records, sources);
+        written.extend(outside.iter().cloned());
         let set = (&written, &*sources);
         // #1415: each use of a name through a module binding is a record of its own.
         let found = module_uses::find(modules, binders, &first.records);

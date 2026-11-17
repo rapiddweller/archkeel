@@ -43,7 +43,7 @@ fn joined(parts: &[Vec<u8>]) -> Value {
 
 #[test]
 fn the_system_frame_keeps_the_premise_of_each_part_once() {
-    let shell = "code outside the scan roots hands in no module object of the scan";
+    let shell = "Code outside the scan roots, including test code, hands in no module object of the scan and writes no binding of a module or class of the scan.";
     let frame = joined(&[part("PASS", Some(shell)), part("PASS", None)]);
     assert_eq!(frame["premise"], json!(shell));
     let frame = joined(&[part("PASS", Some(shell)), part("PASS", Some(shell))]);
