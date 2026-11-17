@@ -133,10 +133,12 @@ pub(crate) fn typed(
         (&survey.sole_binders, &survey.ambiguous),
         &survey.sources,
     );
+    let standard = std::mem::take(&mut survey.standard);
     let (head, records) = parts(prepared, survey, build)?;
     let mut reply = assemble(reply_version(request.protocol_version), head, |writer| {
         records.produce(writer)
     })?;
+    reply.facts.standard = Some(standard);
     let features = &mut reply.facts.capabilities.resolution_features;
     features.push(ROUTES_FEATURE.to_owned());
     Ok(reply)

@@ -21,7 +21,10 @@ from test_collector_false_pass_sources import BASE
 
 from archkeel.cli import core_only
 
-PREMISE = "code outside the scan roots hands in no global or platform object and replaces no global"
+PREMISE = (
+    "code outside the scan roots hands in no global or platform object and replaces no global, "
+    "and addresses that a framework renders from data hold no javascript: code"
+)
 BOOT = "import {hidden} from './src/b/b';\nwindow.open = hidden as any;\n"
 
 
@@ -72,3 +75,34 @@ def test_without_the_outside_writer_the_rule_passes_under_the_printed_assumption
     frame = document["frame"]
     assert frame["rules"]["REQUIRES"][1] == "PASS", frame["rules"]
     assert frame["premise"] == PREMISE
+
+
+AUDIT_FORMS = {
+    # Audit 2 (#1712): each form replaces window.open when boot.ts runs (tsc 5.9.3 accepts it).
+    "alias": "const w: any = window;\nw.open = hidden;\n",
+    "parameter-alias": "function install(w: any) { w.open = hidden; }\ninstall(window);\n",
+    "object-destructuring": "({ open: (window as any).open } = { open: hidden });\n",
+    "array-destructuring": "[(window as any).open] = [hidden];\n",
+    "for-of-target": "for ((window as any).open of [hidden]) {}\n",
+    "reflect-apply": "Reflect.apply(Reflect.set, null, [window, 'open', hidden]);\n",
+    "assign-on-alias": "const g: any = globalThis;\nObject.assign(g, { open: hidden });\n",
+    "eval-text": 'eval("window.open = (globalThis as any).h");\n',
+    "function-text": "new Function('h', 'window.open = h');\n",
+    "default-view": "(document.defaultView as any).open = hidden;\n",
+}
+
+
+@pytest.mark.parametrize("name", sorted(AUDIT_FORMS))
+def test_each_write_form_of_audit_2_holds_the_rule(
+    tmp_path: Path, release_core: Path, name: str
+) -> None:
+    boot = "import {hidden} from './src/b/b';\n" + AUDIT_FORMS[name]
+    document = _validate(tmp_path, release_core, {"boot.ts": boot})
+    assert "refusal" not in document, document
+    assert document["frame"]["rules"]["REQUIRES"][1] in {"FAIL", "UNKNOWN"}, name
+
+
+def test_a_hidden_folder_is_read(tmp_path: Path, release_core: Path) -> None:
+    files = {".vitepress/theme/index.ts": BOOT.replace("./src/b/b", "../../src/b/b")}
+    document = _validate(tmp_path, release_core, files)
+    assert document["frame"]["rules"]["REQUIRES"][1] in {"FAIL", "UNKNOWN"}

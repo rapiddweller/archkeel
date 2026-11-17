@@ -108,11 +108,10 @@ pub(super) fn leaf(
 /// the root of this crate, so `name::a::f` is a path into the module `a`.
 pub(super) fn extern_crate(walker: &mut Walker<'_>, node: &ItemExternCrate) {
     let span = node.ident.span();
-    walker.refer(&[plain(&node.ident)], span);
     if node.ident != "self" {
-        let site = walker.site(span);
-        walker.out.extern_crates.push((plain(&node.ident), site));
+        return extern_crate_of(walker, node);
     }
+    walker.refer(&[plain(&node.ident)], span);
     // A `cfg` may remove the alias, so a path that starts with its name may name the alias
     // or a crate of that name: the scan cannot say which.
     let gated = node
@@ -140,5 +139,30 @@ pub(super) fn extern_crate(walker: &mut Walker<'_>, node: &ItemExternCrate) {
                 .self_aliases
                 .push((walker.inline.clone(), plain(rename)));
         }
+    }
+}
+
+/// `extern crate foo as bar;` binds `bar` (or `foo`) in its module as a `use` leaf of the path
+/// `foo` does, and a `pub` item re-exports it (#1711, AD-772). An item at the top level of a file
+/// is kept: in the crate root it also adds its name to the extern prelude of the crate.
+fn extern_crate_of(walker: &mut Walker<'_>, node: &ItemExternCrate) {
+    let span = node.ident.span();
+    let krate = plain(&node.ident);
+    let name = node
+        .rename
+        .as_ref()
+        .map_or_else(|| krate.clone(), |(_, rename)| plain(rename));
+    // The walker counts the name as the declaration of an item; the leaf binds it.
+    let via = Via::Use {
+        binding: Some(name.clone()),
+        reexport: !matches!(node.vis, Visibility::Inherited),
+        block: walker.blocks() > 0,
+    };
+    // The path of an `extern crate` item starts at a crate, as `::foo` does.
+    walker.refer_as(std::slice::from_ref(&krate), span, (true, &via));
+    let site = walker.site(span);
+    walker.out.extern_crates.push((krate.clone(), site));
+    if walker.blocks() == 0 && walker.inline.is_empty() {
+        walker.out.extern_aliases.push((name, krate));
     }
 }

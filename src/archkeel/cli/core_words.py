@@ -105,6 +105,21 @@ PART_FIXES: Final = {
     ),
     _RefusedPart.SYSTEM: "check the system document that --config names, and its parts.",
 }
+#: What to do for a refused configuration, by the words of its cause (#1708, first match wins).
+_CONFIG_FIXES: Final = (
+    ("cannot read", PART_FIXES[_RefusedPart.CONFIG]),
+    ("is not a directory or file", "create that folder, or correct `roots` under [scan]."),
+    ("is not a file", "create that file, or correct its path under [scan]."),
+)
+
+
+def _config_fix(message: str) -> str:
+    """The fix of a refused configuration: a missing file that it names is not a missing
+    configuration."""
+    found = (fix for words, fix in _CONFIG_FIXES if words in message)
+    return next(found, "correct that key of [scan]; schema/archkeel.schema.json lists the keys.")
+
+
 #: What to do for a refusal whose message names a cause of the file system (first match wins).
 CAUSE_WORD_FIXES: Final = (
     ("file or folder not found", "check the path and run again."),
@@ -130,7 +145,10 @@ _OS_ERRORS: Final = (
 def fix_for(kind: str, message: str) -> str | None:
     """What to do after a refusal: a refused scan by the part its message names, else by kind."""
     if kind == "collection_refused":
-        if (part := _refused_part(message)) in PART_FIXES:
+        part = _refused_part(message)
+        if part is _RefusedPart.CONFIG:
+            return _config_fix(message)
+        if part in PART_FIXES:
             return PART_FIXES[part]
         lowered = message.lower()
         for words, fix in CAUSE_WORD_FIXES:

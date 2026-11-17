@@ -22,7 +22,8 @@ use super::receivers::{certainly_visible, exact_type, field_of, same_gates, Cand
 use crate::definitions::{MethodCall, ReceiverChain, Root, SelfKind, Step, Written};
 use crate::modules::{Frame, Index, TypeOf};
 use crate::tree::Module;
-use ty::{element, std_function, std_method, std_path, Std, Ty};
+use paths::{outside_path, prelude_variant, std_path};
+use ty::{behind_shared, element, no_workspace, project, std_function, std_method, Std, Ty};
 
 /// What a method call can reach, from the type of its receiver.
 pub(super) enum Verdict<'t, 'a> {
@@ -137,6 +138,18 @@ impl<'t, 'a> Context<'t, '_, 'a> {
                 Step::Field(name) => self.field(ty, name),
                 Step::Call(name, arity) => self.method(ty, name, *arity),
                 Step::Borrow(kind) => Ty::Ref(*kind, Box::new(ty)),
+                Step::Variant(name) if prelude_variant(self.frame, name) => {
+                    project(ty, |kind, args| match (&**name, kind) {
+                        ("Some", Std::Option) | ("Ok", Std::Result) => args.first().cloned(),
+                        _ => None,
+                    })
+                }
+                Step::Variant(_) => Ty::Unknown,
+                Step::Elem(at) => project(ty, |kind, args| {
+                    (kind == Std::Tuple)
+                        .then(|| args.get(*at).cloned())
+                        .flatten()
+                }),
             };
             shared = through && matches!(step, Step::Field(_));
             if shared && matches!(ty, Ty::Ref(SelfKind::Unique, _)) {
@@ -174,6 +187,12 @@ impl<'t, 'a> Context<'t, '_, 'a> {
             Written::Slice(inner) => {
                 Ty::Std(Std::Slice, vec![self.written((frame, scope), inner, this)])
             }
+            Written::Tuple(elems) => {
+                let elems = elems
+                    .iter()
+                    .map(|elem| self.written((frame, scope), elem, this));
+                Ty::Std(Std::Tuple, elems.collect())
+            }
             Written::Unknown => Ty::Unknown,
             Written::Path(names, args) if names.first().is_some_and(|first| first == "Self") => {
                 match (this, &names[..], &args[..]) {
@@ -182,11 +201,19 @@ impl<'t, 'a> Context<'t, '_, 'a> {
                 }
             }
             Written::Path(names, args) => {
+                let args = args
+                    .iter()
+                    .map(|arg| self.written((frame, scope), arg, this));
                 if let Some(std) = std_path(frame, scope, names) {
-                    let args = args
-                        .iter()
-                        .map(|arg| self.written((frame, scope), arg, this));
                     return Ty::Std(std, args.collect());
+                }
+                if outside_path(frame, scope, names) {
+                    // An outside type may deref to a type argument (`Wrapper<T>`).
+                    let args: Vec<Ty> = args.collect();
+                    return match args.iter().all(no_workspace) {
+                        true => Ty::Std(Std::Outside, Vec::new()),
+                        false => Ty::Unknown,
+                    };
                 }
                 self.own(frame, scope, names)
             }
@@ -357,21 +384,13 @@ impl<'t, 'a> Context<'t, '_, 'a> {
     }
 }
 
-/// Whether a shared reference is among the references around a type.
-fn behind_shared(ty: &Ty) -> bool {
-    let mut ty = ty;
-    while let Ty::Ref(kind, inner) = ty {
-        if *kind == SelfKind::Shared {
-            return true;
-        }
-        ty = inner;
-    }
-    false
-}
-
 /// The definitions that a chain names by a path (AD-804).
 #[path = "impl_defs.rs"]
 mod defs;
+
+/// The std and outside types that a written path names (AD-804).
+#[path = "impl_paths.rs"]
+mod paths;
 
 /// The receiver types, and the std types and methods that the resolver knows (#1571, AD-804).
 #[path = "impl_ty.rs"]
@@ -380,3 +399,11 @@ mod ty;
 #[cfg(test)]
 #[path = "impl_types_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "impl_types_outside_tests.rs"]
+mod outside_tests;
+
+#[cfg(test)]
+#[path = "impl_types_pattern_tests.rs"]
+mod pattern_tests;

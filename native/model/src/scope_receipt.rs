@@ -166,22 +166,31 @@ fn placement_receipt(
     crate::graph::Graph::placement(model.graph()).ok_or(Reason::Unsupported(Unsupported::Rule(
         archkeel_contract::RuleKind::SymbolPlacement,
     )))?;
-    if modules.iter().any(|id| {
-        crate::ids::Table::get(model.graph().modules(), *id).is_none_or(|module| {
-            let allowed = rule
-                .allowed_sources()
-                .iter()
-                .any(|source| in_scope(module.name(), source.as_text()))
-                || rule
-                    .exact_sources()
+    let found = modules
+        .iter()
+        .map(|id| crate::ids::Table::get(model.graph().modules(), *id));
+    let missing: Vec<_> = found
+        .filter(|found| {
+            found.is_none_or(|module| {
+                let allowed = rule
+                    .allowed_sources()
                     .iter()
-                    .any(|source| module.name() == source.as_text());
-            !allowed && !module.class_inventory_empty()
+                    .any(|source| in_scope(module.name(), source.as_text()))
+                    || rule
+                        .exact_sources()
+                        .iter()
+                        .any(|source| module.name() == source.as_text());
+                !allowed && !module.class_inventory_empty()
+            })
         })
-    }) {
-        return Err(Reason::NotComplete(Cause::Receipt(
-            "symbol placement: class inventory is incomplete",
-        )));
+        .collect();
+    if !missing.is_empty() {
+        // #1713: a call that can create a class names its site.
+        let site = (missing.into_iter().flatten()).find_map(|module| module.class_inventory_site());
+        return Err(Reason::NotComplete(match site {
+            Some(site) => Cause::ClassSite(site.to_owned()),
+            None => Cause::Receipt("symbol placement: class inventory is incomplete"),
+        }));
     }
     Ok(())
 }

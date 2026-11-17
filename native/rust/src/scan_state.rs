@@ -106,6 +106,9 @@ pub(crate) struct Scan {
     pub extern_crates: Vec<(String, Site)>,
     /// Each `extern crate self as name;` outside a function body: its inline modules and `name`.
     pub self_aliases: Vec<(Vec<String>, String)>,
+    /// Each `extern crate foo as bar;` (or `extern crate foo;`) at the top level of the file, outside
+    /// a function body: `bar` and `foo` (#1711).
+    pub extern_aliases: Vec<(String, String)>,
     /// The inherent `impl` blocks at any depth, and the method calls (#953).
     pub impls: Vec<ImplBlock>,
     pub method_calls: Vec<MethodCall>,

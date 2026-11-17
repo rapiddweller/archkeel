@@ -2,10 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The receiver types of the resolver and the std types that it knows (#1571, AD-804). A path
-//! names a std type only when the prelude or one `use` leaf of `std`, `core` or `alloc` binds its
-//! first segment for certain: no item, glob or module-level macro of the file can give the name,
-//! and a `use` leaf is unconditional and in the scope of the path.
+//! The receiver types of the resolver and the std types that it knows (#1571, AD-804).
 //!
 //! The method table holds inherent methods of std types and the `Iterator` methods of the fixed
 //! adapters, with the return type and the `self` form of their std signature. Rust tries each
@@ -18,8 +15,6 @@
 //! traits of the workspace.
 
 use crate::definitions::SelfKind;
-use crate::modules::Frame;
-use crate::scan::Via;
 
 /// A std type that the resolver knows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -46,6 +41,10 @@ pub(in crate::impl_edges) enum Std {
     OsString,
     /// A std iterator with its item, from the fixed adapters of AD-804.
     Iter,
+    /// A type of a crate from a registry or git, with no type of the workspace in its arguments.
+    Outside,
+    /// A tuple with its elements.
+    Tuple,
 }
 
 /// A receiver type as far as the written types prove it.
@@ -57,11 +56,6 @@ pub(in crate::impl_edges) enum Ty {
     Ref(SelfKind, Box<Ty>),
     Unknown,
 }
-
-const PRIMITIVES: [&str; 17] = [
-    "bool", "char", "u8", "u16", "u32", "u64", "u128", "usize", "i8", "i16", "i32", "i64", "i128",
-    "isize", "f32", "f64", "str",
-];
 
 /// The methods of the traits of the prelude that a std type of this table implements, and the
 /// conversions: a deref target loses against them.
@@ -82,88 +76,6 @@ const PRELUDE: [&str; 14] = [
     "borrow",
 ];
 
-/// The std type that a written path names for certain.
-pub(in crate::impl_edges) fn std_path(
-    frame: &Frame<'_>,
-    scope: &[String],
-    names: &[String],
-) -> Option<Std> {
-    let module = frame.module;
-    let scan = &module.scan;
-    if module.gated && module.gates.is_none() {
-        return None;
-    }
-    let first = names.first()?;
-    let full: Vec<&str> = match frame.bound(first) {
-        [] => {
-            if scan.counts.contains_key(first.as_str())
-                || scan.module_macros
-                || frame.globs().next().is_some()
-            {
-                return None;
-            }
-            if let [one] = names {
-                return prelude(one);
-            }
-            names.iter().map(String::as_str).collect()
-        }
-        [leaf] => {
-            if scan.counts.get(first.as_str()) != Some(&1)
-                || scan.conditional_bindings.contains(first.as_str())
-                || !matches!(leaf.via, Via::Use { block: false, .. })
-                || frame.lexical_at(scope) != frame.lexical_at(&leaf.scope)
-            {
-                return None;
-            }
-            let rest = names[1..].iter();
-            leaf.names.iter().chain(rest).map(String::as_str).collect()
-        }
-        _ => return None,
-    };
-    let [root, rest @ ..] = full.as_slice() else {
-        return None;
-    };
-    if !matches!(*root, "std" | "core" | "alloc") {
-        return None;
-    }
-    Some(match rest {
-        ["string", "String"] => Std::String,
-        ["vec", "Vec"] => Std::Vec,
-        ["option", "Option"] => Std::Option,
-        ["result", "Result"] => Std::Result,
-        ["boxed", "Box"] => Std::Box,
-        ["rc", "Rc"] => Std::Rc,
-        ["sync", "Arc"] => Std::Arc,
-        ["collections", "HashMap" | "BTreeMap"]
-        | ["collections", "hash_map", "HashMap"]
-        | ["collections", "btree_map", "BTreeMap"] => Std::Map,
-        ["collections", "HashSet" | "BTreeSet"]
-        | ["collections", "hash_set", "HashSet"]
-        | ["collections", "btree_set", "BTreeSet"] => Std::Set,
-        ["collections", "VecDeque"] | ["collections", "vec_deque", "VecDeque"] => Std::Deque,
-        ["path", "Path"] => Std::Path,
-        ["path", "PathBuf"] => Std::PathBuf,
-        ["ffi", "OsStr"] => Std::OsStr,
-        ["ffi", "OsString"] => Std::OsString,
-        _ => return None,
-    })
-}
-
-/// A name of the prelude or a primitive type, when nothing of the file binds it.
-fn prelude(name: &str) -> Option<Std> {
-    let primitives: &[&str] = &PRIMITIVES;
-    Some(match name {
-        "String" => Std::String,
-        "Vec" => Std::Vec,
-        "Option" => Std::Option,
-        "Result" => Std::Result,
-        "Box" => Std::Box,
-        "str" => Std::Str,
-        other if primitives.contains(&other) => Std::Prim,
-        _ => return None,
-    })
-}
-
 /// The type of an associated function `T::f(..)` of a std type: a constructor gives the type.
 pub(in crate::impl_edges) fn std_function(std: Std, name: &str) -> Ty {
     match (std, name) {
@@ -183,7 +95,13 @@ fn items(ty: &Ty) -> Ty {
     match ty {
         Ty::Std(Std::Iter, args) => item(args),
         Ty::Std(Std::Vec | Std::Set | Std::Deque | Std::Option, args) => item(args),
+        Ty::Std(Std::Map, args) => Ty::Std(Std::Tuple, args.clone()),
         Ty::Ref(kind, inner) => match (kind, &**inner) {
+            (_, Ty::Std(Std::Map, args)) => {
+                let key = shared(item(args));
+                let value = Ty::Ref(*kind, Box::new(args.get(1).cloned().unwrap_or(Ty::Unknown)));
+                Ty::Std(Std::Tuple, vec![key, value])
+            }
             (SelfKind::Unique, Ty::Std(Std::Iter, args)) => item(args),
             (_, Ty::Std(Std::Vec | Std::Slice | Std::Deque | Std::Option, args)) => {
                 Ty::Ref(*kind, Box::new(item(args)))
@@ -361,6 +279,14 @@ fn inherent(kind: Std, args: &[Ty], name: &str, arity: usize) -> Option<Ty> {
         (Slice | Set | Deque | Std::Option, "iter", 0) => of(Iter, vec![shared(arg(0))]),
         (Slice | Deque | Std::Option, "iter_mut", 0) => of(Iter, vec![unique(arg(0))]),
         (Map, "keys", 0) => of(Iter, vec![shared(arg(0))]),
+        (Map, "iter", 0) => of(
+            Iter,
+            vec![of(Std::Tuple, vec![shared(arg(0)), shared(arg(1))])],
+        ),
+        (Map, "iter_mut", 0) => of(
+            Iter,
+            vec![of(Std::Tuple, vec![shared(arg(0)), unique(arg(1))])],
+        ),
         (Map, "values", 0) => of(Iter, vec![shared(arg(1))]),
         (Map, "values_mut", 0) => of(Iter, vec![unique(arg(1))]),
         (Std::Option, "filter", 1) => some(arg(0)),
@@ -371,4 +297,47 @@ fn inherent(kind: Std, args: &[Ty], name: &str, arity: usize) -> Option<Ty> {
         (Iter, "position", 1) => some(prim()),
         _ => return None,
     })
+}
+
+/// A part of a value that a pattern matches: through references, the default binding mode of
+/// Rust binds the part by reference, `&` when one of them is shared, else `&mut`.
+pub(in crate::impl_edges) fn project(ty: Ty, part: impl Fn(Std, &[Ty]) -> Option<Ty>) -> Ty {
+    let mut ty = ty;
+    let mut mode = None;
+    while let Ty::Ref(kind, inner) = ty {
+        mode = match (mode, kind) {
+            (Some(SelfKind::Shared), _) | (_, SelfKind::Shared) => Some(SelfKind::Shared),
+            _ => Some(SelfKind::Unique),
+        };
+        ty = *inner;
+    }
+    let Ty::Std(kind, args) = ty else {
+        return Ty::Unknown;
+    };
+    match (part(kind, &args), mode) {
+        (None | Some(Ty::Unknown), _) => Ty::Unknown,
+        (Some(found), Some(mode)) => Ty::Ref(mode, Box::new(found)),
+        (Some(found), None) => found,
+    }
+}
+
+/// Whether a type holds no type of the workspace and no unknown type.
+pub(in crate::impl_edges) fn no_workspace(ty: &Ty) -> bool {
+    match ty {
+        Ty::Std(_, args) => args.iter().all(no_workspace),
+        Ty::Ref(_, inner) => no_workspace(inner),
+        Ty::Own(..) | Ty::Unknown => false,
+    }
+}
+
+/// Whether a shared reference is among the references around a type.
+pub(in crate::impl_edges) fn behind_shared(ty: &Ty) -> bool {
+    let mut ty = ty;
+    while let Ty::Ref(kind, inner) = ty {
+        if *kind == SelfKind::Shared {
+            return true;
+        }
+        ty = inner;
+    }
+    false
 }

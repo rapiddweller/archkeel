@@ -6,6 +6,8 @@
 //! (`collect._script_dependency`, `_script_source_target`, `_script_alias_evidence`,
 //! `_script_publication_evidence`).
 
+use std::collections::{BTreeMap, HashMap};
+
 use archkeel_facts::data::{BindingData, DoorForm, DoorSite, GapEffect};
 use archkeel_facts::envelope::Target;
 use archkeel_facts::identity::{stable_id, Part};
@@ -39,10 +41,13 @@ impl<'a, 'p> Run<'a, 'p> {
         let evidence = self.sink.cite(rel, &probe.span);
         let first = path.first().map_or("", String::as_str);
         let stable = stable_publication(first, publishers, &self.writes);
-        if self.external_dependency(rel, probe, path, alias_call, publishers) {
+        // A use that reads a patched member has no native proof (#1674).
+        let patched = self.patched_use(rel, probe, path);
+        if patched.is_none() && self.external_dependency(rel, probe, path, alias_call, publishers) {
             return;
         }
-        if self.namespace_dependency(rel, probe, path, alias_call, publishers) {
+        if patched.is_none() && self.namespace_dependency(rel, probe, path, alias_call, publishers)
+        {
             return;
         }
         let declared = stable_publication(first, publishers, &self.source_writes);
@@ -107,7 +112,7 @@ impl<'a, 'p> Run<'a, 'p> {
                 .resolution
                 .insert(probe.key(), vec![target]);
         }
-        let target_module = self.source_target(rel, probe, path, publishers, known);
+        let target_module = self.source_target(rel, probe, (path, patched), publishers, known);
         let symbol = if known { entry } else { member };
         let record = Use {
             module: &module,
@@ -165,7 +170,7 @@ impl<'a, 'p> Run<'a, 'p> {
         &mut self,
         rel: &str,
         probe: &Probe,
-        path: &[String],
+        (path, patched): (&[String], Option<Withheld>),
         publishers: &[Publisher<'a>],
         known: bool,
     ) -> String {
@@ -192,10 +197,8 @@ impl<'a, 'p> Run<'a, 'p> {
             }
             return target;
         }
-        if let Some((outside_rel, span)) =
-            crate::script_outside::Outside::withholds(&self.outside, first).cloned()
-        {
-            return self.outside_target(&module, identity, first, evidence, (&outside_rel, &span));
+        if let Some((reason, site)) = patched.or_else(|| self.withheld(first)) {
+            return self.withheld_target(&module, identity, first, evidence, &reason, site);
         }
         let reason = format!("Script global {first}{UNPUBLISHED}");
         self.sink.targets.push(Target::Unresolved {
@@ -317,33 +320,94 @@ impl<'a, 'p> Run<'a, 'p> {
 }
 
 impl<'a, 'p> Run<'a, 'p> {
-    /// A use of a global that a file of the repository outside the scan roots replaces (#1546): an
-    /// unresolved target and a gap that cites the use and the write.
-    fn outside_target(
+    /// Why the native proof of `name` is withheld, and the write that withholds it: a file of
+    /// the repository outside the scan roots that replaces the global (#1546), or a member patch of
+    /// the global in a scanned file (#1674).
+    fn withheld(&self, name: &str) -> Option<Withheld> {
+        if let Some(cause) = Option::as_ref(&self.outside.incomplete) {
+            return Some((
+                format!("Script global {name} has no native proof: {cause}"),
+                None,
+            ));
+        }
+        if let Some((rel, span)) = crate::script_outside::Outside::withholds(&self.outside, name) {
+            let named = crate::script_outside::Outside::named(&self.outside, name);
+            let verb = if named { "is" } else { "can be" };
+            let address = crate::script_outside::Outside::is_address(&self.outside, (rel, span));
+            let reason = if address {
+                format!("Script global {name} can be replaced by a code address in a data file")
+            } else {
+                format!("Script global {name} {verb} replaced by a file outside the scan roots")
+            };
+            return Some((reason, Some((rel.clone(), span.clone()))));
+        }
+        None
+    }
+
+    /// A member patch that a use can read (#1674): a patch of the member that the use names, a
+    /// patch whose key is no literal, or any patch for a use of the global as a whole. The written
+    /// member itself is no read of the patched value.
+    fn patched_use(&self, rel: &str, probe: &Probe, path: &[String]) -> Option<Withheld> {
+        let first = path.first()?;
+        // The use reads at or below the written path, or it holds an object above it.
+        let used = path.get(1..).unwrap_or_default();
+        let touches = |written: &[String]| written.starts_with(used) || used.starts_with(written);
+        let scanned: Vec<_> = HashMap::get(&self.project.paths.patched, first.as_str())
+            .into_iter()
+            .flatten()
+            .filter_map(|(at, patch)| Some((self.project.files.get(*at)?.0, *patch)))
+            .collect();
+        // A name of a written target is the write, no read of the patched value.
+        let place = (probe.span.line, probe.span.column);
+        let written = scanned
+            .iter()
+            .any(|(patch_rel, patch)| *patch_rel == rel && patch.target.contains(&place));
+        for (patch_rel, patch) in scanned.iter().filter(|_| !written) {
+            if touches(&patch.path) {
+                let reason = format!("Script global {first} is patched by a member write");
+                return Some((reason, Some(((*patch_rel).to_owned(), patch.span.clone()))));
+            }
+        }
+        let outside = BTreeMap::get(&self.outside.patches, first.as_str());
+        for (member, site) in outside.into_iter().flatten() {
+            if touches(member) {
+                let reason =
+                    format!("Script global {first} is patched by a file outside the scan roots");
+                return Some((reason, Some(site.clone())));
+            }
+        }
+        None
+    }
+
+    /// A use whose native proof is withheld: an unresolved target and a gap that cites the use
+    /// and the write.
+    fn withheld_target(
         &mut self,
         module: &str,
         identity: String,
         name: &str,
         evidence: String,
-        (rel, span): (&str, &Span),
+        reason: &str,
+        site: Option<(String, Span)>,
     ) -> String {
-        let named = crate::script_outside::Outside::named(&self.outside, name);
-        let verb = if named { "is" } else { "can be" };
-        let reason =
-            format!("Script global {name} {verb} replaced by a file outside the scan roots");
         self.sink.targets.push(Target::Unresolved {
             import_id: FactId::new(identity),
             specifier: name.to_owned(),
-            reason: reason.clone(),
+            reason: reason.to_owned(),
         });
-        let write = self.sink.cite(rel, span);
-        let fact = GapFact::resolution(&reason, module);
-        let (id, mut record) = GapRecord::unknown_gap(&reason, Some(&evidence), module, fact);
-        record.evidence_ids.push(EvidenceId::new(&write));
-        self.sink.gaps.push((id, record));
+        let fact = GapFact::resolution(reason, module);
+        let (id, mut record) = GapRecord::unknown_gap(reason, Some(&evidence), module, fact);
+        if let Some((rel, span)) = site {
+            let write = self.sink.cite(&rel, &span);
+            Vec::push(&mut record.evidence_ids, EvidenceId::new(&write));
+        }
+        Vec::push(&mut self.sink.gaps, (id, record));
         name.to_owned()
     }
 }
+
+/// Why a use has no native proof, and the write that withholds it, if the write is citable.
+type Withheld = (String, Option<(String, Span)>);
 
 /// A member that the file declares: its local name and where.
 pub(crate) type LocalMember<'a> = (String, &'a crate::source::Span);

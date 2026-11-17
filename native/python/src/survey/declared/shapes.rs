@@ -13,6 +13,7 @@
 use crate::module::builtin_roles::{self, Role};
 use std::collections::{HashMap, HashSet};
 
+use archkeel_facts::ids::ModuleName;
 use archkeel_facts::type_shape::{Binding, Family, TypeShape, Unreadable};
 use archkeel_facts::{ImportFact, Record, SymbolFact};
 use ruff_python_ast::{Expr, Number, Operator, UnaryOp};
@@ -71,6 +72,31 @@ const COLLECTIONS: &[(&str, Family)] = &[
     ("typing_extensions.Mapping", Family::Mapping),
     ("typing_extensions.Iterable", Family::Sequence),
 ];
+
+/// The qualified names of the collections, for the names of the standard library (AD-782).
+pub(crate) fn collection_names() -> Vec<&'static str> {
+    COLLECTIONS.iter().map(|(name, _)| *name).collect()
+}
+
+/// The special forms of `typing` that the shape reader normalizes (#1718): a union, an optional,
+/// a literal and an annotation. They hold no data of their own; their arguments decide.
+pub(crate) const FORMS: [&str; 8] = [
+    "typing.Optional",
+    "typing.Union",
+    "typing.Literal",
+    "typing.Annotated",
+    "typing_extensions.Optional",
+    "typing_extensions.Union",
+    "typing_extensions.Literal",
+    "typing_extensions.Annotated",
+];
+
+/// True for a collection or a special form that the shape reader reads by its qualified name: the
+/// premise must hold for it (#1718). A builtin of the language has no module and is not one.
+pub(super) fn read_by_name(target: &str) -> bool {
+    FORMS.contains(&target)
+        || (target.contains('.') && COLLECTIONS.iter().any(|(name, _)| *name == target))
+}
 
 /// The special forms of `typing` that the shape normalizes.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -146,7 +172,7 @@ impl Shaper<'_> {
         (found, returns)
     }
 
-    fn position(&self, annotation: Option<&Expr>, hidden: &Hidden<'_>) -> TypeShape {
+    pub(super) fn position(&self, annotation: Option<&Expr>, hidden: &Hidden<'_>) -> TypeShape {
         annotation.map_or(TypeShape::Unannotated {}, |expr| {
             self.shape(expr, hidden, 0)
         })
@@ -361,6 +387,39 @@ fn unreadable(text: String, cause: Unreadable) -> TypeShape {
     TypeShape::Unreadable { text, cause }
 }
 
+/// The import records of each module, by the name of the module.
+pub(super) fn imports_by_module(
+    imports: &[Record<ImportFact>],
+) -> HashMap<&str, Vec<&Record<ImportFact>>> {
+    let mut by_module: HashMap<&str, Vec<&Record<ImportFact>>> = HashMap::new();
+    for record in imports {
+        let source = ModuleName::as_str(&ImportFact::data(&record.data).source_module);
+        by_module.entry(source).or_default().push(record);
+    }
+    by_module
+}
+
+/// The bindings that the written types of one module read.
+pub(super) fn module_names<'a>(
+    module: &'a Module,
+    binders: &'a Binders,
+    by_module: &HashMap<&str, Vec<&Record<ImportFact>>>,
+    sets: (&HashSet<String>, &HashSet<String>),
+) -> Names<'a> {
+    let own = HashMap::get(by_module, String::as_str(&module.name));
+    let records = own.map_or(&[][..], Vec::as_slice);
+    Names::of((&module.name, &module.tree), binders, records, sets)
+}
+
+impl<'a> Shaper<'a> {
+    /// The reader of the written types of `module`: on Python 3.14 a method annotation reads
+    /// the class namespace, unless the module makes its annotations strings (#1523).
+    pub(super) fn of(names: &'a Names<'a>, lazy: Option<&'a ClassWrites>, module: &Module) -> Self {
+        let lazy = lazy.filter(|_| !future_annotations(&module.tree));
+        Shaper { names, lazy }
+    }
+}
+
 /// Write the shapes of the signature of each source of each module into its record. A record
 /// whose parameters do not match the signature of its source gets none: the model then reads the
 /// shapes as not written.
@@ -371,26 +430,11 @@ pub(crate) fn attach(
     sets: (&HashSet<String>, &HashSet<String>),
     lazy: Option<&ClassWrites>,
 ) {
-    let mut by_module: HashMap<&str, Vec<&Record<ImportFact>>> = HashMap::new();
-    for record in imports {
-        by_module
-            .entry(record.data.data().source_module.as_str())
-            .or_default()
-            .push(record);
-    }
+    let by_module = imports_by_module(imports);
     for item in found {
         let module = &modules[item.index];
-        let own = by_module.get(module.name.as_str());
-        let names = Names::of(
-            (&module.name, &module.tree),
-            &binders[item.index],
-            own.map_or(&[][..], Vec::as_slice),
-            sets,
-        );
-        let shaper = Shaper {
-            names: &names,
-            lazy: lazy.filter(|_| !future_annotations(&module.tree)),
-        };
+        let names = module_names(module, &binders[item.index], &by_module, sets);
+        let shaper = Shaper::of(&names, lazy, module);
         let at: HashMap<&str, usize> = item
             .records
             .iter()

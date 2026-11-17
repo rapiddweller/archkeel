@@ -9,9 +9,10 @@
 //! absent record is a named gap of the rule, never an empty answer. A name has a definition when
 //! the collector wrote the record of its one binder, or a route when one plain import binds it.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use archkeel_facts::envelope::Facts;
+use archkeel_facts::standard::{StandardFacts, Wrapped};
 use archkeel_facts::type_shape::TypeShape;
 use archkeel_facts::vocab::{ClassKind, MethodKind};
 use archkeel_facts::{FactData, ImportFact, Record, Section, SymbolFact};
@@ -109,6 +110,16 @@ pub(crate) struct Route {
 pub(crate) struct BoundaryFacts {
     entries: HashMap<String, Entry>,
     routes: HashMap<(String, String), Route>,
+    /// What the collector states about the standard library (AD-782): read only under the premise.
+    standard: StandardFacts,
+}
+
+/// What the collector states about one name of the standard library (AD-782).
+pub(crate) enum Standard<'a> {
+    /// A type that it names: it counts under the premise `standard_library_unchanged`.
+    Type,
+    /// A type that code of the repository may change, with the reason.
+    Changed(&'a str),
 }
 
 /// What a name resolves to.
@@ -117,14 +128,18 @@ pub(crate) enum Origin<'a> {
     Defined(&'a str, &'a Entry),
     /// A whole module: a name of an `import m`.
     Module,
-    /// A definition that the collector did not write, in this module.
-    Missing(String),
+    /// A definition that the collector did not write: the module that holds no record, and the
+    /// qualified name that the routes reach.
+    Missing { module: String, qualified: String },
 }
 
 impl BoundaryFacts {
     /// The table of the symbol and import records of a reply.
     pub(crate) fn derive(facts: &Facts) -> Self {
-        let mut table = BoundaryFacts::default();
+        let mut table = BoundaryFacts {
+            standard: facts.standard.clone().unwrap_or_default(),
+            ..BoundaryFacts::default()
+        };
         for section in &facts.sections {
             match section {
                 Section::Symbols(records) => table.symbols(records),
@@ -201,21 +216,57 @@ impl BoundaryFacts {
                 return Origin::Defined(key.as_str(), entry);
             }
             let Some(route) = self.routes.get(&(module.clone(), name.clone())) else {
-                return Origin::Missing(module);
+                return Origin::Missing { module, qualified };
             };
             match &route.symbol {
                 Some(symbol) => (module, name) = (route.target_module.clone(), symbol.clone()),
                 None => return Origin::Module,
             }
         }
-        Origin::Missing(module)
+        let qualified = format!("{module}.{name}");
+        Origin::Missing { module, qualified }
     }
 
     /// The origin of a qualified name `module.name`.
     pub(crate) fn origin_of<'a>(&'a self, qualified: &str) -> Origin<'a> {
         match qualified.rsplit_once('.') {
             Some((module, name)) => self.origin(module, name),
-            None => Origin::Missing(String::new()),
+            None => Origin::Missing {
+                module: String::new(),
+                qualified: qualified.to_owned(),
+            },
         }
     }
+}
+
+/// What the collector states about the standard library name `qualified`, if anything (AD-782).
+pub(crate) fn standard_of<'a>(facts: &'a BoundaryFacts, qualified: &str) -> Option<Standard<'a>> {
+    let stated = &facts.standard;
+    if let Some(reason) = BTreeMap::get(&stated.changed, qualified) {
+        return Some(Standard::Changed(reason));
+    }
+    BTreeSet::contains(&stated.types, qualified).then_some(Standard::Type)
+}
+
+/// The form that a decorated definition of the scan exposes, when the collector models it.
+pub(crate) fn wrapped_of<'a>(facts: &'a BoundaryFacts, qualified: &str) -> Option<&'a Wrapped> {
+    BTreeMap::get(&facts.standard.wrapped, qualified)
+}
+
+/// The slots of a wrapped form, as the reader reads the slots of a record.
+pub(crate) fn slots_of(slots: &[archkeel_facts::standard::WrappedSlot]) -> Vec<Slot> {
+    let slot = |item: &archkeel_facts::standard::WrappedSlot| Slot {
+        name: item.name.clone(),
+        kind: item.kind.clone(),
+        shape: item.shape.clone(),
+    };
+    IntoIterator::into_iter(slots).map(slot).collect()
+}
+
+/// The standard library names that a written position reads by name, if any (#1718).
+pub(crate) fn positions_of<'a>(
+    facts: &'a BoundaryFacts,
+    key: &str,
+) -> Option<&'a BTreeSet<String>> {
+    BTreeMap::get(&facts.standard.positions, key)
 }

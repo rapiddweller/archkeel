@@ -92,7 +92,12 @@ def _functions(node: ast.AST, prefix: str) -> Iterator[tuple[str, int]]:
             yield from _functions(child, prefix)
 
 
-SIZE_LIMIT_EXEMPT: dict[str, str] = {}
+SIZE_LIMIT_EXEMPT: dict[str, str] = {
+    "native/report/assets/explorer/elkjs-0.12.0.bundled.js": "vendored ELK release, not our code",
+    "native/report/assets/explorer/flow.runtime.js": "generated from flow.js",
+}
+# The scripts and styles of the report page are code too (lead L-283).
+REPORT_ASSETS = "native/report/assets/"
 SCRIPT_SUFFIXES = (".py", ".cjs", ".mjs", ".js")
 
 
@@ -102,6 +107,8 @@ def _is_size_limited(relative: str) -> bool:
         return False
     if top == "src":
         return relative.endswith((*SCRIPT_SUFFIXES, ".ts", ".tsx", ".css"))
+    if relative.startswith(REPORT_ASSETS):
+        return relative.endswith((".js", ".css"))
     if top in {"native", "crates"}:
         return relative.endswith(".rs")
     if top == "tools":
@@ -186,6 +193,9 @@ def test_file_size_limit_covers_code_and_not_data() -> None:
     assert _is_size_limited("src/archkeel/cli/__init__.py")
     assert _is_size_limited("native/ts/src/lib.rs")
     assert _is_size_limited("crates/py/src/lib.rs")
+    assert _is_size_limited("native/report/assets/explorer/report-layout.js")
+    assert _is_size_limited("native/report/assets/report.css")
+    assert not _is_size_limited("native/report/assets/Geist-Variable.woff2")
     assert _is_size_limited("tests/test_analyzer.py")
     assert _is_size_limited("fixtures/demo_catalog_types.py")
     assert _is_size_limited("tools/native_expected.py")

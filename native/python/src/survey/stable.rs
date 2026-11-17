@@ -47,6 +47,10 @@ pub(super) fn file_fact(
         stable_bindings,
         blank: module.tree.body.is_empty(),
         class_inventory_empty: class_inventory::empty(&module.tree).then_some(true),
+        class_inventory_site: class_inventory::factory_site(&module.tree).map(|(range, callee)| {
+            let line = module.location(&range).line;
+            format!("{}:{line} ({callee})", module.rel)
+        }),
         evidence_id: EvidenceId::new(module.file_evidence(evidence)),
     }
 }

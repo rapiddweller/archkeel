@@ -32,10 +32,10 @@ pub(crate) fn config_gaps(
     (own, dir): (&str, &str),
     gaps: &mut Gaps,
 ) -> Option<Input> {
-    if !dir.is_empty() {
+    if !str::is_empty(dir) {
         let mut path = dir.to_owned();
         let mut places = vec![CONFIG.to_owned()];
-        while !path.is_empty() {
+        while !String::is_empty(&path) {
             places.push(format!("{path}/{CONFIG}"));
             path = path
                 .rsplit_once('/')
@@ -108,7 +108,7 @@ fn check(raw: &[u8], root: &str, own: &str) -> Result<(), String> {
             ));
         }
     }
-    if own_found || own.is_empty() {
+    if own_found || str::is_empty(own) {
         Ok(())
     } else {
         Err(format!(

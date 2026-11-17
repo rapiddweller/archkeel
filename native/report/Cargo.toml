@@ -16,6 +16,7 @@ publish.workspace = true
 [dependencies]
 archkeel-contract = { path = "../contract" }
 archkeel-eval = { path = "../eval" }
+archkeel-facts.workspace = true
 archkeel-model = { path = "../model" }
 serde.workspace = true
 schemars.workspace = true

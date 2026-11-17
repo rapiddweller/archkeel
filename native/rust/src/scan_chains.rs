@@ -9,7 +9,7 @@
 //! written types of the workspace. Any other expression gives no chain, and the call keeps its
 //! gaps.
 
-use syn::{Expr, Lit, Member, PathArguments};
+use syn::{Expr, Lit, Member, Pat, PathArguments};
 
 use crate::definitions::{ReceiverChain, Root, SelfKind, Step};
 use crate::tokens::plain;
@@ -156,6 +156,51 @@ fn root_of(expr: &Expr, names: &dyn Names) -> Option<ReceiverChain> {
             Some(found)
         }
         _ => None,
+    }
+}
+
+/// The names that a pattern binds, each with the steps from the matched value to it: the payload
+/// of the prelude `Some` or `Ok` and the elements of a tuple (#1571, AD-804). A name bound by
+/// `ref`, by `@` or by `mut` inside a pattern (it resets the binding mode), and a name of an
+/// alternative, a slice, a struct or another variant pattern, bind nothing.
+pub(super) fn destructure(pattern: &Pat) -> Vec<(String, Vec<Step>)> {
+    let mut found = Vec::new();
+    walk(pattern, Vec::new(), &mut found);
+    found
+}
+
+fn walk(pattern: &Pat, steps: Vec<Step>, found: &mut Vec<(String, Vec<Step>)>) {
+    match pattern {
+        Pat::Ident(ident) => {
+            let plain_ident = ident.by_ref.is_none() && ident.subpat.is_none();
+            let mode = ident.mutability.is_none() || steps.is_empty();
+            if plain_ident && mode && ident.attrs.is_empty() {
+                found.push((plain(&ident.ident), steps));
+            }
+        }
+        Pat::TupleStruct(variant) if variant.qself.is_none() && variant.attrs.is_empty() => {
+            let name = variant.path.get_ident().map(plain);
+            if let (Some(name @ ("Some" | "Ok")), [inner]) = (
+                name.as_deref(),
+                variant.elems.iter().collect::<Vec<_>>().as_slice(),
+            ) {
+                let mut steps = steps;
+                steps.push(Step::Variant(name.to_owned()));
+                walk(inner, steps, found);
+            }
+        }
+        Pat::Tuple(tuple) if tuple.attrs.is_empty() => {
+            if tuple.elems.iter().any(|elem| matches!(elem, Pat::Rest(_))) {
+                return;
+            }
+            for (at, elem) in tuple.elems.iter().enumerate() {
+                let mut steps = steps.clone();
+                steps.push(Step::Elem(at));
+                walk(elem, steps, found);
+            }
+        }
+        Pat::Paren(inner) => walk(&inner.pat, steps, found),
+        _ => {}
     }
 }
 

@@ -58,7 +58,7 @@
           "responsibilities": [
             "Reusable async, result and image utilities"
           ],
-          "file_path": "lib/utils/command.dart"
+          "file_path": "compass_app/app/lib/utils/command.dart"
         },
         {
           "id": "mod-compass-utils-image-error-listener",
@@ -73,7 +73,7 @@
           "responsibilities": [
             "Reusable async, result and image utilities"
           ],
-          "file_path": "lib/utils/image_error_listener.dart"
+          "file_path": "compass_app/app/lib/utils/image_error_listener.dart"
         },
         {
           "id": "mod-compass-utils-result",
@@ -88,7 +88,7 @@
           "responsibilities": [
             "Reusable async, result and image utilities"
           ],
-          "file_path": "lib/utils/result.dart"
+          "file_path": "compass_app/app/lib/utils/result.dart"
         },
         {
           "id": "class-compass-utils-command-command",

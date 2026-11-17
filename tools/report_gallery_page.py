@@ -148,11 +148,20 @@ def _source(row: Mapping[str, Any]) -> str:
     )
 
 
+def _assuming(row: Mapping[str, Any]) -> str:
+    """The premise of a PASS that holds only under a premise of the contract. A premise is not a
+    proof, so the card states it next to the verdict."""
+    premise = row.get("assuming")
+    if not premise or _status_of(row) != "PASS":
+        return ""
+    return f'<br><span class="caption">PASS assuming {html.escape(str(premise))}.</span>'
+
+
 def _scenario(row: Mapping[str, Any]) -> str:
     run = row["run"]
     about = html.escape(str(run.get("about", "")))
     line = intent_line(run, _status_of(row))
-    extra = _planted(row) + _source(row)
+    extra = _planted(row) + _assuming(row) + _source(row)
     return f'<td class="body-sm">{about}<br><span class="caption">{line}</span>{extra}</td>'
 
 

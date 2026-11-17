@@ -78,25 +78,26 @@ impl Builder<'_> {
             else {
                 continue;
             };
-            if !self.sdk_supported {
-                *member_inventories = None;
-                continue;
-            }
-            let incomplete = self.incomplete_ids.contains(record.id.as_str())
+            // #1706: a class record always has its inventories (the facts require them); an SDK
+            // that the collector does not support makes them partial, as 4.0.1 dropped them.
+            let reason = if !self.sdk_supported {
+                "the SDK constraint of the package is not supported"
+            } else if self.incomplete_ids.contains(record.id.as_str())
                 || self
                     .incomplete_paths
-                    .contains(&record.data.location.source_file);
-            if !incomplete {
+                    .contains(&record.data.location.source_file)
+            {
+                "source contains unsupported or incomplete declarations"
+            } else {
                 continue;
-            }
+            };
             let Some(inventories) = member_inventories else {
                 continue;
             };
             for inventory in inventories {
                 self.decl.work.charge(1)?;
                 inventory.status = InventoryStatus::Partial;
-                inventory.reason =
-                    Some("source contains unsupported or incomplete declarations".to_owned());
+                inventory.reason = Some(reason.to_owned());
             }
         }
         Ok(())

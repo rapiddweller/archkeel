@@ -67,6 +67,7 @@ mod parse_files;
 mod pathscope;
 pub(crate) mod routes;
 mod stable;
+mod standard;
 pub(crate) mod support;
 mod syspath;
 mod targets;
@@ -97,6 +98,8 @@ pub(crate) struct Survey {
     pub ambiguous: HashSet<String>,
     /// The digest of each file that the survey read, from the bytes that it parsed.
     pub parsed: Vec<Input>,
+    /// What the survey states about the standard library, for the premise (AD-782).
+    pub standard: archkeel_facts::standard::StandardFacts,
     /// The symbol declarations that the modules bind once (AD-518), and their sites (AD-520).
     pub symbols: Vec<Record<SymbolFact>>,
     pub calls: Vec<Record<CallFact>>,
@@ -339,6 +342,11 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
             .into_iter()
             .filter(|input| selected.contains(input.path.as_str()))
             .collect(),
+        standard: standard::facts(
+            &writes,
+            (&declared::collection_names(), &declared::FORMS),
+            (symbols.wrapped, symbols.positions),
+        ),
         symbols: symbols.records,
         calls: symbols.calls,
         references: symbols.references,
@@ -351,6 +359,10 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
 /// The symbol facts of a survey: the declarations and the sites of the functions among them.
 struct Symbols {
     records: Vec<Record<SymbolFact>>,
+    /// The forms of the decorated definitions (AD-782).
+    wrapped: std::collections::BTreeMap<String, archkeel_facts::standard::Wrapped>,
+    /// The standard library names of each written position (#1718).
+    positions: standard::Positions,
     calls: Vec<Record<CallFact>>,
     references: Vec<Record<ReferenceFact>>,
     dead_sites: HashSet<String>,
@@ -384,6 +396,11 @@ fn declarations(
     let context = declared::Context::collect(&found, imports, sets);
     let lazy = lazy_314.then_some(writes);
     declared::attach_shapes(&mut found, (modules, binders), imports, sets, lazy);
+    let forms = (lazy, writes);
+    let mut positions =
+        declared::shape_standard::positions(&found, (modules, binders), imports, sets);
+    let read = (modules, binders);
+    let wrapped = declared::wrapped::forms(&found, read, imports, sets, (forms, &mut positions));
     let (mut calls, mut references, mut dead_sites) = (Vec::new(), Vec::new(), HashSet::new());
     for item in &found {
         let (more, other, dead) = declared::site_records(
@@ -399,6 +416,8 @@ fn declarations(
     let records = found.into_iter().flat_map(|item| item.records).collect();
     Symbols {
         records,
+        wrapped,
+        positions,
         calls,
         references,
         dead_sites,

@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 
 use super::cases::Names;
-use super::causes::{grouped, title, Cause};
+use super::causes::{grouped, hygiene, title, Cause};
 use super::frame::Frame;
 use super::markup::{count, escape, status_icon};
 use super::status::{cause, Shown};
@@ -191,6 +191,39 @@ fn rule_id(frame: &Frame, id: &str) -> String {
     format!("<span class=\"rp-code\">{}</span>{mark}", escape(id))
 }
 
+/// The members of a family of hygiene gaps: what each points at, and the one message they share.
+fn member_list(found: &Cause<'_>) -> String {
+    let items: String = found
+        .members
+        .iter()
+        .take(MAX_LISTED_IDS)
+        .map(|member| {
+            format!(
+                "<li class=\"body-sm\"><span class=\"rp-code\">{}</span></li>",
+                escape(member)
+            )
+        })
+        .collect();
+    let rest = found.members.len().saturating_sub(MAX_LISTED_IDS);
+    let tail = if rest > 0 {
+        format!("<p class=\"caption\">and {rest} more in the JSON</p>")
+    } else {
+        String::new()
+    };
+    format!(
+        "<details class=\"rp-fold\"><summary class=\"caption\">Which: {}</summary><ul>{items}</ul>{tail}</details>",
+        found.members.len()
+    )
+}
+
+/// What the core says for a cause: the message that a family of hygiene gaps shares, or the reason.
+fn says<'a>(found: &Cause<'a>) -> &'a str {
+    match hygiene(found.reason) {
+        Some((_, _, message)) if found.members.len() > 1 => message,
+        _ => found.reason,
+    }
+}
+
 fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
     let held = found.rules.len();
     let badge = if held > 0 {
@@ -245,11 +278,14 @@ fn card(frame: &Frame, names: &Names<'_>, found: &Cause<'_>) -> String {
     if ["other", "named", "scoped_gaps"].contains(&found.kind) && found.reason != title(found) {
         html.push_str(&format!(
             "<details class=\"rp-fold\"><summary class=\"caption\">What the core says</summary><p class=\"rp-fold__body\">{}</p></details>",
-            escape(found.reason)
+            escape(says(found))
         ));
     }
     if found.kind == "coverage_gaps" {
         html.push_str(&stated_once(frame));
+    }
+    if found.kind == "named" && found.members.len() > 1 {
+        html.push_str(&member_list(found));
     }
     let tables = match found.kind {
         "coverage_gaps" if !frame.collection_gaps.is_empty() => format!(

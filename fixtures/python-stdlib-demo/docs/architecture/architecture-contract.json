@@ -1,16 +1,24 @@
 {
   "$schema": "https://raw.githubusercontent.com/rapiddweller/archkeel/main/schema/architecture-contract.schema.json",
-  "schema_version": "3.6.0",
+  "schema_version": "3.17.0",
   "components": [
     {
       "id": "sample",
       "label": "sample",
       "role": "component",
-      "packages": ["sample"],
-      "public": ["sample.api"],
-      "responsibilities": ["Publish declared standard library types."],
+      "packages": [
+        "sample"
+      ],
+      "public": [
+        "sample.api"
+      ],
+      "responsibilities": [
+        "Publish declared standard library types."
+      ],
       "forbidden_responsibilities": [],
-      "provenance": ["docs/architecture/architecture.md"]
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ]
     }
   ],
   "rules": [
@@ -20,7 +28,21 @@
       "source": "sample.api",
       "rationale": "Each facade type has a declared standard library source.",
       "decided_by": "architect",
-      "provenance": ["docs/architecture/architecture.md"]
+      "provenance": [
+        "docs/architecture/architecture.md"
+      ]
     }
-  ]
+  ],
+  "declarations": {
+    "premises": [
+      {
+        "id": "P-STD",
+        "name": "standard_library_unchanged",
+        "rationale": "The demo publishes standard library types; no code outside the repository patches the standard library.",
+        "provenance": [
+          "docs/architecture/architecture.md"
+        ]
+      }
+    ]
+  }
 }

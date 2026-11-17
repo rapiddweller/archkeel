@@ -15,6 +15,12 @@ The initial receipt is deliberately narrow (AD-726). A module containing a class
 an empty-inventory receipt, even when all of its known classes are allowed by kind. Such a
 placement stays UNKNOWN unless a known violation makes it FAIL.
 
+## Amendment (#1713)
+
+A call that can create a class at run time (a standard-library factory, a metaclass shape, or a
+call result that the module uses as a class) withholds the receipt. The UNKNOWN names its site
+(`FileFact.class_inventory_site`, `Cause::ClassSite`). See `docs/known-limits.md`.
+
 ## Checks
 
 The placement plants exercise PASS, FAIL, incomplete inventories and a known violation beside

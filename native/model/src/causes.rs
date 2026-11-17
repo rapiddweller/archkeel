@@ -74,6 +74,9 @@ pub enum Cause {
     OwnedFileOwner(String),
     /// The core cannot prove the dependency scope when the collector reports a coverage gap.
     DependencyScopeUnproven,
+    /// A call that can create a class at run time leaves the placement of that class unproven
+    /// (#1713): the site, as `path:line (callee)`.
+    ClassSite(String),
 }
 
 /// The gaps that hold a rule: the first ones as `a -> b` and the number of all.
@@ -226,6 +229,10 @@ impl fmt::Display for Cause {
             ),
             Cause::DependencyScopeUnproven => formatter
                 .write_str("the core cannot prove the dependency scope with a coverage gap"),
+            Cause::ClassSite(site) => write!(
+                formatter,
+                "symbol placement: a call can create a class at {site}"
+            ),
         }
     }
 }
