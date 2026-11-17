@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 from rust_orphan_plants import OPEN_TRAIT_FORMS, OPEN_VALUE_FORMS
-from rust_repository import APP, CRATE_RULES, repository, rule, statuses, validate
+from rust_repository import APP, BASE, CRATE_RULES, component, repository, rule, statuses, validate
 
 pytestmark = pytest.mark.skipif(shutil.which("cargo") is None, reason="rustc is the oracle")
 
@@ -133,3 +133,73 @@ def test_rustc_accepts_each_dispatch_form_of_the_audit(
     tmp_path: Path, release_core: Path, name: str
 ) -> None:
     assert _verdict(tmp_path, release_core, _app(OPEN[name])) in {"FAIL", "UNKNOWN"}
+
+
+def test_a_foreign_return_type_can_carry_a_private_impl(tmp_path: Path, release_core: Path) -> None:
+    files = {
+        "crates/Cargo.toml": '[workspace]\nmembers = ["base", "app", "carrier"]\n',
+        "crates/base/Cargo.toml": BASE + '[dependencies]\ncarrier = { path = "../carrier" }\n',
+        "crates/base/src/lib.rs": (
+            "mod hidden;\n"
+            "pub fn make() -> carrier::Handle { carrier::Handle(Box::new(hidden::Y)) }\n"
+        ),
+        "crates/base/src/hidden.rs": ("#[derive(Debug)]\npub(super) struct Y;\n"),
+        "crates/carrier/Cargo.toml": BASE.replace('"base-crate"', '"carrier"'),
+        "crates/carrier/src/lib.rs": (
+            "#[derive(Debug)]\npub struct Handle(pub Box<dyn std::fmt::Debug>);\n"
+        ),
+        "crates/app/src/lib.rs": (
+            'pub fn run() -> String { format!("{:?}", base_crate::make()) }\n'
+        ),
+    }
+    no_private_dispatch = rule(
+        "NO-PRIVATE-DISPATCH",
+        "forbidden_dependency",
+        source="native.app",
+        target="native.base_crate.hidden",
+        include_type_checking=True,
+    )
+    root = repository(
+        tmp_path / "repo",
+        release_core,
+        files,
+        components=(
+            component("base", "base_crate", ("carrier",)),
+            component("app", "app", ("base",)),
+            component("carrier", "carrier"),
+        ),
+        rules=(*CRATE_RULES, no_private_dispatch),
+    )
+    _rustc_accepts(root)
+    assert statuses(validate(root))["NO-PRIVATE-DISPATCH"] in {"FAIL", "UNKNOWN"}
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param(
+            "pub fn f() -> u8 { trait_ext::T::m(&crate::c::make()) }\n",
+            {"FAIL"},
+            id="direct",
+        ),
+        pytest.param(
+            "macro_rules! to_u8 { ($path:path) => { $path(&crate::c::make()) }; }\n"
+            "pub fn f() -> u8 { to_u8!(trait_ext::T::m) }\n",
+            {"FAIL", "UNKNOWN"},
+            id="opaque-macro",
+        ),
+    ],
+)
+def test_a_lexical_external_path_never_passes(
+    tmp_path: Path, release_core: Path, source: str, expected: set[str]
+) -> None:
+    files = {**GLOB, "crates/app/src/a.rs": source}
+    scope = rule(
+        "NO-EXTERNAL-IN-A",
+        "external_dependency_scope",
+        dependency="trait_ext",
+        exact_sources=["native.app.b", "native.app.cargo_toml"],
+    )
+    root = repository(tmp_path / "repo", release_core, files, rules=(*CRATE_RULES, scope))
+    _rustc_accepts(root)
+    assert statuses(validate(root))["NO-EXTERNAL-IN-A"] in expected
