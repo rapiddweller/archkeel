@@ -718,6 +718,13 @@
             "type": "string"
           },
           "description": "The selectors of its planned surface. Empty when the contract states none."
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The documents that give the reasons of the component, as the contract names them."
         }
       },
       "required": [
@@ -731,7 +738,8 @@
         "public",
         "responsibilities",
         "forbidden_responsibilities",
-        "planned_public"
+        "planned_public",
+        "provenance"
       ],
       "additionalProperties": false
     },

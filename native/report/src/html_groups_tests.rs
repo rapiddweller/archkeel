@@ -154,13 +154,13 @@ fn a_layer_sheet_aggregates_its_member_components() {
         "the union, once each"
     );
     assert_eq!(layer["public"].as_array().unwrap().len(), 3);
-    // A layer whose members state nothing has no boundary line and no public name.
-    let empty = by_id("LAYER:L2");
+    // A layer that holds one component is that component: it shows that component's own text.
+    let single = by_id("LAYER:L2");
     assert_eq!(
-        empty["responsibilities"][0],
-        "This box groups 1 component of layer L2 (layer 2 of 2)."
+        single["responsibilities"],
+        json!(["Responsibility not written yet."])
     );
-    assert_eq!(empty["not_responsible_for"].as_array().unwrap().len(), 0);
+    assert_eq!(single["not_responsible_for"].as_array().unwrap().len(), 0);
 }
 
 // AD-710: each rule says what it finds in plain words, for one finding and for many.
@@ -181,4 +181,30 @@ fn a_rule_has_plain_words_for_its_findings() {
         .find(|r| r["plain_one"].as_str().unwrap().contains("other kind"))
         .unwrap();
     assert_eq!(other["plain_many"], "findings of other kind");
+}
+
+// #1441: a component that is also a layer shows its own contract facts; the box of a layer that
+// holds one component is that component, and the sheet says `Component`.
+#[test]
+fn a_layer_that_holds_one_component_shows_the_facts_of_that_component() {
+    let frame = json!({"status": "PASS", "topology": {
+        "components": [{"id": "F", "name": "frame", "parent": null, "layer": "frame",
+            "responsibilities": ["Read one frame."], "forbidden_responsibilities": ["Print."],
+            "public": ["f:read"], "provenance": ["docs/shell.md"]}],
+        "modules": [], "layers": [{"rule": "R", "layers": ["frame"]}]}});
+    let data = payload(&document(&frame));
+    let layer = data["atlas"]["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["id"] == "LAYER:frame")
+        .unwrap()
+        .clone();
+    assert_eq!(layer["responsibilities"], json!(["Read one frame."]));
+    assert_eq!(layer["not_responsible_for"], json!(["Print."]));
+    assert_eq!(layer["public"].as_array().unwrap().len(), 1);
+    // Texts are by index in the payload, as the names of the public surface are.
+    assert_eq!(layer["provenance"].as_array().unwrap().len(), 1);
+    assert!(layer["provenance"][0].is_u64());
+    assert_eq!(layer["groups"], json!(1));
 }

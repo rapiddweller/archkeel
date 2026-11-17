@@ -69,6 +69,8 @@ struct Component {
     forbidden_responsibilities: Vec<String>,
     /// The selectors of its planned surface. Empty when the contract states none.
     planned_public: Vec<String>,
+    /// The documents that give the reasons of the component, as the contract names them.
+    provenance: Vec<String>,
 }
 
 #[derive(Serialize, schemars::JsonSchema)]
@@ -260,6 +262,7 @@ fn component_rows(models: &ModelTree) -> Vec<Component> {
                     .flatten()
                     .map(|p| p.as_text().to_owned())
                     .collect(),
+                provenance: component.provenance().clone(),
             });
         }
     }
