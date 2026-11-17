@@ -142,3 +142,25 @@ def test_a_folder_of_another_part_with_only_a_test_sample_is_no_python_component
     assert result.components == ("src/alpha", "src/beta", "web/root")
     python = next(f for f in result.files if f.path.endswith("src/archkeel.toml"))
     assert "exclude_test_sources = true" in python.text
+
+
+def test_a_typescript_project_below_the_root_does_not_repeat_its_path_in_its_names(
+    tmp_path: Path,
+) -> None:
+    """#1617: a TypeScript project at `src/web` drafted the namespace `web`, so each module read
+    `web.src.web.src.application`. The namespace is the repository's."""
+    member = {"compilerOptions": {"strict": True}, "include": ["src"]}
+    root = _write(
+        tmp_path / "mono",
+        {
+            "src/web/package.json": '{"name": "web"}',
+            "src/web/tsconfig.json": json.dumps(member),
+            "src/web/src/application/main.ts": "export const a = 1;\n",
+            "src/web/src/domain/rule.ts": "export const b = 2;\n",
+        },
+    )
+    result = draft(root)
+    assert result.namespace == "mono"
+    contract = next(f for f in result.files if f.path.endswith("architecture-contract.json"))
+    assert '"mono.src.web.src.application"' in contract.text
+    assert "web.src.web" not in contract.text

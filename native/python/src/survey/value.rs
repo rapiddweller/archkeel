@@ -13,7 +13,7 @@
 //! operator, a comprehension, a starred item) is no value of this kind.
 
 use crate::module::builtin_roles::{self, Role};
-use ruff_python_ast::{Expr, ExprCall};
+use ruff_python_ast::{Expr, ExprCall, Stmt};
 
 /// The names and the builtins that a value reads.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -87,5 +87,14 @@ fn call_value(call: &ExprCall, deps: &mut Deps) -> bool {
             view && args.is_empty() && read(&node.value, deps)
         }
         _ => false,
+    }
+}
+
+/// The targets and the value of a plain or annotated assignment; `None` for any other statement.
+pub(super) fn assignment_parts(stmt: &Stmt) -> Option<(Vec<&Expr>, Option<&Expr>)> {
+    match stmt {
+        Stmt::Assign(node) => Some((node.targets.iter().collect(), Some(&node.value))),
+        Stmt::AnnAssign(node) => Some((vec![&*node.target], node.value.as_deref())),
+        _ => None,
     }
 }

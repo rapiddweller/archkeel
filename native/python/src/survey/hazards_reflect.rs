@@ -11,6 +11,8 @@ use std::collections::HashSet;
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{Expr, ExprContext, ModModule, Stmt};
 
+use crate::survey::value::assignment_parts;
+
 type Bindings = HashMap<String, Vec<String>>;
 
 pub(super) fn deleted_code(tree: &ModModule) -> bool {
@@ -125,11 +127,7 @@ pub(super) fn code_aliases(tree: &ModModule) -> HashSet<String> {
     struct Aliases(HashSet<String>);
     impl<'a> Visitor<'a> for Aliases {
         fn visit_stmt(&mut self, stmt: &'a Stmt) {
-            let (targets, value): (Vec<&Expr>, Option<&Expr>) = match stmt {
-                Stmt::Assign(node) => (node.targets.iter().collect(), Some(&node.value)),
-                Stmt::AnnAssign(node) => (vec![&node.target], node.value.as_deref()),
-                _ => (Vec::new(), None),
-            };
+            let (targets, value) = assignment_parts(stmt).unwrap_or_default();
             let code = value.is_some_and(|value| match value {
                 Expr::Name(name) => name.id.as_str() == "code",
                 Expr::Attribute(node) => node.attr.as_str() == "code",
