@@ -158,8 +158,9 @@ Sections that name `check`, `explore`, baselines or the Python engine describe t
   `staticmethod` or `classmethod`, a keyword or an unproven base, a hazard site or a write from
   another module gives no record, so the name is absent (UNKNOWN). A class that a base which may be
   a class writes to (`type.__setattr__`, `cls.x = v`, `self` of a metaclass), or whose name is
-  passed, stored or returned, keeps no member. A bare annotation, a value that is no literal and
-  a mangled `__x` are no attribute. A module-level value, a function inside a function and a
+  passed, stored or returned, keeps no member. A bare annotation declares a UML attribute only
+  when its type is an unshadowed builtin (AD-748). A value that is no literal and a mangled `__x`
+  are no attribute. A module-level value, a function inside a function and a
   text other than a name, a dotted name, `None`, `True` or `False` in an annotation or a default
   give none. Open: a write from a C extension or through `globals()` of another module.
   Every Python member list is `partial`. A target

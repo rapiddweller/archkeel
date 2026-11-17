@@ -15,8 +15,8 @@ import json
 from pathlib import Path
 
 import pytest
-from python_symbol_plants import PLANTS
-from python_symbol_sources import project
+from python_symbol_plants import PLANTS, C, pl
+from python_symbol_sources import Want, project
 from test_cli_core_only_scan import command
 
 ROW = "UML-TARGET-a2e40c5592b1b06a"
@@ -36,6 +36,65 @@ FALSE_FAIL = {
 
 def test_every_plant_has_a_pinned_row() -> None:
     assert set(ROWS) == set(PLANTS)
+
+
+@pytest.mark.parametrize(
+    ("annotation", "target", "expected"),
+    [
+        ("int", "str", "FAIL"),
+        ("'int'", "int", "UNKNOWN"),
+        ("UnknownType", "UnknownType", "UNKNOWN"),
+        ("ClassVar[int]", "int", "UNKNOWN"),
+    ],
+)
+def test_annotation_only_attributes_keep_unproved_types_unknown(
+    release_core: Path, tmp_path: Path, annotation: str, target: str, expected: str
+) -> None:
+    source = f"from __future__ import annotations\nclass A:\n    x: {annotation}\n"
+    want = Want("attribute", "A.x", {"annotation": target})
+    done = command(release_core, project(tmp_path / "p", pl(source, [C, want], "DIFF")), "--json")
+    result = json.loads(done.stdout)
+    assert result["frame"]["rules"][ROW] == ["uml_target", expected], result
+
+
+def test_annotation_declaration_does_not_hide_a_wrong_return_type(
+    release_core: Path, tmp_path: Path
+) -> None:
+    source = "class A:\n    x: int\n    def run(self) -> int:\n        return 1\n"
+    wants = [
+        C,
+        Want("attribute", "A.x", {"annotation": "int"}),
+        Want(
+            "method",
+            "A.run",
+            {
+                "signature": {
+                    "parameters": [{"name": "self", "kind": "positional", "default_known": True}],
+                    "returns": "str",
+                }
+            },
+        ),
+    ]
+    done = command(release_core, project(tmp_path / "p", pl(source, wants, "DIFF")), "--json")
+    result = json.loads(done.stdout)
+    assert result["frame"]["rules"][ROW] == ["uml_target", "FAIL"], result
+    assert any(
+        item["cause"] == "return annotation differs" for item in result["frame"]["details"][ROW]
+    )
+
+
+def test_a_class_without_a_declared_attribute_stays_unknown(
+    release_core: Path, tmp_path: Path
+) -> None:
+    source = "class A:\n    pass\n"
+    wants = [C, Want("attribute", "A.x")]
+    done = command(release_core, project(tmp_path / "p", pl(source, wants, "DIFF")), "--json")
+    result = json.loads(done.stdout)
+    # Absence is not provable for a partial Python inventory.
+    assert result["frame"]["rules"][ROW] == ["uml_target", "UNKNOWN"], result
+    assert (
+        "absent symbol: the symbol inventory is not complete" in result["frame"]["explained"][ROW]
+    )
 
 
 @pytest.mark.parametrize("name", sorted(PLANTS))

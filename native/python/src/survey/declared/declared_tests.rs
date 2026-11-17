@@ -198,7 +198,7 @@ fn a_write_through_a_base_that_may_be_a_class_opens_the_module() {
 }
 
 #[test]
-fn a_mangled_name_a_bare_annotation_and_an_alias_are_no_member() {
+fn a_bare_annotation_is_a_declaration_but_mangled_names_and_aliases_are_not() {
     let found = declared(
         "class A:\n    __x = 1\n    y: int\n    z = print\n    def __w(self):\n        pass\n",
         11,
@@ -207,7 +207,9 @@ fn a_mangled_name_a_bare_annotation_and_an_alias_are_no_member() {
         return;
     };
     assert_eq!(names(&found), ["app.probe.A"]);
-    assert!(data.attribute_declarations.is_empty());
+    // AD-748 treats the bare annotation as a structural declaration.
+    assert_eq!(data.attribute_declarations.len(), 1);
+    assert_eq!(data.attribute_declarations[0].name, "y");
     let alias = declared(
         "from enum import Enum\n\n\nclass E(Enum):\n    R = 1\n    S = 1.0\n",
         11,

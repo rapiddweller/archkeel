@@ -37,7 +37,7 @@
     "H-uml": {
       "language": "python",
       "runs": [
-      {"name": "H-uml", "section": "clean", "intent": "PASS", "blocked_by": [1534], "about": "A Python UML target that the code matches.", "root": "H-uml", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}},
+      {"name": "H-uml", "section": "clean", "intent": "PASS", "blocked_by": [], "about": "A Python UML target that the code matches.", "root": "H-uml", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 0, "status": "PASS", "counts": {"PASS": 1, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}},
       {"name": "H-uml-plant-signature", "section": "violation", "intent": "FAIL", "blocked_by": [], "about": "A changed return type against the UML target: Client.run returns int, the target says str.", "plant": {"where": "demo/core.py", "line": "def run(self, value: int) -> int:", "rule": "UML-TARGET", "edits": [{"path": "demo/core.py", "old": "    def run(self, value: int) -> str:\n        return helper", "new": "    def run(self, value: int) -> int:\n        return helper"}]}, "root": "H-uml", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 1, "status": "FAIL", "counts": {"PASS": 0, "FAIL": 1, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
