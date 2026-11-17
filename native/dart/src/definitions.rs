@@ -130,11 +130,15 @@ fn classifier_kind(node: Node<'_>) -> DefinitionKind {
     }
 }
 
-/// `_classifier_relations`: extends (one at most), with, implements and the type parameters.
+/// `_classifier_relations`: extends (one at most), with, implements and the type parameters. An
+/// extension writes its `on` type as its one `extends` entry (AD-796).
 fn relations(node: Node<'_>, source: &Source<'_>, definition: &mut Definition) {
     let superclass = named(node, "superclass");
     definition.extends = type_children(superclass, source);
     definition.extends.truncate(1);
+    if node.kind() == "extension_declaration" {
+        definition.extends = on_type(node, source).into_iter().collect();
+    }
     let mixins = named_in(superclass, "mixins").or_else(|| named(node, "mixins"));
     definition.with_types = type_children(mixins, source);
     definition.implements = type_children(named(node, "interfaces"), source);
@@ -144,12 +148,22 @@ fn relations(node: Node<'_>, source: &Source<'_>, definition: &mut Definition) {
         .collect();
 }
 
-/// `_type_children`: each type name, with the type arguments that follow it.
+/// The `on` type of an extension: the text from its first to its last `class` node.
+fn on_type(node: Node<'_>, source: &Source<'_>) -> Option<String> {
+    let mut cursor = node.walk();
+    let parts: Vec<Node<'_>> = node.children_by_field_name("class", &mut cursor).collect();
+    let (first, last) = (parts.first()?, parts.last()?);
+    Some(source.decode(first.start_byte(), last.end_byte()))
+}
+
+/// `_type_children`: each type name, with an import prefix and the type arguments that follow
+/// it. A prefixed name is two type nodes with a `.` token between them (AD-796).
 fn type_children(node: Option<Node<'_>>, source: &Source<'_>) -> Vec<String> {
     let Some(node) = node else {
         return Vec::new();
     };
-    let all = named_children(node);
+    let all = children(node);
+    let kind = |at: usize| all.get(at).map(|item| item.kind());
     let mut names = Vec::new();
     let mut index = 0usize;
     while let Some(child) = all.get(index) {
@@ -158,6 +172,17 @@ fn type_children(node: Option<Node<'_>>, source: &Source<'_>) -> Vec<String> {
             "type_identifier" | "type_name" | "generic_type"
         ) {
             let mut value = source.text(*child);
+            while kind(index.saturating_add(1)) == Some(".")
+                && kind(index.saturating_add(2)) == Some("type_identifier")
+            {
+                index = index.saturating_add(2);
+                value.push('.');
+                value.push_str(
+                    &all.get(index)
+                        .map(|item| source.text(*item))
+                        .unwrap_or_default(),
+                );
+            }
             if let Some(arguments) = all
                 .get(index.saturating_add(1))
                 .filter(|item| item.kind() == "type_arguments")

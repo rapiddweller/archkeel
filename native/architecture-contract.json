@@ -3425,9 +3425,27 @@
         }
       ],
       "public": [
+        "native.archkeel_dart_collector.collection.types:Answers",
+        "native.archkeel_dart_collector.collection.types:Construction",
+        "native.archkeel_dart_collector.collection.types:ConstructionAnswer",
+        "native.archkeel_dart_collector.collection.types:DirectiveAnswer",
+        "native.archkeel_dart_collector.collection.types:DirectiveTarget",
         "native.archkeel_dart_collector.collection.types:Input",
+        "native.archkeel_dart_collector.collection.types:NameAnswer",
+        "native.archkeel_dart_collector.collection.types:Output",
+        "native.archkeel_dart_collector.collection.types:Resolution",
+        "native.archkeel_dart_collector.collection.types:ResolvedSite",
+        "native.archkeel_dart_collector.collection.types:SitesAnswer",
+        "native.archkeel_dart_collector.collection.types:Source",
         "native.archkeel_dart_collector.collection:build",
+        "native.archkeel_dart_collector.declarations.types:Constructor",
+        "native.archkeel_dart_collector.declarations.types:Detail",
+        "native.archkeel_dart_collector.declarations.types:File",
         "native.archkeel_dart_collector.declarations.types:Input",
+        "native.archkeel_dart_collector.declarations.types:Problem",
+        "native.archkeel_dart_collector.declarations.types:ProblemKind",
+        "native.archkeel_dart_collector.declarations.types:ResolvedParameter",
+        "native.archkeel_dart_collector.declarations.types:Symbol",
         "native.archkeel_dart_collector.declarations:build",
         "native.archkeel_dart_collector.records:cite",
         "native.archkeel_dart_collector.records:discovery_gaps",
@@ -3457,10 +3475,17 @@
         "native.archkeel_dart_collector.import_survey.package",
         "native.archkeel_dart_collector.import_survey.parts",
         "native.archkeel_dart_collector.import_survey.reply",
-        "native.archkeel_dart_collector.import_survey.uri"
+        "native.archkeel_dart_collector.import_survey.uri",
+        "native.archkeel_dart_collector.resolve",
+        "native.archkeel_dart_collector.resolve.answers",
+        "native.archkeel_dart_collector.resolve.formals",
+        "native.archkeel_dart_collector.resolve.namespace",
+        "native.archkeel_dart_collector.resolve.params",
+        "native.archkeel_dart_collector.resolve.types",
+        "native.archkeel_dart_collector.symbol_survey"
       ],
       "responsibilities": [
-        "The import survey of one Dart package (AD-454): resolve each directive URI, find the owner of each part, write the import records with their targets and name each case that it does not prove as a gap, and assemble the typed reply with the sections imports and unknowns."
+        "The survey of one Dart package (AD-454, AD-796): resolve each directive URI, find the owner of each part, write the import records with their targets, resolve the names of each library and write its symbol records, name each case that it does not prove as a gap, and assemble the typed reply with the sections imports, unknowns and symbols."
       ],
       "forbidden_responsibilities": [
         "Selecting one branch of a conditional import, reading a package outside the snapshot root, and writing a reply on stdout."
@@ -3483,7 +3508,8 @@
             "native.archkeel_facts:GapFact",
             "native.archkeel_facts:ImportFact",
             "native.archkeel_facts:Record",
-            "native.archkeel_facts:Section"
+            "native.archkeel_facts:Section",
+            "native.archkeel_facts:SymbolFact"
           ]
         },
         {
@@ -3532,7 +3558,16 @@
           "component": "dart-records",
           "rationale": "Write the inputs, the evidence and the gap records as the discovery sections do.",
           "through": [
+            "native.archkeel_dart_collector.collection",
+            "native.archkeel_dart_collector.declarations",
             "native.archkeel_dart_collector.records"
+          ]
+        },
+        {
+          "component": "pytext",
+          "rationale": "The symbol survey cites the first line of each file as the collection does.",
+          "through": [
+            "native.archkeel_pytext:splitlines"
           ]
         }
       ],

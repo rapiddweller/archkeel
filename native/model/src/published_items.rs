@@ -38,6 +38,8 @@ fn kind_of(fact: &SymbolFact) -> Option<PublicItemKind> {
         SymbolFact::DynamicBinding(_) => PublicItemKind::DynamicBinding,
         SymbolFact::StaticConstant(_) => PublicItemKind::StaticConstant,
         SymbolFact::Macro(_) => PublicItemKind::Macro,
+        // A module-level variable is a binding of its module.
+        SymbolFact::Attribute(_) => PublicItemKind::Binding,
     })
 }
 
@@ -67,7 +69,8 @@ fn item(record: &Record<SymbolFact>) -> Option<PublicItem> {
         | SymbolFact::Alias(d)
         | SymbolFact::DynamicBinding(d)
         | SymbolFact::StaticConstant(d)
-        | SymbolFact::Macro(d) => (&d.module, &d.name, &d.parent, &d.visibility_detail),
+        | SymbolFact::Macro(d)
+        | SymbolFact::Attribute(d) => (&d.module, &d.name, &d.parent, &d.visibility_detail),
     };
     let named = visibility.basis != "macro_call";
     (parent.is_none() && visibility.kind == "public").then(|| PublicItem {

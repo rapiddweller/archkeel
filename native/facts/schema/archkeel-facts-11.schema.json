@@ -824,6 +824,20 @@
             "kind",
             "data"
           ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "attribute"
+            },
+            "data": {
+              "$ref": "#/$defs/ValueData"
+            }
+          },
+          "required": [
+            "kind",
+            "data"
+          ]
         }
       ]
     },
@@ -1348,6 +1362,11 @@
           "type": "string",
           "const": "realizes",
           "description": "The class realizes the base."
+        },
+        {
+          "type": "string",
+          "const": "mixes_in",
+          "description": "The class mixes the base in (Dart `with`, AD-796)."
         }
       ],
       "description": "How a class relates to a base declaration."
@@ -1408,6 +1427,11 @@
           "type": "string",
           "const": "pydantic_model",
           "description": "A pydantic model."
+        },
+        {
+          "type": "string",
+          "const": "mixin",
+          "description": "A Dart mixin (AD-796)."
         }
       ],
       "description": "The kind of a class."
@@ -1579,6 +1603,11 @@
     },
     "SymbolCategory": {
       "oneOf": [
+        {
+          "type": "string",
+          "const": "attribute",
+          "description": "A module-level variable that is not constant (Dart, AD-796)."
+        },
         {
           "type": "string",
           "const": "class",
@@ -5894,6 +5923,11 @@
           "type": "string",
           "const": "macro",
           "description": "A macro symbol."
+        },
+        {
+          "type": "string",
+          "const": "attribute",
+          "description": "A module-level variable that is not constant (Dart, AD-796)."
         },
         {
           "type": "string",
