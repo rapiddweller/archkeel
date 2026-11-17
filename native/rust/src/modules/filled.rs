@@ -23,7 +23,7 @@ pub(crate) fn may_fill(target: &Module) -> bool {
 /// The proof needs that each such call names a macro that the scan reads:
 /// - the call is by its plain name, and no `use` leaf and no glob of the file can bring in a
 ///   macro of that name: a leaf `use name;` of the one name re-exports the macro of the crate
-///   (AD-802), since no `extern crate` can bring in a macro and a crate is no macro;
+///   (AD-772), since no `extern crate` can bring in a macro and a crate is no macro;
 /// - no `extern crate` of the crate can bring in macros (`#[macro_use]`), and no macro of the
 ///   crate defines a macro, which no scan of a definition sees;
 /// - the name has one crate-wide `macro_rules!`, or none and is a silent macro of `std`;

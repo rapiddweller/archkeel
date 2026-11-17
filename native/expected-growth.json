@@ -11876,7 +11876,7 @@
         "native.archkeel_rust_collector.modules.walk",
         "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
       ],
-      "reason": "#1571 sound field-receiver gap: the walk of a path moved from modules.rs to modules/walk.rs (AD-802, #1517; file limits 500/400), and its len calls with it"
+      "reason": "#1571 sound field-receiver gap: the walk of a path moved from modules.rs to modules/walk.rs (AD-772, #1517; file limits 500/400), and its len calls with it"
     }
   ]
 }

@@ -27,3 +27,10 @@
 - Read a qualified member through the extern prelude: rustc does not, and only a path that does not compile could reach it.
 
 **Tests.** `tests/test_collector_false_pass_rust_root_reexports.py`: 14 forms FAIL, a route that a macro writes and an alias chain of 12 hops are UNKNOWN, a re-exported enum gives no module edge. `cargo check` accepts each plant.
+
+**Amendment (#1711, soundness audit 2).** An `extern crate base_crate as other;` item gave a false PASS: in a module (`crate::c::other::hidden::g()`), at the crate root (`crate::other::hidden::g()`), and through the extern prelude (`other::hidden::g()`, `use other::hidden;`). `cargo check` accepts each form. Now:
+- An `extern crate krate as name;` (or `extern crate krate;`) item binds `name` in its module as a `use` leaf of the path `::krate` does, and a `pub` item re-exports it. The member step of rule 3 follows it into a crate of the workspace.
+- An `extern crate` item at the top level of the crate root also adds `name` to the extern prelude of the crate. A path of another module that starts with `name`, and that no declaration of its file binds, goes on in that crate (`prelude_edge`).
+- The plain `pub extern crate base_crate;` in a module, which gave UNKNOWN, gives FAIL now. A file with `extern crate syn;` no longer gets the gap "A local name equals a crate name: syn": the item binds the name to that crate. On the frozen Serde workspace this removes 9 gaps, and the rows do not change.
+- Tests: five more forms in `tests/test_collector_false_pass_rust_root_reexports.py`.
+

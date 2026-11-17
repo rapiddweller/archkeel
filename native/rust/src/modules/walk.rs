@@ -4,7 +4,7 @@
 
 //! The walk of a path through the module index: from its first name (`path`, `bare`, `unbound`),
 //! down its modules (`walk`), through a member that a `use` leaf or a glob of a module gives
-//! (`member`, `through_glob`, AD-802), and into another crate of the workspace (`through_crate`).
+//! (`member`, `through_glob`, AD-772), and into another crate of the workspace (`through_crate`).
 //! These steps call each other, so they stay in one file. The entry points of the resolver in
 //! `modules.rs` call them; they call no entry point.
 
@@ -73,11 +73,17 @@ impl Index<'_> {
         };
         self.walk(&cur, level, &names[at..], hops)
     }
-    /// What `names` names when its first name is in the extern prelude (`extern crate self as me;`).
+    /// What `names` names when its first name is in the extern prelude: `extern crate self as me;`,
+    /// or `extern crate base as me;` of the crate root (#1711).
     fn prelude_edge(&self, frame: &Frame<'_>, names: &[String], hops: usize) -> Option<Outcome> {
         let first = names.first()?;
-        let alias = self.aliases.in_prelude(frame.root, first);
-        alias.then(|| self.walk(frame.root, 0, &names[1..], hops))
+        if self.aliases.in_prelude(frame.root, first) {
+            return Some(self.walk(frame.root, 0, &names[1..], hops));
+        }
+        // #1711: `extern crate base as other;` in the root: `other::m` is a path into `base`.
+        let krate = [self.aliases.crate_of(frame.root, first)?.to_owned()];
+        let none = BTreeSet::new();
+        self.through_crate(frame, (&krate, true, &none), &names[1..], (0, hops))
     }
     /// `follow` after `hops` steps through `use` leaves. A segment that is no child module and
     /// has more segments after it is read as a member of its module (`member`, #1517).
@@ -250,7 +256,7 @@ impl Index<'_> {
         alias()
     }
     /// What `names` names when its first name is a member of the lexical module `at` and more
-    /// names follow it (AD-802). `None` when it is an item of `at`: the path names `at`. Each step
+    /// names follow it (AD-772). `None` when it is an item of `at`: the path names `at`. Each step
     /// uses up a name, and each `use` leaf that `bare` follows counts a hop.
     fn member(&self, at: &str, level: i64, names: &[String], hops: usize) -> Option<Outcome> {
         let frame = self.file_of(at).and_then(|file| self.frames.get(file))?;
