@@ -17,6 +17,7 @@ from textwrap import dedent
 
 import pytest
 from areas import AREAS, SLOW_FILES, area_of
+from timeout_support import run_bounded
 
 ROOT = Path(__file__).parents[1]
 GATE_STEPS = ["check", "sdist", "smoke"]
@@ -58,7 +59,7 @@ def _run_gate(
     if separate_override:
         args.extend(["-f", str(ROOT / "Makefile")])
     args.extend(["-f", str(overrides), target, f"BASE={base}"])
-    result = subprocess.run(
+    result = run_bounded(
         args,
         cwd=ROOT,
         env={**os.environ, "MAKEFLAGS": "", "OUTPUT": "", "UV": "false", "NPM": "false"},
@@ -128,6 +129,7 @@ def test_workflow_files_require_an_explicit_governance_change() -> None:
     assert {path.name for path in (ROOT / ".github/workflows").iterdir() if path.is_file()} == {
         "ci.yml",
         "full-verification.yml",
+        "pages.yml",
         "pr-gate.yml",
         "release.yml",
     }
@@ -251,7 +253,7 @@ def test_mermaid_renders_every_block_and_propagates_renderer_failure(
         f'#!/bin/sh\nprintf "%s\\n" "$*" >> "{invocations}"\nexit {renderer_exit}\n'
     )
     renderer.chmod(0o755)
-    result = subprocess.run(
+    result = run_bounded(
         ["make", "mermaid"],
         cwd=ROOT,
         env={**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}"},
@@ -279,7 +281,7 @@ def test_ci_cleanup_preserves_test_evidence(tmp_path: Path) -> None:
     evidence = tmp_path / "test-artifacts/pytest/results.xml"
     evidence.parent.mkdir()
     evidence.write_text("keep")
-    run = subprocess.run(
+    run = run_bounded(
         ["make", "-f", str(ROOT / "Makefile"), "ci-artifacts-clean"],
         cwd=tmp_path,
         capture_output=True,
@@ -294,7 +296,7 @@ def test_ci_cleanup_preserves_test_evidence(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("target", ["test", "ci-core-check", "ci-check", "ci"])
 def test_only_full_ci_stops_pytest_after_first_failure(target):
-    result = subprocess.run(
+    result = run_bounded(
         ["make", "-n", target],
         cwd=ROOT,
         env={**os.environ, "MAKEFLAGS": "", "PYTEST_STOP": ""},

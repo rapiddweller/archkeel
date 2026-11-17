@@ -7,6 +7,7 @@ Both use the draft of `init_draft` (AD-626, AD-638). The draft decides nothing: 
 is UNKNOWN with the open decisions. A file that exists is never replaced. Where writing is wrong
 (a folder that cannot be written, `--no-init`, `ARCHKEEL_NO_INIT=1`), nothing is written and the
 run stops with the draft in words, because the core reads files and cannot take a draft from memory.
+The draft step gives one `InitOutcome` (AD-735): its state, what it wrote and the stop text.
 """
 
 from __future__ import annotations
@@ -14,11 +15,13 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import Final
 
 from .core_arguments import Options
 from .core_frame import CoreCommand as Command
+from .core_frame import RefusalKind
 from .init_draft import (
     CONFIG,
     CONTRACT,
@@ -31,6 +34,9 @@ from .init_draft import (
 )
 
 _OPT_OUT: Final = "ARCHKEEL_NO_INIT"
+# A value of the variable that keeps the draft on. Each other value opts out: writing is the step
+# that must not happen by mistake.
+_KEEP_ON: Final = frozenset({"", "0", "false", "no", "off"})
 
 
 @dataclass(frozen=True)
@@ -73,6 +79,7 @@ class Created:
     def as_json(self) -> dict[str, object]:
         """The same block for JSON output."""
         return {
+            "state": _InitState.CREATED,
             "written": list(self.files),
             "components": list(self.result.components),
             "language": self.result.language,
@@ -81,6 +88,46 @@ class Created:
             "note": self.result.note,
             "message": " ".join(self.lines()),
         }
+
+
+class _InitState(StrEnum):
+    """What the draft step of `validate` and `report` came to."""
+
+    # A configuration other than the default, a file that exists, or no Git work tree.
+    NOT_FIRST_RUN = "not_first_run"
+    # No `archkeel.toml`, and a system document of the repository is the configuration.
+    SYSTEM_FOUND = "system_found"
+    CREATED = "created"
+    OPTED_OUT = "opted_out"
+    CANNOT_WRITE = "cannot_write"
+    NOTHING_TO_DRAFT = "nothing_to_draft"
+
+
+@dataclass(frozen=True)
+class InitOutcome:
+    """The state of the draft step, what it wrote (`created`) and the stop text (`message`)."""
+
+    state: _InitState
+    created: Created | None = None
+    message: str = ""
+
+    def refusal(self) -> tuple[RefusalKind, str] | None:
+        """The refusal kind and the fix of a stop, or `None` when the run goes on."""
+        match self.state:
+            case _InitState.NOT_FIRST_RUN | _InitState.SYSTEM_FOUND | _InitState.CREATED:
+                return None
+            case _InitState.OPTED_OUT:
+                return RefusalKind.INVALID_INPUT, (
+                    "run `archkeel init` to write the draft, or run again without --no-init and "
+                    f"{_OPT_OUT}."
+                )
+            case _InitState.CANNOT_WRITE:
+                return RefusalKind.IO_ERROR, "allow writing in the project folder, then run again."
+            case _InitState.NOTHING_TO_DRAFT:
+                return RefusalKind.INVALID_INPUT, (
+                    f"write {CONFIG} and a contract by hand (the guide shows how), or name a "
+                    "configuration with --config PATH."
+                )
 
 
 def _layout(result: Draft) -> str:
@@ -110,7 +157,7 @@ def _opted_out(options: Options) -> str | None:
     """The words for the way the user opted out of writing, or `None`."""
     if options.no_init:
         return "--no-init"
-    if os.environ.get(_OPT_OUT, "") not in {"", "0"}:
+    if os.environ.get(_OPT_OUT, "").strip().lower() not in _KEEP_ON:
         return f"{_OPT_OUT}={os.environ[_OPT_OUT]}"
     return None
 
@@ -135,32 +182,34 @@ def _with(options: Options, config: str) -> Options:
     return found
 
 
-def _prepare(options: Options, root: Path) -> tuple[Options, Created | str | None]:
+def _prepare(options: Options, root: Path) -> tuple[Options, InitOutcome]:
     """Make the files for a project without a configuration, and find the configuration.
 
     Without `archkeel.toml` a system document of the repository is the configuration. Gives the
-    options (with that configuration), and `Created` after a write, the stop text when nothing
-    may or can be written, or `None` when this is not a first run (a configuration other than
-    the default, or no Git work tree), so that the core gives its own refusal.
+    options (with that configuration) and the outcome. When this is not a first run (a
+    configuration other than the default, or no Git work tree), the core gives its own refusal.
     """
     # An explicit `--root` is the project; without it the project is the work tree above.
     base = root if options.root is not None and (root / ".git").exists() else None
     base = base or (_project_root(root) if options.root is None else None)
     if options.config != CONFIG or base is None or (base / options.config).exists():
-        return options, None
+        return options, InitOutcome(_InitState.NOT_FIRST_RUN)
     if (base / SYSTEM).is_file():
-        return _with(options, SYSTEM), None
+        return _with(options, SYSTEM), InitOutcome(_InitState.SYSTEM_FOUND)
     try:
         result = draft(base)
     except NothingToDraft as error:
-        return options, str(error)
+        return options, InitOutcome(_InitState.NOTHING_TO_DRAFT, message=str(error))
     if (reason := _opted_out(options)) is not None:
-        return options, _declined(result, f"switched off by {reason}", base)
+        stop = _declined(result, f"switched off by {reason}", base)
+        return options, InitOutcome(_InitState.OPTED_OUT, message=stop)
     try:
         written = tuple(write_missing(base, result))
     except OSError as error:
-        return options, _declined(result, f"cannot write: {error}", base)
-    return _with(options, result.entry), Created(written, result)
+        stop = _declined(result, f"cannot write: {error}", base)
+        return options, InitOutcome(_InitState.CANNOT_WRITE, message=stop)
+    created = Created(written, result)
+    return _with(options, result.entry), InitOutcome(_InitState.CREATED, created)
 
 
 def _run_init(as_json: bool, root: Path) -> int:

@@ -66,7 +66,7 @@ pub(super) fn sites(
     reads: &HashSet<TextRange>,
 ) -> Vec<Site> {
     let bound = bindings(tree);
-    let inert_modules = inert::modules(&bound, &binders.unique());
+    let inert_modules = inert::modules(&bound, &binders.unique(), tree);
     let mut walk = Walk {
         found: Vec::new(),
         bound,

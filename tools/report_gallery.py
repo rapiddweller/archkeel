@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: MIT
 """Build the static fixture gallery: one report pair for each run of the matrix (AD-462).
 
-The runs come from `fixtures/matrix.json`.
+The runs come from `fixtures/matrix.json`. A run with `"showcase": false` has no scenario to show
+(an empty contract, a collector golden); the tests keep it and the gallery skips it.
 The tool decides nothing. It runs `archkeel report --output` for each run, reads the envelope that
 the CLI prints, and shows the verdict, the counts and the refusal of the core as they are.
 A run that gives no envelope gets a row without links and makes the exit code 1.
@@ -84,6 +85,11 @@ def load_runs(matrix: Path = MATRIX) -> list[dict[str, Any]]:
         for name, entry in sorted(table.items())
         for run in entry["runs"]
     ]
+
+
+def showcase_runs(matrix: Path = MATRIX) -> list[dict[str, Any]]:
+    """The runs that the gallery shows. A run with `"showcase": false` is a test fixture only."""
+    return [run for run in load_runs(matrix) if run.get("showcase", True)]
 
 
 def summarize(envelope: Mapping[str, Any]) -> dict[str, Any]:
@@ -224,13 +230,18 @@ def build_other(cli: Sequence[str], entry: Mapping[str, str]) -> Contract:
     return contract_of(envelope, entry["title"], problem)
 
 
-def nav(page: str, links: Sequence[tuple[str, str]]) -> str:
-    """The page with one bar of links to its neighbour pages, first in its `<main>`."""
-    items = " \u00b7 ".join(
-        f'<a href="{html.escape(href, quote=True)}">{html.escape(label)}</a>'
-        for label, href in links
-    )
-    bar = f'<nav class="caption rp-note" aria-label="Report pages">{items}</nav>'
+def nav(page: str, links: Sequence[tuple[str, str]], current: str = "") -> str:
+    """The page with one visible navigation of its neighbour pages, first in its `<main>`.
+
+    The link of the page that is open is marked with `aria-current="page"`; it is `current`.
+    """
+
+    def link(label: str, href: str) -> str:
+        mark = ' aria-current="page"' if label == current else ""
+        return f'<a href="{html.escape(href, quote=True)}"{mark}>{html.escape(label)}</a>'
+
+    items = "".join(link(label, href) for label, href in links)
+    bar = f'<nav class="rp-pages" aria-label="Report pages">{items}</nav>'
     # The bar sits first inside `<main>`, where the links have the style of the report.
     if not re.search(r"<main[^>]*>", page):
         return bar + page
@@ -256,15 +267,25 @@ def build_system(cli: Sequence[str], system: System, document: Path, out: Path) 
         return row
     parts = [(part.title, f"{part.id}.html") for part in system.parts]
     text = page.read_text()
+    shown = "System"
+    siblings = [(shown, "index.html"), *parts]
     (folder / "index.html").write_text(
-        nav(text, [("Fixture reports", "../showcase/index.html"), *parts])
+        nav(text, [("Fixture reports", "../showcase/index.html"), *siblings], shown)
     )
-    entry = [(label, f"self/{href}") for label, href in parts]
-    (out / "index.html").write_text(nav(text, [("Fixture reports", "showcase/index.html"), *entry]))
+    entry = [(label, f"self/{href}") for label, href in siblings]
+    (out / "index.html").write_text(
+        nav(text, [("Fixture reports", "showcase/index.html"), *entry], shown)
+    )
     for part in system.parts:
         each = folder / f"{part.id}.html"
         if each.is_file():
-            each.write_text(nav(each.read_text(), [("Back to the system report", "index.html")]))
+            each.write_text(
+                nav(
+                    each.read_text(),
+                    [("Fixture reports", "../showcase/index.html"), *siblings],
+                    part.title,
+                )
+            )
     return row
 
 
@@ -380,7 +401,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     sha = args.sha or _head_sha()
     system = load(args.system)
     self_rows = [build_self(cli, entry, args.out) for entry in self_runs(system)]
-    rows = [build_run(cli, run, args.out) for run in load_runs(args.matrix)]
+    rows = [build_run(cli, run, args.out) for run in showcase_runs(args.matrix)]
     built_at = args.built_at or datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     others = [build_other(cli, entry) for entry in OTHER_RUNS]
     parts: list[Part] = [row["part"] for row in self_rows]

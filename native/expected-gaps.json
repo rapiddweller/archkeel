@@ -79,7 +79,7 @@
     "NATIVE-NO-TYPESCRIPT-TO-MODEL": "PASS",
     "NATIVE-NO-TYPESCRIPT-TO-REPORT": "PASS",
     "NATIVE-NO-TYPESCRIPT-TO-STORE": "PASS",
-    "NATIVE-PUBLIC-HAS-A-USER": "UNKNOWN",
+    "NATIVE-PUBLIC-HAS-A-USER": "PASS",
     "NATIVE-PY-MODULE-NO-SURVEY": "PASS",
     "NATIVE-PY-MODULE-NO-SYMBOLS": "PASS",
     "NATIVE-PY-MODULE-NO-UNPARSE": "PASS",
@@ -94,9 +94,7 @@
     "NATIVE-PY-UNPARSE-NO-SYMBOLS": "PASS",
     "NATIVE-REQUIRES-COMPLETE": "PASS"
   },
-  "unknown": {
-    "NATIVE-PUBLIC-HAS-A-USER": "scope_incomplete"
-  },
+  "unknown": {},
   "gaps": [],
   "violations": []
 }

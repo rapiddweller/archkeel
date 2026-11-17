@@ -41,7 +41,8 @@ def test_every_slow_file_is_in_an_area() -> None:
 
 def test_each_area_meets_its_floor_of_fast_tests() -> None:
     """The floor check of conftest runs in this collection; an unknown area is a usage error."""
-    options = ["--collect-only", "-q", "-m", "not native_wheel and not slow", "-p", "no:xdist"]
+    options = ["--collect-only", "-q", "--tier", "fast", "-m", "not native_wheel and not slow"]
+    options += ["-p", "no:xdist"]
     areas = [item for area in AREAS for item in ("--area", area)]
     done = subprocess.run(
         [sys.executable, "-m", "pytest", *options, *areas],
@@ -64,7 +65,19 @@ def test_each_area_meets_its_floor_of_fast_tests() -> None:
 @pytest.mark.parametrize("area", sorted(AREAS))
 def test_the_floor_of_an_area_fails_a_selection_that_falls_short(area: str) -> None:
     done = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only", "-q", "--area", area, "-m", "not slow"],
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "--collect-only",
+            "-q",
+            "--area",
+            area,
+            "--tier",
+            "fast",
+            "-m",
+            "not slow",
+        ],
         cwd=ROOT,
         env={"ARCHKEEL_FLOOR_PLUS": "1000000", "PATH": "/usr/bin:/bin"},
         capture_output=True,
@@ -77,19 +90,19 @@ def test_the_floor_of_an_area_fails_a_selection_that_falls_short(area: str) -> N
 def test_a_test_session_under_make_never_builds_the_shared_core(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """#1205: with `ARCHKEEL_PREBUILT_CORE` a missing core fails the test; it is never rebuilt."""
+    """#1205: with `ARCHKEEL_REQUIRE_PREBUILT` a missing core fails; it is never rebuilt."""
     from core_support import prebuilt_core
 
     binary = tmp_path / "archkeel-core"
-    monkeypatch.delenv("ARCHKEEL_PREBUILT_CORE", raising=False)
+    monkeypatch.delenv("ARCHKEEL_REQUIRE_PREBUILT", raising=False)
     assert prebuilt_core(binary) is None
-    monkeypatch.setenv("ARCHKEEL_PREBUILT_CORE", "1")
+    monkeypatch.setenv("ARCHKEEL_REQUIRE_PREBUILT", "1")
     with pytest.raises(pytest.fail.Exception, match="make core"):
         prebuilt_core(binary)
     binary.write_text("x")
     assert prebuilt_core(binary) == binary
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-    assert "ARCHKEEL_PREBUILT_CORE=1 $(UV) run" in makefile
+    assert "ARCHKEEL_REQUIRE_PREBUILT=1 $(UV) run" in makefile
     assert "fast-test: core" in makefile and "pr-selected-test: core" in makefile
 
 
@@ -130,3 +143,42 @@ def test_select_areas_reads_the_diff_without_rename_detection(tmp_path: Path) ->
         assert sorted(changed("main")) == ["tests/core_help.py", "tests/core_support.py"]
     finally:
         os.chdir(previous)
+
+
+def _collect(
+    tier: list[str], area: str, plus: str = "0", markers: str = "not slow"
+) -> tuple[int, str]:
+    done = subprocess.run(
+        [sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:xdist", "--area", area]
+        + tier
+        + ["-m", markers],
+        cwd=ROOT,
+        env={"ARCHKEEL_FLOOR_PLUS": plus, "PATH": "/usr/bin:/bin"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return done.returncode, done.stdout + done.stderr
+
+
+def test_the_tier_option_decides_which_floor_applies_not_a_substring_of_the_marker_expression() -> (
+    None
+):
+    """AD-736: --tier pr|fast|full. Without a tier, or with full, no floor is checked."""
+    pr = "not slow and not debug_build and not heavy"
+    assert _collect(["--tier", "pr"], "reports", markers=pr)[0] == 0
+    code, text = _collect(["--tier", "pr"], "reports", plus="1000000", markers=pr)
+    assert code != 0 and "pr tests" in text
+    code, text = _collect(["--tier", "fast"], "reports", plus="1000000")
+    assert code != 0 and "fast tests" in text
+    # The marker expression says "not slow" in each case below; the tier alone decides.
+    assert _collect([], "reports", plus="1000000")[0] == 0
+    assert _collect(["--tier", "full"], "reports", plus="1000000")[0] == 0
+    assert _collect(["--tier", "other"], "reports")[0] != 0
+
+
+def test_the_make_targets_pass_their_tier() -> None:
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    full = (ROOT / "tools/full.mk").read_text(encoding="utf-8")
+    assert "$(FAST_TEST) --tier fast" in makefile and "--tier pr -m" in makefile
+    assert "--tier full" in full
