@@ -1,0 +1,100 @@
+name: PR gate
+
+# AD-674: the PR tier. One job (the free plan runs 20 jobs at once), at most 3 minutes of wall time:
+# static checks, the cached core build, the self and system check, and the fast tests of the areas
+# that the change selects. The check `PR gate` is required by the branch protection of main.
+on:
+  pull_request:
+    branches: [main, "ci/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-gate:
+    name: PR gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The hash is taken right after the checkout, before any build writes into native/.
+      - name: Hash the native tree
+        id: native
+        run: echo "hash=${{ hashFiles('native/**', '!native/target/**', '!**/__pycache__/**') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Install Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.11.12"
+          version: "0.12.13"
+
+      - name: Install supported runtimes
+        run: uv python install 3.11.12 3.12.10
+
+      - name: Install locked dependencies
+        run: uv sync --locked
+
+      - name: Install the pinned Rust toolchain
+        working-directory: native
+        run: rustup toolchain install
+
+      # AD-674: when native/ is the same as on a main run that saved its core, the PR downloads
+      # that core and builds nothing. When native/ changed, it restores the target directory of
+      # main and builds the core incrementally (this case takes longer).
+      - name: Restore the core of main for this native tree
+        id: core
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: native/target/release/archkeel-core
+          key: core-${{ runner.os }}-${{ steps.native.outputs.hash }}
+
+      - name: Restore the Rust build cache of main
+        if: steps.core.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/target
+          key: rust-pr-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
+          restore-keys: |
+            rust-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
+            rust-pr-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
+
+      - name: Run the PR gate
+        env:
+          PR_BASE: origin/${{ github.base_ref }}
+          ARCHKEEL_PREBUILT_CORE: ${{ steps.core.outputs.cache-hit == 'true' && '1' || '' }}
+        run: make pr-gate PR_BASE="$PR_BASE"
+
+      - name: Save the Rust build cache
+        if: always() && steps.core.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/target
+          key: rust-pr-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
+
+      - name: Save the core for this native tree
+        if: always() && steps.core.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: native/target/release/archkeel-core
+          key: core-${{ runner.os }}-${{ steps.native.outputs.hash }}

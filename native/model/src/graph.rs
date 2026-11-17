@@ -12,7 +12,6 @@
 
 use std::collections::HashMap;
 
-use archkeel_facts::envelope::validation::library_key;
 use archkeel_facts::envelope::{Facts, Target};
 use archkeel_facts::FactData;
 use archkeel_facts::Section;
@@ -316,11 +315,7 @@ fn symbol_counts(facts: &Facts, modules: &Table<ModuleId, Module>) -> Option<Vec
 /// the profile of the reply, and each module lies in the namespace.
 fn admitted<'a>(reply: &'a Ingested, settings: &Settings) -> Result<&'a Facts, Reason> {
     let facts = &reply.reply().facts;
-    let pinned = archkeel_store::standard_library(&library_key(
-        facts.validation.as_ref(),
-        facts.profile,
-        &facts.runtime.version,
-    ));
+    let pinned = archkeel_store::standard_library(&facts.validation.standard_library);
     settings
         .check(facts.profile.as_str(), &pinned)
         .map_err(Reason::Refused)?;

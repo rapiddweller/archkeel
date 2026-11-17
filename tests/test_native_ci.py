@@ -41,7 +41,7 @@ def test_the_pr_gate_runs_only_the_linux_rust_checks() -> None:
     native = jobs["native"]
     assert "runs-on: ubuntu-24.04\n" in native
     assert native.index("run: make cargo-deny-install") < native.index("run: make native-check")
-    rust = [job for job, body in jobs.items() if re.search(r"make native-|cargo|macos", body)]
+    rust = [job for job, body in jobs.items() if re.search(r"make native-|cargo [a-z]|macos", body)]
     assert rust == ["native"]
     assert "run: make native-check\n" in native
 
@@ -53,7 +53,8 @@ _TOOLCHAIN_STEP = "run: rustup toolchain install\n"
     ("workflow", "job", "first_make"),
     [
         ("ci.yml", "lint", "run: make ci-pr-static"),
-        ("ci.yml", "tests", "run: make pr-test"),
+        ("ci.yml", "tests", "run: make fast-test"),
+        ("pr-gate.yml", "pr-gate", "run: make pr-gate"),
         ("ci.yml", "native", "run: make cargo-deny-install"),
         ("full-verification.yml", "full-suite-and-reports", "run: make ci-core-check"),
         ("full-verification.yml", "tests", "run: make full-test"),
@@ -72,7 +73,11 @@ def test_the_pinned_toolchain_installs_once_before_any_parallel_step(
 
 # A parent make (`make pr-test`) passes MAKELEVEL on, and GNU make 4 then prints "Leaving directory"
 # after the commands of the child. The child must not know that it runs inside a make.
-_MAKE_ENV = {k: v for k, v in os.environ.items() if k not in {"MAKEFLAGS", "MFLAGS", "MAKELEVEL"}}
+_MAKE_ENV = {
+    k: v
+    for k, v in os.environ.items()
+    if k not in {"MAKEFLAGS", "MFLAGS", "MAKELEVEL", "ARCHKEEL_PREBUILT_CORE"}
+}
 
 
 def _dry_run(*arguments: str) -> str:
@@ -351,7 +356,9 @@ def test_a_test_that_needs_a_rust_toolchain_runs_only_in_the_wheel_matrix() -> N
 def test_native_check_runs_the_clone_and_api_tools_only_through_their_tests() -> None:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     check = makefile.split("\nnative-check:\n")[1].split("\n# AD-432")[0]
-    assert "tests/test_rust_clones.py tests/test_rust_api.py" in check
+    assert "tests/test_rust_clones.py" not in check, (
+        "the Python tests run in the area jobs (AD-674)"
+    )
     assert "tools/rust_clones.py\n" not in check and "tools/rust_api.py --check" not in check
     assert "cargo build --locked\n" not in check
 

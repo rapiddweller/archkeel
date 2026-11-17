@@ -47,6 +47,9 @@ fn model(
     reply["facts"]["source"]["git_head"] = json!("a");
     reply["facts"]["source"]["dirty"] = json!(false);
     reply["facts"]["provider_bindings"] = json!([]);
+    reply["facts"]["validation"] = serde_json::from_str(include_str!(
+        "../../../tests/golden/typescript/validation.json"
+    ))?;
     reply["facts"]["capabilities"]["constructs"] =
         json!([{"name": "assert", "status": "supported"}]);
     change(&mut reply);
