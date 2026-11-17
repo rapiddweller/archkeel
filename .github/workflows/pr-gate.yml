@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+# AD-754: the gate builds its core with the fast profile of the Makefile (no LTO, 16 codegen units).
+env:
+  ARCHKEEL_CORE_PROFILE: gate
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -63,7 +67,7 @@ jobs:
           path: |
             native/target/release/archkeel-core
             native/target/release/archkeel-core.tree
-          key: core-${{ runner.os }}-${{ steps.native.outputs.hash }}
+          key: core-gate-${{ runner.os }}-${{ steps.native.outputs.hash }}
 
       - name: Restore the Rust build cache of main
         if: steps.core.outputs.cache-hit != 'true'
@@ -73,10 +77,10 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             native/target
-          key: rust-pr-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
+          key: rust-gate-pr-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
           restore-keys: |
-            rust-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
-            rust-pr-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
+            rust-gate-main-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
+            rust-gate-pr-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-
 
       # AD-732: the core is built in its own step. `make core` reuses a restored binary only when its
       # stamp names this native tree, and a core is saved only after this step succeeded.
@@ -85,7 +89,17 @@ jobs:
         env:
           ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
           ARCHKEEL_CORE_SOURCE: ${{ steps.core.outputs.cache-hit == 'true' && 'cache' || 'build' }}
-        run: make core
+        run: |
+          # AD-754: the static checks run beside the core build; their result is checked next.
+          make ci-pr-static > static.log 2>&1 &
+          static=$!
+          make core
+          if wait "$static"; then echo "static=0"; else echo "static=1"; fi >> "$GITHUB_OUTPUT"
+          cat static.log
+
+      - name: Require the static checks
+        if: steps.build.outcome == 'success'
+        run: test "${{ steps.build.outputs.static }}" = 0
 
       # AD-756: the Rust format and the clippy of the touched crates, when the change touches native/.
       - name: Check the Rust format and lint of the touched crates
@@ -99,7 +113,7 @@ jobs:
           PR_BASE: origin/${{ github.base_ref }}
           ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
           ARCHKEEL_CORE_SOURCE: ${{ steps.core.outputs.cache-hit == 'true' && 'cache' || 'build' }}
-        run: make pr-gate PR_BASE="$PR_BASE"
+        run: make pr-gate PR_BASE="$PR_BASE" SKIP_STATIC=1
 
       - name: Save the Rust build cache
         if: always() && steps.core.outputs.cache-hit != 'true'
@@ -109,7 +123,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             native/target
-          key: rust-pr-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
+          key: rust-gate-pr-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}-${{ github.sha }}
 
       - name: Save the core for this native tree
         if: always() && steps.build.outcome == 'success' && steps.core.outputs.cache-hit != 'true'
@@ -118,4 +132,4 @@ jobs:
           path: |
             native/target/release/archkeel-core
             native/target/release/archkeel-core.tree
-          key: core-${{ runner.os }}-${{ steps.native.outputs.hash }}
+          key: core-gate-${{ runner.os }}-${{ steps.native.outputs.hash }}
