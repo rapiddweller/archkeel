@@ -26,11 +26,10 @@ use crate::file_mode::FileMode;
 use crate::import_bindings::{of_statement, ImportBinding};
 use crate::kinds::{F, K};
 use crate::layout::Layout;
-use crate::member_additions::Additions;
 use crate::scope::{is_function, scope_kind, Frames, ROOT};
 use crate::script_types::Script;
 use crate::sites::{Sites, Visit};
-use crate::source_input::{SourceKind, Suffix};
+use crate::source_input::Suffix;
 use crate::tree::cx::Cx;
 use crate::tree::nodes::named_children;
 
@@ -56,8 +55,6 @@ pub(crate) struct Syntax {
     pub script: Script,
     /// The calls, `new` expressions, references and string comparisons (`sites.rs`).
     pub sites: Sites,
-    /// The names of the classes whose members a form of the file can change (AD-747).
-    pub patched: BTreeSet<String>,
 }
 
 impl Syntax {
@@ -99,7 +96,6 @@ impl Syntax {
             script: Script::default(),
             sites: Sites::default(),
             type_exports: TypeExports::default(),
-            patched: BTreeSet::new(),
         }
     }
 }
@@ -119,8 +115,6 @@ pub(crate) struct Walk<'a, 't> {
     /// The names of an `enum` or a namespace with a value, with their frame. They bind only in a
     /// module, which `finish` knows (AD-534).
     pending: Vec<(u32, Node<'t>)>,
-    /// The forms that can add a member to a classifier (AD-747).
-    additions: Additions,
 }
 
 impl<'a, 't> Walk<'a, 't> {
@@ -129,7 +123,6 @@ impl<'a, 't> Walk<'a, 't> {
         Self {
             cx,
             pending: Vec::new(),
-            additions: Additions::default(),
             layout,
             stack: Vec::new(),
             frames: Frames::new(),
@@ -185,7 +178,6 @@ impl<'a, 't> Walk<'a, 't> {
             _ => {}
         }
         self.write_targets(node, kind, frame);
-        self.additions.visit(&cx, node, kind, &self.stack);
         let mut scope = parent_scope;
         if let Some(opened) = self.defs.definition(&cx, node, kind, &self.stack, seen) {
             scope = Some(opened);
@@ -457,14 +449,7 @@ impl<'a, 't> Walk<'a, 't> {
         let (ambient_globals, ambient_top_level) = ambient(&cx, &top, exports.module_syntax);
         self.sites
             .finish(&self.frames, cx.source.data, mode.is_script());
-        let (mut definitions, scopes) = self.defs.finish(&imported, &exports);
-        let typed = suffix.is_some_and(|s| {
-            matches!(
-                s.source_kind(),
-                Some(SourceKind::TypeScript | SourceKind::Declaration)
-            )
-        });
-        self.additions.close(&mut definitions, module_file && typed);
+        let (definitions, scopes) = self.defs.finish(&imported, &exports);
         Syntax {
             module_exports: export_bindings(&cx, (root, &top), &self.frames),
             type_exports: type_exports(&cx, root, &top, &self.frames),
@@ -479,7 +464,6 @@ impl<'a, 't> Walk<'a, 't> {
             script_bindings: self.frames.sorted_names(ROOT),
             script: Script::default(),
             sites: self.sites,
-            patched: self.additions.patched,
         }
     }
 }

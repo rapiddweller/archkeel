@@ -156,3 +156,10 @@ def test_one_environment_builds_the_shared_release_core() -> None:
         text = path.read_text()
         runs_cargo = bool(re.search(r'"build",\s*"--locked"', text)) and "--release" in text
         assert not runs_cargo or path.name in builders | {Path(__file__).name}, path.name
+
+
+def test_the_frozen_copy_holds_the_files_that_native_includes_from_outside() -> None:
+    """The copy of native/ must compile: `include_str!` of a file under schema/ needs that file."""
+    from frozen_native import live_files
+
+    assert "schema/archkeel-source-suffixes.txt" in live_files()

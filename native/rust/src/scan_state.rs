@@ -272,7 +272,6 @@ impl Walker<'_> {
             path,
             arity,
             on_self,
-            owner: None,
         });
     }
 
