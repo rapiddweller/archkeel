@@ -50,6 +50,9 @@ These tested forms no longer give a false PASS:
 - A Rust `macro_rules!` call that adds an unanchored `Display` impl gives UNKNOWN with a pair
   gap. The fixture is `PLANTS["an impl that a macro of b generates"]` in
   `tests/test_collector_false_pass_rust_orphan_impl.py` (AD-662).
+- A git URL of the same repository, an outside Cargo patch, a command-line patch and a repository
+  patch each give UNKNOWN with a crate-pair gap (AD-704, #946).
+  `tests/test_collector_false_pass_rust_redirect.py` holds the four compiling fixtures.
 - Direct aliases of `Object`, `Reflect`, `location` and `open`, and direct timer aliases, give
   UNKNOWN with a source-resolution gap. This does not prove arbitrary value flow safe.
   `tests/test_cli_native_global_forms.py` checks the direct reflection and navigation aliases.
