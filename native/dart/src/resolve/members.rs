@@ -9,14 +9,14 @@
 
 use std::collections::BTreeSet;
 
-use super::{member_binding, types, Bound, Decl, Resolver};
+use super::{binding_kind, types, Bound, Decl, Resolver};
 use crate::collection::types::BindingKind;
 use crate::syntax::{Definition, DefinitionKind, Member, MemberKind, Site, SiteUse};
 
 impl Resolver<'_> {
     /// The binding of one member of the class `decl`, named as 4.0.1 names it.
     pub(crate) fn member_bound(&self, decl: &Decl<'_>, owner: &str, member: &Member) -> Bound {
-        let kind = member_binding(member.kind);
+        let kind = binding_kind(&member.kind);
         Bound {
             module: decl.module.to_owned(),
             name: format!("{owner}.{}", member.name),

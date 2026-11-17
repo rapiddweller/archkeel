@@ -84,17 +84,13 @@ impl Resolver<'_> {
     /// `Iterable` of `dart:core` (`_callback_parameter_annotation`).
     fn callback_parameter(&self, at: usize, parsed: &Syntax, binding: &Site) -> Option<String> {
         let scope = binding.scope_span.as_ref()?;
-        let mut calls = parsed.sites.iter().filter(|item| {
-            item.kind == SiteKind::Call
-                && item.name.as_deref() == Some("fold")
+        let call = one_call(parsed, |item| {
+            item.name.as_deref() == Some("fold")
                 && item.receiver.is_some()
                 && item.span.start_byte <= scope.start_byte
                 && scope.end_byte <= item.span.end_byte
                 && Vec::len(&item.arguments) == 2
-        });
-        let (Some(call), None) = (calls.next(), calls.next()) else {
-            return None;
-        };
+        })?;
         let mut siblings: Vec<&Site> = parsed
             .sites
             .iter()
@@ -132,15 +128,11 @@ impl Resolver<'_> {
     /// (`_inferred_constructor_type`).
     fn inferred_type(&self, at: usize, parsed: &Syntax, binding: &Site) -> Option<String> {
         let initializer = binding.initializer.as_deref()?;
-        let mut candidates = parsed.sites.iter().filter(|item| {
-            item.kind == SiteKind::Call
-                && item.expression == initializer
+        let site = one_call(parsed, |item| {
+            item.expression == initializer
                 && binding.span.start_byte <= item.span.start_byte
                 && item.span.end_byte <= binding.span.end_byte
-        });
-        let (Some(site), None) = (candidates.next(), candidates.next()) else {
-            return None;
-        };
+        })?;
         if site
             .name
             .as_deref()
@@ -155,6 +147,16 @@ impl Resolver<'_> {
         let binding = resolution.bound?;
         Some(binding.name.split('.').next().unwrap_or("").to_owned())
     }
+}
+
+/// The one call site of `parsed` that `test` accepts.
+fn one_call(parsed: &Syntax, test: impl Fn(&Site) -> bool) -> Option<&Site> {
+    let mut found = parsed
+        .sites
+        .iter()
+        .filter(|item| item.kind == SiteKind::Call && test(item));
+    let first = found.next()?;
+    found.next().is_none().then_some(first)
 }
 
 /// The one class of `bindings`, by declaration.

@@ -33,9 +33,7 @@ use std::collections::BTreeMap;
 use crate::collection::types::BindingKind;
 use crate::import_survey::index::{Index, Kind, Owners};
 use crate::import_survey::uri::Uri;
-use crate::syntax::{
-    Definition, DefinitionKind, Directive, DirectiveKind, MemberKind, Span, Syntax,
-};
+use crate::syntax::{Definition, DefinitionKind, Directive, DirectiveKind, Span, Syntax};
 
 /// One top-level declaration of a module, in the file that writes it.
 #[derive(Clone, Copy)]
@@ -79,33 +77,10 @@ impl Bound {
     }
 }
 
-/// The binding kind of a top-level declaration.
-pub(crate) fn definition_binding(kind: DefinitionKind) -> BindingKind {
-    match kind {
-        DefinitionKind::Class => BindingKind::Class,
-        DefinitionKind::Interface => BindingKind::Interface,
-        DefinitionKind::Mixin => BindingKind::Mixin,
-        DefinitionKind::Enum => BindingKind::Enum,
-        DefinitionKind::Extension => BindingKind::Extension,
-        DefinitionKind::ExtensionType => BindingKind::ExtensionType,
-        DefinitionKind::Typedef => BindingKind::Typedef,
-        DefinitionKind::Function => BindingKind::Function,
-        DefinitionKind::Getter => BindingKind::Getter,
-        DefinitionKind::Setter => BindingKind::Setter,
-        DefinitionKind::Variable => BindingKind::Variable,
-    }
-}
-
-/// The binding kind of a member of a class.
-pub(crate) fn member_binding(kind: MemberKind) -> BindingKind {
-    match kind {
-        MemberKind::Field => BindingKind::Field,
-        MemberKind::Method => BindingKind::Method,
-        MemberKind::Constructor => BindingKind::Constructor,
-        MemberKind::Getter => BindingKind::Getter,
-        MemberKind::Setter => BindingKind::Setter,
-        MemberKind::Operator => BindingKind::Operator,
-    }
+/// The binding kind of a declaration or a member kind: the syntax and the collection write the
+/// same word for each kind (`resolve_tests.rs` pins each one).
+pub(crate) fn binding_kind<T: serde::Serialize>(kind: &T) -> BindingKind {
+    serde_json::from_value(serde_json::Value::String(word(kind))).unwrap_or(BindingKind::Binding)
 }
 
 /// The type arguments of a class for its type parameters, in the order of the parameters.
@@ -257,7 +232,7 @@ impl<'a> Resolver<'a> {
         Bound {
             module: decl.module.to_owned(),
             name: decl.definition.name.clone(),
-            kind: definition_binding(decl.definition.kind),
+            kind: binding_kind(&decl.definition.kind),
             via_prefix: prefix.map(str::to_owned),
             id: self.identity(decl),
             at: decl.at,

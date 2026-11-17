@@ -16,6 +16,12 @@ use serde_json::json;
 use super::{edge_rows, gap_rows, survey};
 
 fn surveyed(fixture: &str, namespace: &str) -> (usize, usize, usize, BTreeMap<String, usize>) {
+    // J-compass keeps the flutter/samples workspace layout: the app is below `compass_app/app`.
+    let scan = if fixture == "J-compass" {
+        "compass_app/app/lib"
+    } else {
+        "lib"
+    };
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../fixtures")
         .join(fixture);
@@ -23,7 +29,7 @@ fn surveyed(fixture: &str, namespace: &str) -> (usize, usize, usize, BTreeMap<St
     let request = json!({
         "protocol_version": "8.0.0",
         "snapshot": {"root": root.to_str().unwrap(), "git_head": "0".repeat(40), "dirty": false},
-        "scope": {"roots": ["lib"], "namespace": namespace},
+        "scope": {"roots": [scan], "namespace": namespace},
         "resolver": {"language": "dart"},
     });
     let found =
@@ -56,9 +62,11 @@ fn the_dart_fixtures_give_the_pinned_survey() {
     let none = BTreeMap::new();
     assert_eq!(surveyed("G-dart", "shop"), (9, 1, 24, none.clone()));
     assert_eq!(surveyed("H-uml-dart", "commerce"), (8, 0, 12, none.clone()));
-    assert_eq!(surveyed("I-flutter-shop", "shop"), (21, 0, 73, none));
-    // AD-800: J-compass is a member of a workspace above its root: each import of a package is a
-    // gap at the import (105 sites), and its unused path dev dependency adds none (#1539).
-    let workspace = BTreeMap::from([("DartLocalPackage".to_owned(), 105)]);
-    assert_eq!(surveyed("J-compass", "compass"), (89, 22, 433, workspace));
+    assert_eq!(
+        surveyed("I-flutter-shop", "shop"),
+        (21, 0, 73, none.clone())
+    );
+    // AD-808 and #1752: J-compass keeps the workspace layout of flutter/samples, and the scan
+    // reads its workspace root, so the 105 package gaps of the old layout (AD-800) are gone.
+    assert_eq!(surveyed("J-compass", "compass"), (89, 22, 433, none));
 }
