@@ -59,7 +59,7 @@ pub(crate) fn package_for(module: &str) -> String {
     module.splitn(3, '.').take(2).collect::<Vec<_>>().join(".")
 }
 
-/// A selected module that a package of the same name shadows: Python imports the package.
+/// A selected module that a package in the same directory shadows.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Shadowed {
     pub file: String,
@@ -103,7 +103,7 @@ fn repr(text: &str) -> String {
 
 const SHADOWED_KIND: &str = "ShadowedModule";
 
-/// The selected modules that a package of the same name shadows, in the order of `selected`.
+/// The selected modules that a package in the same directory shadows, in selection order.
 pub(crate) fn shadowed(selected: &[String], namespace: &str, minor: PyMinor) -> Vec<Shadowed> {
     let named: Vec<(&String, String)> = selected
         .iter()
@@ -111,12 +111,16 @@ pub(crate) fn shadowed(selected: &[String], namespace: &str, minor: PyMinor) -> 
         .collect();
     let packages: HashSet<&str> = named
         .iter()
-        .filter(|(rel, _)| is_package(rel))
-        .map(|(_, module)| module.as_str())
+        .filter_map(|(rel, _)| rel.strip_suffix("/__init__.py"))
         .collect();
     named
         .iter()
-        .filter(|(rel, module)| !is_package(rel) && packages.contains(module.as_str()))
+        .filter(|(rel, _)| {
+            !is_package(rel)
+                && rel
+                    .strip_suffix(".py")
+                    .is_some_and(|path| packages.contains(path))
+        })
         .map(|(rel, module)| Shadowed {
             file: (*rel).clone(),
             module: module.clone(),
