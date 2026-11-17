@@ -13,12 +13,15 @@ use crate::syntax::DefinitionKind as D;
 use crate::syntax::{Definition, DefinitionKind};
 use archkeel_facts::vocab::ExceptionName;
 use assembly::identity;
-pub(crate) use assembly::{Assembly, Output};
+pub(crate) use assembly::Assembly;
+#[cfg(feature = "dump")]
+pub(crate) use assembly::Output;
 use std::collections::{BTreeMap, BTreeSet};
 use types::{Category, Constructor, Data, Detail, File, Input, Kind};
 use work::Stop;
 
 /// A failure discards all partial records and indices. A caller cannot mistake a prefix for facts.
+#[cfg(feature = "dump")]
 pub(crate) fn build(input: &Input) -> Output {
     let mut assembly = Assembly::default();
     if let Err(stop) = assembly
@@ -288,6 +291,8 @@ impl Assembly {
         };
         if let Some(accessor) = accessor {
             data.qualified_name = format!("{}::{accessor}", data.qualified_name);
+            // AD-796: the name is the last segment of the qualified name, as the store checks.
+            data.name = format!("{}::{accessor}", data.name);
         }
         let returns = if definition.kind == D::Setter && definition.return_type.is_none() {
             Some("void".to_owned())

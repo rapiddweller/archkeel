@@ -306,7 +306,8 @@ fn value(data: &SymbolFact) -> Option<&ValueData> {
         | SymbolFact::Alias(data)
         | SymbolFact::DynamicBinding(data)
         | SymbolFact::StaticConstant(data)
-        | SymbolFact::Macro(data) => Some(data),
+        | SymbolFact::Macro(data)
+        | SymbolFact::Attribute(data) => Some(data),
         SymbolFact::Class(_) | SymbolFact::Function(_) | SymbolFact::Method(_) => None,
     }
 }
@@ -321,6 +322,7 @@ fn kind(record: &Record<SymbolFact>) -> Option<EntityKind> {
     let kind = match category {
         // The 4.0.1 graph has no macro kind.
         Some(SymbolCategory::Macro) => return None,
+        Some(SymbolCategory::Attribute) => EntityKind::Attribute,
         Some(SymbolCategory::Class) => EntityKind::Class,
         Some(SymbolCategory::Constant) => EntityKind::Constant,
         Some(SymbolCategory::DynamicBinding) => EntityKind::Binding,
@@ -341,6 +343,7 @@ fn kind(record: &Record<SymbolFact>) -> Option<EntityKind> {
     Some(match (kind, class_kind) {
         (EntityKind::Class, Some(ClassKind::Protocol)) => EntityKind::Interface,
         (EntityKind::Class, Some(ClassKind::Enum)) => EntityKind::Enum,
+        (EntityKind::Class, Some(ClassKind::Mixin)) => EntityKind::Mixin,
         _ => kind,
     })
 }

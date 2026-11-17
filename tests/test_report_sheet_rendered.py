@@ -162,8 +162,12 @@ def test_a_mixed_language_badge_text_stays_inside_its_badge(site: str, page: Bro
         "(() => { const badge = document.querySelector('.ak-language-badge');"
         " const rect = badge.querySelector('rect').getBoundingClientRect();"
         " const text = badge.querySelector('text').getBoundingClientRect();"
+        " const card = badge.closest('[data-uml-id]').querySelector('.card')"
+        ".getBoundingClientRect();"
         " return { rect: [rect.left, rect.right], text: [text.left, text.right],"
-        " title: badge.querySelector('title')?.textContent }; })()"
+        " card: [card.left, card.right], shown: badge.querySelector('text').textContent }; })()"
     )
     assert fit["rect"][0] <= fit["text"][0] and fit["text"][1] <= fit["rect"][1] + 0.5, fit
-    assert fit["title"] == "python + typescript + dart"
+    # The badge is never cut: it shows the whole value, inside its box (lead review, item 2).
+    assert fit["shown"] == "python + typescript + dart", fit
+    assert fit["card"][0] <= fit["rect"][0] and fit["rect"][1] <= fit["card"][1], fit

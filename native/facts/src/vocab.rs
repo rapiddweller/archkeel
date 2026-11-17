@@ -84,6 +84,8 @@ closed! {
         StaticConstant = "static_constant",
         /// A macro symbol.
         Macro = "macro",
+        /// A module-level variable that is not constant (Dart, AD-796).
+        Attribute = "attribute",
         /// The calls of one scope.
         Calls = "calls",
         /// A call.
@@ -295,6 +297,8 @@ closed! {
         Protocol = "protocol",
         /// A pydantic model.
         PydanticModel = "pydantic_model",
+        /// A Dart mixin (AD-796).
+        Mixin = "mixin",
     }
 }
 
@@ -337,6 +341,8 @@ closed! {
 closed! {
     /// The category of a symbol.
     pub enum SymbolCategory {
+        /// A module-level variable that is not constant (Dart, AD-796).
+        Attribute = "attribute",
         /// A class.
         Class = "class",
         /// A constant.
@@ -383,6 +389,8 @@ closed! {
         Inherits = "inherits",
         /// The class realizes the base.
         Realizes = "realizes",
+        /// The class mixes the base in (Dart `with`, AD-796).
+        MixesIn = "mixes_in",
     }
 }
 

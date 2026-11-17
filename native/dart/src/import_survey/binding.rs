@@ -91,6 +91,24 @@ impl Binding {
     }
 }
 
+/// True when `directive` lets `name` through its combinators in their order (`_visible`,
+/// AD-796): after a `show`, only a name that each `show` keeps and no `hide` removes.
+pub(crate) fn visible(directive: &Directive, name: &str) -> bool {
+    let mut shown: Option<bool> = None;
+    let mut hidden = false;
+    for (mode, names) in &directive.combinators {
+        let listed = names.iter().any(|item| item == name);
+        match mode {
+            Combinator::Show => shown = Some(shown.unwrap_or(true) && listed && !hidden),
+            Combinator::Hide => {
+                hidden |= listed;
+                shown = shown.map(|kept| kept && !listed);
+            }
+        }
+    }
+    shown.unwrap_or(!hidden)
+}
+
 /// The local libraries that declare every name of their export namespace: no `export` in the
 /// library or in one of its parts.
 pub(crate) struct Surface {
