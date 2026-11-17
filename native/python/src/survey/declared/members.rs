@@ -24,6 +24,7 @@ use crate::declare::visibility;
 use crate::module::builtin_roles::{self, Role};
 use crate::survey::binders::Binders;
 use crate::survey::bound::Bound;
+use crate::survey::value::assignment_parts;
 
 /// The attributes of a class and, for an enum, the names of its literals.
 pub(super) struct Attributes {
@@ -251,11 +252,12 @@ pub(super) fn method_kind(node: &StmtFunctionDef, binders: &Binders) -> Option<M
 pub(super) fn slots(body: &[Stmt]) -> Option<HashSet<String>> {
     let mut found = HashSet::new();
     for stmt in body {
-        let (targets, value): (Vec<&Expr>, Option<&Expr>) = match stmt {
-            Stmt::Assign(node) => (node.targets.iter().collect(), Some(&node.value)),
-            Stmt::AnnAssign(node) => (vec![&*node.target], node.value.as_deref()),
-            Stmt::AugAssign(node) => (vec![&*node.target], None),
-            _ => continue,
+        let parts = match stmt {
+            Stmt::AugAssign(node) => Some((vec![&*node.target], None)),
+            _ => assignment_parts(stmt),
+        };
+        let Some((targets, value)) = parts else {
+            continue;
         };
         let named =
             |target: &&Expr| matches!(target, Expr::Name(name) if name.id.as_str() == "__slots__");

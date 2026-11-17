@@ -10,6 +10,7 @@ use crate::error::{invalid, Parsed};
 use crate::json::{field, has, keys, Json, Object};
 use crate::model::{wrap_all, DecidedBy, ItemId, RuleHead, Selector, Wrap};
 use crate::names::has_text;
+use crate::version::{supports, ContractVersion, Feature};
 use crate::words::value_of;
 
 /// The value of a JSON variant, or the error "`label` must be `what`".
@@ -232,4 +233,27 @@ pub(crate) fn named_sources(item: &Object, label: &str) -> Parsed<(Vec<Selector>
         )));
     }
     Ok((allowed, exact))
+}
+
+/// The items of the array that a declaration key holds, or none for an absent key. An array of a
+/// contract older than `feature` is refused with `unsupported`.
+pub(crate) fn declared_items<'a>(
+    object: &'a Object,
+    key: &str,
+    (version, feature): (ContractVersion, Feature),
+    unsupported: &str,
+) -> Parsed<Option<&'a Vec<Json>>> {
+    let items = match field(object, key) {
+        None => return Ok(None),
+        Some(Json::Array(items)) => items,
+        Some(_) => {
+            return Err(invalid(format!(
+                "contract.declarations.{key} must be an array"
+            )))
+        }
+    };
+    if !supports(version, feature) {
+        return Err(invalid(unsupported));
+    }
+    Ok(Some(items))
 }
