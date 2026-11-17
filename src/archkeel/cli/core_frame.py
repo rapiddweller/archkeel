@@ -56,6 +56,8 @@ class RefusalKind(StrEnum):
     CORE_BINARY_NOT_FOUND = "core_binary_not_found"
     IO_ERROR = "io_error"
     INTERNAL_ERROR = "internal_error"
+    # AD-731: `--write-baseline` on a run with a refused part; the frame is kept.
+    BASELINE_NOT_WRITTEN = "baseline_not_written"
 
 
 class CoreCommand(StrEnum):

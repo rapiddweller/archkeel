@@ -244,3 +244,26 @@ fn an_older_file_names_the_release_the_migration_command_and_the_unread_sections
     assert!(text.contains("amendment file"), "{text}");
     assert!(found["exit_code"].as_u64().unwrap() >= 2);
 }
+
+#[test]
+fn a_refused_run_that_compares_and_writes_exits_1_because_exit_2_means_all_accepted() {
+    let mut run = crate::baseline::Observed::default();
+    run.gaps.unacceptable.push("reply: refused".to_owned());
+    run.unknown_status = true;
+    let input = super::Input::CompareAndWrite {
+        path: "b.json".to_owned(),
+        file: Ok(super::empty()),
+    };
+    let part = serde_json::to_value(super::build(input, &run)).unwrap();
+    assert_eq!(
+        (part["state"].as_str(), part["exit_code"].as_u64()),
+        (Some("not_written"), Some(1))
+    );
+    assert!(part.get("file").is_none());
+    // A write alone keeps the exit code of the UNKNOWN run.
+    let alone = serde_json::to_value(super::build(super::Input::Write, &run)).unwrap();
+    assert_eq!(
+        (alone["state"].as_str(), alone["exit_code"].as_u64()),
+        (Some("not_written"), Some(2))
+    );
+}

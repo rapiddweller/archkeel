@@ -220,21 +220,24 @@ fn baseline_input(
     path: Option<String>,
     write: bool,
 ) -> Option<baseline_frame::Input> {
-    if path.is_none() && !write {
-        return None;
-    }
-    let file = path.as_deref().map(|path| {
+    let read = path.map(|path| {
         let limit = u64::try_from(archkeel_contract::policy::MAX_BASELINE_BYTES).unwrap_or(0);
-        match scanned.read_inside(path, limit) {
+        let file = match scanned.read_inside(&path, limit) {
             Ok(Some((_, bytes))) => archkeel_contract::policy::parse_baseline(&bytes)
                 .map_err(|error| format!("{path}: {error}")),
             Ok(None) => Err(format!(
                 "{path}: not a regular file inside the repository, or not readable"
             )),
             Err(Over(_)) => Err(format!("{path}: more than {limit} bytes")),
-        }
+        };
+        (path, file)
     });
-    Some(baseline_frame::Input { path, file, write })
+    match (read, write) {
+        (None, false) => None,
+        (None, true) => Some(baseline_frame::Input::Write),
+        (Some((path, file)), false) => Some(baseline_frame::Input::Compare { path, file }),
+        (Some((path, file)), true) => Some(baseline_frame::Input::CompareAndWrite { path, file }),
+    }
 }
 
 /// The frame of a scan that `archkeel-collect` refused: no reply and no contract, and the
