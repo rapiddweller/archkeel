@@ -19,8 +19,9 @@ fn children_of(data: &Value) -> std::collections::BTreeMap<Option<String>, Vec<S
     found
 }
 
-// AD-630: no level of the Explorer holds more boxes than stay readable; a larger set is split into
-// groups that the user opens, and a gap inside a group shows on it.
+// AD-630, AD-794: no level of the Explorer holds more boxes than one screen shows when its names
+// share a prefix; a larger set is split into groups that the user opens, and a gap inside a group
+// shows on it.
 #[test]
 fn no_level_of_the_explorer_holds_more_boxes_than_stay_readable() {
     for size in [12, 13, 80, 226] {
@@ -38,7 +39,7 @@ fn no_level_of_the_explorer_holds_more_boxes_than_stay_readable() {
         let data = payload(&document(&frame));
         for (parent, kids) in children_of(&data) {
             assert!(
-                kids.len() <= 12,
+                kids.len() <= super::super::atlas_node::ON_SCREEN,
                 "{size}: {parent:?} holds {} boxes",
                 kids.len()
             );
@@ -54,7 +55,7 @@ fn no_level_of_the_explorer_holds_more_boxes_than_stay_readable() {
             ids.len(),
             data["atlas"]["components"].as_array().unwrap().len()
         );
-        // A group names its first and last leaf, so its title stays short at any depth.
+        // A group names the prefix that its members share, so its title stays short.
         for c in data["atlas"]["components"].as_array().unwrap() {
             assert!(
                 c["label"].as_str().unwrap().len() <= 40,
@@ -75,6 +76,20 @@ fn no_level_of_the_explorer_holds_more_boxes_than_stay_readable() {
             "{size}: no box shows the gap"
         );
     }
+}
+
+// AD-794: names that share no prefix are never cut into ranges of sorted names: the level is shown
+// whole, and no group names a range.
+#[test]
+fn a_level_whose_names_share_no_prefix_is_shown_whole() {
+    let data = payload(&document(
+        &json!({"status": "PASS", "topology": components(40, &[(0, 1)])}),
+    ));
+    let all = data["atlas"]["components"].as_array().unwrap();
+    assert_eq!(all.len(), 40);
+    assert!(all
+        .iter()
+        .all(|c| c["parent_id"].is_null() && !c["label"].as_str().unwrap().contains(" to ")));
 }
 
 /// The status of each component of the Explorer data, by its id.

@@ -22,14 +22,21 @@ fn a_capped_list_and_the_counts_beside_it_state_both_numbers() {
     assert!(page.contains("The page shows 100 of 337 places."));
 }
 
-// #1352: up to twelve components the first view shows them as they are; more are split, and each
-// group says why.
+// #1352, AD-794: up to one screen of components the first view shows them as they are; more are
+// split by the prefix that their names share, and each group says why.
 #[test]
-fn twelve_components_are_not_grouped_and_a_group_of_more_says_why() {
+fn one_screen_of_components_is_not_grouped_and_a_group_of_more_says_why() {
     let first_level = |size: usize| -> Vec<Value> {
-        let data = payload(&document(
-            &json!({"status": "PASS", "topology": components(size, &[(0, 1)])}),
-        ));
+        let mut topology = components(size, &[(0, 1)]);
+        for (i, c) in topology["components"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .enumerate()
+        {
+            c["name"] = json!(format!("svc{:02}_part{}", i / 10, i % 10));
+        }
+        let data = payload(&document(&json!({"status": "PASS", "topology": topology})));
         data["atlas"]["components"]
             .as_array()
             .unwrap()
@@ -38,22 +45,22 @@ fn twelve_components_are_not_grouped_and_a_group_of_more_says_why() {
             .cloned()
             .collect()
     };
-    let twelve = first_level(12);
-    assert_eq!(twelve.len(), 12);
-    assert!(twelve
+    let screen = first_level(30);
+    assert_eq!(screen.len(), 30);
+    assert!(screen
         .iter()
         .all(|c| !c["id"].as_str().unwrap().starts_with("GROUP:")));
-    let thirteen = first_level(13);
-    assert!(
-        thirteen.len() < 13
-            && thirteen
-                .iter()
-                .all(|c| c["id"].as_str().unwrap().starts_with("GROUP:"))
-    );
-    for group in thirteen {
+    let more = first_level(31);
+    let (groups, single): (Vec<Value>, Vec<Value>) = more
+        .into_iter()
+        .partition(|c| c["id"].as_str().unwrap().starts_with("GROUP:"));
+    // `svc03_part0` shares its prefix with no other box: it stays a box, not a group of one.
+    assert_eq!((groups.len(), single.len()), (3, 1));
+    for group in groups {
         let why = group["responsibilities"][0].as_str().unwrap();
         assert!(
-            why.contains("this level has 13 boxes, more than 12"),
+            why.contains("Grouped by the name prefix `svc0")
+                && why.contains("this level has 31 boxes, more than one screen shows (30)"),
             "{why}"
         );
     }

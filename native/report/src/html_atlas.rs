@@ -358,7 +358,7 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
         "module_correspondences": [], "module_inventories": [], "symbols_complete": false,
         "symbol_coverages": coverage, "architecture_href": "#next", "detail_page": null,
         "unassigned_detail_href": null,
-        "module_box_limit": super::atlas_dirs::ON_SCREEN,
+        "module_box_limit": super::atlas_node::ON_SCREEN,
         "cell_permission_reason_ref": refs.id("The page names no permission for one pair of modules."),
         "language_note": note,
         "reference_ids": refs.list,
