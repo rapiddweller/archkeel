@@ -102,11 +102,7 @@ fn the_reply_declares_only_the_sections_of_the_import_survey() {
 fn the_reply_has_protocol_11_and_echoes_the_interpreter() {
     let (reply, _) = decoded(&SHOP);
     assert_eq!(reply.protocol_version, ProtocolVersion::V11);
-    let validation = reply
-        .facts
-        .validation
-        .as_ref()
-        .expect("the block of protocol 11");
+    let validation = &reply.facts.validation;
     assert_eq!(validation.standard_library, "archkeel-python-analyzer@3.12");
     let runtime = &reply.facts.runtime;
     assert_eq!(runtime.name, "python");
@@ -119,6 +115,20 @@ fn the_reply_has_protocol_11_and_echoes_the_interpreter() {
         (adapter.version.as_str(), adapter.code_digest.as_str()),
         (BUILD.version, BUILD.code_digest)
     );
+}
+
+#[test]
+fn the_validation_table_only_admits_partial_any_annotations() {
+    use archkeel_facts::envelope::ConstructSupport;
+    let table = validation("3.12");
+    let entries: Vec<_> = table
+        .registered
+        .iter()
+        .flat_map(|set| &set.constructs)
+        .filter(|entry| entry.name == "any_annotation")
+        .collect();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].statuses, [ConstructSupport::Partial]);
 }
 
 #[test]

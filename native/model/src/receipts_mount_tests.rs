@@ -48,7 +48,12 @@ fn reply(change: impl FnOnce(&mut Value)) -> Option<Reply> {
     facts["source"]["git_head"] = json!("a");
     facts["source"]["dirty"] = json!(false);
     facts["provider_bindings"] = json!([]);
-    value["protocol_version"] = json!("9.0.0");
+    value["protocol_version"] = json!("11.0.0");
+    // The golden form drops the validation table of the collector (AD-688); put it back.
+    value["facts"]["validation"] = serde_json::from_str(include_str!(
+        "../../../tests/golden/typescript/validation.json"
+    ))
+    .unwrap_or_default();
     value["provider_sources"] = json!([]);
     change(&mut value);
     serde_json::from_value(value).ok()

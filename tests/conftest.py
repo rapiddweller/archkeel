@@ -1,6 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
+import json
 import os
 import shutil
 import subprocess
@@ -130,7 +131,11 @@ def pytest_testnodedown(error: object | None) -> None:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    parser.addoption("--area", help="run only the test files of this area (tests/areas.py)")
+    parser.addoption(
+        "--area",
+        action="append",
+        help="run only the test files of this area (tests/areas.py); repeat for more areas",
+    )
 
 
 _SHARED_SCOPES = frozenset({"class", "module", "package"})
@@ -152,21 +157,68 @@ def _shares_a_fixture(item: pytest.Item) -> bool:
     )
 
 
+# AD-674: a test that needs a debug build of the workspace (a copy of a collector or of the core) is
+# marked `debug_build`. The PR gate leaves them out: it builds only the release core.
+# The main tier runs them.
+DEBUG_BUILD_FIXTURES = frozenset(
+    {
+        "built",
+        "core_binary",
+        "native_binary",
+        "dump_binary",
+        "python_dump_binary",
+        "harness_core",
+        "rust_binary",
+    }
+)
+
+
+def _floors(tier: str) -> dict[str, int]:
+    floors = json.loads((Path(__file__).parent / "area_floors.json").read_text(encoding="utf-8"))
+    # A test of the floor check raises each floor; no run of the suite sets this variable.
+    extra = int(os.environ.get("ARCHKEEL_FLOOR_PLUS", "0"))
+    return {area: floor + extra for area, floor in floors[tier].items()}
+
+
 @pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    area = config.getoption("area")
-    if area is not None:
-        # Imported here: some tests copy this file alone into a temporary project.
-        from areas import AREAS, area_of
+    # Imported here: some tests copy this file alone into a temporary project.
+    from areas import AREAS, area_of, is_heavy, is_slow
 
-        if area not in AREAS:
-            raise pytest.UsageError(f"--area={area} is not an area in tests/areas.py")
-        kept = [item for item in items if area_of(item.path.name) == area]
+    for item in items:
+        if is_slow(item.path.name):
+            item.add_marker(pytest.mark.slow)
+        if is_heavy(item.path.name):
+            item.add_marker(pytest.mark.heavy)
+        if DEBUG_BUILD_FIXTURES & set(getattr(item, "fixturenames", ())):
+            item.add_marker(pytest.mark.debug_build)
+    wanted = config.getoption("area")
+    if wanted is not None:
+        for area in wanted:
+            if area not in AREAS:
+                raise pytest.UsageError(f"--area={area} is not an area in tests/areas.py")
+        kept = [item for item in items if area_of(item.path.name) in wanted]
+        # AD-674: an empty or shrunken selection fails; the floor of a tier may only rise.
+        expression = str(config.getoption("markexpr"))
+        tier = "pr" if "not debug_build" in expression else "fast"
+        if "not slow" in expression:
+            skipped = {"slow", "debug_build", "heavy"} if tier == "pr" else {"slow"}
+            floors = _floors(tier)
+            for area in wanted:
+                count = sum(
+                    1
+                    for item in kept
+                    if area_of(item.path.name) == area
+                    and not skipped & {mark.name for mark in item.iter_markers()}
+                )
+                if count < floors[area]:
+                    raise pytest.UsageError(
+                        f"--area={area} selects {count} {tier} tests; tests/area_floors.json "
+                        f"needs {floors[area]}"
+                    )
         if not kept:
-            raise pytest.UsageError(f"--area={area} selects no tests")
-        config.hook.pytest_deselected(
-            items=[item for item in items if area_of(item.path.name) != area]
-        )
+            raise pytest.UsageError(f"--area={wanted} selects no tests")
+        config.hook.pytest_deselected(items=[item for item in items if item not in kept])
         items[:] = kept
     # With --dist=loadgroup, a test without a group can run on any free worker. The tests of a file
     # that use a module, class or package fixture stay on one worker, so that the fixture runs once.

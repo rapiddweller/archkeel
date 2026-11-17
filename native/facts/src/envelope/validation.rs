@@ -13,7 +13,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::envelope_vocab::{ConstructSupport, Profile, SectionName};
+use crate::envelope_vocab::{ConstructSupport, SectionName};
 
 /// What the store checks of one reply beyond its language-free minimum.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -123,15 +123,4 @@ pub fn versioned_owner(owner: &str, version: &str) -> String {
     let mut parts = version.split('.');
     let (major, minor) = (parts.next().unwrap_or(""), parts.next().unwrap_or(""));
     format!("{owner}@{major}.{minor}")
-}
-
-/// The owner key of the standard library of a reply: the key of its block, or for a reply of
-/// protocol 8, 9 or 10 without a block the key of its profile, with the minor version of the
-/// runtime for Python (the reader of the transition, AD-688).
-pub fn library_key(block: Option<&Validation>, profile: Profile, runtime_version: &str) -> String {
-    match block {
-        Some(validation) => validation.standard_library.clone(),
-        None if profile == Profile::Python => versioned_owner(profile.as_str(), runtime_version),
-        None => profile.as_str().to_owned(),
-    }
 }

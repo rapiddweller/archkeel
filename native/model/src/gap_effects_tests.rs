@@ -82,6 +82,9 @@ fn model(contract: &Contract) -> Result<Model, Box<dyn std::error::Error>> {
     reply["facts"]["source"]["git_head"] = json!("a");
     reply["facts"]["source"]["dirty"] = json!(false);
     reply["facts"]["provider_bindings"] = json!([]);
+    reply["facts"]["validation"] = serde_json::from_str(include_str!(
+        "../../../tests/golden/typescript/validation.json"
+    ))?;
     let facts: Facts = serde_json::from_value(reply["facts"].clone())?;
     let settings = Settings::new("shop".to_owned(), facts.profile.as_str().to_owned(), vec![])
         .with_producer(Producer::Trusted);
