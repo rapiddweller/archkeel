@@ -96,7 +96,7 @@
           "responsibilities": [
             "Provide static asset references for the application."
           ],
-          "file_path": "lib/config/assets.dart"
+          "file_path": "compass_app/app/lib/config/assets.dart"
         },
         {
           "id": "mod-compass-config-dependencies",
@@ -111,7 +111,7 @@
           "responsibilities": [
             "Construct local and remote dependency provider lists."
           ],
-          "file_path": "lib/config/dependencies.dart"
+          "file_path": "compass_app/app/lib/config/dependencies.dart"
         },
         {
           "id": "mod-compass-main",
@@ -126,7 +126,7 @@
           "responsibilities": [
             "Build the localized application shell."
           ],
-          "file_path": "lib/main.dart"
+          "file_path": "compass_app/app/lib/main.dart"
         },
         {
           "id": "mod-compass-main-development",
@@ -141,7 +141,7 @@
           "responsibilities": [
             "Start the local-data development application."
           ],
-          "file_path": "lib/main_development.dart"
+          "file_path": "compass_app/app/lib/main_development.dart"
         },
         {
           "id": "mod-compass-main-staging",
@@ -156,7 +156,7 @@
           "responsibilities": [
             "Start the remote-data staging application."
           ],
-          "file_path": "lib/main_staging.dart"
+          "file_path": "compass_app/app/lib/main_staging.dart"
         },
         {
           "id": "mod-compass-routing-router",
@@ -171,7 +171,7 @@
           "responsibilities": [
             "Configure feature routes and auth-aware redirects."
           ],
-          "file_path": "lib/routing/router.dart"
+          "file_path": "compass_app/app/lib/routing/router.dart"
         },
         {
           "id": "mod-compass-routing-routes",
@@ -186,7 +186,7 @@
           "responsibilities": [
             "Define route locations and the booking detail path."
           ],
-          "file_path": "lib/routing/routes.dart"
+          "file_path": "compass_app/app/lib/routing/routes.dart"
         },
         {
           "id": "class-compass-main-mainapp",
@@ -690,7 +690,7 @@
           "kind": "imports",
           "source_id": "mod-compass-main",
           "target_id": "mod-compass-main-development",
-          "reason": "Selected source import at lib/main.dart:9.",
+          "reason": "Selected source import at compass_app/app/lib/main.dart:9.",
           "provenance": [
             "docs/target.md"
           ]
@@ -700,7 +700,7 @@
           "kind": "imports",
           "source_id": "mod-compass-main",
           "target_id": "mod-compass-routing-router",
-          "reason": "Selected source import at lib/main.dart:10.",
+          "reason": "Selected source import at compass_app/app/lib/main.dart:10.",
           "provenance": [
             "docs/target.md"
           ]
@@ -710,7 +710,7 @@
           "kind": "imports",
           "source_id": "mod-compass-main-development",
           "target_id": "mod-compass-config-dependencies",
-          "reason": "Selected source import at lib/main_development.dart:9.",
+          "reason": "Selected source import at compass_app/app/lib/main_development.dart:9.",
           "provenance": [
             "docs/target.md"
           ]
@@ -720,7 +720,7 @@
           "kind": "imports",
           "source_id": "mod-compass-main-development",
           "target_id": "mod-compass-main",
-          "reason": "Selected source import at lib/main_development.dart:10.",
+          "reason": "Selected source import at compass_app/app/lib/main_development.dart:10.",
           "provenance": [
             "docs/target.md"
           ]
@@ -730,7 +730,7 @@
           "kind": "imports",
           "source_id": "mod-compass-main-staging",
           "target_id": "mod-compass-config-dependencies",
-          "reason": "Selected source import at lib/main_staging.dart:9.",
+          "reason": "Selected source import at compass_app/app/lib/main_staging.dart:9.",
           "provenance": [
             "docs/target.md"
           ]
@@ -740,7 +740,7 @@
           "kind": "imports",
           "source_id": "mod-compass-main-staging",
           "target_id": "mod-compass-main",
-          "reason": "Selected source import at lib/main_staging.dart:10.",
+          "reason": "Selected source import at compass_app/app/lib/main_staging.dart:10.",
           "provenance": [
             "docs/target.md"
           ]
@@ -750,7 +750,7 @@
           "kind": "imports",
           "source_id": "mod-compass-routing-router",
           "target_id": "mod-compass-routing-routes",
-          "reason": "Selected source import at lib/routing/router.dart:22.",
+          "reason": "Selected source import at compass_app/app/lib/routing/router.dart:22.",
           "provenance": [
             "docs/target.md"
           ]

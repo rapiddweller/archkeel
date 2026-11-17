@@ -105,7 +105,7 @@ import of a package that the map does not prove hosted, SDK or remote git is a g
 (`DartLocalPackage`, `DartUndeclaredPackage`), and a local package that no library imports adds no
 gap. The package of the scan is the nearest `pubspec.yaml` at or above its roots (AD-808): a member
 reads the workspace root above it for its members. A member whose workspace root is outside the
-snapshot, or not readable, gets that gap at each `package:` import (J-compass as pinned). The Dart collector reads bounded YAML. It keeps a
+snapshot, or not readable, gets that gap at each `package:` import (a snapshot that omits the workspace root). The Dart collector reads bounded YAML. It keeps a
 whole-scope gap for a pubspec that it reads only word by word, an unsupported YAML form, and a
 workspace that it cannot prove disjoint from the scan roots (AD-542). Loader and mirror identifiers and non-own relative
 package roots also give gaps (AD-562).
