@@ -152,12 +152,12 @@ def built(tmp_path_factory: pytest.TempPathFactory) -> Path:
 def prebuilt_core(binary: Path) -> Path | None:
     """The release core when `make` built it for this session (#1205, AD-674), else None.
 
-    `ARCHKEEL_PREBUILT_CORE` is set by the test targets of the Makefile, which depend on
+    `ARCHKEEL_REQUIRE_PREBUILT` is set by the test targets of the Makefile, which depend on
     `make core`, and by the PR gate, which downloads the core of main. A test then never builds
     the shared core:
     a missing binary is a failure of the gate, not a reason to rebuild it under other tests.
     """
-    if not os.environ.get("ARCHKEEL_PREBUILT_CORE"):
+    if not os.environ.get("ARCHKEEL_REQUIRE_PREBUILT"):
         return None
     if not binary.is_file():
         pytest.fail(f"{binary} is missing: run `make core` before the tests (#1205)")

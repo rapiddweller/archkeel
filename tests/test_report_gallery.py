@@ -78,7 +78,7 @@ def _build(tmp_path: Path, matrix: Path) -> tuple[int, Path]:
 def test_the_showcase_lists_every_matrix_entry_with_commit_and_time(tmp_path: Path) -> None:
     code, out = _build(tmp_path, report_gallery.MATRIX)
     page = (out / "showcase" / "index.html").read_text()
-    names = [run["name"] for run in report_gallery.load_runs()]
+    names = [run["name"] for run in report_gallery.showcase_runs()]
     assert code == 0
     assert all(f"<td>{name}</td>" in page for name in names)
     assert "abc123" in page
@@ -88,6 +88,25 @@ def test_the_showcase_lists_every_matrix_entry_with_commit_and_time(tmp_path: Pa
     assert 'href="../index.html"' in page
     assert re.findall(r'<p class="caption">(\d+) runs?</p>', page)
     assert sum(map(int, re.findall(r'<p class="caption">(\d+) runs?</p>', page))) == len(names)
+
+
+def test_a_run_with_showcase_false_is_not_listed_but_stays_in_the_table(tmp_path: Path) -> None:
+    hidden = {**_run("hidden-one", "served-h"), "showcase": False}
+    matrix = _matrix(tmp_path / "m.json", [_run("shown-one", "served-s"), hidden])
+    code, out = _build(tmp_path, matrix)
+    page = (out / "showcase" / "index.html").read_text()
+    assert code == 0
+    assert "<td>shown-one</td>" in page and "hidden-one" not in page
+    assert not (out / "hidden-one").exists()
+    assert [run["name"] for run in report_gallery.load_runs(matrix)] == ["hidden-one", "shown-one"]
+
+
+def test_the_eight_runs_without_a_contract_rule_are_not_in_the_showcase() -> None:
+    hidden = {"E-runtime", "F-typescript-story"}
+    hidden |= {run["name"] for run in report_gallery.load_runs() if "golden-python" in run["name"]}
+    shown = {run["name"] for run in report_gallery.showcase_runs()}
+    assert len(hidden) == 8 and not hidden & shown
+    assert hidden <= {run["name"] for run in report_gallery.load_runs()}
 
 
 def test_a_served_row_shows_the_counts_and_links_to_both_reports(tmp_path: Path) -> None:
@@ -168,6 +187,8 @@ def test_the_entry_is_the_system_report_with_the_explorer_and_the_self_reports_k
     assert json.dumps({"root": "<repo>"}) in page
     assert "Fixture reports" in page
     assert 'href="showcase/index.html"' in page
+    # The open page is marked in the navigation.
+    assert 'href="self/index.html" aria-current="page">System</a>' in page
     assert "served-a" not in page
     for name in ("core", "shell"):
         assert f'href="self/{name}.html"' in page
@@ -175,10 +196,8 @@ def test_the_entry_is_the_system_report_with_the_explorer_and_the_self_reports_k
             assert (out / "self" / f"{name}.{ext}").is_file()
         assert (out / "self" / f"{name}-badge.json").is_file()
         # The page of a part links back to the system page.
-        assert (
-            'href="index.html">Back to the system report'
-            in (out / "self" / f"{name}.html").read_text()
-        )
+        part = (out / "self" / f"{name}.html").read_text()
+        assert '<a href="index.html">System</a>' in part and 'aria-current="page"' in part
 
 
 def test_a_self_badge_shows_the_counts_and_the_colour_of_the_status(tmp_path: Path) -> None:

@@ -69,12 +69,6 @@
   // Issue 1471: a module opens at its level on this page; no run writes a page for each module.
   const showModule = (item) => F.openModule(item.id);
   const showRule = (rule) => F.openRule(rule);
-  function setParam(key, value) {
-    if (!["file:", "http:", "https:"].includes(location.protocol)) return;
-    const next = query();
-    if (value) next.set(key, value); else next.delete(key);
-    history.replaceState(null, "", `${location.pathname}?${next}${location.hash}`);
-  }
 
   // ---------- search (pure index + deterministic ranking) ----------
   const KIND = {
@@ -106,13 +100,14 @@
 
   // ---------- overlays ----------
   let overlay = null;
-  function closeOverlay() { overlay?.close(); overlay?.remove(); overlay = null; }
-  function modal(content, className = "ak-palette ak-modal") {
+  function closeOverlay() { overlay?.close(); overlay?.remove(); overlay = null; present({ overlay: null }); }
+  function modal(content, className = "ak-palette ak-modal", name = "dialog") {
     closeOverlay();
     const box = h("dialog", { class: className, "aria-label": className === "ak-palette" ? "Search" : "Explorer dialog",
       oncancel: (event) => { event.preventDefault(); closeOverlay(); } },
       h("button", { class: "ak-close", "aria-label": "Close dialog", onclick: closeOverlay }, "×"), content);
     overlay = box;
+    present({ overlay: name });
     root.append(overlay);
     box.showModal();
     box.addEventListener("keydown", (event) => {
@@ -132,7 +127,7 @@
     const list = h("ul", { class: "ak-results", id: "ak-results", role: "listbox" });
     const footer = h("footer", {}, h("span", {}, h("kbd", {}, "↑"), " ", h("kbd", {}, "↓"), " move"),
       h("span", {}, h("kbd", {}, "Enter"), " open"), h("span", {}, h("kbd", {}, "Esc"), " close"));
-    const box = modal([input, list, footer], "ak-palette");
+    const box = modal([input, list, footer], "ak-palette", "search");
     let rows = [], active = 0;
     function draw() {
       rows = search(input.value);
@@ -184,10 +179,12 @@
     if (pop?.contains(document.activeElement)) popAnchor?.focus();
     if (pop?.contains(legendContent)) legendPanel.append(legendContent);
     pop?.remove(); pop = null; popAnchor = null;
+    present({ pop: null });
   }
-  function openPop(anchor, content, align = "left") {
+  function openPop(anchor, content, align = "left", name = "menu") {
     closePop();
     popAnchor = anchor;
+    present({ pop: name });
     pop = h("div", { class: "ak-pop", role: "menu", "aria-label": anchor.getAttribute("aria-label") || anchor.textContent,
       onkeydown: (event) => {
         const items = [...pop.querySelectorAll("button")];
@@ -231,16 +228,16 @@
       ...(siblings.length > 1 ? siblings.map((c) => item(c.label, childCount(c.id) ? `${childCount(c.id)} inside` : "modules", () => enterScope(c.id), c.id === scope)) : []),
       inside.length ? h("h4", {}, "Inside") : null,
       ...inside.map((c) => item(c.label, childCount(c.id) ? `${childCount(c.id)} inside` : "modules", () => enterScope(c.id))),
-    ]);
+    ], "left", "belongs");
   }
 
   // ---------- perspectives from recorded evidence ----------
   const { decider: DECIDER, perspectives: PERSPECTIVES } = window.ArchkeelReportScene;
   const PALETTE = ["var(--line-strong)", "var(--accent-text)", "var(--ink-muted)", "var(--accent-hover)", "var(--ink-subtle)", "var(--accent)", "var(--ink)", "var(--surface-3)"];
   const categorical = {};
-  for (const [key, perspective] of Object.entries(PERSPECTIVES)) {
-    if (perspective.colors) continue;
-    const values = [...new Set(components.map((c) => perspective.value({ component: c })).filter(Boolean))].sort();
+  for (const [key, choice] of Object.entries(PERSPECTIVES)) {
+    if (choice.colors) continue;
+    const values = [...new Set(components.map((c) => choice.value({ component: c })).filter(Boolean))].sort();
     categorical[key] = Object.fromEntries(values.map((value, i) => [value, PALETTE[i % PALETTE.length]]));
   }
   const colorOf = (key, value) => (PERSPECTIVES[key].colors || categorical[key])[value] || "var(--ink-subtle)";
@@ -252,17 +249,15 @@
   const languageBadge = (value) => h("span", {
     class: "ak-language-badge", "data-language": languageKey(value),
   }, value);
-  // AD-606: the report opens with the language of each component on its box; "none" is a choice.
-  const readPerspective = () => {
-    const value = query().get("perspective");
-    return value === "none" ? null : Object.hasOwn(PERSPECTIVES, value) ? value : "language";
-  };
-  let perspective = readPerspective();
-  let pinnedTag = null;
+  // AD-734: the presentation choices live in the one view state S of flow.js; a change is a dispatch,
+  // and flow.js writes the URL. AD-606: the report opens with the language of each component on its
+  // box ("language" is the default of S.perspective); "none" is a choice.
+  const S = F.S;
+  const present = (changes) => F.dispatch({ type: "present", ...changes });
 
   function sceneNode(id) { return (F.state().scene?.nodes || []).find((node) => node.id === id); }
   function applyPerspective() {
-    const active = PERSPECTIVES[perspective];
+    const active = PERSPECTIVES[S.perspective];
     root.toggleAttribute("data-ak-perspective", Boolean(active));
     F.nodeLayer.querySelectorAll("[data-uml-id]").forEach((group) => {
       group.querySelector(".ak-tag")?.remove();
@@ -273,12 +268,12 @@
       const value = node && active.value(node);
       if (!value) return;
       group.dataset.akTag = value;
-      group.style.setProperty("--ex-tag", perspectiveColor(perspective, value));
+      group.style.setProperty("--ex-tag", perspectiveColor(S.perspective, value));
       // The badge sits in the header row of the box, left of its kind icon (icon at CARD.w - 29).
       const width = Math.min(100, 12 + value.length * 5.7);
       const tag = s("g", {
-        class: perspective === "language" ? "ak-tag ak-language-badge" : "ak-tag",
-        ...(perspective === "language" ? { "data-language": languageKey(value) } : {}),
+        class: S.perspective === "language" ? "ak-tag ak-language-badge" : "ak-tag",
+        ...(S.perspective === "language" ? { "data-language": languageKey(value) } : {}),
         transform: `translate(${171 - 5 - width} 7)`,
       });
       tag.append(s("rect", { width: String(width), height: "18", rx: "9" }));
@@ -287,8 +282,8 @@
       tag.append(text);
       group.append(tag);
     });
-    if (pinnedTag && (!active || !(F.state().scene?.nodes || []).some((node) => active.value(node) === pinnedTag))) pinnedTag = null;
-    highlightTag(pinnedTag);
+    if (S.pinnedTag && (!active || !(F.state().scene?.nodes || []).some((node) => active.value(node) === S.pinnedTag))) present({ pinnedTag: null });
+    highlightTag(S.pinnedTag);
     renderTagBar();
   }
   function highlightTag(value) {
@@ -304,7 +299,7 @@
   }
   function renderTagBar() {
     const focusKey = tagBar.contains(document.activeElement) ? document.activeElement.dataset.focusKey : null;
-    const active = PERSPECTIVES[perspective];
+    const active = PERSPECTIVES[S.perspective];
     const choices = [["", "None"], ...Object.entries(PERSPECTIVES).map(([key, item]) => [key, item.label])];
     const counts = new Map();
     if (active) for (const node of F.state().scene?.nodes || []) {
@@ -313,63 +308,69 @@
     }
     tagBar.replaceChildren(...[
       h("span", { class: "ak-tagbar-label" }, "Perspective"),
-      ...choices.map(([key, label]) => h("button", { "data-focus-key": `perspective:${key}`, "aria-pressed": String((perspective || "") === key),
-        onclick: () => { perspective = key || null; pinnedTag = null; setParam("perspective", perspective || "none"); applyPerspective(); } }, label)),
+      ...choices.map(([key, label]) => h("button", { "data-focus-key": `perspective:${key}`, "aria-pressed": String((S.perspective || "") === key),
+        onclick: () => { present({ perspective: key || null, pinnedTag: null }); applyPerspective(); } }, label)),
       active ? h("span", { class: "ak-sep" }) : null,
       ...(active ? [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([value, count]) =>
         h("button", {
-          class: perspective === "language" ? "ak-chip ak-language-badge" : "ak-chip",
-          ...(perspective === "language" ? { "data-language": languageKey(value) } : {}),
-          "data-focus-key": `tag:${value}`, style: `--chip:${perspectiveColor(perspective, value)}`, "aria-pressed": String(pinnedTag === value),
+          class: S.perspective === "language" ? "ak-chip ak-language-badge" : "ak-chip",
+          ...(S.perspective === "language" ? { "data-language": languageKey(value) } : {}),
+          "data-focus-key": `tag:${value}`, style: `--chip:${perspectiveColor(S.perspective, value)}`, "aria-pressed": String(S.pinnedTag === value),
           title: `Highlight ${value}`,
-          onpointerenter: () => highlightTag(value), onpointerleave: () => highlightTag(pinnedTag),
-          onclick: () => { pinnedTag = pinnedTag === value ? null : value; highlightTag(pinnedTag); renderTagBar(); } },
+          onpointerenter: () => highlightTag(value), onpointerleave: () => highlightTag(S.pinnedTag),
+          onclick: () => { present({ pinnedTag: S.pinnedTag === value ? null : value }); highlightTag(S.pinnedTag); renderTagBar(); } },
           h("i"), value, h("b", {}, String(count)))) : []),
       active && !counts.size ? h("span", { class: "ak-tagbar-label" }, "No tagged objects on this diagram") : null,
       // AD-606: a run of one part says so next to its language.
-      perspective === "language" && A?.language_note
+      S.perspective === "language" && A?.language_note
         ? h("span", { class: "ak-tagbar-label", title: A.language_note }, "one part of the system: see the legend") : null,
     ].filter(Boolean));
     if (focusKey) [...tagBar.querySelectorAll("button")].find((button) => button.dataset.focusKey === focusKey)?.focus({ preventScroll: true });
   }
   function cyclePerspective() {
     const keys = [null, ...Object.keys(PERSPECTIVES)];
-    perspective = keys[(keys.indexOf(perspective) + 1) % keys.length];
-    pinnedTag = null;
-    setParam("perspective", perspective || "none");
+    present({ perspective: keys[(keys.indexOf(S.perspective) + 1) % keys.length], pinnedTag: null });
     applyPerspective();
   }
 
   // ---------- drawers: overview (health check) and objects list ----------
-  let drawer = null, drawerName = null;
+  let drawer = null, drawerShown = null;
   let overviewEvidence = [];
   const explore = root.querySelector(".flow-explore");
   const exploreHome = explore?.parentElement;
   function closeDrawer() {
     const restoreFocus = drawer?.contains(document.activeElement);
-    const trigger = drawerName && rail.querySelector(`[data-drawer="${drawerName}"]`);
-    if (drawerName === "overview") F.setExploreOpen(false);
-    if (drawerName === "overview" && explore && exploreHome) exploreHome.append(explore);
-    if (drawerName === "overview") {
+    const trigger = drawerShown && rail.querySelector(`[data-drawer="${drawerShown}"]`);
+    if (drawerShown === "overview") F.setExploreOpen(false);
+    if (drawerShown === "overview" && explore && exploreHome) exploreHome.append(explore);
+    if (drawerShown === "overview") {
       root.prepend(summary);
       document.querySelector(".report-shell").append(...overviewEvidence);
       overviewEvidence = [];
     }
-    drawer?.remove(); drawer = null; drawerName = null;
+    drawer?.remove(); drawer = null; drawerShown = null;
+    if (S.drawer) present({ drawer: null });
     F.syncExpansionInert();
     rail.querySelectorAll("button").forEach((button) => button.setAttribute("aria-expanded", "false"));
     if (restoreFocus) trigger?.focus();
   }
   function toggleDrawer(name, build) {
-    const same = drawerName === name;
+    const same = drawerShown === name;
     closeDrawer();
     if (same) return;
-    drawerName = name;
+    drawerShown = name;
+    present({ drawer: name });
     drawer = h("aside", { class: "ak-drawer", "aria-label": name }, build());
     root.append(drawer);
     if (name === "overview") F.setExploreOpen(true);
     F.syncExpansionInert();
     rail.querySelector(`[data-drawer="${name}"]`)?.setAttribute("aria-expanded", "true");
+  }
+  // The drawer that S names is the drawer on the page: at the start, and after Back.
+  function showDrawer(name) {
+    if (drawerShown === name) return;
+    if (name) toggleDrawer(name, name === "overview" ? overviewDrawer : objectsDrawer);
+    else closeDrawer();
   }
   function overviewDrawer() {
     const body = [h("h2", {}, "Health check"),
@@ -419,7 +420,7 @@
   // ---------- share: link, Mermaid, SVG ----------
   async function copy(text, done) {
     try { await navigator.clipboard.writeText(text); toast(done); }
-    catch { const area = h("textarea", { readonly: true }, text); modal([h("h2", {}, "Copy manually"), area]); area.select(); }
+    catch { const area = h("textarea", { readonly: true }, text); modal([h("h2", {}, "Copy manually"), area], undefined, "copy"); area.select(); }
   }
   const mermaid = () => window.ArchkeelReportScene.sceneToMermaid(F.state().scene);
   function downloadSvg() {
@@ -458,7 +459,7 @@
       item("Copy link to this view", () => copy(location.href, "Link copied")),
       item("Copy diagram as Mermaid", () => copy(mermaid(), "Mermaid copied")),
       item("Download SVG", downloadSvg),
-    ], "right");
+    ], "right", "share");
   }
 
   // ---------- shortcuts: one table drives handlers and help ----------
@@ -481,7 +482,7 @@
   ];
   function help() {
     modal([h("h2", {}, "Keyboard shortcuts"), h("table", {}, h("tbody", {}, SHORTCUTS.map((item) =>
-      h("tr", {}, h("td", {}, item.keys.flatMap((key, i) => [i ? " or " : null, h("kbd", {}, key)])), h("td", {}, item.label)))))]);
+      h("tr", {}, h("td", {}, item.keys.flatMap((key, i) => [i ? " or " : null, h("kbd", {}, key)])), h("td", {}, item.label)))))], undefined, "help");
   }
   document.addEventListener("keydown", (event) => {
     if (event.defaultPrevented) return;
@@ -531,7 +532,7 @@
       h("h4", {}, "Languages"),
       h("div", { class: "ak-language-legend" }, languageNames.map(languageBadge)),
       h("h4", {}, "Relationships"), legendContent,
-      A?.language_note ? h("p", { class: "ak-sub" }, A.language_note) : null]) }, "Legend");
+      A?.language_note ? h("p", { class: "ak-sub" }, A.language_note) : null], "left", "legend") }, "Legend");
   root.append(h("div", { hidden: true }, legendPanel));
   const bottomLeft = h("div", { class: "ak-bar ak-bottom-left" }, legendButton, move(".flow-filters"),
     A ? h("span", { class: "ak-run-status" }, `Rules: ${A.declared_rules} · Observation: ${A.observation_complete}`) : null);
@@ -559,7 +560,7 @@
   if (A) F.setMaxFitScale(1);
   // AD-606: in the report the diagram starts with the whole width; a click on a box opens the
   // panel of its facts, and "Details" opens and closes it.
-  if (A && root.dataset.detailsOpen === "true" && !root.hasAttribute("data-expanded")) detailsToggle?.click();
+  // AD-734: the state of the URL decides Details (closed unless the link selects a box or cell).
   if (A) F.nodeLayer.addEventListener("click", () => {
     if (root.dataset.detailsOpen !== "true") detailsToggle?.click();
   });
@@ -575,10 +576,8 @@
   root.addEventListener("archkeel:rendered", () => {
     back?.setAttribute("aria-label", back.textContent);
     if (!A) return;
-    if (["file:", "http:", "https:"].includes(location.protocol))
-      perspective = readPerspective();
     applyPerspective();
-    if (drawerName === "objects") { const same = drawerName; closeDrawer(); toggleDrawer(same, objectsDrawer); }
+    if (drawerShown === "objects") { closeDrawer(); toggleDrawer("objects", objectsDrawer); }
     const { scope, viewMode } = F.state();
     // Target and Diff of a contract that declares no dependency say so, in one line.
     topLeft.querySelector(".rp-empty-note")?.remove();
@@ -593,13 +592,11 @@
       requestAnimationFrame(() => F.fit(!F.state().scene?.moduleOverview));
     }
   });
-  addEventListener("popstate", () => {
-    closePop();
-    perspective = readPerspective();
-    pinnedTag = null;
-  }, { capture: true });
+  addEventListener("popstate", closePop, { capture: true });
+  // After flow.js restored S from the URL of the entry.
+  addEventListener("popstate", () => { showDrawer(S.drawer); applyPerspective(); });
   const revealFindings = () => {
-    if (drawerName !== "overview") toggleDrawer("overview", overviewDrawer);
+    if (drawerShown !== "overview") toggleDrawer("overview", overviewDrawer);
   };
   root.addEventListener("archkeel:findings", revealFindings);
   root.addEventListener("archkeel:inspect", () => {
@@ -607,6 +604,7 @@
   });
   addEventListener("beforeprint", closeDrawer);
   if (/^#atlas-(rule|finding)-/.test(location.hash)) revealFindings();
+  else if (A) showDrawer(S.drawer);
   if (A) {
     renderTagBar();
     if (F.state().scene) applyPerspective();

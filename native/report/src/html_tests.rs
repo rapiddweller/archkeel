@@ -363,9 +363,10 @@ fn an_equal_place_is_shown_once_with_its_number_and_no_link_lacks_a_target() {
     }
 }
 
-// B1: the causes show under the verdict as one line, the three largest, with the rule counts.
+// Each cause appears once in the head of the page: in the step of NEXT that closes it. The verdict
+// block holds no second list of the causes, and the cards of the Unknown section hold the detail.
 #[test]
-fn the_verdict_names_the_largest_causes_in_one_line() {
+fn the_verdict_names_each_cause_once() {
     let frame = json!({"status": "UNKNOWN",
         "rules": {"A": ["k", "UNKNOWN"], "B": ["k", "UNKNOWN"], "C": ["k", "UNKNOWN"], "D": ["k", "UNKNOWN"]},
         "explained": {"C": "pair text", "D": "other <b>"},
@@ -373,19 +374,23 @@ fn the_verdict_names_the_largest_causes_in_one_line() {
             "A": {"kind": "coverage_gaps", "total": 5}, "B": {"kind": "coverage_gaps", "total": 5},
             "C": {"kind": "pair_gaps", "total": 7}}}}});
     let page = document(&frame);
-    assert!(page.contains(
-        "<p class=\"body-sm ak-verdict__note\">2 unknown rules: 5 coverage gaps in the scan</p>"
-    ));
-    assert!(page.contains("1 unknown rule: other &lt;b&gt;</p>"));
-    assert!(page.contains("1 unknown rule: 7 gaps between two modules</p>"));
-    // The heading counts the causes that the list holds: 3 causes, 4 unknown rules, no named gap.
-    assert!(page.contains("3 causes keep the run open: 4 unknown rules and 0 gaps with no rule."));
-    // The ids are in the cards, not in the card of the verdict.
-    let verdict = page
-        .split("<dl class=\"ak-verdict__stats\">")
-        .next()
-        .unwrap();
-    assert!(!verdict.contains("rp-code\">A<"));
+    let head = page.split("id=\"unknown\"").next().unwrap();
+    assert!(
+        !head.contains("keep the run open"),
+        "no count line of the causes"
+    );
+    assert!(!head.contains("class=\"body-sm ak-verdict__note\">2 unknown rules:"));
+    assert_eq!(
+        head.matches("5 coverage gaps in the scan").count(),
+        1,
+        "{head}"
+    );
+    assert_eq!(
+        head.matches("7 gaps between two modules").count(),
+        1,
+        "{head}"
+    );
+    assert_eq!(head.matches("other &lt;b&gt;").count(), 1, "{head}");
     // NEXT names the three largest jobs, each with its count of unknown rules.
     let next = page
         .split("id=\"next\"")
@@ -406,14 +411,8 @@ fn a_named_gap_without_a_rule_row_shows_its_code_on_the_page() {
         "unsupported": {"rules": {"hygiene:graph.count:a": "contract hygiene graph.count: expected <1>"}}});
     let page = document(&frame);
     assert!(page.contains("contract hygiene graph.count: expected &lt;1&gt;"));
-    assert!(page.contains("1 gap with no rule: contract hygiene graph.count"));
     // The card counts the gap, so its numbers equal its list: no unknown rule, one gap.
     assert!(page.contains("Gaps with no rule</dt><dd class=\"ak-num h2\">1</dd>"));
-    assert!(
-        page.contains("1 cause keeps the run open"),
-        "{}",
-        page.len()
-    );
     assert!(page.contains(
         "Remove the cause that keeps the run open (1 gap): contract hygiene graph.count"
     ));

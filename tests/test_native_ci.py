@@ -14,6 +14,7 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
+from timeout_support import run_bounded
 
 from tools import release_core
 from tools.publish_release import PLATFORM_TAGS
@@ -77,7 +78,14 @@ _MAKE_ENV = {
     k: v
     for k, v in os.environ.items()
     if k
-    not in {"MAKEFLAGS", "MFLAGS", "MAKELEVEL", "ARCHKEEL_PREBUILT_CORE", "ARCHKEEL_NATIVE_TREE"}
+    not in {
+        "MAKEFLAGS",
+        "MFLAGS",
+        "MAKELEVEL",
+        "ARCHKEEL_REQUIRE_PREBUILT",
+        "ARCHKEEL_NATIVE_TREE",
+        "ARCHKEEL_CORE_SOURCE",
+    }
 }
 
 
@@ -286,7 +294,7 @@ def _make(tmp_path: Path, target: str, cargo_deny: str) -> subprocess.CompletedP
     cargo = tmp_path / "cargo"
     cargo.write_text(f'#!/bin/sh\necho "cargo $*" >> "{tmp_path}/calls"\necho "{cargo_deny}"\n')
     cargo.chmod(0o755)
-    return subprocess.run(
+    return run_bounded(
         ["make", target, "UV=true"],
         cwd=ROOT,
         env={**_MAKE_ENV, "PATH": f"{tmp_path}:{os.environ['PATH']}"},

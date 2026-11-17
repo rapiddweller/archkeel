@@ -4,11 +4,11 @@
 """AD-432, AD-478, AD-492: a self-check target fails without the pinned result of the core."""
 
 import os
-import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+from timeout_support import run_bounded
 
 ROOT = Path(__file__).parents[1]
 
@@ -43,7 +43,7 @@ def test_a_self_check_without_the_pinned_core_result_fails(
     ):
         (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / name).write_bytes((ROOT / name).read_bytes())
-    result = subprocess.run(
+    result = run_bounded(
         ["make", "-f", str(ROOT / "Makefile"), "-o", "core", "-o", "browser-runtime-install"]
         + [target, f"UV={uv}"],
         cwd=tmp_path,
