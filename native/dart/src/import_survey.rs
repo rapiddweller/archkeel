@@ -20,8 +20,10 @@ mod names;
 mod package;
 mod package_map;
 mod parts;
+mod pubspec_keys;
 pub(crate) mod reply;
 pub(crate) mod uri;
+mod workspace;
 
 use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Target};
 use archkeel_facts::ids::{FactId, ModuleName};
@@ -95,7 +97,8 @@ pub(crate) fn survey(request: &DartRequest) -> Result<Survey, String> {
     let mut gaps = Gaps::default();
     discovery_gaps(&found, &mut gaps.evidence, &mut gaps.records);
     let root = &request.snapshot.root;
-    let config = config::config_gaps(&mut snapshot, root, &found.package_name, &mut gaps);
+    let own = (found.package_name.as_str(), found.package_dir.as_str());
+    let config = config::config_gaps(&mut snapshot, root, own, &mut gaps);
     let mut index = parse_sources(&found, &mut gaps)?;
     let (packages, map) = package::package_gaps(&mut snapshot, &found, &roots, &index, &mut gaps);
     index.packages = map;
@@ -234,6 +237,7 @@ fn parse_sources<'a>(found: &'a Discovery, gaps: &mut Gaps) -> Result<Index<'a>,
     }
     Ok(Index {
         package: &found.package_name,
+        package_dir: &found.package_dir,
         sources: &found.sources,
         by_rel: found
             .sources

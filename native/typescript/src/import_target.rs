@@ -215,6 +215,11 @@ impl Collection<'_> {
             return self.unresolved(r, &reason);
         }
         let installed = in_node_modules(&path);
+        if installed {
+            // #1529: the code of the package can import project source.
+            let entry = (path.clone(), module.to_owned(), r.evidence.to_owned());
+            self.installed.push(entry);
+        }
         if installed || (!self.selected(&path) && found.external) {
             let reason = if source.kind == SpecifierKind::Imports {
                 format!("External package alias identity is not observed: {specifier}")

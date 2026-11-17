@@ -160,3 +160,71 @@ def test_a_complete_package_map_gives_the_cycle_rule_its_receipt(
     found = rows(verdict(release_core, root, "report"))
     assert found["CYCLES"] == ("FAIL" if cycle else "PASS"), found
     assert found["ASSIGN"] == "PASS"
+
+
+# #1539: an app inside a pub workspace. Truth (Dart 3.12, `dart pub get` and `dart analyze`): the
+# app resolves `package:other` to the member `other/` (`rootUri` `../other`) and its own URIs to
+# `app/lib`; `dart analyze` finds no issue.
+WORKSPACE = "name: ws\nenvironment:\n  sdk: ^3.6.0\nworkspace:\n  - app\n  - other\n"
+APP = "name: app\nenvironment:\n  sdk: ^3.6.0\nresolution: workspace\n"
+OTHER = "name: other\nenvironment:\n  sdk: ^3.6.0\nresolution: workspace\n"
+
+
+def workspace_project(root: Path, files: dict[str, str]) -> Path:
+    for name, text in files.items():
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    (root / "archkeel.toml").write_text(
+        '[scan]\nlanguage = "dart"\nroots = ["app/lib"]\n'
+        'namespace = "shop"\ncontract = "architecture-contract.json"\n'
+    )
+    contract = {
+        "schema_version": "2.2.0",
+        "components": [
+            component("a", ["shop.a"], ["b"], exact=True),
+            component("b", ["shop.b"], [], exact=True),
+        ],
+        "rules": rules(),
+    }
+    (root / "architecture-contract.json").write_text(json.dumps(contract))
+    (root / "p").write_text(GRAPH)
+    _commit(root)
+    return root
+
+
+@pytest.mark.parametrize(
+    ("form", "expected", "gap"),
+    [
+        ("acyclic", "PASS", None),
+        ("cycle", "FAIL", None),
+        ("member-import", "UNKNOWN", "DartLocalPackage"),
+        ("nested-without-workspace", "UNKNOWN", "DartNestedPackage"),
+    ],
+)
+def test_an_app_inside_a_workspace_is_the_package_of_its_scan(
+    release_core: Path, tmp_path: Path, form: str, expected: str, gap: str | None
+) -> None:
+    files = {
+        "pubspec.yaml": WORKSPACE,
+        "app/pubspec.yaml": APP,
+        "other/pubspec.yaml": OTHER,
+        "other/lib/o.dart": "class O {}\n",
+        "app/lib/a.dart": "import 'package:app/b.dart';\nB? b;\n",
+        "app/lib/b.dart": "class B {}\n",
+    }
+    if form == "cycle":
+        files["app/lib/b.dart"] = "import 'a.dart';\nclass B {}\n"
+    if form == "member-import":
+        files["app/lib/b.dart"] = "import 'package:other/o.dart';\nclass B { O? o; }\n"
+    if form == "nested-without-workspace":
+        files["pubspec.yaml"] = "name: shop\nenvironment:\n  sdk: ^3.6.0\n"
+        files["app/pubspec.yaml"] = "name: app\nenvironment:\n  sdk: ^3.6.0\n"
+    result = verdict(release_core, workspace_project(tmp_path, files), "report")
+    found = rows(result)
+    assert found["CYCLES"] == expected, result["frame"]["explained"]
+    gaps = json.dumps(result["frame"]["collection_gaps"])
+    if gap is None:
+        assert result["frame"]["scope"] == "complete", gaps
+    else:
+        assert gap in gaps, gaps

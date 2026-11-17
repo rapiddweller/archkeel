@@ -144,8 +144,7 @@ fn requires(
             .requires(i)
             .iter()
             .map(|(target, imports)| json!({
-                "id": format!("REQ:{}>{}", node.id, tree.nodes[*target].id), "target_id": target,
-                "observed_imports": imports, "rationale_ref": rolled, "decided_by": "architect", "through": [],
+                "target_id": target, "observed_imports": imports, "rationale_ref": rolled, "through": [],
             }))
             .collect();
     }
@@ -156,9 +155,8 @@ fn requires(
         .filter_map(|r| {
             let target = tree.nodes.iter().position(|n| n.id == r.target)?;
             Some(json!({
-                "id": format!("REQ:{}>{}", r.source, r.target), "target_id": target,
-                "observed_imports": r.imports, "rationale_ref": refs.id(&r.rationale),
-                "decided_by": "architect", "through": r.through,
+                "target_id": target, "observed_imports": r.imports,
+                "rationale_ref": refs.id(&r.rationale), "through": r.through,
             }))
         })
         .collect()
@@ -216,22 +214,16 @@ fn components(
 
 /// The ports of each `requires` entry as declared boundary permissions: an import of the pair
 /// must pass through one of them. The frame names no applied port.
-fn permissions(topology: &Topology) -> Vec<Value> {
+/// The declared boundary permissions: one row for each `requires` with a `through` list, as
+/// `[source, target, rationale reference, selectors]`. The Explorer (`report-scene.js`) makes one
+/// permission of each selector; each other field of a permission is the same for all of them, so
+/// the page holds it once (the page budget, #880).
+fn permissions(topology: &Topology, refs: &mut Refs) -> Vec<Value> {
     topology
         .requires
         .iter()
-        .flat_map(|r| {
-            r.through.iter().enumerate().map(move |(n, selector)| {
-                json!({
-                    "id": format!("PORT:{}>{}:{n}", r.source, r.target), "rule_id": "requires",
-                    "component_ids": [r.source, r.target], "qualified_name": selector,
-                    "position": format!("through, {} to {}", r.source, r.target),
-                    "rationale": r.rationale, "decided_by": "architect", "source": "contract",
-                    "contract_scope_id": null, "rule_ids": [], "fact_ids": [], "evidence_ids": [],
-                    "provenance": [], "locations": [], "routes": [],
-                })
-            })
-        })
+        .filter(|r| !r.through.is_empty())
+        .map(|r| json!([r.source, r.target, refs.id(&r.rationale), r.through]))
         .collect()
 }
 
@@ -341,6 +333,7 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
         )
     });
     let home = home(frame);
+    let declared = permissions(topology, &mut refs);
     let atlas = json!({
         "repository": home["repository"], "status": run_word(frame.status), "declared_rules": run_word(frame.status),
         "result": result(frame), "reason": frame.cause,
@@ -361,7 +354,7 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
     });
     let value = json!({
         "schema_version": "1.0.0", "atlas": atlas,
-        "boundary_permissions": {"applied": [], "declared": permissions(topology)},
+        "boundary_permissions": {"applied": [], "requires": declared},
         "navigation": home,
     });
     Some((value, marks))

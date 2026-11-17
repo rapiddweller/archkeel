@@ -140,10 +140,16 @@ fn modules(
                     .then(|| languages.iter().cloned().collect::<Vec<_>>().join(" + "))
             });
         rows.push(json!({
-            "id": module.name, "name": archkeel_facts::identity::readable(&module.name), "path": module.path, "rank": null, "language": language,
-            "fan_in": fan[i].0.len(), "fan_out": fan[i].1.len(), "evidence_ids": [],
-            "symbol_coverage": 0, "symbols": null,
+            // The Explorer restores `name` (the id), `rank`, `evidence_ids`, `symbol_coverage` and
+            // `symbols`, which are the same for each module (report-scene.js, the page budget).
+            "id": module.name, "path": module.path, "language": language,
+            "fan_in": fan[i].0.len(), "fan_out": fan[i].1.len(),
         }));
+        // #1617: a module whose identity holds escapes names its real characters; the id stays.
+        let shown = archkeel_facts::identity::readable(&module.name);
+        if shown != module.name {
+            rows.last_mut().expect("the row that was pushed")["name"] = json!(shown);
+        }
         let owner = tree
             .owner
             .get(&module.name)

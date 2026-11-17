@@ -666,8 +666,8 @@
     publishState();
     if (!NAV || !routeReady || routeNotice || !["file:", "http:", "https:"].includes(location.protocol)) return;
     const query = toQuery(S);
-    const permissionHash = [...(DATA.boundary_permissions?.declared || []),
-      ...(DATA.boundary_permissions?.applied || [])].some((row) => location.hash === `#${encodeURIComponent(row.id)}`)
+    const permissionHash = [...REPORT_SCENE.boundaryPermissions.declared,
+      ...REPORT_SCENE.boundaryPermissions.applied].some((row) => location.hash === `#${encodeURIComponent(row.id)}`)
       ? location.hash : "";
     const next = `${location.pathname}?${query}${permissionHash}`;
     const currentQuery = new URLSearchParams(location.search);
@@ -735,7 +735,7 @@
   let boundaryAuditMarkup = "";
 
   function boundaryPermissionMarkup(scope = null, related = new Set(), edge = false) {
-    const permissions = DATA.boundary_permissions;
+    const permissions = REPORT_SCENE.boundaryPermissions;
     boundaryPermissionGroups.clear(); boundaryAuditMarkup = "";
     if (!permissions || edge) return "";
     const touches = (row) => scope === null || row.entity_ids?.some((id) => related.has(id))
@@ -780,7 +780,7 @@
   }
 
   function boundaryPermissionDetails(row, applied) {
-    const permissions = DATA.boundary_permissions;
+    const permissions = REPORT_SCENE.boundaryPermissions;
     const routeLink = (route) => {
       const query = new URLSearchParams({component: route.component_id || "unassigned",
         view: S.view, origin: route.origin});

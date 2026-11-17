@@ -8,7 +8,23 @@
     const NAV = DATA.navigation || null;
     const countLabel = (value, singular, plural = `${singular}s`) =>
       value === null || value === undefined ? (singular.endsWith("symbol") ? "no symbol count in this run" : `UNKNOWN ${plural}`) : `${value} ${value === 1 ? singular : plural}`;
+    // The core writes each repeated value once (the page budget): the declared boundary permissions
+    // as one row for each `requires`, and no field that is the same for each module or edge. This
+    // restores the full rows that the Explorer reads.
+    const declared = data.boundary_permissions?.requires || [];
+    const boundaryPermissions = {
+      applied: data.boundary_permissions?.applied || [],
+      declared: declared.flatMap(([source, target, rationale, selectors]) => selectors.map((name, n) => ({
+        id: `PORT:${source}>${target}:${n}`, rule_id: "requires", component_ids: [source, target],
+        qualified_name: name, position: `through, ${source} to ${target}`,
+        rationale: ATLAS.reference_ids[rationale], decided_by: "architect", source: "contract",
+        contract_scope_id: null, rule_ids: [], fact_ids: [], evidence_ids: [], provenance: [], locations: [], routes: [],
+      }))),
+    };
     if (ATLAS) {
+      ATLAS.modules = ATLAS.modules.map((module) => ({
+        name: module.id, ...module, rank: null, evidence_ids: [], symbol_coverage: 0, symbols: null,
+      }));
       ATLAS.rule_assessments = (ATLAS.rule_assessments || []).map((item) => ({
         ...item,
         id: ATLAS.reference_ids[item.id], kind: ATLAS.reference_ids[item.kind],
@@ -44,6 +60,7 @@
           component_id: ATLAS.components[index].id, import_sites,
         }));
         component.requires = component.requires.map((edge) => ({
+          id: `REQ:${component.id}>${ATLAS.components[edge.target_id].id}`, decided_by: "architect",
           ...edge, target_id: ATLAS.components[edge.target_id].id,
           rationale: ATLAS.reference_ids[edge.rationale_ref],
         }));
@@ -244,6 +261,7 @@
     }
     return {
       atlas: ATLAS,
+      boundaryPermissions,
       searchIndex,
       atlasComponent,
       atlasModuleById,
