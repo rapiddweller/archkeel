@@ -2,14 +2,14 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The writes that replace a global in one program outside the scan roots (#1546), and the inline
-//! scripts of a page. The reader is syntactic and local to the program: it needs no scope facts of
+//! The writes that replace a global in one program outside the scan roots (#1546). The reader is syntactic and local to the program: it needs no scope facts of
 //! the scan, because the file is no module of the scan.
 
 use std::collections::HashSet;
 
 use tree_sitter::Node;
 
+use crate::script_outside_names::declares;
 use crate::source::{Source, Span};
 use crate::source_input::is_window_name;
 
@@ -28,40 +28,6 @@ const REFLECTIVE: [(&str, &str); 7] = [
     ("Reflect", "set"),
     ("Reflect", "defineProperty"),
     ("Reflect", "setPrototypeOf"),
-];
-
-/// The kinds that pass a declared name up to its declaration.
-const PATTERNS: [&str; 9] = [
-    "object_pattern",
-    "array_pattern",
-    "pair_pattern",
-    "assignment_pattern",
-    "object_assignment_pattern",
-    "rest_pattern",
-    "required_parameter",
-    "optional_parameter",
-    "formal_parameters",
-];
-
-/// The kinds that declare the name below them.
-const DECLARERS: [&str; 17] = [
-    "variable_declarator",
-    "function_declaration",
-    "generator_function_declaration",
-    "class_declaration",
-    "abstract_class_declaration",
-    "function_expression",
-    "generator_function",
-    "class",
-    "arrow_function",
-    "catch_clause",
-    "import_specifier",
-    "namespace_import",
-    "import_clause",
-    "enum_declaration",
-    "internal_module",
-    "formal_parameters",
-    "for_in_statement",
 ];
 
 struct Reader<'s> {
@@ -137,57 +103,6 @@ fn all_nodes(root: Node) -> Vec<Node> {
         pending.extend(children);
     }
     found
-}
-
-/// The identifier is a declared name: a name, a pattern or a parameter of a declaration.
-fn declares(node: Node) -> bool {
-    let mut at = node;
-    while let Some(parent) = at.parent() {
-        let kind = Node::kind(&parent);
-        if DECLARERS.contains(&kind) {
-            let field = |name: &str| {
-                parent
-                    .child_by_field_name(name)
-                    .is_some_and(|found| found.id() == at.id())
-            };
-            return match kind {
-                "variable_declarator"
-                | "function_declaration"
-                | "generator_function_declaration"
-                | "class_declaration"
-                | "abstract_class_declaration"
-                | "function_expression"
-                | "generator_function"
-                | "class"
-                | "enum_declaration"
-                | "internal_module" => field("name"),
-                "arrow_function" => field("parameter"),
-                "catch_clause" => field("parameter"),
-                "for_in_statement" => field("left") && parent.child_by_field_name("kind").is_some(),
-                _ => true,
-            };
-        }
-        if !PATTERNS.contains(&kind) || !pattern_part(parent, at) {
-            return false;
-        }
-        at = parent;
-    }
-    false
-}
-
-/// `at` is the bound part of the pattern `parent`, not a default value or a key.
-fn pattern_part(parent: Node, at: Node) -> bool {
-    let is = |name: &str| {
-        parent
-            .child_by_field_name(name)
-            .is_some_and(|found| found.id() == at.id())
-    };
-    match Node::kind(&parent) {
-        "assignment_pattern" | "object_assignment_pattern" => is("left"),
-        "required_parameter" | "optional_parameter" => is("pattern"),
-        "pair_pattern" => is("value"),
-        _ => true,
-    }
 }
 
 impl Reader<'_> {
@@ -386,9 +301,6 @@ fn named_children(node: Node) -> Vec<Node> {
     node.named_children(&mut cursor).collect()
 }
 
-/// The length of `<script`.
-const SCRIPT_TAG: usize = 7;
-
 /// A name without escapes; a name with an escape is one that the reader does not read.
 fn plain(text: &str) -> Option<String> {
     (!text.contains('\\')).then(|| text.to_owned())
@@ -411,75 +323,4 @@ fn unwrapped(node: Node) -> Node {
         }
     }
     at
-}
-
-/// The inline scripts of a page that run as JavaScript, each with a flag for `type="module"` and
-/// with every byte outside the script blanked (a line end stays), so the lines stay the lines of
-/// the page. A script with `src` holds no code of the page.
-pub(crate) fn inline_scripts(data: &[u8]) -> Vec<(bool, Vec<u8>)> {
-    let lower = data.to_ascii_lowercase();
-    let mut found = Vec::new();
-    let mut at = 0;
-    while let Some(start) = find(&lower, b"<script", at) {
-        let after = start + SCRIPT_TAG;
-        let Some(close) = find(&lower, b">", after) else {
-            break;
-        };
-        let attributes = String::from_utf8_lossy(&lower[after..close]).into_owned();
-        let end = find(&lower, b"</script", close).unwrap_or(<[u8]>::len(data));
-        at = end.max(close + 1);
-        let tag = lower
-            .get(after)
-            .is_some_and(|b| b.is_ascii_whitespace() || *b == b'>');
-        let kind = script_type(&attributes);
-        if !tag || attributes.contains("src") || kind.is_none() {
-            continue;
-        }
-        let mut program: Vec<u8> = data
-            .iter()
-            .map(|b| if *b == b'\n' { b'\n' } else { b' ' })
-            .collect();
-        if let (Some(slot), Some(code)) =
-            (program.get_mut(close + 1..end), data.get(close + 1..end))
-        {
-            slot.copy_from_slice(code);
-        }
-        Vec::push(&mut found, (kind == Some(true), program));
-    }
-    found
-}
-
-/// The script type of an element: `Some(true)` for a module, `Some(false)` for a classic script,
-/// `None` for data or a template.
-fn script_type(attributes: &str) -> Option<bool> {
-    let Some(at) = attributes.find("type") else {
-        return Some(false);
-    };
-    let value: String = attributes[at + 4..]
-        .trim_start()
-        .trim_start_matches('=')
-        .trim_start()
-        .trim_start_matches(['"', '\''])
-        .chars()
-        .take_while(|c| !matches!(c, '"' | '\'' | ' ' | '>'))
-        .collect();
-    match String::as_str(&value) {
-        "module" => Some(true),
-        ""
-        | "text/javascript"
-        | "application/javascript"
-        | "text/ecmascript"
-        | "application/ecmascript"
-        | "text/jsx"
-        | "text/babel" => Some(false),
-        _ => None,
-    }
-}
-
-fn find(haystack: &[u8], needle: &[u8], from: usize) -> Option<usize> {
-    haystack
-        .get(from..)?
-        .windows(<[u8]>::len(needle))
-        .position(|window| window == needle)
-        .map(|at| at + from)
 }

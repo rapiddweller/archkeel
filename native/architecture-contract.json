@@ -4476,6 +4476,8 @@
         "native.archkeel_typescript_collector.script_global",
         "native.archkeel_typescript_collector.script_outside",
         "native.archkeel_typescript_collector.script_outside_forms",
+        "native.archkeel_typescript_collector.script_outside_names",
+        "native.archkeel_typescript_collector.script_outside_page",
         "native.archkeel_typescript_collector.script_project",
         "native.archkeel_typescript_collector.script_proof",
         "native.archkeel_typescript_collector.script_state",
@@ -6612,7 +6614,8 @@
         "native.archkeel_dart_collector.sites.calls",
         "native.archkeel_dart_collector.sites.references",
         "native.archkeel_dart_collector.sites.canonical",
-        "native.archkeel_dart_collector.cargo_toml"
+        "native.archkeel_dart_collector.cargo_toml",
+        "native.archkeel_typescript_collector.script_outside_names"
       ],
       "rationale": "Only a collector parses source with Tree-sitter; no library crate does.",
       "provenance": [
@@ -6682,7 +6685,8 @@
         "native.archkeel_typescript_collector.concerns",
         "native.archkeel_typescript_collector.jsdoc",
         "native.archkeel_typescript_collector.umd_publication",
-        "native.archkeel_typescript_collector.cargo_toml"
+        "native.archkeel_typescript_collector.cargo_toml",
+        "native.archkeel_typescript_collector.script_outside_names"
       ],
       "rationale": "Only the TypeScript collector loads the TypeScript grammar.",
       "provenance": [

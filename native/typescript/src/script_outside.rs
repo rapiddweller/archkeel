@@ -162,7 +162,7 @@ fn outside_source(rel: &str) -> bool {
 fn programs(rel: &str, data: &[u8]) -> Vec<(bool, bool, Vec<u8>)> {
     match classify_file(rel) {
         Some(suffix) => vec![(suffix.parser_typescript(), false, data.to_vec())],
-        None => crate::script_outside_forms::inline_scripts(data)
+        None => crate::script_outside_page::inline_scripts(data)
             .into_iter()
             .map(|(module, program)| (false, module, program))
             .collect(),
