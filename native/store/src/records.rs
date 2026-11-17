@@ -13,6 +13,7 @@
 use std::collections::{HashMap, HashSet};
 
 use archkeel_facts::envelope::{ConstructSupport, Facts};
+use archkeel_facts::ids::EvidenceId;
 use archkeel_facts::vocab::{EvidenceClass, InventoryStatus, MemberKind, Status};
 use archkeel_facts::{FactData, Record, Section};
 
@@ -113,8 +114,8 @@ impl Pass<'_> {
 
     fn index(&mut self, view: &View<'_>, section: &Section) -> Result<(), String> {
         let place = (self.section, self.position);
-        if self.places.insert(view.id.to_owned(), place).is_some() {
-            return Err("duplicate source record id".to_owned());
+        if let Some(first) = self.places.insert(view.id.to_owned(), place) {
+            return Err(self.duplicate(view, first));
         }
         if view.id.is_empty() {
             return Err("empty source record id".to_owned());
@@ -177,6 +178,45 @@ impl Pass<'_> {
             );
             self.imports.insert(view.id.to_owned(), fields);
         }
+        Ok(())
+    }
+}
+
+impl Pass<'_> {
+    /// The refusal of a record id that two records use: the id, the kind and the place of each
+    /// record (`file:line` of its first evidence), so the user can find both.
+    fn duplicate(&self, view: &View<'_>, (section, position): (usize, usize)) -> String {
+        let place = |ids: &[EvidenceId]| {
+            let found = ids.first().and_then(|id| {
+                let rows = self.facts.evidence.iter();
+                rows.into_iter().find(|row| row.id == *id)
+            });
+            found.map_or_else(
+                || "an unknown place".to_owned(),
+                |row| format!("{}:{}", row.file, row.line),
+            )
+        };
+        let mut earlier = Vec::new();
+        if let Some(section) = self.facts.sections.get(section) {
+            let mut seen = Evidence(&mut earlier);
+            let _ = visit(section, position, position + 1, &mut seen);
+        }
+        format!(
+            "duplicate source record id {} ({}) at {} and {}",
+            view.id,
+            view.kind,
+            place(&earlier),
+            place(view.evidence_ids)
+        )
+    }
+}
+
+/// The evidence ids of the records that it visits.
+struct Evidence<'a>(&'a mut Vec<EvidenceId>);
+
+impl Visitor for Evidence<'_> {
+    fn record<D: FactData>(&mut self, _: &Section, record: &Record<D>) -> Result<(), String> {
+        self.0.extend(record.evidence_ids.iter().cloned());
         Ok(())
     }
 }

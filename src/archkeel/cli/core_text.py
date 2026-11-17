@@ -87,8 +87,13 @@ def _baseline_reason(frame: CoreFrame, baseline: BaselineResult, code: int) -> s
             if code == 0 and frame.status is Status.FAIL:
                 return f"{sum(frame.violations.values())} violations are accepted by the baseline"
             if code == 2:
+                kept = (
+                    f"{sum(frame.violations.values())} violations accepted by the baseline; "
+                    if frame.violations
+                    else ""
+                )
                 return (
-                    f"{baseline.accepted_unknowns} accepted items stay UNKNOWN: "
+                    f"{kept}{baseline.accepted_unknowns} accepted items stay UNKNOWN: "
                     "a baseline records them and does not decide them"
                 )
             return "nothing differs from the baseline"
@@ -158,12 +163,27 @@ def header(command: Command, frame: CoreFrame, code: int, outcome: Outcome) -> s
     return f"{command}: {word} -> exit {code} ({_reason_of(frame, code, outcome)})"
 
 
+def _new_violations(frame: CoreFrame, total: int) -> int:
+    """How many violations the baseline does not accept: all of them when no baseline is read."""
+    baseline = frame.baseline
+    if baseline is None or baseline.state not in {
+        BaselineState.CURRENT,
+        BaselineState.WRITTEN,
+        BaselineState.DRIFT,
+    }:
+        return total
+    return sum(1 for change in baseline.new if change.what.value == "violation")
+
+
 def _next_action(frame: CoreFrame, groups: Sequence[tuple[str, int]]) -> str | None:
     """The top jobs, in the order to do them, each with its count (at most three)."""
     jobs = []
     if frame.details:
         count = sum(len(rows) for rows in frame.details.values())
-        jobs.append(f"remove the {count} violations, or review the declared restriction")
+        if (new := _new_violations(frame, count)) == count:
+            jobs.append(f"remove the {count} violations, or review the declared restriction")
+        elif new:
+            jobs.append(f"remove the {new} new violations that the baseline does not accept")
     for label, count in groups:
         jobs.append(
             "fix the problem above" if label == "the problem above" else f"{count} x {label}"
@@ -182,11 +202,22 @@ def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
     rows = [(rule, row) for rule, found in frame.details.items() for row in found]
     if not rows:
         return []
-    lines = [f"Violations ({len(rows)}):"]
+    new = _new_violations(frame, len(rows))
+    if new == len(rows):
+        lines = [f"Violations ({len(rows)}):"]
+    elif new == 0:
+        lines = [f"Violations accepted by the baseline ({len(rows)}):"]
+    else:
+        lines = [
+            f"Violations ({len(rows)}: {new} new, {len(rows) - new} accepted by the baseline):"
+        ]
+    texts: dict[str, int] = {}
     for rule, row in rows if show_all else rows[:_VIOLATIONS_SHOWN]:
         edge = row.source if row.target is None else f"{row.source} -> {row.target}"
         where = ", ".join(_places(frame, row.evidence, _SHOWN))
-        lines.append(f"  {rule}: {row.cause}: {edge}" + (f" ({where})" if where else ""))
+        text = f"  {rule}: {row.cause}: {edge}" + (f" ({where})" if where else "")
+        texts[text] = texts.get(text, 0) + 1  # one line per place; a repeat is counted
+    lines.extend(f"{text} (x{n})" if n > 1 else text for text, n in texts.items())
     if more := _more(len(rows), _VIOLATIONS_SHOWN, show_all):
         lines.append(f"  {more.strip()}")
     causes = dict.fromkeys(row.cause for _, row in rows)
@@ -226,26 +257,90 @@ def _group_lines(
         groups.setdefault(key, []).append(index)
     ranked = sorted(groups.items(), key=lambda item: (-len(item[1]), item[0]))
     lines: list[str] = []
+    jobs: list[tuple[str, int]] = []
     for label, members in ranked:
+        causes = _causes(frame, members) if label not in _PLAIN_LABELS else {label: members}
+        if len(causes) > 1:
+            lines.extend(_cause_lines(frame, label, members, causes, show_all))
+            if label != kind_label(DECLARED):
+                jobs.extend((cause, len(rows)) for cause, rows in causes.items())
+            continue
         first = frame.collection_gaps[members[0]]
         lead = "" if label == _NOT_FOUND_LABEL else f": {plain(first.reason)}"
         lines.append(f"  {len(members)} x {label}{lead}")
-        for index in members if show_all else members[:_SHOWN]:
-            gap = frame.collection_gaps[index]
-            where = ", ".join(_places(frame, gap.evidence, 1)) or ", ".join(gap.subjects[:1])
-            name = _missing(gap)
-            note = _generated(name, ignored or {}) if name is not None else ""
-            tail = f" ({plain(gap.detail)})" if gap.detail else ""
-            lines.append(f"      {where}{': ' + name if name else ''}{note}{tail}")
-        if more := _more(len(members), _SHOWN, show_all):
-            lines.append(f"      {more.strip()}")
+        lines.extend(_member_lines(frame, members, show_all, ignored))
         if label == _NOT_FOUND_LABEL:
             lines.append(
                 "      Fix: generate or build the module before the scan, or leave out the files "
                 "that import it."
             )
-    jobs = [(label, len(rows)) for label, rows in ranked if label != kind_label(DECLARED)]
+        if label != kind_label(DECLARED):
+            jobs.append((label, len(members)))
     return lines, jobs
+
+
+_PLAIN_LABELS = frozenset({_NOT_FOUND_LABEL})
+
+
+def _cause(gap: CollectionGap) -> str:
+    """The cause of a gap: its reason up to the first colon (the part that names the variable
+    thing, such as the module or the alias, follows the colon)."""
+    return plain(gap.reason).split(": ", 1)[0]
+
+
+def _causes(frame: CoreFrame, members: Sequence[int]) -> dict[str, list[int]]:
+    """The members of one kind of gap by cause, the largest cause first."""
+    found: dict[str, list[int]] = {}
+    for index in members:
+        found.setdefault(_cause(frame.collection_gaps[index]), []).append(index)
+    return dict(sorted(found.items(), key=lambda item: (-len(item[1]), item[0])))
+
+
+def _member_lines(
+    frame: CoreFrame, members: Sequence[int], show_all: bool, ignored: Mapping[str, str] | None
+) -> list[str]:
+    """The places of the members of one group: three, or all with `--all`."""
+    lines = []
+    for index in members if show_all else members[:_SHOWN]:
+        gap = frame.collection_gaps[index]
+        where = ", ".join(_places(frame, gap.evidence, 1)) or ", ".join(gap.subjects[:1])
+        name = _missing(gap)
+        note = _generated(name, ignored or {}) if name is not None else ""
+        tail = f" ({plain(gap.detail)})" if gap.detail else ""
+        lines.append(f"      {where}{': ' + name if name else ''}{note}{tail}")
+    if more := _more(len(members), _SHOWN, show_all):
+        lines.append(f"      {more.strip()}")
+    return lines
+
+
+def _cause_lines(
+    frame: CoreFrame,
+    label: str,
+    members: Sequence[int],
+    causes: Mapping[str, Sequence[int]],
+    show_all: bool,
+) -> list[str]:
+    """One kind of gap with several causes: the count of each cause and one example each.
+
+    The three largest causes come first, then `and N more causes`; `--all` lists every cause with
+    every place.
+    """
+    lines = [f"  {len(members)} x {label}, in {len(causes)} causes:"]
+    shown = list(causes.items()) if show_all else list(causes.items())[:_SHOWN]
+    for cause, rows in shown:
+        gap = frame.collection_gaps[rows[0]]
+        where = ", ".join(_places(frame, gap.evidence, 1)) or ", ".join(gap.subjects[:1])
+        lines.append(f"      {len(rows)} x {cause}")
+        if show_all:
+            lines.extend(f"      {line}" for line in _member_lines(frame, rows, True, None))
+        else:
+            example = plain(gap.reason)
+            lines.append(f"          e.g. {example} ({where})")
+    if hidden := len(causes) - len(shown):
+        lines.append(
+            f"      and {hidden} more {'cause' if hidden == 1 else 'causes'} (--all lists them)"
+        )
+    return lines
 
 
 def _generated(name: str, ignored: Mapping[str, str]) -> str:

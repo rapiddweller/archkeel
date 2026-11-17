@@ -5,6 +5,16 @@
 use super::ParseFailure as Failure;
 use super::*;
 
+#[test]
+fn comments_include_fstring_expression_comments_but_not_strings() {
+    let text = "x = f\"{1 # type: ignore[x]\n}\"\ny = '# type: ignore[y]'\n";
+    let found: Vec<&str> = comments(text)
+        .into_iter()
+        .map(|range| &text[range])
+        .collect();
+    assert_eq!(found, ["# type: ignore[x]"]);
+}
+
 /// The parse on a thread with the stack of the binary (`main::STACK_BYTES`).
 fn outcome(text: &str, minor: u32) -> Result<(), Failure> {
     let text = text.to_owned();
