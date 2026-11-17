@@ -1038,11 +1038,6 @@
     [
       "collection_gap",
       "native.archkeel_dart_collector.collection",
-      "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_dart_collector.collection",
       "A method call may reach the method spent of a type in its own file native.archkeel_dart_collector.work"
     ],
     [

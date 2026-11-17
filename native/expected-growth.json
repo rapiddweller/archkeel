@@ -1553,15 +1553,6 @@
         "gap",
         "collection_gap",
         "native.archkeel_dart_collector.collection",
-        "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
-      ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_dart_collector.collection",
         "A method call may reach the method spent of a type in its own file native.archkeel_dart_collector.work"
       ],
       "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
