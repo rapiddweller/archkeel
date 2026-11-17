@@ -59,8 +59,7 @@ def test_the_producer_equals_the_golden_reply(
 ) -> None:
     name = os.environ.get(golden_producers.PRODUCER_VARIABLE, "native")
     binary = request.getfixturevalue("native_binary")
-    options = golden_record.options(language, case)
-    run = golden_producers.producer(name, binary, language=language, **options)
+    run = golden_producers.producer(name, binary, language=language)
     pin = golden_replies.pin_for(language)
     golden_replies.require_recorded_interpreter(pin, os.environ)
     root = golden_producers.materialize(golden_record.cases(language)[case], tmp_path)
