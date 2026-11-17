@@ -108,9 +108,9 @@ native-check:
 	cd native && cargo test --locked
 	$(MAKE) self-validate-native
 
-# AD-754: the gate builds the core with a fast profile: no LTO, 16 codegen units. The verdicts do not depend
+# AD-754: the gate builds the core with a fast profile: no LTO, 16 codegen units, opt-level 1. The verdicts do not depend
 # on it; the shipped wheel, the nightly run and a build without ARCHKEEL_CORE_PROFILE keep the release profile.
-CORE_PROFILE_ENV := $(if $(filter gate,$(ARCHKEEL_CORE_PROFILE)),CARGO_PROFILE_RELEASE_LTO=false CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16,)
+CORE_PROFILE_ENV := $(if $(filter gate,$(ARCHKEEL_CORE_PROFILE)),CARGO_PROFILE_RELEASE_LTO=false CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16 CARGO_PROFILE_RELEASE_OPT_LEVEL=1,)
 
 # AD-432: the core is the only decision path. `archkeel` finds this release build of the checkout.
 # AD-732, AD-736: with ARCHKEEL_CORE_SOURCE=cache (CI restored the core from its cache) and
