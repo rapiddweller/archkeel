@@ -260,18 +260,18 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         }
     }
 
-    /// Each reference to the binding of `name` in its scope. A free name, a scope that is not
-    /// statically known and a name with an escape leave the walk.
+    /// Each reference to the binding of `name` in its scope. A free name and a name with an
+    /// escape leave the walk. A name of a script leaves it too: a top-level name of a script is a
+    /// global that another file can call, and `with` can give a name to an object. A module is
+    /// strict code, so it has no `with` and its `eval` declares no name.
     fn uses_of(&self, name: Node<'t>, carrier: Carrier) -> Use<'t> {
         let tree = self.tree;
         let text = tree.text(name);
         let Some(scope) = bound_scope(tree, name, &text) else {
             return Use::Reaches;
         };
-        // A top-level name of a script is a global that another file can call.
-        let script_global = !self.module_syntax && scope.kind() == "program";
         let range = tree.range(scope);
-        if script_global || tree.in_ambiguous_scope(name) || self.refs.any_bad(range) {
+        if !self.module_syntax || self.refs.any_bad(range) {
             return Use::Reaches;
         }
         let uses = self

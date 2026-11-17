@@ -78,8 +78,9 @@ stops at the first use that reaches:
 - **Reaches.** A call, `new` or tag of the value; each use that leaves the walk: an argument (so
   `Reflect.apply` and `Function.prototype.call.call`), a `return`, a `throw`, a `yield`, a write to a
   member or a free name, an export, a class field, a default value, a pattern of a literal that holds
-  it, a spread outside a literal, a top-level name of a script, a scope that is not statically known
-  or a name with an escape, and more than 256 steps.
+  it, a spread outside a literal, a local name in a script file (a top-level name is a global, and
+  `with` can give a name to an object; a module is strict code), a name with an escape, and more
+  than 256 steps.
 - **Ends.** The use cannot call the value: a discarded value, `typeof`, `!`, `void`, `delete`, a
   comparison or arithmetic, an update, a text, a computed key, a condition, a `for…of` or `for…in`
   over it, an array pattern of it, an object pattern of plain names other than `call`, `apply` and
@@ -93,8 +94,8 @@ direct form already) gives a member of `Function`, `Object` or a prototype, none
 code from a text without a direct form. The elements of a value that a key names are no such
 value: the inherited members are not iterable or iterate to nothing (`Array.prototype` is empty).
 **Price.** Each read that is returned, passed or stored is now a blocker. graphql-js v16.15.0: 2 to
-67 blocker gaps, rules unchanged (1 PASS, 7 UNKNOWN). Explorer scripts (`browser.toml`): 37 to 86
-blocker gaps, 457 to 554 gaps, rules unchanged. TypeScript fixtures F, H, H-uml, L-nest: unchanged.
+67 blocker gaps, rules unchanged (1 PASS, 7 UNKNOWN). Explorer scripts (`browser.toml`, script files, so
+each local name leaves the walk): 37 to 101 blocker gaps, 457 to 583 gaps, rules unchanged. TypeScript fixtures F, H, H-uml, L-nest: unchanged.
 The golden reply of `excalidraw-laser-pointer` gets one gap (`simplify.ts:27`, `points[maxIndex]`
 passed on; `maxIndex` comes from a pattern, so it is not proven a number).
 **Open.** A value that a namespace of rule 2 gives (`Math[k]` is `Object` at most) stays exempt.

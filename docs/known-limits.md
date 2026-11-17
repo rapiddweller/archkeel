@@ -433,7 +433,7 @@ whose value a call can reach after the read is the same direct form as the key c
 follows the value through a wrapper, a local name (also one that a later assignment writes), an
 array or object literal that holds it, and the members `call`, `apply` and `bind`. A use that
 leaves this walk (an argument, `Reflect.apply`, `Function.prototype.call.call`, a `return`, a write
-to a member, an export, a class field, a default value, a top-level name of a script) is the direct
+to a member, an export, a class field, a default value, a local name in a script file) is the direct
 form too, so `return map[key]` keeps every free standard name from a proof. A use that cannot call
 the value keeps the proof: `typeof`, a comparison, a condition, arithmetic, a text, a loop over its
 elements, a member with another plain name, and a pattern of plain names. Plants:

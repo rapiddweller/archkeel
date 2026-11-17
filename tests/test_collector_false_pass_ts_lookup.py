@@ -22,7 +22,8 @@ from archkeel.cli import core_only
 
 PLANTS = {
     # The three plants of the audit (#1525).
-    "lookup-stored": "export function run(o: any, k: string, t: string) { const f = o[k]; f(t)(); }",
+    "lookup-stored": "export function run(o: any, k: string, t: string) "
+    "{ const f = o[k]; f(t)(); }",
     "lookup-passed": "function g(f: any, t: string) { f(t)(); }\n"
     "export function run(o: any, k: string, t: string) { g(o[k], t); }",
     "lookup-argument": "export function run(o: any, k: string, t: string) "
