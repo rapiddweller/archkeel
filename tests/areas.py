@@ -33,11 +33,8 @@ AREAS: dict[str, tuple[str, ...]] = {
         "test_area_selection.py",
         "test_merge_pr.py",
         "test_born_small.py",
-<<<<<<< HEAD
         "test_ratchet_stale.py",
-=======
         "test_core_cache.py",
->>>>>>> c81e08fff (The core cache is saved only after its own build and carries a tree stamp (AD-732))
         "test_doc_references_exist.py",
         "test_make_gate.py",
         "test_make_self_check.py",
