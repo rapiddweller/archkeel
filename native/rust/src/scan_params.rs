@@ -191,6 +191,10 @@ impl Params {
 }
 
 impl Binder for Params {
+    fn typed(&self, name: &str, ty: &syn::Type) -> Option<ReceiverChain> {
+        self.body_type(ty).map(|ty| self.typed_root(name, ty))
+    }
+
     fn bind_at(&mut self, name: String, origin: ReceiverChain, sites: BTreeSet<(usize, usize)>) {
         let binding = Binding {
             receiver: None,
@@ -311,6 +315,8 @@ pub(super) fn read(
     Bodies {
         binder: &mut params,
         tainted: &bound.tainted,
+        counts: &bound.counts,
+        depth: 0,
     }
     .visit_block(block);
     params
