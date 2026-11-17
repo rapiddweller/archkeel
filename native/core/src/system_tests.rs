@@ -94,7 +94,10 @@ fn an_unknown_system_never_says_that_its_scope_is_complete() {
     assert_eq!(joined(&[part("PASS", None)])["scope"], json!("complete"));
     // The scope of an open part still wins: it is the first reason.
     let open = part_with_scope("UNKNOWN", &json!("one"));
-    assert_eq!(joined(&[open, unknown_part("R1", why)])["scope"], json!("one"));
+    assert_eq!(
+        joined(&[open, unknown_part("R1", why)])["scope"],
+        json!("one")
+    );
 }
 
 #[test]
@@ -105,7 +108,10 @@ fn a_part_that_is_unknown_without_an_explaining_row_refuses_the_system() {
     .unwrap();
     let ids: Vec<&str> = vec!["p0"];
     let refused = join(&system(&ids), &[bare], (false, false)).unwrap_err();
-    assert!(refused.contains("UNKNOWN without an explaining row"), "{refused}");
+    assert!(
+        refused.contains("UNKNOWN without an explaining row"),
+        "{refused}"
+    );
     // An unreadable status is UNKNOWN too and needs the same row.
     let odd = serde_json::to_vec(&json!({"engine": "e", "protocol": "p", "status": "BOGUS"}));
     assert!(join(&system(&ids), &[odd.unwrap()], (false, false)).is_err());
