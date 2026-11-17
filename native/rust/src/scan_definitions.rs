@@ -55,7 +55,7 @@ fn type_name(item: &ItemImpl) -> Option<String> {
 /// Read the definition that `item` is. A block of a function holds no definition of the
 /// module, so the walk reads nothing inside it.
 pub(super) fn define_item(walker: &mut Walker<'_>, item: &Item) {
-    if walker.blocks > 0 {
+    if walker.blocks() > 0 {
         return;
     }
     let (form, ident, vis): (Form, &Ident, &syn::Visibility) = match item {
@@ -190,7 +190,7 @@ pub(super) fn impl_block(walker: &mut Walker<'_>, item: &ItemImpl) {
         path,
         scope,
         members,
-        exact: exact_path(item).is_some() && walker.blocks == 0 && !walker.selves.gated(),
+        exact: exact_path(item).is_some() && walker.blocks() == 0 && !walker.selves.gated(),
     });
 }
 
@@ -206,7 +206,7 @@ pub(super) fn exact_type(walker: &mut Walker<'_>, item: &Item) {
         Item::Trait(found) => (&found.ident, &found.attrs, false),
         _ => return,
     };
-    if walker.blocks != 0 || walker.selves.gated() {
+    if walker.blocks() != 0 || walker.selves.gated() {
         return;
     }
     let helper =
@@ -327,7 +327,7 @@ pub(super) fn define_impl_item(walker: &mut Walker<'_>, item: &syn::ImplItem) {
     let Holder::Impl(ty) = walker.holder.clone() else {
         return;
     };
-    if walker.blocks > 0 {
+    if walker.blocks() > 0 {
         return;
     }
     let owner = Owner::Impl(ty);
@@ -346,7 +346,7 @@ pub(super) fn define_trait_item(walker: &mut Walker<'_>, item: &syn::TraitItem) 
     let Holder::Trait(name, access) = walker.holder.clone() else {
         return;
     };
-    if walker.blocks > 0 {
+    if walker.blocks() > 0 {
         return;
     }
     let owner = Owner::Trait(name);

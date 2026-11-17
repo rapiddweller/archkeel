@@ -55,10 +55,8 @@ pub(crate) fn scan(
             inline: Vec::new(),
             absolute_use: false,
             public_use: false,
-            blocks: 0,
             in_macro: None,
             block_ends: Vec::new(),
-            via: Via::Path,
             holder: Holder::default(),
             selves: Selves::default(),
             helpers: crate::attrs::model::Context::default(),
@@ -121,7 +119,7 @@ impl Visitor<'_> {
         }
         if let (Meta::List(list), false) = (&attr.meta, lint) {
             match attribute_chains(list.tokens.clone()) {
-                Some(found) => self.walker.refer_chains(found),
+                Some(found) => self.walker.refer_chains(found, &Via::Path),
                 None => concern(
                     &mut self.walker,
                     "An attribute is nested too deep".to_owned(),
@@ -135,7 +133,7 @@ impl Visitor<'_> {
             if helper {
                 helper_strings(&mut self.walker, attr, list);
             } else {
-                attribute_strings(&mut self.walker, list);
+                attribute_strings(&mut self.walker, list, &Via::Path);
             }
         }
         if let (Meta::NameValue(pair), false) = (&attr.meta, lint) {
@@ -162,7 +160,7 @@ impl Visitor<'_> {
             let reason = "A string in an attribute holds a path that the scan cannot read";
             concern(&mut self.walker, reason.to_owned(), text.span());
         }
-        self.walker.refer_chains(found);
+        self.walker.refer_chains(found, &Via::Path);
     }
 }
 
@@ -190,25 +188,26 @@ impl<'ast> Visit<'ast> for Visitor<'_> {
             impl_block(&mut self.walker, found);
             self.walker
                 .selves
-                .enter_impl(found, &self.walker.inline, self.walker.blocks);
+                .enter_impl(found, &self.walker.inline, self.walker.blocks());
         } else if let Item::Fn(found) = item {
-            let at = (&self.walker.inline[..], self.walker.blocks);
+            let at = (&self.walker.inline[..], self.walker.blocks());
             self.walker.selves.enter_function(found, at);
         }
         exact_type(&mut self.walker, item);
         let outer = match item {
-            Item::Impl(item) if self.walker.blocks == 0 => Some(enter_impl(&mut self.walker, item)),
-            Item::Trait(item) if self.walker.blocks == 0 => {
+            Item::Impl(item) if self.walker.blocks() == 0 => {
+                Some(enter_impl(&mut self.walker, item))
+            }
+            Item::Trait(item) if self.walker.blocks() == 0 => {
                 Some(enter_trait(&mut self.walker, item))
             }
             _ => None,
         };
         let tools = self.walker.tools;
         self.walker.tools &= !crate::attrs::kinds::no_tools(item_attributes(item));
-        let helpers = std::mem::replace(
-            &mut self.walker.helpers,
-            crate::attrs::model::Context::of(item, self.walker.blocks > 0, self.walker.tools),
-        );
+        let context =
+            crate::attrs::model::Context::of(item, self.walker.blocks() > 0, self.walker.tools);
+        let helpers = std::mem::replace(&mut self.walker.helpers, context);
         visit::visit_item(self, item);
         self.walker.helpers = helpers;
         self.walker.tools = tools;
@@ -224,7 +223,7 @@ impl<'ast> Visit<'ast> for Visitor<'_> {
         if !(self.walker.exclude_tests && is_test_attributes(impl_item_attributes(item))) {
             define_impl_item(&mut self.walker, item);
             if let syn::ImplItem::Fn(method) = item {
-                let at = (&self.walker.inline[..], self.walker.blocks);
+                let at = (&self.walker.inline[..], self.walker.blocks());
                 self.walker.selves.enter_method(method, at);
             }
             visit::visit_impl_item(self, item);
@@ -264,8 +263,11 @@ impl<'ast> Visit<'ast> for Visitor<'_> {
         if path.segments.len() > 1 {
             let names: Vec<String> = path.segments.iter().map(|s| plain(&s.ident)).collect();
             if let Some(first) = path.segments.first() {
-                self.walker
-                    .refer_as(&names, first.ident.span(), path.leading_colon.is_some());
+                self.walker.refer_as(
+                    &names,
+                    first.ident.span(),
+                    (path.leading_colon.is_some(), &Via::Path),
+                );
             }
         }
         visit::visit_path(self, path);
@@ -325,9 +327,7 @@ impl<'ast> Visit<'ast> for Visitor<'_> {
         self.walker
             .block_ends
             .push((to_i64(end.line), to_i64(end.column)));
-        self.walker.blocks += 1;
         visit::visit_block(self, node);
-        self.walker.blocks -= 1;
         self.walker.block_ends.pop();
     }
 

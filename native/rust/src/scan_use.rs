@@ -42,7 +42,7 @@ pub(super) fn use_item(walker: &mut Walker<'_>, node: &ItemUse) {
     walker.public_use = !matches!(node.vis, Visibility::Inherited);
     use_tree(walker, &mut Vec::new(), &node.tree);
     walker.absolute_use = false;
-    walker.via = Via::Path;
+    walker.public_use = false;
 }
 
 pub(super) fn use_tree(walker: &mut Walker<'_>, prefix: &mut Vec<String>, tree: &UseTree) {
@@ -70,12 +70,12 @@ pub(super) fn use_tree(walker: &mut Walker<'_>, prefix: &mut Vec<String>, tree: 
             leaf(walker, prefix, &rename.ident, Some(bound));
         }
         UseTree::Glob(glob) => {
-            walker.via = Via::Glob {
+            let via = Via::Glob {
                 reexport: walker.public_use,
-                block: walker.blocks > 0,
+                block: walker.blocks() > 0,
             };
             let span = glob.star_token.spans[0];
-            walker.refer_as(prefix, span, walker.absolute_use);
+            walker.refer_as(prefix, span, (walker.absolute_use, &via));
         }
         UseTree::Group(group) => {
             for item in &group.items {
@@ -91,17 +91,17 @@ pub(super) fn leaf(
     name: &syn::Ident,
     binding: Option<String>,
 ) {
-    walker.via = Via::Use {
+    let via = Via::Use {
         binding,
         reexport: walker.public_use,
-        block: walker.blocks > 0,
+        block: walker.blocks() > 0,
     };
     let mut names = prefix.to_vec();
     // `use a::b::{self}` names the module `a::b`.
     if name != "self" {
         names.push(plain(name));
     }
-    walker.refer_as(&names, name.span(), walker.absolute_use);
+    walker.refer_as(&names, name.span(), (walker.absolute_use, &via));
 }
 
 /// `extern crate foo;` names the crate `foo`. `extern crate self as name;` binds `name` to
@@ -128,14 +128,13 @@ pub(super) fn extern_crate(walker: &mut Walker<'_>, node: &ItemExternCrate) {
         return;
     }
     if let (true, Some((_, rename))) = (node.ident == "self", &node.rename) {
-        walker.via = Via::Use {
+        let via = Via::Use {
             binding: Some(plain(rename)),
             reexport: false,
-            block: walker.blocks > 0,
+            block: walker.blocks() > 0,
         };
-        walker.refer(&["crate".to_owned()], span);
-        walker.via = Via::Path;
-        if walker.blocks == 0 {
+        walker.refer_as(&["crate".to_owned()], span, (false, &via));
+        if walker.blocks() == 0 {
             walker
                 .out
                 .self_aliases
