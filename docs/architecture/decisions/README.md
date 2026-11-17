@@ -7,8 +7,8 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-694 | [A path that ends at a module may name a value of its name](ad-694-a-path-that-ends-at-a-module-may-name-a-value-of-its-name.md) |
 | AD-692 | [An imported inert attribute keeps its import gap](ad-692-an-imported-inert-attribute-keeps-its-import-gap.md) |
-| AD-692 | [A path that ends at a module may name a value of its name](ad-692-a-path-that-ends-at-a-module-may-name-a-value-of-its-name.md) |
 | AD-690 | [A dill settings read keeps the import gap](ad-690-a-dill-settings-read-keeps-the-import-gap.md) |
 | AD-686 | [A proven Python getattr call is a construct](ad-686-a-proven-python-getattr-call-is-a-construct.md) |
 | AD-684 | [A written Python string equality is a construct](ad-684-a-written-python-string-equality-is-a-construct.md) |
