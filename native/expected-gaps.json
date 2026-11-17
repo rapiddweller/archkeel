@@ -3227,11 +3227,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_python_collector",
-      "A method call may reach the method new of a type in its own file native.archkeel_snapshot.snapshot"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_python_collector.bin_archkeel_python_collector",
       "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
     ],

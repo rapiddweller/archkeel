@@ -14,6 +14,7 @@ use crate::requirement::Prepared;
 use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Target};
 #[cfg(feature = "dump")]
 use archkeel_facts::pyminor::PyMinor;
+use archkeel_facts::request::PythonRequest;
 use archkeel_facts::sections::SignalFact;
 use archkeel_facts::{
     CallFact, ConstructFact, GapFact, ImportFact, Record, ReferenceFact, SymbolFact,
@@ -116,7 +117,7 @@ pub(crate) struct Modules {
 
 #[cfg(feature = "dump")]
 pub(crate) fn modules(prepared: &Prepared) -> Result<Modules, String> {
-    let request = &prepared.request;
+    let request: &PythonRequest = &prepared.request;
     let mut snapshot = Snapshot::new(&request.snapshot.root);
     let minor = prepared.interpreter.version.minor();
     let scope = discover::scope(
@@ -143,7 +144,7 @@ pub(crate) fn modules(prepared: &Prepared) -> Result<Modules, String> {
     reason = "the survey is one pipeline of passes; AD-520 adds the site pass to it"
 )]
 pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
-    let request = &prepared.request;
+    let request: &PythonRequest = &prepared.request;
     let interpreter = &prepared.interpreter;
     let minor = interpreter.version.minor();
     let mut snapshot = Snapshot::new(&request.snapshot.root);
