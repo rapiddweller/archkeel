@@ -358,7 +358,7 @@ def _triggers(workflow: str) -> set[str]:
 
 def test_ci_runs_on_main_and_dispatch_and_full_runs_nightly_dispatch_or_called() -> None:
     # AD-674: the PR tier is `pr-gate.yml`; ci.yml is the main tier.
-    assert _triggers("ci.yml") == {"push", "workflow_dispatch"}
+    assert _triggers("ci.yml") == {"push", "schedule", "workflow_dispatch"}
     assert _triggers("pr-gate.yml") == {"pull_request"}
     assert _triggers("full-verification.yml") == {"workflow_call", "workflow_dispatch", "schedule"}
     assert "branches: [main]" in (ROOT / ".github/workflows/ci.yml").read_text()
