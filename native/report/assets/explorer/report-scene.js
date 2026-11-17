@@ -263,7 +263,7 @@
       countLabel,
     };
   }
-  // #1644: a box that the report makes (a group or a directory) is no decision of the contract.
+  // Issue 1644: a box that the report makes (a group or a directory) is no decision of the contract.
   const decider = (value) => value === "agent" ? "Agent" : value === "architect" ? "Architect"
     : value === "report" ? "Report (structure)"
     : value && value !== "UNKNOWN" ? String(value) : "Not recorded";
