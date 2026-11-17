@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from merge_pr import decide, main  # noqa: E402
+from merge_pr import Changes, decide, deletions, entry_count, main  # noqa: E402
 
 PR = {
     "state": "OPEN",
@@ -107,11 +107,22 @@ class Fake:
     ) -> None:
         self.pr, self.runs, self.files, self.protection = pr, runs, files, protection
         self.merge_oid = merge_oid
+        self.changed = [{"filename": "a.py", "status": "modified", "additions": 3, "deletions": 1}]
+        self.labels: list[str] = []
+        self.contents = {"base": "{}", "head": "{}"}
         self.calls: list[tuple[str, ...]] = []
 
     def __call__(self, *args: str) -> str:
         self.calls.append(args)
         text = " ".join(args)
+        if "/compare/" in text:
+            return json.dumps({"sha": "base-sha"})
+        if "/contents/" in text:
+            return self.contents["base" if "ref=base-sha" in text else "head"]
+        if "/files" in text:
+            return "\n".join(json.dumps(item) for item in self.changed)
+        if args[:3] == ("pr", "view", "7") and "labels" in text:
+            return json.dumps({"labels": [{"name": name} for name in self.labels]})
         if args[:2] == ("pr", "view") and "mergeCommit" in text:
             return json.dumps({"mergeCommit": {"oid": self.merge_oid} if self.merge_oid else None})
         if args[:2] == ("pr", "view"):
@@ -203,3 +214,76 @@ def test_the_tool_never_names_admin_or_no_verify() -> None:
     source = (Path(__file__).parents[1] / "tools/merge_pr.py").read_text(encoding="utf-8")
     code = source.split('"""', 2)[2]
     assert "--admin" not in code and "--no-verify" not in code
+
+
+def _file(name: str, status: str = "modified", add: int = 0, delete: int = 0) -> dict:
+    return {"filename": name, "status": status, "additions": add, "deletions": delete}
+
+
+def test_a_deleted_file_is_refused_without_the_label_and_allowed_with_it() -> None:
+    changes = Changes(files=[_file("a.py", "removed", 0, 5), _file("b.py", add=9)])
+    refused = decide(PR, ["PR gate"], GREEN, changes)
+    assert refused.verdict == "REFUSE" and codes(refused) == ["deletion_unapproved"]
+    assert "a.py" in refused.reasons[0].detail and "deletion-approved" in refused.reasons[0].detail
+    changes.labels = {"deletion-approved"}
+    assert decide(PR, ["PR gate"], GREEN, changes).verdict == "MERGE"
+
+
+def test_a_net_removal_over_300_lines_is_refused_like_the_reverts_of_1636() -> None:
+    """#1636 removed 19,516 lines of other pull requests while it added 178."""
+    changes = Changes(files=[_file("native/x.rs", add=178, delete=19_516)])
+    assert codes(decide(PR, ["PR gate"], GREEN, changes)) == ["deletion_unapproved"]
+    edge = Changes(files=[_file("a.rs", add=100, delete=400)])  # net 300 is allowed
+    assert decide(PR, ["PR gate"], GREEN, edge).verdict == "MERGE"
+    over = Changes(files=[_file("a.rs", add=100, delete=401)])
+    assert decide(PR, ["PR gate"], GREEN, over).verdict == "REFUSE"
+    assert (
+        decide(PR, ["PR gate"], GREEN, Changes(files=[_file("a.rs", add=900, delete=700)])).verdict
+        == "MERGE"
+    )
+
+
+def test_a_ratchet_file_that_loses_more_than_50_entries_needs_the_lead_label() -> None:
+    changes = Changes(files=[_file("native/expected-growth.json", add=1, delete=2)])
+    changes.entries["native/expected-growth.json"] = (80, 29)
+    refused = decide(PR, ["PR gate"], GREEN, changes)
+    assert codes(refused) == ["ratchet_removal_unapproved"]
+    changes.labels = {"ratchet-lead"}
+    assert decide(PR, ["PR gate"], GREEN, changes).verdict == "MERGE"
+    changes.entries["native/expected-growth.json"] = (80, 30)  # 50 is allowed
+    changes.labels = set()
+    assert decide(PR, ["PR gate"], GREEN, changes).verdict == "MERGE"
+
+
+def test_both_guards_can_refuse_together_and_the_deletion_label_does_not_open_the_ratchet() -> None:
+    changes = Changes(files=[_file("a.py", "removed", 0, 5)], labels={"deletion-approved"})
+    changes.entries["native/expected-gaps.json"] = (100, 10)
+    assert codes(decide(PR, ["PR gate"], GREEN, changes)) == ["ratchet_removal_unapproved"]
+
+
+def test_the_entries_of_a_ratchet_file_are_its_lists_and_maps() -> None:
+    assert entry_count(json.dumps({"name": "n", "rules": {"A": "PASS"}, "gaps": [1, 2]})) == 3
+    assert entry_count(json.dumps({"raised": []})) == 0
+    assert deletions(Changes()) == []
+
+
+def test_main_reads_the_files_and_the_labels_and_refuses_an_unapproved_deletion() -> None:
+    fake = Fake(PR, DONE, ["a.py"], '{"contexts": ["PR gate"]}')
+    fake.changed = [_file("a.py", "removed", 0, 400)]
+    assert main(["7"], fake) == 1 and not fake.merged()
+    fake = Fake(PR, DONE, ["a.py"], '{"contexts": ["PR gate"]}')
+    fake.changed = [_file("a.py", "removed", 0, 400)]
+    fake.labels = ["deletion-approved"]
+    assert main(["7"], fake) == 0
+
+
+def test_main_counts_the_entries_of_a_ratchet_file_at_the_merge_base_and_at_the_head() -> None:
+    fake = Fake(PR, DONE, ["a.py"], '{"contexts": ["PR gate"]}')
+    fake.changed = [_file("native/expected-growth.json", add=0, delete=6)]
+    fake.contents = {
+        "base": json.dumps({"raised": list(range(80))}),
+        "head": json.dumps({"raised": list(range(20))}),
+    }
+    assert main(["7", "--json"], fake) == 1 and not fake.merged()
+    fake.labels = ["ratchet-lead"]
+    assert main(["7"], fake) == 0
