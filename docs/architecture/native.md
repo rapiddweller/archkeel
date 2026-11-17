@@ -238,6 +238,7 @@ flowchart LR
     n_41 --> n_5
     n_41 --> n_31
     n_41 --> n_1
+    n_41 --> n_4
     n_0["build"]
     n_1["contract"]
     n_2["core"]
@@ -650,6 +651,7 @@ flowchart LR
     n_73 --> n_5
     n_73 --> n_76
     n_74 --> n_75
+    n_75 --> n_4
     n_75 --> n_76
     n_77 --> n_1
     n_77 --> n_31

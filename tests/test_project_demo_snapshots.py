@@ -23,37 +23,51 @@ def _git_blob_sha1(payload: bytes) -> str:
     return hashlib.sha1(header + payload).hexdigest()
 
 
-def test_compass_snapshot_preserves_libraries_and_generated_parts() -> None:
+def test_compass_snapshot_preserves_libraries_generated_parts_and_the_workspace() -> None:
     fixture = "fixtures/J-compass"
+    app = "compass_app/app/"
     snapshot = _snapshot(f"{fixture}/SNAPSHOT.json")
     assert snapshot["repository"] == "flutter/samples"
     assert snapshot["commit"] == "5541c59ab8e9d7e74c1a35ef22bd43a487fc596c"
 
     files = snapshot["files"]
     dart = [
-        item for item in files if item["path"].startswith("lib/") and item["path"].endswith(".dart")
+        item
+        for item in files
+        if item["path"].startswith(app + "lib/") and item["path"].endswith(".dart")
     ]
     generated = [item for item in dart if item.get("generated") is True]
     libraries = [item for item in dart if item.get("generated") is False]
     assert (len(dart), len(libraries), len(generated)) == (111, 89, 22)
+    # The workspace root and every member of it: 37 pubspec files (AD-808). The other files that
+    # the fixture holds are the licence and the Dart source of the app.
+    manifests = [item["path"] for item in files if item["path"].endswith("pubspec.yaml")]
+    assert (
+        len(manifests) == 37 and "pubspec.yaml" in manifests and app + "pubspec.yaml" in manifests
+    )
     assert {item["path"] for item in files if not item["path"].endswith(".dart")} == {
         "LICENSE",
-        "pubspec.yaml",
+        *manifests,
     }
     actual_dart = {
         path.relative_to(ROOT / fixture).as_posix()
-        for path in (ROOT / fixture / "lib").rglob("*.dart")
+        for path in (ROOT / fixture / app / "lib").rglob("*.dart")
     }
     assert actual_dart == {item["path"] for item in dart}
+    on_disk = {
+        path.relative_to(ROOT / fixture).as_posix()
+        for path in (ROOT / fixture).rglob("pubspec.yaml")
+    }
+    assert on_disk == set(manifests)
 
     for item in files:
         target = ROOT / fixture / item["path"]
         assert _sha256(target) == item["sha256"]
+        assert item["source_url"].startswith(
+            "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/"
+        )
         if item["path"].endswith(".dart"):
-            assert item["source_url"].startswith(
-                "https://github.com/flutter/samples/blob/5541c59ab8e9d7e74c1a35ef22bd43a487fc596c/"
-            )
-            assert item["source_path"] == "compass_app/app/" + item["path"]
+            assert item["source_path"] == item["path"]
     library_paths = {item["path"] for item in libraries}
     for item in generated:
         assert item["parent_library"] in library_paths
