@@ -58,8 +58,9 @@ def test_the_release_core_gives_the_pinned_result(
 ) -> None:
     monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
     source = FIXTURES / entry["root"]
-    # A fixture with resolver inputs runs in a copy, as the gallery runs it.
-    with fixture_tree(source) if needs_copy(source) else nullcontext(source) as root:
+    edits = entry.get("plant", {}).get("edits")
+    # A fixture with resolver inputs or a planted change runs in a copy, as the gallery runs it.
+    with fixture_tree(source, edits) if needs_copy(source, edits) else nullcontext(source) as root:
         arguments = [entry["command"], "--root", str(root)]
         if entry.get("config"):
             arguments += ["--config", entry["config"]]

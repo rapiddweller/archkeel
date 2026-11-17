@@ -176,14 +176,42 @@ def build_run(cli: Sequence[str], run: Mapping[str, Any], out: Path) -> dict[str
     folder = out / run["name"]
     folder.mkdir(parents=True)
     source = ROOT / "fixtures" / run["root"]
-    if not needs_copy(source):
-        return _reports(cli, run, folder, "report", f"{run['name']}/")
-    # A fixture with resolver inputs runs in a copy, as in the tests (AD-462).
-    with fixture_tree(source) as tree:
+    plant = run.get("plant") or {}
+    edits = plant.get("edits")
+    prefix = f"{run['name']}/"
+    if not needs_copy(source, edits):
+        return _reports(cli, run, folder, "report", prefix)
+    # A fixture with resolver inputs, or with a planted change, runs in a copy (AD-462).
+    with fixture_tree(source, edits) as tree:
         shown = f"<repo>/fixtures/{run['root']}"
         copies = {str(tree): shown, str(tree.resolve()): shown}
         prepared = {**run, "root_path": str(tree)}
-        return _reports(cli, prepared, folder, "report", f"{run['name']}/", copies)
+        row = _reports(cli, prepared, folder, "report", prefix, copies)
+    if plant:
+        row["violation"] = violation_block(folder / "report.html", plant["rule"])
+    return row
+
+
+def violation_block(page: Path, rule: str) -> dict[str, str] | None:
+    """The block of the report page that lists a violation of `rule`: its anchor and its title.
+
+    The core writes one `rp-dos` block for each place in the code and lists each rule that fails
+    there. None when the page holds no such block.
+    """
+    if not page.is_file():
+        return None
+    text = page.read_text(encoding="utf-8")
+    blocks = re.split(r'(?=<article class="rp-dos" id="x\d+">)', text)
+    for block in blocks:
+        found = re.match(r'<article class="rp-dos" id="(x\d+)">', block)
+        if not found:
+            continue
+        # A block ends where its article ends; a rule id of a later part is not this block's.
+        body = block.split("</article>", 1)[0]
+        title = re.search(r'<h3 class="h3">(.*?)</h3>', body, re.DOTALL)
+        if title and html.escape(rule) in body:
+            return {"id": found.group(1), "title": html.unescape(re.sub(r"<[^>]+>", "", title[1]))}
+    return None
 
 
 def badge(row: Mapping[str, Any], label: str) -> dict[str, Any]:
