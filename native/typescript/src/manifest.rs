@@ -103,7 +103,7 @@ pub(crate) enum Condition {
 }
 
 /// `Resolver._export_condition`: the first target that an active condition names.
-pub(crate) fn condition(value: &Value, esm: bool) -> Condition {
+pub(crate) fn condition(value: &Value, esm: bool, node_runtime: bool) -> Condition {
     let object = match value {
         Value::String(text) => return Condition::Target(text.clone()),
         Value::Object(object) => object,
@@ -114,8 +114,10 @@ pub(crate) fn condition(value: &Value, esm: bool) -> Condition {
     let active = if esm { "import" } else { "require" };
     for (name, target) in object {
         match name.as_str() {
+            "types" if node_runtime => continue,
             "types" | "default" => {}
             name if name == active => {}
+            "node" if node_runtime => {}
             "import" | "require" => continue,
             other => {
                 return Condition::Unknown(Unknown::internal(format!(
@@ -126,7 +128,7 @@ pub(crate) fn condition(value: &Value, esm: bool) -> Condition {
         if !(target.is_object() || target.is_string()) {
             return Condition::Unknown(Unknown::new("Package exports conditions are not observed"));
         }
-        match condition(target, esm) {
+        match condition(target, esm, node_runtime) {
             Condition::Nothing => {}
             selected => return selected,
         }

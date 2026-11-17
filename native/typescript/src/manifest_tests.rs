@@ -64,11 +64,19 @@ fn a_target_must_be_a_plain_package_path() {
 }
 
 fn selected_target(value: serde_json::Value, esm: bool) -> String {
-    match condition(&value, esm) {
+    match condition(&value, esm, false) {
         Condition::Target(target) => target,
         Condition::Unknown(unknown) => {
             format!("unknown:{}:{}", unknown.reason, unknown.package_internal)
         }
+        Condition::Nothing => "nothing".to_owned(),
+    }
+}
+
+fn selected_node_target(value: serde_json::Value, esm: bool) -> String {
+    match condition(&value, esm, true) {
+        Condition::Target(target) => target,
+        Condition::Unknown(unknown) => format!("unknown:{}", unknown.reason),
         Condition::Nothing => "nothing".to_owned(),
     }
 }
@@ -104,6 +112,24 @@ fn the_first_active_condition_decides_in_file_order() {
     for (value, esm, expected) in cases {
         assert_eq!(
             selected_target(value.clone(), esm),
+            expected,
+            "{value} esm={esm}"
+        );
+    }
+}
+
+#[test]
+fn node_conditions_ignore_types_and_keep_active_condition_order() {
+    let cases = [
+        (json!({"types": "./t", "require": "./r"}), false, "./r"),
+        (json!({"types": "./t", "import": "./i"}), true, "./i"),
+        (json!({"types": "./t", "default": "./d"}), false, "./d"),
+        (json!({"node": "./n", "require": "./r"}), false, "./n"),
+        (json!({"require": "./r", "node": "./n"}), false, "./r"),
+    ];
+    for (value, esm, expected) in cases {
+        assert_eq!(
+            selected_node_target(value.clone(), esm),
             expected,
             "{value} esm={esm}"
         );

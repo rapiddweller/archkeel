@@ -24,32 +24,27 @@ use crate::source_input::{
 use crate::{resolve::format_of, resolver::Resolver};
 use names::{package_names, quoted_after, unknown_loader};
 
-/// The most installed files that one run reads. A larger closure is a gap of each importer.
 const BUDGET: usize = 20_000;
 
-/// What one installed file leads to.
 #[derive(Default)]
 struct Step {
-    /// The installed source files that it imports.
+    node_runtime: bool,
     installed: Vec<String>,
-    /// The first project file that it imports, or why the file can reach one unseen.
     project: Option<String>,
 }
 
-/// The installed files of the closure: who imports each one, and the reach of project source of
-/// each file, with the file of the step and the project file.
 #[derive(Default)]
 pub(super) struct Graph {
     importers: HashMap<String, Vec<String>>,
     pub(super) reached: HashMap<String, (String, String)>,
-    /// Installed files in closure walk order.
     pub(super) files: Vec<String>,
 }
 
 impl Collection<'_> {
+    /// The gap of each module whose import of an installed package reaches project source.
     pub(crate) fn package_closure(&mut self) {
         let entries = std::mem::take(&mut self.installed);
-        if let Some(graph) = self.closure_graph(&entries) {
+        if let Some(graph) = self.closure_graph(&entries, false) {
             let reached = reach_back(graph);
             self.closure_gaps(&entries, |file| reached.get(file).cloned());
         } else {
@@ -76,7 +71,7 @@ impl Collection<'_> {
                 .into_iter()
                 .map(|file| (file, String::new(), String::new()))
                 .collect();
-            let Some(graph) = self.closure_graph(&entries) else {
+            let Some(graph) = self.closure_graph(&entries, true) else {
                 let reason = format!(
                     "Preload {} named in {}:{} has a closure of more than 20000 installed files",
                     preload.name, preload.file, preload.line
@@ -87,7 +82,8 @@ impl Collection<'_> {
             if !std::collections::HashMap::is_empty(&graph.reached) {
                 let reason = format!(
                     "Preload {} named in {}:{} has an incomplete closure: it can reach project \
-                     source, has an unknown loader target, or has an unreadable file",
+                     source, has an unknown Node runtime target or loader target, or has an \
+                     unreadable file",
                     preload.name, preload.file, preload.line
                 );
                 self.gap(&reason, None, "", GapKind::Resolution);
@@ -168,7 +164,6 @@ impl Collection<'_> {
             .read(file)
             .is_some_and(|data| preloads::reaches_module(&String::from_utf8_lossy(&data)))
     }
-
     fn loader_patch(&mut self, preload: &preloads::Named, file: &str, module: bool) {
         let Some(data) = self.snapshot.read(file) else {
             return;
@@ -182,8 +177,12 @@ impl Collection<'_> {
             self.gap(&reason, None, "", GapKind::Collection);
         }
     }
-
-    pub(super) fn closure_graph(&mut self, entries: &[(String, String, String)]) -> Option<Graph> {
+    /// Read the closure from the entries, or `None` above the budget.
+    pub(super) fn closure_graph(
+        &mut self,
+        entries: &[(String, String, String)],
+        node_runtime: bool,
+    ) -> Option<Graph> {
         let mut seen: HashSet<String> = HashSet::new();
         let mut queue: Vec<String> = Vec::new();
         let fresh: Vec<String> = entries
@@ -200,7 +199,7 @@ impl Collection<'_> {
             }
             let file = queue[index].clone();
             index += 1;
-            let step = self.package_step(&file);
+            let step = self.package_step(&file, node_runtime);
             if let Some(project) = step.project {
                 graph.reached.insert(file.clone(), (file.clone(), project));
             }
@@ -241,8 +240,11 @@ impl Collection<'_> {
         }
     }
 
-    fn package_step(&mut self, file: &str) -> Step {
-        let mut step = Step::default();
+    fn package_step(&mut self, file: &str, node_runtime: bool) -> Step {
+        let mut step = Step {
+            node_runtime,
+            ..Step::default()
+        };
         let snapshot: &mut Snapshot = &mut self.snapshot;
         let Some(content) = snapshot.read(file) else {
             let why =
@@ -333,6 +335,7 @@ impl Collection<'_> {
         }
     }
 
+    /// The installed directory that a `node_modules` search finds for a package name, or `None`.
     pub(super) fn package_directory(
         &mut self,
         file: &str,
@@ -363,6 +366,7 @@ impl Collection<'_> {
             .find(|candidate| snapshot.is_dir(candidate))
     }
 
+    /// The source files of an installed package directory, without its nested packages.
     pub(super) fn package_files(&mut self, directory: &str) -> Vec<String> {
         let mut found = Vec::new();
         let mut pending = vec![directory.to_owned()];
@@ -432,7 +436,7 @@ impl Collection<'_> {
         if class.builtin() && !type_only {
             return;
         }
-        let found = if type_only {
+        let found = if type_only || !step.node_runtime {
             self.resolver.resolve_classified(
                 &mut self.snapshot,
                 (specifier, &class),
@@ -452,10 +456,8 @@ impl Collection<'_> {
                 }
             }
             Lookup::Hit(found) => step.project = Some(found.path),
-            // A path that the resolver cannot decide can name a project file, also through a
-            // link in `node_modules`. In an installed package directory each file can be the one.
             Lookup::Unknown(reason) => {
-                if !type_only {
+                if step.node_runtime && !type_only {
                     step.project = Some(format!(
                         "Node runtime target for {specifier} is unknown: {}",
                         reason.reason
@@ -476,8 +478,6 @@ impl Collection<'_> {
         }
     }
 }
-
-/// A file reaches project source when a file that it imports does. Each reach keeps its witness.
 fn reach_back(mut graph: Graph) -> HashMap<String, (String, String)> {
     let mut pending: Vec<String> = graph.reached.keys().cloned().collect();
     while let Some(file) = Vec::pop(&mut pending) {

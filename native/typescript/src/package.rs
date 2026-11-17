@@ -162,7 +162,7 @@ impl Resolver {
                 "Package exports shape is not observed: {name}"
             )));
         }
-        let target = match manifest::condition(chosen, esm) {
+        let target = match manifest::condition(chosen, esm, self.node_runtime) {
             Condition::Unknown(reason) => return Lookup::Unknown(reason),
             Condition::Nothing => {
                 return Lookup::Unknown(Unknown::internal(format!(
@@ -186,6 +186,13 @@ impl Resolver {
         let exact = classify_file(&target)
             .and_then(Suffix::source_kind)
             .is_some_and(|kind| matches!(kind, SourceKind::TypeScript | SourceKind::Declaration));
+        if self.node_runtime
+            && classify_file(&target).and_then(Suffix::source_kind) == Some(SourceKind::TypeScript)
+        {
+            return Lookup::Unknown(Unknown::new(format!(
+                "Node support for TypeScript runtime target is not observed: {name}{shown}"
+            )));
+        }
         let paths = if exact {
             vec![candidate.clone()]
         } else {

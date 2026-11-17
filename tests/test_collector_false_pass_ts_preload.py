@@ -202,7 +202,7 @@ def test_package_preload_exports_are_not_resolved_to_types_or_the_wrong_runtime(
         "node_modules/hook/runtime.mjs": "globalThis.__runtime = 'import';\n",
     }
     frame = _validate(tmp_path, release_core, extra)["frame"]
-    assert frame["rules"]["REQUIRES"][1] != "PASS", frame["collection_gaps"]
+    assert frame["rules"]["REQUIRES"][1] == "PASS", frame["collection_gaps"]
 
     result = _node(
         tmp_path / "repo",
