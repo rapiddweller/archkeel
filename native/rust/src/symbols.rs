@@ -11,7 +11,7 @@
 use std::collections::BTreeMap;
 
 use archkeel_facts::data::{CallableData, ClassData, Declared, ValueData};
-use archkeel_facts::identity::{package_of, stable_id, Part};
+use archkeel_facts::identity::{stable_id, Part};
 use archkeel_facts::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use archkeel_facts::nested::{MemberInventory, VisibilityDetail};
 use archkeel_facts::vocab::{
@@ -185,7 +185,7 @@ impl Builder {
             let lexical = at.parent.and_then(|held| ids.get(held)?.clone());
             let header = Declared {
                 module: ModuleName::new(&module.module),
-                package: PackageName::new(package_of(&module.module)),
+                package: PackageName::new(module.package()),
                 name: def.name.clone(),
                 qualified_name: at.qualified.clone(),
                 parent: holder.map(|held| held.qualified.clone()),
