@@ -86,23 +86,7 @@ fn declared(document: &Yaml<'_>) -> Option<std::collections::BTreeMap<String, Or
         }
         for (name, dependency) in deps.as_mapping()? {
             let name = name.as_str().filter(|name| is_identifier(name))?;
-            let origin = match dependency {
-                Yaml::Value(_) => Origin::Hosted,
-                Yaml::Mapping(keys) => {
-                    let mut pairs = Vec::new();
-                    for (key, value) in keys {
-                        let key = key.as_str()?;
-                        let text = if key == "git" && value.is_mapping() {
-                            value.as_mapping_get("url").and_then(Yaml::as_str)
-                        } else {
-                            value.as_str()
-                        };
-                        pairs.push((key, text));
-                    }
-                    package_map::origin(&pairs)
-                }
-                _ => return None,
-            };
+            let origin = origin(dependency)?;
             found.insert(name.to_owned(), origin);
         }
     }
@@ -216,6 +200,27 @@ fn words(text: &str) -> PubspecWords {
     found
 }
 
+/// The origin of one dependency value: a version text or null is hosted; a mapping states it.
+fn origin(dependency: &Yaml<'_>) -> Option<Origin> {
+    match dependency {
+        Yaml::Value(_) => Some(Origin::Hosted),
+        Yaml::Mapping(keys) => {
+            let mut pairs = Vec::new();
+            for (key, value) in keys {
+                let key = key.as_str()?;
+                let text = if key == "git" && value.is_mapping() {
+                    value.as_mapping_get("url").and_then(Yaml::as_str)
+                } else {
+                    value.as_str()
+                };
+                pairs.push((key, text));
+            }
+            Some(package_map::origin(&pairs))
+        }
+        _ => None,
+    }
+}
+
 /// The member names of the workspace that the root `pubspec.yaml` declares, or `None` when the
 /// survey cannot read it. An import of a member is a gap at the import (AD-800).
 fn workspace(
@@ -236,27 +241,20 @@ fn workspace(
     {
         return None;
     }
-    let Some(document) = yaml(text) else {
-        return None;
-    };
+    let document = yaml(text)?;
     if document.as_mapping_get("dependency_overrides").is_some() {
         return None;
     }
-    let Some(members) = document
+    let members = document
         .as_mapping_get("workspace")
-        .and_then(Yaml::as_sequence)
-    else {
-        return None;
-    };
+        .and_then(Yaml::as_sequence)?;
     if members.len() > 32 || own.is_empty() {
         return None;
     }
     let mut names = std::collections::BTreeSet::from([own.to_owned()]);
     let mut read = Vec::new();
     for member in members {
-        let Some(dir) = member.as_str().filter(|s| is_identifier(s)) else {
-            return None;
-        };
+        let dir = member.as_str().filter(|s| is_identifier(s))?;
         if roots
             .iter()
             .any(|root| root == "." || root.split('/').next() == Some(dir))
@@ -270,25 +268,18 @@ fn workspace(
         if Snapshot::is_link(snapshot, &path) {
             return None;
         }
-        let Some(raw) = snapshot.read(&path) else {
-            return None;
-        };
+        let raw = snapshot.read(&path)?;
         let Ok(member_text) = std::str::from_utf8(&raw) else {
             return None;
         };
         if member_text.contains(['&', '*', '!', '\\']) {
             return None;
         }
-        let Some(doc) = yaml(member_text) else {
-            return None;
-        };
-        let Some(name) = doc
+        let doc = yaml(member_text)?;
+        let name = doc
             .as_mapping_get("name")
             .and_then(Yaml::as_str)
-            .filter(|s| is_identifier(s))
-        else {
-            return None;
-        };
+            .filter(|s| is_identifier(s))?;
         if !names.insert(name.to_owned()) || !member_safe(&doc) {
             return None;
         }

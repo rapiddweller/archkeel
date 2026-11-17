@@ -56,8 +56,7 @@ The discovery and parse gaps stay: link, unreadable file or directory, module co
 **Reason.** The wiring of Dart into `collect` needs an in-process API and a resolver of its own
 (AD-400 takes resolver answers from outside). A named gap for each other case hides no edge.
 
-**Rejected.** One branch of a conditional import hides edges; a gap for each loses known edges.
-A gap on each present `.dart_tool` file: each project after `pub get` has one.
+**Rejected.** One branch of a conditional import hides edges; a gap for each loses known edges. A gap on each present `.dart_tool` file: each project after `pub get` has one.
 
 **Limits.** No `collect` dispatch, store acceptance, scope receipt, build provenance or test
 feature list: the wiring change adds them. Symbols, calls, references and `show`/`hide` names are

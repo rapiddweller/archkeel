@@ -81,6 +81,6 @@ fn the_origin_of_each_dependency_form() {
         assert!(matches!(local, Origin::Local(_)), "{local:?}");
     }
     assert!(remote("git@github.com:a/b.git"));
-    assert!(!remote("/home/me/b"));
-    assert!(!remote("file:///home/me/b"));
+    assert!(!remote("/srv/b"));
+    assert!(!remote("file:///srv/b"));
 }

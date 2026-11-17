@@ -295,6 +295,10 @@ pub(crate) fn gap_rows(found: &Survey) -> std::collections::BTreeMap<String, usi
 mod tests;
 
 #[cfg(test)]
+#[path = "import_survey/survey_package_tests.rs"]
+mod package_tests;
+
+#[cfg(test)]
 #[path = "import_survey/fixture_tests.rs"]
 mod fixture_tests;
 

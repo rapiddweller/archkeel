@@ -20,6 +20,7 @@ use archkeel_snapshot::Snapshot;
 use super::binding::{published, Binding, Surface};
 use super::index::{Index, Kind, Located, Owners};
 use super::names::{GapName, Gaps, Place};
+use super::package_map::PackageMap;
 use super::parts::{directives, missing};
 use super::uri::{classify, Uri};
 use crate::discover::Source;
@@ -156,8 +157,8 @@ fn resolve(
         .and_then(|rest| rest.split_once('/'))
         .map(|(name, _)| name);
     let unproven = match package {
-        Some(name) if name == index.package => index.packages.own(name).err(),
-        Some(name) => index.packages.external(name).err(),
+        Some(name) if name == index.package => PackageMap::own(&index.packages, name).err(),
+        Some(name) => PackageMap::external(&index.packages, name).err(),
         None => None,
     };
     if let Some((name, message)) = unproven {
