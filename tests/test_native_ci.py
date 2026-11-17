@@ -77,7 +77,14 @@ _MAKE_ENV = {
     k: v
     for k, v in os.environ.items()
     if k
-    not in {"MAKEFLAGS", "MFLAGS", "MAKELEVEL", "ARCHKEEL_PREBUILT_CORE", "ARCHKEEL_NATIVE_TREE"}
+    not in {
+        "MAKEFLAGS",
+        "MFLAGS",
+        "MAKELEVEL",
+        "ARCHKEEL_REQUIRE_PREBUILT",
+        "ARCHKEEL_NATIVE_TREE",
+        "ARCHKEEL_CORE_SOURCE",
+    }
 }
 
 

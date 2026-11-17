@@ -84,12 +84,14 @@ jobs:
         id: build
         env:
           ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
+          ARCHKEEL_CORE_SOURCE: ${{ steps.core.outputs.cache-hit == 'true' && 'cache' || 'build' }}
         run: make core
 
       - name: Run the PR gate
         env:
           PR_BASE: origin/${{ github.base_ref }}
           ARCHKEEL_NATIVE_TREE: ${{ steps.native.outputs.hash }}
+          ARCHKEEL_CORE_SOURCE: ${{ steps.core.outputs.cache-hit == 'true' && 'cache' || 'build' }}
         run: make pr-gate PR_BASE="$PR_BASE"
 
       - name: Save the Rust build cache
