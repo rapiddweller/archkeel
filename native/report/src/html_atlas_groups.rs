@@ -163,5 +163,6 @@ fn group(nodes: &[Node], owner: &str, name: &str, parent: Option<usize>) -> Node
         provenance: Vec::new(),
         members: None,
         rank: None,
+        directory: false,
     }
 }

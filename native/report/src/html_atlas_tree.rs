@@ -31,10 +31,14 @@ impl Refs {
     }
 }
 
-/// The components as a tree, and the component that owns each module.
+/// The components as a tree, the component that owns each module, and the box that shows it.
 pub(super) struct Tree {
     pub(super) nodes: Vec<Node>,
+    /// The component of the contract that owns each module: its assignment says this owner.
     pub(super) owner: BTreeMap<String, usize>,
+    /// The box that shows each module on the map: its owner, or a directory box inside the owner
+    /// when the owner has more modules than one screen shows.
+    pub(super) place: BTreeMap<String, usize>,
     /// The languages of the modules inside each node, from the collector of each module.
     pub(super) languages: Vec<BTreeSet<String>>,
 }
@@ -109,6 +113,7 @@ fn layer_nodes(topology: &Topology, grouped: &[Group<'_>]) -> Vec<Node> {
                 provenance: Vec::new(),
                 members: None,
                 rank: Some(step),
+                directory: false,
             });
         }
     }
@@ -151,6 +156,7 @@ fn component_node(component: &Component, parent: Option<usize>) -> Node {
         provenance: component.provenance.clone(),
         members: None,
         rank: None,
+        directory: false,
     }
 }
 
@@ -193,18 +199,23 @@ impl Tree {
         }
         super::atlas_groups::limit(&mut nodes);
         super::atlas_members::aggregate(&mut nodes);
+        // After the groups of the components: a directory box never moves its component.
+        let directories = super::atlas_dirs::split(&mut nodes, topology, &index);
         let owner: BTreeMap<String, usize> = topology
             .modules
             .iter()
             .filter_map(|m| Some((m.name.clone(), *index.get(m.component.as_deref()?)?)))
             .collect();
+        let mut place = owner.clone();
+        place.extend(directories);
         let mut tree = Tree {
             languages: vec![BTreeSet::new(); nodes.len()],
             nodes,
             owner,
+            place,
         };
         for module in topology.modules.iter().filter(|m| !m.language.is_empty()) {
-            let Some(owner) = tree.owner.get(&module.name).copied() else {
+            let Some(owner) = tree.place.get(&module.name).copied() else {
                 continue;
             };
             for node in tree.chain(owner).collect::<Vec<_>>() {

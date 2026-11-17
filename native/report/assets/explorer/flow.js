@@ -204,7 +204,7 @@
     measureText.font = font;
     const lines = [];
     let line = "";
-    for (const word of text.split(/(\s+)|(?<=_)|(?<=[a-z])(?=[A-Z])/).filter(Boolean)) {
+    for (const word of text.split(/(\s+)|(?<=[_/])|(?<=[a-z])(?=[A-Z])/).filter(Boolean)) {
       if (/^\s+$/.test(word)) {
         line += word;
         continue;
@@ -1802,7 +1802,8 @@
     const minimumScale = ATLAS && overview ? whole ? 0 : READABLE_SCALE
       : ATLAS ? 1 : focusLabel || memberPreviews || S.selection?.type === "node" ? 1 : overview ? 0 : READABLE_SCALE;
     const widthScale = canvas.clientWidth / (bounds.width + 48);
-    transform.k = renderedScene?.moduleOverview && !overview ? Math.max(1, Math.min(maxFitScale, widthScale))
+    transform.k = renderedScene?.moduleOverview && !overview
+      ? Math.max(READABLE_SCALE, Math.min(maxFitScale, widthScale, canvas.clientHeight / (bounds.height + 48)))
       : Math.max(minimumScale, Math.min(maxFitScale, widthScale, canvas.clientHeight / (bounds.height + 48)));
     panOffset = { x: 0, y: 0 };
     viewport.removeAttribute("transform");
@@ -2395,7 +2396,7 @@
     const result = await REPORT_LAYOUT.layoutAtlas({
       componentOverview: scene.componentOverview,
       parentId: level.parent_id,
-      nodes: scene.nodes.map((node) => ({ id: node.id, ownerId: node.module?.component_id,
+      nodes: scene.nodes.map((node) => ({ id: node.id, ownerId: node.module?.place_id || node.module?.component_id,
         label: node.module?.path || node.module?.name || node.label })),
       edges: layoutEdges.map((edge) => ({ id: edge.id, layoutId: edge.layoutId || edge.id,
         source: edge.source, target: edge.target, label: edge.label || "" })),
@@ -2461,6 +2462,7 @@
   }
   // What a box is: a layer or a group of components, or a component.
   function atlasBoxKind(component) {
+    if (component.directory) return "Directory";
     // A box that holds one component is that component, whatever its id says.
     if (component.groups === null || component.groups === undefined || component.groups === 1) return "Component";
     return component.layer_rank !== null && component.layer_rank !== undefined ? "Layer" : "Group";
@@ -2586,11 +2588,11 @@
     const moduleCount = componentLevel ? REPORT_SCENE.atlasModules(componentLevel, S.view).length : 0;
     const usedBy = component.used_by.map((item) => `${esc(REPORT_SCENE.atlasComponent(item.component_id)?.label || item.component_id)} (${item.import_sites})`).join(", ");
     inspectorContent.innerHTML = `<div class="kicker">${atlasBoxKind(component)} fact sheet · ${S.view === "target" ? "Declared intent" : "Core facts"}</div>
-      ${boundaryPermissionMarkup(component.id)}<h2>${esc(component.label)}</h2><p><button type="button" class="flow-fit" data-browse-component>${moduleCount ? `Browse ${REPORT_SCENE.countLabel(moduleCount, "module")}` : `Browse ${esc(component.label)}`}</button>${component.layer ? ` <span class="muted">layer ${esc(component.layer)}</span>` : ""}</p>${list("Responsibility", component.responsibilities)}
+      ${boundaryPermissionMarkup(component.id)}<h2>${esc(component.label)}</h2><p><button type="button" class="flow-fit" data-browse-component>${moduleCount ? `Browse ${REPORT_SCENE.countLabel(moduleCount, "module")}` : `Browse ${esc(component.label)}`}</button>${component.layer ? ` <span class="muted">layer ${esc(component.layer)}</span>` : ""}</p>${list(component.directory ? "About" : "Responsibility", component.responsibilities)}
       ${list("Not responsible for", component.not_responsible_for)}${atlasProvidesMarkup(component.public)}
       ${list("Planned interface", component.planned)}${atlasRequiresMarkup(component)}
       ${S.view === "target" ? "" : atlasRuleAssessmentMarkup(level, component)}${S.view !== "target" ? `<h3>In this run</h3><p>${REPORT_SCENE.countLabel(component.observed_modules, "module")}${component.observed_symbols == null ? "" : ` · ${REPORT_SCENE.countLabel(component.observed_symbols, "observed symbol")}`} · ${esc(component.status)} · ${esc(component.reason)}</p>${usedBy ? `<h3>Used by</h3><p>${usedBy}</p>` : ""}` : ""}
-      <p class="muted">Decided by ${esc(component.decided_by || "the contract")}</p>${S.view === "target" || !component.path ? "" : atlasOwnsMarkup(component.path)}
+      <p class="muted">${component.directory ? `The report made this box from the module paths; ${esc(REPORT_SCENE.atlasComponent(component.parent_id)?.label || component.parent_id)} owns the modules in the contract.` : `Decided by ${esc(component.decided_by || "the contract")}`}</p>${S.view === "target" || !component.path || component.directory ? "" : atlasOwnsMarkup(component.path)}
       ${component.provenance.length ? `<details><summary>Reasons · ${REPORT_SCENE.countLabel(component.provenance.length, "document")}</summary><ul class="plain">${component.provenance.map((item) => `<li>${esc(item)}</li>`).join("")}</ul></details>` : ""}${inventory}
       ${S.view === "target" && componentLevel ? `<p><a href="${esc(atlasLevelHref(component.id))}" data-atlas-level-route="${esc(component.id)}">Open declared component details</a></p>` : ""}`;
     inspectorContent.querySelector("[data-browse-component]").onclick = () =>
@@ -2814,7 +2816,7 @@
     const boundary = scene.moduleOverview && scene.boundaryEdges
       ? ` · ${REPORT_SCENE.countLabel(scene.boundaryEdges, "cross-scope relationship")} not drawn at this level` : "";
     root.querySelector(".atlas-summary").textContent = scene.grouped
-      ? `Current level: ${REPORT_SCENE.countLabel(scene.grouped.modules, S.view === "target" ? "declared module" : "observed module")} in ${REPORT_SCENE.countLabel(scene.nodes.length, "box", "boxes")}: more than ${scene.grouped.limit} modules are grouped by component · open a box to see its modules · Search finds one module`
+      ? `Current level: ${REPORT_SCENE.countLabel(scene.grouped.modules, S.view === "target" ? "declared module" : "observed module")} in ${REPORT_SCENE.countLabel(scene.nodes.length, "box", "boxes")}: more than ${scene.grouped.limit} modules are grouped by component or directory · open a box to see its modules · Search finds one module`
       : scene.moduleOverview
       ? S.view === "target" ? `Current level: ${REPORT_SCENE.countLabel(scene.nodes.length, "declared module")} · ${REPORT_SCENE.countLabel(scene.edges.length, "authored module relationship")}${boundary}`
         : `Current level: ${REPORT_SCENE.countLabel(scene.nodes.length, "observed module")} · ${REPORT_SCENE.countLabel(observed.length, "local dependency", "local dependencies")} · ${REPORT_SCENE.countLabel(observed.every((edge) => edge.import_sites !== null) ? observed.reduce((sum, edge) => sum + edge.import_sites, 0) : null, "import site")}${boundary}`
@@ -2984,7 +2986,7 @@
     }, scene.layoutRoutes);
     atlasEmphasize();
     legend.textContent = scene.grouped
-      ? `${REPORT_SCENE.countLabel(scene.grouped.modules, "module")} grouped by component · Enter or a double click opens a box and shows its modules`
+      ? `${REPORT_SCENE.countLabel(scene.grouped.modules, "module")} grouped by component or directory · Enter or a double click opens a box and shows its modules`
       : scene.moduleOverview ? S.view === "target"
       ? "Target modules · authored relationships · Enter or a click selects a module and shows its facts"
       : "Observed modules · local directed relationships · Enter or a click selects a module and shows its facts"
