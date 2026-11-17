@@ -10,7 +10,7 @@
 use std::collections::{BTreeMap, HashSet};
 
 use archkeel_facts::standard::{Wrapped, WrappedSlot};
-use ruff_python_ast::{Expr, ExprCall, Stmt, StmtAnnAssign, StmtAssign, StmtClassDef};
+use ruff_python_ast::{Expr, ExprCall, Identifier, Stmt, StmtAnnAssign, StmtAssign, StmtClassDef};
 
 use super::shape_names::Hidden;
 use super::wrapped_read::{decorator, function, proven_target, unread, Decorator, Reader};
@@ -48,7 +48,11 @@ pub(super) fn class(
             Err(reason) => return Wrapped::Unread(reason),
         }
     }
-    if node.arguments.as_ref().is_some_and(|args| !args.is_empty()) {
+    if node
+        .arguments
+        .as_ref()
+        .is_some_and(|args| !matches!((&*args.args, &*args.keywords), ([], [])))
+    {
         return unread("a base or a metaclass can add fields to the dataclass");
     }
     let body = Bound::of(&node.body).names();
@@ -177,7 +181,7 @@ fn field(reader: &Reader<'_>, value: Option<&Expr>) -> Result<Field, String> {
     {
         return Ok(plain);
     }
-    if !call.arguments.args.is_empty() {
+    if !matches!(&*call.arguments.args, []) {
         return Err("a field call with positional arguments is not modeled".to_owned());
     }
     let mut found = Field {
@@ -186,7 +190,7 @@ fn field(reader: &Reader<'_>, value: Option<&Expr>) -> Result<Field, String> {
         default: false,
     };
     for keyword in &call.arguments.keywords {
-        let Some(name) = keyword.arg.as_ref().map(|arg| arg.as_str()) else {
+        let Some(name) = keyword.arg.as_ref().map(Identifier::as_str) else {
             return Err("a field call with ** arguments is not modeled".to_owned());
         };
         match name {
@@ -243,12 +247,12 @@ fn options(call: Option<&ExprCall>) -> Result<(bool, bool), String> {
     let Some(call) = call else {
         return Ok((true, false));
     };
-    if !call.arguments.args.is_empty() {
+    if !matches!(&*call.arguments.args, []) {
         return Err("a dataclass call with positional arguments is not modeled".to_owned());
     }
     let (mut init, mut kw_only) = (true, false);
     for keyword in &call.arguments.keywords {
-        let name = keyword.arg.as_ref().map_or("**", |arg| arg.as_str());
+        let name = keyword.arg.as_ref().map_or("**", Identifier::as_str);
         let Expr::BooleanLiteral(flag) = &keyword.value else {
             return Err(format!("the dataclass option {name} is not a literal"));
         };

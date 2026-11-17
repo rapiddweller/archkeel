@@ -25,6 +25,7 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
+use archkeel_facts::ids::ModuleName;
 use archkeel_facts::standard::Wrapped;
 use archkeel_facts::{ImportFact, Record};
 
@@ -48,13 +49,13 @@ pub(crate) fn forms(
 ) -> BTreeMap<String, Wrapped> {
     let mut by_module: HashMap<&str, Vec<&Record<ImportFact>>> = HashMap::new();
     for record in imports {
-        let source = record.data.data().source_module.as_str();
+        let source = ModuleName::as_str(&ImportFact::data(&record.data).source_module);
         by_module.entry(source).or_default().push(record);
     }
     let mut out = BTreeMap::new();
-    for item in found.iter().filter(|item| !item.decorated.is_empty()) {
+    for item in found.iter().filter(|item| !Vec::is_empty(&item.decorated)) {
         let module = &modules[item.index];
-        let own = by_module.get(module.name.as_str());
+        let own = HashMap::get(&by_module, String::as_str(&module.name));
         let names = Names::of(
             (&module.name, &module.tree),
             &binders[item.index],

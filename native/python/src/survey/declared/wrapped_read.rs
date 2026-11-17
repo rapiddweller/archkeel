@@ -11,7 +11,8 @@ use std::collections::HashSet;
 use archkeel_facts::standard::{Wrapped, WrappedSlot};
 use archkeel_facts::type_shape::{Binding, TypeShape, Unproven};
 use archkeel_facts::vocab::MethodKind;
-use ruff_python_ast::{Expr, ExprCall, Stmt, StmtFunctionDef};
+use ruff_python_ast::name::Name;
+use ruff_python_ast::{Expr, ExprCall, Identifier, Stmt, StmtFunctionDef};
 use ruff_text_size::Ranged;
 
 use super::found::Source;
@@ -76,8 +77,8 @@ pub(super) fn proven_target(
             cause: Unproven::Unbound,
         } => match expr {
             Expr::Name(name)
-                if BUILTINS.contains(&name.id.as_str())
-                    && reader.binders.builtin_visible(name.id.as_str()) =>
+                if BUILTINS.contains(&Name::as_str(&name.id))
+                    && Binders::builtin_visible(reader.binders, Name::as_str(&name.id)) =>
             {
                 Some(name.id.to_string())
             }
@@ -109,7 +110,7 @@ pub(super) fn decorator<'e>(
         ));
     }
     let plain = call.is_none();
-    Ok(match target.as_str() {
+    Ok(match String::as_str(&target) {
         "contextlib.contextmanager" if plain => Decorator::Context,
         "contextlib.asynccontextmanager" if plain => Decorator::AsyncContext,
         "functools.cache" if plain => Decorator::Cache,
@@ -118,7 +119,7 @@ pub(super) fn decorator<'e>(
         "staticmethod" if plain => Decorator::Static,
         "classmethod" if plain => Decorator::Class,
         "functools.wraps" => match call.map(|node| &node.arguments) {
-            Some(arguments) if arguments.keywords.is_empty() => match &*arguments.args {
+            Some(arguments) if matches!(&*arguments.keywords, []) => match &*arguments.args {
                 [original] => Decorator::Wraps(original),
                 _ => {
                     return Err(format!(
@@ -158,13 +159,11 @@ pub(super) fn signature(
     let (shapes, returns) = reader.shaper.signature(&source);
     let params = &node.parameters;
     let mut words: Vec<(String, &str)> = Vec::new();
-    for (index, item) in params.posonlyargs.iter().chain(&params.args).enumerate() {
-        let kind = if index < params.posonlyargs.len() {
-            "positional_only"
-        } else {
-            "positional"
-        };
-        words.push((item.parameter.name.to_string(), kind));
+    for item in &params.posonlyargs {
+        words.push((item.parameter.name.to_string(), "positional_only"));
+    }
+    for item in &params.args {
+        words.push((item.parameter.name.to_string(), "positional"));
     }
     words.extend(
         params
@@ -205,15 +204,15 @@ pub(super) fn function(
     let mut state = State {
         params,
         returns,
-        method: class.map(|_| default_kind(node.name.as_str())),
+        method: class.map(|_| default_kind(Identifier::as_str(&node.name))),
         attribute: false,
     };
     let mut words = Vec::new();
-    let innermost = node.decorator_list.len().saturating_sub(1);
-    for (index, item) in node.decorator_list.iter().enumerate().rev() {
+    // The decorators apply from the innermost one out: the first step is the innermost.
+    for (step, item) in node.decorator_list.iter().rev().enumerate() {
         let found = decorator(reader, &item.expression, &hidden);
         let applied = found.and_then(|found| {
-            let place = (node, index == innermost, class.is_some());
+            let place = (node, step == 0, class.is_some());
             apply(reader, found, place, &hidden, &mut state)
         });
         if let Err(reason) = applied {
@@ -263,7 +262,7 @@ fn apply(
         Decorator::Static => state.method = Some(MethodKind::Static),
         Decorator::Class => state.method = Some(MethodKind::Class),
         Decorator::Property => {
-            let alone = state.method == Some(MethodKind::Instance) && state.params.len() == 1;
+            let alone = state.method == Some(MethodKind::Instance) && Vec::len(&state.params) == 1;
             if !alone {
                 return fail(
                     "a property is modeled only on an instance method of the receiver alone",
@@ -299,7 +298,7 @@ fn yields(
         return Err(missing.to_owned());
     };
     let heads = if wanted { ASYNC_YIELDS } else { SYNC_YIELDS };
-    if !heads.contains(&head.as_str()) {
+    if !heads.contains(&String::as_str(&head)) {
         return Err(missing.to_owned());
     }
     if let Some(reason) = changed(reader.writes, &head) {
@@ -326,8 +325,8 @@ fn original_signature(reader: &Reader<'_>, expr: &Expr) -> Option<(Vec<WrappedSl
     let bound = Bound::of(body);
     let node = body.iter().find_map(|statement| match statement {
         Stmt::FunctionDef(node)
-            if node.name.as_str() == name
-                && node.decorator_list.is_empty()
+            if Identifier::as_str(&node.name) == name
+                && matches!(&*node.decorator_list, [])
                 && bound.sole(name, statement.range().start()) =>
         {
             Some(node)
