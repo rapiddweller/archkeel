@@ -4595,6 +4595,7 @@
         "native.archkeel_typescript_collector.script_outside",
         "native.archkeel_typescript_collector.script_outside_detector",
         "native.archkeel_typescript_collector.script_outside_forms",
+        "native.archkeel_typescript_collector.script_outside_generated",
         "native.archkeel_typescript_collector.script_outside_names",
         "native.archkeel_typescript_collector.script_outside_page",
         "native.archkeel_typescript_collector.script_project",

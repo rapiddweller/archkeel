@@ -607,7 +607,11 @@ declarations, version-control metadata (`.git`, `.hg`, `.svn`), Python environme
 caches (`.venv`, `.tox`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache`) and installed packages
 (`node_modules`, `jspm_packages`, `bower_components`). Their code is third-party code outside the
 scan roots, which the premise covers. Every other hidden folder (`.storybook`, `.vitepress`,
-`.config`) is read. Code outside the repository stays under the premise only.
+`.config`) is read. A stated generated copy of scanned sources (`// Generated from S;
+source-sha256=H`, `// Owner: G`, `// Check: C`, with S a scanned file of digest H) is not read; the
+premise then says that such a copy is the code of its sources. Test data in a folder `fixtures` is
+read: the test-file rule names only `test`, `tests`, `__tests__`, `*.test.*` and `*.spec.*`. Code
+outside the repository stays under the premise only.
 A source file inside the roots that TSConfig `exclude` drops gives a named coverage gap (AD-488),
 including a file that writes a global. It is no longer a silent false PASS.
 A member `source`, `view`, `currentTarget` or a window name is a window, and a member `eval` or

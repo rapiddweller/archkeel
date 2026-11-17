@@ -37,6 +37,10 @@ use crate::symbols;
 const SCRIPT_PREMISE: &str =
     "code outside the scan roots hands in no global or platform object and replaces no global";
 
+/// The premise of a run whose repository guard applied a stated generated copy (AD-788).
+const SCRIPT_PREMISE_GENERATED: &str = "code outside the scan roots hands in no global or \
+     platform object and replaces no global, and a stated generated copy is the code of its sources";
+
 /// The import features that each registered set of the collector states (`native` set).
 const NATIVE_IMPORTS: [&str; 4] = [
     "literal-imports",
@@ -243,8 +247,11 @@ pub(crate) fn typed_reply(
         plan.write(sink).map(|(tail, _)| tail)
     })?;
     use archkeel_facts::envelope::{LimitSupport, ProfileLimits};
-    reply.facts.scope_premise = Some(SCRIPT_PREMISE);
-    reply.facts.scope_premise = Some(SCRIPT_PREMISE);
+    reply.facts.scope_premise = Some(if pending.script.generated_copies {
+        SCRIPT_PREMISE_GENERATED
+    } else {
+        SCRIPT_PREMISE
+    });
     reply.facts.profile_limits = Some(ProfileLimits {
         dependency_symbols: if reply
             .facts

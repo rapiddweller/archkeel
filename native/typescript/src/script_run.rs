@@ -60,7 +60,8 @@ impl Collection<'_> {
         run.analyze(&import_sites);
         let pending = std::mem::take(&mut self.pending_effects);
         run.effects(&all, pending);
-        let sink = run.sink;
+        let mut sink = run.sink;
+        sink.facts.generated_copies = !Vec::is_empty(&run.outside.generated);
         self.kept = kept;
         self.order = order;
         self.take(sink, dependency_scope)
