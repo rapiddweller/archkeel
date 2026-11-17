@@ -24,7 +24,7 @@ use crate::modules::{inside, Edge, Frame, Index, TypeOf};
 use crate::scan::Via;
 use crate::tree::Module;
 use orphans::orphan_impl_gaps;
-use receivers::{certainly_visible, Typed};
+use receivers::{certainly_visible, exact_type, Typed};
 
 /// A member of an inherent `impl` block that is not in the file of its type.
 struct Foreign<'a> {
@@ -33,6 +33,8 @@ struct Foreign<'a> {
     lexical: String,
     ty: TypeOf,
     member: &'a Member,
+    /// The block is exact (`ImplBlock::exact`).
+    exact: bool,
 }
 
 /// The members of the inherent `impl` blocks of the walk.
@@ -91,6 +93,7 @@ impl<'a> Members<'a> {
                 lexical: frame.lexical_at(&block.scope),
                 ty: ty.clone(),
                 member,
+                exact: block.exact,
             });
         }
     }
@@ -270,7 +273,14 @@ impl Builder {
             let TypeOf::Known(type_at, type_name) = &known else {
                 continue;
             };
+            // #1276: an edge needs an exact type and an exact block whose member every
+            // configuration has; else the path stays a call that may reach the member.
+            let exact = exact_type(index, module, type_at, type_name);
             for block in open {
+                if !exact || !block.exact || !block.member.inert {
+                    out.unresolved.push(path_call(reference));
+                    continue;
+                }
                 let edge = Edge {
                     module: block.module.module.clone(),
                     lexical: block.lexical.clone(),

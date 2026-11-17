@@ -195,6 +195,25 @@ pub(super) fn impl_block(walker: &mut Walker<'_>, item: &ItemImpl) {
 }
 
 /// Keep a struct or an enum at module level that every configuration has (AD-383).
+/// The proof that the `derive` of the attributes is the built-in attribute: a derive macro only adds
+/// items, but an attribute macro bound to the name `derive` can rewrite the type (#1276).
+fn derive_concern(walker: &Walker<'_>, attrs: &[syn::Attribute]) -> Option<super::state::Concern> {
+    let attr = attrs.iter().find(|attr| attr.path().is_ident("derive"))?;
+    let tools = walker.tools && !crate::attrs::kinds::no_tools(attrs);
+    let span = attr.path().segments[0].ident.span();
+    let mut concern = super::attributes::expansion_concern(walker, String::new(), span);
+    concern.proof = Some(crate::attrs::model::Proof::Attribute(
+        crate::attrs::model::Usage {
+            path: vec!["derive".to_owned()],
+            absolute: false,
+            complete: true,
+            block: false,
+            prelude: tools,
+        },
+    ));
+    Some(concern)
+}
+
 pub(super) fn exact_type(walker: &mut Walker<'_>, item: &Item) {
     block_type(walker, item);
     let (ident, attrs, is_type) = match item {
@@ -209,9 +228,14 @@ pub(super) fn exact_type(walker: &mut Walker<'_>, item: &Item) {
         if !is_type {
             return;
         }
-        walker.out.exact_types.insert(plain(ident));
         if let Item::Struct(found) = item {
             fields(walker, found);
+        }
+        // #1276: a `use` can bind `derive` to an attribute macro that rewrites the type, so the
+        // type is exact only when the workspace proves `derive` from the prelude (AD-535).
+        match derive_concern(walker, attrs) {
+            None => drop(walker.out.exact_types.insert(plain(ident))),
+            Some(concern) => walker.out.helper_types.push((plain(ident), vec![concern])),
         }
     } else if walker.blocks == 0 && !walker.selves.gated() {
         let helpers: Vec<_> = attrs
