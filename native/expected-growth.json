@@ -11877,6 +11877,78 @@
         "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
       ],
       "reason": "#1571 sound field-receiver gaps (same class; in code of #1604 and #1635 that landed in parallel); reduced by receiver-type facts (owner decision 2026-11-17, L-273)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector.survey.outside",
+        "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
+      ],
+      "reason": "#1571 sound field-receiver gaps (same class) in code that #1631 and #1522 (c0962d99a) merged while main was reverted (#1636 incident); the authors remove them with path calls; reduced by receiver-type facts (L-273)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector.survey.outside",
+        "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
+      ],
+      "reason": "#1571 sound field-receiver gaps (same class) in code that #1631 and #1522 (c0962d99a) merged while main was reverted (#1636 incident); the authors remove them with path calls; reduced by receiver-type facts (L-273)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector.survey.outside",
+        "A method call may reach the method text of a type in its own file native.archkeel_facts.type_shape"
+      ],
+      "reason": "#1571 sound field-receiver gaps (same class) in code that #1631 and #1522 (c0962d99a) merged while main was reverted (#1636 incident); the authors remove them with path calls; reduced by receiver-type facts (L-273)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector.survey.outside.native",
+        "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
+      ],
+      "reason": "#1571 sound field-receiver gaps (same class) in code that #1631 and #1522 (c0962d99a) merged while main was reverted (#1636 incident); the authors remove them with path calls; reduced by receiver-type facts (L-273)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector.survey.outside.native",
+        "A method call may reach the method as_str of a type in its own file native.archkeel_facts.pyminor"
+      ],
+      "reason": "#1571 sound field-receiver gaps (same class) in code that #1631 and #1522 (c0962d99a) merged while main was reverted (#1636 incident); the authors remove them with path calls; reduced by receiver-type facts (L-273)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector.survey.outside.native",
+        "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
+      ],
+      "reason": "#1571 sound field-receiver gaps (same class) in code that #1631 and #1522 (c0962d99a) merged while main was reverted (#1636 incident); the authors remove them with path calls; reduced by receiver-type facts (L-273)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector.survey.outside.sites",
+        "A method call may reach the method as_str of a type in its own file native.archkeel_facts.envelope_vocab"
+      ],
+      "reason": "#1571 sound field-receiver gaps (same class) in code that #1631 and #1522 (c0962d99a) merged while main was reverted (#1636 incident); the authors remove them with path calls; reduced by receiver-type facts (L-273)"
+    },
+    {
+      "entry": [
+        "gap",
+        "collection_gap",
+        "native.archkeel_python_collector.survey.outside.sites",
+        "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
+      ],
+      "reason": "#1571 sound field-receiver gaps (same class) in code that #1631 and #1522 (c0962d99a) merged while main was reverted (#1636 incident); the authors remove them with path calls; reduced by receiver-type facts (L-273)"
     }
   ]
 }

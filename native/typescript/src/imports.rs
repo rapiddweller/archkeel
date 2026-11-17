@@ -21,7 +21,8 @@ use crate::source_input::{classify_file, classify_specifier, ModuleFormat, Sourc
 impl Collection<'_> {
     /// Parse a file, report what it cannot prove, and record each of its references.
     pub(super) fn references(&mut self, rel: &str, module: &str, file_evidence: &str, text: &str) {
-        let reach = self.resolver.options.reach();
+        let mut reach = self.resolver.options.reach();
+        reach.own_package = self.resolver.own_package(&mut self.snapshot, rel);
         let mut parsed = parse_for(
             &mut self.parsers,
             rel,

@@ -14,7 +14,7 @@ fn a_capped_list_and_the_counts_beside_it_state_both_numbers() {
     assert!(page.contains("337 places in the code"));
     // 336 of the 337 places have a module of no component (`app.a0` is owned).
     assert!(
-        page.contains("336 violated places in no component"),
+        page.contains("336 violations outside any component"),
         "{}",
         page.len()
     );
@@ -153,4 +153,16 @@ fn the_core_detail_is_offered_only_when_it_adds_to_the_title() {
         more.contains("What the core says"),
         "the title is cut: the fold has the rest"
     );
+}
+
+// The architecture line says what it counts in plain words: a violation, an open gap, and a
+// violation outside any component with the reason (the module has no owner in the contract).
+#[test]
+fn the_architecture_line_is_plain() {
+    let page = document(&dependency_frame(5));
+    assert!(page.contains("with a violation, "), "{page}");
+    assert!(page.contains("with an open gap."));
+    assert!(page.contains("outside any component (the module has no owner in the contract)"));
+    assert!(!page.contains("with a violated place"));
+    assert!(!page.contains("in no component: assign"));
 }

@@ -79,6 +79,7 @@ pub(crate) fn write<P: Serialize>(
 ) -> Result<EngineFrame, FrameError> {
     let ruling = object(ruling)?;
     let mut parts = object(serde_json::to_value(parts))?;
+    let part_of = parts.remove("part_of");
     if parts.contains_key("html") {
         return Err(FrameError::RulingKey("html".to_owned()));
     }
@@ -104,8 +105,16 @@ pub(crate) fn write<P: Serialize>(
     frame.extend(parts);
     frame.insert("unsupported".to_owned(), Value::Object(merged));
     if html {
-        let rendered =
-            html::render(&frame).map_err(|error| FrameError::Encode(error.to_string()))?;
+        // E4: the system of a part is an input of the page only; the frame does not carry it.
+        let rendered = match part_of {
+            Some(link) => {
+                let mut input = frame.clone();
+                input.insert("part_of".to_owned(), link);
+                html::render(&input)
+            }
+            None => html::render(&frame),
+        }
+        .map_err(|error| FrameError::Encode(error.to_string()))?;
         frame.insert("html".to_owned(), rendered);
     }
     let bytes = serde_json::to_vec(&Value::Object(frame))

@@ -111,3 +111,55 @@ def test_the_base_of_the_growth_check_is_the_fork_point_not_the_tip_of_main(
     # The branch still holds the older, larger pin and the result equals it: no growth against main.
     assert main([str(result), "p.json", "--base-ref", "main"]) == 0
     assert "growth" not in capsys.readouterr().err
+
+
+RECEIVER = "A method call may reach the method kind of a type in its own file native.m.b"
+
+
+def _receiver_result(files: list[str]) -> dict:
+    gaps = [
+        {
+            "kind": "collection_gap",
+            "subjects": ["native.m.a"],
+            "reason": RECEIVER,
+            "evidence": [f"E{i}"],
+        }
+        for i, _ in enumerate(files)
+    ]
+    frame = {
+        "rules": {"R": ["forbidden_dependency", "UNKNOWN"]},
+        "unknown_kinds": {"R": "scope_incomplete"},
+        "collection_gaps": gaps,
+        "violations": {},
+        "details": {},
+        "locations": {f"E{i}": {"path": path, "line": 10 + i} for i, path in enumerate(files)},
+    }
+    return {"frame": frame, "gaps": [], "exit_code": 2}
+
+
+def test_a_new_receiver_gap_names_the_files_and_the_fix(tmp_path: Path, capsys) -> None:
+    """#1571 class: the message says how many gaps, in which files, and how to write the call."""
+    result, pin = tmp_path / "r.json", tmp_path / "p.json"
+    result.write_text(json.dumps(_receiver_result(["native/m/src/a.rs", "native/m/src/a.rs"])))
+    pin.write_text(json.dumps({**PIN, "gaps": []}))
+    assert main([str(result), str(pin)]) == 1
+    err = capsys.readouterr().err
+    assert "your change adds 2 field-receiver gaps in native/m/src/a.rs (2);" in err
+    assert "path calls" in err and "bind typed locals" in err and "make self-validate-native" in err
+
+
+def test_a_pinned_receiver_gap_and_another_new_gap_give_no_receiver_message(
+    tmp_path: Path, capsys
+) -> None:
+    result, pin = tmp_path / "r.json", tmp_path / "p.json"
+    pinned = ["collection_gap", "native.m.a", RECEIVER]
+    pin.write_text(json.dumps({**PIN, "gaps": [pinned]}))
+    result.write_text(json.dumps(_receiver_result(["native/m/src/a.rs"])))
+    main([str(result), str(pin)])
+    assert "field-receiver" not in capsys.readouterr().err
+    other = _receiver_result(["native/m/src/a.rs"])
+    other["frame"]["collection_gaps"][0]["reason"] = "another reason"
+    pin.write_text(json.dumps({**PIN, "gaps": []}))
+    result.write_text(json.dumps(other))
+    main([str(result), str(pin)])
+    assert "field-receiver" not in capsys.readouterr().err

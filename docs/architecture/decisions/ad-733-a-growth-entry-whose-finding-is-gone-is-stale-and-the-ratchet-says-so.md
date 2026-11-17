@@ -10,6 +10,8 @@
 3. With `--base-ref` and no such ref the tool prints `ratchet: base <ref> unavailable, skipped`.
 4. A suppression entry that `native/suppressions.json` adds against `origin/main` needs a `growth_reason` of at least 10 characters (`tests/test_born_small.py`).
 
+5. A new gap of the field-receiver class (#1571: `A method call may reach the method M of a type in its own file F`) gets one extra line that names the count, the files of the calls and the fix: "your change adds N field-receiver gaps in <files>; write the calls as path calls or bind typed locals". The PR gate shows it through `make self-validate-native`.
+
 **Rejected.** Keeping the entries as history (the decision log has the reasons); letting `--write` keep stale entries.
 
 **Tests.** `tests/test_ratchet_stale.py`, `tests/test_born_small.py`.

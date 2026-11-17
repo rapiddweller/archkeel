@@ -192,19 +192,26 @@ def read_changes(run: Gh, number: str, pr: dict) -> Changes:
 
 
 def check_runs(run: Gh, sha: str) -> dict[str, tuple[str, str]]:
+    """The newest run of each check name on the commit: (status, conclusion).
+
+    A re-run adds a second check run with the same name. The newest one counts (the highest id),
+    whether it is done or still running: an older green run does not stand for a newer red one,
+    and a fresh green re-run is not hidden by an older red one (#1653).
+    """
     text = run(
         "api",
         f"repos/{{owner}}/{{repo}}/commits/{sha}/check-runs",
         "--paginate",
         "--jq",
-        '.check_runs[] | [.name, .status, (.conclusion // "")] | @tsv',
+        '.check_runs[] | [.id, .name, .status, (.conclusion // "")] | @tsv',
     )
-    found: dict[str, tuple[str, str]] = {}
+    newest: dict[str, tuple[int, str, str]] = {}
     for line in text.splitlines():
         if line:
-            name, status, conclusion = line.split("\t")
-            found[name] = (status, conclusion)
-    return found
+            run_id, name, status, conclusion = line.split("\t")
+            if name not in newest or int(run_id) > newest[name][0]:
+                newest[name] = (int(run_id), status, conclusion)
+    return {name: (status, conclusion) for name, (_id, status, conclusion) in newest.items()}
 
 
 FIELDS = "state,isDraft,mergeable,mergeStateStatus,headRefOid,baseRefName,changedFiles"

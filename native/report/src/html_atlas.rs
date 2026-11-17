@@ -327,7 +327,7 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
     let (components, marks) = components(&tree, &levels, frame, &found, &mut refs);
     let rule_assessments = rule_assessments(frame, &found, &mut refs);
     let coverage = json!([[{"entity_kinds": ["module"], "relationship_kinds": [], "scope_id": "",
-        "status": "unavailable", "reason": "The 5.0 frame names no symbol inventory."}]]);
+        "status": "unavailable", "reason": "This version does not list symbols."}]]);
     let complete = if topology.complete {
         Shown::Pass
     } else {
@@ -345,8 +345,9 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
             languages.iter().next().copied().unwrap_or_default()
         )
     });
+    let home = home(frame);
     let atlas = json!({
-        "repository": "System", "status": run_word(frame.status), "declared_rules": run_word(frame.status),
+        "repository": home["repository"], "status": run_word(frame.status), "declared_rules": run_word(frame.status),
         "observation_complete": complete, "reason": frame.cause,
         "source": {"git_head": frame.identity.git_head, "source_digest": frame.identity.contract_digest},
         "components": components, "modules": levels.modules, "assignments": levels.assignments,
@@ -366,7 +367,22 @@ pub(super) fn payload(frame: &Frame, places: &Places, names: &Names<'_>) -> Opti
     let value = json!({
         "schema_version": "1.0.0", "atlas": atlas,
         "boundary_permissions": {"applied": [], "declared": permissions(topology)},
-        "navigation": {"repository": "System", "main_href": ""},
+        "navigation": home,
     });
     Some((value, marks))
+}
+
+/// The root of the Explorer (E4, #1451): the page of a part names "<part> of <system>" and the
+/// page of its system; a system page names its title; the page of one run says "System".
+fn home(frame: &Frame) -> Value {
+    match &frame.part_of {
+        Some(link) => json!({
+            "repository": format!("{} of {}", link.part, link.system), "main_href": "",
+            "part_title": link.part, "system_title": link.system, "system_href": link.href,
+        }),
+        None if !frame.system_title.is_empty() => {
+            json!({"repository": frame.system_title, "main_href": ""})
+        }
+        None => json!({"repository": "System", "main_href": ""}),
+    }
 }
