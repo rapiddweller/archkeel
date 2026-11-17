@@ -573,6 +573,8 @@
   if (A) F.nodeLayer.addEventListener("click", () => {
     if (root.dataset.detailsOpen !== "true") detailsToggle?.click();
   });
+  // The sheet of a box is set in the small body text of the design system.
+  root.querySelector(".flow-inspector")?.classList.add("body-sm");
   const fitDiagram = () => F.fit(true);
   // The rows of a wrapped layout follow the shape of the view: lay the diagram out again when the
   // Explorer goes to the full window and back.
