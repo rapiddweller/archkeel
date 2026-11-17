@@ -80,6 +80,7 @@
         "native.archkeel_facts.identity:is_identifier",
         "native.archkeel_facts.identity:module_identity",
         "native.archkeel_facts.identity:package_of",
+        "native.archkeel_facts.identity:readable",
         "native.archkeel_facts.identity:sha256_hex",
         "native.archkeel_facts.identity:stable_id",
         "native.archkeel_facts.ids:EvidenceId",
@@ -153,8 +154,7 @@
         "native.archkeel_facts:STANDARD_LIBRARY",
         "native.archkeel_facts:Section",
         "native.archkeel_facts:SymbolFact",
-        "native.archkeel_facts:native_provenance",
-        "native.archkeel_facts.identity:readable"
+        "native.archkeel_facts:native_provenance"
       ],
       "decided_by": "architect"
     },
