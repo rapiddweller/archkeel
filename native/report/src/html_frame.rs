@@ -44,6 +44,7 @@ row! {
     Holds { rules: BTreeMap<String, RuleHolds> }
     Interface { id: String, source: String, target: String, title: String, schema: String }
     Part { id: String, status: Option<Status>, rules: Vec<String> }
+    PremiseRow { kind: String, subject: String }
     Explain { rules: BTreeMap<String, Shape>, cycles: BTreeMap<String, Cycles>, holds: Holds }
 }
 
@@ -116,10 +117,10 @@ pub(super) struct Frame {
     pub(super) premise: String,
     /// The call counts of the core (#1327), or `None` when it did not measure.
     pub(super) calls: Option<Calls>,
-    /// Each PASS rule that holds only under declared door reaches, with the sites (AD-664).
-    pub(super) assumed: BTreeMap<String, Vec<String>>,
-    /// The number of applied door reach declarations of the run (AD-664).
-    pub(super) doors: usize,
+    /// Each PASS rule that rests on a premise of the contract, with its premises (AD-664, #1549).
+    pub(super) premises: BTreeMap<String, Vec<PremiseRow>>,
+    /// The premises of the run in words, as the core writes them (#1549), or `None`.
+    pub(super) assuming: Option<String>,
 }
 
 /// The call counts that the page shows: the classes of `Measures` of the model.
@@ -176,8 +177,8 @@ impl Frame {
             cause,
             premise: text(&frame["premise"]).unwrap_or_default(),
             calls: serde_json::from_value(frame["measures"].clone()).ok(),
-            assumed: field(frame, "assumed"),
-            doors: frame["door_reach"].as_array().map_or(0, Vec::len),
+            premises: field(frame, "premises"),
+            assuming: text(&frame["assuming"]),
             status: serde_json::from_value(frame["status"].clone()).ok(),
             rules: field(frame, "rules"),
             details: field(frame, "details"),

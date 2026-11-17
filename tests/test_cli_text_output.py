@@ -480,3 +480,20 @@ def test_a_rule_without_a_row_is_not_counted_as_a_pass(capsys: pytest.CaptureFix
     first = text.splitlines()[0]
     assert done == 2 and "all 1 rules pass" not in first
     assert "1 of 2 rules pass; 1 rules have no decision: PROTOCOLS-IN-SERVICE" in first
+
+
+def test_a_pass_under_a_premise_is_never_the_bare_word(capsys: pytest.CaptureFixture[str]) -> None:
+    """#1549: a PASS run whose rule rests on a stated external user reads "PASS assuming"."""
+    document = json.loads(frame(Status.PASS))
+    rule = next(iter(document["rules"]))
+    document["premises"] = {rule: [{"kind": "external_user", "subject": "app.api:serve"}]}
+    document["assuming"] = "1 stated external user"
+    done, text = _run(document, ["validate", "--text"], capsys)
+    first = text.splitlines()[0]
+    assert done == 0
+    assert first.startswith("validate: PASS assuming 1 stated external user -> exit 0 ("), first
+    assert "1 pass assuming 1 stated external user" in first
+    assert "  stated external users: app.api:serve" in text
+    # Without a premise the word stays PASS.
+    done, text = _run(json.loads(frame(Status.PASS)), ["validate", "--text"], capsys)
+    assert text.splitlines()[0].startswith("validate: PASS -> exit 0 (")

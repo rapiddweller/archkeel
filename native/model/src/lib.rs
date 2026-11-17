@@ -59,7 +59,7 @@ mod boundary_judge;
 mod boundary_positions;
 mod published;
 mod published_items;
-pub use published::{unused as unused_public, Unused};
+pub use published::{stated_users, unused as unused_public, Unused};
 pub use published_items::PublicItem;
 mod boundary_surface;
 mod facade_reach;

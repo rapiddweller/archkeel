@@ -100,13 +100,9 @@ pub struct Ruling {
     /// Each PASS rule of a run with kept pair gaps: the reference engine gives it UNKNOWN, and
     /// the model proves that no kept gap can change it (AD-384 point 4).
     beyond: BTreeMap<String, String>,
-    /// Each PASS rule that holds only under the declared reach of door sites, with the sites
-    /// (AD-664): never a plain PASS.
-    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
-    assumed: BTreeMap<String, Vec<String>>,
-    /// Each applied declaration of a door reach of the run (AD-664).
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    door_reach: Vec<crate::assumed::DoorRow>,
+    /// The premises of the PASS rules (AD-664, #1549).
+    #[serde(flatten)]
+    premises: crate::assumed::Premises,
     /// Why the scope of the run is not complete, or `complete`.
     scope: RunScope,
     /// The one assumption that the collector states for its proofs (AD-540). The word of `scope`
@@ -292,8 +288,7 @@ pub fn rule_with_edge_links(
         details: rows.details,
         unknown_kinds: rows.unknown_kinds,
         beyond: rows.beyond,
-        assumed: rows.assumed,
-        door_reach: crate::assumed::rows(models.ok()),
+        premises: crate::assumed::Premises::of(rows.premises, models.ok()),
         scope,
         premise,
         unsupported,
@@ -315,7 +310,7 @@ struct Rows {
     unknown_kinds: BTreeMap<String, WhyUnknown>,
     causes: BTreeMap<String, Reason>,
     beyond: BTreeMap<String, String>,
-    assumed: BTreeMap<String, Vec<String>>,
+    premises: BTreeMap<String, Vec<crate::assumed::Premise>>,
     decisions: Vec<(String, Option<Decision>)>,
     explain: explain::Collected,
 }
@@ -357,8 +352,10 @@ impl Rows {
                         if let Some(why) = crate::beyond::reason(model) {
                             self.beyond.insert(id.clone(), why);
                         }
-                        let sites = crate::assumed::sites(model, &id);
-                        self.assumed.extend(sites.map(|sites| (id.clone(), sites)));
+                        let premises = crate::assumed::of(model, &id);
+                        if !premises.is_empty() {
+                            self.premises.insert(id.clone(), premises);
+                        }
                         RuleVerdict::Pass
                     }
                 },

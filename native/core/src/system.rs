@@ -57,18 +57,7 @@ pub(crate) fn join(
         let rows = frames.iter().flat_map(|part| list(part, key)).collect();
         frame.insert(key.to_owned(), Value::Array(rows));
     }
-    // AD-664: a PASS under a declared door reach stays qualified in the system frame.
-    let assumed = disjoint(&frames, "assumed")?;
-    if !assumed.is_empty() {
-        frame.insert("assumed".to_owned(), Value::Object(assumed));
-    }
-    let doors: Vec<Value> = frames
-        .iter()
-        .flat_map(|part| list(part, "door_reach"))
-        .collect();
-    if !doors.is_empty() {
-        frame.insert("door_reach".to_owned(), Value::Array(doors));
-    }
+    join_premises(&frames, &mut frame)?;
     let ids: Vec<&str> = system.parts.iter().map(|part| part.id.as_str()).collect();
     let scope = scope(&ids, &typed, status)?;
     frame.insert("scope".to_owned(), scope.clone());
@@ -137,6 +126,44 @@ fn list<'a>(part: &'a Map<String, Value>, key: &str) -> impl Iterator<Item = Val
         .into_iter()
         .flatten()
         .cloned()
+}
+
+/// The premises of the parts (AD-664, #1549): a PASS under a declared door reach or a stated
+/// external user stays qualified in the system frame, and the run names its premises in words.
+fn join_premises(
+    frames: &[Map<String, Value>],
+    frame: &mut Map<String, Value>,
+) -> Result<(), String> {
+    // AD-664: a PASS under a declared door reach stays qualified in the system frame.
+    let assumed = disjoint(frames, "assumed")?;
+    if !assumed.is_empty() {
+        frame.insert("assumed".to_owned(), Value::Object(assumed));
+    }
+    let doors: Vec<Value> = frames
+        .iter()
+        .flat_map(|part| list(part, "door_reach"))
+        .collect();
+    let door_count = doors.len();
+    if !doors.is_empty() {
+        frame.insert("door_reach".to_owned(), Value::Array(doors));
+    }
+    // #1549: each premise of a part stays with its rule, and the run names them in words.
+    let premises = disjoint(frames, "premises")?;
+    let users = premises
+        .values()
+        .filter_map(Value::as_array)
+        .flatten()
+        .filter(|p| p["kind"] == "external_user")
+        .filter_map(|p| p["subject"].as_str())
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+    if !premises.is_empty() {
+        frame.insert("premises".to_owned(), Value::Object(premises));
+    }
+    if let Some(words) = archkeel_report::premise_words(door_count, users) {
+        frame.insert("assuming".to_owned(), json!(words));
+    }
+    Ok(())
 }
 
 /// The map `key` of all parts: a rule id names one rule of one part.

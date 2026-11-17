@@ -16,7 +16,7 @@ from collections.abc import Mapping, Sequence
 from .core_baseline import BaselineResult, BaselineState
 from .core_baseline import lines as baseline_lines
 from .core_doors import DECLARED, declared, door_lines
-from .core_doors import qualifier as door_qualifier
+from .core_doors import qualifier as premise_qualifier
 from .core_evidence import CollectionGap, call_lines
 from .core_exit import Outcome, verdict_code, word_of
 from .core_frame import CoreCommand as Command
@@ -67,11 +67,6 @@ def _invalid(baseline: BaselineResult) -> str:
     gap = baseline.gaps[0]
     why = plain(gap.reason).removeprefix(f"{gap.subject}: ")
     return f"{gap.subject} is not valid: {why}"
-
-
-def _assuming(doors: int) -> str:
-    """`pass assuming the declared reach of N doors`, for the header."""
-    return door_qualifier(doors).replace("PASS", "pass", 1)
 
 
 def _baseline_reason(frame: CoreFrame, baseline: BaselineResult, code: int) -> str:
@@ -125,8 +120,8 @@ def _reason_of(frame: CoreFrame, code: int, outcome: Outcome) -> str:
     total = len(frame.rules)
     if not frame.rules and any(gap.kind in PROBLEM_KINDS for gap in frame.gaps):
         return "no rule could be read: see the problem below"
-    if frame.status is Status.PASS and frame.doors:
-        return f"all {total} rules pass; {len(frame.assumed)} {_assuming(len(frame.doors))}"
+    if frame.status is Status.PASS and (words := frame.premises.assuming) is not None:
+        return f"all {total} rules pass; {len(frame.premises.rules)} pass assuming {words}"
     if frame.status is Status.PASS:
         return f"all {total} rules pass"
     if frame.status is Status.FAIL:
@@ -156,6 +151,10 @@ def header(command: Command, frame: CoreFrame, code: int, outcome: Outcome) -> s
     """The first line: the word of the exit code, the code and the reason."""
     invalid = frame.baseline is not None and frame.baseline.state is BaselineState.INVALID
     word = "REFUSED" if invalid else word_of(code)
+    # #1549: a PASS that rests on a premise of the contract is never the bare word PASS.
+    words = frame.premises.assuming
+    if word == "PASS" and frame.status is Status.PASS and frame.premises.rules and words:
+        word = premise_qualifier(words)
     return f"{command}: {word} -> exit {code} ({_reason_of(frame, code, outcome)})"
 
 
@@ -351,7 +350,7 @@ def render(
         out.append(f"Next: {action}")
     if frame.premise is not None:
         out.append(f"Assumption: {frame.premise}")
-    out.extend(door_lines(frame.assumed, frame.doors, _SHOWN, show_all))
+    out.extend(door_lines(frame.premises, frame.doors, _SHOWN, show_all))
     if system:
         out.extend(_system(system))
     out.extend(_violation_lines(frame, show_all))

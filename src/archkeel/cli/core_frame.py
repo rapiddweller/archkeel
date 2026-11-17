@@ -17,7 +17,7 @@ from typing import Final, TypeVar
 
 from .core_baseline import BaselineResult, read_baseline
 from .core_binding import bind_request
-from .core_doors import DoorRow, pass_qualifiers, read_doors
+from .core_doors import DoorRow, Premises, pass_qualifiers, read_doors, read_premises
 from .core_evidence import (
     CollectionGap,
     Location,
@@ -212,6 +212,7 @@ class CoreFrame:
     # AD-664: the door sites of each PASS under a declared reach, and the applied declarations.
     assumed: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     doors: tuple[DoorRow, ...] = ()
+    premises: Premises = Premises({}, None)  # #1549: each PASS under a premise, and its words
 
     @property
     def complete_scope(self) -> bool:
@@ -492,4 +493,5 @@ def read_frame(
         premise=_premise(frame, scan, status),
         assumed=assumed,
         doors=read_doors(frame),
+        premises=read_premises(frame, passing),
     )
