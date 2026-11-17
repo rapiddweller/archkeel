@@ -8,6 +8,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 | Decision | Title |
 |---|---|
 | AD-737 | [Python construct support is one map with downgrade and meet](ad-737-python-construct-support-is-one-map-with-downgrade-and-meet.md) |
+| AD-735 | [The draft step has one outcome and runs after the core is found](ad-735-the-draft-step-has-one-outcome-and-runs-after-the-core-is-found.md) |
 | AD-738 | [One data file owns the source suffixes of both languages](ad-738-one-data-file-owns-the-source-suffixes-of-both-languages.md) |
 | AD-731 | [Under a baseline, only a verdict exits 2](ad-731-under-a-baseline-only-a-verdict-exits-2.md) |
 | AD-730 | [A box of the page shows PASS only when the run decides every rule](ad-730-a-box-of-the-page-shows-pass-only-when-the-run-decides-every-rule.md) |
