@@ -27,8 +27,9 @@
         evidence_ids: evidence, finding_ids: findings,
         reasons: reasons.map((index) => ATLAS.reference_ids[index]),
       }));
-      ATLAS.assignments = ATLAS.assignments.map(([module, owner, candidates, status, reason]) => ({
+      ATLAS.assignments = ATLAS.assignments.map(([module, owner, candidates, status, reason, place]) => ({
         id: ATLAS.modules[module].id, component_id: owner === null ? null : ATLAS.reference_ids[owner],
+        place_id: place === null || place === undefined ? null : ATLAS.reference_ids[place],
         candidate_ids: candidates.map((index) => ATLAS.reference_ids[index]),
         ownership_status: status, ownership_reason: ATLAS.reference_ids[reason],
       }));
@@ -72,12 +73,83 @@
       return modules.slice().sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity) || a.name.localeCompare(b.name));
     }
 
+    // One screen shows about this many module boxes (issue 1488); the report states the number.
+    const MODULE_BOX_LIMIT = ATLAS?.module_box_limit;
+    // The box of a module on the map: a directory box inside its owner, or the owner.
+    const placeOf = (module) => module.place_id || module.component_id;
+    // A deep path keeps its first directory and its last two parts: the file name stays readable.
+    const shortPath = (path) => {
+      const parts = path.split("/");
+      return parts.length > 4 ? [parts[0], "…", ...parts.slice(-2)].join("/") : path;
+    };
+
+    // The child of the level that holds the module, or null when the level itself owns it.
+    function childOwner(level, module) {
+      const route = componentRoute(placeOf(module));
+      const at = level.parent_id ? route.findIndex((item) => item.id === level.parent_id) + 1 : 0;
+      return at > 0 || !level.parent_id ? route[at] || null : null;
+    }
+
+    // Too many modules for one screen: one box per child component with its module count. A
+    // drill into a box shows its modules; the search and the module list reach one module.
+    function groupedModuleScene(level, viewMode, modules) {
+      const groupOf = new Map(), members = new Map(), loose = [];
+      for (const module of modules) {
+        const owner = childOwner(level, module);
+        if (!owner) { loose.push(module); continue; }
+        groupOf.set(module.id, owner.id);
+        if (!members.has(owner.id)) members.set(owner.id, { component: owner, modules: [] });
+        members.get(owner.id).modules.push(module);
+      }
+      const nodes = [...members.values()].map(({ component, modules: inside }) => ({
+        id: component.id, label: component.label, kind: component.directory ? "package" : "component", component, group: inside.length,
+        entity: null, sourceGraph: null, sections: [], outside: false,
+        meta: "Open the box to see its modules.",
+        tooltip: `${component.label}: ${countLabel(inside.length, "module")}`,
+      })).concat(loose.map((module) => ({
+        id: module.id, label: module.path?.split("/").at(-1) || module.name, kind: "module", module,
+        entity: null, sourceGraph: null, sections: [], outside: false,
+        meta: module.path ? shortPath(module.path) : "File path not declared", tooltip: module.path || module.name,
+      })));
+      const boxOf = (id) => groupOf.get(id) || id, shown = new Set(nodes.map((node) => node.id));
+      const pairs = new Map();
+      const add = (source, target, sites, status) => {
+        const [from, to] = [boxOf(source), boxOf(target)];
+        if (from === to || !shown.has(from) || !shown.has(to)) return;
+        const key = `${from}\0${to}`, pair = pairs.get(key) || { source: from, target: to, sites: 0, status: "PASS" };
+        pair.sites = pair.sites === null || sites === null || sites === undefined ? null : pair.sites + sites;
+        if (status === "FAIL" || status === "UNKNOWN" && pair.status !== "FAIL") pair.status = status;
+        pairs.set(key, pair);
+      };
+      if (viewMode === "target") {
+        for (const module of ATLAS.declared_modules) for (const edge of module.relationships || [])
+          add(module.id, edge.target_id, 0, "PASS");
+      } else {
+        for (const index of level.cells) {
+          const cell = ATLAS.cells[index];
+          add(cell.source_id, cell.target_id, cell.import_sites, cell.status);
+        }
+      }
+      const edges = [...pairs.values()].map((pair) => ({
+        id: `module-group:${pair.source}>${pair.target}`, source: pair.source, target: pair.target,
+        kind: "dependency", relationshipKind: viewMode === "target" ? "requires" : "imports",
+        state: viewMode === "target" ? "declared" : pair.status === "FAIL" ? "violation" : pair.status === "UNKNOWN" ? "undecided" : "observed",
+        import_sites: viewMode === "target" ? undefined : pair.sites,
+        label: viewMode === "target" ? "relationships" : countLabel(pair.sites, "import"),
+        tooltip: viewMode === "target" ? "Authored module relationships between the two groups."
+          : `${pair.sites ?? "UNKNOWN"} import sites between the modules of the two groups; Core ${pair.status}.`,
+      }));
+      return { nodes, edges, declared: [], frames: [], atlas: true, moduleOverview: true,
+        boundaryEdges: 0, grouped: { modules: modules.length, limit: MODULE_BOX_LIMIT } };
+    }
+
     function atlasModuleScene(level, viewMode) {
       const modules = atlasModules(level, viewMode), ids = new Set(modules.map((module) => module.id));
+      if (modules.length > MODULE_BOX_LIMIT) return groupedModuleScene(level, viewMode, modules);
       const nodes = modules.map((module) => ({
         id: module.id, label: module.path?.split("/").at(-1) || module.name, kind: "module", module,
         entity: null, sourceGraph: null, sections: [], outside: false,
-        meta: module.path || "File path not declared", tooltip: module.name,
+        meta: module.path ? shortPath(module.path) : "File path not declared", tooltip: module.path || module.name,
       }));
       const allDeclared = ATLAS.declared_modules.flatMap((module) =>
         (module.relationships || []).map((edge) => ({ ...edge, source_id: module.id })));
@@ -105,7 +177,7 @@
       const declared = children.flatMap((component) => component.requires
         .filter((edge) => ids.has(edge.target_id)).map((edge) => ({ ...edge, source_id: component.id })));
       const nodes = children.map((component) => ({
-        id: component.id, label: component.label, kind: "component",
+        id: component.id, label: component.label, kind: component.directory ? "package" : "component",
         entity: null, sourceGraph: null,
         meta: component.responsibilities.join(" ").slice(0, 126) || "Not declared",
         sections: [], outside: false, component,

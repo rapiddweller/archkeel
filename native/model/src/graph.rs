@@ -61,6 +61,7 @@ pub struct Graph {
     /// The records that `boundary_types` reads, when the run needs them and the collector writes
     /// shapes (AD-550).
     boundary: Option<crate::boundary_facts::BoundaryFacts>,
+    placement: Option<Vec<crate::placement_facts::Class>>,
     /// The declared reach of the door sites (AD-664).
     doors: Doors,
 }
@@ -93,6 +94,9 @@ impl Graph {
         }
         if needs.boundary() && graph.observed.type_shapes {
             graph.boundary = Some(crate::boundary_facts::BoundaryFacts::derive(facts));
+        }
+        if needs.placement() && graph.observed.symbol_facts {
+            graph.placement = Some(crate::placement_facts::classes(facts));
         }
         Ok(graph)
     }
@@ -157,6 +161,7 @@ impl Graph {
             constructs: Constructs::derive(facts)?,
             symbols: None,
             boundary: None,
+            placement: None,
             doors,
         })
     }
@@ -256,6 +261,10 @@ impl Graph {
     /// The records that `boundary_types` reads, when the run has them (AD-550).
     pub(crate) fn boundary(&self) -> Option<&crate::boundary_facts::BoundaryFacts> {
         self.boundary.as_ref()
+    }
+
+    pub(crate) fn placement(&self) -> Option<&[crate::placement_facts::Class]> {
+        self.placement.as_deref()
     }
 
     pub(crate) fn symbols(&self) -> Option<&crate::symbols::Symbols> {

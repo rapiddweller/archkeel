@@ -1,0 +1,14 @@
+{
+  "name": "bazel_worker (dart-lang/tools)",
+  "repo": "https://github.com/dart-lang/tools",
+  "ref": null,
+  "commit": "ddda9d89dc111f1683c713a2f6f7951a01cb75ad",
+  "license": "BSD-3-Clause",
+  "copy": [
+    {
+      "from": "pkgs/bazel_worker",
+      "to": ".",
+      "exclude": ["node_modules", ".git", ".dart_tool", "build", "test", "example", "benchmark", "*.g.dart"]
+    }
+  ]
+}

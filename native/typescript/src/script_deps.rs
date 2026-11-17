@@ -258,7 +258,9 @@ impl<'a, 'p> Run<'a, 'p> {
         }
         for write in all {
             let (rel, name, span) = *write;
-            let scripted = self.file(rel).is_some_and(|file| file.script.script_mode);
+            let scripted = self
+                .file(rel)
+                .is_some_and(|file| file.script.mode.is_script());
             let known = name.is_none_or(|name| self.project.publications.contains_key(name));
             if scripted && known && !self.source_set.contains(write) {
                 pending.push((rel.to_owned(), span.clone()));

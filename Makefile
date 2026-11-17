@@ -108,9 +108,9 @@ native-check:
 	cd native && cargo test --locked
 	$(MAKE) self-validate-native
 
-# AD-754: the gate builds the core with a fast profile: no LTO, 16 codegen units. The verdicts do not depend
+# AD-754: the gate builds the core with a fast profile: no LTO, 16 codegen units, opt-level 1. The verdicts do not depend
 # on it; the shipped wheel, the nightly run and a build without ARCHKEEL_CORE_PROFILE keep the release profile.
-CORE_PROFILE_ENV := $(if $(filter gate,$(ARCHKEEL_CORE_PROFILE)),CARGO_PROFILE_RELEASE_LTO=false CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16,)
+CORE_PROFILE_ENV := $(if $(filter gate,$(ARCHKEEL_CORE_PROFILE)),CARGO_PROFILE_RELEASE_LTO=false CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16 CARGO_PROFILE_RELEASE_OPT_LEVEL=1,)
 
 # AD-432: the core is the only decision path. `archkeel` finds this release build of the checkout.
 # AD-732, AD-736: with ARCHKEEL_CORE_SOURCE=cache (CI restored the core from its cache) and
@@ -167,7 +167,7 @@ browser-architecture-check: core browser-runtime-install
 # shell decides nothing; the job `publish-gallery` of CI publishes this directory.
 report-gallery: core
 	rm -rf test-artifacts/gallery
-	$(UV) run --locked python -m tools.report_gallery --out test-artifacts/gallery --archkeel "$(UV) run --locked archkeel"
+	$(UV) run --locked python -m tools.report_gallery --out test-artifacts/gallery --source-cache test-artifacts/source-cache --archkeel "$(UV) run --locked archkeel"
 
 # AD-343: record the golden replies of the TypeScript collector. REASON says why a reply changes.
 # The source must be committed, or set ALLOW_DIRTY=1 to log the commit as +dirty.
@@ -201,7 +201,7 @@ cargo-deny-install:
 		install -m 0755 "$$work/$$name/cargo-deny" "$${CARGO_HOME:-$$HOME/.cargo}/bin/cargo-deny"
 
 LINT_PATHS := src tests tools/mermaid_blocks.py tools/package_plugin.py \
-	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/fixture_tree.py tools/report_product.py tools/report_product_page.py \
+	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/fixture_tree.py tools/fixture_source.py tools/report_product.py tools/report_product_page.py \
 	native/hatch_build.py
 
 lint:

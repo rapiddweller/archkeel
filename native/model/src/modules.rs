@@ -29,6 +29,7 @@ pub struct Module {
     exports: Vec<String>,
     exports_literal: bool,
     compatibility_logic_free: bool,
+    class_inventory_empty: bool,
 }
 
 impl Module {
@@ -75,6 +76,10 @@ impl Module {
     /// True when the collector proves that the module holds no compatibility logic.
     pub fn compatibility_logic_free(&self) -> bool {
         self.compatibility_logic_free
+    }
+
+    pub(crate) fn class_inventory_empty(&self) -> bool {
+        self.class_inventory_empty
     }
 }
 
@@ -153,6 +158,7 @@ pub(crate) fn tables(files: &[FileFact]) -> Result<Tables, Reason> {
                 exports: sorted(&file.all_exports),
                 exports_literal: file.all_literal,
                 compatibility_logic_free: file.compatibility_logic_free,
+                class_inventory_empty: file.class_inventory_empty == Some(true),
             })
             .collect(),
     )

@@ -58,6 +58,11 @@ impl Collection<'_> {
         let script = ScriptFile::take(&mut parsed, format_known, global_scope);
         self.script_file_effects(rel, module, &script);
         let kept = Kept::from_parsed(module, &mut parsed, text, script);
+        if let Some((reason, span)) = &kept.record_refusal {
+            let evidence = self.cite(rel, span);
+            let reason = format!("{reason}: {rel}");
+            self.gap(&reason, Some(&evidence), module, GapKind::Collection);
+        }
         self.order.push(rel.to_owned());
         self.kept.insert(rel.to_owned(), kept);
         let cjs = suffix.and_then(|suffix| suffix.format_hint()) == Some(ModuleFormat::Cjs)

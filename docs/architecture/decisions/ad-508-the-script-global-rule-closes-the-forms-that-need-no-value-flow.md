@@ -1,6 +1,6 @@
 # AD-508: The script-global rule closes the forms that need no value flow
 
-Status: accepted. Part of #880. It amends AD-460 and AD-492.
+Status: accepted. Part of #880. It amends AD-460 and AD-492. AD-758 amends rule 2.
 ## Context
 AD-460 and AD-492 list forms that gave PASS (`this[k]` in a method, a run-time key call or
 reflection, a built URL, a destructured window member): each can write a global or run code.
@@ -58,10 +58,8 @@ Each row removes one rule; the closed and precision plants run through the relea
 | 6 | pattern | 9 `pattern-*` |
 | 9 | namespace exemption | none; `namespace-key` turns UNKNOWN |
 ## Limits
-Open false PASS, not accepted: any alias of `this`, `super`, `Object`, `Reflect`, `location`, `open`
-or of a looked-up function, except a name bound once to `this`; a looked-up function that is stored,
-passed or an argument (`const f = o[k]`, `Function.prototype.call.call(o[k])`); any global that
-navigates or opens (`open('', '_self')`, `document.open`); a destructured or aliased `setTimeout`; a
-window that reaches a computed write through a parameter or call result; `g(this)` in a method; any
-event member that is a window (`ev.target[k]`, `ev.srcElement[k]`); a computed key in a pattern; a
-non-literal `href` or `src` of an element and its click. Tests: `test_cli_native_global_forms.py`.
+Open false PASS, not accepted: any alias of `location` or `open` (AD-758 closed the looked-up
+function, AD-766 the writes through an alias of `this`, `Object` or `Reflect` and the window values
+of a host); any global that navigates or opens (`open('', '_self')`, `document.open`); a destructured
+or aliased `setTimeout`; a computed key in a pattern; a non-literal `href` or `src` of an element
+and its click. Tests: `test_cli_native_global_forms.py`.

@@ -32,6 +32,112 @@ const INSTALLED: [(&str, &str); 3] = [
     ("bower_components", "bower.json"),
 ];
 
+/// A file form that holds code but that the TypeScript profile does not read, by suffix. The
+/// reason names the form (AD-488, #1528). A page (`.html`, `.htm`, `.svg`) is code only when it
+/// holds script text; `page_with_code` decides that from its text (#1607).
+const UNREAD_FORMS: [(&str, &str); 8] = [
+    (
+        ".vue",
+        "the TypeScript profile does not read Vue single-file components",
+    ),
+    (
+        ".svelte",
+        "the TypeScript profile does not read Svelte components",
+    ),
+    (
+        ".astro",
+        "the TypeScript profile does not read Astro components",
+    ),
+    (".mdx", "the TypeScript profile does not read MDX documents"),
+    (
+        ".es6",
+        "the TypeScript profile does not read the .es6 script suffix",
+    ),
+    (
+        ".html",
+        "the TypeScript profile does not read the inline scripts of HTML pages",
+    ),
+    (
+        ".htm",
+        "the TypeScript profile does not read the inline scripts of HTML pages",
+    ),
+    (
+        ".svg",
+        "the TypeScript profile does not read the scripts of SVG images",
+    ),
+];
+
+/// Why the TypeScript profile does not read `name`, when it is a code form of the list.
+pub(crate) fn unread_form(name: &str) -> Option<&'static str> {
+    let lower = name.to_ascii_lowercase();
+    UNREAD_FORMS
+        .iter()
+        .find(|(suffix, _)| lower.ends_with(suffix))
+        .map(|(_, reason)| *reason)
+}
+
+/// Text that starts code in a page, besides an `on*` attribute: a script element, a script URL,
+/// an inline frame document, or a data URL that can hold a page or an image with script.
+const CODE_MARKS: [&[u8]; 6] = [
+    b"<script",
+    b"javascript:",
+    b"srcdoc",
+    b"data:text/",
+    b"data:application/",
+    b"data:image/svg",
+];
+
+/// Spellings of a character entity that can hide the letters of a script URL.
+const ENTITIES: [&[u8]; 4] = [b"&#", b"&colon", b"&tab;", b"&newline;"];
+
+/// True when a page can hold code (#1607): a script element (also in a template or an SVG), an
+/// `on*` event handler attribute, a `javascript:` URL, `srcdoc`, or a data URL of code. The check
+/// is lexical and over-matches on purpose: a match is a gap, a miss is a false PASS. A browser
+/// drops tabs and line breaks inside a URL scheme and decodes entities, so the check drops white
+/// space and treats an entity beside the word `script` as code.
+pub(crate) fn page_with_code(text: &[u8]) -> bool {
+    let lower = text.to_ascii_lowercase();
+    let squeezed: Vec<u8> = lower
+        .iter()
+        .copied()
+        .filter(|byte| !byte.is_ascii_whitespace())
+        .collect();
+    let has = |haystack: &[u8], needle: &[u8]| {
+        (0..haystack.len()).any(|at| haystack[at..].starts_with(needle))
+    };
+    CODE_MARKS.iter().any(|mark| has(&squeezed, mark))
+        || (has(&squeezed, b"script") && ENTITIES.iter().any(|entity| has(&squeezed, entity)))
+        || has_event_attribute(&lower)
+}
+
+/// True when `on` + letters + `=` follows white space, a quote or a slash: an event handler.
+fn has_event_attribute(lower: &[u8]) -> bool {
+    lower.windows(3).enumerate().any(|(at, window)| {
+        let before = at.checked_sub(1).map(|i| lower[i]);
+        window.starts_with(b"on")
+            && window[2].is_ascii_alphabetic()
+            && before.is_some_and(|b| b.is_ascii_whitespace() || matches!(b, b'"' | b'\'' | b'/'))
+            && event_name_then_equals(&lower[at + 2..])
+    })
+}
+
+/// True when letters, then optional white space, then `=` start `rest`.
+fn event_name_then_equals(rest: &[u8]) -> bool {
+    let name = rest.iter().take_while(|b| b.is_ascii_alphabetic()).count();
+    rest[name..]
+        .iter()
+        .find(|b| !b.is_ascii_whitespace())
+        .is_some_and(|b| *b == b'=')
+}
+
+/// True for a page: its text decides whether it is code.
+pub(crate) fn is_page(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    [".html", ".htm", ".svg"]
+        .iter()
+        .any(|suffix| lower.ends_with(suffix))
+}
+
 /// Each project source file under `roots`, sorted, and each package that `reach` makes source.
 pub(crate) fn project_sources(
     snapshot: &mut Snapshot,
@@ -123,11 +229,13 @@ fn object(snapshot: &mut Snapshot, manifest: &str) -> bool {
         .is_some_and(|bytes| serde_json::from_slice::<Map<String, Value>>(&bytes).is_ok())
 }
 
-/// True for a TypeScript, declaration or JavaScript file name, in any letter case.
+/// True for a TypeScript, declaration or JavaScript file name, in any letter case, or for a code
+/// form that the profile does not read.
 fn source(name: &str) -> bool {
-    classify_file(&name.to_ascii_lowercase())
-        .and_then(Suffix::source_kind)
-        .is_some_and(|kind| !matches!(kind, SourceKind::Json))
+    unread_form(name).is_some()
+        || classify_file(&name.to_ascii_lowercase())
+            .and_then(Suffix::source_kind)
+            .is_some_and(|kind| !matches!(kind, SourceKind::Json))
 }
 
 /// The paths where the compiler looks for the type package `name` from `directory`: each

@@ -50,6 +50,12 @@ packages that the compiler adds without a `types` list are outside the model, as
 `typeRoots` in an extended TSConfig resolve from the configured TSConfig. The collector reads one
 TSConfig. A gitignored source under the scan roots is project source.
 
+**Amendment (#1528, #1607).** The same walk also lists the code forms that the profile has no
+parser for: `.vue`, `.svelte`, `.astro`, `.mdx`, `.es6`, and an `.html`, `.htm` or `.svg` file that
+can hold code (a script element, an `on*` handler, a `javascript:` URL, `srcdoc`, or a `data:` URL
+of a page or an SVG; a lexical check that over-matches on purpose). Each is a gap that names the
+file and the form. No parser is added: the gap is the sound answer.
+
 **Rejected.** Exempt emitted names or build output directories: a name proves nothing. Decide by
 the alias bases: a base above the package misses it; the resolved file decides. Read a
 dropped file for its imports: it adds modules that the compiler does not see. Skip dot directories,

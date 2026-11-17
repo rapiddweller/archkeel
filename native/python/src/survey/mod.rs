@@ -10,6 +10,7 @@
 
 use std::collections::HashSet;
 
+use crate::requirement::Prepared;
 use archkeel_facts::envelope::{Coverage, Evidence, FileFact, Input, Target};
 #[cfg(feature = "dump")]
 use archkeel_facts::pyminor::PyMinor;
@@ -35,6 +36,7 @@ mod copy_local;
 mod declared;
 mod effects;
 mod excluded;
+mod external_loader;
 mod failures;
 mod globals_locals;
 mod globals_project;
@@ -114,15 +116,10 @@ pub(crate) struct Modules {
 }
 
 #[cfg(feature = "dump")]
-pub(crate) fn modules(request: &PythonRequest) -> Result<Modules, String> {
+pub(crate) fn modules(prepared: &Prepared) -> Result<Modules, String> {
+    let request: &PythonRequest = &prepared.request;
     let mut snapshot = Snapshot::new(&request.snapshot.root);
-    let minor = request
-        .resolver
-        .interpreter
-        .as_ref()
-        .ok_or("no Python target")?
-        .version
-        .minor();
+    let minor = prepared.interpreter.version.minor();
     let scope = discover::scope(
         &mut snapshot,
         &request.scope.roots,
@@ -146,12 +143,9 @@ pub(crate) fn modules(request: &PythonRequest) -> Result<Modules, String> {
     clippy::too_many_lines,
     reason = "the survey is one pipeline of passes; AD-520 adds the site pass to it"
 )]
-pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
-    let interpreter = request
-        .resolver
-        .interpreter
-        .as_ref()
-        .ok_or("no Python target")?;
+pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
+    let request: &PythonRequest = &prepared.request;
+    let interpreter = &prepared.interpreter;
     let minor = interpreter.version.minor();
     let mut snapshot = Snapshot::new(&request.snapshot.root);
     let namespace = &request.scope.namespace;
@@ -223,13 +217,22 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
             record.data.data_mut().source_binding_unique = Some(false);
         }
     }
+    let class_namespace_safe = modules
+        .iter()
+        .all(|module| stable::class_inventory::namespace_safe(&module.tree))
+        && hazards.is_empty()
+        && opaque_surface.is_empty();
     let files: Vec<FileFact> = modules
         .iter()
         .zip(&binders)
         .zip(&aliases)
         .map(|((module, binders), aliases)| {
             let stable = stable::bindings(module, binders, aliases, minor);
-            stable::file_fact(module, binders, stable, &mut evidence)
+            let mut file = stable::file_fact(module, binders, stable, &mut evidence);
+            if !class_namespace_safe {
+                file.class_inventory_empty = None;
+            }
+            file
         })
         .collect();
     let mut unknowns = parsed.gaps;
@@ -251,6 +254,14 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         let (key, gap) = targets::hazard_gap(site, module, &id);
         sites.insert(key, gap);
     }
+    // #1519: a call of a value from outside the scan with a string that names a module of it.
+    for (index, range, target) in external_loader::find(modules, &stdlib, namespace) {
+        let module = &modules[index];
+        let id = module.evidence(&mut evidence, &range);
+        let kind = external_loader::EXTERNAL_LOADER;
+        let (key, gap) = targets::site_gap(kind, &target, &module.name, &id);
+        sites.insert(key, gap);
+    }
     unknowns.extend(found);
     unknowns.extend(sites.into_values());
     unknowns.extend(layout::problems(&snapshot.problems));
@@ -263,26 +274,26 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         &symbols.records,
         &symbols.dead_sites,
     );
-    let coverage = Coverage {
-        files_parsed: modules.len() as u64,
-        files_read: parsed.files_read,
-        full_scope: modules.len() == scope.selected.len() && unknowns.is_empty(),
-        gaps: unknowns.clone(),
-        measures: Some(
-            modules
-                .iter()
-                .zip(&binders)
-                .map(|(module, binders)| {
-                    let mut row =
-                        call_count::count(module, binders, &symbols.calls, &count_context);
-                    (row.typing_positions, row.untyped_private_accesses) =
-                        typing_count::count(module, binders);
-                    row
-                })
-                .collect(),
-        ),
-        selected_files: scope.selected.clone(),
-    };
+    let mut coverage = Coverage::of(
+        (parsed.files_read as usize, modules.len()),
+        scope.selected.clone(),
+        unknowns.clone(),
+    );
+    // A selected module that did not parse keeps the scope from being full, gap or not.
+    coverage.full_scope =
+        Coverage::is_full(unknowns.len(), scope.selected.len().abs_diff(modules.len()));
+    coverage.measures = Some(
+        modules
+            .iter()
+            .zip(&binders)
+            .map(|(module, binders)| {
+                let mut row = call_count::count(module, binders, &symbols.calls, &count_context);
+                (row.typing_positions, row.untyped_private_accesses) =
+                    typing_count::count(module, binders);
+                row
+            })
+            .collect(),
+    );
     Ok(Survey {
         targets: resolved.targets,
         files,

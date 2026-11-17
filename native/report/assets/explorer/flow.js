@@ -204,7 +204,7 @@
     measureText.font = font;
     const lines = [];
     let line = "";
-    for (const word of text.split(/(\s+)|(?<=_)|(?<=[a-z])(?=[A-Z])/).filter(Boolean)) {
+    for (const word of text.split(/(\s+)|(?<=[_/])|(?<=[a-z])(?=[A-Z])/).filter(Boolean)) {
       if (/^\s+$/.test(word)) {
         line += word;
         continue;
@@ -650,7 +650,7 @@
     if (ATLAS) {
       const module = renderedScene?.nodes.find((node) => node.id === id)?.module;
       if (module) openAtlasModule(module.id);
-      else openAtlasComponent(id);
+      else openAtlasComponent(id, renderedScene?.grouped ? "modules" : null);
       return;
     }
     const context = architectureGraphContext();
@@ -961,7 +961,7 @@
   }
 
   function renderRouteNotice() {
-    canvas.hidden = true; alternative.hidden = false; inspector.hidden = false;
+    canvas.hidden = true; alternative.hidden = false; setTargetDetails(true);
     filters.hidden = true; elementKindControl.hidden = true; legend.textContent = "";
     openSelectedButton.disabled = true;
     root.querySelector(".flow-explore").hidden = true;
@@ -983,6 +983,8 @@
       architectureNavigation({ base: null });
       inspectorContent.innerHTML = '<div class="kicker">Fact sheet</div><p>Choose a recorded architecture scope.</p>';
     }
+    root.dataset.layoutState = "ready";
+    if (ATLAS) publishState();
   }
 
   async function renderSidecar() {
@@ -1028,8 +1030,9 @@
   function architectureNavigation(context) {
     if (SIDECAR) { sidecarNavigation(); return; }
     if (ATLAS) {
-      breadcrumb.innerHTML = `<button type="button" data-atlas-depth="0">${esc(ATLAS.repository)}</button>`
-        + S.path.map((entry, index) => `<span> / </span><button type="button" data-atlas-depth="${index + 1}">${esc(REPORT_SCENE.atlasComponent(entry.id)?.label || entry.id)}</button>`).join("");
+      // E3: each crumb names itself in full (a title for a shortened one); the current crumb says so.
+      const crumbs = [ATLAS.repository, ...S.path.map((entry) => REPORT_SCENE.atlasComponent(entry.id)?.label || entry.id)];
+      breadcrumb.innerHTML = crumbs.map((label, depth) => `${depth ? "<span> / </span>" : ""}<button type="button" data-atlas-depth="${depth}" title="${esc(label)}"${depth === crumbs.length - 1 ? ' aria-current="page"' : ""}><span>${esc(label)}</span></button>`).join("");
       breadcrumb.querySelectorAll("button").forEach((button) => button.onclick = () =>
         dispatch({ type: "goToDepth", depth: Number(button.dataset.atlasDepth) }));
       backButton.hidden = !S.path.length; backButton.textContent = "Back to components"; return;
@@ -1784,20 +1787,26 @@
   }
 
   let maxFitScale = 1.4;
-  function fit(overview = false) {
+  // Below this scale the 12 px card text is too small to read (issue 1490): a fit stops here and
+  // the canvas scrolls. Only an explicit "fit whole diagram" goes below it.
+  const READABLE_SCALE = 0.85;
+  let pendingLayoutFitWhole = false;
+  function fit(overview = false, { whole = false } = {}) {
     cancelPointerTap();
     if (layoutPending) {
       pendingLayoutFit = true;
       pendingLayoutFitOverview ||= overview;
+      pendingLayoutFitWhole ||= whole;
       return;
     }
     const bounds = viewport.getBBox();
     if (!bounds.width || !bounds.height || !canvas.clientWidth || !canvas.clientHeight) return;
     // Member compartments need readable text; oversized content stays pannable.
-    const minimumScale = ATLAS && overview ? 0
-      : ATLAS ? 1 : focusLabel || memberPreviews || S.selection?.type === "node" ? 1 : overview ? 0 : 0.85;
+    const minimumScale = ATLAS && overview ? whole ? 0 : READABLE_SCALE
+      : ATLAS ? 1 : focusLabel || memberPreviews || S.selection?.type === "node" ? 1 : overview ? 0 : READABLE_SCALE;
     const widthScale = canvas.clientWidth / (bounds.width + 48);
-    transform.k = renderedScene?.moduleOverview && !overview ? Math.max(1, Math.min(maxFitScale, widthScale))
+    transform.k = renderedScene?.moduleOverview && !overview
+      ? Math.max(READABLE_SCALE, Math.min(maxFitScale, widthScale, canvas.clientHeight / (bounds.height + 48)))
       : Math.max(minimumScale, Math.min(maxFitScale, widthScale, canvas.clientHeight / (bounds.height + 48)));
     panOffset = { x: 0, y: 0 };
     viewport.removeAttribute("transform");
@@ -1812,13 +1821,13 @@
         - canvas.clientWidth / 2;
       canvas.scrollTop = (selectedPosition.y - diagramOrigin.y + cardHeight(S.selection.id) / 2) * transform.k
         - canvas.clientHeight / 2;
-    } else if (ATLAS && renderedScene?.componentOverview && !overview) {
+    } else if (ATLAS && !whole && (renderedScene?.componentOverview || renderedScene?.moduleOverview)) {
       const canvasBounds = canvas.getBoundingClientRect();
       const left = canvasBounds.left + canvas.clientLeft;
       const top = canvasBounds.top + canvas.clientTop;
       const right = left + canvas.clientWidth;
       const bottom = top + canvas.clientHeight;
-      const completeCardVisible = [...nodeLayer.querySelectorAll('[data-uml-kind="component"] .card')]
+      const completeCardVisible = [...nodeLayer.querySelectorAll("[data-uml-id] .card")]
         .some((card) => {
           const bounds = card.getBoundingClientRect();
           return bounds.left >= left && bounds.right <= right
@@ -1826,7 +1835,7 @@
         });
       if (!completeCardVisible) {
         const first = renderedScene.nodes
-          .filter((node) => node.kind === "component" && positions[node.id])
+          .filter((node) => positions[node.id])
           .sort((a, b) => positions[a.id].y - positions[b.id].y
             || positions[a.id].x - positions[b.id].x)[0];
         const position = first && positions[first.id];
@@ -1956,9 +1965,15 @@
       focusLabel = null; relationshipKind = null; elementKind = null; positions = Object.create(null); render(); fit(); return;
     }
     if (ATLAS) {
+      // E3: the view of the page is not a new view: fullscreen and the key of the current view lay
+      // the diagram out again and keep the selection.
+      if (nextView === S.view) { relayout(); return; }
       navigate();
       S.view = nextView;
-      S.cell = null; S.module = null; S.hint = null;
+      if (nextView === "target") { S.cell = null; S.module = null; S.hint = null; }
+      const level = atlasLevel();
+      if (S.selection && !level.component_ids.includes(S.selection.id)
+          && !REPORT_SCENE.atlasModules(level, nextView).some((item) => item.id === S.selection.id)) S.selection = null;
       render(); return;
     }
     if (nextView === S.view) return;
@@ -2284,7 +2299,6 @@
     const moved = level !== atlasLevel() || root.dataset.content !== "modules";
     if (!moved) { selectArchitectureSubject("node", id); return; }
     navigate();
-    rememberNavigationState();
     S.path = REPORT_SCENE.componentRoute(level.parent_id).map((item) => ({ id: item.id, origin: "observed" }));
     S.content = "modules";
     S.selection = { type: "node", id };
@@ -2308,7 +2322,6 @@
   function openAtlasComponent(id, content = null) {
     if (!ATLAS.levels.some((level) => level.parent_id === id)) return;
     navigate();
-    if (atlasLevel().parent_id !== id) rememberNavigationState();
     S.path = REPORT_SCENE.componentRoute(id).map((item) => ({ id: item.id, origin: "observed" }));
     S.content = content;
     S.selection = null;
@@ -2372,10 +2385,11 @@
   function finishLayout() {
     layoutPending = false;
     if (!pendingLayoutFit) return;
-    const overview = pendingLayoutFitOverview;
+    const overview = pendingLayoutFitOverview, whole = pendingLayoutFitWhole;
     pendingLayoutFit = false;
     pendingLayoutFitOverview = false;
-    fit(overview);
+    pendingLayoutFitWhole = false;
+    fit(overview, { whole });
   }
 
   function cancelPointerTap() {
@@ -2389,7 +2403,7 @@
     const result = await REPORT_LAYOUT.layoutAtlas({
       componentOverview: scene.componentOverview,
       parentId: level.parent_id,
-      nodes: scene.nodes.map((node) => ({ id: node.id, ownerId: node.module?.component_id,
+      nodes: scene.nodes.map((node) => ({ id: node.id, ownerId: node.module?.place_id || node.module?.component_id,
         label: node.module?.path || node.module?.name || node.label })),
       edges: layoutEdges.map((edge) => ({ id: edge.id, layoutId: edge.layoutId || edge.id,
         source: edge.source, target: edge.target, label: edge.label || "" })),
@@ -2455,6 +2469,7 @@
   }
   // What a box is: a layer or a group of components, or a component.
   function atlasBoxKind(component) {
+    if (component.directory) return "Directory";
     // A box that holds one component is that component, whatever its id says.
     if (component.groups === null || component.groups === undefined || component.groups === 1) return "Component";
     return component.layer_rank !== null && component.layer_rank !== undefined ? "Layer" : "Group";
@@ -2580,11 +2595,11 @@
     const moduleCount = componentLevel ? REPORT_SCENE.atlasModules(componentLevel, S.view).length : 0;
     const usedBy = component.used_by.map((item) => `${esc(REPORT_SCENE.atlasComponent(item.component_id)?.label || item.component_id)} (${item.import_sites})`).join(", ");
     inspectorContent.innerHTML = `<div class="kicker">${atlasBoxKind(component)} fact sheet · ${S.view === "target" ? "Declared intent" : "Core facts"}</div>
-      ${boundaryPermissionMarkup(component.id)}<h2>${esc(component.label)}</h2><p><button type="button" class="flow-fit" data-browse-component>${moduleCount ? `Browse ${REPORT_SCENE.countLabel(moduleCount, "module")}` : `Browse ${esc(component.label)}`}</button>${component.layer ? ` <span class="muted">layer ${esc(component.layer)}</span>` : ""}</p>${list("Responsibility", component.responsibilities)}
+      ${boundaryPermissionMarkup(component.id)}<h2>${esc(component.label)}</h2><p><button type="button" class="flow-fit" data-browse-component>${moduleCount ? `Browse ${REPORT_SCENE.countLabel(moduleCount, "module")}` : `Browse ${esc(component.label)}`}</button>${component.layer ? ` <span class="muted">layer ${esc(component.layer)}</span>` : ""}</p>${list(component.directory ? "About" : "Responsibility", component.responsibilities)}
       ${list("Not responsible for", component.not_responsible_for)}${atlasProvidesMarkup(component.public)}
       ${list("Planned interface", component.planned)}${atlasRequiresMarkup(component)}
       ${S.view === "target" ? "" : atlasRuleAssessmentMarkup(level, component)}${S.view !== "target" ? `<h3>In this run</h3><p>${REPORT_SCENE.countLabel(component.observed_modules, "module")}${component.observed_symbols == null ? "" : ` · ${REPORT_SCENE.countLabel(component.observed_symbols, "observed symbol")}`} · ${esc(component.status)} · ${esc(component.reason)}</p>${usedBy ? `<h3>Used by</h3><p>${usedBy}</p>` : ""}` : ""}
-      <p class="muted">Decided by ${esc(component.decided_by || "the contract")}</p>${S.view === "target" || !component.path ? "" : atlasOwnsMarkup(component.path)}
+      <p class="muted">${component.directory ? `The report made this box from the module paths; ${esc(REPORT_SCENE.atlasComponent(component.parent_id)?.label || component.parent_id)} owns the modules in the contract.` : `Decided by ${esc(component.decided_by || "the contract")}`}</p>${S.view === "target" || !component.path || component.directory ? "" : atlasOwnsMarkup(component.path)}
       ${component.provenance.length ? `<details><summary>Reasons · ${REPORT_SCENE.countLabel(component.provenance.length, "document")}</summary><ul class="plain">${component.provenance.map((item) => `<li>${esc(item)}</li>`).join("")}</ul></details>` : ""}${inventory}
       ${S.view === "target" && componentLevel ? `<p><a href="${esc(atlasLevelHref(component.id))}" data-atlas-level-route="${esc(component.id)}">Open declared component details</a></p>` : ""}`;
     inspectorContent.querySelector("[data-browse-component]").onclick = () =>
@@ -2807,7 +2822,9 @@
     const observed = scene.edges.filter((edge) => !edge.declaration);
     const boundary = scene.moduleOverview && scene.boundaryEdges
       ? ` · ${REPORT_SCENE.countLabel(scene.boundaryEdges, "cross-scope relationship")} not drawn at this level` : "";
-    root.querySelector(".atlas-summary").textContent = scene.moduleOverview
+    root.querySelector(".atlas-summary").textContent = scene.grouped
+      ? `Current level: ${REPORT_SCENE.countLabel(scene.grouped.modules, S.view === "target" ? "declared module" : "observed module")} in ${REPORT_SCENE.countLabel(scene.nodes.length, "box", "boxes")}: more than ${scene.grouped.limit} modules are grouped by component or directory · open a box to see its modules · Search finds one module`
+      : scene.moduleOverview
       ? S.view === "target" ? `Current level: ${REPORT_SCENE.countLabel(scene.nodes.length, "declared module")} · ${REPORT_SCENE.countLabel(scene.edges.length, "authored module relationship")}${boundary}`
         : `Current level: ${REPORT_SCENE.countLabel(scene.nodes.length, "observed module")} · ${REPORT_SCENE.countLabel(observed.length, "local dependency", "local dependencies")} · ${REPORT_SCENE.countLabel(observed.every((edge) => edge.import_sites !== null) ? observed.reduce((sum, edge) => sum + edge.import_sites, 0) : null, "import site")}${boundary}`
       : S.view === "target"
@@ -2846,7 +2863,7 @@
       finishLayout();
       root.dataset.layoutState = "error";
       canvas.hidden = true; alternative.hidden = false;
-      alternative.innerHTML = `<div class="flow-scope-notice"><h3>Architecture layout unavailable</h3><p>${esc(error.message || "The authenticated relationships could not be arranged.")}</p></div>`;
+      alternative.innerHTML = `<div class="flow-scope-notice" role="alert"><h3>Architecture layout unavailable</h3><p>${esc(error.message || "The authenticated relationships could not be arranged.")}</p><p>Next step: use Search to open one module or component, or reload the page to arrange the diagram again.</p></div>`;
     }
   }
 
@@ -2975,7 +2992,9 @@
       },
     }, scene.layoutRoutes);
     atlasEmphasize();
-    legend.textContent = scene.moduleOverview ? S.view === "target"
+    legend.textContent = scene.grouped
+      ? `${REPORT_SCENE.countLabel(scene.grouped.modules, "module")} grouped by component or directory · Enter or a double click opens a box and shows its modules`
+      : scene.moduleOverview ? S.view === "target"
       ? "Target modules · authored relationships · Enter or a click selects a module and shows its facts"
       : "Observed modules · local directed relationships · Enter or a click selects a module and shows its facts"
       : S.view === "target" ? "Target edges · requires = declared permission · full rationale in tooltip and Details"
@@ -2992,6 +3011,7 @@
     layoutPending = false;
     pendingLayoutFit = false;
     pendingLayoutFitOverview = false;
+    pendingLayoutFitWhole = false;
     syncRoute();
     if (routeNotice) { renderRouteNotice(); return; }
     if (SIDECAR) { renderSidecar(); return; }
@@ -3063,7 +3083,7 @@
   resetFiltersButton.remove();
   zoom100Button.addEventListener("click", resetFlow);
   fitButton.addEventListener("click", () => { positions = Object.create(null); render(); fit(); });
-  overviewButton.addEventListener("click", () => fit(true));
+  overviewButton.addEventListener("click", () => fit(true, { whole: true }));
   zoomOutButton.addEventListener("click", () => zoomBy(1 / 1.2));
   zoomInButton.addEventListener("click", () => zoomBy(1.2));
   let spaceHeld = false;
@@ -3162,9 +3182,6 @@
     if (skipSvgClick) { skipSvgClick = false; return; }
     if (!event.target.closest(".node, .hit")) dispatch({ type: "clearSelection" });
   });
-  svg.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") dispatch({ type: "clearSelection" });
-  });
   fullscreenButton.addEventListener("click", async () => {
     if (root.dataset.expanded) {
       restoreExpansion();
@@ -3200,17 +3217,9 @@
   });
   document.addEventListener("fullscreenchange", updateFullscreenState);
   root.addEventListener("keydown", (event) => {
-    if (event.defaultPrevented || event.target.closest("dialog")
-      || event.key === "Escape" && root.querySelector(".ak-pop, .ak-drawer")) return;
-    if (event.key === "Escape" && root.dataset.expanded === "native") {
-      event.preventDefault();
-      event.stopPropagation();
-      document.exitFullscreen?.();
-    } else if (event.key === "Escape" && root.dataset.expanded === "fallback") {
-      event.preventDefault();
-      event.stopPropagation();
-      restoreExpansion();
-    } else if (event.key === "Tab" && root.dataset.expanded === "fallback") {
+    // E3: Escape is one ladder (report-canvas.js): overlay, popover, drawer, expanded, selection.
+    if (event.defaultPrevented || event.target.closest("dialog")) return;
+    if (event.key === "Tab" && root.dataset.expanded === "fallback") {
       const focusable = [...root.querySelectorAll("button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex='0']")]
         .filter((element) => !element.hidden && element.getClientRects().length);
       const first = focusable[0];
@@ -3237,6 +3246,19 @@
   // The presentation choices of report-canvas.js. dispatch stores them in S; their effects stay there.
   const PRESENTATION = ["perspective", "pinnedTag", "drawer", "overlay", "pop"];
 
+  // E3: up one level is derived from S.path; the level that you leave is selected in its parent.
+  function atlasUp() {
+    if (!S.path.length) return;
+    navigate();
+    const child = S.path.at(-1);
+    S.path = S.path.slice(0, -1);
+    S.selection = { type: "node", id: child.id }; S.module = null; S.cell = null; S.hint = null; S.content = null;
+    routeNotice = null; positions = Object.create(null); render(); fit();
+  }
+
+  // A new layout of the same state: the size of the page changed.
+  function relayout() { positions = Object.create(null); render(); fit(); }
+
   function goToDepth(depth) {
     navigate();
     S.path = S.path.slice(0, depth); S.selection = null; routeNotice = null;
@@ -3260,11 +3282,13 @@
       case "goToDepth": goToDepth(action.depth); break;
       case "open": openArchitectureEntity(action.id); break;
       case "openModule": openAtlasModule(action.id); break;
-      case "up": navigate(); leaveArchitectureGraph(); break;
+      case "up": if (ATLAS) atlasUp(); else { navigate(); leaveArchitectureGraph(); } break;
+      case "relayout": relayout(); break;
+      case "collapse": restoreExpansion(); break;
       case "setView": switchArchitectureView(action.view); break;
       case "setContent": navigate(); S.content = action.content; render(); fit(); break;
       case "select": selectArchitectureSubject(action.kind || "node", action.id, action.reveal ?? true); break;
-      case "clearSelection": S.selection = null; render(); break;
+      case "clearSelection": S.selection = null; S.module = null; S.cell = null; S.hint = null; render(); break;
       case "selectMatrix": selectAtlasSheet(atlasLevel(), { cell: action.cell, module: action.module }); break;
       case "selectEdgeCell": selectAtlasSheet(atlasLevel(), { cell: action.cell, module: null, selection: null }); break;
       case "selectEdgeSource":

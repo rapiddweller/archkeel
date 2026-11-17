@@ -1,11 +1,17 @@
 "use strict";
 (function (global) {
   let engine = null;
-  function layout(graph) {
+  // The layout blocks the page; one painted frame first lets the canvas show that it is arranging.
+  const painted = () => new Promise((done) => {
+    if (typeof requestAnimationFrame !== "function" || document.hidden) done();
+    else requestAnimationFrame(() => setTimeout(done, 0));
+  });
+  async function layout(graph) {
     if (!engine) {
       if (typeof ELK !== "function") throw new Error("The pinned ELK layout engine is unavailable.");
       engine = new ELK();
     }
+    await painted();
     return engine.layout(graph);
   }
   function absolutePosition(graph, offsetX, offsetY, rootId) {
@@ -122,8 +128,11 @@
     };
     // A chain of boxes, or boxes with no edge, would stand in one row at a small zoom. Without a
     // layer order, the layered layout wraps them into rows that fill the view (wide as the
-    // window: 2.4), and a chain snakes from row to row with its edges following.
-    if (componentOverview && !nodes.some((node) => node.id.startsWith("LAYER:"))) {
+    // window: 2.4), and a chain snakes from row to row with its edges following. Module boxes with
+    // no component frame between them and the level wrap the same way.
+    const wraps = componentOverview ? !nodes.some((node) => node.id.startsWith("LAYER:"))
+      : nodes.every((node) => !node.ownerId || node.ownerId === parentId || !componentsById.has(node.ownerId));
+    if (wraps) {
       Object.assign(layoutOptions, {
         "elk.layered.wrapping.strategy": "MULTI_EDGE", "elk.aspectRatio": String(viewAspect()),
         "elk.layered.spacing.nodeNodeBetweenLayers": "50",
@@ -235,7 +244,44 @@
   async function layoutAtlas(input) {
     const { graph, expected } = buildAtlasGraph(input);
     const result = await layout(graph);
-    return { ...decodeLayout(result, expected), bounds: { width: result.width, height: result.height } };
+    const decoded = decodeLayout(result, expected);
+    if (input.componentOverview) straightenStackedEdges(decoded, input);
+    return { ...decoded, bounds: { width: result.width, height: result.height } };
+  }
+  // A wrapped row puts boxes above each other, and ELK routes the edge between them around the
+  // row: right, down, back left and in from the side. Two boxes that stand above each other with
+  // no box between them get a straight vertical edge, and the label moves next to it.
+  function straightenStackedEdges({ positions, routes, labels }, { edges, cardWidth, cardHeights }) {
+    const box = (id) => {
+      const point = positions[`component:${id}`];
+      return { left: point.x, right: point.x + cardWidth, top: point.y, bottom: point.y + cardHeights[id] };
+    };
+    const boxes = Object.keys(cardHeights).map((id) => ({ id, ...box(id) }));
+    const pairs = new Map();
+    for (const edge of edges) {
+      if (edge.source === edge.target) continue;
+      const key = [edge.source, edge.target].sort().join("\0");
+      if (!pairs.has(key)) pairs.set(key, []);
+      pairs.get(key).push(edge);
+    }
+    for (const group of pairs.values()) {
+      const [a, b] = [box(group[0].source), box(group[0].target)];
+      const [upper, lower] = a.top <= b.top ? [a, b] : [b, a];
+      const left = Math.max(a.left, b.left) + 16, right = Math.min(a.right, b.right) - 16;
+      if (right <= left || upper.bottom >= lower.top) continue;
+      const between = boxes.some((other) => other.left < right && other.right > left
+        && other.top < lower.top && other.bottom > upper.bottom);
+      if (between) continue;
+      group.forEach((edge, index) => {
+        const x = left + ((right - left) * (index + 1)) / (group.length + 1);
+        const down = box(edge.source).top <= box(edge.target).top;
+        const points = down ? [[x, upper.bottom], [x, lower.top]] : [[x, lower.top], [x, upper.bottom]];
+        const mid = [x, (upper.bottom + lower.top) / 2];
+        routes.set(`edge:${edge.layoutId}`, { points, mid, d: orthogonalPath(points), lx: mid[0], ly: mid[1] - 8 });
+        const label = labels[`label:${edge.layoutId}`];
+        if (label) Object.assign(label, { x: x + 6, y: mid[1] - label.height / 2 });
+      });
+    }
   }
   function routeUmlRelationships(geometry) {
     const { positions, nodeSizes, edges, frames, cardWidth, gap, laneGap, rowGap } = geometry;

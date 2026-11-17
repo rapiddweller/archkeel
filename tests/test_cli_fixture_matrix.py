@@ -10,6 +10,7 @@ Never weaken a pinned verdict to make this test pass.
 
 from __future__ import annotations
 
+import os
 import tomllib
 from contextlib import nullcontext
 from pathlib import Path
@@ -18,11 +19,13 @@ import pytest
 from core_support import run
 
 from archkeel.cli import core_only
+from tools import fixture_source
 from tools.fixture_tree import fixture_tree, needs_copy
 from tools.report_gallery import MATRIX, load_runs, summarize
 
 FIXTURES = MATRIX.parent
 RUNS = load_runs()
+CACHE = Path(os.environ["ARCHKEEL_SOURCE_CACHE"]) if "ARCHKEEL_SOURCE_CACHE" in os.environ else None
 
 
 def _scan(run_entry: dict) -> dict:
@@ -58,8 +61,15 @@ def test_the_release_core_gives_the_pinned_result(
 ) -> None:
     monkeypatch.setattr(core_only, "locate_core", lambda: release_core)
     source = FIXTURES / entry["root"]
-    # A fixture with resolver inputs runs in a copy, as the gallery runs it.
-    with fixture_tree(source) if needs_copy(source) else nullcontext(source) as root:
+    if fixture_source.load(source) and not os.environ.get("ARCHKEEL_FETCH_SOURCES"):
+        pytest.skip("the pinned source needs the network: the nightly run and the gallery fetch it")
+    edits = entry.get("plant", {}).get("edits")
+    # A fixture with resolver inputs or a planted change runs in a copy, as the gallery runs it.
+    with (
+        fixture_tree(source, edits, CACHE)
+        if needs_copy(source, edits)
+        else nullcontext(source) as root
+    ):
         arguments = [entry["command"], "--root", str(root)]
         if entry.get("config"):
             arguments += ["--config", entry["config"]]

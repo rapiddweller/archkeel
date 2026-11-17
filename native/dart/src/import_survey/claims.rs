@@ -65,14 +65,26 @@ fn target(target: &Target, project: &HashSet<&str>) -> Result<(), String> {
     Ok(())
 }
 
-/// A Dart import is an import or an export statement with no specifier and no type flag.
+/// A Dart import is an import or an export statement with no specifier and no type flag. A
+/// named record has a known binding and a route of one hop; only an export publishes (AD-749).
 fn statement(fact: &ImportFact) -> Result<(), String> {
     if !matches!(fact, ImportFact::Import(_) | ImportFact::Reexport(_)) {
         return Err("a Dart import must be an import or an export".to_owned());
     }
     let data = fact.data();
-    if data.specifier.is_some() || data.type_only.is_some() || data.symbols_known {
-        return Err("a Dart import has no specifier, no type flag and no known symbols".to_owned());
+    if data.specifier.is_some() || data.type_only.is_some() {
+        return Err("a Dart import has no specifier and no type flag".to_owned());
+    }
+    // A named record has a known binding and its first hop; a namespace has neither.
+    let hop = data
+        .symbol
+        .as_ref()
+        .map(|name| vec![format!("{}.{name}", data.target_module.as_str())]);
+    if data.symbols_known != data.symbol.is_some() || data.reexport_chain != hop {
+        return Err("a named Dart import has a known binding and its first hop".to_owned());
+    }
+    if data.published_as.is_some() && !data.reexport {
+        return Err("only a Dart export publishes a name".to_owned());
     }
     Ok(())
 }

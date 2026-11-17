@@ -9,20 +9,20 @@
   "PASS",
   ""
  ],
- "ann-only-attribute": [
+  "ann-only-attribute": [
   "PASS",
-  "UNKNOWN",
-  "absent symbol: the symbol inventory is not complete"
+  "PASS",
+  ""
  ],
  "ann-rebound-builtin": [
   "PASS",
   "UNKNOWN",
   "absent symbol: the symbol inventory is not complete"
  ],
- "annotated-attribute": [
+  "annotated-attribute": [
   "PASS",
-  "UNKNOWN",
-  "absent symbol: the symbol inventory is not complete"
+  "PASS",
+  ""
  ],
  "annotated-attribute-value": [
   "PASS",

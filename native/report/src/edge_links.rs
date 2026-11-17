@@ -26,7 +26,8 @@ pub(crate) fn add(links: &mut Links, outcome: &Outcome) {
             | Violation::OuterLayer(_)
             | Violation::Construct(_)
             | Violation::BoundaryType(_)
-            | Violation::UnusedPublic(_) => &[],
+            | Violation::UnusedPublic(_)
+            | Violation::SymbolPlacement(_) => &[],
         };
         for import in imports {
             links

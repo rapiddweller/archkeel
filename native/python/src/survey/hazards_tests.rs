@@ -241,8 +241,17 @@ fn local_code_is_not_the_code_module() {
 }
 
 #[test]
-fn code_received_from_an_unknown_object_is_a_named_limit() {
-    assert!(kinds("code = provider.code\ncode.interact()\n").is_empty());
+fn a_code_runner_on_a_value_that_the_scan_cannot_prove_is_a_gap() {
+    // #1520: the value of a local `code`, or an attribute `code` of any value, may be the module.
+    for source in [
+        "code = provider.code\ncode.interact()\n",
+        "def f(provider):\n    code = provider.code\n    code.interact()\n",
+        "def f(provider):\n    provider.code.interact()\n",
+        "def f(code):\n    code.InteractiveConsole({}).interact()\n",
+        "def f(provider):\n    c = provider.code\n    c.interact()\n",
+    ] {
+        assert!(has(source, DYNAMIC), "{source}");
+    }
 }
 
 #[test]

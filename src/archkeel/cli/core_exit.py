@@ -45,6 +45,8 @@ class Outcome(StrEnum):
     COMMAND_REFUSED = "command_refused"
     # The core gave a frame, and a requested file (report or baseline) was not written.
     DELIVERY_FAILED = "delivery_failed"
+    # A command without a verdict did its work: `init` drafted, `skill` installed.
+    COMPLETED = "completed"
 
 
 def word_of(code: int) -> str:
@@ -82,6 +84,16 @@ def exit_for(outcome: Outcome, frame: CoreFrame | None, *, baseline: bool) -> in
             return verdict_code(frame)
         case Outcome.COLLECT_REFUSED | Outcome.COMMAND_REFUSED | Outcome.DELIVERY_FAILED:
             return 1 if baseline else 2
+        case Outcome.COMPLETED:
+            return 0
+
+
+def envelope(
+    command: str | None, outcome: Outcome, status: Status | None, code: int
+) -> dict[str, object]:
+    """The head of every JSON result (AD-735): the command, the outcome, the status of the run
+    (`None` for a command without a verdict) and the exit code."""
+    return {"command": command, "outcome": outcome, "status": status, "exit_code": code}
 
 
 def table_lines() -> list[str]:

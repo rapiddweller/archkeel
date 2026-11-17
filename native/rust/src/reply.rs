@@ -70,6 +70,7 @@ impl Collected {
         reply.facts.profile_limits = Some(ProfileLimits {
             dependency_symbols: LimitSupport::Supported,
             interface_boundary: LimitSupport::Supported,
+            publication_surface: LimitSupport::Unsupported,
         });
         let features = &mut reply.facts.capabilities.resolution_features;
         features.push(ROUTES_FEATURE.to_owned());

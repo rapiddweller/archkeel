@@ -136,6 +136,10 @@ fn interface(facts: &Facts, block: &Validation) -> Result<(), String> {
         return Ok(());
     };
     let supported = limits.interface_boundary == LimitSupport::Supported;
+    // AD-749: the publication surface serves the interface rule only.
+    if limits.publication_surface == LimitSupport::Supported && !supported {
+        return Err("a publication surface statement needs an interface statement".to_owned());
+    }
     match &block.interface {
         InterfaceNeed::Unsupported if supported => {
             Err("the collector makes no interface statement".to_owned())

@@ -358,6 +358,8 @@
         "native.archkeel_contract:SiblingIsolation",
         "native.archkeel_contract:Signature",
         "native.archkeel_contract:SourceRule",
+        "native.archkeel_contract:SymbolClassKind",
+        "native.archkeel_contract:SymbolPlacement",
         "native.archkeel_contract:Target",
         "native.archkeel_contract:TargetKind",
         "native.archkeel_contract:TargetScope",
@@ -444,6 +446,7 @@
             "native.archkeel_model.measures",
             "native.archkeel_model.modules",
             "native.archkeel_model.ownership",
+            "native.archkeel_model.placement_facts",
             "native.archkeel_model.published_items",
             "native.archkeel_model.settings",
             "native.archkeel_model.symbols",
@@ -479,6 +482,7 @@
             "native.archkeel_model.direction",
             "native.archkeel_model.facade_reach",
             "native.archkeel_model.interface",
+            "native.archkeel_model.placement",
             "native.archkeel_model.published"
           ]
         },
@@ -567,6 +571,7 @@
         "native.archkeel_model:measure_facts",
         "native.archkeel_model:peers",
         "native.archkeel_model:premise_words",
+        "native.archkeel_model:placement_violations",
         "native.archkeel_model:publishes",
         "native.archkeel_model:rule_premises",
         "native.archkeel_model:shape",
@@ -662,6 +667,7 @@
       "layer": "model",
       "packages": [
         "native.archkeel_model.boundary_facts",
+        "native.archkeel_model.placement_facts",
         "native.archkeel_model.condensation",
         "native.archkeel_model.constructs",
         "native.archkeel_model.cycles",
@@ -786,6 +792,7 @@
         "native.archkeel_model.ownership:owner_of",
         "native.archkeel_model.ownership:owners",
         "native.archkeel_model.ownership:source_modules",
+        "native.archkeel_model.placement_facts:Class",
         "native.archkeel_model.published_items:PublicItem",
         "native.archkeel_model.settings:Producer",
         "native.archkeel_model.settings:Settings",
@@ -989,6 +996,7 @@
         "native.archkeel_model.closed_path",
         "native.archkeel_model.boundary_judge",
         "native.archkeel_model.boundary_positions",
+        "native.archkeel_model.placement",
         "native.archkeel_model.boundary_surface",
         "native.archkeel_model.facade_reach",
         "native.archkeel_model.published"
@@ -1020,6 +1028,8 @@
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:RuleKind",
             "native.archkeel_contract:SiblingIsolation",
+            "native.archkeel_contract:SymbolClassKind",
+            "native.archkeel_contract:SymbolPlacement",
             "native.archkeel_contract:UnusedPublic"
           ]
         },
@@ -1049,8 +1059,10 @@
             "native.archkeel_model.boundary_facts",
             "native.archkeel_model.condensation",
             "native.archkeel_model.constructs",
+            "native.archkeel_model.graph",
             "native.archkeel_model.imports",
             "native.archkeel_model.ownership",
+            "native.archkeel_model.placement_facts",
             "native.archkeel_model.published_items"
           ]
         },
@@ -1089,6 +1101,7 @@
         "native.archkeel_model.interface:interface_publications",
         "native.archkeel_model.interface:publishes",
         "native.archkeel_model.interface:receipt",
+        "native.archkeel_model.placement:violations",
         "native.archkeel_model.published:Unused",
         "native.archkeel_model.published:receipt",
         "native.archkeel_model.published:stated_users",
@@ -1133,6 +1146,7 @@
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:RuleKind",
             "native.archkeel_contract:declared_premises",
+            "native.archkeel_contract:SymbolPlacement",
             "native.archkeel_contract:head_of",
             "native.archkeel_contract:kind_of"
           ]
@@ -1153,6 +1167,7 @@
             "native.archkeel_model.causes",
             "native.archkeel_model.coverage",
             "native.archkeel_model.gap_class",
+            "native.archkeel_model.ids",
             "native.archkeel_model.reason"
           ]
         },
@@ -1162,7 +1177,8 @@
           "through": [
             "native.archkeel_model.door_reach",
             "native.archkeel_model.ownership",
-            "native.archkeel_model.published_items"
+            "native.archkeel_model.published_items",
+            "native.archkeel_model.graph"
           ]
         },
         {
@@ -1367,6 +1383,7 @@
           "component": "eval-violation",
           "rationale": "Write a violation of the rule.",
           "through": [
+            "native.archkeel_eval.placement_row",
             "native.archkeel_eval.violation"
           ]
         },
@@ -1382,6 +1399,7 @@
             "native.archkeel_eval.external",
             "native.archkeel_eval.interface",
             "native.archkeel_eval.layout",
+            "native.archkeel_eval.placement",
             "native.archkeel_eval.unused_public"
           ]
         },
@@ -1400,6 +1418,7 @@
         "native.archkeel_eval:Cyclic",
         "native.archkeel_eval:Layered",
         "native.archkeel_eval:Outcome",
+        "native.archkeel_eval:PlacedClass",
         "native.archkeel_eval:Published",
         "native.archkeel_eval:Violation",
         "native.archkeel_eval:evaluate",
@@ -1413,7 +1432,8 @@
       "role": "component",
       "layer": "evaluation",
       "packages": [
-        "native.archkeel_eval.violation"
+        "native.archkeel_eval.violation",
+        "native.archkeel_eval.placement_row"
       ],
       "responsibilities": [
         "Write each violation with the record id of the reference engine (AD-370)."
@@ -1460,6 +1480,7 @@
         }
       ],
       "public": [
+        "native.archkeel_eval.placement_row:PlacedClass",
         "native.archkeel_eval.violation:Cited",
         "native.archkeel_eval.violation:ConstructViolation",
         "native.archkeel_eval.violation:CycleStep",
@@ -1485,6 +1506,7 @@
         "native.archkeel_eval.external",
         "native.archkeel_eval.interface",
         "native.archkeel_eval.layout",
+        "native.archkeel_eval.placement",
         "native.archkeel_eval.unused_public"
       ],
       "responsibilities": [
@@ -1524,6 +1546,7 @@
             "native.archkeel_model:interface_crossings",
             "native.archkeel_model:interface_publications",
             "native.archkeel_model:peers",
+            "native.archkeel_model:placement_violations",
             "native.archkeel_model:unused_public"
           ]
         },
@@ -1545,6 +1568,7 @@
             "native.archkeel_contract:Rule",
             "native.archkeel_contract:SiblingIsolation",
             "native.archkeel_contract:SourceRule",
+            "native.archkeel_contract:SymbolPlacement",
             "native.archkeel_contract:UnusedPublic"
           ]
         },
@@ -1552,7 +1576,8 @@
           "component": "facts",
           "rationale": "Give a violation the record id of Python with the one stable_id of the typed facts (AD-370).",
           "through": [
-            "native.archkeel_facts.identity"
+            "native.archkeel_facts.identity",
+            "native.archkeel_facts.vocab"
           ]
         },
         {
@@ -1573,6 +1598,7 @@
           "component": "eval-violation",
           "rationale": "Write a violation of the rule.",
           "through": [
+            "native.archkeel_eval.placement_row",
             "native.archkeel_eval.violation"
           ]
         }
@@ -1590,6 +1616,7 @@
         "native.archkeel_eval.external:dependency_scope",
         "native.archkeel_eval.interface:check",
         "native.archkeel_eval.layout:check",
+        "native.archkeel_eval.placement:check",
         "native.archkeel_eval.unused_public:check"
       ],
       "decided_by": "architect"
@@ -2080,6 +2107,7 @@
             "native.archkeel_eval:CycleStep",
             "native.archkeel_eval:Cyclic",
             "native.archkeel_eval:Outcome",
+            "native.archkeel_eval:PlacedClass",
             "native.archkeel_eval:Violation",
             "native.archkeel_eval:evaluate"
           ]
@@ -2376,6 +2404,7 @@
             "native.archkeel_eval:Cyclic",
             "native.archkeel_eval:Layered",
             "native.archkeel_eval:Outcome",
+            "native.archkeel_eval:PlacedClass",
             "native.archkeel_eval:Published",
             "native.archkeel_eval:Violation",
             "native.archkeel_eval:evaluate_tree"
@@ -3402,6 +3431,7 @@
       "layer": "collector",
       "packages": [
         "native.archkeel_dart_collector.import_survey",
+        "native.archkeel_dart_collector.import_survey.binding",
         "native.archkeel_dart_collector.import_survey.budget",
         "native.archkeel_dart_collector.import_survey.claims",
         "native.archkeel_dart_collector.import_survey.config",
@@ -3858,6 +3888,7 @@
       "layer": "collector",
       "packages": [
         "native.archkeel_typescript_collector.sites",
+        "native.archkeel_typescript_collector.site_charge",
         "native.archkeel_typescript_collector.site_local",
         "native.archkeel_typescript_collector.site_names",
         "native.archkeel_typescript_collector.site_paths",
@@ -3866,7 +3897,7 @@
         "native.archkeel_typescript_collector.site_types"
       ],
       "responsibilities": [
-        "Read the use sites of a file: the names, the paths and the syntax of each site. The site_text module keeps only the referenced source bytes and releases per-file parse state (AD-420)."
+        "Read the use sites of a file: the names, the paths and the syntax of each site. The site_text module keeps only the referenced source bytes and releases per-file parse state (AD-420). The site_charge module counts the expression bytes that the records of a file copy and hash (AD-778)."
       ],
       "forbidden_responsibilities": [
         "Resolving a site to a target and building facts."
@@ -3904,6 +3935,7 @@
         }
       ],
       "public": [
+        "native.archkeel_typescript_collector.site_charge:over",
         "native.archkeel_typescript_collector.site_names:NameIndex",
         "native.archkeel_typescript_collector.site_paths:Text",
         "native.archkeel_typescript_collector.site_syntax:ReceiverKind",
@@ -3923,10 +3955,11 @@
       "role": "component",
       "layer": "collector",
       "packages": [
-        "native.archkeel_typescript_collector.walk",
-        "native.archkeel_typescript_collector.scan",
+        "native.archkeel_typescript_collector.file_mode",
         "native.archkeel_typescript_collector.references",
-        "native.archkeel_typescript_collector.script_types"
+        "native.archkeel_typescript_collector.scan",
+        "native.archkeel_typescript_collector.script_types",
+        "native.archkeel_typescript_collector.walk"
       ],
       "responsibilities": [
         "The one traversal of a file: visit the nodes, scan the literals and references, and hold the script types of the result."
@@ -3984,6 +4017,7 @@
         }
       ],
       "public": [
+        "native.archkeel_typescript_collector.file_mode:FileMode",
         "native.archkeel_typescript_collector.references:Form",
         "native.archkeel_typescript_collector.references:Reference",
         "native.archkeel_typescript_collector.references:literal",
@@ -4025,6 +4059,8 @@
         "native.archkeel_typescript_collector.script_host",
         "native.archkeel_typescript_collector.script_index",
         "native.archkeel_typescript_collector.script_keys",
+        "native.archkeel_typescript_collector.script_lookup",
+        "native.archkeel_typescript_collector.script_reflective",
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
         "native.archkeel_typescript_collector.script_numeric",
@@ -4246,9 +4282,12 @@
         "native.archkeel_typescript_collector.std_globals:standard_globals",
         "native.archkeel_typescript_collector.test_sources:NO_PRODUCTION_SOURCE",
         "native.archkeel_typescript_collector.test_sources:is_test_source",
+        "native.archkeel_typescript_collector.unselected:is_page",
+        "native.archkeel_typescript_collector.unselected:page_with_code",
         "native.archkeel_typescript_collector.unselected:project_sources",
         "native.archkeel_typescript_collector.unselected:reference_types",
-        "native.archkeel_typescript_collector.unselected:type_candidates"
+        "native.archkeel_typescript_collector.unselected:type_candidates",
+        "native.archkeel_typescript_collector.unselected:unread_form"
       ],
       "decided_by": "architect"
     },
@@ -4390,6 +4429,7 @@
           "component": "ts-sites",
           "rationale": "Read the use sites of a file.",
           "through": [
+            "native.archkeel_typescript_collector.site_charge",
             "native.archkeel_typescript_collector.site_names",
             "native.archkeel_typescript_collector.site_paths",
             "native.archkeel_typescript_collector.site_syntax",
@@ -4407,6 +4447,7 @@
           "component": "ts-walk",
           "rationale": "Read the script facts and the form of a reference that the walk holds.",
           "through": [
+            "native.archkeel_typescript_collector.file_mode",
             "native.archkeel_typescript_collector.references",
             "native.archkeel_typescript_collector.script_types"
           ]
@@ -4498,6 +4539,7 @@
           "component": "ts-walk",
           "rationale": "Read the script facts that the walk holds.",
           "through": [
+            "native.archkeel_typescript_collector.file_mode",
             "native.archkeel_typescript_collector.script_types"
           ]
         },
@@ -4615,6 +4657,7 @@
           "component": "ts-walk",
           "rationale": "Run the one traversal of a file.",
           "through": [
+            "native.archkeel_typescript_collector.file_mode",
             "native.archkeel_typescript_collector.references"
           ]
         },
@@ -5674,9 +5717,9 @@
       "public": [
         "native.archkeel_python_collector.inputs:inputs",
         "native.archkeel_python_collector.inputs:with_listings",
+        "native.archkeel_python_collector.requirement:Prepared",
         "native.archkeel_python_collector.requirement:clamped_from",
-        "native.archkeel_python_collector.requirement:requirement",
-        "native.archkeel_python_collector.requirement:target"
+        "native.archkeel_python_collector.requirement:requirement"
       ],
       "decided_by": "architect"
     },
@@ -5769,6 +5812,13 @@
           "rationale": "Read the text of a signature and the id of a definition for the symbol declarations (AD-518).",
           "through": [
             "native.archkeel_python_collector.declare"
+          ]
+        },
+        {
+          "component": "py-inputs",
+          "rationale": "Read the request with its selected target (AD-753).",
+          "through": [
+            "native.archkeel_python_collector.requirement:Prepared"
           ]
         }
       ],
@@ -6217,7 +6267,7 @@
           "component": "py-inputs",
           "rationale": "Read the declared Python requirement before deriving the target version.",
           "through": [
-            "native.archkeel_python_collector.requirement:target"
+            "native.archkeel_python_collector.requirement:Prepared"
           ]
         }
       ],
@@ -6531,6 +6581,8 @@
         "native.archkeel_typescript_collector.script_host",
         "native.archkeel_typescript_collector.script_index",
         "native.archkeel_typescript_collector.script_keys",
+        "native.archkeel_typescript_collector.script_lookup",
+        "native.archkeel_typescript_collector.script_reflective",
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
         "native.archkeel_typescript_collector.script_numeric",
@@ -6611,6 +6663,8 @@
         "native.archkeel_typescript_collector.script_host",
         "native.archkeel_typescript_collector.script_index",
         "native.archkeel_typescript_collector.script_keys",
+        "native.archkeel_typescript_collector.script_lookup",
+        "native.archkeel_typescript_collector.script_reflective",
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
         "native.archkeel_typescript_collector.script_numeric",
@@ -6772,7 +6826,8 @@
         "native.archkeel_python_collector.survey.value",
         "native.archkeel_python_collector.survey.uses_typing_guard",
         "native.archkeel_python_collector.survey.module_uses",
-        "native.archkeel_python_collector.survey.module_scopes"
+        "native.archkeel_python_collector.survey.module_scopes",
+        "native.archkeel_python_collector.survey.external_loader"
       ],
       "rationale": "Only the parse modules, the tree readers of the survey, the CPython view of the tree, the expression text and the definition table of the Python collector read the tree of the Python parser; discovery, naming and the entry read owned values.",
       "provenance": [
@@ -6857,7 +6912,8 @@
         "native.archkeel_python_collector.survey.declared.members",
         "native.archkeel_python_collector.survey.declared.reader",
         "native.archkeel_python_collector.symbols.scan",
-        "native.archkeel_python_collector.survey.module_uses"
+        "native.archkeel_python_collector.survey.module_uses",
+        "native.archkeel_python_collector.survey.external_loader"
       ],
       "rationale": "Only the survey module and the CPython view, the string check and the definition table of the Python collector read the text ranges of the Python parser (AD-377).",
       "provenance": [

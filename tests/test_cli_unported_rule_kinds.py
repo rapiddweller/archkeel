@@ -4,13 +4,14 @@
 """#619, #880: two rule kinds that the core does not port give UNKNOWN by name, never PASS.
 
 Consumer: a CI job that reads `archkeel validate` or `report` on a contract that still holds a rule
-kind of 4.0.1 (here `symbol_placement` and `boundary_types`). An unported rule has no row, and
+kind of 4.0.1 (here `source_ownership` and `boundary_types`). An unported rule has no row, and
 the gap `rule_kind_not_ported` names it, so the run is UNKNOWN and exits 2. The native test
 `unported_tests.rs` of `archkeel-eval` pins every unported kind at the evaluator.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -18,10 +19,12 @@ from rust_repository import CRATE_RULES, claims, outcome, repository, rule, stat
 
 OWNERSHIP = rule(
     "PLACED",
-    "symbol_placement",
+    "source_ownership",
     source="native",
-    class_kinds=["enum"],
-    allowed_sources=["native.base_crate"],
+    mode="confined",
+    symbols=["native.app.helper"],
+    owner="native.app",
+    roles=["definition", "read"],
 )
 TYPES = rule("TYPED", "boundary_types", source="native.app")
 
@@ -31,6 +34,10 @@ def test_two_unported_rule_kinds_are_unknown_by_name_and_hold_the_run(
     tmp_path: Path, core_binary: Path, command: str
 ) -> None:
     root = repository(tmp_path, core_binary, rules=(*CRATE_RULES, OWNERSHIP, TYPES))
+    contract_path = root / "architecture-contract.json"
+    contract = json.loads(contract_path.read_text())
+    contract["schema_version"] = "3.12.0"
+    contract_path.write_text(json.dumps(contract))
 
     code, document = outcome(root, command)
 

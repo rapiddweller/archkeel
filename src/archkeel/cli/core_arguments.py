@@ -11,7 +11,9 @@ only: it starts no process, finds no binary and reads no frame.
 from __future__ import annotations
 
 import argparse
+import sys
 from collections.abc import Sequence
+from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from typing import Final, NoReturn
 
@@ -108,6 +110,30 @@ def _active_checks() -> tuple[CheckKind, ...]:
     There is no verdict-only form of the shipped check command.
     """
     return tuple(CheckKind)
+
+
+class OutputMode(StrEnum):
+    """How a command line prints its result: one mode for the result and each refusal (AD-735)."""
+
+    JSON = "json"
+    TEXT = "text"
+    # A short text for a CI log.
+    SUMMARY = "summary"
+
+
+def output_mode(argv: Sequence[str]) -> OutputMode:
+    """The output mode of a command line. A flag decides; else `init` and a report file print
+    text, and each other command prints JSON when its output is not a terminal."""
+    if "--summary" in argv:
+        return OutputMode.SUMMARY
+    if "--json" in argv:
+        return OutputMode.JSON
+    if "--text" in argv:
+        return OutputMode.TEXT
+    to_file = any(arg == "--output" or arg.startswith("--output=") for arg in argv)
+    if (argv and argv[0] == Command.INIT) or to_file or sys.stdout.isatty():
+        return OutputMode.TEXT
+    return OutputMode.JSON
 
 
 def command_of(argv: Sequence[str]) -> Command:

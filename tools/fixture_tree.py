@@ -16,9 +16,11 @@ import os
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
+
+from tools import fixture_source
 
 RESOLVER_INPUTS = "resolver-inputs"
 MODULES = "node_modules"
@@ -26,9 +28,10 @@ MODULES = "node_modules"
 DATE = "2026-01-01T00:00:00+00:00"
 
 
-def needs_copy(source: Path, overlay: Mapping[str, str] | None = None) -> bool:
+def needs_copy(source: Path, overlay: Sequence[Mapping[str, str]] | None = None) -> bool:
     """True when the fixture cannot be scanned in place: resolver inputs or a planted change."""
-    return bool(overlay) or (source / RESOLVER_INPUTS).is_dir()
+    pinned = fixture_source.load(source) is not None
+    return bool(overlay) or pinned or (source / RESOLVER_INPUTS).is_dir()
 
 
 def _git(root: Path, *arguments: str) -> None:
@@ -45,25 +48,50 @@ def _commit(root: Path, message: str, *forced: str) -> None:
     _git(root, "commit", "-q", "--allow-empty", "-m", message)
 
 
-@contextmanager
-def fixture_tree(source: Path, overlay: Mapping[str, str] | None = None) -> Iterator[Path]:
-    """A copy of `source` in a new Git repository, with the overlay committed on top.
+def apply_edit(root: Path, edit: Mapping[str, str]) -> None:
+    """One planted change in the copy: `{"path", "append"}` adds text (it makes a missing file),
+    `{"path", "old", "new"}` replaces the one place where `old` stands. Anything else is an error,
+    so a plant that no longer fits its fixture fails loudly and never changes nothing."""
+    target = root / edit["path"]
+    if "append" in edit:
+        before = target.read_text(encoding="utf-8") if target.is_file() else ""
+        text = before + edit["append"]
+    elif "old" in edit and "new" in edit:
+        before = target.read_text(encoding="utf-8")
+        if before.count(edit["old"]) != 1:
+            raise ValueError(f"{edit['path']}: the text to replace must stand once")
+        text = before.replace(edit["old"], edit["new"])
+    else:
+        raise ValueError(f"unknown edit {sorted(edit)}")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text, encoding="utf-8")
 
-    `overlay` maps a path inside the fixture to the full new text of that file. The source is
-    never written.
+
+@contextmanager
+def fixture_tree(
+    source: Path,
+    overlay: Sequence[Mapping[str, str]] | None = None,
+    cache: Path | None = None,
+) -> Iterator[Path]:
+    """A copy of `source` in a new Git repository, with the planted edits committed on top.
+
+    The source is never written. A fixture with a `SOURCE.json` gets the files of its pinned
+    commit (fetched into `cache`); a failed fetch raises `fixture_source.SourceError`.
     """
     with tempfile.TemporaryDirectory(prefix="archkeel-gallery-") as temporary:
         root = Path(temporary) / source.name
         shutil.copytree(source, root, ignore=shutil.ignore_patterns(".dart_tool", "build"))
+        spec = fixture_source.load(source)
+        if spec is not None:
+            with fixture_source.checkout(spec, cache) as checked:
+                fixture_source.copy_source(checked, spec, root)
         modules = (root / RESOLVER_INPUTS).is_dir()
         if modules:
             shutil.copytree(root / RESOLVER_INPUTS, root / MODULES)
         _git(root, "init", "-q", "-b", "main")
         _commit(root, "base", *([MODULES] if modules else []))
         if overlay:
-            for name, text in overlay.items():
-                target = root / name
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text(text, encoding="utf-8")
+            for edit in overlay:
+                apply_edit(root, edit)
             _commit(root, "plant")
         yield root

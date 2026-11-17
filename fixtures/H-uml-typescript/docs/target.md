@@ -12,14 +12,15 @@ demo.src.core_x2e_ts and demo.src.app_x2e_ts. The UI labels their declared sourc
 
 The current collector records TypeScript SourceFacts independently of this Target:
 definitions, member inventories, calls, references, bases, and bindings. The original
-closed module scopes remain UNKNOWN where evidence is incomplete. Three variants close only classifier member inventories with
-complete receipts: matching source is PASS, a return-type change is FAIL, and a computed
-constructor is UNKNOWN. All three variants share one unchanged Target. As-Is and Diff show only recorded facts.
+closed module scopes remain UNKNOWN where evidence is incomplete.
 
-Replay with `make demo-architecture VARIANT=uml-typescript-match OUTPUT=demo-output/ts-match.json`.
-The `uml-typescript-mismatch` and `uml-typescript-partial` variants exercise FAIL and
-UNKNOWN. Use fresh output paths; `make demo-uml` generates these alongside Python and Dart.
-It first runs `make typescript-compiler-check`: pinned TypeScript 5.9.3 checks this
+The Target is unchanged. Check it with the core, from the repository root:
+`archkeel report --root fixtures/H-uml-typescript --output build/h-uml-typescript.html`.
+The gallery runs this project and shows its verdict next to the verdict it was built for. The
+earlier match, mismatch and partial variants of this project were Make targets of the removed
+Python core and are gone. As-Is and Diff show only recorded facts.
+
+`make typescript-compiler-check` is the compiler check: pinned TypeScript 5.9.3 checks this
 fixture's strict `tsconfig.json` with `--noEmit`. This development acceptance needs
 Node and npm; collecting TypeScript source facts with the installed CLI does not.
 

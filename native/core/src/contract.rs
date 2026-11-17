@@ -92,6 +92,7 @@ impl Usable {
         let boundary = kinds.contains(&RuleKind::BoundaryTypes);
         let interface = kinds.contains(&RuleKind::InterfaceBoundary);
         let published = kinds.contains(&RuleKind::UnusedPublic);
+        let placement = kinds.contains(&RuleKind::SymbolPlacement);
         // AD-664: the root contract declares the reach of its door sites.
         let doors = self
             .root
@@ -104,7 +105,8 @@ impl Usable {
                 .into_iter()
                 .chain(boundary.then_some(Need::BoundaryTypes))
                 .chain(interface.then_some(Need::InterfaceBoundary))
-                .chain(published.then_some(Need::UnusedPublic)),
+                .chain(published.then_some(Need::UnusedPublic))
+                .chain(placement.then_some(Need::SymbolPlacement)),
         )
         .with_doors(doors)
     }

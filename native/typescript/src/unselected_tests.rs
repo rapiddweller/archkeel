@@ -187,3 +187,72 @@ fn the_type_options_and_reference_directives_name_what_they_reach() {
     let text = "// x\n/// <reference types=\"a\" />\n///<reference types='b'/>\nimport 'c';\n/// <reference types=\"d\" />\n";
     assert_eq!(super::reference_types(text), ["a", "b"]);
 }
+
+/// #1528: a code form that the profile does not read is listed, so the collector names it.
+#[test]
+fn a_code_form_that_the_profile_does_not_read_is_listed_with_its_reason() {
+    let found = sources(
+        &[
+            ("src/a.vue", ""),
+            ("src/b.svelte", ""),
+            ("src/c.astro", ""),
+            ("src/d.mdx", ""),
+            ("src/e.es6", ""),
+            ("src/f.HTML", ""),
+            ("src/g.css", ""),
+        ],
+        &["src"],
+        &[],
+    );
+    let expected = [
+        "src/a.vue",
+        "src/b.svelte",
+        "src/c.astro",
+        "src/d.mdx",
+        "src/e.es6",
+        "src/f.HTML",
+    ];
+    assert_eq!(found, expected);
+    assert!(super::unread_form("src/a.vue").is_some_and(|why| why.contains("Vue")));
+    assert!(super::page_with_code(b"<p/><SCRIPT>x</SCRIPT>"));
+    assert!(!super::page_with_code(b"<p>no code</p>"));
+}
+
+/// #1607: a page holds code without a script element.
+#[test]
+fn a_page_holds_code_through_each_of_its_forms_and_plain_markup_holds_none() {
+    let code: [&[u8]; 12] = [
+        b"<button onclick=\"x()\">",
+        b"<body ONLOAD = 'x()'>",
+        b"<svg/onload=x()>",
+        b"<a href=\"javascript:x()\">",
+        b"<a href=\"java\nscript:x()\">",
+        b"<a href=\"&#106;avascript:x()\">",
+        b"<form action='JavaScript:x()'>",
+        b"<iframe srcdoc=\"<p>\"></iframe>",
+        b"<iframe src=\"data:text/html,x\">",
+        b"<svg><script>x()</script></svg>",
+        b"<template><script>x()</script></template>",
+        b"<img src=\"data:image/svg+xml,x\">",
+    ];
+    for text in code {
+        assert!(
+            super::page_with_code(text),
+            "{}",
+            String::from_utf8_lossy(text)
+        );
+    }
+    let plain: [&[u8]; 4] = [
+        b"<p class=\"one\">Text, a donation=5 and a=b.</p>",
+        b"<a href=\"https://example.org/x\">link</a>",
+        b"<img src=\"data:image/png;base64,AAAA\">",
+        b"<svg><path d=\"M0 0\"/></svg>",
+    ];
+    for text in plain {
+        assert!(
+            !super::page_with_code(text),
+            "{}",
+            String::from_utf8_lossy(text)
+        );
+    }
+}

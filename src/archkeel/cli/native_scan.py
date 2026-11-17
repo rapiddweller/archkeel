@@ -18,17 +18,18 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from collections.abc import Sequence
+import threading
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Final
+from time import monotonic
+from typing import Final, TextIO
 
 from .core_frame import read_refusal
-from .core_json import CoreError
+from .core_json import CoreError, CoreExit
 
 SCAN_PROTOCOL: Final = "archkeel-core-scan-1"
 _TIMEOUT_SECONDS: Final = 600
-# The exit code of a request that the core cannot read: it writes no frame.
-_REFUSED_EXIT: Final = 2
 # The fixed executable and the environment names of `native/collect/src/git.rs`, never `PATH`.
 _GIT: Final = "C:/Program Files/Git/cmd/git.exe" if sys.platform == "win32" else "/usr/bin/git"
 _GIT_ENVIRONMENT: Final = ("HOME", "USERPROFILE", "XDG_CONFIG_HOME", "SystemRoot", "SYSTEMROOT")
@@ -102,18 +103,19 @@ def exchange(binary: str, kind: str, request: bytes) -> tuple[bytes, int]:
     """Run the core with one encoded request and a time limit, and give its standard output and exit
     code. Exit 2 (no frame) is a `CoreError`."""
     try:
-        done = subprocess.run(
-            [binary, kind],
-            input=request,
-            capture_output=True,
-            check=False,
-            timeout=_TIMEOUT_SECONDS,
-        )
+        with _progress(Path.cwd().name) if kind == "scan" else _quiet():
+            done = subprocess.run(
+                [binary, kind],
+                input=request,
+                capture_output=True,
+                check=False,
+                timeout=_TIMEOUT_SECONDS,
+            )
     except subprocess.TimeoutExpired as error:
         raise CoreError(f"the core did not answer in {_TIMEOUT_SECONDS} s") from error
     except OSError as error:
         raise CoreError(f"the core could not execute: {error}") from error
-    if done.returncode == _REFUSED_EXIT:
+    if done.returncode == CoreExit.REFUSED:
         if done.stdout:
             raise CoreError("the core wrote frame bytes with exit 2")
         gap = read_refusal(done.stderr)
@@ -122,3 +124,52 @@ def exchange(binary: str, kind: str, request: bytes) -> tuple[bytes, int]:
         )
         raise CoreError(f"the core refused the request (exit 2): {message}", gap=gap)
     return done.stdout, done.returncode
+
+
+_PROGRESS_DELAY: Final = 3.0
+
+
+@contextmanager
+def _progress(
+    where: str, stream: TextIO | None = None, delay: float = _PROGRESS_DELAY
+) -> Iterator[None]:
+    """A progress line on standard error for a scan that runs past `delay` seconds (#1621).
+
+    The core answers with one frame, so the shell knows the time and not the steps. On a terminal
+    the line is rewritten each second and removed at the end; on a pipe it is written once.
+    Standard output is never touched.
+    """
+    out = stream if stream is not None else sys.stderr
+    stop = threading.Event()
+    started = monotonic()
+    tty = out.isatty()
+    shown = False
+
+    def tick() -> None:
+        nonlocal shown
+        if stop.wait(delay):
+            return
+        while True:
+            text = f"archkeel: scanning {where}, {int(monotonic() - started)} s so far..."
+            out.write(f"\r{text}" if tty else f"{text}\n")
+            out.flush()
+            shown = True
+            if not tty or stop.wait(1.0):
+                return
+
+    worker = threading.Thread(target=tick, daemon=True)
+    worker.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        worker.join()
+        if shown and tty:
+            out.write("\r\033[K")
+            out.flush()
+
+
+@contextmanager
+def _quiet() -> Iterator[None]:
+    """No progress line for a command other than a scan."""
+    yield
