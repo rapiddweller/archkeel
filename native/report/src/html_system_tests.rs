@@ -106,3 +106,42 @@ fn interfaces_are_distinct_and_unchecked() {
     assert_eq!(edges[1]["interface_id"], "two");
     assert!(edges.iter().all(|edge| edge["status"] == "UNKNOWN"));
 }
+
+// E4 (#1451): the root of the Explorer of a system page is the title of the system.
+#[test]
+fn the_root_of_a_system_page_is_the_title_of_the_system() {
+    let frame = json!({"status": "PASS", "topology": components(3, &[]),
+        "system": {"title": "ArchKeel", "parts": []}});
+    let data = payload(&document(&frame));
+    assert_eq!(data["atlas"]["repository"], "ArchKeel");
+    assert_eq!(
+        data["navigation"],
+        json!({"repository": "ArchKeel", "main_href": ""})
+    );
+    let alone = payload(&document(
+        &json!({"status": "PASS", "topology": components(3, &[])}),
+    ));
+    assert_eq!(
+        alone["navigation"],
+        json!({"repository": "System", "main_href": ""})
+    );
+}
+
+// E4: the page of a part reads "<part> of <system>" and links to the page of the system. The
+// link is an input of the page: the frame does not carry it.
+#[test]
+fn the_page_of_a_part_names_its_system_and_links_up() {
+    let part_of =
+        json!({"part_of": {"system": "ArchKeel", "part": "Python shell", "href": "index.html"}});
+    let ruling = json!({"status": "PASS", "topology": components(3, &[])});
+    let written = crate::engine_frame::write(Ok(ruling), Ok(json!({})), &part_of, true);
+    let frame: Value = serde_json::from_slice(&written.unwrap().into_bytes()).unwrap();
+    assert!(frame.get("part_of").is_none());
+    let data = payload(frame["html"]["document"].as_str().unwrap());
+    assert_eq!(data["atlas"]["repository"], "Python shell of ArchKeel");
+    assert_eq!(
+        data["navigation"],
+        json!({"repository": "Python shell of ArchKeel", "main_href": "", "part_title": "Python shell",
+            "system_title": "ArchKeel", "system_href": "index.html"})
+    );
+}
