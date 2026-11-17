@@ -141,7 +141,7 @@ class Fake:
         return any(call[:2] == ("pr", "merge") for call in self.calls)
 
 
-DONE = "PR gate\tcompleted\tsuccess\n"
+DONE = "1\tPR gate\tcompleted\tsuccess\n"
 
 
 def test_a_green_head_merges_without_admin_and_with_the_head_commit() -> None:
@@ -152,9 +152,9 @@ def test_a_green_head_merges_without_admin_and_with_the_head_commit() -> None:
 
 
 def test_a_red_head_exits_1_and_a_pending_head_exits_3_without_a_merge(capsys) -> None:
-    red = Fake(PR, "PR gate\tcompleted\tfailure\n", ["a.py"], None)
+    red = Fake(PR, "1\tPR gate\tcompleted\tfailure\n", ["a.py"], None)
     assert main(["7"], red) == 1 and not red.merged()
-    pending = Fake(PR, "PR gate\tin_progress\t\n", ["a.py"], None)
+    pending = Fake(PR, "1\tPR gate\tin_progress\t\n", ["a.py"], None)
     assert main(["7"], pending) == 3 and not pending.merged()
     assert "check_pending" in capsys.readouterr().err
 
@@ -162,7 +162,7 @@ def test_a_red_head_exits_1_and_a_pending_head_exits_3_without_a_merge(capsys) -
 def test_the_json_output_names_the_verdict_the_reasons_the_required_set_and_the_head(
     capsys,
 ) -> None:
-    fake = Fake(PR, "PR gate\tqueued\t\n", ["a.py"], '{"contexts": ["PR gate"]}')
+    fake = Fake(PR, "1\tPR gate\tqueued\t\n", ["a.py"], '{"contexts": ["PR gate"]}')
     assert main(["7", "--json"], fake) == 3
     document = json.loads(capsys.readouterr().out)
     assert document == {
@@ -177,7 +177,7 @@ def test_the_json_output_names_the_verdict_the_reasons_the_required_set_and_the_
 
 
 def test_wait_loops_while_the_verdict_is_wait_and_then_merges() -> None:
-    states = iter(["PR gate\tin_progress\t\n", "PR gate\tin_progress\t\n", DONE])
+    states = iter(["1\tPR gate\tin_progress\t\n", "1\tPR gate\tin_progress\t\n", DONE])
     fake = Fake(PR, "", ["a.py"], None)
     original = fake.__call__
 
@@ -199,7 +199,7 @@ def test_wait_loops_while_the_verdict_is_wait_and_then_merges() -> None:
 
 
 def test_wait_zero_does_not_loop() -> None:
-    fake = Fake(PR, "PR gate\tqueued\t\n", ["a.py"], None)
+    fake = Fake(PR, "1\tPR gate\tqueued\t\n", ["a.py"], None)
     assert main(["7"], fake, lambda _s: pytest.fail("slept")) == 3
 
 
@@ -287,3 +287,16 @@ def test_main_counts_the_entries_of_a_ratchet_file_at_the_merge_base_and_at_the_
     assert main(["7", "--json"], fake) == 1 and not fake.merged()
     fake.labels = ["ratchet-lead"]
     assert main(["7"], fake) == 0
+
+
+def test_the_newest_run_of_a_check_name_counts_after_a_re_run() -> None:
+    """#1653: a fresh green re-run is not hidden by an older red run, nor the reverse."""
+    red_then_green = "1\tPR gate\tcompleted\tfailure\n9\tPR gate\tcompleted\tsuccess\n"
+    fake = Fake(PR, red_then_green, ["a.py"], '{"contexts": ["PR gate"]}')
+    assert main(["7"], fake) == 0
+    green_then_red = "1\tPR gate\tcompleted\tsuccess\n9\tPR gate\tcompleted\tfailure\n"
+    assert main(["7"], Fake(PR, green_then_red, ["a.py"], None)) == 1
+    running = "1\tPR gate\tcompleted\tsuccess\n9\tPR gate\tin_progress\t\n"
+    assert main(["7"], Fake(PR, running, ["a.py"], None)) == 3
+    unordered = "9\tPR gate\tcompleted\tsuccess\n1\tPR gate\tcompleted\tfailure\n"
+    assert main(["7"], Fake(PR, unordered, ["a.py"], None)) == 0
