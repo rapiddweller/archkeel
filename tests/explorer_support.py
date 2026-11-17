@@ -247,12 +247,12 @@ class Browser:
 
     # ---- Explorer ----
     def state(self) -> dict[str, Any]:
-        """`window.ArchkeelFlow.state()` without the scene, plus the URL query."""
+        """`window.ArchkeelFlow.state()` without the scene, plus the URL query and what is drawn."""
         return self.evaluate(
-            "(() => { const s = window.ArchkeelFlow.state();"
-            " return { view: s.viewMode, scope: s.scope, selection: s.selection,"
-            " search: location.search, details: document.getElementById('flow')"
-            ".dataset.detailsOpen === 'true', theme: document.documentElement.dataset.theme }; })()"
+            "(() => { const { scene, ...s } = window.ArchkeelFlow.state();"
+            " return { ...s, view: s.viewMode, search: location.search,"
+            " details: document.getElementById('flow').dataset.detailsOpen === 'true',"
+            " theme: document.documentElement.dataset.theme }; })()"
         )
 
     def close(self) -> None:

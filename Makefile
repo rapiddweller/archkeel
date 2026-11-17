@@ -5,7 +5,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static fast-test pr-gate pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate browser-architecture-check typescript-libs-check generated-check core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
+.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate browser-architecture-check typescript-libs-check generated-check core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static pr-gate
@@ -28,6 +28,11 @@ generated-check: browser-runtime-install
 browser-runtime-generate: browser-runtime-install
 	$(UV) run --locked python tools/browser_runtime.py
 
+# AD-752: the index of the decision records is generated from the files, not committed.
+decision-index:
+	@mkdir -p test-artifacts
+	$(UV) run --locked python tools/decision_index.py --write test-artifacts/decision-index.md
+
 # AD-674: the fast tests (everything but tests/areas.py SLOW_FILES). The main tier runs one area in each
 # job (AREA=...); the PR tier runs the areas that the change selects (make pr-gate). A floor in
 # tests/area_floors.json makes an empty or shrunken selection fail.
@@ -41,6 +46,15 @@ fast-test: core browser-runtime-install
 # and the fast tests of the areas that the change selects (tools/select_areas.py).
 PR_BASE ?= origin/main
 pr-gate: ci-pr-static self-validate pr-selected-test
+
+# AD-756: Rust format and lint in the PR gate when the change touches native/: `cargo fmt --check` for the
+# whole workspace (about 2 s) and `clippy -D warnings` for the touched crates only (tools/native_touched.py).
+pr-native-lint:
+	@crates="$$($(UV) run --locked python tools/native_touched.py "$(PR_BASE)")"; \
+	if [ -z "$$crates" ]; then echo "native lint: native/ is unchanged, nothing to check"; exit 0; fi; \
+	echo "native lint: fmt and clippy for '$$crates'"; \
+	cd native && cargo fmt --all -- --check && \
+	{ [ "$$crates" = "-" ] || cargo clippy --locked --all-targets $$crates -- -D warnings; }
 
 pr-selected-test: core browser-runtime-install
 	@areas=$$($(UV) run --locked python tools/select_areas.py "$(PR_BASE)") && echo "areas: $$areas" && \
@@ -182,7 +196,7 @@ cargo-deny-install:
 		install -m 0755 "$$work/$$name/cargo-deny" "$${CARGO_HOME:-$$HOME/.cargo}/bin/cargo-deny"
 
 LINT_PATHS := src tests tools/mermaid_blocks.py tools/package_plugin.py \
-	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_product.py tools/report_product_page.py \
+	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/report_product.py tools/report_product_page.py \
 	native/hatch_build.py
 
 lint:

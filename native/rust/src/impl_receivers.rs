@@ -188,7 +188,7 @@ fn same_gates(caller: &Module, other: &Module) -> bool {
             .is_some_and(|gates| !gates.is_empty() && other.gates.as_ref() == Some(gates))
 }
 
-fn exact_type(index: &Index<'_>, caller: &Module, lexical: &str, ty: &str) -> bool {
+pub(super) fn exact_type(index: &Index<'_>, caller: &Module, lexical: &str, ty: &str) -> bool {
     let frame = index.file_of(lexical).and_then(|file| index.frame(file));
     frame.is_some_and(|frame| {
         let scan = &frame.module.scan;

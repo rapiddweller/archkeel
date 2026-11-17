@@ -29,3 +29,10 @@ html.ak-canvas .rp-explorer .flow:not([data-expanded]) .flow-map-column { bottom
 .rp-explorer .flow-inspector p, .rp-explorer .flow-inspector ul.plain { margin: var(--space-1) 0; }
 .rp-explorer .flow-inspector ul.plain li { margin: 0 0 var(--space-1); }
 .rp-explorer .flow-inspector details { margin: var(--space-1) 0; }
+/* On a narrow report column the legend and the zoom leave no room for the perspective bar between
+   them: the bar takes its own row above them, the width of the column, and the diagram is fitted
+   above it. This wins over the offsets of the wide layout. */
+@media (max-width: 900px) {
+  html.ak-canvas .rp-explorer .flow:not([data-expanded]) .ak-bottom-center { left: var(--space-3); right: var(--space-3); bottom: calc(var(--space-8) + var(--space-2)); transform: none; max-width: none; }
+  html.ak-canvas .rp-explorer .flow:not([data-expanded]) .flow-map-column { bottom: calc(var(--space-8) * 2 + var(--space-5)); }
+}

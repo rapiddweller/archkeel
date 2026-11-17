@@ -1,0 +1,2 @@
+# A generic type alias.
+type Example[__classdict__] = int
