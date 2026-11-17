@@ -641,7 +641,7 @@
     if (ATLAS) {
       const module = renderedScene?.nodes.find((node) => node.id === id)?.module;
       if (module) openAtlasModule(module.id);
-      else openAtlasComponent(id);
+      else openAtlasComponent(id, renderedScene?.grouped ? "modules" : null);
       return;
     }
     const context = architectureGraphContext();
@@ -1706,18 +1706,23 @@
   }
 
   let maxFitScale = 1.4;
-  function fit(overview = false) {
+  // Below this scale the 12 px card text is too small to read (issue 1490): a fit stops here and
+  // the canvas scrolls. Only an explicit "fit whole diagram" goes below it.
+  const READABLE_SCALE = 0.85;
+  let pendingLayoutFitWhole = false;
+  function fit(overview = false, { whole = false } = {}) {
     cancelPointerTap();
     if (layoutPending) {
       pendingLayoutFit = true;
       pendingLayoutFitOverview ||= overview;
+      pendingLayoutFitWhole ||= whole;
       return;
     }
     const bounds = viewport.getBBox();
     if (!bounds.width || !bounds.height || !canvas.clientWidth || !canvas.clientHeight) return;
     // Member compartments need readable text; oversized content stays pannable.
-    const minimumScale = ATLAS && overview ? 0
-      : ATLAS ? 1 : focusLabel || memberPreviews || umlSelection?.type === "node" ? 1 : overview ? 0 : 0.85;
+    const minimumScale = ATLAS && overview ? whole ? 0 : READABLE_SCALE
+      : ATLAS ? 1 : focusLabel || memberPreviews || umlSelection?.type === "node" ? 1 : overview ? 0 : READABLE_SCALE;
     const widthScale = canvas.clientWidth / (bounds.width + 48);
     transform.k = renderedScene?.moduleOverview && !overview ? Math.max(1, Math.min(maxFitScale, widthScale))
       : Math.max(minimumScale, Math.min(maxFitScale, widthScale, canvas.clientHeight / (bounds.height + 48)));
@@ -1734,13 +1739,13 @@
         - canvas.clientWidth / 2;
       canvas.scrollTop = (selectedPosition.y - diagramOrigin.y + cardHeight(umlSelection.id) / 2) * transform.k
         - canvas.clientHeight / 2;
-    } else if (ATLAS && renderedScene?.componentOverview && !overview) {
+    } else if (ATLAS && !whole && (renderedScene?.componentOverview || renderedScene?.moduleOverview)) {
       const canvasBounds = canvas.getBoundingClientRect();
       const left = canvasBounds.left + canvas.clientLeft;
       const top = canvasBounds.top + canvas.clientTop;
       const right = left + canvas.clientWidth;
       const bottom = top + canvas.clientHeight;
-      const completeCardVisible = [...nodeLayer.querySelectorAll('[data-uml-kind="component"] .card')]
+      const completeCardVisible = [...nodeLayer.querySelectorAll("[data-uml-id] .card")]
         .some((card) => {
           const bounds = card.getBoundingClientRect();
           return bounds.left >= left && bounds.right <= right
@@ -1748,7 +1753,7 @@
         });
       if (!completeCardVisible) {
         const first = renderedScene.nodes
-          .filter((node) => node.kind === "component" && positions[node.id])
+          .filter((node) => positions[node.id])
           .sort((a, b) => positions[a.id].y - positions[b.id].y
             || positions[a.id].x - positions[b.id].x)[0];
         const position = first && positions[first.id];
@@ -2293,10 +2298,11 @@
   function finishLayout() {
     layoutPending = false;
     if (!pendingLayoutFit) return;
-    const overview = pendingLayoutFitOverview;
+    const overview = pendingLayoutFitOverview, whole = pendingLayoutFitWhole;
     pendingLayoutFit = false;
     pendingLayoutFitOverview = false;
-    fit(overview);
+    pendingLayoutFitWhole = false;
+    fit(overview, { whole });
   }
 
   function cancelPointerTap() {
@@ -2718,7 +2724,9 @@
     const observed = scene.edges.filter((edge) => !edge.declaration);
     const boundary = scene.moduleOverview && scene.boundaryEdges
       ? ` · ${REPORT_SCENE.countLabel(scene.boundaryEdges, "cross-scope relationship")} not drawn at this level` : "";
-    root.querySelector(".atlas-summary").textContent = scene.moduleOverview
+    root.querySelector(".atlas-summary").textContent = scene.grouped
+      ? `Current level: ${REPORT_SCENE.countLabel(scene.grouped.modules, viewMode === "target" ? "declared module" : "observed module")} in ${REPORT_SCENE.countLabel(scene.nodes.length, "box", "boxes")}: more than ${scene.grouped.limit} modules are grouped by component · open a box to see its modules · Search finds one module`
+      : scene.moduleOverview
       ? viewMode === "target" ? `Current level: ${REPORT_SCENE.countLabel(scene.nodes.length, "declared module")} · ${REPORT_SCENE.countLabel(scene.edges.length, "authored module relationship")}${boundary}`
         : `Current level: ${REPORT_SCENE.countLabel(scene.nodes.length, "observed module")} · ${REPORT_SCENE.countLabel(observed.length, "local dependency", "local dependencies")} · ${REPORT_SCENE.countLabel(observed.every((edge) => edge.import_sites !== null) ? observed.reduce((sum, edge) => sum + edge.import_sites, 0) : null, "import site")}${boundary}`
       : viewMode === "target"
@@ -2757,7 +2765,7 @@
       finishLayout();
       root.dataset.layoutState = "error";
       canvas.hidden = true; alternative.hidden = false;
-      alternative.innerHTML = `<div class="flow-scope-notice"><h3>Architecture layout unavailable</h3><p>${esc(error.message || "The authenticated relationships could not be arranged.")}</p></div>`;
+      alternative.innerHTML = `<div class="flow-scope-notice" role="alert"><h3>Architecture layout unavailable</h3><p>${esc(error.message || "The authenticated relationships could not be arranged.")}</p><p>Next step: use Search to open one module or component, or reload the page to arrange the diagram again.</p></div>`;
     }
   }
 
@@ -2889,7 +2897,9 @@
       },
     }, scene.layoutRoutes);
     atlasEmphasize();
-    legend.textContent = scene.moduleOverview ? viewMode === "target"
+    legend.textContent = scene.grouped
+      ? `${REPORT_SCENE.countLabel(scene.grouped.modules, "module")} grouped by component · Enter or a double click opens a box and shows its modules`
+      : scene.moduleOverview ? viewMode === "target"
       ? "Target modules · authored relationships · Enter or a click selects a module and shows its facts"
       : "Observed modules · local directed relationships · Enter or a click selects a module and shows its facts"
       : viewMode === "target" ? "Target edges · requires = declared permission · full rationale in tooltip and Details"
@@ -2906,6 +2916,7 @@
     layoutPending = false;
     pendingLayoutFit = false;
     pendingLayoutFitOverview = false;
+    pendingLayoutFitWhole = false;
     syncRoute();
     if (routeNotice) { renderRouteNotice(); return; }
     if (SIDECAR) { renderSidecar(); return; }
@@ -2977,7 +2988,7 @@
   resetFiltersButton.remove();
   zoom100Button.addEventListener("click", resetFlow);
   fitButton.addEventListener("click", () => { positions = Object.create(null); render(); fit(); });
-  overviewButton.addEventListener("click", () => fit(true));
+  overviewButton.addEventListener("click", () => fit(true, { whole: true }));
   zoomOutButton.addEventListener("click", () => zoomBy(1 / 1.2));
   zoomInButton.addEventListener("click", () => zoomBy(1.2));
   let spaceHeld = false;
