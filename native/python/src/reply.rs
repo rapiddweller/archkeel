@@ -76,7 +76,8 @@ fn validation(version: &str) -> Validation {
     }
     let mut all = constructs.with_construct("getattr", &either);
     all.sections.push(TypingSignals);
-    registered.push(all);
+    registered.push(all.clone());
+    registered.push(all.with_construct("any_annotation", &[ConstructSupport::Partial]));
     Validation {
         registered,
         interface: InterfaceNeed::Feature(ROUTES_FEATURE.to_owned()),
