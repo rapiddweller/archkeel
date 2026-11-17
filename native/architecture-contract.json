@@ -1053,6 +1053,7 @@
             "native.archkeel_model.boundary_facts",
             "native.archkeel_model.condensation",
             "native.archkeel_model.constructs",
+            "native.archkeel_model.graph",
             "native.archkeel_model.imports",
             "native.archkeel_model.ownership",
             "native.archkeel_model.placement_facts",
@@ -1156,6 +1157,7 @@
             "native.archkeel_model.causes",
             "native.archkeel_model.coverage",
             "native.archkeel_model.gap_class",
+            "native.archkeel_model.ids",
             "native.archkeel_model.reason"
           ]
         },
@@ -1164,6 +1166,7 @@
           "rationale": "Read the modules, owners, imports, edges and symbols of the reply.",
           "through": [
             "native.archkeel_model.door_reach",
+            "native.archkeel_model.graph",
             "native.archkeel_model.ownership"
           ]
         },
@@ -1559,7 +1562,8 @@
           "component": "facts",
           "rationale": "Give a violation the record id of Python with the one stable_id of the typed facts (AD-370).",
           "through": [
-            "native.archkeel_facts.identity"
+            "native.archkeel_facts.identity",
+            "native.archkeel_facts.vocab"
           ]
         },
         {

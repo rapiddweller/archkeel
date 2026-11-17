@@ -163,14 +163,11 @@ fn placement_receipt(
     if modules.is_empty() {
         return Err(Reason::NoSubjects);
     }
-    model
-        .graph()
-        .placement()
-        .ok_or(Reason::Unsupported(Unsupported::Rule(
-            archkeel_contract::RuleKind::SymbolPlacement,
-        )))?;
+    crate::graph::Graph::placement(model.graph()).ok_or(Reason::Unsupported(Unsupported::Rule(
+        archkeel_contract::RuleKind::SymbolPlacement,
+    )))?;
     if modules.iter().any(|id| {
-        model.graph().modules().get(*id).is_none_or(|module| {
+        crate::ids::Table::get(model.graph().modules(), *id).is_none_or(|module| {
             let allowed = rule
                 .allowed_sources()
                 .iter()

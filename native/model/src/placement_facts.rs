@@ -5,6 +5,7 @@
 //! The proven class records used by placement (AD-728).
 
 use archkeel_facts::envelope::Facts;
+use archkeel_facts::ids::{EvidenceId, FactId, ModuleName};
 use archkeel_facts::vocab::ClassKind;
 use archkeel_facts::{Section, SymbolFact};
 
@@ -40,13 +41,13 @@ pub(crate) fn classes(facts: &Facts) -> Vec<Class> {
             }
             Some(Class {
                 name: data.qualified_name.clone(),
-                module: data.module.as_str().to_owned(),
+                module: ModuleName::as_str(&data.module).to_owned(),
                 kind: data.class_kind?,
-                fact_id: record.id.as_str().to_owned(),
+                fact_id: FactId::as_str(&record.id).to_owned(),
                 evidence: record
                     .evidence_ids
                     .iter()
-                    .map(|id| id.as_str().to_owned())
+                    .map(|id| EvidenceId::as_str(id).to_owned())
                     .collect(),
             })
         })

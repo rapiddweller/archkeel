@@ -6,6 +6,7 @@
 
 use archkeel_contract::SymbolPlacement;
 use archkeel_facts::identity::{stable_id, Part};
+use archkeel_facts::vocab::ClassKind;
 use archkeel_model::{placement_violations, Model, Reason};
 
 use crate::placement_row::PlacedClass;
@@ -25,11 +26,11 @@ pub(crate) fn check(
                 fact_id: class.fact_id,
                 name: class.name,
                 module: class.module,
-                kind: class.kind.as_str().to_owned(),
+                kind: ClassKind::as_str(class.kind).to_owned(),
                 evidence: class.evidence,
             }))
         })
         .collect();
-    found.sort_by(|a, b| a.id().cmp(b.id()));
+    found.sort_by(|a, b| Violation::id(a).cmp(Violation::id(b)));
     Ok(found)
 }
