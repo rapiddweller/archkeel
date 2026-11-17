@@ -4224,9 +4224,12 @@
         "native.archkeel_typescript_collector.std_globals:standard_globals",
         "native.archkeel_typescript_collector.test_sources:NO_PRODUCTION_SOURCE",
         "native.archkeel_typescript_collector.test_sources:is_test_source",
+        "native.archkeel_typescript_collector.unselected:is_page",
+        "native.archkeel_typescript_collector.unselected:page_with_script",
         "native.archkeel_typescript_collector.unselected:project_sources",
         "native.archkeel_typescript_collector.unselected:reference_types",
-        "native.archkeel_typescript_collector.unselected:type_candidates"
+        "native.archkeel_typescript_collector.unselected:type_candidates",
+        "native.archkeel_typescript_collector.unselected:unread_form"
       ],
       "decided_by": "architect"
     },
