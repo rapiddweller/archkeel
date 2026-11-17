@@ -8,29 +8,13 @@
 use serde_json::Value;
 
 use super::{
-    Capabilities, ConstructCapability, ConstructSupport, Coverage, Dirty, Evidence, FileFact,
-    Input, SectionName, Source,
+    source_digest, Capabilities, ConstructCapability, ConstructSupport, Coverage, Dirty, Evidence,
+    FileFact, Input, SectionName, Source,
 };
-use crate::identity::{evidence_id, package_of, sha256_hex, stable_id, Part};
+use crate::identity::{evidence_id, package_of, stable_id, Part};
 use crate::ids::{EvidenceId, FactId, ModuleName, PackageName};
 use crate::record::Record;
 use crate::sections::GapFact;
-
-/// `collect.py`: SHA-256 of the compact JSON input listing, in the given order.
-pub fn source_digest(inputs: &[Input]) -> String {
-    let rows: Vec<String> = inputs
-        .iter()
-        .map(|input| {
-            format!(
-                "{{\"path\":{},\"digest\":{},\"role\":{}}}",
-                Value::from(input.path.as_str()),
-                Value::from(input.digest.as_str()),
-                Value::from(input.role.as_str()),
-            )
-        })
-        .collect();
-    sha256_hex(format!("[{}]", rows.join(",")).as_bytes())
-}
 
 impl FileFact {
     /// The file fact of a module: the id and the package come from the module identity.
