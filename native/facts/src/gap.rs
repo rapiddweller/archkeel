@@ -20,6 +20,7 @@ impl GapData {
     pub fn at(reason: &str, module: &str) -> Self {
         Self {
             code: None,
+            dispatch: false,
             reason: Some(reason.to_owned()),
             module: Some(ModuleName::new(module)),
             resolution_dimension: None,

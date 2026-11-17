@@ -56,7 +56,7 @@ impl Builder {
                     .chain(scope.iter().map(String::as_str))
                     .collect::<Vec<_>>()
                     .join(".");
-                self.pair_gap(&concern.reason, &evidence, (&source, ""));
+                self.pair_gap(&concern.reason, &evidence, (&source, ""), false);
             } else {
                 self.gap(&concern.reason, Some(&evidence), &module.module);
             }
@@ -226,7 +226,7 @@ impl Builder {
                     let reason = format!(
                         "The dependency {package} has a registry or git entry, and a crate of the workspace has its name: a redirect that the scan does not read can make it that crate"
                     );
-                    self.pair_gap(&reason, &evidence, (from.module, &local));
+                    self.pair_gap(&reason, &evidence, (from.module, &local), false);
                 }
                 (
                     Target::External {

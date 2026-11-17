@@ -203,3 +203,35 @@ def test_a_lexical_external_path_never_passes(
     root = repository(tmp_path / "repo", release_core, files, rules=(*CRATE_RULES, scope))
     _rustc_accepts(root)
     assert statuses(validate(root))["NO-EXTERNAL-IN-A"] in expected
+
+
+def test_an_internal_dispatch_does_not_add_a_lexical_external_path(
+    tmp_path: Path, release_core: Path
+) -> None:
+    files = {
+        **GLOB,
+        "crates/app/src/a.rs": "pub fn f() { drop(crate::c::make()); }\n",
+        "crates/app/src/b.rs": GLOB["crates/app/src/b.rs"]
+        + "impl Drop for Y { fn drop(&mut self) {} }\n",
+    }
+    package = rule(
+        "NO-EXTERNAL-IN-A",
+        "external_dependency_scope",
+        dependency="trait_ext",
+        exact_sources=["native.app.b", "native.app.cargo_toml"],
+    )
+    complete = rule("EXTERNALS-DECLARED", "complete_external_scope", source="native")
+    local = rule(
+        "NO-LOCAL-IN-A",
+        "external_dependency_scope",
+        dependency="native.app.b",
+        exact_sources=["native.app", "native.app.c", "native.app.b"],
+    )
+    root = repository(
+        tmp_path / "repo", release_core, files, rules=(*CRATE_RULES, package, complete, local)
+    )
+    _rustc_accepts(root)
+    verdicts = statuses(validate(root))
+    assert verdicts["NO-EXTERNAL-IN-A"] == "PASS"
+    assert verdicts["EXTERNALS-DECLARED"] == "PASS"
+    assert verdicts["NO-LOCAL-IN-A"] == "UNKNOWN"

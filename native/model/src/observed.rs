@@ -54,8 +54,8 @@ pub(crate) struct Observed {
     pub(crate) profile_limits: Option<ProfileLimits>,
     /// The linked collector's stated assumption (AD-540), absent for a wire reply.
     pub(crate) scope_premise: Option<&'static str>,
-    /// Each gap between two modules: its source module and its module.
-    pub(crate) pair_gaps: Vec<(String, String)>,
+    /// Each pair gap's source, target, and whether it can only be internal dispatch.
+    pub(crate) pair_gaps: Vec<(String, String, bool)>,
     /// Each gap that states its effect (AD-564).
     pub(crate) effect_gaps: Vec<EffectGap>,
     /// The host could not read the head or the state of the work tree.
@@ -132,6 +132,7 @@ pub(crate) fn observed(facts: &Facts, classes: &[Class]) -> Observed {
             Some((
                 data.source_module.as_ref()?.as_str().to_owned(),
                 data.module.as_ref()?.as_str().to_owned(),
+                data.dispatch,
             ))
         })
         .collect();

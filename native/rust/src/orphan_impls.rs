@@ -129,6 +129,7 @@ pub(super) fn orphan_impl_gaps(
                 (caller.module.as_str(), target),
                 (rel, site),
                 &why,
+                false,
             );
         }
     }
@@ -143,7 +144,7 @@ pub(super) fn orphan_impl_gaps(
         };
         for caller in callers(workspace, modules, home) {
             let pair = (caller.module.as_str(), target);
-            once_gap(builder, edges, pair, (&home.rel, &found.site), &why);
+            once_gap(builder, edges, pair, (&home.rel, &found.site), &why, false);
         }
     }
 }

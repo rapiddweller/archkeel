@@ -111,3 +111,15 @@ fn an_effect_that_the_core_does_not_know_is_refused() {
         assert!(serde_json::from_value::<GapData>(value).is_err());
     }
 }
+
+#[test]
+fn a_linked_dispatch_keeps_the_same_wire_gap() {
+    let mut data = GapData::at("why", "ns.target");
+    data.source_module = Some(ModuleName::new("ns.source"));
+    let untyped = serde_json::to_value(&data).unwrap();
+    data.dispatch = true;
+    let wire = serde_json::to_value(&data).unwrap();
+    assert_eq!(wire, untyped);
+    let decoded: GapData = serde_json::from_value(wire).unwrap();
+    assert!(!decoded.dispatch);
+}
