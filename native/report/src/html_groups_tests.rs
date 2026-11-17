@@ -104,11 +104,25 @@ fn a_gap_that_names_no_owned_module_holds_every_component() {
             found.iter().all(|(_, status)| status == "UNKNOWN"),
             "{found:?}"
         );
-        // A gap inside one component holds that component only.
+        // A gap inside one component holds that component only. The run is UNKNOWN, so the other
+        // components show no PASS either; their reason says that no gap of their own holds them
+        // (AD-730).
         frame["collection_gaps"][0]["subjects"] = json!(["m1"]);
-        let found = statuses(&payload(&document(&frame)));
-        assert_eq!(found[0].1, "PASS", "{found:?}");
+        let data = payload(&document(&frame));
+        let found = statuses(&data);
+        assert_eq!(found[0].1, "UNKNOWN", "{found:?}");
         assert_eq!(found[1].1, "UNKNOWN", "{found:?}");
+        let reason = |i: usize| {
+            let at = data["atlas"]["components"][i]["reason_ref"]
+                .as_u64()
+                .unwrap() as usize;
+            data["atlas"]["reference_ids"][at]
+                .as_str()
+                .unwrap()
+                .to_owned()
+        };
+        assert!(reason(0).contains("no gap inside, but the run is not decided"));
+        assert!(reason(1).contains("1 gaps name a module inside"));
     }
 }
 

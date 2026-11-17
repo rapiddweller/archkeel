@@ -19,7 +19,9 @@ fn a_part_of_a_system_holds_its_own_layers() {
             {"name": "m.b1", "path": "b1", "component": "B1", "language": "rust"}],
         "layers": [{"part": "PART:a", "rule": "R", "layers": ["L1", "L2"]},
             {"part": "PART:b", "rule": "S", "layers": ["L1", "L2"]}]},
-        "collection_gaps": [{"kind": "collection_gap", "subjects": ["m.b1"], "reason": "macro"}]});
+        "collection_gaps": [{"kind": "collection_gap", "subjects": ["m.b1"], "reason": "macro"}],
+        "system": {"parts": [{"id": "a", "status": "PASS", "rules": []},
+            {"id": "b", "status": "UNKNOWN", "rules": []}]}});
     let data = payload(&document(&frame));
     let parent = |id: &str| {
         let found = data["atlas"]["components"].as_array().unwrap();
@@ -34,7 +36,8 @@ fn a_part_of_a_system_holds_its_own_layers() {
     assert_eq!(parent("A1").0, json!("LAYER:PART:a:L1"));
     assert_eq!(parent("A2").0, json!("LAYER:PART:a:L2"));
     assert_eq!(parent("B1").0, json!("LAYER:PART:b:L1"));
-    // Each part names the language of its modules; the gap in b holds part b only.
+    // Each part names the language of its modules; the gap in b holds part b only. Part a is a
+    // run of its own that decides every rule, so it keeps PASS under the open system (AD-730).
     assert_eq!(parent("PART:a").2, json!("python"));
     assert_eq!(parent("PART:b").2, json!("rust"));
     assert_eq!(parent("PART:a").1, json!("PASS"));

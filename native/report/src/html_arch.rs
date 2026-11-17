@@ -7,26 +7,29 @@
 
 use serde_json::Value;
 
-use super::atlas;
+use super::atlas::{self, Marks};
 use super::cases::Names;
 use super::explorer;
 use super::frame::Frame;
 use super::markup::{count, escape};
 use super::places::{Kind, Places};
+use super::status::Shown;
 
-/// The components of the contract with a status, without the boxes of the layers and the groups.
-fn components(payload: &Value) -> Vec<&Value> {
+/// The marks of the components of the contract, without the boxes of the layers and the groups.
+fn components(payload: &Value, marks: Marks) -> Vec<(Shown, bool)> {
     payload["atlas"]["components"]
         .as_array()
         .into_iter()
         .flatten()
-        .filter(|c| {
+        .zip(marks)
+        .filter(|(c, _)| {
             !c["id"].as_str().is_some_and(|id| {
                 ["LAYER:", "GROUP:", "PART:"]
                     .iter()
                     .any(|p| id.starts_with(p))
             })
         })
+        .map(|(_, mark)| mark)
         .collect()
 }
 
@@ -42,12 +45,17 @@ fn outside(places: &Places, names: &Names<'_>) -> usize {
 }
 
 pub(super) fn section(frame: &Frame, places: &Places, names: &Names<'_>) -> String {
-    let Some(payload) = atlas::payload(frame, places, names) else {
+    let Some((payload, marks)) = atlas::payload(frame, places, names) else {
         return String::new();
     };
-    let all = components(&payload);
-    let failing = all.iter().filter(|c| c["status"] == "FAIL").count();
-    let unknown = all.iter().filter(|c| c["status"] == "UNKNOWN").count();
+    let all = components(&payload, marks);
+    let failing = all.iter().filter(|(s, _)| *s == Shown::Fail).count();
+    // A box under the floor of an open run is UNKNOWN without a gap of its own (AD-730): the line
+    // counts the boxes that a gap holds.
+    let unknown = all
+        .iter()
+        .filter(|(s, gap)| *s == Shown::Unknown && *gap)
+        .count();
     let modules = payload["atlas"]["modules"].as_array().map_or(0, Vec::len);
     let lost = outside(places, names);
     let mut lede = format!(
