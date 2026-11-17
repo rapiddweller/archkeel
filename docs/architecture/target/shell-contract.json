@@ -25,7 +25,7 @@
       "requires": [
         {
           "component": "commands",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Pass the command line to the commands and return their exit code."
         }
       ],
       "decided_by": "architect",
@@ -81,7 +81,7 @@
       "requires": [
         {
           "component": "frame",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Read the status and the gap kinds of a frame to choose the exit code."
         }
       ],
       "public": [
@@ -112,27 +112,27 @@
       "requires": [
         {
           "component": "frame",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Read the status, the rules and the gaps of a frame to write the text."
         },
         {
           "component": "baseline",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Write the baseline lines of the text from the baseline result."
         },
         {
           "component": "exit",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Read the exit word of a run for the header."
         },
         {
           "component": "words",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Read the plain words for kinds, causes and fixes."
         },
         {
           "component": "display",
-          "rationale": "The call-resolution summary is a display value (see docs/architecture/shell.md)."
+          "rationale": "Write the door rows and the call lines with the display functions."
         },
         {
           "component": "json",
-          "rationale": "The gap row that the text prints is a typed value of the shell (see docs/architecture/shell.md)."
+          "rationale": "Type the gap rows that the text writes with the gap type of the JSON part."
         }
       ],
       "public": [
@@ -164,15 +164,15 @@
       "requires": [
         {
           "component": "arguments",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Read the release name and the released commands for the help."
         },
         {
           "component": "exit",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Print the exit table in the help text."
         },
         {
           "component": "frame",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Name the commands in the help with the command type of the frame."
         }
       ],
       "public": [
@@ -202,59 +202,59 @@
       "requires": [
         {
           "component": "locate",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Find the native core binary and confirm it before a run."
         },
         {
           "component": "binding",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Bind the request of a run with the binding functions."
         },
         {
           "component": "frame",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Build the frame of each run with the frame functions."
         },
         {
           "component": "json",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Type the gaps and the request mismatches with the JSON part."
         },
         {
           "component": "output",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Write the output of a run to its file."
         },
         {
           "component": "launch",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Run the native scan with its exchange and identity functions."
         },
         {
           "component": "skill",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Install the agent skill with the skill functions."
         },
         {
           "component": "baseline",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Write the baseline as JSON in the output of a run."
         },
         {
           "component": "arguments",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Parse the command line into options and a command."
         },
         {
           "component": "init",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Use the init draft to run the init command."
         },
         {
           "component": "text",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Write the header, the refusal and the text of a run with the text functions."
         },
         {
           "component": "exit",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Map the status of a run to its exit code."
         },
         {
           "component": "help",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Print the help of a command with the help function."
         },
         {
           "component": "words",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Read the plain words for a not-found message and its fix."
         }
       ],
       "decided_by": "architect",
@@ -283,7 +283,7 @@
       "requires": [
         {
           "component": "frame",
-          "rationale": "The command and the check words that the options name are the words of the frame (see docs/architecture/shell.md)."
+          "rationale": "Read the command and the check kinds of the frame to parse options."
         }
       ],
       "public": [
@@ -317,7 +317,7 @@
       "requires": [
         {
           "component": "json",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Raise the shell error type when the core binary cannot be used."
         }
       ],
       "decided_by": "architect",
@@ -348,11 +348,11 @@
       "requires": [
         {
           "component": "frame",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Read the refusal of a native scan with the frame function."
         },
         {
           "component": "json",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Raise the shell error type for a failed native scan."
         }
       ],
       "decided_by": "architect",
@@ -384,27 +384,27 @@
       "requires": [
         {
           "component": "binding",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Bind the request of a frame with the binding functions."
         },
         {
           "component": "display",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Read the door rows, the evidence and the explain data of a frame."
         },
         {
           "component": "json",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Read and check the typed values of the JSON part in a frame."
         },
         {
           "component": "output",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Read the HTML output of a frame with the output function."
         },
         {
           "component": "baseline",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Read the baseline result of a frame with the baseline functions."
         },
         {
           "component": "schema",
-          "rationale": "The frame is read against the one schema of the core (AD-596)."
+          "rationale": "Check a frame and a refusal against the schema."
         }
       ],
       "decided_by": "architect",
@@ -445,11 +445,11 @@
       "requires": [
         {
           "component": "json",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Read and check the typed values of the JSON part for display."
         },
         {
           "component": "schema",
-          "rationale": "The explain limits are read from the one schema of the frame (AD-600)."
+          "rationale": "Read the list limits of the explain part from the schema."
         }
       ],
       "decided_by": "architect",
@@ -496,11 +496,11 @@
       "requires": [
         {
           "component": "json",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Read and check the values of the JSON part in a baseline."
         },
         {
           "component": "words",
-          "rationale": "The baseline lines are written in the user vocabulary (see docs/architecture/shell.md)."
+          "rationale": "Name the baseline kinds in plain words."
         }
       ],
       "decided_by": "architect",
@@ -533,7 +533,7 @@
       "requires": [
         {
           "component": "json",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Read and check the request values with the JSON part."
         }
       ],
       "decided_by": "architect",
@@ -563,7 +563,7 @@
       "requires": [
         {
           "component": "json",
-          "rationale": "The shell reads this part and no other (see docs/architecture/shell.md)."
+          "rationale": "Read and check the values of the JSON part for the output."
         }
       ],
       "decided_by": "architect",
@@ -625,7 +625,7 @@
       "requires": [
         {
           "component": "json",
-          "rationale": "The error type of the shell: the schema part refuses with it."
+          "rationale": "Raise the shell error type when a schema check refuses."
         }
       ],
       "public": [
@@ -668,7 +668,6 @@
       "packages": [],
       "exact_modules": [
         "archkeel.cli.init_draft",
-        "archkeel.cli.init_layouts",
         "archkeel.cli.init_areas"
       ],
       "responsibilities": [
@@ -949,18 +948,6 @@
       "id": "SHELL-NO-INIT-TO-FRAME",
       "kind": "forbidden_dependency",
       "source": "archkeel.cli.init_draft",
-      "target": "archkeel.cli.core_frame",
-      "include_type_checking": true,
-      "rationale": "The draft reads no frame.",
-      "provenance": [
-        "docs/architecture/shell.md"
-      ],
-      "decided_by": "architect"
-    },
-    {
-      "id": "SHELL-NO-INIT-LAYOUTS-TO-FRAME",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.cli.init_layouts",
       "target": "archkeel.cli.core_frame",
       "include_type_checking": true,
       "rationale": "The draft reads no frame.",
