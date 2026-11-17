@@ -64,9 +64,8 @@ Jobs run on pinned images (`ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `
 `macos-15-intel`). The Linux wheel jobs use manylinux and musllinux images pinned by digest. A move
 to a new image is a deliberate change. The PR needs the local gate; CI and Full on `main` check the image after the merge.
 
-Keep three workflow files: CI, Full verification and release. Use existing Make targets
-or dispatch Full verification for diagnostics; do not add temporary workflows. The tested file
-inventory requires an explicit reviewed change for a new workflow.
+Keep the reviewed workflow inventory in `tests/test_make_gate.py`. Use existing Make targets
+or dispatch Full verification for diagnostics; do not add temporary workflows.
 
 ## Where things run
 

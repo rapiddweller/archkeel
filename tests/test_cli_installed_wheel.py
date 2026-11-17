@@ -194,6 +194,17 @@ def test_the_installed_core_has_the_digest_that_the_wheel_records(
     assert version.stdout.strip() == f"archkeel {wheel.name.split('-')[1]}", version
 
 
+@pytest.mark.skipif(not WINDOWS, reason="Windows redirected output")
+def test_windows_redirected_text_is_utf8(
+    installed: Installed, crate: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delitem(installed.environment, "PYTHONIOENCODING", raising=False)
+    monkeypatch.setitem(installed.environment, "PYTHONUTF8", "0")
+    done = installed.validate(crate, "--text")
+    assert done.returncode == 0, (done.stdout, done.stderr)
+    assert " · " in done.stdout
+
+
 def test_the_installed_wheel_gives_the_verdict_of_its_core(
     installed: Installed, reference: Path, project: tuple[Path, str]
 ) -> None:

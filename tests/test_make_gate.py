@@ -129,6 +129,8 @@ def test_workflow_files_require_an_explicit_governance_change() -> None:
     assert {path.name for path in (ROOT / ".github/workflows").iterdir() if path.is_file()} == {
         "ci.yml",
         "full-verification.yml",
+        "main-build.yml",
+        "native-wheels.yml",
         "pages.yml",
         "pr-gate.yml",
         "release.yml",
@@ -420,7 +422,7 @@ def test_each_make_target_that_only_full_runs_is_in_the_full_fragment() -> None:
     fragment = set(re.findall(r"^([a-z][\w-]*):", (ROOT / FULL_MK).read_text(), re.M))
     makefile = (ROOT / "Makefile").read_text()
     assert "include $(MAKEFILE_DIR)tools/full.mk" in makefile
-    called = _called_targets("full-verification.yml")
+    called = _called_targets("full-verification.yml") | _called_targets("native-wheels.yml")
     assert called - fragment == SHARED_WITH_CI
     assert SHARED_WITH_CI <= _called_targets("ci.yml")
     assert [t for t in SHARED_WITH_CI if re.search(rf"^{t}:", makefile, re.M) is None] == []
