@@ -11940,51 +11940,6 @@
         "A method call may reach the method len of a type in its own file native.archkeel_facts.sections"
       ],
       "reason": "#1571 sound field-receiver gaps (same class) in code that #1631 and #1522 (c0962d99a) merged while main was reverted (#1636 incident); the authors remove them with path calls; reduced by receiver-type facts (L-273)"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_typescript_collector.script_prototype",
-        "A method call may reach the method field of a type in its own file native.archkeel_typescript_collector.script_tree"
-      ],
-      "reason": "#1571 sound field-receiver gaps (same class) in code that #1631 and #1522 (c0962d99a) merged while main was reverted (#1636 incident); the authors remove them with path calls; reduced by receiver-type facts (L-273)"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_typescript_collector.script_prototype",
-        "A method call may reach the method kind of a type in its own file native.archkeel_facts.record"
-      ],
-      "reason": "#1571 sound field-receiver gaps (same class) in code that #1631 and #1522 (c0962d99a) merged while main was reverted (#1636 incident); the authors remove them with path calls; reduced by receiver-type facts (L-273)"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_typescript_collector.script_prototype",
-        "A method call may reach the method kind of a type in its own file native.archkeel_typescript_collector.references"
-      ],
-      "reason": "#1571 sound field-receiver gaps (same class) in code that #1631 and #1522 (c0962d99a) merged while main was reverted (#1636 incident); the authors remove them with path calls; reduced by receiver-type facts (L-273)"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_typescript_collector.script_prototype",
-        "A method call may reach the method text of a type in its own file native.archkeel_typescript_collector.source"
-      ],
-      "reason": "#1571 sound field-receiver gaps (same class) in code that #1631 and #1522 (c0962d99a) merged while main was reverted (#1636 incident); the authors remove them with path calls; reduced by receiver-type facts (L-273)"
-    },
-    {
-      "entry": [
-        "gap",
-        "collection_gap",
-        "native.archkeel_typescript_collector.script_prototype",
-        "A method call may reach the method unwrapped of a type in its own file native.archkeel_typescript_collector.tree.cx"
-      ],
-      "reason": "#1571 sound field-receiver gaps (same class) in code that #1631 and #1522 (c0962d99a) merged while main was reverted (#1636 incident); the authors remove them with path calls; reduced by receiver-type facts (L-273)"
     }
   ]
 }

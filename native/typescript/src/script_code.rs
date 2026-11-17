@@ -276,7 +276,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     }
 
     /// A literal text whose markup holds no handler, script, frame or code link.
-    fn plain_text(&self, node: Option<Node<'t>>) -> bool {
+    pub(crate) fn plain_text(&self, node: Option<Node<'t>>) -> bool {
         node.and_then(|node| crate::script_window::string_text(self, node))
             .is_some_and(|text| inert_markup(&text))
     }
@@ -327,7 +327,7 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
         }
     }
 
-    fn document(&self, object: Node<'t>) -> bool {
+    pub(crate) fn document(&self, object: Node<'t>) -> bool {
         let tree = self.tree;
         let name = match object.kind() {
             "identifier" => tree.text(object),

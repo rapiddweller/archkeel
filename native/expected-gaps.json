@@ -6142,31 +6142,6 @@
     ],
     [
       "collection_gap",
-      "native.archkeel_typescript_collector.script_prototype",
-      "A method call may reach the method field of a type in its own file native.archkeel_typescript_collector.script_tree"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_prototype",
-      "A method call may reach the method kind of a type in its own file native.archkeel_facts.record"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_prototype",
-      "A method call may reach the method kind of a type in its own file native.archkeel_typescript_collector.references"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_prototype",
-      "A method call may reach the method text of a type in its own file native.archkeel_typescript_collector.source"
-    ],
-    [
-      "collection_gap",
-      "native.archkeel_typescript_collector.script_prototype",
-      "A method call may reach the method unwrapped of a type in its own file native.archkeel_typescript_collector.tree.cx"
-    ],
-    [
-      "collection_gap",
       "native.archkeel_typescript_collector.script_publish",
       "A method call may reach the method as_str of a type in its own file native.archkeel_typescript_collector.members"
     ],

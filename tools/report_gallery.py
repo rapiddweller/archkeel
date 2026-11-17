@@ -117,6 +117,9 @@ def command(cli: Sequence[str], run: Mapping[str, Any], target: Path, form: str)
     arguments = [*cli, run["command"], "--root", root]
     if run.get("config"):
         arguments += ["--config", run["config"]]
+    # E4: the page of a part names its system and links to it; the core reads both titles.
+    if form == "html" and run.get("part_of"):
+        arguments += ["--part-of", run["part_of"], "--system-href", "index.html"]
     return [*arguments, "--output", str(target), "--format", form]
 
 
@@ -364,8 +367,11 @@ def build_system(cli: Sequence[str], system: System, document: Path, out: Path) 
     return row
 
 
-def build_self(cli: Sequence[str], entry: Mapping[str, str], out: Path) -> dict[str, Any]:
-    """Write the reports and the badge file of one self run at their stable paths."""
+def build_self(
+    cli: Sequence[str], entry: Mapping[str, str], out: Path, document: str | None = None
+) -> dict[str, Any]:
+    """Write the reports and the badge file of one self run at their stable paths. With the
+    repository path of the system document, the page names the system and links to its page."""
     folder = out / "self"
     folder.mkdir(exist_ok=True)
     run = {
@@ -374,6 +380,7 @@ def build_self(cli: Sequence[str], entry: Mapping[str, str], out: Path) -> dict[
         "root_path": ".",
         "config": entry["config"],
         "language": entry["title"],
+        **({"part_of": document} if document else {}),
     }
     row = _reports(cli, run, folder, entry["name"], "self/")
     (folder / f"{entry['name']}-badge.json").write_text(
@@ -426,7 +433,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     cli = shlex.split(args.archkeel)
     sha = args.sha or _head_sha()
     system = load(args.system)
-    self_rows = [build_self(cli, entry, args.out) for entry in self_runs(system)]
+    try:
+        document = str(args.system.resolve().relative_to(ROOT.resolve()))
+    except ValueError:
+        document = None
+    self_rows = [build_self(cli, entry, args.out, document) for entry in self_runs(system)]
     rows = [build_run(cli, run, args.out, args.source_cache) for run in showcase_runs(args.matrix)]
     built_at = args.built_at or datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     others = [build_other(cli, entry) for entry in OTHER_RUNS]

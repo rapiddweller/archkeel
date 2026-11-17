@@ -328,6 +328,26 @@
           "items": {
             "type": "string"
           }
+        },
+        "members": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "The members of a cycle, sorted: a set without order."
+        },
+        "path": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/PathStep"
+          },
+          "description": "The closed path of a cycle in import order (AD-484): each step imports the next, and the\nlast step ends at the first member. Empty only when the members have no closed path."
         }
       },
       "required": [
@@ -336,6 +356,37 @@
         "cause",
         "evidence"
       ],
+      "description": "One violation row. `source` and `target` are its identity, which the baseline reads (AD-546):\nfor a cycle the sorted members joined by ` -> ` and the first member, as before #1657. That\ntext is no path; `members` and `path` (AD-786) name the set and the closed path of a cycle.",
+      "additionalProperties": false
+    },
+    "PathStep": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "imports": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "evidence": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "imports",
+        "evidence"
+      ],
+      "description": "One step of the closed path of a cycle: the importing member, the imported member, the number\nof imports that make the step and the evidence of the first of them (one import site).",
       "additionalProperties": false
     },
     "WhyUnknown": {

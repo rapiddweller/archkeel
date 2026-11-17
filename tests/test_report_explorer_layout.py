@@ -155,6 +155,25 @@ def test_a_module_path_breaks_at_a_slash(site: str, page: Browser) -> None:
         assert all(line.endswith("/") for line in card[:-1]), card
 
 
+def test_a_module_box_carries_the_language_of_its_part(site: str, page: Browser) -> None:
+    # The Language perspective said "No tagged objects on this diagram" on a module level.
+    page.open(f"{site}/system.html?scope=SHELL-ENTRY&content=modules")
+    found = page.evaluate(
+        "(() => { const flow = document.getElementById('flow');"
+        " const boxes = [...flow.querySelectorAll('svg [data-uml-kind=\"module\"]')];"
+        " return { boxes: boxes.length,"
+        " tagged: boxes.map((g) => g.querySelector('.ak-tag')?.dataset.language || null),"
+        " chips: [...flow.querySelectorAll('.ak-chip')].map((c) => c.textContent.trim()),"
+        " empty: flow.textContent.includes('No tagged objects on this diagram') }; })()"
+    )
+    assert found["boxes"] > 0
+    assert found["tagged"] == ["python"] * found["boxes"], found
+    assert found["chips"] == [f"python{found['boxes']}"] or found["chips"] == [
+        f"python {found['boxes']}"
+    ], found
+    assert not found["empty"]
+
+
 def test_two_stacked_boxes_get_a_direct_edge(site: str, page: Browser) -> None:
     # A tall canvas makes the layout wrap the two parts of the system into two rows.
     page.open(f"{site}/system.html")
