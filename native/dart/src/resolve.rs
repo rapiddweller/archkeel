@@ -52,13 +52,13 @@ pub(crate) struct Target {
 /// A declaration that a name binds (`ResolvedBinding`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Bound {
+    pub(crate) at: usize,
+    pub(crate) span: Span,
     pub(crate) module: String,
     pub(crate) name: String,
     pub(crate) kind: DefinitionKind,
     pub(crate) via_prefix: Option<String>,
     pub(crate) id: String,
-    pub(crate) at: usize,
-    pub(crate) span: Span,
 }
 
 /// The type arguments of a class for its type parameters, in the order of the parameters.
