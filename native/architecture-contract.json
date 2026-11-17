@@ -1836,6 +1836,7 @@
       ],
       "public": [
         "native.archkeel_report.report:Decided",
+        "native.archkeel_report.report:RunStatus",
         "native.archkeel_report.status:Unexplained",
         "native.archkeel_report.status:run_status",
         "native.archkeel_report.status:system_status"
