@@ -2439,6 +2439,15 @@
       <p>${[...new Set(inventories.flatMap((item) => item.provenance))].map(esc).join(" · ")}</p></section>`;
   }
 
+  // The symbols of a module: the count when the run has one, else the limit in plain words, once.
+  // The coverage record states it (`unavailable` and its reason); nothing is said when it states none.
+  function atlasSymbolsLine(module) {
+    if (module.symbols != null) return REPORT_SCENE.countLabel(module.symbols, "observed symbol");
+    const limit = (module.symbol_coverage || []).find((item) => item.status === "unavailable");
+    if (!limit) return "";
+    const reason = (limit.reason || "").replace(/\.$/, "");
+    return `Symbols: not counted in this run${reason ? ` (${esc(reason.charAt(0).toLowerCase() + reason.slice(1))})` : ""}`;
+  }
   // What a box is: a layer or a group of components, or a component.
   function atlasBoxKind(component) {
     // A box that holds one component is that component, whatever its id says.
@@ -2461,8 +2470,8 @@
     while (paths.length && paths.every((parts) => parts.length > shared + 1 && parts[shared] === paths[0][shared])) shared += 1;
     const rows = [...byModule].map(([module, shorts]) => {
       const label = module ? module.split(".").slice(shared).join(".") || module : "";
-      const shown = shorts.slice(0, 8).map(esc).join(", ");
-      return `<li>${label ? `<strong>${esc(label)}</strong> (${shorts.length}): ` : ""}${shown}${shorts.length > 8 ? `, +${shorts.length - 8} more` : ""}</li>`;
+      // Every name is listed: the fold above the list opens to the whole interface.
+      return `<li>${label ? `<strong>${esc(label)}</strong> (${shorts.length}): ` : ""}${shorts.map(esc).join(", ")}</li>`;
     }).join("");
     const title = `Provides · ${REPORT_SCENE.countLabel(names.length, "name")}${byModule.size > 1 ? ` in ${REPORT_SCENE.countLabel(byModule.size, "module")}` : ""}`;
     return names.length > 6 ? `<details class="atlas-provides"><summary>${title}</summary><ul class="plain">${rows}</ul></details>`
@@ -2511,23 +2520,31 @@
       const grouped = (direction) => {
         const rows = ATLAS.cells.filter((cell) => cell[direction === "in" ? "target_id" : "source_id"] === module.id);
         const groups = new Map();
+        let outside = 0;
         for (const cell of rows) {
           const id = cell[direction === "in" ? "source_id" : "target_id"];
           const other = REPORT_SCENE.atlasModuleById(id);
           const binding = ATLAS.assignments.find((item) => item.id === id);
-          const name = REPORT_SCENE.atlasComponent(binding?.component_id)?.label || "UNKNOWN owner / outside this level";
+          const known = REPORT_SCENE.atlasComponent(binding?.component_id)?.label;
+          // A module that no component owns is no component: it is counted apart.
+          if (!known) outside += 1;
+          const name = known || "Outside the contract";
           if (!groups.has(name)) groups.set(name, []);
           groups.get(name).push(`<li>${esc(other.name)} · ${REPORT_SCENE.countLabel(cell.import_sites, "site")}</li>`);
         }
         if (!rows.length) return "";
         // Many modules fold behind the line that counts them, as the provided names do.
-        const title = `${direction === "in" ? "Imported by" : "Imports"} · ${REPORT_SCENE.countLabel(rows.length, "module")} in ${REPORT_SCENE.countLabel(groups.size, "component")}`;
+        const components = groups.size - (outside ? 1 : 0);
+        const counted = [components ? `${REPORT_SCENE.countLabel(rows.length - outside, "module")} in ${REPORT_SCENE.countLabel(components, "component")}` : "",
+          outside ? `${REPORT_SCENE.countLabel(outside, "module")} outside the contract` : ""].filter(Boolean).join(" · ");
+        const title = `${direction === "in" ? "Imported by" : "Imports"} · ${counted}`;
         const body = [...groups].map(([name, items]) => `<h4>${esc(name)}</h4><ul class="plain">${items.join("")}</ul>`).join("");
         return rows.length > 4 ? `<details class="atlas-imports"><summary>${title}</summary>${body}</details>` : `<h3>${title}</h3>${body}`;
       };
       inspectorContent.innerHTML = `<div class="kicker">Observed module · counts over the observed source scope</div>
         <h2>${esc(module.name)}</h2>${atlasModuleShown(module.id) ? "" : `<p>${atlasModuleLink(module, "Show in the module view")}</p>`}${module.path ? `<p><code>${esc(module.path)}</code></p>` : ""}
-        <p>${module.symbols == null ? "" : `${REPORT_SCENE.countLabel(module.symbols, "observed symbol")} · `}fan-in ${module.fan_in ?? "UNKNOWN"} · fan-out ${module.fan_out ?? "UNKNOWN"}</p>
+        <p>${atlasSymbolsLine(module)}</p>
+        <p>fan-in ${module.fan_in ?? "UNKNOWN"} · fan-out ${module.fan_out ?? "UNKNOWN"}</p>
         <h3>Owner</h3><p>${esc(owner?.label || "UNKNOWN")} · ${esc(assignment?.ownership_reason || "No assignment receipt")}</p>
         ${owner ? list("Responsibility", owner.responsibilities) + list("Not responsible for", owner.not_responsible_for) : list("Candidate owners", assignment?.candidate_ids || [])}
         ${grouped("in")}${grouped("out")}

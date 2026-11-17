@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from tools import report_gallery
+from tools import report_gallery, report_gallery_page
 
 # A stand-in for the CLI. The root names the behavior: `served` writes both files and gives rule
 # rows, `refused` gives a refusal and writes no file, `garbage` prints no envelope.
@@ -86,8 +86,9 @@ def test_the_showcase_lists_every_matrix_entry_with_commit_and_time(tmp_path: Pa
     assert page.count("<script>") == 1 and "src=" not in page
     assert 'data-ak-theme="light"' in page and "--surface-0" in page
     assert 'href="../index.html"' in page
-    assert re.findall(r'<p class="caption">(\d+) runs?</p>', page)
-    assert sum(map(int, re.findall(r'<p class="caption">(\d+) runs?</p>', page))) == len(names)
+    captions = re.findall(r'<p class="caption">(\d+) runs?</p>', page)
+    # The self-check is one more card, the anchor of the real projects.
+    assert sum(map(int, captions)) == len(names) + 1
 
 
 def test_a_run_with_showcase_false_is_not_listed_but_stays_in_the_table(tmp_path: Path) -> None:
@@ -127,7 +128,7 @@ def test_a_refused_row_has_its_reason_and_no_dead_link(tmp_path: Path) -> None:
     assert code == 0
     assert "refused: &lt;b&gt;profile&lt;/b&gt; refused" in page
     assert "<b>" not in page
-    assert "href=" not in page.split("<tbody>")[1]
+    assert "href=" not in page.split("<tbody>")[-1]
     assert not (out / "refused-one" / "report.html").exists()
 
 
@@ -135,7 +136,8 @@ def test_every_link_points_at_a_file_that_exists(tmp_path: Path) -> None:
     runs = [_run("served-a", "served-a"), _run("refused-b", "refused-b")]
     code, out = _build(tmp_path, _matrix(tmp_path / "m.json", runs))
     folder = out / "showcase"
-    links = re.findall(r'href="([^"]+)"', (folder / "index.html").read_text())
+    found = re.findall(r'href="([^"]+)"', (folder / "index.html").read_text())
+    links = [link for link in found if not link.startswith("https://")]
     assert code == 0
     assert links
     assert all((folder / link).resolve().is_file() for link in links)
@@ -160,9 +162,10 @@ def test_the_builder_refuses_a_directory_that_holds_files(tmp_path: Path) -> Non
 
 
 def test_dynamic_text_is_escaped_in_the_index() -> None:
-    row = {"run": {"name": "x<y", "language": "a&b"}, "links": [("HTML", 'p"q/report.html')]}
+    run = {"name": "x<y", "about": "a&b", "intent": "PASS", "blocked_by": [7]}
+    row = {"run": run, "links": [("HTML", 'p"q/report.html')]}
     row["error"] = "<script>alert(1)</script>"
-    page = report_gallery.index([row], "sha<1>", "now&then")
+    page = report_gallery_page.index([row], "sha<1>", "now&then")
     assert "<script>alert" not in page and page.count("<script>") == 1
     assert "x&lt;y" in page
     assert "a&amp;b" in page
@@ -254,3 +257,94 @@ def test_the_system_page_and_badge_sit_in_self_and_link_their_neighbours(tmp_pat
 
 def test_the_badge_of_the_system_has_no_result_when_a_part_has_none() -> None:
     assert report_gallery.system_badge([])["message"] == "no result"
+
+
+def _row(run: dict, status: str | None) -> dict:
+    summary = None if status is None else {"status": status, "counts": dict.fromkeys(STATUSES, 0)}
+    summary = summary and {**summary, "gaps": {}, "refusal": None}
+    return {"run": {"name": "n", **run}, "links": [], **({"summary": summary} if summary else {})}
+
+
+STATUSES = report_gallery_page.STATUSES
+
+
+def _section(page: str, key: str) -> str:
+    return page.split(f'id="sec-{key}"')[1].split("</section>")[0]
+
+
+def test_the_page_has_four_sections_in_order_and_each_run_sits_in_its_own() -> None:
+    rows = [
+        _row({"name": "u", "section": "unknown", "intent": "UNKNOWN", "about": "au"}, "UNKNOWN"),
+        _row({"name": "c", "section": "clean", "intent": "PASS", "about": "ac"}, "PASS"),
+        _row({"name": "v", "section": "violation", "intent": "FAIL", "about": "av"}, "FAIL"),
+        _row({"name": "r", "section": "real", "intent": "PASS", "about": "ar"}, "PASS"),
+    ]
+    page = report_gallery_page.index(rows, "sha", "now")
+    titles = re.findall(r'<h2 class="h3" id="sec-(\w+)">([^<]+)</h2>', page)
+    assert titles == [
+        ("real", "Real projects (PASS earned)"),
+        ("clean", "Clean scenarios (PASS on purpose)"),
+        ("violation", "Violation scenarios (FAIL on purpose)"),
+        ("unknown", "What UNKNOWN means"),
+    ]
+    for key, name in (("real", "r"), ("clean", "c"), ("violation", "v"), ("unknown", "u")):
+        assert f"<td>{name}</td>" in _section(page, key)
+        assert page.count(f"<td>{name}</td>") == 1
+
+
+def test_an_empty_section_is_not_drawn() -> None:
+    rows = [_row({"section": "clean", "intent": "PASS", "about": "a"}, "PASS")]
+    page = report_gallery_page.index(rows, "sha", "now")
+    assert 'id="sec-clean"' in page
+    assert all(f'id="sec-{key}"' not in page for key in ("real", "violation", "unknown"))
+
+
+def test_the_self_check_is_the_anchor_card_of_the_real_projects(tmp_path: Path) -> None:
+    code, out = _build(tmp_path, _matrix(tmp_path / "m.json", [_run("served-a", "served-a")]))
+    page = (out / "showcase" / "index.html").read_text()
+    real = _section(page, "real")
+    assert code == 0
+    assert "<td>ArchKeel self-check</td>" in real
+    assert 'href="../self/index.html"' in real
+    # The stub gives a FAIL for each part: the card says so next to the intent.
+    assert "expected PASS" in real and "FAIL today" in real
+
+
+def test_a_run_that_meets_its_intent_says_so_without_a_blocker() -> None:
+    assert "expected PASS</span> \u00b7 PASS" in report_gallery_page.intent_line(
+        {"intent": "PASS"}, "PASS"
+    )
+    assert "expected FAIL</span> \u00b7 FAIL" in report_gallery_page.intent_line(
+        {"intent": "FAIL"}, "FAIL"
+    )
+    line = report_gallery_page.intent_line({"intent": "UNKNOWN"}, "UNKNOWN")
+    assert "UNKNOWN on purpose</span> \u00b7 UNKNOWN" in line
+    assert "blocked" not in line and "not met" not in line
+
+
+def test_a_run_that_differs_from_its_intent_names_the_difference_and_its_blocker() -> None:
+    run = {"intent": "PASS", "blocked_by": [1534, 1533]}
+    line = report_gallery_page.intent_line(run, "UNKNOWN")
+    assert "expected PASS" in line and "UNKNOWN today" in line
+    assert "blocked by" in line
+    assert f'href="{report_gallery_page.REPOSITORY}/issues/1534">#1534</a>' in line
+    assert "#1533" in line
+
+
+def test_a_difference_without_a_blocker_is_a_scenario_not_met() -> None:
+    line = report_gallery_page.intent_line({"intent": "FAIL"}, "PASS")
+    assert "expected FAIL" in line and "PASS today" in line and "scenario not met" in line
+    assert "ak-t-fail" in line
+    assert "no result" in report_gallery_page.intent_line({"intent": "PASS"}, None)
+    assert "no intent stated" in report_gallery_page.intent_line({}, "PASS")
+
+
+def test_every_shown_matrix_run_states_a_section_an_intent_and_a_blocker_when_it_differs() -> None:
+    known = {key for key, _, _ in report_gallery_page.SECTIONS}
+    for run in report_gallery.showcase_runs():
+        assert run.get("section") in known, run["name"]
+        assert run.get("intent") in STATUSES, run["name"]
+        assert run.get("about"), run["name"]
+        pinned = run["expect"]["status"]
+        # What the matrix pins today may differ from the intent only with a named issue.
+        assert run["intent"] == pinned or run.get("blocked_by"), run["name"]
