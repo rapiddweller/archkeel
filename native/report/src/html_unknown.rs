@@ -20,6 +20,7 @@ const MAX_CARDS: usize = 12;
 const MAX_ROWS: usize = 12;
 const MAX_IDS: usize = 5;
 const MAX_LISTED_IDS: usize = 40;
+const MAX_SITES: usize = 100;
 
 /// What to do, for a cause whose meaning is fixed.
 fn advice(kind: &str) -> Option<&'static str> {
@@ -128,6 +129,35 @@ fn stated_once(frame: &Frame) -> String {
         return String::new();
     }
     format!("<p class=\"caption\">Stated once</p><ul>{items}</ul>")
+}
+
+fn scan_sites(frame: &Frame) -> String {
+    let mut total = 0;
+    let mut sites = String::new();
+    for gap in &frame.collection_gaps {
+        if let Some(place) = gap.evidence.first().and_then(|id| frame.place(id)) {
+            total += 1;
+            if total <= MAX_SITES {
+                sites.push_str(&format!(
+                    "<li class=\"body-sm\"><span class=\"rp-code\">{}</span> &#8212; {}</li>",
+                    escape(&place),
+                    escape(&gap.reason)
+                ));
+            }
+        }
+    }
+    if total == 0 {
+        return String::new();
+    }
+    format!(
+        "<details class=\"rp-fold\"><summary class=\"caption\">Scan gap sites: {} of {}</summary>\
+<p class=\"body-sm\">These are scan gaps; not every gap holds every rule. Review each site. \
+For eligible doors, a declared reach is an assumption, not a proof; a resulting \
+PASS assuming the declared reach is conditional. Not every gap can be declared.</p><ul>{}</ul></details>",
+        total.min(MAX_SITES),
+        total,
+        sites
+    )
 }
 
 /// The kinds of the scan gaps, counted: what the collector could not read.
@@ -268,6 +298,9 @@ pub(super) fn section(frame: &Frame, names: &Names<'_>) -> String {
     for found in &cards {
         html.push_str(&card(frame, names, found));
     }
+    if cards.iter().any(|card| card.kind == "scoped_gaps") {
+        html.push_str(&scan_sites(frame));
+    }
     if total > cards.len() {
         html.push_str(&format!(
             "<p class=\"caption rp-note\">The page shows {} of {} causes, the largest first.</p>",
@@ -284,4 +317,34 @@ pub(super) fn section(frame: &Frame, names: &Names<'_>) -> String {
     }
     html.push_str("</section>\n");
     html
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::{json, Value};
+
+    fn page(frame: &Value) -> String {
+        super::super::render(frame.as_object().unwrap()).unwrap()["document"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    }
+
+    #[test]
+    fn unknown_scope_shows_gap_sites_and_conditional_reach_advice() {
+        let mut frame = json!({"status": "UNKNOWN", "rules": {"A": ["complete_requires", "UNKNOWN"]},
+            "explain": {"holds": {"rules": {"A": {"cause": "scope_incomplete", "kind": "scoped_gaps", "total": 2}}}},
+            "collection_gaps": [
+                {"kind": "source_resolution_gap", "reason": "dynamic_import: import_module", "evidence": ["E1"]},
+                {"kind": "source_resolution_gap", "reason": "dynamic_import: pickle.loads", "evidence": ["E2"]}],
+            "locations": {"E1": {"path": "src/a.py", "line": 12}, "E2": {"path": "src/b.py", "line": 42}}});
+        let rendered = page(&frame);
+        assert!(rendered.contains("src/a.py:12") && rendered.contains("src/b.py:42"));
+        assert!(rendered.contains("not every gap holds every rule"));
+        assert!(rendered.contains("PASS assuming the declared reach"));
+        frame["collection_gaps"][0]["reason"] = json!("<script>");
+        assert!(page(&frame).contains("&lt;script&gt;"));
+        frame["collection_gaps"] = json!([]);
+        assert!(!page(&frame).contains("Scan gap sites"));
+    }
 }
