@@ -37,7 +37,6 @@ use crate::observed::Observed;
 
 /// The rule kinds that no store-accepted profile decides (`unsupported_rules`).
 const UNDECIDED_KINDS: &[RuleKind] = &[
-    RuleKind::SymbolPlacement,
     RuleKind::CallOwner,
     RuleKind::BoundedNumericOperand,
     RuleKind::ProtocolDeclarations,
@@ -169,6 +168,8 @@ enum Reads {
     Shapes,
     /// The public symbols of the modules and every import (`unused_public`, AD-670).
     Published,
+    /// The class inventory and class symbols.
+    Placement,
     /// Only the module-level import edges.
     Edges,
 }
@@ -184,6 +185,7 @@ fn reads(rule: &Rule) -> Reads {
         undecided_rule!() => Reads::Undecided,
         Rule::BoundaryTypes(_) => Reads::Shapes,
         Rule::UnusedPublic(_) => Reads::Published,
+        Rule::SymbolPlacement(_) => Reads::Placement,
         Rule::ForbiddenDependency(_)
         | Rule::AllowedDependency(_)
         | Rule::ExternalDependencyScope(_)
@@ -247,7 +249,8 @@ fn own_limit(rule: &Rule, observed: &Observed) -> Option<Limit> {
             | Reads::Ports
             | Reads::Edges
             | Reads::Shapes
-            | Reads::Published,
+            | Reads::Published
+            | Reads::Placement,
             _,
         ) => None,
     }
@@ -306,7 +309,9 @@ fn symbol_reader(contract: &Contract, rule: &Rule) -> Option<String> {
         Reads::Interface => publics().chain(selectors(contract)).next(),
         // AD-670: without the names of the imports, every item would look unused.
         Reads::Published => Some(archkeel_contract::head_of(rule).id().as_text().to_owned()),
-        Reads::Undecided | Reads::Constructs | Reads::Edges | Reads::Shapes => None,
+        Reads::Undecided | Reads::Constructs | Reads::Edges | Reads::Shapes | Reads::Placement => {
+            None
+        }
     }
 }
 
