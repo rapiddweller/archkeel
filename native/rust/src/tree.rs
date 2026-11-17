@@ -46,7 +46,7 @@ impl Module {
         {
             &self.module
         } else {
-            archkeel_facts::identity::package_of(&self.module)
+            self.module.rsplit_once('.').map_or("", |(parent, _)| parent)
         }
     }
 }
