@@ -42,6 +42,14 @@ def test_time_grows_linearly_with_the_size(
     assert_time_grows_linearly(tmp_path, collector, name, dump_binary)
 
 
+def test_nested_comparison_wrappers_take_linear_time(
+    tmp_path: Path,
+    collector: Path,  # noqa: F811
+    dump_binary: Path,  # noqa: F811
+) -> None:
+    assert_time_grows_linearly(tmp_path, collector, "sites-comparison-wrappers", dump_binary)
+
+
 # The sites keep a chain, a path or a range of bytes for each node, and never a copy of the names
 # above them. The shapes that stress each of these: a union of names for each site (n nested arrow
 # functions with n sites at the bottom), a path for each member of a chain, the receiver text of

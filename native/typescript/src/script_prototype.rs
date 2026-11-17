@@ -28,8 +28,8 @@ const PROTO: &str = "__proto__";
 impl<'x, 'a, 't> Producer<'x, 'a, 't> {
     /// A prototype of the global object that leaves its place: passed, stored or returned. A
     /// member read, an element and a comparison give no prototype to anyone.
-    pub(crate) fn prototype_escape(&self, node: Node<'t>) -> bool {
-        self.platform_prototype(node) && self.escapes(node, false)
+    pub(crate) fn prototype_escape(&self, node: Node<'t>, value: Node<'t>) -> bool {
+        self.platform_prototype(value) && self.escapes(node, false)
     }
 
     /// A write target that changes a prototype of the global object. `p[k] = v` with a run-time
