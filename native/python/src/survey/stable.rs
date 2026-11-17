@@ -43,6 +43,7 @@ pub(super) fn file_fact(
         compatibility_logic_free: binders.logic_free,
         stable_bindings,
         blank: module.tree.body.is_empty(),
+        class_inventory_empty: super::class_inventory::empty(&module.tree).then_some(true),
         evidence_id: EvidenceId::new(module.file_evidence(evidence)),
     }
 }

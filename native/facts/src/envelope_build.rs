@@ -29,6 +29,7 @@ impl FileFact {
             compatibility_logic_free: false,
             stable_bindings: Vec::new(),
             blank,
+            class_inventory_empty: None,
             evidence_id: EvidenceId::new(evidence_id),
         }
     }

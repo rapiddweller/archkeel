@@ -30,6 +30,7 @@ pub(crate) mod binders;
 pub(crate) mod bound;
 pub(crate) mod bound_kind;
 mod call_count;
+mod class_inventory;
 mod constructs;
 mod copy_local;
 mod declared;
@@ -222,13 +223,22 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
             record.data.data_mut().source_binding_unique = Some(false);
         }
     }
+    let class_namespace_safe = modules
+        .iter()
+        .all(|module| class_inventory::namespace_safe(&module.tree))
+        && hazards.is_empty()
+        && opaque_surface.is_empty();
     let files: Vec<FileFact> = modules
         .iter()
         .zip(&binders)
         .zip(&aliases)
         .map(|((module, binders), aliases)| {
             let stable = stable::bindings(module, binders, aliases, minor);
-            stable::file_fact(module, binders, stable, &mut evidence)
+            let mut file = stable::file_fact(module, binders, stable, &mut evidence);
+            if !class_namespace_safe {
+                file.class_inventory_empty = None;
+            }
+            file
         })
         .collect();
     let mut unknowns = parsed.gaps;

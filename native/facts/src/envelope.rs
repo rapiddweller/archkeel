@@ -306,6 +306,9 @@ pub struct FileFact {
     pub stable_bindings: Vec<String>,
     /// True when the file has no code.
     pub blank: bool,
+    /// A proof that the file has no class declarations; absence is not such a proof.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class_inventory_empty: Option<bool>,
     /// The evidence record of the file.
     pub evidence_id: EvidenceId,
 }
