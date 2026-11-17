@@ -100,7 +100,8 @@ def test_a_single_crate_is_a_rust_part_with_a_component_for_each_top_module(
     assert selectors == {
         "errors": ([f"{namespace}.errors"], []),
         "validators": ([f"{namespace}.validators"], []),
-        "root": ([], [namespace, f"{namespace}.build_script"]),
+        # The collector reads the manifest as the module `cargo_toml` of the crate.
+        "root": ([], [namespace, f"{namespace}.build_script", f"{namespace}.cargo_toml"]),
     }
 
 

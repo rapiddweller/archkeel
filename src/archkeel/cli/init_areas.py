@@ -244,7 +244,11 @@ def _rust_crate(repo: Path, root: Path, text: str) -> Layout | None:
     off = re.search(r"^build\s*=\s*false", package or "", re.M)
     build = _value(package, "build") or (not off and (root / "build.rs").is_file())
     script = (f"{module}.build_script",) if build else ()
-    parts.append(Part("root", modules=(module, *script)))
+    # The collector reads the manifest as a module `cargo_toml`, with `_` until the name is free.
+    manifest = "cargo_toml"
+    while manifest in names:
+        manifest += "_"
+    parts.append(Part("root", modules=(module, *script, f"{module}.{manifest}")))
     scan = root.relative_to(repo).as_posix()
     return Layout("rust", namespace, (scan,), tuple(parts), _TESTS, crates=(scan,))
 
