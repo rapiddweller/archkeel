@@ -17,8 +17,11 @@ import json
 import os
 import re
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 from typing import Final
+
+from .core_schema import schema_file
 
 DOCUMENT: Final = "https://github.com/rapiddweller/archkeel/blob/main/docs/onboarding.md"
 _IGNORED: Final = frozenset({".git", ".venv", "venv", "node_modules", "target", "build", "dist"})
@@ -221,7 +224,6 @@ def _tsconfig(repo: Path, folder: Path) -> str:
 
 
 _DEPTH: Final = 3
-_CODE: Final = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
 # The tsconfig of a project leaves its test files out; the scan then reports each as a gap that
 # leaves the whole scope unknown. A draft leaves them out of the scan too (the result says so).
 _TESTS: Final = "exclude_test_sources = true\n"
@@ -255,10 +257,21 @@ def _folders(repo: Path) -> list[Path]:
     return found
 
 
+@cache
+def _code_suffixes() -> frozenset[str]:
+    """The TypeScript and JavaScript source suffixes, read from the one owner of the table.
+
+    `schema/archkeel-source-suffixes.txt` holds one `language suffix` row for each suffix; the
+    contract crate embeds the same file."""
+    lines = schema_file("archkeel-source-suffixes.txt").read_text(encoding="utf-8").splitlines()
+    rows = [line.split(" ", 1) for line in lines if " " in line]
+    return frozenset(suffix for language, suffix in rows if language == "typescript")
+
+
 def _has_code(folder: Path) -> bool:
     for _, names, files in os.walk(folder):
         names[:] = [name for name in names if name not in _IGNORED]
-        if any(Path(file).suffix in _CODE for file in files):
+        if any(Path(file).suffix in _code_suffixes() for file in files):
             return True
     return False
 
@@ -281,7 +294,9 @@ def _typescript_project(repo: Path, folder: Path) -> Layout:
 
     def code_files(parent: Path) -> list[Path]:
         return [
-            path for path in sorted(parent.iterdir()) if path.is_file() and path.suffix in _CODE
+            path
+            for path in sorted(parent.iterdir())
+            if path.is_file() and path.suffix in _code_suffixes()
         ]
 
     units, own = [], code_files(folder)

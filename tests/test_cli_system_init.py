@@ -148,3 +148,19 @@ def test_a_json_import_does_not_stop_the_report(
     code = core_only.run(["report", "--root", str(root), "--output", str(page), "--text"])
     out = capsys.readouterr().out
     assert code == 2 and page.is_file() and "REFUSED" not in out, out
+
+
+def test_the_source_suffixes_have_one_owner_that_the_shell_and_the_core_read() -> None:
+    """The table of source suffixes is the file `schema/archkeel-source-suffixes.txt`: the contract
+    crate embeds it and the shell reads it. A second table in code fails `test_table_overlap.py`."""
+    from archkeel.cli.init_areas import _code_suffixes
+
+    rows = [
+        line.split(" ", 1)
+        for line in (Path(__file__).parents[1] / "schema/archkeel-source-suffixes.txt")
+        .read_text()
+        .splitlines()
+    ]
+    assert {language for language, _ in rows} == {"python", "dart", "typescript"}
+    assert _code_suffixes() == {suffix for language, suffix in rows if language == "typescript"}
+    assert ".ts" in _code_suffixes() and ".py" not in _code_suffixes()
