@@ -93,6 +93,8 @@ mod reason;
 mod reason_key;
 pub use reason_key::{gap_kind, stable};
 mod scope;
+mod scope_order;
+mod scope_receipt;
 mod section;
 mod settings;
 mod sides;

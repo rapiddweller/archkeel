@@ -1096,6 +1096,8 @@
       "layer": "model",
       "packages": [
         "native.archkeel_model.scope",
+        "native.archkeel_model.scope_order",
+        "native.archkeel_model.scope_receipt",
         "native.archkeel_model.verdict",
         "native.archkeel_model.receipts",
         "native.archkeel_model.run",
