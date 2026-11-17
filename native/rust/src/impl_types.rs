@@ -22,7 +22,8 @@ use super::receivers::{certainly_visible, exact_type, field_of, same_gates, Cand
 use crate::definitions::{MethodCall, ReceiverChain, Root, SelfKind, Step, Written};
 use crate::modules::{Frame, Index, TypeOf};
 use crate::tree::Module;
-use ty::{element, outside_path, std_function, std_method, std_path, Std, Ty};
+use paths::{outside_path, std_path};
+use ty::{behind_shared, element, no_workspace, std_function, std_method, Std, Ty};
 
 /// What a method call can reach, from the type of its receiver.
 pub(super) enum Verdict<'t, 'a> {
@@ -365,30 +366,13 @@ impl<'t, 'a> Context<'t, '_, 'a> {
     }
 }
 
-/// Whether a type holds no type of the workspace and no unknown type.
-fn no_workspace(ty: &Ty) -> bool {
-    match ty {
-        Ty::Std(_, args) => args.iter().all(no_workspace),
-        Ty::Ref(_, inner) => no_workspace(inner),
-        Ty::Own(..) | Ty::Unknown => false,
-    }
-}
-
-/// Whether a shared reference is among the references around a type.
-fn behind_shared(ty: &Ty) -> bool {
-    let mut ty = ty;
-    while let Ty::Ref(kind, inner) = ty {
-        if *kind == SelfKind::Shared {
-            return true;
-        }
-        ty = inner;
-    }
-    false
-}
-
 /// The definitions that a chain names by a path (AD-804).
 #[path = "impl_defs.rs"]
 mod defs;
+
+/// The std and outside types that a written path names (AD-804).
+#[path = "impl_paths.rs"]
+mod paths;
 
 /// The receiver types, and the std types and methods that the resolver knows (#1571, AD-804).
 #[path = "impl_ty.rs"]
