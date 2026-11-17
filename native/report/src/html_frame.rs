@@ -80,6 +80,14 @@ fn rules_without_row(rules: &Value) -> Unsupported {
     }
 }
 
+/// The system of the page of a part (E4): an input of the page that the frame does not carry.
+#[derive(Clone, Debug, Deserialize)]
+pub(super) struct PartOf {
+    pub(super) system: String,
+    pub(super) part: String,
+    pub(super) href: Option<String>,
+}
+
 /// The parts of the frame that the page shows.
 #[derive(Clone, Debug, Default)]
 pub(super) struct Frame {
@@ -94,6 +102,10 @@ pub(super) struct Frame {
     pub(super) interfaces: Vec<Interface>,
     /// The parts of a system, each with its own status and rules (AD-616).
     pub(super) parts: Vec<Part>,
+    /// The title of the system of a system frame, empty for the run of one configuration.
+    pub(super) system_title: String,
+    /// The system that this page is a part of, when the request names one (E4).
+    pub(super) part_of: Option<PartOf>,
     pub(super) explain: Explain,
     pub(super) head: String,
     pub(super) explained: BTreeMap<String, String>,
@@ -186,6 +198,11 @@ impl Frame {
             explain: field(frame, "explain"),
             interfaces: field(&frame["system"], "interfaces"),
             parts: field(&frame["system"], "parts"),
+            system_title: frame["system"]["title"]
+                .as_str()
+                .unwrap_or_default()
+                .to_owned(),
+            part_of: serde_json::from_value(frame["part_of"].clone()).ok(),
             accepted: field(&frame["baseline"], "accepted_rules"),
             baseline: frame["baseline"]["state"].as_str().map(|state| {
                 let accepted = frame["baseline"]["accepted_unknowns"].as_u64();

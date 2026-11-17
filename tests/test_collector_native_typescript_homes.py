@@ -126,9 +126,20 @@ def test_each_script_global_decision_reads_the_one_write_check() -> None:
 # form is decided in one of three files, and each reader of the empty path reads `blocks_all`.
 AMPLIFIER_HOMES = {
     # AD-766: the reflective writes give an amplifier form on a value that the file does not make.
-    "Reach::Amplified": {"script_window.rs", "script_forms.rs", "script_reflective.rs"},
+    # AD-792: a document value, a document pattern and an address read from data are amplifiers.
+    "Reach::Amplified": {
+        "script_window.rs",
+        "script_forms.rs",
+        "script_reflective.rs",
+        "script_dom.rs",
+    },
     # AD-768: a new `__proto__` of a value that the file does not make is an amplifier form.
-    "Written::Amplified": {"script_window.rs", "script_declarations.rs", "script_prototype.rs"},
+    "Written::Amplified": {
+        "script_window.rs",
+        "script_declarations.rs",
+        "script_prototype.rs",
+        "script_dom.rs",
+    },
 }
 
 

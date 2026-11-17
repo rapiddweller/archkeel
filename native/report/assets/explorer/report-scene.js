@@ -270,7 +270,8 @@
       colors: { Agent: "var(--accent)", Architect: "var(--ink-muted)", "Not recorded": "var(--ink-subtle)" } },
     layer: { label: "Layer", value: (node) => node.component?.layer || null },
     // AD-606: the language of the collector of the modules inside the component, from the frame.
-    language: { label: "Language", value: (node) => node.component?.language || null },
+    // A module box carries the language of its own collector, or of its part (issue 1488 review).
+    language: { label: "Language", value: (node) => node.component?.language || node.module?.language || null },
     evidence: { label: "Evidence", value: (node) => node.component?.status || null,
       colors: { PASS: "var(--pass)", FAIL: "var(--fail)", UNKNOWN: "var(--unknown)" } },
   };

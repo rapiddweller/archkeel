@@ -419,10 +419,12 @@ pub(crate) fn classify_asset(specifier: &str) -> Option<&str> {
 mod tests;
 
 /// The options that can map a name to a file of the project (#976, #988).
-#[derive(Clone, Copy)]
+#[derive(Clone, Default)]
 pub(crate) struct Reach {
     /// `paths` or `baseUrl` is set.
     pub aliased: bool,
     /// A type root may lie inside the project.
     pub type_roots: bool,
+    /// The name by which the file can import its own package (#1632), if it has one.
+    pub own_package: Option<String>,
 }

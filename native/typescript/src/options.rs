@@ -107,6 +107,7 @@ impl Options {
         Reach {
             aliased: self.base_url.is_some() || !self.paths.is_empty(),
             type_roots: self.project_type_roots,
+            own_package: None,
         }
     }
 

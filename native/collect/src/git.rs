@@ -95,8 +95,10 @@ pub(crate) fn head(root: &Path) -> Result<String, String> {
             }
         }
     }
+    // HEAD names a branch that has no commit: a repository that was just created.
     Err(format!(
-        "the ref {name} of HEAD is in no file of the Git directory"
+        "this Git repository has no commit yet (HEAD names {name}, which no commit made); \
+commit once, or run with --root on a folder"
     ))
 }
 
@@ -139,4 +141,29 @@ fn small(path: &Path) -> Option<String> {
         return None;
     }
     fs::read_to_string(path).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // A repository that has a HEAD and no commit says so, with what to do (a first run of a user).
+    #[test]
+    fn a_repository_without_a_commit_says_so_and_what_to_do() {
+        let root = std::env::temp_dir().join(format!("archkeel-nocommit-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join(".git")).unwrap();
+        fs::write(root.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
+        let why = head(&root).unwrap_err();
+        fs::remove_dir_all(&root).unwrap();
+        assert!(
+            why.starts_with("this Git repository has no commit yet"),
+            "{why}"
+        );
+        assert!(
+            why.contains("commit once, or run with --root on a folder"),
+            "{why}"
+        );
+        assert!(!why.contains("is in no file of the Git directory"));
+    }
 }

@@ -65,8 +65,9 @@ def test_the_module_sheet_states_the_symbol_limit_once_and_the_count_when_there_
     module = _module_id(page, "core_only")
     unavailable = _module_sheet(page, module)
     # The limit in plain words, once; the owner banned empty filler, not an honest limit.
-    assert unavailable.count("Symbols: not counted in this run") == 1
-    assert "the 5.0 frame names no symbol inventory" in unavailable
+    assert unavailable.count("Symbols: not counted") == 1
+    assert "(this version does not list symbols)" in unavailable
+    assert "5.0 frame" not in unavailable and "in this run" not in unavailable
     page.evaluate(f"ArchkeelFlow.reportScene.atlasModuleById({json.dumps(module)}).symbols = 12")
     counted = _module_sheet(page, module)
     assert "12 observed symbols" in counted and "not counted" not in counted

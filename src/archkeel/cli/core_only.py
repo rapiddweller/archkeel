@@ -154,6 +154,11 @@ def _request(options: Options, project: ProjectRoot) -> dict[str, object]:
         request["topology"] = True
     if page:
         request["html"] = True
+    if page and options.part_of is not None:
+        link: dict[str, str] = {"document": options.part_of}
+        if options.system_href is not None:
+            link["href"] = options.system_href
+        request["part_of"] = link
     if options.baseline is not None:
         request["baseline"] = options.baseline
     if options.write_baseline is not None:

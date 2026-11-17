@@ -104,7 +104,9 @@ def test_a_project_without_configuration_gets_the_draft_the_block_and_a_verdict(
     code, text = run(capsys, root, command, "--text")
     assert code == 2, text
     assert text.startswith("ArchKeel created archkeel.toml and a first contract draft with 4 ")
-    assert "Review the open decisions listed below, then run archkeel validate again." in text
+    assert "Review the open decisions, then run archkeel validate again." in text
+    # The words say where the decisions are, not that a list follows (a refusal prints none).
+    assert "TODO entries of the contract files above" in text and "listed below" not in text
     assert len(drafted(root)) == 3 and OPEN in text and "REFUSED" not in text
     # The second run is a normal run: no block, the same open decisions.
     code, again = run(capsys, root, command, "--text")
