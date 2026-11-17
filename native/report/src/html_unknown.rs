@@ -132,19 +132,21 @@ fn stated_once(frame: &Frame) -> String {
 }
 
 fn scan_sites(frame: &Frame) -> String {
-    let sites: Vec<_> = frame
-        .collection_gaps
-        .iter()
-        .filter_map(|gap| {
-            let place = gap.evidence.first().and_then(|id| frame.place(id))?;
-            Some(format!(
-                "<li class=\"body-sm\"><span class=\"rp-code\">{}</span> &#8212; {}</li>",
-                escape(&place),
-                escape(&gap.reason)
-            ))
-        })
-        .collect();
-    if sites.is_empty() {
+    let mut total = 0;
+    let mut sites = String::new();
+    for gap in &frame.collection_gaps {
+        if let Some(place) = gap.evidence.first().and_then(|id| frame.place(id)) {
+            total += 1;
+            if total <= MAX_SITES {
+                sites.push_str(&format!(
+                    "<li class=\"body-sm\"><span class=\"rp-code\">{}</span> &#8212; {}</li>",
+                    escape(&place),
+                    escape(&gap.reason)
+                ));
+            }
+        }
+    }
+    if total == 0 {
         return String::new();
     }
     format!(
@@ -152,9 +154,9 @@ fn scan_sites(frame: &Frame) -> String {
 <p class=\"body-sm\">These are scan gaps; not every gap holds every rule. Review each site. \
 For eligible doors, a declared reach is an assumption, not a proof; a resulting \
 PASS assuming the declared reach is conditional. Not every gap can be declared.</p><ul>{}</ul></details>",
-        sites.len().min(MAX_SITES),
-        sites.len(),
-        sites.into_iter().take(MAX_SITES).collect::<String>()
+        total.min(MAX_SITES),
+        total,
+        sites
     )
 }
 
