@@ -18,8 +18,6 @@ from typing import Final, NoReturn
 from .core_frame import CheckKind, CoreError
 from .core_frame import CoreCommand as Command
 
-# Accepted and ignored: the core is the only path, so the switch selects nothing.
-_VARIABLE: Final = "ARCHKEEL_CORE_ONLY"
 RELEASE: Final = "4.0.1"
 _LINE: Final = "not available in ArchKeel 5.0 yet"
 SERVED: Final = frozenset({Command.VALIDATE, Command.REPORT, Command.INIT})
