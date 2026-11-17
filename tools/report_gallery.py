@@ -157,7 +157,10 @@ def _reports(
             timeout=RUN_TIMEOUT,
             check=False,
         )
-        row["summary"] = summarize(json.loads(done.stdout))
+        envelope = json.loads(done.stdout)
+        row["summary"] = summarize(envelope)
+        # A PASS that holds only under premises of the contract says so (AD-736): the card shows it.
+        row["assuming"] = (envelope.get("frame") or {}).get("assuming")
         subprocess.run(
             command(cli, run, folder / f"{stem}.html", "html"),
             cwd=ROOT,

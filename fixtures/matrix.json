@@ -64,7 +64,7 @@
     "J-compass": {
       "language": "dart",
       "runs": [
-      {"name": "J-compass", "section": "real", "intent": "PASS", "blocked_by": [1539, 1533], "about": "Real project: the Flutter samples compass_app, pinned.", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 7}, "scope": "incomplete scope: 105 gaps leave unknown what the rule reads: the code of compass.config.dependencies, the code of compass.data.repositories.auth.auth_repository, the code of compass.data.repositories.auth.auth_repository_remote, the code of compass.data.services.api.model.booking.booking_api_model, the code of compass.data.services.api.model.login_request.login_request and 58 more", "gaps": {}, "refusal": null}}
+      {"name": "J-compass", "section": "real", "intent": "PASS", "blocked_by": [1533], "about": "Real project: the Flutter samples compass_app at 5541c59 (BSD-3-Clause). The pub workspace layout of flutter/samples: the app under compass_app/app, 37 pubspec files. All six requires rules PASS; only the UML row waits for Dart symbol facts.", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 6, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "K-python-realworld": {

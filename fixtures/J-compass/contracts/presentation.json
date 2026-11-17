@@ -396,7 +396,7 @@
           "responsibilities": [
             "Activity selection"
           ],
-          "file_path": "lib/ui/activities/view_models/activities_viewmodel.dart"
+          "file_path": "compass_app/app/lib/ui/activities/view_models/activities_viewmodel.dart"
         },
         {
           "id": "mod-compass-ui-activities-widgets-activities-header",
@@ -411,7 +411,7 @@
           "responsibilities": [
             "Activity selection"
           ],
-          "file_path": "lib/ui/activities/widgets/activities_header.dart"
+          "file_path": "compass_app/app/lib/ui/activities/widgets/activities_header.dart"
         },
         {
           "id": "mod-compass-ui-activities-widgets-activities-list",
@@ -426,7 +426,7 @@
           "responsibilities": [
             "Activity selection"
           ],
-          "file_path": "lib/ui/activities/widgets/activities_list.dart"
+          "file_path": "compass_app/app/lib/ui/activities/widgets/activities_list.dart"
         },
         {
           "id": "mod-compass-ui-activities-widgets-activities-screen",
@@ -441,7 +441,7 @@
           "responsibilities": [
             "Activity selection"
           ],
-          "file_path": "lib/ui/activities/widgets/activities_screen.dart"
+          "file_path": "compass_app/app/lib/ui/activities/widgets/activities_screen.dart"
         },
         {
           "id": "mod-compass-ui-activities-widgets-activities-title",
@@ -456,7 +456,7 @@
           "responsibilities": [
             "Activity selection"
           ],
-          "file_path": "lib/ui/activities/widgets/activities_title.dart"
+          "file_path": "compass_app/app/lib/ui/activities/widgets/activities_title.dart"
         },
         {
           "id": "mod-compass-ui-activities-widgets-activity-entry",
@@ -471,7 +471,7 @@
           "responsibilities": [
             "Activity selection"
           ],
-          "file_path": "lib/ui/activities/widgets/activity_entry.dart"
+          "file_path": "compass_app/app/lib/ui/activities/widgets/activity_entry.dart"
         },
         {
           "id": "mod-compass-ui-activities-widgets-activity-time-of-day",
@@ -486,7 +486,7 @@
           "responsibilities": [
             "Activity selection"
           ],
-          "file_path": "lib/ui/activities/widgets/activity_time_of_day.dart"
+          "file_path": "compass_app/app/lib/ui/activities/widgets/activity_time_of_day.dart"
         },
         {
           "id": "mod-compass-ui-auth-login-view-models-login-viewmodel",
@@ -501,7 +501,7 @@
           "responsibilities": [
             "Authentication / login"
           ],
-          "file_path": "lib/ui/auth/login/view_models/login_viewmodel.dart"
+          "file_path": "compass_app/app/lib/ui/auth/login/view_models/login_viewmodel.dart"
         },
         {
           "id": "mod-compass-ui-auth-login-widgets-login-screen",
@@ -516,7 +516,7 @@
           "responsibilities": [
             "Authentication / login"
           ],
-          "file_path": "lib/ui/auth/login/widgets/login_screen.dart"
+          "file_path": "compass_app/app/lib/ui/auth/login/widgets/login_screen.dart"
         },
         {
           "id": "mod-compass-ui-auth-login-widgets-tilted-cards",
@@ -531,7 +531,7 @@
           "responsibilities": [
             "Authentication / login"
           ],
-          "file_path": "lib/ui/auth/login/widgets/tilted_cards.dart"
+          "file_path": "compass_app/app/lib/ui/auth/login/widgets/tilted_cards.dart"
         },
         {
           "id": "mod-compass-ui-auth-logout-view-models-logout-viewmodel",
@@ -546,7 +546,7 @@
           "responsibilities": [
             "Authentication / logout"
           ],
-          "file_path": "lib/ui/auth/logout/view_models/logout_viewmodel.dart"
+          "file_path": "compass_app/app/lib/ui/auth/logout/view_models/logout_viewmodel.dart"
         },
         {
           "id": "mod-compass-ui-auth-logout-widgets-logout-button",
@@ -561,7 +561,7 @@
           "responsibilities": [
             "Authentication / logout"
           ],
-          "file_path": "lib/ui/auth/logout/widgets/logout_button.dart"
+          "file_path": "compass_app/app/lib/ui/auth/logout/widgets/logout_button.dart"
         },
         {
           "id": "mod-compass-ui-booking-view-models-booking-viewmodel",
@@ -576,7 +576,7 @@
           "responsibilities": [
             "Booking detail/create/share"
           ],
-          "file_path": "lib/ui/booking/view_models/booking_viewmodel.dart"
+          "file_path": "compass_app/app/lib/ui/booking/view_models/booking_viewmodel.dart"
         },
         {
           "id": "mod-compass-ui-booking-widgets-booking-body",
@@ -591,7 +591,7 @@
           "responsibilities": [
             "Booking detail/create/share"
           ],
-          "file_path": "lib/ui/booking/widgets/booking_body.dart"
+          "file_path": "compass_app/app/lib/ui/booking/widgets/booking_body.dart"
         },
         {
           "id": "mod-compass-ui-booking-widgets-booking-header",
@@ -606,7 +606,7 @@
           "responsibilities": [
             "Booking detail/create/share"
           ],
-          "file_path": "lib/ui/booking/widgets/booking_header.dart"
+          "file_path": "compass_app/app/lib/ui/booking/widgets/booking_header.dart"
         },
         {
           "id": "mod-compass-ui-booking-widgets-booking-screen",
@@ -621,7 +621,7 @@
           "responsibilities": [
             "Booking detail/create/share"
           ],
-          "file_path": "lib/ui/booking/widgets/booking_screen.dart"
+          "file_path": "compass_app/app/lib/ui/booking/widgets/booking_screen.dart"
         },
         {
           "id": "mod-compass-ui-core-localization-applocalization",
@@ -636,7 +636,7 @@
           "responsibilities": [
             "Shared interface, theme, localization"
           ],
-          "file_path": "lib/ui/core/localization/applocalization.dart"
+          "file_path": "compass_app/app/lib/ui/core/localization/applocalization.dart"
         },
         {
           "id": "mod-compass-ui-core-themes-colors",
@@ -651,7 +651,7 @@
           "responsibilities": [
             "Shared interface, theme, localization"
           ],
-          "file_path": "lib/ui/core/themes/colors.dart"
+          "file_path": "compass_app/app/lib/ui/core/themes/colors.dart"
         },
         {
           "id": "mod-compass-ui-core-themes-dimens",
@@ -666,7 +666,7 @@
           "responsibilities": [
             "Shared interface, theme, localization"
           ],
-          "file_path": "lib/ui/core/themes/dimens.dart"
+          "file_path": "compass_app/app/lib/ui/core/themes/dimens.dart"
         },
         {
           "id": "mod-compass-ui-core-themes-theme",
@@ -681,7 +681,7 @@
           "responsibilities": [
             "Shared interface, theme, localization"
           ],
-          "file_path": "lib/ui/core/themes/theme.dart"
+          "file_path": "compass_app/app/lib/ui/core/themes/theme.dart"
         },
         {
           "id": "mod-compass-ui-core-ui-back-button",
@@ -696,7 +696,7 @@
           "responsibilities": [
             "Shared interface, theme, localization"
           ],
-          "file_path": "lib/ui/core/ui/back_button.dart"
+          "file_path": "compass_app/app/lib/ui/core/ui/back_button.dart"
         },
         {
           "id": "mod-compass-ui-core-ui-blur-filter",
@@ -711,7 +711,7 @@
           "responsibilities": [
             "Shared interface, theme, localization"
           ],
-          "file_path": "lib/ui/core/ui/blur_filter.dart"
+          "file_path": "compass_app/app/lib/ui/core/ui/blur_filter.dart"
         },
         {
           "id": "mod-compass-ui-core-ui-custom-checkbox",
@@ -726,7 +726,7 @@
           "responsibilities": [
             "Shared interface, theme, localization"
           ],
-          "file_path": "lib/ui/core/ui/custom_checkbox.dart"
+          "file_path": "compass_app/app/lib/ui/core/ui/custom_checkbox.dart"
         },
         {
           "id": "mod-compass-ui-core-ui-date-format-start-end",
@@ -741,7 +741,7 @@
           "responsibilities": [
             "Shared interface, theme, localization"
           ],
-          "file_path": "lib/ui/core/ui/date_format_start_end.dart"
+          "file_path": "compass_app/app/lib/ui/core/ui/date_format_start_end.dart"
         },
         {
           "id": "mod-compass-ui-core-ui-error-indicator",
@@ -756,7 +756,7 @@
           "responsibilities": [
             "Shared interface, theme, localization"
           ],
-          "file_path": "lib/ui/core/ui/error_indicator.dart"
+          "file_path": "compass_app/app/lib/ui/core/ui/error_indicator.dart"
         },
         {
           "id": "mod-compass-ui-core-ui-home-button",
@@ -771,7 +771,7 @@
           "responsibilities": [
             "Shared interface, theme, localization"
           ],
-          "file_path": "lib/ui/core/ui/home_button.dart"
+          "file_path": "compass_app/app/lib/ui/core/ui/home_button.dart"
         },
         {
           "id": "mod-compass-ui-core-ui-scroll-behavior",
@@ -786,7 +786,7 @@
           "responsibilities": [
             "Shared interface, theme, localization"
           ],
-          "file_path": "lib/ui/core/ui/scroll_behavior.dart"
+          "file_path": "compass_app/app/lib/ui/core/ui/scroll_behavior.dart"
         },
         {
           "id": "mod-compass-ui-core-ui-search-bar",
@@ -801,7 +801,7 @@
           "responsibilities": [
             "Shared interface, theme, localization"
           ],
-          "file_path": "lib/ui/core/ui/search_bar.dart"
+          "file_path": "compass_app/app/lib/ui/core/ui/search_bar.dart"
         },
         {
           "id": "mod-compass-ui-core-ui-tag-chip",
@@ -816,7 +816,7 @@
           "responsibilities": [
             "Shared interface, theme, localization"
           ],
-          "file_path": "lib/ui/core/ui/tag_chip.dart"
+          "file_path": "compass_app/app/lib/ui/core/ui/tag_chip.dart"
         },
         {
           "id": "mod-compass-ui-home-view-models-home-viewmodel",
@@ -831,7 +831,7 @@
           "responsibilities": [
             "Home and saved bookings"
           ],
-          "file_path": "lib/ui/home/view_models/home_viewmodel.dart"
+          "file_path": "compass_app/app/lib/ui/home/view_models/home_viewmodel.dart"
         },
         {
           "id": "mod-compass-ui-home-widgets-home-screen",
@@ -846,7 +846,7 @@
           "responsibilities": [
             "Home and saved bookings"
           ],
-          "file_path": "lib/ui/home/widgets/home_screen.dart"
+          "file_path": "compass_app/app/lib/ui/home/widgets/home_screen.dart"
         },
         {
           "id": "mod-compass-ui-home-widgets-home-screen-container",
@@ -861,7 +861,7 @@
           "responsibilities": [
             "Home and saved bookings"
           ],
-          "file_path": "lib/ui/home/widgets/home_screen_container.dart"
+          "file_path": "compass_app/app/lib/ui/home/widgets/home_screen_container.dart"
         },
         {
           "id": "mod-compass-ui-home-widgets-home-title",
@@ -876,7 +876,7 @@
           "responsibilities": [
             "Home and saved bookings"
           ],
-          "file_path": "lib/ui/home/widgets/home_title.dart"
+          "file_path": "compass_app/app/lib/ui/home/widgets/home_title.dart"
         },
         {
           "id": "mod-compass-ui-results-view-models-results-viewmodel",
@@ -891,7 +891,7 @@
           "responsibilities": [
             "Destination results"
           ],
-          "file_path": "lib/ui/results/view_models/results_viewmodel.dart"
+          "file_path": "compass_app/app/lib/ui/results/view_models/results_viewmodel.dart"
         },
         {
           "id": "mod-compass-ui-results-widgets-result-card",
@@ -906,7 +906,7 @@
           "responsibilities": [
             "Destination results"
           ],
-          "file_path": "lib/ui/results/widgets/result_card.dart"
+          "file_path": "compass_app/app/lib/ui/results/widgets/result_card.dart"
         },
         {
           "id": "mod-compass-ui-results-widgets-results-screen",
@@ -921,7 +921,7 @@
           "responsibilities": [
             "Destination results"
           ],
-          "file_path": "lib/ui/results/widgets/results_screen.dart"
+          "file_path": "compass_app/app/lib/ui/results/widgets/results_screen.dart"
         },
         {
           "id": "mod-compass-ui-search-form-view-models-search-form-viewmodel",
@@ -936,7 +936,7 @@
           "responsibilities": [
             "Search form"
           ],
-          "file_path": "lib/ui/search_form/view_models/search_form_viewmodel.dart"
+          "file_path": "compass_app/app/lib/ui/search_form/view_models/search_form_viewmodel.dart"
         },
         {
           "id": "mod-compass-ui-search-form-widgets-search-form-continent",
@@ -951,7 +951,7 @@
           "responsibilities": [
             "Search form"
           ],
-          "file_path": "lib/ui/search_form/widgets/search_form_continent.dart"
+          "file_path": "compass_app/app/lib/ui/search_form/widgets/search_form_continent.dart"
         },
         {
           "id": "mod-compass-ui-search-form-widgets-search-form-date",
@@ -966,7 +966,7 @@
           "responsibilities": [
             "Search form"
           ],
-          "file_path": "lib/ui/search_form/widgets/search_form_date.dart"
+          "file_path": "compass_app/app/lib/ui/search_form/widgets/search_form_date.dart"
         },
         {
           "id": "mod-compass-ui-search-form-widgets-search-form-guests",
@@ -981,7 +981,7 @@
           "responsibilities": [
             "Search form"
           ],
-          "file_path": "lib/ui/search_form/widgets/search_form_guests.dart"
+          "file_path": "compass_app/app/lib/ui/search_form/widgets/search_form_guests.dart"
         },
         {
           "id": "mod-compass-ui-search-form-widgets-search-form-screen",
@@ -996,7 +996,7 @@
           "responsibilities": [
             "Search form"
           ],
-          "file_path": "lib/ui/search_form/widgets/search_form_screen.dart"
+          "file_path": "compass_app/app/lib/ui/search_form/widgets/search_form_screen.dart"
         },
         {
           "id": "mod-compass-ui-search-form-widgets-search-form-submit",
@@ -1011,7 +1011,7 @@
           "responsibilities": [
             "Search form"
           ],
-          "file_path": "lib/ui/search_form/widgets/search_form_submit.dart"
+          "file_path": "compass_app/app/lib/ui/search_form/widgets/search_form_submit.dart"
         },
         {
           "id": "class-compass-ui-auth-login-view-models-login-viewmodel-loginviewmodel",
@@ -3116,7 +3116,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-activities-widgets-activities-screen",
           "target_id": "mod-compass-ui-activities-view-models-activities-viewmodel",
-          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:12.",
+          "reason": "Selected source import at compass_app/app/lib/ui/activities/widgets/activities_screen.dart:12.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3126,7 +3126,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-activities-widgets-activities-screen",
           "target_id": "mod-compass-ui-activities-widgets-activities-header",
-          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:13.",
+          "reason": "Selected source import at compass_app/app/lib/ui/activities/widgets/activities_screen.dart:13.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3136,7 +3136,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-activities-widgets-activities-screen",
           "target_id": "mod-compass-ui-activities-widgets-activities-list",
-          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:14.",
+          "reason": "Selected source import at compass_app/app/lib/ui/activities/widgets/activities_screen.dart:14.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3146,7 +3146,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-activities-widgets-activities-screen",
           "target_id": "mod-compass-ui-activities-widgets-activities-title",
-          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:15.",
+          "reason": "Selected source import at compass_app/app/lib/ui/activities/widgets/activities_screen.dart:15.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3156,7 +3156,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-activities-widgets-activities-screen",
           "target_id": "mod-compass-ui-activities-widgets-activity-time-of-day",
-          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:16.",
+          "reason": "Selected source import at compass_app/app/lib/ui/activities/widgets/activities_screen.dart:16.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3166,7 +3166,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-activities-widgets-activities-screen",
           "target_id": "mod-compass-ui-core-localization-applocalization",
-          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:9.",
+          "reason": "Selected source import at compass_app/app/lib/ui/activities/widgets/activities_screen.dart:9.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3176,7 +3176,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-activities-widgets-activities-screen",
           "target_id": "mod-compass-ui-core-themes-dimens",
-          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:10.",
+          "reason": "Selected source import at compass_app/app/lib/ui/activities/widgets/activities_screen.dart:10.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3186,7 +3186,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-activities-widgets-activities-screen",
           "target_id": "mod-compass-ui-core-ui-error-indicator",
-          "reason": "Selected source import at lib/ui/activities/widgets/activities_screen.dart:11.",
+          "reason": "Selected source import at compass_app/app/lib/ui/activities/widgets/activities_screen.dart:11.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3196,7 +3196,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-auth-login-widgets-login-screen",
           "target_id": "mod-compass-ui-auth-login-view-models-login-viewmodel",
-          "reason": "Selected source import at lib/ui/auth/login/widgets/login_screen.dart:11.",
+          "reason": "Selected source import at compass_app/app/lib/ui/auth/login/widgets/login_screen.dart:11.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3206,7 +3206,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-auth-login-widgets-login-screen",
           "target_id": "mod-compass-ui-auth-login-widgets-tilted-cards",
-          "reason": "Selected source import at lib/ui/auth/login/widgets/login_screen.dart:12.",
+          "reason": "Selected source import at compass_app/app/lib/ui/auth/login/widgets/login_screen.dart:12.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3216,7 +3216,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-auth-login-widgets-login-screen",
           "target_id": "mod-compass-ui-core-localization-applocalization",
-          "reason": "Selected source import at lib/ui/auth/login/widgets/login_screen.dart:9.",
+          "reason": "Selected source import at compass_app/app/lib/ui/auth/login/widgets/login_screen.dart:9.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3226,7 +3226,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-auth-login-widgets-login-screen",
           "target_id": "mod-compass-ui-core-themes-dimens",
-          "reason": "Selected source import at lib/ui/auth/login/widgets/login_screen.dart:10.",
+          "reason": "Selected source import at compass_app/app/lib/ui/auth/login/widgets/login_screen.dart:10.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3236,7 +3236,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-auth-logout-widgets-logout-button",
           "target_id": "mod-compass-ui-auth-logout-view-models-logout-viewmodel",
-          "reason": "Selected source import at lib/ui/auth/logout/widgets/logout_button.dart:9.",
+          "reason": "Selected source import at compass_app/app/lib/ui/auth/logout/widgets/logout_button.dart:9.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3246,7 +3246,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-auth-logout-widgets-logout-button",
           "target_id": "mod-compass-ui-core-localization-applocalization",
-          "reason": "Selected source import at lib/ui/auth/logout/widgets/logout_button.dart:7.",
+          "reason": "Selected source import at compass_app/app/lib/ui/auth/logout/widgets/logout_button.dart:7.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3256,7 +3256,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-auth-logout-widgets-logout-button",
           "target_id": "mod-compass-ui-core-themes-colors",
-          "reason": "Selected source import at lib/ui/auth/logout/widgets/logout_button.dart:8.",
+          "reason": "Selected source import at compass_app/app/lib/ui/auth/logout/widgets/logout_button.dart:8.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3266,7 +3266,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-booking-widgets-booking-screen",
           "target_id": "mod-compass-ui-booking-view-models-booking-viewmodel",
-          "reason": "Selected source import at lib/ui/booking/widgets/booking_screen.dart:11.",
+          "reason": "Selected source import at compass_app/app/lib/ui/booking/widgets/booking_screen.dart:11.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3276,7 +3276,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-booking-widgets-booking-screen",
           "target_id": "mod-compass-ui-booking-widgets-booking-body",
-          "reason": "Selected source import at lib/ui/booking/widgets/booking_screen.dart:12.",
+          "reason": "Selected source import at compass_app/app/lib/ui/booking/widgets/booking_screen.dart:12.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3286,7 +3286,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-booking-widgets-booking-screen",
           "target_id": "mod-compass-ui-core-localization-applocalization",
-          "reason": "Selected source import at lib/ui/booking/widgets/booking_screen.dart:9.",
+          "reason": "Selected source import at compass_app/app/lib/ui/booking/widgets/booking_screen.dart:9.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3296,7 +3296,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-booking-widgets-booking-screen",
           "target_id": "mod-compass-ui-core-ui-error-indicator",
-          "reason": "Selected source import at lib/ui/booking/widgets/booking_screen.dart:10.",
+          "reason": "Selected source import at compass_app/app/lib/ui/booking/widgets/booking_screen.dart:10.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3306,7 +3306,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-home-widgets-home-screen-container",
           "target_id": "mod-compass-ui-auth-logout-view-models-logout-viewmodel",
-          "reason": "Selected source import at lib/ui/home/widgets/home_screen_container.dart:6.",
+          "reason": "Selected source import at compass_app/app/lib/ui/home/widgets/home_screen_container.dart:6.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3316,7 +3316,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-home-widgets-home-screen-container",
           "target_id": "mod-compass-ui-home-view-models-home-viewmodel",
-          "reason": "Selected source import at lib/ui/home/widgets/home_screen_container.dart:7.",
+          "reason": "Selected source import at compass_app/app/lib/ui/home/widgets/home_screen_container.dart:7.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3326,7 +3326,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-home-widgets-home-screen-container",
           "target_id": "mod-compass-ui-home-widgets-home-screen",
-          "reason": "Selected source import at lib/ui/home/widgets/home_screen_container.dart:8.",
+          "reason": "Selected source import at compass_app/app/lib/ui/home/widgets/home_screen_container.dart:8.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3336,7 +3336,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-results-widgets-results-screen",
           "target_id": "mod-compass-ui-core-localization-applocalization",
-          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:9.",
+          "reason": "Selected source import at compass_app/app/lib/ui/results/widgets/results_screen.dart:9.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3346,7 +3346,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-results-widgets-results-screen",
           "target_id": "mod-compass-ui-core-themes-dimens",
-          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:10.",
+          "reason": "Selected source import at compass_app/app/lib/ui/results/widgets/results_screen.dart:10.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3356,7 +3356,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-results-widgets-results-screen",
           "target_id": "mod-compass-ui-core-ui-error-indicator",
-          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:11.",
+          "reason": "Selected source import at compass_app/app/lib/ui/results/widgets/results_screen.dart:11.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3366,7 +3366,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-results-widgets-results-screen",
           "target_id": "mod-compass-ui-core-ui-search-bar",
-          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:12.",
+          "reason": "Selected source import at compass_app/app/lib/ui/results/widgets/results_screen.dart:12.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3376,7 +3376,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-results-widgets-results-screen",
           "target_id": "mod-compass-ui-results-view-models-results-viewmodel",
-          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:13.",
+          "reason": "Selected source import at compass_app/app/lib/ui/results/widgets/results_screen.dart:13.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3386,7 +3386,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-results-widgets-results-screen",
           "target_id": "mod-compass-ui-results-widgets-result-card",
-          "reason": "Selected source import at lib/ui/results/widgets/results_screen.dart:14.",
+          "reason": "Selected source import at compass_app/app/lib/ui/results/widgets/results_screen.dart:14.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3396,7 +3396,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
           "target_id": "mod-compass-ui-core-themes-dimens",
-          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:9.",
+          "reason": "Selected source import at compass_app/app/lib/ui/search_form/widgets/search_form_screen.dart:9.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3406,7 +3406,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
           "target_id": "mod-compass-ui-core-ui-search-bar",
-          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:10.",
+          "reason": "Selected source import at compass_app/app/lib/ui/search_form/widgets/search_form_screen.dart:10.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3416,7 +3416,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
           "target_id": "mod-compass-ui-results-widgets-results-screen",
-          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:11.",
+          "reason": "Selected source import at compass_app/app/lib/ui/search_form/widgets/search_form_screen.dart:11.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3426,7 +3426,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
           "target_id": "mod-compass-ui-search-form-view-models-search-form-viewmodel",
-          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:12.",
+          "reason": "Selected source import at compass_app/app/lib/ui/search_form/widgets/search_form_screen.dart:12.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3436,7 +3436,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
           "target_id": "mod-compass-ui-search-form-widgets-search-form-continent",
-          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:13.",
+          "reason": "Selected source import at compass_app/app/lib/ui/search_form/widgets/search_form_screen.dart:13.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3446,7 +3446,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
           "target_id": "mod-compass-ui-search-form-widgets-search-form-date",
-          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:14.",
+          "reason": "Selected source import at compass_app/app/lib/ui/search_form/widgets/search_form_screen.dart:14.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3456,7 +3456,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
           "target_id": "mod-compass-ui-search-form-widgets-search-form-guests",
-          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:15.",
+          "reason": "Selected source import at compass_app/app/lib/ui/search_form/widgets/search_form_screen.dart:15.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3466,7 +3466,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-search-form-widgets-search-form-screen",
           "target_id": "mod-compass-ui-search-form-widgets-search-form-submit",
-          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_screen.dart:16.",
+          "reason": "Selected source import at compass_app/app/lib/ui/search_form/widgets/search_form_screen.dart:16.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3476,7 +3476,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-search-form-widgets-search-form-submit",
           "target_id": "mod-compass-ui-core-localization-applocalization",
-          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_submit.dart:9.",
+          "reason": "Selected source import at compass_app/app/lib/ui/search_form/widgets/search_form_submit.dart:9.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3486,7 +3486,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-search-form-widgets-search-form-submit",
           "target_id": "mod-compass-ui-core-themes-dimens",
-          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_submit.dart:10.",
+          "reason": "Selected source import at compass_app/app/lib/ui/search_form/widgets/search_form_submit.dart:10.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3496,7 +3496,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-search-form-widgets-search-form-submit",
           "target_id": "mod-compass-ui-results-widgets-results-screen",
-          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_submit.dart:11.",
+          "reason": "Selected source import at compass_app/app/lib/ui/search_form/widgets/search_form_submit.dart:11.",
           "provenance": [
             "docs/target.md"
           ]
@@ -3506,7 +3506,7 @@
           "kind": "imports",
           "source_id": "mod-compass-ui-search-form-widgets-search-form-submit",
           "target_id": "mod-compass-ui-search-form-view-models-search-form-viewmodel",
-          "reason": "Selected source import at lib/ui/search_form/widgets/search_form_submit.dart:12.",
+          "reason": "Selected source import at compass_app/app/lib/ui/search_form/widgets/search_form_submit.dart:12.",
           "provenance": [
             "docs/target.md"
           ]
