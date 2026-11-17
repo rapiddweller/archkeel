@@ -52,3 +52,28 @@ written with `--root sub` is written to `sub` and read back; the configuration r
 top of the work tree when the core looked there.
 
 Proof: `tests/test_cli_project_root.py`.
+
+## One output mode and one JSON head
+
+Before, `run`, `init` and the run result each decided between text and JSON by their own rule, and
+the JSON results had different heads: a run had `command`, `status` and `exit_code`; a refusal had
+no `command`; `init` and `skill` had no `status`.
+
+8. `output_mode(argv)` (`core_arguments.py`) gives one `OutputMode` (`json`, `text`, `summary`) for
+   the result and each refusal of a command line. A flag decides. Without one, `init` and a report
+   file (`--output`) print text, and each other command prints JSON when its output is not a
+   terminal.
+9. `envelope(command, outcome, status, exit_code)` (`core_exit.py`) is the head of every JSON
+   result: a run, a refusal, `init` and `skill`. The field `outcome` is new and is one word of
+   `Outcome`: `verdict`, `collect_refused`, `command_refused`, `delivery_failed` or `completed`
+   (`init` and `skill`, exit 0 by `exit_for`). `status` is `null` for a command without a verdict.
+   `command` is `null` for a command line that names no command. Each field that a result had
+   before keeps its value.
+
+Visible change: the new head fields `outcome` (every result), `command` (refusals) and `status`
+(`init`, `skill`). A refusal of `init`, or of `report --output`, in a pipe without a flag prints
+text, as the result of the same command line does (before: JSON).
+
+Proof: `tests/test_cli_output_envelope.py`. The text of 22 command lines (run, summary, baseline,
+refusals, `init`, `skill`) is byte-identical before and after, and their JSON is equal without the
+new head fields.
