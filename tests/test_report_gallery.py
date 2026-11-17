@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from tools import report_gallery
+from tools import report_gallery, report_gallery_page
 
 # A stand-in for the CLI. The root names the behavior: `served` writes both files and gives rule
 # rows, `refused` gives a refusal and writes no file, `garbage` prints no envelope.
@@ -165,7 +165,7 @@ def test_dynamic_text_is_escaped_in_the_index() -> None:
     run = {"name": "x<y", "about": "a&b", "intent": "PASS", "blocked_by": [7]}
     row = {"run": run, "links": [("HTML", 'p"q/report.html')]}
     row["error"] = "<script>alert(1)</script>"
-    page = report_gallery.index([row], "sha<1>", "now&then")
+    page = report_gallery_page.index([row], "sha<1>", "now&then")
     assert "<script>alert" not in page and page.count("<script>") == 1
     assert "x&lt;y" in page
     assert "a&amp;b" in page
@@ -265,7 +265,7 @@ def _row(run: dict, status: str | None) -> dict:
     return {"run": {"name": "n", **run}, "links": [], **({"summary": summary} if summary else {})}
 
 
-STATUSES = report_gallery.STATUSES
+STATUSES = report_gallery_page.STATUSES
 
 
 def _section(page: str, key: str) -> str:
@@ -279,7 +279,7 @@ def test_the_page_has_four_sections_in_order_and_each_run_sits_in_its_own() -> N
         _row({"name": "v", "section": "violation", "intent": "FAIL", "about": "av"}, "FAIL"),
         _row({"name": "r", "section": "real", "intent": "PASS", "about": "ar"}, "PASS"),
     ]
-    page = report_gallery.index(rows, "sha", "now")
+    page = report_gallery_page.index(rows, "sha", "now")
     titles = re.findall(r'<h2 class="h3" id="sec-(\w+)">([^<]+)</h2>', page)
     assert titles == [
         ("real", "Real projects (PASS earned)"),
@@ -294,7 +294,7 @@ def test_the_page_has_four_sections_in_order_and_each_run_sits_in_its_own() -> N
 
 def test_an_empty_section_is_not_drawn() -> None:
     rows = [_row({"section": "clean", "intent": "PASS", "about": "a"}, "PASS")]
-    page = report_gallery.index(rows, "sha", "now")
+    page = report_gallery_page.index(rows, "sha", "now")
     assert 'id="sec-clean"' in page
     assert all(f'id="sec-{key}"' not in page for key in ("real", "violation", "unknown"))
 
@@ -311,36 +311,36 @@ def test_the_self_check_is_the_anchor_card_of_the_real_projects(tmp_path: Path) 
 
 
 def test_a_run_that_meets_its_intent_says_so_without_a_blocker() -> None:
-    assert "expected PASS</span> \u00b7 PASS" in report_gallery.intent_line(
+    assert "expected PASS</span> \u00b7 PASS" in report_gallery_page.intent_line(
         {"intent": "PASS"}, "PASS"
     )
-    assert "expected FAIL</span> \u00b7 FAIL" in report_gallery.intent_line(
+    assert "expected FAIL</span> \u00b7 FAIL" in report_gallery_page.intent_line(
         {"intent": "FAIL"}, "FAIL"
     )
-    line = report_gallery.intent_line({"intent": "UNKNOWN"}, "UNKNOWN")
+    line = report_gallery_page.intent_line({"intent": "UNKNOWN"}, "UNKNOWN")
     assert "UNKNOWN on purpose</span> \u00b7 UNKNOWN" in line
     assert "blocked" not in line and "not met" not in line
 
 
 def test_a_run_that_differs_from_its_intent_names_the_difference_and_its_blocker() -> None:
     run = {"intent": "PASS", "blocked_by": [1534, 1533]}
-    line = report_gallery.intent_line(run, "UNKNOWN")
+    line = report_gallery_page.intent_line(run, "UNKNOWN")
     assert "expected PASS" in line and "UNKNOWN today" in line
     assert "blocked by" in line
-    assert f'href="{report_gallery.REPOSITORY}/issues/1534">#1534</a>' in line
+    assert f'href="{report_gallery_page.REPOSITORY}/issues/1534">#1534</a>' in line
     assert "#1533" in line
 
 
 def test_a_difference_without_a_blocker_is_a_scenario_not_met() -> None:
-    line = report_gallery.intent_line({"intent": "FAIL"}, "PASS")
+    line = report_gallery_page.intent_line({"intent": "FAIL"}, "PASS")
     assert "expected FAIL" in line and "PASS today" in line and "scenario not met" in line
     assert "ak-t-fail" in line
-    assert "no result" in report_gallery.intent_line({"intent": "PASS"}, None)
-    assert "no intent stated" in report_gallery.intent_line({}, "PASS")
+    assert "no result" in report_gallery_page.intent_line({"intent": "PASS"}, None)
+    assert "no intent stated" in report_gallery_page.intent_line({}, "PASS")
 
 
 def test_every_shown_matrix_run_states_a_section_an_intent_and_a_blocker_when_it_differs() -> None:
-    known = {key for key, _, _ in report_gallery.SECTIONS}
+    known = {key for key, _, _ in report_gallery_page.SECTIONS}
     for run in report_gallery.showcase_runs():
         assert run.get("section") in known, run["name"]
         assert run.get("intent") in STATUSES, run["name"]
