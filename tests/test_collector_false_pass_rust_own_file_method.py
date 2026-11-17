@@ -51,11 +51,11 @@ CALLERS = {
 }
 
 
-def _plant(root: Path, core: Path, caller: str, ty: str = TYPE) -> Path:
+def _plant(root: Path, core: Path, caller: str, ty: str = TYPE, holder: str = HOLDER) -> Path:
     files = {
         SRC + "lib.rs": "pub mod a;\nmod c;\nmod d;\n",
         SRC + "c.rs": ty,
-        SRC + "d.rs": HOLDER,
+        SRC + "d.rs": holder,
         SRC + "a.rs": caller,
     }
     to_c = rule(
@@ -140,6 +140,24 @@ def test_a_written_receiver_type_gives_the_edge(
     assert _real_target(root) == "c"
     found = statuses(validate(root, capsys))
     assert found.get("NO-A-TO-C") == "FAIL", (name, found)
+
+
+@pytest.mark.parametrize(
+    ("first", "verdict"), [("", "FAIL"), ("#[cfg(any())] pub u8, ", "UNKNOWN")]
+)
+def test_a_tuple_struct_field_gives_the_edge_only_at_an_exact_position(
+    tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], first: str, verdict: str
+) -> None:
+    caller = (
+        f"pub fn g(w: &crate::d::Tuple) -> {STR} {{ w.0.m() }}\n"
+        f"pub fn run() -> {STR} {{ g(&crate::d::Tuple(crate::d::shared())) }}\n"
+    )
+    holder = HOLDER + f"pub struct Tuple({first}pub &'static crate::c::S);\n"
+    root = _plant(tmp_path, core_binary, caller, holder=holder)
+    _rustc_accepts(root)
+    assert _real_target(root) == "c"
+    found = statuses(validate(root, capsys))
+    assert found.get("NO-A-TO-C") == verdict, (first, found)
 
 
 def test_a_std_receiver_reaches_no_member_of_the_workspace(

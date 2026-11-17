@@ -102375,7 +102375,7 @@
     [
       "collection_gap",
       "native.archkeel_typescript_collector.definitions",
-      "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
+      "A trait impl in native.archkeel_typescript_collector.scope may run in code that reaches native.archkeel_typescript_collector.scope without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
     ],
     [
       "collection_gap",

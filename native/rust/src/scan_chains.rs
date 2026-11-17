@@ -4,7 +4,7 @@
 
 //! The receiver of a method call as a chain (#1571, AD-804): a root and the steps after it. The
 //! root is a name that the `fn` binds with a proof (`self`, a typed parameter, a local), a
-//! literal, a call of a path, a struct literal or a path to a variant. The steps are named fields,
+//! literal, a call of a path, a struct literal or a path to a variant. The steps are fields,
 //! method calls and `?`. The scan reads no types: `impl_types.rs` resolves the chain against the
 //! written types of the workspace. Any other expression gives no chain, and the call keeps its
 //! gaps.
@@ -40,10 +40,11 @@ pub(super) fn chain_of(expr: &Expr, names: &dyn Names) -> Option<ReceiverChain> 
         }
         match current {
             Expr::Field(found) if found.attrs.is_empty() => {
-                let Member::Named(name) = &found.member else {
-                    return None;
+                let name = match &found.member {
+                    Member::Named(name) => plain(name),
+                    Member::Unnamed(at) => at.index.to_string(),
                 };
-                steps.push(Step::Field(plain(name)));
+                steps.push(Step::Field(name));
                 current = &found.base;
             }
             Expr::MethodCall(found) if found.attrs.is_empty() => {

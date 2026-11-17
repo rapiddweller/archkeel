@@ -7610,9 +7610,9 @@
         "gap",
         "collection_gap",
         "native.archkeel_typescript_collector.definitions",
-        "A method call may reach the method push of a type in its own file native.archkeel_typescript_collector.scope"
+        "A trait impl in native.archkeel_typescript_collector.scope may run in code that reaches native.archkeel_typescript_collector.scope without naming it: a method or an operator on a value of its type, a drop, a format, a generic or dyn call"
       ],
-      "reason": "#1571 sound field-receiver gaps; reduced by receiver-type facts (owner decision 2026-11-17)"
+      "reason": "AD-833 removes the inherent push candidate. The same pair keeps an independent trait gap."
     },
     {
       "entry": [
