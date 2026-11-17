@@ -94,8 +94,17 @@ def intent_line(run: Mapping[str, Any], status: str | None) -> str:
         return f'{wanted} \u00b7 <span class="ak-t-fail">no result</span>'
     if status == intent:
         return f'<span class="ak-t-{intent.lower()}">{wanted}</span> \u00b7 {status}'
-    blockers = ", ".join(_issue(number) for number in run.get("blocked_by", []))
+    # An item is an issue number, or a list of numbers that one piece of work closes together.
+    blockers = ", ".join(
+        "/".join(_issue(number) for number in item) if isinstance(item, list) else _issue(item)
+        for item in run.get("blocked_by", [])
+    )
     cause = f"blocked by {blockers}" if blockers else "scenario not met"
+    if blockers and run.get("held_by"):
+        # A named work item that holds the verdict, with its status (an honest UNKNOWN).
+        cause = (
+            f"held by {html.escape(run['held_by'])} ({blockers}); {html.escape(run['status_note'])}"
+        )
     mark = "ak-t-unknown" if blockers else "ak-t-fail"
     return f'{html.escape(wanted)} \u00b7 <span class="{mark}">{status} today \u00b7 {cause}</span>'
 
@@ -176,6 +185,16 @@ def _section(key: str, title: str, lede: str, body: str, count: int) -> str:
     )
 
 
+# The self-check is expected to PASS. Today the Rust collector holds it with sound gaps: a field
+# receiver of unproved type, and a trait dispatch that can reach many impls. The work is open.
+ANCHOR = {
+    "intent": "PASS",
+    "blocked_by": [1571],
+    "held_by": "sound gaps of the Rust collector",
+    "status_note": "the precision work is in progress",
+}
+
+
 def _anchor(parts: Sequence[Part]) -> str:
     """The row of the self-check of ArchKeel: its system verdict, linked to the system page."""
     link = '<td><a href="../self/index.html">System</a></td>'
@@ -185,10 +204,10 @@ def _anchor(parts: Sequence[Part]) -> str:
         '<span class="caption">{line}</span></td>'
     )
     if not parts or any(not part.decided for part in parts):
-        line = intent_line({"intent": "PASS"}, None)
+        line = intent_line(ANCHOR, None)
         return f'<tr>{name}{about.format(line=line)}<td colspan="5">no result</td>{link}</tr>\n'
     verdict = system(parts)
-    line = intent_line({"intent": "PASS"}, verdict.status)
+    line = intent_line(ANCHOR, verdict.status)
     cells = "".join(_cell(verdict.counts[status]) for status in STATUSES)
     return (
         f"<tr>{name}{about.format(line=line)}{_cell(verdict.status)}{cells}"
