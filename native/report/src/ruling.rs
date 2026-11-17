@@ -60,6 +60,32 @@ pub struct Named {
     pub uml: Option<(String, UmlTarget)>,
 }
 
+/// The scope of a run: complete, or open with the reason that holds back each PASS. The frame
+/// writes the word `complete` or the text of the reason (AD-564).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RunScope {
+    /// Every part of the scope is proven.
+    Complete,
+    /// The scope is not proven, for this reason.
+    Open(Reason),
+}
+
+impl RunScope {
+    /// The word of the frame: `complete`, or the text of the reason.
+    pub fn word(&self) -> String {
+        match self {
+            RunScope::Complete => "complete".to_owned(),
+            RunScope::Open(reason) => reason.to_string(),
+        }
+    }
+}
+
+impl Serialize for RunScope {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.word())
+    }
+}
+
 /// The reasons of the rules without a decision: one for each rule, or one for the contract.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 #[serde(untagged)]
@@ -109,7 +135,8 @@ pub struct Ruling {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     door_reach: Vec<crate::assumed::DoorRow>,
     /// Why the scope of the run is not complete, or `complete`.
-    scope: String,
+    #[schemars(with = "String")]
+    scope: RunScope,
     /// The one assumption that the collector states for its proofs (AD-540). The word of `scope`
     /// stays `complete`: the shell reads it.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -144,6 +171,11 @@ impl Ruling {
     /// The decided mark: the status, the run proof of a PASS and the Decision of each rule.
     pub fn decided(&self) -> &Decided {
         &self.decided
+    }
+
+    /// The scope of the run: complete, or open with its reason.
+    pub fn scope(&self) -> &RunScope {
+        &self.scope
     }
 
     /// The reasons of the rules without a decision.
@@ -205,8 +237,8 @@ pub fn rule_with_edge_links(
     let premise = models
         .ok()
         .and_then(|tree| tree.models().find_map(Model::scope_premise));
-    let complete = scope.is_none();
-    let scope = scope.map_or_else(|| "complete".to_owned(), |reason| reason.to_string());
+    let scope = scope.map_or(RunScope::Complete, RunScope::Open);
+    let complete = scope == RunScope::Complete;
     let mut rows = Rows::default();
     let mut edge_links = crate::edge_links::Links::new();
     let mut reasons: BTreeMap<String, String> = BTreeMap::new();
@@ -495,3 +527,7 @@ fn run_pass(
 #[cfg(test)]
 #[path = "ruling_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "run_scope_tests.rs"]
+mod run_scope_tests;

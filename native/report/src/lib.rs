@@ -121,7 +121,7 @@ pub(crate) use engine_frame::FrameError;
 #[cfg(test)]
 pub(crate) use head::RuleVerdict;
 pub use head::Status;
-pub use ruling::{rule, rule_with_edge_links, Explain, Named, RuleReasons, Ruling};
+pub use ruling::{rule, rule_with_edge_links, Explain, Named, RuleReasons, Ruling, RunScope};
 pub use status::system_status;
 #[cfg(test)]
 pub(crate) use status::Unexplained;
