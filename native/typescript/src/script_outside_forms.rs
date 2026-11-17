@@ -81,7 +81,7 @@ pub(crate) fn writes_of(root: Node, bytes: &[u8], module: bool) -> Vec<Found> {
     let nodes = all_nodes(root);
     for node in &nodes {
         if matches!(
-            Node::kind(&node),
+            Node::kind(node),
             "identifier" | "shorthand_property_identifier_pattern"
         ) && declares(*node)
         {
@@ -219,7 +219,7 @@ impl Reader<'_> {
         let quoted = matches!(Node::kind(&node), "string" | "template_string")
             && !named_children(node)
                 .iter()
-                .any(|c| Node::kind(&c) == "template_substitution");
+                .any(|c| Node::kind(c) == "template_substitution");
         quoted
             .then(|| plain(text.get(1..str::len(&text).saturating_sub(1))?))
             .flatten()
@@ -236,12 +236,7 @@ impl Reader<'_> {
         let mut chain = vec![target];
         while let Some(object) = chain
             .last()
-            .filter(|at| {
-                matches!(
-                    Node::kind(&at),
-                    "member_expression" | "subscript_expression"
-                )
-            })
+            .filter(|at| matches!(Node::kind(at), "member_expression" | "subscript_expression"))
             .and_then(|at| at.child_by_field_name("object"))
         {
             Vec::push(&mut chain, unwrapped(object));
@@ -273,7 +268,7 @@ impl Reader<'_> {
             .map(named_children)
             .unwrap_or_default()
             .into_iter()
-            .filter(|a| Node::kind(&a) != "comment")
+            .filter(|a| Node::kind(a) != "comment")
             .collect();
         let Some(method) = self
             .member(callee)
@@ -336,7 +331,7 @@ impl Reader<'_> {
         }
         named_children(object)
             .into_iter()
-            .filter(|part| Node::kind(&part) != "comment")
+            .filter(|part| Node::kind(part) != "comment")
             .map(|part| match Node::kind(&part) {
                 "shorthand_property_identifier" => Some(Reader::text(self, part)),
                 "pair" | "method_definition" => {
@@ -360,7 +355,7 @@ impl Reader<'_> {
             let names: Vec<Node> = match Node::kind(&top) {
                 "lexical_declaration" | "variable_declaration" => named_children(top)
                     .into_iter()
-                    .filter(|d| Node::kind(&d) == "variable_declarator")
+                    .filter(|d| Node::kind(d) == "variable_declarator")
                     .filter_map(|d| d.child_by_field_name("name"))
                     .collect(),
                 "function_declaration"
