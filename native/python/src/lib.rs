@@ -148,3 +148,5 @@ fn test_tree(text: &str, minor: u32) -> Result<ruff_python_ast::ModModule, Strin
         .map(|module| module.into_syntax())
         .ok_or_else(|| "not a module".to_owned())
 }
+
+// Probe b 3 of the PR gate time.
