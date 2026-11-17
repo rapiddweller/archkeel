@@ -13,6 +13,7 @@ use archkeel_facts::{ConstructFact, Record};
 use ruff_python_ast::visitor::{self, Visitor};
 use ruff_python_ast::{CmpOp, ExceptHandler, Expr, Parameter, Stmt};
 use ruff_text_size::Ranged;
+use std::collections::HashSet;
 
 use super::binders::Binders;
 use crate::module::{EvidenceMap, Location, Module};
@@ -61,6 +62,30 @@ pub(super) struct Findings {
 }
 
 fn one(module: &Module, binders: &Binders, evidence: &mut EvidenceMap) -> Findings {
+    let unique = binders.unique();
+    let mut loaders = HashSet::new();
+    let mut importlibs = HashSet::new();
+    for stmt in &module.tree.body {
+        let (aliases, wanted, target) = match stmt {
+            Stmt::ImportFrom(node)
+                if node.level == 0
+                    && node
+                        .module
+                        .as_ref()
+                        .is_some_and(|name| name.as_str() == "importlib") =>
+            {
+                (&node.names, "import_module", &mut loaders)
+            }
+            Stmt::Import(node) => (&node.names, "importlib", &mut importlibs),
+            _ => continue,
+        };
+        for alias in aliases {
+            let name = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
+            if alias.name.as_str() == wanted && unique.contains(name) {
+                target.insert(name.to_owned());
+            }
+        }
+    }
     let mut walk = Walk {
         module,
         binders,
@@ -73,6 +98,8 @@ fn one(module: &Module, binders: &Binders, evidence: &mut EvidenceMap) -> Findin
         vars_complete: true,
         compare_complete: true,
         getattr_complete: true,
+        loaders,
+        importlibs,
     };
     walk.visit_body(&module.tree.body);
     Findings {
@@ -98,6 +125,8 @@ struct Walk<'a> {
     vars_complete: bool,
     compare_complete: bool,
     getattr_complete: bool,
+    loaders: HashSet<String>,
+    importlibs: HashSet<String>,
 }
 
 impl<'a> Visitor<'a> for Walk<'_> {
@@ -258,11 +287,23 @@ impl Walk<'_> {
     fn call(&mut self, expr: &Expr, call: &ruff_python_ast::ExprCall) {
         self.dict_complete = false;
         self.compare_complete = false;
-        if matches!(&*call.func, Expr::Name(name)
-            if name.id.as_str() == "__import__" && self.binders.builtin_visible("__import__"))
-        {
+        let loader = match &*call.func {
+            Expr::Name(name) => {
+                name.id.as_str() == "__import__" && self.binders.builtin_visible("__import__")
+                    || self.loaders.contains(name.id.as_str())
+            }
+            Expr::Attribute(attr) => {
+                attr.attr.as_str() == "import_module"
+                    && matches!(&*attr.value, Expr::Name(name) if self.importlibs.contains(name.id.as_str()))
+            }
+            _ => false,
+        };
+        if loader {
             let mut data = self.signal_data(Signal::DynamicImport, None);
-            data.expression = Some("__import__".to_owned());
+            data.expression = Some(
+                self.module.text()[call.func.start().to_usize()..call.func.end().to_usize()]
+                    .to_owned(),
+            );
             self.signal(
                 expr,
                 "dynamic_import",

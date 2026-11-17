@@ -378,8 +378,16 @@ def test_opaque_annotations_are_reported_or_left_unknown(
     [
         ("value = __import__('os')\n", "FAIL"),
         ("value = __import__(name)\n", "FAIL"),
+        ("from importlib import import_module\nvalue = import_module('os')\n", "FAIL"),
+        ("import importlib as lib\nvalue = lib.import_module('os')\n", "FAIL"),
+        ("from importlib import import_module as load\nvalue = load(name)\n", "FAIL"),
         ("loader = __import__\nvalue = loader(name)\n", "UNKNOWN"),
         ("__import__ = other\nvalue = __import__(name)\n", "UNKNOWN"),
+        (
+            "from importlib import import_module\n"
+            "import_module = other\nvalue = import_module(name)\n",
+            "UNKNOWN",
+        ),
         ("value = 1\n", "UNKNOWN"),
     ],
 )
