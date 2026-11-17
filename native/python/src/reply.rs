@@ -77,7 +77,9 @@ fn validation(version: &str) -> Validation {
     let mut all = constructs.with_construct("getattr", &either);
     all.sections.push(TypingSignals);
     registered.push(all.clone());
-    registered.push(all.with_construct("any_annotation", &[ConstructSupport::Partial]));
+    all = all.with_construct("any_annotation", &[ConstructSupport::Partial]);
+    registered.push(all.clone());
+    registered.push(all.with_construct("dynamic_import", &[ConstructSupport::Partial]));
     Validation {
         registered,
         interface: InterfaceNeed::Feature(ROUTES_FEATURE.to_owned()),
@@ -249,6 +251,7 @@ fn parts(
                 },
             ),
             ("any_annotation", "partial"),
+            ("dynamic_import", "partial"),
         ],
         inputs,
         source_digest: Some(source_digest),
