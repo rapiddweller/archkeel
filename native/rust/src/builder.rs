@@ -67,6 +67,8 @@ pub(crate) struct Builder {
     pub(crate) seen: BTreeSet<(String, String, String)>,
     /// The manifests of the crates: each is a module that holds the declared dependencies.
     pub(crate) manifests: Vec<String>,
+    /// A proof of the scan rests on a registry identity that `Cargo.lock` records (AD-774).
+    pub(crate) lock_premise: bool,
     /// The request leaves test scope out: a dev-dependency is then no edge.
     pub(crate) exclude_tests: bool,
     /// The modules that the body of each `macro_rules!` names from the crate root, by the module

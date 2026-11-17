@@ -24,8 +24,6 @@ Documentation does not accept these defects. They block the 5.0.0 release.
 |---|---|---|---|
 | Rust value dispatch | `c::make().m()`, with the type and impl in `b`; 13 forms and a foreign trait glob | false PASS | [#1515](https://github.com/rapiddweller/archkeel/issues/1515) |
 | Rust trait dispatch | a generic bound, supertrait, dyn supertrait or re-export; 4 forms | false PASS | [#1516](https://github.com/rapiddweller/archkeel/issues/1516) |
-| Rust root re-export | a re-export of an extern self alias or of another crate's root | false PASS | [#1517](https://github.com/rapiddweller/archkeel/issues/1517) |
-| Rust registry identity | outside source replacement changes a modeled derive expansion | false PASS | [#1518](https://github.com/rapiddweller/archkeel/issues/1518) |
 | Rust field receiver | `p.f.m()`: an inherent method in the file of its type, called through a public field of a typed parameter; no edge and no gap (AD-418) | false PASS | [#1571](https://github.com/rapiddweller/archkeel/issues/1571) |
 | TypeScript DOM code | an `open` result, `document.open`, or a dynamic link and click | false PASS | [#1526](https://github.com/rapiddweller/archkeel/issues/1526) |
 | TypeScript prototype patch | replace `EventTarget.prototype.dispatchEvent`, then use it on `window` | false PASS | [#1527](https://github.com/rapiddweller/archkeel/issues/1527) |
@@ -659,14 +657,21 @@ A glob that can reach macro output withholds built-in derive identity; use expli
 One typed table models `serde::Serialize`, `serde::Deserialize` (1.0.229), and
 `schemars::JsonSchema` (1.2.3). File use records must prove the identity without a glob or shadow.
 The library and its derive implementation need unique crates.io registry identities in `Cargo.lock`.
-Path/git sources, workspace members, patches, replacements, stale locks and source configuration
-files withhold this proof. Renamed registry dependencies are followed through the manifest.
-Any `.cargo/config` or `.cargo/config.toml` below a scan root or on its repository ancestor path
-withholds the model, including files in nested non-crate directories. The search follows no symlink.
-It withholds the model beyond directory depth 128 or one million entries, and at unreadable directories or directory links.
-Open false PASS, not accepted (#1518; #1020 is closed): build settings outside the repository can replace registry code.
-The snapshot cannot see `$CARGO_HOME` configuration, `CARGO_*` source settings or the build invocation environment.
-Such an override can make an unseen expansion pass silently. This is a release-blocking defect, not a proof of that build.
+Path/git sources, workspace members and stale locks withhold this proof. Renamed registry
+dependencies are followed through the manifest. AD-774 (#1518): each `.cargo/config.toml` and
+`.cargo/config` at any level of the repository (not below build output, `.git` or `node_modules`) is
+read. A replacement of the crates.io source or a `paths` override withholds the proof of every
+registry crate; a `[patch]` entry of a configuration or a manifest, and a `[replace]` entry of a
+manifest, withhold the crate that they name. A configuration that does not parse, a `.cargo` link,
+an unreadable directory, a directory link, and a walk beyond depth 128 or one million entries
+withhold every crate. A derive that loses its proof this way is UNKNOWN, and a gap names the file and
+line of the setting. A configuration without such a setting (`[build]`, `[alias]`) keeps the proof.
+Settings outside the repository (`$CARGO_HOME`, `CARGO_*` variables, `--config`) are not read, so a
+result does not depend on the machine. A Rust scan whose proof rests on a locked registry crate
+states the premise "registry crates are built from the identity that Cargo.lock records; no outside
+source replacement" with its verdict; a build that breaks it is outside the PASS.
+`tests/test_collector_false_pass_rust_registry_replacement.py` holds the plants: the replacement in
+the repository gives UNKNOWN, the same replacement in `$CARGO_HOME` gives PASS under the premise.
 These derives generate impl code using their own crate, written types, and documented helper paths.
 Every helper path, type and bound is read as a path use of the item's module, including bare names.
 Unknown helper keys, unsupported conditional metadata, macro values and invalid syntax keep a gap.
