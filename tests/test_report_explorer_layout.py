@@ -300,7 +300,7 @@ def test_two_stacked_boxes_get_a_direct_edge(site: str, page: Browser) -> None:
     assert len(points) - 2 <= 2, points
 
 
-def test_the_first_view_after_a_drill_is_readable(site: str, page: Browser) -> None:
+def test_the_first_view_after_opening_a_level_link_is_readable(site: str, page: Browser) -> None:
     page.open(f"{site}/system.html")
     page.evaluate("ArchkeelFlow.openComponent('PART:core')")
     page.settle()
