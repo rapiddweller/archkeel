@@ -114,6 +114,7 @@ fn layer_nodes(topology: &Topology, grouped: &[Group<'_>]) -> Vec<Node> {
                 members: None,
                 rank: Some(step),
                 directory: false,
+                grouped: false,
             });
         }
     }
@@ -157,6 +158,7 @@ fn component_node(component: &Component, parent: Option<usize>) -> Node {
         members: None,
         rank: None,
         directory: false,
+        grouped: false,
     }
 }
 

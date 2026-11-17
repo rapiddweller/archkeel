@@ -164,5 +164,6 @@ fn group(nodes: &[Node], owner: &str, name: &str, parent: Option<usize>) -> Node
         members: None,
         rank: None,
         directory: false,
+        grouped: true,
     }
 }

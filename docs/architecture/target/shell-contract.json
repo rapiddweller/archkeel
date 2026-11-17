@@ -596,8 +596,7 @@
         "archkeel.cli.core_binding:ProjectRoot",
         "archkeel.cli.core_binding:RootMode",
         "archkeel.cli.core_binding:bind_request",
-        "archkeel.cli.core_binding:resolve_root",
-        "archkeel.cli.core_binding:work_tree_top"
+        "archkeel.cli.core_binding:resolve_root"
       ]
     },
     {

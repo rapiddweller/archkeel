@@ -1,4 +1,6 @@
 [scan]
+# AD-776: the paths below are relative to the repository root, two folders up.
+root = "../.."
 language = "typescript"
 namespace = "browser"
 contract = "docs/architecture/target/browser-contract.json"
