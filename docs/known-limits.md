@@ -27,7 +27,6 @@ Documentation does not accept these defects. They block the 5.0.0 release.
 | Rust root re-export | a re-export of an extern self alias or of another crate's root | false PASS | [#1517](https://github.com/rapiddweller/archkeel/issues/1517) |
 | Rust registry identity | outside source replacement changes a modeled derive expansion | false PASS | [#1518](https://github.com/rapiddweller/archkeel/issues/1518) |
 | Rust field receiver | `p.f.m()`: an inherent method in the file of its type, called through a public field of a typed parameter; no edge and no gap (AD-418) | false PASS | [#1571](https://github.com/rapiddweller/archkeel/issues/1571) |
-| Python lazy annotations | a slot or outside class write changes the allowed `object` annotation | false PASS | [#1523](https://github.com/rapiddweller/archkeel/issues/1523) |
 | TypeScript DOM code | an `open` result, `document.open`, or a dynamic link and click | false PASS | [#1526](https://github.com/rapiddweller/archkeel/issues/1526) |
 | TypeScript prototype patch | replace `EventTarget.prototype.dispatchEvent`, then use it on `window` | false PASS | [#1527](https://github.com/rapiddweller/archkeel/issues/1527) |
 | TypeScript unread source | imports in Vue, Svelte, Astro, MDX, inline HTML and `.es6` | false PASS | [#1528](https://github.com/rapiddweller/archkeel/issues/1528) |
@@ -42,14 +41,22 @@ the last two were fixed after it and are checked on main at `157dc8851`:
 - A scanned writer that uses `marker.__globals__["f"] = secret` gives UNKNOWN with
   `dynamic_import: __globals__`. A dictionary returned by an outside library remains #1521.
 - For Python lazy annotations, direct `setattr`, a class decorator, a module `globals()` write,
-  a method's `global` write and metaclass `__prepare__` each give a named UNKNOWN.
-  The slot and outside-class-writer plants still give false PASS (#1523).
+  a method's `global` write and metaclass `__prepare__` each give a named UNKNOWN. When the
+  `requires-python` range allows 3.14, a `__slots__` entry and an attribute store of the same name
+  in a file of the scan or a non-test file of the repository give `lazy_class_namespace`; a
+  `setattr` with a computed name gives it for each name (AD-802, #1523). The fixtures are in
+  `tests/test_collector_false_pass_python_lazy_annotations.py`.
 - A Rust `macro_rules!` call that adds an unanchored `Display` impl gives UNKNOWN with a pair
   gap. The fixture is `PLANTS["an impl that a macro of b generates"]` in
   `tests/test_collector_false_pass_rust_orphan_impl.py` (AD-662).
 - A git URL of the same repository, an outside Cargo patch, a command-line patch and a repository
   patch each give UNKNOWN with a crate-pair gap (AD-704, #946).
   `tests/test_collector_false_pass_rust_redirect.py` holds the four compiling fixtures.
+- A Rust path through a re-exported name of a module gives FAIL: `crate::c::other::b::g()` where
+  `c` re-exports a module, the crate root, an alias of `extern crate self`, another crate of the
+  workspace, or brings the name in by a glob (also `use base::*; hidden::g()`). A route that a
+  macro call writes, or one over the hop limit, gives UNKNOWN. The 17 compiling fixtures are in
+  `tests/test_collector_false_pass_rust_root_reexports.py` (AD-802, #1517).
 - A patch of a platform prototype (`Object.defineProperty(EventTarget.prototype, …)`, a prototype
   that is passed on, `ev.target.__proto__ = …`) gives UNKNOWN with a source-resolution gap
   (AD-768, #1527). `tests/test_cli_native_prototype_patch.py` holds 18 forms.
@@ -371,6 +378,13 @@ A field `date: date` is one false UNKNOWN. Release 4.0.1 does not see these writ
 body ([#775](https://github.com/rapiddweller/archkeel/issues/775)):
 - On 3.14: `__slots__`, `setattr`, a class decorator, a write from another module, a module-level
   `globals()['object'] = Hidden`, and `global object; object = Hidden` in a method.
+  The native collector reads a method annotation as lazy when the `requires-python` range allows
+  3.14 and the module has no `from __future__ import annotations` (AD-802). A `__slots__` entry, an
+  attribute store of the name anywhere in the scan or in a non-test file of the repository, and a
+  `setattr` with a computed name give the gap `lazy_class_namespace`. The text output names the
+  remedies: narrow `requires-python` below 3.14, add `from __future__ import annotations`, or
+  remove the namespace write. The JSON and the report say them in words that name no language. A store in test code or outside the repository is the stated premise
+  of the run (AD-770).
 - On every version: a metaclass `__prepare__` that puts the name in the class namespace.
 
 See [AD-283](architecture/decisions/ad-283-a-later-class-binding-blocks-every-annotation.md).

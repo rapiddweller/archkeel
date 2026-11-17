@@ -6,6 +6,7 @@
 
 use crate::model::{Component, ContractDigest, InsidePath, ItemId};
 use crate::model_declarations::Declarations;
+use crate::premises::PremiseName;
 use crate::rule::Rule;
 use crate::version::ContractVersion;
 
@@ -96,4 +97,15 @@ pub(crate) fn classify(contract: Contract) -> ParsedContract {
     } else {
         ParsedContract::NeedsTree(NeedsTree { contract, mounts })
     }
+}
+
+/// The names of the premises that `contract` declares, in contract order.
+pub fn declared_premises(contract: &Contract) -> Vec<PremiseName> {
+    let mut names: Vec<PremiseName> = Vec::new();
+    if let Some(declarations) = &contract.declarations {
+        for premise in &declarations.premises {
+            names.push(premise.name);
+        }
+    }
+    names
 }

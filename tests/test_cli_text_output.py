@@ -116,7 +116,10 @@ def test_the_header_word_is_the_meaning_of_the_exit_code(
     _, document, argv, expected, reason = next(case for case in _matrix() if case[0] == name)
     done, text = _run(document, [*argv, "--text"], capsys)
     first = text.splitlines()[0]
-    match = re.fullmatch(r"validate: (PASS|FAIL|UNKNOWN) -> exit (\d) \((.+)\)", first)
+    # AD-776: the header ends with the root and the configuration of the run.
+    match = re.fullmatch(
+        r"validate: (PASS|FAIL|UNKNOWN) -> exit (\d) \((.+)\) · root \S+ · config \S+", first
+    )
     assert match, text
     assert done == expected == int(match[2])
     assert match[1] == core_exit.word_of(expected) == core_exit.EXIT_TABLE[expected][0]
@@ -132,8 +135,9 @@ def test_a_refused_scan_has_the_same_documented_exit_with_and_without_a_baseline
     plain, text = _run(document, ["validate", "--text"], capsys)
     based, text_with = _run(document, ["validate", "--text", "--baseline", "b.json"], capsys)
     assert (plain, based) == (2, 1)
-    assert text.splitlines()[0] == "validate: REFUSED -> exit 2"
-    assert text_with.splitlines()[0] == "validate: REFUSED -> exit 1"
+    # AD-776: a refusal of a scan names the root and the configuration.
+    assert text.splitlines()[0] == "validate: REFUSED -> exit 2 · root . · config archkeel.toml"
+    assert text_with.splitlines()[0].startswith("validate: REFUSED -> exit 1 · root ")
     assert "with --baseline and 2 without" in core_only.help_for(core_only.Command.VALIDATE)
 
 
@@ -311,8 +315,9 @@ def test_a_requires_entry_that_is_no_object_says_what_the_object_holds(
 @pytest.mark.parametrize(
     ("make", "expected"),
     [
-        (lambda path: None, "the file does not exist in the current folder"),
-        (lambda path: path.mkdir(), "is a folder, not a file"),
+        # AD-776: the shell reads a relative --config from the current folder and names the path.
+        (lambda path: None, "other.toml is no file"),
+        (lambda path: path.mkdir(), "archkeel.toml is a folder"),
     ],
     ids=["missing", "folder"],
 )
@@ -326,7 +331,7 @@ def test_a_configuration_error_says_missing_or_not_a_file(
 ) -> None:
     """#1324: `cannot read archkeel.toml` is split into its causes, each with the way forward."""
     # AD-638: a missing `archkeel.toml` is drafted, so the missing file here is another name.
-    name = "other.toml" if expected.startswith("the file") else "archkeel.toml"
+    name = "other.toml" if expected.startswith("other") else "archkeel.toml"
     (tmp_path / "archkeel.toml").unlink()
     make(tmp_path / name)
     (tmp_path / "README").write_text("x")
@@ -450,9 +455,9 @@ def test_a_draft_that_leaves_only_open_decisions_says_why_the_run_stays_unknown(
     done, text = _run(_hygiene_gaps(kinds), ["validate", "--text"], capsys)
     lines = text.splitlines()
     assert done == 2
-    assert lines[0] == (
+    assert lines[0].startswith(
         "validate: UNKNOWN -> exit 2 (all 1 rules pass; the run stays UNKNOWN because the "
-        "contract draft has 3 open decisions)"
+        "contract draft has 3 open decisions) · root "
     )
     assert "2 x an open decision in the contract (a TODO)" in text
     assert "1 x a component without a written responsibility" in text

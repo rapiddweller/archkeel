@@ -67,7 +67,8 @@ def test_a_run_that_fails_after_the_draft_still_prints_what_it_wrote(
     assert code == 2 and _drafted(root) == set(DRAFT)
     lines = text.splitlines()
     assert lines[0].startswith("ArchKeel created archkeel.toml and a first contract draft"), text
-    assert "validate: REFUSED -> exit 2" in lines
+    # AD-776: the refusal names the root and the configuration of the run.
+    assert any(line.startswith("validate: REFUSED -> exit 2 · root ") for line in lines), text
     assert "Problem: the core did not answer in 600 s" in lines
 
 

@@ -40,6 +40,7 @@ mod model_uml;
 mod names;
 mod paths;
 pub mod policy;
+mod premises;
 mod python_rules;
 mod read;
 mod rule;
@@ -55,7 +56,7 @@ pub use canonical::canonical_bytes;
 #[cfg(test)]
 pub(crate) use canonical::canonical_digest;
 pub use contract::parse;
-pub use document::{Contract, ParsedContract};
+pub use document::{declared_premises, Contract, ParsedContract};
 pub use door_reach::DoorReach;
 pub(crate) use error::ErrorKind;
 pub use graph::uml_target_id;
@@ -73,6 +74,7 @@ pub use model_uml::{
     RelationshipKind, ResolutionKind, Signature, Target, TargetScope, VisibilityBasis,
     VisibilityKind,
 };
+pub use premises::{assumption_words, premise_word, PremiseName, PREMISE_NAMES};
 pub use rule::{head_of, kind_of, Rule};
 pub use uml_merge::merge_targets;
 pub use unused_public::{PublicItemKind, UnusedPublic};

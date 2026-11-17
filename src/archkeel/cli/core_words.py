@@ -144,6 +144,11 @@ REASON_WORDS: Final = {
     "unresolved_name": "name not resolved",
     "external_type": "type from outside the scan",
     "scope_incomplete": "the scan has gaps",
+    # AD-802 (#1523): the remedy of a late class annotation, in the words of a Python project.
+    "lazy_class_namespace": "lazy class annotation",
+    "narrow the version range of the project, make the annotations strings": (
+        "narrow requires-python below 3.14, add `from __future__ import annotations`"
+    ),
 }
 _NOT_FOUND: Final = re.compile(r"project_module_not_found: (\S+)")
 NOT_FOUND_PREFIX: Final = "project_module_not_found: "

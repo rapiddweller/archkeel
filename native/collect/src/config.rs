@@ -15,7 +15,7 @@ use toml::{Table, Value};
 
 /// The fields that `[scan]` must have and may have (`_REQUIRED_SCAN`, `_OPTIONAL_SCAN`).
 const REQUIRED: [&str; 3] = ["roots", "namespace", "contract"];
-const OPTIONAL: [&str; 8] = [
+const OPTIONAL: [&str; 9] = [
     "language",
     "tsconfig",
     "collector_argv",
@@ -24,6 +24,8 @@ const OPTIONAL: [&str; 8] = [
     "bundler",
     "exclude_test_sources",
     "python",
+    // AD-776: the folder of the scan root, from the folder of this file. The shell reads it.
+    "root",
 ];
 /// The characters that `_path` refuses: NUL, backslash, colon and the glob tokens.
 const UNSAFE: [char; 10] = ['\0', '\\', ':', '*', '?', '[', ']', '{', '}', '!'];
@@ -74,9 +76,10 @@ pub(crate) fn parse(payload: &[u8], name: &str) -> Result<Config, Refused> {
         return Err(invalid(
             "[scan] requires roots, namespace, and contract; language, tsconfig, \
              collector_argv, collector_output_limit_bytes, collector_timeout_seconds, \
-             bundler, exclude_test_sources and python are optional",
+             bundler, exclude_test_sources, python and root are optional",
         ));
     }
+    stated_root(scan)?;
     let language = language(scan)?;
     let python = match scan.get("python") {
         None => None,
@@ -261,6 +264,20 @@ fn namespace(scan: &Table) -> Result<String, Refused> {
 }
 
 /// `_path`: a non-empty safe POSIX relative path. `allow_dot` admits `.`.
+/// `scan.root` names a folder that holds this file: `.` or one or more `..` parts (AD-776). The
+/// shell chooses the root from it; the core only checks its form.
+fn stated_root(scan: &Table) -> Result<(), Refused> {
+    match scan.get("root") {
+        None => Ok(()),
+        Some(Value::String(text)) if text == "." || text.split('/').all(|part| part == "..") => {
+            Ok(())
+        }
+        Some(_) => Err(invalid(
+            "scan.root must be \".\" or a path of \"..\" parts, such as \"../..\"",
+        )),
+    }
+}
+
 fn safe_path(value: &Value, field: &str, allow_dot: bool) -> Result<String, Refused> {
     let text = match value {
         Value::String(text) if !text.is_empty() => text,

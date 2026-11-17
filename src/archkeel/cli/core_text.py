@@ -16,7 +16,7 @@ from collections.abc import Mapping, Sequence
 from .core_baseline import BaselineResult, BaselineState
 from .core_baseline import lines as baseline_lines
 from .core_doors import door_lines
-from .core_doors import qualifier as door_qualifier
+from .core_doors import qualifier as premise_qualifier
 from .core_evidence import ViolationDetail, call_lines
 from .core_exit import Outcome, verdict_code, word_of
 from .core_frame import CoreCommand as Command
@@ -55,11 +55,6 @@ def _invalid(baseline: BaselineResult) -> str:
     gap = baseline.gaps[0]
     why = plain(gap.reason).removeprefix(f"{gap.subject}: ")
     return f"{gap.subject} is not valid: {why}"
-
-
-def _assuming(doors: int) -> str:
-    """`pass assuming the declared reach of N doors`, for the header."""
-    return door_qualifier(doors).replace("PASS", "pass", 1)
 
 
 def _baseline_reason(frame: CoreFrame, baseline: BaselineResult, code: int) -> str:
@@ -118,8 +113,8 @@ def _reason_of(frame: CoreFrame, code: int, outcome: Outcome) -> str:
     total = len(frame.rules)
     if not frame.rules and any(gap.kind in PROBLEM_KINDS for gap in frame.gaps):
         return "no rule could be read: see the problem below"
-    if frame.status is Status.PASS and frame.doors:
-        return f"all {total} rules pass; {len(frame.assumed)} {_assuming(len(frame.doors))}"
+    if frame.status is Status.PASS and (words := frame.premises.assuming) is not None:
+        return f"all {total} rules pass; {len(frame.premises.rules)} pass assuming {words}"
     if frame.status is Status.PASS:
         return f"all {total} rules pass"
     if frame.status is Status.FAIL:
@@ -145,11 +140,18 @@ def _reason_of(frame: CoreFrame, code: int, outcome: Outcome) -> str:
     return f"{counts[RuleStatus.UNKNOWN]} of {total} rules cannot be decided"
 
 
-def header(command: Command, frame: CoreFrame, code: int, outcome: Outcome) -> str:
-    """The first line: the word of the exit code, the code and the reason."""
+def header(
+    command: Command, frame: CoreFrame, code: int, outcome: Outcome, scanned: str = ""
+) -> str:
+    """The first line: the word of the exit code, the code, the reason and (AD-776) the root
+    and the configuration that the run scanned."""
     invalid = frame.baseline is not None and frame.baseline.state is BaselineState.INVALID
     word = "REFUSED" if invalid else word_of(code)
-    return f"{command}: {word} -> exit {code} ({_reason_of(frame, code, outcome)})"
+    # #1549: a PASS that rests on a premise of the contract is never the bare word PASS.
+    words = frame.premises.assuming
+    if word == "PASS" and frame.status is Status.PASS and frame.premises.rules and words:
+        word = premise_qualifier(words)
+    return f"{command}: {word} -> exit {code} ({_reason_of(frame, code, outcome)}){scanned}"
 
 
 def _new_violations(frame: CoreFrame, total: int) -> int:
@@ -303,6 +305,7 @@ def render(
     code: int,
     *,
     outcome: Outcome,
+    scanned: str = "",
     problems: Sequence[str] = (),
     show_all: bool = False,
     system: Mapping[str, object] | None = None,
@@ -318,14 +321,14 @@ def render(
     ranking = sorted([*ranking, *named_ranking], key=lambda item: -item[1])
     errors = _errors(frame, contract_files)
     refused_file = frame.baseline is not None and frame.baseline.state is BaselineState.INVALID
-    out = [header(command, frame, code, outcome), *errors, *problems]
+    out = [header(command, frame, code, outcome, scanned), *errors, *problems]
     if errors:
         ranking = [("the problem above", len(errors)), *ranking]
     if (action := _next_action(frame, ranking)) is not None:
         out.append(f"Next: {action}")
     if frame.premise is not None:
         out.append(f"Assumption: {frame.premise}")
-    out.extend(door_lines(frame.assumed, frame.doors, SHOWN, show_all))
+    out.extend(door_lines(frame.premises, frame.doors, SHOWN, show_all))
     if system:
         out.extend(_system(system))
     out.extend(_violation_lines(frame, show_all))
@@ -357,10 +360,12 @@ def _system(system: Mapping[str, object]) -> list[str]:
     return out
 
 
-def refusal(command: Command | None, code: int, message: str, fix: str | None) -> list[str]:
+def refusal(
+    command: Command | None, code: int, message: str, fix: str | None, scanned: str = ""
+) -> list[str]:
     """The text of a command that could not run: the problem, then the fix."""
     head = f"{command}: " if command is not None else ""
-    out = [f"{head}REFUSED -> exit {code}", f"Problem: {message}"]
+    out = [f"{head}REFUSED -> exit {code}{scanned}", f"Problem: {message}"]
     if fix:
         out.append(f"Fix: {fix}")
     return out
@@ -375,6 +380,7 @@ def summary(
     ignored: Mapping[str, str] | None = None,
     *,
     outcome: Outcome,
+    scanned: str = "",
 ) -> list[str]:
     """The text for a CI log: the header, the errors, the top jobs and a few violations.
 
@@ -386,7 +392,7 @@ def summary(
     ranking = sorted([*ranking, *named], key=lambda item: -item[1])
     if errors:
         ranking = [("the problem above", len(errors)), *ranking]
-    out = [header(command, frame, code, outcome), *errors, *problems]
+    out = [header(command, frame, code, outcome, scanned), *errors, *problems]
     if (action := _next_action(frame, ranking)) is not None:
         out.append(f"Next: {action}")
     rows = [(rule, row) for rule, found in frame.details.items() for row in found]
