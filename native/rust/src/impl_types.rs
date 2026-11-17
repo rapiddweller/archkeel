@@ -17,6 +17,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use super::flow::Foreign;
 use super::receivers::{certainly_visible, exact_type, field_of, same_gates, Candidate, Typed};
 use crate::definitions::{Form, MethodCall, Owner, ReceiverChain, Root, SelfKind, Step, Written};
 use crate::modules::{Frame, Index, Outcome, TypeOf};
@@ -44,6 +45,23 @@ pub(super) struct Context<'t, 'm, 'a> {
     pub(super) typed: &'t Typed<'a>,
     /// The members that a macro call may define (#1196).
     pub(super) macro_members: &'m BTreeMap<String, BTreeSet<String>>,
+    /// No trait of a dependency can be in scope in the file (`impl_scope.rs`).
+    pub(super) closed: bool,
+}
+
+impl Verdict<'_, '_> {
+    /// Whether the call may reach a member of the block. An inherent block of an own type is in
+    /// the crate of the type (E0116).
+    pub(super) fn keeps(&self, block: &Foreign<'_>) -> bool {
+        match (self, &block.ty) {
+            (Verdict::Std, _) => false,
+            (Verdict::Own((lexical, name), _, _), TypeOf::Known(at, ty)) => {
+                at == lexical && ty == name
+            }
+            (Verdict::Own(_, krate, _), _) => block.module.crate_index == *krate,
+            (Verdict::Unknown, _) => true,
+        }
+    }
 }
 
 impl<'t, 'a> Context<'t, '_, 'a> {
@@ -68,7 +86,7 @@ impl<'t, 'a> Context<'t, '_, 'a> {
         }
         match core {
             Ty::Std(..) => Verdict::Std,
-            Ty::Own(lexical, name) if !self.typed.derefs.contains(name.as_str()) => {
+            Ty::Own(lexical, name) if !self.typed.derefs.contains(&**name) => {
                 // The `self` form of the receiver: the type itself or one written reference.
                 let form = match &ty {
                     Ty::Own(..) => Some(SelfKind::Value),
@@ -136,7 +154,9 @@ impl<'t, 'a> Context<'t, '_, 'a> {
             Root::Literal(_) => Ty::Std(Std::Prim, vec![]),
             Root::Value(path) => self.value(path, scope),
             Root::Call(path, arity) => self.call(path, *arity, scope),
-            Root::Element(of, adapter) => element(&self.chain_type(of, scope), adapter),
+            Root::Element(of, adapter) => {
+                element(&self.chain_type(of, scope), adapter, self.closed)
+            }
         }
     }
 
@@ -157,8 +177,8 @@ impl<'t, 'a> Context<'t, '_, 'a> {
             }
             Written::Unknown => Ty::Unknown,
             Written::Path(names, args) if names.first().is_some_and(|first| first == "Self") => {
-                match this {
-                    Some(this) if names.len() == 1 && args.is_empty() => this.clone(),
+                match (this, &names[..], &args[..]) {
+                    (Some(this), [_], []) => this.clone(),
                     _ => Ty::Unknown,
                 }
             }
@@ -226,7 +246,7 @@ impl<'t, 'a> Context<'t, '_, 'a> {
                     SelfKind::Value => core,
                     kind => Ty::Ref(kind, Box::new(core)),
                 };
-                std_method(&ty, name, arity)
+                std_method(&ty, name, arity, self.closed)
             }
             _ => Ty::Unknown,
         }
@@ -298,7 +318,7 @@ impl<'t, 'a> Context<'t, '_, 'a> {
         let mut enums = defs.filter(|d| {
             d.form == Form::Enum && d.name == name && frame.lexical_at(&d.scope) == lexical
         });
-        let has = |d: &crate::definitions::Definition| d.variants.contains(last);
+        let has = |def: &crate::definitions::Definition| def.variants.contains(last);
         let member = (self
             .typed
             .by_type
@@ -314,7 +334,7 @@ impl<'t, 'a> Context<'t, '_, 'a> {
 
     /// A call `f(..)`, `m::f(..)`, `T::f(..)` or `T::V(..)`.
     fn call(&self, path: &[String], arity: usize, scope: &[String]) -> Ty {
-        if let Some((last, ty)) = path.split_last().filter(|(_, ty)| !ty.is_empty()) {
+        if let ([ty @ .., last], true) = (path, path.len() > 1) {
             if let Some(std) = std_path(self.frame, scope, ty) {
                 return std_function(std, last);
             }
@@ -348,7 +368,7 @@ impl<'t, 'a> Context<'t, '_, 'a> {
         let scan = &self.frame.module.scan;
         let local = path.len() == 1
             && self.frame.bound(name).is_empty()
-            && scan.counts.get(name.as_str()) == Some(&1);
+            && scan.counts.get(&**name) == Some(&1);
         let lexical = if local {
             self.frame.lexical_at(scope)
         } else {
@@ -383,7 +403,7 @@ impl<'t, 'a> Context<'t, '_, 'a> {
         let [found] = defs.as_slice() else {
             return Ty::Unknown;
         };
-        let certain = target.counts.get(name.as_str()) == Some(&1)
+        let certain = target.counts.get(&**name) == Some(&1)
             && same_gates(self.module, frame.module)
             && !frame.module.gated;
         match certain {

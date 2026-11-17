@@ -23,9 +23,21 @@ after it. The resolver (`impl_types.rs`, `impl_ty.rs`) follows the written types
   `&` and `&mut`.
 - **Std types.** A path names a std type only when the prelude or one unconditional `use` leaf of
   `std`, `core` or `alloc` in its scope binds it, and no item, glob or module-level macro of the
-  file can give the name. A fixed table holds inherent std methods with the return type of their
-  std signature. A method of a deref target (`[T]` of `Vec<T>`, `str` of `String`, `Path` of
-  `PathBuf`) counts only when no trait of the prelude and no trait of the workspace has the name.
+  file can give the name. A fixed table holds inherent std methods and the `Iterator` methods of
+  the adapters, with the return type and the `self` form of their std signature. Rust tries each
+  step of the receiver (by value, `&`, `&mut`, then the deref target) and, at each step, an
+  inherent method before a trait method. So a method of the table counts for certain only at the
+  first step: the receiver has the `self` form of the method, and the method is of the
+  receiver's own type (or a by-value `Iterator` method, where a second trait method of the name
+  is E0034). A method of a later step (an autoref, or a deref target: `[T]` of `Vec<T>`, `str` of
+  `String`, `Path` of `PathBuf`) counts only in a `closed` file (`impl_scope.rs`), and only when no
+  trait of the prelude and no trait of the workspace has the name.
+- **Closed file.** A trait is called only when it is in scope. A file is closed when no `use` can
+  bring in a trait of another crate: each `use` leaf starts at `std`, `core` or `alloc` or in the
+  workspace; a leaf from the workspace names nothing that the workspace re-exports from another
+  crate (also through a renamed re-export), and no module re-exports a glob of another crate; each
+  glob is a glob of `std`; and the file has no `extern crate` and no macro call that is no silent
+  macro of `std`. No trait of `std` has a method of a name of the table for these types.
 - **Closures and loops (fixed set).** On `Vec<T>`, `[T]`, `&[T]`, `VecDeque<T>`, sets, `Option<T>`
   and the `keys` and `values` of maps: `iter()` gives `&T`, `iter_mut()` gives `&mut T`, and
   `into_iter()` gives `T` from a value and `&T` or `&mut T` through a reference. `filter`,
@@ -33,7 +45,10 @@ after it. The resolver (`impl_types.rs`, `impl_ty.rs`) follows the written types
   one argument of `map`, `filter`, `filter_map`, `find`, `any`, `all`, `for_each`, `flat_map`,
   `take_while`, `skip_while`, `position`, `max_by_key` or `min_by_key` has the item; the predicates
   (`filter`, `find`, `take_while`, `skip_while`, `max_by_key`, `min_by_key`) see `&Item`. The variable
-  of `for x in e` has the item of `into_iter()` on `e`. Such a binding holds only at the receiver
+  of `for x in e` has the item of `into_iter()` on `e`: `for` calls `IntoIterator::into_iter` by its
+  path, with no method lookup. An adapter counts for certain when it takes `self` and the receiver
+  is the iterator or the `Option` by value; `find`, `any`, `all` and `position` take `&mut self` and
+  count only in a closed file. Such a binding holds only at the receiver
   sites of its body, and only when the body binds the name nowhere else.
 
 At the call, `&`, `&mut`, `Box`, `Rc` and `Arc` are peeled one level at a time:
@@ -59,23 +74,23 @@ At the call, `&`, `&mut`, `Box`, `Rc` and `Arc` are peeled one level at a time:
   outside the fixed set, a non-std iterator and an array by value (its `into_iter` item depends on
   the edition) give no type.
 
-## Limit
-The table and the deref rule do not read the traits of a crate outside the workspace and std. Such a
-trait with a method of a name of the table, implemented for the std type and in scope, would win
-the call at an earlier step. The table holds only names of inherent std methods that the traits of
-the prelude do not use.
-
 ## Price
 | project | rules | pair gaps |
 |---|---|---|
-| `native/` self-check | 64 PASS, 28 UNKNOWN to 64 PASS, 27 UNKNOWN, 1 FAIL | 1,270 to 1,097 |
+| `native/` self-check | 64 PASS, 28 UNKNOWN, unchanged | 1,278 to 1,098 |
 | tokio 1.48.0 guard | unchanged | 63,834, unchanged |
 
-`NATIVE-REQUIRES-COMPLETE` changes from UNKNOWN to FAIL: 66 edges between components of `native/`
-that the contract does not declare, for example `model.graph().imports()` from
-`archkeel_model.direction` into `archkeel_model.graph`. Each one is a real call of a member of the
-module. tokio keeps its gaps: its modules are gated or written by macros, and most of its
-method-call gaps are paths `T::new`.
+The closed-file rule costs 2 gaps on `native/`. New edges make more modules reachable, so the
+reachability prune of #1571 keeps 46 sound pair gaps that it dropped before; 226 gaps go.
+
+The edges show 22 module pairs of `native/` that the contract did not declare, for example
+`model.graph().imports()` from `archkeel_model.direction` into `archkeel_model.graph`. Each one is a
+real call of a public member, points down the layer order or stays in its layer, and no forbidden
+dependency names it. The contract now states them as `requires` of `core-baseline`,
+`core-contract`, `core-engine`, `eval-rules`, `model-run`, `model-proof`, `model-uml` and
+`rs-entry`, and `docs/architecture/native.md` draws the four new component edges. tokio keeps its
+gaps: its modules are gated or written by macros, and most of its method-call gaps are paths
+`T::new`.
 
 ## Tests
 - `native/rust/src/impl_types_tests.rs`: std receivers, own types with and without an exact form,

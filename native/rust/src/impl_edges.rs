@@ -41,6 +41,8 @@ struct Members<'a> {
     aliases: BTreeSet<&'a str>,
     /// The members of every block by placed type, for the calls on `self` (AD-383).
     typed: Typed<'a>,
+    /// The names that the workspace re-exports from another crate (AD-786).
+    outside: scope::Outside,
 }
 
 fn members<'a>(index: &Index<'_>, modules: &'a [Module]) -> Members<'a> {
@@ -55,6 +57,7 @@ fn members<'a>(index: &Index<'_>, modules: &'a [Module]) -> Members<'a> {
             found.add(index, frame, module, block);
         }
     }
+    found.outside = scope::outside(index, modules);
     found
 }
 
@@ -392,6 +395,7 @@ impl Builder {
         let Some(frame) = frame else {
             return;
         };
+        let closed = scope::closed(workspace, frame, &found.outside);
         for (at_index, call) in reached.calls.iter().enumerate() {
             #[cfg(feature = "dump")]
             if at_index < own
@@ -414,6 +418,7 @@ impl Builder {
                     at: frame.lexical_at(&call.scope),
                     typed: &found.typed,
                     macro_members: &self.macro_members,
+                    closed,
                 }
                 .verdict(call),
                 false => types::Verdict::Unknown,
@@ -425,15 +430,7 @@ impl Builder {
                 *self.ended_methods.entry(module.rel.clone()).or_default() += 1;
                 continue;
             }
-            // An inherent block of an own type is in the crate of the type (E0116).
-            let keep = |block: &Foreign<'_>| match (&verdict, &block.ty) {
-                (types::Verdict::Std, _) => false,
-                (types::Verdict::Own((lexical, name), _, _), TypeOf::Known(at, ty)) => {
-                    at == lexical && ty == name
-                }
-                (types::Verdict::Own(_, krate, _), _) => block.module.crate_index == *krate,
-                (types::Verdict::Unknown, _) => true,
-            };
+            let keep = |block: &Foreign<'_>| verdict.keeps(block);
             let at = frame.lexical_at(&call.scope);
             let blocks = found.foreign.get(call.name.as_str()).into_iter().flatten();
             let blocks = blocks.filter(|block| keep(block));
@@ -488,6 +485,10 @@ mod receivers;
 /// The type of the receiver of a method call (#1571, AD-786).
 #[path = "impl_types.rs"]
 mod types;
+
+/// Whether a trait of a dependency can be in scope in a file (AD-786).
+#[path = "impl_scope.rs"]
+mod scope;
 
 #[cfg(test)]
 #[path = "impl_edges_tests.rs"]

@@ -7,12 +7,15 @@
 //! first segment for certain: no item, glob or module-level macro of the file can give the name,
 //! and a `use` leaf is unconditional and in the scope of the path.
 //!
-//! The method table holds inherent methods of std types only, with the return type that their
-//! std signature fixes. A method of a deref target (`[T]` of `Vec<T>`, `str` of `String`, `Path`
-//! of `PathBuf`) counts only when no trait of the prelude has a method of that name; the caller
-//! checks the traits of the workspace. A trait of a crate outside the workspace and std with a
-//! method of a name of this table, implemented for the std type and in scope, is not read
-//! (AD-786 states this limit).
+//! The method table holds inherent methods of std types and the `Iterator` methods of the fixed
+//! adapters, with the return type and the `self` form of their std signature. Rust tries each
+//! step of the receiver (by value, `&`, `&mut`, then the deref target) and, at each step, an
+//! inherent method before a trait method. So a method counts for certain only at the first step:
+//! the receiver has the `self` form of the method, and the method is of the receiver's own type.
+//! A method of a later step (an autoref or a deref target: `[T]` of `Vec<T>`, `str` of `String`,
+//! `Path` of `PathBuf`) counts only when the file can have no trait of a dependency in scope
+//! (`closed`, `impl_scope.rs`) and no trait of the prelude has the name; the caller checks the
+//! traits of the workspace.
 
 use crate::definitions::SelfKind;
 use crate::modules::Frame;
@@ -148,6 +151,7 @@ pub(in crate::impl_edges) fn std_path(
 
 /// A name of the prelude or a primitive type, when nothing of the file binds it.
 fn prelude(name: &str) -> Option<Std> {
+    let primitives: &[&str] = &PRIMITIVES;
     Some(match name {
         "String" => Std::String,
         "Vec" => Std::Vec,
@@ -155,7 +159,7 @@ fn prelude(name: &str) -> Option<Std> {
         "Result" => Std::Result,
         "Box" => Std::Box,
         "str" => Std::Str,
-        other if PRIMITIVES.contains(&other) => Std::Prim,
+        other if primitives.contains(&other) => Std::Prim,
         _ => return None,
     })
 }
@@ -192,10 +196,16 @@ fn items(ty: &Ty) -> Ty {
 }
 
 /// The type of the closure parameter of an adapter of AD-786 on a receiver of type `ty`, or of the
-/// variable of `for` (the adapter `for`). A predicate (`filter`, `find`, ..) sees `&Item`.
-pub(in crate::impl_edges) fn element(ty: &Ty, adapter: &str) -> Ty {
+/// variable of `for` (the adapter `for`). A predicate (`filter`, `find`, ..) sees `&Item`. `for`
+/// calls `IntoIterator::into_iter` by its path, with no method lookup. An adapter counts for certain
+/// on an iterator or an `Option` by value when it takes `self`; else only in a `closed` file.
+pub(in crate::impl_edges) fn element(ty: &Ty, adapter: &str, closed: bool) -> Ty {
     if adapter == "for" {
         return items(ty);
+    }
+    let autoref = matches!(adapter, "find" | "any" | "all" | "position");
+    if !closed && (autoref || matches!(ty, Ty::Ref(..))) {
+        return Ty::Unknown;
     }
     let mut ty = ty;
     while let Ty::Ref(_, inner) = ty {
@@ -217,30 +227,61 @@ pub(in crate::impl_edges) fn element(ty: &Ty, adapter: &str) -> Ty {
     }
 }
 
-/// The type of a method call on a std receiver: an inherent method of the type, or of its deref
-/// target when no trait of the prelude has the name, and `into_iter` by the form of the receiver.
-pub(in crate::impl_edges) fn std_method(ty: &Ty, name: &str, arity: usize) -> Ty {
+/// The `self` form of a method of the table.
+fn self_kind(kind: Std, name: &str) -> SelfKind {
+    match (kind, name) {
+        (Std::Iter, "find" | "nth" | "next" | "any" | "all" | "position") => SelfKind::Unique,
+        (Std::Iter, _) => SelfKind::Value,
+        (
+            _,
+            "unwrap" | "unwrap_or_default" | "expect" | "unwrap_or" | "unwrap_or_else" | "cloned"
+            | "copied" | "ok_or" | "ok_or_else" | "ok" | "err" | "map_err" | "filter",
+        ) => SelfKind::Value,
+        (
+            _,
+            "as_mut" | "take" | "pop" | "first_mut" | "last_mut" | "iter_mut" | "get_mut"
+            | "remove" | "insert" | "values_mut",
+        ) => SelfKind::Unique,
+        _ => SelfKind::Shared,
+    }
+}
+
+/// The type of a method call on a std receiver (see the module notes), and `into_iter` by the
+/// form of the receiver: `IntoIterator` is implemented for the receiver type itself.
+pub(in crate::impl_edges) fn std_method(ty: &Ty, name: &str, arity: usize, closed: bool) -> Ty {
     if (name, arity) == ("into_iter", 0) {
         return match items(ty) {
             Ty::Unknown => Ty::Unknown,
             item => Ty::Std(Std::Iter, vec![item]),
         };
     }
-    let mut current = ty;
+    let (form, mut current) = match ty {
+        Ty::Ref(kind, inner) if !matches!(**inner, Ty::Ref(..)) => (Some(*kind), &**inner),
+        Ty::Ref(..) => (None, ty),
+        other => (Some(SelfKind::Value), other),
+    };
     while let Ty::Ref(_, inner) = current {
         current = inner;
     }
     let mut current = current.clone();
+    let mut first = true;
+    let prelude: &[&str] = &PRELUDE;
     loop {
         let Ty::Std(kind, args) = &current else {
             return Ty::Unknown;
         };
         if let Some(found) = inherent(*kind, args, name, arity) {
-            return found;
+            let certain = first && form == Some(self_kind(*kind, name));
+            return if certain || closed {
+                found
+            } else {
+                Ty::Unknown
+            };
         }
-        if PRELUDE.contains(&name) {
+        if prelude.contains(&name) || !closed {
             return Ty::Unknown;
         }
+        first = false;
         current = match kind {
             Std::Vec => Ty::Std(Std::Slice, args.clone()),
             Std::String => Ty::Std(Std::Str, vec![]),
@@ -317,8 +358,8 @@ fn inherent(kind: Std, args: &[Ty], name: &str, arity: usize) -> Option<Ty> {
         (Path, "starts_with" | "ends_with", 1) => prim(),
         (Path, "file_name" | "extension" | "file_stem", 0) => some(shared(of(OsStr, vec![]))),
         (Path | OsStr, "to_str", 0) => some(text()),
-        (Vec | Slice | Set | Deque | Std::Option, "iter", 0) => of(Iter, vec![shared(arg(0))]),
-        (Vec | Slice | Deque | Std::Option, "iter_mut", 0) => of(Iter, vec![unique(arg(0))]),
+        (Slice | Set | Deque | Std::Option, "iter", 0) => of(Iter, vec![shared(arg(0))]),
+        (Slice | Deque | Std::Option, "iter_mut", 0) => of(Iter, vec![unique(arg(0))]),
         (Map, "keys", 0) => of(Iter, vec![shared(arg(0))]),
         (Map, "values", 0) => of(Iter, vec![shared(arg(1))]),
         (Map, "values_mut", 0) => of(Iter, vec![unique(arg(1))]),

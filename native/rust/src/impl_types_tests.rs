@@ -217,3 +217,34 @@ fn a_unique_field_behind_a_shared_reference_is_no_edge() {
         edge("e")
     );
 }
+
+#[test]
+fn a_deref_target_or_autoref_method_needs_a_file_with_no_trait_of_a_dependency() {
+    // `iter` and `first` are methods of `[T]`, a deref target of `Vec<T>`: a trait of a dependency
+    // in scope could win on `Vec<T>` first.
+    let outside = "use serde::Serialize;\n";
+    let iter = "pub fn f(v: &Vec<crate::d::T>) { v.iter().for_each(|t| t.m()) }";
+    assert_eq!(outcome(iter, &[]), edge("e"));
+    assert_eq!(outcome(&format!("{outside}{iter}"), &[]), gaps(&["b", "e"]));
+    let std_use = "use std::collections::BTreeMap;\n";
+    assert_eq!(outcome(&format!("{std_use}{iter}"), &[]), edge("e"));
+    let glob = "use crate::c::*;\n";
+    assert_eq!(outcome(&format!("{glob}{iter}"), &[]), gaps(&["b", "e"]));
+    // `Option::unwrap(self)` on an `Option` by value is found at the first step.
+    let unwrap = "pub fn f(o: Option<&'static crate::d::T>) { o.unwrap().m() }";
+    assert_eq!(outcome(&format!("{outside}{unwrap}"), &[]), edge("e"));
+    // `Option::as_ref(&self)` on a value needs an autoref.
+    let as_ref = "pub fn f(o: Option<crate::d::T>) { o.as_ref().unwrap().m() }";
+    assert_eq!(outcome(as_ref, &[]), edge("e"));
+    assert_eq!(
+        outcome(&format!("{outside}{as_ref}"), &[]),
+        gaps(&["b", "e"])
+    );
+    // A re-export of another crate makes its name a possible trait in each importing file.
+    let reexport = (
+        "crates/app/src/lib.rs",
+        "mod a;\nmod b;\nmod c;\nmod d;\nmod e;\npub use serde::Tr;\n",
+    );
+    let named = format!("use crate::Tr;\n{iter}");
+    assert_eq!(outcome(&named, &[reexport]), gaps(&["b", "e"]));
+}

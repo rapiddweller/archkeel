@@ -252,14 +252,13 @@ pub(super) fn read(
     }
     let mut hidden: BTreeSet<String> = outer.iter().cloned().collect();
     hidden.extend(sig.generics.params.iter().filter_map(generic_name));
-    let names = hidden
-        .iter()
-        .chain(bound.counts.keys())
-        .chain(&bound.tainted);
+    let mut hide: BTreeSet<String> = hidden.clone();
+    hide.extend(bound.counts.keys().cloned());
+    hide.extend(bound.tainted.iter().cloned());
     let mut params = Params {
         found: BTreeMap::new(),
         proved: true,
-        hide: names.cloned().collect(),
+        hide,
         macros: bound.macros.iter().cloned().collect(),
         this,
         self_type,
