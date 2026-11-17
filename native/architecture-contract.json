@@ -783,6 +783,8 @@
         "native.archkeel_model.boundary_facts:Origin",
         "native.archkeel_model.boundary_facts:Slot",
         "native.archkeel_model.boundary_facts:Standard",
+        "native.archkeel_model.boundary_facts:positions_of",
+        "native.archkeel_model.boundary_facts:slots_of",
         "native.archkeel_model.boundary_facts:standard_of",
         "native.archkeel_model.boundary_facts:wrapped_of",
         "native.archkeel_model.condensation:condense",
@@ -2171,18 +2173,20 @@
         },
         {
           "component": "model-run",
-          "rationale": "Call the methods of the model and of its contract tree (#953: a method of another module is a use of that module).",
+          "rationale": "Call the methods of the model and of its contract tree: the UML decision asks the root model of the tree (#953, AD-804).",
           "through": [
-            "native.archkeel_model.model"
+            "native.archkeel_model.model",
+            "native.archkeel_model.tree"
           ]
         },
         {
           "component": "model-proof",
-          "rationale": "Call the methods of the scope, the verdict and the run proof (#953: a method of another module is a use of that module).",
+          "rationale": "Call the methods of the scope, the verdict and the run proof: read the verdict and the reason of each decision (#953, AD-804).",
           "through": [
             "native.archkeel_model.gap_effects",
             "native.archkeel_model.run",
-            "native.archkeel_model.scope"
+            "native.archkeel_model.scope",
+            "native.archkeel_model.verdict"
           ]
         },
         {

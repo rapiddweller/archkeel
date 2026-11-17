@@ -1675,6 +1675,7 @@
     "field request::TypeScriptSettings.bundler: bool",
     "field request::TypeScriptSettings.tsconfig: String",
     "field standard::StandardFacts.changed: BTreeMap<String,String>",
+    "field standard::StandardFacts.positions: BTreeMap<String,BTreeSet<String>>",
     "field standard::StandardFacts.types: BTreeSet<String>",
     "field standard::StandardFacts.wrapped: BTreeMap<String,Wrapped>",
     "field standard::WrappedSlot.kind: String",

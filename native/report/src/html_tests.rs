@@ -141,8 +141,8 @@ fn a_run_with_a_topology_has_the_explorer_and_its_data() {
         assert!(page.contains("id=\"flow\" class=\"flow\" data-atlas=\"true\""));
         assert_eq!(
             page.matches("<script").count(),
-            10,
-            "the theme, the data and eight scripts"
+            11,
+            "the theme, the data and nine scripts"
         );
     }
     let none = document(&json!({"status": "PASS"}));

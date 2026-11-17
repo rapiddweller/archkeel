@@ -30,12 +30,17 @@ use archkeel_facts::{ImportFact, Record};
 
 use super::dataclass::class;
 use super::found::{Decorated, Found};
+use super::shape_names::{Hidden, Names};
+use super::shape_standard;
 use super::shapes::{imports_by_module, module_names, Shaper};
 use super::wrapped_read::{function, Reader};
 use crate::module::definition::Def;
 use crate::module::Module;
 use crate::survey::binders::Binders;
+use crate::survey::bound::Bound;
 use crate::survey::class_writes::ClassWrites;
+use crate::survey::standard::Positions;
+use ruff_python_ast::Stmt;
 
 /// The forms of the decorated definitions of each module, by qualified name.
 pub(crate) fn forms(
@@ -43,7 +48,7 @@ pub(crate) fn forms(
     (modules, binders): (&[Module], &[Binders]),
     imports: &[Record<ImportFact>],
     sets: (&HashSet<String>, &HashSet<String>),
-    (lazy, writes): (Option<&ClassWrites>, &ClassWrites),
+    ((lazy, writes), positions): ((Option<&ClassWrites>, &ClassWrites), &mut Positions),
 ) -> BTreeMap<String, Wrapped> {
     let by_module = imports_by_module(imports);
     let mut out = BTreeMap::new();
@@ -59,11 +64,38 @@ pub(crate) fn forms(
             module,
         };
         for decorated in &item.decorated {
+            standard_positions(&names, decorated, positions);
             let found = form(&reader, decorated, &mut out);
             out.insert(decorated.qualname.clone(), found);
         }
     }
     out
+}
+
+/// The standard library names of the positions of the form of a decorated definition (#1718):
+/// its own signature, or the methods and the fields of a dataclass.
+fn standard_positions(names: &Names<'_>, decorated: &Decorated<'_>, out: &mut Positions) {
+    let qualname = decorated.qualname.as_str();
+    match decorated.def {
+        Def::Function(node) => {
+            let class = decorated.class_names.as_ref();
+            shape_standard::signature(names, node, (qualname, class), out);
+        }
+        Def::Class(node) => {
+            let body = Bound::names(&Bound::of(&node.body));
+            for statement in &node.body {
+                if let Stmt::FunctionDef(method) = statement {
+                    let own = format!("{qualname}.{}", method.name);
+                    shape_standard::signature(names, method, (&own, Some(&body)), out);
+                }
+            }
+            let hidden = Hidden {
+                names: body,
+                lazy: None,
+            };
+            shape_standard::fields(names, node, (qualname, &hidden), out);
+        }
+    }
 }
 
 fn form(
