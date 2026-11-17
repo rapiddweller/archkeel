@@ -1,6 +1,6 @@
 # AD-806 A trait impl runs in each module that reaches its module
 
-**Status.** Accepted (lead order: #1515 and #1516). Part of #880, closes #1515 and #1516. It amends AD-516 (its open false PASS) and uses the value flow of #1571 (`impl_flow.rs`). The rule is in `orphan_impls.rs`, beside the gaps of AD-516.
+**Status.** Accepted (lead order: #1515 and #1516; owner decision 2026-11-17: the sound fix first, then the precision steps; a generic or `dyn` callee that runs an impl which its caller hands in is the dependency of the caller). Part of #880, closes #1515 and #1516. It amends AD-516 (its open false PASS) and uses the value flow of #1571 (`impl_flow.rs`). The rule is in `orphan_impls.rs`, beside the gaps of AD-516.
 
 **Reason.** `impl Tr for Y` in `b` runs where a value of `Y` meets a use of `Tr`. The caller writes no name of `b`:
 - a method call on a value that another module gives (`c::make().m()`, a field, a closure argument, an alias with `Default`, `impl Tr`, `Box<dyn Tr>`);
@@ -24,6 +24,8 @@ AD-516 gives a gap only for an impl that neither its type nor its trait anchors.
 - Frozen Serde: 4525 -> 4946 gaps, rows unchanged (0/1/3).
 - tokio 1.48: 66155 -> 82672 gaps, rows unchanged (0/4/2), the same wall time.
 - Three `target_symbol` plants of AD-668 go PASS -> UNKNOWN: the use of a type alias, a call of `make` alone, and the same beside an opaque root. They reach `base.vocab`, where the derived `PartialEq` of `Profile` runs.
+
+**Precision steps (owner order, after this record).** 1: an exact receiver with one exact trait impl gives an edge. 2: a derived impl of a std trait or of serde calls only the same trait on the field types, so a gap that only such a derive gives can go when the field types are exact. 3: signature facts of the published items of a crate, for the cross-crate pairs (the store author of #1571).
 
 **Not done here (follow-ups).**
 - A receiver whose type is exact (the receiver-type facts of #1571 in progress, AD-383, AD-524, AD-543) with one exact trait impl of the method could be an edge to the module of that impl, which can turn an UNKNOWN into a FAIL. An edge does not remove the gap of rule 2, because the implicit forms remain.
