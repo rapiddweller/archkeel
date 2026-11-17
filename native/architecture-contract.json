@@ -111,6 +111,7 @@
         "native.archkeel_facts.request:RustRequest",
         "native.archkeel_facts.request:TypeScriptRequest",
         "native.archkeel_facts.sections:SignalFact",
+        "native.archkeel_facts.surveys:gaps_are_unknowns",
         "native.archkeel_facts.type_shape:Binding",
         "native.archkeel_facts.type_shape:Family",
         "native.archkeel_facts.type_shape:TypeShape",
@@ -2403,6 +2404,13 @@
           "through": [
             "native.archkeel_core.contract"
           ]
+        },
+        {
+          "component": "collect",
+          "rationale": "Run the checks of the collector of a reply after the store, also for the byte door of the harness (AD-688).",
+          "through": [
+            "native.archkeel_collect:check"
+          ]
         }
       ],
       "public": [
@@ -2854,7 +2862,6 @@
           "through": [
             "native.archkeel_collect:Identity",
             "native.archkeel_collect:Over",
-            "native.archkeel_collect:Profile",
             "native.archkeel_collect:Refusal",
             "native.archkeel_collect:RefusalKind",
             "native.archkeel_collect:Scanned",
@@ -2996,12 +3003,12 @@
       "public": [
         "native.archkeel_collect:Identity",
         "native.archkeel_collect:Over",
-        "native.archkeel_collect:Profile",
         "native.archkeel_collect:Refusal",
         "native.archkeel_collect:RefusalKind",
         "native.archkeel_collect:Scanned",
         "native.archkeel_collect:System",
         "native.archkeel_collect:SystemPart",
+        "native.archkeel_collect:check",
         "native.archkeel_collect:read_system",
         "native.archkeel_collect:scan"
       ],
@@ -3356,6 +3363,7 @@
       "packages": [
         "native.archkeel_dart_collector.import_survey",
         "native.archkeel_dart_collector.import_survey.budget",
+        "native.archkeel_dart_collector.import_survey.claims",
         "native.archkeel_dart_collector.import_survey.config",
         "native.archkeel_dart_collector.import_survey.edges",
         "native.archkeel_dart_collector.import_survey.index",
@@ -3384,10 +3392,12 @@
             "native.archkeel_facts.identity",
             "native.archkeel_facts.ids",
             "native.archkeel_facts.request",
+            "native.archkeel_facts.surveys",
             "native.archkeel_facts.vocab",
             "native.archkeel_facts:GapFact",
             "native.archkeel_facts:ImportFact",
-            "native.archkeel_facts:Record"
+            "native.archkeel_facts:Record",
+            "native.archkeel_facts:Section"
           ]
         },
         {
@@ -3441,6 +3451,7 @@
         }
       ],
       "public": [
+        "native.archkeel_dart_collector.import_survey.claims:check",
         "native.archkeel_dart_collector.import_survey.reply:decode",
         "native.archkeel_dart_collector.import_survey.reply:typed_reply",
         "native.archkeel_dart_collector.import_survey:edge_rows",
@@ -3604,6 +3615,7 @@
       ],
       "public": [
         "native.archkeel_dart_collector:TEST_FEATURES",
+        "native.archkeel_dart_collector:check",
         "native.archkeel_dart_collector:decode",
         "native.archkeel_dart_collector:provenance",
         "native.archkeel_dart_collector:typed_reply"
@@ -5727,7 +5739,8 @@
       "role": "component",
       "layer": "collector",
       "packages": [
-        "native.archkeel_python_collector.reply"
+        "native.archkeel_python_collector.reply",
+        "native.archkeel_python_collector.claims"
       ],
       "responsibilities": [
         "The 10.0.0 reply of the import survey as the Python collector writes it in the phase imports: the provenance with the interpreter version of the request, the inputs, and only the sections of the survey (AD-334)."
@@ -5746,12 +5759,15 @@
             "native.archkeel_facts.envelope",
             "native.archkeel_facts.request",
             "native.archkeel_facts.sections:SignalFact",
+            "native.archkeel_facts.surveys",
             "native.archkeel_facts:CallFact",
             "native.archkeel_facts:ConstructFact",
             "native.archkeel_facts:GapFact",
             "native.archkeel_facts:ImportFact",
             "native.archkeel_facts:Record",
             "native.archkeel_facts:ReferenceFact",
+            "native.archkeel_facts:STANDARD_LIBRARY",
+            "native.archkeel_facts:Section",
             "native.archkeel_facts:SymbolFact"
           ]
         },
@@ -5788,6 +5804,7 @@
         }
       ],
       "public": [
+        "native.archkeel_python_collector.claims:check",
         "native.archkeel_python_collector.reply:Build",
         "native.archkeel_python_collector.reply:reply",
         "native.archkeel_python_collector.reply:typed"
@@ -6136,6 +6153,7 @@
           "component": "py-reply",
           "rationale": "Encode the reply of the survey.",
           "through": [
+            "native.archkeel_python_collector.claims",
             "native.archkeel_python_collector.reply"
           ]
         },
@@ -6157,6 +6175,7 @@
       "public": [
         "native.archkeel_python_collector:BUILD",
         "native.archkeel_python_collector:TEST_FEATURES",
+        "native.archkeel_python_collector:check",
         "native.archkeel_python_collector:typed_reply"
       ],
       "decided_by": "architect"
@@ -7606,30 +7625,6 @@
       "target_symbol": "Profile",
       "include_type_checking": true,
       "rationale": "Cut A: `core` names no language. `Profile` is the vocabulary of the languages; a crate that names it decides by language. A language fact lives in its collector and reaches the core as typed facts (AD-668).",
-      "provenance": [
-        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
-      ],
-      "decided_by": "architect"
-    },
-    {
-      "id": "NATIVE-NEUTRAL-STORE-NO-PYTHON-MODULE",
-      "kind": "forbidden_dependency",
-      "source": "native.archkeel_store",
-      "target": "native.archkeel_store.python",
-      "include_type_checking": true,
-      "rationale": "Cut A: `store` names no language. The module `store.python` holds rules of one language; they belong to its collector, which states them in its reply (AD-668).",
-      "provenance": [
-        "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
-      ],
-      "decided_by": "architect"
-    },
-    {
-      "id": "NATIVE-NEUTRAL-STORE-NO-DART-MODULE",
-      "kind": "forbidden_dependency",
-      "source": "native.archkeel_store",
-      "target": "native.archkeel_store.dart",
-      "include_type_checking": true,
-      "rationale": "Cut A: `store` names no language. The module `store.dart` holds rules of one language; they belong to its collector, which states them in its reply (AD-668).",
       "provenance": [
         "docs/architecture/decisions/ad-668-a-neutral-crate-names-no-language.md"
       ],
