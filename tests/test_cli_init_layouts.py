@@ -112,3 +112,25 @@ def test_a_workspace_without_a_root_tsconfig_drafts_each_member_with_its_own(
     for path, text in configs.items():
         named = re.search(r'^tsconfig = "([^"]+)"$', text, re.M)
         assert named and (root / named[1]).is_file(), (path, text)
+
+
+def test_a_typescript_project_below_the_root_does_not_repeat_its_path_in_its_names(
+    tmp_path: Path,
+) -> None:
+    """#1617: a TypeScript project at `src/web` drafted the namespace `web`, so each module read
+    `web.src.web.src.application`. The namespace is the repository's."""
+    member = {"compilerOptions": {"strict": True}, "include": ["src"]}
+    root = _write(
+        tmp_path / "mono",
+        {
+            "src/web/package.json": '{"name": "web"}',
+            "src/web/tsconfig.json": json.dumps(member),
+            "src/web/src/application/main.ts": "export const a = 1;\n",
+            "src/web/src/domain/rule.ts": "export const b = 2;\n",
+        },
+    )
+    result = draft(root)
+    assert result.namespace == "mono"
+    contract = next(f for f in result.files if f.path.endswith("architecture-contract.json"))
+    assert '"mono.src.web.src.application"' in contract.text
+    assert "web.src.web" not in contract.text
