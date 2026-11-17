@@ -43,6 +43,9 @@ review plants of a local trait argument (`Tg<Marker>`, `AsRef<L>`) are orphans: 
    supertrait, a `dyn` supertrait or a re-export of the trait (4 plants).
 3. An impl that a macro of `b` generates (#1020), and a foreign trait that a glob brings in.
 
+Amended by AD-806 (#1515, #1516): forms 1 and 2 and the glob form give the pair gap `a -> b` when `a`
+reaches `b`, the module of a trait impl that runs code.
+
 **Price (measured).** `make self-validate`: native 63/1/19, 124 pinned gaps, shell 22/0/0; no
 pin moves. One orphan in a crate of `N` modules gives `N - 1` pair gaps plus the modules of
 dependent crates, and `REQUIRES`, `NO-CYCLES` and the pair rule go UNKNOWN until the contract

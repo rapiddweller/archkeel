@@ -417,6 +417,7 @@ fn trait_impl(walker: &mut Walker<'_>, item: &ItemImpl) {
         scope: walker.inline.clone(),
         blocks: walker.block_ends.clone(),
         site: walker.site(item.impl_token.span),
+        runs: (item.items.iter()).any(|member| !matches!(member, syn::ImplItem::Type(_))),
     };
     walker.out.orphans.impls.push(found);
 }

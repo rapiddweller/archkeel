@@ -93,6 +93,9 @@ pub(crate) struct TraitImpl {
     pub scope: Vec<String>,
     pub blocks: Vec<(i64, i64)>,
     pub site: Site,
+    /// The block holds an item other than an associated type (a `fn`, a `const`, a macro call):
+    /// a caller that runs the impl runs code of its module (AD-806).
+    pub runs: bool,
 }
 
 /// An item that a block declares, with the end of the block: a struct, enum or union (`nominal`),
