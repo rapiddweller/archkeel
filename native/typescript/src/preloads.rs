@@ -17,6 +17,8 @@
 
 use serde_json::Value;
 
+use crate::source_input::{classify_file, ModuleFormat, SourceKind};
+
 /// Whether a repository data filename can name a tool preload.
 pub(super) fn preload_file(name: &str) -> bool {
     const CONFIGS: [&str; 5] = [
@@ -44,6 +46,14 @@ pub(super) struct Named {
     pub(super) name: String,
     pub(super) file: String,
     pub(super) line: usize,
+    pub(super) mode: Option<ModuleFormat>,
+}
+
+/// Whether a resolved file can be executable runtime source.
+pub(super) fn runtime_source(path: &str) -> bool {
+    classify_file(path)
+        .and_then(|suffix| suffix.source_kind())
+        .is_some_and(|kind| kind != SourceKind::Declaration)
 }
 
 /// The flags of Node that load a module before the program.
@@ -117,14 +127,100 @@ pub(super) fn names_of(base: &str, text: &str) -> Vec<String> {
             .flat_map(|value| option_names(&value))
             .collect(),
         _ => {
-            let found = quoted_list(text, "setupFiles");
-            if found.is_empty() && text.contains("setupFiles") {
-                vec!["<dynamic setupFiles target>".to_owned()]
-            } else {
-                found
+            let mut found = quoted_list(text, "setupFiles");
+            if text.contains("setupFiles") && dynamic_list(text, "setupFiles") {
+                found.push("<dynamic setupFiles target>".to_owned());
             }
+            found
         }
     }
+}
+
+/// Whether a setup array contains executable expressions outside its literal entries.
+fn dynamic_list(text: &str, key: &str) -> bool {
+    let Some(at) = text.find(key) else {
+        return false;
+    };
+    let rest = text.get(at + key.len()..).unwrap_or_default();
+    let Some(end) = rest.find(']') else {
+        return true;
+    };
+    let mut quoted = false;
+    let mut quote = '\0';
+    let mut code = String::new();
+    for character in rest[..end].chars() {
+        if quoted {
+            if character == quote {
+                quoted = false;
+            }
+        } else if matches!(character, '\'' | '"' | '`') {
+            quoted = true;
+            quote = character;
+        } else {
+            code.push(character);
+        }
+    }
+    quoted
+        || code
+            .chars()
+            .any(|character| !character.is_whitespace() && !":[],".contains(character))
+}
+
+/// The Node loader mode of a preload, when a command line establishes it.
+pub(super) fn mode_of(base: &str, text: &str, name: &str) -> Option<ModuleFormat> {
+    let commands: Vec<String> = if base == "package.json" {
+        serde_json::from_str::<Value>(text)
+            .ok()?
+            .get("scripts")?
+            .as_object()?
+            .values()
+            .filter_map(Value::as_str)
+            .map(str::to_owned)
+            .collect()
+    } else if base == ".npmrc" || base == ".env" || base.starts_with(".env.") {
+        text.lines().filter_map(node_options).collect()
+    } else {
+        Vec::new()
+    };
+    let mut modes = commands
+        .iter()
+        .filter_map(|command| option_mode(command, name));
+    let mode = modes.next()?;
+    modes.all(|next| next == mode).then_some(mode)
+}
+
+fn option_mode(command: &str, name: &str) -> Option<ModuleFormat> {
+    let tokens: Vec<&str> = command
+        .split_whitespace()
+        .map(|token| token.trim_matches(['\'', '"']))
+        .collect();
+    let mut found = None;
+    let mut index = 0;
+    while index < tokens.len() {
+        let token = tokens[index];
+        let (flag, target) = token
+            .split_once('=')
+            .map_or((token, None), |(flag, target)| (flag, Some(target)));
+        let mode = match flag {
+            "--require" | "-r" => Some(ModuleFormat::Cjs),
+            "--import" | "--loader" | "--experimental-loader" => Some(ModuleFormat::Esm),
+            _ => None,
+        };
+        if let Some(mode) = mode {
+            let value = target.or_else(|| tokens.get(index + 1).copied());
+            if value == Some(name) && found.is_some_and(|previous| previous != mode) {
+                return None;
+            }
+            if value == Some(name) {
+                found = Some(mode);
+            }
+            if target.is_none() {
+                index += 1;
+            }
+        }
+        index += 1;
+    }
+    found
 }
 
 /// Preload names and unresolved preload flags from package scripts.
@@ -270,12 +366,19 @@ pub(super) fn patch_line(text: &str, module: bool) -> Option<usize> {
 
 /// Whether code reaches Node's module object.
 pub(super) fn reaches_module(text: &str) -> bool {
-    let imported = ["from 'module'", "from \"module\"", "from 'node:module'"];
-    MODULE_OBJECT
+    let compact: String = text
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .collect();
+    MODULE_OBJECT.iter().any(|form| compact.contains(form))
+        || [
+            "from'module'",
+            "from\"module\"",
+            "from'node:module'",
+            "from\"node:module\"",
+        ]
         .iter()
-        .chain(&imported)
-        .any(|form| text.contains(form))
-        || text.contains("from \"node:module\"")
+        .any(|form| compact.contains(form))
 }
 
 /// The line holds a text of `REQUIRE_PATCHES` (or of `MODULE_PATCHES`, with `module`) that no

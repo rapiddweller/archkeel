@@ -13,6 +13,9 @@ every rule. A preload name that names no installed package is a gap with its nam
 
 from __future__ import annotations
 
+import json
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -120,6 +123,19 @@ def _validate(tmp_path: Path, release_core: Path, extra: dict[str, str]) -> dict
         return run("validate", "--root", str(root))[1]
 
 
+def _node(root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
+    executable = shutil.which("node")
+    if executable is None:
+        pytest.skip("Node.js is required to verify the runtime preload")
+    return subprocess.run(
+        [executable, *arguments],
+        cwd=root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
 @pytest.mark.parametrize("name", sorted(NAMED))
 def test_a_named_preload_that_replaces_a_global_holds_the_rule(
     tmp_path: Path, release_core: Path, name: str
@@ -153,3 +169,185 @@ def test_a_loader_patch_or_an_unknown_preload_holds_every_rule(
 def test_a_quiet_preload_keeps_the_pass(tmp_path: Path, release_core: Path, name: str) -> None:
     frame = _validate(tmp_path, release_core, QUIET[name])["frame"]
     assert frame["rules"]["REQUIRES"][1] == "PASS", (name, frame["collection_gaps"])
+
+
+@pytest.mark.parametrize(
+    ("flag", "runtime_file"),
+    [("--require", "runtime.cjs"), ("--import", "runtime.mjs")],
+)
+def test_package_preload_exports_are_not_resolved_to_types_or_the_wrong_runtime(
+    tmp_path: Path, release_core: Path, flag: str, runtime_file: str
+) -> None:
+    extra = {
+        "tsconfig.json": (
+            '{"compilerOptions":{"allowJs":true,"module":"nodenext",'
+            '"moduleResolution":"nodenext"},"include":["src"]}'
+        ),
+        "package.json": json.dumps({"scripts": {"start": f"node {flag} hook src/a/a.js"}}),
+        "node_modules/hook/package.json": json.dumps(
+            {
+                "name": "hook",
+                "exports": {
+                    ".": {
+                        "types": "./types.d.ts",
+                        "require": "./runtime.cjs",
+                        "import": "./runtime.mjs",
+                    }
+                },
+            }
+        ),
+        "node_modules/hook/types.d.ts": "export {};\n",
+        "node_modules/hook/runtime.cjs": "globalThis.__runtime = 'require';\n",
+        "node_modules/hook/runtime.mjs": "globalThis.__runtime = 'import';\n",
+    }
+    frame = _validate(tmp_path, release_core, extra)["frame"]
+    assert frame["rules"]["REQUIRES"][1] != "PASS", frame["collection_gaps"]
+
+    result = _node(
+        tmp_path / "repo",
+        flag,
+        "hook",
+        "-e",
+        "console.log(globalThis.__runtime)",
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == ("require" if runtime_file.endswith(".cjs") else "import")
+
+
+@pytest.mark.parametrize(
+    ("flag", "runtime_mode"),
+    [
+        ("--require", "require"),
+        ("--import", "import"),
+    ],
+)
+def test_package_preload_reads_the_actual_mode_specific_runtime_entry(
+    tmp_path: Path,
+    release_core: Path,
+    flag: str,
+    runtime_mode: str,
+) -> None:
+    extra = {
+        "tsconfig.json": (
+            '{"compilerOptions":{"allowJs":true,"module":"nodenext",'
+            '"moduleResolution":"nodenext"},"include":["src"]}'
+        ),
+        "package.json": json.dumps({"scripts": {"start": f"node {flag} hook src/a/a.js"}}),
+        "node_modules/hook/package.json": json.dumps(
+            {
+                "name": "hook",
+                "exports": {
+                    ".": {
+                        "require": "./runtime.cjs",
+                        "import": "./runtime.mjs",
+                    }
+                },
+            }
+        ),
+        "src/b/b.js": "exports.hidden = () => 'works';\n",
+        "node_modules/hook/runtime.cjs": (
+            "globalThis.open = require('../../src/b/b.js').hidden;\n"
+            if flag == "--require"
+            else "exports.ready = true;\n"
+        ),
+        "node_modules/hook/runtime.mjs": (
+            "import { createRequire } from 'node:module';\n"
+            "const require = createRequire(import.meta.url);\n"
+            "globalThis.open = require('../../src/b/b.js').hidden;\n"
+            if flag == "--import"
+            else "export const ready = true;\n"
+        ),
+    }
+    frame = _validate(tmp_path, release_core, extra)["frame"]
+    assert frame["rules"]["REQUIRES"][1] == "UNKNOWN", (
+        runtime_mode,
+        frame["collection_gaps"],
+    )
+
+    result = _node(
+        tmp_path / "repo",
+        flag,
+        "hook",
+        "-e",
+        "console.log(globalThis.open())",
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "works"
+
+
+def test_repository_local_preload_is_in_the_writer_guard(
+    tmp_path: Path, release_core: Path
+) -> None:
+    frame = _validate(
+        tmp_path,
+        release_core,
+        {
+            "package.json": '{"scripts":{"start":"node --require ./hook.cjs src/a/a.js"}}',
+            "hook.cjs": "globalThis.open = () => 1;\n",
+        },
+    )["frame"]
+    assert frame["rules"]["REQUIRES"][1] != "PASS", frame["collection_gaps"]
+    assert any(
+        "Script global open is replaced" in gap["reason"] for gap in frame["collection_gaps"]
+    )
+    result = _node(
+        tmp_path / "repo",
+        "--require",
+        "./hook.cjs",
+        "-e",
+        "console.log(typeof globalThis.open)",
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "function"
+
+
+def test_whitespace_module_load_hook_is_detected(tmp_path: Path, release_core: Path) -> None:
+    hook = (
+        "const Module = require (\n 'module'\n);\n"
+        "const load = Module._load; let hits = 0;\n"
+        "Module._load = function (...args) { hits++; return Reflect.apply(load, this, args); };\n"
+        "process.on('exit', () => console.log(hits));\n"
+    )
+    frame = _validate(
+        tmp_path,
+        release_core,
+        {
+            **_scripts("node --require hook src/a/a.js"),
+            "node_modules/hook/package.json": '{"name":"hook","main":"index.cjs"}',
+            "node_modules/hook/index.cjs": hook,
+        },
+    )["frame"]
+    assert any("patches the module loader" in gap["reason"] for gap in frame["collection_gaps"])
+    result = _node(tmp_path / "repo", "--require", "hook", "-e", "require('path')")
+    assert result.returncode == 0, result.stderr
+    assert int(result.stdout.strip()) > 0
+
+
+def test_vitest_static_and_dynamic_setup_entries_fail_closed(
+    tmp_path: Path, release_core: Path
+) -> None:
+    frame = _validate(
+        tmp_path,
+        release_core,
+        {
+            "vitest.config.cjs": (
+                "function getPreload() { return 'hook'; }\n"
+                "module.exports = { test: { setupFiles: ['safe', getPreload()] } };\n"
+            ),
+            "node_modules/safe/package.json": '{"name":"safe","main":"index.cjs"}',
+            "node_modules/safe/index.cjs": "module.exports = true;\n",
+            "node_modules/hook/package.json": '{"name":"hook","main":"index.cjs"}',
+            "node_modules/hook/index.cjs": "globalThis.open = () => 1;\n",
+        },
+    )["frame"]
+    assert frame["rules"]["REQUIRES"][1] != "PASS", frame["collection_gaps"]
+    assert any("<dynamic setupFiles target>" in gap["reason"] for gap in frame["collection_gaps"])
+    result = _node(
+        tmp_path / "repo",
+        "-e",
+        "const c=require('./vitest.config.cjs'); "
+        "for(const setup of c.test.setupFiles) require(require.resolve(setup)); "
+        "console.log(typeof globalThis.open)",
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "function"

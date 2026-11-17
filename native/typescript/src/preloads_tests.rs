@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: MIT
 
 use super::{
-    has_preload_flag, malformed_config, names_of, node_options, option_names, patches_loader,
-    quoted_list, yaml_list,
+    has_preload_flag, malformed_config, mode_of, names_of, node_options, option_names,
+    patches_loader, quoted_list, reaches_module, yaml_list,
 };
+use crate::source_input::ModuleFormat;
 
 #[test]
 fn a_script_names_each_preload_flag() {
@@ -13,6 +14,30 @@ fn a_script_names_each_preload_flag() {
         "node -r a --require b --require=c --import d --loader=e --experimental-loader f x.js",
     );
     assert_eq!(names, ["a", "b", "c", "d", "e", "f"]);
+}
+
+#[test]
+fn command_preloads_keep_their_runtime_mode() {
+    assert_eq!(
+        mode_of(
+            "package.json",
+            r#"{"scripts":{"cjs":"node --require hook a.js","esm":"node --import other a.js"}}"#,
+            "hook"
+        ),
+        Some(ModuleFormat::Cjs)
+    );
+    assert_eq!(
+        mode_of(
+            "package.json",
+            r#"{"scripts":{"esm":"node --import=hook a.js"}}"#,
+            "hook"
+        ),
+        Some(ModuleFormat::Esm)
+    );
+    assert_eq!(
+        mode_of("vitest.config.ts", "setupFiles:['hook']", "hook"),
+        None
+    );
 }
 
 #[test]
@@ -40,6 +65,13 @@ fn an_unreadable_dynamic_preload_target_is_named_as_a_gap() {
             "export default { test: { setupFiles: load() } }"
         ),
         ["<dynamic setupFiles target>"]
+    );
+    assert_eq!(
+        names_of(
+            "vitest.config.ts",
+            "export default { test: { setupFiles: ['safe', getPreload()] } }"
+        ),
+        ["safe", "<dynamic setupFiles target>"]
     );
 }
 
@@ -110,4 +142,15 @@ fn a_write_to_the_module_loader_is_a_patch() {
     // Without the module object, `this._cache` of another class is no patch.
     assert!(!patches_loader("this._cache = new Map();", false));
     assert!(patches_loader("require.cache[k] = m;", false));
+}
+
+#[test]
+fn whitespace_and_newlines_do_not_hide_the_module_object() {
+    for text in [
+        "const Module = require ('module');",
+        "const Module = require(\n  'module'\n);",
+        "const Module = require ('node:module');",
+    ] {
+        assert!(reaches_module(text), "{text}");
+    }
 }

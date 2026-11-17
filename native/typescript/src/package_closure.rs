@@ -2,8 +2,7 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The closure of installed packages imported by the scan (#1529, AD-798). Their relative imports
-//! can reach project source, and computed imports can withhold routes (#1749, AD-812).
+//! Installed-package closure and computed-import reachability (AD-798, #1529, #1749, AD-812).
 
 use std::collections::{HashMap, HashSet};
 
@@ -66,7 +65,8 @@ impl Collection<'_> {
         let named = self.named_preloads();
         let mut files = Vec::new();
         for preload in named {
-            let Some(entries) = self.preload_entries(&preload.file, &preload.name) else {
+            let Some(entries) = self.preload_entries(&preload.file, &preload.name, preload.mode)
+            else {
                 let reason = format!(
                     "Preload {} named in {}:{} is no installed package that the scan can read",
                     preload.name, preload.file, preload.line
@@ -159,6 +159,7 @@ impl Collection<'_> {
                 .into_iter()
                 .map(|name| preloads::Named {
                     line: preloads::line_of(&text, &name),
+                    mode: preloads::mode_of(base, &text, &name),
                     name,
                     file: file.clone(),
                 })
@@ -399,8 +400,12 @@ impl Collection<'_> {
         found
     }
 
-    /// The installed files named by a preload, or `None` when its target is unknown.
-    pub(super) fn preload_entries(&mut self, file: &str, name: &str) -> Option<Vec<String>> {
+    pub(super) fn preload_entries(
+        &mut self,
+        file: &str,
+        name: &str,
+        mode: Option<ModuleFormat>,
+    ) -> Option<Vec<String>> {
         let name = name
             .strip_prefix("<rootDir>/")
             .map_or_else(|| name.to_owned(), |rest| format!("./{rest}"));
@@ -408,24 +413,27 @@ impl Collection<'_> {
         if class.builtin() {
             return Some(Vec::new());
         }
-        let found = self.resolver.resolve_classified(
-            &mut self.snapshot,
-            (&name, &class),
-            file,
-            Some(ModuleFormat::Cjs),
-            true,
-        );
-        match found {
-            Lookup::Hit(found) if installed(&mut self.snapshot, &found.path) => {
-                Some(vec![found.path])
+        let modes = [ModuleFormat::Cjs, ModuleFormat::Esm]
+            .into_iter()
+            .filter(|candidate| mode.is_none_or(|mode| *candidate == mode));
+        let mut entries = Vec::new();
+        for mode in modes {
+            match self.resolver.resolve_classified(
+                &mut self.snapshot,
+                (&name, &class),
+                file,
+                Some(mode),
+                true,
+            ) {
+                Lookup::Hit(found) if preloads::runtime_source(&found.path) => {
+                    entries.push(found.path);
+                }
+                _ => return None,
             }
-            Lookup::Hit(_) => Some(Vec::new()),
-            Lookup::Unknown(_) => {
-                let directory = self.package_directory(file, &class.package, false)?;
-                Some(self.package_files(&directory))
-            }
-            Lookup::Missing => None,
         }
+        entries.sort();
+        entries.dedup();
+        Some(entries)
     }
 
     /// Resolve one specifier of an installed file, as the run resolves an import, into the step.
