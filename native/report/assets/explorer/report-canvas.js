@@ -483,6 +483,7 @@
     { keys: ["Shift 1"], label: "Fit whole diagram", match: (e) => e.shiftKey && e.code === "Digit1", run: () => fitDiagram() },
     { keys: ["1", "2", "3"], label: "As-Is · Target · Diff", match: (e) => !e.shiftKey && !e.metaKey && !e.ctrlKey && ["1", "2", "3"].includes(e.key),
       run: (e) => view({ 1: "diagram", 2: "target", 3: "diff" }[e.key]) },
+    { keys: ["Alt ↑"], label: "Up one level", match: (e) => e.altKey && e.key === "ArrowUp", run: () => F.dispatch({ type: "up" }) },
     ...(A ? [
       { keys: ["P"], label: "Next perspective", match: (e) => !e.metaKey && !e.ctrlKey && e.key.toLowerCase() === "p", run: cyclePerspective },
       { keys: ["O"], label: "Objects list", match: (e) => !e.metaKey && !e.ctrlKey && e.key.toLowerCase() === "o", run: () => toggleDrawer("objects", objectsDrawer) },
@@ -491,7 +492,7 @@
     { keys: [`${MOD} wheel`, "pinch"], label: "Zoom at pointer" },
     { keys: ["Space drag", "middle drag"], label: "Pan over cards" },
     { keys: ["Hover"], label: "Trace incoming and outgoing dependencies" },
-    { keys: ["Esc"], label: "Close search, menu or panel" },
+    { keys: ["Esc"], label: "Close search, menu, panel or full window, then clear the selection" },
   ];
   function help() {
     modal([h("h2", {}, "Keyboard shortcuts"), h("table", {}, h("tbody", {}, SHORTCUTS.map((item) =>
@@ -499,8 +500,19 @@
   }
   document.addEventListener("keydown", (event) => {
     if (event.defaultPrevented) return;
-    if (event.key === "Escape") { if (overlay) closeOverlay(); else if (pop) closePop(); else if (drawer) closeDrawer(); return; }
-    if (overlay || event.repeat || event.altKey || event.isComposing
+    // E3: one Escape ladder: overlay > popover > drawer > expanded > selection, one step per key.
+    if (event.key === "Escape") {
+      if (overlay) closeOverlay();
+      else if (pop) closePop();
+      else if (drawer) closeDrawer();
+      else if (S.expanded) F.dispatch({ type: "collapse" });
+      else if (S.selection || S.module || S.cell !== null) F.dispatch({ type: "clearSelection" });
+      else return;
+      event.preventDefault();
+      return;
+    }
+    const up = event.altKey && event.key === "ArrowUp";
+    if (overlay || event.repeat || event.altKey && !up || event.isComposing
       || event.target.isContentEditable || event.target.closest?.("input, textarea, select")) return;
     const hit = SHORTCUTS.find((item) => item.match?.(event));
     if (!hit) return;
@@ -584,7 +596,7 @@
   // Explorer goes to the full window and back.
   if (A) new MutationObserver(() => requestAnimationFrame(() => {
     fittedKey = null;
-    root.querySelector('[data-flow-view][aria-pressed="true"]')?.click();
+    F.dispatch({ type: "relayout" });
   })).observe(root, { attributes: true, attributeFilter: ["data-expanded"] });
   root.addEventListener("archkeel:rendered", () => {
     back?.setAttribute("aria-label", back.textContent);

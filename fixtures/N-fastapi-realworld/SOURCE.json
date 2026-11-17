@@ -1,0 +1,8 @@
+{
+  "name": "FastAPI",
+  "repo": "https://github.com/fastapi/fastapi",
+  "ref": "0.163.0",
+  "commit": "913c68062c8990ea2c00d856d81b7e2383485155",
+  "license": "MIT",
+  "copy": [{"from": "fastapi", "to": "fastapi"}]
+}
