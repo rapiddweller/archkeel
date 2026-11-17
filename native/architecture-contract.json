@@ -1998,6 +1998,7 @@
         "native.archkeel_report.beyond",
         "native.archkeel_report.edge_links",
         "native.archkeel_report.ruling",
+        "native.archkeel_report.run_scope",
         "native.archkeel_report.violation_detail"
       ],
       "responsibilities": [
@@ -2118,9 +2119,9 @@
         "native.archkeel_report.ruling:Named",
         "native.archkeel_report.ruling:RuleReasons",
         "native.archkeel_report.ruling:Ruling",
-        "native.archkeel_report.ruling:RunScope",
         "native.archkeel_report.ruling:rule",
-        "native.archkeel_report.ruling:rule_with_edge_links"
+        "native.archkeel_report.ruling:rule_with_edge_links",
+        "native.archkeel_report.run_scope:RunScope"
       ],
       "decided_by": "architect"
     },
