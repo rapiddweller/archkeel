@@ -7,6 +7,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-708 | [A use of a name through a Python module object is the import of that name](ad-708-a-use-of-a-name-through-a-python-module-object-is-the-import-of-that-name.md) |
 | AD-704 | [A registry or git name of a crate of the workspace is a pair gap](ad-704-a-registry-or-git-name-of-a-crate-of-the-workspace-is-a-pair-gap.md) |
 | AD-694 | [A path that ends at a module may name a value of its name](ad-694-a-path-that-ends-at-a-module-may-name-a-value-of-its-name.md) |
 | AD-692 | [An imported inert attribute keeps its import gap](ad-692-an-imported-inert-attribute-keeps-its-import-gap.md) |

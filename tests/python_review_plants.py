@@ -366,11 +366,11 @@ PLANTS: dict[str, dict[str, object]] = {
 }
 
 # The forms that the core still passes where the truth is FAIL, named in AD-504 and
-# `docs/known-limits.md` and pinned here: a fix removes the name from this set.
+# `docs/known-limits.md` and pinned here: a fix removes the name from this set. AD-708 removed
+# `d-S4-attr-through-module` (#1415).
 OPEN = frozenset(
     {
         "b-outside-roots-conftest",
         "b-outside-roots-sitecustomize",
-        "d-S4-attr-through-module",
     }
 )

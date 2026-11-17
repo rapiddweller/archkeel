@@ -51,6 +51,7 @@ pub(super) fn collect(
         namespace,
         evidence,
         (&HashSet::new(), &none),
+        &[],
     );
     (found.records, found.aliases)
 }
@@ -76,13 +77,9 @@ pub(super) fn collect_all(
     namespace: &str,
     evidence: &mut EvidenceMap,
     (written, sources): (&HashSet<String>, &super::lazy_cover::Sources),
+    uses: &[Vec<super::module_uses::Use>],
 ) -> Collected {
-    let names: HashSet<&str> = modules.iter().map(|module| module.name.as_str()).collect();
-    // AD-450: a dotted prefix of a module is a package directory, also without `__init__.py`.
-    let directories: HashSet<&str> = names
-        .iter()
-        .flat_map(|name| name.match_indices('.').map(move |(at, _)| &name[..at]))
-        .collect();
+    let (names, directories) = module_names(modules);
     let bindings = package_bindings(modules);
     let open: HashMap<&str, HashSet<String>> = modules
         .iter()
@@ -126,6 +123,9 @@ pub(super) fn collect_all(
             ambiguous: &mut ambiguous,
         };
         collector.body(&module.tree.body, true, false);
+        for found in uses.get(aliases.len()).into_iter().flatten() {
+            collector.attribute(found);
+        }
         aliases.push(found);
     }
     records.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
@@ -179,10 +179,21 @@ pub(super) fn literal_records(
             symbol: None,
             binding: None,
             level: 0,
+            attribute: false,
         };
         collector.record((range, false, false), &found);
     }
     records
+}
+
+/// The modules of the scan, and each dotted prefix of one: a package directory, also without
+/// `__init__.py` (AD-450).
+pub(super) fn module_names(modules: &[Module]) -> (HashSet<&str>, HashSet<&str>) {
+    let names: HashSet<&str> = modules.iter().map(|module| module.name.as_str()).collect();
+    let directories = (names.iter())
+        .flat_map(|name| name.match_indices('.').map(move |(at, _)| &name[..at]))
+        .collect();
+    (names, directories)
 }
 
 /// `collect_package_bindings`: for each package, the names that its body binds ahead of a
@@ -242,6 +253,8 @@ struct Binding<'t> {
     symbol: Option<&'t str>,
     binding: Option<&'t str>,
     level: u32,
+    /// A use of a name through a module binding (`module_uses.rs`): an import that binds no name.
+    attribute: bool,
 }
 
 impl Collector<'_, '_> {
@@ -309,6 +322,7 @@ impl Collector<'_, '_> {
                         symbol: None,
                         binding: Some(binding),
                         level: 0,
+                        attribute: false,
                     };
                     self.bind(level, binding, import_target(alias).to_owned(), true);
                     self.record(place, &found);
@@ -335,30 +349,12 @@ impl Collector<'_, '_> {
                     symbol: Some("*"),
                     binding: Some("*"),
                     level: node.level,
+                    attribute: false,
                 };
                 self.record(place, &found);
                 continue;
             }
-            let submodule = if anchor.is_empty() {
-                name.to_owned()
-            } else {
-                format!("{anchor}.{name}")
-            };
-            let shadowed = self
-                .bindings
-                .get(anchor.as_str())
-                .is_some_and(|names| names.contains(name));
-            // A submodule or a package directory: `from app import service` imports it as
-            // `import app.service` does, and a directory without a module file is a gap.
-            let exists = self.names.contains(submodule.as_str())
-                || self.directories.contains(submodule.as_str());
-            let local = !shadowed && exists;
-            let open = self
-                .open
-                .get(anchor.as_str())
-                .is_some_and(|own| !own.contains(&submodule));
-            let written = self.written.contains(anchor.as_str());
-            let ambiguous = exists && (shadowed || open || written);
+            let (submodule, local, ambiguous) = self.resolve(&anchor, name);
             let binding = alias.asname.as_ref().map_or(name, |a| a.as_str());
             let target = if local {
                 submodule.clone()
@@ -371,6 +367,7 @@ impl Collector<'_, '_> {
                 symbol: if local { None } else { Some(name) },
                 binding: Some(binding),
                 level: node.level,
+                attribute: false,
             };
             self.record(place, &found);
             let last = self.records.last().filter(|_| ambiguous);
@@ -409,7 +406,8 @@ impl Collector<'_, '_> {
             symbol,
             b.binding.map_or(Part::Nothing, Part::Text),
         ];
-        // A literal import call binds no name and re-exports nothing (AD-472).
+        // A literal import call and a use through a module binding bind no name and re-export
+        // nothing (AD-472, AD-708).
         let init = module.is_init() && b.binding.is_some();
         let exported = b
             .binding
@@ -465,7 +463,7 @@ impl Collector<'_, '_> {
             evidence_ids: vec![EvidenceId::new(evidence_id)],
             fact_ids: Vec::new(),
             // A literal import call binds no name: it is a call-form import (AD-536).
-            data: if b.binding.is_some() {
+            data: if b.binding.is_some() || b.attribute {
                 ImportFact::Import(data)
             } else {
                 ImportFact::DynamicImport(data)
@@ -473,6 +471,9 @@ impl Collector<'_, '_> {
         });
     }
 }
+
+#[path = "imports_attribute.rs"]
+mod attribute;
 
 #[cfg(test)]
 #[path = "imports_tests.rs"]
