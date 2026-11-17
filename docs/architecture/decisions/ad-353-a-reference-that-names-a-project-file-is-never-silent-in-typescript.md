@@ -23,6 +23,11 @@ and in the native one: `/// <reference types="../b/t" />`, `declare module "../b
 on a project file is a concern. `top`, `parent` and `window.window.x`. The 4 MiB file cap of the native collector stays
 a difference (`docs/known-limits.md`).
 
+**Amendment (#1632).** A bare name is also a concern when it is the name of the own package: under
+an exports-aware resolution a package whose manifest declares `exports` can name itself, and `tsc`
+resolves the augmentation to a project file. The resolver gives that name (`own_package`), the
+same function that makes an import of it a gap.
+
 **Check.** `tests/test_collector_false_pass_sources.py` gives the three constructs to both
 collectors and expects no PASS; `tests/test_typescript_parse.py` and
 `tests/test_collector_native_imports.py` hold the parity.
