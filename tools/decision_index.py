@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""The index of the decision records, generated from the records themselves (AD-742).
+"""The index of the decision records, generated from the records themselves (AD-752).
 
 `python tools/decision_index.py` prints the index: one row for each `ad-<n>-*.md` file, with the
 number from the file name, the title from the first heading and a link, sorted by number with the

@@ -1,7 +1,7 @@
 # Archkeel
 # Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 # SPDX-License-Identifier: MIT
-"""AD-742: the index of the decision records is generated from the record files."""
+"""AD-752: the index of the decision records is generated from the record files."""
 
 import re
 import subprocess
@@ -58,17 +58,15 @@ def test_two_records_with_one_number_a_bad_name_and_a_missing_heading_are_faults
     assert "ad-7-none.md: no first-level heading" in faults
 
 
-def test_the_repository_has_no_fault_and_each_old_row_is_kept_in_the_frozen_list() -> None:
+def test_the_repository_has_no_fault_and_no_row_of_the_frozen_list_was_dropped() -> None:
+    """The frozen list keeps every old row. Only its dead AD-558 row names a missing file."""
     assert index.problems() == []
     frozen = (FOLDER / "INDEX.md").read_text(encoding="utf-8")
     rows = re.findall(r"^\| AD-\S+ \| \[.*?\]\((ad-\S+\.md)\) \|$", frozen, re.MULTILINE)
-    assert len(rows) >= 542
-    on_disk = {
-        name
-        for label, _title, name in index.records()
-        if index.sort_key(label)[0] < 742  # the list is frozen from AD-742 on
-    }
-    assert on_disk <= set(rows), "a record that the hand-written list never held"
+    assert len(rows) >= 543
+    on_disk = {name for _label, _title, name in index.records()}
+    gone = set(rows) - on_disk
+    assert gone == {"ad-558-a-lazy-import-table-bounds-the-import-calls-of-a-module-getattr.md"}
 
 
 def test_the_readme_holds_no_table_so_that_a_new_record_edits_no_shared_line() -> None:

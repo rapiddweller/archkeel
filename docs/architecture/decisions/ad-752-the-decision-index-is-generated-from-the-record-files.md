@@ -1,4 +1,4 @@
-# AD-742 The decision index is generated from the record files
+# AD-752 The decision index is generated from the record files
 
 **Status.** Accepted. Part of #880 (lead request of 2026-11-17, DX). Visible change: `docs/architecture/decisions/README.md` holds no table.
 

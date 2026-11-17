@@ -8,7 +8,7 @@ such a link has no target on `main`. The files are in the Git history before tha
 ## The index is generated
 
 A record is the file `ad-<number>-<words>.md` in this folder. The list of the records is not committed, because
-every pull request that adds a record edited the same lines and conflicted with the next one (AD-742).
+every pull request that adds a record edited the same lines and conflicted with the next one (AD-752).
 
 - `python tools/decision_index.py` prints the list: number, title (the first heading) and link, newest first.
 - `python tools/decision_index.py --write PATH` writes it; `make decision-index` writes `test-artifacts/decision-index.md`.

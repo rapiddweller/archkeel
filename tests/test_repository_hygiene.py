@@ -277,7 +277,7 @@ def test_sdist_ships_library_and_build_inputs_only() -> None:
 
 
 def test_decision_index_matches_decision_files() -> None:
-    """AD-55, AD-742: the index is generated from the files; no record shares a number."""
+    """AD-55, AD-752: the index is generated from the files; no record shares a number."""
     sys.path.insert(0, str(ROOT / "tools"))
     import decision_index
 

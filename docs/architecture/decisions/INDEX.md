@@ -1,6 +1,6 @@
 # Decision archive: the hand-written list of 2026-11-17
 
-This is the index as it was written by hand until AD-742. It is frozen: a new record is not added here. The current
+This is the index as it was written by hand until AD-752. It is frozen: a new record is not added here. The current
 index is generated from the record files: `python tools/decision_index.py` (or `make decision-index`). The hand-written
 titles below can differ from the headings of the records, and one row (AD-558, the lazy import table) names a file that no
 longer exists; both are kept as they were.

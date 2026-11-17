@@ -28,7 +28,7 @@ generated-check: browser-runtime-install
 browser-runtime-generate: browser-runtime-install
 	$(UV) run --locked python tools/browser_runtime.py
 
-# AD-742: the index of the decision records is generated from the files, not committed.
+# AD-752: the index of the decision records is generated from the files, not committed.
 decision-index:
 	@mkdir -p test-artifacts
 	$(UV) run --locked python tools/decision_index.py --write test-artifacts/decision-index.md
