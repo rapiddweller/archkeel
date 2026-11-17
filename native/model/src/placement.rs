@@ -45,15 +45,16 @@ pub fn violations(model: &Model, rule: &SymbolPlacement) -> Result<Vec<Class>, R
     )))?;
     let mut found = Vec::new();
     for class in classes {
-        if model.selects(&class.module)
-            && in_scope(&class.name, SymbolPlacement::source(rule).as_text())
-            && !allowed(rule, &class.module)
+        if !model.selects(&class.module)
+            || !in_scope(&class.name, SymbolPlacement::source(rule).as_text())
+            || allowed(rule, &class.module)
         {
-            for kind in rule.class_kinds() {
-                if kind_matches(class.kind, *kind) {
-                    found.push(class.clone());
-                    break;
-                }
+            continue;
+        }
+        for kind in rule.class_kinds() {
+            if kind_matches(class.kind, *kind) {
+                found.push(class.clone());
+                break;
             }
         }
     }
