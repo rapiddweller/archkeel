@@ -4049,8 +4049,6 @@
         "native.archkeel_typescript_collector.script_names",
         "native.archkeel_typescript_collector.script_namespace",
         "native.archkeel_typescript_collector.script_numeric",
-        "native.archkeel_typescript_collector.script_outside",
-        "native.archkeel_typescript_collector.script_outside_forms",
         "native.archkeel_typescript_collector.script_prototype",
         "native.archkeel_typescript_collector.script_publish",
         "native.archkeel_typescript_collector.script_refs",
@@ -4475,10 +4473,12 @@
       "packages": [
         "native.archkeel_typescript_collector.script_depend",
         "native.archkeel_typescript_collector.script_deps",
-        "native.archkeel_typescript_collector.script_state",
         "native.archkeel_typescript_collector.script_global",
+        "native.archkeel_typescript_collector.script_outside",
+        "native.archkeel_typescript_collector.script_outside_forms",
         "native.archkeel_typescript_collector.script_project",
         "native.archkeel_typescript_collector.script_proof",
+        "native.archkeel_typescript_collector.script_state",
         "native.archkeel_typescript_collector.script_vendor"
       ],
       "responsibilities": [
@@ -4502,8 +4502,9 @@
         },
         {
           "component": "snapshot",
-          "rationale": "Read the vendored library and its provenance through the one owner of paths and limits.",
+          "rationale": "Read the vendored library, its provenance and the repository files outside the scan roots (AD-788) through the one owner of paths and limits.",
           "through": [
+            "native.archkeel_snapshot.paths",
             "native.archkeel_snapshot.snapshot",
             "native.archkeel_snapshot:Snapshot"
           ]
@@ -4542,10 +4543,11 @@
         },
         {
           "component": "ts-discover",
-          "rationale": "Read the options, the script environment and the standard globals.",
+          "rationale": "Read the options, the script environment, the standard globals and the test-source rule.",
           "through": [
             "native.archkeel_typescript_collector.options",
-            "native.archkeel_typescript_collector.script_environment"
+            "native.archkeel_typescript_collector.script_environment",
+            "native.archkeel_typescript_collector.test_sources"
           ]
         },
         {
@@ -4568,6 +4570,7 @@
         "docs/architecture/decisions/ad-352-the-native-typescript-collector-equals-the-python-one-and-is-bundled.md"
       ],
       "public": [
+        "native.archkeel_typescript_collector.script_outside:read",
         "native.archkeel_typescript_collector.script_project:Project",
         "native.archkeel_typescript_collector.script_project:Write",
         "native.archkeel_typescript_collector.script_project:WriteIndex",
@@ -4697,6 +4700,7 @@
           "rationale": "Run the analysis of the script dependencies over the files that were read.",
           "through": [
             "native.archkeel_typescript_collector.script_deps",
+            "native.archkeel_typescript_collector.script_outside",
             "native.archkeel_typescript_collector.script_project",
             "native.archkeel_typescript_collector.script_state",
             "native.archkeel_typescript_collector.script_vendor"

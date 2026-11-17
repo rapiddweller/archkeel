@@ -47,7 +47,12 @@ pub(crate) struct Outside {
 impl Outside {
     /// The write that withholds the proof of `name`, if any.
     pub(crate) fn withholds(&self, name: &str) -> Option<&Site> {
-        self.names.get(name).or(self.any.as_ref())
+        BTreeMap::get(&self.names, name).or(Option::as_ref(&self.any))
+    }
+
+    /// A write names `name` (and not only a write whose name the guard cannot read).
+    pub(crate) fn named(&self, name: &str) -> bool {
+        BTreeMap::contains_key(&self.names, name)
     }
 
     fn add(&mut self, rel: &str, found: Found) {
@@ -67,7 +72,7 @@ impl Outside {
 pub(crate) fn read(snapshot: &mut Snapshot, parsers: &mut Parsers, roots: &[String]) -> Outside {
     let mut found = Outside::default();
     let files = outside_files(snapshot, roots);
-    if files.len() > MAX_FILES {
+    if Vec::len(&files) > MAX_FILES {
         found.any = Some((".".to_owned(), whole_file()));
         return found;
     }
@@ -111,19 +116,19 @@ fn outside_files(snapshot: &mut Snapshot, roots: &[String]) -> Vec<String> {
         for name in files {
             let rel = join(&directory, &name);
             if !inside(&rel) && outside_source(&rel) {
-                found.push(rel);
+                Vec::push(&mut found, rel);
             }
         }
         for child in children {
             let path = join(&directory, &child);
-            let skipped = child.starts_with('.') || INSTALLED.contains(&child.as_str());
+            let skipped = child.starts_with('.') || INSTALLED.contains(&String::as_str(&child));
             // A directory below a scan root is scanned; a directory above one is walked for its
             // other entries.
             if !skipped && !inside(&path) {
-                pending.push(path);
+                Vec::push(&mut pending, path);
             }
         }
-        if found.len() > MAX_FILES {
+        if Vec::len(&found) > MAX_FILES {
             break;
         }
     }

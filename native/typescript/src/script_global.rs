@@ -36,7 +36,7 @@ impl<'a, 'p> Run<'a, 'p> {
             && !self.partial
             && !self.project.any_error
             && !paths.singles.contains_key(name)
-            && self.outside.withholds(name).is_none()
+            && crate::script_outside::Outside::withholds(&self.outside, name).is_none()
     }
 
     /// A standard global that only the named direct forms of the project keep from a proof: its
@@ -108,7 +108,7 @@ impl<'a, 'p> Run<'a, 'p> {
             || host().any(|n| paths.singles.contains_key(n))
             || paths.loader_first;
         let blocked = !publishers.is_empty()
-            || self.outside.withholds(name).is_some()
+            || crate::script_outside::Outside::withholds(&self.outside, name).is_some()
             || packages.len() != 1
             || self.vendors.unbounded
             || collides

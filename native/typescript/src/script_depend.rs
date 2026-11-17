@@ -192,7 +192,9 @@ impl<'a, 'p> Run<'a, 'p> {
             }
             return target;
         }
-        if let Some((outside_rel, span)) = self.outside.withholds(first).cloned() {
+        if let Some((outside_rel, span)) =
+            crate::script_outside::Outside::withholds(&self.outside, first).cloned()
+        {
             return self.outside_target(&module, identity, first, evidence, (&outside_rel, &span));
         }
         let reason = format!("Script global {first}{UNPUBLISHED}");
@@ -325,7 +327,7 @@ impl<'a, 'p> Run<'a, 'p> {
         evidence: String,
         (rel, span): (&str, &Span),
     ) -> String {
-        let named = self.outside.names.contains_key(name);
+        let named = crate::script_outside::Outside::named(&self.outside, name);
         let verb = if named { "is" } else { "can be" };
         let reason =
             format!("Script global {name} {verb} replaced by a file outside the scan roots");

@@ -62,7 +62,6 @@ fn each_form_that_replaces_a_global_withholds_it() {
         ("Object.assign(window, { open: 1 });", "open"),
         ("Reflect.set(globalThis, 'open', 1);", "open"),
         ("window.__defineGetter__('open', () => 1);", "open"),
-        ("Math.max = () => 0;", "Math"),
         ("function open() {}", "open"),
         ("var open = 1;", "open"),
     ];
@@ -91,7 +90,10 @@ fn a_file_that_replaces_no_global_keeps_the_proof() {
             "tools/build.mjs",
             "export function open() {}\nconst m = { open: 1 };\nm.open = 2;\n",
         ),
-        ("tools/env.js", "process.env.NODE_ENV = 'production';\n"),
+        (
+            "tools/env.js",
+            "process.env.NODE_ENV = 'production';\ndocument.title = t;\n",
+        ),
         (
             "tools/local.js",
             "let open = 1;\nfunction f() { open = 2; }\nexport { f };\n",

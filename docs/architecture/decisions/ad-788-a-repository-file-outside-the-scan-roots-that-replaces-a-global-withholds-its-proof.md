@@ -26,8 +26,9 @@ A rule that withholds every global proof is sound but makes every TypeScript rul
      `type="module"`);
    - `Object.assign`, `Object.defineProperty(ies)`, `Object.setPrototypeOf`, `Reflect.set`,
      `Reflect.defineProperty`, `Reflect.setPrototypeOf` on a window name, and
-     `window.__defineGetter__` or `__defineSetter__`;
-   - a member write of an undeclared global (`Math.max = f`), unless the value is a literal.
+     `window.__defineGetter__` or `__defineSetter__`.
+   A member write of another global (`document.title = t`, `Math.max = f`) patches a member of a
+   platform object, not the global: it stays an open limit with the other member patches.
 3. **Effect.** A hit withholds the native proof of its name (`script_global.rs`). The use gets the
    gap "Script global X is replaced by a file outside the scan roots", which cites the use and the
    write (file and line). A write whose name the guard cannot read (`window[k] =`), a file that it

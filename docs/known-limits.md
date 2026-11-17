@@ -540,8 +540,8 @@ in no global or platform object and replaces no global" (text header, JSON `prem
 JavaScript, TypeScript or HTML file of the repository outside the scan roots is read for a write
 that replaces a global (`window.x =`, `globalThis.x =`, `self.x =`, an assignment to an undeclared
 name, a top-level binding of a classic script, `Object.defineProperty(window, …)` and the other
-reflective writes on a window name, a member write of an undeclared global with a value that is no
-literal). Each hit withholds the native proof of that name: the use gets the gap "Script global X is
+reflective writes on a window name). A member patch of another global (`Math.max = f` in such a
+file) stays open, as above. Each hit withholds the native proof of that name: the use gets the gap "Script global X is
 replaced by a file outside the scan roots", which cites the use and the write. A write whose name
 the guard cannot read withholds every global. Not read: test files (the test-source rule),
 declarations, installed packages, hidden directories; more than 4000 such files withhold every

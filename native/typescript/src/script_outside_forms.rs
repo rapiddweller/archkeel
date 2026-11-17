@@ -10,10 +10,8 @@ use std::collections::HashSet;
 
 use tree_sitter::Node;
 
-use crate::script_window::cooked;
 use crate::source::{Source, Span};
 use crate::source_input::is_window_name;
-use crate::tree::nodes::named_children;
 
 /// A write that replaces a global: its name, or `None` where the reader cannot read the name.
 pub(crate) struct Found {
@@ -83,11 +81,11 @@ pub(crate) fn writes_of(root: Node, bytes: &[u8], module: bool) -> Vec<Found> {
     let nodes = all_nodes(root);
     for node in &nodes {
         if matches!(
-            node.kind(),
+            Node::kind(&node),
             "identifier" | "shorthand_property_identifier_pattern"
         ) && declares(*node)
         {
-            reader.declared.insert(reader.text(*node));
+            reader.declared.insert(Reader::text(&reader, *node));
         }
     }
     let mut found = Vec::new();
@@ -99,7 +97,7 @@ pub(crate) fn writes_of(root: Node, bytes: &[u8], module: bool) -> Vec<Found> {
         found.extend(reader.script_bindings(root));
     }
     for node in nodes {
-        let target = match node.kind() {
+        let target = match Node::kind(&node) {
             "assignment_expression" | "augmented_assignment_expression" => {
                 node.child_by_field_name("left")
             }
@@ -110,12 +108,14 @@ pub(crate) fn writes_of(root: Node, bytes: &[u8], module: bool) -> Vec<Found> {
             }
             _ => None,
         };
-        let value = node.child_by_field_name("right");
-        if let Some(name) = target.and_then(|target| reader.target(target, value)) {
-            found.push(Found {
-                name,
-                span: reader.source.span(node, None),
-            });
+        if let Some(name) = target.and_then(|target| reader.target(target)) {
+            Vec::push(
+                &mut found,
+                Found {
+                    name,
+                    span: reader.source.span(node, None),
+                },
+            );
         }
     }
     found
@@ -123,7 +123,7 @@ pub(crate) fn writes_of(root: Node, bytes: &[u8], module: bool) -> Vec<Found> {
 
 /// A top-level `import` or `export` makes a program a module.
 fn top_level_module(node: Node) -> bool {
-    matches!(node.kind(), "import_statement" | "export_statement")
+    matches!(Node::kind(&node), "import_statement" | "export_statement")
 }
 
 /// The nodes of the tree in document order, without a recursion.
@@ -131,7 +131,7 @@ fn all_nodes(root: Node) -> Vec<Node> {
     let mut found = Vec::new();
     let mut pending = vec![root];
     while let Some(node) = pending.pop() {
-        found.push(node);
+        Vec::push(&mut found, node);
         let mut children = named_children(node);
         children.reverse();
         pending.extend(children);
@@ -143,7 +143,7 @@ fn all_nodes(root: Node) -> Vec<Node> {
 fn declares(node: Node) -> bool {
     let mut at = node;
     while let Some(parent) = at.parent() {
-        let kind = parent.kind();
+        let kind = Node::kind(&parent);
         if DECLARERS.contains(&kind) {
             let field = |name: &str| {
                 parent
@@ -182,7 +182,7 @@ fn pattern_part(parent: Node, at: Node) -> bool {
             .child_by_field_name(name)
             .is_some_and(|found| found.id() == at.id())
     };
-    match parent.kind() {
+    match Node::kind(&parent) {
         "assignment_pattern" | "object_assignment_pattern" => is("left"),
         "required_parameter" | "optional_parameter" => is("pattern"),
         "pair_pattern" => is("value"),
@@ -198,16 +198,16 @@ impl Reader<'_> {
     /// A free name of the global object (`window`, `globalThis`, …).
     fn window(&self, node: Node) -> bool {
         let node = unwrapped(node);
-        let name = self.text(node);
-        node.kind() == "identifier" && is_window_name(&name) && !self.declared.contains(&name)
+        let name = Reader::text(self, node);
+        Node::kind(&node) == "identifier" && is_window_name(&name) && !self.declared.contains(&name)
     }
 
     /// The name of a member: its property or a literal key; `None` for a run-time key.
     fn member(&self, node: Node) -> Option<String> {
-        match node.kind() {
+        match Node::kind(&node) {
             "member_expression" => node
                 .child_by_field_name("property")
-                .and_then(|p| cooked(&self.text(p))),
+                .and_then(|p| plain(&Reader::text(self, p))),
             _ => node
                 .child_by_field_name("index")
                 .and_then(|i| self.literal(i)),
@@ -215,34 +215,39 @@ impl Reader<'_> {
     }
 
     fn literal(&self, node: Node) -> Option<String> {
-        let text = self.text(node);
-        let quoted = matches!(node.kind(), "string" | "template_string")
+        let text = Reader::text(self, node);
+        let quoted = matches!(Node::kind(&node), "string" | "template_string")
             && !named_children(node)
                 .iter()
-                .any(|c| c.kind() == "template_substitution");
+                .any(|c| Node::kind(&c) == "template_substitution");
         quoted
-            .then(|| cooked(text.get(1..text.len().saturating_sub(1))?))
+            .then(|| plain(text.get(1..str::len(&text).saturating_sub(1))?))
             .flatten()
     }
 
     /// The global that a write target replaces: `Some(None)` for a name that cannot be read.
-    fn target(&self, target: Node, value: Option<Node>) -> Option<Option<String>> {
+    fn target(&self, target: Node) -> Option<Option<String>> {
         let target = unwrapped(target);
-        if target.kind() == "identifier" {
-            let name = self.text(target);
+        if Node::kind(&target) == "identifier" {
+            let name = Reader::text(self, target);
             return (!self.declared.contains(&name)).then_some(Some(name));
         }
         // The chain from the target down to its root object.
         let mut chain = vec![target];
         while let Some(object) = chain
             .last()
-            .filter(|at| matches!(at.kind(), "member_expression" | "subscript_expression"))
+            .filter(|at| {
+                matches!(
+                    Node::kind(&at),
+                    "member_expression" | "subscript_expression"
+                )
+            })
             .and_then(|at| at.child_by_field_name("object"))
         {
-            chain.push(unwrapped(object));
+            Vec::push(&mut chain, unwrapped(object));
         }
         let root = *chain.last()?;
-        let accessors = &chain[..chain.len() - 1];
+        let accessors = &chain[..Vec::len(&chain) - 1];
         if self.window(root) {
             // `window.self.open = f` writes `open`: skip the window names after the root.
             let first = accessors
@@ -251,17 +256,9 @@ impl Reader<'_> {
                 .find(|at| self.member(**at).is_none_or(|name| !is_window_name(&name)))?;
             return Some(self.member(*first));
         }
-        // A member of another global that the file does not declare (`Math.min = f`), unless the
-        // value is a literal, which no scanned function is.
-        let name = self.text(root);
-        let global = root.kind() == "identifier" && !self.declared.contains(&name);
-        let literal = value.is_some_and(|value| {
-            matches!(
-                unwrapped(value).kind(),
-                "string" | "number" | "true" | "false" | "null" | "undefined" | "template_string"
-            )
-        });
-        (global && !accessors.is_empty() && !literal).then_some(Some(name))
+        // A member write of another global (`document.title = t`, `Math.max = f`) changes a member
+        // of a platform object, not the global: a member patch is an open limit (AD-788).
+        None
     }
 
     /// A reflective write on a window name: `Object.defineProperty(window, 'x', …)` and the other
@@ -276,18 +273,21 @@ impl Reader<'_> {
             .map(named_children)
             .unwrap_or_default()
             .into_iter()
-            .filter(|a| a.kind() != "comment")
+            .filter(|a| Node::kind(&a) != "comment")
             .collect();
         let Some(method) = self
             .member(callee)
-            .filter(|_| callee.kind() != "identifier")
+            .filter(|_| Node::kind(&callee) != "identifier")
         else {
             return Vec::new();
         };
         let Some(object) = callee.child_by_field_name("object").map(unwrapped) else {
             return Vec::new();
         };
-        if matches!(method.as_str(), "__defineGetter__" | "__defineSetter__") {
+        if matches!(
+            String::as_str(&method),
+            "__defineGetter__" | "__defineSetter__"
+        ) {
             if !self.window(object) {
                 return Vec::new();
             }
@@ -296,8 +296,10 @@ impl Reader<'_> {
         }
         let owner = if self.window(object) {
             None
-        } else if object.kind() == "identifier" && !self.declared.contains(&self.text(object)) {
-            Some(self.text(object))
+        } else if Node::kind(&object) == "identifier"
+            && !self.declared.contains(&Reader::text(self, object))
+        {
+            Some(Reader::text(self, object))
         } else {
             object
                 .child_by_field_name("object")
@@ -306,12 +308,12 @@ impl Reader<'_> {
         };
         let reflective = owner
             .as_deref()
-            .is_some_and(|owner| REFLECTIVE.contains(&(owner, method.as_str())));
+            .is_some_and(|owner| REFLECTIVE.contains(&(owner, String::as_str(&method))));
         let on_window = arguments.first().is_some_and(|first| self.window(*first));
         if !reflective || !on_window {
             return Vec::new();
         }
-        let names: Vec<Option<String>> = match method.as_str() {
+        let names: Vec<Option<String>> = match String::as_str(&method) {
             "defineProperty" | "set" => vec![arguments.get(1).and_then(|k| self.literal(*k))],
             "assign" | "defineProperties" => arguments
                 .iter()
@@ -329,20 +331,20 @@ impl Reader<'_> {
     /// The keys of an object literal; one `None` for a computed key, a spread or another value.
     fn keys(&self, object: Node) -> Vec<Option<String>> {
         let object = unwrapped(object);
-        if object.kind() != "object" {
+        if Node::kind(&object) != "object" {
             return vec![None];
         }
         named_children(object)
             .into_iter()
-            .filter(|part| part.kind() != "comment")
-            .map(|part| match part.kind() {
-                "shorthand_property_identifier" => Some(self.text(part)),
+            .filter(|part| Node::kind(&part) != "comment")
+            .map(|part| match Node::kind(&part) {
+                "shorthand_property_identifier" => Some(Reader::text(self, part)),
                 "pair" | "method_definition" => {
                     let key = part
                         .child_by_field_name("key")
                         .or_else(|| part.child_by_field_name("name"))?;
-                    match key.kind() {
-                        "property_identifier" => cooked(&self.text(key)),
+                    match Node::kind(&key) {
+                        "property_identifier" => plain(&Reader::text(self, key)),
                         _ => self.literal(key),
                     }
                 }
@@ -355,10 +357,10 @@ impl Reader<'_> {
     fn script_bindings(&self, root: Node) -> Vec<Found> {
         let mut found = Vec::new();
         for top in named_children(root) {
-            let names: Vec<Node> = match top.kind() {
+            let names: Vec<Node> = match Node::kind(&top) {
                 "lexical_declaration" | "variable_declaration" => named_children(top)
                     .into_iter()
-                    .filter(|d| d.kind() == "variable_declarator")
+                    .filter(|d| Node::kind(&d) == "variable_declarator")
                     .filter_map(|d| d.child_by_field_name("name"))
                     .collect(),
                 "function_declaration"
@@ -369,22 +371,39 @@ impl Reader<'_> {
                 _ => Vec::new(),
             };
             for name in names {
-                let text = (name.kind() == "identifier").then(|| self.text(name));
-                found.push(Found {
-                    name: text,
-                    span: self.source.span(top, None),
-                });
+                let text = (Node::kind(&name) == "identifier").then(|| Reader::text(self, name));
+                Vec::push(
+                    &mut found,
+                    Found {
+                        name: text,
+                        span: self.source.span(top, None),
+                    },
+                );
             }
         }
         found
     }
 }
 
+/// The named children of a node.
+fn named_children(node: Node) -> Vec<Node> {
+    let mut cursor = node.walk();
+    node.named_children(&mut cursor).collect()
+}
+
+/// The length of `<script`.
+const SCRIPT_TAG: usize = 7;
+
+/// A name without escapes; a name with an escape is one that the reader does not read.
+fn plain(text: &str) -> Option<String> {
+    (!text.contains('\\')).then(|| text.to_owned())
+}
+
 /// The node without parentheses and type wrappers.
 fn unwrapped(node: Node) -> Node {
     let mut at = node;
     while matches!(
-        at.kind(),
+        Node::kind(&at),
         "parenthesized_expression"
             | "as_expression"
             | "non_null_expression"
@@ -407,12 +426,12 @@ pub(crate) fn inline_scripts(data: &[u8]) -> Vec<(bool, Vec<u8>)> {
     let mut found = Vec::new();
     let mut at = 0;
     while let Some(start) = find(&lower, b"<script", at) {
-        let after = start + b"<script".len();
+        let after = start + SCRIPT_TAG;
         let Some(close) = find(&lower, b">", after) else {
             break;
         };
         let attributes = String::from_utf8_lossy(&lower[after..close]).into_owned();
-        let end = find(&lower, b"</script", close).unwrap_or(data.len());
+        let end = find(&lower, b"</script", close).unwrap_or(<[u8]>::len(data));
         at = end.max(close + 1);
         let tag = lower
             .get(after)
@@ -430,7 +449,7 @@ pub(crate) fn inline_scripts(data: &[u8]) -> Vec<(bool, Vec<u8>)> {
         {
             slot.copy_from_slice(code);
         }
-        found.push((kind == Some(true), program));
+        Vec::push(&mut found, (kind == Some(true), program));
     }
     found
 }
@@ -449,7 +468,7 @@ fn script_type(attributes: &str) -> Option<bool> {
         .chars()
         .take_while(|c| !matches!(c, '"' | '\'' | ' ' | '>'))
         .collect();
-    match value.as_str() {
+    match String::as_str(&value) {
         "module" => Some(true),
         ""
         | "text/javascript"
@@ -465,7 +484,7 @@ fn script_type(attributes: &str) -> Option<bool> {
 fn find(haystack: &[u8], needle: &[u8], from: usize) -> Option<usize> {
     haystack
         .get(from..)?
-        .windows(needle.len())
+        .windows(<[u8]>::len(needle))
         .position(|window| window == needle)
         .map(|at| at + from)
 }
