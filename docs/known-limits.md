@@ -172,7 +172,8 @@ A use of a name through a module object (`import app.lib` then `app.lib._priv.se
 import of that name: each attribute load through a module binding, and through each child module of
 a chain, is a record of its own (AD-708). A module object that escapes (a bare load, an assignment,
 an argument, a namespace attribute, a store) leaves the names of its import unread: the rule is
-UNKNOWN for it. A local name with the spelling of a module binding counts as that binding.
+UNKNOWN for it. A name is read in its scope: a parameter or another local binding of the spelling is
+another value (#1506), and a name that an import and another binding share may be the module.
 
 The core gives PASS where Python binds something else at import time, for one form. 4.0.1 gives
 PASS for it too. It is an open defect, pinned by plants in `tests/python_interface_plants.py`:

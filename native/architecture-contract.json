@@ -6750,7 +6750,8 @@
         "native.archkeel_python_collector.survey.globals_uses",
         "native.archkeel_python_collector.survey.value",
         "native.archkeel_python_collector.survey.uses_typing_guard",
-        "native.archkeel_python_collector.survey.module_uses"
+        "native.archkeel_python_collector.survey.module_uses",
+        "native.archkeel_python_collector.survey.module_scopes"
       ],
       "rationale": "Only the parse modules, the tree readers of the survey, the CPython view of the tree, the expression text and the definition table of the Python collector read the tree of the Python parser; discovery, naming and the entry read owned values.",
       "provenance": [
