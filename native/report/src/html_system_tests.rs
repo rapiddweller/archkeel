@@ -188,3 +188,35 @@ fn the_explorer_names_the_result_of_the_run_and_no_observation() {
         assert!(data["atlas"].get("observation_complete").is_none());
     }
 }
+
+// The page budget (#880): a declared boundary permission is one row for each `requires`, with
+// its rationale once in the reference table, and a module row holds no field that is the same for
+// each module. `report-scene.js` restores the full rows; the page shows the same.
+#[test]
+fn the_payload_writes_each_repeated_value_once() {
+    let mut topology = components(2, &[(0, 1)]);
+    topology["requires"] = json!([{"source": "COMP-0", "target": "COMP-1", "imports": 2,
+        "rationale": "Read the typed rows.", "through": ["m1.a", "m1.b"]},
+        {"source": "COMP-1", "target": "COMP-0", "imports": 0, "rationale": "No port.", "through": []}]);
+    let data = payload(&document(&json!({"status": "PASS", "topology": topology})));
+    let rows = data["boundary_permissions"]["requires"].as_array().unwrap();
+    assert_eq!(rows.len(), 1);
+    let refs = &data["atlas"]["reference_ids"];
+    let rationale = rows[0][2].as_u64().unwrap() as usize;
+    assert_eq!(
+        (&rows[0][0], &rows[0][1], &refs[rationale], &rows[0][3]),
+        (
+            &json!("COMP-0"),
+            &json!("COMP-1"),
+            &json!("Read the typed rows."),
+            &json!(["m1.a", "m1.b"])
+        )
+    );
+    assert!(data["boundary_permissions"].get("declared").is_none());
+    let module = &data["atlas"]["modules"][0];
+    for repeated in ["name", "rank", "evidence_ids", "symbol_coverage", "symbols"] {
+        assert!(module.get(repeated).is_none(), "{repeated}");
+    }
+    let edge = &data["atlas"]["components"][0]["requires"][0];
+    assert!(edge.get("id").is_none() && edge.get("decided_by").is_none());
+}
