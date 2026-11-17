@@ -79,6 +79,7 @@ pub fn assemble(
             profile_limits: None,
             scope_premise: None,
             owned_files: Vec::new(),
+            standard: None,
             adapter: provenance.adapter,
             runtime: provenance.runtime,
             source,

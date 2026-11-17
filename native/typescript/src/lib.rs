@@ -82,6 +82,7 @@ mod script_names;
 mod script_namespace;
 mod script_numeric;
 mod script_outside;
+mod script_outside_detector;
 mod script_outside_forms;
 mod script_outside_names;
 mod script_outside_page;

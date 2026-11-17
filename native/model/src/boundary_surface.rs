@@ -14,7 +14,7 @@ use std::collections::HashSet;
 
 use archkeel_contract::BoundaryTypes;
 
-use crate::boundary_facts::{BoundaryFacts, Origin};
+use crate::boundary_facts::{wrapped_of, BoundaryFacts, Origin};
 use crate::boundary_judge::{GapCause, GapRow};
 use crate::model::Model;
 use crate::ownership::in_scope;
@@ -110,8 +110,15 @@ pub(crate) fn declared(model: &Model, facts: &BoundaryFacts) -> HashSet<String> 
         };
         let origins = covered.iter().map(|name| facts.origin(&entry.module, name));
         for origin in origins {
-            if let Origin::Defined(qualified, _) = origin {
-                found.insert(qualified.to_owned());
+            match origin {
+                Origin::Defined(qualified, _) => {
+                    found.insert(qualified.to_owned());
+                }
+                // A class that a standard decorator keeps a class (AD-782).
+                Origin::Missing { qualified, .. } if wrapped_of(facts, &qualified).is_some() => {
+                    found.insert(qualified);
+                }
+                _ => {}
             }
         }
     }

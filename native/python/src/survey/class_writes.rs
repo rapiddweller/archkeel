@@ -25,26 +25,65 @@ const WRITERS: [&str; 4] = ["setattr", "delattr", "__setattr__", "__delattr__"];
 pub(crate) struct ClassWrites {
     names: HashSet<String>,
     any: bool,
+    /// A store through a namespace (`vars(x)[k]`, `x.__dict__[k]`, `sys.modules[k]`,
+    /// `globals()[k]`) or code run from a text: it can change any name of any module (AD-782).
+    /// The lazy annotations of #1523 do not read it: a class namespace is no such mapping.
+    namespace: bool,
 }
+
+/// The methods of a mapping that change it.
+const MUTATORS: [&str; 7] = [
+    "update",
+    "setdefault",
+    "pop",
+    "popitem",
+    "clear",
+    "__setitem__",
+    "__delitem__",
+];
+
+/// The functions that run code from a text.
+const RUNNERS: [&str; 3] = ["exec", "eval", "compile"];
 
 impl ClassWrites {
     /// Add the stores of one file.
     pub(super) fn add(&mut self, tree: &ModModule) {
         Walk(self).visit_body(&tree.body);
+        // `from sys import modules` gives `sys.modules` a name that the walk does not follow.
+        self.namespace |= imports_from(tree, "sys", "modules");
     }
 
     /// True when a class namespace can get `name` after the class statement.
     pub(crate) fn can_write(&self, name: &str) -> bool {
         self.any || self.names.contains(name)
     }
+
+    /// Why code of the repository may change the attribute `name` of a module, if it may
+    /// (AD-782): a store of that name, a store with a computed name, or a namespace store.
+    pub(crate) fn change_of(&self, name: &str) -> Option<&'static str> {
+        if self.namespace {
+            return Some(
+                "a store through vars, __dict__, sys.modules or globals, or code run from a text",
+            );
+        }
+        if self.any {
+            return Some("an attribute store with a computed name");
+        }
+        HashSet::contains(&self.names, name).then_some("an attribute store of this name")
+    }
 }
 
 /// True when the module has `from __future__ import annotations`: its annotations are strings.
 pub(crate) fn future_annotations(tree: &ModModule) -> bool {
+    imports_from(tree, "__future__", "annotations")
+}
+
+/// True when the module body has `from <module> import <name>`, with or without an alias.
+fn imports_from(tree: &ModModule, module: &str, name: &str) -> bool {
     tree.body.iter().any(|stmt| {
         matches!(stmt, Stmt::ImportFrom(node) if node.level == 0
-            && node.module.as_ref().is_some_and(|name| Identifier::as_str(name) == "__future__")
-            && node.names.iter().any(|name| Identifier::as_str(&name.name) == "annotations"))
+            && node.module.as_ref().is_some_and(|found| Identifier::as_str(found) == module)
+            && node.names.iter().any(|found| Identifier::as_str(&found.name) == name))
     })
 }
 
@@ -53,6 +92,22 @@ struct Walk<'w>(&'w mut ClassWrites);
 impl<'a> Visitor<'a> for Walk<'_> {
     fn visit_expr(&mut self, expr: &'a Expr) {
         match expr {
+            // A read of a namespace: an item load, or a method that does not change it.
+            Expr::Subscript(node) if node.ctx == ExprContext::Load && namespace(&node.value) => {
+                self.visit_expr(&node.slice);
+                return;
+            }
+            Expr::Call(node) if read_of_namespace(&node.func) => {
+                for argument in &node.arguments.args {
+                    self.visit_expr(argument);
+                }
+                for keyword in &node.arguments.keywords {
+                    self.visit_expr(&keyword.value);
+                }
+                return;
+            }
+            // Any other use of a namespace can change it, and so can code run from a text.
+            _ if namespace(expr) || runner(expr) => self.0.namespace = true,
             Expr::Attribute(node) if node.ctx != ExprContext::Load => {
                 self.0.names.insert(node.attr.to_string());
             }
@@ -103,4 +158,42 @@ fn writer(expr: &Expr) -> bool {
         Expr::Attribute(node) => WRITERS[2..].contains(&Identifier::as_str(&node.attr)),
         _ => false,
     }
+}
+
+/// `vars(x)`, `globals()`, `x.__dict__` or `sys.modules`: a mapping that holds the names of a
+/// module or an object.
+fn namespace(expr: &Expr) -> bool {
+    match expr {
+        Expr::Call(node) => match &*node.func {
+            Expr::Name(name) => match Name::as_str(&name.id) {
+                "vars" => !node.arguments.args.is_empty() || !node.arguments.keywords.is_empty(),
+                "globals" => true,
+                _ => false,
+            },
+            _ => false,
+        },
+        Expr::Attribute(node) => match Identifier::as_str(&node.attr) {
+            "__dict__" => true,
+            "modules" => {
+                matches!(&*node.value, Expr::Name(name) if Name::as_str(&name.id) == "sys")
+            }
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+/// A method of a namespace that reads it and does not change it.
+fn read_of_namespace(func: &Expr) -> bool {
+    match func {
+        Expr::Attribute(node) => {
+            namespace(&node.value) && !MUTATORS.contains(&Identifier::as_str(&node.attr))
+        }
+        _ => false,
+    }
+}
+
+/// `exec`, `eval` or `compile`: code run from a text can store any name.
+fn runner(expr: &Expr) -> bool {
+    matches!(expr, Expr::Name(name) if RUNNERS.contains(&Name::as_str(&name.id)))
 }

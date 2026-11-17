@@ -129,6 +129,21 @@ value that an import from outside the scan and the standard library gives, with 
 a module of the scan, is a gap of the edges of its module (AD-760); a loader handed in as a
 parameter is the same open class.
 
+**Python `symbol_placement` (AD-726, AD-728, #1713).** A PASS needs the receipt "no written
+class" for each selected module outside the allowed sources. A call that can create a class at run
+time withholds the receipt, and the rule is UNKNOWN with the site: "a call can create a class at
+`path:line (callee)`". Such a call is:
+- a factory of the standard library, by the import that binds its name: `Enum` and the other
+  `enum` classes, `namedtuple`, `NamedTuple`, `TypedDict`, `make_dataclass`, `types.new_class`,
+  `ABCMeta`, `__build_class__`, `type` with three arguments;
+- a call in the shape of a metaclass call (`M("Name", (...), {...})`);
+- a call whose result the module calls or passes as the class of `isinstance` or `issubclass`.
+
+The plants are in `tests/test_collector_false_pass_python_placement.py`. Open: a call of another
+library function that creates a class and sets its `__module__` to the caller (`attrs.make_class`,
+`pydantic.create_model`) and whose result the module only returns gives no such site. The rule then
+reads the module as holding no class. This is an open false-PASS class, not an accepted limit.
+
 **Python module and class bindings (AD-642, #1360).** A module- or class-level binding such as
 `for site in sites: site.id` can retain an `import_system_change` gap. These namespaces resolve
 names in execution order. The survey does not yet prove the binding at each read.
@@ -572,9 +587,12 @@ Older classes stay open too: a use through `opener` or `document.defaultView`.
 AD-788 (#1546, #1674) states the premise of every TypeScript verdict as "code outside the scan
 roots hands in no global or platform object and replaces no global" (text header, JSON `premise`,
 report). Every JavaScript, TypeScript or HTML file of the repository outside the scan roots is read
-for a write that replaces a global (`window.x =`, `globalThis.x =`, `self.x =`, an assignment to an
-undeclared name, a top-level binding of a classic script, `Object.defineProperty(window, …)` and the
-other reflective writes on a window name). A member patch of a global (`Math.max = f`,
+with the write detector of the scan (#1712): an alias of a window name, a window name passed to a
+function, a destructuring or `for` target, `Reflect.apply(Reflect.set, …)`, `eval` and `Function`
+texts withhold the proof as they do inside the scan (a form whose name the detector cannot read
+withholds every global). A second reader names `window.x =`, `globalThis.x =`, `self.x =`, an
+assignment to an undeclared name, a top-level binding of a classic script and the reflective writes
+on a window name. A member patch of a global (`Math.max = f`,
 `JSON.parse = f`, `console.log = f`, `Object.assign(Math, …)`, `console.__defineGetter__(…)`) with
 a value that is no literal withholds the proof of each use of the patched member (and of the global
 as a whole value), in such a file and in a scanned file ("Script global Math is patched by a member
