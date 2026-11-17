@@ -27,6 +27,7 @@ use serde_json::{Map, Value};
 
 use super::binders::Binders;
 use super::bound::Bound;
+use super::class_writes::ClassWrites;
 use crate::declare::{definition_id, signature};
 use crate::module::definition::Def;
 use crate::module::{EvidenceMap, Module};
@@ -63,6 +64,7 @@ pub(crate) fn records<'m>(
     module: &'m Module,
     binders: &Binders,
     escapes: Escapes,
+    writes: Option<&'m ClassWrites>,
     evidence: &mut EvidenceMap,
 ) -> Found<'m> {
     let mut scratch = EvidenceMap::new();
@@ -71,6 +73,7 @@ pub(crate) fn records<'m>(
             module,
             evidence_map: &mut scratch,
             shadowed: Reader::shadowed(binders),
+            writes,
         },
         binders,
         open: escapes.open,
@@ -451,8 +454,13 @@ impl<'m> Writer<'m, '_> {
 
     /// Note a definition that a decorator may replace (AD-782).
     fn note_decorated(&mut self, def: Def<'m>, holder: &str, class: Option<(&Bound, &'m [Stmt])>) {
-        let open = (self.open, &self.escaped);
-        let found = decorated::note(&mut self.scan, open, def, holder, class);
+        let found = decorated::note(
+            &mut self.scan,
+            (self.open, &self.escaped),
+            def,
+            holder,
+            class,
+        );
         self.decorated.extend(found);
     }
 

@@ -26,7 +26,7 @@ pub(crate) mod types;
 use std::collections::BTreeMap;
 
 use crate::import_survey::index::{Index, Kind, Owners};
-use crate::import_survey::uri::{classify, Uri};
+use crate::import_survey::uri::Uri;
 use crate::syntax::{Definition, DefinitionKind, Directive, DirectiveKind, Span, Syntax};
 
 /// One top-level declaration of a module, in the file that writes it.
@@ -239,7 +239,7 @@ impl<'a> Resolver<'a> {
 
     /// The target of one URI of a directive in the file `importer`.
     fn target(&self, importer: &str, uri: &str) -> Option<Target> {
-        let (module, package, at, builtin) = match classify(importer, uri, self.index.package) {
+        let (module, package, at, builtin) = match self.index.classify(importer, uri) {
             Uri::Builtin(module) => (module, "dart".to_owned(), None, true),
             Uri::External { package, module } => (module, package, None, false),
             Uri::Local(rel) => {

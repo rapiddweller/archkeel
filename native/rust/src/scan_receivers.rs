@@ -16,11 +16,12 @@ use syn::{
     punctuated::Punctuated, Attribute, GenericParam, ItemImpl, Meta, ReceiverKind, Signature,
 };
 
-use crate::definitions::{OnSelf, SelfKind};
+use crate::definitions::{OnSelf, ReceiverChain, Root, SelfKind, Written};
 use crate::tokens::{plain, LINTS};
 pub(in crate::scan) use params::item_name;
 pub(in crate::scan) use params::typed as written_type;
 use params::{plain_path, Params};
+pub(in crate::scan) use written_types::{generic_names, returned, written};
 
 /// The attributes besides the lints (`LINTS`) that change no item and remove it in no configuration:
 /// an `impl` block or a `fn` with only these or a lint is as written. A conditional lint also
@@ -159,6 +160,22 @@ fn field_chain(receiver: &syn::Expr) -> Option<(&syn::Expr, Vec<String>)> {
     Some((current, fields))
 }
 
+/// The chain of a plain `self` of a method of an exact block: the type of the block behind the
+/// reference of the `self` parameter. No name and no macro can bind `self` again.
+fn this_chain(on_self: &OnSelf) -> Option<ReceiverChain> {
+    let ty = Written::Path(on_self.path.clone(), Vec::new());
+    let ty = match on_self.kind? {
+        SelfKind::Value => ty,
+        kind => Written::Ref(kind, Box::new(ty)),
+    };
+    Some(ReceiverChain {
+        name: "self".to_owned(),
+        root: Root::Typed(ty),
+        steps: Vec::new(),
+        macros: Vec::new(),
+    })
+}
+
 /// A frame of the walk that decides what a plain `self` and `Self` are.
 #[derive(Debug)]
 enum Frame {
@@ -175,6 +192,18 @@ enum Frame {
 /// The typed parameters of a `fn` (AD-524).
 #[path = "scan_params.rs"]
 mod params;
+
+/// The types as written (#1571, AD-804).
+#[path = "scan_written.rs"]
+mod written_types;
+
+/// The receiver of a method call as a chain (#1571, AD-804).
+#[path = "scan_chains.rs"]
+mod chains;
+
+/// The receiver sites of a closure or a loop body (AD-524, #1571).
+#[path = "scan_sites.rs"]
+mod sites;
 
 /// The stack of frames of the walk, and the depth of the inline modules that a `cfg` or another
 /// attribute may remove.
@@ -221,7 +250,10 @@ impl Selves {
     pub(super) fn enter_function(&mut self, item: &syn::ItemFn, at: (&[String], usize)) {
         let (scope, blocks) = at;
         let proved = inert(&item.attrs) && !self.gated() && blocks == 0;
-        let found = proved.then(|| params::read(&item.sig, &item.block, &[], scope, inert));
+        let found = proved.then(|| {
+            let bodies = (&item.sig, &*item.block);
+            params::read(bodies, (&[], scope), inert, (None, None))
+        });
         self.frames.push(Frame::Opaque(found.unwrap_or_default()));
     }
 
@@ -237,7 +269,7 @@ impl Selves {
         };
         let kept = inert(attrs);
         let proved = kept && block_inert && !self.gated() && blocks == 0;
-        let found = proved.then(|| params::read(sig, &item.block, &outer, scope, inert));
+        let self_type = block.clone().filter(|_| kept).map(|(path, _)| path);
         let on_self = block.filter(|_| kept).and_then(|(path, scope)| {
             let kind = Some(kind_of(sig)?);
             Some(OnSelf {
@@ -249,8 +281,17 @@ impl Selves {
                 fields: Vec::new(),
             })
         });
-        self.frames
-            .push(Frame::Method(on_self, kept, found.unwrap_or_default()));
+        let this = on_self.as_ref().and_then(this_chain);
+        let found = match proved {
+            true => params::read(
+                (sig, &item.block),
+                (&outer, scope),
+                inert,
+                (this, self_type),
+            ),
+            false => Params::bare(this),
+        };
+        self.frames.push(Frame::Method(on_self, kept, found));
     }
 
     pub(super) fn leave(&mut self) {
@@ -282,6 +323,18 @@ impl Selves {
                     .get(&plain(name), (at.line, at.column))
                     .filter(|_| !self.gated())
                     .cloned()
+            }
+            _ => None,
+        }
+    }
+
+    /// The receiver chain of a method call (#1571), or `None`: in a gated module, a `trait` or
+    /// outside a `fn`.
+    pub(super) fn chain(&self, receiver: &syn::Expr) -> Option<ReceiverChain> {
+        let frame = (self.frames.iter().rev()).find(|f| !matches!(f, Frame::Impl(..)));
+        match frame {
+            Some(Frame::Method(_, _, found) | Frame::Opaque(found)) if !self.gated() => {
+                chains::chain_of(receiver, found)
             }
             _ => None,
         }

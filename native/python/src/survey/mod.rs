@@ -226,7 +226,7 @@ pub(crate) fn survey(prepared: &Prepared) -> Result<Survey, String> {
         (modules, &binders),
         &viewed,
         (&sole_binders, &ambiguous),
-        (lazy_314.then_some(&writes), &writes),
+        (&writes, lazy_314),
         &mut evidence,
         |index, module| {
             !hazards.iter().any(|(site, _)| *site == index)
@@ -369,10 +369,7 @@ fn declarations(
     (modules, binders): (&[Module], &[Binders]),
     imports: &[Record<ImportFact>],
     sets: (&HashSet<String>, &HashSet<String>),
-    (lazy, writes): (
-        Option<&class_writes::ClassWrites>,
-        &class_writes::ClassWrites,
-    ),
+    (writes, lazy_314): (&class_writes::ClassWrites, bool),
     evidence: &mut EvidenceMap,
     admitted: impl Fn(usize, &Module) -> bool,
 ) -> Symbols {
@@ -381,12 +378,17 @@ fn declarations(
     for (index, (module, binders)) in modules.iter().zip(binders).enumerate() {
         let own = escapes.next().unwrap_or_default();
         if admitted(index, module) {
-            let mut item = declared::records(module, binders, own, evidence);
+            // #1714: a class annotation reads the class namespace on 3.14, and `get_type_hints`
+            // reads it for a string annotation on every version (AD-802).
+            let late = lazy_314 || class_writes::future_annotations(&module.tree);
+            let mut item =
+                declared::records(module, binders, own, late.then_some(writes), evidence);
             item.index = index;
             found.push(item);
         }
     }
     let context = declared::Context::collect(&found, imports, sets);
+    let lazy = lazy_314.then_some(writes);
     declared::attach_shapes(&mut found, (modules, binders), imports, sets, lazy);
     let forms = (lazy, writes);
     let wrapped = declared::wrapped_forms(&found, (modules, binders), imports, sets, forms);

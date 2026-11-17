@@ -275,6 +275,7 @@ impl Builder {
                 variants: Vec::new(),
                 receiver: false,
                 is_async: false,
+                ret: crate::definitions::Written::Unknown,
             };
             let qualified = item_name(&module.module, &def);
             let mut visibility = detail(&def);

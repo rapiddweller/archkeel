@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from merge_pr import Changes, decide, deletions, entry_count, main  # noqa: E402
+from merge_pr import Changes, decide, deletions, entry_count, main, moved_files  # noqa: E402
 
 PR = {
     "state": "OPEN",
@@ -300,3 +300,57 @@ def test_the_newest_run_of_a_check_name_counts_after_a_re_run() -> None:
     assert main(["7"], Fake(PR, running, ["a.py"], None)) == 3
     unordered = "9\tPR gate\tcompleted\tsuccess\n1\tPR gate\tcompleted\tfailure\n"
     assert main(["7"], Fake(PR, unordered, ["a.py"], None)) == 0
+
+
+def test_a_renamed_file_counts_by_its_line_delta_not_as_a_deletion() -> None:
+    """#1699: GitHub lists `status: renamed` for a rename, with or without edits."""
+    plain = Changes(
+        files=[{**_file("new_tests.rs", "renamed", 0, 0), "previous_filename": "old.rs"}]
+    )
+    assert decide(PR, ["PR gate"], GREEN, plain).verdict == "MERGE"
+    edited = Changes(files=[_file("new_tests.rs", "renamed", add=540, delete=21)])
+    assert decide(PR, ["PR gate"], GREEN, edited).verdict == "MERGE"
+    shrunk = Changes(files=[_file("new_tests.rs", "renamed", add=10, delete=400)])
+    assert codes(decide(PR, ["PR gate"], GREEN, shrunk)) == ["deletion_unapproved"]  # net 390
+
+
+def test_a_removed_file_whose_lines_went_to_an_added_file_is_a_move() -> None:
+    old = "\n".join(f"fn test_{i}() {{}}" for i in range(100))
+    new = old + "\nfn extra() {}\n"
+    assert moved_files(["a.rs"], ["b.rs"], lambda _p: old, lambda _p: new) == {"a.rs"}
+    assert moved_files(["a.rs"], ["b.rs"], lambda _p: old, lambda _p: "fn other() {}\n") == set()
+    changes = Changes(files=[_file("a.rs", "removed", 0, 519), _file("b.rs", "added", 540, 0)])
+    changes.moved = {"a.rs"}
+    assert decide(PR, ["PR gate"], GREEN, changes).verdict == "MERGE"
+
+
+def test_main_treats_a_removed_and_added_pair_with_the_same_lines_as_a_rename() -> None:
+    fake = Fake(PR, DONE, ["a.py"], '{"contexts": ["PR gate"]}')
+    fake.changed = [_file("a.rs", "removed", 0, 519), _file("b.rs", "added", 540, 0)]
+    fake.contents = {
+        "base": "\n".join(f"line {i}" for i in range(50)),
+        "head": "\n".join(f"line {i}" for i in range(60)),
+    }
+    assert main(["7"], fake) == 0
+
+
+def test_a_real_deletion_still_refuses_and_the_message_never_prints_a_negative_net() -> None:
+    fake = Fake(PR, DONE, ["a.py"], '{"contexts": ["PR gate"]}')
+    fake.changed = [_file("a.rs", "removed", 0, 519), _file("b.rs", "added", 540, 0)]
+    fake.contents = {
+        "base": "\n".join(f"old {i}" for i in range(50)),
+        "head": "\n".join(f"new {i}" for i in range(60)),
+    }
+    assert main(["7"], fake) == 1
+    refused = decide(
+        PR,
+        ["PR gate"],
+        GREEN,
+        Changes(files=[_file("a.rs", "removed", 0, 519), _file("b.rs", "added", 540, 0)]),
+    )
+    detail = refused.reasons[0].detail
+    assert (
+        "deletes 1 file(s) (a.rs)" in detail
+        and "-" not in detail.split("(a.rs)", 1)[1].split(":")[0]
+    )
+    assert "lines net" not in detail

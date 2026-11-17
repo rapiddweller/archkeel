@@ -13,10 +13,10 @@
 use serde::Serialize;
 
 use crate::error::{invalid, Parsed};
-use crate::json::{field, Json, Object};
+use crate::json::{Json, Object};
 use crate::model::ItemId;
-use crate::read::{nonempty_field, record};
-use crate::version::{supports, ContractVersion, Feature};
+use crate::read::{declared_items, nonempty_field, record};
+use crate::version::{ContractVersion, Feature};
 
 /// A premise that a contract can declare by name. A new premise is a new variant, with its word
 /// here and the place that reads it in the model.
@@ -69,16 +69,15 @@ record!(
 
 /// The declared premises, or none for an absent key.
 pub(crate) fn premises(object: &Object, version: ContractVersion) -> Parsed<Vec<DeclaredPremise>> {
-    let items = match field(object, "premises") {
-        None => return Ok(Vec::new()),
-        Some(Json::Array(items)) => items,
-        Some(_) => return Err(invalid("contract.declarations.premises must be an array")),
+    let Some(items) = declared_items(
+        object,
+        "premises",
+        (version, Feature::Premises),
+        "premise declarations require contract schema_version 3.17.0",
+    )?
+    else {
+        return Ok(Vec::new());
     };
-    if !supports(version, Feature::Premises) {
-        return Err(invalid(
-            "premise declarations require contract schema_version 3.17.0",
-        ));
-    }
     let found: Vec<DeclaredPremise> = items
         .iter()
         .enumerate()
