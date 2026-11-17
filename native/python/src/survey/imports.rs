@@ -21,7 +21,7 @@ use ruff_text_size::{Ranged, TextRange};
 use super::binders::{first_part, Binders};
 use super::bound::Bound;
 use super::guard::Guard;
-use super::package_body::{anchor, open_body, own_submodules, shadowing_names};
+use super::package_body::{anchor, open_body, own_submodules, package_bindings};
 use crate::module::{EvidenceMap, Location, Module};
 use crate::names::package_for;
 
@@ -79,7 +79,7 @@ pub(super) fn collect_all(
     (written, sources): (&HashSet<String>, &super::lazy_cover::Sources),
     uses: &[Vec<super::module_uses::Use>],
 ) -> Collected {
-    let (names, directories) = module_names(modules);
+    let (names, directories) = super::module_uses::module_names(modules);
     let bindings = package_bindings(modules);
     let open: HashMap<&str, HashSet<String>> = modules
         .iter()
@@ -124,7 +124,7 @@ pub(super) fn collect_all(
         };
         collector.body(&module.tree.body, true, false);
         for found in uses.get(aliases.len()).into_iter().flatten() {
-            collector.attribute(found);
+            attribute(&mut collector, found);
         }
         aliases.push(found);
     }
@@ -184,26 +184,6 @@ pub(super) fn literal_records(
         collector.record((range, false, false), &found);
     }
     records
-}
-
-/// The modules of the scan, and each dotted prefix of one: a package directory, also without
-/// `__init__.py` (AD-450).
-pub(super) fn module_names(modules: &[Module]) -> (HashSet<&str>, HashSet<&str>) {
-    let names: HashSet<&str> = modules.iter().map(|module| module.name.as_str()).collect();
-    let directories = (names.iter())
-        .flat_map(|name| name.match_indices('.').map(move |(at, _)| &name[..at]))
-        .collect();
-    (names, directories)
-}
-
-/// `collect_package_bindings`: for each package, the names that its body binds ahead of a
-/// submodule. A later module of the same name replaces an earlier one, as in the Python dict.
-pub(super) fn package_bindings(modules: &[Module]) -> HashMap<&str, HashSet<String>> {
-    modules
-        .iter()
-        .filter(|module| module.is_init())
-        .map(|module| (module.name.as_str(), shadowing_names(module)))
-        .collect()
 }
 
 /// `_owning_package`: the package that a relative import of the module starts from.
@@ -354,7 +334,7 @@ impl Collector<'_, '_> {
                 self.record(place, &found);
                 continue;
             }
-            let (submodule, local, ambiguous) = self.resolve(&anchor, name);
+            let (submodule, local, ambiguous) = resolve(self, &anchor, name);
             let binding = alias.asname.as_ref().map_or(name, |a| a.as_str());
             let target = if local {
                 submodule.clone()
@@ -472,8 +452,41 @@ impl Collector<'_, '_> {
     }
 }
 
-#[path = "imports_attribute.rs"]
-mod attribute;
+/// `from anchor import name`: the submodule `anchor.name`, whether the import gives that
+/// submodule, and whether it can give an attribute of the package as well (AD-450).
+fn resolve(c: &Collector<'_, '_>, anchor: &str, name: &str) -> (String, bool, bool) {
+    let submodule = if anchor.is_empty() {
+        name.to_owned()
+    } else {
+        format!("{anchor}.{name}")
+    };
+    let shadowed = (c.bindings.get(anchor)).is_some_and(|names| names.contains(name));
+    // A submodule or a package directory: `from app import service` imports it as
+    // `import app.service` does, and a directory without a module file is a gap.
+    let exists = c.names.contains(submodule.as_str()) || c.directories.contains(submodule.as_str());
+    let local = !shadowed && exists;
+    let open = (c.open.get(anchor)).is_some_and(|own| !own.contains(&submodule));
+    let written = c.written.contains(anchor);
+    let ambiguous = exists && (shadowed || open || written);
+    (submodule, local, ambiguous)
+}
+
+/// A use of `name` through a module binding: the record of `from module import name`, with
+/// no binding (#1415, AD-708).
+fn attribute(c: &mut Collector<'_, '_>, found: &crate::survey::module_uses::Use) {
+    let (submodule, local, ambiguous) = resolve(c, &found.module, &found.name);
+    let binding = Binding {
+        target: if local { &submodule } else { &found.module },
+        symbol: if local { None } else { Some(&found.name) },
+        binding: None,
+        level: 0,
+        attribute: true,
+    };
+    c.record((&found.range, false, found.guarded), &binding);
+    let last = c.records.last().filter(|_| ambiguous);
+    c.ambiguous
+        .extend(last.map(|record| record.id.as_str().to_owned()));
+}
 
 #[cfg(test)]
 #[path = "imports_tests.rs"]

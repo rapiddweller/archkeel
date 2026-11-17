@@ -236,7 +236,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
     let mut unknowns = parsed.gaps;
     if exclude {
         let excluded = Excluded::find(&mut snapshot, roots, namespace, minor);
-        let bindings = imports::package_bindings(modules);
+        let bindings = package_body::package_bindings(modules);
         unknowns.extend(excluded.gaps(&imports, &bindings, scope.selected.is_empty()));
     }
     let stdlib: HashSet<&str> = interpreter

@@ -56,7 +56,7 @@ pub(super) fn find(
     binders: &[Binders],
     imports: &[Record<ImportFact>],
 ) -> ModuleUses {
-    let (names, directories) = super::imports::module_names(modules);
+    let (names, directories) = module_names(modules);
     let mut bindings: HashMap<&str, HashMap<&str, String>> = HashMap::new();
     let mut unread = HashSet::new();
     for record in imports {
@@ -105,6 +105,16 @@ pub(super) fn find(
         found.uses.push(walk.uses);
     }
     found
+}
+
+/// The modules of the scan, and each dotted prefix of one: a package directory, also without
+/// `__init__.py` (AD-450).
+pub(super) fn module_names(modules: &[Module]) -> (HashSet<&str>, HashSet<&str>) {
+    let names: HashSet<&str> = modules.iter().map(|module| module.name.as_str()).collect();
+    let directories = (names.iter())
+        .flat_map(|name| name.match_indices('.').map(move |(at, _)| &name[..at]))
+        .collect();
+    (names, directories)
 }
 
 struct Walk<'s, 'm> {
