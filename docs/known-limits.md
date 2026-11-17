@@ -407,10 +407,12 @@ removes are not gaps. The gap holds every rule of the run.
 Narrow the scan roots to the source, or select the file in the TSConfig
 ([AD-488](architecture/decisions/ad-488-a-source-file-that-the-tsconfig-drops-is-a-coverage-gap.md)).
 
-A `.vue`, `.svelte`, `.astro`, `.mdx` or `.es6` file and an `.html` or `.htm` page with a script
-element under the scan roots is a gap too: the collector does not read these forms, and the gap
-names the file and the form (#1528). A page without a script element and a file outside the scan
-roots are not gaps.
+A `.vue`, `.svelte`, `.astro`, `.mdx` or `.es6` file is a gap too: the collector does not read
+these forms, and the gap names the file and the form (#1528). So is an `.html`, `.htm` or `.svg`
+file that can hold code (#1607): a `<script` element (also in a `<template>` or an SVG), an `on*`
+event handler attribute, a `javascript:` URL, `srcdoc`, or a `data:` URL of a page or an SVG. The
+check is lexical and over-matches on purpose: a page that only looks like code is a gap, and a
+page with plain markup is not. A file outside the scan roots is not a gap.
 
 These files give no gap in the core and in 4.0.1 (follow-up work):
 - `exclude_test_sources = true` removes `test`/`tests`/`__tests__` directories and `*.test.*` and

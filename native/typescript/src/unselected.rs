@@ -33,9 +33,9 @@ const INSTALLED: [(&str, &str); 3] = [
 ];
 
 /// A file form that holds code but that the TypeScript profile does not read, by suffix. The
-/// reason names the form (AD-488, #1528). A page (`.html`, `.htm`) is code only when it holds a
-/// script element; `page_with_script` decides that from its text.
-const UNREAD_FORMS: [(&str, &str); 7] = [
+/// reason names the form (AD-488, #1528). A page (`.html`, `.htm`, `.svg`) is code only when it
+/// holds script text; `page_with_code` decides that from its text (#1607).
+const UNREAD_FORMS: [(&str, &str); 8] = [
     (
         ".vue",
         "the TypeScript profile does not read Vue single-file components",
@@ -61,6 +61,10 @@ const UNREAD_FORMS: [(&str, &str); 7] = [
         ".htm",
         "the TypeScript profile does not read the inline scripts of HTML pages",
     ),
+    (
+        ".svg",
+        "the TypeScript profile does not read the scripts of SVG images",
+    ),
 ];
 
 /// Why the TypeScript profile does not read `name`, when it is a code form of the list.
@@ -72,16 +76,64 @@ pub(crate) fn unread_form(name: &str) -> Option<&'static str> {
         .map(|(_, reason)| *reason)
 }
 
-/// True when the text of a page holds a script element, in any letter case.
-pub(crate) fn page_with_script(text: &[u8]) -> bool {
-    text.windows(7)
-        .any(|window| window.eq_ignore_ascii_case(b"<script"))
+/// Text that starts code in a page, besides an `on*` attribute: a script element, a script URL,
+/// an inline frame document, or a data URL that can hold a page or an image with script.
+const CODE_MARKS: [&[u8]; 6] = [
+    b"<script",
+    b"javascript:",
+    b"srcdoc",
+    b"data:text/",
+    b"data:application/",
+    b"data:image/svg",
+];
+
+/// Spellings of a character entity that can hide the letters of a script URL.
+const ENTITIES: [&[u8]; 4] = [b"&#", b"&colon", b"&tab;", b"&newline;"];
+
+/// True when a page can hold code (#1607): a script element (also in a template or an SVG), an
+/// `on*` event handler attribute, a `javascript:` URL, `srcdoc`, or a data URL of code. The check
+/// is lexical and over-matches on purpose: a match is a gap, a miss is a false PASS. A browser
+/// drops tabs and line breaks inside a URL scheme and decodes entities, so the check drops white
+/// space and treats an entity beside the word `script` as code.
+pub(crate) fn page_with_code(text: &[u8]) -> bool {
+    let lower = text.to_ascii_lowercase();
+    let squeezed: Vec<u8> = lower
+        .iter()
+        .copied()
+        .filter(|byte| !byte.is_ascii_whitespace())
+        .collect();
+    let has = |haystack: &[u8], needle: &[u8]| haystack.windows(needle.len()).any(|w| w == needle);
+    CODE_MARKS.iter().any(|mark| has(&squeezed, mark))
+        || (has(&squeezed, b"script") && ENTITIES.iter().any(|entity| has(&squeezed, entity)))
+        || has_event_attribute(&lower)
+}
+
+/// True when `on` + letters + `=` follows white space, a quote or a slash: an event handler.
+fn has_event_attribute(lower: &[u8]) -> bool {
+    lower.windows(3).enumerate().any(|(at, window)| {
+        let before = at.checked_sub(1).map(|i| lower[i]);
+        window.starts_with(b"on")
+            && window[2].is_ascii_alphabetic()
+            && before.is_some_and(|b| b.is_ascii_whitespace() || matches!(b, b'"' | b'\'' | b'/'))
+            && event_name_then_equals(&lower[at + 2..])
+    })
+}
+
+/// True when letters, then optional white space, then `=` start `rest`.
+fn event_name_then_equals(rest: &[u8]) -> bool {
+    let name = rest.iter().take_while(|b| b.is_ascii_alphabetic()).count();
+    rest[name..]
+        .iter()
+        .find(|b| !b.is_ascii_whitespace())
+        .is_some_and(|b| *b == b'=')
 }
 
 /// True for a page: its text decides whether it is code.
 pub(crate) fn is_page(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
-    lower.ends_with(".html") || lower.ends_with(".htm")
+    [".html", ".htm", ".svg"]
+        .iter()
+        .any(|suffix| lower.ends_with(suffix))
 }
 
 /// Each project source file under `roots`, sorted, and each package that `reach` makes source.

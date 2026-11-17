@@ -236,7 +236,7 @@ impl Collection<'_> {
             && !self
                 .snapshot
                 .read(rel)
-                .is_some_and(|text| crate::unselected::page_with_script(&text));
+                .is_some_and(|text| crate::unselected::page_with_code(&text));
         (!silent).then(|| format!("{UNREAD}: {rel}: {form}"))
     }
 

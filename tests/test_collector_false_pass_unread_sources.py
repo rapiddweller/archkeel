@@ -22,6 +22,7 @@ UNREAD = {
     "mdx": ('import { T } from "../b/t";\n\n# Example\n', "MDX documents"),
     "html": ('<script type="module">import "../b/t";</script>', "inline scripts of HTML pages"),
     "htm": ('<SCRIPT>import "../b/t";</SCRIPT>', "inline scripts of HTML pages"),
+    "svg": ("<svg><script>import '../b/t';</script></svg>", "scripts of SVG images"),
     "es6": ('import "../b/t";\n', ".es6 script suffix"),
 }
 
@@ -40,6 +41,33 @@ def _validate(
     return document
 
 
+# A page holds code without a script element (#1607): each form is a gap with the page reason.
+PAGE_CODE = {
+    "event-handler": "<button onclick=\"import('../b/t')\">x</button>",
+    "load-handler": '<body onload = "x()"><p>x</p></body>',
+    "javascript-url": '<a href="javascript:void(0)">x</a>',
+    "split-javascript-url": '<a href="java\nscript:x()">x</a>',
+    "entity-javascript-url": '<a href="&#106;avascript:x()">x</a>',
+    "form-action": '<form action="JAVASCRIPT:x()"></form>',
+    "srcdoc": '<iframe srcdoc="<p>x</p>"></iframe>',
+    "data-url-page": '<iframe src="data:text/html,x"></iframe>',
+    "svg-handler": '<svg onload="x()"></svg>',
+    "template-script": "<template><script>x()</script></template>",
+}
+
+
+@pytest.mark.parametrize("name", sorted(PAGE_CODE))
+@pytest.mark.parametrize("extension", ["html", "htm", "svg"])
+def test_a_page_with_code_but_no_script_element_holds_the_rule(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, release_core: Path, extension: str, name: str
+) -> None:
+    files = {f"src/a/page.{extension}": PAGE_CODE[name]}
+    document = _validate(tmp_path, monkeypatch, release_core, files)
+    assert document["frame"]["rules"]["REQUIRES"][1] == "UNKNOWN", document
+    gaps = document["frame"]["explain"]["holds"]["gaps"]
+    assert any(f"page.{extension}" in gap["reason"] for gap in gaps), gaps
+
+
 @pytest.mark.parametrize("extension", sorted(UNREAD))
 def test_an_unread_code_form_holds_the_rule_with_a_named_gap(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, release_core: Path, extension: str
@@ -56,11 +84,23 @@ def test_an_unread_code_form_holds_the_rule_with_a_named_gap(
     "files",
     [
         {"src/a/page.html": "<p>No script here.</p>"},
+        {
+            "src/a/page.html": '<a href="https://example.org">x</a>'
+            '<img src="data:image/png;base64,AA">'
+        },
+        {"src/a/image.svg": '<svg><path d="M0 0"/></svg>'},
         {"public/hidden.vue": '<script>import "../src/b/t";</script>'},
         {"public/index.html": '<script>import "../src/b/t";</script>'},
         {"src/a/style.css": "a {}"},
     ],
-    ids=["page-without-script", "vue-outside-roots", "html-outside-roots", "style"],
+    ids=[
+        "page-without-script",
+        "plain-markup",
+        "plain-svg",
+        "vue-outside-roots",
+        "html-outside-roots",
+        "style",
+    ],
 )
 def test_a_file_that_holds_no_code_under_the_roots_stays_silent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, release_core: Path, files: dict[str, str]
