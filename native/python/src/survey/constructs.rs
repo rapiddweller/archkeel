@@ -65,6 +65,8 @@ fn one(module: &Module, binders: &Binders, evidence: &mut EvidenceMap) -> Findin
     let unique = binders.unique();
     let mut loaders = HashSet::new();
     let mut importlibs = HashSet::new();
+    let mut casts = HashSet::new();
+    let mut typing_modules = HashSet::new();
     for stmt in &module.tree.body {
         let (aliases, wanted, target) = match stmt {
             Stmt::ImportFrom(node)
@@ -76,6 +78,14 @@ fn one(module: &Module, binders: &Binders, evidence: &mut EvidenceMap) -> Findin
             {
                 (&node.names, "import_module", &mut loaders)
             }
+            Stmt::ImportFrom(node)
+                if node.level == 0
+                    && node.module.as_ref().is_some_and(|name| {
+                        matches!(name.as_str(), "typing" | "typing_extensions")
+                    }) =>
+            {
+                (&node.names, "cast", &mut casts)
+            }
             Stmt::Import(node) => (&node.names, "importlib", &mut importlibs),
             _ => continue,
         };
@@ -83,6 +93,16 @@ fn one(module: &Module, binders: &Binders, evidence: &mut EvidenceMap) -> Findin
             let name = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
             if alias.name.as_str() == wanted && unique.contains(name) {
                 target.insert(name.to_owned());
+            }
+        }
+        if let Stmt::Import(node) = stmt {
+            for alias in &node.names {
+                let name = alias.asname.as_ref().unwrap_or(&alias.name).as_str();
+                if matches!(alias.name.as_str(), "typing" | "typing_extensions")
+                    && unique.contains(name)
+                {
+                    typing_modules.insert(name.to_owned());
+                }
             }
         }
     }
@@ -100,6 +120,8 @@ fn one(module: &Module, binders: &Binders, evidence: &mut EvidenceMap) -> Findin
         getattr_complete: true,
         loaders,
         importlibs,
+        casts,
+        typing_modules,
     };
     walk.visit_body(&module.tree.body);
     Findings {
@@ -127,6 +149,8 @@ struct Walk<'a> {
     getattr_complete: bool,
     loaders: HashSet<String>,
     importlibs: HashSet<String>,
+    casts: HashSet<String>,
+    typing_modules: HashSet<String>,
 }
 
 impl<'a> Visitor<'a> for Walk<'_> {
@@ -260,6 +284,17 @@ impl<'a> Visitor<'a> for Walk<'_> {
     }
 }
 
+fn named_call(func: &Expr, names: &HashSet<String>, modules: &HashSet<String>, attr: &str) -> bool {
+    match func {
+        Expr::Name(name) => names.contains(name.id.as_str()),
+        Expr::Attribute(node) => {
+            node.attr.as_str() == attr
+                && matches!(&*node.value, Expr::Name(name) if modules.contains(name.id.as_str()))
+        }
+        _ => false,
+    }
+}
+
 impl Walk<'_> {
     fn annotation(&mut self, annotation: &Expr) {
         struct Any(bool);
@@ -287,28 +322,27 @@ impl Walk<'_> {
     fn call(&mut self, expr: &Expr, call: &ruff_python_ast::ExprCall) {
         self.dict_complete = false;
         self.compare_complete = false;
-        let loader = match &*call.func {
-            Expr::Name(name) => {
-                name.id.as_str() == "__import__" && self.binders.builtin_visible("__import__")
-                    || self.loaders.contains(name.id.as_str())
-            }
-            Expr::Attribute(attr) => {
-                attr.attr.as_str() == "import_module"
-                    && matches!(&*attr.value, Expr::Name(name) if self.importlibs.contains(name.id.as_str()))
-            }
-            _ => false,
-        };
+        let loader = matches!(&*call.func, Expr::Name(name)
+            if name.id.as_str() == "__import__" && self.binders.builtin_visible("__import__"))
+            || named_call(&call.func, &self.loaders, &self.importlibs, "import_module");
         if loader {
-            let mut data = self.signal_data(Signal::DynamicImport, None);
-            data.expression = Some(
-                self.module.text()[call.func.start().to_usize()..call.func.end().to_usize()]
-                    .to_owned(),
-            );
-            self.signal(
+            self.call_signal(
                 expr,
+                &call.func,
                 "dynamic_import",
                 "dynamic_import",
-                SignalFact::DynamicImport(data),
+                Signal::DynamicImport,
+                SignalFact::DynamicImport,
+            );
+        }
+        if named_call(&call.func, &self.casts, &self.typing_modules, "cast") {
+            self.call_signal(
+                expr,
+                &call.func,
+                "cast_call",
+                "cast",
+                Signal::CastCall,
+                SignalFact::CastCall,
             );
         }
         let known = matches!(&*call.func, Expr::Name(name)
@@ -325,6 +359,21 @@ impl Walk<'_> {
         } else {
             self.getattr_complete = false;
         }
+    }
+
+    fn call_signal(
+        &mut self,
+        expr: &Expr,
+        func: &Expr,
+        kind: &str,
+        name: &str,
+        signal: Signal,
+        fact: fn(SignalData) -> SignalFact,
+    ) {
+        let mut data = self.signal_data(signal, None);
+        data.expression =
+            Some(self.module.text()[func.start().to_usize()..func.end().to_usize()].to_owned());
+        self.signal(expr, kind, name, fact(data));
     }
 
     fn getattr(&mut self, node: &impl Ranged) {

@@ -399,3 +399,23 @@ def test_dynamic_import_is_reported_or_left_unknown(
         release_core, tmp_path, Plant({"src/app/client/page.py": source}, [rule], [], {}, {})
     )
     assert rows(result)["NO-DYNAMIC"] == expected, result["frame"]["explained"]
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("from typing import cast\nvalue = cast(int, obj)\n", "FAIL"),
+        ("import typing as t\nvalue = t.cast(int, obj)\n", "FAIL"),
+        ("from typing_extensions import cast as c\nvalue = c(int, obj)\n", "FAIL"),
+        ("from typing import cast\ncast = other\nvalue = cast(int, obj)\n", "UNKNOWN"),
+        ("value = other(int, obj)\n", "UNKNOWN"),
+    ],
+)
+def test_cast_is_reported_or_left_unknown(
+    release_core: Path, tmp_path: Path, source: str, expected: str
+) -> None:
+    rule = {**CONSTRUCT, "id": "NO-CAST", "constructs": ["cast"]}
+    result = scanned(
+        release_core, tmp_path, Plant({"src/app/client/page.py": source}, [rule], [], {}, {})
+    )
+    assert rows(result)["NO-CAST"] == expected, result["frame"]["explained"]
