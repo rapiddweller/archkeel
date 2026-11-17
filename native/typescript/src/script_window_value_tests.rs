@@ -107,7 +107,7 @@ fn a_write_with_a_run_time_key_through_a_window_value_keeps_the_global_from_a_pr
 }
 
 /// Writes into values that the file makes, with a host entry: they keep the proof.
-const LOCAL: [(&str, &str); 6] = [
+const LOCAL: [(&str, &str); 7] = [
     (
         "module-literal",
         "const cache: any = {};\naddEventListener('load', () => { cache[k] = 1; });",
@@ -123,6 +123,10 @@ const LOCAL: [(&str, &str); 6] = [
     (
         "assign-created-object",
         "addEventListener('load', () => Object.assign(Object.create(null), { open: 1 }));",
+    ),
+    (
+        "getter-on-local",
+        "const o: any = {};\naddEventListener('load', () => o.__defineGetter__(k, () => 1));",
     ),
     (
         "compiled-enum",
@@ -153,4 +157,66 @@ fn a_named_write_through_a_window_value_names_its_global() {
     assert!(gap(
         "addEventListener('load', ev => { (ev.target as any).open = () => {}; });"
     ));
+}
+
+/// A reflective write through an alias of the member, through `call` or `apply`, and a getter or
+/// setter that `__defineGetter__` or `__defineSetter__` puts on a window value.
+const INDIRECT: [(&str, &str); 11] = [
+    (
+        "stored-member",
+        "const a = Object.assign;\naddEventListener('load', ev => a(ev.target, { open: 1 }));",
+    ),
+    (
+        "call-member",
+        "addEventListener('load', ev => Object.assign.call(null, ev.target, { open: 1 }));",
+    ),
+    (
+        "reflect-apply-set",
+        "addEventListener('load', ev => Reflect.apply(Reflect.set, null, [ev.target, k, 1]));",
+    ),
+    (
+        "destructured",
+        "const { assign } = Object;\naddEventListener('load', ev => assign(ev.target, { open: 1 }));",
+    ),
+    (
+        "object-alias",
+        "const O = Object;\n\
+         addEventListener('load', ev => O.defineProperty(ev.target, k, { value: 1 }));",
+    ),
+    (
+        "through-global-this",
+        "addEventListener('load', ev => globalThis.Object.assign(ev.target, { open: 1 }));",
+    ),
+    (
+        "through-window-key",
+        "addEventListener('load', ev => window['Reflect'].set(ev.target as any, k, 1));",
+    ),
+    (
+        "define-getter",
+        "addEventListener('load', ev => (ev.target as any).__defineGetter__(k, () => 1));",
+    ),
+    (
+        "define-setter-literal-key",
+        "addEventListener('load', ev => (ev.target as any)['__defineSetter__'](k, () => 1));",
+    ),
+    (
+        "prototype-getter-call",
+        "addEventListener('load', ev => \
+         Object.prototype.__defineGetter__.call(ev.target, k, () => 1));",
+    ),
+    (
+        "stored-getter",
+        "addEventListener('load', ev => { const t: any = ev.target; \
+         const d = t.__defineGetter__; d.call(t, k, () => 1); });",
+    ),
+];
+
+#[test]
+fn an_indirect_reflective_write_through_a_window_value_keeps_the_global_from_a_proof() {
+    let open: Vec<&str> = INDIRECT
+        .iter()
+        .filter(|(_, b)| !gap(b))
+        .map(|(name, _)| *name)
+        .collect();
+    assert!(open.is_empty(), "no gap for: {open:?}");
 }

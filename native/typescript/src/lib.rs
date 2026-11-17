@@ -83,6 +83,7 @@ mod script_project;
 mod script_proof;
 mod script_publish;
 mod script_records;
+mod script_reflective;
 mod script_refs;
 mod script_scope;
 mod script_state;
