@@ -18,6 +18,10 @@ pub(super) struct Node {
     /// What the component must not do, and its planned surface, as the contract states them.
     pub(super) forbidden: Vec<String>,
     pub(super) planned: Vec<String>,
+    /// The documents that give the reasons of the box, as the contract names them.
+    pub(super) provenance: Vec<String>,
+    /// The number of components that a layer or group holds; `None` for a component.
+    pub(super) members: Option<usize>,
     /// The place of a layer in its layer order, from the inner layer; `None` for a component.
     pub(super) rank: Option<usize>,
 }

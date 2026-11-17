@@ -1222,7 +1222,9 @@
     const children = entityGraph.entities.filter((item) => REPORT_SCENE.parent(item, entityGraph) === entity?.id);
     const boundary = !edge && (entityGraph.origin === "observed" ? DATA.target?.component_intents || [] : entityGraph.component_intents)
       .find((item) => item.component_id === scope);
-    const entries = (items) => items === null ? "Nothing stated in the contract" : items.length ? items.map(esc).join("<br>") : "None";
+    const entries = (items) => (items || []).map(esc).join("<br>");
+    // A row of the intent list is drawn only when it has a value.
+    const kvRow = (label, items) => items && items.length ? `<dt>${label}</dt><dd>${entries(items)}</dd>` : "";
     const physicalScope = !edge && graph.origin === "declared" && (!entity || entity.kind === "component");
     const inventories = physicalScope ? graph.module_inventories.filter((item) => item.component_id === scope) : [];
     const assignedLayouts = new Set(graph.component_intents.flatMap((item) => item.layout_rule_ids));
@@ -1277,11 +1279,11 @@
       ${boundary ? `<h3>Component intent</h3><dl class="kv">
         <dt>Component role</dt><dd>${esc(boundary.role)}</dd>
         ${boundary.layer != null ? `<dt>Layer (declared)</dt><dd>${esc(boundary.layer)}</dd>` : ""}
-        <dt>Package ownership</dt><dd>${entries(boundary.packages)}</dd>
-        <dt>Exact module ownership</dt><dd>${entries(boundary.exact_modules)}</dd>
-        <dt>Target namespace</dt><dd>${esc(boundary.namespace || "Not declared")}</dd>
-        <dt>Published API</dt><dd>${entries(boundary.public)}</dd>
-        <dt>Planned interface (proposed)</dt><dd>${entries(boundary.planned)}</dd>
+        ${kvRow("Package ownership", boundary.packages)}
+        ${kvRow("Exact module ownership", boundary.exact_modules)}
+        ${boundary.namespace ? `<dt>Target namespace</dt><dd>${esc(boundary.namespace)}</dd>` : ""}
+        ${kvRow("Published API", boundary.public)}
+        ${kvRow("Planned interface (proposed)", boundary.planned)}
         ${boundary.decided_by ? `<dt>Decided by</dt><dd>${esc(boundary.decided_by)}</dd>` : ""}
         ${boundary.inside ? `<dt>Inner contract</dt><dd>${esc(boundary.inside)}</dd>` : ""}
         </dl>${boundary.forbidden_responsibilities.length ? `<h3>Excluded responsibilities</h3><ul class="plain">${boundary.forbidden_responsibilities.map((text) => `<li>${esc(text)}</li>`).join("")}</ul>` : ""}` : ""}
@@ -2122,9 +2124,10 @@
       `${status} ${assessments.filter((item) => item.status === status).length}`).join(" · ");
     const notChecked = ATLAS.declared_rules === "NOT CHECKED" ? " · NOT CHECKED" : "";
     const recordedChecks = `<section class="atlas-scoped-findings"><h3>Recorded checks${component ? ` · ${esc(component.label)}` : ""}</h3>
-      <p>${findings.length ? `${REPORT_SCENE.countLabel(findings.length, "finding")} recorded in this scope.` : "No findings recorded in this scope."}</p>
+      <p>${findings.length ? `${REPORT_SCENE.countLabel(findings.length, "finding")} recorded in this scope.` : (component ? "No violation in this component." : "No violation in this scope.")}</p>
       ${failureGroups.size ? `<ul class="plain">${[...failureGroups].map(([ruleId, count]) =>
       `<li><a href="${esc(atlasFindingHref(findings, ruleId) || atlasRuleScopeHref(scopedLevel || level, ruleId))}">${esc(atlasPlainFindings(ruleId, count))}</a> <small class="muted">(${esc(ruleId)})</small></li>`).join("")}</ul>` : ""}</section>`;
+    if (component) return recordedChecks;
     return `${recordedChecks}<details class="atlas-rule-assessments"><summary>Rules · whole run ${esc(ATLAS.declared_rules || "NOT CHECKED")} · ${statuses}${notChecked}</summary>
       <p>Whole-run rule assessments; local findings are scoped separately above. Each UNKNOWN keeps its rule, reason and scope.</p>
       ${assessments.length ? `<ul class="plain">${assessments.map((item) => {
@@ -2153,15 +2156,12 @@
         + `${uncertainEvidence}</li>`;
       }).join("")}</ul>` : "<p>Rule assessments were not recorded.</p>"}</details>`;
   }
+  // The analysis limits that the frame names, each with its reason. The verdict of the run is on the
+  // card; a sheet repeats none of it.
   function atlasEvidenceMarkup() {
-    const status = ATLAS.observation_complete || "UNKNOWN";
-    const reason = status === "PASS" ? "The source observation completed."
-      : status === "UNKNOWN" ? "The source observation could not establish complete evidence."
-        : "The source observation reported this status.";
-    return `<section class="atlas-evidence"><h3>Evidence</h3>
-      <p>Source observation: <strong>${esc(status)}</strong> · ${reason}</p>
-      <p>Core projection: ${esc(ATLAS.status)} · ${esc(ATLAS.reason)} · ${REPORT_SCENE.countLabel(ATLAS.unknown_count, "analysis limit")} in the complete audit.</p>
-      ${ATLAS.unknowns.length ? `<ul class="plain">${ATLAS.unknowns.map((item) => `<li>${REPORT_SCENE.countLabel(item.count, "analysis limit")} · ${esc(item.reason)}</li>`).join("")}</ul>` : ""}</section>`;
+    if (!ATLAS.unknowns.length) return "";
+    return `<section class="atlas-evidence"><h3>Analysis limits</h3>
+      <ul class="plain">${ATLAS.unknowns.map((item) => `<li>${REPORT_SCENE.countLabel(item.count, "analysis limit")} · ${esc(item.reason)}</li>`).join("")}</ul></section>`;
   }
   function atlasEntryQuery(level) {
     const query = new URLSearchParams({ return_scope: level.parent_id || "",
@@ -2338,15 +2338,15 @@
 
   // What a box is: a layer or a group of components, or a component.
   function atlasBoxKind(component) {
-    if (component.layer_rank !== null && component.layer_rank !== undefined) return "Layer";
-    return component.id.startsWith("GROUP:") ? "Group" : "Component";
+    // A box that holds one component is that component, whatever its id says.
+    if (component.groups === null || component.groups === undefined || component.groups === 1) return "Component";
+    return component.layer_rank !== null && component.layer_rank !== undefined ? "Layer" : "Group";
   }
   function atlasSheet(level, scene = renderedScene) {
     const component = REPORT_SCENE.atlasComponent(umlSelection?.id || level.parent_id);
     const inventory = viewMode === "target" ? moduleInventoryMarkup(ATLAS.module_inventories
       .filter((item) => item.component_id === (component?.id || null))) : "";
-    const entries = (items) => items === null || items === undefined ? "Nothing stated in the contract"
-      : items.length ? items.map((item) => `<li>${esc(item)}</li>`).join("") : "None";
+    const entries = (items) => items ? items.map((item) => `<li>${esc(item)}</li>`).join("") : "";
     const list = (title, items) => items && items.length ? `<h3>${title}</h3><ul class="plain">${entries(items)}</ul>` : "";
     const link = (href, label) => `<a href="${esc(href)}">${esc(label)}</a>`;
     if (viewMode !== "target" && atlasCell !== null) {
@@ -2362,7 +2362,7 @@
     }
     if (viewMode !== "target" && atlasModule) {
       const module = REPORT_SCENE.atlasModuleById(atlasModule);
-      const assignment = level.modules.find((item) => item.id === module.id);
+      const assignment = ATLAS.assignments.find((item) => item.id === module.id);
       const owner = REPORT_SCENE.atlasComponent(assignment?.component_id);
       const grouped = (direction) => {
         const rows = ATLAS.cells.filter((cell) => cell[direction === "in" ? "target_id" : "source_id"] === module.id);
@@ -2370,7 +2370,7 @@
         for (const cell of rows) {
           const id = cell[direction === "in" ? "source_id" : "target_id"];
           const other = REPORT_SCENE.atlasModuleById(id);
-          const binding = level.modules.find((item) => item.id === id);
+          const binding = ATLAS.assignments.find((item) => item.id === id);
           const name = REPORT_SCENE.atlasComponent(binding?.component_id)?.label || "UNKNOWN owner / outside this level";
           if (!groups.has(name)) groups.set(name, []);
           groups.get(name).push(`<li>${esc(other.name)} · ${REPORT_SCENE.countLabel(cell.import_sites, "site")}</li>`);
@@ -2378,13 +2378,12 @@
         return [...groups].map(([name, items]) => `<h4>${esc(name)}</h4><ul class="plain">${items.join("")}</ul>`).join("") || "No recorded module cells.";
       };
       inspectorContent.innerHTML = `<div class="kicker">Observed module · counts over the observed source scope</div>
-        <h2>${esc(module.name)}</h2><p>${link(atlasDetailsHref(module, level), "Open UML and source evidence")}</p><p><code>${esc(module.path || "Path unavailable")}</code></p>
-        <p>${REPORT_SCENE.countLabel(module.symbols, "observed symbol")} · fan-in ${module.fan_in ?? "UNKNOWN"} · fan-out ${module.fan_out ?? "UNKNOWN"}</p>
-        ${list("Symbol coverage", module.symbol_coverage.map((item) => `${item.status}: ${item.reason || "Recorded source inventory"}`))}
+        <h2>${esc(module.name)}</h2><p>${link(atlasDetailsHref(module, level), "Open UML and source evidence")}</p>${module.path ? `<p><code>${esc(module.path)}</code></p>` : ""}
+        <p>${module.symbols == null ? "" : `${REPORT_SCENE.countLabel(module.symbols, "observed symbol")} · `}fan-in ${module.fan_in ?? "UNKNOWN"} · fan-out ${module.fan_out ?? "UNKNOWN"}</p>
         <h3>Owner</h3><p>${esc(owner?.label || "UNKNOWN")} · ${esc(assignment?.ownership_reason || "No assignment receipt")}</p>
         ${owner ? list("Responsibility", owner.responsibilities) + list("Not responsible for", owner.not_responsible_for) : list("Candidate owners", assignment?.candidate_ids || [])}
         <h3>Imported by</h3>${grouped("in")}<h3>Imports</h3>${grouped("out")}
-        <p>Does this fit the responsibility?</p>${boundaryPermissionMarkup(module.id, new Set([module.id]))}`;
+        ${boundaryPermissionMarkup(module.id, new Set([module.id]))}`;
       return;
     }
     if (viewMode === "target") {
@@ -2416,8 +2415,7 @@
       <ul class="plain">${component.requires.map((edge) => `<li><strong>${esc(REPORT_SCENE.atlasComponent(edge.target_id)?.label || edge.target_id)}</strong>
         <p>${esc(edge.rationale)}</p>${edge.through.length ? `<p>Through: ${edge.through.map(esc).join(", ")}</p>` : ""}
         <p>Decided by ${esc(edge.decided_by || "Not declared")}${viewMode !== "target" ? ` · ${REPORT_SCENE.countLabel(edge.observed_imports, "observed import")}` : ""}</p></li>`).join("")}</ul>` : ""}
-      ${viewMode === "target" ? "" : `${atlasRuleAssessmentMarkup(level, component)}${atlasEvidenceMarkup()}`} ${viewMode !== "target" ? `<h3>Observed weight</h3><p>${REPORT_SCENE.countLabel(component.observed_modules, "module")} · ${REPORT_SCENE.countLabel(component.observed_symbols, "observed symbol")}
-        ${component.symbols_complete === atlasGlobalSymbolsComplete() ? "" : component.symbols_complete ? "· complete lexical inventory" : "· partial lexical inventory"}</p><h3>Component evidence status</h3><p>${esc(component.status)} · ${esc(component.reason)}</p>
+      ${viewMode === "target" ? "" : `${atlasRuleAssessmentMarkup(level, component)}${atlasEvidenceMarkup()}`} ${viewMode !== "target" ? `<h3>Observed weight</h3><p>${REPORT_SCENE.countLabel(component.observed_modules, "module")}${component.observed_symbols == null ? "" : ` · ${REPORT_SCENE.countLabel(component.observed_symbols, "observed symbol")}`}</p><h3>Component evidence status</h3><p>${esc(component.status)} · ${esc(component.reason)}</p>
         <h3>Used by</h3><ul class="plain">${component.used_by.map((item) => `<li>${esc(REPORT_SCENE.atlasComponent(item.component_id)?.label || item.component_id)} · ${REPORT_SCENE.countLabel(item.import_sites, "import")}</li>`).join("") || "No recorded component uses."}</ul>` : ""}
       <h3>${viewMode === "target" ? "Decision" : "Decision and source"}</h3><p>${esc(component.decided_by || "Not declared")}${viewMode === "target" ? "" : ` · <code>${esc(component.path || "Path not declared")}</code>`}</p>
       ${list("Provenance", component.provenance)}${inventory}
@@ -2766,7 +2764,7 @@
           if (node.component) group.dataset.assessmentStatus = node.component.status;
           const weight = el("text", { class: "atlas-weight", x: "16", y: "129" });
           const inventoryComplete = atlasGlobalSymbolsComplete();
-          weight.textContent = node.module ? `${node.module.symbols == null ? "no symbol count in this run" : `${node.module.symbols} observed symbols`}`
+          weight.textContent = node.module ? (node.module.symbols == null ? "" : `${node.module.symbols} observed symbols`)
             : `${node.component.observed_modules} mod${node.component.observed_symbols == null ? "" : ` · ${node.component.observed_symbols} sym`}${node.component.symbols_complete === inventoryComplete ? "" : node.component.symbols_complete ? " · complete" : " · partial"}`;
           group.appendChild(weight);
         }
