@@ -54,12 +54,17 @@ def test_a_written_unique_local_type_proves_a_unique_receiver(
         "let s: &crate::c::S = { let _ = s.m(1); input }; 1",
     ],
 )
-def test_an_unproved_local_type_keeps_the_gap(
+def test_a_local_binding_decides_only_a_proven_receiver(
     tmp_path: Path, core_binary: Path, capsys: pytest.CaptureFixture[str], body: str
 ) -> None:
     files = _plant(f"pub fn f(input: &crate::c::S) -> u8 {{\n    {body}\n}}\n")
     result, verdict = _check(tmp_path, core_binary, capsys, files)
-    assert verdict == "UNKNOWN", claims(result)
+    # AD-804 follows the written type through a shadowed let and a nested block.
+    proven = {
+        "let s: &crate::c::S = input; let s = s; s.m(1)",
+        "{ let s: &crate::c::S = input; s.m(1) }",
+    }
+    assert verdict == ("FAIL" if body in proven else "UNKNOWN"), claims(result)
 
 
 @pytest.mark.parametrize(
