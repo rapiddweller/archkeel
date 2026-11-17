@@ -198,14 +198,14 @@ pub(super) fn exact_type(index: &Index<'_>, caller: &Module, lexical: &str, ty: 
     })
 }
 
-/// Resolve a named field from its exact struct, without deref or an ambiguous field.
-fn field_type(
-    index: &Index<'_>,
+/// The one visible named field of an exact struct, with the file of the struct.
+fn field_of<'f>(
+    index: &'f Index<'_>,
     caller: &Module,
     at: &str,
     (lexical, ty, name): (&str, &str, &str),
     found: &Typed<'_>,
-) -> Option<(String, String, SelfKind)> {
+) -> Option<(&'f Frame<'f>, &'f crate::definitions::Field)> {
     if !exact_type(index, caller, lexical, ty) || found.derefs.contains(ty) {
         return None;
     }
@@ -231,13 +231,76 @@ fn field_type(
         Access::Private => same_crate && inside(at, lexical),
         Access::Package(_) => false,
     };
-    if !visible {
-        return None;
-    }
+    visible.then_some((frame, *field))
+}
+
+/// Resolve a named field from its exact struct, without deref or an ambiguous field.
+fn field_type(
+    index: &Index<'_>,
+    caller: &Module,
+    at: &str,
+    named: (&str, &str, &str),
+    found: &Typed<'_>,
+) -> Option<(String, String, SelfKind)> {
+    let (frame, field) = field_of(index, caller, at, named, found)?;
     let TypeOf::Known(lexical, ty) = index.type_of(frame, &field.scope, &field.path) else {
         return None;
     };
     (!found.derefs.contains(ty.as_str())).then_some((lexical, ty, field.kind))
+}
+
+/// The std types whose methods all live in std, with a deref chain that stays in std (`String` to
+/// `str`): no inherent member of the workspace applies to a receiver of such a type (#1571).
+const STD_RECEIVERS: [&str; 17] = [
+    "str", "String", "bool", "char", "u8", "u16", "u32", "u64", "u128", "usize", "i8", "i16",
+    "i32", "i64", "i128", "isize", "f64",
+];
+
+/// Whether a written type names one of `STD_RECEIVERS` for certain: one segment that the file
+/// binds to nothing and that no glob of the file can bring in.
+fn std_type(frame: &Frame<'_>, path: &[String]) -> bool {
+    let [name] = path else {
+        return false;
+    };
+    (STD_RECEIVERS.contains(&name.as_str()) || name == "f32")
+        && !frame.module.scan.counts.contains_key(name.as_str())
+        && frame.globs().next().is_none()
+}
+
+/// Whether the receiver of a call has a std type of `STD_RECEIVERS` for certain: a parameter, a
+/// typed local or `self` with that written type, or a field chain through exact structs to a
+/// field of that type. Such a call reaches no inherent member of the workspace (#1571).
+pub(super) fn std_receiver(
+    (index, frame): (&Index<'_>, &Frame<'_>),
+    module: &Module,
+    call: &MethodCall,
+    found: &Typed<'_>,
+) -> bool {
+    let Some(on_self) = &call.on_self else {
+        return false;
+    };
+    let parameter = !matches!(on_self.name.as_str(), "self" | "Self");
+    let foreign = (on_self.macros.iter()).any(|m| !found.macro_names.contains(m.as_str()));
+    if module.gated || call.path || (parameter && (found.shadowed_macros || foreign)) {
+        return false;
+    }
+    let Some((last, through)) = on_self.fields.split_last() else {
+        return std_type(frame, &on_self.path);
+    };
+    let TypeOf::Known(mut lexical, mut ty) = index.type_of(frame, &on_self.scope, &on_self.path)
+    else {
+        return false;
+    };
+    let at = frame.lexical_at(&call.scope);
+    for field in through {
+        let Some((next, name, _)) = field_type(index, module, &at, (&lexical, &ty, field), found)
+        else {
+            return false;
+        };
+        (lexical, ty) = (next, name);
+    }
+    field_of(index, module, &at, (&lexical, &ty, last), found)
+        .is_some_and(|(owner, field)| std_type(owner, &field.path))
 }
 
 impl Builder {

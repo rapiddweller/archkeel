@@ -403,8 +403,13 @@ impl Builder {
                 *self.ended_methods.entry(module.rel.clone()).or_default() += 1;
                 continue;
             }
+            // #1571: a receiver of a std type reaches no inherent member of the workspace; a
+            // macro can still write a trait impl for it (below).
+            let std = at_index < own
+                && receivers::std_receiver((reached.index, frame), module, call, &found.typed);
             let at = frame.lexical_at(&call.scope);
             let blocks = found.foreign.get(call.name.as_str()).into_iter().flatten();
+            let blocks = blocks.filter(|_| !std);
             for block in blocks.filter(|block| visible(workspace, (module, &at), call, block)) {
                 let target = block.module.module.as_str();
                 let reason = format!(
@@ -414,9 +419,8 @@ impl Builder {
                 self.reached_gap(reached, call, target, &reason);
             }
             // #1571: the call may reach a member in the file of its type (`impl_flow.rs`).
-            let owned = found
-                .owned
-                .get(call.name.as_str())
+            let owned = (found.owned.get(call.name.as_str()))
+                .filter(|_| !std)
                 .map_or(&[][..], Vec::as_slice);
             let candidates = (owned, &found.aliases);
             pending.extend(flow::own_candidates(
