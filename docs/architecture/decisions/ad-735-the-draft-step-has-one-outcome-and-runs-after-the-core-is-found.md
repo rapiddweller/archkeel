@@ -31,3 +31,24 @@ the `init.state` field, no files when the core is missing, the block of written 
 later refusal, and `ARCHKEEL_NO_INIT=false` writes the draft.
 
 Proof: `tests/test_cli_init_outcome.py`.
+
+## One project root
+
+Before, each step found its own root. `init` drafted in the current folder, while `validate`
+without `--root` read the configuration at the top of the Git work tree. The configuration reason
+looked in the current folder. `--write-baseline` wrote below the top of the work tree, while the
+core read `--baseline` below the scan root, so a baseline written with `--root sub` could not be
+read back. The Git ignore check of missing modules ran in the current folder.
+
+6. One `ProjectRoot(path, mode)` (`core_binding.py`) names the root of a command: an explicit
+   `--root` (`explicit`), else the top of the Git work tree at or above the current folder
+   (`work_tree`), else the current folder (`current`). `init`, the draft step, the configuration
+   reason, the baseline write, the Git ignore check and the scan request use it. The request sends
+   the root with `discover_root` false only for an explicit root.
+7. The draft step runs only when the project root is the top of a work tree, as before.
+
+Visible change: `init` in a folder below the top of a work tree drafts at the top; a baseline
+written with `--root sub` is written to `sub` and read back; the configuration reason names the
+top of the work tree when the core looked there.
+
+Proof: `tests/test_cli_project_root.py`.
