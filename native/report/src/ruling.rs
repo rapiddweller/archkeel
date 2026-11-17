@@ -9,9 +9,7 @@
 //! bare verdict cannot enter. The status comes from the status rule of the report (`run_status`,
 //! the same rule as `status_of`). A PASS status needs the run proof of the model
 //! (`Scope::run_complete`), as `build` does. The core adds only gaps (`Named`): a gap can make a
-//! status stricter, never PASS.
-//!
-//! The engine frame keeps its rows and the `Decided` mark.
+//! status stricter, never PASS. The engine frame keeps its rows and the `Decided` mark.
 
 #![deny(
     clippy::wildcard_enum_match_arm,
@@ -36,6 +34,7 @@ use crate::{
     engine_frame::{EngineFrame, FrameError},
     head::{RuleVerdict, Status},
     report::Decided,
+    run_scope::RunScope,
     status::{run_status, Unexplained},
     violation_detail::ViolationDetail,
     why::WhyUnknown,
@@ -109,7 +108,7 @@ pub struct Ruling {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     door_reach: Vec<crate::assumed::DoorRow>,
     /// Why the scope of the run is not complete, or `complete`.
-    scope: String,
+    scope: RunScope,
     /// The one assumption that the collector states for its proofs (AD-540). The word of `scope`
     /// stays `complete`: the shell reads it.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -144,6 +143,11 @@ impl Ruling {
     /// The decided mark: the status, the run proof of a PASS and the Decision of each rule.
     pub fn decided(&self) -> &Decided {
         &self.decided
+    }
+
+    /// The scope of the run: complete, or open with its reason.
+    pub fn scope(&self) -> &RunScope {
+        &self.scope
     }
 
     /// The reasons of the rules without a decision.
@@ -205,8 +209,7 @@ pub fn rule_with_edge_links(
     let premise = models
         .ok()
         .and_then(|tree| tree.models().find_map(Model::scope_premise));
-    let complete = scope.is_none();
-    let scope = scope.map_or_else(|| "complete".to_owned(), |reason| reason.to_string());
+    let scope = scope.map_or(RunScope::Complete, RunScope::Open);
     let mut rows = Rows::default();
     let mut edge_links = crate::edge_links::Links::new();
     let mut reasons: BTreeMap<String, String> = BTreeMap::new();
@@ -251,7 +254,7 @@ pub fn rule_with_edge_links(
         || !reasons.is_empty()
         || rows.rules.values().any(|(_, v)| *v == RuleVerdict::Unknown);
     let failed = rows.rules.values().any(|(_, v)| *v == RuleVerdict::Fail);
-    let status = run_status(true, failed, complete, open);
+    let status = run_status(true, failed, scope.is_complete(), open);
     let pass = match status {
         Status::Pass => Some(run_pass(
             &rows.decisions,
@@ -259,7 +262,7 @@ pub fn rule_with_edge_links(
         )?),
         Status::Fail | Status::Unknown => None,
     };
-    let observation = if complete {
+    let observation = if scope.is_complete() {
         Status::Pass
     } else {
         Status::Unknown

@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 
 use super::frame::Frame;
 use super::markup::count;
+use crate::head::RuleVerdict;
 
 /// The rules that one cause holds.
 pub(super) struct Cause<'a> {
@@ -28,7 +29,11 @@ pub(super) struct Cause<'a> {
 /// The causes of the UNKNOWN rules of a frame, the cause with most rules first.
 pub(super) fn grouped(frame: &Frame) -> Vec<Cause<'_>> {
     let mut causes: BTreeMap<(&str, &str, usize), Cause<'_>> = BTreeMap::new();
-    for (rule, _) in frame.rules.iter().filter(|(_, row)| row.1 == "UNKNOWN") {
+    for (rule, _) in frame
+        .rules
+        .iter()
+        .filter(|(_, row)| row.1 == RuleVerdict::Unknown)
+    {
         let held = frame.explain.holds.rules.get(rule);
         let reason = frame.explained.get(rule).map_or("", String::as_str);
         let kind = held

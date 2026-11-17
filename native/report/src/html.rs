@@ -40,6 +40,8 @@ mod places;
 mod rules;
 #[path = "html_shell.rs"]
 mod shell;
+#[path = "html_status.rs"]
+mod status;
 #[path = "html_unknown.rs"]
 mod unknown;
 #[path = "html_verdict.rs"]
@@ -52,9 +54,13 @@ pub(super) fn render(frame: &Map<String, Value>) -> Result<Value, serde_json::Er
     let places = places::Places::of(&view);
     let names = cases::Names::of(&view);
     let subject = if view.head.is_empty() {
-        format!("Report \u{b7} {}", view.status)
+        format!("Report \u{b7} {}", status::run_word(view.status))
     } else {
-        format!("Report \u{b7} {} \u{b7} commit {}", view.status, view.head)
+        format!(
+            "Report \u{b7} {} \u{b7} commit {}",
+            status::run_word(view.status),
+            view.head
+        )
     };
     let mut page = shell::start(&subject);
     page.push_str(&verdict::section(&view, &places));

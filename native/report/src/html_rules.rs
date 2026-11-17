@@ -9,8 +9,9 @@ use std::collections::BTreeMap;
 
 use super::frame::Frame;
 use super::markup::{count, escape};
+use crate::head::RuleVerdict;
 
-fn group(frame: &Frame, verdict: &str) -> BTreeMap<String, Vec<String>> {
+fn group(frame: &Frame, verdict: RuleVerdict) -> BTreeMap<String, Vec<String>> {
     let mut kinds: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let rows = frame.rules.iter().filter(|(_, row)| row.1 == verdict);
     for (id, row) in rows.filter(|(id, _)| !frame.assumed.contains_key(*id)) {
@@ -74,8 +75,14 @@ fn assumed(frame: &Frame) -> String {
 
 /// The section of the rules that hold, or nothing when there are none.
 pub(super) fn section(frame: &Frame) -> String {
-    let (pass, declarations) = (group(frame, "PASS"), group(frame, "DECLARATION"));
-    let (held, declared) = (frame.rules_with("PASS"), frame.rules_with("DECLARATION"));
+    let (pass, declarations) = (
+        group(frame, RuleVerdict::Pass),
+        group(frame, RuleVerdict::Declaration),
+    );
+    let (held, declared) = (
+        frame.rules_with(RuleVerdict::Pass),
+        frame.rules_with(RuleVerdict::Declaration),
+    );
     if held + declared == 0 {
         return String::new();
     }
@@ -85,8 +92,8 @@ pub(super) fn section(frame: &Frame) -> String {
 <details class=\"rp-fold\"><summary class=\"caption\">The rules that hold, by kind: one line each</summary>",
         count(held, "rule"),
         count(declared, "rule"),
-        frame.rules_with("FAIL"),
-        frame.rules_with("UNKNOWN")
+        frame.rules_with(RuleVerdict::Fail),
+        frame.rules_with(RuleVerdict::Unknown)
     );
     if !pass.is_empty() {
         html.push_str(&fold("RULES THAT HOLD", &pass));

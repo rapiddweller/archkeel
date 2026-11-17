@@ -2397,7 +2397,7 @@
   // What a component owns, as one short line: one package or module is named, many are counted.
   function atlasOwnsMarkup(path) {
     const parts = path.split(", ");
-    return parts.length === 1 ? `<code>${esc(parts[0])}</code>`
+    return parts.length === 1 ? `<p class="muted">Owns <code>${esc(parts[0])}</code></p>`
       : `<details class="atlas-owns"><summary>owns ${REPORT_SCENE.countLabel(parts.length, "package or module", "packages and modules")}</summary><p>${parts.map(esc).join(", ")}</p></details>`;
   }
   // The declared dependencies of a component: one line each, the way through folded behind a count.
@@ -2445,14 +2445,18 @@
           if (!groups.has(name)) groups.set(name, []);
           groups.get(name).push(`<li>${esc(other.name)} · ${REPORT_SCENE.countLabel(cell.import_sites, "site")}</li>`);
         }
-        return [...groups].map(([name, items]) => `<h4>${esc(name)}</h4><ul class="plain">${items.join("")}</ul>`).join("") || "No recorded module cells.";
+        if (!rows.length) return "";
+        // Many modules fold behind the line that counts them, as the provided names do.
+        const title = `${direction === "in" ? "Imported by" : "Imports"} · ${REPORT_SCENE.countLabel(rows.length, "module")} in ${REPORT_SCENE.countLabel(groups.size, "component")}`;
+        const body = [...groups].map(([name, items]) => `<h4>${esc(name)}</h4><ul class="plain">${items.join("")}</ul>`).join("");
+        return rows.length > 4 ? `<details class="atlas-imports"><summary>${title}</summary>${body}</details>` : `<h3>${title}</h3>${body}`;
       };
       inspectorContent.innerHTML = `<div class="kicker">Observed module · counts over the observed source scope</div>
         <h2>${esc(module.name)}</h2>${atlasModuleShown(module.id) ? "" : `<p>${atlasModuleLink(module, "Show in the module view")}</p>`}${module.path ? `<p><code>${esc(module.path)}</code></p>` : ""}
         <p>${module.symbols == null ? "" : `${REPORT_SCENE.countLabel(module.symbols, "observed symbol")} · `}fan-in ${module.fan_in ?? "UNKNOWN"} · fan-out ${module.fan_out ?? "UNKNOWN"}</p>
         <h3>Owner</h3><p>${esc(owner?.label || "UNKNOWN")} · ${esc(assignment?.ownership_reason || "No assignment receipt")}</p>
         ${owner ? list("Responsibility", owner.responsibilities) + list("Not responsible for", owner.not_responsible_for) : list("Candidate owners", assignment?.candidate_ids || [])}
-        <h3>Imported by</h3>${grouped("in")}<h3>Imports</h3>${grouped("out")}
+        ${grouped("in")}${grouped("out")}
         ${boundaryPermissionMarkup(module.id, new Set([module.id]))}`;
       return;
     }
@@ -2484,7 +2488,7 @@
       ${list("Not responsible for", component.not_responsible_for)}${atlasProvidesMarkup(component.public)}
       ${list("Planned interface", component.planned)}${atlasRequiresMarkup(component)}
       ${viewMode === "target" ? "" : atlasRuleAssessmentMarkup(level, component)}${viewMode !== "target" ? `<h3>In this run</h3><p>${REPORT_SCENE.countLabel(component.observed_modules, "module")}${component.observed_symbols == null ? "" : ` · ${REPORT_SCENE.countLabel(component.observed_symbols, "observed symbol")}`} · ${esc(component.status)} · ${esc(component.reason)}</p>${usedBy ? `<h3>Used by</h3><p>${usedBy}</p>` : ""}` : ""}
-      <p class="muted">Decided by ${esc(component.decided_by || "the contract")}${viewMode === "target" || !component.path ? "" : ` · ${atlasOwnsMarkup(component.path)}`}</p>
+      <p class="muted">Decided by ${esc(component.decided_by || "the contract")}</p>${viewMode === "target" || !component.path ? "" : atlasOwnsMarkup(component.path)}
       ${component.provenance.length ? `<details><summary>Reasons · ${REPORT_SCENE.countLabel(component.provenance.length, "document")}</summary><ul class="plain">${component.provenance.map((item) => `<li>${esc(item)}</li>`).join("")}</ul></details>` : ""}${inventory}
       ${viewMode === "target" && componentLevel ? `<p><a href="${esc(atlasLevelHref(component.id))}" data-atlas-level-route="${esc(component.id)}">Open declared component details</a></p>` : ""}`;
     inspectorContent.querySelector("[data-browse-component]").onclick = () => openAtlasComponent(component.id, "modules");

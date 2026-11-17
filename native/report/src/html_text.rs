@@ -5,6 +5,8 @@
 //! The text and the glyphs of the report page (AD-496). One escape function protects each
 //! dynamic text; the glyphs are fixed markup.
 
+use super::status::Shown;
+
 /// Escape a dynamic text for an HTML text or attribute position.
 pub(super) fn escape(text: &str) -> String {
     let mut safe = String::new();
@@ -51,11 +53,13 @@ pub(super) fn count(number: usize, singular: &str) -> String {
 const ICON: &str = "<svg class=\"ak-icon\" viewBox=\"0 0 16 16\" aria-hidden=\"true\">";
 
 /// A status glyph of the design system: the path of `PASS`, `FAIL` or `UNKNOWN`.
-pub(super) fn status_icon(status: &str) -> String {
+pub(super) fn status_icon(status: Shown) -> String {
     let path = match status {
-        "PASS" => "<path d=\"M3 8.5l3.2 3L13 4.5\"/>",
-        "FAIL" => "<path d=\"M4 4l8 8M12 4l-8 8\"/>",
-        _ => "<path d=\"M6 6.2a2.1 2.1 0 1 1 3 1.9c-.7.4-1 .8-1 1.6\"/><path d=\"M8 12.2v.01\"/>",
+        Shown::Pass => "<path d=\"M3 8.5l3.2 3L13 4.5\"/>",
+        Shown::Fail => "<path d=\"M4 4l8 8M12 4l-8 8\"/>",
+        Shown::Unknown => {
+            "<path d=\"M6 6.2a2.1 2.1 0 1 1 3 1.9c-.7.4-1 .8-1 1.6\"/><path d=\"M8 12.2v.01\"/>"
+        }
     };
     format!("{ICON}{path}</svg>")
 }

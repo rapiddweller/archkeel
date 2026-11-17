@@ -7,9 +7,11 @@ such a link has no target on `main`. The files are in the Git history before tha
 
 | Decision | Title |
 |---|---|
+| AD-737 | [Python construct support is one map with downgrade and meet](ad-737-python-construct-support-is-one-map-with-downgrade-and-meet.md) |
 | AD-735 | [The draft step has one outcome and runs after the core is found](ad-735-the-draft-step-has-one-outcome-and-runs-after-the-core-is-found.md) |
 | AD-738 | [One data file owns the source suffixes of both languages](ad-738-one-data-file-owns-the-source-suffixes-of-both-languages.md) |
 | AD-731 | [Under a baseline, only a verdict exits 2](ad-731-under-a-baseline-only-a-verdict-exits-2.md) |
+| AD-730 | [A box of the page shows PASS only when the run decides every rule](ad-730-a-box-of-the-page-shows-pass-only-when-the-run-decides-every-rule.md) |
 | AD-708 | [A use of a name through a Python module object is the import of that name](ad-708-a-use-of-a-name-through-a-python-module-object-is-the-import-of-that-name.md) |
 | AD-710 | [The fact sheet of a layer or group aggregates its members, and findings read as words](ad-710-the-fact-sheet-of-a-layer-or-group-aggregates-its-members.md) |
 | AD-706 | [A direct builtin import call is a construct](ad-706-a-direct-builtin-import-call-is-a-construct.md) |

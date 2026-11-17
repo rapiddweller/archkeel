@@ -11,6 +11,7 @@ use serde_json::Value;
 
 pub(super) use super::atlas_node::Node;
 use super::frame::{Component, Frame, Topology};
+use crate::head::RuleVerdict;
 
 /// The texts that the payload names by index.
 #[derive(Default)]
@@ -240,7 +241,7 @@ pub(super) fn held(frame: &Frame) -> BTreeSet<(String, String)> {
     frame
         .rules
         .iter()
-        .filter(|(_, row)| row.1 == "UNKNOWN")
+        .filter(|(_, row)| row.1 == RuleVerdict::Unknown)
         .filter_map(|(rule, _)| frame.explain.holds.rules.get(rule))
         .flat_map(|hold| &hold.pairs)
         .map(|p| (p.source.clone(), p.target.clone()))

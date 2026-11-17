@@ -62,6 +62,7 @@ mod parse_files;
 mod pathscope;
 pub(crate) mod routes;
 mod stable;
+pub(crate) mod support;
 mod syspath;
 mod targets;
 mod typing_count;
@@ -97,11 +98,8 @@ pub(crate) struct Survey {
     pub references: Vec<Record<ReferenceFact>>,
     pub constructs: Vec<Record<ConstructFact>>,
     pub signals: Vec<Record<SignalFact>>,
-    pub broad_complete: bool,
-    pub dict_complete: bool,
-    pub vars_complete: bool,
-    pub compare_complete: bool,
-    pub getattr_complete: bool,
+    /// What the survey sees of each written construct (AD-737).
+    pub support: support::Support,
 }
 
 /// The parsed modules of a request and their binders, as the survey reads them (the dump of
@@ -305,11 +303,7 @@ pub(crate) fn survey(request: &PythonRequest) -> Result<Survey, String> {
         calls: symbols.calls,
         references: symbols.references,
         signals: constructs.signals,
-        broad_complete: constructs.broad_complete,
-        dict_complete: constructs.dict_complete,
-        vars_complete: constructs.vars_complete,
-        compare_complete: constructs.compare_complete,
-        getattr_complete: constructs.getattr_complete,
+        support: constructs.support,
         constructs: constructs.records,
     })
 }
