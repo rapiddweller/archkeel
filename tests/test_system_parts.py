@@ -116,7 +116,7 @@ def test_a_third_part_in_a_copy_of_the_document_is_a_third_card_and_the_weakest_
     assert ">11<" in page
 
 
-def test_the_gallery_builds_one_card_for_each_part_of_a_document_with_three_parts(
+def test_the_gallery_links_each_part_of_a_document_with_three_parts_and_each_links_back(
     tmp_path: Path,
 ) -> None:
     stub = tmp_path / "stub.py"
@@ -137,5 +137,8 @@ def test_the_gallery_builds_one_card_for_each_part_of_a_document_with_three_part
         ]
     )
     page = (out / "self" / "index.html").read_text()
-    assert code == 0 and page.count('class="rp-part"') == 3
-    assert all((out / "self" / f"{name}.html").is_file() for name in ("one", "two", "three"))
+    assert code == 0
+    for name in ("one", "two", "three"):
+        assert f'href="{name}.html"' in page
+        part = (out / "self" / f"{name}.html").read_text()
+        assert 'href="index.html">Back to the system report' in part
