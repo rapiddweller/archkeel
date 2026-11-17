@@ -46,6 +46,8 @@ const FEATURES: [&str; 4] = [
 const COMPILER_SPACE: &str = " \t\n\u{b}\u{c}\r\u{a0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200a}\u{2028}\u{2029}\u{202f}\u{205f}\u{3000}\u{feff}";
 
 /// The reason of a project source under the scan roots that the TSConfig does not select.
+const UNREAD: &str =
+    "Source file under the scan roots is a code form that the collector does not read";
 const UNSELECTED: &str = "Source file under the scan roots is not selected by the TSConfig";
 
 /// The reply of one request, written into `out`: the imports, the symbols, the calls, the
@@ -217,9 +219,25 @@ impl Collection<'_> {
                 continue;
             }
             let module = module_identity(self.namespace, &rel).unwrap_or_default();
-            let reason = format!("{UNSELECTED}: {rel}");
+            let Some(reason) = self.unread_reason(&rel) else {
+                continue;
+            };
             self.gap(&reason, None, &module, GapKind::Collection);
         }
+    }
+
+    /// The reason of the gap for a project source that the collection did not read, or `None` for
+    /// a page that holds no script element (#1528).
+    fn unread_reason(&mut self, rel: &str) -> Option<String> {
+        let Some(form) = crate::unselected::unread_form(rel) else {
+            return Some(format!("{UNSELECTED}: {rel}"));
+        };
+        let silent = crate::unselected::is_page(rel)
+            && !self
+                .snapshot
+                .read(rel)
+                .is_some_and(|text| crate::unselected::page_with_script(&text));
+        (!silent).then(|| format!("{UNREAD}: {rel}: {form}"))
     }
 
     fn file(&mut self, rel: &str) {

@@ -37,7 +37,7 @@ pub(crate) fn read<'t>(
         &mut tree,
         &nodes,
         &syntax.import_bindings,
-        syntax.module_file,
+        syntax.module_file(),
     );
     let module_syntax = syntax.module_syntax;
     let producer_value = Producer::new(
@@ -77,7 +77,7 @@ pub(crate) fn read<'t>(
         ..Script::default()
     };
     let mut ambiguous = Vec::new();
-    if syntax.script_mode {
+    if syntax.script_mode() {
         let listed = nodes
             .iter()
             .filter(|node| tree.ambiguous.contains(&node.id()));

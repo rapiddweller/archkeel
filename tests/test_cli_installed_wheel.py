@@ -123,7 +123,7 @@ class Installed:
         assert done.returncode == 2, (done.stdout, done.stderr)
         assert "Traceback" not in done.stderr, done.stderr
         result = json.loads(done.stdout)
-        assert set(result) == {"status", "exit_code", "refusal"}, result
+        assert set(result) == {"command", "outcome", "status", "exit_code", "refusal"}, result
         assert result["status"] == "UNKNOWN" and result["exit_code"] == 2, result
         text = self.validate(root, "--text")
         assert text.returncode == 2, (text.stdout, text.stderr)

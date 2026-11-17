@@ -5,7 +5,7 @@ UV ?= uv
 DART_EXECUTABLE ?= dart
 FLUTTER_EXECUTABLE ?= flutter
 
-.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-gate pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate browser-architecture-check typescript-libs-check generated-check core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
+.PHONY: gate full-test ci ci-check ci-core-check ci-pr-check ci-pr-static decision-index fast-test pr-native-lint pr-gate pr-selected-test merge-check ci-artifacts-clean mermaid check test typescript-compiler-check lint typecheck flutter-demo-check plugin plugin-release build sdist smoke release-check browser-runtime-install browser-runtime-generate browser-architecture-check typescript-libs-check generated-check core native-check self-validate self-validate-native self-validate-shell self-validate-system native-report native-tools cargo-deny-install native-wheel golden-record report-gallery
 
 # These stages consume the previous stage's success, even with make -j.
 .NOTPARALLEL: gate full-test release-check ci ci-check ci-core-check ci-pr-check ci-pr-static pr-gate
@@ -45,7 +45,17 @@ fast-test: core browser-runtime-install
 # AD-674: the PR gate, at most 3 minutes: static checks, the core build, the self and system check,
 # and the fast tests of the areas that the change selects (tools/select_areas.py).
 PR_BASE ?= origin/main
-pr-gate: ci-pr-static self-validate pr-selected-test
+# SKIP_STATIC=1: the workflow ran `make ci-pr-static` beside the core build (AD-754).
+pr-gate: $(if $(strip $(SKIP_STATIC)),,ci-pr-static) self-validate pr-selected-test
+
+# AD-756: Rust format and lint in the PR gate when the change touches native/: `cargo fmt --check` for the
+# whole workspace (about 2 s) and `clippy -D warnings` for the touched crates only (tools/native_touched.py).
+pr-native-lint:
+	@crates="$$($(UV) run --locked python tools/native_touched.py "$(PR_BASE)")"; \
+	if [ -z "$$crates" ]; then echo "native lint: native/ is unchanged, nothing to check"; exit 0; fi; \
+	echo "native lint: fmt and clippy for '$$crates'"; \
+	cd native && cargo fmt --all -- --check && \
+	{ [ "$$crates" = "-" ] || cargo clippy --locked --all-targets $$crates -- -D warnings; }
 
 pr-selected-test: core browser-runtime-install
 	@areas=$$($(UV) run --locked python tools/select_areas.py "$(PR_BASE)") && echo "areas: $$areas" && \
@@ -98,6 +108,10 @@ native-check:
 	cd native && cargo test --locked
 	$(MAKE) self-validate-native
 
+# AD-754: the gate builds the core with a fast profile: no LTO, 16 codegen units, opt-level 1. The verdicts do not depend
+# on it; the shipped wheel, the nightly run and a build without ARCHKEEL_CORE_PROFILE keep the release profile.
+CORE_PROFILE_ENV := $(if $(filter gate,$(ARCHKEEL_CORE_PROFILE)),CARGO_PROFILE_RELEASE_LTO=false CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16 CARGO_PROFILE_RELEASE_OPT_LEVEL=1,)
+
 # AD-432: the core is the only decision path. `archkeel` finds this release build of the checkout.
 # AD-732, AD-736: with ARCHKEEL_CORE_SOURCE=cache (CI restored the core from its cache) and
 # ARCHKEEL_NATIVE_TREE (the hash of the native tree) the core is reused only when the stamp next to the
@@ -108,7 +122,7 @@ core:
 	if [ "$$ARCHKEEL_CORE_SOURCE" = cache ] && [ -n "$$tree" ] && [ -x native/target/release/archkeel-core ] && [ "$$(cat $$stamp 2>/dev/null)" = "$$tree" ]; then \
 		echo "core: the release core of tree $$tree is used (AD-732)"; \
 	else \
-		rm -f $$stamp; (cd native && cargo build --locked --release -p archkeel-core) && \
+		rm -f $$stamp; (cd native && $(CORE_PROFILE_ENV) cargo build --locked --release -p archkeel-core) && \
 		{ [ -z "$$tree" ] || echo "$$tree" > $$stamp; }; \
 	fi
 
@@ -187,7 +201,7 @@ cargo-deny-install:
 		install -m 0755 "$$work/$$name/cargo-deny" "$${CARGO_HOME:-$$HOME/.cargo}/bin/cargo-deny"
 
 LINT_PATHS := src tests tools/mermaid_blocks.py tools/package_plugin.py \
-	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_product.py tools/report_product_page.py \
+	tools/publish_release.py tools/typescript_libs.py tools/ci_budget.py tools/ci_daily.py tools/merge_check.py tools/rust_clones.py tools/rust_api.py tools/rust_source.py tools/rust_inert.py tools/native_expected.py tools/release_core.py tools/dart_grammar_parity.py tools/dart_unicode_tables.py tools/report_gallery.py tools/report_gallery_page.py tools/fixture_tree.py tools/report_product.py tools/report_product_page.py \
 	native/hatch_build.py
 
 lint:

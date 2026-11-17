@@ -156,6 +156,17 @@ fn a_part_is_owned_by_its_library_and_has_no_file_fact() {
 }
 
 #[test]
+fn the_import_of_a_library_is_an_edge_of_the_library_that_its_part_uses() {
+    // The part has no import of its own: the import of the library carries the use of the part.
+    let found = run(&with_pubspec(&[
+        ("lib/a.dart", "import 'b.dart';\npart 'p.dart';\n"),
+        ("lib/p.dart", "part of 'a.dart';\nclass P extends B {}\n"),
+        ("lib/b.dart", "class B {}\n"),
+    ]));
+    assert_eq!(edge_rows(&found), ["shop.a import shop.b"]);
+}
+
+#[test]
 fn an_import_in_a_part_is_a_syntax_gap_of_the_grammar() {
     let found = run(&with_pubspec(&[
         ("lib/a.dart", "part 'p.dart';\n"),

@@ -85,15 +85,68 @@ fn a_decided_run_keeps_pass_where_no_rule_fails() {
     assert!(shown(&payload(&document(&pass)))
         .iter()
         .all(|s| s == "PASS"));
-    // A FAIL run that decides every rule: the box without a violated place stays PASS.
-    let data = payload(&document(&dependency_frame(1)));
-    let boxes: Vec<&str> = data["atlas"]["components"]
+    // A FAIL run that proves every rule decided (complete scope, no rule without a row): the box
+    // without a violated place stays PASS.
+    assert_eq!(boxes(&decided_fail()), ["FAIL", "PASS"]);
+}
+
+/// The status of each component box of the rendered page.
+fn boxes(frame: &Value) -> Vec<String> {
+    payload(&document(frame))["atlas"]["components"]
         .as_array()
         .unwrap()
         .iter()
-        .map(|c| c["status"].as_str().unwrap())
-        .collect();
-    assert_eq!(boxes, ["FAIL", "PASS"]);
+        .map(|c| c["status"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+/// A FAIL frame of one violated import that proves each rule of the contract decided, as the
+/// core writes it: the scope is `complete` and `unsupported.rules` is an empty list.
+fn decided_fail() -> Value {
+    let mut frame = dependency_frame(1);
+    frame["scope"] = json!("complete");
+    frame["unsupported"] = json!({"rules": {}, "sections": {}, "report": null});
+    frame
+}
+
+// #1507: a FAIL run beside an unported rule. The unported rule has no row (it sits in
+// `unsupported.rules`) and may break inside any box, so no box shows PASS. The same holds for an
+// open scope, a frame without the list, one reason for the whole contract, and a rule that
+// `explain` names without a row.
+#[test]
+fn a_fail_beside_a_rule_without_a_row_shows_no_pass_box() {
+    let unported = json!({"PROTOCOLS-IN-SERVICE":
+        "unsupported: rule kind SymbolPlacement: the slice of its family ports it"});
+    let mut cases = Vec::new();
+    let mut frame = decided_fail();
+    frame["unsupported"]["rules"] = unported;
+    cases.push(("unported rule", frame));
+    let mut frame = decided_fail();
+    frame["scope"] = json!("incomplete scope: the profile cannot decide a budget");
+    cases.push(("open scope", frame));
+    let mut frame = decided_fail();
+    frame.as_object_mut().unwrap().remove("unsupported");
+    cases.push(("no list", frame));
+    let mut frame = decided_fail();
+    frame["unsupported"]["rules"] = json!("contract <refused>");
+    cases.push(("whole contract", frame));
+    let mut frame = decided_fail();
+    frame["explain"]["rules"]["PLACE"] = json!({"kind": "symbol_placement"});
+    cases.push(("unshaped rule", frame));
+    for (name, frame) in cases {
+        assert_eq!(boxes(&frame), ["FAIL", "UNKNOWN"], "{name}");
+        let page = document(&frame);
+        assert!(page.contains("<h1>Verdict: FAIL</h1>"), "{name}");
+    }
+    // The title does not say "0 unknown" alone: the unported rule is not decided either.
+    let mut frame = decided_fail();
+    frame["unsupported"]["rules"] = json!({"PLACE": "unsupported: rule kind"});
+    let page = document(&frame);
+    assert!(
+        page.contains("1 rule violated in 1 place, 0 unknown, 1 part not decided"),
+        "{page}"
+    );
+    assert!(document(&decided_fail()).contains("1 rule violated in 1 place, 0 unknown<"));
 }
 
 // AD-730: a frame without a status still names its cause and a next step.

@@ -200,7 +200,8 @@ pub(crate) struct Project<'a> {
 impl<'a> Project<'a> {
     /// `collect._global_script`: the top-level names of the file belong to the global scope.
     fn global_script(file: &Kept, scripts_are_global: bool) -> bool {
-        file.script.declaration_file || (scripts_are_global && !file.script.module_file)
+        file.script.mode.is_declaration()
+            || (scripts_are_global && !file.script.mode.is_module(false))
     }
 
     pub(crate) fn new(

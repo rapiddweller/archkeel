@@ -36,3 +36,4 @@
 | 2026-11-14 | synthetic-tsx-paths | e5296ee3f | AD-512: a name that a pattern, a declarator or a for head binds gives the reason 'lexical binding may shadow the name' (cpython 3.11.12) |
 | 2026-11-14 | synthetic-esm-forms | e5296ee3f | AD-512: a name that a pattern, a declarator or a for head binds gives the reason 'lexical binding may shadow the name' (cpython 3.11.12) |
 | 2026-11-15 | synthetic-esm-forms | a28b4f9ed | AD-528: a leading types directive that the resolver does not prove gives the unknown 'Unresolved triple-slash types reference: node' (cpython 3.11.12) (cpython 3.11.12) |
+| 2026-11-17 | excalidraw-laser-pointer | e6280c9b8 | AD-508 amendment (#1547): simplify.ts:27 points[maxIndex] is passed on with a key that is not proven a number, so it is a blocker gap (cpython 3.11.12) |

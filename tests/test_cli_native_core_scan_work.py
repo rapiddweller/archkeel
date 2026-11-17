@@ -45,7 +45,7 @@ def test_the_shell_refusal_names_the_typed_gap_not_the_opaque_message(
     code, result = run("validate", "--root", str(tmp_path))
     assert code == 2 and result["status"] == "UNKNOWN"
     assert "frame" not in result
-    assert result["refusal"]["kind"] == "core_error"
+    assert result["refusal"]["kind"] == "parse_work_limit"  # AD-735
     assert "parse_work_limit" in result["refusal"]["message"]
     assert "source: too deep" in result["refusal"]["message"]
 
@@ -310,7 +310,7 @@ def test_a_real_scan_work_refusal_is_a_typed_refusal_of_the_default_path(
         code, result = run(command, "--root", str(root))
     assert code == 2 and result["status"] == "UNKNOWN"
     assert "frame" not in result
-    assert result["refusal"]["kind"] == "core_error"
+    assert result["refusal"]["kind"] == "parse_work_limit"  # AD-735
     assert "parse_work_limit" in result["refusal"]["message"]
 
 

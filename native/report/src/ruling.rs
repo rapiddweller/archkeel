@@ -33,7 +33,7 @@ use crate::{
     build_error::BuildError,
     engine_frame::{EngineFrame, FrameError},
     head::{RuleVerdict, Status},
-    report::Decided,
+    report::{Decided, RunStatus},
     run_scope::RunScope,
     status::{run_status, Unexplained},
     violation_detail::ViolationDetail,
@@ -255,12 +255,13 @@ pub fn rule_with_edge_links(
         || rows.rules.values().any(|(_, v)| *v == RuleVerdict::Unknown);
     let failed = rows.rules.values().any(|(_, v)| *v == RuleVerdict::Fail);
     let status = run_status(true, failed, scope.is_complete(), open);
-    let pass = match status {
-        Status::Pass => Some(run_pass(
+    let run = match status {
+        Status::Pass => RunStatus::Pass(run_pass(
             &rows.decisions,
             models.map_err(|_| BuildError::PassWithoutProof(None))?,
         )?),
-        Status::Fail | Status::Unknown => None,
+        Status::Fail => RunStatus::Fail,
+        Status::Unknown => RunStatus::Unknown,
     };
     let observation = if scope.is_complete() {
         Status::Pass
@@ -280,8 +281,7 @@ pub fn rule_with_edge_links(
         protocol: "archkeel-core-frame-1",
         html: false,
         decided: Decided {
-            status,
-            pass,
+            run,
             observation,
             rules: rows.decisions,
         },

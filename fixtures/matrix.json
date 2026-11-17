@@ -9,8 +9,9 @@
     "F-architecture": {
       "language": "python",
       "runs": [
-      {"name": "F-architecture", "root": "F-architecture", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 27, "FAIL": 0, "UNKNOWN": 6, "DECLARATION": 6}, "scope": "incomplete scope: the profile cannot decide declarations.context_roots", "gaps": {"boundary_type_position": 2, "rule_kind_not_ported": 9}, "refusal": null}},
-      {"name": "F-architecture-tests", "root": "F-architecture", "command": "report", "config": "archkeel-tests.toml", "contract": ["tests/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 5, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"rule_kind_not_ported": 1}, "refusal": null}}
+      {"name": "F-architecture", "section": "clean", "intent": "PASS", "blocked_by": [619, 1537, 1538], "about": "The tour: one shop that uses nearly every rule kind.", "root": "F-architecture", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 27, "FAIL": 0, "UNKNOWN": 6, "DECLARATION": 6}, "scope": "incomplete scope: the profile cannot decide declarations.context_roots", "gaps": {"boundary_type_position": 2, "rule_kind_not_ported": 9}, "refusal": null}},
+      {"name": "F-architecture-plant-layer", "section": "violation", "intent": "FAIL", "blocked_by": [], "about": "A layer that points the wrong way: The model layer imports the application layer above it.", "plant": {"where": "shop/model/entities.py", "line": "from shop.app import orders", "rule": "DEP-MODEL-NO-APP", "edits": [{"path": "shop/model/entities.py", "old": "from typing import TypedDict\n", "new": "from typing import TypedDict\n\nfrom shop.app import orders\n"}]}, "root": "F-architecture", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 1, "status": "FAIL", "counts": {"PASS": 25, "FAIL": 2, "UNKNOWN": 6, "DECLARATION": 6}, "scope": "incomplete scope: the profile cannot decide declarations.context_roots", "gaps": {"boundary_type_position": 2, "closed_world.observed_forbidden": 1, "graph.drift": 1, "rule_kind_not_ported": 9}, "refusal": null}},
+      {"name": "F-architecture-tests", "section": "clean", "intent": "PASS", "blocked_by": [619], "about": "The test suite of the shop as its own scope.", "root": "F-architecture", "command": "report", "config": "archkeel-tests.toml", "contract": ["tests/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 5, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {"rule_kind_not_ported": 1}, "refusal": null}}
       ]
     },
     "F-typescript-story": {
@@ -22,61 +23,67 @@
     "G-dart": {
       "language": "dart",
       "runs": [
-      {"name": "G-dart", "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 9, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
+      {"name": "G-dart", "section": "clean", "intent": "PASS", "blocked_by": [1535], "about": "Dart import rules: a facade with show, a conditional import, part and deferred.", "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 9, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}},
+      {"name": "G-dart-plant-dart-io", "section": "violation", "intent": "FAIL", "blocked_by": [], "about": "A forbidden dependency on an SDK library: The domain layer imports dart:io, which the contract forbids there.", "plant": {"where": "lib/domain/repository.dart", "line": "import 'dart:io';", "rule": "DEP-DOMAIN-NO-DART-IO", "edits": [{"path": "lib/domain/repository.dart", "old": "import 'dart:async';\n", "new": "import 'dart:async';\nimport 'dart:io';\n"}]}, "root": "G-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 1, "status": "FAIL", "counts": {"PASS": 8, "FAIL": 1, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "H-typescript": {
       "language": "typescript",
       "runs": [
-      {"name": "H-typescript", "root": "H-typescript", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 9, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
+      {"name": "H-typescript", "section": "unknown", "intent": "UNKNOWN", "blocked_by": [], "about": "A TypeScript shop with a UML target. Nine rules PASS; type-only and re-export identity stay UNKNOWN on purpose.", "root": "H-typescript", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 9, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}},
+      {"name": "H-typescript-plant-domain-data", "section": "violation", "intent": "FAIL", "blocked_by": [], "about": "A forbidden dependency between two layers: The domain layer imports the data layer, which the contract forbids.", "plant": {"where": "src/domain/order.ts", "line": "import { local } from \"../data/local\";", "rule": "DOMAIN-NO-DATA", "edits": [{"path": "src/domain/order.ts", "append": "\nimport { local } from \"../data/local\";\n"}]}, "root": "H-typescript", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 1, "status": "FAIL", "counts": {"PASS": 5, "FAIL": 4, "UNKNOWN": 1}, "scope": "complete", "gaps": {"closed_world.observed_forbidden": 1, "graph.drift": 1}, "refusal": null}}
       ]
     },
     "H-uml": {
       "language": "python",
       "runs": [
-      {"name": "H-uml", "root": "H-uml", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
+      {"name": "H-uml", "section": "clean", "intent": "PASS", "blocked_by": [], "about": "A Python UML target that the code matches.", "root": "H-uml", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 0, "status": "PASS", "counts": {"PASS": 1, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}},
+      {"name": "H-uml-plant-signature", "section": "violation", "intent": "FAIL", "blocked_by": [], "about": "A changed return type against the UML target: Client.run returns int, the target says str.", "plant": {"where": "demo/core.py", "line": "def run(self, value: int) -> int:", "rule": "UML-TARGET", "edits": [{"path": "demo/core.py", "old": "    def run(self, value: int) -> str:\n        return helper", "new": "    def run(self, value: int) -> int:\n        return helper"}]}, "root": "H-uml", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 1, "status": "FAIL", "counts": {"PASS": 0, "FAIL": 1, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "H-uml-dart": {
       "language": "dart",
       "runs": [
-      {"name": "H-uml-dart", "root": "H-uml-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 4, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
+      {"name": "H-uml-dart", "section": "clean", "intent": "PASS", "blocked_by": [1533, 1532], "about": "A Dart UML target with four inside contracts.", "root": "H-uml-dart", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 4, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "H-uml-typescript": {
       "language": "typescript",
       "runs": [
-      {"name": "H-uml-typescript", "root": "H-uml-typescript", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
+      {"name": "H-uml-typescript", "section": "unknown", "intent": "UNKNOWN", "blocked_by": [], "about": "A TypeScript UML target. Closed module scopes stay UNKNOWN on purpose.", "root": "H-uml-typescript", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "I-flutter-shop": {
       "language": "dart",
       "runs": [
-      {"name": "I-flutter-shop", "root": "I-flutter-shop", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 6, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
+      {"name": "I-flutter-shop", "section": "unknown", "intent": "UNKNOWN", "blocked_by": [], "about": "A Flutter shop with a deep UML target. Its README names the honest UNKNOWN causes: inferred types, SDK endpoints, tear-offs.", "root": "I-flutter-shop", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 6, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "J-compass": {
       "language": "dart",
       "runs": [
-      {"name": "J-compass", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 7}, "scope": "incomplete scope: 2 gaps leave unknown what the rule reads: the code of every module", "gaps": {}, "refusal": null}}
+      {"name": "J-compass", "section": "real", "intent": "PASS", "blocked_by": [1539, 1533], "about": "Real project: the Flutter samples compass_app, pinned.", "root": "J-compass", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 7}, "scope": "incomplete scope: 2 gaps leave unknown what the rule reads: the code of every module", "gaps": {}, "refusal": null}}
       ]
     },
     "K-python-realworld": {
       "language": "python",
       "runs": [
-      {"name": "K-python-realworld", "root": "K-python-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 6, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
+      {"name": "K-python-realworld", "section": "unknown", "intent": "UNKNOWN", "blocked_by": [], "about": "Real project: the FastAPI RealWorld app, pinned. A Python inventory is always partial, so a closed scope stays UNKNOWN.", "root": "K-python-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 6, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {}, "refusal": null}}
       ]
     },
     "L-nest-realworld": {
       "language": "typescript",
       "runs": [
-      {"name": "L-nest-realworld", "root": "L-nest-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 6}, "scope": "incomplete scope: the collector reports 71 coverage gaps", "gaps": {}, "refusal": null}}
+      {"name": "L-nest-realworld", "section": "unknown", "intent": "UNKNOWN", "blocked_by": [], "about": "Real project: the mikro-orm nestjs-realworld app, pinned. One computed import(id) in src/mikro-orm.config.ts can load any module, so the rules that read every module stay UNKNOWN. A declared reach (#723) would state that premise.", "root": "L-nest-realworld", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 6}, "scope": "incomplete scope: the collector reports 1 coverage gap", "gaps": {}, "refusal": null}}
       ]
     },
     "M-review-workflow": {
       "language": "python",
       "runs": [
-      {"name": "M-review-workflow", "root": "M-review-workflow", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 0, "status": "PASS", "counts": {"PASS": 12, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}}
+      {"name": "M-review-workflow", "section": "clean", "intent": "PASS", "blocked_by": [], "about": "A small orders service whose imports all follow the contract.", "root": "M-review-workflow", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 0, "status": "PASS", "counts": {"PASS": 12, "FAIL": 0, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}},
+      {"name": "M-plant-requires", "section": "violation", "intent": "FAIL", "blocked_by": [], "about": "An undeclared component dependency: entry imports storage through its public interface, but the contract does not let entry require storage.", "plant": {"where": "orders/api.py", "line": "from orders.storage import save", "rule": "REQUIRES-COMPLETE", "edits": [{"path": "orders/api.py", "old": "from orders.pricing import price\n", "new": "from orders.pricing import price\nfrom orders.storage import save\n"}]}, "root": "M-review-workflow", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 1, "status": "FAIL", "counts": {"PASS": 11, "FAIL": 1, "UNKNOWN": 0}, "scope": "complete", "gaps": {"graph.drift": 1}, "refusal": null}},
+      {"name": "M-plant-interface", "section": "violation", "intent": "FAIL", "blocked_by": [], "about": "An import outside the public interface: entry imports a private module of pricing instead of its published price function.", "plant": {"where": "orders/api.py", "line": "from orders.pricing.tax import Vat", "rule": "INTERFACE-BOUNDARY", "edits": [{"path": "orders/api.py", "old": "from orders.pricing import price\n", "new": "from orders.pricing import price\nfrom orders.pricing.tax import Vat\n"}]}, "root": "M-review-workflow", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 1, "status": "FAIL", "counts": {"PASS": 10, "FAIL": 2, "UNKNOWN": 0}, "scope": "complete", "gaps": {}, "refusal": null}},
+      {"name": "M-plant-cycle", "section": "violation", "intent": "FAIL", "blocked_by": [], "about": "A component cycle: pricing imports checkout, which already imports pricing: the two components now depend on each other.", "plant": {"where": "orders/pricing/tax.py", "line": "from orders.checkout import service", "rule": "COMPONENT-NO-CYCLES", "edits": [{"path": "orders/pricing/tax.py", "old": "from orders.pricing.base import Line\n", "new": "from orders.pricing.base import Line\nfrom orders.checkout import service\n"}]}, "root": "M-review-workflow", "command": "report", "contract": ["architecture-contract.json"], "expect": {"exit": 1, "status": "FAIL", "counts": {"PASS": 9, "FAIL": 3, "UNKNOWN": 0}, "scope": "complete", "gaps": {"graph.drift": 1}, "refusal": null}}
       ]
     },
     "golden-python": {
@@ -93,13 +100,13 @@
     "python-newer-syntax-demo": {
       "language": "python",
       "runs": [
-      {"name": "python-newer-syntax-demo", "root": "python-newer-syntax-demo", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {"rule_kind_not_ported": 1}, "refusal": null}}
+      {"name": "python-newer-syntax-demo", "section": "clean", "intent": "PASS", "blocked_by": [1537, 619], "about": "An exact type-ignore permission and a call_owner rule.", "root": "python-newer-syntax-demo", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {"rule_kind_not_ported": 1}, "refusal": null}}
       ]
     },
     "python-stdlib-demo": {
       "language": "python",
       "runs": [
-      {"name": "python-stdlib-demo", "root": "python-stdlib-demo", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {"boundary_type_position": 5}, "refusal": null}}
+      {"name": "python-stdlib-demo", "section": "clean", "intent": "PASS", "blocked_by": [1538], "about": "A facade that publishes declared standard-library types only.", "root": "python-stdlib-demo", "command": "report", "contract": ["docs/architecture/architecture-contract.json"], "expect": {"exit": 2, "status": "UNKNOWN", "counts": {"PASS": 0, "FAIL": 0, "UNKNOWN": 1}, "scope": "complete", "gaps": {"boundary_type_position": 5}, "refusal": null}}
       ]
     }
   }

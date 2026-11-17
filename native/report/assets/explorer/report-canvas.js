@@ -281,6 +281,19 @@
       text.textContent = value;
       tag.append(text);
       group.append(tag);
+      // A mixed value (`python + typescript`) can be longer than the badge: it is cut at the badge
+      // with an ellipsis, and the whole value stays as the title of the badge.
+      const room = width - 12;
+      if (text.getComputedTextLength() > room) {
+        let cut = value;
+        while (cut.length > 1 && text.getComputedTextLength() > room) {
+          cut = cut.slice(0, -1);
+          text.textContent = `${cut.trimEnd()}…`;
+        }
+        const title = s("title");
+        title.textContent = value;
+        tag.append(title);
+      }
     });
     if (S.pinnedTag && (!active || !(F.state().scene?.nodes || []).some((node) => active.value(node) === S.pinnedTag))) present({ pinnedTag: null });
     highlightTag(S.pinnedTag);
@@ -566,7 +579,7 @@
   });
   // The sheet of a box is set in the small body text of the design system.
   root.querySelector(".flow-inspector")?.classList.add("body-sm");
-  const fitDiagram = () => F.fit(true);
+  const fitDiagram = () => F.fit(true, { whole: true });
   // The rows of a wrapped layout follow the shape of the view: lay the diagram out again when the
   // Explorer goes to the full window and back.
   if (A) new MutationObserver(() => requestAnimationFrame(() => {

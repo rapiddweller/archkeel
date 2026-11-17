@@ -105,7 +105,8 @@ def refusal(run: subprocess.CompletedProcess[str], kind: str) -> str:
     assert "Traceback" not in run.stderr, run.stderr
     result = json.loads(run.stdout)
     assert result["status"] == "UNKNOWN" and result["exit_code"] == 2, result
-    assert set(result) == {"status", "exit_code", "refusal"}, result
+    assert set(result) == {"command", "outcome", "status", "exit_code", "refusal"}, result
+    assert result["outcome"] == "command_refused", result  # AD-735: the head of every result
     assert result["refusal"]["kind"] == kind, result
     return str(result["refusal"]["message"])
 

@@ -245,17 +245,13 @@ def test_a_uml_target_that_changes_after_the_core_read_it_is_refused(
     assert (code, envelope["status"]) == (2, "UNKNOWN")
 
 
-def test_the_python_uml_fixture_keeps_one_undecided_entity(tmp_path: Path) -> None:
-    """Release 4.0.1 passes this target. The core decides 19 of its 20 entities and the 7 site
-    relationships (AD-518, AD-520). The bare annotation `_token` binds nothing at run time, so
-    that one entity is undecided and the row is UNKNOWN."""
+def test_the_python_uml_fixture_decides_the_annotation(tmp_path: Path) -> None:
+    """AD-748 treats the bare annotation `_token` as a structural declaration."""
     code, envelope = run("validate", "--root", str(_copy(tmp_path, "H-uml")))
-    assert _rows(envelope) == {ROW: ["uml_target", "UNKNOWN"]}
-    explained = envelope["frame"]["explained"][ROW]
-    assert "1 assessments cannot be decided" in explained
-    assert "absent symbol" in explained and "no symbol sites" not in explained
+    assert _rows(envelope) == {ROW: ["uml_target", "PASS"]}
+    assert ROW not in envelope["frame"]["explained"]
     assert envelope["gaps"] == []
-    assert (code, envelope["status"], envelope["frame"]["status"]) == (2, "UNKNOWN", "UNKNOWN")
+    assert (code, envelope["status"], envelope["frame"]["status"]) == (0, "PASS", "PASS")
 
 
 def _symbol(identity: str) -> dict[str, Any]:
