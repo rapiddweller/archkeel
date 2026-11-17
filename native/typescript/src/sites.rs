@@ -64,6 +64,11 @@ pub(crate) struct Extension {
 }
 
 impl Sites {
+    /// AD-751: the gap reason and the longest site, when the records would copy too many bytes.
+    pub(crate) fn over_record_work(&self, rel: &str) -> Option<(String, crate::source::Span)> {
+        crate::site_charge::over(&self.sites, rel)
+    }
+
     pub(crate) fn retain_text(&mut self, source: &[u8]) -> Vec<u8> {
         if self.sites.is_empty() {
             self.paths = Default::default();

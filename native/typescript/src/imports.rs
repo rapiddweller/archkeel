@@ -16,7 +16,6 @@ use crate::options::ModuleKind;
 use crate::parse::{parse_for, Parsed};
 use crate::references::{Form, Reference};
 use crate::resolve::format_of;
-use crate::site_charge::{self, MAX_RECORD_TEXT};
 use crate::source_input::{classify_file, classify_specifier, ModuleFormat, SourceKind};
 
 impl Collection<'_> {
@@ -91,16 +90,10 @@ impl Collection<'_> {
     /// expression text keeps no site. The gap names the longest chain, so every rule of the
     /// scope is UNKNOWN and the run does not hang.
     fn refuse_long_chain(&mut self, rel: &str, module: &str, mut kept: Kept) -> Kept {
-        let charged = site_charge::charge(&kept.sites);
-        let Some((length, span)) = charged.longest.filter(|_| charged.bytes > MAX_RECORD_TEXT)
-        else {
+        let Some((reason, span)) = kept.sites.over_record_work(rel) else {
             return kept;
         };
         let evidence = self.cite(rel, &span);
-        let reason = format!(
-            "The call chain at line {} is too long to record: {} bytes of receiver text exceed the work limit of {MAX_RECORD_TEXT} (its own text has {length} bytes): {rel}",
-            span.line, charged.bytes
-        );
         self.gap(&reason, Some(&evidence), module, GapKind::Collection);
         kept.sites.sites.clear();
         kept

@@ -9,27 +9,39 @@
 //! records of one file cost the sum of these lengths: the square of the chain. Real chains are
 //! short; a generated or hostile file within the file limit can make the sum reach terabytes.
 
-use crate::site_types::Expression;
-use crate::sites::Sites;
+use crate::site_types::{Expression, Site};
 use crate::source::Span;
 
 /// The most bytes of expression text that the records of one file may copy and hash. The highest
 /// value that a real project reaches is 181 KB (AD-751); the `sites-chained-calls` shape of
 /// 20,000 calls costs 800 MB and stays below the limit.
-pub(crate) const MAX_RECORD_TEXT: u64 = 1 << 30;
+const MAX_RECORD_TEXT: u64 = 1 << 30;
 
 /// The sum of the expression lengths of the sites of a file, and the site with the longest one.
-pub(crate) struct Charge {
-    pub bytes: u64,
-    pub longest: Option<(u64, Span)>,
+struct Charge {
+    bytes: u64,
+    longest: Option<(u64, Span)>,
 }
 
-pub(crate) fn charge(sites: &Sites) -> Charge {
+/// The gap reason and the span of the longest site, when the file is over `MAX_RECORD_TEXT`.
+pub(crate) fn over(sites: &[Site], rel: &str) -> Option<(String, Span)> {
+    let charged = charge(sites);
+    let (length, span) = charged
+        .longest
+        .filter(|_| charged.bytes > MAX_RECORD_TEXT)?;
+    let reason = format!(
+            "The call chain at line {} is too long to record: {} bytes of receiver text exceed the work limit of {MAX_RECORD_TEXT} (its own text has {length} bytes): {rel}",
+            span.line, charged.bytes
+        );
+    Some((reason, span))
+}
+
+fn charge(sites: &[Site]) -> Charge {
     let mut total = Charge {
         bytes: 0,
         longest: None,
     };
-    for site in &sites.sites {
+    for site in sites {
         let length = match site.expression {
             Expression::Node(text) => span_of(text.start, text.end),
             Expression::Member(receiver, name) => {
@@ -62,7 +74,7 @@ mod tests {
             "a.ts",
             source.as_bytes(),
         );
-        charge(&parsed.syntax.sites)
+        charge(&parsed.syntax.sites.sites)
     }
 
     #[test]
