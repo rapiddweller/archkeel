@@ -318,3 +318,33 @@ pub(super) fn section(frame: &Frame, names: &Names<'_>) -> String {
     html.push_str("</section>\n");
     html
 }
+
+#[cfg(test)]
+mod tests {
+    use serde_json::{json, Value};
+
+    fn page(frame: &Value) -> String {
+        super::super::render(frame.as_object().unwrap()).unwrap()["document"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    }
+
+    #[test]
+    fn unknown_scope_shows_gap_sites_and_conditional_reach_advice() {
+        let mut frame = json!({"status": "UNKNOWN", "rules": {"A": ["complete_requires", "UNKNOWN"]},
+            "explain": {"holds": {"rules": {"A": {"cause": "scope_incomplete", "kind": "scoped_gaps", "total": 2}}}},
+            "collection_gaps": [
+                {"kind": "source_resolution_gap", "reason": "dynamic_import: import_module", "evidence": ["E1"]},
+                {"kind": "source_resolution_gap", "reason": "dynamic_import: pickle.loads", "evidence": ["E2"]}],
+            "locations": {"E1": {"path": "src/a.py", "line": 12}, "E2": {"path": "src/b.py", "line": 42}}});
+        let rendered = page(&frame);
+        assert!(rendered.contains("src/a.py:12") && rendered.contains("src/b.py:42"));
+        assert!(rendered.contains("not every gap holds every rule"));
+        assert!(rendered.contains("PASS assuming the declared reach"));
+        frame["collection_gaps"][0]["reason"] = json!("<script>");
+        assert!(page(&frame).contains("&lt;script&gt;"));
+        frame["collection_gaps"] = json!([]);
+        assert!(!page(&frame).contains("Scan gap sites"));
+    }
+}
