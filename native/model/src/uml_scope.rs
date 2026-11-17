@@ -80,26 +80,10 @@ pub(crate) fn scope(facts: &Facts<'_>, target: &Target, item: &TargetScope) -> V
         }
     }
     if extras.is_empty() {
-        return vec![complete(facts, item, symbol_owner.then_some(&observed))];
+        // 4.0.1 proves no complete module or symbol inventory for a closed scope.
+        return vec![Assessed::Unknown("closed scope completeness".to_owned())];
     }
     extras.into_iter().map(Assessed::Fail).collect()
-}
-
-/// A closed scope without an unlisted element: PASS when the facts show that no other element
-/// can exist (AD-747), else UNKNOWN with the cause.
-fn complete(facts: &Facts<'_>, item: &TargetScope, owner: Option<&Observed>) -> Assessed {
-    let owner = match owner {
-        Some(Observed::Parent(id)) => Some(id.as_str()),
-        Some(Observed::Prefix(_)) | None => None,
-    };
-    let proof = crate::uml_inventory::kinds(owner, item).and_then(|owner| {
-        let table = facts.symbols()?;
-        crate::uml_inventory::proven(table, owner, item.entity_kinds())
-    });
-    match proof {
-        Ok(()) => Assessed::Pass,
-        Err(cause) => Assessed::Unknown(cause),
-    }
 }
 
 /// `_scope`: the one observed entity of a scope, or the cause that there is not one.
