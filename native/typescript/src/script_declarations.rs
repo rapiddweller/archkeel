@@ -196,6 +196,9 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                 tree.span(node),
                 "a prototype of the global object that is passed on",
             );
+            if let Some((written, form)) = self.dom_form(node) {
+                found.check(Some(written), tree.span(node), form);
+            }
             while let Some((_, target)) = targets.next_if(|(owner, _)| owner.id() == node.id()) {
                 self.declared_target(node, *target, &mut found);
                 found.check(
@@ -217,6 +220,11 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
                     self.prototype_write(*target),
                     tree.span(node),
                     "a write that changes a prototype of the global object",
+                );
+                found.check(
+                    self.address_target(node, *target),
+                    tree.span(node),
+                    "a write of an address that is no literal",
                 );
                 found.check(
                     self.changed_global(*target),
