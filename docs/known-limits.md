@@ -399,9 +399,12 @@ removes are not gaps. The gap holds every rule of the run.
 Narrow the scan roots to the source, or select the file in the TSConfig
 ([AD-488](architecture/decisions/ad-488-a-source-file-that-the-tsconfig-drops-is-a-coverage-gap.md)).
 
+A `.vue`, `.svelte`, `.astro`, `.mdx` or `.es6` file and an `.html` or `.htm` page with a script
+element under the scan roots is a gap too: the collector does not read these forms, and the gap
+names the file and the form (#1528). A page without a script element and a file outside the scan
+roots are not gaps.
+
 These files give no gap in the core and in 4.0.1 (follow-up work):
-- `.vue`, `.svelte`, `.astro` and `.mdx` files, module scripts inline in HTML, and `.es6` files:
-  the collector has no model for them.
 - `exclude_test_sources = true` removes `test`/`tests`/`__tests__` directories and `*.test.*` and
   `*.spec.*` files by design (AD-313, opt-in), also when such a file imports another component.
 - Code of an installed package: see the open false-PASS class at the top of this page.
