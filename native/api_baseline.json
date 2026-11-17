@@ -1737,6 +1737,7 @@
     "fn identity::is_identifier(value:&str)->bool",
     "fn identity::module_identity(namespace:&str,path:&str)->Result<String,String>",
     "fn identity::package_of(module:&str)->&str",
+    "fn identity::readable(text:&str)->String",
     "fn identity::sha256_hex(data:&[u8])->String",
     "fn identity::stable_id(prefix:&str,parts:&[Part<'_>])->String",
     "fn identity::update(&mut self,data:&[u8])",

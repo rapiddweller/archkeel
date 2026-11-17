@@ -12,7 +12,7 @@ use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
 
 use crate::kept::Kept;
-use crate::script_types::{ScriptGlobal, ScriptNamespace};
+use crate::script_types::{Script, ScriptGlobal, ScriptNamespace};
 use crate::source::Span;
 
 /// A file that publishes a global, and the publication.
@@ -361,3 +361,34 @@ impl<'a> Project<'a> {
 #[cfg(test)]
 #[path = "script_project_tests.rs"]
 mod tests;
+
+/// Whether one file alone writes a global that no path names, with the rules of the project
+/// (AD-540): `Some(Some(place))` of the form that blocks (a direct form, else an amplifier form of
+/// a file with a host entry), `Some(None)` for a write path that names no global and no form, and
+/// `None` when every write of the file names its global. The repository guard (AD-788) reads a
+/// file outside the scan roots with it; `top` adds the top-level paths of a classic script.
+pub(crate) fn writes_any(script: &Script, top: bool) -> Option<Option<&Span>> {
+    let mut paths = WritePaths {
+        any_amplified: script.amplified,
+        host_entry: script.host_entry,
+        unlabelled_empty: script.unlabelled_empty,
+        ..WritePaths::default()
+    };
+    let blockers = script.blockers.iter().map(|(span, form)| (0, span, *form));
+    paths.blockers.extend(blockers);
+    let amplified = script
+        .amp_blockers
+        .iter()
+        .map(|(span, form)| (0, span, *form));
+    paths.amp_blockers.extend(amplified);
+    let tops = top.then_some(&script.top_level_write_paths);
+    paths.any_empty = script
+        .write_paths
+        .iter()
+        .chain(tops.into_iter().flatten())
+        .any(Vec::is_empty);
+    if !paths.blocks_all() {
+        return None;
+    }
+    Some(paths.named_blockers().first().map(|(_, span, _)| *span))
+}

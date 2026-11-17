@@ -236,8 +236,10 @@ impl<'x, 'a, 't> Producer<'x, 'a, 't> {
             return false;
         }
         match node.kind() {
-            "string" | "template_string" => crate::script_window::string_text(self, node)
-                .is_some_and(|text| url_text(&text).starts_with("javascript:")),
+            // A code address anywhere in the text, also in a template with substitutions (#1662).
+            "string" | "template_string" => crate::source_input::code_address(
+                &crate::script_window::string_text(self, node).unwrap_or_else(|| tree.text(node)),
+            ),
             "call_expression" => self.injecting_call(node),
             "assignment_expression" | "augmented_assignment_expression" | "for_in_statement" => {
                 self.html_write(node)

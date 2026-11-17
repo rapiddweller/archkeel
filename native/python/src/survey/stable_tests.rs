@@ -340,3 +340,29 @@ fn a_call_that_can_create_a_class_names_its_callee_and_withholds_the_receipt() {
         );
     }
 }
+
+#[test]
+fn a_well_known_third_party_factory_names_its_callee_in_a_plain_return() {
+    for (source, callee) in [
+        ("import msgspec\ndef f():\n    return msgspec.defstruct('S', ['x'])\n", "msgspec.defstruct"),
+        ("from marshmallow import Schema\ndef f():\n    return Schema.from_dict({})\n", "marshmallow.Schema.from_dict"),
+        ("from sqlalchemy.orm import registry\ndef f():\n    return registry().generate_base()\n", "sqlalchemy.orm.registry().generate_base"),
+        ("from sqlalchemy.orm import registry\ndef f():\n    reg = registry()\n    return reg.generate_base()\n", "sqlalchemy.orm.registry().generate_base"),
+        ("import attr\ndef f():\n    return attr.make_class('H', ['x'])\n", "attr.make_class"),
+    ] {
+        let tree = crate::test_tree(source, 12).unwrap();
+        let site = super::class_inventory::factory_site(&tree).map(|(_, callee)| callee);
+        assert_eq!(site.as_deref(), Some(callee), "{source}");
+    }
+    // Another call of the library, and a returned call of an unknown callable, name no site.
+    for source in [
+        "from pydantic import BaseModel\ndef f(data):\n    return BaseModel.model_validate(data)\n",
+        "from vendor import build\ndef f():\n    return build('H')\n",
+    ] {
+        let tree = crate::test_tree(source, 12).unwrap();
+        assert!(
+            super::class_inventory::factory_site(&tree).is_none(),
+            "{source}"
+        );
+    }
+}

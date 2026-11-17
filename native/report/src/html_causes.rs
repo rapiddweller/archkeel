@@ -22,13 +22,15 @@ pub(super) struct Cause<'a> {
     pub(super) unnamed: usize,
     /// Named gaps of this cause that are no rule of the contract (for example a hygiene code).
     pub(super) named: usize,
+    /// What each named gap of a hygiene family points at: the file, the path and the subject.
+    pub(super) members: Vec<&'a str>,
     /// The pairs of modules that hold the rules of the cause.
     pub(super) pairs: Vec<(&'a str, &'a str)>,
 }
 
 /// The causes of the UNKNOWN rules of a frame, the cause with most rules first.
 pub(super) fn grouped(frame: &Frame) -> Vec<Cause<'_>> {
-    let mut causes: BTreeMap<(&str, &str, usize), Cause<'_>> = BTreeMap::new();
+    let mut causes: BTreeMap<(&str, String, usize), Cause<'_>> = BTreeMap::new();
     for (rule, _) in frame
         .rules
         .iter()
@@ -43,15 +45,18 @@ pub(super) fn grouped(frame: &Frame) -> Vec<Cause<'_>> {
         let total = held.map_or(0, |h| h.total);
         // A cause with no typed form is told apart by the text of the core.
         let text = if kind == "other" { reason } else { "" };
-        let card = causes.entry((kind, text, total)).or_insert_with(|| Cause {
-            kind,
-            reason,
-            rules: Vec::new(),
-            total,
-            unnamed: held.map_or(0, |h| h.unnamed_imports),
-            named: 0,
-            pairs: Vec::new(),
-        });
+        let card = causes
+            .entry((kind, text.to_owned(), total))
+            .or_insert_with(|| Cause {
+                kind,
+                reason,
+                rules: Vec::new(),
+                total,
+                unnamed: held.map_or(0, |h| h.unnamed_imports),
+                named: 0,
+                members: Vec::new(),
+                pairs: Vec::new(),
+            });
         card.rules.push(rule);
         for pair in held.into_iter().flat_map(|h| &h.pairs) {
             let key = (pair.source.as_str(), pair.target.as_str());
@@ -61,23 +66,68 @@ pub(super) fn grouped(frame: &Frame) -> Vec<Cause<'_>> {
         }
     }
     // A named gap has no rule row; its reason is its cause, and equal reasons are one cause.
+    // #1616: near-identical hygiene gaps are one cause with a list: the family is the code and the
+    // message, the member is what each gap points at.
     for reason in frame.named.values() {
-        causes
-            .entry(("named", reason.as_str(), 0))
-            .or_insert_with(|| Cause {
-                kind: "named",
-                reason,
-                rules: Vec::new(),
-                total: 0,
-                unnamed: 0,
-                named: 0,
-                pairs: Vec::new(),
-            })
-            .named += 1;
+        let (family, member) = match hygiene(reason) {
+            Some((code, member, message)) => (format!("{code}: {message}"), Some(member)),
+            None => (reason.clone(), None),
+        };
+        let card = causes.entry(("named", family, 0)).or_insert_with(|| Cause {
+            kind: "named",
+            reason,
+            rules: Vec::new(),
+            total: 0,
+            unnamed: 0,
+            named: 0,
+            members: Vec::new(),
+            pairs: Vec::new(),
+        });
+        card.named += 1;
+        card.members.extend(member);
     }
     let mut list: Vec<Cause<'_>> = causes.into_values().collect();
     list.sort_by(|a, b| (b.rules.len() + b.named, a.kind).cmp(&(a.rules.len() + a.named, b.kind)));
     list
+}
+
+/// A hygiene reason (`contract hygiene <code>: <member>: <message>`) as its code, its member and
+/// its message, so that gaps that differ only in the member are one cause (#1616).
+pub(super) fn hygiene(reason: &str) -> Option<(&str, &str, &str)> {
+    let (code, rest) = reason.strip_prefix("contract hygiene ")?.split_once(": ")?;
+    let (member, message) = rest.rsplit_once(": ")?;
+    Some((code, member, message))
+}
+
+/// The words for what a family of hygiene gaps says, with its count.
+fn hygiene_title(code: &str, members: usize) -> String {
+    match code {
+        "responsibility.missing" => format!(
+            "{} no written responsibility",
+            if members == 1 {
+                "1 component has".to_owned()
+            } else {
+                format!("{members} components have")
+            }
+        ),
+        "rationale.placeholder" => format!(
+            "{} still a placeholder",
+            if members == 1 {
+                "1 rationale is".to_owned()
+            } else {
+                format!("{members} rationales are")
+            }
+        ),
+        "decision.open" => format!(
+            "{} still open in the contract",
+            if members == 1 {
+                "1 decision is".to_owned()
+            } else {
+                format!("{members} decisions are")
+            }
+        ),
+        _ => format!("{} of the kind {code}", count(members, "contract problem")),
+    }
 }
 
 /// What the cause is, in one phrase.
@@ -98,6 +148,10 @@ pub(super) fn title(cause: &Cause<'_>) -> String {
             count(cause.unnamed, "unresolved import")
         ),
         "no_source_files" => "the collector selected no source file".to_owned(),
+        "named" if cause.members.len() > 1 => match hygiene(cause.reason) {
+            Some((code, _, _)) => hygiene_title(code, cause.members.len()),
+            None => short(cause.reason),
+        },
         _ => short(cause.reason),
     }
 }

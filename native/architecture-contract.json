@@ -80,6 +80,7 @@
         "native.archkeel_facts.identity:is_identifier",
         "native.archkeel_facts.identity:module_identity",
         "native.archkeel_facts.identity:package_of",
+        "native.archkeel_facts.identity:readable",
         "native.archkeel_facts.identity:sha256_hex",
         "native.archkeel_facts.identity:stable_id",
         "native.archkeel_facts.ids:EvidenceId",
@@ -1829,6 +1830,13 @@
             "native.archkeel_report.ruling",
             "native.archkeel_report.run_scope"
           ]
+        },
+        {
+          "component": "facts",
+          "rationale": "The manifest declares the typed facts that the page reads back (#1617).",
+          "through": [
+            "native.archkeel_facts"
+          ]
         }
       ],
       "public": [
@@ -2037,6 +2045,13 @@
           "through": [
             "native.archkeel_report.head:RuleVerdict",
             "native.archkeel_report.head:Status"
+          ]
+        },
+        {
+          "component": "facts",
+          "rationale": "Read a module identity back to the characters of its path for the page (#1617).",
+          "through": [
+            "native.archkeel_facts.identity"
           ]
         }
       ],
@@ -3833,6 +3848,7 @@
         "native.archkeel_typescript_collector.source_input:classify_asset",
         "native.archkeel_typescript_collector.source_input:classify_file",
         "native.archkeel_typescript_collector.source_input:classify_specifier",
+        "native.archkeel_typescript_collector.source_input:code_address",
         "native.archkeel_typescript_collector.source_input:is_script_root",
         "native.archkeel_typescript_collector.source_input:is_window_name",
         "native.archkeel_typescript_collector.source_input:shadowed",
@@ -4595,6 +4611,7 @@
         "native.archkeel_typescript_collector.script_deps",
         "native.archkeel_typescript_collector.script_global",
         "native.archkeel_typescript_collector.script_outside",
+        "native.archkeel_typescript_collector.script_outside_detector",
         "native.archkeel_typescript_collector.script_outside_forms",
         "native.archkeel_typescript_collector.script_outside_names",
         "native.archkeel_typescript_collector.script_outside_page",
@@ -4657,8 +4674,9 @@
         },
         {
           "component": "ts-parse",
-          "rationale": "Read a vendored library as a closed UMD envelope.",
+          "rationale": "Read a vendored library as a closed UMD envelope, and read a file outside the scan roots with the write detector of the scan (AD-788).",
           "through": [
+            "native.archkeel_typescript_collector.parse",
             "native.archkeel_typescript_collector.syntax",
             "native.archkeel_typescript_collector.umd_publication"
           ]

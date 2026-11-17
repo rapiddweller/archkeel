@@ -105,7 +105,7 @@ import of a package that the map does not prove hosted, SDK or remote git is a g
 (`DartLocalPackage`, `DartUndeclaredPackage`), and a local package that no library imports adds no
 gap. The package of the scan is the nearest `pubspec.yaml` at or above its roots (AD-808): a member
 reads the workspace root above it for its members. A member whose workspace root is outside the
-snapshot, or not readable, gets that gap at each `package:` import (J-compass as pinned). The Dart collector reads bounded YAML. It keeps a
+snapshot, or not readable, gets that gap at each `package:` import (a snapshot that omits the workspace root). The Dart collector reads bounded YAML. It keeps a
 whole-scope gap for a pubspec that it reads only word by word, an unsupported YAML form, and a
 workspace that it cannot prove disjoint from the scan roots (AD-542). Loader and mirror identifiers and non-own relative
 package roots also give gaps (AD-562).
@@ -139,12 +139,16 @@ time withholds the receipt, and the rule is UNKNOWN with the site: "a call can c
   `enum` classes, `namedtuple`, `NamedTuple`, `TypedDict`, `make_dataclass`, `types.new_class`,
   `ABCMeta`, `__build_class__`, `type` with three arguments;
 - a call in the shape of a metaclass call (`M("Name", (...), {...})`);
+- a well-known library factory, in any use of its result, also a plain return: `attrs.make_class`
+  and `attr.make_class`, `pydantic.create_model`, `marshmallow.Schema.from_dict`,
+  `msgspec.defstruct`, `sqlalchemy.orm.declarative_base` and `registry().generate_base`. The table
+  `FACTORIES` in `survey/stable/class_inventory.rs` holds the list and says how to extend it;
 - a call whose result the module calls or passes as the class of `isinstance` or `issubclass`.
 
-The plants are in `tests/test_collector_false_pass_python_placement.py`. Open: a call of another
-library function that creates a class and sets its `__module__` to the caller (`attrs.make_class`,
-`pydantic.create_model`) and whose result the module only returns gives no such site. The rule then
-reads the module as holding no class. This is an open false-PASS class, not an accepted limit.
+The plants are in `tests/test_collector_false_pass_python_placement.py`. Open: the factory of
+another library, whose result the module only returns, gives no such site. The rule then reads the
+module as holding no class. This is an open false-PASS class, not an accepted limit: a factory
+joins the table with a plant whose Python truth is a class.
 
 **Python module and class bindings (AD-642, #1360).** A module- or class-level binding such as
 `for site in sites: site.id` can retain an `import_system_change` gap. These namespaces resolve
@@ -598,15 +602,23 @@ is a direct form; a document (`document`, `ownerDocument`, `contentDocument`) th
 or returned or taken by a pattern is an amplifier form; a write of `href`, `src`, `action`,
 `formAction`, `data` or `baseVal`, or `setAttribute` of such an attribute, with a value that is no
 literal is an amplifier form; `execCommand('insertHTML', …)` with markup that is no inert literal is a
-direct form. An address that a framework renders from data (`<a href={url}>`) stays open (#1662).
+direct form. An address that a framework renders from data (`<a href={url}>`) is covered by the
+printed assumption of AD-810 (#1662): such addresses hold no `javascript:` code. A string or template
+of the scanned sources, or a JSON or YAML file below a scan root, whose text holds `javascript:`,
+`vbscript:` or `data:text/html` (any letter case, also with a tab or line end inside) withholds
+every global proof, and the gap names the place.
 Plants: `tests/test_cli_native_dom_code.py`.
 Older classes stay open too: a use through `opener` or `document.defaultView`.
 AD-788 (#1546, #1674) states the premise of every TypeScript verdict as "code outside the scan
-roots hands in no global or platform object and replaces no global" (text header, JSON `premise`,
+roots hands in no global or platform object and replaces no global"; AD-810 (#1662) adds "and
+addresses that a framework renders from data hold no javascript: code" (text header, JSON `premise`,
 report). Every JavaScript, TypeScript or HTML file of the repository outside the scan roots is read
-for a write that replaces a global (`window.x =`, `globalThis.x =`, `self.x =`, an assignment to an
-undeclared name, a top-level binding of a classic script, `Object.defineProperty(window, …)` and the
-other reflective writes on a window name). A member patch of a global (`Math.max = f`,
+with the write detector of the scan (#1712): an alias of a window name, a window name passed to a
+function, a destructuring or `for` target, `Reflect.apply(Reflect.set, …)`, `eval` and `Function`
+texts withhold the proof as they do inside the scan (a form whose name the detector cannot read
+withholds every global). A second reader names `window.x =`, `globalThis.x =`, `self.x =`, an
+assignment to an undeclared name, a top-level binding of a classic script and the reflective writes
+on a window name. A member patch of a global (`Math.max = f`,
 `JSON.parse = f`, `console.log = f`, `Object.assign(Math, …)`, `console.__defineGetter__(…)`) with
 a value that is no literal withholds the proof of each use of the patched member (and of the global
 as a whole value), in such a file and in a scanned file ("Script global Math is patched by a member
