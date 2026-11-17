@@ -2,22 +2,17 @@
 // Copyright (c) 2026 Rapiddweller Asia Co., Ltd.
 // SPDX-License-Identifier: MIT
 
-//! The closure of the installed packages that the scan imports (#1529, AD-798).
-//!
-//! The code of an installed package is outside the model (AD-488 point 4), but it can import
-//! project source by a relative path: `node_modules/local/index.js` with `import "../../src/b"`.
-//! Then each module that imports the package depends on that source. The collector reads the
-//! static imports of each installed file that an import of the scan reaches, and of each installed
-//! file that those reach. An import that resolves to a file outside `node_modules`, and an
-//! installed file that the collector cannot read, is a gap of each module whose import reaches it.
-//! A computed import inside a package is a loader whose target is unknown: it withholds the
-//! routes from that package (#1749, AD-812).
+//! The closure of installed packages imported by the scan (#1529, AD-798). Their relative imports
+//! can reach project source, and computed imports can withhold routes (#1749, AD-812).
 
 use std::collections::{HashMap, HashSet};
 
 use archkeel_snapshot::paths::{dirname, join};
 use archkeel_snapshot::Snapshot;
 
+use super::preloads;
+#[path = "package_closure_names.rs"]
+mod names;
 use crate::collection::{Collection, GapKind};
 use crate::installed::installed;
 use crate::manifest::Lookup;
@@ -25,7 +20,10 @@ use crate::options::Options;
 use crate::parse::parse_for;
 use crate::references::{Form, Reference};
 use crate::resolve::format_of;
-use crate::source_input::{classify_file, classify_specifier, ModuleFormat, SourceKind};
+use crate::source_input::{
+    classify_file, classify_specifier, skipped_directory, ModuleFormat, SourceKind,
+};
+use names::{package_names, quoted_after, unknown_loader};
 
 /// The most installed files that one run reads. A larger closure is a gap of each importer.
 const BUDGET: usize = 20_000;
@@ -42,25 +40,145 @@ struct Step {
 /// The installed files of the closure: who imports each one, and the reach of project source of
 /// each file, with the file of the step and the project file.
 #[derive(Default)]
-struct Graph {
+pub(super) struct Graph {
     importers: HashMap<String, Vec<String>>,
-    reached: HashMap<String, (String, String)>,
+    pub(super) reached: HashMap<String, (String, String)>,
+    /// Installed files in closure walk order.
+    pub(super) files: Vec<String>,
 }
 
 impl Collection<'_> {
     /// The gap of each module whose import of an installed package reaches project source.
     pub(crate) fn package_closure(&mut self) {
         let entries = std::mem::take(&mut self.installed);
-        let Some(graph) = self.closure_graph(&entries) else {
+        if let Some(graph) = self.closure_graph(&entries) {
+            let reached = reach_back(graph);
+            self.closure_gaps(&entries, |file| reached.get(file).cloned());
+        } else {
             let reason = format!("more than {BUDGET} installed files");
-            return self.closure_gaps(&entries, |_| Some((String::new(), reason.clone())));
+            self.closure_gaps(&entries, |_| Some((String::new(), reason.clone())));
+        }
+        self.tool_preloads();
+    }
+
+    /// Read the closure and writes of each preload that the repository names.
+    fn tool_preloads(&mut self) {
+        let named = self.named_preloads();
+        let mut files = Vec::new();
+        for preload in named {
+            let Some(entries) = self.preload_entries(&preload.file, &preload.name) else {
+                let reason = format!(
+                    "Preload {} named in {}:{} is no installed package that the scan can read",
+                    preload.name, preload.file, preload.line
+                );
+                self.gap(&reason, None, "", GapKind::Collection);
+                continue;
+            };
+            let entries: Vec<(String, String, String)> = entries
+                .into_iter()
+                .map(|file| (file, String::new(), String::new()))
+                .collect();
+            let Some(graph) = self.closure_graph(&entries) else {
+                let reason = format!(
+                    "Preload {} named in {}:{} has a closure of more than 20000 installed files",
+                    preload.name, preload.file, preload.line
+                );
+                self.gap(&reason, None, "", GapKind::Collection);
+                continue;
+            };
+            if !std::collections::HashMap::is_empty(&graph.reached) {
+                let reason = format!(
+                    "Preload {} named in {}:{} has an incomplete closure: it can reach project \
+                     source, has an unknown loader target, or has an unreadable file",
+                    preload.name, preload.file, preload.line
+                );
+                self.gap(&reason, None, "", GapKind::Resolution);
+            }
+            let closure_files = graph.files;
+            let module = closure_files.iter().any(|file| self.reaches_module(file));
+            for file in &closure_files {
+                self.loader_patch(&preload, file, module);
+            }
+            Vec::extend(&mut files, closure_files);
+        }
+        files.sort();
+        files.dedup();
+        self.preload_files = files;
+    }
+
+    /// Each preload name of each repository config, with its source location.
+    fn named_preloads(&mut self) -> Vec<preloads::Named> {
+        let mut found = Vec::new();
+        let mut pending = vec![".".to_owned()];
+        while let Some(directory) = Vec::pop(&mut pending) {
+            let (files, children) = self.snapshot.entries(&directory);
+            for name in files {
+                if preloads::preload_file(&name) {
+                    let file = join(&directory, &name);
+                    let Some(data) = self.snapshot.read(&file) else {
+                        self.gap(
+                            &format!("Preload configuration {file} cannot be read"),
+                            None,
+                            "",
+                            GapKind::Collection,
+                        );
+                        continue;
+                    };
+                    let text = String::from_utf8_lossy(&data);
+                    let base = file.rsplit('/').next().unwrap_or_default();
+                    if preloads::malformed_config(base, &text) {
+                        self.gap(
+                            &format!("Preload configuration {file} is malformed"),
+                            None,
+                            "",
+                            GapKind::Collection,
+                        );
+                        continue;
+                    }
+                    let names = preloads::names_of(base, &text);
+                    for name in names {
+                        found.push(preloads::Named {
+                            line: preloads::line_of(&text, &name),
+                            name,
+                            file: file.clone(),
+                        });
+                    }
+                }
+            }
+            pending.extend(
+                children
+                    .into_iter()
+                    .filter(|name| !skipped_directory(name))
+                    .map(|name| join(&directory, &name)),
+            );
+        }
+        found
+    }
+
+    /// Does code in this closure reach Node's module object?
+    fn reaches_module(&mut self, file: &str) -> bool {
+        self.snapshot
+            .read(file)
+            .is_some_and(|data| preloads::reaches_module(&String::from_utf8_lossy(&data)))
+    }
+
+    /// Report a loader patch found in one preload-closure file.
+    fn loader_patch(&mut self, preload: &preloads::Named, file: &str, module: bool) {
+        let Some(data) = self.snapshot.read(file) else {
+            return;
         };
-        let reached = reach_back(graph);
-        self.closure_gaps(&entries, |file| reached.get(file).cloned());
+        let text = String::from_utf8_lossy(&data);
+        if let Some(line) = preloads::patch_line(&text, module) {
+            let reason = format!(
+                "Preload {} named in {}:{} patches the module loader at {file}:{line}",
+                preload.name, preload.file, preload.line
+            );
+            self.gap(&reason, None, "", GapKind::Collection);
+        }
     }
 
     /// Read the closure from the entries, or `None` above the budget.
-    fn closure_graph(&mut self, entries: &[(String, String, String)]) -> Option<Graph> {
+    pub(super) fn closure_graph(&mut self, entries: &[(String, String, String)]) -> Option<Graph> {
         let mut seen: HashSet<String> = HashSet::new();
         let mut queue: Vec<String> = Vec::new();
         let fresh: Vec<String> = entries
@@ -94,6 +212,7 @@ impl Collection<'_> {
                 .collect();
             Vec::extend(&mut queue, fresh);
         }
+        graph.files = queue;
         Some(graph)
     }
 
@@ -135,7 +254,12 @@ impl Collection<'_> {
         let declaration = classify_file(file).and_then(|suffix| suffix.source_kind())
             == Some(SourceKind::Declaration);
         let loader = (!declaration)
-            .then(|| unknown_loader(&parsed.references, &text, parsed.first_error))
+            .then(|| {
+                let computed_form = parsed.references.iter().find_map(|reference| {
+                    Option::is_none(&reference.specifier).then(|| Form::as_str(reference.form))
+                });
+                unknown_loader(computed_form, &text, parsed.first_error)
+            })
             .flatten();
         if let Some(loader) = loader {
             step.project = Some(format!("a loader with an unknown target ({loader})"));
@@ -211,7 +335,12 @@ impl Collection<'_> {
 
     /// The installed directory that a `node_modules` search finds for a package name from `file`
     /// (`@types/<name>` too, for a type reference), or `None` when it is not installed.
-    fn package_directory(&mut self, file: &str, name: &str, type_only: bool) -> Option<String> {
+    pub(super) fn package_directory(
+        &mut self,
+        file: &str,
+        name: &str,
+        type_only: bool,
+    ) -> Option<String> {
         if str::is_empty(name) || name.starts_with(['.', '/', '#']) {
             return None;
         }
@@ -238,7 +367,7 @@ impl Collection<'_> {
     }
 
     /// The source files of an installed package directory, without its nested packages.
-    fn package_files(&mut self, directory: &str) -> Vec<String> {
+    pub(super) fn package_files(&mut self, directory: &str) -> Vec<String> {
         let mut found = Vec::new();
         let mut pending = vec![directory.to_owned()];
         while let Some(next) = Vec::pop(&mut pending) {
@@ -257,6 +386,35 @@ impl Collection<'_> {
             Vec::extend(&mut pending, nested);
         }
         found
+    }
+
+    /// The installed files named by a preload, or `None` when its target is unknown.
+    pub(super) fn preload_entries(&mut self, file: &str, name: &str) -> Option<Vec<String>> {
+        let name = name
+            .strip_prefix("<rootDir>/")
+            .map_or_else(|| name.to_owned(), |rest| format!("./{rest}"));
+        let class = classify_specifier(&name);
+        if class.builtin() {
+            return Some(Vec::new());
+        }
+        let found = self.resolver.resolve_classified(
+            &mut self.snapshot,
+            (&name, &class),
+            file,
+            Some(ModuleFormat::Cjs),
+            true,
+        );
+        match found {
+            Lookup::Hit(found) if installed(&mut self.snapshot, &found.path) => {
+                Some(vec![found.path])
+            }
+            Lookup::Hit(_) => Some(Vec::new()),
+            Lookup::Unknown(_) => {
+                let directory = self.package_directory(file, &class.package, false)?;
+                Some(self.package_files(&directory))
+            }
+            Lookup::Missing => None,
+        }
     }
 
     /// Resolve one specifier of an installed file, as the run resolves an import, into the step.
@@ -316,84 +474,6 @@ fn reach_back(mut graph: Graph) -> HashMap<String, (String, String)> {
         }
     }
     graph.reached
-}
-
-/// A loader of a runtime file whose target is no literal (a declaration file loads nothing): a
-/// computed `require` or `import()` that the parser reads, a call of `createRequire`, and in a
-/// repaired file each `require(` or `import(` whose
-/// argument is no quoted text. `None` when the file has none.
-fn unknown_loader(references: &[Reference], text: &str, repaired: Option<i64>) -> Option<String> {
-    if let Some(reference) = references.iter().find(|r| Option::is_none(&r.specifier)) {
-        let form = Form::as_str(reference.form);
-        return Some(format!("computed {form} at line {}", reference.span.line));
-    }
-    if text.contains("createRequire(") {
-        return Some("createRequire".to_owned());
-    }
-    let line = repaired?;
-    let bare = ["require(", "import("].iter().any(|call| {
-        text.match_indices(call).any(|(at, _)| {
-            let rest = text
-                .get(at + str::len(call)..)
-                .unwrap_or_default()
-                .trim_start();
-            !rest.starts_with(['"', '\'', '`'])
-        })
-    });
-    bare.then(|| format!("a call of require or import() in the repaired file (line {line})"))
-}
-
-/// The names that a `node_modules` search tries for a package: the name, and `@types/<name>` for a
-/// type reference.
-fn package_names(name: &str, type_only: bool) -> Vec<String> {
-    let mut names = vec![name.to_owned()];
-    if type_only {
-        let mangled = name
-            .strip_prefix('@')
-            .map_or_else(|| name.to_owned(), |scoped| scoped.replacen('/', "__", 1));
-        Vec::push(&mut names, format!("@types/{mangled}"));
-    }
-    names
-}
-
-/// Each quoted text after one of the words, with blanks and one `(` between: `from "x"`,
-/// `import("x")`, `require('x')`, `path="x"`, `module "x"`. A word inside a longer name or after a
-/// `.` is no word. A text in a comment is read too: the reading over-matches on purpose.
-fn quoted_after(text: &str, words: &[&str]) -> Vec<String> {
-    let bytes = text.as_bytes();
-    let mut found = Vec::new();
-    for word in words {
-        for (at, _) in text.match_indices(word) {
-            let before = at.checked_sub(1).and_then(|i| bytes.get(i));
-            let joined = |b: &u8| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'$' | b'.');
-            if before.is_some_and(joined) {
-                continue;
-            }
-            let rest = text
-                .get(at + str::len(word)..)
-                .unwrap_or_default()
-                .trim_start();
-            let rest = rest.strip_prefix('(').map_or(rest, str::trim_start);
-            if let Some(quoted) = quoted(rest) {
-                Vec::push(&mut found, quoted);
-            }
-        }
-    }
-    found
-}
-
-/// The text of a leading quoted string that can be a specifier: not empty, without a blank, a
-/// line end, a bracket, a comma or a semicolon.
-fn quoted(rest: &str) -> Option<String> {
-    let quote = rest
-        .chars()
-        .next()
-        .filter(|c| matches!(c, '"' | '\'' | '`'))?;
-    let inner = rest.get(1..)?;
-    let text = inner.get(..inner.find(quote)?)?;
-    let specifier = !str::is_empty(text)
-        && !text.contains(|c: char| c.is_whitespace() || "(){}[],;".contains(c));
-    specifier.then(|| text.to_owned())
 }
 
 #[cfg(test)]

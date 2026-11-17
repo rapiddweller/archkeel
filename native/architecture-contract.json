@@ -3827,7 +3827,7 @@
         "native.archkeel_typescript_collector.pytext"
       ],
       "responsibilities": [
-        "The typed input of the walk: source text with spans, the nominal source input, the closed node kinds and the text helpers."
+        "The typed input of the walk and repository directory classifications: source text with spans, nominal source inputs, closed node kinds, text helpers and the directories excluded from repository-source walks."
       ],
       "forbidden_responsibilities": [
         "Reading the snapshot, walking a tree and building facts."
@@ -3860,9 +3860,11 @@
         "native.archkeel_typescript_collector.source_input:classify_file",
         "native.archkeel_typescript_collector.source_input:classify_specifier",
         "native.archkeel_typescript_collector.source_input:code_address",
+        "native.archkeel_typescript_collector.source_input:installed_directory",
         "native.archkeel_typescript_collector.source_input:is_script_root",
         "native.archkeel_typescript_collector.source_input:is_window_name",
         "native.archkeel_typescript_collector.source_input:shadowed",
+        "native.archkeel_typescript_collector.source_input:skipped_directory",
         "native.archkeel_typescript_collector.source_input:split_file"
       ],
       "decided_by": "architect"
@@ -4744,7 +4746,9 @@
         "native.archkeel_typescript_collector.collect.script_run",
         "native.archkeel_typescript_collector.collect.import_target",
         "native.archkeel_typescript_collector.collect.import_record",
-        "native.archkeel_typescript_collector.collect.package_closure"
+        "native.archkeel_typescript_collector.collect.package_closure",
+        "native.archkeel_typescript_collector.collect.package_closure.names",
+        "native.archkeel_typescript_collector.collect.preloads"
       ],
       "responsibilities": [
         "Orchestrate one collection: select the files, parse them, resolve the imports and write the reply."
