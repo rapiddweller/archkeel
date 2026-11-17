@@ -9,8 +9,11 @@ its members. Only the layout, the manifests and the tsconfig are read; no source
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
+import re
+from collections.abc import Callable
 from functools import cache
 from pathlib import Path
 
@@ -33,14 +36,6 @@ def _code_suffixes() -> frozenset[str]:
     lines = schema_file("archkeel-source-suffixes.txt").read_text(encoding="utf-8").splitlines()
     rows = [line.split(" ", 1) for line in lines if " " in line]
     return frozenset(suffix for language, suffix in rows if language == "typescript")
-
-
-def _has_code(folder: Path) -> bool:
-    for _, names, files in os.walk(folder):
-        names[:] = [name for name in names if name not in _IGNORED]
-        if any(Path(file).suffix in _code_suffixes() for file in files):
-            return True
-    return False
 
 
 def _typescript_layout(repo: Path, root: Path) -> Layout | None:
@@ -77,6 +72,89 @@ def _tsconfig(repo: Path, folder: Path) -> str:
     return f'tsconfig = "{config.relative_to(repo).as_posix()}"\n' if config.is_file() else ""
 
 
+def _has_source(folder: Path, repo: Path) -> bool:
+    """Whether `folder` holds code that is no test source (the scan of a draft leaves those out)."""
+    for here, names, files in os.walk(folder):
+        names[:] = [name for name in names if name not in _IGNORED]
+        for file in files:
+            if Path(file).suffix in _code_suffixes() and not _is_test(Path(here, file), repo):
+                return True
+    return False
+
+
+def _is_test(path: Path, repo: Path) -> bool:
+    """`is_test_source` of the TypeScript collector (`native/typescript/src/test_sources.rs`):
+    a folder `test`, `tests` or `__tests__` above the file, or `*.test.<ext>`, `*.spec.<ext>`."""
+    relative = path.relative_to(repo)
+    stem = relative.name.rsplit(".", 1)[0]
+    folders = any(part in {"test", "tests", "__tests__"} for part in relative.parts[:-1])
+    return folders or stem.endswith((".test", ".spec"))
+
+
+def _own_project(folder: Path) -> bool:
+    """A folder with its own package.json and tsconfig.json is a TypeScript project of its own."""
+    return (folder / "package.json").is_file() and (folder / "tsconfig.json").is_file()
+
+
+def _selected(folder: Path) -> Callable[[Path], bool]:
+    """Whether the `include` of the tsconfig of the project can select a file below a folder
+    (relative to the project). Without a readable `include`, every folder: TypeScript then takes
+    `**/*` or the `include` of the config that it extends."""
+    try:
+        config = json.loads(_jsonc(folder / "tsconfig.json"))
+    except (OSError, UnicodeError, ValueError):
+        return lambda _: True
+    patterns = config.get("include") if isinstance(config, dict) else None
+    if not isinstance(patterns, list) or not all(isinstance(p, str) for p in patterns):
+        return lambda _: True
+    literal = [_literal(pattern) for pattern in patterns]
+
+    def selects(relative: Path) -> bool:
+        parts = relative.parts
+        return any(parts[: len(lead)] == lead or lead[: len(parts)] == parts for lead in literal)
+
+    return selects
+
+
+def _literal(pattern: str) -> tuple[str, ...]:
+    """The folders of an include pattern before its first wildcard: `./src/**/*` is `("src",)`."""
+    parts = [part for part in pattern.replace("\\", "/").split("/") if part not in {"", "."}]
+    lead = itertools.takewhile(lambda part: not any(c in part for c in "*?[{"), parts)
+    found = tuple(lead)
+    # A last part without a wildcard can be a file (`src/index.ts`): its folder is the literal.
+    return found[:-1] if found == tuple(parts) and found and "." in found[-1] else found
+
+
+def _jsonc(path: Path) -> str:
+    """The text of a tsconfig without comments and trailing commas (JSON with comments)."""
+    text, out, i = path.read_text(encoding="utf-8"), [], 0
+    quoted = False
+    while i < len(text):
+        char = text[i]
+        if quoted:
+            out.append(char)
+            if char == "\\" and i + 1 < len(text):
+                out.append(text[i + 1])
+                i += 1
+            elif char == '"':
+                quoted = False
+        elif char == '"':
+            quoted = True
+            out.append(char)
+        elif text.startswith("//", i):
+            i = text.find("\n", i)
+            i = len(text) if i < 0 else i
+            continue
+        elif text.startswith("/*", i):
+            end = text.find("*/", i + 2)
+            i = len(text) if end < 0 else end + 2
+            continue
+        else:
+            out.append(char)
+        i += 1
+    return re.sub(r",(\s*[}\]])", r"\1", "".join(out))
+
+
 def _typescript_project(repo: Path, folder: Path) -> Layout:
     """One component for each folder of the project that holds code; the folders inside `src`
     count instead of `src` itself. The files beside them are the component `root`.
@@ -88,11 +166,19 @@ def _typescript_project(repo: Path, folder: Path) -> Layout:
     # repository keeps a project below the root from naming its folder twice (`web.src.web`).
     namespace = _name(repo.name)
 
+    selects = _selected(folder)
+
     def code_dirs(parent: Path) -> list[Path]:
+        # A folder is a component when the tsconfig selects it, it holds code that is no test
+        # source, and it is no project of its own (another part of the system, #1710).
         return [
             path
             for path in sorted(parent.iterdir())
-            if path.is_dir() and path.name not in _IGNORED and _has_code(path)
+            if path.is_dir()
+            and path.name not in _IGNORED
+            and selects(path.relative_to(folder))
+            and not _own_project(path)
+            and _has_source(path, repo)
         ]
 
     def code_files(parent: Path) -> list[Path]:
