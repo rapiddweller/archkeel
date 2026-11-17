@@ -9,8 +9,8 @@ two of them that look alike are no clone:
 - a `use` item: an import list names things, it computes nothing;
 - a `const` or `static` whose value is an array or a slice of literals and paths, with tuples of
   them and no call, no operator and no block: a table of data;
-- a `mod name;` declaration, and a struct of named fields that have plain types: a declaration
-  of names and types;
+- a `mod name;` declaration, and a struct of named fields that have plain types (a `pub(crate)`
+  visibility is allowed): a declaration of names and types;
 - a declaration macro (`closed! { pub enum E { A = "a", } }`) whose body is names, literals and
   brackets, each `=` followed by a literal;
 - a `match` in which each arm is `path => literal` (or a tuple of literals) or
@@ -212,10 +212,16 @@ def _mod_end(tokens: Sequence[Token], start: int) -> int | None:
 
 
 def _struct_start(tokens: Sequence[Token], start: int) -> int:
-    """Return the index of the first attribute or `pub` before the `struct` at `start`."""
+    """Return the index of the first attribute or visibility before the `struct` at `start`."""
     first = start
     if first > 0 and tokens[first - 1].text == "pub":
         first -= 1
+    elif first > 0 and _is(tokens[first - 1], ")"):
+        opener = first - 1
+        while opener > 0 and not _is(tokens[opener], "("):
+            opener -= 1
+        if opener > 0 and tokens[opener - 1].text == "pub":
+            first = opener - 1
     while first > 0 and _is(tokens[first - 1], "]"):
         depth, position = 0, first - 1
         while position >= 0:
@@ -230,12 +236,19 @@ def _struct_start(tokens: Sequence[Token], start: int) -> int:
 
 
 def _struct_end(tokens: Sequence[Token], start: int) -> int | None:
-    """Return the index after a struct whose fields are `name: plain type`."""
+    """Return the index after a struct whose fields are `[pub(..)] name: plain type`."""
     if start + 2 >= len(tokens) or not _is(tokens[start + 2], "{"):
         return None
     end = group_end(tokens, start + 2)
     body = tokens[start + 3 : end - 1]
-    for index, token in enumerate(body):
+    index = 0
+    while index < len(body):
+        token = body[index]
+        if token.kind == "name" and token.text == "pub" and index + 1 < len(body):
+            if _is(body[index + 1], "("):
+                # A visibility `pub(crate)`, `pub(super)` or `pub(in path)` computes nothing.
+                index = group_end(body, index + 1)
+                continue
         if token.kind == "literal":
             return None
         if token.kind == "punct" and token.text not in {
@@ -252,6 +265,7 @@ def _struct_end(tokens: Sequence[Token], start: int) -> int | None:
             return None
         if token.kind == "name" and index + 1 < len(body) and _is(body[index + 1], "("):
             return None
+        index += 1
     return end
 
 
