@@ -45,7 +45,7 @@ _CHECKS: Final = frozenset(
 )
 
 
-def _path(name: str) -> Path:
+def schema_file(name: str) -> Path:
     """The schema file of this install: the wheel copy, or the checkout copy."""
     package = Path(__file__).resolve().parents[1]
     for found in (package / "schema" / name, package.parents[1] / "schema" / name):
@@ -58,7 +58,7 @@ def _path(name: str) -> Path:
 def _schema(name: str) -> Mapping[str, object]:
     """One generated schema of the core, read once."""
     try:
-        value = json.loads(_path(name).read_text(encoding="utf-8"))
+        value = json.loads(schema_file(name).read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
         raise CoreError(f"the schema {name} cannot be read: {error}") from error
     if not isinstance(value, dict):

@@ -27,7 +27,12 @@ This page and [known limits](known-limits.md) describe `main`.
 
 ## Configuration
 
-[The schema](../schema/archkeel.schema.json) defines `archkeel.toml`:
+[The schema](../schema/archkeel.schema.json) defines `archkeel.toml`. The source suffixes of the
+languages are one file, [`schema/archkeel-source-suffixes.txt`](../schema/archkeel-source-suffixes.txt),
+read by the core and by `archkeel init`
+([AD-738](architecture/decisions/ad-738-one-data-file-owns-the-source-suffixes-of-both-languages.md)).
+
+The options of `archkeel.toml`:
 
 ```toml
 [scan]

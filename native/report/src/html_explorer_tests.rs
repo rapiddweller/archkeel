@@ -282,3 +282,21 @@ fn the_sheet_of_a_module_reads_owners_from_the_global_assignments() {
             || script.contains("ATLAS.assignments.find")
     );
 }
+
+// #1443: the public names of a box are grouped by module with short names and a count, a long list
+// of through-paths is folded behind a count, and many names fold behind the line that counts them.
+#[test]
+fn the_sheet_groups_provided_names_and_folds_long_lists() {
+    let script = include_str!("../assets/explorer/flow.runtime.js");
+    for needed in [
+        "function atlasProvidesMarkup(",
+        "function atlasRequiresMarkup(",
+        "edge.through.length>2",
+        "names.length>6",
+        "Provides · ",
+    ] {
+        assert!(script.contains(needed), "the sheet lacks `{needed}`");
+    }
+    // The raw list of the through-paths is no longer printed in one line.
+    assert!(!script.contains("`<p>Through: ${edge.through.map(esc).join(\", \")}</p>`"));
+}

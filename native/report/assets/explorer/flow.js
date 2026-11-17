@@ -2342,6 +2342,47 @@
     if (component.groups === null || component.groups === undefined || component.groups === 1) return "Component";
     return component.layer_rank !== null && component.layer_rank !== undefined ? "Layer" : "Group";
   }
+  // The public names of a box, grouped by module with short names and a count. The module paths lose
+  // the part that they all share. Many names fold behind the line that counts them.
+  function atlasProvidesMarkup(names) {
+    if (!names || !names.length) return "";
+    const byModule = new Map();
+    for (const name of names) {
+      const at = name.lastIndexOf(":");
+      const module = at < 0 ? "" : name.slice(0, at), short = at < 0 ? name : name.slice(at + 1);
+      if (!byModule.has(module)) byModule.set(module, []);
+      byModule.get(module).push(short);
+    }
+    const paths = [...byModule.keys()].map((path) => path.split("."));
+    let shared = 0;
+    while (paths.length && paths.every((parts) => parts.length > shared + 1 && parts[shared] === paths[0][shared])) shared += 1;
+    const rows = [...byModule].map(([module, shorts]) => {
+      const label = module ? module.split(".").slice(shared).join(".") || module : "";
+      const shown = shorts.slice(0, 8).map(esc).join(", ");
+      return `<li>${label ? `<strong>${esc(label)}</strong> (${shorts.length}): ` : ""}${shown}${shorts.length > 8 ? `, +${shorts.length - 8} more` : ""}</li>`;
+    }).join("");
+    const title = `Provides · ${REPORT_SCENE.countLabel(names.length, "name")}${byModule.size > 1 ? ` in ${REPORT_SCENE.countLabel(byModule.size, "module")}` : ""}`;
+    return names.length > 6 ? `<details class="atlas-provides"><summary>${title}</summary><ul class="plain">${rows}</ul></details>`
+      : `<h3>${title}</h3><ul class="plain">${rows}</ul>`;
+  }
+  // What a component owns, as one short line: one package or module is named, many are counted.
+  function atlasOwnsMarkup(path) {
+    const parts = path.split(", ");
+    return parts.length === 1 ? `<code>${esc(parts[0])}</code>`
+      : `<details class="atlas-owns"><summary>owns ${REPORT_SCENE.countLabel(parts.length, "package or module", "packages and modules")}</summary><p>${parts.map(esc).join(", ")}</p></details>`;
+  }
+  // The declared dependencies of a component: one line each, the way through folded behind a count.
+  function atlasRequiresMarkup(component) {
+    if (!component.requires.length) return "";
+    const rows = component.requires.map((edge) => {
+      const through = edge.through.length > 2
+        ? `<details><summary>through ${REPORT_SCENE.countLabel(edge.through.length, "path")}</summary><p>${edge.through.map(esc).join(", ")}</p></details>`
+        : edge.through.length ? `<p class="muted">through ${edge.through.map(esc).join(", ")}</p>` : "";
+      const seen = viewMode !== "target" ? ` · ${REPORT_SCENE.countLabel(edge.observed_imports, "observed import")}` : "";
+      return `<li><strong>${esc(REPORT_SCENE.atlasComponent(edge.target_id)?.label || edge.target_id)}</strong>${seen}<p>${esc(edge.rationale)}</p>${through}</li>`;
+    }).join("");
+    return `<details class="atlas-requires"><summary>Requires · ${REPORT_SCENE.countLabel(component.requires.length, "declared dependency", "declared dependencies")}</summary><ul class="plain">${rows}</ul></details>`;
+  }
   function atlasSheet(level, scene = renderedScene) {
     const component = REPORT_SCENE.atlasComponent(umlSelection?.id || level.parent_id);
     const inventory = viewMode === "target" ? moduleInventoryMarkup(ATLAS.module_inventories
@@ -2408,17 +2449,14 @@
     }
     const componentLevel = ATLAS.levels.find((item) => item.parent_id === component.id);
     const moduleCount = componentLevel ? REPORT_SCENE.atlasModules(componentLevel, viewMode).length : 0;
+    const usedBy = component.used_by.map((item) => `${esc(REPORT_SCENE.atlasComponent(item.component_id)?.label || item.component_id)} (${item.import_sites})`).join(", ");
     inspectorContent.innerHTML = `<div class="kicker">${atlasBoxKind(component)} fact sheet · ${viewMode === "target" ? "Declared intent" : "Core facts"}</div>
-      ${boundaryPermissionMarkup(component.id)}<h2>${esc(component.label)}</h2><p><button type="button" class="flow-fit" data-browse-component>${moduleCount ? `Browse ${REPORT_SCENE.countLabel(moduleCount, "module")}` : `Browse ${esc(component.label)}`}</button></p>${component.layer ? `<p>Declared layer: ${esc(component.layer)}</p>` : ""}${list("Responsibility", component.responsibilities)}
-      ${list("Not responsible for", component.not_responsible_for)}${list("Provides", component.public)}
-      ${list("Planned interface", component.planned)}${component.requires.length ? `<h3>Requires · declared permission, not an obligation</h3>
-      <ul class="plain">${component.requires.map((edge) => `<li><strong>${esc(REPORT_SCENE.atlasComponent(edge.target_id)?.label || edge.target_id)}</strong>
-        <p>${esc(edge.rationale)}</p>${edge.through.length ? `<p>Through: ${edge.through.map(esc).join(", ")}</p>` : ""}
-        <p>Decided by ${esc(edge.decided_by || "Not declared")}${viewMode !== "target" ? ` · ${REPORT_SCENE.countLabel(edge.observed_imports, "observed import")}` : ""}</p></li>`).join("")}</ul>` : ""}
-      ${viewMode === "target" ? "" : `${atlasRuleAssessmentMarkup(level, component)}${atlasEvidenceMarkup()}`} ${viewMode !== "target" ? `<h3>Observed weight</h3><p>${REPORT_SCENE.countLabel(component.observed_modules, "module")}${component.observed_symbols == null ? "" : ` · ${REPORT_SCENE.countLabel(component.observed_symbols, "observed symbol")}`}</p><h3>Component evidence status</h3><p>${esc(component.status)} · ${esc(component.reason)}</p>
-        <h3>Used by</h3><ul class="plain">${component.used_by.map((item) => `<li>${esc(REPORT_SCENE.atlasComponent(item.component_id)?.label || item.component_id)} · ${REPORT_SCENE.countLabel(item.import_sites, "import")}</li>`).join("") || "No recorded component uses."}</ul>` : ""}
-      <h3>${viewMode === "target" ? "Decision" : "Decision and source"}</h3><p>${esc(component.decided_by || "Not declared")}${viewMode === "target" ? "" : ` · <code>${esc(component.path || "Path not declared")}</code>`}</p>
-      ${list("Provenance", component.provenance)}${inventory}
+      ${boundaryPermissionMarkup(component.id)}<h2>${esc(component.label)}</h2><p><button type="button" class="flow-fit" data-browse-component>${moduleCount ? `Browse ${REPORT_SCENE.countLabel(moduleCount, "module")}` : `Browse ${esc(component.label)}`}</button>${component.layer ? ` <span class="muted">layer ${esc(component.layer)}</span>` : ""}</p>${list("Responsibility", component.responsibilities)}
+      ${list("Not responsible for", component.not_responsible_for)}${atlasProvidesMarkup(component.public)}
+      ${list("Planned interface", component.planned)}${atlasRequiresMarkup(component)}
+      ${viewMode === "target" ? "" : atlasRuleAssessmentMarkup(level, component)}${viewMode !== "target" ? `<h3>In this run</h3><p>${REPORT_SCENE.countLabel(component.observed_modules, "module")}${component.observed_symbols == null ? "" : ` · ${REPORT_SCENE.countLabel(component.observed_symbols, "observed symbol")}`} · ${esc(component.status)} · ${esc(component.reason)}</p>${usedBy ? `<h3>Used by</h3><p>${usedBy}</p>` : ""}` : ""}
+      <p class="muted">Decided by ${esc(component.decided_by || "the contract")}${viewMode === "target" || !component.path ? "" : ` · ${atlasOwnsMarkup(component.path)}`}</p>
+      ${component.provenance.length ? `<details><summary>Reasons · ${REPORT_SCENE.countLabel(component.provenance.length, "document")}</summary><ul class="plain">${component.provenance.map((item) => `<li>${esc(item)}</li>`).join("")}</ul></details>` : ""}${inventory}
       ${viewMode === "target" ? `<p>${link(`${ATLAS.detail_page}?component=${encodeURIComponent(component.id)}&origin=declared&${atlasEntryQuery(level)}`, "Open declared component details")}</p>` : ""}`;
     inspectorContent.querySelector("[data-browse-component]").onclick = () => openAtlasComponent(component.id, "modules");
   }
