@@ -225,7 +225,18 @@ def unlisted(grown: list[list[str]], listed: dict[str, Any]) -> list[str]:
     ]
 
 
+def _fork_point(ref: str) -> str:
+    """The merge base of `ref` and HEAD: what this branch started from (AD-733).
+
+    A branch that is behind main (non-strict protection) must not read main's later changes of a
+    pin as its own shrinking or growth.
+    """
+    done = subprocess.run(["git", "merge-base", ref, "HEAD"], capture_output=True, text=True)
+    return done.stdout.strip() if done.returncode == 0 and done.stdout.strip() else ref
+
+
 def _git_show(ref: str, path: Path) -> dict[str, Any] | None:
+    ref = _fork_point(ref)
     shown = subprocess.run(
         ["git", "show", f"{ref}:{path.as_posix()}"], capture_output=True, text=True, check=False
     )

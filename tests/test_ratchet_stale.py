@@ -84,3 +84,30 @@ def test_the_growth_files_of_the_repository_hold_no_stale_entry(path: str) -> No
     pin = json.loads((ROOT / pins[path]).read_text(encoding="utf-8"))
     listed = json.loads((ROOT / path).read_text(encoding="utf-8"))
     assert stale(pin, listed) == []
+
+
+def test_the_base_of_the_growth_check_is_the_fork_point_not_the_tip_of_main(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    """AD-733: main shrank the pin after this branch left it; that is no growth of the branch."""
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
+
+    def run(*arguments: str) -> None:
+        subprocess.run([*git, *arguments], cwd=tmp_path, check=True, capture_output=True)
+
+    clean = {"rules": {"R": "PASS"}, "unknown": {}, "gaps": [], "violations": []}
+    run("init", "-q", "-b", "main")
+    (tmp_path / "p.json").write_text(json.dumps(PIN))
+    run("add", "-A")
+    run("commit", "-q", "-m", "base")
+    run("checkout", "-q", "-b", "topic")
+    run("checkout", "-q", "main")
+    (tmp_path / "p.json").write_text(json.dumps(clean))
+    run("commit", "-q", "-am", "main shrinks the pin")
+    run("checkout", "-q", "topic")
+    result = tmp_path / "r.json"
+    result.write_text(json.dumps(_result()))
+    monkeypatch.chdir(tmp_path)
+    # The branch still holds the older, larger pin and the result equals it: no growth against main.
+    assert main([str(result), "p.json", "--base-ref", "main"]) == 0
+    assert "growth" not in capsys.readouterr().err
