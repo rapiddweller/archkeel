@@ -21,6 +21,7 @@ from typing import Final
 
 from .core_arguments import Options
 from .core_binding import ProjectRoot
+from .core_exit import Outcome, envelope, exit_for
 from .core_frame import CoreCommand as Command
 from .core_frame import RefusalKind
 from .init_draft import (
@@ -216,12 +217,13 @@ def _run_init(as_json: bool, root: Path) -> int:
         raise FileExistsError(
             f"every file of the draft exists in {root} already; init replaces none"
         )
+    code = exit_for(Outcome.COMPLETED, None, baseline=False)
     if as_json:
-        document: dict[str, object] = {"command": Command.INIT, "exit_code": 0, "files": files}
+        document = envelope(Command.INIT, Outcome.COMPLETED, None, code) | {"files": files}
         document |= {"components": result.components, "language": result.language}
         document |= {"parts": result.parts, "interfaces": result.interfaces, "note": result.note}
         print(json.dumps(document))
-        return 0
+        return code
     what = f"a system of {len(result.parts)} parts" if result.parts else _layout(result) + " layout"
     print(f"Drafted {len(files)} files for {result.language} ({what}):")
     for name in files:
@@ -239,4 +241,4 @@ def _run_init(as_json: bool, root: Path) -> int:
         else f" --config {result.entry}"
     )
     print(f"  archkeel validate{config}\nGuide: {DOCUMENT}")
-    return 0
+    return code

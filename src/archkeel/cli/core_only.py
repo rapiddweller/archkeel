@@ -14,7 +14,6 @@ with exit 2; it never falls back and never reports success. Each exit code comes
 from __future__ import annotations
 
 import json
-import sys
 import traceback
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
@@ -22,12 +21,12 @@ from pathlib import Path
 from time import time_ns
 from typing import Final
 
-from .core_arguments import NotOnThisLine, Options, command_of, parse
+from .core_arguments import NotOnThisLine, Options, OutputMode, command_of, output_mode, parse
 from .core_baseline import BaselineResult, BaselineState
 from .core_baseline import as_json as baseline_json
 from .core_binary import CoreBinaryNotFound, confirm, locate_core
 from .core_binding import ProjectRoot, RootMode, resolve_root, work_tree_top
-from .core_exit import Outcome, exit_for, outcome_of, require_baseline_part
+from .core_exit import Outcome, envelope, exit_for, outcome_of, require_baseline_part
 from .core_frame import CoreCommand as Command
 from .core_frame import (
     CoreError,
@@ -47,16 +46,10 @@ from .init_draft import DOCUMENT
 from .native_scan import SCAN_PROTOCOL, exchange, identity, ignored_by
 
 
-def _wants_json(argv: Sequence[str]) -> bool:
-    if "--summary" in argv:
-        return False
-    return "--json" in argv or (not sys.stdout.isatty() and "--text" not in argv)
-
-
 def run(argv: Sequence[str]) -> int:
     """Run one command line and return its exit code. The core decides; the shell only maps."""
 
-    as_json = _wants_json(argv)
+    mode = output_mode(argv)  # AD-735: one output mode for the result and each refusal
     baseline = any(arg == "--baseline" or arg.startswith("--baseline=") for arg in argv)
     try:
         if not argv or argv[0] in {"-h", "--help"}:
@@ -71,22 +64,22 @@ def run(argv: Sequence[str]) -> int:
         command_of(argv)
         options = parse(argv)
         if options.command is Command.SKILL:
-            return _install_skill(options, as_json)
+            return _install_skill(options, mode)
         if options.command is Command.INIT:
-            return _run_init("--json" in argv, ProjectRoot.of(options.root).path)
-        return _decide(options, as_json)
+            return _run_init(mode is OutputMode.JSON, ProjectRoot.of(options.root).path)
+        return _decide(options, mode)
     except (CoreError, OSError, ValueError) as error:
         output = any(arg == "--output" or arg.startswith("--output=") for arg in argv)
         message = _message(error, output=output)
         kind = _refusal_kind(error)
-        return _refused(_command_or_none(argv), kind, message, as_json, baseline=baseline)
+        return _refused(_command_or_none(argv), kind, message, mode, baseline=baseline)
     except Exception as error:
         traceback.print_exc()
         return _refused(
             _command_or_none(argv),
             RefusalKind.INTERNAL_ERROR,
             f"{type(error).__name__}: {error}",
-            as_json,
+            mode,
             baseline=baseline,
         )
 
@@ -126,17 +119,19 @@ def _version() -> str:
         return "unknown"
 
 
-def _install_skill(options: Options, as_json: bool) -> int:
+def _install_skill(options: Options, mode: OutputMode) -> int:
     from .skill import InstallationAgent, install_skill
 
     path = install_skill((options.root or Path.cwd()).resolve(), options.agent)
-    if as_json:
-        print(json.dumps({"command": Command.SKILL, "exit_code": 0, "path": str(path)}))
+    code = exit_for(Outcome.COMPLETED, None, baseline=False)
+    if mode is OutputMode.JSON:
+        result = envelope(Command.SKILL, Outcome.COMPLETED, None, code) | {"path": str(path)}
+        print(json.dumps(result))
     else:
         name = "$archkeel" if options.agent == InstallationAgent.CODEX else "/archkeel"
         print(f"Installed Archkeel instructions: {path}")
         print(f"Use {name} in your agent session; start a new session if needed.")
-    return 0
+    return code
 
 
 def _request(options: Options, project: ProjectRoot) -> dict[str, object]:
@@ -304,7 +299,7 @@ def _print_text(
             print(f"Core: {binary}; engine: {frame.engine}; code digest: {frame.code_digest}")
 
 
-def _decide(options: Options, as_json: bool) -> int:
+def _decide(options: Options, mode: OutputMode) -> int:
     """Draft the files of a first run, then scan. A failure after a write still names the files."""
     options = _located(options)
     project = ProjectRoot.of(options.root)  # AD-735: one root for the draft, the scan and the files
@@ -314,20 +309,20 @@ def _decide(options: Options, as_json: bool) -> int:
     if (stop := init.refusal()) is not None:
         kind, fix = stop
         return _refused(
-            options.command, kind, init.message, as_json, baseline=baseline, fix=fix, init=init
+            options.command, kind, init.message, mode, baseline=baseline, fix=fix, init=init
         )
     try:
-        return _scan(options, project, binary, init.created, as_json)
+        return _scan(options, project, binary, init.created, mode)
     except (CoreError, OSError, ValueError) as error:
         if init.created is None:
             raise
         message = _message(error, output=options.output is not None)
         kind = _refusal_kind(error)
-        return _refused(options.command, kind, message, as_json, baseline=baseline, init=init)
+        return _refused(options.command, kind, message, mode, baseline=baseline, init=init)
 
 
 def _scan(
-    options: Options, project: ProjectRoot, binary: Path, created: Created | None, as_json: bool
+    options: Options, project: ProjectRoot, binary: Path, created: Created | None, mode: OutputMode
 ) -> int:
     """Send the scan identity to the core and print the one frame that it gives."""
     baseline = options.baseline is not None
@@ -359,10 +354,7 @@ def _scan(
     failures = _deliver(options, frame, stdout, root)
     outcome = outcome_of(frame, delivered=not failures)
     code = exit_for(outcome, frame, baseline=baseline)
-    result: dict[str, object] = {
-        "command": options.command,
-        "status": frame.status,
-        "exit_code": code,
+    result = envelope(options.command, outcome, frame.status, code) | {
         "frame": document,
         "core": {"path": str(binary), "engine": frame.engine, "code_digest": frame.code_digest},
         "gaps": [
@@ -375,7 +367,7 @@ def _scan(
     result |= _refusal_fields([*refusals, *failures])
     if created is not None:
         result["init"] = created.as_json()
-    if as_json and (options.json or options.output is None):
+    if mode is OutputMode.JSON:
         print(json.dumps(result))
         return code
     if created is not None:
@@ -455,7 +447,7 @@ def _refused(
     command: Command | None,
     kind: RefusalKind,
     message: str,
-    as_json: bool,
+    mode: OutputMode,
     *,
     baseline: bool,
     fix: str | None = None,
@@ -468,8 +460,8 @@ def _refused(
     """
     code = exit_for(Outcome.COMMAND_REFUSED, None, baseline=baseline)
     created = init.created if init is not None else None
-    if as_json:
-        document: dict[str, object] = {"status": Status.UNKNOWN, "exit_code": code}
+    if mode is OutputMode.JSON:
+        document = envelope(command, Outcome.COMMAND_REFUSED, Status.UNKNOWN, code)
         document["refusal"] = {"kind": kind, "message": message}
         if init is not None:
             document["init"] = created.as_json() if created else {"state": init.state}
