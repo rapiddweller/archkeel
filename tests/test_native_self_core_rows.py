@@ -81,10 +81,13 @@ COLLECT_TO_COLLECTORS = {
     ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-python-collector", PY),
     ("native.archkeel_collect.run", "archkeel_python_collector::BUILD", PY),
     ("native.archkeel_collect.run", "archkeel_python_collector::typed_reply", PY),
+    # AD-688: the check of the collector gives the core only a refusal text.
+    ("native.archkeel_collect.run", "archkeel_python_collector::check", PY),
     ("native.archkeel_collect", "archkeel_dart_collector::TEST_FEATURES", DART),
     ("native.archkeel_collect.cargo_toml", "dependencies: archkeel-dart-collector", DART),
     ("native.archkeel_collect.run", "archkeel_dart_collector::provenance", DART),
     ("native.archkeel_collect.run", "archkeel_dart_collector::typed_reply", DART),
+    ("native.archkeel_collect.run", "archkeel_dart_collector::check", DART),
 }
 
 

@@ -42,10 +42,11 @@ fn reply(tree: &Tree) -> Reply {
     crate::run::reply_of(Profile::Dart, request.to_string().as_bytes()).unwrap()
 }
 
+/// The refusal by the store or the check of the collector (AD-688).
 fn refused(reply: Reply) -> String {
     archkeel_store::ingest_typed(reply)
-        .err()
-        .expect("the store must refuse the claim")
+        .and_then(|ingested| crate::check(&ingested.reply().facts))
+        .expect_err("the store or the collector must refuse the claim")
 }
 
 fn imports(reply: &mut Reply) -> &mut Vec<archkeel_facts::Record<ImportFact>> {
@@ -110,10 +111,16 @@ fn a_part_without_an_owner_or_a_wrong_owner_is_refused() {
 #[test]
 fn a_target_that_breaks_the_dart_uri_rules_is_refused() {
     let tree = project();
+    // AD-688: the store refuses the planted target first (its record checks run before the
+    // check of the collector); the check of the collector alone names the Dart rule.
     let edit = |change: &dyn Fn(&mut Target)| {
         let mut reply = reply(&tree);
         reply.facts.imports.iter_mut().for_each(change);
-        refused(reply)
+        let own = archkeel_dart_collector::check(&reply.facts)
+            .err()
+            .unwrap_or_default();
+        assert!(!refused(reply).is_empty());
+        own
     };
     let builtin = edit(&|target| {
         if let Target::Builtin { name, .. } = target {
@@ -158,7 +165,11 @@ fn coverage_gaps_that_are_not_the_unknowns_are_refused() {
             records.clear();
         }
     }
-    assert!(refused(reply).contains("the coverage gaps must be the unknowns of the survey"));
+    let own = archkeel_dart_collector::check(&reply.facts)
+        .err()
+        .unwrap_or_default();
+    assert_eq!(own, "the coverage gaps must be the unknowns of the survey");
+    assert!(!refused(reply).is_empty());
 }
 
 #[test]

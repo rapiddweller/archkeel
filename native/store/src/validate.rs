@@ -13,7 +13,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use archkeel_facts::envelope::{Facts, Profile, Role};
+use archkeel_facts::envelope::{Facts, Role};
 use archkeel_facts::identity::inside;
 use archkeel_facts::Section;
 
@@ -203,11 +203,6 @@ pub(crate) fn envelope(facts: &Facts, names: &[&str]) -> Result<(), String> {
     )?;
     evidence_checks(facts, &inputs)?;
     capability_checks(facts, names)?;
-    match facts.profile {
-        Profile::Python => crate::python::survey(facts)?,
-        Profile::Dart => crate::dart::survey(facts)?,
-        Profile::TypeScript | Profile::Rust => {}
-    }
     Ok(())
 }
 
