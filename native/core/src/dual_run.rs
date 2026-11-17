@@ -31,7 +31,7 @@ use archkeel_report::Named;
 #[path = "frame_parts.rs"]
 mod frame_parts;
 pub(crate) use frame_parts::{
-    refused_scan, Answered, Collect, InterfaceRow, PartRow, SystemFrame, CODE_DIGEST,
+    refused_scan, Answered, Collect, InterfaceRow, PartOf, PartRow, SystemFrame, CODE_DIGEST,
 };
 #[cfg(test)]
 pub(crate) use frame_parts::{typed_rows, Parts as FrameParts};
@@ -111,6 +111,7 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, String> {
         accept: None,
         report: true,
         html: false,
+        part_of: None,
         base: None,
         trust: Box::new(move |namespace, _| Trust {
             settings: Settings::new(namespace, profile, standard_library).with_producer(producer),
@@ -159,6 +160,8 @@ pub(crate) struct Run {
     pub(crate) report: bool,
     /// Request a static presentation of the same ruling in the frame.
     pub(crate) html: bool,
+    /// The system that the page of a scan request is a part of (E4); `None` for the others.
+    pub(crate) part_of: Option<PartOf>,
     /// The reading of the base reply of a check request (AD-399); the dual run has none.
     pub(crate) base: Option<BaseOf>,
     /// The settings of the namespace for the validated reply (or none), and a reason that names
@@ -275,6 +278,7 @@ pub(crate) fn run(run: Run) -> Result<Answered, String> {
         gaps,
         baseline,
         system: None,
+        part_of: run.part_of,
         engine: ENGINE,
         sections: frame_parts::typed_rows(rows)?,
         unsupported: UnsupportedParts {

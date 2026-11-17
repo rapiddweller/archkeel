@@ -13,8 +13,17 @@ from pathlib import Path
 import pytest
 from explorer_support import Browser, browser, serve, write_pages
 
-PAGES = {
-    "system": (None, "docs/architecture/architecture-system.json"),
+SYSTEM = "docs/architecture/architecture-system.json"
+PAGES: dict[str, tuple[str | None, str, *tuple[str, ...]]] = {
+    "system": (None, SYSTEM),
+    "part": (
+        None,
+        "docs/architecture/shell.toml",
+        "--part-of",
+        SYSTEM,
+        "--system-href",
+        "system.html",
+    ),
 }
 
 
@@ -339,7 +348,7 @@ def test_the_current_crumb_stays_whole_in_fullscreen(site: str, page: Browser) -
     crumbs = page.evaluate(CRUMBS)
     click(page, "#flow .flow-fullscreen")
     assert crumbs[-1]["whole"], crumbs
-    assert [crumb["title"] for crumb in crumbs] == ["System", "Rust core", "model"]
+    assert [crumb["title"] for crumb in crumbs] == ["ArchKeel", "Rust core", "model"]
 
 
 def test_fullscreen_and_the_current_view_key_keep_the_selection(site: str, page: Browser) -> None:
@@ -385,3 +394,16 @@ def test_a_route_notice_opens_details_through_the_state(site: str, page: Browser
     state = page.state()
     assert state["notice"] and state["details"] is True
     assert page.evaluate("!document.querySelector('#flow .flow-inspector').hidden")
+
+
+def test_the_root_of_a_part_names_its_system_and_links_up(site: str, page: Browser) -> None:
+    # E4: the page of a part reads "<part> of <system>"; the system is a link to its page.
+    page.open(f"{site}/part.html")
+    crumb = page.evaluate("document.querySelector('#flow .flow-breadcrumb').textContent")
+    assert crumb == "Python shell of ArchKeel"
+    page.evaluate("document.querySelector('#flow .flow-breadcrumb a').click()")
+    page.wait("location.pathname === '/system.html'")
+    page.settle()
+    assert (
+        page.evaluate("document.querySelector('#flow .flow-breadcrumb').textContent") == "ArchKeel"
+    )

@@ -67,6 +67,20 @@ struct ScanRequest {
     /// Write the baseline of this run: the frame carries the bytes (AD-546).
     #[serde(default)]
     write_baseline: bool,
+    /// The system document that this configuration is a part of, and the page of the system: the
+    /// report page names them and links up (E4, #1451).
+    #[serde(default)]
+    part_of: Option<PartOfRequest>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PartOfRequest {
+    /// The repository path of the system document.
+    document: String,
+    /// The link from the page of the part to the page of the system, as the publisher writes it.
+    #[serde(default)]
+    href: Option<String>,
 }
 
 /// The frame of one scan request. An error is a request that the core cannot read.
@@ -80,6 +94,10 @@ pub(crate) fn answer(input: &[u8]) -> Result<Answered, crate::refusal::Error> {
         dirty: request.dirty,
     };
     match archkeel_collect::read_system(&identity) {
+        Ok(Some(_)) if request.part_of.is_some() => {
+            let reason = "collect: unsupported: --part-of names the system of one part; this configuration is a system document";
+            return dual_run::refused_scan(reason, request.html).map_err(Into::into);
+        }
         Ok(Some(system)) => return system_run(&request, &identity, &system),
         Ok(None) => {}
         Err(refusal) => return refused(&refusal, request.html).map_err(Into::into),
@@ -102,6 +120,7 @@ fn system_run(
     // Each part gives its topology to the page of the system; the page is one for all parts.
     let part_request = ScanRequest {
         html: false,
+        part_of: None,
         topology: request.topology || request.html,
         ..request.clone()
     };
@@ -119,8 +138,50 @@ fn system_run(
     Ok(Answered { frame, names_a_gap })
 }
 
+/// The titles of the system of this part, read from the system document of the request (E4).
+fn part_of(asked: &PartOfRequest, identity: &Identity<'_>) -> Result<dual_run::PartOf, String> {
+    let document = Identity {
+        config: &asked.document,
+        ..*identity
+    };
+    let refused = |why: &str| format!("collect: unsupported: --part-of {}: {why}", asked.document);
+    let system = match archkeel_collect::read_system(&document) {
+        Ok(Some(system)) => system,
+        Ok(None) => {
+            return Err(refused(
+                "not a system document (a .json file of kind system)",
+            ))
+        }
+        Err(refusal) => return Err(refused(&refusal.reason)),
+    };
+    let part = system
+        .parts
+        .iter()
+        .find(|part| part.config == identity.config)
+        .ok_or_else(|| {
+            refused(&format!(
+                "no part names the configuration {}; name the system document of this part",
+                identity.config
+            ))
+        })?;
+    Ok(dual_run::PartOf {
+        system: system.title.clone(),
+        part: part.title.clone(),
+        href: asked.href.clone(),
+    })
+}
+
 /// The frame of the scan of one configuration.
 fn one(request: &ScanRequest, identity: &Identity<'_>) -> Result<Answered, crate::refusal::Error> {
+    let part_of = match (&request.part_of, request.html) {
+        (Some(asked), true) => match part_of(asked, identity) {
+            Ok(found) => Some(found),
+            Err(reason) => {
+                return dual_run::refused_scan(&reason, request.html).map_err(Into::into)
+            }
+        },
+        _ => None,
+    };
     match archkeel_collect::scan(identity, MAX_BYTES) {
         Ok(scanned) => {
             if request.root_only {
@@ -141,7 +202,7 @@ fn one(request: &ScanRequest, identity: &Identity<'_>) -> Result<Answered, crate
                 }
             }
             let accept = baseline_input(&scanned, request.baseline.clone(), request.write_baseline);
-            decide(scanned, (request.html, request.topology), accept).map_err(Into::into)
+            decide(scanned, (request.html, request.topology), accept, part_of).map_err(Into::into)
         }
         Err(refusal) if refusal.kind == RefusalKind::ParseWork => {
             Err(crate::refusal::Error::Refused(refusal))
@@ -155,6 +216,7 @@ fn decide(
     scanned: Scanned,
     (html, topology): (bool, bool),
     accept: Option<baseline_frame::Input>,
+    part_of: Option<dual_run::PartOf>,
 ) -> Result<Answered, String> {
     let insides = tree(&scanned)?;
     // AD-466: the core reads and binds each provenance document of the tree.
@@ -196,6 +258,7 @@ fn decide(
         accept,
         report: false,
         html,
+        part_of,
         topology,
         base: None,
         trust: in_process(collector),
