@@ -22,8 +22,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from .init_areas import Area, _detect, _title_of, _unique_ids
-from .init_layouts import _IGNORED, DOCUMENT, Layout, NothingToDraft, Part
+from .init_areas import (
+    _IGNORED,
+    DOCUMENT,
+    Area,
+    Layout,
+    NothingToDraft,
+    Part,
+    _detect,
+)
 
 __all__ = [
     "CONFIG",
@@ -154,6 +161,23 @@ def _files(repo: Path) -> list[Path]:
         )
         found += [Path(folder) / name for name in sorted(files) if _SPECS.search(name)]
     return found
+
+
+_NAMES: Final = {"python": "Python", "rust": "Rust", "typescript": "TypeScript", "dart": "Dart"}
+
+
+def _unique_ids(areas: list[Area]) -> list[str]:
+    """One part id for each area: the folder name, or the language for the root, made unique."""
+    labels = [area.label for area in areas]
+    return [
+        label if labels.count(label) == 1 else f"{area.layout.language}-{label}"
+        for area, label in zip(areas, labels, strict=True)
+    ]
+
+
+def _title_of(area: Area, identifier: str) -> str:
+    """The title of a part: the language and the id."""
+    return f"{_NAMES[area.layout.language]} {identifier}"
 
 
 def _specs(repo: Path, areas: list[Area]) -> list[tuple[str, int]]:

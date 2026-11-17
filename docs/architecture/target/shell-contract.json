@@ -668,7 +668,6 @@
       "packages": [],
       "exact_modules": [
         "archkeel.cli.init_draft",
-        "archkeel.cli.init_layouts",
         "archkeel.cli.init_areas"
       ],
       "responsibilities": [
@@ -949,18 +948,6 @@
       "id": "SHELL-NO-INIT-TO-FRAME",
       "kind": "forbidden_dependency",
       "source": "archkeel.cli.init_draft",
-      "target": "archkeel.cli.core_frame",
-      "include_type_checking": true,
-      "rationale": "The draft reads no frame.",
-      "provenance": [
-        "docs/architecture/shell.md"
-      ],
-      "decided_by": "architect"
-    },
-    {
-      "id": "SHELL-NO-INIT-LAYOUTS-TO-FRAME",
-      "kind": "forbidden_dependency",
-      "source": "archkeel.cli.init_layouts",
       "target": "archkeel.cli.core_frame",
       "include_type_checking": true,
       "rationale": "The draft reads no frame.",

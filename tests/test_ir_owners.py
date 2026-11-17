@@ -38,7 +38,6 @@ SHELL = frozenset(
         "cli/core_arguments.py",
         "cli/core_json.py",
         "cli/init_draft.py",
-        "cli/init_layouts.py",
         "cli/init_areas.py",
         "cli/core_init.py",
         "cli/core_schema.py",
