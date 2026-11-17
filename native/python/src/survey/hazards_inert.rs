@@ -60,8 +60,10 @@ fn attribute(module: &str, attr: &str) -> bool {
         (
             "pickle",
             "UnpicklingError" | "PickleError" | "HIGHEST_PROTOCOL"
-        ) | ("importlib.metadata", "PackageNotFoundError" | "version")
-            | ("importlib.abc", "Traversable")
+        ) | (
+            "importlib.metadata",
+            "PackageNotFoundError" | "version" | "distribution" | "distributions"
+        ) | ("importlib.abc", "Traversable")
             | ("dill", "settings")
     )
 }

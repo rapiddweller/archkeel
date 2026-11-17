@@ -11,6 +11,8 @@ fn direct_metadata_version_reads_keep_the_import_gap() {
     for source in [
         "import importlib.metadata\nx = importlib.metadata.version('pip')\n",
         "import importlib.metadata\nx = importlib.metadata.PackageNotFoundError\n",
+        "import importlib.metadata\nx = importlib.metadata.distribution('pip')\n",
+        "from importlib import metadata as m\nx = m.distributions()\n",
         "from importlib import metadata as m\nx = m.version('pip')\n",
         "import importlib.metadata as m\nx = m.version('pip')\n",
     ] {
