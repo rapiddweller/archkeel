@@ -62,22 +62,12 @@
   const componentById = new Map(components.map((item) => [item.id, item]));
   const depthOf = (item) => { let depth = 0; for (let p = item.parent_id; p; p = componentById.get(p)?.parent_id) depth += 1; return depth; };
   const pathOf = (item) => { const names = []; for (let c = item; c; c = componentById.get(c.parent_id)) names.unshift(c.label); return names.join(" / "); };
-  const moduleLevel = new Map();
-  for (const level of A?.levels || []) {
-    const depth = level.parent_id ? depthOf(componentById.get(level.parent_id)) + 1 : 0;
-    for (const module of level.modules) {
-      const previous = moduleLevel.get(module.id);
-      if (!previous || depth > previous.depth) moduleLevel.set(module.id, { level, depth });
-    }
-  }
 
   // ---------- navigation through the report's own routing ----------
   const showComponent = (item) => F.selectComponent(item.id);
   const enterScope = (id) => F.openComponent(id);
-  const showModule = (item) => {
-    const level = moduleLevel.get(item.id)?.level || A.levels.find((level) => level.parent_id === item.component_id) || A.levels[0];
-    location.href = F.moduleHref(item, level);
-  };
+  // Issue 1471: a module opens at its level on this page; no run writes a page for each module.
+  const showModule = (item) => F.openModule(item.id);
   const showRule = (rule) => F.openRule(rule);
   function setParam(key, value) {
     if (!["file:", "http:", "https:"].includes(location.protocol)) return;
@@ -284,15 +274,15 @@
       if (!value) return;
       group.dataset.akTag = value;
       group.style.setProperty("--ex-tag", perspectiveColor(perspective, value));
-      const height = Number(group.querySelector(".card")?.getAttribute("height") || 120);
-      const width = Math.min(170, 20 + value.length * 6.8);
+      // The badge sits in the header row of the box, left of its kind icon (icon at CARD.w - 29).
+      const width = Math.min(100, 12 + value.length * 5.7);
       const tag = s("g", {
         class: perspective === "language" ? "ak-tag ak-language-badge" : "ak-tag",
         ...(perspective === "language" ? { "data-language": languageKey(value) } : {}),
-        transform: `translate(14 ${height + 4})`,
+        transform: `translate(${171 - 5 - width} 7)`,
       });
-      tag.append(s("rect", { width: String(width), height: "22", rx: "11" }));
-      const text = s("text", { x: "10", y: "15" });
+      tag.append(s("rect", { width: String(width), height: "18", rx: "9" }));
+      const text = s("text", { x: "6", y: "13" });
       text.textContent = value;
       tag.append(text);
       group.append(tag);
@@ -573,6 +563,8 @@
   if (A) F.nodeLayer.addEventListener("click", () => {
     if (root.dataset.detailsOpen !== "true") detailsToggle?.click();
   });
+  // The sheet of a box is set in the small body text of the design system.
+  root.querySelector(".flow-inspector")?.classList.add("body-sm");
   const fitDiagram = () => F.fit(true);
   // The rows of a wrapped layout follow the shape of the view: lay the diagram out again when the
   // Explorer goes to the full window and back.

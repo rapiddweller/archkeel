@@ -225,7 +225,8 @@ def test_the_same_path_for_both_options_is_refused_before_any_scan(built: Path) 
             "b.json",
         )
         assert not (root / "b.json").exists()
-    assert done.returncode == 2
+    # AD-731: a refusal under a baseline exits 1, because exit 2 there means all accepted.
+    assert done.returncode == 1
     assert "same file" in json.loads(done.stdout)["refusal"]["message"]
 
 
@@ -234,7 +235,7 @@ def test_a_path_outside_the_root_is_refused(built: Path, path: str) -> None:
     with case_root(HONEST) as root:
         for flag in ("--baseline", "--write-baseline"):
             done = command(built / f"archkeel-core{SUFFIX}", root, "--json", flag, path)
-            assert done.returncode == 2, done.stdout
+            assert done.returncode == (1 if flag == "--baseline" else 2), done.stdout
             assert json.loads(done.stdout)["refusal"]["kind"] == "invalid_input"
 
 

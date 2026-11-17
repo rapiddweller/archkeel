@@ -94,10 +94,17 @@ native-check:
 	$(MAKE) self-validate-native
 
 # AD-432: the core is the only decision path. `archkeel` finds this release build of the checkout.
+# AD-732: with ARCHKEEL_NATIVE_TREE (the hash of the native tree, set by CI) the core is reused only when
+# the stamp next to the binary names that tree; else it is built and then stamped. A stale binary of
+# main, restored from a cache, therefore never stands for the tree of a pull request.
 core:
-	@if [ -n "$$ARCHKEEL_PREBUILT_CORE" ] && [ -x native/target/release/archkeel-core ]; then \
-		echo "core: the prebuilt release core of main is used (AD-674)"; \
-	else cd native && cargo build --locked --release -p archkeel-core; fi
+	@stamp=native/target/release/archkeel-core.tree; tree="$$ARCHKEEL_NATIVE_TREE"; \
+	if [ -n "$$tree" ] && [ -x native/target/release/archkeel-core ] && [ "$$(cat $$stamp 2>/dev/null)" = "$$tree" ]; then \
+		echo "core: the release core of tree $$tree is used (AD-732)"; \
+	else \
+		rm -f $$stamp; (cd native && cargo build --locked --release -p archkeel-core) && \
+		{ [ -z "$$tree" ] || echo "$$tree" > $$stamp; }; \
+	fi
 
 # AD-672: the pins are ratchets. With origin/main present, growth against it needs a reason in the growth file.
 RATCHET_BASE := $(if $(shell git rev-parse --verify -q origin/main),--base-ref origin/main,)

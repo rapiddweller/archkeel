@@ -38,9 +38,17 @@ fn suffix(value: &str) -> &str {
     }
 }
 
-const SOURCE_SUFFIXES: [&str; 10] = [
-    ".py", ".dart", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs",
-];
+/// The source suffixes of the languages, one `language suffix` line each. The file is the one
+/// owner of the table: the shell reads the same file (`archkeel.cli.init_areas`).
+const SOURCE_SUFFIXES: &str = include_str!("../../../schema/archkeel-source-suffixes.txt");
+
+/// True when the suffix (with its dot) is a source suffix of a language.
+fn source_suffix(text: &str) -> bool {
+    SOURCE_SUFFIXES
+        .lines()
+        .filter_map(|line| line.split_once(' '))
+        .any(|(_, known)| known == text)
+}
 
 /// `validate_module_target_path`: a repository-relative source path.
 pub(crate) fn module_target_path(value: &str) -> bool {
@@ -51,5 +59,5 @@ pub(crate) fn module_target_path(value: &str) -> bool {
         && normal_relative_path(value)
         && !drive
         && !value.contains('\0')
-        && SOURCE_SUFFIXES.contains(&suffix(value))
+        && source_suffix(suffix(value))
 }

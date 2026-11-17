@@ -145,7 +145,8 @@ def test_each_mandatory_merge_check_is_named_without_a_scan(
         pytest.fail("a refused check must not start the core")
 
     monkeypatch.setattr(core_only, "locate_core", no_binary)
-    assert core_only.run(["check", "--json", *flags]) == 2
+    # AD-731: a command line that names a baseline exits 1 for a refusal; exit 2 would be green.
+    assert core_only.run(["check", "--json", *flags]) == (1 if "--baseline" in flags else 2)
     result = json.loads(capsys.readouterr().out)
     assert kind in result["refusal"]["message"] and "#" not in result["refusal"]["message"]
 

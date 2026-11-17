@@ -72,9 +72,8 @@ fn statement(fact: &ImportFact) -> Result<(), String> {
         return Err("a Python import must be an import statement".to_owned());
     };
     let bare = data.specifier.is_none() && data.type_only.is_none();
-    let module_object = matches!(fact, ImportFact::Import(_))
-        && data.symbol.is_none()
-        && data.binding.is_some();
+    let module_object =
+        matches!(fact, ImportFact::Import(_)) && data.symbol.is_none() && data.binding.is_some();
     if bare && (data.symbols_known || module_object) {
         return Ok(());
     }

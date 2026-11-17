@@ -87,7 +87,10 @@ fn same() -> Observed {
 #[test]
 fn every_unknown_accepted_is_current_and_exits_2_never_0() {
     let found = compare(&file(accepted(), json!([]), json!({})), &same());
-    assert_eq!((found.state, found.exit_code), ("current", 2));
+    assert_eq!(
+        (found.state.word(), found.state.exit_code()),
+        ("current", 2)
+    );
     assert_eq!(found.accepted_unknowns, 3);
     assert!(found.new.is_empty() && found.gone.is_empty());
 }
@@ -95,7 +98,10 @@ fn every_unknown_accepted_is_current_and_exits_2_never_0() {
 #[test]
 fn a_run_with_no_unknown_and_no_difference_exits_0() {
     let found = compare(&file(json!([]), json!([]), json!({})), &run(&[]));
-    assert_eq!((found.state, found.exit_code), ("current", 0));
+    assert_eq!(
+        (found.state.word(), found.state.exit_code()),
+        ("current", 0)
+    );
 }
 
 #[test]
@@ -108,7 +114,7 @@ fn a_new_gap_that_is_not_accepted_is_red() {
     };
     now.gaps.keys.insert(key, 1);
     let found = compare(&file(accepted(), json!([]), json!({})), &now);
-    assert_eq!((found.state, found.exit_code), ("drift", 1));
+    assert_eq!((found.state.word(), found.state.exit_code()), ("drift", 1));
     assert_eq!(found.new.len(), 1);
     assert_eq!(found.new[0].subject, "pkg.c");
     assert!(found.gone.is_empty());
@@ -123,7 +129,7 @@ fn an_accepted_gap_that_vanished_is_stale_and_red() {
         2,
     )]);
     let found = compare(&file(accepted(), json!([]), json!({})), &now);
-    assert_eq!((found.state, found.exit_code), ("drift", 1));
+    assert_eq!((found.state.word(), found.state.exit_code()), ("drift", 1));
     assert_eq!(found.gone.len(), 1);
     assert_eq!((found.gone[0].run, found.gone[0].file), (0, 1));
 }
@@ -140,7 +146,7 @@ fn a_changed_reason_is_one_new_and_one_stale_entry() {
         ("source_resolution_gap", "pkg.b", "dynamic_import: exec", 1),
     ]);
     let found = compare(&file(accepted(), json!([]), json!({})), &now);
-    assert_eq!(found.exit_code, 1);
+    assert_eq!(found.state.exit_code(), 1);
     assert_eq!((found.new.len(), found.gone.len()), (1, 1));
     assert_eq!(found.new[0].reason, "dynamic_import: exec");
     assert_eq!(found.gone[0].reason, "dynamic_import: eval");
@@ -158,7 +164,7 @@ fn a_higher_count_is_new_and_a_lower_count_is_stale() {
         ("source_resolution_gap", "pkg.b", "dynamic_import: eval", 1),
     ]);
     let found = compare(&file(accepted(), json!([]), json!({})), &up);
-    assert_eq!((found.state, found.exit_code), ("drift", 1));
+    assert_eq!((found.state.word(), found.state.exit_code()), ("drift", 1));
     assert_eq!((found.new[0].run, found.new[0].file), (3, 2));
     let down = run(&[
         (
@@ -170,7 +176,7 @@ fn a_higher_count_is_new_and_a_lower_count_is_stale() {
         ("source_resolution_gap", "pkg.b", "dynamic_import: eval", 1),
     ]);
     let found = compare(&file(accepted(), json!([]), json!({})), &down);
-    assert_eq!((found.state, found.exit_code), ("drift", 1));
+    assert_eq!((found.state.word(), found.state.exit_code()), ("drift", 1));
     assert_eq!((found.gone[0].run, found.gone[0].file), (1, 2));
 }
 
@@ -179,7 +185,7 @@ fn one_acceptance_never_covers_two_gaps_of_one_key() {
     // Two sites of one key: the file accepts one, so the second site is new.
     let one = file(json!([entry("k", "s", "r", 1)]), json!([]), json!({}));
     let found = compare(&one, &run(&[("k", "s", "r", 2)]));
-    assert_eq!((found.state, found.exit_code), ("drift", 1));
+    assert_eq!((found.state.word(), found.state.exit_code()), ("drift", 1));
     assert_eq!(found.accepted_unknowns, 1);
     // Another key does not borrow the acceptance of its neighbour.
     let found = compare(&one, &run(&[("k", "s", "r", 1), ("k", "t", "r", 1)]));
@@ -196,7 +202,7 @@ fn a_violation_that_the_file_lacks_is_red_with_an_accepted_unknown() {
     };
     now.violations.insert(item, 1);
     let found = compare(&file(accepted(), json!([]), json!({})), &now);
-    assert_eq!((found.state, found.exit_code), ("drift", 1));
+    assert_eq!((found.state.word(), found.state.exit_code()), ("drift", 1));
     assert_eq!(found.new[0].what, "violation");
 }
 
@@ -214,19 +220,26 @@ fn an_accepted_violation_keeps_exit_0_without_unknown_and_a_stale_one_is_red() {
         2,
     );
     let found = compare(&file(json!([]), debt.clone(), json!({})), &now);
-    assert_eq!((found.state, found.exit_code), ("current", 0));
+    assert_eq!(
+        (found.state.word(), found.state.exit_code()),
+        ("current", 0)
+    );
     let found = compare(&file(json!([]), debt.clone(), json!({})), &run(&[]));
-    assert_eq!((found.state, found.exit_code), ("drift", 1));
+    assert_eq!((found.state.word(), found.state.exit_code()), ("drift", 1));
     assert_eq!(found.gone[0].what, "violation");
     // One fewer: stale. One more: new.
     *now.violations.values_mut().next().unwrap() = 1;
     assert_eq!(
-        compare(&file(json!([]), debt.clone(), json!({})), &now).exit_code,
+        compare(&file(json!([]), debt.clone(), json!({})), &now)
+            .state
+            .exit_code(),
         1
     );
     *now.violations.values_mut().next().unwrap() = 3;
     assert_eq!(
-        compare(&file(json!([]), debt, json!({})), &now).exit_code,
+        compare(&file(json!([]), debt, json!({})), &now)
+            .state
+            .exit_code(),
         1
     );
 }
@@ -245,7 +258,7 @@ fn a_violation_in_the_other_direction_is_not_the_accepted_one() {
         1,
     );
     let found = compare(&file(json!([]), debt, json!({})), &now);
-    assert_eq!((found.state, found.exit_code), ("drift", 1));
+    assert_eq!((found.state.word(), found.state.exit_code()), ("drift", 1));
     assert_eq!(found.new[0].reason, "direction differs");
 }
 
@@ -260,15 +273,23 @@ fn a_budget_above_the_file_is_red_and_below_is_stale() {
         ..Observed::default()
     };
     let base = file(json!([]), json!([]), budgets);
-    assert_eq!(compare(&base, &at(2, 0)).exit_code, 0);
+    assert_eq!(compare(&base, &at(2, 0)).state.exit_code(), 0);
     let above = compare(&base, &at(3, 0));
     assert_eq!(
-        (above.state, above.exit_code, above.new[0].reason.as_str()),
+        (
+            above.state.word(),
+            above.state.exit_code(),
+            above.new[0].reason.as_str()
+        ),
         ("drift", 1, "above the baseline")
     );
     let below = compare(&base, &at(1, 0));
     assert_eq!(
-        (below.state, below.exit_code, below.gone[0].reason.as_str()),
+        (
+            below.state.word(),
+            below.state.exit_code(),
+            below.gone[0].reason.as_str()
+        ),
         ("drift", 1, "below the baseline")
     );
     assert_eq!(
@@ -281,7 +302,10 @@ fn a_budget_above_the_file_is_red_and_below_is_stale() {
 fn a_budget_that_the_run_does_not_measure_is_a_named_gap_with_exit_2() {
     let base = file(json!([]), json!([]), json!({"cycle_edges": 2}));
     let found = compare(&base, &Observed::default());
-    assert_eq!((found.state, found.exit_code), ("current", 2));
+    assert_eq!(
+        (found.state.word(), found.state.exit_code()),
+        ("current", 2)
+    );
     assert_eq!(found.gaps[0].kind, "budget.unmeasured");
 }
 
@@ -294,7 +318,11 @@ fn a_budget_that_this_core_cannot_measure_is_never_read_as_zero_or_held() {
     ] {
         let base = file(json!([]), json!([]), json!({ name: 0 }));
         let found = compare(&base, &Observed::default());
-        assert_eq!((found.state, found.exit_code), ("current", 2), "{name}");
+        assert_eq!(
+            (found.state.word(), found.state.exit_code()),
+            ("current", 2),
+            "{name}"
+        );
         assert_eq!(found.gaps[0].kind, "budget.unmeasured");
     }
 }
@@ -312,7 +340,10 @@ fn an_older_schema_names_the_budgets_of_another_analyzer_and_compares_the_rest()
     };
     let found = compare(&base, &now);
     // The UNKNOWN compare is off: the new key is not red. Three named gaps hold exit 2.
-    assert_eq!((found.state, found.exit_code), ("current", 2));
+    assert_eq!(
+        (found.state.word(), found.state.exit_code()),
+        ("current", 2)
+    );
     assert!(found.new.is_empty());
     assert_eq!(found.gaps.len(), 3);
     assert!(found
@@ -320,14 +351,14 @@ fn an_older_schema_names_the_budgets_of_another_analyzer_and_compares_the_rest()
         .iter()
         .all(|gap| gap.kind == "baseline.budget_of_older_schema"));
     now.budgets.cycle_edges = Some(3);
-    assert_eq!(compare(&base, &now).exit_code, 1);
+    assert_eq!(compare(&base, &now).state.exit_code(), 1);
 }
 
 #[test]
 fn an_older_file_gives_exit_2_for_an_unknown_and_0_for_none() {
     let base = older(json!({}));
-    assert_eq!(compare(&base, &same()).exit_code, 2);
-    assert_eq!(compare(&base, &run(&[])).exit_code, 0);
+    assert_eq!(compare(&base, &same()).state.exit_code(), 2);
+    assert_eq!(compare(&base, &run(&[])).state.exit_code(), 0);
 }
 
 #[test]
@@ -336,7 +367,10 @@ fn a_refused_part_is_never_accepted_and_exits_1_so_that_exit_2_means_all_accepte
     now.gaps.unacceptable.push("reply: refused".to_owned());
     now.unknown_status = true;
     let found = compare(&file(json!([]), json!([]), json!({})), &now);
-    assert_eq!((found.state, found.exit_code), ("not_compared", 1));
+    assert_eq!(
+        (found.state.word(), found.state.exit_code()),
+        ("not_compared", 1)
+    );
     assert_eq!(found.gaps[0].kind, "baseline.not_compared");
 }
 
@@ -345,7 +379,10 @@ fn an_unknown_status_without_a_key_still_exits_2() {
     let mut now = run(&[]);
     now.unknown_status = true;
     let found = compare(&file(json!([]), json!([]), json!({})), &now);
-    assert_eq!((found.state, found.exit_code), ("current", 2));
+    assert_eq!(
+        (found.state.word(), found.state.exit_code()),
+        ("current", 2)
+    );
 }
 
 #[test]
