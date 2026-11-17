@@ -300,7 +300,7 @@ def _typescript_layout(repo: Path, root: Path) -> Layout | None:
     members = _members(root, [s for s in spaces if isinstance(s, str)], "package.json")
     if len(members) < 2:
         raise _refuse("package.json workspaces name fewer than two packages")
-    namespace = _name(root.name or repo.name)
+    namespace = _name(repo.name)  # the module identity holds the path already (#1617)
     parts, roots = [], []
     for member in members:
         relative = member.relative_to(repo)
@@ -376,7 +376,9 @@ def _typescript_project(repo: Path, folder: Path) -> Layout:
     The scan root is the project folder, not `src`: an import of a file beside `src` (a config or a
     host list) then resolves to a module of the scan. The identity of a module is the namespace
     and the repository-relative path, each segment escaped as the collector writes it."""
-    namespace = _name(folder.name or repo.name)
+    # A module identity is the namespace and the repository path (#1617): the namespace of the
+    # repository keeps a project below the root from naming its folder twice (`web.src.web`).
+    namespace = _name(repo.name)
 
     def code_dirs(parent: Path) -> list[Path]:
         return [

@@ -440,3 +440,17 @@ def test_lookup_uses_the_build_output_only_from_a_real_checkout(
         (tmp_path / "pyproject.toml").touch()
     with pytest.raises(core_binary.CoreBinaryNotFound, match="holds no core binary"):
         core_binary.locate_core(package)
+
+
+def test_the_text_shows_the_real_characters_of_an_escaped_module_name(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """#1617: a TypeScript module identity escapes `.`, `-` and `_` (`_x2e_`, `_x2d_`, `_x5f_`).
+    The text shows the real characters; the JSON keeps the identity."""
+    planted = json.dumps(_stated_once_frame())
+    planted = planted.replace("app.a", "web.src._x2e_dependency_x2d_cruiser_x2e_js")
+    document = json.loads(planted.replace("app.b", "web.src._x5f__x5f_tests_x5f__x5f_"))
+    lines = core_text.render("validate", _read(document), 2, outcome=Outcome.VERDICT, show_all=True)
+    text = "\n".join(lines)
+    assert "_x2e_" not in text and "_x5f_" not in text, text
+    assert "web.src..dependency-cruiser.js" in text and "web.src.__tests__" in text, text
