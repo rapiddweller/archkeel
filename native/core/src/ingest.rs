@@ -18,7 +18,10 @@ pub(crate) enum ReplyState {
 /// The state of the reply, and the reply when the store accepts it.
 #[cfg(any(test, feature = "harness"))]
 pub(crate) fn answer(reply: &[u8], inflate_limit: u64) -> (ReplyState, Option<Ingested>) {
-    collected(archkeel_store::ingest_reply(reply, inflate_limit))
+    // The byte door of the harness runs the checks of the collector too (AD-688), as the scan does.
+    let validated = archkeel_store::ingest_reply(reply, inflate_limit)
+        .and_then(|ingested| archkeel_collect::check(&ingested.reply().facts).map(|()| ingested));
+    collected(validated)
 }
 
 /// The state of a reply that the store validated or refused: the bytes of a request, or the

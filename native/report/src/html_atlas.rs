@@ -194,9 +194,7 @@ fn components(
             let node = &tree.nodes[i];
             let (state, reason) = status(fail[i], unknown[i]);
             // A layer is no component of the contract: it states no surface.
-            let public = node
-                .rank
-                .is_none()
+            let public = (node.rank.is_none() || !node.public.is_empty())
                 .then(|| node.public.iter().map(|p| refs.id(p)).collect::<Vec<_>>());
             let requires = requires(i, tree, levels, topology, refs);
             let language = (!tree.languages[i].is_empty())
@@ -236,6 +234,52 @@ fn permissions(topology: &Topology) -> Vec<Value> {
         .collect()
 }
 
+/// A finding of a rule kind in plain words, for one and for many: the sheet of a box says `5 public
+/// names without a user (RULE-ID)`, not a bare rule id. A kind without its own words is told by its
+/// contract word.
+pub(super) fn plain(kind: &str) -> (String, String) {
+    let words: Option<(&str, &str)> = match kind {
+        "forbidden_dependency" => Some(("forbidden dependency", "forbidden dependencies")),
+        "allowed_dependency" => Some((
+            "dependency outside the allowed ones",
+            "dependencies outside the allowed ones",
+        )),
+        "complete_assignment" => Some(("module in no component", "modules in no component")),
+        "complete_requires" => Some((
+            "undeclared dependency between components",
+            "undeclared dependencies between components",
+        )),
+        "complete_external_scope" | "external_dependency_scope" => Some((
+            "external dependency in the wrong place",
+            "external dependencies in the wrong place",
+        )),
+        "no_component_cycles" => Some(("dependency cycle", "dependency cycles")),
+        "layer_order" => Some((
+            "use against the layer order",
+            "uses against the layer order",
+        )),
+        "interface_boundary" => Some((
+            "use outside the public interface",
+            "uses outside the public interface",
+        )),
+        "unused_public" => Some(("public name without a user", "public names without a user")),
+        "sibling_isolation" => Some(("use between siblings", "uses between siblings")),
+        "symbol_placement" => Some(("symbol in the wrong place", "symbols in the wrong place")),
+        "root_layout" => Some((
+            "file outside the root layout",
+            "files outside the root layout",
+        )),
+        _ => None,
+    };
+    match words {
+        Some((one, many)) => (one.to_owned(), many.to_owned()),
+        None => {
+            let text = kind.replace('_', " ");
+            (format!("finding of {text}"), format!("findings of {text}"))
+        }
+    }
+}
+
 fn rule_assessments(frame: &Frame, found: &[Finding], refs: &mut Refs) -> Vec<Value> {
     let whole = refs.id("whole run");
     frame
@@ -247,7 +291,9 @@ fn rule_assessments(frame: &Frame, found: &[Finding], refs: &mut Refs) -> Vec<Va
                 .filter(|f| f.value["rule_ids"].as_array().is_some_and(|r| r.iter().any(|x| x == rule)))
                 .count();
             let reason = frame.explained.get(rule).map_or("", String::as_str);
+            let (plain_one, plain_many) = plain(kind);
             json!({
+                "plain_one": plain_one, "plain_many": plain_many,
                 "id": refs.id(rule), "kind": refs.id(kind), "reason": refs.id(reason), "scope": whole,
                 "status": verdict, "count": count, "components": [], "component_ids": [],
                 "evaluation_proven": verdict != "UNKNOWN", "evidence": [], "evidence_count": 0,

@@ -14,7 +14,7 @@ use ruff_python_ast::{Expr, ExprContext, ParameterWithDefault, Stmt, StmtFunctio
 use super::lazy_binds::Abs;
 
 /// The module dunders that a `globals()` store must not write.
-const DUNDERS: [&str; 5] = [
+pub(super) const DUNDERS: [&str; 5] = [
     "__getattr__",
     "__spec__",
     "__package__",

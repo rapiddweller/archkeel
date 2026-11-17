@@ -22,13 +22,11 @@
     "NATIVE-EXTERNAL-UNICODE-IDENT": "PASS",
     "NATIVE-INTERFACE-BOUNDARY": "PASS",
     "NATIVE-LAYER-ORDER": "PASS",
-    "NATIVE-NEUTRAL-CORE-NO-PROFILE": "FAIL",
+    "NATIVE-NEUTRAL-CORE-NO-PROFILE": "PASS",
     "NATIVE-NEUTRAL-EVAL-NO-PROFILE": "PASS",
     "NATIVE-NEUTRAL-MODEL-NO-PROFILE": "PASS",
     "NATIVE-NEUTRAL-REPORT-NO-PROFILE": "PASS",
-    "NATIVE-NEUTRAL-STORE-NO-DART-MODULE": "FAIL",
-    "NATIVE-NEUTRAL-STORE-NO-PROFILE": "FAIL",
-    "NATIVE-NEUTRAL-STORE-NO-PYTHON-MODULE": "FAIL",
+    "NATIVE-NEUTRAL-STORE-NO-PROFILE": "PASS",
     "NATIVE-NO-COLLECT-TO-CONTRACT": "PASS",
     "NATIVE-NO-COLLECT-TO-CORE": "PASS",
     "NATIVE-NO-COLLECT-TO-EVAL": "PASS",
@@ -99,69 +97,6 @@
   "unknown": {},
   "gaps": [],
   "violations": [
-    {
-      "rule": "NATIVE-NEUTRAL-CORE-NO-PROFILE",
-      "source": "native.archkeel_core.scan",
-      "target": "native.archkeel_collect",
-      "cause": "forbidden dependency",
-      "issue": 1384
-    },
-    {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-DART-MODULE",
-      "source": "native.archkeel_store.validate",
-      "target": "native.archkeel_store.dart",
-      "cause": "forbidden dependency",
-      "issue": 1384
-    },
-    {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-      "source": "native.archkeel_store.validate",
-      "target": "native.archkeel_facts.envelope",
-      "cause": "forbidden dependency",
-      "issue": 1384
-    },
-    {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-      "source": "native.archkeel_store.validate",
-      "target": "native.archkeel_facts.envelope",
-      "cause": "forbidden dependency",
-      "issue": 1384
-    },
-    {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-      "source": "native.archkeel_store.validate",
-      "target": "native.archkeel_facts.envelope",
-      "cause": "forbidden dependency",
-      "issue": 1384
-    },
-    {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-      "source": "native.archkeel_store.validate",
-      "target": "native.archkeel_facts.envelope",
-      "cause": "forbidden dependency",
-      "issue": 1384
-    },
-    {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PROFILE",
-      "source": "native.archkeel_store.validate",
-      "target": "native.archkeel_facts.envelope",
-      "cause": "forbidden dependency",
-      "issue": 1384
-    },
-    {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PYTHON-MODULE",
-      "source": "native.archkeel_store.dart",
-      "target": "native.archkeel_store.python",
-      "cause": "forbidden dependency",
-      "issue": 1384
-    },
-    {
-      "rule": "NATIVE-NEUTRAL-STORE-NO-PYTHON-MODULE",
-      "source": "native.archkeel_store.validate",
-      "target": "native.archkeel_store.python",
-      "cause": "forbidden dependency",
-      "issue": 1384
-    },
     {
       "rule": "NATIVE-PUBLIC-HAS-A-USER",
       "source": "native.archkeel_collect",

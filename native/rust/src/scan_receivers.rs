@@ -22,15 +22,11 @@ pub(in crate::scan) use params::item_name;
 pub(in crate::scan) use params::typed as written_type;
 use params::{plain_path, Params};
 
-/// The attributes that change no item and remove it in no configuration: an `impl` block or a
-/// `fn` with only these is as written. A conditional lint also leaves the item as written.
-/// Any other attribute can be a macro that rewrites the item or a `cfg` that removes it.
-const INERT: [&str; 12] = [
-    "allow",
-    "warn",
-    "deny",
-    "forbid",
-    "expect",
+/// The attributes besides the lints (`LINTS`) that change no item and remove it in no configuration:
+/// an `impl` block or a `fn` with only these or a lint is as written. A conditional lint also
+/// leaves the item as written. Any other attribute can be a macro that rewrites the item or a
+/// `cfg` that removes it.
+const INERT_BESIDES_LINTS: [&str; 7] = [
     "doc",
     "deprecated",
     "must_use",
@@ -60,7 +56,9 @@ fn only(attrs: &[Attribute], extra: &[&str]) -> bool {
                 .is_some_and(|first| ["rustfmt", "clippy"].contains(&plain(&first.ident).as_str()));
         tool || path.get_ident().is_some_and(|name| {
             let name = plain(name);
-            INERT.contains(&name.as_str()) || extra.contains(&name.as_str())
+            INERT_BESIDES_LINTS.contains(&name.as_str())
+                || LINTS.contains(&name.as_str())
+                || extra.contains(&name.as_str())
         })
     })
 }
