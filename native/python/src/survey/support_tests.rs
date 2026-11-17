@@ -57,7 +57,8 @@ fn the_reply_lists_each_construct_once_in_its_order() {
             "any_annotation",
             "dynamic_import",
             "cast",
-            "type_ignore"
+            "type_ignore",
+            "placeholder_body"
         ]
     );
 }

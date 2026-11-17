@@ -24,7 +24,7 @@ use crate::survey::class_writes::ClassWrites;
 
 /// The names that a written type of a function cannot read from the module.
 #[derive(Default)]
-pub(super) struct Hidden<'w> {
+pub(in crate::survey) struct Hidden<'w> {
     /// The names that the enclosing class body and the type parameters bind.
     pub(super) names: HashSet<String>,
     /// For a method on Python 3.14 (#1523): the class namespace when the annotation is evaluated.
@@ -61,7 +61,7 @@ enum Import {
 }
 
 /// The bindings of one module body.
-pub(super) struct Names<'a> {
+pub(in crate::survey) struct Names<'a> {
     module: &'a str,
     bound: Bound,
     names: HashSet<String>,
@@ -71,7 +71,7 @@ pub(super) struct Names<'a> {
 
 impl<'a> Names<'a> {
     /// The bindings of `tree`, with the plain imports of `records` that the survey calls sole.
-    pub(super) fn of(
+    pub(in crate::survey) fn of(
         (module, tree): (&'a str, &ModModule),
         binders: &'a Binders,
         records: &[&Record<ImportFact>],
@@ -116,7 +116,7 @@ impl<'a> Names<'a> {
 
     /// The binding of the expression `root` or `root.attribute`, where `hidden` are the names that
     /// the enclosing class body and the type parameters bind.
-    pub(super) fn binding(&self, expr: &Expr, hidden: &Hidden<'_>) -> Binding {
+    pub(in crate::survey) fn binding(&self, expr: &Expr, hidden: &Hidden<'_>) -> Binding {
         match expr {
             Expr::Name(node) => self.name(node.id.as_str(), hidden),
             Expr::Attribute(node) => match &*node.value {
