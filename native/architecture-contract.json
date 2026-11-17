@@ -675,6 +675,7 @@
         "native.archkeel_model.observed",
         "native.archkeel_model.ownership",
         "native.archkeel_model.settings",
+        "native.archkeel_model.symbol_inventory",
         "native.archkeel_model.symbol_sites",
         "native.archkeel_model.symbol_table",
         "native.archkeel_model.symbol_values",
@@ -1227,6 +1228,7 @@
         "native.archkeel_model.uml_declared",
         "native.archkeel_model.uml_details",
         "native.archkeel_model.uml_facts",
+        "native.archkeel_model.uml_inventory",
         "native.archkeel_model.uml_scope",
         "native.archkeel_model.uml_scope_symbols",
         "native.archkeel_model.uml_symbols",
@@ -3788,7 +3790,8 @@
         "native.archkeel_typescript_collector.constructors",
         "native.archkeel_typescript_collector.decorators",
         "native.archkeel_typescript_collector.layout",
-        "native.archkeel_typescript_collector.members"
+        "native.archkeel_typescript_collector.members",
+        "native.archkeel_typescript_collector.member_additions"
       ],
       "responsibilities": [
         "Find the declarations of one file: definitions, exports, scopes, import bindings, class members, constructors and the file layout."
@@ -3847,6 +3850,8 @@
         "native.archkeel_typescript_collector.layout:Layout",
         "native.archkeel_typescript_collector.layout:NONE",
         "native.archkeel_typescript_collector.layout:is_function_like",
+        "native.archkeel_typescript_collector.member_additions:Additions",
+        "native.archkeel_typescript_collector.member_additions:PATCHED",
         "native.archkeel_typescript_collector.members:Base",
         "native.archkeel_typescript_collector.members:Cx",
         "native.archkeel_typescript_collector.members:Member",
@@ -3984,6 +3989,7 @@
             "native.archkeel_typescript_collector.exports",
             "native.archkeel_typescript_collector.import_bindings",
             "native.archkeel_typescript_collector.layout",
+            "native.archkeel_typescript_collector.member_additions",
             "native.archkeel_typescript_collector.scope"
           ]
         },
@@ -4401,6 +4407,7 @@
             "native.archkeel_typescript_collector.definitions",
             "native.archkeel_typescript_collector.exports",
             "native.archkeel_typescript_collector.import_bindings",
+            "native.archkeel_typescript_collector.member_additions",
             "native.archkeel_typescript_collector.members"
           ]
         },
@@ -6535,6 +6542,7 @@
         "native.archkeel_typescript_collector.scope",
         "native.archkeel_typescript_collector.import_bindings",
         "native.archkeel_typescript_collector.class_members",
+        "native.archkeel_typescript_collector.member_additions",
         "native.archkeel_typescript_collector.constructors",
         "native.archkeel_typescript_collector.decorators",
         "native.archkeel_typescript_collector.layout",

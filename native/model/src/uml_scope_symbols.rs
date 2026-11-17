@@ -6,8 +6,8 @@
 //! kind and each resolved site of a listed kind inside the scope that the target does not list.
 //!
 //! Reference engine: `check/uml_compare.py` `_scope_assessments`, `_closed_relationship_assessments`
-//! and `_within` at release 4.0.1. An unlisted element is FAIL. Without one, the scope stays
-//! UNKNOWN: the core proves no complete symbol inventory (`uml_scope.rs`).
+//! and `_within` at release 4.0.1. An unlisted element is FAIL. Without one, the scope passes only
+//! from a complete member inventory (`uml_inventory.rs`, AD-747).
 
 use archkeel_contract::{Entity, EntityKind, RelationshipKind, ResolutionKind, Target};
 
