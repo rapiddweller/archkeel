@@ -140,9 +140,10 @@ fn modules(
                     .then(|| languages.iter().cloned().collect::<Vec<_>>().join(" + "))
             });
         rows.push(json!({
-            "id": module.name, "name": module.name, "path": module.path, "rank": null, "language": language,
-            "fan_in": fan[i].0.len(), "fan_out": fan[i].1.len(), "evidence_ids": [],
-            "symbol_coverage": 0, "symbols": null,
+            // The Explorer restores `name` (the id), `rank`, `evidence_ids`, `symbol_coverage` and
+            // `symbols`, which are the same for each module (report-scene.js, the page budget).
+            "id": module.name, "path": module.path, "language": language,
+            "fan_in": fan[i].0.len(), "fan_out": fan[i].1.len(),
         }));
         let owner = tree
             .owner

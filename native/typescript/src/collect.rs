@@ -123,6 +123,7 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         sites: HashMap::new(),
         script,
         pending_effects: Vec::new(),
+        installed: Vec::new(),
     };
     collection.queue = listed
         .iter()
@@ -150,6 +151,7 @@ pub(crate) fn gather(request: &TypeScriptRequest, provenance: Provenance) -> (Fa
         collection.file(&rel);
         index += 1;
     }
+    Collection::package_closure(&mut collection);
     collection.unselected();
     let (script, dependency_scope) = Collection::script_dependencies(&mut collection, partial);
     let problems: Vec<String> = collection.snapshot.problems.iter().cloned().collect();
@@ -287,6 +289,9 @@ mod import_target;
 
 #[path = "imports.rs"]
 mod imports;
+
+#[path = "package_closure.rs"]
+mod package_closure;
 
 #[path = "script_run.rs"]
 mod script_run;

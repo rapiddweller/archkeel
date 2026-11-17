@@ -28,6 +28,7 @@ use serde_json::{Map, Value};
 
 use super::binders::Binders;
 use super::bound::Bound;
+use super::class_writes::ClassWrites;
 use crate::declare::{definition_id, signature};
 use crate::module::definition::Def;
 use crate::module::{EvidenceMap, Module};
@@ -63,6 +64,7 @@ pub(crate) fn records<'m>(
     module: &'m Module,
     binders: &Binders,
     escapes: Escapes,
+    writes: Option<&'m ClassWrites>,
     evidence: &mut EvidenceMap,
 ) -> Found<'m> {
     let mut scratch = EvidenceMap::new();
@@ -71,6 +73,7 @@ pub(crate) fn records<'m>(
             module,
             evidence_map: &mut scratch,
             shadowed: Reader::shadowed(binders),
+            writes,
         },
         binders,
         open: escapes.open,

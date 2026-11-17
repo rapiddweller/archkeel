@@ -43,7 +43,9 @@ the last two were fixed after it and are checked on main at `157dc8851`:
   `requires-python` range allows 3.14, a `__slots__` entry and an attribute store of the same name
   in a file of the scan or a non-test file of the repository give `lazy_class_namespace`; a
   `setattr` with a computed name gives it for each name (AD-802, #1523). The fixtures are in
-  `tests/test_collector_false_pass_python_lazy_annotations.py`.
+  `tests/test_collector_false_pass_python_lazy_annotations.py`. A bare class annotation that declares a UML attribute
+  (AD-748) follows the same rule, and a `__slots__` entry of its name holds it on every version
+  (#1714).
 - A Rust `macro_rules!` call that adds an unanchored `Display` impl gives UNKNOWN with a pair
   gap. The fixture is `PLANTS["an impl that a macro of b generates"]` in
   `tests/test_collector_false_pass_rust_orphan_impl.py` (AD-662).
@@ -65,7 +67,9 @@ the last two were fixed after it and are checked on main at `157dc8851`:
   UNKNOWN with a source-resolution gap. This does not prove arbitrary value flow safe.
   `tests/test_cli_native_global_forms.py` checks the direct reflection and navigation aliases.
 - A TypeScript source that TSConfig drops gives UNKNOWN with a named file gap (AD-488).
-  The installed-package and unmodeled-source defects remain open.
+- An installed package whose code imports project source gives UNKNOWN with a gap of each module
+  that imports the package (AD-798, #1529). `tests/test_cli_native_installed_source.py` holds the
+  forms.
 - Explorer boxes of a FAIL run that has a rule the core does not port show UNKNOWN, no PASS box,
   cell or edge: only a run that decides every rule keeps PASS boxes (AD-730, #1507, PR #1569).
   `test_a_fail_beside_an_unported_rule_draws_no_pass_box` in `tests/test_cli_report_page.py`.
@@ -130,15 +134,18 @@ parameter is the same open class.
 `for site in sites: site.id` can retain an `import_system_change` gap. These namespaces resolve
 names in execution order. The survey does not yet prove the binding at each read.
 
-**Open false-PASS class (TypeScript, shared with 4.0.1): code of an installed package is outside
-the model.** The collector does not read a package in `node_modules`, `jspm_packages` or
-`bower_components` beside a valid manifest when only a `node_modules` search reaches it, for
-example a bare `import 'local'`. An import in that package code is not an edge. So when the package
-imports project source by a relative path, an undeclared or forbidden dependency can give PASS.
-Plant (a sample tree): `src/b/package.json`, `src/b/node_modules/local/index.ts` holds
-`import { a } from '../../../a/a'`, and `src/b/t.ts` holds `import { hidden } from 'local'`; B
-does not require A, and both engines give PASS. This is an open defect, not an accepted limit. A
-TSConfig drop of a source file is no longer in this class: it is a named gap (AD-488).
+**TypeScript: the code of an installed package (AD-798, #1529).** The collector reads the static
+imports of each installed file that an import of the scan reaches, and of each installed file that
+those reach. A package that the snapshot does not hold gives the unresolved-import gap, as before.
+It resolves a path directive from its own file and a module augmentation as an import, reads a
+repaired file by its quoted names too, and reads each file of an installed package whose entry the
+resolver cannot decide (`typesVersions`). An import that resolves to a file outside `node_modules`,
+another name that the resolver cannot decide, and an installed file that the collector cannot read
+are a gap of each module whose import reaches that file. So the plant
+`src/b/node_modules/local/index.ts` with `import { a } from '../../../a/a'`, imported as `local`
+from `src/b/t.ts`, gives UNKNOWN. Release 4.0.1 gives PASS. Open: a computed import inside a
+package (`require(name)`) is not read. That is the string-loader class (Python: #1519). A closure of
+more than 20 000 installed files is a gap of each importer.
 The Rust core is the only decision path (AD-432). There is no Python fallback.
 Saved results do not carry host verification; dependency scope proofs replay as UNKNOWN with `dependency_scope_runtime_unverified`.
 Windows ARM64, musllinux aarch64, Linux ppc64le/s390x/armv7 and BSD have no shipped binary.
@@ -433,8 +440,8 @@ A TypeScript, declaration or JavaScript file under the scan roots that the TSCon
 select (`files`, `include`, `exclude`, `allowJs`) is a coverage gap that names the file, so no
 rule of the run can PASS. Emitted names (`a.js` beside `a.ts`) and files in the `outDir` or
 `declarationDir` are gaps too: a name does not prove generated code. A package in an installed
-directory beside a valid manifest is not a gap while only a `node_modules` search reaches it (an
-open false-PASS class, see the top of this page). Test sources that `exclude_test_sources`
+directory beside a valid manifest is not a gap while only a `node_modules` search reaches it. Its
+closure is read instead (AD-798, see the top of this page). Test sources that `exclude_test_sources`
 removes are not gaps. The gap holds every rule of the run.
 Narrow the scan roots to the source, or select the file in the TSConfig
 ([AD-488](architecture/decisions/ad-488-a-source-file-that-the-tsconfig-drops-is-a-coverage-gap.md)).
@@ -449,7 +456,6 @@ page with plain markup is not. A file outside the scan roots is not a gap.
 These files give no gap in the core and in 4.0.1 (follow-up work):
 - `exclude_test_sources = true` removes `test`/`tests`/`__tests__` directories and `*.test.*` and
   `*.spec.*` files by design (AD-313, opt-in), also when such a file imports another component.
-- Code of an installed package: see the open false-PASS class at the top of this page.
 
 Import graphs, ownership, externals, cycles and layout are measured. Lexical UML
 declarations, members, signatures and proven local relationships are available;
