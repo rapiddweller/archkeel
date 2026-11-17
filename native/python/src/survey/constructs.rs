@@ -21,6 +21,8 @@ use crate::module::{EvidenceMap, Location, Module};
 
 #[path = "constructs_ignores.rs"]
 mod ignores;
+#[path = "constructs_placeholder.rs"]
+mod placeholder;
 
 pub(super) fn collect(
     modules: &[Module],
@@ -168,6 +170,14 @@ impl<'a> Visitor<'a> for Walk<'_> {
         match stmt {
             Stmt::Expr(_) => self.type_ignore(stmt),
             Stmt::FunctionDef(node) => {
+                let empty = matches!(node.body.as_slice(), [Stmt::Pass(_)])
+                    || matches!(node.body.as_slice(), [Stmt::Expr(expr)]
+                        if matches!(&*expr.value, Expr::EllipsisLiteral(_)));
+                if empty && node.decorator_list.is_empty() {
+                    let place = self.module.location(stmt);
+                    let evidence = self.module.evidence(self.evidence, stmt);
+                    placeholder::empty(self, place, evidence);
+                }
                 if let Some(annotation) = &node.returns {
                     self.annotation(annotation);
                 }
