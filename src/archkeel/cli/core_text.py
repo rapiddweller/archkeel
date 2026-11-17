@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from typing import Final
 
 from .core_baseline import BaselineResult, BaselineState
 from .core_baseline import lines as baseline_lines
@@ -226,6 +227,38 @@ def _violation_lines(frame: CoreFrame, show_all: bool) -> list[str]:
         f"  Fix for '{cause}': {CAUSE_FIXES[cause]}" for cause in causes if cause in CAUSE_FIXES
     )
     return lines
+
+
+_UNRESOLVED: Final = "Unresolved module: "
+_NAMES_SHOWN = 5
+
+
+def _package_of(specifier: str) -> str | None:
+    """The package that a bare import names (`react`, `@scope/pkg`); `None` for a path."""
+    if not specifier or specifier[0] in "./~#" or ":" in specifier:
+        return None
+    parts = specifier.split("/")
+    return "/".join(parts[:2]) if specifier.startswith("@") else parts[0]
+
+
+def _not_installed_lines(frame: CoreFrame) -> list[str]:
+    """#1615: one line for the imports of packages that the scan did not find installed."""
+    counts: Counter[str] = Counter()
+    for gap in frame.collection_gaps:
+        if gap.reason.startswith(_UNRESOLVED) and (
+            package := _package_of(gap.reason.removeprefix(_UNRESOLVED))
+        ):
+            counts[package] += 1
+    if not counts:
+        return []
+    names = [name for name, _ in counts.most_common(_NAMES_SHOWN)]
+    rest = len(counts) - len(names)
+    listed = ", ".join(names) + (f" and {rest} more" if rest else "")
+    return [
+        f"  {sum(counts.values())} imports point to packages that are not installed: {listed}",
+        "      Fix: install the dependencies (your package manager) and run again, or leave out "
+        "the files that import them.",
+    ]
 
 
 _NOT_FOUND_LABEL = "an imported module that has no file in the scan"
@@ -453,6 +486,7 @@ def render(
     out.extend(_waiting_lines(frame, show_all))
     if gap_lines:
         out.append(f"Gaps in the scan ({len(frame.collection_gaps)}):")
+        out.extend(_not_installed_lines(frame))
         out.extend(gap_lines)
     out.extend(named_lines)
     if frame.baseline is not None and not refused_file:
