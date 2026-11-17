@@ -10,6 +10,7 @@ import json
 import pytest
 from test_cli_core_only_boundary import frame
 from test_cli_text_output import _run
+from test_cli_text_output import environment as environment
 
 from archkeel.cli.core_frame import Status
 
